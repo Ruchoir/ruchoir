@@ -9,7 +9,10 @@ use axum::Router;
 
 use crate::state::AppState;
 
-use super::{conversations, messages, notifications, pins, reactions, read, saved, search, users};
+use super::{
+    channels, conversations, messages, notifications, pins, reactions, read, saved, search, spaces,
+    users,
+};
 
 /// Build the messaging sub-router.
 pub fn router() -> Router<AppState> {
@@ -49,15 +52,25 @@ pub fn router() -> Router<AppState> {
             "/api/v1/messages/{message_id}/save",
             put(saved::save_message).delete(saved::unsave_message),
         )
-        // Spaces the caller belongs to (SPA bootstrap).
+        // Spaces the caller belongs to (SPA bootstrap), and creating one.
         .route("/api/v1/me/spaces", get(conversations::list_my_spaces))
+        .route("/api/v1/spaces", post(spaces::create_space))
         // A member's profile (profile card, member list), and editing one's own.
         .route("/api/v1/users/me", patch(users::update_my_profile))
         .route("/api/v1/users/{user_id}", get(users::get_user_profile))
         // Channels, DMs and DM creation.
         .route(
             "/api/v1/spaces/{space_id}/channels",
-            get(conversations::list_channels),
+            get(conversations::list_channels).post(channels::create_channel),
+        )
+        // Channel lifecycle: settings and archiving, then the caller's own membership.
+        .route(
+            "/api/v1/channels/{channel_id}",
+            patch(channels::update_channel),
+        )
+        .route(
+            "/api/v1/channels/{channel_id}/membership",
+            put(channels::join_channel).delete(channels::leave_channel),
         )
         .route(
             "/api/v1/spaces/{space_id}/dms",

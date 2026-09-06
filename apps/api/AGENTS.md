@@ -29,15 +29,23 @@ context and takes precedence here.
   HMAC-hashed recovery codes) with a login step-up flow, error type, and the `/api/v1/auth` routes.
 - `src/messaging/` - the REST surface over the collaboration schema: `authz` (the conversation
   membership choke point plus audience computation), `error` (`ApiError`), `dto` (response/request
-  shapes, kept close to the web data seam), `mentions` (`@`-parsing + resolution), and the handlers
-  `messages`/`reactions`/`read`/`pins`/`saved`/`conversations`/`search`/`notifications`. `search` is
+  shapes, kept close to the web data seam), `mentions` (`@`-parsing + resolution), `slug` (the one
+  definition of a channel-name / space-slug handle: lowercase, diacritics folded, dashes), and the
+  handlers `messages`/`reactions`/`read`/`pins`/`saved`/`conversations`/`channels`/`spaces`/`search`/
+  `notifications`. `spaces` and `channels` carry the lifecycle: creating a space (the caller becomes
+  its owner and it is born with one public channel, so it is never an empty shell), creating a
+  channel, updating one (rename, topic, visibility, and archiving, which is a state that makes it
+  read-only rather than a deletion), and joining or leaving one. A public channel is joinable by any
+  space member; a private one is joined by invitation only, so the join endpoint refuses it. `search` is
   native-Postgres full-text over messages and file names (a generated `tsvector` with a French
   accent-folding config, plus `pg_trgm` trigram indexes for partial/fuzzy matches), scoped by
   membership. `notifications` is a persisted per-user inbox (mentions, DMs, thread replies) written
   inside the send transaction and pushed over the hub. Every mutation authorizes server-side,
   commits, then hands the resulting event to `realtime` for fan-out.
 - `src/realtime/`  - real-time transport and presence: `event` (the versioned push envelope + the
-  fan-out wire type), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
+  fan-out wire type, including `channel.created` / `channel.updated`, whose payload is deliberately
+  the shared `ChannelSummaryDto` rather than a `ChannelDto`: the latter carries per-caller state that
+  must not be broadcast), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
   `SubscriberClient` on `rt:fanout`, delivery gated by a publish-time audience), `presence`
   (ephemeral heartbeat + the persistent `users.manual_presence` override), `typing` (throttled,
   ephemeral), and the two transports `ws` (WebSocket) / `sse` (read-only fallback + typing POST).

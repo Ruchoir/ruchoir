@@ -25,6 +25,11 @@ export type Channel = {
   topic?: string;
   /** Set when the channel was migrated from another tool. */
   imported?: ImportSource;
+  /**
+   * Whether the signed-in user has joined the channel. A public channel is readable either way, but
+   * only members receive its real-time pushes, so the menus offer joining or leaving accordingly.
+   */
+  member?: boolean;
 };
 
 export type DirectMessage = {

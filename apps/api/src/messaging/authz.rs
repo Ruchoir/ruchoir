@@ -121,6 +121,20 @@ pub async fn conversation_audience(
     Ok(ids)
 }
 
+/// Require space membership, or fail with a flat `403` that does not reveal whether the space
+/// exists. The entry guard of every space-scoped handler.
+pub async fn ensure_space_member(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), ApiError> {
+    if is_space_member(db, space_id, user_id).await? {
+        Ok(())
+    } else {
+        Err(ApiError::Forbidden)
+    }
+}
+
 /// Whether the caller may moderate a channel (delete others' messages, pin): an `owner`/`admin`
 /// channel role, or an `owner`/`admin` role in the owning space.
 pub async fn is_channel_moderator(
@@ -245,7 +259,9 @@ pub async fn space_member_ids(
     Ok(ids)
 }
 
-async fn is_space_member(
+/// Whether a user belongs to a space. Space membership is the outer boundary: every channel and DM
+/// rule below sits inside it.
+pub async fn is_space_member(
     db: &DatabaseConnection,
     space_id: Uuid,
     user_id: Uuid,

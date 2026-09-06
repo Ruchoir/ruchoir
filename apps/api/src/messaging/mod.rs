@@ -8,10 +8,13 @@
 //! - [`dto`] - request and response shapes (close to the web data seam).
 //! - [`error`] - the `ApiError` type and its HTTP mapping.
 //! - [`mentions`] - `@`-mention parsing and resolution.
-//! - [`messages`] / [`reactions`] / [`read`] / [`pins`] / [`saved`] / [`conversations`] - handlers.
+//! - [`slug`] - the one definition of a channel name / space slug handle.
+//! - [`messages`] / [`reactions`] / [`read`] / [`pins`] / [`saved`] / [`conversations`] / [`channels`]
+//!   / [`spaces`] - handlers.
 //! - [`routes`] - the sub-router.
 
 pub mod authz;
+pub mod channels;
 pub mod conversations;
 pub mod dto;
 pub mod error;
@@ -24,4 +27,6 @@ pub mod read;
 pub mod routes;
 pub mod saved;
 pub mod search;
+pub mod slug;
+pub mod spaces;
 pub mod users;

@@ -38,6 +38,14 @@ const styles: Record<string, CSSProperties> = {
     gap: 16,
   },
   nav: { display: "flex", alignItems: "center", justifyContent: "space-between" },
+  error: {
+    fontSize: 13,
+    color: "var(--text-danger, var(--terracotta-700))",
+    background: "var(--surface-danger-soft, rgba(198,93,69,0.08))",
+    border: "1px solid var(--terracotta-300, rgba(198,93,69,0.3))",
+    borderRadius: "var(--radius-md)",
+    padding: "8px 12px",
+  },
 };
 
 const TOTAL = 3;
@@ -48,9 +56,16 @@ const SIZES = ["1 à 5 personnes", "6 à 20 personnes", "21 à 50 personnes", "P
 export function OnboardingFlow({
   firstName,
   onFinish,
+  pending = false,
+  error,
 }: {
   firstName?: string;
+  /** Create the space. The caller drives the request and the move into the app. */
   onFinish: (data: { workspaceName: string }) => void;
+  /** True while the space is being created, to disable the final action. */
+  pending?: boolean;
+  /** Error to surface on the last step when the creation was refused. */
+  error?: string | null;
 }) {
   const [step, setStep] = useState(0);
   const [workspace, setWorkspace] = useState("");
@@ -83,11 +98,22 @@ export function OnboardingFlow({
             </span>
             <h1 style={styles.heading}>Tout est prêt{firstName ? `, ${firstName}` : ""}</h1>
             <p style={{ fontSize: 14, color: "var(--text-muted)", maxWidth: 340 }}>
-              L&apos;espace <strong>{name}</strong> est créé{invited > 0 ? `, ${invited} invitation${invited > 1 ? "s" : ""} envoyée${invited > 1 ? "s" : ""}` : ""}. Vous pouvez importer vos
+              L&apos;espace <strong>{name}</strong> va être créé{invited > 0 ? `, avec ${invited} invitation${invited > 1 ? "s" : ""}` : ""}. Vous pourrez importer vos
               historiques Slack, Mattermost ou Nextcloud à tout moment depuis la barre latérale.
             </p>
-            <Button variant="primary" size="lg" fullWidth onClick={() => onFinish({ workspaceName: name })}>
-              Entrer dans Ruchoir
+            {error ? (
+              <p style={styles.error} role="alert">
+                {error}
+              </p>
+            ) : null}
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              disabled={pending}
+              onClick={() => onFinish({ workspaceName: name })}
+            >
+              {pending ? "Création…" : "Entrer dans Ruchoir"}
             </Button>
           </div>
         </div>

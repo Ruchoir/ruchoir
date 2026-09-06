@@ -102,11 +102,26 @@ exist but are not wired yet. The onboarding flow likewise stays local: creating 
 a space-creation endpoint the API does not expose yet, so registration hands over to the email
 confirmation instead.
 
+**Space and channel lifecycle.** Creating a space (`POST /spaces`), creating a channel, saving its
+settings (`PATCH /channels/{id}`, including archiving) and joining or leaving one all go through the
+API. Two consequences the UI reflects: the server normalises a channel name into a handle, so the
+row added to the sidebar carries the name it will keep rather than what was typed; and leaving a
+public channel only drops the membership, so the channel stays readable in the sidebar and the menu
+offers to rejoin it (`Channel.member`) instead of vanishing. An archived channel is read-only
+server-side, so `ChannelScreen` replaces its composer with a note. Switching space in the workspace
+rail reloads that space through `loadSpace` (channels, DMs, members, presence, files, feeds): the
+loader is shared with the boot path. An account that belongs to no space lands on onboarding, which
+creates its first one, rather than on an empty shell.
+
 **Realtime.** `connectRealtime` opens the WebSocket (`/api/v1/realtime/ws`, cookie-authenticated on
 the upgrade), reconnects with a capped backoff, pings to hold presence, and dispatches decoded
 `RealtimeEnvelope` frames into `AppRoot` state: `message.created/updated/deleted` (upserted, de-duped
 by id against the optimistic row), `reaction.added/removed` (other users' deltas only; our own are
-optimistic), `presence`, `notification.created`, and `typing`. Mutations still go through REST; the
+optimistic), `presence`, `notification.created`, `typing`, and `channel.created` / `channel.updated` (a channel
+appears, is renamed, archived or restored without a reload; one turned private leaves the sidebar of
+everyone who is not in it, which is the only way they learn they lost access). Those two carry only a
+channel's shared facts, so the client patches name/type/topic and keeps its own membership, favourite
+and unread state. Mutations still go through REST; the
 socket only receives, plus sends typing/ping. The composer emits a throttled typing signal via
 `rtRef.current.sendTyping`.
 

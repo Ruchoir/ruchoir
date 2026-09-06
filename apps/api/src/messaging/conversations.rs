@@ -25,6 +25,7 @@ use crate::entities::{
 };
 use crate::state::AppState;
 
+use super::authz::{ensure_space_member, is_space_member};
 use super::dto::{
     ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto, MemberDto, SpaceDto,
 };
@@ -115,6 +116,7 @@ pub async fn list_channels(
             topic: channel.topic,
             imported: channel.imported_source,
             favorite,
+            member: membership.is_some(),
             unread,
         });
     }
@@ -309,7 +311,7 @@ pub async fn create_dm(
 }
 
 /// Count of unread, non-deleted root messages for a caller in a conversation.
-async fn unread_count(
+pub(super) async fn unread_count(
     db: &DatabaseConnection,
     conversation_id: Uuid,
     user_id: Uuid,
@@ -395,27 +397,4 @@ async fn find_existing_dm(
         }
     }
     Ok(None)
-}
-
-async fn ensure_space_member(
-    db: &DatabaseConnection,
-    space_id: Uuid,
-    user_id: Uuid,
-) -> Result<(), ApiError> {
-    if is_space_member(db, space_id, user_id).await? {
-        Ok(())
-    } else {
-        Err(ApiError::Forbidden)
-    }
-}
-
-async fn is_space_member(
-    db: &DatabaseConnection,
-    space_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool, ApiError> {
-    Ok(space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
-        .await?
-        .is_some())
 }
