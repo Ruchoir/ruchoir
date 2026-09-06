@@ -77,6 +77,10 @@ export const STATES = [
   // Auth flow (full-screen, centered layouts).
   { id: "login", label: "Connexion", query: "stage=login" },
   { id: "signup", label: "Creation de compte", query: "stage=signup" },
+  { id: "mfa", label: "Second facteur", query: "stage=mfa" },
+  { id: "forgot", label: "Mot de passe oublie", query: "stage=forgot" },
+  { id: "reset", label: "Nouveau mot de passe", query: "stage=reset" },
+  { id: "verify", label: "Confirmation d'adresse", query: "stage=verify" },
   { id: "onboarding", label: "Onboarding", query: "stage=onboarding" },
 
   // Main app shell across its views.

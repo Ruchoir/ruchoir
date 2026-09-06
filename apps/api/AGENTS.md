@@ -58,7 +58,11 @@ context and takes precedence here.
   the Docker network; `rust-s3` is built without any TLS backend (no `aws-lc-rs`, no OpenSSL), so
   TLS-to-store is a later hardening step (the `ring` path).
 - `src/http.rs`   - router, health endpoints (incl. DB/Valkey readiness probe), static web
-  hosting (SPA fallback), security headers. The `messaging`, `realtime` and `files` routers use
+  hosting (SPA fallback), security headers. The SPA fallback answers a browser navigation (an
+  `Accept` carrying `text/html`) with `index.html` and a `200`, because the client resolves the
+  route: the address-confirmation and password-reset links the API emails point at paths that are
+  not files in the bundle. Any other request for a missing path keeps a truthful `404`, so a wrong
+  asset path fails loudly instead of receiving HTML. The `messaging`, `realtime` and `files` routers use
   absolute `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
   The files router carries a raised request-body limit (`RUCHOIR_UPLOAD_MAX_BYTES`, default 100 MiB).
 - `src/openapi.rs`- OpenAPI document generated from the code with `utoipa`.

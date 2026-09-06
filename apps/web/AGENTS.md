@@ -49,7 +49,8 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 
 The app is a state machine (auth stage + view + optional modal), not routes. `lib/dev/deeplink.ts`
 reads query params (`?stage=`, `view=`, `channel=`, `panel=`, `modal=`, `prefsTab=`, `text=`, `font=`,
-`pop=`, `welcome=1`, `push=1`) on mount to land directly on any screen. `prefsTab=` picks the preferences
+`pop=`, `welcome=1`, `push=1`) on mount to land directly on any screen. `stage=` covers the whole
+authentication flow (`login`, `signup`, `mfa`, `forgot`, `reset`, `verify`, `onboarding`) plus `app`. `prefsTab=` picks the preferences
 section when `view=prefs` (appearance/notifications/shortcuts/security/emojis). `welcome=1` shows the
 first-run checklist (a deep-link otherwise forces it hidden so it does not clutter audited screens). In the compact shell `push=1`
 opens the content full-screen instead of the
@@ -75,9 +76,31 @@ Screens read domain data only through the seam in `lib/data`. Two layers back it
 
 `AppRoot` boots against the API: it checks the session (`GET /auth/session`), and on success loads
 the first space's channels, DMs, presence, per-conversation feeds and the notification feed before
-showing the app; a 401 lands on the real login (`POST /auth/login`, MFA-gated accounts are reported,
-not yet handled), and an unreachable API shows a boot error. Message ids are UUID strings end to end
-(`Message.id: string`).
+showing the app; a 401 lands on the real login (`POST /auth/login`), and an unreachable API shows a
+boot error. Message ids are UUID strings end to end (`Message.id: string`).
+
+**Authentication flow.** Every screen is wired to the API. Sign-up posts `/auth/register` (which opens
+no session: the account is unverified until the emailed link is confirmed) and hands over to the
+"check your inbox" screen; password reset and email confirmation use the `request`/`confirm` pairs;
+and a sign-in that answers with an MFA challenge instead of a session moves to the step-up screen,
+which completes `totp`, `recovery` or `passkey` and enters the app the same way a password-only
+sign-in does. `AUTH_MESSAGES` in `AppRoot` maps the API's error codes (read with `apiErrorCode`) to
+the French copy; the API's own message is English operator text and is never shown.
+
+> **Emailed links are the one exception to "no routes".** The API mails absolute links back into the
+> client (`/verify-email?token=…`, `/reset-password?token=…`, built from `RUCHOIR_PUBLIC_BASE_URL`),
+> and its static fallback serves `index.html` for any unknown path, so they land on this bundle.
+> `lib/authLink.ts` resolves the location into a stage, reads the token into memory and rewrites the
+> address to `/` at once, so no token stays in the history, in a copied URL or in a `Referer`. Unlike
+> `lib/dev/deeplink.ts` it is a production affordance. `lib/webauthn.ts` holds the only WebAuthn
+> plumbing: base64url between the API's JSON shapes (`webauthn-rs`) and `navigator.credentials`.
+
+The personal security section of the preferences (TOTP enrollment, passkey list, recovery codes) is
+still on its mock model (`features/app/security.ts`); the endpoints it needs
+(`/auth/mfa/totp/enroll|confirm`, `/auth/mfa/passkey/register/*`, `/auth/mfa/recovery-codes/generate`)
+exist but are not wired yet. The onboarding flow likewise stays local: creating the first space needs
+a space-creation endpoint the API does not expose yet, so registration hands over to the email
+confirmation instead.
 
 **Realtime.** `connectRealtime` opens the WebSocket (`/api/v1/realtime/ws`, cookie-authenticated on
 the upgrade), reconnects with a capped backoff, pings to hold presence, and dispatches decoded

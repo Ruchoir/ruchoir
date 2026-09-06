@@ -3,20 +3,10 @@
 import { type CSSProperties, type FormEvent, useState } from "react";
 import { Button, Checkbox, Field, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
+import { authStyles } from "./authStyles";
 
 const styles: Record<string, CSSProperties> = {
-  title: { margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
-  subtitle: { fontSize: 13, color: "var(--text-muted)", marginTop: 4, marginBottom: 20 },
-  fields: { display: "flex", flexDirection: "column", gap: 14 },
   optionRow: { display: "flex", alignItems: "center", justifyContent: "space-between" },
-  error: {
-    fontSize: 13,
-    color: "var(--text-danger, var(--terracotta-700))",
-    background: "var(--surface-danger-soft, rgba(198,93,69,0.08))",
-    border: "1px solid var(--terracotta-300, rgba(198,93,69,0.3))",
-    borderRadius: "var(--radius-md)",
-    padding: "8px 12px",
-  },
   divider: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
   dividerLine: { flex: 1, height: 1, background: "var(--border-default)" },
   dividerLabel: {
@@ -31,8 +21,15 @@ export type LoginScreenProps = {
   /** Attempt a sign-in with the entered credentials. AppRoot drives the request and the transition. */
   onSubmit: (email: string, password: string) => void;
   onCreateAccount: () => void;
+  /** Open the password-reset request screen. */
+  onForgotPassword: () => void;
   /** Single sign-on entry point (OIDC is not enabled server-side yet). */
   onSso: () => void;
+  /**
+   * Send the verification link again, offered only when the sign-in was refused because the address
+   * is not confirmed yet. Receives the address that was entered.
+   */
+  onResendVerification?: (email: string) => void;
   /** Error to surface under the form (bad credentials, MFA required, network). */
   error?: string | null;
   /** True while a sign-in request is in flight, to disable the form. */
@@ -40,9 +37,17 @@ export type LoginScreenProps = {
 };
 
 /** The sign-in screen: a centered card, faithful to common team-app login patterns. */
-export function LoginScreen({ onSubmit, onCreateAccount, onSso, error, pending = false }: LoginScreenProps) {
-  const [server, setServer] = useState("atelier.ruchoir.fr");
-  const [mail, setMail] = useState("admin@atelier.test");
+export function LoginScreen({
+  onSubmit,
+  onCreateAccount,
+  onForgotPassword,
+  onSso,
+  onResendVerification,
+  error,
+  pending = false,
+}: LoginScreenProps) {
+  const [server, setServer] = useState("");
+  const [mail, setMail] = useState("");
   const [password, setPassword] = useState("");
 
   const submit = (e: FormEvent) => {
@@ -70,11 +75,18 @@ export function LoginScreen({ onSubmit, onCreateAccount, onSso, error, pending =
         </>
       }
     >
-      <h1 style={styles.title}>Connexion</h1>
-      <p style={styles.subtitle}>Connectez-vous au serveur de votre organisation.</p>
-      <form style={styles.fields} onSubmit={submit}>
+      <h1 style={authStyles.title}>Connexion</h1>
+      <p style={authStyles.subtitle}>Connectez-vous au serveur de votre organisation.</p>
+      <form style={authStyles.fields} onSubmit={submit}>
         <Field label="Serveur" hint="Adresse fournie par votre administrateur" htmlFor="srv">
-          <Input id="srv" size="lg" icon="server" value={server} onChange={(e) => setServer(e.target.value)} />
+          <Input
+            id="srv"
+            size="lg"
+            icon="server"
+            placeholder="atelier.exemple.fr"
+            value={server}
+            onChange={(e) => setServer(e.target.value)}
+          />
         </Field>
         <Field label="Adresse électronique" htmlFor="mail">
           <Input
@@ -99,13 +111,35 @@ export function LoginScreen({ onSubmit, onCreateAccount, onSso, error, pending =
           />
         </Field>
         {error ? (
-          <p style={styles.error} role="alert">
+          <div style={authStyles.error} role="alert">
             {error}
-          </p>
+            {onResendVerification ? (
+              <>
+                {" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onResendVerification(mail.trim());
+                  }}
+                  style={authStyles.link}
+                >
+                  Renvoyer le lien de confirmation
+                </a>
+              </>
+            ) : null}
+          </div>
         ) : null}
         <div style={styles.optionRow}>
           <Checkbox label="Rester connecté" defaultChecked />
-          <a href="#" style={{ fontSize: 13 }} onClick={(e) => e.preventDefault()}>
+          <a
+            href="#"
+            style={{ fontSize: 13 }}
+            onClick={(e) => {
+              e.preventDefault();
+              onForgotPassword();
+            }}
+          >
             Mot de passe oublié ?
           </a>
         </div>

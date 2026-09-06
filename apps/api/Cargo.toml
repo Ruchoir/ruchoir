@@ -64,8 +64,8 @@ infer = { workspace = true }
 [dev-dependencies]
 # End-to-end tests bind the real server and drive it over the loopback: a plain-HTTP client for the
 # REST surface and a WebSocket client for the real-time push. Both are TLS-free (loopback only) and
-# dev-only, so they never enter the production binary (consistent with the R7 arbitration: rule #2
-# targets runtime services/infra, not locally-run test tooling).
+# dev-only, so they never enter the production binary (golden rule #2 targets runtime services and
+# infrastructure, not locally-run test tooling).
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
 tokio-tungstenite = { version = "0.24", default-features = false, features = ["connect"] }
 futures-util = { workspace = true }

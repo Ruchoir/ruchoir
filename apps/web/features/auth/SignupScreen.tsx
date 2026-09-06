@@ -1,32 +1,41 @@
 "use client";
 
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, type FormEvent, useState } from "react";
 import { Button, Checkbox, Field, Icon, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
+import { authStyles } from "./authStyles";
 
 const styles: Record<string, CSSProperties> = {
-  title: { margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
-  subtitle: { fontSize: 13, color: "var(--text-muted)", marginTop: 4, marginBottom: 20 },
-  fields: { display: "flex", flexDirection: "column", gap: 14 },
   nameRow: { display: "flex", gap: 10 },
   rules: { display: "flex", flexDirection: "column", gap: 4, marginTop: 2 },
   rule: { display: "flex", alignItems: "center", gap: 6, fontSize: 12 },
 };
 
+/**
+ * Minimum password length. Mirrors the server policy, which is authoritative: it also rejects
+ * passwords found in its offline breach set, which only the server can check.
+ */
+const MIN_PASSWORD_LENGTH = 12;
+
 const RULES: { label: string; test: (pw: string) => boolean }[] = [
-  { label: "Au moins 8 caractères", test: (pw) => pw.length >= 8 },
-  { label: "Une majuscule", test: (pw) => /[A-ZÀ-Ö]/.test(pw) },
-  { label: "Un chiffre", test: (pw) => /\d/.test(pw) },
+  { label: `Au moins ${MIN_PASSWORD_LENGTH} caractères`, test: (pw) => pw.length >= MIN_PASSWORD_LENGTH },
 ];
 
-/** Account creation screen, faithful to common team-app sign-up patterns. */
-export function SignupScreen({
-  onSubmit,
-  onBackToLogin,
-}: {
-  onSubmit: (firstName: string) => void;
+/** The account details submitted to `POST /auth/register`. */
+export type SignupValues = { email: string; displayName: string; password: string };
+
+export type SignupScreenProps = {
+  /** Create the account. The caller drives the request and the move to the "check your inbox" step. */
+  onSubmit: (values: SignupValues) => void;
   onBackToLogin: () => void;
-}) {
+  /** Error to surface under the form (address already taken, password rejected, network). */
+  error?: string | null;
+  /** True while the registration request is in flight, to disable the form. */
+  pending?: boolean;
+};
+
+/** Account creation screen. The account stays unverified until the emailed link is confirmed. */
+export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }: SignupScreenProps) {
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [mail, setMail] = useState("");
@@ -34,7 +43,15 @@ export function SignupScreen({
   const [agreed, setAgreed] = useState(false);
 
   const pwValid = RULES.every((r) => r.test(pw));
-  const canSubmit = first.trim() !== "" && mail.includes("@") && pwValid && agreed;
+  const canSubmit = !pending && first.trim() !== "" && mail.includes("@") && pwValid && agreed;
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    // The API holds one display name; join the two fields the form collects.
+    const displayName = [first.trim(), last.trim()].filter(Boolean).join(" ");
+    onSubmit({ email: mail.trim(), displayName, password: pw });
+  };
 
   return (
     <AuthShell
@@ -47,22 +64,16 @@ export function SignupScreen({
               e.preventDefault();
               onBackToLogin();
             }}
-            style={{ color: "var(--text-accent)", fontWeight: 500 }}
+            style={authStyles.link}
           >
             Se connecter
           </a>
         </>
       }
     >
-      <h1 style={styles.title}>Créer votre compte</h1>
-      <p style={styles.subtitle}>Un compte Ruchoir, hébergé par votre organisation.</p>
-      <form
-        style={styles.fields}
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (canSubmit) onSubmit(first.trim());
-        }}
-      >
+      <h1 style={authStyles.title}>Créer votre compte</h1>
+      <p style={authStyles.subtitle}>Un compte Ruchoir, hébergé par votre organisation.</p>
+      <form style={authStyles.fields} onSubmit={submit}>
         <div style={styles.nameRow}>
           <Field label="Prénom" htmlFor="first" style={{ flex: 1, minWidth: 0 }}>
             <Input id="first" size="lg" value={first} onChange={(e) => setFirst(e.target.value)} autoFocus />
@@ -72,10 +83,26 @@ export function SignupScreen({
           </Field>
         </div>
         <Field label="Adresse électronique" htmlFor="s-mail">
-          <Input id="s-mail" size="lg" type="email" icon="mail" value={mail} onChange={(e) => setMail(e.target.value)} />
+          <Input
+            id="s-mail"
+            size="lg"
+            type="email"
+            icon="mail"
+            autoComplete="email"
+            value={mail}
+            onChange={(e) => setMail(e.target.value)}
+          />
         </Field>
         <Field label="Mot de passe" htmlFor="s-pw">
-          <Input id="s-pw" size="lg" type="password" icon="lock" value={pw} onChange={(e) => setPw(e.target.value)} />
+          <Input
+            id="s-pw"
+            size="lg"
+            type="password"
+            icon="lock"
+            autoComplete="new-password"
+            value={pw}
+            onChange={(e) => setPw(e.target.value)}
+          />
         </Field>
         <div style={styles.rules}>
           {RULES.map((r) => {
@@ -88,13 +115,18 @@ export function SignupScreen({
             );
           })}
         </div>
+        {error ? (
+          <p style={authStyles.error} role="alert">
+            {error}
+          </p>
+        ) : null}
         <Checkbox
           checked={agreed}
           onChange={() => setAgreed((a) => !a)}
           label={<span style={{ fontSize: 13 }}>J&apos;accepte les conditions d&apos;utilisation et la politique de confidentialité.</span>}
         />
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={!canSubmit}>
-          Créer le compte
+          {pending ? "Création…" : "Créer le compte"}
         </Button>
       </form>
     </AuthShell>

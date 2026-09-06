@@ -32,6 +32,21 @@ export function isApiError(err: unknown, status?: number): err is ApiError {
   return err instanceof ApiError && (status === undefined || err.status === status);
 }
 
+/**
+ * The API's machine-readable error code (`{ "error": "email_not_verified", … }`), when the failure
+ * carries one. Call sites branch on this rather than on the human message, which is prose meant for
+ * display and may change; `null` for a transport error or an unexpected body.
+ */
+export function apiErrorCode(err: unknown): string | null {
+  if (!(err instanceof ApiError)) return null;
+  const body = err.body;
+  if (body && typeof body === "object") {
+    const code = (body as Record<string, unknown>).error;
+    if (typeof code === "string" && code) return code;
+  }
+  return null;
+}
+
 type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 type RequestOptions = {
