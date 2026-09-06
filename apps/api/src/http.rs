@@ -1,17 +1,20 @@
 //! HTTP surface: router, health endpoints, static web hosting and security headers.
 
-use axum::extract::State;
-use axum::http::{header, HeaderName, HeaderValue};
-use axum::routing::get;
+use axum::body::Body;
+use axum::extract::{Request, State};
+use axum::http::{header, HeaderName, HeaderValue, StatusCode};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{any, get};
 use axum::{Json, Router};
 use fred::interfaces::ClientLike;
 use serde::Serialize;
-use tower::ServiceBuilder;
+use tower::{ServiceBuilder, ServiceExt};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 use utoipa::ToSchema;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -116,7 +119,8 @@ pub(crate) async fn api_health(State(state): State<AppState>) -> Json<ApiHealth>
 pub fn router(state: AppState) -> Router {
     let web_dist = state.config.web_dist.clone();
     let index = web_dist.join("index.html");
-    let static_service = ServeDir::new(&web_dist).not_found_service(ServeFile::new(index));
+    let static_service = ServeDir::new(&web_dist)
+        .fallback(any(move |req: Request| spa_fallback(index.clone(), req)));
 
     // Content Security Policy: same-origin only.
     //
@@ -197,7 +201,78 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
+/// Serve the single-page application for a path that is not a file in the bundle.
+///
+/// The client is a state machine rather than a set of routes, but a few real paths still reach it:
+/// the API emails absolute links back into the app (address confirmation, password reset), and those
+/// must land on the app shell with a normal `200`, not on an error status. Anything that is not a
+/// browser navigation (a missing asset, an XHR) keeps a truthful `404` instead of silently receiving
+/// HTML, which is what turns a typo in an asset path into a confusing parse error.
+async fn spa_fallback(index: PathBuf, req: Request) -> Response {
+    let accepts_html = req
+        .headers()
+        .get(header::ACCEPT)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|accept| accept.contains("text/html"));
+    if !accepts_html {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    match ServeFile::new(index).oneshot(req).await {
+        Ok(response) => response.map(Body::new),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
 /// Build a layer that sets a static header value on every response.
 fn set_header(name: HeaderName, value: &'static str) -> SetResponseHeaderLayer<HeaderValue> {
     SetResponseHeaderLayer::overriding(name, HeaderValue::from_static(value))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::to_bytes;
+
+    /// Write an index file into a unique temporary directory and return its path.
+    fn temp_index(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("ruchoir-http-{name}"));
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        let index = dir.join("index.html");
+        std::fs::write(&index, "<!doctype html><title>Ruchoir</title>").expect("write index");
+        index
+    }
+
+    #[tokio::test]
+    async fn navigation_to_a_client_route_serves_the_shell_with_200() {
+        // The address-confirmation and password-reset links the API emails point at paths that are
+        // not files in the bundle: they must resolve to the app shell, not to an error status.
+        let index = temp_index("navigation");
+        let request = Request::builder()
+            .uri("/verify-email?token=abc")
+            .header(header::ACCEPT, "text/html,application/xhtml+xml")
+            .body(Body::empty())
+            .expect("request");
+
+        let response = spa_fallback(index, request).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 4096).await.expect("body");
+        assert!(String::from_utf8_lossy(&body).contains("Ruchoir"));
+    }
+
+    #[tokio::test]
+    async fn a_missing_asset_still_gets_a_404() {
+        // Only a navigation resolves to the shell; anything else keeps a truthful 404 so a wrong
+        // asset path fails loudly instead of parsing HTML as a script or an image.
+        let index = temp_index("asset");
+        let request = Request::builder()
+            .uri("/img/missing.png")
+            .header(header::ACCEPT, "image/png")
+            .body(Body::empty())
+            .expect("request");
+
+        let response = spa_fallback(index, request).await;
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
 }
