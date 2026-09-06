@@ -26,12 +26,14 @@ use uuid::Uuid;
 use crate::auth::extract::AuthSession;
 use crate::entities::{channel_members, channels, conversations};
 use crate::state::AppState;
+use sea_orm::DatabaseConnection;
 
-use super::authz::{ensure_space_member, is_channel_moderator};
+use super::authz::{ensure_space_member, is_channel_moderator, space_member_ids};
 use super::conversations::unread_count;
-use super::dto::{ChannelDto, CreateChannelRequest, UpdateChannelRequest};
+use super::dto::{ChannelDto, ChannelSummaryDto, CreateChannelRequest, UpdateChannelRequest};
 use super::error::ApiError;
 use super::slug::slugify;
+use crate::realtime::event::RealtimeEnvelope;
 
 /// `POST /api/v1/spaces/{space_id}/channels`: create a channel, owned by the caller.
 #[utoipa::path(
@@ -107,6 +109,31 @@ pub async fn create_channel(
     .await?;
     join_row(&txn, channel_id, session.user_id, "owner", now).await?;
     txn.commit().await?;
+
+    // Tell the space (or, for a private channel, only its members) that the channel exists, so the
+    // sidebar gains it without a reload.
+    let summary = ChannelSummaryDto {
+        id: channel_id,
+        space_id,
+        name: name.clone(),
+        channel_type: channel_type.to_owned(),
+        topic: topic.clone(),
+    };
+    let audience = channel_audience(
+        &state.db,
+        space_id,
+        channel_id,
+        channel_type,
+        session.user_id,
+    )
+    .await?;
+    state
+        .hub
+        .publish(
+            audience,
+            RealtimeEnvelope::channel_created(channel_id, &summary),
+        )
+        .await;
 
     Ok((
         StatusCode::CREATED,
@@ -195,6 +222,26 @@ pub async fn update_channel(
     }
 
     let updated = active.update(&state.db).await?;
+
+    // Every member of the space is told, whatever the new visibility: a channel turned private has
+    // to leave the sidebar of those who are not in it, and they can only learn that from this event.
+    // The payload carries no per-caller state, so nothing private about a member leaks with it.
+    let summary = ChannelSummaryDto {
+        id: updated.id,
+        space_id,
+        name: updated.name.clone(),
+        channel_type: updated.channel_type.clone(),
+        topic: updated.topic.clone(),
+    };
+    let audience = space_member_ids(&state.db, space_id, session.user_id).await?;
+    state
+        .hub
+        .publish(
+            audience,
+            RealtimeEnvelope::channel_updated(channel_id, &summary),
+        )
+        .await;
+
     let membership = channel_members::Entity::find_by_id((channel_id, session.user_id))
         .one(&state.db)
         .await?;
@@ -287,6 +334,28 @@ pub async fn leave_channel(
         .exec(&state.db)
         .await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Who should learn that a channel exists: every member of the space for a public (or archived)
+/// channel, since they all see it listed, and only its own members for a private one, whose very
+/// existence is not public.
+async fn channel_audience(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    channel_id: Uuid,
+    channel_type: &str,
+    user_id: Uuid,
+) -> Result<Vec<Uuid>, ApiError> {
+    if channel_type == "private" {
+        return Ok(channel_members::Entity::find()
+            .filter(channel_members::Column::ChannelId.eq(channel_id))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|m| m.user_id)
+            .collect());
+    }
+    space_member_ids(db, space_id, user_id).await
 }
 
 /// Insert a membership row with the given role and the default notification settings.

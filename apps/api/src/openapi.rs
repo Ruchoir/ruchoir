@@ -118,6 +118,7 @@ use utoipa::OpenApi;
         crate::messaging::dto::ReadRequest,
         crate::messaging::dto::CreateDmRequest,
         crate::messaging::dto::CreateSpaceRequest,
+        crate::messaging::dto::ChannelSummaryDto,
         crate::messaging::dto::CreateChannelRequest,
         crate::messaging::dto::UpdateChannelRequest,
         crate::messaging::dto::ConversationRef,

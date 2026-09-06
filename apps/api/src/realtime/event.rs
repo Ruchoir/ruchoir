@@ -104,6 +104,16 @@ impl RealtimeEnvelope {
         Self::conversation("read.updated", conversation_id, payload)
     }
 
+    /// A channel was created in a space the recipient belongs to.
+    pub fn channel_created(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("channel.created", conversation_id, payload)
+    }
+
+    /// A channel was renamed, re-topiced, archived, restored, or changed visibility.
+    pub fn channel_updated(conversation_id: Uuid, payload: impl Serialize) -> Self {
+        Self::conversation("channel.updated", conversation_id, payload)
+    }
+
     /// Someone is typing in a conversation (ephemeral, never stored).
     pub fn typing(conversation_id: Uuid, payload: impl Serialize) -> Self {
         Self::conversation("typing", conversation_id, payload)

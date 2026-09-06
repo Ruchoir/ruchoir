@@ -448,9 +448,9 @@ function AppShell() {
   // The realtime handlers read the latest lists/ids through a ref so the socket does not reconnect on
   // every state change. Updated after each render (not during, to respect the ref rules).
   const rtRef = useRef<RealtimeConnection | null>(null);
-  const liveRef = useRef({ channels, dms, channelId, view, myId: session?.id });
+  const liveRef = useRef({ channels, dms, channelId, view, myId: session?.id, ws });
   useEffect(() => {
-    liveRef.current = { channels, dms, channelId, view, myId: session?.id };
+    liveRef.current = { channels, dms, channelId, view, myId: session?.id, ws };
   });
 
   // Live realtime channel: connect once per session and dispatch server pushes into state. Mutations
@@ -494,6 +494,51 @@ function AppShell() {
           if (!list || !list.some((m) => m.id === messageId)) return prev;
           return { ...prev, [conv]: list.map((m) => (m.id === messageId ? { ...m, pinned } : m)) };
         });
+      },
+      onChannelCreated: (channel) => {
+        // Only the space on screen: an event for another one is folded in when it is next loaded.
+        if (channel.spaceId !== liveRef.current.ws) return;
+        setChannels((prev) =>
+          prev.some((c) => c.id === channel.id)
+            ? prev
+            : [
+                ...prev,
+                {
+                  id: channel.id,
+                  name: channel.name,
+                  type: channel.type,
+                  topic: channel.topic,
+                  fav: false,
+                  unread: 0,
+                  // The creator's own row already came from the POST; for everyone else the channel
+                  // exists but they have not joined it.
+                  member: false,
+                },
+              ],
+        );
+      },
+      onChannelUpdated: (channel) => {
+        const { ws: activeWs, channels: current, channelId: openId } = liveRef.current;
+        if (channel.spaceId !== activeWs) return;
+        const row = current.find((c) => c.id === channel.id);
+        if (!row) return;
+        // A channel turned private leaves the sidebar of everyone who is not in it: this event is
+        // the only way they learn they lost access to it.
+        if (channel.type === "private" && row.member !== true) {
+          setChannels((prev) => prev.filter((c) => c.id !== channel.id));
+          if (openId === channel.id) {
+            // Move off the conversation that just closed. `setChannelId` rather than `openChannel`:
+            // the handlers are wired before it is declared, and there is no panel to reset here.
+            const fallback = current.find((c) => c.id !== channel.id);
+            if (fallback) setChannelId(fallback.id);
+          }
+          return;
+        }
+        setChannels((prev) =>
+          prev.map((c) =>
+            c.id === channel.id ? { ...c, name: channel.name, type: channel.type, topic: channel.topic } : c,
+          ),
+        );
       },
       onPresence: (userId, p) => {
         setPresence((prev) => ({ ...prev, [userId]: p }));

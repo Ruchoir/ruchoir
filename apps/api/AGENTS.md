@@ -43,7 +43,9 @@ context and takes precedence here.
   inside the send transaction and pushed over the hub. Every mutation authorizes server-side,
   commits, then hands the resulting event to `realtime` for fan-out.
 - `src/realtime/`  - real-time transport and presence: `event` (the versioned push envelope + the
-  fan-out wire type), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
+  fan-out wire type, including `channel.created` / `channel.updated`, whose payload is deliberately
+  the shared `ChannelSummaryDto` rather than a `ChannelDto`: the latter carries per-caller state that
+  must not be broadcast), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
   `SubscriberClient` on `rt:fanout`, delivery gated by a publish-time audience), `presence`
   (ephemeral heartbeat + the persistent `users.manual_presence` override), `typing` (throttled,
   ephemeral), and the two transports `ws` (WebSocket) / `sse` (read-only fallback + typing POST).

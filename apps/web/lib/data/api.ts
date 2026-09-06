@@ -856,6 +856,18 @@ type RealtimeEnvelope = { v: number; type: string; conversation_id?: string; pay
 /** A reaction delta carried by a `reaction.added` / `reaction.removed` event. */
 export type RealtimeReaction = { messageId: string; emoji: string; userId: string; added: boolean };
 
+/**
+ * A channel's shared facts as pushed by `channel.created` / `channel.updated`. It carries no
+ * per-caller state (favourite, membership, unread): the receiving client keeps its own.
+ */
+export type RealtimeChannel = {
+  id: string;
+  spaceId: string;
+  name: string;
+  type: ChannelType;
+  topic?: string;
+};
+
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
   onMessageCreated?: (conversationId: string, message: ApiMessage) => void;
@@ -863,6 +875,10 @@ export type RealtimeHandlers = {
   onMessageDeleted?: (conversationId: string, message: ApiMessage) => void;
   onReaction?: (conversationId: string, reaction: RealtimeReaction) => void;
   onPinned?: (conversationId: string, messageId: string, pinned: boolean) => void;
+  /** A channel was created in a space the user belongs to. */
+  onChannelCreated?: (channel: RealtimeChannel) => void;
+  /** A channel was renamed, re-topiced, archived, restored, or changed visibility. */
+  onChannelUpdated?: (channel: RealtimeChannel) => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
@@ -915,6 +931,21 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       case "message.unpinned":
         handlers.onPinned?.(conv, String(payload.message_id), env.type === "message.pinned");
         break;
+      case "channel.created":
+      case "channel.updated": {
+        const channel: RealtimeChannel = {
+          id: String(payload.id),
+          spaceId: String(payload.space_id),
+          name: String(payload.name),
+          type: (["public", "private", "archived"].includes(String(payload.type))
+            ? String(payload.type)
+            : "public") as ChannelType,
+          topic: payload.topic === undefined ? undefined : String(payload.topic),
+        };
+        if (env.type === "channel.created") handlers.onChannelCreated?.(channel);
+        else handlers.onChannelUpdated?.(channel);
+        break;
+      }
       case "presence":
         handlers.onPresence?.(String(payload.user_id), toPresence(String(payload.presence)));
         break;

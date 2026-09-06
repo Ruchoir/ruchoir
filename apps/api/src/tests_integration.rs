@@ -552,17 +552,21 @@ async fn creating_a_space_starts_it_with_an_owner_and_a_channel() {
     let founder = make_user(&app.db, "founder").await;
     let cookie = app.cookie_for(founder).await;
 
+    // Space slugs are unique across the workspace and this test database is not reset between runs,
+    // so the name carries a unique token; the assertion is on the folding, not on a fixed string.
+    let token = Uuid::new_v4().simple().to_string();
+    let name = format!("Atelier Néon {token}");
     let created = app
         .req(reqwest::Method::POST, "/api/v1/spaces", &cookie)
-        .json(&json!({ "name": "Atelier Néon" }))
+        .json(&json!({ "name": name }))
         .send()
         .await
         .expect("create space");
     assert_eq!(created.status(), 201);
     let space: Value = created.json().await.expect("json");
-    assert_eq!(space["name"], "Atelier Néon");
+    assert_eq!(space["name"], name);
     // The slug is the folded handle, so an accented name still yields a URL-safe one.
-    assert_eq!(space["slug"], "atelier-neon");
+    assert_eq!(space["slug"], format!("atelier-neon-{token}"));
     assert_eq!(space["role"], "owner");
     assert_eq!(space["members"], 1);
 
@@ -782,4 +786,81 @@ async fn joining_and_leaving_only_touches_the_callers_membership() {
         .await
         .expect("join private");
     assert_eq!(private.status(), 403);
+}
+
+#[tokio::test]
+async fn a_new_channel_is_pushed_to_the_space_but_a_private_one_stays_hidden() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let mut bob_ws = app.connect_ws(&bob).await;
+    let path = format!("/api/v1/spaces/{}/channels", fx.space_id);
+
+    let created = app
+        .req(reqwest::Method::POST, &path, &alice)
+        .json(&json!({ "name": "livraisons", "type": "public" }))
+        .send()
+        .await
+        .expect("create public channel");
+    assert_eq!(created.status(), 201);
+
+    // Bob is in the space, so a public channel appears in his sidebar without a reload.
+    let event = wait_for_type(&mut bob_ws, "channel.created").await;
+    assert_eq!(event["payload"]["name"], "livraisons");
+    assert_eq!(event["payload"]["type"], "public");
+    // The push carries no per-caller state: those fields differ for every recipient.
+    assert!(event["payload"].get("unread").is_none());
+    assert!(event["payload"].get("member").is_none());
+
+    // A private channel's very existence is not public, so Bob hears nothing about it.
+    let private = app
+        .req(reqwest::Method::POST, &path, &alice)
+        .json(&json!({ "name": "direction", "type": "private" }))
+        .send()
+        .await
+        .expect("create private channel");
+    assert_eq!(private.status(), 201);
+    let private_id = private.json::<Value>().await.expect("json")["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+    expect_no_channel_event(&mut bob_ws, &private_id).await;
+
+    // Archiving the public one reaches him too: the sidebar has to show it as read-only.
+    let channel_id = event["payload"]["id"].as_str().expect("id").to_owned();
+    let archived = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{channel_id}"),
+            &alice,
+        )
+        .json(&json!({ "type": "archived" }))
+        .send()
+        .await
+        .expect("archive");
+    assert_eq!(archived.status(), 200);
+    let event = wait_for_type(&mut bob_ws, "channel.updated").await;
+    assert_eq!(event["payload"]["id"], channel_id);
+    assert_eq!(event["payload"]["type"], "archived");
+}
+
+/// Fail if any channel event about `channel_id` arrives within the window.
+async fn expect_no_channel_event(
+    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    channel_id: &str,
+) {
+    let deadline = Duration::from_millis(800);
+    while let Ok(Some(Ok(WsMessage::Text(text)))) = tokio::time::timeout(deadline, ws.next()).await
+    {
+        let event: Value = match serde_json::from_str(text.as_str()) {
+            Ok(event) => event,
+            Err(_) => continue,
+        };
+        let is_channel_event =
+            event["type"] == "channel.created" || event["type"] == "channel.updated";
+        if is_channel_event && event["payload"]["id"] == channel_id {
+            panic!("expected no event about this channel but received: {text}");
+        }
+    }
 }

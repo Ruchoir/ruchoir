@@ -117,7 +117,11 @@ creates its first one, rather than on an empty shell.
 the upgrade), reconnects with a capped backoff, pings to hold presence, and dispatches decoded
 `RealtimeEnvelope` frames into `AppRoot` state: `message.created/updated/deleted` (upserted, de-duped
 by id against the optimistic row), `reaction.added/removed` (other users' deltas only; our own are
-optimistic), `presence`, `notification.created`, and `typing`. Mutations still go through REST; the
+optimistic), `presence`, `notification.created`, `typing`, and `channel.created` / `channel.updated` (a channel
+appears, is renamed, archived or restored without a reload; one turned private leaves the sidebar of
+everyone who is not in it, which is the only way they learn they lost access). Those two carry only a
+channel's shared facts, so the client patches name/type/topic and keeps its own membership, favourite
+and unread state. Mutations still go through REST; the
 socket only receives, plus sends typing/ping. The composer emits a throttled typing signal via
 `rtRef.current.sendTyping`.
 

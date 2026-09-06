@@ -113,6 +113,23 @@ pub struct ChannelDto {
     pub unread: i64,
 }
 
+/// A channel's shared facts, pushed in real time when one is created or changed.
+///
+/// Deliberately not a [`ChannelDto`]: that shape carries per-caller state (favourite, membership,
+/// unread count) which differs for every recipient, so a broadcast would hand one member's view to
+/// everyone. Clients patch only the fields here and keep their own.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ChannelSummaryDto {
+    pub id: Uuid,
+    pub space_id: Uuid,
+    pub name: String,
+    /// `public`, `private` or `archived`.
+    #[serde(rename = "type")]
+    pub channel_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub topic: Option<String>,
+}
+
 /// A direct-message conversation in a space's sidebar list.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct DirectMessageDto {
