@@ -8,7 +8,7 @@
  * these, screen by screen, so the mapping lives in one auditable place.
  *
  * It covers auth (sign-in, registration, email verification, password reset and the second-factor
- * step-up) and the space bootstrap, member profiles, the message operations, files, search,
+ * step-up), the space and channel lifecycle, and the space bootstrap, member profiles, the message operations, files, search,
  * the notification feed and the realtime channel (`connectRealtime`). Message ids are UUID strings;
  * `ApiMessage` is the front `Message` with that string id.
  */
@@ -47,6 +47,7 @@ type ChannelDto = {
   topic?: string;
   imported?: string;
   favorite: boolean;
+  member: boolean;
   unread: number;
 };
 
@@ -248,13 +249,65 @@ function toChannel(dto: ChannelDto): Channel {
     type: (["public", "private", "archived"].includes(dto.type) ? dto.type : "public") as ChannelType,
     topic: dto.topic,
     imported: toImportSource(dto.imported),
+    member: dto.member,
   };
+}
+
+/**
+ * `POST /spaces`: create a space owned by the caller. It comes back with a starting channel, so the
+ * caller lands on something rather than on an empty shell.
+ */
+export async function createSpace(name: string): Promise<Workspace> {
+  return toWorkspace(await apiPost<SpaceDto>("/spaces", { name }));
 }
 
 /** `GET /spaces/{id}/channels`: the channels the caller can see in a space. */
 export async function getChannels(spaceId: string, signal?: AbortSignal): Promise<Channel[]> {
   const channels = await apiGet<ChannelDto[]>(`/spaces/${spaceId}/channels`, signal);
   return channels.map(toChannel);
+}
+
+/**
+ * `POST /spaces/{id}/channels`: create a channel, owned by the caller. The server normalises the
+ * name into a handle (lowercase, accents folded, dashes), so the channel comes back under the name
+ * it will keep, which may differ from what was typed.
+ */
+export async function createChannel(
+  spaceId: string,
+  channel: { name: string; type: ChannelType; topic?: string },
+): Promise<Channel> {
+  const dto = await apiPost<ChannelDto>(`/spaces/${spaceId}/channels`, {
+    name: channel.name,
+    type: channel.type,
+    topic: channel.topic,
+  });
+  return toChannel(dto);
+}
+
+/**
+ * `PATCH /channels/{id}`: rename a channel, set its topic, or change its visibility. Archiving is
+ * `type: "archived"`, which makes the channel read-only without deleting anything.
+ */
+export async function updateChannel(
+  channelId: string,
+  patch: { name?: string; type?: ChannelType; topic?: string },
+): Promise<Channel> {
+  const dto = await apiPatch<ChannelDto>(`/channels/${channelId}`, {
+    name: patch.name,
+    type: patch.type,
+    topic: patch.topic,
+  });
+  return toChannel(dto);
+}
+
+/** `PUT /channels/{id}/membership`: join a public channel. Idempotent. */
+export async function joinChannel(channelId: string): Promise<void> {
+  await apiPut<void>(`/channels/${channelId}/membership`);
+}
+
+/** `DELETE /channels/{id}/membership`: leave a channel. Only the caller's membership is removed. */
+export async function leaveChannel(channelId: string): Promise<void> {
+  await apiDelete<void>(`/channels/${channelId}/membership`);
 }
 
 function toDirectMessage(dto: DirectMessageDto): DirectMessage {

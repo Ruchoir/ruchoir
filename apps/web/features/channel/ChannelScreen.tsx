@@ -91,6 +91,19 @@ const PRESENCE_LABEL: Record<string, string> = {
 };
 
 const styles: Record<string, CSSProperties> = {
+  archivedNotice: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    margin: "0 16px 16px",
+    padding: "12px 16px",
+    fontSize: 13,
+    color: "var(--text-muted)",
+    background: "var(--surface-sunken)",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: "var(--radius-md)",
+  },
   top: {
     height: "var(--topbar-height)",
     flex: "none",
@@ -183,6 +196,8 @@ export type ChannelScreenProps = {
   onNotify: (toast: Toast) => void;
   onUpdateChannel: (patch: Partial<Channel>) => void;
   onLeaveChannel: () => void;
+  /** Rejoin this channel after leaving it (public channels only). */
+  onJoinChannel: () => void;
   /** Current notification preference for this conversation, and a persist callback. */
   notifPref: ChannelNotifPref;
   onSaveNotifPref: (pref: ChannelNotifPref) => void;
@@ -224,6 +239,7 @@ export function ChannelScreen({
   onNotify,
   onUpdateChannel,
   onLeaveChannel,
+  onJoinChannel,
   notifPref,
   onSaveNotifPref,
   focusMessageId,
@@ -238,6 +254,8 @@ export function ChannelScreen({
   actions,
 }: ChannelScreenProps) {
   const isDm = !!dm;
+  // An archived channel is read-only: the API refuses new messages, so the composer gives way to a note.
+  const isArchived = !isDm && channel.type === "archived";
   const memberList: ChannelMember[] = members.map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot }));
   const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
@@ -401,6 +419,8 @@ export function ChannelScreen({
               onNotifications={() => setMenuDialog("notifications")}
               onAddPeople={() => setMenuDialog("addpeople")}
               onLeave={() => setMenuDialog("leave")}
+              onJoin={onJoinChannel}
+              member={channel.member !== false}
             />
           ) : null}
           </div>
@@ -431,7 +451,8 @@ export function ChannelScreen({
                     #{channel.name}
                   </div>
                   <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6, maxWidth: 560 }}>
-                    {channel.type === "private" ? "Canal privé." : "Canal public."} {channel.topic ? `${channel.topic}. ` : ""}
+                    {isArchived ? "Canal archivé." : channel.type === "private" ? "Canal privé." : "Canal public."}{" "}
+                    {channel.topic ? `${channel.topic}. ` : ""}
                     {channel.imported ? `L'historique a été repris depuis ${channel.imported}.` : "Début du canal."}
                   </p>
                 </>
@@ -499,7 +520,16 @@ export function ChannelScreen({
             </>
           ) : null}
         </div>
-        <Composer channelName={isDm ? dm.name : channel.name} onSend={onSend} onNotify={onNotify} onTyping={onTyping} />
+        {isArchived ? (
+          // An archived channel is read-only server-side: showing a composer would offer an action
+          // the API refuses. The history stays open.
+          <p style={styles.archivedNotice}>
+            <Icon name="archive" size={14} />
+            Ce canal est archivé : il reste consultable, mais on n&apos;y écrit plus.
+          </p>
+        ) : (
+          <Composer channelName={isDm ? dm.name : channel.name} onSend={onSend} onNotify={onNotify} onTyping={onTyping} />
+        )}
       </div>
       <RightDock open={rightNode != null} contentKey={contentKey} compact={compact}>
         {rightNode}

@@ -249,6 +249,8 @@ export type SidebarProps = {
   onNewMessage: () => void;
   onGlobalSearch: () => void;
   onLeaveChannel: (id: string) => void;
+  /** Rejoin a public channel the user had left (the menu offers one or the other, never both). */
+  onJoinChannel: (id: string) => void;
   onChannelSettings: (id: string) => void;
   onChannelNotifications: (id: string) => void;
   onMarkRead: (id: string) => void;
@@ -285,6 +287,7 @@ export function Sidebar({
   onNewMessage,
   onGlobalSearch,
   onLeaveChannel,
+  onJoinChannel,
   onChannelSettings,
   onChannelNotifications,
   onMarkRead,
@@ -301,11 +304,15 @@ export function Sidebar({
   const showChannels = !only || only === "channels";
   const showMessages = !only || only === "messages";
   const showFooter = !only || only === "channels";
-  const channelMenu = (id: string, name: string): SideMenuItem[] => [
-    { icon: "check-check", label: "Marquer comme lu", onClick: () => onMarkRead(id) },
-    { icon: "bell", label: "Notifications", onClick: () => onChannelNotifications(id) },
-    { icon: "settings", label: "Paramètres du canal", onClick: () => onChannelSettings(id) },
-    { icon: "log-out", label: "Quitter le canal", danger: true, onClick: () => onLeaveChannel(id) },
+  const channelMenu = (channel: Channel): SideMenuItem[] => [
+    { icon: "check-check", label: "Marquer comme lu", onClick: () => onMarkRead(channel.id) },
+    { icon: "bell", label: "Notifications", onClick: () => onChannelNotifications(channel.id) },
+    { icon: "settings", label: "Paramètres du canal", onClick: () => onChannelSettings(channel.id) },
+    // A public channel stays readable after leaving it, so the entry flips to rejoining rather than
+    // disappearing: leaving is not a one-way door.
+    channel.member === false
+      ? { icon: "user-plus", label: "Rejoindre le canal", onClick: () => onJoinChannel(channel.id) }
+      : { icon: "log-out", label: "Quitter le canal", danger: true, onClick: () => onLeaveChannel(channel.id) },
   ];
   const dmMenu = (id: string, name: string): SideMenuItem[] => [
     { icon: "check-check", label: "Marquer comme lu", onClick: () => onMarkRead(id) },
@@ -428,7 +435,7 @@ export function Sidebar({
                   notifMuted={notifMutedFor(c.id)}
                   active={view === "channel" && channel === c.id}
                   onClick={() => onChannel(c.id)}
-                  menuItems={channelMenu(c.id, c.name)}
+                  menuItems={channelMenu(c)}
                 >
                   <Icon
                     name={c.type === "private" ? "lock" : "hash"}
@@ -460,7 +467,7 @@ export function Sidebar({
                   notifMuted={notifMutedFor(c.id)}
                   active={view === "channel" && channel === c.id}
                   onClick={() => onChannel(c.id)}
-                  menuItems={channelMenu(c.id, c.name)}
+                  menuItems={channelMenu(c)}
                 >
                   <Icon
                     name={c.type === "archived" ? "archive" : c.type === "private" ? "lock" : "hash"}

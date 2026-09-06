@@ -6,7 +6,9 @@ import {
   addReaction,
   type ApiNotification,
   connectRealtime,
+  createChannel as apiCreateChannel,
   createDm,
+  createSpace,
   deleteMessage,
   editMessage,
   getChannels,
@@ -18,6 +20,8 @@ import {
   getSpaceMembers,
   getSpacePresence,
   getWorkspaces,
+  joinChannel as apiJoinChannel,
+  leaveChannel as apiLeaveChannel,
   type Member,
   login as apiLogin,
   logout as apiLogout,
@@ -41,6 +45,7 @@ import {
   setMyPresence as apiSetMyPresence,
   setReadCursor,
   type SessionUser,
+  updateChannel as apiUpdateChannel,
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { clearAuthLink, readAuthLink } from "@/lib/authLink";
@@ -156,21 +161,6 @@ function applyReactionDelta(map: MessageMap, conv: string, r: RealtimeReaction):
   return { ...map, [conv]: next };
 }
 
-/** Turn a display name or channel name into a URL-safe id, unique against existing ids. */
-function uniqueId(base: string, taken: string[]): string {
-  const slug =
-    base
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "canal";
-  if (!taken.includes(slug)) return slug;
-  let n = 2;
-  while (taken.includes(`${slug}-${n}`)) n += 1;
-  return `${slug}-${n}`;
-}
-
 /**
  * The screen the shell is showing: one of the authentication steps, or the app itself. The flow is
  * login -> (second factor) -> app, with sign-up, password reset and email confirmation branching off
@@ -231,6 +221,8 @@ function AppShell() {
   const [mfaChallenge, setMfaChallenge] = useState<{ methods: MfaMethod[]; mfaToken: string } | null>(null);
   /** Address awaiting confirmation (just registered, or refused at sign-in as unverified). */
   const [pendingEmail, setPendingEmail] = useState("");
+  /** First name of the signed-in user, to greet them through onboarding. */
+  const [signupFirst, setSignupFirst] = useState("");
   /** Token carried by an emailed link, held in memory only (the address bar is cleared on arrival). */
   const [linkToken, setLinkToken] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<VerifyEmailStatus>("sent");
@@ -254,7 +246,7 @@ function AppShell() {
   const [channelPrefs, setChannelPrefs] = useState<Record<string, ChannelNotifPref>>({});
   const [channelNotifId, setChannelNotifId] = useState<string | null>(null);
 
-  const [ws, setWs] = useState("atelier");
+  const [ws, setWs] = useState("");
   const [view, setView] = useState<AppView>("channel");
   // The view to restore when the full-screen preferences are closed (they are opened from menus, not the nav).
   const [prevView, setPrevView] = useState<AppView>("channel");
@@ -262,7 +254,7 @@ function AppShell() {
   const [prefsTab, setPrefsTab] = useState<PrefTab>("appearance");
   // Dev/audit only: a click-only popover the deep-link asked to open on load (set post-mount, see below).
   const [deepLinkPop, setDeepLinkPop] = useState<string | undefined>(undefined);
-  const [channelId, setChannelId] = useState("compta");
+  const [channelId, setChannelId] = useState("");
   // Desktop opens a conversation with its default panel: members for a channel, files for a DM (see
   // openChannel). The landing conversation is a channel, so it starts on members. `compact` is false on
   // the first render (SSR-safe, see useCompact), so this matches the server render; the compact shell
@@ -301,20 +293,24 @@ function AppShell() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   /**
-   * Load the signed-in user's workspace and seed the shell state: the spaces, then the active space's
-   * channels, DMs and per-conversation message feeds (eager-loaded so the cross-conversation views
-   * and the client-derived notifications keep working), and the derived notification inbox.
+   * Seed the shell state for one space: its channels, DMs, members, presence, files and the
+   * per-conversation message feeds (eager-loaded so the cross-conversation views and the derived
+   * notification badges keep working), plus the notification inbox.
+   *
+   * Used both at boot and when the workspace rail switches space, so a switch shows the space it
+   * says it does rather than the previous one's conversations.
    */
-  const loadInitialData = useCallback(async () => {
-    const spaces = await getWorkspaces();
-    setWorkspaces(spaces);
-    const activeWs = spaces[0]?.id ?? "";
+  const loadSpace = useCallback(async (activeWs: string) => {
     setWs(activeWs);
     if (!activeWs) {
       setChannels([]);
       setDms([]);
+      setMembers([]);
+      setPresence({});
+      setSpaceFiles([]);
       setMessages({});
       setNotifs([]);
+      setChannelId("");
       return;
     }
     const [chans, dmList, memberList, presenceMap, feed, folder] = await Promise.all([
@@ -367,7 +363,19 @@ function AppShell() {
     // Land on the first channel of the space (or the first DM if the space has no visible channel).
     if (chans[0]) setChannelId(chans[0].id);
     else if (dmList[0]) setChannelId(dmList[0].id);
+    else setChannelId("");
   }, []);
+
+  /**
+   * Load the signed-in user's spaces and enter the first one. Returns the spaces, so the caller can
+   * tell an account with no space yet (which is sent to onboarding) from one that landed in a space.
+   */
+  const loadInitialData = useCallback(async () => {
+    const spaces = await getWorkspaces();
+    setWorkspaces(spaces);
+    await loadSpace(spaces[0]?.id ?? "");
+    return spaces;
+  }, [loadSpace]);
 
   // Boot: check for an existing session, then load its data. A 401 sends us to the login screen; any
   // other failure is a fatal boot error (the API being unreachable).
@@ -716,15 +724,51 @@ function AppShell() {
     setAuthStage(stage);
   };
 
-  /** Leave the authentication flow: keep the session, load the workspace and enter the app. */
+  /**
+   * Leave the authentication flow: keep the session, load the spaces and enter the app. An account
+   * that belongs to no space yet (a fresh registration) goes to onboarding instead, which creates
+   * its first one: entering an empty shell would be a dead end.
+   */
   const enterApp = async (user: SessionUser) => {
     setSession(user);
     setMfaChallenge(null);
     setBooting(true);
-    await loadInitialData();
-    setAuthStage("app");
+    const spaces = await loadInitialData();
     setBooting(false);
+    if (spaces.length === 0) {
+      setSignupFirst(user.name.split(" ")[0] ?? "");
+      goToStage("onboarding");
+      return;
+    }
+    setAuthStage("app");
     showToast({ tone: "success", title: "Connecté", description: `Bienvenue, ${user.name.split(" ")[0]}.` });
+  };
+
+  /**
+   * Create the account's first space from onboarding, then enter it. The space is born with a
+   * starting channel, so the app opens on a real conversation.
+   */
+  const handleCreateFirstSpace = async (name: string) => {
+    setAuthError(null);
+    setAuthPending(true);
+    try {
+      const space = await createSpace(name);
+      setWorkspaces((prev) => [...prev, space]);
+      setBooting(true);
+      await loadSpace(space.id);
+      setBooting(false);
+      setAuthStage("app");
+      showToast({ tone: "success", title: "Espace créé", description: space.name });
+    } catch (err) {
+      setBooting(false);
+      setAuthError(
+        isApiError(err, 400)
+          ? "Ce nom d'espace n'est pas utilisable. Essayez-en un autre."
+          : "Création impossible. Réessayez.",
+      );
+    } finally {
+      setAuthPending(false);
+    }
   };
 
   /**
@@ -1156,31 +1200,120 @@ function AppShell() {
   };
 
   // Domain mutations wired to the creation dialogs.
-  const createChannel = ({ name, type, topic }: { name: string; type: Channel["type"]; topic: string }) => {
-    const id = uniqueId(name, [...channels.map((c) => c.id), ...dms.map((d) => d.id)]);
-    setChannels((prev) => [...prev, { id, name, fav: false, unread: 0, type, topic }]);
-    setMessages((prev) => ({ ...prev, [id]: [] }));
-    setModal(null);
-    openChannel(id);
-    showToast({ tone: "success", title: "Canal créé", description: `#${name}` });
+  /**
+   * Create a channel in the current space. The server normalises the name into a handle, so the row
+   * added to the sidebar is the one it will keep, which may differ from what was typed.
+   */
+  const createChannel = async ({ name, type, topic }: { name: string; type: Channel["type"]; topic: string }) => {
+    try {
+      const channel = await apiCreateChannel(ws, { name, type, topic });
+      setChannels((prev) => [...prev, channel]);
+      setMessages((prev) => ({ ...prev, [channel.id]: [] }));
+      setModal(null);
+      openChannel(channel.id);
+      showToast({ tone: "success", title: "Canal créé", description: `#${channel.name}` });
+    } catch (err) {
+      showToast({
+        tone: "danger",
+        title: "Canal non créé",
+        description: isApiError(err, 400)
+          ? "Ce nom est déjà pris dans cet espace, ou il n'est pas utilisable."
+          : "Réessayez dans un instant.",
+      });
+    }
   };
 
-  const updateChannel = (id: string, patch: Partial<Channel>) =>
+  /** Save a channel's settings (name, topic, visibility, archived) against the API. */
+  const updateChannel = async (id: string, patch: Partial<Channel>) => {
+    const before = channels.find((c) => c.id === id);
+    // Optimistic: the settings dialog closes on save, so the sidebar must not lag behind it.
     setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-
-  const leaveChannel = (id: string) => {
-    setChannels((prev) => prev.filter((c) => c.id !== id));
-    const fallback = channels.find((c) => c.id !== id)?.id ?? "general";
-    openChannel(fallback);
-    showToast({ tone: "info", title: "Canal quitté" });
+    try {
+      const saved = await apiUpdateChannel(id, { name: patch.name, type: patch.type, topic: patch.topic });
+      setChannels((prev) => prev.map((c) => (c.id === id ? saved : c)));
+    } catch (err) {
+      if (before) setChannels((prev) => prev.map((c) => (c.id === id ? before : c)));
+      showToast({
+        tone: "danger",
+        title: "Modification non enregistrée",
+        description: isApiError(err, 403)
+          ? "Vous n'avez pas les droits sur ce canal."
+          : isApiError(err, 400)
+            ? "Ce nom est déjà pris dans cet espace, ou il n'est pas utilisable."
+            : "Réessayez dans un instant.",
+      });
+    }
   };
 
-  const createWorkspace = (name: string) => {
-    const id = uniqueId(name, workspaces.map((w) => w.id));
-    setWorkspaces((prev) => [...prev, { id, name, members: 1 }]);
-    setWs(id);
-    setModal(null);
-    showToast({ tone: "success", title: "Espace créé", description: name });
+  /**
+   * Leave a channel. Only the caller's membership goes: a public channel stays readable and stays in
+   * the sidebar (with a "join" entry to come back), while a private one disappears with its access.
+   */
+  const leaveChannel = async (id: string) => {
+    const channel = channels.find((c) => c.id === id);
+    const isPrivate = channel?.type === "private";
+    try {
+      await apiLeaveChannel(id);
+    } catch {
+      showToast({ tone: "danger", title: "Impossible de quitter ce canal", description: "Réessayez dans un instant." });
+      return;
+    }
+    if (isPrivate) {
+      setChannels((prev) => prev.filter((c) => c.id !== id));
+      const fallback = channels.find((c) => c.id !== id);
+      if (fallback) openChannel(fallback.id);
+    } else {
+      setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, member: false, unread: 0 } : c)));
+    }
+    showToast({
+      tone: "info",
+      title: "Canal quitté",
+      description: isPrivate ? undefined : "Vous pouvez toujours le lire, sans notifications.",
+    });
+  };
+
+  /** Rejoin a public channel left earlier, so its messages notify again. */
+  const joinChannel = async (id: string) => {
+    try {
+      await apiJoinChannel(id);
+      setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, member: true } : c)));
+      showToast({ tone: "success", title: "Canal rejoint" });
+    } catch {
+      showToast({ tone: "danger", title: "Impossible de rejoindre ce canal", description: "Réessayez dans un instant." });
+    }
+  };
+
+  /** Create a space and switch to it. It is born with a starting channel, so it opens on one. */
+  const createWorkspace = async (name: string) => {
+    try {
+      const space = await createSpace(name);
+      setWorkspaces((prev) => [...prev, space]);
+      setModal(null);
+      setBooting(true);
+      await loadSpace(space.id);
+      setBooting(false);
+      showToast({ tone: "success", title: "Espace créé", description: space.name });
+    } catch (err) {
+      setBooting(false);
+      showToast({
+        tone: "danger",
+        title: "Espace non créé",
+        description: isApiError(err, 400) ? "Ce nom n'est pas utilisable." : "Réessayez dans un instant.",
+      });
+    }
+  };
+
+  /** Switch to another space and load it. */
+  const switchWorkspace = async (id: string) => {
+    if (id === ws) return;
+    setBooting(true);
+    try {
+      await loadSpace(id);
+    } catch {
+      showToast({ tone: "danger", title: "Espace injoignable", description: "Réessayez dans un instant." });
+    } finally {
+      setBooting(false);
+    }
   };
 
   // Global keyboard shortcuts, using the user's (customizable) bindings. Suspended whenever a modal,
@@ -1349,19 +1482,16 @@ function AppShell() {
           />
         ) : null}
         {/*
-          The onboarding flow still creates its space locally: the API has no space-creation endpoint
-          yet, so registration hands over to the email confirmation instead of to onboarding. Only the
-          dev deep-link reaches this stage, which keeps the screen available to the audits.
+          Onboarding is where an account with no space gets its first one: a fresh sign-in lands here
+          instead of on an empty shell. The dev deep-link also reaches this stage for the audits, where
+          the creation call simply fails and reports itself.
         */}
         {authStage === "onboarding" ? (
           <OnboardingFlow
-            onFinish={({ workspaceName }) => {
-              const id = uniqueId(workspaceName, workspaces.map((w) => w.id));
-              setWorkspaces((prev) => [...prev, { id, name: workspaceName, members: 1 }]);
-              setWs(id);
-              setAuthStage("app");
-              showToast({ tone: "success", title: "Espace créé", description: workspaceName });
-            }}
+            firstName={signupFirst || undefined}
+            pending={authPending}
+            error={authError}
+            onFinish={({ workspaceName }) => void handleCreateFirstSpace(workspaceName)}
           />
         ) : null}
       </div>
@@ -1391,8 +1521,8 @@ function AppShell() {
       active={ws}
       currentUser={currentUser}
       onSelect={(id) => {
-        setWs(id);
         setRailOpen(false);
+        void switchWorkspace(id);
       }}
       onNew={() => setModal("newWorkspace")}
       onHelp={() => setModal("help")}
@@ -1440,6 +1570,7 @@ function AppShell() {
         onNewMessage={() => setModal("newMessage")}
         onGlobalSearch={() => setModal("search")}
         onLeaveChannel={leaveChannel}
+        onJoinChannel={joinChannel}
         onChannelSettings={setChannelSettingsId}
         onChannelNotifications={setChannelNotifId}
         onMarkRead={markConversationRead}
@@ -1479,6 +1610,7 @@ function AppShell() {
           onNotify={showToast}
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
           onLeaveChannel={() => leaveChannel(channelId)}
+          onJoinChannel={() => joinChannel(channelId)}
           notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
           onSaveNotifPref={(pref) => saveChannelPref(channelId, pref)}
           members={memberRecords}
@@ -1715,6 +1847,7 @@ function AppShell() {
                 onNewMessage={() => setModal("newMessage")}
                 onGlobalSearch={() => setModal("search")}
                 onLeaveChannel={leaveChannel}
+                onJoinChannel={joinChannel}
                 onChannelSettings={setChannelSettingsId}
                 onChannelNotifications={setChannelNotifId}
                 onMarkRead={markConversationRead}

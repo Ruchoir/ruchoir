@@ -35,10 +35,21 @@ export type ChannelMenuProps = {
   onNotifications: () => void;
   onAddPeople: () => void;
   onLeave: () => void;
+  /** Rejoin a public channel the user had left. */
+  onJoin: () => void;
+  /** Whether the user has joined this channel; a public one is readable either way. */
+  member?: boolean;
 };
 
 /** The channel header three-dots menu. */
-export function ChannelMenu({ onSettings, onNotifications, onAddPeople, onLeave }: ChannelMenuProps) {
+export function ChannelMenu({
+  onSettings,
+  onNotifications,
+  onAddPeople,
+  onLeave,
+  onJoin,
+  member = true,
+}: ChannelMenuProps) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
 
@@ -51,7 +62,10 @@ export function ChannelMenu({ onSettings, onNotifications, onAddPeople, onLeave 
     { icon: "settings", label: "Paramètres du canal", onClick: onSettings },
     { icon: "inbox", label: "Notifications", onClick: onNotifications },
     { icon: "user-plus", label: "Ajouter des personnes", onClick: onAddPeople },
-    { icon: "arrow-left", label: "Quitter le canal", onClick: onLeave, danger: true },
+    // Leaving a public channel is reversible, so the entry flips to rejoining instead of vanishing.
+    member
+      ? { icon: "arrow-left", label: "Quitter le canal", onClick: onLeave, danger: true }
+      : { icon: "user-plus", label: "Rejoindre le canal", onClick: onJoin },
   ];
 
   return (
