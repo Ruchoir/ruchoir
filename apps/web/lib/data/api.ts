@@ -7,12 +7,14 @@
  * the front shape (camel/display fields). The mock seam (`lib/data/index.ts`) is being replaced by
  * these, screen by screen, so the mapping lives in one auditable place.
  *
- * It covers auth and the space bootstrap, member profiles, the message operations, files, search,
+ * It covers auth (sign-in, registration, email verification, password reset and the second-factor
+ * step-up) and the space bootstrap, member profiles, the message operations, files, search,
  * the notification feed and the realtime channel (`connectRealtime`). Message ids are UUID strings;
  * `ApiMessage` is the front `Message` with that string id.
  */
 import type { Presence } from "@/components/ds";
 import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./http";
+import { getPasskeyAssertion, type PasskeyChallenge } from "@/lib/webauthn";
 import type {
   Channel,
   ChannelType,
@@ -117,7 +119,7 @@ export type SessionUser = { id: string; email: string; name: string };
 /** Outcome of a login attempt: authenticated, or challenged for a second factor. */
 export type LoginResult =
   | { kind: "authenticated"; user: SessionUser }
-  | { kind: "mfa"; methods: string[]; mfaToken: string };
+  | { kind: "mfa"; methods: MfaMethod[]; mfaToken: string };
 
 function toSessionUser(dto: UserSummaryDto): SessionUser {
   return { id: dto.id, email: dto.email, name: dto.display_name };
@@ -132,7 +134,9 @@ export async function getSession(signal?: AbortSignal): Promise<SessionUser> {
 export async function login(email: string, password: string): Promise<LoginResult> {
   const body = await apiPost<UserSummaryDto | MfaRequiredDto>("/auth/login", { email, password });
   if ("mfa_required" in body && body.mfa_required) {
-    return { kind: "mfa", methods: body.methods, mfaToken: body.mfa_token };
+    // Drop anything this client cannot complete, so the challenge screen never offers a dead option.
+    const methods = body.methods.filter((m): m is MfaMethod => MFA_METHODS.includes(m as MfaMethod));
+    return { kind: "mfa", methods, mfaToken: body.mfa_token };
   }
   return { kind: "authenticated", user: toSessionUser(body as UserSummaryDto) };
 }
@@ -140,6 +144,87 @@ export async function login(email: string, password: string): Promise<LoginResul
 /** `POST /auth/logout`: end the current session. */
 export async function logout(): Promise<void> {
   await apiPost<void>("/auth/logout");
+}
+
+// --- Registration, email verification and password reset ---
+
+/**
+ * `POST /auth/register`: create an account. No session is opened: the account starts unverified, the
+ * API emails a verification link, and signing in is refused until the address is confirmed.
+ */
+export async function register(email: string, displayName: string, password: string): Promise<SessionUser> {
+  const dto = await apiPost<UserSummaryDto>("/auth/register", {
+    email,
+    display_name: displayName,
+    password,
+  });
+  return toSessionUser(dto);
+}
+
+/**
+ * `POST /auth/verify-email/request`: send (or resend) the verification link. Always resolves, whether
+ * or not the address has an account, so the response never reveals who is registered.
+ */
+export async function requestEmailVerification(email: string): Promise<void> {
+  await apiPost<void>("/auth/verify-email/request", { email });
+}
+
+/** `POST /auth/verify-email/confirm`: activate the account behind an emailed token (single use). */
+export async function confirmEmailVerification(token: string): Promise<void> {
+  await apiPost<void>("/auth/verify-email/confirm", { token });
+}
+
+/** `POST /auth/password-reset/request`: email a reset link. Always resolves (no account enumeration). */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await apiPost<void>("/auth/password-reset/request", { email });
+}
+
+/**
+ * `POST /auth/password-reset/confirm`: set a new password from an emailed token. The server drops
+ * every existing session for that account, so the user signs in again with the new password.
+ */
+export async function confirmPasswordReset(token: string, password: string): Promise<void> {
+  await apiPost<void>("/auth/password-reset/confirm", { token, password });
+}
+
+// --- Second factor at sign-in ---
+
+/**
+ * The second factors an account can complete, as listed by an {@link LoginResult} MFA challenge.
+ * Unknown values are ignored by the screen rather than rendered as an unusable option.
+ */
+export type MfaMethod = "totp" | "passkey" | "recovery";
+
+/** The known {@link MfaMethod} values, in the order the challenge screen prefers them. */
+const MFA_METHODS: MfaMethod[] = ["totp", "passkey", "recovery"];
+
+/** `POST /auth/mfa/totp/verify`: answer the pending challenge with an authenticator code. */
+export async function verifyTotp(mfaToken: string, code: string): Promise<SessionUser> {
+  const dto = await apiPost<UserSummaryDto>("/auth/mfa/totp/verify", { mfa_token: mfaToken, code });
+  return toSessionUser(dto);
+}
+
+/** `POST /auth/mfa/recovery/verify`: answer the pending challenge with a single-use recovery code. */
+export async function verifyRecoveryCode(mfaToken: string, code: string): Promise<SessionUser> {
+  const dto = await apiPost<UserSummaryDto>("/auth/mfa/recovery/verify", { mfa_token: mfaToken, code });
+  return toSessionUser(dto);
+}
+
+/**
+ * Answer the pending challenge with a passkey: fetch the WebAuthn challenge, have the authenticator
+ * sign it, and post the assertion back (`/auth/mfa/passkey/authenticate/{start,finish}`). Resolves to
+ * the signed-in user; the session cookie is set on the finish response like any other sign-in.
+ */
+export async function verifyPasskey(mfaToken: string): Promise<SessionUser> {
+  const challenge = await apiPost<PasskeyChallenge>("/auth/mfa/passkey/authenticate/start", {
+    mfa_token: mfaToken,
+  });
+  const credential = await getPasskeyAssertion(challenge);
+  const dto = await apiPost<UserSummaryDto>("/auth/mfa/passkey/authenticate/finish", {
+    mfa_token: mfaToken,
+    credential,
+  });
+  return toSessionUser(dto);
 }
 
 // --- Space bootstrap (workspaces, channels, DMs, presence, profiles) ---

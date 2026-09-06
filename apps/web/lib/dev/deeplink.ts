@@ -7,6 +7,7 @@
  * query parameters, for example:
  *
  *   /?stage=login
+ *   /?stage=forgot
  *   /?stage=app&view=files
  *   /?stage=app&modal=import
  *   /?stage=app&view=channel&channel=compta&panel=members
@@ -16,7 +17,7 @@
  * validated against fixed allowlists so an unknown parameter is ignored rather than trusted.
  */
 
-const STAGES = ["login", "signup", "onboarding", "app"] as const;
+const STAGES = ["login", "signup", "mfa", "forgot", "reset", "verify", "onboarding", "app"] as const;
 const VIEWS = ["channel", "files", "settings", "prefs", "threads", "mentions", "saved"] as const;
 const PANELS = ["files", "members", "pinned", "search"] as const;
 const MODALS = [

@@ -21,8 +21,17 @@ import {
   type Member,
   login as apiLogin,
   logout as apiLogout,
+  type MfaMethod,
   markAllNotificationsRead,
   markNotificationRead,
+  confirmEmailVerification,
+  confirmPasswordReset,
+  register as apiRegister,
+  requestEmailVerification,
+  requestPasswordReset,
+  verifyPasskey,
+  verifyRecoveryCode,
+  verifyTotp,
   type RealtimeConnection,
   type RealtimeReaction,
   removeReaction,
@@ -33,15 +42,20 @@ import {
   setReadCursor,
   type SessionUser,
 } from "@/lib/data/api";
-import { isApiError } from "@/lib/data/http";
+import { apiErrorCode, isApiError } from "@/lib/data/http";
+import { clearAuthLink, readAuthLink } from "@/lib/authLink";
 import type { Channel, DirectMessage, Message, SpaceFile, Workspace } from "@/lib/data";
 import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
 import { ChannelNotificationsDialog, ChannelSettingsDialog } from "@/features/channel/ChannelDialogs";
 import { LoginScreen } from "@/features/auth/LoginScreen";
-import { SignupScreen } from "@/features/auth/SignupScreen";
+import { SignupScreen, type SignupValues } from "@/features/auth/SignupScreen";
 import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
+import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
+import { MfaChallengeScreen } from "@/features/auth/MfaChallengeScreen";
+import { ResetPasswordScreen } from "@/features/auth/ResetPasswordScreen";
+import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/VerifyEmailScreen";
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
 import { ImportDialog } from "@/features/import/ImportDialog";
@@ -158,9 +172,40 @@ function uniqueId(base: string, taken: string[]): string {
 }
 
 /**
- * Client root of the app shell. Holds the simulated navigation and mutable domain state for the
- * UI exploration. No network, no persistence: reloading resets everything. All seed data is read
- * through the data seam (@/lib/data), then lifted into state so the UI can mutate it.
+ * The screen the shell is showing: one of the authentication steps, or the app itself. The flow is
+ * login -> (second factor) -> app, with sign-up, password reset and email confirmation branching off
+ * it; the emailed links land straight on `verify` and `reset`.
+ */
+type AuthStage = "login" | "signup" | "mfa" | "forgot" | "reset" | "verify" | "onboarding" | "app";
+
+/**
+ * French copy for each authentication failure the API can report. The API answers with a
+ * machine-readable code (`{ "error": "email_taken", … }`) plus an English message meant for
+ * operators; the client owns what the user reads.
+ */
+const AUTH_MESSAGES: Record<string, string> = {
+  invalid_credentials: "Adresse ou mot de passe incorrect.",
+  unauthorized: "Votre session a expiré. Connectez-vous à nouveau.",
+  email_taken: "Un compte existe déjà avec cette adresse.",
+  weak_password: "Ce mot de passe est trop court : 12 caractères au minimum.",
+  breached_password: "Ce mot de passe apparaît dans une fuite de données connue. Choisissez-en un autre.",
+  account_locked: "Ce compte est verrouillé. Contactez votre administrateur.",
+  too_many_attempts: "Trop de tentatives. Réessayez dans quelques minutes.",
+  email_not_verified: "Confirmez votre adresse électronique avant de vous connecter.",
+  invalid_token: "Ce lien est invalide ou a expiré.",
+  invalid_code: "Code incorrect. Vérifiez-le et réessayez.",
+};
+
+/** The message to show for a failed auth request: the mapped code, else the caller's fallback. */
+function authMessage(err: unknown, fallback: string): string {
+  const code = apiErrorCode(err);
+  return (code && AUTH_MESSAGES[code]) || fallback;
+}
+
+/**
+ * Client root of the app shell. Holds the authentication stage, the navigation state and the domain
+ * state loaded from the API: it boots against `GET /auth/session`, drives the whole authentication
+ * flow, then keeps the space's channels, DMs, feeds and realtime updates in state for the screens.
  */
 function AppShell() {
   const settings = useSettings();
@@ -174,11 +219,22 @@ function AppShell() {
   // fatal load failure (the API being unreachable), distinct from a 401 which sends us to the login.
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState<string | null>(null);
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [loginPending, setLoginPending] = useState(false);
+  // Shared by every screen of the authentication flow: the message under the form, and whether a
+  // request is in flight. They are reset on each stage change so an error never leaks across screens.
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authPending, setAuthPending] = useState(false);
+  /** True once a link (verification or reset) has been sent from the current screen. */
+  const [authSent, setAuthSent] = useState(false);
 
-  const [authStage, setAuthStage] = useState<"login" | "signup" | "onboarding" | "app">("app");
-  const [signupFirst, setSignupFirst] = useState("");
+  const [authStage, setAuthStage] = useState<AuthStage>("app");
+  /** The pending second-factor challenge returned by sign-in, until it is completed or abandoned. */
+  const [mfaChallenge, setMfaChallenge] = useState<{ methods: MfaMethod[]; mfaToken: string } | null>(null);
+  /** Address awaiting confirmation (just registered, or refused at sign-in as unverified). */
+  const [pendingEmail, setPendingEmail] = useState("");
+  /** Token carried by an emailed link, held in memory only (the address bar is cleared on arrival). */
+  const [linkToken, setLinkToken] = useState("");
+  const [verifyStatus, setVerifyStatus] = useState<VerifyEmailStatus>("sent");
+  const [resetDone, setResetDone] = useState(false);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [dms, setDms] = useState<DirectMessage[]>([]);
@@ -326,6 +382,35 @@ function AppShell() {
       return;
     }
     void (async () => {
+      // An emailed link (verification or password reset) takes precedence over the session check:
+      // it addresses an account that is, by definition, not signed in here.
+      const link = readAuthLink();
+      if (link) {
+        clearAuthLink();
+        if (!active) return;
+        setBooting(false);
+        setLinkToken(link.token);
+        if (link.kind === "reset-password") {
+          setAuthStage("reset");
+          if (!link.token) setAuthError("Ce lien de réinitialisation est incomplet. Demandez-en un nouveau.");
+          return;
+        }
+        setAuthStage("verify");
+        if (!link.token) {
+          setVerifyStatus("error");
+          return;
+        }
+        setVerifyStatus("verifying");
+        try {
+          await confirmEmailVerification(link.token);
+          if (active) setVerifyStatus("done");
+        } catch (err) {
+          if (!active) return;
+          setVerifyStatus("error");
+          setAuthError(authMessage(err, "La confirmation a échoué. Réessayez plus tard."));
+        }
+        return;
+      }
       try {
         const user = await getSession();
         if (!active) return;
@@ -623,26 +708,155 @@ function AppShell() {
     toastTimer.current = setTimeout(() => setToastVisible(false), 4000);
   };
 
-  /** Sign in against the API, then load the workspace. MFA-gated accounts are reported, not handled. */
+  /** Move to an authentication screen with a clean slate (no stale error, notice or pending flag). */
+  const goToStage = (stage: AuthStage) => {
+    setAuthError(null);
+    setAuthSent(false);
+    setAuthPending(false);
+    setAuthStage(stage);
+  };
+
+  /** Leave the authentication flow: keep the session, load the workspace and enter the app. */
+  const enterApp = async (user: SessionUser) => {
+    setSession(user);
+    setMfaChallenge(null);
+    setBooting(true);
+    await loadInitialData();
+    setAuthStage("app");
+    setBooting(false);
+    showToast({ tone: "success", title: "Connecté", description: `Bienvenue, ${user.name.split(" ")[0]}.` });
+  };
+
+  /**
+   * Sign in against the API. An account with a second factor answers with a challenge instead of a
+   * session: hold it and hand over to the step-up screen. An unconfirmed address is refused with its
+   * own code, so the login can offer to send the verification link again.
+   */
   const handleLogin = async (email: string, password: string) => {
-    setLoginError(null);
-    setLoginPending(true);
+    setAuthError(null);
+    setAuthPending(true);
     try {
       const result = await apiLogin(email, password);
       if (result.kind === "mfa") {
-        setLoginError("Ce compte requiert un second facteur, pas encore pris en charge par cet écran.");
+        setMfaChallenge({ methods: result.methods, mfaToken: result.mfaToken });
+        goToStage("mfa");
         return;
       }
-      setSession(result.user);
-      setBooting(true);
-      await loadInitialData();
-      setAuthStage("app");
-      setBooting(false);
-      showToast({ tone: "success", title: "Connecté", description: `Bienvenue, ${result.user.name.split(" ")[0]}.` });
+      await enterApp(result.user);
     } catch (err) {
-      setLoginError(isApiError(err, 401) ? "Adresse ou mot de passe incorrect." : "Connexion impossible. Réessayez.");
+      if (apiErrorCode(err) === "email_not_verified") setPendingEmail(email);
+      setAuthError(authMessage(err, "Connexion impossible. Réessayez."));
     } finally {
-      setLoginPending(false);
+      setAuthPending(false);
+    }
+  };
+
+  /**
+   * Create an account. Registration opens no session: the API emails a confirmation link and refuses
+   * sign-in until the address is confirmed, so this lands on the "check your inbox" screen.
+   */
+  const handleSignup = async ({ email, displayName, password }: SignupValues) => {
+    setAuthError(null);
+    setAuthPending(true);
+    try {
+      await apiRegister(email, displayName, password);
+      setPendingEmail(email);
+      setVerifyStatus("sent");
+      goToStage("verify");
+    } catch (err) {
+      setAuthError(authMessage(err, "Création impossible. Réessayez."));
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
+  /** Ask for a fresh confirmation link. The API answers the same way for an unknown address. */
+  const handleResendVerification = async (email: string) => {
+    setAuthPending(true);
+    try {
+      await requestEmailVerification(email);
+      setPendingEmail(email);
+      setAuthSent(true);
+      setAuthError(null);
+    } catch {
+      setAuthError("Envoi impossible. Réessayez plus tard.");
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
+  /** Request a password-reset link. The confirmation stays neutral: the API reveals nothing. */
+  const handlePasswordResetRequest = async (email: string) => {
+    setAuthPending(true);
+    try {
+      await requestPasswordReset(email);
+      setAuthSent(true);
+      setAuthError(null);
+    } catch {
+      setAuthError("Envoi impossible. Réessayez plus tard.");
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
+  /** Set the new password behind the emailed token. The server drops every session of that account. */
+  const handlePasswordReset = async (password: string) => {
+    if (!linkToken) {
+      setAuthError("Ce lien de réinitialisation est incomplet. Demandez-en un nouveau.");
+      return;
+    }
+    setAuthError(null);
+    setAuthPending(true);
+    try {
+      await confirmPasswordReset(linkToken, password);
+      setLinkToken("");
+      setResetDone(true);
+    } catch (err) {
+      setAuthError(authMessage(err, "Réinitialisation impossible. Réessayez."));
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
+  /** Complete the pending second factor with a typed code (authenticator or recovery). */
+  const handleMfaCode = async (method: "totp" | "recovery", code: string) => {
+    if (!mfaChallenge) return;
+    setAuthError(null);
+    setAuthPending(true);
+    try {
+      const verify = method === "totp" ? verifyTotp : verifyRecoveryCode;
+      await enterApp(await verify(mfaChallenge.mfaToken, code));
+    } catch (err) {
+      // An expired or already-spent challenge cannot be retried: start the sign-in over.
+      if (apiErrorCode(err) === "invalid_token") {
+        setMfaChallenge(null);
+        goToStage("login");
+        setAuthError("Cette demande de connexion a expiré. Recommencez.");
+        return;
+      }
+      setAuthError(authMessage(err, "Vérification impossible. Réessayez."));
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
+  /** Complete the pending second factor with a passkey (WebAuthn ceremony, then the assertion). */
+  const handleMfaPasskey = async () => {
+    if (!mfaChallenge) return;
+    setAuthError(null);
+    setAuthPending(true);
+    try {
+      await enterApp(await verifyPasskey(mfaChallenge.mfaToken));
+    } catch (err) {
+      // The user dismissing the browser prompt is a cancellation, not a failure.
+      const cancelled = err instanceof DOMException && err.name === "NotAllowedError";
+      setAuthError(
+        cancelled
+          ? "Authentification par clé d'accès annulée."
+          : authMessage(err, "Cette clé d'accès n'a pas pu être utilisée. Essayez une autre méthode."),
+      );
+    } finally {
+      setAuthPending(false);
     }
   };
 
@@ -659,7 +873,8 @@ function AppShell() {
     setDms([]);
     setMessages({});
     setNotifs([]);
-    setAuthStage("login");
+    setMfaChallenge(null);
+    goToStage("login");
   };
 
   // First-run getting-started checklist, persisted in settings.welcome.
@@ -1061,24 +1276,85 @@ function AppShell() {
         {authStage === "login" ? (
           <LoginScreen
             onSubmit={handleLogin}
-            onCreateAccount={() => setAuthStage("signup")}
+            onCreateAccount={() => goToStage("signup")}
+            onForgotPassword={() => goToStage("forgot")}
             onSso={() => showToast({ tone: "info", title: "Le SSO n'est pas encore disponible" })}
-            error={loginError}
-            pending={loginPending}
+            onResendVerification={
+              // Offered only when the sign-in was refused for an unconfirmed address.
+              pendingEmail
+                ? (email) => {
+                    void handleResendVerification(email || pendingEmail);
+                    setVerifyStatus("sent");
+                    goToStage("verify");
+                  }
+                : undefined
+            }
+            error={authError}
+            pending={authPending}
           />
         ) : null}
         {authStage === "signup" ? (
           <SignupScreen
-            onSubmit={(first) => {
-              setSignupFirst(first);
-              setAuthStage("onboarding");
-            }}
-            onBackToLogin={() => setAuthStage("login")}
+            onSubmit={(values) => void handleSignup(values)}
+            onBackToLogin={() => goToStage("login")}
+            error={authError}
+            pending={authPending}
           />
         ) : null}
+        {authStage === "mfa" ? (
+          <MfaChallengeScreen
+            // Reached with a challenge from a real sign-in; the dev deep-link lands here without one,
+            // which renders the default (authenticator) card with its submit handlers inert.
+            methods={mfaChallenge?.methods ?? []}
+            onSubmitCode={(method, code) => void handleMfaCode(method, code)}
+            onPasskey={() => void handleMfaPasskey()}
+            onCancel={() => {
+              setMfaChallenge(null);
+              goToStage("login");
+            }}
+            error={authError}
+            pending={authPending}
+          />
+        ) : null}
+        {authStage === "forgot" ? (
+          <ForgotPasswordScreen
+            onSubmit={(email) => void handlePasswordResetRequest(email)}
+            onBackToLogin={() => goToStage("login")}
+            sent={authSent}
+            error={authError}
+            pending={authPending}
+          />
+        ) : null}
+        {authStage === "reset" ? (
+          <ResetPasswordScreen
+            onSubmit={(password) => void handlePasswordReset(password)}
+            onBackToLogin={() => {
+              setResetDone(false);
+              goToStage("login");
+            }}
+            done={resetDone}
+            error={authError}
+            pending={authPending}
+          />
+        ) : null}
+        {authStage === "verify" ? (
+          <VerifyEmailScreen
+            status={verifyStatus}
+            email={pendingEmail || undefined}
+            onResend={(email) => void handleResendVerification(email)}
+            onBackToLogin={() => goToStage("login")}
+            error={authError}
+            pending={authPending}
+            resent={authSent}
+          />
+        ) : null}
+        {/*
+          The onboarding flow still creates its space locally: the API has no space-creation endpoint
+          yet, so registration hands over to the email confirmation instead of to onboarding. Only the
+          dev deep-link reaches this stage, which keeps the screen available to the audits.
+        */}
         {authStage === "onboarding" ? (
           <OnboardingFlow
-            firstName={signupFirst}
             onFinish={({ workspaceName }) => {
               const id = uniqueId(workspaceName, workspaces.map((w) => w.id));
               setWorkspaces((prev) => [...prev, { id, name: workspaceName, members: 1 }]);
