@@ -106,6 +106,9 @@ pub struct ChannelDto {
     pub imported: Option<String>,
     /// Per-user sidebar favourite.
     pub favorite: bool,
+    /// Whether the caller has joined this channel. A public channel is readable either way, but only
+    /// members are pushed to in real time, so the client offers "join" or "leave" accordingly.
+    pub member: bool,
     /// Count of unread messages for the caller (derived from the read cursor).
     pub unread: i64,
 }
@@ -263,6 +266,37 @@ pub struct ReadRequest {
 pub struct CreateDmRequest {
     /// The other participant(s); the caller is added implicitly.
     pub user_ids: Vec<Uuid>,
+}
+
+/// A new space to create. The caller becomes its owner.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct CreateSpaceRequest {
+    /// Display name. The URL slug is derived from it and made unique.
+    pub name: String,
+}
+
+/// A new channel to create in a space.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct CreateChannelRequest {
+    /// Display name; normalised to the lowercase, dash-separated form channels use.
+    pub name: String,
+    /// `public` or `private`. A channel cannot be created already archived.
+    #[serde(rename = "type")]
+    pub channel_type: String,
+    #[serde(default)]
+    pub topic: Option<String>,
+}
+
+/// Fields to change on a channel. An absent field is left untouched; an empty `topic` clears it.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct UpdateChannelRequest {
+    #[serde(default)]
+    pub name: Option<String>,
+    /// `public`, `private` or `archived`. Moving to `archived` makes the channel read-only.
+    #[serde(default, rename = "type")]
+    pub channel_type: Option<String>,
+    #[serde(default)]
+    pub topic: Option<String>,
 }
 
 /// A reference to a just-created or fetched conversation.

@@ -29,8 +29,14 @@ context and takes precedence here.
   HMAC-hashed recovery codes) with a login step-up flow, error type, and the `/api/v1/auth` routes.
 - `src/messaging/` - the REST surface over the collaboration schema: `authz` (the conversation
   membership choke point plus audience computation), `error` (`ApiError`), `dto` (response/request
-  shapes, kept close to the web data seam), `mentions` (`@`-parsing + resolution), and the handlers
-  `messages`/`reactions`/`read`/`pins`/`saved`/`conversations`/`search`/`notifications`. `search` is
+  shapes, kept close to the web data seam), `mentions` (`@`-parsing + resolution), `slug` (the one
+  definition of a channel-name / space-slug handle: lowercase, diacritics folded, dashes), and the
+  handlers `messages`/`reactions`/`read`/`pins`/`saved`/`conversations`/`channels`/`spaces`/`search`/
+  `notifications`. `spaces` and `channels` carry the lifecycle: creating a space (the caller becomes
+  its owner and it is born with one public channel, so it is never an empty shell), creating a
+  channel, updating one (rename, topic, visibility, and archiving, which is a state that makes it
+  read-only rather than a deletion), and joining or leaving one. A public channel is joinable by any
+  space member; a private one is joined by invitation only, so the join endpoint refuses it. `search` is
   native-Postgres full-text over messages and file names (a generated `tsvector` with a French
   accent-folding config, plus `pg_trgm` trigram indexes for partial/fuzzy matches), scoped by
   membership. `notifications` is a persisted per-user inbox (mentions, DMs, thread replies) written

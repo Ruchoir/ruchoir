@@ -24,7 +24,7 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, DatabaseConnection};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait};
 use serde_json::{json, Value};
 use time::OffsetDateTime;
 use tokio::net::TcpStream;
@@ -544,4 +544,242 @@ async fn create_dm_is_idempotent_by_participants() {
         .await
         .expect("json");
     assert_eq!(first["id"], second["id"], "the same DM is reused");
+}
+
+#[tokio::test]
+async fn creating_a_space_starts_it_with_an_owner_and_a_channel() {
+    let Some(app) = boot().await else { return };
+    let founder = make_user(&app.db, "founder").await;
+    let cookie = app.cookie_for(founder).await;
+
+    let created = app
+        .req(reqwest::Method::POST, "/api/v1/spaces", &cookie)
+        .json(&json!({ "name": "Atelier Néon" }))
+        .send()
+        .await
+        .expect("create space");
+    assert_eq!(created.status(), 201);
+    let space: Value = created.json().await.expect("json");
+    assert_eq!(space["name"], "Atelier Néon");
+    // The slug is the folded handle, so an accented name still yields a URL-safe one.
+    assert_eq!(space["slug"], "atelier-neon");
+    assert_eq!(space["role"], "owner");
+    assert_eq!(space["members"], 1);
+
+    // The founder can reach it straight away, and it is not an empty shell.
+    let spaces: Value = app
+        .req(reqwest::Method::GET, "/api/v1/me/spaces", &cookie)
+        .send()
+        .await
+        .expect("list spaces")
+        .json()
+        .await
+        .expect("json");
+    assert!(spaces
+        .as_array()
+        .expect("array")
+        .iter()
+        .any(|s| s["id"] == space["id"]));
+
+    let channels: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", space["id"].as_str().unwrap()),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("list channels")
+        .json()
+        .await
+        .expect("json");
+    let channels = channels.as_array().expect("array");
+    assert_eq!(channels.len(), 1);
+    assert_eq!(channels[0]["name"], "general");
+}
+
+#[tokio::test]
+async fn a_channel_name_is_normalised_and_unique_within_its_space() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let path = format!("/api/v1/spaces/{}/channels", fx.space_id);
+
+    let created = app
+        .req(reqwest::Method::POST, &path, &alice)
+        .json(&json!({ "name": "Comptabilité 2027", "type": "public" }))
+        .send()
+        .await
+        .expect("create channel");
+    assert_eq!(created.status(), 201);
+    let channel: Value = created.json().await.expect("json");
+    assert_eq!(channel["name"], "comptabilite-2027");
+
+    // The same name in any spelling collides: the handle is what identifies a channel.
+    for name in [
+        "Comptabilité 2027",
+        "comptabilite-2027",
+        "COMPTABILITE 2027",
+    ] {
+        let again = app
+            .req(reqwest::Method::POST, &path, &alice)
+            .json(&json!({ "name": name, "type": "private" }))
+            .send()
+            .await
+            .expect("create duplicate");
+        assert_eq!(again.status(), 400, "duplicate name {name} is refused");
+    }
+
+    // A channel cannot be created already archived.
+    let archived = app
+        .req(reqwest::Method::POST, &path, &alice)
+        .json(&json!({ "name": "vieux-dossiers", "type": "archived" }))
+        .send()
+        .await
+        .expect("create archived");
+    assert_eq!(archived.status(), 400);
+}
+
+#[tokio::test]
+async fn archiving_a_channel_makes_it_read_only() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+
+    // Alice owns the channel she creates, so she may moderate it.
+    let channel: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": "chantier", "type": "public" }))
+        .send()
+        .await
+        .expect("create channel")
+        .json()
+        .await
+        .expect("json");
+    let channel_id = channel["id"].as_str().expect("id").to_owned();
+
+    let posted = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .json(&json!({ "body": "avant archivage" }))
+        .send()
+        .await
+        .expect("send");
+    assert_eq!(posted.status(), 201);
+
+    let archived = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{channel_id}"),
+            &alice,
+        )
+        .json(&json!({ "type": "archived" }))
+        .send()
+        .await
+        .expect("archive");
+    assert_eq!(archived.status(), 200);
+    let archived: Value = archived.json().await.expect("json");
+    assert_eq!(archived["type"], "archived");
+
+    let refused = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .json(&json!({ "body": "après archivage" }))
+        .send()
+        .await
+        .expect("send to archived");
+    assert_eq!(
+        refused.status(),
+        403,
+        "an archived channel takes no message"
+    );
+
+    // The history stays readable: archiving is not a deletion.
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(page["messages"].as_array().expect("array").len(), 1);
+}
+
+#[tokio::test]
+async fn joining_and_leaving_only_touches_the_callers_membership() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let membership = format!("/api/v1/channels/{}/membership", fx.public_channel);
+
+    // Carol is in the space but not in the channel: joining a public one needs no invitation.
+    let joined = app
+        .req(reqwest::Method::PUT, &membership, &carol)
+        .send()
+        .await
+        .expect("join");
+    assert_eq!(joined.status(), 204);
+    assert!(
+        channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
+            .one(&app.db)
+            .await
+            .expect("query")
+            .is_some()
+    );
+    // Joining twice is not an error.
+    let again = app
+        .req(reqwest::Method::PUT, &membership, &carol)
+        .send()
+        .await
+        .expect("join again");
+    assert_eq!(again.status(), 204);
+
+    let left = app
+        .req(reqwest::Method::DELETE, &membership, &carol)
+        .send()
+        .await
+        .expect("leave");
+    assert_eq!(left.status(), 204);
+    assert!(
+        channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
+            .one(&app.db)
+            .await
+            .expect("query")
+            .is_none()
+    );
+    // Bob, who was already a member, is untouched.
+    assert!(
+        channel_members::Entity::find_by_id((fx.public_channel, fx.bob))
+            .one(&app.db)
+            .await
+            .expect("query")
+            .is_some()
+    );
+
+    // A private channel is joined by invitation, so this endpoint refuses it.
+    let private = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/channels/{}/membership", fx.private_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("join private");
+    assert_eq!(private.status(), 403);
 }
