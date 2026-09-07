@@ -622,16 +622,21 @@ function AppShell() {
    * request per message.
    */
   const countersTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const reloadSpaceCounters = () =>
-    getWorkspaces()
-      .then(setWorkspaces)
-      .catch(() => {
-        // A failed refresh leaves the previous counters: stale beats blank.
-      });
-  const refreshSpaceCounters = () => {
+  // Both are stable by construction (a ref and a state setter), so they can be dependencies of the
+  // realtime effect without tearing its socket down on every render.
+  const reloadSpaceCounters = useCallback(
+    () =>
+      getWorkspaces()
+        .then(setWorkspaces)
+        .catch(() => {
+          // A failed refresh leaves the previous counters: stale beats blank.
+        }),
+    [],
+  );
+  const refreshSpaceCounters = useCallback(() => {
     clearTimeout(countersTimer.current);
     countersTimer.current = setTimeout(() => void reloadSpaceCounters(), 1500);
-  };
+  }, [reloadSpaceCounters]);
   useEffect(() => {
     liveRef.current = { channels, dms, channelId, view, myId: session?.id, ws };
   });
@@ -789,7 +794,7 @@ function AppShell() {
       conn.close();
       rtRef.current = null;
     };
-  }, [session]);
+  }, [session, refreshSpaceCounters]);
 
   // Expire typing signals a few seconds after the last keystroke, so the indicator does not stick.
   useEffect(() => {
@@ -1624,18 +1629,6 @@ function AppShell() {
         if (view === "channel") markConversationRead(channelId);
       },
       help: () => setModal("help"),
-      // Positional space switching, one command per rail position so each can be rebound like any
-      // other. `Alt` and not `Mod` by default: browsers reserve Ctrl/Cmd + a digit for their own tab
-      // switching, and a page cannot intercept it.
-      ...Object.fromEntries(
-        Array.from({ length: 9 }, (_, i) => [
-          `space${i + 1}`,
-          () => {
-            const target = workspaces[i];
-            if (target) void switchWorkspace(target.id);
-          },
-        ]),
-      ),
     },
     shortcutsEnabled,
   );
