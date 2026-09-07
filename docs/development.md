@@ -72,6 +72,26 @@ export RUCHOIR_TLS_KEY="$PWD/certs/dev-key.pem"
 cargo run -p ruchoir-api --features tls
 ```
 
+## First run of a new instance
+
+A fresh installation has no account, and the dev seed refuses to run outside development because it
+fabricates demo data. `bootstrap` creates the first administrator, and refuses once any account
+exists, so it cannot be used to add a second one later:
+
+```bash
+RUCHOIR_ADMIN_EMAIL=admin@example.fr \
+RUCHOIR_ADMIN_NAME="Camille Roussel" \
+RUCHOIR_ADMIN_SPACE="Atelier Nantes" \
+  cargo run -p ruchoir-api -- bootstrap < /path/to/password-file
+```
+
+The password comes from standard input, so it stays out of the environment and out of shell history;
+`RUCHOIR_ADMIN_PASSWORD` is accepted instead when a script needs it. It goes through the same policy
+the sign-up endpoint enforces, so the first account is not the weakest one on the instance.
+`RUCHOIR_ADMIN_SPACE` is optional: without it the account creates its own space on first sign-in.
+
+Everyone else joins through an invitation from inside the app; there is no second bootstrap.
+
 ## Quality gates
 
 ```bash
@@ -101,29 +121,27 @@ satisfies the strict CSP by construction. The raw `/api/openapi.json` also works
 The API reaches Garage over the S3 protocol with an access key/secret pair. Unlike the
 database and RPC secrets (which services adopt straight from `.env`), **S3 keys must be
 created inside Garage**: a key is only valid if Garage knows it. A fresh single-node Garage
-also needs a cluster layout and a bucket before it can store anything. Run this once, after
-`docker compose up`:
+also needs a cluster layout and a bucket before it can store anything.
+
+One command does all of it, after `docker compose up`:
 
 ```bash
-# Load the S3 vars from your .env.
-set -a && . ./.env && set +a
-
-# 1. Assign and apply a single-node cluster layout (grab the node id from `status`).
-NODE_ID=$(docker compose exec -T garage /garage status | awk 'NR==3{print $1}')
-docker compose exec -T garage /garage layout assign -z dc1 -c 1G "$NODE_ID"
-docker compose exec -T garage /garage layout apply --version 1
-
-# 2. Adopt the key pair from your .env (or use `garage key create <name>` to mint a new one).
-docker compose exec -T garage /garage key import --yes "$S3_ACCESS_KEY_ID" "$S3_SECRET_ACCESS_KEY"
-
-# 3. Create the bucket and grant the key access to it.
-docker compose exec -T garage /garage bucket create "$S3_BUCKET"
-docker compose exec -T garage /garage bucket allow --read --write --owner "$S3_BUCKET" --key "$S3_ACCESS_KEY_ID"
+scripts/bootstrap-garage.sh
 ```
 
-Garage's CLI flags can change between versions; if a command is rejected, check
-`docker compose exec garage /garage <subcommand> --help`. Object storage is only exercised
-from the file-storage work on, so this setup is optional until then.
+It reads the key pair and bucket name from `.env`, so what Garage is told about is by construction
+what the API will present. Every step checks the state it wants first, so re-running it is safe and
+does nothing on an instance that is already set up.
+
+It runs on the host rather than as a service in the stack because the Garage image ships no shell,
+so the sequence cannot execute inside it; `docker compose exec` is how the CLI is reached. Garage's
+CLI flags can change between versions, so if a step is rejected, check
+`docker compose exec garage /garage <subcommand> --help` and fix the script rather than working
+around it by hand.
+
+The API tells you whether this was done: it probes the store once at startup and logs `object store
+ready`, or a warning naming this script. Until then file metadata and the folder tree work and the
+byte endpoints answer `503`, so an instance without object storage is usable, just without files.
 
 `S3_ENDPOINT` is the same trap: `http://garage:3900` is a hostname that exists only on the compose
 network, and on the host it fails with a retry then a `502` on every upload. The example file

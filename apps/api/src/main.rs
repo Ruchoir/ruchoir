@@ -6,6 +6,7 @@
 //! real-time transport and richer business logic build on this foundation in later stages.
 
 mod auth;
+mod bootstrap;
 mod cache;
 mod config;
 mod db;
@@ -81,6 +82,15 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // `ruchoir-api bootstrap` creates the first administrator of a fresh instance and exits.
+    // Migrations first, so a brand-new database goes from empty to usable in two commands.
+    if subcommand.as_deref() == Some("bootstrap") {
+        tracing::info!("applying migrations before bootstrapping");
+        Migrator::up(&db, None).await?;
+        bootstrap::run(&db, &config).await?;
+        return Ok(());
+    }
+
     // In development the API applies pending migrations on boot for convenience. Production sets
     // RUCHOIR_AUTO_MIGRATE=false and runs the `migrate` subcommand explicitly before deploying.
     if config.auto_migrate {
@@ -144,7 +154,20 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let storage = if config.s3_enabled() {
         match storage::S3Store::from_config(&config) {
             Ok(store) => {
-                tracing::info!(endpoint = %config.s3_endpoint, bucket = %config.s3_bucket, "object store configured");
+                // Reachability is checked here, once, rather than discovered on someone's first
+                // upload as a 502. A configured store that is not set up is the most likely state of
+                // a fresh install, and the remedy is one command, so the log names it.
+                match store.probe().await {
+                    Ok(()) => tracing::info!(
+                        endpoint = %config.s3_endpoint, bucket = %config.s3_bucket,
+                        "object store ready"
+                    ),
+                    Err(err) => tracing::warn!(
+                        error = %err, endpoint = %config.s3_endpoint, bucket = %config.s3_bucket,
+                        "object store configured but not reachable; file uploads will fail. \
+                         If this is a fresh install, run scripts/bootstrap-garage.sh"
+                    ),
+                }
                 Some(Arc::new(store))
             }
             Err(err) => {
