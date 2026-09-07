@@ -43,6 +43,16 @@ mode every time. Instead:
   when the API source changed. Image rebuilds are cached (BuildKit cache mounts), so after the
   first one only changed code recompiles.
 
+> **`.env` describes your machine, not the container.** The API loads it on `cargo run`, while
+> `docker-compose.yml` sets the container's own `RUCHOIR_API_PORT`, `RUCHOIR_API_HOST` and
+> `RUCHOIR_WEB_DIST` in the service definition and ignores the file's values for them. Putting a
+> container path such as `/srv/ruchoir/web` in `RUCHOIR_WEB_DIST` therefore breaks only the host
+> run, and it fails quietly: the API starts, serves no bundle, and every page is a 404. Same trap
+> with `RUCHOIR_API_PORT=0`, which binds a random free port; that is deliberate when 8080 is taken
+> (the chosen port is printed at startup) but surprising if you forgot it was set. Real environment
+> variables win over the file, so `RUCHOIR_API_PORT=8080 cargo run -p ruchoir-api` overrides it for
+> one run.
+
 ## Full stack with Docker
 
 ```bash
