@@ -13,6 +13,18 @@ export type Workspace = {
   members: number;
   /** The caller's own role in the space: `owner`, `admin`, `member` or `guest`. Gates administration. */
   role: string;
+  /** URL handle, used to address the space in the path or as a subdomain. */
+  slug: string;
+  /**
+   * Unread messages in the conversations the caller has joined here. Drives the rail's discreet
+   * activity dot, never a number: one busy channel would make every space show a meaningless figure.
+   */
+  unread: number;
+  /**
+   * Unread notifications here (mentions, thread replies, direct messages): what was addressed to the
+   * caller personally, and the only counter shown as a number.
+   */
+  mentions: number;
 };
 
 /**

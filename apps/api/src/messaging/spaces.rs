@@ -128,6 +128,10 @@ pub async fn create_space(
             slug,
             role: "owner".to_owned(),
             members: 1,
+            // A space one second old, holding one empty channel: both counters are zero by
+            // construction, not by omission.
+            unread: 0,
+            mentions: 0,
         }),
     ))
 }

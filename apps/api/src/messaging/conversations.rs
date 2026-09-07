@@ -12,8 +12,8 @@ use axum::http::StatusCode;
 use axum::Json;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
-    TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait,
+    PaginatorTrait, QueryFilter, Statement, TransactionTrait,
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -50,6 +50,12 @@ pub async fn list_my_spaces(
         .all(&state.db)
         .await?;
 
+    // Both counters come from one grouped statement each, not from the per-conversation helper: the
+    // sidebar can afford two queries per conversation for the one space on screen, the rail cannot
+    // afford them for every conversation of every space on every boot.
+    let unread_by_space = unread_messages_by_space(&state.db, session.user_id).await?;
+    let mentions_by_space = unread_notifications_by_space(&state.db, session.user_id).await?;
+
     let mut out = Vec::with_capacity(memberships.len());
     for membership in memberships {
         // A membership row can outlive its space only through a bug; skip rather than fail the list.
@@ -69,10 +75,83 @@ pub async fn list_my_spaces(
             slug: space.slug,
             role: membership.role,
             members,
+            unread: unread_by_space.get(&space.id).copied().unwrap_or(0),
+            mentions: mentions_by_space.get(&space.id).copied().unwrap_or(0),
         });
     }
     out.sort_by_key(|space| space.name.to_lowercase());
     Ok(Json(out))
+}
+
+/// Unread root messages per space, for the conversations the caller has actually joined.
+///
+/// Mirrors [`unread_count`] exactly (root messages only, tombstones excluded, everything after the
+/// timestamp of the caller's last-read message) but for every space at once. Written as SQL because
+/// the whole point is to replace N per-conversation round trips with one grouped scan; the shape is
+/// small enough to read, and every value is bound rather than interpolated.
+async fn unread_messages_by_space(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+) -> Result<HashMap<Uuid, i64>, ApiError> {
+    // A conversation counts only if the caller joined it: a public channel they can read but have
+    // not joined is not "theirs", and is not pushed to them either.
+    let sql = "SELECT c.space_id AS space_id, COUNT(m.id) AS unread \
+                 FROM messages m \
+                 JOIN conversations c ON c.id = m.conversation_id \
+                 LEFT JOIN read_cursors rc \
+                   ON rc.conversation_id = m.conversation_id AND rc.user_id = $1 \
+                 LEFT JOIN messages lm ON lm.id = rc.last_read_message_id \
+                WHERE m.parent_message_id IS NULL \
+                  AND m.deleted_at IS NULL \
+                  AND m.kind <> 'system' \
+                  AND (lm.created_at IS NULL OR m.created_at > lm.created_at) \
+                  AND ( \
+                    m.conversation_id IN (SELECT channel_id FROM channel_members WHERE user_id = $1) \
+                    OR m.conversation_id IN (SELECT dm_id FROM dm_participants WHERE user_id = $1) \
+                  ) \
+                GROUP BY c.space_id";
+    count_by_space(db, sql, user_id, "unread").await
+}
+
+/// Unread notifications per space: the caller's inbox (mention, thread reply, direct message),
+/// grouped through the conversation each one points at.
+///
+/// Deliberately the same rows the notification centre shows, so the rail's number can never drift
+/// from what opening the inbox will reveal.
+async fn unread_notifications_by_space(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+) -> Result<HashMap<Uuid, i64>, ApiError> {
+    let sql = "SELECT c.space_id AS space_id, COUNT(n.id) AS unread \
+                 FROM notifications n \
+                 JOIN conversations c ON c.id = n.conversation_id \
+                WHERE n.user_id = $1 AND n.read_at IS NULL \
+                GROUP BY c.space_id";
+    count_by_space(db, sql, user_id, "unread").await
+}
+
+/// Run a `space_id`/count statement bound to one user and collect it into a map.
+async fn count_by_space(
+    db: &DatabaseConnection,
+    sql: &str,
+    user_id: Uuid,
+    column: &str,
+) -> Result<HashMap<Uuid, i64>, ApiError> {
+    let rows = db
+        .query_all_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            sql,
+            [user_id.into()],
+        ))
+        .await?;
+    rows.iter()
+        .map(|row| {
+            Ok((
+                row.try_get::<Uuid>("", "space_id")?,
+                row.try_get::<i64>("", column)?,
+            ))
+        })
+        .collect()
 }
 
 /// `GET /api/v1/spaces/{space_id}/channels`: channels the caller can see, with unread counts.
@@ -332,7 +411,11 @@ pub(super) async fn unread_count(
     let mut query = messages::Entity::find()
         .filter(messages::Column::ConversationId.eq(conversation_id))
         .filter(messages::Column::ParentMessageId.is_null())
-        .filter(messages::Column::DeletedAt.is_null());
+        .filter(messages::Column::DeletedAt.is_null())
+        // System notices are not something anyone is behind on. It matters now that they are written
+        // at runtime: without this, every arrival in a space would bump the unread badge of every
+        // member of the channel it was announced in.
+        .filter(messages::Column::Kind.ne("system"));
     if let Some(ts) = last_ts {
         query = query.filter(messages::Column::CreatedAt.gt(ts));
     }

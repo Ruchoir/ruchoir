@@ -92,6 +92,14 @@ pub struct SpaceDto {
     pub role: String,
     /// Total members in the space (drives the workspace member count in the UI).
     pub members: i64,
+    /// Unread root messages across the conversations the caller has joined in this space.
+    ///
+    /// Drives the rail's discreet activity dot, deliberately not a number: one busy channel would
+    /// turn every space into a large figure that stops carrying information.
+    pub unread: i64,
+    /// Unread notifications in this space (mention, thread reply, direct message): the things
+    /// addressed to the caller personally, and the only counter the rail shows as a number.
+    pub mentions: i64,
 }
 
 /// A channel in a space's sidebar list.

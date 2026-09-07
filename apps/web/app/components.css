@@ -243,6 +243,12 @@
   background: var(--grey-200);
   color: var(--text-body);
 }
+.wc-badge--strong {
+  /* High-contrast neutral. `neutral` sits two steps from the sand surfaces and disappears on the
+     workspace rail; this one stays legible without spending the terracotta accent on it. */
+  background: var(--grey-900);
+  color: var(--grey-0);
+}
 .wc-badge--success {
   background: var(--green-500);
   color: var(--grey-0);

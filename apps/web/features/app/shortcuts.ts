@@ -46,6 +46,11 @@ export const COMMANDS: CommandDef[] = [
   { id: "help", label: "Aide et raccourcis", hint: "Ouvrir le centre d'aide", defaultChord: "?" },
 ];
 
+// No positional "switch to space N" command. Every modifier plus a digit is taken by some browser
+// for its own tabs (Alt under Firefox on Linux, Ctrl under Chrome), and on an AZERTY keyboard the
+// digit row needs Shift anyway, so the label would not match the key. Switching space goes through
+// the rail or the quick switcher, which lists spaces.
+
 export const DEFAULT_BINDINGS: Bindings = Object.fromEntries(
   COMMANDS.map((c) => [c.id, c.defaultChord]),
 ) as Bindings;

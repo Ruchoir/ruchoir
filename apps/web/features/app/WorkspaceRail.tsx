@@ -1,5 +1,5 @@
 import { type CSSProperties, useRef, useState } from "react";
-import { Avatar, IconButton, Tooltip } from "@/components/ds";
+import { Avatar, Badge, IconButton, Tooltip } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Workspace } from "@/lib/data";
 import { UserMenu } from "./UserMenu";
@@ -14,6 +14,33 @@ const rail: CSSProperties = {
   alignItems: "center",
   padding: "8px 0",
   gap: 6,
+};
+
+/** Wrapper that lets the unread indicator sit on the tile's corner. */
+const wsSlot: CSSProperties = { position: "relative", display: "block" };
+
+/** Numbered badge (mentions), pinned to the tile's top-right. */
+const wsIndicator: CSSProperties = {
+  position: "absolute",
+  top: -2,
+  right: -2,
+  pointerEvents: "none",
+};
+
+/**
+ * The activity dot: same corner, but ringed in the rail's own colour so it reads as a mark on the
+ * tile rather than part of the artwork underneath. The ring lives here and not in the badge tone
+ * because only the surface knows its own background.
+ */
+const wsDot: CSSProperties = {
+  position: "absolute",
+  top: -1,
+  right: -1,
+  display: "inline-flex",
+  lineHeight: 0,
+  borderRadius: "var(--radius-full)",
+  boxShadow: "0 0 0 2px var(--grey-100)",
+  pointerEvents: "none",
 };
 
 function wsButton(on: boolean): CSSProperties {
@@ -68,13 +95,38 @@ export function WorkspaceRail({
 
   return (
     <div style={rail}>
-      {workspaces.map((w) => (
-        <Tooltip key={w.id} label={w.name} side="right">
-          <button style={wsButton(w.id === active)} onClick={() => onSelect(w.id)}>
-            <Avatar name={w.name} kind="workspace" size={36} />
-          </button>
-        </Tooltip>
-      ))}
+      {workspaces.map((w) => {
+        // Nothing on the space being read: its per-channel badges are already in the sidebar, and a
+        // counter fetched at boot would go stale the moment its owner starts reading.
+        const background = w.id !== active;
+        const mentions = background ? w.mentions : 0;
+        const activity = background && mentions === 0 && w.unread > 0;
+        const label =
+          mentions > 0
+            ? `${w.name}, ${mentions} notification${mentions > 1 ? "s" : ""}`
+            : activity
+              ? `${w.name}, activité non lue`
+              : w.name;
+        return (
+          <Tooltip key={w.id} label={label} side="right">
+            <span style={wsSlot}>
+              <button style={wsButton(w.id === active)} onClick={() => onSelect(w.id)} aria-label={label}>
+                <Avatar name={w.name} kind="workspace" size={36} />
+              </button>
+              {mentions > 0 ? (
+                <span style={wsIndicator}>
+                  <Badge count={mentions} tone="accent" />
+                </span>
+              ) : null}
+              {activity ? (
+                <span style={wsDot}>
+                  <Badge dot tone="strong" />
+                </span>
+              ) : null}
+            </span>
+          </Tooltip>
+        );
+      })}
       <Tooltip label="Nouvel espace" side="right">
         <IconButton icon="plus" label="Nouvel espace" onClick={onNew} />
       </Tooltip>

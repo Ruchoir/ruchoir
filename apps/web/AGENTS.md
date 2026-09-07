@@ -289,6 +289,35 @@ usage with the design-system oxlint config.
   grouped in `features/app/dialogs.tsx`; channel-menu dialogs in `features/channel/ChannelDialogs.tsx`;
   workspace-wide search in `features/app/GlobalSearchDialog.tsx`. A conversation is a direct message
   when its id matches a DM (ChannelScreen takes an optional `dm` prop and adapts its header/intro).
+- **Addresses.** `lib/spaceUrl.ts` is the only routing the app has: it reads the open space and
+  channel out of the location and writes them back with `replaceState`, never `pushState`, so a
+  conversation can be bookmarked and shared without the shell pretending to be a router. The space is
+  carried by whichever of the host and the path has it (`/e/atelier/c/general` today, and
+  `atelier.ruchoir.fr/c/general` once spaces get subdomains); both forms are read forever and the same
+  rule governs writing, so the client will switch on its own with no flag. A host label counts as a
+  space only when it matches a slug the account belongs to, which is why no list of reserved
+  subdomains is needed and why resolution runs after `/me/spaces` has loaded.
+- **No shortcut is ever bound to a digit.** Every modifier plus a digit is some browser's own tab
+  switching (Alt under Firefox on Linux, Ctrl under Chrome), and on AZERTY the digit row needs Shift,
+  so `e.key` is `&` where the label says `1`. The chord registry is built on `e.key`, so a digit
+  binding is wrong twice over.
+- **`loadSpace` loads a space in three waves, not one batch.** Blocking: channels, DMs, members and
+  presence (members are needed to render any message row). Blocking and small: the messages of the
+  conversation being opened, after which the space is usable. Background: the other conversations'
+  messages, the notification inbox and the space files, none of which is on screen yet. Each wave
+  re-checks `loadingSpaceRef` before writing state, so a switch started mid-flight is never
+  overwritten by the slower one it interrupted. Do not move a request back into the first wave
+  without asking what on the first screen cannot be drawn without it.
+- **`booting` unmounts the entire app** for the full-screen boot card, so it is for the first load
+  only. A space switch raises `switchingSpace` instead, which fades the sidebar and content and keeps
+  the rail live; routing it through `booting` blanked the window on every switch.
+- **The workspace rail carries two counters per space**, not one: a number only for `mentions` (the
+  notification inbox) and a discreet ringed dot for `unread` activity. A single "unread messages"
+  figure is noise, and the open space shows nothing at all because its per-channel badges are already
+  in the sidebar. Events for a conversation the client has not loaded cannot be attributed to a space,
+  so they trigger a debounced re-read of `/me/spaces` rather than widening the realtime payload. The
+  counters are also re-read when leaving a space, because the space you are in shows no indicator, so
+  anything you read in it never reached the rail on its own.
 - **DS primitives now include** `Checkbox`, `Radio`, `Switch`, `Select`, `Field` and `Dialog`, ported
   from the handoff into typed React with their CSS appended to `app/components.css` (the handoff
   injected it at runtime; we do not). `Dialog` is the shared modal base (scrim + head + body + footer,

@@ -20,8 +20,12 @@ context and takes precedence here.
   attachments, pins, saved, read cursors), and `files`/`file_versions`/`file_shares`. Relations are
   added when query code needs them.
 - `src/seed.rs`   - the `seed` subcommand: populates a realistic dev workspace (6 fixture accounts +
-  an import bot, a space, channels, messages/threads/reactions, a file with a version and a share,
-  DMs). Dev-guarded (`RUCHOIR_ENV=dev` or `--force`) and idempotent at the workspace level.
+  an import bot, **two** spaces, channels, messages/threads/reactions, a file with a version and a
+  share, DMs, and unread mention notifications). Dev-guarded (`RUCHOIR_ENV=dev` or `--force`).
+  **Idempotent per space, not per workspace**: each space is guarded by its own slug, so a space
+  added to `seed.rs` later lands in a database that was seeded before it existed instead of being
+  skipped. The second space is owned by someone other than the demo account and left unread on
+  purpose: it is the one the workspace rail has something to show for.
 - `src/auth/`     - the auth core: password hashing (argon2id) + policy with an offline breach
   check, opaque Valkey sessions, the `__Host-` session cookie, the `AuthSession` extractor
   (authorization guard), per-account anti-bruteforce throttle, SMTP mailer + single-use email
@@ -32,7 +36,11 @@ context and takes precedence here.
   shapes, kept close to the web data seam), `mentions` (`@`-parsing + resolution), `slug` (the one
   definition of a channel-name / space-slug handle: lowercase, diacritics folded, dashes), and the
   handlers `messages`/`reactions`/`read`/`pins`/`saved`/`conversations`/`channels`/`spaces`/`search`/
-  `notifications`. `invitations` is how anyone but a space's creator gets in: an invitation is a durable, listable and
+  `notifications`. `conversations` also carries the per-space counters behind `GET /me/spaces` (`unread`, from the
+  conversations the caller has joined, and `mentions`, from their unread notification inbox): both are
+  one grouped SQL statement each, deliberately not the per-conversation `unread_count` helper, which
+  is fine for the one space on screen and quadratic for every space on every boot.
+  `invitations` is how anyone but a space's creator gets in: an invitation is a durable, listable and
   revocable row (unlike the fire-and-forget Valkey tokens of the auth core) holding only the SHA-256
   digest of its token, addressed to one email or open as a shareable link, and accepting one joins the
   space plus its oldest public channel so the arrival is live at once, publishes `member.joined`

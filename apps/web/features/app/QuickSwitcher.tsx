@@ -2,7 +2,7 @@
 
 import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } from "react";
 import { Avatar, Badge, Dialog, EmptyState, Icon } from "@/components/ds";
-import type { Channel, DirectMessage } from "@/lib/data";
+import type { Channel, DirectMessage, Workspace } from "@/lib/data";
 
 const styles: Record<string, CSSProperties> = {
   search: {
@@ -37,20 +37,39 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "left",
   },
   name: { flex: 1, minWidth: 0, fontSize: 13, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  kind: { fontSize: 11, color: "var(--text-subtle)" },
   foot: { display: "flex", gap: 14, padding: "8px 2px 0", fontSize: 11, color: "var(--text-subtle)" },
 };
 
-type Entry = { id: string; name: string; kind: "channel" | "dm"; unread: number; channel?: Channel; dm?: DirectMessage };
+type Entry = {
+  id: string;
+  name: string;
+  kind: "channel" | "dm" | "space";
+  unread: number;
+  channel?: Channel;
+  dm?: DirectMessage;
+};
 
 export type QuickSwitcherProps = {
   channels: Channel[];
   dms: DirectMessage[];
+  /** The other spaces the caller belongs to; the open one is not offered as a destination. */
+  spaces: Workspace[];
   onOpen: (id: string) => void;
+  /** Switch to another space. Separate from `onOpen`, which addresses a conversation. */
+  onOpenSpace: (id: string) => void;
   onClose: () => void;
 };
 
-/** Jump straight to a channel or direct message, filtered by name and driven from the keyboard. */
-export function QuickSwitcher({ channels, dms, onOpen, onClose }: QuickSwitcherProps) {
+/**
+ * Jump straight to a channel, a direct message or another space, filtered by name and driven from
+ * the keyboard.
+ *
+ * Spaces belong here because switching between them is the same intent as switching conversation,
+ * and reaching them only through the rail means a mouse. They are listed last with no query, so the
+ * common case (a conversation in the space you are already in) stays first.
+ */
+export function QuickSwitcher({ channels, dms, spaces, onOpen, onOpenSpace, onClose }: QuickSwitcherProps) {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -59,8 +78,11 @@ export function QuickSwitcher({ channels, dms, onOpen, onClose }: QuickSwitcherP
     () => [
       ...channels.map((c) => ({ id: c.id, name: c.name, kind: "channel" as const, unread: c.unread, channel: c })),
       ...dms.map((d) => ({ id: d.id, name: d.name, kind: "dm" as const, unread: d.unread, dm: d })),
+      // A space's counter is its mention count: the same number the rail shows, so the two never
+      // disagree about what is waiting there.
+      ...spaces.map((w) => ({ id: w.id, name: w.name, kind: "space" as const, unread: w.mentions })),
     ],
-    [channels, dms],
+    [channels, dms, spaces],
   );
 
   const q = query.trim().toLowerCase();
@@ -80,7 +102,9 @@ export function QuickSwitcher({ channels, dms, onOpen, onClose }: QuickSwitcherP
 
   const choose = (i: number) => {
     const entry = results[i];
-    if (entry) onOpen(entry.id);
+    if (!entry) return;
+    if (entry.kind === "space") onOpenSpace(entry.id);
+    else onOpen(entry.id);
   };
 
   const onKeyDown = (e: ReactKeyboardEvent) => {
@@ -113,7 +137,7 @@ export function QuickSwitcher({ channels, dms, onOpen, onClose }: QuickSwitcherP
           }}
           onKeyDown={onKeyDown}
           aria-label="Filtrer les conversations"
-          placeholder="Nom d'un canal ou d'une personne…"
+          placeholder="Nom d'un canal, d'une personne ou d'un espace…"
           style={styles.input}
         />
       </div>
@@ -138,10 +162,15 @@ export function QuickSwitcher({ channels, dms, onOpen, onClose }: QuickSwitcherP
               >
                 {e.kind === "channel" ? (
                   <Icon name="hash" size={18} style={{ color: "var(--text-muted)", flex: "none" }} />
+                ) : e.kind === "space" ? (
+                  <Avatar name={e.name} kind="workspace" size={22} />
                 ) : (
                   <Avatar name={e.name} size={22} presence={e.dm?.presence} />
                 )}
-                <span style={styles.name}>{e.name}</span>
+                <span style={styles.name}>
+                  {e.name}
+                  {e.kind === "space" ? <span style={styles.kind}> espace</span> : null}
+                </span>
                 {e.unread > 0 ? <Badge count={e.unread} /> : null}
               </button>
             );
