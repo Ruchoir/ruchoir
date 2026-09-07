@@ -41,7 +41,15 @@ type UserSummaryDto = { id: string; email: string; display_name: string };
 /** Alternative login outcome when a second factor is required (same 200 status as a success). */
 type MfaRequiredDto = { mfa_required: true; methods: string[]; mfa_token: string };
 
-type SpaceDto = { id: string; name: string; slug: string; role: string; members: number };
+type SpaceDto = {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+  members: number;
+  unread: number;
+  mentions: number;
+};
 
 type ChannelDto = {
   id: string;
@@ -234,7 +242,15 @@ export async function verifyPasskey(mfaToken: string): Promise<SessionUser> {
 // --- Space bootstrap (workspaces, channels, DMs, presence, profiles) ---
 
 function toWorkspace(dto: SpaceDto): Workspace {
-  return { id: dto.id, name: dto.name, members: dto.members, role: dto.role };
+  return {
+    id: dto.id,
+    name: dto.name,
+    members: dto.members,
+    role: dto.role,
+    slug: dto.slug,
+    unread: dto.unread ?? 0,
+    mentions: dto.mentions ?? 0,
+  };
 }
 
 /** `GET /me/spaces`: the workspaces the caller belongs to. The SPA's entry point. */

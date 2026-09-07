@@ -447,6 +447,10 @@ pub async fn accept_invitation(
         slug: space.slug,
         role,
         members,
+        // Not computed here: entering a space always reloads `/me/spaces` straight after, which
+        // carries the real figures. Counting them twice for one response would be waste.
+        unread: 0,
+        mentions: 0,
     }))
 }
 

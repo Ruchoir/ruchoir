@@ -54,6 +54,7 @@ import {
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
+import { readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
 import type { Channel, DirectMessage, Invitation, InvitationPreview, Message, SpaceFile, Workspace } from "@/lib/data";
 import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
 import type { Presence } from "@/components/ds";
@@ -214,6 +215,14 @@ function AppShell() {
   // Boot lifecycle: `booting` covers the initial session check and data load; `bootError` holds a
   // fatal load failure (the API being unreachable), distinct from a 401 which sends us to the login.
   const [booting, setBooting] = useState(true);
+  /**
+   * A space switch in flight.
+   *
+   * Kept apart from `booting`, which unmounts the entire app for the full-screen boot card: routing
+   * a switch through it blanked the window on every click of the rail. This one keeps the shell
+   * mounted and only fades what is being replaced.
+   */
+  const [switchingSpace, setSwitchingSpace] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   // Shared by every screen of the authentication flow: the message under the form, and whether a
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
@@ -308,16 +317,32 @@ function AppShell() {
   const [railOpen, setRailOpen] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  /** The space whose load is currently authoritative; see `loadSpace`. */
+  const loadingSpaceRef = useRef("");
+
   /**
-   * Seed the shell state for one space: its channels, DMs, members, presence, files and the
-   * per-conversation message feeds (eager-loaded so the cross-conversation views and the derived
-   * notification badges keep working), plus the notification inbox.
+   * Seed the shell state for one space, in three waves rather than one batch.
+   *
+   * 1. **Blocking:** channels, DMs, members and presence. Everything the space cannot be drawn
+   *    without, members included, since every message row resolves its author and mentions there.
+   * 2. **Blocking, small:** the messages of the one conversation being opened. The space is usable
+   *    from this point, which is where the caller's loading state lifts.
+   * 3. **Background:** the other conversations' messages, the notification inbox and the space
+   *    files. None of it is on screen yet, and the files in particular are not shown until the file
+   *    panel or screen is opened.
+   *
+   * Batching all of it made the whole space wait on the slowest request among six, plus one per
+   * conversation, before drawing anything. Each wave checks `loadingSpaceRef` before writing state,
+   * so a second switch started mid-flight is never overwritten by the slower one it interrupted.
    *
    * Used both at boot and when the workspace rail switches space, so a switch shows the space it
    * says it does rather than the previous one's conversations.
    */
-  const loadSpace = useCallback(async (activeWs: string) => {
+  const loadSpace = useCallback(async (activeWs: string, preferChannelName?: string) => {
     setWs(activeWs);
+    // Which space the in-flight waves belong to. A switch started while another is loading must not
+    // have the slower one's results land on top of it.
+    loadingSpaceRef.current = activeWs;
     if (!activeWs) {
       setChannels([]);
       setDms([]);
@@ -329,57 +354,90 @@ function AppShell() {
       setChannelId("");
       return;
     }
-    const [chans, dmList, memberList, presenceMap, feed, folder] = await Promise.all([
+    // Nothing from the previous space may survive into this one.
+    setMessages({});
+    setNotifs([]);
+    setSpaceFiles([]);
+
+    // First wave: what the space cannot be rendered without. Members are in it because every message
+    // row resolves its author, its avatar and its mentions against them; the space files are not,
+    // because nothing displays them until the files panel or the files screen is opened. Putting
+    // them in the same batch made the whole space wait on a request nobody was looking at.
+    const [chans, dmList, memberList, presenceMap] = await Promise.all([
       getChannels(activeWs),
       getDirectMessages(activeWs),
       getSpaceMembers(activeWs).catch(() => [] as Member[]),
       getSpacePresence(activeWs).catch(() => ({}) as Record<string, Presence>),
-      getNotifications().catch(() => ({ notifications: [], unreadCount: 0, nextBefore: undefined })),
-      getFolder(activeWs).catch(() => ({ folderId: undefined, breadcrumb: [], entries: [] as SpaceFile[] })),
     ]);
+    // A second switch started while this one was in flight: its results own the screen now.
+    if (loadingSpaceRef.current !== activeWs) return;
     setChannels(chans);
     setMembers(memberList);
     setPresence(presenceMap);
-    setSpaceFiles(folder.entries);
     // Overlay each 1:1 DM's counterpart presence onto its sidebar row.
     setDms(dmList.map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
-    const convIds = [...chans.map((c) => c.id), ...dmList.map((d) => d.id)];
-    const pages = await Promise.all(
-      convIds.map((id) => getChannelMessages(id).catch(() => ({ messages: [], nextBefore: undefined }))),
-    );
-    const map: MessageMap = {};
-    convIds.forEach((id, i) => {
-      map[id] = pages[i].messages;
-    });
-    setMessages(map);
-    const labelOf = (id: string): { label: string; isDm: boolean } => {
-      const c = chans.find((x) => x.id === id);
-      if (c) return { label: `#${c.name}`, isDm: false };
-      const d = dmList.find((x) => x.id === id);
-      if (d) return { label: d.name, isDm: true };
-      return { label: id, isDm: false };
-    };
-    setNotifs(
-      feed.notifications.map((n) => {
-        const { label, isDm } = labelOf(n.conversationId);
-        return {
-          id: n.id,
-          kind: n.kind as NotifKind,
-          channelId: n.conversationId,
-          label,
-          isDm,
-          actor: n.actor,
-          messageId: n.messageId,
-          preview: n.preview,
-          time: n.time,
-          read: n.read,
-        };
-      }),
-    );
-    // Land on the first channel of the space (or the first DM if the space has no visible channel).
-    if (chans[0]) setChannelId(chans[0].id);
-    else if (dmList[0]) setChannelId(dmList[0].id);
-    else setChannelId("");
+
+    // Land on the channel the address named, else the first of the space (or its first DM). A named
+    // channel that no longer exists falls through to the default rather than failing: a link shared
+    // before a rename should still open the right space.
+    const preferred = preferChannelName ? chans.find((c) => c.name === preferChannelName) : undefined;
+    const opening = preferred?.id ?? chans[0]?.id ?? dmList[0]?.id ?? "";
+    setChannelId(opening);
+
+    // Second wave: only the conversation actually being opened. The space is usable from here, so
+    // this is where the caller's loading state can lift.
+    if (opening) {
+      const page = await getChannelMessages(opening).catch(() => ({ messages: [], nextBefore: undefined }));
+      if (loadingSpaceRef.current !== activeWs) return;
+      setMessages((prev) => ({ ...prev, [opening]: page.messages }));
+    }
+
+    // Third wave, behind the screen: everything the first view does not need. The other
+    // conversations are still fetched in full because the Threads, Mentions and Saved views derive
+    // from the whole message map; they simply no longer hold the space hostage while they load.
+    void (async () => {
+      const rest = [...chans.map((c) => c.id), ...dmList.map((d) => d.id)].filter((id) => id !== opening);
+      const [pages, feed, folder] = await Promise.all([
+        Promise.all(
+          rest.map((id) => getChannelMessages(id).catch(() => ({ messages: [], nextBefore: undefined }))),
+        ),
+        getNotifications().catch(() => ({ notifications: [], unreadCount: 0, nextBefore: undefined })),
+        getFolder(activeWs).catch(() => ({ folderId: undefined, breadcrumb: [], entries: [] as SpaceFile[] })),
+      ]);
+      if (loadingSpaceRef.current !== activeWs) return;
+      setMessages((prev) => {
+        const next = { ...prev };
+        rest.forEach((id, i) => {
+          next[id] = pages[i].messages;
+        });
+        return next;
+      });
+      setSpaceFiles(folder.entries);
+      const labelOf = (id: string): { label: string; isDm: boolean } => {
+        const c = chans.find((x) => x.id === id);
+        if (c) return { label: `#${c.name}`, isDm: false };
+        const d = dmList.find((x) => x.id === id);
+        if (d) return { label: d.name, isDm: true };
+        return { label: id, isDm: false };
+      };
+      setNotifs(
+        feed.notifications.map((n) => {
+          const { label, isDm } = labelOf(n.conversationId);
+          return {
+            id: n.id,
+            kind: n.kind as NotifKind,
+            channelId: n.conversationId,
+            label,
+            isDm,
+            actor: n.actor,
+            messageId: n.messageId,
+            preview: n.preview,
+            time: n.time,
+            read: n.read,
+          };
+        }),
+      );
+    })();
   }, []);
 
   /**
@@ -389,7 +447,12 @@ function AppShell() {
   const loadInitialData = useCallback(async () => {
     const spaces = await getWorkspaces();
     setWorkspaces(spaces);
-    await loadSpace(spaces[0]?.id ?? "");
+    // Resolution needs the account's slugs, which is why it happens here and not at the very top of
+    // the boot: until the spaces are known, the client cannot tell a space subdomain from a plain
+    // hostname. An address naming a space the caller is not in simply falls back to the first.
+    const target = readSpaceLocation(spaces.map((s) => s.slug));
+    const wanted = target ? spaces.find((s) => s.slug === target.spaceSlug) : undefined;
+    await loadSpace((wanted ?? spaces[0])?.id ?? "", wanted ? target?.channelName : undefined);
     return spaces;
   }, [loadSpace]);
 
@@ -548,6 +611,27 @@ function AppShell() {
    * the effect's dependencies would tear the WebSocket down and rebuild it on each one.
    */
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
+
+  /**
+   * Refresh the per-space counters after an event the client cannot attribute.
+   *
+   * The transport is user-scoped, so events arrive for every space the account belongs to, but an
+   * envelope names a conversation and not a space: one belonging to a space that is not loaded
+   * cannot be counted locally. Rather than widen a shared payload, re-read `/me/spaces`, which is one
+   * small request. Debounced, because a burst in a busy background space would otherwise fire one
+   * request per message.
+   */
+  const countersTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const refreshSpaceCounters = () => {
+    clearTimeout(countersTimer.current);
+    countersTimer.current = setTimeout(() => {
+      void getWorkspaces()
+        .then(setWorkspaces)
+        .catch(() => {
+          // A failed refresh leaves the previous counters: stale beats blank.
+        });
+    }, 1500);
+  };
   useEffect(() => {
     liveRef.current = { channels, dms, channelId, view, myId: session?.id, ws };
   });
@@ -578,6 +662,12 @@ function AppShell() {
         if (conv !== active) {
           setChannels((prev) => prev.map((c) => (c.id === conv ? { ...c, unread: c.unread + 1 } : c)));
           setDms((prev) => prev.map((d) => (d.id === conv ? { ...d, unread: d.unread + 1 } : d)));
+        }
+        // A conversation we hold nothing about belongs to a space that is not loaded: the rail's
+        // counters are the only place it can show, and only the server can attribute it.
+        const known = liveRef.current;
+        if (!known.channels.some((c) => c.id === conv) && !known.dms.some((d) => d.id === conv)) {
+          refreshSpaceCounters();
         }
       },
       onMessageUpdated: (conv, m) => setMessages((prev) => replaceMessage(prev, conv, m)),
@@ -663,6 +753,9 @@ function AppShell() {
         const channel = chs.find((x) => x.id === n.conversationId);
         const dm = dmList.find((x) => x.id === n.conversationId);
         const label = channel ? `#${channel.name}` : dm ? dm.name : n.conversationId;
+        // Addressed to us in a space we have not loaded: it belongs to that space's rail badge, and
+        // only the server can say which space that is.
+        if (!channel && !dm) refreshSpaceCounters();
         // If the recipient is already looking at that conversation, the notification is redundant:
         // file it as already read (both locally and on the server) and do not bump the unread badge.
         const viewing = n.conversationId === activeConv && activeView === "channel";
@@ -1479,12 +1572,12 @@ function AppShell() {
       const space = await createSpace(name);
       setWorkspaces((prev) => [...prev, space]);
       setModal(null);
-      setBooting(true);
+      setSwitchingSpace(true);
       await loadSpace(space.id);
-      setBooting(false);
+      setSwitchingSpace(false);
       showToast({ tone: "success", title: "Espace créé", description: space.name });
     } catch (err) {
-      setBooting(false);
+      setSwitchingSpace(false);
       showToast({
         tone: "danger",
         title: "Espace non créé",
@@ -1496,13 +1589,13 @@ function AppShell() {
   /** Switch to another space and load it. */
   const switchWorkspace = async (id: string) => {
     if (id === ws) return;
-    setBooting(true);
+    setSwitchingSpace(true);
     try {
       await loadSpace(id);
     } catch {
       showToast({ tone: "danger", title: "Espace injoignable", description: "Réessayez dans un instant." });
     } finally {
-      setBooting(false);
+      setSwitchingSpace(false);
     }
   };
 
@@ -1527,9 +1620,36 @@ function AppShell() {
         if (view === "channel") markConversationRead(channelId);
       },
       help: () => setModal("help"),
+      // Positional space switching, one command per rail position so each can be rebound like any
+      // other. `Alt` and not `Mod` by default: browsers reserve Ctrl/Cmd + a digit for their own tab
+      // switching, and a page cannot intercept it.
+      ...Object.fromEntries(
+        Array.from({ length: 9 }, (_, i) => [
+          `space${i + 1}`,
+          () => {
+            const target = workspaces[i];
+            if (target) void switchWorkspace(target.id);
+          },
+        ]),
+      ),
     },
     shortcutsEnabled,
   );
+
+  // Keep the address naming the open space and channel, so a conversation can be bookmarked, shared
+  // and reopened where it was left. `writeSpaceLocation` replaces rather than pushes: the app gains
+  // an address without pretending to have a history it does not implement.
+  useEffect(() => {
+    if (authStage !== "app" || !ws) return;
+    const space = workspaces.find((w) => w.id === ws);
+    if (!space) return;
+    const channel = channels.find((c) => c.id === channelId);
+    writeSpaceLocation(
+      space.slug,
+      channel?.name,
+      workspaces.map((w) => w.slug),
+    );
+  }, [authStage, ws, channelId, channels, workspaces]);
 
   if (booting) {
     return (
@@ -1793,6 +1913,16 @@ function AppShell() {
       />
   );
 
+  /**
+   * What a space switch fades: everything but the rail, which stays live so another space is one
+   * click away even mid-switch. A fade rather than a blank screen, and rather than a spinner that
+   * would move the layout twice.
+   */
+  const switchingStyle: CSSProperties = {
+    opacity: switchingSpace ? 0.5 : 1,
+    transition: "opacity var(--duration-fast) var(--ease-out)",
+  };
+
   const content = (
     // The main landmark: screen-reader users jump here to skip the rail and channel list. Exactly one
     // view renders at a time, so there is always exactly one main. Flex container so the view fills it
@@ -1917,10 +2047,15 @@ function AppShell() {
         <QuickSwitcher
           channels={channels}
           dms={dms}
+          spaces={workspaces.filter((w) => w.id !== ws)}
           onClose={() => setModal(null)}
           onOpen={(id) => {
             setModal(null);
             openChannel(id);
+          }}
+          onOpenSpace={(id) => {
+            setModal(null);
+            void switchWorkspace(id);
           }}
         />
       ) : null}
@@ -2031,7 +2166,10 @@ function AppShell() {
             onSearch={() => setModal("search")}
             onCompose={() => setModal("newMessage")}
           />
-          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div
+            style={{ ...switchingStyle, flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
+            aria-busy={switchingSpace || undefined}
+          >
             {mobileContent ? (
               content
             ) : (
@@ -2107,8 +2245,13 @@ function AppShell() {
   return (
     <div style={{ height: "var(--ui-vh)", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
       {rail}
-      {desktopSidebar}
-      {content}
+      <div
+        style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
+        aria-busy={switchingSpace || undefined}
+      >
+        {desktopSidebar}
+        {content}
+      </div>
       {overlays}
     </div>
   );

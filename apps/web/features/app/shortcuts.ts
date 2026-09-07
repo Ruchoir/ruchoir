@@ -15,7 +15,16 @@ export type ShortcutId =
   | "nextUnread"
   | "prevUnread"
   | "markRead"
-  | "help";
+  | "help"
+  | "space1"
+  | "space2"
+  | "space3"
+  | "space4"
+  | "space5"
+  | "space6"
+  | "space7"
+  | "space8"
+  | "space9";
 
 /** A binding per command. Missing or empty means the command has no shortcut. */
 export type Bindings = Record<ShortcutId, string>;
@@ -44,6 +53,15 @@ export const COMMANDS: CommandDef[] = [
   { id: "prevUnread", label: "Conversation non lue précédente", hint: "Revenir à la conversation non lue précédente", defaultChord: "Alt+Shift+ArrowUp" },
   { id: "markRead", label: "Marquer comme lu", hint: "Marquer la conversation ouverte comme lue", defaultChord: "Shift+Escape" },
   { id: "help", label: "Aide et raccourcis", hint: "Ouvrir le centre d'aide", defaultChord: "?" },
+  // Positional space switching. Alt and not Mod on purpose: browsers reserve Ctrl/Cmd + a digit for
+  // their own tab switching and no page can intercept it, so binding spaces there would silently do
+  // nothing.
+  ...Array.from({ length: 9 }, (_, i) => ({
+    id: `space${i + 1}` as ShortcutId,
+    label: `Espace ${i + 1}`,
+    hint: `Basculer vers l'espace ${i + 1} du rail`,
+    defaultChord: `Alt+${i + 1}`,
+  })),
 ];
 
 export const DEFAULT_BINDINGS: Bindings = Object.fromEntries(

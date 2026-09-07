@@ -13,7 +13,7 @@
 
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait,
-    QueryFilter, Set, TransactionTrait,
+    IntoActiveModel, QueryFilter, Set, TransactionTrait,
 };
 use uuid::Uuid;
 
@@ -22,14 +22,21 @@ use crate::config::Config;
 use crate::entities::{
     channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
     file_shares, file_versions, files, message_attachments, message_link_previews,
-    message_mentions, message_reactions, messages, read_cursors, space_members, spaces,
-    user_preferences, user_saved_messages, users,
+    message_mentions, message_reactions, messages, notifications, read_cursors, space_members,
+    spaces, user_preferences, user_saved_messages, users,
 };
 
 /// Shared password for every seeded account (matches the Nextcloud import fixture).
 const SEED_PASSWORD: &str = "Passw0rd!seed";
 /// Natural key of the demo space; its presence marks the database as already seeded.
-const SPACE_SLUG: &str = "atelier";
+/// The main demo space. The slug is what `slugify` derives from the name, exactly as it would be for
+/// a space created through the API: a seeded space must not be addressable differently from a real
+/// one. A unit test below keeps the pair from drifting.
+const ATELIER_NAME: &str = "Atelier Nantes";
+const ATELIER_SLUG: &str = "atelier-nantes";
+/// The second demo space, which exists so the workspace rail has something to say.
+const STUDIO_NAME: &str = "Studio Rennes";
+const STUDIO_SLUG: &str = "studio-rennes";
 
 /// Entry point for the `seed` subcommand.
 pub async fn run(
@@ -47,59 +54,113 @@ pub async fn run(
     let carol = upsert_user(&txn, config, "carol@atelier.test", "Carol Nguyen").await?;
     let david = upsert_user(&txn, config, "david@atelier.test", "David Morel").await?;
     let emma = upsert_user(&txn, config, "emma@atelier.test", "Emma Leroy").await?;
-    let all_members = [admin, alice, bob, carol, david, emma];
+    let users = SeedUsers {
+        admin,
+        alice,
+        bob,
+        carol,
+        david,
+        emma,
+    };
 
-    // If the demo space already exists, the workspace is seeded: stop before duplicating rows.
-    if spaces::Entity::find()
-        .filter(spaces::Column::Slug.eq(SPACE_SLUG))
-        .one(&txn)
-        .await?
-        .is_some()
-    {
-        txn.commit().await?;
-        tracing::info!("seed: demo space already present; accounts ensured, nothing else to do");
-        return Ok(());
+    // Each space is guarded by its own slug rather than one global "already seeded" flag, so adding
+    // a space to this file fills it into a database seeded before it existed instead of being
+    // skipped. Re-running stays safe and additive.
+    if !space_seeded(&txn, ATELIER_NAME, ATELIER_SLUG).await? {
+        seed_atelier(&txn, &users).await?;
+    }
+    if !space_seeded(&txn, STUDIO_NAME, STUDIO_SLUG).await? {
+        seed_studio(&txn, &users).await?;
     }
 
+    txn.commit().await?;
+    tracing::info!("seed: demo workspace ensured (2 spaces, 6 accounts, an import bot)");
+    Ok(())
+}
+
+/// The six seeded accounts, passed around as one value so the space builders keep short signatures.
+struct SeedUsers {
+    admin: Uuid,
+    alice: Uuid,
+    bob: Uuid,
+    carol: Uuid,
+    david: Uuid,
+    emma: Uuid,
+}
+
+impl SeedUsers {
+    /// Everyone, owner first: the order membership roles are handed out in.
+    fn all(&self) -> [Uuid; 6] {
+        [
+            self.admin, self.alice, self.bob, self.carol, self.david, self.emma,
+        ]
+    }
+}
+
+/// Whether this demo space is already seeded, repairing its slug on the way if it is stale.
+///
+/// Keyed on the name rather than the slug, because the slug is derived: changing how it is derived
+/// must not make the seed believe the space is missing and create a second one. When an existing
+/// space carries an older slug, it is rewritten to the canonical one, which is the seed's job since
+/// it owns these rows.
+async fn space_seeded(txn: &DatabaseTransaction, name: &str, slug: &str) -> Result<bool, DbErr> {
+    let Some(existing) = spaces::Entity::find()
+        .filter(spaces::Column::Name.eq(name))
+        .one(txn)
+        .await?
+    else {
+        return Ok(false);
+    };
+    if existing.slug != slug {
+        tracing::info!(from = %existing.slug, to = %slug, "seed: updating a demo space slug");
+        let mut active = existing.into_active_model();
+        active.slug = Set(slug.to_owned());
+        active.update(txn).await?;
+    }
+    Ok(true)
+}
+
+/// The main demo space: everyone, six channels, threads, reactions, files, a DM and an import bot.
+async fn seed_atelier(txn: &DatabaseTransaction, users: &SeedUsers) -> Result<(), DbErr> {
     // Space and membership (admin owns it, everyone else is a member).
     let space_id = Uuid::new_v4();
     spaces::ActiveModel {
         id: Set(space_id),
-        name: Set("Atelier Nantes".to_owned()),
-        slug: Set(SPACE_SLUG.to_owned()),
-        created_by: Set(Some(admin)),
+        name: Set(ATELIER_NAME.to_owned()),
+        slug: Set(ATELIER_SLUG.to_owned()),
+        created_by: Set(Some(users.admin)),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
 
-    for (i, member) in all_members.iter().enumerate() {
+    for (i, member) in users.all().iter().enumerate() {
         space_members::ActiveModel {
             space_id: Set(space_id),
             user_id: Set(*member),
             role: Set(if i == 0 { "owner" } else { "member" }.to_owned()),
-            invited_by: Set(if i == 0 { None } else { Some(admin) }),
+            invited_by: Set(if i == 0 { None } else { Some(users.admin) }),
             ..Default::default()
         }
-        .insert(&txn)
+        .insert(txn)
         .await?;
     }
 
     // Flesh out the owner's profile so the profile card has representative data.
     users::ActiveModel {
-        id: Set(admin),
+        id: Set(users.admin),
         title: Set(Some("Gerante de l'atelier".to_owned())),
         pronouns: Set(Some("elle".to_owned())),
         timezone: Set(Some("Europe/Paris".to_owned())),
         bio: Set(Some("Responsable de l'atelier et des annonces.".to_owned())),
         ..Default::default()
     }
-    .update(&txn)
+    .update(txn)
     .await?;
 
     // Representative client preferences for the owner (theme/font/text size + JSON blobs).
     user_preferences::ActiveModel {
-        user_id: Set(admin),
+        user_id: Set(users.admin),
         theme: Set(Some("system".to_owned())),
         font: Set(Some("plex-sans".to_owned())),
         text_size: Set(Some("comfortable".to_owned())),
@@ -111,26 +172,26 @@ pub async fn run(
         ui_state: Set(Some("{\"welcome\":{\"dismissed\":false}}".to_owned())),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
 
     // The import assistant: a bot account (no password), mirroring the mocked "Assistant d'import".
-    let import_bot = create_bot(&txn, "import-bot@atelier.test", "Assistant d'import").await?;
+    let import_bot = create_bot(txn, "import-bot@atelier.test", "Assistant d'import").await?;
     space_members::ActiveModel {
         space_id: Set(space_id),
         user_id: Set(import_bot),
         role: Set("member".to_owned()),
-        invited_by: Set(Some(admin)),
+        invited_by: Set(Some(users.admin)),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
 
     // Channels, mirroring the UI mock fixtures (general, private comptabilite, ...).
     let general = create_channel(
-        &txn,
+        txn,
         space_id,
-        admin,
+        users.admin,
         "general",
         "public",
         Some("Annonces et vie de l'atelier"),
@@ -138,9 +199,9 @@ pub async fn run(
     )
     .await?;
     let compta = create_channel(
-        &txn,
+        txn,
         space_id,
-        admin,
+        users.admin,
         "comptabilite-2026",
         "private",
         Some("Suivi des ecritures et rapprochements"),
@@ -148,9 +209,9 @@ pub async fn run(
     )
     .await?;
     let bois = create_channel(
-        &txn,
+        txn,
         space_id,
-        admin,
+        users.admin,
         "atelier-bois",
         "public",
         Some("Coordination de l'atelier bois"),
@@ -158,9 +219,9 @@ pub async fn run(
     )
     .await?;
     let chantier = create_channel(
-        &txn,
+        txn,
         space_id,
-        admin,
+        users.admin,
         "chantier-reze",
         "public",
         Some("Chantier de Reze, suivi et logistique"),
@@ -168,9 +229,9 @@ pub async fn run(
     )
     .await?;
     let veille = create_channel(
-        &txn,
+        txn,
         space_id,
-        admin,
+        users.admin,
         "veille-marche",
         "public",
         Some("Appels d'offres et veille concurrentielle"),
@@ -178,9 +239,9 @@ pub async fn run(
     )
     .await?;
     let archives = create_channel(
-        &txn,
+        txn,
         space_id,
-        admin,
+        users.admin,
         "archives-2025",
         "archived",
         Some("Canal archive, lecture seule"),
@@ -190,24 +251,24 @@ pub async fn run(
     let _ = (bois, chantier, veille, archives);
 
     // Explicit membership for the private channel (public channels are open to space members).
-    add_channel_member(&txn, compta, admin, "owner").await?;
-    add_channel_member(&txn, compta, alice, "member").await?;
-    add_channel_member(&txn, compta, bob, "member").await?;
-    add_channel_member(&txn, general, admin, "owner").await?;
-    add_channel_member(&txn, general, alice, "member").await?;
+    add_channel_member(txn, compta, users.admin, "owner").await?;
+    add_channel_member(txn, compta, users.alice, "member").await?;
+    add_channel_member(txn, compta, users.bob, "member").await?;
+    add_channel_member(txn, general, users.admin, "owner").await?;
+    add_channel_member(txn, general, users.alice, "member").await?;
 
     // A file with one version, shared into the general channel.
     let file_id = Uuid::new_v4();
     files::ActiveModel {
         id: Set(file_id),
         space_id: Set(space_id),
-        owner_id: Set(Some(admin)),
+        owner_id: Set(Some(users.admin)),
         name: Set("Bilan_2026_v4.ods".to_owned()),
         kind: Set("file-spreadsheet".to_owned()),
         size_bytes: Set(253_952),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
     let version_id = Uuid::new_v4();
     file_versions::ActiveModel {
@@ -216,10 +277,10 @@ pub async fn run(
         version_no: Set(1),
         size_bytes: Set(253_952),
         mime_type: Set("application/vnd.oasis.opendocument.spreadsheet".to_owned()),
-        created_by: Set(Some(admin)),
+        created_by: Set(Some(users.admin)),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
     // Point the file at its current version (app-maintained pointer, no FK).
     files::ActiveModel {
@@ -227,34 +288,34 @@ pub async fn run(
         current_version_id: Set(Some(version_id)),
         ..Default::default()
     }
-    .update(&txn)
+    .update(txn)
     .await?;
     file_shares::ActiveModel {
         id: Set(Uuid::new_v4()),
         file_id: Set(file_id),
-        shared_by: Set(Some(admin)),
+        shared_by: Set(Some(users.admin)),
         target_channel_id: Set(Some(general)),
         permission: Set("view".to_owned()),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
 
     // A system "welcome" notice plus a first message in general.
-    insert_system_message(&txn, general, "channel_created").await?;
+    insert_system_message(txn, general, "channel_created").await?;
     let welcome = insert_message(
-        &txn,
+        txn,
         general,
-        admin,
+        users.admin,
         "Bienvenue dans l'atelier ! Les annonces passent ici.",
     )
     .await?;
 
     // A small thread in the private channel: a root with an attachment/reactions, then a reply.
     let root = insert_message(
-        &txn,
+        txn,
         compta,
-        admin,
+        users.admin,
         "Le bilan est pret. Je le depose dans les fichiers du canal, relecture avant vendredi.",
     )
     .await?;
@@ -265,14 +326,14 @@ pub async fn run(
         position: Set(0),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
-    add_reaction(&txn, root, alice, "\u{2705}").await?; // white check mark
-    add_reaction(&txn, root, bob, "\u{1F44D}").await?; // thumbs up
+    add_reaction(txn, root, users.alice, "\u{2705}").await?; // white check mark
+    add_reaction(txn, root, users.bob, "\u{1F44D}").await?; // thumbs up
     let reply = insert_reply(
-        &txn,
+        txn,
         compta,
-        bob,
+        users.bob,
         "Recu. Deux ecritures de mars a rapprocher, retour dans la journee.",
         root,
     )
@@ -284,24 +345,27 @@ pub async fn run(
         reply_count: Set(1),
         ..Default::default()
     }
-    .update(&txn)
+    .update(txn)
     .await?;
 
     // A message with a resolved mention and a stored link preview.
     let mention_msg = insert_message(
-        &txn,
+        txn,
         compta,
-        alice,
-        "Merci @bob, je regarde la veille ici: https://boamp.fr",
+        users.alice,
+        "Merci @users.bob, je regarde la veille ici: https://boamp.fr",
     )
     .await?;
     message_mentions::ActiveModel {
         message_id: Set(mention_msg),
-        mentioned_user_id: Set(bob),
+        mentioned_user_id: Set(users.bob),
         mention_type: Set("user".to_owned()),
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
+    // The API never writes a mention without the notification that goes with it, so neither does
+    // this: a mention row on its own is a state the product cannot produce.
+    notify_mention(txn, users.bob, compta, mention_msg, users.alice).await?;
     message_link_previews::ActiveModel {
         id: Set(Uuid::new_v4()),
         message_id: Set(mention_msg),
@@ -313,27 +377,27 @@ pub async fn run(
         )),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
 
-    // Pin the root message and let admin bookmark it.
+    // Pin the root message and let users.admin bookmark it.
     channel_pins::ActiveModel {
         channel_id: Set(compta),
         message_id: Set(root),
-        pinned_by: Set(Some(admin)),
+        pinned_by: Set(Some(users.admin)),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
     user_saved_messages::ActiveModel {
-        user_id: Set(admin),
+        user_id: Set(users.admin),
         message_id: Set(root),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
 
-    // A direct message between admin and alice.
+    // A direct message between users.admin and users.alice.
     let dm_id = Uuid::new_v4();
     conversations::ActiveModel {
         id: Set(dm_id),
@@ -341,30 +405,30 @@ pub async fn run(
         kind: Set("direct".to_owned()),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
     dm_conversations::ActiveModel {
         id: Set(dm_id),
         space_id: Set(space_id),
         is_group: Set(false),
-        created_by: Set(Some(admin)),
+        created_by: Set(Some(users.admin)),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
-    for user in [admin, alice] {
+    for user in [users.admin, users.alice] {
         dm_participants::ActiveModel {
             dm_id: Set(dm_id),
             user_id: Set(user),
             ..Default::default()
         }
-        .insert(&txn)
+        .insert(txn)
         .await?;
     }
     insert_message(
-        &txn,
+        txn,
         dm_id,
-        alice,
+        users.alice,
         "Salut Camille, tu as deux minutes pour le point compta ?",
     )
     .await?;
@@ -377,7 +441,7 @@ pub async fn run(
         kind: Set("direct".to_owned()),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
     dm_conversations::ActiveModel {
         id: Set(bot_dm),
@@ -386,37 +450,166 @@ pub async fn run(
         created_by: Set(Some(import_bot)),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
     .await?;
-    for user in [admin, import_bot] {
+    for user in [users.admin, import_bot] {
         dm_participants::ActiveModel {
             dm_id: Set(bot_dm),
             user_id: Set(user),
             ..Default::default()
         }
-        .insert(&txn)
+        .insert(txn)
         .await?;
     }
     insert_message(
-        &txn,
+        txn,
         bot_dm,
         import_bot,
         "Import Nextcloud termine : 6 comptes, 16 conversations, 92 messages.",
     )
     .await?;
 
-    // A read cursor: admin has read up to the welcome message in general.
+    // A read cursor: users.admin has read up to the welcome message in general.
     read_cursors::ActiveModel {
         conversation_id: Set(general),
-        user_id: Set(admin),
+        user_id: Set(users.admin),
         last_read_message_id: Set(Some(welcome)),
         ..Default::default()
     }
-    .insert(&txn)
+    .insert(txn)
+    .await?;
+    Ok(())
+}
+
+/// The second demo space, which exists so the workspace rail has something to say.
+///
+/// Deliberately owned by someone else and deliberately left unread for the demo account: it is the
+/// space you are *not* looking at, which is exactly where the rail's indicators show. It carries one
+/// mention of the demo account, so its tile shows a number; reading that notification turns the
+/// number into the plain activity dot, because its messages stay unread. Both states are therefore
+/// reachable from one space, without seeding a third.
+async fn seed_studio(txn: &DatabaseTransaction, users: &SeedUsers) -> Result<(), DbErr> {
+    let space_id = Uuid::new_v4();
+    spaces::ActiveModel {
+        id: Set(space_id),
+        name: Set(STUDIO_NAME.to_owned()),
+        slug: Set(STUDIO_SLUG.to_owned()),
+        created_by: Set(Some(users.alice)),
+        ..Default::default()
+    }
+    .insert(txn)
     .await?;
 
-    txn.commit().await?;
-    tracing::info!("seed: demo workspace created (6 users, 6 channels, messages, files, 1 DM)");
+    // Alice owns this one and the demo account is only an admin of it, so both "I own this space"
+    // and "someone else owns this space" are reachable without leaving either unusable.
+    let roster = [
+        (users.alice, "owner"),
+        (users.admin, "admin"),
+        (users.bob, "member"),
+        (users.emma, "member"),
+    ];
+    for (member, role) in roster {
+        space_members::ActiveModel {
+            space_id: Set(space_id),
+            user_id: Set(member),
+            role: Set(role.to_owned()),
+            invited_by: Set((member != users.alice).then_some(users.alice)),
+            ..Default::default()
+        }
+        .insert(txn)
+        .await?;
+    }
+
+    let general = create_channel(
+        txn,
+        space_id,
+        users.alice,
+        "general",
+        "public",
+        Some("Vie du studio, annonces et coordination."),
+        None,
+    )
+    .await?;
+    let identite = create_channel(
+        txn,
+        space_id,
+        users.alice,
+        "identite-visuelle",
+        "public",
+        Some("Chartes, logos et déclinaisons en cours."),
+        None,
+    )
+    .await?;
+    for channel in [general, identite] {
+        for (member, role) in roster {
+            add_channel_member(
+                txn,
+                channel,
+                member,
+                if member == users.alice { "owner" } else { role },
+            )
+            .await?;
+        }
+    }
+
+    insert_system_message(txn, general, "channel_created").await?;
+    insert_message(
+        txn,
+        general,
+        users.alice,
+        "On se cale jeudi 10h pour la revue des maquettes.",
+    )
+    .await?;
+    insert_message(
+        txn,
+        general,
+        users.emma,
+        "Noté. J'apporte les impressions papier, le rendu écran ment sur les gris.",
+    )
+    .await?;
+
+    // A message naming the demo account, with the notification the API would have written with it:
+    // this is what puts a number on the tile rather than a plain dot.
+    let ping = insert_message(
+        txn,
+        identite,
+        users.emma,
+        "@Camille il me manque ton retour sur la déclinaison sombre avant de graver la charte.",
+    )
+    .await?;
+    message_mentions::ActiveModel {
+        message_id: Set(ping),
+        mentioned_user_id: Set(users.admin),
+        mention_type: Set("user".to_owned()),
+    }
+    .insert(txn)
+    .await?;
+    notify_mention(txn, users.admin, identite, ping, users.emma).await?;
+
+    // No read cursor for the demo account anywhere here, on purpose: this space has to start unread.
+    Ok(())
+}
+
+/// Record the in-app notification a mention always produces, unread.
+async fn notify_mention(
+    txn: &DatabaseTransaction,
+    recipient: Uuid,
+    conversation_id: Uuid,
+    message_id: Uuid,
+    actor: Uuid,
+) -> Result<(), DbErr> {
+    notifications::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        user_id: Set(recipient),
+        kind: Set("mention".to_owned()),
+        conversation_id: Set(conversation_id),
+        message_id: Set(message_id),
+        actor_id: Set(Some(actor)),
+        read_at: Set(None),
+        ..Default::default()
+    }
+    .insert(txn)
+    .await?;
     Ok(())
 }
 
@@ -613,4 +806,19 @@ async fn add_reaction(
     .insert(txn)
     .await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ATELIER_NAME, ATELIER_SLUG, STUDIO_NAME, STUDIO_SLUG};
+    use crate::messaging::slug::slugify;
+
+    /// A seeded space must be addressable exactly like one created through the API: same name, same
+    /// derived slug. Hard-coding the slug is what keeps the seed readable, so this stops the two
+    /// from drifting apart.
+    #[test]
+    fn demo_slugs_match_what_the_api_would_derive() {
+        assert_eq!(slugify(ATELIER_NAME), ATELIER_SLUG);
+        assert_eq!(slugify(STUDIO_NAME), STUDIO_SLUG);
+    }
 }

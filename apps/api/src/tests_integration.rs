@@ -1156,3 +1156,76 @@ async fn accepting_twice_costs_one_use_and_revoking_ends_it() {
         .expect("preview");
     assert_eq!(after.status(), 404, "a revoked invitation is gone");
 }
+
+/// The caller's row for one space in `GET /api/v1/me/spaces`.
+async fn space_row(app: &TestApp, cookie: &str, space_id: Uuid) -> Value {
+    let spaces: Value = app
+        .req(reqwest::Method::GET, "/api/v1/me/spaces", cookie)
+        .send()
+        .await
+        .expect("list spaces")
+        .json()
+        .await
+        .expect("json");
+    spaces
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|row| row["id"] == space_id.to_string())
+        .expect("the space is listed")
+        .clone()
+}
+
+#[tokio::test]
+async fn space_counters_separate_mentions_from_other_activity() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let send = format!("/api/v1/conversations/{}/messages", fx.public_channel);
+
+    // A freshly seeded space holds no messages, so both counters start at zero.
+    let start = space_row(&app, &alice, fx.space_id).await;
+    assert_eq!(start["unread"], 0);
+    assert_eq!(start["mentions"], 0);
+
+    // Bob writes in a channel they have both joined: activity, but nothing addressed to Alice.
+    let posted = app
+        .req(reqwest::Method::POST, &send, &bob)
+        .json(&json!({ "body": "je passe en revue les devis" }))
+        .send()
+        .await
+        .expect("send");
+    assert_eq!(posted.status(), 201);
+
+    let after_message = space_row(&app, &alice, fx.space_id).await;
+    assert_eq!(after_message["unread"], 1, "the message counts as activity");
+    assert_eq!(
+        after_message["mentions"], 0,
+        "nothing was addressed to Alice, so the rail shows no number"
+    );
+
+    // Naming her is a different thing entirely, and lands in her notification inbox.
+    let mentioned = app
+        .req(reqwest::Method::POST, &send, &bob)
+        .json(&json!({ "body": "@alice tu peux confirmer ?" }))
+        .send()
+        .await
+        .expect("send mention");
+    assert_eq!(mentioned.status(), 201);
+
+    let after_mention = space_row(&app, &alice, fx.space_id).await;
+    assert_eq!(after_mention["unread"], 2);
+    assert_eq!(after_mention["mentions"], 1);
+
+    // Nobody named Bob, so his number stays empty even though he is in the same conversation.
+    let for_bob = space_row(&app, &bob, fx.space_id).await;
+    assert_eq!(for_bob["mentions"], 0);
+
+    // Carol is in the space but joined neither channel: a conversation she has not joined is not
+    // hers to be behind on.
+    let carol = app.cookie_for(fx.carol).await;
+    let for_carol = space_row(&app, &carol, fx.space_id).await;
+    assert_eq!(for_carol["unread"], 0);
+    assert_eq!(for_carol["mentions"], 0);
+}
