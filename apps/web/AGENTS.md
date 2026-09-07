@@ -311,7 +311,9 @@ usage with the design-system oxlint config.
   notification inbox) and a discreet ringed dot for `unread` activity. A single "unread messages"
   figure is noise, and the open space shows nothing at all because its per-channel badges are already
   in the sidebar. Events for a conversation the client has not loaded cannot be attributed to a space,
-  so they trigger a debounced re-read of `/me/spaces` rather than widening the realtime payload.
+  so they trigger a debounced re-read of `/me/spaces` rather than widening the realtime payload. The
+  counters are also re-read when leaving a space, because the space you are in shows no indicator, so
+  anything you read in it never reached the rail on its own.
 - **DS primitives now include** `Checkbox`, `Radio`, `Switch`, `Select`, `Field` and `Dialog`, ported
   from the handoff into typed React with their CSS appended to `app/components.css` (the handoff
   injected it at runtime; we do not). `Dialog` is the shared modal base (scrim + head + body + footer,

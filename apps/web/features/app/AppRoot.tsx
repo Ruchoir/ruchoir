@@ -622,15 +622,15 @@ function AppShell() {
    * request per message.
    */
   const countersTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const reloadSpaceCounters = () =>
+    getWorkspaces()
+      .then(setWorkspaces)
+      .catch(() => {
+        // A failed refresh leaves the previous counters: stale beats blank.
+      });
   const refreshSpaceCounters = () => {
     clearTimeout(countersTimer.current);
-    countersTimer.current = setTimeout(() => {
-      void getWorkspaces()
-        .then(setWorkspaces)
-        .catch(() => {
-          // A failed refresh leaves the previous counters: stale beats blank.
-        });
-    }, 1500);
+    countersTimer.current = setTimeout(() => void reloadSpaceCounters(), 1500);
   };
   useEffect(() => {
     liveRef.current = { channels, dms, channelId, view, myId: session?.id, ws };
@@ -1590,6 +1590,10 @@ function AppShell() {
   const switchWorkspace = async (id: string) => {
     if (id === ws) return;
     setSwitchingSpace(true);
+    // The space being left shows no indicator while it is open, so whatever was read in it never
+    // reached the rail. Re-read the counters on the way out, or its tile would keep the figure it
+    // had when the app booted.
+    void reloadSpaceCounters();
     try {
       await loadSpace(id);
     } catch {
