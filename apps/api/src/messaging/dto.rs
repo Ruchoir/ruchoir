@@ -100,6 +100,9 @@ pub struct SpaceDto {
     /// Unread notifications in this space (mention, thread reply, direct message): the things
     /// addressed to the caller personally, and the only counter the rail shows as a number.
     pub mentions: i64,
+    /// Same-origin URL of the uploaded icon; absent means the generated mark.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub icon_url: Option<String>,
 }
 
 /// A channel in a space's sidebar list.
@@ -185,6 +188,10 @@ pub struct UserProfileDto {
     pub bio: Option<String>,
     /// Whether this is a service account (e.g. the import assistant).
     pub is_bot: bool,
+    /// Same-origin URL of the uploaded avatar. Absent means there is none, and the client generates
+    /// one from the display name, which is what it already does by default.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
 }
 
 /// A space member row: identity plus the caller-independent role in the space. Presence is overlaid
@@ -199,6 +206,9 @@ pub struct MemberDto {
     /// Membership role in the space: `owner`, `admin`, `member` or `guest`.
     pub role: String,
     pub is_bot: bool,
+    /// Same-origin URL of the uploaded avatar; absent means the generated one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
 }
 
 /// A member's arrival in a space, pushed in real time.

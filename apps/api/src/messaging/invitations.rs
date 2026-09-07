@@ -396,6 +396,10 @@ pub async fn accept_invitation(
                 title: user.title.clone(),
                 role: role.clone(),
                 is_bot: user.is_bot,
+                avatar_url: user
+                    .avatar_key
+                    .as_deref()
+                    .map(|key| crate::files::avatar_url(user.id, key)),
             },
         };
         state
@@ -451,6 +455,10 @@ pub async fn accept_invitation(
         // carries the real figures. Counting them twice for one response would be waste.
         unread: 0,
         mentions: 0,
+        icon_url: space
+            .icon_key
+            .as_deref()
+            .map(|key| crate::files::icon_url(space.id, key)),
     }))
 }
 

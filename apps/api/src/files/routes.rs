@@ -1,16 +1,17 @@
-//! The files router: tree, upload/versions, download/preview/thumbnail, and shares.
+//! The files router: tree, upload/versions, download/preview/thumbnail, shares, message attachments,
+//! and the avatar/icon images that are not files.
 //!
 //! Routes use absolute `/api/v1/...` paths and are merged into the main router in `http.rs`. A raised
 //! request-body limit is applied to the whole sub-router (only the upload routes carry a body; the
 //! GET routes have none), sized from the configured upload cap plus a small multipart overhead.
 
 use axum::extract::DefaultBodyLimit;
-use axum::routing::{delete, get, patch, post};
+use axum::routing::{delete, get, patch, post, put};
 use axum::Router;
 
 use crate::state::AppState;
 
-use super::{download, shares, tree, uploads};
+use super::{download, images, shares, tree, uploads};
 
 /// Build the files sub-router with `upload_max_bytes` as the request-body limit.
 pub fn router(upload_max_bytes: usize) -> Router<AppState> {
@@ -26,6 +27,23 @@ pub fn router(upload_max_bytes: usize) -> Router<AppState> {
         .route(
             "/api/v1/files/{file_id}",
             patch(tree::update_file).delete(tree::delete_file),
+        )
+        // Attachments upload through their conversation: that is what decides their audience.
+        .route(
+            "/api/v1/conversations/{conversation_id}/attachments",
+            post(uploads::upload_attachment),
+        )
+        // Avatars and space icons: their own keys, their own audiences, never files.
+        .route(
+            "/api/v1/users/me/avatar",
+            put(images::set_my_avatar).delete(images::clear_my_avatar),
+        )
+        .route("/api/v1/users/{user_id}/avatar", get(images::get_avatar))
+        .route(
+            "/api/v1/spaces/{space_id}/icon",
+            get(images::get_space_icon)
+                .put(images::set_space_icon)
+                .delete(images::clear_space_icon),
         )
         .route(
             "/api/v1/files/{file_id}/versions",

@@ -74,12 +74,21 @@ context and takes precedence here.
   State-changing operations are never accepted over the socket; they are REST handlers in
   `messaging`.
 - `src/files/`    - the files feature over the collaboration schema: `authz` (space-membership read
-  access; owner/space-admin for mutations), `mime` (magic-byte sniffing + kind mapping), `thumbnail`
+  access, **except a file carrying a `conversation_id`, whose audience is that conversation's**;
+  owner/space-admin for mutations), `mime` (magic-byte sniffing + kind mapping), `thumbnail`
   (image decode/resize), `tree` (folder listing, create, rename/move, recursive soft-delete),
   `uploads` (multipart upload + versions), `download` (download/preview/thumbnail, streamed back
   through the API), `shares`, and `routes`. Bytes are proxied through the API (the browser never
   contacts the object store), validated server-side (size + sniffed type), stored under opaque keys
   (`spaces/{space}/{file}/{version}`); image uploads get intrinsic dimensions and a stored thumbnail.
+  A message attachment uploads through its **conversation**, not its space, because that is what
+  decides its audience: a public channel's attachment joins the space files (in the folder marked
+  `system_key = 'attachments'`, found by that marker so renaming it is harmless), while a private
+  channel's or a DM's carries `conversation_id`, stays out of the tree and out of search, and is
+  readable only by that conversation's participants. `images` is deliberately outside all of this:
+  avatars and space icons are not files (`files.space_id` is `NOT NULL`, and an avatar belongs to an
+  account), so they live under their own object keys recorded in `users.avatar_key` /
+  `spaces.icon_key`, carrying a fresh id per upload so the URL changes with the image.
 - `src/storage/`  - the S3 object-store boundary (`S3Store` over `rust-s3`, path-style addressing).
   Built once at startup and held as `AppState.storage: Option<Arc<S3Store>>`: absent when no
   credentials are configured, in which case file metadata still works and the byte endpoints return

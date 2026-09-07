@@ -51,11 +51,21 @@ import {
   setReadCursor,
   type SessionUser,
   updateChannel as apiUpdateChannel,
+  uploadAttachment as apiUploadAttachment,
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
 import { readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
-import type { Channel, DirectMessage, Invitation, InvitationPreview, Message, SpaceFile, Workspace } from "@/lib/data";
+import type {
+  Channel,
+  DirectMessage,
+  Invitation,
+  InvitationPreview,
+  Message,
+  MessageAttachment,
+  SpaceFile,
+  Workspace,
+} from "@/lib/data";
 import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
@@ -206,6 +216,19 @@ function authMessage(err: unknown, fallback: string): string {
  */
 function AppShell() {
   const settings = useSettings();
+  /** The side panel a conversation opens with, from the preferences. `none` means it opens closed. */
+  const defaultPanel: ChannelPanel = settings.defaultPanel === "none" ? null : settings.defaultPanel;
+  /**
+   * The same value, reachable from the boot effect.
+   *
+   * That effect runs once per session and must not re-run when a preference changes, so it cannot
+   * list `defaultPanel` as a dependency; a ref is how it reads the current one without subscribing
+   * to it.
+   */
+  const defaultPanelRef = useRef(defaultPanel);
+  useEffect(() => {
+    defaultPanelRef.current = defaultPanel;
+  });
 
   // The signed-in user, resolved from the session at boot. `currentUser` (the display name) is read
   // throughout the shell; it is empty until the session loads, but the app view is gated behind the
@@ -280,13 +303,12 @@ function AppShell() {
   // Dev/audit only: a click-only popover the deep-link asked to open on load (set post-mount, see below).
   const [deepLinkPop, setDeepLinkPop] = useState<string | undefined>(undefined);
   const [channelId, setChannelId] = useState("");
-  // Desktop opens a conversation with its default panel: members for a channel, files for a DM (see
-  // openChannel). The landing conversation is a channel, so it starts on members. `compact` is false on
-  // the first render (SSR-safe, see useCompact), so this matches the server render; the compact shell
-  // shows the list first and openChannel resets the panel per navigation anyway.
-  const [panel, setPanel] = useState<ChannelPanel>(() =>
-    channels.some((c) => c.id === channelId) ? "members" : "files",
-  );
+  // Desktop opens a conversation with the panel chosen in the preferences (see `openChannel`).
+  // `compact` is false on the first render (SSR-safe, see useCompact), so this matches the server
+  // render; the compact shell shows the list first and openChannel resets the panel per navigation
+  // anyway. The preference is read after mount, so the first frame uses its default, which is the
+  // same value the shell used before this was configurable.
+  const [panel, setPanel] = useState<ChannelPanel>("members");
   // True once the user closes the right panel by hand, so opening another conversation stops
   // auto-opening its default panel. Reset when they open a panel again.
   const [panelDismissed, setPanelDismissed] = useState(false);
@@ -562,6 +584,10 @@ function AppShell() {
         setSession(user);
         await loadInitialData();
         if (!active) return;
+        // By now the preferences have loaded (their effect runs on mount, well before this awaits
+        // the network), so the first conversation opens on the chosen panel rather than on the
+        // initial state's value.
+        setPanel(defaultPanelRef.current);
         setAuthStage("app");
       } catch (err) {
         if (!active) return;
@@ -877,7 +903,13 @@ function AppShell() {
   // The space's members with live presence overlaid, feeding the member list, the @-mention
   // autocomplete and the people section of search. Falls back to the mock roster before load.
   const memberRecords = useMemo(
-    () => members.map((m) => ({ name: m.name, presence: (presence[m.userId] ?? "offline") as Presence, bot: m.bot })),
+    () =>
+      members.map((m) => ({
+        name: m.name,
+        presence: (presence[m.userId] ?? "offline") as Presence,
+        bot: m.bot,
+        avatar: m.avatarUrl,
+      })),
     [members, presence],
   );
   // Publish the real roster and per-name presence into the data seam, which the composer, message
@@ -1021,6 +1053,7 @@ function AppShell() {
     }
     const spaces = await loadInitialData();
     setBooting(false);
+    setPanel(defaultPanel);
     if (spaces.length === 0) {
       setSignupFirst(user.name.split(" ")[0] ?? "");
       goToStage("onboarding");
@@ -1250,12 +1283,10 @@ function AppShell() {
   const openChannel = (id: string) => {
     setView("channel");
     setChannelId(id);
-    // Right panel is app-level state, so reset it per conversation. On desktop a channel opens with its
-    // members panel and a DM with its files panel by default; the compact shell opens with no panel
-    // (there the panel is a full-screen overlay that would hide the conversation). Once the user has
-    // closed the panel by hand, respect that and keep it closed.
-    const isChannel = channels.some((c) => c.id === id);
-    setPanel(compact || panelDismissed ? null : isChannel ? "members" : "files");
+    // Right panel is app-level state, so reset it per conversation, to whichever panel the
+    // preferences name. The compact shell opens with none (there the panel is a full-screen overlay
+    // that would hide the conversation), and a panel closed by hand stays closed.
+    setPanel(compact || panelDismissed ? null : defaultPanel);
     setThread(null);
     setProfile(null);
     setProfileEdit(false);
@@ -1439,6 +1470,32 @@ function AppShell() {
     },
   };
 
+  /**
+   * Store a picked file for the open conversation.
+   *
+   * Uploading through the conversation is what gives the file its audience: one sent in a private
+   * channel or a direct message stays readable only by its participants, one sent in a public
+   * channel joins the space's files.
+   */
+  const uploadAttachment = (file: File): Promise<MessageAttachment> => apiUploadAttachment(channelId, file);
+
+  /**
+   * Reflect an image the user just replaced into the lists the rest of the app reads.
+   *
+   * The screen that uploaded it holds its own copy, but the rail reads the space list and message
+   * rows read the member roster: without patching those, a new icon or avatar only appeared after a
+   * reload. Patched in place rather than refetched, since the URL is already in hand.
+   */
+  const applyOwnAvatar = (url?: string) => {
+    const me = session?.id;
+    if (!me) return;
+    setMembers((prev) => prev.map((m) => (m.userId === me ? { ...m, avatarUrl: url } : m)));
+  };
+
+  const applySpaceIcon = (url?: string) => {
+    setWorkspaces((prev) => prev.map((w) => (w.id === ws ? { ...w, iconUrl: url } : w)));
+  };
+
   const send = (text: string, attachment?: Message["attachment"]) => {
     if (!text.trim() && !attachment) return;
     const conv = channelId;
@@ -1451,11 +1508,10 @@ function AppShell() {
       attachment,
     };
     setMessages((prev) => ({ ...prev, [conv]: [...(prev[conv] ?? []), optimistic] }));
-    // An attachment needs an uploaded file id (the files surface is not wired yet), so a message that
-    // carries one stays client-side. A plain text message is persisted and its optimistic row is
-    // replaced by the server row (real id, timestamp) on success, or removed on failure.
-    if (!text.trim() || attachment) return;
-    sendMessage(conv, text)
+    // The optimistic row is replaced by the server row (real id, timestamp, hydrated attachment) on
+    // success, or removed on failure. An attachment is already stored by this point: the composer
+    // uploads on pick, so all that travels here is its id.
+    sendMessage(conv, text, attachment?.fileId ? { attachments: [attachment.fileId] } : {})
       .then((m) =>
         // Drop the optimistic row and de-dupe the real id, so a realtime echo of our own message that
         // may have already arrived does not leave a duplicate.
@@ -1941,6 +1997,8 @@ function AppShell() {
           focusMessageId={focusMessageId}
           compact={compact}
           onSend={send}
+          onUploadAttachment={uploadAttachment}
+          onAvatarChanged={applyOwnAvatar}
           onPanel={openPanel}
           onCloseThread={() => setThread(null)}
           onCloseProfile={() => setProfile(null)}
@@ -1972,6 +2030,10 @@ function AppShell() {
       {view === "settings" ? (
         <WorkspaceSettings
           workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
+          spaceId={ws}
+          iconUrl={workspaces.find((w) => w.id === ws)?.iconUrl}
+          canAdminister={["owner", "admin"].includes(workspaces.find((w) => w.id === ws)?.role ?? "")}
+          onIconChanged={applySpaceIcon}
           members={people.filter((p) => !p.bot).map((p) => ({ name: p.name, presence: p.presence }))}
           compact={compact}
           onInvite={() => setModal("invite")}

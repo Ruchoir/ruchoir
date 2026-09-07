@@ -67,7 +67,7 @@ pub async fn create_space(
         name: Set(name.to_owned()),
         slug: Set(slug.clone()),
         created_by: Set(Some(session.user_id)),
-        icon_file_id: Set(None),
+        icon_key: Set(None),
         created_at: Set(now),
         updated_at: Set(now),
     }
@@ -132,6 +132,8 @@ pub async fn create_space(
             // construction, not by omission.
             unread: 0,
             mentions: 0,
+            // Brand new, so nothing has been uploaded for it yet.
+            icon_url: None,
         }),
     ))
 }

@@ -129,8 +129,14 @@ pub fn router(state: AppState) -> Router {
     // styles, and a static export cannot use per-request nonces. Without this the client
     // never hydrates. Planned hardening: have the API inject a per-request nonce
     // into index.html and this header, then drop `'unsafe-inline'`.
+    //
+    // `img-src` also allows `blob:`, which the avatar and space-icon crop step needs: it reads the
+    // picked file into an object URL to preview it before upload. A `blob:` URL is same-origin and
+    // created by the page from data it already holds, so it opens no remote origin and leaves the
+    // no-external-request rule intact. `data:` was already allowed for the same class of reason
+    // (the locally generated default avatars).
     let csp = "default-src 'self'; base-uri 'self'; object-src 'none'; \
-               frame-ancestors 'none'; img-src 'self' data:; font-src 'self'; \
+               frame-ancestors 'none'; img-src 'self' data: blob:; font-src 'self'; \
                style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; \
                connect-src 'self'";
 

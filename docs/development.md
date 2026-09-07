@@ -44,8 +44,9 @@ mode every time. Instead:
   first one only changed code recompiles.
 
 > **`.env` describes your machine, not the container.** The API loads it on `cargo run`, while
-> `docker-compose.yml` sets the container's own `RUCHOIR_API_PORT`, `RUCHOIR_API_HOST` and
-> `RUCHOIR_WEB_DIST` in the service definition and ignores the file's values for them. Putting a
+> `docker-compose.yml` sets the container's own `RUCHOIR_API_PORT`, `RUCHOIR_API_HOST`,
+> `RUCHOIR_WEB_DIST` and `S3_ENDPOINT` in the service definition and ignores the file's values for
+> them. Putting a
 > container path such as `/srv/ruchoir/web` in `RUCHOIR_WEB_DIST` therefore breaks only the host
 > run, and it fails quietly: the API starts, serves no bundle, and every page is a 404. Same trap
 > with `RUCHOIR_API_PORT=0`, which binds a random free port; that is deliberate when 8080 is taken
@@ -124,9 +125,10 @@ Garage's CLI flags can change between versions; if a command is rejected, check
 `docker compose exec garage /garage <subcommand> --help`. Object storage is only exercised
 from the file-storage work on, so this setup is optional until then.
 
-When you run the API from Docker Compose, `S3_ENDPOINT` resolves to `http://garage:3900` on the
-internal network. When you run the API with `cargo run` on the host (Garage still in Docker),
-override the endpoint to the published port instead: `S3_ENDPOINT=http://localhost:3900`. With no S3
+`S3_ENDPOINT` is the same trap: `http://garage:3900` is a hostname that exists only on the compose
+network, and on the host it fails with a retry then a `502` on every upload. The example file
+therefore carries the published port (`http://localhost:3900`), which is what the host run needs; the
+compose service overrides it with the container name for itself. With no S3
 credentials set, the API still serves file metadata and the folder tree, and returns `503` for file
 bytes (upload, download, preview, thumbnail).
 

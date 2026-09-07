@@ -124,6 +124,151 @@ pub async fn upload_file(
     Ok((StatusCode::CREATED, Json(dto)))
 }
 
+/// Well-known marker for the folder public attachments land in. Looked up by this and never by its
+/// name, which is an ordinary folder name a user may change.
+const ATTACHMENTS_KEY: &str = "attachments";
+
+/// `POST /api/v1/conversations/{conversation_id}/attachments`: upload a file to attach to a message.
+///
+/// Uploading through the conversation rather than the space is what decides the file's audience.
+/// A public channel's history is already open to the space, so its attachments join the space's
+/// files, in a folder rather than at the root. A private channel or a direct message is not, so its
+/// attachments stay out of the tree and are readable only by that conversation's participants.
+/// Deciding this at send time instead would mean the bytes were already stored under the wrong rule.
+#[utoipa::path(
+    post,
+    path = "/api/v1/conversations/{conversation_id}/attachments",
+    tag = "files",
+    params(("conversation_id" = Uuid, Path, description = "Conversation id")),
+    request_body(content = String, description = "multipart/form-data: file, optional name", content_type = "multipart/form-data"),
+    responses(
+        (status = 201, description = "File stored, ready to attach", body = FileDto),
+        (status = 400, description = "Missing file"),
+        (status = 403, description = "No access to the conversation, or it is read-only"),
+        (status = 413, description = "File exceeds the maximum upload size"),
+        (status = 503, description = "Object storage not configured")
+    )
+)]
+pub async fn upload_attachment(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(conversation_id): Path<Uuid>,
+    multipart: Multipart,
+) -> Result<(StatusCode, Json<FileDto>), FileError> {
+    let access = authz::conversation_access(&state.db, conversation_id, session.user_id).await?;
+    // An archived channel takes no new message, so it takes no attachment for one either.
+    if !access.is_postable() {
+        return Err(FileError::Forbidden);
+    }
+    let storage = state
+        .storage
+        .as_ref()
+        .ok_or(FileError::StorageUnavailable)?;
+    let payload = collect_upload(multipart, state.config.upload_max_bytes).await?;
+
+    let space_id = access.space_id;
+    let public_channel = access.channel_type.as_deref() == Some("public");
+    let folder_id = if public_channel {
+        Some(attachments_folder(&state.db, space_id, session.user_id).await?)
+    } else {
+        None
+    };
+
+    let name = default_name(payload.name);
+    let file_id = Uuid::new_v4();
+    let version_id = Uuid::new_v4();
+    let stored = store_version_object(
+        storage,
+        &state.config,
+        space_id,
+        file_id,
+        version_id,
+        &payload.data,
+    )
+    .await?;
+    let kind = mime::kind_for_mime(&stored.mime_type).to_owned();
+    let now = OffsetDateTime::now_utc();
+
+    let txn = state.db.begin().await?;
+    files::ActiveModel {
+        id: Set(file_id),
+        space_id: Set(space_id),
+        owner_id: Set(Some(session.user_id)),
+        name: Set(name),
+        kind: Set(kind),
+        parent_folder_id: Set(folder_id),
+        // The whole audience decision, in one column.
+        conversation_id: Set((!public_channel).then_some(conversation_id)),
+        size_bytes: Set(stored.size_bytes),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+    .insert(&txn)
+    .await?;
+    insert_version(&txn, file_id, version_id, 1, session.user_id, now, &stored).await?;
+    point_to_version(&txn, file_id, version_id, stored.size_bytes, now).await?;
+    txn.commit().await?;
+
+    let dto = single_dto(&state.db, file_id).await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+/// The space's attachments folder, created on first use.
+///
+/// Found by `system_key` so that renaming it keeps it working, and guarded by a unique index so two
+/// simultaneous first uploads cannot each create one.
+async fn attachments_folder(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    owner_id: Uuid,
+) -> Result<Uuid, FileError> {
+    if let Some(existing) = files::Entity::find()
+        .filter(files::Column::SpaceId.eq(space_id))
+        .filter(files::Column::SystemKey.eq(ATTACHMENTS_KEY))
+        .filter(files::Column::DeletedAt.is_null())
+        .one(db)
+        .await?
+    {
+        return Ok(existing.id);
+    }
+
+    let id = Uuid::new_v4();
+    let now = OffsetDateTime::now_utc();
+    let created = files::ActiveModel {
+        id: Set(id),
+        space_id: Set(space_id),
+        owner_id: Set(Some(owner_id)),
+        // A display name, in the product's language like every other name a person reads. The marker
+        // above is what identifies it.
+        name: Set("Pièces jointes".to_owned()),
+        kind: Set("folder".to_owned()),
+        system_key: Set(Some(ATTACHMENTS_KEY.to_owned())),
+        size_bytes: Set(0),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+    .insert(db)
+    .await;
+
+    match created {
+        Ok(_) => Ok(id),
+        // Lost the race against another first upload: the unique index rejected the second one, so
+        // read back the winner rather than failing an upload over it.
+        Err(error) => files::Entity::find()
+            .filter(files::Column::SpaceId.eq(space_id))
+            .filter(files::Column::SystemKey.eq(ATTACHMENTS_KEY))
+            .one(db)
+            .await?
+            .map(|folder| folder.id)
+            .ok_or_else(|| {
+                tracing::error!(%error, "could not create or find the attachments folder");
+                FileError::Internal
+            }),
+    }
+}
+
 /// `POST /api/v1/files/{file_id}/versions`: upload a new version of an existing file.
 #[utoipa::path(
     post,

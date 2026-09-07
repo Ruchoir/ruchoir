@@ -37,6 +37,10 @@ fn clean(value: String) -> Option<String> {
 
 /// Build the profile DTO from a user row.
 fn profile_of(user: users::Model) -> UserProfileDto {
+    let avatar_url = user
+        .avatar_key
+        .as_deref()
+        .map(|key| crate::files::avatar_url(user.id, key));
     UserProfileDto {
         id: user.id,
         display_name: user.display_name,
@@ -46,6 +50,7 @@ fn profile_of(user: users::Model) -> UserProfileDto {
         timezone: user.timezone,
         bio: user.bio,
         is_bot: user.is_bot,
+        avatar_url,
     }
 }
 

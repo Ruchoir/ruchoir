@@ -24,7 +24,9 @@ pub struct Model {
     pub pronouns: Option<String>,
     pub timezone: Option<String>,
     pub bio: Option<String>,
-    pub avatar_file_id: Option<Uuid>,
+    /// Object-store key of the uploaded avatar, or `None` to fall back to the generated one. Carries
+    /// a fresh id on each upload, so the URL changes with the image.
+    pub avatar_key: Option<String>,
     pub is_bot: bool,
     /// Deliberate presence override: `active`, `away`, `dnd`, `invisible`, or `None` for "auto"
     /// (derive from the live Valkey heartbeat). Enforced by a CHECK constraint.

@@ -4,6 +4,8 @@ import { type CSSProperties, type ReactNode, useRef, useState } from "react";
 import { Avatar, Button, Card, Checkbox, Dialog, Field, Icon, IconButton, Input, Select, Switch, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Toast } from "../app/types";
+import { clearSpaceIcon, setSpaceIcon } from "@/lib/data/api";
+import { ImageCropDialog } from "../app/ImageCropDialog";
 
 type NavKey = "general" | "members" | "notifs" | "imports" | "storage" | "security";
 
@@ -101,26 +103,80 @@ const ROLE_BY_NAME: Record<string, string> = {
 
 export type WorkspaceSettingsProps = {
   workspaceName: string;
+  /** The space being configured; needed to address its icon. */
+  spaceId: string;
+  /** Its current icon, when one was uploaded. */
+  iconUrl?: string;
+  /** Whether the caller may change the icon. The API is the real guard; this hides a dead control. */
+  canAdminister: boolean;
   members: { name: string; presence: Presence }[];
   onInvite: () => void;
+  /**
+   * The icon changed. The rail reads the space list, not this screen's state, so without this the
+   * new icon only appears after a reload.
+   */
+  onIconChanged: (url?: string) => void;
   onNotify: (toast: Toast) => void;
   /** Compact (mobile): stack the sub-nav above the panel and let setting rows wrap. */
   compact?: boolean;
 };
 
 /** The workspace settings view. Faithful to the design-system `screen-settings` mockup. */
-export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, compact = false }: WorkspaceSettingsProps) {
+export function WorkspaceSettings({
+  workspaceName,
+  spaceId,
+  iconUrl,
+  canAdminister,
+  members,
+  onInvite,
+  onIconChanged,
+  onNotify,
+  compact = false,
+}: WorkspaceSettingsProps) {
   const [tab, setTab] = useState<NavKey>("general");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [icon, setIcon] = useState<string | undefined>(undefined);
+  /** A local change since the space was loaded: a URL just uploaded, `null` just removed. */
+  const [iconOverride, setIconOverride] = useState<string | null | undefined>(undefined);
+  const [iconBusy, setIconBusy] = useState(false);
+  /** The picked file, held until it has been cropped. */
+  const [cropping, setCropping] = useState<File | null>(null);
+  const icon = iconOverride === null ? undefined : (iconOverride ?? iconUrl);
   const iconRef = useRef<HTMLInputElement>(null);
 
   const onIconPicked = (fileList: FileList | null) => {
     const file = fileList?.[0];
     if (!file) return;
-    setIcon(URL.createObjectURL(file));
-    onNotify({ tone: "success", title: "Icône mise à jour", description: workspaceName });
     if (iconRef.current) iconRef.current.value = "";
+    // Same reason as the avatar: the rail shows a square, so the square is chosen.
+    setCropping(file);
+  };
+
+  const uploadCropped = async (file: File) => {
+    setCropping(null);
+    setIconBusy(true);
+    try {
+      const url = await setSpaceIcon(spaceId, file);
+      setIconOverride(url);
+      onIconChanged(url);
+      onNotify({ tone: "success", title: "Icône mise à jour", description: workspaceName });
+    } catch {
+      onNotify({ tone: "danger", title: "Icône non enregistrée", description: "Choisissez une image plus légère." });
+    } finally {
+      setIconBusy(false);
+    }
+  };
+
+  const removeIcon = async () => {
+    setIconBusy(true);
+    try {
+      await clearSpaceIcon(spaceId);
+      setIconOverride(null);
+      onIconChanged(undefined);
+    } catch {
+      onNotify({ tone: "danger", title: "Icône non retirée" });
+    } finally {
+      setIconBusy(false);
+    }
   };
 
   return (
@@ -160,15 +216,35 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
                 <Field label="Icône de l'espace">
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <Avatar name={workspaceName} src={icon} kind="workspace" size={48} />
-                    <Button size="sm" variant="secondary" iconLeft="image" onClick={() => iconRef.current?.click()}>
-                      Changer l&apos;icône
-                    </Button>
-                    {icon ? (
-                      <Button size="sm" variant="link" onClick={() => setIcon(undefined)}>
-                        Retirer
-                      </Button>
-                    ) : null}
-                    <input ref={iconRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => onIconPicked(e.target.files)} />
+                    {canAdminister ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          iconLeft="image"
+                          disabled={iconBusy}
+                          onClick={() => iconRef.current?.click()}
+                        >
+                          {iconBusy ? "Envoi…" : "Changer l'icône"}
+                        </Button>
+                        {icon ? (
+                          <Button size="sm" variant="link" disabled={iconBusy} onClick={() => void removeIcon()}>
+                            Retirer
+                          </Button>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                        Seuls les administrateurs de l&apos;espace peuvent la changer.
+                      </span>
+                    )}
+                    <input
+                      ref={iconRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={(e) => onIconPicked(e.target.files)}
+                    />
                   </div>
                 </Field>
                 <Field label="Nom de l'espace" htmlFor="wn">
@@ -421,6 +497,15 @@ export function WorkspaceSettings({ workspaceName, members, onInvite, onNotify, 
           Vous pouvez l&apos;annuler pendant ce délai.
         </p>
       </Dialog>
+
+      {cropping ? (
+        <ImageCropDialog
+          file={cropping}
+          title="Cadrer l'icône"
+          onCancel={() => setCropping(null)}
+          onConfirm={(cropped) => void uploadCropped(cropped)}
+        />
+      ) : null}
     </div>
   );
 }

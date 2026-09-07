@@ -190,6 +190,10 @@ export type ChannelScreenProps = {
   profileEditing: boolean;
   unreadMarker: string | null;
   onSend: (text: string, attachment?: MessageAttachment) => void;
+  /** Store a picked file for the open conversation and resolve to the attachment to carry. */
+  onUploadAttachment: (file: File) => Promise<MessageAttachment>;
+  /** The signed-in user changed their own avatar, so the roster the rows read has to follow. */
+  onAvatarChanged: (url?: string) => void;
   onPanel: (panel: ChannelPanel) => void;
   onCloseThread: () => void;
   onCloseProfile: () => void;
@@ -207,8 +211,8 @@ export type ChannelScreenProps = {
   dmPresence?: Presence;
   /** Display names currently typing in this conversation. */
   typingNames?: string[];
-  /** The space's members with live presence (member list + message-avatar presence). */
-  members: { name: string; presence: Presence; bot?: boolean }[];
+  /** The space's members with live presence and uploaded avatar (member list + message rows). */
+  members: { name: string; presence: Presence; bot?: boolean; avatar?: string }[];
   /** The space's files, for the in-channel file panel and search. */
   files: SpaceFile[];
   /** User id of the profile shown in the right panel, when known (enables the real profile fetch). */
@@ -233,6 +237,8 @@ export function ChannelScreen({
   profileEditing,
   unreadMarker,
   onSend,
+  onUploadAttachment,
+  onAvatarChanged,
   onPanel,
   onCloseThread,
   onCloseProfile,
@@ -258,6 +264,9 @@ export function ChannelScreen({
   const isArchived = !isDm && channel.type === "archived";
   const memberList: ChannelMember[] = members.map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot }));
   const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
+  // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one
+  // place that holds the picture. Absent means the locally generated avatar, which is the default.
+  const avatarByName = new Map(members.map((m) => [m.name, m.avatar] as const));
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
   const pinned = messages.filter((m) => m.pinned && !m.deleted);
   const togglePanel = (p: Exclude<ChannelPanel, null>) => onPanel(panel === p ? null : p);
@@ -309,6 +318,7 @@ export function ChannelScreen({
       startEditing={profileEditing}
       onClose={onCloseProfile}
       onMessage={() => actions.message(profileName)}
+      onAvatarChanged={onAvatarChanged}
       onNotify={onNotify}
     />
   ) : threadParent ? (
@@ -479,6 +489,7 @@ export function ChannelScreen({
                   <MessageRow
                     m={m}
                     authorPresence={presenceByName.get(m.author)}
+                    authorAvatar={avatarByName.get(m.author)}
                     actions={{
                       onReact: (emoji) => actions.react(m.id, emoji),
                       onOpenThread: () => actions.openThread(m.id),
@@ -528,7 +539,13 @@ export function ChannelScreen({
             Ce canal est archivé : il reste consultable, mais on n&apos;y écrit plus.
           </p>
         ) : (
-          <Composer channelName={isDm ? dm.name : channel.name} onSend={onSend} onNotify={onNotify} onTyping={onTyping} />
+          <Composer
+            channelName={isDm ? dm.name : channel.name}
+            onSend={onSend}
+            onUpload={onUploadAttachment}
+            onNotify={onNotify}
+            onTyping={onTyping}
+          />
         )}
       </div>
       <RightDock open={rightNode != null} contentKey={contentKey} compact={compact}>

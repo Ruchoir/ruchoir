@@ -37,7 +37,9 @@ use ruchoir_migration::{Migrator, MigratorTrait};
 
 use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
-use crate::entities::{channel_members, channels, conversations, space_members, spaces, users};
+use crate::entities::{
+    channel_members, channels, conversations, files, space_members, spaces, users,
+};
 use crate::state::AppState;
 
 /// Applies the migrations exactly once across all tests in this binary, so parallel `boot()` calls
@@ -1228,4 +1230,110 @@ async fn space_counters_separate_mentions_from_other_activity() {
     let for_carol = space_row(&app, &carol, fx.space_id).await;
     assert_eq!(for_carol["unread"], 0);
     assert_eq!(for_carol["mentions"], 0);
+}
+
+#[tokio::test]
+async fn a_private_conversation_attachment_stays_in_that_conversation() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+
+    // A file attached to the private channel, which only Alice is in. Inserted directly: object
+    // storage is not configured in these tests, and this is a test of the authorization rule, not of
+    // the byte path.
+    let file_id = Uuid::new_v4();
+    files::ActiveModel {
+        id: Set(file_id),
+        space_id: Set(fx.space_id),
+        owner_id: Set(Some(fx.alice)),
+        name: Set("bilan-confidentiel.pdf".to_owned()),
+        kind: Set("file-text".to_owned()),
+        conversation_id: Set(Some(fx.private_channel)),
+        size_bytes: Set(1024),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("file");
+
+    // Bob is in the space but not in that private channel: for him it does not exist.
+    let bob = app.cookie_for(fx.bob).await;
+    let denied = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{file_id}/download"),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("download as a non-participant");
+    assert_eq!(
+        denied.status(),
+        403,
+        "space membership alone must not open a private conversation's attachment"
+    );
+
+    // Nor is it in the space's files, which is what everyone else browses.
+    let listing: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/files", fx.space_id),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("list files")
+        .json()
+        .await
+        .expect("json");
+    assert!(
+        !listing["entries"]
+            .as_array()
+            .expect("array")
+            .iter()
+            .any(|entry| entry["id"] == file_id.to_string()),
+        "a conversation-private file must not appear in the space tree"
+    );
+
+    // Nor in a space-wide search, which would otherwise leak its name.
+    let hits: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!(
+                "/api/v1/search?space_id={}&q=bilan-confidentiel",
+                fx.space_id
+            ),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("search")
+        .json()
+        .await
+        .expect("json");
+    assert!(
+        !hits["files"]
+            .as_array()
+            .map(|files| files.iter().any(|f| f["id"] == file_id.to_string()))
+            .unwrap_or(false),
+        "a conversation-private file must not surface in search"
+    );
+
+    // Alice is in that channel, so authorization lets her through. The byte path then reports that
+    // object storage is not configured, which is exactly how far this test needs to get: a 503 here
+    // means the guard passed, where Bob got a 403 before reaching it.
+    let alice = app.cookie_for(fx.alice).await;
+    let allowed = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{file_id}/download"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("download as a participant");
+    assert_eq!(
+        allowed.status(),
+        503,
+        "a participant must pass authorization and fail only on the missing object store"
+    );
 }

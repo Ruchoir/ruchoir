@@ -173,8 +173,10 @@ pub async fn send_message(
     }
 
     let text = body.body.trim();
-    if text.is_empty() {
-        return Err(ApiError::BadRequest("message body is empty"));
+    // A message needs *something*: text, or a file. Sending a document with no caption is an ordinary
+    // thing to do, and refusing it made the attachment feature unusable on its own.
+    if text.is_empty() && body.attachments.is_empty() {
+        return Err(ApiError::BadRequest("a message needs text or a file"));
     }
     if text.chars().count() > MAX_BODY_CHARS {
         return Err(ApiError::BadRequest("message body is too long"));

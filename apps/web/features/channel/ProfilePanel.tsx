@@ -5,7 +5,8 @@ import { Avatar, Button, Icon, IconButton, Input, Textarea } from "@/components/
 import { getCurrentUser } from "@/lib/data";
 import type { Profile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
-import { getUserProfile, updateMyProfile } from "@/lib/data/api";
+import { clearMyAvatar, getUserProfile, setMyAvatar, updateMyProfile } from "@/lib/data/api";
+import { ImageCropDialog } from "../app/ImageCropDialog";
 import { minimalProfile } from "../app/useProfile";
 import { presenceLabel } from "../app/presence";
 import type { Toast } from "../app/types";
@@ -71,11 +72,25 @@ export type ProfilePanelProps = {
   startEditing?: boolean;
   onClose: () => void;
   onMessage: () => void;
+  /**
+   * The signed-in user's own avatar changed. Message rows and the member list read the roster, not
+   * this panel, so without this the new picture only appears after a reload.
+   */
+  onAvatarChanged?: (url?: string) => void;
   onNotify: (toast: Toast) => void;
 };
 
 /** Full user profile in the right sidebar. Editable when it is the current user's own profile. */
-export function ProfilePanel({ name, userId, presence, startEditing, onClose, onMessage, onNotify }: ProfilePanelProps) {
+export function ProfilePanel({
+  name,
+  userId,
+  presence,
+  startEditing,
+  onClose,
+  onMessage,
+  onAvatarChanged,
+  onNotify,
+}: ProfilePanelProps) {
   // Fetch the real profile when we have the member's id; fall back to the mock profile (by name)
   // while it loads or when the id is unknown (e.g. a member with no endpoint-backed identity).
   const [fetched, setFetched] = useState<Profile | null>(null);
@@ -99,14 +114,56 @@ export function ProfilePanel({ name, userId, presence, startEditing, onClose, on
   const [role, setRole] = useState(p.role);
   const [pronouns, setPronouns] = useState(p.pronouns ?? "");
   const [bio, setBio] = useState(p.bio ?? "");
-  const [photo, setPhoto] = useState<string | undefined>(undefined);
+  /**
+   * A local change to the avatar since the profile was fetched: a URL just uploaded, `null` for one
+   * just removed, `undefined` for no change.
+   *
+   * Three states rather than two, because "removed" and "never had one" both show the generated
+   * avatar but only one of them should override what the fetched profile says. What is displayed is
+   * always a URL the server returned, never a local object URL that would vanish on reload.
+   */
+  const [photoOverride, setPhotoOverride] = useState<string | null | undefined>(undefined);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  /** The picked file, held until it has been cropped. */
+  const [cropping, setCropping] = useState<File | null>(null);
+  const photo = photoOverride === null ? undefined : (photoOverride ?? p.avatarUrl);
   const photoRef = useRef<HTMLInputElement>(null);
 
   const onPhotoPicked = (fileList: FileList | null) => {
     const file = fileList?.[0];
     if (!file) return;
-    setPhoto(URL.createObjectURL(file));
     if (photoRef.current) photoRef.current.value = "";
+    // Framing first: an avatar is only ever shown as a square, so the square is chosen rather than
+    // taken from the middle of whatever was picked.
+    setCropping(file);
+  };
+
+  const uploadCropped = async (file: File) => {
+    setCropping(null);
+    setPhotoBusy(true);
+    try {
+      const url = await setMyAvatar(file);
+      setPhotoOverride(url);
+      onAvatarChanged?.(url);
+      onNotify({ tone: "success", title: "Photo mise à jour" });
+    } catch {
+      onNotify({ tone: "danger", title: "Photo non enregistrée", description: "Choisissez une image plus légère." });
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const removePhoto = async () => {
+    setPhotoBusy(true);
+    try {
+      await clearMyAvatar();
+      setPhotoOverride(null);
+      onAvatarChanged?.(undefined);
+    } catch {
+      onNotify({ tone: "danger", title: "Photo non retirée" });
+    } finally {
+      setPhotoBusy(false);
+    }
   };
 
   const save = () => {
@@ -159,11 +216,17 @@ export function ProfilePanel({ name, userId, presence, startEditing, onClose, on
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
               <Avatar name={p.name} src={photo} size={56} kind={p.bot ? "bot" : "person"} />
               <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
-                <Button variant="secondary" size="sm" iconLeft="image" onClick={() => photoRef.current?.click()}>
-                  Changer la photo
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  iconLeft="image"
+                  disabled={photoBusy}
+                  onClick={() => photoRef.current?.click()}
+                >
+                  {photoBusy ? "Envoi…" : "Changer la photo"}
                 </Button>
                 {photo ? (
-                  <Button variant="link" size="sm" onClick={() => setPhoto(undefined)}>
+                  <Button variant="link" size="sm" disabled={photoBusy} onClick={() => void removePhoto()}>
                     Retirer la photo
                   </Button>
                 ) : null}
@@ -203,6 +266,15 @@ export function ProfilePanel({ name, userId, presence, startEditing, onClose, on
           </>
         )}
       </div>
+
+      {cropping ? (
+        <ImageCropDialog
+          file={cropping}
+          title="Cadrer la photo"
+          onCancel={() => setCropping(null)}
+          onConfirm={(cropped) => void uploadCropped(cropped)}
+        />
+      ) : null}
     </div>
   );
 }

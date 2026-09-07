@@ -111,7 +111,7 @@ export function WorkspaceRail({
           <Tooltip key={w.id} label={label} side="right">
             <span style={wsSlot}>
               <button style={wsButton(w.id === active)} onClick={() => onSelect(w.id)} aria-label={label}>
-                <Avatar name={w.name} kind="workspace" size={36} />
+                <Avatar name={w.name} src={w.iconUrl} kind="workspace" size={36} />
               </button>
               {mentions > 0 ? (
                 <span style={wsIndicator}>

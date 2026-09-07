@@ -14,8 +14,9 @@ pub struct Model {
     pub name: String,
     pub slug: String,
     pub created_by: Option<Uuid>,
-    /// Optional space icon, stored as a file (never a remote URL).
-    pub icon_file_id: Option<Uuid>,
+    /// Object-store key of the uploaded icon, or `None` to fall back to the generated mark. Never a
+    /// remote URL.
+    pub icon_key: Option<String>,
     pub created_at: TimeDateTimeWithTimeZone,
     pub updated_at: TimeDateTimeWithTimeZone,
 }
