@@ -402,6 +402,18 @@ pub async fn accept_invitation(
             .hub
             .publish(audience, RealtimeEnvelope::member_joined(&joined))
             .await;
+
+        // Re-announce their presence now that the membership exists.
+        //
+        // The transport announces presence when a connection opens, to the co-members the joiner had
+        // *at that moment*. Someone arriving through an invitation opens their socket around the same
+        // time as this handler writes the membership row, so that announcement can go out while they
+        // still belong to no space and reach an audience of one: the space would then see them
+        // offline until it reloaded and re-read the heartbeat. Recomputing the audience here fixes it
+        // whichever way the race falls. If the socket connected first, the heartbeat is already there
+        // and this delivers `active` to the right people; if it has not connected yet, this delivers
+        // `offline` and the socket's own announcement follows with the audience now correct.
+        crate::realtime::presence::refresh_and_broadcast(&state, session.user_id).await;
     }
 
     // The channel notice travels as an ordinary `message.created`, to the channel's members, so

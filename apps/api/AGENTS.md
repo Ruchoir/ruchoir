@@ -58,7 +58,10 @@ context and takes precedence here.
   conversation-scoped because an arrival changes the roster, the mention candidates and the DM
   candidates and hangs off no conversation), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
   `SubscriberClient` on `rt:fanout`, delivery gated by a publish-time audience), `presence`
-  (ephemeral heartbeat + the persistent `users.manual_presence` override), `typing` (throttled,
+  (ephemeral heartbeat + the persistent `users.manual_presence` override; **its audience is frozen at
+  connect time**, computed from the space co-members the user had when their socket opened, so any
+  code that changes someone's membership while they may already be connected has to call
+  `refresh_and_broadcast` afterwards or the new space will show them offline until it reloads), `typing` (throttled,
   ephemeral), and the two transports `ws` (WebSocket) / `sse` (read-only fallback + typing POST).
   State-changing operations are never accepted over the socket; they are REST handlers in
   `messaging`.
