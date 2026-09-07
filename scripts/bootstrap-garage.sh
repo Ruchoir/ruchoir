@@ -88,9 +88,15 @@ else
   garage bucket create "$S3_BUCKET"
 fi
 
-# 4. The grant. Re-granting an existing permission is a no-op in Garage, so this needs no check.
-echo "Granting the key read/write/owner on ${S3_BUCKET}…"
-garage bucket allow --read --write --owner "$S3_BUCKET" --key "$S3_ACCESS_KEY_ID"
+# 4. The grant. Re-granting is harmless in Garage, but it answers with the whole bucket description,
+#    which would make the one step that always runs also the loudest. Checked like the others so a
+#    re-run stays quiet and only reports what it skipped.
+if garage bucket info "$S3_BUCKET" 2>/dev/null | grep -q "RWO.*${S3_ACCESS_KEY_ID}"; then
+  echo "Key already has read/write/owner on ${S3_BUCKET}."
+else
+  echo "Granting the key read/write/owner on ${S3_BUCKET}…"
+  garage bucket allow --read --write --owner "$S3_BUCKET" --key "$S3_ACCESS_KEY_ID" >/dev/null
+fi
 
 echo
 echo "Object storage is ready. Restart the API if it was already running:"
