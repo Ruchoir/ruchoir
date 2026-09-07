@@ -342,7 +342,16 @@ async fn serve_object(state: &AppState, key: &str) -> Result<Response, FileError
     Ok((
         [
             (header::CONTENT_TYPE, mime.to_owned()),
-            (header::CACHE_CONTROL, "private, max-age=3600".to_owned()),
+            // A year, and immutable: the URL carries a version derived from the object key, which
+            // is freshly generated on every upload, so this exact URL can never answer with
+            // different bytes. An hour of freshness meant re-fetching every avatar on the first
+            // page view of each session, and a photo arriving half a second after the generated
+            // one it replaces is seen as a flicker. Private: the bytes are only for people who
+            // share a space, so no shared cache may hold them.
+            (
+                header::CACHE_CONTROL,
+                "private, max-age=31536000, immutable".to_owned(),
+            ),
         ],
         Body::from(object),
     )
