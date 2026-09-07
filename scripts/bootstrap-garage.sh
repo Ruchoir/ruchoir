@@ -26,16 +26,24 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-# Sourced in this script's own environment, which dies with it: nothing leaks into the caller's
-# shell, where a stale exported value would silently outrank .env on the next `cargo run`.
-set -a
-# shellcheck disable=SC1091
-. ./.env
-set +a
+# Read, never sourced. A .env is not a shell script: Compose's format happily accepts values a shell
+# refuses, and the example file's own `RUCHOIR_SMTP_FROM="Ruchoir <no-reply@localhost>"` is one of
+# them, since angle brackets are redirections. Sourcing also leaks every variable into the caller's
+# environment, where a stale exported value silently outranks the file on the next `cargo run`.
+env_value() {
+  # Last assignment wins, as dotenv parsers do, and surrounding quotes are stripped.
+  sed -n "s/^$1=//p" .env | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/"
+}
 
-: "${S3_ACCESS_KEY_ID:?set S3_ACCESS_KEY_ID in .env}"
-: "${S3_SECRET_ACCESS_KEY:?set S3_SECRET_ACCESS_KEY in .env}"
+S3_ACCESS_KEY_ID=$(env_value S3_ACCESS_KEY_ID)
+S3_SECRET_ACCESS_KEY=$(env_value S3_SECRET_ACCESS_KEY)
+S3_BUCKET=$(env_value S3_BUCKET)
 S3_BUCKET=${S3_BUCKET:-ruchoir}
+
+if [ -z "$S3_ACCESS_KEY_ID" ] || [ -z "$S3_SECRET_ACCESS_KEY" ]; then
+  echo "set S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY in .env" >&2
+  exit 1
+fi
 
 garage() {
   docker compose exec -T garage /garage "$@"
