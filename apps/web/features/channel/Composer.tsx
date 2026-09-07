@@ -55,15 +55,24 @@ function iconForType(type: string): string {
 export type ComposerProps = {
   channelName: string;
   onSend: (text: string, attachment?: MessageAttachment) => void;
+  /**
+   * Store a picked file and resolve to the attachment the message will carry.
+   *
+   * The upload happens on pick and not on send, so a slow file does not block the message and a
+   * refused one is reported while there is still something to do about it.
+   */
+  onUpload: (file: File) => Promise<MessageAttachment>;
   onNotify: (toast: Toast) => void;
   /** Emit a typing signal as the user composes (throttled here; the server throttles again). */
   onTyping?: () => void;
 };
 
 /** Message composer with a working formatting toolbar and file attachment. */
-export function Composer({ channelName, onSend, onNotify, onTyping }: ComposerProps) {
+export function Composer({ channelName, onSend, onUpload, onNotify, onTyping }: ComposerProps) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pending, setPending] = useState<MessageAttachment | null>(null);
+  /** True from the moment a file is picked until it is stored (or refused). */
+  const [uploading, setUploading] = useState(false);
   const editorRef = useRef<MessageEditorHandle>(null);
   const emojiRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -79,13 +88,15 @@ export function Composer({ channelName, onSend, onNotify, onTyping }: ComposerPr
   };
 
   const sendWith = (text: string) => {
+    // A file still on its way has no id to attach, so the message waits rather than losing it.
+    if (uploading) return;
     onSend(text, pending ?? undefined);
     setPending(null);
   };
 
   const clickSend = () => {
     const ed = editorRef.current;
-    if (!ed) return;
+    if (!ed || uploading) return;
     if (pending && ed.isEmpty()) {
       onSend("", pending);
       setPending(null);
@@ -96,12 +107,25 @@ export function Composer({ channelName, onSend, onNotify, onTyping }: ComposerPr
     ed.submit();
   };
 
-  const onFilePicked = (fileList: FileList | null) => {
+  const onFilePicked = async (fileList: FileList | null) => {
     const file = fileList?.[0];
     if (!file) return;
-    setPending({ name: file.name, size: bytesToSize(file.size), kind: iconForType(file.type) });
-    onNotify({ tone: "info", title: "Pièce jointe prête", description: file.name });
     if (fileRef.current) fileRef.current.value = "";
+    // Show it immediately, with what the browser knows, then replace it with the stored file.
+    setPending({ name: file.name, size: bytesToSize(file.size), kind: iconForType(file.type) });
+    setUploading(true);
+    try {
+      setPending(await onUpload(file));
+    } catch {
+      setPending(null);
+      onNotify({
+        tone: "danger",
+        title: "Fichier non envoyé",
+        description: `« ${file.name} » n'a pas pu être téléversé.`,
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -111,8 +135,14 @@ export function Composer({ channelName, onSend, onNotify, onTyping }: ComposerPr
           <div style={styles.chip}>
             <Icon name={pending.kind} size={16} style={{ color: "var(--text-muted)" }} />
             <span style={{ fontWeight: 500, color: "var(--text-strong)" }}>{pending.name}</span>
-            <span style={{ color: "var(--text-subtle)" }}>{pending.size}</span>
-            <IconButton icon="x" label="Retirer la pièce jointe" size="sm" onClick={() => setPending(null)} />
+            <span style={{ color: "var(--text-subtle)" }}>{uploading ? "envoi…" : pending.size}</span>
+            <IconButton
+              icon="x"
+              label="Retirer la pièce jointe"
+              size="sm"
+              disabled={uploading}
+              onClick={() => setPending(null)}
+            />
           </div>
         ) : null}
         <MessageEditor ref={editorRef} placeholder={`Écrire dans #${channelName}`} onSend={sendWith} />
@@ -123,7 +153,12 @@ export function Composer({ channelName, onSend, onNotify, onTyping }: ComposerPr
           <IconButton icon="list" label="Liste" size="sm" onClick={() => editorRef.current?.prefixLines("- ")} />
           <span style={{ width: 1, height: 18, background: "var(--border-subtle)", margin: "0 6px" }} />
           <IconButton icon="paperclip" label="Joindre un fichier" size="sm" onClick={() => fileRef.current?.click()} />
-          <input ref={fileRef} type="file" style={{ display: "none" }} onChange={(e) => onFilePicked(e.target.files)} />
+          <input
+            ref={fileRef}
+            type="file"
+            style={{ display: "none" }}
+            onChange={(e) => void onFilePicked(e.target.files)}
+          />
           <IconButton icon="at-sign" label="Mentionner" size="sm" onClick={() => editorRef.current?.insertText("@")} />
           <IconButton
             ref={emojiRef}
@@ -142,7 +177,7 @@ export function Composer({ channelName, onSend, onNotify, onTyping }: ComposerPr
             />
           </Popover>
           <div style={{ flex: 1 }} />
-          <IconButton icon="send" label="Envoyer" variant="accent" size="lg" onClick={clickSend} />
+          <IconButton icon="send" label="Envoyer" variant="accent" size="lg" disabled={uploading} onClick={clickSend} />
         </div>
       </div>
       <div style={styles.hint}>Entrée pour envoyer · Maj+Entrée pour une nouvelle ligne</div>

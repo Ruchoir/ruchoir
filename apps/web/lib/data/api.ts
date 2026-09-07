@@ -49,6 +49,7 @@ type SpaceDto = {
   members: number;
   unread: number;
   mentions: number;
+  icon_url?: string;
 };
 
 type ChannelDto = {
@@ -113,6 +114,7 @@ type MessageDto = {
 type MessagePageDto = { messages: MessageDto[]; next_before?: string };
 
 type UserProfileDto = {
+  avatar_url?: string;
   id: string;
   display_name: string;
   email: string;
@@ -250,6 +252,7 @@ function toWorkspace(dto: SpaceDto): Workspace {
     slug: dto.slug,
     unread: dto.unread ?? 0,
     mentions: dto.mentions ?? 0,
+    iconUrl: dto.icon_url,
   };
 }
 
@@ -360,6 +363,72 @@ export async function acceptInvitation(token: string): Promise<Workspace> {
   return toWorkspace(await apiPost<SpaceDto>(`/invitations/${encodeURIComponent(token)}/accept`));
 }
 
+/**
+ * `POST /conversations/{id}/attachments`: upload a file to attach to a message here.
+ *
+ * Through the conversation and not the space, because that is what decides the file's audience: an
+ * attachment to a private channel or a direct message stays readable only by its participants, one
+ * to a public channel joins the space's files.
+ */
+export async function uploadAttachment(conversationId: string, file: File): Promise<MessageAttachment> {
+  const form = new FormData();
+  form.append("file", file);
+  // Multipart: let the browser set the boundary, so this call does not go through the JSON client.
+  const res = await fetch(`/api/v1/conversations/${conversationId}/attachments`, {
+    method: "POST",
+    credentials: "same-origin",
+    body: form,
+  });
+  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
+  const dto = (await res.json()) as FileDto;
+  // Returned in the shape the composer and the message row already speak, not as a `SpaceFile`: an
+  // attachment is not a row of the files screen, and half of that shape would be invented here.
+  return {
+    fileId: dto.id,
+    name: dto.name,
+    size: formatSize(dto.size_bytes),
+    kind: attachmentIcon(dto.kind),
+    url: `/api/v1/files/${dto.id}/download`,
+    previewUrl: `/api/v1/files/${dto.id}/preview`,
+  };
+}
+
+/** `PUT /users/me/avatar`: replace the caller's own avatar; returns its new URL. */
+export async function setMyAvatar(file: File): Promise<string> {
+  return uploadImage("/api/v1/users/me/avatar", file);
+}
+
+/** `DELETE /users/me/avatar`: fall back to the generated avatar. */
+export async function clearMyAvatar(): Promise<void> {
+  await apiDelete<void>("/users/me/avatar");
+}
+
+/** `PUT /spaces/{id}/icon`: replace a space's icon; owner or admin only. Returns its new URL. */
+export async function setSpaceIcon(spaceId: string, file: File): Promise<string> {
+  return uploadImage(`/api/v1/spaces/${spaceId}/icon`, file);
+}
+
+/** `DELETE /spaces/{id}/icon`: fall back to the generated mark. */
+export async function clearSpaceIcon(spaceId: string): Promise<void> {
+  await apiDelete<void>(`/spaces/${spaceId}/icon`);
+}
+
+/**
+ * Shared body of the two image uploads.
+ *
+ * The returned URL already carries a version derived from the stored object, so nothing is appended
+ * here: an avatar is addressed by its owner's id, which never changes, and that version is what tells
+ * the browser it is looking at a different picture.
+ */
+async function uploadImage(path: string, file: File): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(path, { method: "PUT", credentials: "same-origin", body: form });
+  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
+  const body = (await res.json()) as { url: string };
+  return body.url;
+}
+
 /** `GET /spaces/{id}/channels`: the channels the caller can see in a space. */
 export async function getChannels(spaceId: string, signal?: AbortSignal): Promise<Channel[]> {
   const channels = await apiGet<ChannelDto[]>(`/spaces/${spaceId}/channels`, signal);
@@ -460,18 +529,41 @@ export async function getUserProfile(userId: string, signal?: AbortSignal): Prom
     pronouns: dto.pronouns,
     bio: dto.bio,
     bot: dto.is_bot || undefined,
+    avatarUrl: dto.avatar_url,
   };
 }
 
-type MemberDto = { user_id: string; display_name: string; title?: string; role: string; is_bot: boolean };
+type MemberDto = {
+  user_id: string;
+  display_name: string;
+  title?: string;
+  role: string;
+  is_bot: boolean;
+  avatar_url?: string;
+};
 
 /** A space member as the app holds it. Presence is overlaid separately (by user id). */
-export type Member = { userId: string; name: string; role: string; title?: string; bot: boolean };
+export type Member = {
+  userId: string;
+  name: string;
+  role: string;
+  title?: string;
+  bot: boolean;
+  /** Same-origin URL of the uploaded avatar; absent means the locally generated one. */
+  avatarUrl?: string;
+};
 
 /** `GET /spaces/{id}/members`: the members of a space (member list, mentions, people search). */
 export async function getSpaceMembers(spaceId: string, signal?: AbortSignal): Promise<Member[]> {
   const rows = await apiGet<MemberDto[]>(`/spaces/${spaceId}/members`, signal);
-  return rows.map((m) => ({ userId: m.user_id, name: m.display_name, role: m.role, title: m.title, bot: m.is_bot }));
+  return rows.map((m) => ({
+    userId: m.user_id,
+    name: m.display_name,
+    role: m.role,
+    title: m.title,
+    bot: m.is_bot,
+    avatarUrl: m.avatar_url,
+  }));
 }
 
 /** `POST /spaces/{id}/dm`: open (or fetch) a direct message with a set of users; returns its id. */
@@ -503,6 +595,7 @@ export async function updateMyProfile(patch: {
     pronouns: dto.pronouns,
     bio: dto.bio,
     bot: dto.is_bot || undefined,
+    avatarUrl: dto.avatar_url,
   };
 }
 
@@ -636,9 +729,24 @@ function splitAttachments(attachments: AttachmentDto[]): {
   let image: InlineImage | undefined;
   for (const a of attachments) {
     if (!image && a.kind === "image" && a.image_width && a.image_height) {
-      image = { alt: a.alt_text ?? a.name, width: a.image_width, height: a.image_height };
+      image = {
+        alt: a.alt_text ?? a.name,
+        width: a.image_width,
+        height: a.image_height,
+        // Served by the API, never by the object store: the browser never talks to it directly.
+        // `preview` is the original bytes, so opening it in a tab shows full quality.
+        src: `/api/v1/files/${a.file_id}/preview`,
+        downloadUrl: `/api/v1/files/${a.file_id}/download`,
+      };
     } else if (!attachment) {
-      attachment = { name: a.name, size: formatSize(a.size_bytes), kind: attachmentIcon(a.kind) };
+      attachment = {
+        fileId: a.file_id,
+        name: a.name,
+        size: formatSize(a.size_bytes),
+        kind: attachmentIcon(a.kind),
+        url: `/api/v1/files/${a.file_id}/download`,
+        previewUrl: `/api/v1/files/${a.file_id}/preview`,
+      };
     }
   }
   return { attachment, image };
@@ -905,7 +1013,7 @@ export type FolderListing = {
 
 function toSpaceFileKind(kind: string, isFolder: boolean): SpaceFile["kind"] {
   if (isFolder || kind === "folder") return "folder";
-  if (kind === "file-text" || kind === "file-spreadsheet") return kind;
+  if (kind === "file-text" || kind === "file-spreadsheet" || kind === "image") return kind;
   return "file";
 }
 
@@ -921,6 +1029,8 @@ function toSpaceFile(dto: FileDto): SpaceFile {
     source: toImportSource(dto.imported_source) ?? "Ruchoir",
     version: dto.version_no != null ? `v${dto.version_no}` : "",
     imported: dto.imported,
+    // Generated and stored server-side at upload; served by the API, never by the object store.
+    thumbnailUrl: dto.has_thumbnail ? `/api/v1/files/${dto.id}/thumbnail` : undefined,
   };
 }
 

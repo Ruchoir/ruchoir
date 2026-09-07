@@ -297,6 +297,20 @@ usage with the design-system oxlint config.
   rule governs writing, so the client will switch on its own with no flag. A host label counts as a
   space only when it matches a slug the account belongs to, which is why no list of reserved
   subdomains is needed and why resolution runs after `/me/spaces` has loaded.
+- **Downloading or opening a file is a navigation, so it is an `<a>`.** `IconLink` is the DS primitive
+  for that: it shares `IconButton`'s styling without nesting a `<button>` inside a link, which is
+  invalid markup and announces two overlapping controls. Reach for it whenever an icon-only control
+  navigates rather than acts.
+- **The composer uploads on pick, not on send.** A picked file is stored straight away through
+  `POST /conversations/{id}/attachments` and the message then carries only its id, so a slow upload
+  never blocks the message and a refused one is reported while there is still something to do about
+  it. Sending is disabled while an upload is in flight, because there would be no id to attach.
+- **A picked avatar or space icon goes through `ImageCropDialog` before it is uploaded**, because
+  both are only ever shown as squares and leaving that to CSS means nobody chose the framing. The
+  server centre-crops anyway, as the guarantee; the dialog is what decides *which* square.
+- **Avatars and space icons are always a URL the server returned**, never a local object URL: those
+  vanish on reload and would show a picture that was never stored. Each screen keeps a three-state
+  override (uploaded / removed / unchanged) so "removed" is distinguishable from "never had one".
 - **No shortcut is ever bound to a digit.** Every modifier plus a digit is some browser's own tab
   switching (Alt under Firefox on Linux, Ctrl under Chrome), and on AZERTY the digit row needs Shift,
   so `e.key` is `&` where the label says `1`. The chord registry is built on `e.key`, so a digit

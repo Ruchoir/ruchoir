@@ -24,6 +24,8 @@ export { Icon } from "./Icon";
 export type { IconName, IconProps } from "./Icon";
 export { IconButton } from "./IconButton";
 export type { IconButtonProps, IconButtonSize, IconButtonVariant } from "./IconButton";
+export { IconLink } from "./IconLink";
+export type { IconLinkProps } from "./IconLink";
 export { Popover } from "./Popover";
 export type { PopoverProps } from "./Popover";
 export { Input } from "./Input";

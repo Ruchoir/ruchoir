@@ -42,7 +42,7 @@ export function getPresence(name: string): Presence {
 
 // --- Member roster ---
 
-type MemberRecord = { name: string; presence: Presence; bot?: boolean };
+type MemberRecord = { name: string; presence: Presence; bot?: boolean; avatar?: string };
 
 /**
  * Live member roster, populated once the real space members are loaded. Kept here (not threaded

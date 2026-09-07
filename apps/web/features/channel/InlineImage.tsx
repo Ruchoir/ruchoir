@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { IconButton } from "@/components/ds";
+import { IconButton, IconLink } from "@/components/ds";
 import type { InlineImage as InlineImageData } from "@/lib/data";
 
 /**
@@ -73,7 +73,19 @@ export function InlineImage({ image }: { image: InlineImageData }) {
           cursor: "zoom-in",
         }}
       >
-        <SampleChart rounded={0} />
+        {image.src ? (
+          // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by our own API
+          <img
+            src={image.src}
+            alt={image.alt}
+            width={image.width}
+            height={image.height}
+            style={{ display: "block", width: "100%", height: "auto" }}
+          />
+        ) : (
+          // No source yet: an optimistic message whose upload has not been acknowledged.
+          <SampleChart rounded={0} />
+        )}
       </button>
 
       {open ? (
@@ -101,11 +113,37 @@ export function InlineImage({ image }: { image: InlineImageData }) {
             onClick={(e) => e.stopPropagation()}
             style={{ position: "relative", width: "min(880px, calc(0.9 * var(--ui-vw, 100vw)))" }}
           >
-            <div style={{ position: "absolute", top: -44, right: 0 }}>
+            <div style={{ position: "absolute", top: -44, right: 0, display: "flex", gap: 8 }}>
+              {/* Full quality in a tab, and saving the original: the lightbox shows the image
+                  scaled to the viewport, which is not the same thing as having the file. */}
+              {image.src ? (
+                <IconLink
+                  icon="external-link"
+                  label="Ouvrir dans un nouvel onglet"
+                  variant="outlined"
+                  href={image.src}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              ) : null}
+              {image.downloadUrl ? (
+                <IconLink
+                  icon="download"
+                  label="Télécharger l'image"
+                  variant="outlined"
+                  href={image.downloadUrl}
+                  download
+                />
+              ) : null}
               <IconButton icon="x" label="Fermer" variant="outlined" onClick={() => setOpen(false)} />
             </div>
             <div style={{ borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-dialog)" }}>
-              <SampleChart />
+              {image.src ? (
+                // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by our own API
+                <img src={image.src} alt={image.alt} style={{ display: "block", width: "100%", height: "auto" }} />
+              ) : (
+                <SampleChart />
+              )}
             </div>
             <div style={{ marginTop: 10, textAlign: "center", fontSize: 13, color: "var(--text-inverse)" }}>
               {image.alt}

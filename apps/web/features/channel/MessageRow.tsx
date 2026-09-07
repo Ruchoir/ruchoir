@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useRef, useState } from "react";
-import { Avatar, Card, Dialog, Icon, IconButton, Popover, Tag } from "@/components/ds";
+import { Avatar, Card, Dialog, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
 import { getCurrentUser, getMentionNames, getPresence } from "@/lib/data";
 import type { Message } from "@/lib/data";
 import type { Presence } from "@/components/ds";
@@ -94,7 +94,13 @@ function reactionPill(mine?: boolean): CSSProperties {
   };
 }
 
-export type MessageRowProps = { m: Message; authorPresence?: Presence; actions: MessageActions };
+export type MessageRowProps = {
+  m: Message;
+  authorPresence?: Presence;
+  /** The author's uploaded avatar; absent falls back to the one generated from their name. */
+  authorAvatar?: string;
+  actions: MessageActions;
+};
 
 const avatarBtn: CSSProperties = {
   border: 0,
@@ -116,7 +122,7 @@ const nameBtn: CSSProperties = {
   color: "var(--text-strong)",
 };
 
-export function MessageRow({ m, authorPresence, actions }: MessageRowProps) {
+export function MessageRow({ m, authorPresence, authorAvatar, actions }: MessageRowProps) {
   const [hover, setHover] = useState(false);
   const [reactOpen, setReactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -169,7 +175,12 @@ export function MessageRow({ m, authorPresence, actions }: MessageRowProps) {
       onMouseLeave={() => setHover(false)}
     >
       <button ref={avatarRef} style={avatarBtn} onClick={() => setProfileOpen((o) => !o)} aria-label={`Profil de ${m.author}`}>
-        <Avatar name={m.author} size={34} presence={m.kind === "system" ? undefined : (authorPresence ?? getPresence(m.author))} />
+        <Avatar
+          name={m.author}
+          src={authorAvatar}
+          size={34}
+          presence={m.kind === "system" ? undefined : (authorPresence ?? getPresence(m.author))}
+        />
       </button>
       <Popover anchorRef={avatarRef} open={profileOpen} onClose={() => setProfileOpen(false)} placement="bottom" align="start">
         <UserProfileCard name={m.author} userId={m.authorId} presence={authorPresence} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={messageFromCard} />
@@ -235,7 +246,29 @@ export function MessageRow({ m, authorPresence, actions }: MessageRowProps) {
                       {m.attachment.size}
                     </span>
                   </span>
-                  <IconButton icon="download" label="Télécharger" size="sm" />
+                  {m.attachment.url ? (
+                    <>
+                      {/* The original bytes, inline: full quality, and the browser's own viewer. */}
+                      <IconLink
+                        icon="external-link"
+                        label={`Ouvrir ${m.attachment.name} dans un nouvel onglet`}
+                        size="sm"
+                        href={m.attachment.previewUrl ?? m.attachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                      <IconLink
+                        icon="download"
+                        label={`Télécharger ${m.attachment.name}`}
+                        size="sm"
+                        href={m.attachment.url}
+                        download={m.attachment.name}
+                      />
+                    </>
+                  ) : (
+                    // Still uploading: nothing to fetch yet.
+                    <IconButton icon="download" label="Télécharger" size="sm" disabled />
+                  )}
                 </Card>
               </div>
             ) : null}

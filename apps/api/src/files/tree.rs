@@ -72,7 +72,11 @@ pub async fn list_folder(
 
     let mut select = files::Entity::find()
         .filter(files::Column::SpaceId.eq(space_id))
-        .filter(files::Column::DeletedAt.is_null());
+        .filter(files::Column::DeletedAt.is_null())
+        // A file attached to a private conversation is not part of the space's tree: it is reachable
+        // from its message and nowhere else. Listing it here would leak its existence and its name to
+        // every member of the space, which is exactly what its `conversation_id` prevents.
+        .filter(files::Column::ConversationId.is_null());
     select = match query.folder {
         Some(folder_id) => select.filter(files::Column::ParentFolderId.eq(folder_id)),
         None => select.filter(files::Column::ParentFolderId.is_null()),

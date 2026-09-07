@@ -2,11 +2,15 @@
 //! server-generated image thumbnails, file shares, and files attached to messages. Bytes live in an
 //! S3-compatible object store behind the `storage` module; this module owns the metadata, the
 //! authorization choke point, and the byte proxying (the browser never talks to the store directly).
+//!
+//! [`images`] is the exception to all of that: avatars and space icons are not files, have their own
+//! keys and their own audiences, and are kept apart on purpose.
 
 mod authz;
 pub(crate) mod download;
 pub(crate) mod dto;
 mod error;
+pub(crate) mod images;
 mod mime;
 mod routes;
 pub(crate) mod shares;
@@ -15,6 +19,7 @@ pub(crate) mod tree;
 pub(crate) mod uploads;
 
 pub use dto::AttachmentDto;
+pub use images::{avatar_url, icon_url};
 pub use routes::router;
 
 use std::collections::HashMap;

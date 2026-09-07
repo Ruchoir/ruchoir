@@ -4,6 +4,7 @@ import { type CSSProperties, useCallback, useEffect, useRef, useState } from "re
 import { Avatar, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import { createFolder as apiCreateFolder, fileDownloadUrl, filePreviewUrl, getFolder, uploadFile } from "@/lib/data/api";
+import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
 
 const styles: Record<string, CSSProperties> = {
@@ -61,6 +62,17 @@ const styles: Record<string, CSSProperties> = {
   },
   checkCell: { display: "flex", alignItems: "center", justifyContent: "center" },
   grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(180px, 100%), 1fr))", gap: 12 },
+  /** Fixed-height preview area, so cards stay aligned whatever each file turns out to be. */
+  preview: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 96,
+    borderRadius: "var(--radius-md)",
+    background: "var(--surface-sunken)",
+    overflow: "hidden",
+  },
+  previewImage: { width: "100%", height: "100%", objectFit: "cover" },
 };
 
 /** Parse a French-formatted size ("248 Ko", "3,4 Mo") into bytes; unknown shapes yield 0. */
@@ -122,7 +134,10 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [tab, setTab] = useState("Tous");
-  const [layout, setLayout] = useState<"list" | "grid">("list");
+  // Seeded from the preference, then free to change for this visit: a default is a starting point,
+  // not a lock.
+  const settings = useSettings();
+  const [layout, setLayout] = useState<"list" | "grid">(settings.filesLayout);
   // The 7-column table cannot fit a phone; force the responsive card grid on compact.
   const effectiveLayout = compact ? "grid" : layout;
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -366,7 +381,20 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                 onClick={() => openEntry(f)}
                 style={{ display: "flex", flexDirection: "column", gap: 8, cursor: "pointer" }}
               >
-                <Icon name={f.kind} size={26} style={{ color: f.kind === "folder" ? "var(--terracotta-500)" : "var(--text-muted)" }} />
+                {/* A card is big enough to show what the file is, so show it: the API already stored
+                    a thumbnail at upload, and an icon says far less than the picture itself. */}
+                <div style={styles.preview}>
+                  {f.thumbnailUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by our own API
+                    <img src={f.thumbnailUrl} alt="" loading="lazy" style={styles.previewImage} />
+                  ) : (
+                    <Icon
+                      name={f.kind}
+                      size={26}
+                      style={{ color: f.kind === "folder" ? "var(--terracotta-500)" : "var(--text-muted)" }}
+                    />
+                  )}
+                </div>
                 <div title={f.name} style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
                   {truncateMiddle(f.name)}
                 </div>

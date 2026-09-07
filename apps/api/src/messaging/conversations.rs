@@ -77,6 +77,10 @@ pub async fn list_my_spaces(
             members,
             unread: unread_by_space.get(&space.id).copied().unwrap_or(0),
             mentions: mentions_by_space.get(&space.id).copied().unwrap_or(0),
+            icon_url: space
+                .icon_key
+                .as_deref()
+                .map(|key| crate::files::icon_url(space.id, key)),
         });
     }
     out.sort_by_key(|space| space.name.to_lowercase());
@@ -243,6 +247,10 @@ pub async fn list_members(
                 title: user.title.clone(),
                 role: membership.role,
                 is_bot: user.is_bot,
+                avatar_url: user
+                    .avatar_key
+                    .as_deref()
+                    .map(|key| crate::files::avatar_url(user.id, key)),
             });
         }
     }

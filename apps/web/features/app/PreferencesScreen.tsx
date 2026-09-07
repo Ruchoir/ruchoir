@@ -2,11 +2,18 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Button, Field, Icon, Input, Switch } from "@/components/ds";
+import { Button, Field, Icon, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
 import { Emoji } from "./Emoji";
 import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
-import { useSettings, type FontChoice, type TextSize, type ThemeName } from "./settings";
+import {
+  useSettings,
+  type DefaultPanel,
+  type FilesLayout,
+  type FontChoice,
+  type TextSize,
+  type ThemeName,
+} from "./settings";
 import {
   COMMANDS,
   DEFAULT_BINDINGS,
@@ -68,9 +75,19 @@ const st: Record<string, CSSProperties> = {
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
   },
-  body: { flex: 1, overflow: "auto", display: "flex", minWidth: 0, minHeight: 0 },
-  nav: { width: 200, flex: "none", padding: "16px 8px", borderRight: "1px solid var(--border-subtle)" },
-  main: { flex: 1, minWidth: 0, padding: "24px 28px", maxWidth: 760 },
+  // The row itself never scrolls: the sub-nav and the panel each scroll on their own, so reading a
+  // long section does not carry the nav out of reach.
+  body: { flex: 1, overflow: "hidden", display: "flex", minWidth: 0, minHeight: 0 },
+  nav: {
+    width: 200,
+    flex: "none",
+    padding: "16px 8px",
+    borderRight: "1px solid var(--border-subtle)",
+    overflowY: "auto",
+  },
+  /** The scrolling half. Its bottom padding is what keeps the last row off the edge of the window. */
+  scroller: { flex: 1, minWidth: 0, overflowY: "auto" },
+  main: { padding: "24px 28px 64px", maxWidth: 760 },
   h: { fontSize: 18, marginBottom: 4 },
   sub: { fontSize: 13, color: "var(--text-muted)", marginBottom: 20 },
   sect: {
@@ -504,89 +521,120 @@ export function PreferencesScreen({ onClose, onNotify, compact = false, initialT
           ))}
         </div>
 
-        <div style={compact ? { ...st.main, padding: "16px 16px 24px" } : st.main}>
-          {tab === "appearance" ? (
-            <>
-              <h2 style={st.h}>Apparence</h2>
-              <p style={st.sub}>Thème, police et taille du texte de l&apos;interface.</p>
-              <div style={st.sect}>Thème</div>
-              <ThemePicker value={s.theme} onChange={(t) => s.set("theme", t)} />
-              <div style={st.sect}>Police d&apos;écriture</div>
-              <FontPicker value={s.font} onChange={(f) => s.set("font", f)} />
-              <div style={st.sect}>Taille du texte</div>
-              <TextSizePicker value={s.textSize} onChange={(t) => s.set("textSize", t)} />
-            </>
-          ) : null}
+        <div style={st.scroller}>
+          <div style={compact ? { ...st.main, padding: "16px 16px 48px" } : st.main}>
+            {tab === "appearance" ? (
+              <>
+                <h2 style={st.h}>Apparence</h2>
+                <p style={st.sub}>Thème, police, taille du texte et affichage par défaut de l&apos;interface.</p>
+                <div style={st.sect}>Thème</div>
+                <ThemePicker value={s.theme} onChange={(t) => s.set("theme", t)} />
+                <div style={st.sect}>Police d&apos;écriture</div>
+                <FontPicker value={s.font} onChange={(f) => s.set("font", f)} />
+                <div style={st.sect}>Taille du texte</div>
+                <TextSizePicker value={s.textSize} onChange={(t) => s.set("textSize", t)} />
 
-          {tab === "notifications" ? (
-            <>
-              <h2 style={st.h}>Notifications</h2>
-              <p style={st.sub}>Choisissez quand et comment Ruchoir vous alerte.</p>
-              <Row title="Activer les notifications" desc="Coupe toutes les notifications de bureau et sonores quand c'est désactivé.">
-                <Switch checked={s.notif.enabled} onChange={(e) => s.set("notif", { ...s.notif, enabled: e.target.checked })} aria-label="Activer les notifications" />
-              </Row>
-              <Row title="Son de notification" desc="Joue un son discret à chaque nouvelle notification.">
-                <Switch checked={s.notif.sound} onChange={(e) => s.set("notif", { ...s.notif, sound: e.target.checked })} aria-label="Son de notification" />
-              </Row>
-              <Row title="Mentions de canal" desc="Être notifié aussi sur @canal et @ici, pas seulement sur les mentions directes.">
-                <Switch checked={s.notif.channelMentions} onChange={(e) => s.set("notif", { ...s.notif, channelMentions: e.target.checked })} aria-label="Mentions de canal" />
-              </Row>
-              <Row
-                title="Heures calmes"
-                desc={
-                  s.notif.quietHours
-                    ? `Notifications suspendues de ${quietHoursLabel(s.notif)}.`
-                    : "Suspend les notifications sur une plage horaire que vous définissez."
-                }
-              >
-                <Switch checked={s.notif.quietHours} onChange={(e) => s.set("notif", { ...s.notif, quietHours: e.target.checked })} aria-label="Heures calmes" />
-              </Row>
-              {s.notif.quietHours ? (
-                <div style={{ display: "flex", gap: 12, padding: "16px 0 4px" }}>
-                  <Field label="Début" htmlFor="quiet-from">
-                    <Input id="quiet-from" type="time" size="sm" value={s.notif.quietFrom ?? DEFAULT_NOTIF_PREFS.quietFrom} onChange={(e) => s.set("notif", { ...s.notif, quietFrom: e.target.value })} />
-                  </Field>
-                  <Field label="Fin" htmlFor="quiet-to">
-                    <Input id="quiet-to" type="time" size="sm" value={s.notif.quietTo ?? DEFAULT_NOTIF_PREFS.quietTo} onChange={(e) => s.set("notif", { ...s.notif, quietTo: e.target.value })} />
-                  </Field>
-                </div>
-              ) : null}
-            </>
-          ) : null}
-
-          {tab === "shortcuts" ? <ShortcutsSection onNotify={onNotify} /> : null}
-
-          {tab === "security" ? (
-            <>
-              <h2 style={st.h}>Compte et sécurité</h2>
-              <p style={st.sub}>Mot de passe, double authentification, clés d&apos;accès et codes de récupération.</p>
-              <AccountSecuritySection onNotify={onNotify} />
-            </>
-          ) : null}
-
-          {tab === "emojis" ? (
-            <>
-              <h2 style={st.h}>Emojis</h2>
-              <p style={st.sub}>Rendu des emojis dans les messages et les réactions.</p>
-              <Row
-                title={
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                    Emojis animés <Emoji emoji="🎉" size={18} />
-                  </span>
-                }
-                desc="Anime les emojis Fluent des réactions (quand le pack est installé). Ailleurs, ils restent statiques."
-              >
-                <Switch checked={s.emojiAnimated} onChange={(e) => s.set("emojiAnimated", e.target.checked)} aria-label="Emojis animés" />
-              </Row>
-              {/* Dev-only: simulates the operator NOT installing the pack, to demo the native fallback.
-                  In production the pack presence comes from the server, so this toggle has no place there. */}
-              {process.env.NODE_ENV !== "production" ? (
-                <Row title="Pack emoji installé" desc="Active le pack Fluent auto-hébergé. Désactivé, les emojis reviennent au rendu natif du système.">
-                  <Switch checked={s.emojiPack} onChange={(e) => s.set("emojiPack", e.target.checked)} aria-label="Pack emoji installé" />
+                <div style={st.sect}>Affichage par défaut</div>
+                <Row title="Vue des fichiers" desc="Comment l'écran Fichiers s'ouvre. Vous pouvez toujours en changer une fois dedans.">
+                  <Select
+                    aria-label="Vue des fichiers par défaut"
+                    value={s.filesLayout}
+                    onChange={(e) => s.set("filesLayout", e.target.value as FilesLayout)}
+                    options={[
+                      { value: "list", label: "Tableau" },
+                      { value: "grid", label: "Cartes" },
+                    ]}
+                  />
                 </Row>
-              ) : null}
-            </>
-          ) : null}
+                <Row
+                  title="Panneau de droite"
+                  desc="Le panneau ouvert en entrant dans une conversation. Le fermer à la main le garde fermé jusqu'à ce que vous en rouvriez un."
+                >
+                  <Select
+                    aria-label="Panneau de droite par défaut"
+                    value={s.defaultPanel}
+                    onChange={(e) => s.set("defaultPanel", e.target.value as DefaultPanel)}
+                    options={[
+                      { value: "members", label: "Membres" },
+                      { value: "files", label: "Fichiers" },
+                      { value: "pinned", label: "Épinglés" },
+                      { value: "none", label: "Aucun" },
+                    ]}
+                  />
+                </Row>
+              </>
+            ) : null}
+
+            {tab === "notifications" ? (
+              <>
+                <h2 style={st.h}>Notifications</h2>
+                <p style={st.sub}>Choisissez quand et comment Ruchoir vous alerte.</p>
+                <Row title="Activer les notifications" desc="Coupe toutes les notifications de bureau et sonores quand c'est désactivé.">
+                  <Switch checked={s.notif.enabled} onChange={(e) => s.set("notif", { ...s.notif, enabled: e.target.checked })} aria-label="Activer les notifications" />
+                </Row>
+                <Row title="Son de notification" desc="Joue un son discret à chaque nouvelle notification.">
+                  <Switch checked={s.notif.sound} onChange={(e) => s.set("notif", { ...s.notif, sound: e.target.checked })} aria-label="Son de notification" />
+                </Row>
+                <Row title="Mentions de canal" desc="Être notifié aussi sur @canal et @ici, pas seulement sur les mentions directes.">
+                  <Switch checked={s.notif.channelMentions} onChange={(e) => s.set("notif", { ...s.notif, channelMentions: e.target.checked })} aria-label="Mentions de canal" />
+                </Row>
+                <Row
+                  title="Heures calmes"
+                  desc={
+                    s.notif.quietHours
+                      ? `Notifications suspendues de ${quietHoursLabel(s.notif)}.`
+                      : "Suspend les notifications sur une plage horaire que vous définissez."
+                  }
+                >
+                  <Switch checked={s.notif.quietHours} onChange={(e) => s.set("notif", { ...s.notif, quietHours: e.target.checked })} aria-label="Heures calmes" />
+                </Row>
+                {s.notif.quietHours ? (
+                  <div style={{ display: "flex", gap: 12, padding: "16px 0 4px" }}>
+                    <Field label="Début" htmlFor="quiet-from">
+                      <Input id="quiet-from" type="time" size="sm" value={s.notif.quietFrom ?? DEFAULT_NOTIF_PREFS.quietFrom} onChange={(e) => s.set("notif", { ...s.notif, quietFrom: e.target.value })} />
+                    </Field>
+                    <Field label="Fin" htmlFor="quiet-to">
+                      <Input id="quiet-to" type="time" size="sm" value={s.notif.quietTo ?? DEFAULT_NOTIF_PREFS.quietTo} onChange={(e) => s.set("notif", { ...s.notif, quietTo: e.target.value })} />
+                    </Field>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+
+            {tab === "shortcuts" ? <ShortcutsSection onNotify={onNotify} /> : null}
+
+            {tab === "security" ? (
+              <>
+                <h2 style={st.h}>Compte et sécurité</h2>
+                <p style={st.sub}>Mot de passe, double authentification, clés d&apos;accès et codes de récupération.</p>
+                <AccountSecuritySection onNotify={onNotify} />
+              </>
+            ) : null}
+
+            {tab === "emojis" ? (
+              <>
+                <h2 style={st.h}>Emojis</h2>
+                <p style={st.sub}>Rendu des emojis dans les messages et les réactions.</p>
+                <Row
+                  title={
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      Emojis animés <Emoji emoji="🎉" size={18} />
+                    </span>
+                  }
+                  desc="Anime les emojis Fluent des réactions (quand le pack est installé). Ailleurs, ils restent statiques."
+                >
+                  <Switch checked={s.emojiAnimated} onChange={(e) => s.set("emojiAnimated", e.target.checked)} aria-label="Emojis animés" />
+                </Row>
+                {/* Dev-only: simulates the operator NOT installing the pack, to demo the native fallback.
+                    In production the pack presence comes from the server, so this toggle has no place there. */}
+                {process.env.NODE_ENV !== "production" ? (
+                  <Row title="Pack emoji installé" desc="Active le pack Fluent auto-hébergé. Désactivé, les emojis reviennent au rendu natif du système.">
+                    <Switch checked={s.emojiPack} onChange={(e) => s.set("emojiPack", e.target.checked)} aria-label="Pack emoji installé" />
+                  </Row>
+                ) : null}
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

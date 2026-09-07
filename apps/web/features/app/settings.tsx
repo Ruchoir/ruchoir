@@ -25,6 +25,25 @@ function isFont(value: unknown): value is FontChoice {
 export type WelcomeState = { dismissed: boolean; done: string[] };
 export const DEFAULT_WELCOME: WelcomeState = { dismissed: false, done: [] };
 
+/** How the Files screen lists a folder. */
+export type FilesLayout = "list" | "grid";
+export const FILES_LAYOUTS: FilesLayout[] = ["list", "grid"];
+function isFilesLayout(value: unknown): value is FilesLayout {
+  return value === "list" || value === "grid";
+}
+
+/**
+ * Which side panel a conversation opens with, or `none` to open with none.
+ *
+ * Stored as a string rather than reusing `ChannelPanel` (which uses `null` for "closed") because a
+ * setting has to round-trip through JSON, where `null` and "absent" are the same thing.
+ */
+export type DefaultPanel = "members" | "files" | "pinned" | "none";
+export const DEFAULT_PANELS: DefaultPanel[] = ["members", "files", "pinned", "none"];
+function isDefaultPanel(value: unknown): value is DefaultPanel {
+  return typeof value === "string" && (DEFAULT_PANELS as string[]).includes(value);
+}
+
 /** Text size, applied as a proportional zoom on the whole interface. */
 export type TextSize = "s" | "m" | "l" | "xl";
 export const TEXT_SIZES: TextSize[] = ["s", "m", "l", "xl"];
@@ -39,6 +58,13 @@ export type Settings = {
   font: FontChoice;
   /** Text size, applied as data-text on <html> (proportional interface zoom). Default medium. */
   textSize: TextSize;
+  /** How the Files screen opens: as a table or as cards. Default table. */
+  filesLayout: FilesLayout;
+  /**
+   * Which side panel a conversation opens with. Default the member list, which is what the shell
+   * opened with before this was configurable.
+   */
+  defaultPanel: DefaultPanel;
   /** Whether Fluent emoji should animate (when the pack is available). Default on. */
   emojiAnimated: boolean;
   /**
@@ -65,6 +91,8 @@ const DEFAULTS: Settings = {
   theme: "ruchui",
   font: "plex",
   textSize: "m",
+  filesLayout: "list",
+  defaultPanel: "members",
   emojiAnimated: true,
   emojiPack: true,
   notif: DEFAULT_NOTIF_PREFS,
@@ -108,6 +136,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           theme: isTheme(parsed.theme) ? parsed.theme : DEFAULTS.theme,
           font: isFont(parsed.font) ? parsed.font : DEFAULTS.font,
           textSize: isTextSize(parsed.textSize) ? parsed.textSize : DEFAULTS.textSize,
+          filesLayout: isFilesLayout(parsed.filesLayout) ? parsed.filesLayout : DEFAULTS.filesLayout,
+          defaultPanel: isDefaultPanel(parsed.defaultPanel) ? parsed.defaultPanel : DEFAULTS.defaultPanel,
           // Deep-merge notif so a stored object missing newer keys still gets their defaults.
           notif: { ...DEFAULT_NOTIF_PREFS, ...(parsed.notif ?? {}) },
           // Same deep-merge for account security (passkeys array kept as stored when present).

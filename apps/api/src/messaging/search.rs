@@ -172,8 +172,11 @@ async fn search_files(
     limit: u64,
     offset: u64,
 ) -> Result<Vec<FileHitDto>, ApiError> {
+    // `conversation_id IS NULL` for the same reason the space tree excludes them: a file attached to
+    // a private conversation is readable only by its participants, so its name must not surface in a
+    // space-wide search either.
     let sql = "SELECT id, name, kind FROM files \
-               WHERE space_id = $1 AND deleted_at IS NULL \
+               WHERE space_id = $1 AND deleted_at IS NULL AND conversation_id IS NULL \
                  AND ruchoir_unaccent(name) ILIKE '%' || ruchoir_unaccent($2) || '%' \
                ORDER BY name ASC \
                LIMIT $3 OFFSET $4";

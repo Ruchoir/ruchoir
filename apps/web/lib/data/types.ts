@@ -15,6 +15,8 @@ export type Workspace = {
   role: string;
   /** URL handle, used to address the space in the path or as a subdomain. */
   slug: string;
+  /** Same-origin URL of the uploaded icon; absent means the generated mark. */
+  iconUrl?: string;
   /**
    * Unread messages in the conversations the caller has joined here. Drives the rail's discreet
    * activity dot, never a number: one busy channel would make every space show a meaningless figure.
@@ -108,6 +110,8 @@ export type Profile = {
   pronouns?: string;
   bio?: string;
   bot?: boolean;
+  /** Same-origin URL of the uploaded avatar; absent means the locally generated one. */
+  avatarUrl?: string;
 };
 
 export type Reaction = {
@@ -121,10 +125,16 @@ export type Reaction = {
 };
 
 export type MessageAttachment = {
+  /** Stored file id; absent while an optimistic message is still uploading. */
+  fileId?: string;
   name: string;
   size: string;
   /** Icon name for the file kind (file, file-text, file-spreadsheet, ...). */
   kind: string;
+  /** Same-origin download URL; absent until the file exists server-side. */
+  url?: string;
+  /** Same-origin URL serving the original bytes inline, for opening in a tab at full quality. */
+  previewUrl?: string;
 };
 
 /**
@@ -150,6 +160,13 @@ export type InlineImage = {
   alt: string;
   width: number;
   height: number;
+  /**
+   * Same-origin preview URL. Absent for a message that has not been persisted yet, in which case the
+   * placeholder is drawn: never a remote image, per the CSP and the sovereignty rule.
+   */
+  src?: string;
+  /** Same-origin download URL, for saving the original rather than viewing it. */
+  downloadUrl?: string;
 };
 
 export type MessageKind = "message" | "system";
@@ -186,7 +203,7 @@ export type Message = {
   readBy?: string[];
 };
 
-export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "folder";
+export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "image" | "folder";
 
 export type SpaceFile = {
   /** File/folder id, when backed by the API (absent for mock/optimistic entries). */
@@ -200,4 +217,6 @@ export type SpaceFile = {
   version: string;
   /** Whether the file was migrated from another tool (the API exposes the flag, not the connector). */
   imported?: boolean;
+  /** Same-origin URL of the server-generated thumbnail, when there is one (images). */
+  thumbnailUrl?: string;
 };
