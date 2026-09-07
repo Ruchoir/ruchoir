@@ -22,7 +22,12 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(SpaceSlugs::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(SpaceSlugs::Slug).text().not_null().primary_key())
+                    .col(
+                        ColumnDef::new(SpaceSlugs::Slug)
+                            .text()
+                            .not_null()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(SpaceSlugs::SpaceId).uuid().not_null())
                     .col(
                         ColumnDef::new(SpaceSlugs::CreatedAt)
