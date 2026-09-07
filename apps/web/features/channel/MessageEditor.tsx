@@ -330,6 +330,7 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
                 <>
                   <Avatar
                     name={hit.member.name}
+                    src={hit.member.avatar}
                     size={22}
                     presence={hit.member.presence}
                     kind={hit.member.bot ? "bot" : "person"}

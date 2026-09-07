@@ -2,7 +2,7 @@
 
 import { type CSSProperties, useEffect, useRef } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Tag } from "@/components/ds";
-import { getPresence } from "@/lib/data";
+import { getAvatar, getPresence } from "@/lib/data";
 import type { DirectMessage, Message, SpaceFile } from "@/lib/data";
 
 const styles: Record<string, CSSProperties> = {
@@ -46,7 +46,10 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-export type ChannelMember = Pick<DirectMessage, "id" | "name" | "presence" | "bot">;
+export type ChannelMember = Pick<DirectMessage, "id" | "name" | "presence" | "bot"> & {
+  /** The member's uploaded avatar; absent falls back to the one generated from their name. */
+  avatar?: string;
+};
 
 const TITLES: Record<SidePanelKind, string> = {
   files: "Fichiers du canal",
@@ -131,7 +134,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
-                <Avatar name={p.name} size={30} presence={p.presence} kind={p.bot ? "bot" : "person"} shape={p.bot ? "round" : "square"} />
+                <Avatar name={p.name} src={p.avatar} size={30} presence={p.presence} kind={p.bot ? "bot" : "person"} shape={p.bot ? "round" : "square"} />
                 <span style={{ flex: 1, fontSize: 14, color: "var(--text-strong)" }}>{p.name}</span>
                 {p.bot ? <Tag>Bot</Tag> : null}
               </button>
@@ -156,7 +159,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
-                  <Avatar name={m.author} size={28} presence={getPresence(m.author)} />
+                  <Avatar name={m.author} src={getAvatar(m.author)} size={28} presence={getPresence(m.author)} />
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
                       {m.author}

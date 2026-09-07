@@ -3,6 +3,7 @@ import { Avatar, Badge, IconButton, Tooltip } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Workspace } from "@/lib/data";
 import { UserMenu } from "./UserMenu";
+import { getAvatar } from "@/lib/data";
 
 const rail: CSSProperties = {
   width: "var(--rail-width)",
@@ -142,7 +143,7 @@ export function WorkspaceRail({
           aria-expanded={userMenu}
           style={{ border: 0, background: "none", padding: 0, cursor: "pointer" }}
         >
-          <Avatar name={currentUser} size={36} presence={presence} />
+          <Avatar name={currentUser} src={getAvatar(currentUser)} size={36} presence={presence} />
         </button>
       </Tooltip>
       <UserMenu

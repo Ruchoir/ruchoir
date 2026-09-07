@@ -6,6 +6,7 @@ import type { Presence } from "@/components/ds";
 import type { ChannelType, Invitation } from "@/lib/data";
 import { COMMANDS, formatChord, isMac } from "./shortcuts";
 import { useSettings } from "./settings";
+import { getAvatar } from "@/lib/data";
 
 const listItem: CSSProperties = {
   display: "flex",
@@ -118,7 +119,7 @@ export function NewMessageDialog({
               className="wc-listrow"
               onClick={() => onSelect(p.name)}
             >
-              <Avatar name={p.name} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
+              <Avatar name={p.name} src={getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
               <span style={{ fontSize: 13, color: "var(--text-strong)" }}>{p.name}</span>
             </button>
           ))}

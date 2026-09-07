@@ -8,6 +8,7 @@ import { NotificationCenter } from "./NotificationCenter";
 import type { AppNotification, ChannelNotifPref } from "./notifications";
 import type { AppView, Toast } from "./types";
 import { Wordmark } from "./Wordmark";
+import { getAvatar } from "@/lib/data";
 
 const styles: Record<string, CSSProperties> = {
   side: {
@@ -494,7 +495,7 @@ export function Sidebar({
                 onClick={() => onChannel(d.id)}
                 menuItems={dmMenu(d.id, d.name)}
               >
-                <Avatar name={d.name} size={20} presence={d.presence} kind={d.bot ? "bot" : "person"} shape={d.bot ? "round" : "square"} />
+                <Avatar name={d.name} src={getAvatar(d.name)} size={20} presence={d.presence} kind={d.bot ? "bot" : "person"} shape={d.bot ? "round" : "square"} />
               </SideItem>
             ))}
           </>

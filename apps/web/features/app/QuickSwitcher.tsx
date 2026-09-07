@@ -3,6 +3,7 @@
 import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } from "react";
 import { Avatar, Badge, Dialog, EmptyState, Icon } from "@/components/ds";
 import type { Channel, DirectMessage, Workspace } from "@/lib/data";
+import { getAvatar } from "@/lib/data";
 
 const styles: Record<string, CSSProperties> = {
   search: {
@@ -165,7 +166,7 @@ export function QuickSwitcher({ channels, dms, spaces, onOpen, onOpenSpace, onCl
                 ) : e.kind === "space" ? (
                   <Avatar name={e.name} kind="workspace" size={22} />
                 ) : (
-                  <Avatar name={e.name} size={22} presence={e.dm?.presence} />
+                  <Avatar name={e.name} src={getAvatar(e.name)} size={22} presence={e.dm?.presence} />
                 )}
                 <span style={styles.name}>
                   {e.name}

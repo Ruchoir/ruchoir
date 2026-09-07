@@ -2,7 +2,7 @@
 
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, IconButton, Popover } from "@/components/ds";
-import { getCurrentUser } from "@/lib/data";
+import { getAvatar, getCurrentUser } from "@/lib/data";
 import type { Message } from "@/lib/data";
 import { getReplies, sendMessage } from "@/lib/data/api";
 import { EmojiPicker } from "./EmojiPicker";
@@ -77,7 +77,7 @@ function toReply(m: { id: string; author: string; time: string; body: string }):
 function ReplyRow({ r }: { r: Reply }) {
   return (
     <div style={styles.reply}>
-      <Avatar name={r.author} size={26} />
+      <Avatar name={r.author} src={getAvatar(r.author)} size={26} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div>
           <span style={styles.name}>{r.author}</span>

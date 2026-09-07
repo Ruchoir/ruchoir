@@ -211,6 +211,21 @@ pub struct MemberDto {
     pub avatar_url: Option<String>,
 }
 
+/// A member's identity after a profile change, pushed in real time.
+///
+/// Carries no role: a profile is the same in every space, and the roles the recipient holds for
+/// this person are already on screen. Every field is always serialised, `null` included, because
+/// this is a replacement and not a patch: an absent `avatar_url` has to mean "the photo was
+/// removed", which is indistinguishable from "unchanged" if the field is allowed to disappear.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct MemberUpdatedDto {
+    pub user_id: Uuid,
+    pub display_name: String,
+    pub title: Option<String>,
+    pub is_bot: bool,
+    pub avatar_url: Option<String>,
+}
+
 /// A member's arrival in a space, pushed in real time.
 ///
 /// Carries the space it happened in, because a client holds one space on screen and ignores events

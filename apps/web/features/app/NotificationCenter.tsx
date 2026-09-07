@@ -2,7 +2,7 @@
 
 import { type CSSProperties, type RefObject, useState } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Popover, Tabs } from "@/components/ds";
-import { getPresence } from "@/lib/data";
+import { getAvatar, getPresence } from "@/lib/data";
 import { type AppNotification, type NotifKind, notifSummary } from "./notifications";
 
 const KIND_ICON: Record<NotifKind, string> = {
@@ -203,7 +203,7 @@ function NotifRow({
         }}
       />
       <span style={{ position: "relative", flex: "none" }}>
-        <Avatar name={notif.actor} size={32} presence={getPresence(notif.actor)} />
+        <Avatar name={notif.actor} src={getAvatar(notif.actor)} size={32} presence={getPresence(notif.actor)} />
         <span
           aria-hidden
           style={{

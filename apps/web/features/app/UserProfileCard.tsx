@@ -42,7 +42,7 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
     <div style={card}>
       <div style={{ height: 44, background: "var(--surface-sunken)", borderBottom: "1px solid var(--border-subtle)" }} />
       <div style={{ padding: "0 16px 14px", marginTop: -22 }}>
-        <Avatar name={p.name} size={56} presence={dot} kind={p.bot ? "bot" : "person"} />
+        <Avatar name={p.name} src={p.avatarUrl} size={56} presence={dot} kind={p.bot ? "bot" : "person"} />
         <div style={{ marginTop: 8, fontSize: 17, fontWeight: 600, color: "var(--text-strong)" }}>
           {p.name}
           {p.pronouns ? (

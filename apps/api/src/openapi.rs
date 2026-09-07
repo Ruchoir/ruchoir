@@ -125,6 +125,7 @@ use utoipa::OpenApi;
         crate::messaging::dto::UserProfileDto,
         crate::messaging::dto::MemberDto,
         crate::messaging::dto::MemberJoinedDto,
+        crate::messaging::dto::MemberUpdatedDto,
         crate::files::images::ImageRef,
         crate::messaging::dto::UpdateProfileRequest,
         crate::messaging::dto::SendMessageRequest,

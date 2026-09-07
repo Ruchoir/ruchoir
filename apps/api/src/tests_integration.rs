@@ -1435,3 +1435,37 @@ async fn a_shareable_link_still_requires_confirming_the_address() {
         "a link proves nothing about the address it was pasted to"
     );
 }
+
+/// A profile edit reaches the people who draw that identity, without them reloading.
+///
+/// The photo is the case that made this necessary: it is rendered by the member list, the mention
+/// candidates, the message rows and the direct-message list, all fed by a roster loaded when the
+/// space opened. Announcing the change is what keeps them from showing a stale face until the next
+/// reload, which reads as the upload having failed.
+#[tokio::test]
+async fn a_profile_edit_reaches_the_people_who_draw_that_identity() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice_cookie = app.cookie_for(fx.alice).await;
+
+    let mut bob_ws = app.connect_ws(&app.cookie_for(fx.bob).await).await;
+
+    let updated = app
+        .req(reqwest::Method::PATCH, "/api/v1/users/me", &alice_cookie)
+        .json(&json!({ "display_name": "Alice Martin", "title": "Chief of staff" }))
+        .send()
+        .await
+        .expect("patch profile");
+    assert_eq!(updated.status(), 200);
+
+    let event = wait_for_type(&mut bob_ws, "member.updated").await;
+    assert_eq!(event["payload"]["user_id"], fx.alice.to_string());
+    assert_eq!(event["payload"]["display_name"], "Alice Martin");
+    assert_eq!(event["payload"]["title"], "Chief of staff");
+    // Serialised even when there is none: absent would have to mean "unchanged", and this event
+    // replaces an identity rather than patching one, so "no photo" must be sayable.
+    assert!(
+        event["payload"]["avatar_url"].is_null(),
+        "an account with no avatar still carries the field, as null"
+    );
+}

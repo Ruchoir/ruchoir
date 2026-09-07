@@ -1120,6 +1120,12 @@ export type RealtimeChannel = {
  */
 export type RealtimeMember = Member & { spaceId: string };
 
+/**
+ * A member's identity after a profile change, pushed live. No space: a profile is the same in every
+ * one of them, and no role either, since a profile edit cannot change it.
+ */
+export type MemberIdentity = Omit<Member, "role">;
+
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
   onMessageCreated?: (conversationId: string, message: ApiMessage) => void;
@@ -1133,6 +1139,8 @@ export type RealtimeHandlers = {
   onChannelUpdated?: (channel: RealtimeChannel) => void;
   /** Someone joined a space the user belongs to. */
   onMemberJoined?: (member: RealtimeMember) => void;
+  /** Someone the user shares a space with changed their display name, title or avatar. */
+  onMemberUpdated?: (member: MemberIdentity) => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
@@ -1209,6 +1217,19 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
           role: member.role,
           title: member.title,
           bot: member.is_bot,
+          avatarUrl: member.avatar_url,
+        });
+        break;
+      }
+      case "member.updated": {
+        // A replacement, not a patch: every field is serialised, so `null` means "cleared" and is
+        // carried through as `undefined` rather than being read as "unchanged".
+        handlers.onMemberUpdated?.({
+          userId: String(payload.user_id),
+          name: String(payload.display_name),
+          title: (payload.title as string | null) ?? undefined,
+          bot: Boolean(payload.is_bot),
+          avatarUrl: (payload.avatar_url as string | null) ?? undefined,
         });
         break;
       }

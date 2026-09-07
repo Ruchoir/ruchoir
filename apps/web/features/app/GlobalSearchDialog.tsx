@@ -4,6 +4,7 @@ import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useEffect
 import { Avatar, Dialog, EmptyState, Icon } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { type FileHit, search, type SearchMessage } from "@/lib/data/api";
+import { getAvatar } from "@/lib/data";
 
 const styles: Record<string, CSSProperties> = {
   label: {
@@ -195,7 +196,7 @@ export function GlobalSearchDialog({
                     onMouseMove={() => setActive(i)}
                     onClick={() => onOpenMessage(m.conversationId, m.id)}
                   >
-                    <Avatar name={m.author} size={26} />
+                    <Avatar name={m.author} src={getAvatar(m.author)} size={26} />
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
                         {m.author}
@@ -254,7 +255,7 @@ export function GlobalSearchDialog({
                     onMouseMove={() => setActive(peopleStart + i)}
                     onClick={() => onOpenProfile(p.name)}
                   >
-                    <Avatar name={p.name} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
+                    <Avatar name={p.name} src={getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
                     <span style={{ fontSize: 13, color: "var(--text-strong)", alignSelf: "center" }}>{p.name}</span>
                   </button>
                 ))}

@@ -6,6 +6,7 @@ import type { SpaceFile } from "@/lib/data";
 import { createFolder as apiCreateFolder, fileDownloadUrl, filePreviewUrl, getFolder, uploadFile } from "@/lib/data/api";
 import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
+import { getAvatar } from "@/lib/data";
 
 const styles: Record<string, CSSProperties> = {
   root: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 },
@@ -399,7 +400,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                   {truncateMiddle(f.name)}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
-                  <Avatar name={f.by} size={18} />
+                  <Avatar name={f.by} src={getAvatar(f.by)} size={18} />
                   {f.size}
                 </div>
                 {f.imported ? <Tag icon="import">{f.source !== "Ruchoir" ? f.source : "Importé"}</Tag> : null}
@@ -568,7 +569,7 @@ function FileRow({
       <td style={styles.td}>{f.version ? <Tag mono tone="info">{f.version}</Tag> : null}</td>
       <td style={styles.td}>
         <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-          <Avatar name={f.by} size={20} />
+          <Avatar name={f.by} src={getAvatar(f.by)} size={20} />
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by.split(" ")[0]}</span>
         </span>
       </td>

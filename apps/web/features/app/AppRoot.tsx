@@ -775,6 +775,19 @@ function AppShell() {
           notifyRef.current?.({ tone: "info", title: `${member.name} a rejoint l'espace` });
         }
       },
+      onMemberUpdated: (member) => {
+        // Not filtered by space: a profile is the same everywhere, and the roster on screen is the
+        // only one this client holds. Fields are replaced rather than merged, so clearing a photo
+        // clears it here too.
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.userId === member.userId
+              ? { ...m, name: member.name, title: member.title, avatarUrl: member.avatarUrl }
+              : m,
+          ),
+        );
+        setDms((prev) => prev.map((d) => (d.userId === member.userId ? { ...d, name: member.name } : d)));
+      },
       onPresence: (userId, p) => {
         setPresence((prev) => ({ ...prev, [userId]: p }));
         setDms((prev) => prev.map((d) => (d.userId === userId ? { ...d, presence: p } : d)));
