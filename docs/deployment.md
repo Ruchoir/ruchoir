@@ -51,6 +51,10 @@ than the rest on a real deployment:
 | `POSTGRES_PASSWORD`, `GARAGE_RPC_SECRET` | Generate rather than invent: `openssl rand -hex 32`. |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Any values you choose; the setup script teaches them to Garage, so both sides agree by construction. |
 
+Quote any value containing spaces or shell punctuation, as the example file now does for
+`RUCHOIR_SMTP_FROM`: Compose reads the file with its own parser, but anything that sources it as a
+shell will choke on an unquoted address, whose angle brackets are redirections.
+
 `S3_ENDPOINT` stays on its published port in `.env`: the compose service overrides it with the
 container name for itself, and the file's value is only ever read by a run on the host.
 
