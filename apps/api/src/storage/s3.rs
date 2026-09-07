@@ -70,6 +70,19 @@ impl S3Store {
         Ok(response.bytes().to_vec())
     }
 
+    /// Ask the backend whether it is reachable and the bucket is usable.
+    ///
+    /// Run once at startup, so a store that is configured but not set up says so there rather than
+    /// at the first upload, where it surfaces as a 502 on someone's file. Listing with a limit of
+    /// one is the cheapest request that exercises credentials, the bucket and the grant at once; an
+    /// empty bucket answers it successfully, which is the state a fresh install is in.
+    pub async fn probe(&self) -> Result<(), StorageError> {
+        self.bucket
+            .list_page("".to_owned(), None, None, None, Some(1))
+            .await?;
+        Ok(())
+    }
+
     /// Delete an object. Missing objects are not an error for the caller's purposes; the backend
     /// reports success for an absent key under S3 delete semantics. Part of the store surface for
     /// hard-delete / garbage collection (soft-delete keeps object bytes, so it is not called yet).

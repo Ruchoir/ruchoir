@@ -19,6 +19,12 @@ context and takes precedence here.
   `dm_conversations`, `messages` and their satellites (reactions, mentions, link previews,
   attachments, pins, saved, read cursors), and `files`/`file_versions`/`file_shares`. Relations are
   added when query code needs them.
+- `src/bootstrap.rs` - the `bootstrap` subcommand: creates the first administrator of a fresh
+  instance (and optionally their first space), from the environment or with the password piped on
+  standard input. Refuses once any account exists, so it cannot mint a second identity later.
+  Deliberately a command and not something the server does on its own: an instance that quietly
+  minted an administrator from its environment would be one restart from a surprise. Everyone after
+  the first joins through an invitation.
 - `src/seed.rs`   - the `seed` subcommand: populates a realistic dev workspace (6 fixture accounts +
   an import bot, **two** spaces, channels, messages/threads/reactions, a file with a version and a
   share, DMs, and unread mention notifications). Dev-guarded (`RUCHOIR_ENV=dev` or `--force`).
@@ -92,7 +98,9 @@ context and takes precedence here.
 - `src/storage/`  - the S3 object-store boundary (`S3Store` over `rust-s3`, path-style addressing).
   Built once at startup and held as `AppState.storage: Option<Arc<S3Store>>`: absent when no
   credentials are configured, in which case file metadata still works and the byte endpoints return
-  503. Swapping the backend is a config change (`S3_ENDPOINT`/`S3_REGION`/`S3_BUCKET`/
+  503. `probe()` runs once at startup so a store that is configured but not set up says so in the
+  log (naming `scripts/bootstrap-garage.sh`) instead of surfacing as a 502 on someone's first
+  upload. Swapping the backend is a config change (`S3_ENDPOINT`/`S3_REGION`/`S3_BUCKET`/
   `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`), never a code change. Dev talks plaintext to Garage over
   the Docker network; `rust-s3` is built without any TLS backend (no `aws-lc-rs`, no OpenSSL), so
   TLS-to-store is a later hardening step (the `ring` path).

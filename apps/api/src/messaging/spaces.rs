@@ -54,70 +54,8 @@ pub async fn create_space(
         return Err(ApiError::BadRequest("this name has no usable characters"));
     }
 
-    let space_id = Uuid::new_v4();
-    let channel_id = Uuid::new_v4();
-    let now = OffsetDateTime::now_utc();
-
     let txn = state.db.begin().await?;
-    // Slugs are unique across the workspace, so two spaces called "Atelier" get `atelier` and
-    // `atelier-2`. Resolved inside the transaction, and the unique index stays the real guard.
-    let slug = unique_slug(&txn, &base).await?;
-    spaces::ActiveModel {
-        id: Set(space_id),
-        name: Set(name.to_owned()),
-        slug: Set(slug.clone()),
-        created_by: Set(Some(session.user_id)),
-        icon_key: Set(None),
-        created_at: Set(now),
-        updated_at: Set(now),
-    }
-    .insert(&txn)
-    .await?;
-    space_members::ActiveModel {
-        space_id: Set(space_id),
-        user_id: Set(session.user_id),
-        role: Set("owner".to_owned()),
-        invited_by: Set(None),
-        joined_at: Set(now),
-    }
-    .insert(&txn)
-    .await?;
-
-    // The starting channel. A channel row is the detail table of a conversation, so the
-    // conversation comes first (the foreign key points at it).
-    conversations::ActiveModel {
-        id: Set(channel_id),
-        space_id: Set(space_id),
-        kind: Set("channel".to_owned()),
-        created_at: Set(now),
-    }
-    .insert(&txn)
-    .await?;
-    channels::ActiveModel {
-        id: Set(channel_id),
-        space_id: Set(space_id),
-        name: Set(DEFAULT_CHANNEL.to_owned()),
-        channel_type: Set("public".to_owned()),
-        topic: Set(None),
-        created_by: Set(Some(session.user_id)),
-        archived_at: Set(None),
-        imported_source: Set(None),
-        external_ref: Set(None),
-        created_at: Set(now),
-    }
-    .insert(&txn)
-    .await?;
-    channel_members::ActiveModel {
-        channel_id: Set(channel_id),
-        user_id: Set(session.user_id),
-        role: Set("owner".to_owned()),
-        notification_level: Set("all".to_owned()),
-        muted: Set(false),
-        favorite: Set(false),
-        joined_at: Set(now),
-    }
-    .insert(&txn)
-    .await?;
+    let (space_id, slug) = create_owned_space(&txn, name, session.user_id).await?;
     txn.commit().await?;
 
     Ok((
@@ -136,6 +74,83 @@ pub async fn create_space(
             icon_url: None,
         }),
     ))
+}
+
+/// Create a space owned by `owner`, born with one public channel, and return its id and slug.
+///
+/// Shared by the endpoint above and the `bootstrap` subcommand, so "a space is never an empty
+/// shell" holds wherever a space comes from rather than only where someone remembered it.
+pub(crate) async fn create_owned_space<C: ConnectionTrait>(
+    txn: &C,
+    name: &str,
+    owner: Uuid,
+) -> Result<(Uuid, String), ApiError> {
+    let space_id = Uuid::new_v4();
+    let channel_id = Uuid::new_v4();
+    let now = OffsetDateTime::now_utc();
+
+    // Slugs are unique across the workspace, so two spaces called "Atelier" get `atelier` and
+    // `atelier-2`. Resolved inside the caller's transaction, and the unique index stays the real
+    // guard.
+    let slug = unique_slug(txn, &slugify(name)).await?;
+    spaces::ActiveModel {
+        id: Set(space_id),
+        name: Set(name.to_owned()),
+        slug: Set(slug.clone()),
+        created_by: Set(Some(owner)),
+        icon_key: Set(None),
+        created_at: Set(now),
+        updated_at: Set(now),
+    }
+    .insert(txn)
+    .await?;
+    space_members::ActiveModel {
+        space_id: Set(space_id),
+        user_id: Set(owner),
+        role: Set("owner".to_owned()),
+        invited_by: Set(None),
+        joined_at: Set(now),
+    }
+    .insert(txn)
+    .await?;
+
+    // The starting channel. A channel row is the detail table of a conversation, so the
+    // conversation comes first (the foreign key points at it).
+    conversations::ActiveModel {
+        id: Set(channel_id),
+        space_id: Set(space_id),
+        kind: Set("channel".to_owned()),
+        created_at: Set(now),
+    }
+    .insert(txn)
+    .await?;
+    channels::ActiveModel {
+        id: Set(channel_id),
+        space_id: Set(space_id),
+        name: Set(DEFAULT_CHANNEL.to_owned()),
+        channel_type: Set("public".to_owned()),
+        topic: Set(None),
+        created_by: Set(Some(owner)),
+        archived_at: Set(None),
+        imported_source: Set(None),
+        external_ref: Set(None),
+        created_at: Set(now),
+    }
+    .insert(txn)
+    .await?;
+    channel_members::ActiveModel {
+        channel_id: Set(channel_id),
+        user_id: Set(owner),
+        role: Set("owner".to_owned()),
+        notification_level: Set("all".to_owned()),
+        muted: Set(false),
+        favorite: Set(false),
+        joined_at: Set(now),
+    }
+    .insert(txn)
+    .await?;
+
+    Ok((space_id, slug))
 }
 
 /// The first free slug in the `base`, `base-2`, `base-3` ... series.
