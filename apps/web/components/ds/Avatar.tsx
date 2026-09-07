@@ -26,7 +26,7 @@ export function Avatar({
   className = "",
   style,
 }: AvatarProps) {
-  const imgSrc = src ?? avatarDataUri(name, kind);
+  const generated = avatarDataUri(name, kind);
   const dot = size >= 36 ? 9 : size >= 24 ? 7 : size >= 18 ? 5 : 4;
   return (
     <span className={`wc-av-wrap ${className}`} style={{ width: size, height: size, ...style }}>
@@ -37,7 +37,21 @@ export function Avatar({
         {/* Static export (no Next image server at runtime) + self-hosted sources (data-URI avatars):
             next/image does not apply here, so a plain img is correct. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imgSrc} alt={name} />
+        <img
+          src={src ?? generated}
+          alt={name}
+          decoding="async"
+          // While an uploaded photo is in flight the tile stays a plain surface rather than showing
+          // the generated avatar underneath: swapping one face for another half a second later is
+          // read as a flicker, where an empty tile filling in is read as loading. The generated one
+          // is still the fallback, applied on the element itself when the photo cannot be fetched
+          // (no avatar, or no longer a co-member), which needs no state and cannot loop: the data
+          // URI is identical to what is already there.
+          onError={(e) => {
+            if (e.currentTarget.src !== generated) e.currentTarget.src = generated;
+          }}
+          style={src ? { background: "var(--surface-sunken)" } : undefined}
+        />
       </span>
       {presence ? (
         <span
