@@ -37,6 +37,7 @@ const title: CSSProperties = {
 export function MobileTopBar({
   title: text,
   workspaceName,
+  workspaceIcon,
   onBack,
   onOpenRail,
   onSearch,
@@ -44,6 +45,8 @@ export function MobileTopBar({
 }: {
   title: string;
   workspaceName: string;
+  /** The space's uploaded icon; absent falls back to the generated mark. */
+  workspaceIcon?: string;
   onBack?: () => void;
   onOpenRail: () => void;
   onSearch: () => void;
@@ -60,7 +63,7 @@ export function MobileTopBar({
           aria-label="Espaces de travail"
           style={{ border: 0, background: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", ...tapTarget }}
         >
-          <Avatar name={workspaceName} size={26} shape="square" />
+          <Avatar name={workspaceName} src={workspaceIcon} kind="workspace" size={26} shape="square" />
         </button>
       )}
       <span style={title}>{text}</span>

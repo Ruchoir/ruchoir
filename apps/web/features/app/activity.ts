@@ -17,6 +17,22 @@ export type ActivityItem = {
 
 export type MessageMap = Record<string, Message[]>;
 
+/**
+ * One line standing in for a message wherever it is listed rather than rendered: pinned messages,
+ * mentions, saved items, search hits.
+ *
+ * A message sent with a file and no text has an empty body, and "(pièce jointe)" told the reader
+ * nothing at all: which file, of what kind, none of it. The attachment already carries a name, and
+ * an image carries its alternative text or its file name, so there is always something truer to
+ * say. The generic wording survives only for the case that has genuinely nothing.
+ */
+export function messageSummary(m: Message): string {
+  if (m.body) return m.body;
+  if (m.image) return m.image.alt;
+  if (m.attachment) return m.attachment.name;
+  return "(pièce jointe)";
+}
+
 function labelFor(channelId: string, channels: Channel[], dms: DirectMessage[]): { label: string; isDm: boolean } {
   const channel = channels.find((c) => c.id === channelId);
   if (channel) return { label: `#${channel.name}`, isDm: false };

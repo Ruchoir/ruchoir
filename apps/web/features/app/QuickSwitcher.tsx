@@ -49,6 +49,8 @@ type Entry = {
   unread: number;
   channel?: Channel;
   dm?: DirectMessage;
+  /** A space's uploaded icon; absent falls back to the generated mark. */
+  iconUrl?: string;
 };
 
 export type QuickSwitcherProps = {
@@ -81,7 +83,13 @@ export function QuickSwitcher({ channels, dms, spaces, onOpen, onOpenSpace, onCl
       ...dms.map((d) => ({ id: d.id, name: d.name, kind: "dm" as const, unread: d.unread, dm: d })),
       // A space's counter is its mention count: the same number the rail shows, so the two never
       // disagree about what is waiting there.
-      ...spaces.map((w) => ({ id: w.id, name: w.name, kind: "space" as const, unread: w.mentions })),
+      ...spaces.map((w) => ({
+        id: w.id,
+        name: w.name,
+        kind: "space" as const,
+        unread: w.mentions,
+        iconUrl: w.iconUrl,
+      })),
     ],
     [channels, dms, spaces],
   );
@@ -164,7 +172,7 @@ export function QuickSwitcher({ channels, dms, spaces, onOpen, onOpenSpace, onCl
                 {e.kind === "channel" ? (
                   <Icon name="hash" size={18} style={{ color: "var(--text-muted)", flex: "none" }} />
                 ) : e.kind === "space" ? (
-                  <Avatar name={e.name} kind="workspace" size={22} />
+                  <Avatar name={e.name} src={e.iconUrl} kind="workspace" size={22} />
                 ) : (
                   <Avatar name={e.name} src={getAvatar(e.name)} size={22} presence={e.dm?.presence} />
                 )}

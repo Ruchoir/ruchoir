@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, type RefObject } from "react";
-import { Avatar, Icon, Popover } from "@/components/ds";
+import { Icon, Popover } from "@/components/ds";
 
 const menu: CSSProperties = {
   minWidth: 224,
@@ -30,7 +30,7 @@ const itemStyle: CSSProperties = {
 };
 
 export type MenuItem =
-  | { type?: "item"; icon?: string; avatar?: string; label: ReactNode; onClick: () => void; danger?: boolean; active?: boolean }
+  | { type?: "item"; icon?: string; label: ReactNode; onClick: () => void; danger?: boolean; active?: boolean }
   | { type: "separator" }
   | { type: "label"; label: string };
 
@@ -80,11 +80,7 @@ export function MenuPopover({ anchorRef, open, onClose, items, placement = "bott
                 if (!it.active) e.currentTarget.style.background = "transparent";
               }}
             >
-              {it.avatar !== undefined ? (
-                <Avatar name={it.avatar} kind="workspace" size={20} />
-              ) : it.icon ? (
-                <Icon name={it.icon} size={14} />
-              ) : null}
+              {it.icon ? <Icon name={it.icon} size={14} /> : null}
               <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{it.label}</span>
               {it.active ? <Icon name="check" size={14} style={{ color: "var(--text-accent)" }} /> : null}
             </button>

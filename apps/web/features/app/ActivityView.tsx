@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { Avatar, EmptyState, Icon, Tag } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
-import type { ActivityItem } from "./activity";
+import { type ActivityItem, messageSummary } from "./activity";
 
 export type ActivityKind = "threads" | "mentions" | "saved";
 
@@ -114,7 +114,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
                       color: "var(--text-body)",
                     }}
                   >
-                    {it.message.body || "(pièce jointe)"}
+                    {messageSummary(it.message)}
                   </span>
                   {kind === "threads" && it.message.replies ? (
                     <span style={{ display: "inline-flex", marginTop: 8 }}>

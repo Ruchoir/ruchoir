@@ -4,6 +4,7 @@ import { type CSSProperties, useMemo, useState } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Input } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import type { Message, SpaceFile } from "@/lib/data";
+import { messageSummary } from "@/features/app/activity";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -114,7 +115,7 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                         <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
                       </span>
                       <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 13, color: "var(--text-body)" }}>
-                        {m.body || "(pièce jointe)"}
+                        {messageSummary(m)}
                       </span>
                     </span>
                   </button>

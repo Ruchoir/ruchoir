@@ -341,6 +341,14 @@ function AppShell() {
 
   /** The space whose load is currently authoritative; see `loadSpace`. */
   const loadingSpaceRef = useRef("");
+  /**
+   * The latest `markConversationRead`, reachable from `loadSpace`.
+   *
+   * Through a ref rather than a dependency: `loadSpace` is stable by construction, and marking read
+   * closes over the notification inbox, which changes on every push. Same reason the realtime
+   * handlers reach the toast through one.
+   */
+  const markReadRef = useRef<(id: string, loaded?: Message[]) => void>(() => {});
 
   /**
    * Seed the shell state for one space, in three waves rather than one batch.
@@ -412,6 +420,12 @@ function AppShell() {
       const page = await getChannelMessages(opening).catch(() => ({ messages: [], nextBefore: undefined }));
       if (loadingSpaceRef.current !== activeWs) return;
       setMessages((prev) => ({ ...prev, [opening]: page.messages }));
+      // Being in a conversation is reading it, whether it was clicked or landed on. Without this,
+      // entering a space and arriving in the very channel a notification points at left the badge
+      // standing until the channel was clicked again, which reads as the notification being stuck.
+      // The page is passed in because the read cursor needs its last message and the state holding
+      // it was only just set.
+      markReadRef.current(opening, page.messages);
     }
 
     // Third wave, behind the screen: everything the first view does not need. The other
@@ -449,6 +463,7 @@ function AppShell() {
             id: n.id,
             kind: n.kind as NotifKind,
             channelId: n.conversationId,
+            spaceId: n.spaceId,
             label,
             isDm,
             actor: n.actor,
@@ -807,6 +822,7 @@ function AppShell() {
           id: n.id,
           kind: n.kind as NotifKind,
           channelId: n.conversationId,
+          spaceId: n.spaceId,
           label,
           isDm: !channel && !!dm,
           actor: n.actor,
@@ -971,10 +987,41 @@ function AppShell() {
 
   // Notifications the user should actually see, after applying the per-channel and global preferences.
   const visibleNotifs = useMemo(
-    () => notifs.filter((n) => passesPref(n, channelPrefs[n.channelId], settings.notif)),
-    [notifs, channelPrefs, settings.notif],
+    // Scoped to the space on screen. The inbox is fetched for the whole account (a notification is
+    // addressed to a person, not to a space) and the rail already carries the count for the others,
+    // so showing all of them here would report the same mention twice and point at a conversation
+    // this space does not contain.
+    () =>
+      notifs.filter(
+        (n) => n.spaceId === ws && passesPref(n, channelPrefs[n.channelId], settings.notif),
+      ),
+    [notifs, ws, channelPrefs, settings.notif],
   );
   const notifUnread = visibleNotifs.filter((n) => !n.read).length;
+  /**
+   * The Mentions badge: unread mention notifications in this space.
+   *
+   * Not `mentions.length`, which is every message that ever named you and therefore a number that
+   * only ever grows. Counting the notification rows instead ties the badge to the same read state
+   * as the rail and the inbox, so the three cannot disagree.
+   */
+  const mentionUnread = visibleNotifs.filter((n) => n.kind === "mention" && !n.read).length;
+
+  /**
+   * Switch the main view, and treat opening Mentions as reading them.
+   *
+   * A list whose whole purpose is to be looked at has to clear when it is looked at; leaving the
+   * badge until each conversation is opened one by one is how it came to look permanent.
+   */
+  const openView = (next: AppView) => {
+    setView(next);
+    if (next !== "mentions") return;
+    const toMark = visibleNotifs.filter((n) => n.kind === "mention" && !n.read);
+    if (toMark.length === 0) return;
+    const ids = new Set(toMark.map((n) => n.id));
+    setNotifs((prev) => prev.map((n) => (ids.has(n.id) ? { ...n, read: true } : n)));
+    for (const n of toMark) void markNotificationRead(n.id).catch(() => {});
+  };
 
   const setNotifRead = (id: string, read: boolean) => {
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read } : n)));
@@ -989,7 +1036,7 @@ function AppShell() {
     setChannelPrefs((prev) => ({ ...prev, [id]: pref }));
 
   /** Mark a whole conversation read: clears its unread badge and any pending notifications from it. */
-  const markConversationRead = (id: string) => {
+  const markConversationRead = (id: string, loaded?: Message[]) => {
     setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)));
     setDms((prev) => prev.map((d) => (d.id === id ? { ...d, unread: 0 } : d)));
     // Clear this conversation's notifications from the inbox too, locally and on the server, so
@@ -999,10 +1046,13 @@ function AppShell() {
     for (const n of toMark) void markNotificationRead(n.id).catch(() => {});
     // Advance the server-side read cursor to the latest acknowledged message. Best-effort: a failure
     // only means the badge reappears on reload, so it is not surfaced.
-    const list = messages[id] ?? [];
+    const list = loaded ?? messages[id] ?? [];
     const last = [...list].reverse().find((m) => !isPendingId(m.id));
     if (last) void setReadCursor(id, last.id).catch(() => {});
   };
+  useEffect(() => {
+    markReadRef.current = markConversationRead;
+  });
 
   /** Jump to the next (dir 1) or previous (dir -1) unread conversation, channels then DMs, cyclically. */
   const gotoUnread = (dir: 1 | -1) => {
@@ -1964,11 +2014,11 @@ function AppShell() {
         directMessages={dms}
         view={view}
         channel={channelId}
-        mentionCount={mentions.length}
+        mentionCount={mentionUnread}
         channelPrefs={channelPrefs}
         notifications={visibleNotifs}
         notifUnread={notifUnread}
-        onView={setView}
+        onView={openView}
         onChannel={openChannel}
         onNotify={showToast}
         onImport={() => setModal("import")}
@@ -2244,6 +2294,7 @@ function AppShell() {
           <MobileTopBar
             title={mobileContent ? contentTitle : wsName}
             workspaceName={wsName}
+            workspaceIcon={workspaces.find((w) => w.id === ws)?.iconUrl}
             onBack={mobileContent ? () => setMobileContent(false) : undefined}
             onOpenRail={() => setRailOpen(true)}
             onSearch={() => setModal("search")}
@@ -2270,14 +2321,14 @@ function AppShell() {
                 directMessages={dms}
                 view={view}
                 channel={channelId}
-                mentionCount={mentions.length}
+                mentionCount={mentionUnread}
                 channelPrefs={channelPrefs}
                 notifications={visibleNotifs}
                 notifUnread={notifUnread}
                 compact
                 only={mobileTab}
                 onView={(v) => {
-                  setView(v);
+                  openView(v);
                   setMobileContent(true);
                 }}
                 onChannel={(id) => {
