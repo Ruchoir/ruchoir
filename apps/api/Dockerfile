@@ -28,6 +28,13 @@ RUN --mount=type=cache,target=/build/apps/web/.next/cache \
 # Stage 2: build the Rust API (release).
 # ---------------------------------------------------------------------------
 FROM rust:1.96-slim-bookworm AS api
+# OpenSSL headers, needed by `webauthn-rs`, which uses OpenSSL to validate passkey attestation
+# certificates. Transport TLS remains rustls with the `ring` provider (see AGENTS.md); this is a
+# crypto library pulled in by a dependency, not a TLS backend choice. A development machine usually
+# has these already, which is why building this image only failed on a clean host.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY rust-toolchain.toml Cargo.toml ./
 COPY Cargo.lock* ./
@@ -45,8 +52,10 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # Stage 3: minimal runtime.
 # ---------------------------------------------------------------------------
 FROM debian:bookworm-slim AS runtime
+# `libssl3` is the runtime half of the build dependency above: `openssl-sys` links dynamically, so
+# the binary needs the shared library even though nothing here terminates TLS with it.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && apt-get install -y --no-install-recommends ca-certificates curl libssl3 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --user-group ruchoir
 WORKDIR /srv/ruchoir
