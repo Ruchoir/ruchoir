@@ -3,7 +3,7 @@
 import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Dialog, Field, Icon, Input, Radio, Select } from "@/components/ds";
 import type { Presence } from "@/components/ds";
-import type { ChannelType } from "@/lib/data";
+import type { ChannelType, Invitation } from "@/lib/data";
 import { COMMANDS, formatChord, isMac } from "./shortcuts";
 import { useSettings } from "./settings";
 
@@ -131,17 +131,107 @@ export function NewMessageDialog({
   );
 }
 
-/** Invite people to the workspace by email. */
-export function InviteDialog({ onClose, onInvite }: { onClose: () => void; onInvite: (count: number) => void }) {
-  const [emails, setEmails] = useState("");
+/** Role labels, in the order an administrator is likely to want them. Values are the API's. */
+const INVITE_ROLES = [
+  { value: "member", label: "Membre" },
+  { value: "admin", label: "Administrateur" },
+  { value: "guest", label: "Invité externe" },
+];
 
-  const submit = () => {
-    const list = emails
-      .split(/[\s,;]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.includes("@"));
-    if (list.length === 0) return;
-    onInvite(list.length);
+const inviteStyles: Record<string, CSSProperties> = {
+  body: { display: "flex", flexDirection: "column", gap: 16 },
+  section: { display: "flex", flexDirection: "column", gap: 8 },
+  sectionTitle: { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" },
+  link: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "8px 10px",
+    background: "var(--surface-sunken)",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: "var(--radius-md)",
+  },
+  linkText: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: "var(--font-mono)",
+    fontSize: 12,
+    color: "var(--text-default)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  row: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "8px 0",
+    borderTop: "1px solid var(--border-subtle)",
+    fontSize: 13,
+  },
+  rowMain: { flex: 1, minWidth: 0 },
+  rowMeta: { fontSize: 12, color: "var(--text-muted)" },
+  empty: { fontSize: 13, color: "var(--text-muted)" },
+};
+
+export type InviteDialogProps = {
+  onClose: () => void;
+  /**
+   * Whether the caller may administer this space. The API is the real guard; this only avoids
+   * offering a form whose every submission would be refused.
+   */
+  canInvite: boolean;
+  /** Issue an invitation. Resolves to the one-time link, and whether the email actually went out. */
+  onCreate: (options: { email?: string; role: string }) => Promise<{ url: string; emailed: boolean }>;
+  /** The outstanding invitations, already loaded by the caller. */
+  invitations: Invitation[];
+  /** Stop accepting one. The caller refreshes the list. */
+  onRevoke: (id: string) => Promise<void>;
+};
+
+/**
+ * Invite people into the space: by address, or with a shareable link.
+ *
+ * The created link is shown once and only once, because the API stores only its digest and cannot
+ * hand it back. That is why the field stays on screen with a copy button until the dialog is
+ * closed, and why revoking and re-issuing is one click rather than a recovery flow.
+ */
+export function InviteDialog({ onClose, canInvite, onCreate, invitations, onRevoke }: InviteDialogProps) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("member");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ url: string; emailed: boolean } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const address = email.trim();
+  const addressed = address.length > 0;
+
+  const submit = async () => {
+    if (pending) return;
+    if (addressed && !address.includes("@")) {
+      setError("Cette adresse ne semble pas valide.");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    setCopied(false);
+    try {
+      setCreated(await onCreate({ email: addressed ? address : undefined, role }));
+      setEmail("");
+    } catch {
+      setError("L'invitation n'a pas pu être créée. Réessayez.");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const copy = () => {
+    if (!created) return;
+    void navigator.clipboard?.writeText(created.url).then(
+      () => setCopied(true),
+      () => setCopied(false),
+    );
   };
 
   return (
@@ -151,28 +241,102 @@ export function InviteDialog({ onClose, onInvite }: { onClose: () => void; onInv
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>Annuler</Button>
-          <Button variant="primary" iconLeft="send" onClick={submit}>
-            Envoyer les invitations
-          </Button>
+          <Button onClick={onClose}>Fermer</Button>
+          {canInvite ? (
+            <Button
+              variant="primary"
+              iconLeft={addressed ? "send" : "external-link"}
+              disabled={pending}
+              onClick={() => void submit()}
+            >
+              {addressed ? "Envoyer l'invitation" : "Créer un lien"}
+            </Button>
+          ) : null}
         </>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <Field label="Adresses électroniques" hint="Séparez les adresses par une virgule ou un retour à la ligne." htmlFor="inv">
+      {!canInvite ? (
+        <p style={inviteStyles.empty}>
+          Seuls les propriétaires et les administrateurs de l&apos;espace peuvent inviter des personnes. Demandez à
+          l&apos;un d&apos;eux de vous envoyer une invitation.
+        </p>
+      ) : (
+      <div style={inviteStyles.body}>
+        <Field
+          label="Adresse électronique"
+          hint="Laissez vide pour créer un lien partageable au lieu d'un envoi par courriel."
+          htmlFor="inv"
+        >
           <Input
             id="inv"
             autoFocus
             icon="mail"
-            placeholder="prenom@exemple.fr, autre@exemple.fr"
-            value={emails}
-            onChange={(e) => setEmails(e.target.value)}
+            placeholder="prenom@exemple.fr"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
         <Field label="Rôle à l'arrivée" htmlFor="inv-role">
-          <Select id="inv-role" options={["Membre", "Modérateur", "Invité externe"]} />
+          <Select
+            id="inv-role"
+            options={INVITE_ROLES}
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+          />
         </Field>
+
+        {error ? (
+          <p role="alert" style={{ ...inviteStyles.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
+            {error}
+          </p>
+        ) : null}
+
+        {created ? (
+          <div style={inviteStyles.section}>
+            <div style={inviteStyles.sectionTitle}>
+              {created.emailed ? "Invitation envoyée" : "Lien d'invitation"}
+            </div>
+            <p style={inviteStyles.empty}>
+              {created.emailed
+                ? "Le courriel est parti. Ce lien ne sera plus affiché, copiez-le si vous voulez le transmettre autrement."
+                : "Copiez ce lien maintenant : il ne pourra plus être affiché."}
+            </p>
+            <div style={inviteStyles.link}>
+              <span style={inviteStyles.linkText}>{created.url}</span>
+              <Button size="sm" iconLeft={copied ? "check" : "copy"} onClick={copy}>
+                {copied ? "Copié" : "Copier"}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <div style={inviteStyles.section}>
+          <div style={inviteStyles.sectionTitle}>Invitations en cours</div>
+          {invitations.length === 0 ? (
+            <p style={inviteStyles.empty}>Aucune invitation en attente.</p>
+          ) : (
+            invitations.map((invitation) => (
+              <div key={invitation.id} style={inviteStyles.row}>
+                <div style={inviteStyles.rowMain}>
+                  <div>{invitation.email ?? "Lien partageable"}</div>
+                  <div style={inviteStyles.rowMeta}>
+                    {INVITE_ROLES.find((r) => r.value === invitation.role)?.label ?? invitation.role}
+                    {" · "}
+                    {invitation.maxUses === undefined
+                      ? `${invitation.uses} utilisation${invitation.uses > 1 ? "s" : ""}`
+                      : `${invitation.uses}/${invitation.maxUses}`}
+                    {invitation.usable ? "" : " · inactive"}
+                  </div>
+                </div>
+                <Button size="sm" iconLeft="x" onClick={() => void onRevoke(invitation.id)}>
+                  Révoquer
+                </Button>
+              </div>
+            ))
+          )}
+        </div>
       </div>
+      )}
     </Dialog>
   );
 }

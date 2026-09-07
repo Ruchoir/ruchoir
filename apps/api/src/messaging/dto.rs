@@ -31,9 +31,11 @@ pub struct ReactionDto {
 pub struct MessageDto {
     pub id: Uuid,
     pub conversation_id: Uuid,
-    /// `None` for system messages.
+    /// `None` for a system message about nothing in particular; a notice about someone (a join)
+    /// carries that person.
     pub author_id: Option<Uuid>,
-    /// Author display name, denormalized for direct rendering; `None` for system messages.
+    /// Author display name, denormalized for direct rendering. Follows `author_id`, so a join notice
+    /// names the person who arrived and the client needs no second lookup.
     pub author_name: Option<String>,
     /// `message` or `system`.
     pub kind: String,
@@ -191,6 +193,17 @@ pub struct MemberDto {
     pub is_bot: bool,
 }
 
+/// A member's arrival in a space, pushed in real time.
+///
+/// Carries the space it happened in, because a client holds one space on screen and ignores events
+/// for the others, plus exactly the shape the member list already renders: the roster is patched
+/// rather than refetched, which is also what keeps the mention and direct-message candidates live.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct MemberJoinedDto {
+    pub space_id: Uuid,
+    pub member: MemberDto,
+}
+
 /// Edit the caller's own profile. Absent fields are left unchanged; an empty string clears the field
 /// (except `display_name`, which is required and ignored when blank).
 #[derive(Debug, Deserialize, ToSchema)]
@@ -290,6 +303,83 @@ pub struct CreateDmRequest {
 pub struct CreateSpaceRequest {
     /// Display name. The URL slug is derived from it and made unique.
     pub name: String,
+}
+
+/// An outstanding invitation into a space, as listed to an administrator.
+///
+/// Deliberately carries no token: only its digest is stored, and the usable link is returned once,
+/// at creation. A lost link is replaced by revoking this row and issuing another.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct InvitationDto {
+    pub id: Uuid,
+    pub space_id: Uuid,
+    /// Address this invitation was addressed to; `None` for a shareable link.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    /// Role granted on acceptance: `admin`, `member` or `guest`.
+    pub role: String,
+    /// Display name of whoever issued it, when that account still exists.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invited_by: Option<String>,
+    /// How many times it has been accepted.
+    pub uses: i32,
+    /// Maximum acceptances; `None` means unlimited.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_uses: Option<i32>,
+    /// RFC 3339 expiry, when it expires.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
+    pub created_at: String,
+    /// Whether it would be accepted right now: not revoked, not expired, uses left.
+    pub usable: bool,
+}
+
+/// The response to creating an invitation: the row, plus the link, shown exactly once.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct CreatedInvitationDto {
+    #[serde(flatten)]
+    pub invitation: InvitationDto,
+    /// Absolute link to hand to the invitee. Never retrievable again.
+    pub url: String,
+    /// Whether the invitation email actually went out. False when the invitation is a shareable
+    /// link (nothing to send) or when the relay refused it, in which case the `url` above is the
+    /// only way to deliver it.
+    pub emailed: bool,
+}
+
+/// What someone holding an invitation token is told before they sign in.
+///
+/// Enough to decide whether to accept, and nothing more: never the member list, never whether the
+/// address already has an account. Returned only for an invitation that is usable right now;
+/// unknown, revoked, expired and exhausted tokens all get the same `404`, so the reason is never
+/// disclosed.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct InvitationPreviewDto {
+    pub space_name: String,
+    /// Display name of whoever issued it, when that account still exists.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invited_by: Option<String>,
+    /// Address the invitation is addressed to, so the screen can say which account to use.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    pub role: String,
+}
+
+/// Create an invitation into a space.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct CreateInvitationRequest {
+    /// Address to send it to. Omit for a shareable link.
+    #[serde(default)]
+    pub email: Option<String>,
+    /// `admin`, `member` or `guest`. Defaults to `member`; `owner` is refused.
+    #[serde(default)]
+    pub role: Option<String>,
+    /// Lifetime in hours. Defaults to 7 days, capped at 30.
+    #[serde(default)]
+    pub expires_in_hours: Option<i64>,
+    /// Maximum acceptances. Defaults to 1 for an addressed invitation, unlimited for a link.
+    #[serde(default)]
+    pub max_uses: Option<i32>,
 }
 
 /// A new channel to create in a space.

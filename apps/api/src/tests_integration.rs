@@ -24,7 +24,7 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, IntoActiveModel};
 use serde_json::{json, Value};
 use time::OffsetDateTime;
 use tokio::net::TcpStream;
@@ -863,4 +863,296 @@ async fn expect_no_channel_event(
             panic!("expected no event about this channel but received: {text}");
         }
     }
+}
+
+/// Promote a seeded member to `admin`, so they may administer the space's invitations.
+async fn promote_to_admin(db: &DatabaseConnection, space_id: Uuid, user_id: Uuid) {
+    let member = space_members::Entity::find_by_id((space_id, user_id))
+        .one(db)
+        .await
+        .expect("membership")
+        .expect("member row");
+    let mut active = member.into_active_model();
+    active.role = Set("admin".to_owned());
+    active.update(db).await.expect("promote");
+}
+
+/// Extract the token from an invitation URL, which is the only place it ever appears.
+fn token_of(url: &str) -> String {
+    url.rsplit_once("token=")
+        .expect("invitation url carries a token")
+        .1
+        .to_owned()
+}
+
+#[tokio::test]
+async fn an_invited_account_joins_the_space_and_its_first_channel() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+
+    // A newcomer who is in no space yet: the case the product could not handle at all before.
+    let newcomer = make_user(&app.db, "newcomer").await;
+    let newcomer_cookie = app.cookie_for(newcomer).await;
+
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/invitations", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "role": "member" }))
+        .send()
+        .await
+        .expect("create invitation");
+    assert_eq!(created.status(), 201);
+    let invitation: Value = created.json().await.expect("json");
+    // A link invitation carries no address, so nothing is sent and its uses are unlimited.
+    assert_eq!(invitation["emailed"], false);
+    assert!(invitation["max_uses"].is_null());
+    let token = token_of(invitation["url"].as_str().expect("url"));
+
+    // The preview needs no session: the invitee has not signed in yet.
+    let preview = app
+        .http
+        .get(format!("{}/api/v1/invitations/{token}", app.base))
+        .send()
+        .await
+        .expect("preview");
+    assert_eq!(preview.status(), 200);
+    let preview: Value = preview.json().await.expect("json");
+    assert_eq!(preview["space_name"], "Test Space");
+    assert_eq!(preview["invited_by"], "alice");
+
+    // Bob is already in the space and watching: the arrival has to reach him without a reload.
+    let mut bob_ws = app.connect_ws(&app.cookie_for(fx.bob).await).await;
+
+    let accepted = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/invitations/{token}/accept"),
+            &newcomer_cookie,
+        )
+        .send()
+        .await
+        .expect("accept");
+    assert_eq!(accepted.status(), 200);
+    let space: Value = accepted.json().await.expect("json");
+    assert_eq!(space["id"], fx.space_id.to_string());
+    assert_eq!(space["role"], "member");
+
+    let event = wait_for_type(&mut bob_ws, "member.joined").await;
+    assert_eq!(event["payload"]["space_id"], fx.space_id.to_string());
+    assert_eq!(event["payload"]["member"]["user_id"], newcomer.to_string());
+    assert_eq!(event["payload"]["member"]["display_name"], "newcomer");
+    assert_eq!(event["payload"]["member"]["role"], "member");
+
+    // And the durable half: a system notice in the channel, carrying the event rather than a
+    // sentence, and naming the person it is about so the client needs no second lookup.
+    let notice = wait_for_type(&mut bob_ws, "message.created").await;
+    assert_eq!(notice["conversation_id"], fx.public_channel.to_string());
+    assert_eq!(notice["payload"]["kind"], "system");
+    assert_eq!(notice["payload"]["system_event"], "member_joined");
+    assert_eq!(notice["payload"]["author_id"], newcomer.to_string());
+    assert_eq!(notice["payload"]["author_name"], "newcomer");
+    assert_eq!(notice["payload"]["body"], "");
+
+    // The membership row records who invited them, which nothing but the seed ever wrote before.
+    let membership = space_members::Entity::find_by_id((fx.space_id, newcomer))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("membership");
+    assert_eq!(membership.role, "member");
+    assert_eq!(membership.invited_by, Some(fx.alice));
+
+    // And they are in the space's first public channel, so messages reach them immediately rather
+    // than after they think to join something.
+    assert!(
+        channel_members::Entity::find_by_id((fx.public_channel, newcomer))
+            .one(&app.db)
+            .await
+            .expect("query")
+            .is_some()
+    );
+}
+
+#[tokio::test]
+async fn only_an_administrator_may_invite() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Bob is a plain member, and Carol is promoted so the positive case is covered too.
+    let bob = app.cookie_for(fx.bob).await;
+    let path = format!("/api/v1/spaces/{}/invitations", fx.space_id);
+
+    let refused = app
+        .req(reqwest::Method::POST, &path, &bob)
+        .json(&json!({}))
+        .send()
+        .await
+        .expect("create invitation as a member");
+    assert_eq!(refused.status(), 403);
+    let hidden = app
+        .req(reqwest::Method::GET, &path, &bob)
+        .send()
+        .await
+        .expect("list invitations as a member");
+    assert_eq!(hidden.status(), 403);
+
+    promote_to_admin(&app.db, fx.space_id, fx.carol).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let allowed = app
+        .req(reqwest::Method::POST, &path, &carol)
+        .json(&json!({}))
+        .send()
+        .await
+        .expect("create invitation");
+    assert_eq!(allowed.status(), 201);
+}
+
+#[tokio::test]
+async fn an_addressed_invitation_only_admits_that_address() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+
+    let invitee = make_user(&app.db, "invitee").await;
+    let invitee_email = users::Entity::find_by_id(invitee)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("user")
+        .email;
+    let intruder = make_user(&app.db, "intruder").await;
+
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/invitations", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "email": invitee_email }))
+        .send()
+        .await
+        .expect("create invitation");
+    assert_eq!(created.status(), 201);
+    let invitation: Value = created.json().await.expect("json");
+    // Addressed to one person, so it is single-use by default.
+    assert_eq!(invitation["max_uses"], 1);
+    let token = token_of(invitation["url"].as_str().expect("url"));
+
+    // Forwarding the message does not hand over the space.
+    let forwarded = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/invitations/{token}/accept"),
+            &app.cookie_for(intruder).await,
+        )
+        .send()
+        .await
+        .expect("accept as intruder");
+    assert_eq!(forwarded.status(), 403);
+    assert!(space_members::Entity::find_by_id((fx.space_id, intruder))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .is_none());
+
+    // The addressee gets in, and the invitation is spent.
+    let accepted = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/invitations/{token}/accept"),
+            &app.cookie_for(invitee).await,
+        )
+        .send()
+        .await
+        .expect("accept as invitee");
+    assert_eq!(accepted.status(), 200);
+
+    let exhausted = app
+        .http
+        .get(format!("{}/api/v1/invitations/{token}", app.base))
+        .send()
+        .await
+        .expect("preview");
+    assert_eq!(exhausted.status(), 404);
+}
+
+#[tokio::test]
+async fn accepting_twice_costs_one_use_and_revoking_ends_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let newcomer = make_user(&app.db, "repeat").await;
+    let newcomer_cookie = app.cookie_for(newcomer).await;
+    let path = format!("/api/v1/spaces/{}/invitations", fx.space_id);
+
+    let created: Value = app
+        .req(reqwest::Method::POST, &path, &alice)
+        .json(&json!({}))
+        .send()
+        .await
+        .expect("create invitation")
+        .json()
+        .await
+        .expect("json");
+    let token = token_of(created["url"].as_str().expect("url"));
+    let invitation_id = created["id"].as_str().expect("id").to_owned();
+
+    for attempt in 0..2 {
+        let accepted = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/invitations/{token}/accept"),
+                &newcomer_cookie,
+            )
+            .send()
+            .await
+            .expect("accept");
+        assert_eq!(accepted.status(), 200, "attempt {attempt} succeeds");
+    }
+
+    // The second acceptance was a no-op: an existing member spends nothing, and announces nothing.
+    let listed: Value = app
+        .req(reqwest::Method::GET, &path, &alice)
+        .send()
+        .await
+        .expect("list invitations")
+        .json()
+        .await
+        .expect("json");
+    let row = listed
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|row| row["id"] == invitation_id.as_str())
+        .expect("the invitation is listed")
+        .clone();
+    assert_eq!(row["uses"], 1);
+    assert_eq!(row["usable"], true);
+    // The listing never carries the token, only what it was for.
+    assert!(row.get("url").is_none() && row.get("token").is_none());
+
+    let revoked = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("{path}/{invitation_id}"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("revoke");
+    assert_eq!(revoked.status(), 204);
+
+    let after = app
+        .http
+        .get(format!("{}/api/v1/invitations/{token}", app.base))
+        .send()
+        .await
+        .expect("preview");
+    assert_eq!(after.status(), 404, "a revoked invitation is gone");
 }

@@ -135,6 +135,26 @@ pub async fn ensure_space_member(
     }
 }
 
+/// Require an `owner` or `admin` role in the space, or fail with the same flat `403`.
+///
+/// The second guard of the space boundary: [`ensure_space_member`] answers "may they see this
+/// space", this one answers "may they change who is in it". A plain `member` or `guest` gets the
+/// identical refusal a non-member does, so the endpoint never confirms the space exists to someone
+/// who is not allowed to administer it.
+pub async fn ensure_space_admin(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), ApiError> {
+    match space_members::Entity::find_by_id((space_id, user_id))
+        .one(db)
+        .await?
+    {
+        Some(member) if member.role == "owner" || member.role == "admin" => Ok(()),
+        _ => Err(ApiError::Forbidden),
+    }
+}
+
 /// Whether the caller may moderate a channel (delete others' messages, pin): an `owner`/`admin`
 /// channel role, or an `owner`/`admin` role in the owning space.
 pub async fn is_channel_moderator(

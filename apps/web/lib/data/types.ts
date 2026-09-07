@@ -11,6 +11,49 @@ export type Workspace = {
   id: string;
   name: string;
   members: number;
+  /** The caller's own role in the space: `owner`, `admin`, `member` or `guest`. Gates administration. */
+  role: string;
+};
+
+/**
+ * An outstanding invitation into a space, as listed to an administrator.
+ *
+ * Never carries the token: the API stores only its digest and returns the usable link once, at
+ * creation. A lost link is replaced by revoking the invitation and issuing another.
+ */
+export type Invitation = {
+  id: string;
+  /** Address it was sent to; absent for a shareable link. */
+  email?: string;
+  /** Role granted on acceptance: `admin`, `member` or `guest`. */
+  role: string;
+  /** Display name of whoever issued it, when that account still exists. */
+  invitedBy?: string;
+  uses: number;
+  /** Maximum acceptances; absent means unlimited. */
+  maxUses?: number;
+  /** RFC 3339 expiry, when it expires. */
+  expiresAt?: string;
+  createdAt: string;
+  /** Whether it would be accepted right now. */
+  usable: boolean;
+};
+
+/** A freshly created invitation: the row, plus the link, which is shown exactly once. */
+export type CreatedInvitation = {
+  invitation: Invitation;
+  url: string;
+  /** Whether the invitation email actually went out. */
+  emailed: boolean;
+};
+
+/** What someone holding an invitation link is told before they sign in. */
+export type InvitationPreview = {
+  spaceName: string;
+  invitedBy?: string;
+  /** Address the invitation is addressed to, so the screen can say which account to use. */
+  email?: string;
+  role: string;
 };
 
 export type ChannelType = "public" | "private" | "archived";

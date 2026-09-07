@@ -68,10 +68,13 @@ export function getMentionNames(): string[] {
 
 export type {
   Channel,
+  CreatedInvitation,
   ChannelType,
   DirectMessage,
   ImportSource,
   InlineImage,
+  Invitation,
+  InvitationPreview,
   LinkPreview,
   Message,
   MessageAttachment,

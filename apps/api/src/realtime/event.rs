@@ -119,6 +119,14 @@ impl RealtimeEnvelope {
         Self::conversation("typing", conversation_id, payload)
     }
 
+    /// Someone joined a space the recipient belongs to.
+    ///
+    /// Space-scoped rather than conversation-scoped: an arrival changes the member roster, the
+    /// mention candidates and the direct-message candidates, none of which hang off a conversation.
+    pub fn member_joined(payload: impl Serialize) -> Self {
+        Self::global("member.joined", payload)
+    }
+
     /// A user's effective presence changed.
     pub fn presence(payload: impl Serialize) -> Self {
         Self::global("presence", payload)

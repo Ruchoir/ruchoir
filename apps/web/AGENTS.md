@@ -88,12 +88,27 @@ sign-in does. `AUTH_MESSAGES` in `AppRoot` maps the API's error codes (read with
 the French copy; the API's own message is English operator text and is never shown.
 
 > **Emailed links are the one exception to "no routes".** The API mails absolute links back into the
-> client (`/verify-email?token=…`, `/reset-password?token=…`, built from `RUCHOIR_PUBLIC_BASE_URL`),
+> client (`/verify-email?token=…`, `/reset-password?token=…`, `/invite?token=…`, built from
+> `RUCHOIR_PUBLIC_BASE_URL`),
 > and its static fallback serves `index.html` for any unknown path, so they land on this bundle.
 > `lib/authLink.ts` resolves the location into a stage, reads the token into memory and rewrites the
 > address to `/` at once, so no token stays in the history, in a copied URL or in a `Referer`. Unlike
 > `lib/dev/deeplink.ts` it is a production affordance. `lib/webauthn.ts` holds the only WebAuthn
 > plumbing: base64url between the API's JSON shapes (`webauthn-rs`) and `navigator.credentials`.
+>
+> An invitation link is the one of the three that can also apply to someone already signed in, so it
+> resolves its token first (the preview endpoint needs no session), joins the space straight away
+> when a session is open, and otherwise holds the token in memory across sign-in or registration.
+> `enterApp` accepts it before loading the spaces, which is why an account created from an invitation
+> lands inside that space instead of in the empty-shell onboarding. It is the one token held in
+> `sessionStorage` rather than only in memory (`rememberInvite` / `forgetInvite`), because
+> registering from an invitation means confirming the address, and that second emailed link reloads
+> the bundle: an in-memory token would not survive it. Tab-scoped, guarded on every access, and
+> dropped once accepted, refused, abandoned or signed out of. The arrival then reaches everyone
+> else as a `member.joined` push, which patches the roster in place (kept sorted) rather than
+> refetching it: that one list also feeds the mention autocomplete and the direct-message candidates.
+> The realtime handlers are wired once per session, so anything they call that changes every render
+> (`showToast`) goes through a ref, not through the effect's dependencies.
 
 The personal security section of the preferences (TOTP enrollment, passkey list, recovery codes) is
 still on its mock model (`features/app/security.ts`); the endpoints it needs

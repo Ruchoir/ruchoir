@@ -15,7 +15,7 @@ context and takes precedence here.
 - `src/cache.rs`  - Valkey connection pool via fred.
 - `src/state.rs`  - `AppState` (db + Valkey + config) shared with handlers.
 - `src/entities/` - SeaORM entity models mapping the database schema. The auth tables plus the
-  collaboration domain: spaces/membership, the `conversations` supertype with `channels` and
+  collaboration domain: spaces/membership/invitations, the `conversations` supertype with `channels` and
   `dm_conversations`, `messages` and their satellites (reactions, mentions, link previews,
   attachments, pins, saved, read cursors), and `files`/`file_versions`/`file_shares`. Relations are
   added when query code needs them.
@@ -32,7 +32,16 @@ context and takes precedence here.
   shapes, kept close to the web data seam), `mentions` (`@`-parsing + resolution), `slug` (the one
   definition of a channel-name / space-slug handle: lowercase, diacritics folded, dashes), and the
   handlers `messages`/`reactions`/`read`/`pins`/`saved`/`conversations`/`channels`/`spaces`/`search`/
-  `notifications`. `spaces` and `channels` carry the lifecycle: creating a space (the caller becomes
+  `notifications`. `invitations` is how anyone but a space's creator gets in: an invitation is a durable, listable and
+  revocable row (unlike the fire-and-forget Valkey tokens of the auth core) holding only the SHA-256
+  digest of its token, addressed to one email or open as a shareable link, and accepting one joins the
+  space plus its oldest public channel so the arrival is live at once, publishes `member.joined`
+  to the space and writes a `member_joined` system message into that channel in the same transaction
+  (only on a real arrival: an existing member re-opening their link announces nothing). A system row
+  stores the *event* and an empty body, never a sentence: user-facing copy belongs to the client,
+  like the auth error codes. Its `author_id` is the person the notice is about, so the client can name
+  them without a second lookup; it stays `None` for a notice about nothing in particular. `spaces` and `channels` carry
+  the lifecycle: creating a space (the caller becomes
   its owner and it is born with one public channel, so it is never an empty shell), creating a
   channel, updating one (rename, topic, visibility, and archiving, which is a state that makes it
   read-only rather than a deletion), and joining or leaving one. A public channel is joinable by any
@@ -45,9 +54,14 @@ context and takes precedence here.
 - `src/realtime/`  - real-time transport and presence: `event` (the versioned push envelope + the
   fan-out wire type, including `channel.created` / `channel.updated`, whose payload is deliberately
   the shared `ChannelSummaryDto` rather than a `ChannelDto`: the latter carries per-caller state that
-  must not be broadcast), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
+  must not be broadcast, plus `member.joined`, which is space-scoped rather than
+  conversation-scoped because an arrival changes the roster, the mention candidates and the DM
+  candidates and hangs off no conversation), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
   `SubscriberClient` on `rt:fanout`, delivery gated by a publish-time audience), `presence`
-  (ephemeral heartbeat + the persistent `users.manual_presence` override), `typing` (throttled,
+  (ephemeral heartbeat + the persistent `users.manual_presence` override; **its audience is frozen at
+  connect time**, computed from the space co-members the user had when their socket opened, so any
+  code that changes someone's membership while they may already be connected has to call
+  `refresh_and_broadcast` afterwards or the new space will show them offline until it reloads), `typing` (throttled,
   ephemeral), and the two transports `ws` (WebSocket) / `sse` (read-only fallback + typing POST).
   State-changing operations are never accepted over the socket; they are REST handlers in
   `messaging`.

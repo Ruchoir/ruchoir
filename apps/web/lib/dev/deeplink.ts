@@ -17,7 +17,7 @@
  * validated against fixed allowlists so an unknown parameter is ignored rather than trusted.
  */
 
-const STAGES = ["login", "signup", "mfa", "forgot", "reset", "verify", "onboarding", "app"] as const;
+const STAGES = ["login", "signup", "mfa", "forgot", "reset", "verify", "invite", "onboarding", "app"] as const;
 const VIEWS = ["channel", "files", "settings", "prefs", "threads", "mentions", "saved"] as const;
 const PANELS = ["files", "members", "pinned", "search"] as const;
 const MODALS = [

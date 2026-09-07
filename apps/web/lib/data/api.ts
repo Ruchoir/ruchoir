@@ -18,9 +18,12 @@ import { getPasskeyAssertion, type PasskeyChallenge } from "@/lib/webauthn";
 import type {
   Channel,
   ChannelType,
+  CreatedInvitation,
   DirectMessage,
   ImportSource,
   InlineImage,
+  Invitation,
+  InvitationPreview,
   Message,
   MessageAttachment,
   MessageKind,
@@ -231,7 +234,7 @@ export async function verifyPasskey(mfaToken: string): Promise<SessionUser> {
 // --- Space bootstrap (workspaces, channels, DMs, presence, profiles) ---
 
 function toWorkspace(dto: SpaceDto): Workspace {
-  return { id: dto.id, name: dto.name, members: dto.members };
+  return { id: dto.id, name: dto.name, members: dto.members, role: dto.role };
 }
 
 /** `GET /me/spaces`: the workspaces the caller belongs to. The SPA's entry point. */
@@ -259,6 +262,86 @@ function toChannel(dto: ChannelDto): Channel {
  */
 export async function createSpace(name: string): Promise<Workspace> {
   return toWorkspace(await apiPost<SpaceDto>("/spaces", { name }));
+}
+
+// --- Space invitations ---
+
+type InvitationDto = {
+  id: string;
+  space_id: string;
+  email?: string;
+  role: string;
+  invited_by?: string;
+  uses: number;
+  max_uses?: number;
+  expires_at?: string;
+  created_at: string;
+  usable: boolean;
+};
+
+type CreatedInvitationDto = InvitationDto & { url: string; emailed: boolean };
+
+type InvitationPreviewDto = { space_name: string; invited_by?: string; email?: string; role: string };
+
+function toInvitation(dto: InvitationDto): Invitation {
+  return {
+    id: dto.id,
+    email: dto.email,
+    role: dto.role,
+    invitedBy: dto.invited_by,
+    uses: dto.uses,
+    maxUses: dto.max_uses,
+    expiresAt: dto.expires_at,
+    createdAt: dto.created_at,
+    usable: dto.usable,
+  };
+}
+
+/**
+ * `POST /spaces/{id}/invitations`: issue an invitation, as an owner or admin of the space.
+ *
+ * Pass an address to have the API email it (single-use by default), or omit it for a shareable
+ * link (unlimited by default). The returned `url` is the only time the link exists in readable
+ * form: the API stores only its digest, so it cannot be fetched again.
+ */
+export async function createInvitation(
+  spaceId: string,
+  options: { email?: string; role?: string; expiresInHours?: number; maxUses?: number } = {},
+): Promise<CreatedInvitation> {
+  const dto = await apiPost<CreatedInvitationDto>(`/spaces/${spaceId}/invitations`, {
+    email: options.email,
+    role: options.role,
+    expires_in_hours: options.expiresInHours,
+    max_uses: options.maxUses,
+  });
+  return { invitation: toInvitation(dto), url: dto.url, emailed: dto.emailed };
+}
+
+/** `GET /spaces/{id}/invitations`: what is outstanding, newest first. Owner/admin only. */
+export async function getInvitations(spaceId: string, signal?: AbortSignal): Promise<Invitation[]> {
+  const rows = await apiGet<InvitationDto[]>(`/spaces/${spaceId}/invitations`, signal);
+  return rows.map(toInvitation);
+}
+
+/** `DELETE /spaces/{id}/invitations/{id}`: stop accepting an invitation. Idempotent. */
+export async function revokeInvitation(spaceId: string, invitationId: string): Promise<void> {
+  await apiDelete<void>(`/spaces/${spaceId}/invitations/${invitationId}`);
+}
+
+/**
+ * `GET /invitations/{token}`: what this invitation is, before signing in.
+ *
+ * Needs no session, which is the point: the invitee has to see which space they are joining to
+ * decide whether to create an account. A 404 covers unknown, revoked, expired and exhausted alike.
+ */
+export async function previewInvitation(token: string, signal?: AbortSignal): Promise<InvitationPreview> {
+  const dto = await apiGet<InvitationPreviewDto>(`/invitations/${encodeURIComponent(token)}`, signal);
+  return { spaceName: dto.space_name, invitedBy: dto.invited_by, email: dto.email, role: dto.role };
+}
+
+/** `POST /invitations/{token}/accept`: join the space. Idempotent for an existing member. */
+export async function acceptInvitation(token: string): Promise<Workspace> {
+  return toWorkspace(await apiPost<SpaceDto>(`/invitations/${encodeURIComponent(token)}/accept`));
 }
 
 /** `GET /spaces/{id}/channels`: the channels the caller can see in a space. */
@@ -504,7 +587,8 @@ function toMessage(dto: MessageDto): ApiMessage {
     author: dto.author_name ?? "",
     authorId: dto.author_id ?? undefined,
     time: formatTimestamp(dto.created_at),
-    body: dto.body,
+    body:
+      dto.kind === "system" && !dto.body ? systemMessageText(dto.system_event, dto.author_name) : dto.body,
     systemIcon: dto.kind === "system" ? iconForSystemEvent(dto.system_event) : undefined,
     attachment,
     image,
@@ -581,6 +665,31 @@ function iconForSystemEvent(event?: string): string {
       return "user-minus";
     default:
       return "info";
+  }
+}
+
+/**
+ * Human text for a system message, derived from its event.
+ *
+ * The API stores the event, never a sentence: user-facing copy lives in the client, the same
+ * separation the auth error codes follow. A system row that does carry a body keeps it, which is how
+ * an imported notice from another product survives with its original wording.
+ */
+function systemMessageText(event: string | undefined, author: string | null | undefined): string {
+  const who = author && author.length > 0 ? author : "Quelqu'un";
+  switch (event) {
+    case "member_joined":
+      return `${who} a rejoint l'espace.`;
+    case "member_left":
+      return `${who} a quitté l'espace.`;
+    case "channel_joined":
+      return `${who} a rejoint le canal.`;
+    case "channel_left":
+      return `${who} a quitté le canal.`;
+    case "channel_created":
+      return "Le canal a été créé.";
+    default:
+      return "";
   }
 }
 
@@ -868,6 +977,12 @@ export type RealtimeChannel = {
   topic?: string;
 };
 
+/**
+ * Someone who just joined a space, pushed live. Same shape as a {@link Member} plus the space it
+ * happened in, so the app can ignore an arrival in a space it does not currently hold.
+ */
+export type RealtimeMember = Member & { spaceId: string };
+
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
   onMessageCreated?: (conversationId: string, message: ApiMessage) => void;
@@ -879,6 +994,8 @@ export type RealtimeHandlers = {
   onChannelCreated?: (channel: RealtimeChannel) => void;
   /** A channel was renamed, re-topiced, archived, restored, or changed visibility. */
   onChannelUpdated?: (channel: RealtimeChannel) => void;
+  /** Someone joined a space the user belongs to. */
+  onMemberJoined?: (member: RealtimeMember) => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
@@ -944,6 +1061,18 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         };
         if (env.type === "channel.created") handlers.onChannelCreated?.(channel);
         else handlers.onChannelUpdated?.(channel);
+        break;
+      }
+      case "member.joined": {
+        const member = payload.member as MemberDto;
+        handlers.onMemberJoined?.({
+          spaceId: String(payload.space_id),
+          userId: member.user_id,
+          name: member.display_name,
+          role: member.role,
+          title: member.title,
+          bot: member.is_bot,
+        });
         break;
       }
       case "presence":

@@ -67,12 +67,22 @@ pub async fn consume(
 }
 
 fn storage_key(purpose: TokenPurpose, raw: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(raw.as_bytes());
-    format!("{}{}", purpose.prefix(), to_hex(&hasher.finalize()))
+    format!("{}{}", purpose.prefix(), digest(raw))
 }
 
-fn generate_token() -> Result<String, AuthError> {
+/// SHA-256 of a raw token, hex encoded: the only form a token is ever stored in.
+///
+/// Shared with the space-invitation flow, which keeps its digests in PostgreSQL rather than Valkey
+/// (an invitation is listable and revocable, not fire-and-forget) but must not weaken the rule that
+/// no store ever holds a usable token.
+pub fn digest(raw: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(raw.as_bytes());
+    to_hex(&hasher.finalize())
+}
+
+/// A fresh 256-bit token from the CSPRNG, hex encoded. Also used for invitation tokens.
+pub fn generate_token() -> Result<String, AuthError> {
     let mut bytes = [0u8; 32];
     getrandom::fill(&mut bytes).map_err(|_| AuthError::Internal)?;
     Ok(to_hex(&bytes))
