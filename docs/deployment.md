@@ -36,6 +36,9 @@ Behind a proxy, forward the client address (`X-Forwarded-For`): the per-IP rate 
 authentication endpoints reads it and otherwise sees only the proxy, which turns a per-attacker limit
 into a per-instance one.
 
+The first `docker compose up -d --build` compiles the API from source and takes several minutes on a
+modest machine. Later ones reuse the cargo cache and are much shorter.
+
 ## Configuration
 
 Copy `.env.example` to `.env` and fill it in. Beyond the values that file documents, four matter more

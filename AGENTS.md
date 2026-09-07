@@ -49,7 +49,11 @@ Web interface only for now. The core is open source under **AGPLv3**.
   the usual Rust clients work unchanged. Chosen over Redis for neutral governance (2026-08-29).
 - **Object storage:** Garage (S3-compatible, Rust, AGPLv3) via an S3 abstraction. Client: `rust-s3`.
 - **Auth:** native in the Rust API (argon2id password hashing, opaque server sessions in Valkey,
-  TOTP + WebAuthn/passkeys, encrypted recovery keys). Optional OIDC connectors for Google and
+  TOTP + WebAuthn/passkeys, encrypted recovery keys). `webauthn-rs` pulls OpenSSL to validate
+  attestation certificates, so the API image installs `libssl-dev` to build and `libssl3` to run.
+  That is a crypto library inside a dependency, not a TLS backend: transport TLS stays rustls with
+  the `ring` provider. A development machine usually has both already, which is why this only
+  surfaced when the image was first built on a clean host. Optional OIDC connectors for Google and
   Microsoft, disabled by default (opt-in, see Golden rule #2). No Node-side auth.
 - **Containerization:** Docker + `docker compose` (all-in-one deployment).
 
