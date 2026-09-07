@@ -297,6 +297,10 @@ usage with the design-system oxlint config.
   rule governs writing, so the client will switch on its own with no flag. A host label counts as a
   space only when it matches a slug the account belongs to, which is why no list of reserved
   subdomains is needed and why resolution runs after `/me/spaces` has loaded.
+- **No shortcut is ever bound to a digit.** Every modifier plus a digit is some browser's own tab
+  switching (Alt under Firefox on Linux, Ctrl under Chrome), and on AZERTY the digit row needs Shift,
+  so `e.key` is `&` where the label says `1`. The chord registry is built on `e.key`, so a digit
+  binding is wrong twice over.
 - **`loadSpace` loads a space in three waves, not one batch.** Blocking: channels, DMs, members and
   presence (members are needed to render any message row). Blocking and small: the messages of the
   conversation being opened, after which the space is usable. Background: the other conversations'

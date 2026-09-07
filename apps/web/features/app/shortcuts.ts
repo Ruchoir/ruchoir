@@ -15,16 +15,7 @@ export type ShortcutId =
   | "nextUnread"
   | "prevUnread"
   | "markRead"
-  | "help"
-  | "space1"
-  | "space2"
-  | "space3"
-  | "space4"
-  | "space5"
-  | "space6"
-  | "space7"
-  | "space8"
-  | "space9";
+  | "help";
 
 /** A binding per command. Missing or empty means the command has no shortcut. */
 export type Bindings = Record<ShortcutId, string>;
@@ -53,16 +44,12 @@ export const COMMANDS: CommandDef[] = [
   { id: "prevUnread", label: "Conversation non lue précédente", hint: "Revenir à la conversation non lue précédente", defaultChord: "Alt+Shift+ArrowUp" },
   { id: "markRead", label: "Marquer comme lu", hint: "Marquer la conversation ouverte comme lue", defaultChord: "Shift+Escape" },
   { id: "help", label: "Aide et raccourcis", hint: "Ouvrir le centre d'aide", defaultChord: "?" },
-  // Positional space switching. Alt and not Mod on purpose: browsers reserve Ctrl/Cmd + a digit for
-  // their own tab switching and no page can intercept it, so binding spaces there would silently do
-  // nothing.
-  ...Array.from({ length: 9 }, (_, i) => ({
-    id: `space${i + 1}` as ShortcutId,
-    label: `Espace ${i + 1}`,
-    hint: `Basculer vers l'espace ${i + 1} du rail`,
-    defaultChord: `Alt+${i + 1}`,
-  })),
 ];
+
+// No positional "switch to space N" command. Every modifier plus a digit is taken by some browser
+// for its own tabs (Alt under Firefox on Linux, Ctrl under Chrome), and on an AZERTY keyboard the
+// digit row needs Shift anyway, so the label would not match the key. Switching space goes through
+// the rail or the quick switcher, which lists spaces.
 
 export const DEFAULT_BINDINGS: Bindings = Object.fromEntries(
   COMMANDS.map((c) => [c.id, c.defaultChord]),

@@ -95,7 +95,7 @@ export function WorkspaceRail({
 
   return (
     <div style={rail}>
-      {workspaces.map((w, i) => {
+      {workspaces.map((w) => {
         // Nothing on the space being read: its per-channel badges are already in the sidebar, and a
         // counter fetched at boot would go stale the moment its owner starts reading.
         const background = w.id !== active;
@@ -110,13 +110,7 @@ export function WorkspaceRail({
         return (
           <Tooltip key={w.id} label={label} side="right">
             <span style={wsSlot}>
-              <button
-                style={wsButton(w.id === active)}
-                onClick={() => onSelect(w.id)}
-                aria-label={label}
-                // Position, not id: the shortcut is Ctrl+1..9 and the tooltip should say so.
-                title={i < 9 ? `${label} (${i + 1})` : label}
-              >
+              <button style={wsButton(w.id === active)} onClick={() => onSelect(w.id)} aria-label={label}>
                 <Avatar name={w.name} kind="workspace" size={36} />
               </button>
               {mentions > 0 ? (
