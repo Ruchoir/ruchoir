@@ -83,11 +83,17 @@ store, and is safe to re-run: it reports what it skipped.
 Then create the account that will invite everyone else:
 
 ```bash
-RUCHOIR_ADMIN_EMAIL=you@example.fr \
-RUCHOIR_ADMIN_NAME="Your Name" \
-RUCHOIR_ADMIN_SPACE="Your Space" \
-  docker compose exec -T api ruchoir-api bootstrap < /path/to/password-file
+docker compose exec -T \
+  -e RUCHOIR_ADMIN_EMAIL=you@example.fr \
+  -e RUCHOIR_ADMIN_NAME="Your Name" \
+  -e RUCHOIR_ADMIN_SPACE="Your Space" \
+  api ruchoir-api bootstrap < /path/to/password-file
 ```
+
+The `-e` flags are not decoration: `docker compose exec` does not pass the calling shell's
+environment into the container, so variables written before the command reach the Compose client and
+never the process that reads them. `bootstrap` would then stop on `set RUCHOIR_ADMIN_EMAIL before
+running bootstrap` while the variable is plainly set in your shell.
 
 The password comes from standard input so it stays out of the environment and out of shell history.
 `bootstrap` refuses once any account exists, so it cannot be used to add a second identity later:
