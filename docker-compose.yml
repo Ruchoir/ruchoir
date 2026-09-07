@@ -64,6 +64,16 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    # Everything the API reads that is not overridden below. Compose reads .env for its own
+    # interpolation, which is a separate thing: without this the container receives only the dozen
+    # variables named in `environment`, and RUCHOIR_PUBLIC_BASE_URL, the SMTP relay, the WebAuthn
+    # settings and RUCHOIR_SECRET_ENCRYPTION_KEY silently fall back to their development defaults on
+    # a real deployment. Optional so a checkout with no .env still starts for development.
+    env_file:
+      - path: .env
+        required: false
+    # These win over the file above, and must: .env holds the values a run on the host needs, where
+    # the services answer on published ports rather than under their container names.
     environment:
       RUCHOIR_API_HOST: 0.0.0.0
       RUCHOIR_API_PORT: 8080

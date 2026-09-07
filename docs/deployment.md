@@ -55,8 +55,10 @@ Quote any value containing spaces or shell punctuation, as the example file now 
 `RUCHOIR_SMTP_FROM`: Compose reads the file with its own parser, but anything that sources it as a
 shell will choke on an unquoted address, whose angle brackets are redirections.
 
-`S3_ENDPOINT` stays on its published port in `.env`: the compose service overrides it with the
-container name for itself, and the file's value is only ever read by a run on the host.
+The compose file passes `.env` into the API container wholesale, then overrides the handful of
+values that must differ inside it. `S3_ENDPOINT` is one: it stays on its published port in `.env`,
+since that file's value is only ever read by a run on the host, while the service points itself at
+the container name. `DATABASE_URL` and `VALKEY_URL` work the same way.
 
 ## Email
 
