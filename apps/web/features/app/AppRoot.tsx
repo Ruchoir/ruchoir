@@ -1122,8 +1122,19 @@ function AppShell() {
     setAuthError(null);
     setAuthPending(true);
     try {
-      await apiRegister(email, displayName, password);
+      // The invitation the visitor arrived with, if any: an invitation addressed to this same
+      // address proves it, so the account comes back already active and there is no inbox to open.
+      const { active } = await apiRegister(email, displayName, password, inviteToken || undefined);
       setPendingEmail(email);
+      if (active) {
+        goToStage("login");
+        showToast({
+          tone: "success",
+          title: "Compte créé",
+          description: "Connectez-vous, votre invitation vous attend.",
+        });
+        return;
+      }
       setVerifyStatus("sent");
       goToStage("verify");
     } catch (err) {

@@ -80,7 +80,9 @@ showing the app; a 401 lands on the real login (`POST /auth/login`), and an unre
 boot error. Message ids are UUID strings end to end (`Message.id: string`).
 
 **Authentication flow.** Every screen is wired to the API. Sign-up posts `/auth/register` (which opens
-no session: the account is unverified until the emailed link is confirmed) and hands over to the
+no session; the account is unverified until the emailed link is confirmed, **unless** it registered
+from an invitation addressed to that same address, in which case the response comes back `active` and
+the client sends them to sign in rather than to a mailbox) and hands over to the
 "check your inbox" screen; password reset and email confirmation use the `request`/`confirm` pairs;
 and a sign-in that answers with an MFA challenge instead of a session moves to the step-up screen,
 which completes `totp`, `recovery` or `passkey` and enters the app the same way a password-only

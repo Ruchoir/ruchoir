@@ -35,7 +35,9 @@ context and takes precedence here.
 - `src/auth/`     - the auth core: password hashing (argon2id) + policy with an offline breach
   check, opaque Valkey sessions, the `__Host-` session cookie, the `AuthSession` extractor
   (authorization guard), per-account anti-bruteforce throttle, SMTP mailer + single-use email
-  tokens (verification / reset), MFA (TOTP with AES-GCM-encrypted secrets, WebAuthn passkeys,
+  tokens (verification / reset; **an invitation addressed to the registering address activates the
+  account outright**, since delivery to that mailbox is the same proof a confirmation email would
+  collect, while a shareable link proves nothing about an address and changes nothing), MFA (TOTP with AES-GCM-encrypted secrets, WebAuthn passkeys,
   HMAC-hashed recovery codes) with a login step-up flow, error type, and the `/api/v1/auth` routes.
 - `src/messaging/` - the REST surface over the collaboration schema: `authz` (the conversation
   membership choke point plus audience computation), `error` (`ApiError`), `dto` (response/request

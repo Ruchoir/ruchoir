@@ -1337,3 +1337,101 @@ async fn a_private_conversation_attachment_stays_in_that_conversation() {
         "a participant must pass authorization and fail only on the missing object store"
     );
 }
+
+#[tokio::test]
+async fn an_addressed_invitation_registers_an_active_account() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let path = format!("/api/v1/spaces/{}/invitations", fx.space_id);
+    let address = format!("invitee-{}@example.test", Uuid::new_v4().simple());
+
+    // Addressed to one person: the invitation is delivered to that mailbox, which is the same proof
+    // a confirmation email would collect.
+    let created: Value = app
+        .req(reqwest::Method::POST, &path, &alice)
+        .json(&json!({ "email": address }))
+        .send()
+        .await
+        .expect("create invitation")
+        .json()
+        .await
+        .expect("json");
+    let token = token_of(created["url"].as_str().expect("url"));
+
+    let registered = app
+        .http
+        .post(format!("{}/api/v1/auth/register", app.base))
+        .json(&json!({
+            "email": address,
+            "display_name": "Invitee",
+            "password": "Correct-Horse-42!",
+            "invitation_token": token,
+        }))
+        .send()
+        .await
+        .expect("register from the invitation");
+    assert_eq!(registered.status(), 201);
+    let account: Value = registered.json().await.expect("json");
+    assert_eq!(
+        account["active"], true,
+        "an invitation to this very address proves it, so no confirmation round trip"
+    );
+
+    // And the account can sign in straight away, which is the whole point: on an instance with no
+    // SMTP relay the confirmation link would never reach anyone.
+    let signed_in = app
+        .http
+        .post(format!("{}/api/v1/auth/login", app.base))
+        .json(&json!({ "email": address, "password": "Correct-Horse-42!" }))
+        .send()
+        .await
+        .expect("sign in");
+    assert_eq!(signed_in.status(), 200);
+}
+
+#[tokio::test]
+async fn a_shareable_link_still_requires_confirming_the_address() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+
+    // No address on the invitation, so nothing about the registrant's address is proved by holding
+    // it: the ordinary confirmation applies.
+    let created: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/invitations", fx.space_id),
+            &alice,
+        )
+        .json(&json!({}))
+        .send()
+        .await
+        .expect("create link invitation")
+        .json()
+        .await
+        .expect("json");
+    let token = token_of(created["url"].as_str().expect("url"));
+
+    let account: Value = app
+        .http
+        .post(format!("{}/api/v1/auth/register", app.base))
+        .json(&json!({
+            "email": format!("link-{}@example.test", Uuid::new_v4().simple()),
+            "display_name": "From a link",
+            "password": "Correct-Horse-42!",
+            "invitation_token": token,
+        }))
+        .send()
+        .await
+        .expect("register from a shareable link")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(
+        account["active"], false,
+        "a link proves nothing about the address it was pasted to"
+    );
+}
