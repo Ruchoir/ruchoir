@@ -1469,3 +1469,91 @@ async fn a_profile_edit_reaches_the_people_who_draw_that_identity() {
         "an account with no avatar still carries the field, as null"
     );
 }
+
+/// Renaming a space moves its address, and the one it leaves behind keeps arriving.
+///
+/// The two halves are inseparable: an address that no longer resembles the space ages badly, and a
+/// dead address is worse. Keeping every slug a space has answered to is what reconciles them, and it
+/// is also what stops a later space from being minted on a retired one and inheriting its links.
+#[tokio::test]
+async fn renaming_a_space_moves_its_address_without_breaking_the_old_one() {
+    let Some(app) = boot().await else { return };
+    let founder = make_user(&app.db, "founder").await;
+    let cookie = app.cookie_for(founder).await;
+
+    // Unique names: this database is not reset between runs, and slugs are unique across it.
+    let token = Uuid::new_v4().simple().to_string();
+    let created: Value = app
+        .req(reqwest::Method::POST, "/api/v1/spaces", &cookie)
+        .json(&json!({ "name": format!("Atelier {token}") }))
+        .send()
+        .await
+        .expect("create space")
+        .json()
+        .await
+        .expect("json");
+    let space_id = created["id"].as_str().expect("id").to_owned();
+    let old_slug = created["slug"].as_str().expect("slug").to_owned();
+
+    let renamed: Value = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/spaces/{space_id}"),
+            &cookie,
+        )
+        .json(&json!({ "name": format!("Studio {token}") }))
+        .send()
+        .await
+        .expect("rename")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(renamed["name"], format!("Studio {token}"));
+    let new_slug = renamed["slug"].as_str().expect("slug").to_owned();
+    assert_ne!(new_slug, old_slug, "the address follows the name");
+
+    // The address people already hold still arrives, and says what it should now read as.
+    let resolved: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/by-slug/{old_slug}"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("resolve old slug")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(resolved["id"], space_id);
+    assert_eq!(resolved["slug"], new_slug);
+
+    // And the retired slug cannot be handed to another space, which would inherit its links.
+    let squatter: Value = app
+        .req(reqwest::Method::POST, "/api/v1/spaces", &cookie)
+        .json(&json!({ "name": format!("Atelier {token}") }))
+        .send()
+        .await
+        .expect("create a space on the retired name")
+        .json()
+        .await
+        .expect("json");
+    assert_ne!(
+        squatter["slug"], old_slug,
+        "a retired address must never be reissued"
+    );
+
+    // A member who is neither owner nor admin cannot rename it.
+    let outsider = make_user(&app.db, "outsider").await;
+    let refused = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/spaces/{space_id}"),
+            &app.cookie_for(outsider).await,
+        )
+        .json(&json!({ "name": "Chez moi" }))
+        .send()
+        .await
+        .expect("rename as an outsider");
+    assert_eq!(refused.status(), 403);
+}

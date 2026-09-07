@@ -356,6 +356,25 @@ pub struct CreateSpaceRequest {
     pub name: String,
 }
 
+/// Where a slug leads: the space, and the slug it currently answers to.
+///
+/// Deliberately minimal. The caller already holds the space in its list; what it is missing is which
+/// one an address from before a rename refers to, and what that address should now read as.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct SpaceRefDto {
+    pub id: Uuid,
+    /// The space's current slug, which may differ from the one that was looked up.
+    pub slug: String,
+}
+
+/// A change to a space's shared identity. Only the name for now.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct UpdateSpaceRequest {
+    /// New display name. The slug is re-derived from it, and the one it replaces keeps resolving to
+    /// the same space, so the addresses people already hold keep arriving.
+    pub name: String,
+}
+
 /// An outstanding invitation into a space, as listed to an administrator.
 ///
 /// Deliberately carries no token: only its digest is stored, and the usable link is returned once,
