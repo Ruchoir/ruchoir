@@ -21,12 +21,42 @@ use crate::auth::extract::AuthSession;
 use crate::entities::{channel_members, channels, conversations, space_members, spaces};
 use crate::state::AppState;
 
-use super::dto::{CreateSpaceRequest, SpaceDto};
+use super::dto::{CreateSpaceRequest, SpaceDto, SpaceUpdatedDto};
 use super::error::ApiError;
 use super::slug::{slugify, MAX_HANDLE_LEN};
+use crate::realtime::event::RealtimeEnvelope;
 
 /// The channel every new space starts with. Named like any other channel handle.
 const DEFAULT_CHANNEL: &str = "general";
+
+/// Announce a changed space to its members.
+///
+/// A space's name and mark are drawn by the rail, the mobile top bar, the switcher and the sidebar
+/// header, all fed by a list loaded when the client signed in. Without this the change reaches
+/// everyone else only on their next reload, which is how a new icon looks like it did not save.
+///
+/// Best-effort: a delivery problem must not fail the write that already succeeded.
+///
+/// `actor` is the member who made the change, needed only to authorise reading the roster: they are
+/// in the audience too, so their own other tabs follow.
+pub async fn broadcast_space_change(state: &AppState, space: &spaces::Model, actor: Uuid) {
+    let Ok(audience) = super::authz::space_member_ids(&state.db, space.id, actor).await else {
+        return;
+    };
+    let payload = SpaceUpdatedDto {
+        id: space.id,
+        name: space.name.clone(),
+        slug: space.slug.clone(),
+        icon_url: space
+            .icon_key
+            .as_deref()
+            .map(|key| crate::files::icon_url(space.id, key)),
+    };
+    state
+        .hub
+        .publish(audience, RealtimeEnvelope::space_updated(&payload))
+        .await;
+}
 
 /// `POST /api/v1/spaces`: create a space owned by the caller.
 #[utoipa::path(

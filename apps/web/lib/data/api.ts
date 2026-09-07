@@ -1130,6 +1130,12 @@ export type RealtimeMember = Member & { spaceId: string };
  */
 export type MemberIdentity = Omit<Member, "role">;
 
+/**
+ * A space's shared identity after a change, pushed live. Carries no counters and no role: those are
+ * per-caller and are never broadcast, so a recipient keeps the ones it already holds.
+ */
+export type SpaceIdentity = { id: string; name: string; slug: string; iconUrl?: string };
+
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
   onMessageCreated?: (conversationId: string, message: ApiMessage) => void;
@@ -1145,6 +1151,8 @@ export type RealtimeHandlers = {
   onMemberJoined?: (member: RealtimeMember) => void;
   /** Someone the user shares a space with changed their display name, title or avatar. */
   onMemberUpdated?: (member: MemberIdentity) => void;
+  /** A space the user belongs to was renamed, or had its icon replaced or removed. */
+  onSpaceUpdated?: (space: SpaceIdentity) => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
@@ -1222,6 +1230,15 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
           title: member.title,
           bot: member.is_bot,
           avatarUrl: member.avatar_url,
+        });
+        break;
+      }
+      case "space.updated": {
+        handlers.onSpaceUpdated?.({
+          id: String(payload.id),
+          name: String(payload.name),
+          slug: String(payload.slug),
+          iconUrl: (payload.icon_url as string | null) ?? undefined,
         });
         break;
       }

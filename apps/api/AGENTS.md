@@ -75,7 +75,8 @@ context and takes precedence here.
   candidates and hangs off no conversation, and `member.updated`, its counterpart for a display
   name, title or avatar changing, whose payload serialises every field including `null` because it
   replaces an identity rather than patching one: an absent avatar has to mean the photo was removed),
-  `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
+  and `space.updated`, the same idea for a space's name and icon, carrying `SpaceUpdatedDto` rather
+  than `SpaceDto` because that one holds the caller's role and unread counters), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
   `SubscriberClient` on `rt:fanout`, delivery gated by a publish-time audience), `presence`
   (ephemeral heartbeat + the persistent `users.manual_presence` override; **its audience is frozen at
   connect time**, computed from the space co-members the user had when their socket opened, so any

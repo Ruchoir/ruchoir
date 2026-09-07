@@ -188,8 +188,11 @@ pub async fn set_space_icon(
     let url = icon_url(space_id, &key);
     let mut active = space.into_active_model();
     active.icon_key = Set(Some(key));
-    active.update(&state.db).await?;
+    let updated = active.update(&state.db).await?;
     forget_object(&state, previous).await;
+    // The whole space draws this mark; without the announcement everyone else keeps the previous
+    // one until they reload, which looks like the upload having been lost.
+    crate::messaging::spaces::broadcast_space_change(&state, &updated, session.user_id).await;
 
     Ok(Json(ImageRef { url }))
 }
@@ -220,8 +223,9 @@ pub async fn clear_space_icon(
     let previous = space.icon_key.clone();
     let mut active = space.into_active_model();
     active.icon_key = Set(None);
-    active.update(&state.db).await?;
+    let updated = active.update(&state.db).await?;
     forget_object(&state, previous).await;
+    crate::messaging::spaces::broadcast_space_change(&state, &updated, session.user_id).await;
     Ok(StatusCode::NO_CONTENT)
 }
 

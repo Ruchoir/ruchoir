@@ -137,6 +137,14 @@ impl RealtimeEnvelope {
         Self::global("member.updated", payload)
     }
 
+    /// A space's name or icon changed.
+    ///
+    /// Delivered to its members, the one who changed it included, so the rail, the mobile top bar
+    /// and the switcher stop showing the mark the space had when they last loaded it.
+    pub fn space_updated(payload: impl Serialize) -> Self {
+        Self::global("space.updated", payload)
+    }
+
     /// A user's effective presence changed.
     pub fn presence(payload: impl Serialize) -> Self {
         Self::global("presence", payload)
