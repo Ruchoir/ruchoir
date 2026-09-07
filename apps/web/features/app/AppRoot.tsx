@@ -5,16 +5,17 @@ import { getChannelMembers, getPresence, setChannelMembers, setCurrentUser, setU
 import {
   acceptInvitation,
   addReaction,
-  type ApiNotification,
+  confirmEmailVerification,
+  confirmPasswordReset,
   connectRealtime,
-  createInvitation,
   createChannel as apiCreateChannel,
   createDm,
+  createInvitation,
   createSpace,
   deleteMessage,
   editMessage,
-  getChannels,
   getChannelMessages,
+  getChannels,
   getDirectMessages,
   getFolder,
   getInvitations,
@@ -25,33 +26,33 @@ import {
   getWorkspaces,
   joinChannel as apiJoinChannel,
   leaveChannel as apiLeaveChannel,
-  type Member,
   login as apiLogin,
   logout as apiLogout,
-  type MfaMethod,
   markAllNotificationsRead,
   markNotificationRead,
-  confirmEmailVerification,
-  confirmPasswordReset,
-  register as apiRegister,
   previewInvitation,
+  register as apiRegister,
+  removeReaction,
   requestEmailVerification,
   requestPasswordReset,
+  resolveSpaceSlug,
   revokeInvitation,
-  verifyPasskey,
-  verifyRecoveryCode,
-  verifyTotp,
-  type RealtimeConnection,
-  type RealtimeReaction,
-  removeReaction,
   sendMessage,
   setMessagePinned,
   setMessageSaved,
   setMyPresence as apiSetMyPresence,
   setReadCursor,
+  type ApiNotification,
+  type Member,
+  type MfaMethod,
+  type RealtimeConnection,
+  type RealtimeReaction,
   type SessionUser,
   updateChannel as apiUpdateChannel,
   uploadAttachment as apiUploadAttachment,
+  verifyPasskey,
+  verifyRecoveryCode,
+  verifyTotp,
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
@@ -498,7 +499,15 @@ function AppShell() {
     // the boot: until the spaces are known, the client cannot tell a space subdomain from a plain
     // hostname. An address naming a space the caller is not in simply falls back to the first.
     const target = readSpaceLocation(spaces.map((s) => s.slug));
-    const wanted = target ? spaces.find((s) => s.slug === target.spaceSlug) : undefined;
+    let wanted = target ? spaces.find((s) => s.slug === target.spaceSlug) : undefined;
+    // A slug that matches nothing is usually a link written before the space was renamed. The API
+    // keeps every slug a space has ever answered to, so ask it once before falling back. The address
+    // is not corrected here: `writeSpaceLocation` emits the current slug on its own when the space
+    // opens, which is the same replaceState that would have been needed anyway.
+    if (target && !wanted) {
+      const resolved = await resolveSpaceSlug(target.spaceSlug);
+      wanted = resolved ? spaces.find((s) => s.id === resolved.id) : undefined;
+    }
     await loadSpace((wanted ?? spaces[0])?.id ?? "", wanted ? target?.channelName : undefined);
     return spaces;
   }, [loadSpace]);
@@ -812,6 +821,26 @@ function AppShell() {
           ),
         );
         setDms((prev) => prev.map((d) => (d.userId === member.userId ? { ...d, name: member.name } : d)));
+        // A message row carries the author's name, not their id, so a rename would leave every line
+        // already on screen under the old one, and its avatar unresolvable (the seam looks a photo
+        // up by name). Rewriting them here is the one moment that name can go stale, and it keeps
+        // every view that reads the message map right at once: the feed, threads, mentions, saved
+        // items and search.
+        setMessages((prev) => {
+          let touched = false;
+          const next: MessageMap = {};
+          for (const [conv, list] of Object.entries(prev)) {
+            let inList = false;
+            const mapped = list.map((m) => {
+              if (m.authorId !== member.userId || m.author === member.name) return m;
+              inList = true;
+              return { ...m, author: member.name };
+            });
+            next[conv] = inList ? mapped : list;
+            touched = touched || inList;
+          }
+          return touched ? next : prev;
+        });
       },
       onSpaceUpdated: (space) => {
         // Name and mark only: the counters and the caller's role are not in the event, precisely
@@ -1614,6 +1643,10 @@ function AppShell() {
     setWorkspaces((prev) => prev.map((w) => (w.id === ws ? { ...w, iconUrl: url } : w)));
   };
 
+  const applySpaceName = (name: string) => {
+    setWorkspaces((prev) => prev.map((w) => (w.id === ws ? { ...w, name } : w)));
+  };
+
   const send = (text: string, attachment?: Message["attachment"]) => {
     if (!text.trim() && !attachment) return;
     const conv = channelId;
@@ -2144,6 +2177,7 @@ function AppShell() {
           iconUrl={workspaces.find((w) => w.id === ws)?.iconUrl}
           canAdminister={["owner", "admin"].includes(workspaces.find((w) => w.id === ws)?.role ?? "")}
           onIconChanged={applySpaceIcon}
+          onRenamed={applySpaceName}
           members={people.filter((p) => !p.bot).map((p) => ({ name: p.name, presence: p.presence }))}
           compact={compact}
           onInvite={() => setModal("invite")}

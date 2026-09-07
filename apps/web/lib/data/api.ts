@@ -294,6 +294,36 @@ export async function createSpace(name: string): Promise<Workspace> {
   return toWorkspace(await apiPost<SpaceDto>("/spaces", { name }));
 }
 
+/**
+ * `PATCH /spaces/{id}`: rename a space; owner or admin only.
+ *
+ * The slug follows the name, so the response may carry a new one; the old one keeps resolving to
+ * the same space (see {@link resolveSpaceSlug}), which is what lets the address stay honest without
+ * breaking the links people already hold.
+ */
+export async function renameSpace(spaceId: string, name: string): Promise<SpaceIdentity> {
+  const dto = await apiPatch<{ id: string; name: string; slug: string; icon_url: string | null }>(
+    `/spaces/${spaceId}`,
+    { name },
+  );
+  return { id: dto.id, name: dto.name, slug: dto.slug, iconUrl: dto.icon_url ?? undefined };
+}
+
+/**
+ * `GET /spaces/by-slug/{slug}`: which space an address names, current slug or retired one.
+ *
+ * Only needed when a slug matches nothing the client holds, which means a link written before a
+ * rename. `null` when the slug leads nowhere the caller may go: the API does not distinguish "no
+ * such space" from "not yours", and neither does this.
+ */
+export async function resolveSpaceSlug(slug: string): Promise<{ id: string; slug: string } | null> {
+  try {
+    return await apiGet<{ id: string; slug: string }>(`/spaces/by-slug/${encodeURIComponent(slug)}`);
+  } catch {
+    return null;
+  }
+}
+
 // --- Space invitations ---
 
 type InvitationDto = {

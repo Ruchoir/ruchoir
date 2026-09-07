@@ -55,6 +55,11 @@ pub fn router() -> Router<AppState> {
         // Spaces the caller belongs to (SPA bootstrap), and creating one.
         .route("/api/v1/me/spaces", get(conversations::list_my_spaces))
         .route("/api/v1/spaces", post(spaces::create_space))
+        .route("/api/v1/spaces/{space_id}", patch(spaces::update_space))
+        .route(
+            "/api/v1/spaces/by-slug/{slug}",
+            get(spaces::resolve_space_slug),
+        )
         // Space invitations: issuing and listing need an owner/admin role, accepting only a
         // session, and the preview none at all (the invitee has not signed in yet).
         .route(

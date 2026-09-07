@@ -4,7 +4,7 @@ import { type CSSProperties, type ReactNode, useRef, useState } from "react";
 import { Avatar, Button, Card, Checkbox, Dialog, Field, Icon, IconButton, Input, Select, Switch, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Toast } from "../app/types";
-import { clearSpaceIcon, setSpaceIcon } from "@/lib/data/api";
+import { clearSpaceIcon, renameSpace, setSpaceIcon } from "@/lib/data/api";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { getAvatar } from "@/lib/data";
 
@@ -108,7 +108,8 @@ export type WorkspaceSettingsProps = {
   spaceId: string;
   /** Its current icon, when one was uploaded. */
   iconUrl?: string;
-  /** Whether the caller may change the icon. The API is the real guard; this hides a dead control. */
+  /** Whether the caller may change the icon or the name. The API is the real guard; this hides a
+   * dead control. */
   canAdminister: boolean;
   members: { name: string; presence: Presence }[];
   onInvite: () => void;
@@ -117,6 +118,8 @@ export type WorkspaceSettingsProps = {
    * new icon only appears after a reload.
    */
   onIconChanged: (url?: string) => void;
+  /** The space was renamed. Same reason as `onIconChanged`: the rail reads the space list. */
+  onRenamed: (name: string) => void;
   onNotify: (toast: Toast) => void;
   /** Compact (mobile): stack the sub-nav above the panel and let setting rows wrap. */
   compact?: boolean;
@@ -131,6 +134,7 @@ export function WorkspaceSettings({
   members,
   onInvite,
   onIconChanged,
+  onRenamed,
   onNotify,
   compact = false,
 }: WorkspaceSettingsProps) {
@@ -143,6 +147,10 @@ export function WorkspaceSettings({
   const [cropping, setCropping] = useState<File | null>(null);
   const icon = iconOverride === null ? undefined : (iconOverride ?? iconUrl);
   const iconRef = useRef<HTMLInputElement>(null);
+  /** The name being edited. Seeded from the space and only sent when the button is pressed. */
+  const [name, setName] = useState(workspaceName);
+  const [nameBusy, setNameBusy] = useState(false);
+  const nameDirty = name.trim() !== "" && name.trim() !== workspaceName;
 
   const onIconPicked = (fileList: FileList | null) => {
     const file = fileList?.[0];
@@ -164,6 +172,19 @@ export function WorkspaceSettings({
       onNotify({ tone: "danger", title: "Icône non enregistrée", description: "Choisissez une image plus légère." });
     } finally {
       setIconBusy(false);
+    }
+  };
+
+  const saveName = async () => {
+    setNameBusy(true);
+    try {
+      const space = await renameSpace(spaceId, name.trim());
+      onRenamed(space.name);
+      onNotify({ tone: "success", title: "Espace renommé", description: space.name });
+    } catch {
+      onNotify({ tone: "danger", title: "Nom non enregistré", description: "Réessayez." });
+    } finally {
+      setNameBusy(false);
     }
   };
 
@@ -248,8 +269,34 @@ export function WorkspaceSettings({
                     />
                   </div>
                 </Field>
-                <Field label="Nom de l'espace" htmlFor="wn">
-                  <Input id="wn" defaultValue={workspaceName} />
+                <Field
+                  label="Nom de l'espace"
+                  hint={
+                    canAdminister
+                      ? "L'adresse de l'espace suivra le nom. Les anciennes continuent de fonctionner."
+                      : "Seuls les administrateurs de l'espace peuvent le renommer."
+                  }
+                  htmlFor="wn"
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Input
+                      id="wn"
+                      value={name}
+                      disabled={!canAdminister || nameBusy}
+                      onChange={(e) => setName(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    {canAdminister ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={!nameDirty || nameBusy}
+                        onClick={() => void saveName()}
+                      >
+                        {nameBusy ? "Envoi…" : "Enregistrer"}
+                      </Button>
+                    ) : null}
+                  </div>
                 </Field>
                 <Field label="Adresse du serveur" hint="Modifiable par un administrateur système uniquement" htmlFor="wu">
                   <Input id="wu" defaultValue="atelier.ruchoir.fr" disabled />
