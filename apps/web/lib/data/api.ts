@@ -891,6 +891,7 @@ type NotificationDto = {
   id: string;
   kind: string;
   conversation_id: string;
+  space_id: string;
   message_id: string;
   actor_id?: string;
   actor_name?: string;
@@ -911,6 +912,8 @@ export type ApiNotification = {
   id: string;
   kind: "mention" | "reply" | "dm";
   conversationId: string;
+  /** The space it happened in, so the inbox can be shown for the space on screen. */
+  spaceId: string;
   messageId: string;
   actor: string;
   preview: string;
@@ -927,6 +930,7 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
     id: dto.id,
     kind,
     conversationId: dto.conversation_id,
+    spaceId: dto.space_id,
     messageId: dto.message_id,
     actor: dto.actor_name ?? "",
     preview: dto.preview,

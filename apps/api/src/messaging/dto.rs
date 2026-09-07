@@ -260,6 +260,10 @@ pub struct NotificationDto {
     /// `mention`, `reply` or `dm`.
     pub kind: String,
     pub conversation_id: Uuid,
+    /// The space the conversation belongs to. Carried so the inbox can be shown for the space on
+    /// screen: without it a client holding one space cannot tell which of its notifications belong
+    /// there, and would show a mention from another space in every space it opens.
+    pub space_id: Uuid,
     pub message_id: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<Uuid>,
