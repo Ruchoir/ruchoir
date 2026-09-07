@@ -36,7 +36,7 @@ import type {
 // --- Raw API DTOs (mirror the Rust structs; snake_case, as sent on the wire) ---
 
 /** The signed-in user, from `POST /auth/login`, `POST /auth/register` and `GET /auth/session`. */
-type UserSummaryDto = { id: string; email: string; display_name: string };
+type UserSummaryDto = { id: string; email: string; display_name: string; active: boolean };
 
 /** Alternative login outcome when a second factor is required (same 200 status as a success). */
 type MfaRequiredDto = { mfa_required: true; methods: string[]; mfa_token: string };
@@ -163,16 +163,27 @@ export async function logout(): Promise<void> {
 // --- Registration, email verification and password reset ---
 
 /**
- * `POST /auth/register`: create an account. No session is opened: the account starts unverified, the
- * API emails a verification link, and signing in is refused until the address is confirmed.
+ * `POST /auth/register`: create an account. No session is opened either way.
+ *
+ * Ordinarily the account starts unverified, the API emails a confirmation link, and signing in is
+ * refused until the address is confirmed. Registering from an invitation **addressed to that same
+ * address** skips all of that: the invitation was delivered to the mailbox, which is the same proof
+ * the confirmation email would collect. `active` in the response says which of the two happened, so
+ * the caller sends the person to sign in rather than to a mailbox they have no reason to open.
  */
-export async function register(email: string, displayName: string, password: string): Promise<SessionUser> {
+export async function register(
+  email: string,
+  displayName: string,
+  password: string,
+  invitationToken?: string,
+): Promise<{ user: SessionUser; active: boolean }> {
   const dto = await apiPost<UserSummaryDto>("/auth/register", {
     email,
     display_name: displayName,
     password,
+    invitation_token: invitationToken,
   });
-  return toSessionUser(dto);
+  return { user: toSessionUser(dto), active: dto.active };
 }
 
 /**

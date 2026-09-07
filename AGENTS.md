@@ -105,7 +105,8 @@ docker-compose.yml   Full stack (api, web, PostgreSQL, Valkey, Garage)
 
 ## Setup commands
 
-See `docs/development.md` for the full workflow. Quick reference:
+See `docs/development.md` for the full workflow, and `docs/deployment.md` for putting an
+instance in front of real people. Quick reference:
 
 - Configure env: `cp .env.example .env` (never commit `.env`).
 - Build the web export: `pnpm install && pnpm --filter @ruchoir/web build`.

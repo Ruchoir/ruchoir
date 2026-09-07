@@ -22,7 +22,9 @@ use super::error::AuthError;
 use super::extract::AuthSession;
 use super::tokens::{self, TokenPurpose};
 use super::{crypto, mfa, passkey, password, recovery, session, throttle, totp};
-use crate::entities::{recovery_codes, totp_secrets, users, webauthn_credentials};
+use crate::entities::{
+    recovery_codes, space_invitations, totp_secrets, users, webauthn_credentials,
+};
 use crate::state::AppState;
 use webauthn_rs::prelude::{
     CreationChallengeResponse, Passkey, PublicKeyCredential, RegisterPublicKeyCredential,
@@ -35,6 +37,14 @@ pub struct RegisterRequest {
     pub email: String,
     pub display_name: String,
     pub password: String,
+    /// The invitation this registration came from, when it came from one.
+    ///
+    /// An invitation addressed to this very address activates the account without the usual
+    /// confirmation round trip: it was delivered to that mailbox, which is the same proof a
+    /// verification email would collect. A shareable link proves nothing about the address and
+    /// therefore changes nothing here.
+    #[serde(default)]
+    pub invitation_token: Option<String>,
 }
 
 /// Credentials for an existing account.
@@ -126,11 +136,15 @@ pub struct UserSummary {
     pub id: Uuid,
     pub email: String,
     pub display_name: String,
+    /// Whether the account can sign in already. False after an ordinary registration, which waits on
+    /// the address being confirmed; true when an invitation had already proved the address.
+    pub active: bool,
 }
 
 impl From<users::Model> for UserSummary {
     fn from(model: users::Model) -> Self {
         Self {
+            active: model.status == "active",
             id: model.id,
             email: model.email,
             display_name: model.display_name,
@@ -206,6 +220,12 @@ pub async fn register(
         return Err(AuthError::EmailTaken);
     }
 
+    // An invitation addressed to this very address has already proved it: it was delivered there.
+    // Asking for a confirmation email on top would collect the same proof twice, and on an instance
+    // with no SMTP relay it would leave the invitee unable to sign in at all. A shareable link
+    // carries no address, so it proves nothing and changes nothing.
+    let invited = invitation_proves(&state, body.invitation_token.as_deref(), &email).await;
+
     let password_hash = password::hash_password(&state.config, &body.password)?;
     let user_id = Uuid::new_v4();
     let model = users::ActiveModel {
@@ -213,7 +233,7 @@ pub async fn register(
         email: Set(email.clone()),
         display_name: Set(display_name),
         password_hash: Set(Some(password_hash)),
-        status: Set("pending".to_string()),
+        status: Set(if invited { "active" } else { "pending" }.to_string()),
         mfa_enforced: Set(false),
         // Profile fields: unset at registration, filled in later via profile editing.
         title: NotSet,
@@ -231,9 +251,41 @@ pub async fn register(
     .await
     .map_err(|_| AuthError::Internal)?;
 
-    send_verification_email(&state, user_id, &email).await?;
+    if !invited {
+        send_verification_email(&state, user_id, &email).await?;
+    }
 
     Ok((StatusCode::CREATED, Json(model.into())))
+}
+
+/// Whether an invitation token proves that `email` belongs to whoever is registering.
+///
+/// True only for a usable invitation addressed to that exact address. Everything else, including a
+/// shareable link, an expired token and a mismatched address, answers false: the caller then falls
+/// back to the ordinary confirmation, so a wrong or forged token costs the registration nothing more
+/// than the round trip it would have had anyway.
+async fn invitation_proves(state: &AppState, token: Option<&str>, email: &str) -> bool {
+    let Some(token) = token.filter(|t| !t.is_empty()) else {
+        return false;
+    };
+    let Ok(Some(invitation)) = space_invitations::Entity::find()
+        .filter(space_invitations::Column::TokenHash.eq(tokens::digest(token)))
+        .one(&state.db)
+        .await
+    else {
+        return false;
+    };
+    let usable = invitation.revoked_at.is_none()
+        && invitation
+            .expires_at
+            .is_none_or(|expiry| expiry > OffsetDateTime::now_utc())
+        && invitation.max_uses.is_none_or(|max| invitation.uses < max);
+
+    usable
+        && invitation
+            .email
+            .as_deref()
+            .is_some_and(|addressed| addressed.eq_ignore_ascii_case(email))
 }
 
 /// Verify credentials and, on success for a verified account, open a session.

@@ -74,6 +74,9 @@ docs/                    Technical documentation
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/); branches use
   conventional naming (`feat/…`, `fix/…`, `chore/…`).
 
+Running an instance for other people is a different exercise from running one to develop against:
+see [`docs/deployment.md`](docs/deployment.md), which starts with why HTTPS is not optional.
+
 Contributors - including AI coding agents - should read [`AGENTS.md`](AGENTS.md) first.
 
 ## License
