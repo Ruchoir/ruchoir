@@ -214,6 +214,16 @@ function authMessage(err: unknown, fallback: string): string {
  * state loaded from the API: it boots against `GET /auth/session`, drives the whole authentication
  * flow, then keeps the space's channels, DMs, feeds and realtime updates in state for the screens.
  */
+/** Screen names, for the tab title and the compact top bar. Conversations name themselves. */
+const VIEW_TITLES: Record<string, string> = {
+  files: "Fichiers de l'espace",
+  settings: "Réglages de l'espace",
+  prefs: "Préférences",
+  threads: "Fils de discussion",
+  mentions: "Mentions",
+  saved: "Enregistrés",
+};
+
 function AppShell() {
   const settings = useSettings();
   /** The side panel a conversation opens with, from the preferences. `none` means it opens closed. */
@@ -803,6 +813,15 @@ function AppShell() {
         );
         setDms((prev) => prev.map((d) => (d.userId === member.userId ? { ...d, name: member.name } : d)));
       },
+      onSpaceUpdated: (space) => {
+        // Name and mark only: the counters and the caller's role are not in the event, precisely
+        // because they differ per recipient, so whatever this client holds for them stands.
+        setWorkspaces((prev) =>
+          prev.map((w) =>
+            w.id === space.id ? { ...w, name: space.name, slug: space.slug, iconUrl: space.iconUrl } : w,
+          ),
+        );
+      },
       onPresence: (userId, p) => {
         setPresence((prev) => ({ ...prev, [userId]: p }));
         setDms((prev) => prev.map((d) => (d.userId === userId ? { ...d, presence: p } : d)));
@@ -1006,6 +1025,31 @@ function AppShell() {
    * as the rail and the inbox, so the three cannot disagree.
    */
   const mentionUnread = visibleNotifs.filter((n) => n.kind === "mention" && !n.read).length;
+
+  /**
+   * The tab title: what is waiting, where you are, and in which space.
+   *
+   * "Ruchoir" alone told a person with several tabs open nothing about which one held the
+   * conversation they were looking for. The unread count comes first because that is what a glance
+   * at a background tab is asking, and it is the whole account's, not this space's: a tab that says
+   * nothing is waiting while another space is holding a mention would be worse than no count. The
+   * product name stays last so the useful part survives the browser's truncation.
+   */
+  useEffect(() => {
+    if (!session) {
+      document.title = "Ruchoir";
+      return;
+    }
+    const waiting = notifs.filter((n) => !n.read).length;
+    const dmHere = dms.find((d) => d.id === channelId);
+    const channelHere = channels.find((c) => c.id === channelId);
+    const here =
+      view === "channel"
+        ? (dmHere?.name ?? (channelHere ? `#${channelHere.name}` : undefined))
+        : VIEW_TITLES[view];
+    const parts = [here, workspaces.find((w) => w.id === ws)?.name, "Ruchoir"].filter(Boolean);
+    document.title = `${waiting > 0 ? `(${waiting}) ` : ""}${parts.join(" · ")}`;
+  }, [session, notifs, view, channelId, channels, dms, workspaces, ws]);
 
   /**
    * Switch the main view, and treat opening Mentions as reading them.
@@ -1956,15 +2000,7 @@ function AppShell() {
   }
 
   const wsName = workspaces.find((w) => w.id === ws)?.name ?? "espace";
-  const contentTitles: Record<string, string> = {
-    files: "Fichiers de l'espace",
-    settings: "Réglages de l'espace",
-    prefs: "Préférences",
-    threads: "Fils de discussion",
-    mentions: "Mentions",
-    saved: "Enregistrés",
-  };
-  const contentTitle = view === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (contentTitles[view] ?? wsName);
+  const contentTitle = view === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (VIEW_TITLES[view] ?? wsName);
   const mobileTabs = [
     { id: "channels", label: "Canaux", icon: "hash" },
     { id: "messages", label: "Messages", icon: "message-square" },

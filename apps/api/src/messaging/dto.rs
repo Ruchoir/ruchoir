@@ -211,6 +211,20 @@ pub struct MemberDto {
     pub avatar_url: Option<String>,
 }
 
+/// A space's shared identity after it changed, pushed in real time.
+///
+/// Deliberately not `SpaceDto`: that one carries the caller's role and their unread counters, which
+/// are per-recipient and must never be broadcast. Same split as `ChannelSummaryDto`. Every field is
+/// serialised, `null` included, for the reason `MemberUpdatedDto` gives: this replaces an identity
+/// rather than patching one, so a removed icon has to be sayable.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct SpaceUpdatedDto {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub icon_url: Option<String>,
+}
+
 /// A member's identity after a profile change, pushed in real time.
 ///
 /// Carries no role: a profile is the same in every space, and the roles the recipient holds for

@@ -109,9 +109,17 @@ the French copy; the API's own message is English operator text and is never sho
 > dropped once accepted, refused, abandoned or signed out of. The arrival then reaches everyone
 > else as a `member.joined` push, which patches the roster in place (kept sorted) rather than
 > refetching it: that one list also feeds the mention autocomplete and the direct-message candidates.
-> `member.updated` patches the same roster when someone edits their profile or replaces their photo.
+> `member.updated` patches the same roster when someone edits their profile or replaces their photo,
+> and `space.updated` patches the space list when a space is renamed or its icon replaced, touching
+> only the shared fields: the counters and the caller's role are not in the event, because they
+> differ per recipient, so whatever the client already holds for them stands.
 > The realtime handlers are wired once per session, so anything they call that changes every render
 > (`showToast`) goes through a ref, not through the effect's dependencies.
+
+The tab title is set from `AppRoot` rather than from Next's metadata, which only names the document
+at build time: it carries the account's unread count, the conversation or screen on show, the space,
+then the product name, so a background tab says what is waiting and where. The screen names live in
+`VIEW_TITLES`, shared with the compact top bar so the two cannot drift.
 
 An uploaded avatar reaches a component in one of two ways, and which one applies is decided by what
 the component already holds. Where a member record is on hand (the member list, the mention
