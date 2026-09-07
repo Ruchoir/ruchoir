@@ -4,6 +4,7 @@ import { type CSSProperties, useEffect, useRef } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Tag } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import type { DirectMessage, Message, SpaceFile } from "@/lib/data";
+import { messageSummary } from "@/features/app/activity";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -166,8 +167,26 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                       <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
                     </span>
                     <span style={{ display: "block", fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)", marginTop: 2, textWrap: "pretty" }}>
-                      {m.body || "(pièce jointe)"}
+                      {messageSummary(m)}
                     </span>
+                    {m.image?.src ? (
+                      // A pinned photograph is pinned for what it shows. The row is already
+                      // multi-line and carries attachment rows, so there is space for the thing
+                      // itself rather than a word describing it.
+                      // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by the API
+                      <img
+                        src={m.image.src}
+                        alt={m.image.alt}
+                        style={{
+                          display: "block",
+                          marginTop: 6,
+                          maxWidth: "100%",
+                          maxHeight: 96,
+                          borderRadius: "var(--radius-sm)",
+                          border: "1px solid var(--border-subtle)",
+                        }}
+                      />
+                    ) : null}
                     {m.link ? (
                       <a
                         href={m.link.url}

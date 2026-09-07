@@ -5,6 +5,7 @@ import { Avatar, Dialog, EmptyState, Icon } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { type FileHit, search, type SearchMessage } from "@/lib/data/api";
 import { getAvatar } from "@/lib/data";
+import { messageSummary } from "./activity";
 
 const styles: Record<string, CSSProperties> = {
   label: {
@@ -212,7 +213,7 @@ export function GlobalSearchDialog({
                           color: "var(--text-body)",
                         }}
                       >
-                        {m.body || "(pièce jointe)"}
+                        {messageSummary(m)}
                       </span>
                     </span>
                   </button>
