@@ -4,14 +4,14 @@
 //! (alongside the existing `/api/v1/health` route and the `/api/v1/auth` nest), which avoids the
 //! path-overlap a second `/api/v1` nest would introduce.
 
-use axum::routing::{get, patch, post, put};
+use axum::routing::{delete, get, patch, post, put};
 use axum::Router;
 
 use crate::state::AppState;
 
 use super::{
-    channels, conversations, messages, notifications, pins, reactions, read, saved, search, spaces,
-    users,
+    channels, conversations, invitations, messages, notifications, pins, reactions, read, saved,
+    search, spaces, users,
 };
 
 /// Build the messaging sub-router.
@@ -55,6 +55,24 @@ pub fn router() -> Router<AppState> {
         // Spaces the caller belongs to (SPA bootstrap), and creating one.
         .route("/api/v1/me/spaces", get(conversations::list_my_spaces))
         .route("/api/v1/spaces", post(spaces::create_space))
+        // Space invitations: issuing and listing need an owner/admin role, accepting only a
+        // session, and the preview none at all (the invitee has not signed in yet).
+        .route(
+            "/api/v1/spaces/{space_id}/invitations",
+            get(invitations::list_invitations).post(invitations::create_invitation),
+        )
+        .route(
+            "/api/v1/spaces/{space_id}/invitations/{invitation_id}",
+            delete(invitations::revoke_invitation),
+        )
+        .route(
+            "/api/v1/invitations/{token}",
+            get(invitations::preview_invitation),
+        )
+        .route(
+            "/api/v1/invitations/{token}/accept",
+            post(invitations::accept_invitation),
+        )
         // A member's profile (profile card, member list), and editing one's own.
         .route("/api/v1/users/me", patch(users::update_my_profile))
         .route("/api/v1/users/{user_id}", get(users::get_user_profile))

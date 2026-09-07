@@ -3,9 +3,11 @@
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getChannelMembers, getPresence, setChannelMembers, setCurrentUser, setUserPresence } from "@/lib/data";
 import {
+  acceptInvitation,
   addReaction,
   type ApiNotification,
   connectRealtime,
+  createInvitation,
   createChannel as apiCreateChannel,
   createDm,
   createSpace,
@@ -15,6 +17,7 @@ import {
   getChannelMessages,
   getDirectMessages,
   getFolder,
+  getInvitations,
   getNotifications,
   getSession,
   getSpaceMembers,
@@ -31,8 +34,10 @@ import {
   confirmEmailVerification,
   confirmPasswordReset,
   register as apiRegister,
+  previewInvitation,
   requestEmailVerification,
   requestPasswordReset,
+  revokeInvitation,
   verifyPasskey,
   verifyRecoveryCode,
   verifyTotp,
@@ -48,8 +53,8 @@ import {
   updateChannel as apiUpdateChannel,
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
-import { clearAuthLink, readAuthLink } from "@/lib/authLink";
-import type { Channel, DirectMessage, Message, SpaceFile, Workspace } from "@/lib/data";
+import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
+import type { Channel, DirectMessage, Invitation, InvitationPreview, Message, SpaceFile, Workspace } from "@/lib/data";
 import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
@@ -60,6 +65,7 @@ import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
 import { MfaChallengeScreen } from "@/features/auth/MfaChallengeScreen";
 import { ResetPasswordScreen } from "@/features/auth/ResetPasswordScreen";
+import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
 import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/VerifyEmailScreen";
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
@@ -166,7 +172,7 @@ function applyReactionDelta(map: MessageMap, conv: string, r: RealtimeReaction):
  * login -> (second factor) -> app, with sign-up, password reset and email confirmation branching off
  * it; the emailed links land straight on `verify` and `reset`.
  */
-type AuthStage = "login" | "signup" | "mfa" | "forgot" | "reset" | "verify" | "onboarding" | "app";
+type AuthStage = "login" | "signup" | "mfa" | "forgot" | "reset" | "verify" | "invite" | "onboarding" | "app";
 
 /**
  * French copy for each authentication failure the API can report. The API answers with a
@@ -227,6 +233,16 @@ function AppShell() {
   const [linkToken, setLinkToken] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<VerifyEmailStatus>("sent");
   const [resetDone, setResetDone] = useState(false);
+  /**
+   * An invitation the visitor arrived with, held across the whole authentication flow: they may have
+   * to sign in or register first, and the token has to survive that. Kept in memory only, like the
+   * other emailed tokens.
+   */
+  const [inviteToken, setInviteToken] = useState("");
+  const [invitePreview, setInvitePreview] = useState<InvitationPreview | null>(null);
+  const [inviteStatus, setInviteStatus] = useState<InviteStatus>("loading");
+  /** The current space's outstanding invitations, loaded when the invite dialog opens. */
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [dms, setDms] = useState<DirectMessage[]>([]);
@@ -390,9 +406,67 @@ function AppShell() {
       return;
     }
     void (async () => {
-      // An emailed link (verification or password reset) takes precedence over the session check:
-      // it addresses an account that is, by definition, not signed in here.
+      // An invitation held from an earlier load of this tab (see `rememberInvite`): registering from
+      // an invitation means following the address-confirmation link, which reloads the bundle. Pick
+      // it back up so the sign-in that follows still joins the space instead of dropping the invitee
+      // into the "create your first space" onboarding.
+      const held = readRememberedInvite();
+      if (held) setInviteToken(held);
+
+      // An emailed link (verification, password reset or invitation) takes precedence over the
+      // session check: it addresses an account that is, by definition, not signed in here.
       const link = readAuthLink();
+      // An invitation is the one link that can also apply to someone already signed in, so it
+      // resolves the token first and only then falls back to asking who they are.
+      if (link?.kind === "invite") {
+        clearAuthLink();
+        if (!active) return;
+        setInviteToken(link.token);
+        setAuthStage("invite");
+        setInviteStatus("loading");
+        const preview = link.token ? await previewInvitation(link.token).catch(() => null) : null;
+        if (!active) return;
+        if (!preview) {
+          setInviteStatus("invalid");
+          setBooting(false);
+          return;
+        }
+        setInvitePreview(preview);
+        rememberInvite(link.token);
+        // Already signed in: join without asking for a password again.
+        let user: SessionUser;
+        try {
+          user = await getSession();
+        } catch {
+          if (active) {
+            setInviteStatus("ready");
+            setBooting(false);
+          }
+          return;
+        }
+        if (!active) return;
+        setInviteStatus("joining");
+        try {
+          await acceptInvitation(link.token);
+        } catch {
+          if (active) {
+            // Most often an invitation addressed to a different address than the open session.
+            setInviteStatus("ready");
+            setAuthError("Cette invitation ne correspond pas au compte connecté. Connectez-vous avec le bon compte.");
+            setBooting(false);
+          }
+          return;
+        }
+        if (!active) return;
+        setInviteToken("");
+        forgetInvite();
+        setSession(user);
+        const spaces = await loadInitialData();
+        if (!active) return;
+        setBooting(false);
+        setAuthStage(spaces.length === 0 ? "onboarding" : "app");
+        return;
+      }
       if (link) {
         clearAuthLink();
         if (!active) return;
@@ -439,6 +513,25 @@ function AppShell() {
     };
   }, [loadInitialData]);
 
+  // Load the space's outstanding invitations whenever the invite dialog opens. Fetching on open
+  // rather than on space load keeps an administration-only call off the boot path, and means the
+  // list is never a stale snapshot from an earlier visit.
+  useEffect(() => {
+    if (modal !== "invite" || !ws) return;
+    let active = true;
+    void getInvitations(ws)
+      .then((rows) => {
+        if (active) setInvitations(rows);
+      })
+      .catch(() => {
+        // A member who is not an administrator gets a 403 here: an empty list is the honest view.
+        if (active) setInvitations([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [modal, ws]);
+
   // Publish the signed-in user's name into the data seam, so components that read it synchronously
   // (message ownership, thread reply author, "my profile") reflect the real session, not the mock.
   useEffect(() => {
@@ -449,6 +542,12 @@ function AppShell() {
   // every state change. Updated after each render (not during, to respect the ref rules).
   const rtRef = useRef<RealtimeConnection | null>(null);
   const liveRef = useRef({ channels, dms, channelId, view, myId: session?.id, ws });
+  /**
+   * Latest toast function, for the realtime handlers. They are wired once per session, so they
+   * cannot close over `showToast` directly: it is a new function on every render, and adding it to
+   * the effect's dependencies would tear the WebSocket down and rebuild it on each one.
+   */
+  const notifyRef = useRef<((toast: Toast) => void) | null>(null);
   useEffect(() => {
     liveRef.current = { channels, dms, channelId, view, myId: session?.id, ws };
   });
@@ -540,6 +639,21 @@ function AppShell() {
           ),
         );
       },
+      onMemberJoined: (member) => {
+        // Only the space on screen: an arrival elsewhere is folded in when that space is next
+        // loaded. Keeping the roster sorted matches the order the API returns it in, so the list
+        // does not reshuffle on the next load.
+        if (member.spaceId !== liveRef.current.ws) return;
+        setMembers((prev) =>
+          prev.some((m) => m.userId === member.userId)
+            ? prev
+            : [...prev, member].sort((a, b) => a.name.localeCompare(b.name, "fr")),
+        );
+        // The newcomer is in the audience too; they do not need to be told they arrived.
+        if (member.userId !== liveRef.current.myId) {
+          notifyRef.current?.({ tone: "info", title: `${member.name} a rejoint l'espace` });
+        }
+      },
       onPresence: (userId, p) => {
         setPresence((prev) => ({ ...prev, [userId]: p }));
         setDms((prev) => prev.map((d) => (d.userId === userId ? { ...d, presence: p } : d)));
@@ -615,6 +729,12 @@ function AppShell() {
     // the synchronous setStates here are intentional.
     /* eslint-disable react-hooks/set-state-in-effect */
     if (link.stage) setAuthStage(link.stage);
+    // The invitation screen has nothing to show without a resolved token, and the audits run
+    // offline: seed the card it renders for a real invitation so the state is auditable.
+    if (link.stage === "invite") {
+      setInviteStatus("ready");
+      setInvitePreview({ spaceName: "Atelier Néon", invitedBy: "Alice Moreau", role: "member" });
+    }
     if (link.view) setView(link.view);
     if (link.prefsTab) setPrefsTab(link.prefsTab);
     if (link.channel) setChannelId(link.channel);
@@ -761,6 +881,14 @@ function AppShell() {
     toastTimer.current = setTimeout(() => setToastVisible(false), 4000);
   };
 
+  // Keep `notifyRef` (declared with the other realtime refs, and read by handlers wired once per
+  // session) pointing at the current `showToast`. It is filled here rather than in the ref-refresh
+  // effect above because that effect runs before this declaration, and a forward reference would
+  // freeze the first one instead of tracking it.
+  useEffect(() => {
+    notifyRef.current = showToast;
+  });
+
   /** Move to an authentication screen with a clean slate (no stale error, notice or pending flag). */
   const goToStage = (stage: AuthStage) => {
     setAuthError(null);
@@ -778,6 +906,21 @@ function AppShell() {
     setSession(user);
     setMfaChallenge(null);
     setBooting(true);
+    // An invitation the visitor arrived with is accepted before the spaces are loaded, so they land
+    // inside the space that invited them rather than in the empty-shell onboarding.
+    if (inviteToken) {
+      try {
+        await acceptInvitation(inviteToken);
+      } catch {
+        showToast({
+          tone: "danger",
+          title: "Invitation refusée",
+          description: "Ce lien ne correspond pas à ce compte.",
+        });
+      }
+      setInviteToken("");
+      forgetInvite();
+    }
     const spaces = await loadInitialData();
     setBooting(false);
     if (spaces.length === 0) {
@@ -963,6 +1106,8 @@ function AppShell() {
     setMessages({});
     setNotifs([]);
     setMfaChallenge(null);
+    setInviteToken("");
+    forgetInvite();
     goToStage("login");
   };
 
@@ -1527,6 +1672,26 @@ function AppShell() {
           />
         ) : null}
         {/*
+          The invitation landing screen. It shows what the visitor was invited to before asking them
+          to sign in or register; the token is held in `inviteToken` across whichever they choose,
+          and `enterApp` accepts it once a session exists.
+        */}
+        {authStage === "invite" ? (
+          <InviteScreen
+            status={inviteStatus}
+            preview={invitePreview}
+            error={authError}
+            onSignIn={() => goToStage("login")}
+            onCreateAccount={() => goToStage("signup")}
+            onDismiss={() => {
+              setInviteToken("");
+              forgetInvite();
+              setInvitePreview(null);
+              goToStage("login");
+            }}
+          />
+        ) : null}
+        {/*
           Onboarding is where an account with no space gets its first one: a fresh sign-in lands here
           instead of on an empty shell. The dev deep-link also reaches this stage for the audits, where
           the creation call simply fails and reports itself.
@@ -1718,9 +1883,22 @@ function AppShell() {
       {modal === "invite" ? (
         <InviteDialog
           onClose={() => setModal(null)}
-          onInvite={(count) => {
-            setModal(null);
-            showToast({ tone: "success", title: `${count} invitation${count > 1 ? "s" : ""} envoyée${count > 1 ? "s" : ""}` });
+          canInvite={["owner", "admin"].includes(workspaces.find((w) => w.id === ws)?.role ?? "")}
+          invitations={invitations}
+          onCreate={async ({ email, role }) => {
+            const created = await createInvitation(ws, { email, role });
+            setInvitations(await getInvitations(ws));
+            showToast({
+              tone: "success",
+              title: created.emailed ? "Invitation envoyée" : "Lien d'invitation créé",
+              description: email ?? undefined,
+            });
+            return { url: created.url, emailed: created.emailed };
+          }}
+          onRevoke={async (id) => {
+            await revokeInvitation(ws, id);
+            setInvitations(await getInvitations(ws));
+            showToast({ tone: "info", title: "Invitation révoquée" });
           }}
         />
       ) : null}

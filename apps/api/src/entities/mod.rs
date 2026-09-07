@@ -12,6 +12,7 @@ pub mod channels;
 pub mod conversations;
 pub mod dm_conversations;
 pub mod dm_participants;
+pub mod space_invitations;
 pub mod space_members;
 pub mod spaces;
 

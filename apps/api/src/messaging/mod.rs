@@ -9,6 +9,7 @@
 //! - [`error`] - the `ApiError` type and its HTTP mapping.
 //! - [`mentions`] - `@`-mention parsing and resolution.
 //! - [`slug`] - the one definition of a channel name / space slug handle.
+//! - [`invitations`] - issuing, listing, revoking and accepting a space invitation.
 //! - [`messages`] / [`reactions`] / [`read`] / [`pins`] / [`saved`] / [`conversations`] / [`channels`]
 //!   / [`spaces`] - handlers.
 //! - [`routes`] - the sub-router.
@@ -18,6 +19,7 @@ pub mod channels;
 pub mod conversations;
 pub mod dto;
 pub mod error;
+pub mod invitations;
 pub mod mentions;
 pub mod messages;
 pub mod notifications;

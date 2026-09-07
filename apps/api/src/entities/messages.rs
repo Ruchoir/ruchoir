@@ -1,6 +1,9 @@
 //! The `messages` table: one row per message in any conversation (channel or DM).
 //!
-//! `author_id` is `None` for system messages. `body` is raw markdown (rendered client-side).
+//! `author_id` is `None` for a system message about nothing in particular (a channel's creation
+//! notice); a notice *about* someone, such as a join, sets it to that person, which is what lets a
+//! client name them without a second lookup. `body` is raw markdown (rendered client-side), and is
+//! left empty on a system message: the row carries `system_event`, and the client owns the sentence.
 //! Threads use the self-referential `parent_message_id` (a `None` parent is a root message);
 //! `reply_count` is a denormalized counter. Soft-deleted via `deleted_at` (tombstone rendering).
 
