@@ -61,6 +61,17 @@ export function getChannelMembers(): MemberRecord[] {
   return liveMembers;
 }
 
+/**
+ * A member's uploaded avatar, by display name; `undefined` means the generated one.
+ *
+ * Sibling of {@link getPresence}, and there for the same reason: a message row, a notification and a
+ * search hit hold an author's name and nothing else, so without a lookup by name they would all draw
+ * the generated avatar however carefully a photo had been threaded through the roster.
+ */
+export function getAvatar(name: string): string | undefined {
+  return liveMembers.find((m) => m.name === name)?.avatar;
+}
+
 /** Names that can be @mentioned in the current channel. */
 export function getMentionNames(): string[] {
   return liveMembers.map((m) => m.name);

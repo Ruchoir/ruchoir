@@ -109,8 +109,17 @@ the French copy; the API's own message is English operator text and is never sho
 > dropped once accepted, refused, abandoned or signed out of. The arrival then reaches everyone
 > else as a `member.joined` push, which patches the roster in place (kept sorted) rather than
 > refetching it: that one list also feeds the mention autocomplete and the direct-message candidates.
+> `member.updated` patches the same roster when someone edits their profile or replaces their photo.
 > The realtime handlers are wired once per session, so anything they call that changes every render
 > (`showToast`) goes through a ref, not through the effect's dependencies.
+
+An uploaded avatar reaches a component in one of two ways, and which one applies is decided by what
+the component already holds. Where a member record is on hand (the member list, the mention
+autocomplete, a message row) the URL is threaded through as a prop. Everywhere else the component
+knows only a display name (a notification's actor, a search hit's author, a file's uploader), so it
+reads `getAvatar(name)` from the data seam, exactly as it reads `getPresence(name)`. Passing neither
+is what silently draws the generated avatar over a real photo, so a new `Avatar` rendered for a
+person should always do one or the other.
 
 The personal security section of the preferences (TOTP enrollment, passkey list, recovery codes) is
 still on its mock model (`features/app/security.ts`); the endpoints it needs

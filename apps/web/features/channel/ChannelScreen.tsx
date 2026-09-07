@@ -2,7 +2,7 @@
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
-import { getChannelMembers } from "@/lib/data";
+import { getAvatar, getChannelMembers } from "@/lib/data";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { useProfile } from "../app/useProfile";
@@ -262,7 +262,7 @@ export function ChannelScreen({
   const isDm = !!dm;
   // An archived channel is read-only: the API refuses new messages, so the composer gives way to a note.
   const isArchived = !isDm && channel.type === "archived";
-  const memberList: ChannelMember[] = members.map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot }));
+  const memberList: ChannelMember[] = members.map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot, avatar: m.avatar }));
   const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
   // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one
   // place that holds the picture. Absent means the locally generated avatar, which is the default.
@@ -355,7 +355,7 @@ export function ChannelScreen({
           {isDm ? (
             <>
               <h1 style={styles.title}>
-                <Avatar name={dm.name} size={22} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
+                <Avatar name={dm.name} src={getAvatar(dm.name)} size={22} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
                 {dm.name}
               </h1>
               <div style={styles.meta}>{dmProfile?.role ?? PRESENCE_LABEL[(dmPresence ?? "offline")]}</div>
@@ -442,7 +442,7 @@ export function ChannelScreen({
               {isDm ? (
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <Avatar name={dm.name} size={44} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
+                    <Avatar name={dm.name} src={getAvatar(dm.name)} size={44} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
                     <div>
                       <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
                         {dm.name}

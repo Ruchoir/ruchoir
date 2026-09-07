@@ -6,6 +6,7 @@ import type { Presence } from "@/components/ds";
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, setSpaceIcon } from "@/lib/data/api";
 import { ImageCropDialog } from "../app/ImageCropDialog";
+import { getAvatar } from "@/lib/data";
 
 type NavKey = "general" | "members" | "notifs" | "imports" | "storage" | "security";
 
@@ -304,7 +305,7 @@ export function WorkspaceSettings({
                         borderTop: i ? "1px solid var(--border-subtle)" : "none",
                       }}
                     >
-                      <Avatar name={m.name} size={28} presence={m.presence} shape={guest ? "round" : "square"} />
+                      <Avatar name={m.name} src={getAvatar(m.name)} size={28} presence={m.presence} shape={guest ? "round" : "square"} />
                       <span style={{ flex: 1 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
                         <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{email}</div>

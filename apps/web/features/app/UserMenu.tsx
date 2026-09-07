@@ -4,6 +4,7 @@ import { type CSSProperties, type RefObject } from "react";
 import { Avatar, Icon, Popover } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { presenceLabel } from "./presence";
+import { getAvatar } from "@/lib/data";
 
 const panel: CSSProperties = {
   width: 260,
@@ -88,7 +89,7 @@ export function UserMenu({
     <Popover anchorRef={anchorRef} open={open} onClose={onClose} placement="top" align="start">
       <div style={panel}>
         <div style={{ ...section, display: "flex", alignItems: "center", gap: 10 }}>
-          <Avatar name={currentUser} size={40} presence={presence} />
+          <Avatar name={currentUser} src={getAvatar(currentUser)} size={40} presence={presence} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{currentUser}</div>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{presenceLabel(presence)}</div>

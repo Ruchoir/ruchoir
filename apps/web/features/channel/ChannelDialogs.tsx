@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Avatar, Button, Checkbox, Dialog, Field, Input, Radio, Select, Switch } from "@/components/ds";
 import type { Presence } from "@/components/ds";
-import { getChannelMembers } from "@/lib/data";
+import { getAvatar, getChannelMembers } from "@/lib/data";
 import type { Channel, ChannelType } from "@/lib/data";
 import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import type { Toast } from "../app/types";
@@ -99,7 +99,7 @@ export function ChannelSettingsDialog({
                     }}
                   >
                     <Checkbox checked={has} onChange={() => toggleAccess(m.name)} aria-label={`Accès de ${m.name}`} />
-                    <Avatar name={m.name} size={26} presence={m.presence} kind={m.bot ? "bot" : "person"} />
+                    <Avatar name={m.name} src={m.avatar} size={26} presence={m.presence} kind={m.bot ? "bot" : "person"} />
                     <span style={{ flex: 1, fontSize: 13, color: has ? "var(--text-strong)" : "var(--text-muted)" }}>{m.name}</span>
                     <div style={{ width: 150 }}>
                       <Select size="sm" options={CHANNEL_ROLES} disabled={!has} defaultValue="Membre" aria-label={`Rôle de ${m.name}`} />
@@ -228,7 +228,7 @@ export function AddPeopleDialog({
               style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: "var(--radius-md)", cursor: "pointer" }}
             >
               <Checkbox checked={selected.has(p.name)} onChange={() => toggle(p.name)} aria-label={p.name} />
-              <Avatar name={p.name} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
+              <Avatar name={p.name} src={getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
               <span style={{ fontSize: 13, color: "var(--text-strong)" }}>{p.name}</span>
             </label>
           ))}

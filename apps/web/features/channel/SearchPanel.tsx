@@ -2,7 +2,7 @@
 
 import { type CSSProperties, useMemo, useState } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Input } from "@/components/ds";
-import { getPresence } from "@/lib/data";
+import { getAvatar, getPresence } from "@/lib/data";
 import type { Message, SpaceFile } from "@/lib/data";
 
 const styles: Record<string, CSSProperties> = {
@@ -107,7 +107,7 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                     onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
-                    <Avatar name={m.author} size={26} presence={getPresence(m.author)} />
+                    <Avatar name={m.author} src={getAvatar(m.author)} size={26} presence={getPresence(m.author)} />
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
                         {m.author}

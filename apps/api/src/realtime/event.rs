@@ -127,6 +127,16 @@ impl RealtimeEnvelope {
         Self::global("member.joined", payload)
     }
 
+    /// A member's profile changed: display name, title, or avatar.
+    ///
+    /// Space-scoped like an arrival, and for the same reason: an identity is shown by the member
+    /// list, the mention candidates, the message rows and the direct-message list, none of which
+    /// hang off a conversation. Delivered to everyone who shares a space with them, the caller's own
+    /// other connections included, so a photo changed in one tab lands in the others.
+    pub fn member_updated(payload: impl Serialize) -> Self {
+        Self::global("member.updated", payload)
+    }
+
     /// A user's effective presence changed.
     pub fn presence(payload: impl Serialize) -> Self {
         Self::global("presence", payload)

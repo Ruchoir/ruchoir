@@ -87,8 +87,11 @@ pub async fn set_my_avatar(
     let url = avatar_url(session.user_id, &key);
     let mut active = user.into_active_model();
     active.avatar_key = Set(Some(key));
-    active.update(&state.db).await?;
+    let updated = active.update(&state.db).await?;
     forget_object(&state, previous).await;
+    // Everyone who shares a space draws this face; without the announcement they keep the previous
+    // one until they reload, which looks like the upload having been lost.
+    crate::messaging::users::broadcast_profile_change(&state, &updated).await;
 
     Ok(Json(ImageRef { url }))
 }
@@ -111,8 +114,9 @@ pub async fn clear_my_avatar(
     let previous = user.avatar_key.clone();
     let mut active = user.into_active_model();
     active.avatar_key = Set(None);
-    active.update(&state.db).await?;
+    let updated = active.update(&state.db).await?;
     forget_object(&state, previous).await;
+    crate::messaging::users::broadcast_profile_change(&state, &updated).await;
     Ok(StatusCode::NO_CONTENT)
 }
 

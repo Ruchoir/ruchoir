@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { Avatar, EmptyState, Icon, Tag } from "@/components/ds";
-import { getPresence } from "@/lib/data";
+import { getAvatar, getPresence } from "@/lib/data";
 import type { ActivityItem } from "./activity";
 
 export type ActivityKind = "threads" | "mentions" | "saved";
@@ -95,7 +95,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
                 className="wc-listrow"
                 onClick={() => onOpen(it.channelId, it.message.id)}
               >
-                <Avatar name={it.message.author} size={30} presence={getPresence(it.message.author)} />
+                <Avatar name={it.message.author} src={getAvatar(it.message.author)} size={30} presence={getPresence(it.message.author)} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
                     <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{it.message.author}</span>

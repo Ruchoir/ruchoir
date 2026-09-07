@@ -22,8 +22,9 @@ use crate::auth::extract::AuthSession;
 use crate::entities::{space_members, users};
 use crate::state::AppState;
 
-use super::dto::{UpdateProfileRequest, UserProfileDto};
+use super::dto::{MemberUpdatedDto, UpdateProfileRequest, UserProfileDto};
 use super::error::ApiError;
+use crate::realtime::event::RealtimeEnvelope;
 
 /// Trim a submitted profile string, mapping a blank value to "clear the field".
 fn clean(value: String) -> Option<String> {
@@ -52,6 +53,34 @@ fn profile_of(user: users::Model) -> UserProfileDto {
         is_bot: user.is_bot,
         avatar_url,
     }
+}
+
+/// Announce a changed identity to everyone who shares a space with the user.
+///
+/// A display name, a title and a photo are drawn all over the interface, by components that hold a
+/// roster loaded when the space opened. Without this the change reaches other people only when they
+/// reload, which reads as the picture not having been saved at all. The audience is the co-member
+/// set, which already includes the user themselves, so their own other tabs are updated too.
+///
+/// Best-effort by design: a delivery problem must not fail the write that already succeeded.
+pub async fn broadcast_profile_change(state: &AppState, user: &users::Model) {
+    let Ok(audience) = super::authz::space_co_members(&state.db, user.id).await else {
+        return;
+    };
+    let payload = MemberUpdatedDto {
+        user_id: user.id,
+        display_name: user.display_name.clone(),
+        title: user.title.clone(),
+        is_bot: user.is_bot,
+        avatar_url: user
+            .avatar_key
+            .as_deref()
+            .map(|key| crate::files::avatar_url(user.id, key)),
+    };
+    state
+        .hub
+        .publish(audience, RealtimeEnvelope::member_updated(&payload))
+        .await;
 }
 
 /// `GET /api/v1/users/{user_id}`: the profile of a member the caller shares a space with.
@@ -118,6 +147,7 @@ pub async fn update_my_profile(
     }
     active.updated_at = Set(OffsetDateTime::now_utc());
     let updated = active.update(&state.db).await?;
+    broadcast_profile_change(&state, &updated).await;
     Ok(Json(profile_of(updated)))
 }
 
