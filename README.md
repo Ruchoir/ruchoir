@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="apps/web/public/brand/ruchoir-mark.png" alt="Ruchoir" width="120" />
-</p>
+![Ruchoir](docs/assets/ruchoir-banner.png)
 
 <h1 align="center">Ruchoir</h1>
 
