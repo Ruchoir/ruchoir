@@ -1,9 +1,5 @@
 ![Ruchoir](docs/assets/ruchoir-banner.png)
 
-<h1 align="center">Ruchoir</h1>
-
-<p align="center"><em>A hive for all your work.</em></p>
-
 <p align="center">
   A sovereign, open-core team workspace: real-time messaging and file sharing in one place.<br />
   A European alternative to Slack, Mattermost and Nextcloud, with a zero-loss import that migrates
@@ -46,7 +42,7 @@
 Prerequisites: Docker and Docker Compose.
 
 ```bash
-git clone https://github.com/theovil1/ruchoir.git
+git clone https://github.com/Ruchoir/ruchoir.git
 cd ruchoir
 docker compose up
 ```

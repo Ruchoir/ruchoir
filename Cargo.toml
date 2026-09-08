@@ -8,7 +8,7 @@ members = ["apps/api", "migrations"]
 edition = "2021"
 rust-version = "1.96"
 license = "AGPL-3.0-only"
-repository = "https://github.com/theovil1/ruchoir"
+repository = "https://github.com/Ruchoir/ruchoir"
 
 # Shared dependency versions. Pin exact minor versions here; keep AGENTS.md in sync.
 [workspace.dependencies]
