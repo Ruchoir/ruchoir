@@ -230,7 +230,13 @@ mod tests {
     fn no_override_makes_an_absent_user_look_present() {
         // The rule that matters: a choice says how to read someone who is reachable, it does not
         // make them reachable. Anything else leaves a colleague green with nothing connected.
-        for manual in [None, Some("active"), Some("away"), Some("dnd"), Some("invisible")] {
+        for manual in [
+            None,
+            Some("active"),
+            Some("away"),
+            Some("dnd"),
+            Some("invisible"),
+        ] {
             assert_eq!(effective_for_others(manual, false), "offline");
         }
     }
