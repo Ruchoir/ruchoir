@@ -27,6 +27,7 @@ import type {
   Message,
   MessageAttachment,
   MessageKind,
+  PresenceChoice,
   Profile,
   Reaction,
   SpaceFile,
@@ -36,7 +37,14 @@ import type {
 // --- Raw API DTOs (mirror the Rust structs; snake_case, as sent on the wire) ---
 
 /** The signed-in user, from `POST /auth/login`, `POST /auth/register` and `GET /auth/session`. */
-type UserSummaryDto = { id: string; email: string; display_name: string; active: boolean };
+type UserSummaryDto = {
+  id: string;
+  email: string;
+  display_name: string;
+  active: boolean;
+  /** The caller's own availability choice; absent means automatic. Never sent for anyone else. */
+  manual_presence?: string;
+};
 
 /** Alternative login outcome when a second factor is required (same 200 status as a success). */
 type MfaRequiredDto = { mfa_required: true; methods: string[]; mfa_token: string };
@@ -128,7 +136,7 @@ type UserProfileDto = {
 // --- Session / auth ---
 
 /** The signed-in user in the shape the app shell holds it. */
-export type SessionUser = { id: string; email: string; name: string };
+export type SessionUser = { id: string; email: string; name: string; presenceChoice: PresenceChoice };
 
 /** Outcome of a login attempt: authenticated, or challenged for a second factor. */
 export type LoginResult =
@@ -136,7 +144,26 @@ export type LoginResult =
   | { kind: "mfa"; methods: MfaMethod[]; mfaToken: string };
 
 function toSessionUser(dto: UserSummaryDto): SessionUser {
-  return { id: dto.id, email: dto.email, name: dto.display_name };
+  return {
+    id: dto.id,
+    email: dto.email,
+    name: dto.display_name,
+    presenceChoice: toPresenceChoice(dto.manual_presence),
+  };
+}
+
+/** The stored override as the menu names it. Absent, empty or unknown all mean automatic. */
+function toPresenceChoice(manual?: string): PresenceChoice {
+  switch (manual) {
+    case "dnd":
+      return "busy";
+    case "away":
+      return "away";
+    case "invisible":
+      return "invisible";
+    default:
+      return "auto";
+  }
 }
 
 /** `GET /auth/session`: the current user, or an {@link ApiError} 401 when no session is active. */
@@ -546,11 +573,20 @@ export async function getSpacePresence(spaceId: string, signal?: AbortSignal): P
   return out;
 }
 
-/** `PUT /me/presence`: set the caller's manual presence override, then the server broadcasts it. */
-export async function setMyPresence(presence: Presence): Promise<void> {
+/**
+ * `PUT /me/presence`: set the caller's availability, and return the presence that results.
+ *
+ * `auto` sends `null`, which is the API's way of saying "derive it from the connection" and the
+ * state a user should normally be in. Nothing ever sent it before: every choice wrote a fixed
+ * override, so picking "online" once left a user green for good, with no way back through the
+ * interface. The response is the server's own answer and is what the caller should display,
+ * rather than assuming the choice took effect as asked.
+ */
+export async function setMyPresence(choice: PresenceChoice): Promise<Presence> {
   const manual =
-    presence === "online" ? "active" : presence === "busy" ? "dnd" : presence === "away" ? "away" : "invisible";
-  await apiPut<void>("/me/presence", { manual_presence: manual });
+    choice === "auto" ? null : choice === "busy" ? "dnd" : choice === "away" ? "away" : "invisible";
+  const dto = await apiPut<PresenceDto>("/me/presence", { manual_presence: manual });
+  return toPresence(dto.presence);
 }
 
 /**

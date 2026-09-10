@@ -7,6 +7,18 @@ import type { Presence } from "@/components/ds";
 
 export type ImportSource = "Nextcloud" | "Slack" | "Mattermost" | "Ruchoir";
 
+/**
+ * What a user chooses about their own availability, which is not the same thing as the dot other
+ * people see.
+ *
+ * `Presence` is the result: what someone is, right now, as computed by the server from a live
+ * connection and this choice. `PresenceChoice` is the instruction. `auto` is the default and means
+ * "say whether I am connected", and it is the one that was missing: the menu only ever wrote a
+ * fixed override, so the first pick was permanent and everyone stayed lit whether they were there
+ * or not.
+ */
+export type PresenceChoice = "auto" | "away" | "busy" | "invisible";
+
 export type Workspace = {
   id: string;
   name: string;
