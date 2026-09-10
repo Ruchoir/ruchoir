@@ -133,6 +133,15 @@ The API needs PostgreSQL and Valkey at startup (see `docker-compose.yml`). Migra
 - The API never trusts the client: authenticate and authorize every request server-side
   (when authentication lands).
 - Never log secrets, tokens, passwords or private message content.
+- **Reject an input you do not recognise; never drain it.** A multipart field or a body key the
+  handler does not know is a client sending something it believes matters. Swallowing it turns a
+  disagreement into silence: an upload once answered `201` while quietly dropping the folder it was
+  given, and the file went to the root of the space with nothing to show for it.
+- **Presence is evidence, not a timer.** A heartbeat may only be refreshed on proof the client is
+  still there (an inbound frame, a pong), and a connection that says nothing for a whole presence
+  window is closed. A TTL that a server-side ticker keeps rewriting can never lapse, which is how a
+  laptop that went to sleep stayed online for ever. Equally, a manual override says how to read
+  someone who is reachable: it must never make an unreachable user look present.
 
 > **Known CSP deviation (temporary).** `script-src`/`style-src` include `'unsafe-inline'` in
 > `http.rs` because the Next.js static export emits inline hydration scripts/styles and a static

@@ -74,6 +74,24 @@ Screens read domain data only through the seam in `lib/data`. Two layers back it
   `getMentionNames`/`getPresence`). Member profiles are fetched by id via the `useProfile` hook
   (`features/app/useProfile.ts`), with a minimal name-only placeholder while loading.
 
+**A list fed by two sources is merged, never appended to.** The API publishes a realtime frame for a
+mutation *before* it answers the call that made it, so the caller's own frame usually arrives first.
+Anything that inserts into a list from a response must therefore merge by id, and the response is the
+side that wins: it is the complete row, while a frame cannot know whether the person receiving it is a
+member, has favourited it, or has anything unread. Appending blindly is what put a newly created
+channel in the sidebar twice.
+
+**Presence is observed, not asserted.** The availability entry a user picks (`PresenceChoice`) is an
+instruction; the dot anyone sees is the server's answer, computed from that choice *and* a live
+connection, and it arrives through the presence map. Never seed a presence from a local default and
+never assume a choice took effect: `setMyPresence` returns what the server decided. `auto` sends
+`null`, and is the state most people should be in.
+
+**Sticking a feed to its bottom follows the reader's position, not the item count.** Use
+`features/channel/useStickToBottom.ts`. A count-only effect both moves a reader who scrolled up and
+misses every late reflow (an image loading, an edit, a reaction wrapping, padding changing), because
+it runs during the commit rather than after layout.
+
 `AppRoot` boots against the API: it checks the session (`GET /auth/session`), and on success loads
 the first space's channels, DMs, presence, per-conversation feeds and the notification feed before
 showing the app; a 401 lands on the real login (`POST /auth/login`), and an unreachable API shows a
