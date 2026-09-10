@@ -764,8 +764,9 @@ function AppShell() {
                   topic: channel.topic,
                   fav: false,
                   unread: 0,
-                  // The creator's own row already came from the POST; for everyone else the channel
-                  // exists but they have not joined it.
+                  // Nobody has joined a channel they have only just been told about. The creator
+                  // is the exception, and the response to their own call corrects this row when
+                  // it lands, whichever of the two arrives first.
                   member: false,
                 },
               ],
@@ -1702,7 +1703,15 @@ function AppShell() {
   const createChannel = async ({ name, type, topic }: { name: string; type: Channel["type"]; topic: string }) => {
     try {
       const channel = await apiCreateChannel(ws, { name, type, topic });
-      setChannels((prev) => [...prev, channel]);
+      // Merged by id, never appended. The server publishes the creation to the space before it
+      // answers this call, so our own frame usually arrives first and has already put a row in
+      // the sidebar; appending a second one showed the channel twice until the next full load.
+      // The response wins where they overlap: it is the complete row, the frame is not.
+      setChannels((prev) =>
+        prev.some((c) => c.id === channel.id)
+          ? prev.map((c) => (c.id === channel.id ? { ...c, ...channel } : c))
+          : [...prev, channel],
+      );
       setMessages((prev) => ({ ...prev, [channel.id]: [] }));
       setModal(null);
       openChannel(channel.id);
