@@ -1143,7 +1143,9 @@ export async function createFolder(spaceId: string, name: string, parentId?: str
 export async function uploadFile(spaceId: string, file: File, parentId?: string): Promise<SpaceFile> {
   const form = new FormData();
   form.append("file", file);
-  if (parentId) form.append("parent_folder_id", parentId);
+  // `folder_id`, not `parent_folder_id`: the JSON endpoints use the latter, the multipart
+  // upload uses the former, and sending the wrong one put every file in a folder at the root.
+  if (parentId) form.append("folder_id", parentId);
   // Multipart: let the browser set the boundary, so this call does not go through the JSON client.
   const res = await fetch(`/api/v1/spaces/${spaceId}/files`, {
     method: "POST",
