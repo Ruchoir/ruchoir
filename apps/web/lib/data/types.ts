@@ -12,10 +12,13 @@ export type ImportSource = "Nextcloud" | "Slack" | "Mattermost" | "Ruchoir";
  * people see.
  *
  * `Presence` is the result: what someone is, right now, as computed by the server from a live
- * connection and this choice. `PresenceChoice` is the instruction. `auto` is the default and means
- * "say whether I am connected", and it is the one that was missing: the menu only ever wrote a
- * fixed override, so the first pick was permanent and everyone stayed lit whether they were there
- * or not.
+ * connection and this choice. `PresenceChoice` is the instruction. `auto` means "say whether I am
+ * connected", and it is the one that was missing: the menu only ever wrote a fixed override, so the
+ * first pick was permanent and everyone stayed lit whether they were there or not.
+ *
+ * `auto` is not named anywhere in the interface and is not something to pick. It is what the
+ * ordinary "En ligne" entry sends, and it is the default, because following the connection is what
+ * the product does when nobody has asked for anything else.
  */
 export type PresenceChoice = "auto" | "away" | "busy" | "invisible";
 

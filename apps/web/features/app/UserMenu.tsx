@@ -43,19 +43,23 @@ const item: CSSProperties = {
 };
 
 /**
- * The availability choices, and the dot each one produces.
+ * The availability entries, and the dot each one produces.
  *
- * "En ligne" used to head this list and was the trap: picking it wrote a permanent override that
- * said "active" whether or not anything was connected, and nothing in the interface could undo it.
- * Being online is not a choice anyway, it is what happens when you are here, so it is now the
- * automatic entry and it is the default. The other three are the cases where you do want to say
- * something the connection does not: I am here but busy, here but away, here but not showing it.
+ * "En ligne" is the default, and it is the one that writes no override at all: presence then
+ * follows the connection, which is what being online means. That mechanism is deliberately not
+ * surfaced. There is no "automatic" entry to pick, because automatic is not a state anyone should
+ * have to reason about, it is simply what the product does when you have not asked for anything
+ * else. The other three are the cases where you do mean to say something the connection does not:
+ * here but away, here but busy, here but not showing it.
+ *
+ * What changed underneath is that "En ligne" used to store a permanent `active` override, which
+ * left everyone lit whether they were connected or not and could not be undone from the menu.
  */
-const CHOICES: { key: PresenceChoice; label: string; hint: string; dot: Presence }[] = [
-  { key: "auto", label: "Automatique", hint: "En ligne quand vous l'êtes", dot: "online" },
-  { key: "away", label: "Absent", hint: "", dot: "away" },
-  { key: "busy", label: "Ne pas déranger", hint: "", dot: "busy" },
-  { key: "invisible", label: "Invisible", hint: "Vous apparaissez hors ligne", dot: "offline" },
+const CHOICES: { key: PresenceChoice; label: string; dot: Presence }[] = [
+  { key: "auto", label: "En ligne", dot: "online" },
+  { key: "away", label: "Absent", dot: "away" },
+  { key: "busy", label: "Ne pas déranger", dot: "busy" },
+  { key: "invisible", label: "Invisible", dot: "offline" },
 ];
 
 function hover(on: boolean) {
@@ -124,10 +128,7 @@ export function UserMenu({
                 onMouseLeave={hover(false)}
               >
                 <span style={{ width: 10, height: 10, borderRadius: "var(--radius-full)", background: `var(--presence-${c.dot})`, border: c.dot === "offline" ? "1px solid var(--border-strong)" : undefined }} />
-                <span style={{ flex: 1, minWidth: 0, color: on ? "var(--text-accent)" : "var(--text-body)" }}>
-                  {c.label}
-                  {c.hint ? <span style={{ display: "block", fontSize: 11, color: "var(--text-subtle)" }}>{c.hint}</span> : null}
-                </span>
+                <span style={{ flex: 1, minWidth: 0, color: on ? "var(--text-accent)" : "var(--text-body)" }}>{c.label}</span>
                 {on ? <Icon name="check" size={14} style={{ color: "var(--text-accent)" }} /> : null}
               </button>
             );

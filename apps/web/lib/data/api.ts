@@ -576,10 +576,10 @@ export async function getSpacePresence(spaceId: string, signal?: AbortSignal): P
 /**
  * `PUT /me/presence`: set the caller's availability, and return the presence that results.
  *
- * `auto` sends `null`, which is the API's way of saying "derive it from the connection" and the
- * state a user should normally be in. Nothing ever sent it before: every choice wrote a fixed
- * override, so picking "online" once left a user green for good, with no way back through the
- * interface. The response is the server's own answer and is what the caller should display,
+ * `auto` sends `null`, which is the API's way of saying "derive it from the connection". It is what
+ * the menu's ordinary "En ligne" entry sends and the state a user is normally in, without any of
+ * that being surfaced to them. Nothing ever sent it before: every entry wrote a fixed override, so
+ * picking "online" once left a user green for good, with no way back through the interface. The response is the server's own answer and is what the caller should display,
  * rather than assuming the choice took effect as asked.
  */
 export async function setMyPresence(choice: PresenceChoice): Promise<Presence> {

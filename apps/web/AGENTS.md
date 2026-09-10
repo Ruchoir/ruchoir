@@ -85,7 +85,8 @@ channel in the sidebar twice.
 instruction; the dot anyone sees is the server's answer, computed from that choice *and* a live
 connection, and it arrives through the presence map. Never seed a presence from a local default and
 never assume a choice took effect: `setMyPresence` returns what the server decided. `auto` sends
-`null`, and is the state most people should be in.
+`null` and is the default; it is deliberately not named in the interface, where the ordinary
+"En ligne" entry is what sends it.
 
 **Sticking a feed to its bottom follows the reader's position, not the item count.** Use
 `features/channel/useStickToBottom.ts`. A count-only effect both moves a reader who scrolled up and
