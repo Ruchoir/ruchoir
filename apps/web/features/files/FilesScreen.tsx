@@ -3,13 +3,23 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
-import { createFolder as apiCreateFolder, fileDownloadUrl, filePreviewUrl, getFolder, uploadFile } from "@/lib/data/api";
+import { createFolder as apiCreateFolder, deleteFile, fileDownloadUrl, filePreviewUrl, getFolder, uploadFile } from "@/lib/data/api";
+import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
 import { getAvatar } from "@/lib/data";
 
 const styles: Record<string, CSSProperties> = {
   root: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 },
+  selectionBar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flex: "none",
+    padding: "8px 16px",
+    borderBottom: "1px solid var(--border-subtle)",
+    background: "var(--surface-selected)",
+  },
   top: {
     height: "var(--topbar-height)",
     flex: "none",
@@ -145,6 +155,9 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [preview, setPreview] = useState<SpaceFile | null>(null);
+  // What a confirmed removal would take. Held as the entries themselves, so the dialog can name
+  // them and warn about a folder, which takes everything under it.
+  const [pendingDelete, setPendingDelete] = useState<SpaceFile[]>([]);
   const uploadRef = useRef<HTMLInputElement>(null);
 
   // `onNotify` (AppRoot's toast) is a fresh function each parent render; keep the latest in a ref so
@@ -213,6 +226,10 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
 
   const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map(rowKey)));
 
+  // The selection as entries rather than keys: a removal needs the id and the name, and a key is
+  // only a name when the entry has no id.
+  const selectedEntries = rows.filter((f) => f.id && selected.has(rowKey(f)));
+
   const createFolder = () => {
     const name = folderName.trim();
     if (!name) return;
@@ -224,6 +241,41 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
         load(folderId);
       })
       .catch(() => onNotify({ tone: "danger", title: "Création du dossier impossible" }));
+  };
+
+  /**
+   * Remove the entries the dialog is holding.
+   *
+   * Settled rather than raced: one refusal must not hide the others, and a partial result still
+   * needs the folder reloaded. A 403 is the one worth naming, since it means the file belongs to
+   * someone else rather than that anything went wrong.
+   */
+  const confirmDelete = () => {
+    const targets = pendingDelete;
+    setPendingDelete([]);
+    if (targets.length === 0) return;
+    Promise.allSettled(targets.filter((f) => f.id).map((f) => deleteFile(f.id as string)))
+      .then((results) => {
+        const gone = results.filter((r) => r.status === "fulfilled").length;
+        const refused = results.some((r) => r.status === "rejected" && isApiError(r.reason, 403));
+        if (gone > 0) {
+          onNotify({
+            tone: "success",
+            title: gone === 1 ? "Élément supprimé" : `${gone} éléments supprimés`,
+            description: gone === 1 ? targets[0].name : undefined,
+          });
+        }
+        if (gone < results.length) {
+          onNotify({
+            tone: "danger",
+            title: "Suppression incomplète",
+            description: refused
+              ? "Vous ne pouvez supprimer que vos propres fichiers, sauf si vous administrez l'espace."
+              : "Réessayez dans un instant.",
+          });
+        }
+        load(folderId);
+      });
   };
 
   const onFilePicked = (fileList: FileList | null) => {
@@ -332,6 +384,22 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
           ) : null}
         </div>
 
+        {selectedEntries.length > 0 ? (
+          // The checkboxes had built a selection nothing could act on. This is what they are for.
+          <div style={styles.selectionBar}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
+              {selectedEntries.length} sélectionné{selectedEntries.length > 1 ? "s" : ""}
+            </span>
+            <div style={{ flex: 1 }} />
+            <Button size="sm" onClick={() => setSelected(new Set())}>
+              Annuler
+            </Button>
+            <Button size="sm" variant="danger" iconLeft="trash-2" onClick={() => setPendingDelete(selectedEntries)}>
+              Supprimer
+            </Button>
+          </div>
+        ) : null}
+
         {effectiveLayout === "list" ? (
           <div style={styles.tableWrap}>
             <table style={styles.table}>
@@ -367,6 +435,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                     checked={selected.has(rowKey(f))}
                     onToggle={() => toggle(rowKey(f))}
                     onOpen={() => openEntry(f)}
+                    onDelete={f.id ? () => setPendingDelete([f]) : undefined}
                   />
                 ))}
               </tbody>
@@ -462,6 +531,35 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
       </Dialog>
 
       <Dialog
+        open={pendingDelete.length > 0}
+        title={pendingDelete.length > 1 ? `Supprimer ${pendingDelete.length} éléments ?` : "Supprimer cet élément ?"}
+        size="sm"
+        onClose={() => setPendingDelete([])}
+        footer={
+          <>
+            <Button onClick={() => setPendingDelete([])}>Annuler</Button>
+            <Button variant="danger" iconLeft="trash-2" onClick={confirmDelete}>
+              Supprimer
+            </Button>
+          </>
+        }
+      >
+        <p style={{ fontSize: 14, color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
+          {pendingDelete.length === 1 ? (
+            <>
+              <strong style={{ color: "var(--text-strong)" }}>{pendingDelete[0].name}</strong> sera retiré de
+              l&apos;espace.
+            </>
+          ) : (
+            <>Ces éléments seront retirés de l&apos;espace.</>
+          )}
+          {pendingDelete.some((f) => f.kind === "folder")
+            ? " Un dossier emporte tout ce qu'il contient."
+            : ""}
+        </p>
+      </Dialog>
+
+      <Dialog
         open={preview != null}
         title={preview?.name}
         subtitle={preview ? `${preview.size} · modifié par ${preview.by} · ${preview.when}` : undefined}
@@ -477,6 +575,19 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                 </Tag>
               ) : null}
               <div style={{ flex: 1 }} />
+              {preview.id ? (
+                <Button
+                  variant="danger"
+                  iconLeft="trash-2"
+                  onClick={() => {
+                    const target = preview;
+                    setPreview(null);
+                    setPendingDelete([target]);
+                  }}
+                >
+                  Supprimer
+                </Button>
+              ) : null}
               <Button onClick={() => setPreview(null)}>Fermer</Button>
               <Button
                 variant="primary"
@@ -533,11 +644,14 @@ function FileRow({
   checked,
   onToggle,
   onOpen,
+  onDelete,
 }: {
   f: SpaceFile;
   checked: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  /** Absent for an entry the API cannot address, which is the only case with no id. */
+  onDelete?: () => void;
 }) {
   const [hover, setHover] = useState(false);
   const isFolder = f.kind === "folder";
@@ -586,6 +700,15 @@ function FileRow({
             tabIndex={hover ? 0 : -1}
             onClick={onOpen}
           />
+          {onDelete ? (
+            <IconButton
+              icon="trash-2"
+              label={`Supprimer ${f.name}`}
+              size="sm"
+              tabIndex={hover ? 0 : -1}
+              onClick={onDelete}
+            />
+          ) : null}
         </span>
       </td>
     </tr>

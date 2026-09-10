@@ -1156,6 +1156,20 @@ export async function uploadFile(spaceId: string, file: File, parentId?: string)
   return toSpaceFile((await res.json()) as FileDto);
 }
 
+/**
+ * `DELETE /files/{id}`: remove a file, or a folder and everything under it.
+ *
+ * The API has always answered this; nothing in the interface ever called it, so a file could be
+ * put in a space and never taken out again. The removal is soft server-side, which is why it comes
+ * back as a plain success and the caller simply reloads the folder.
+ *
+ * Allowed for whoever owns the file and for a space administrator, so an ordinary member can undo
+ * their own upload. A 403 means neither, and is worth telling the user apart from a failure.
+ */
+export async function deleteFile(fileId: string): Promise<void> {
+  await apiDelete<void>(`/files/${fileId}`);
+}
+
 /** The same-origin URL that streams a file's bytes (the API proxies the object store). */
 export function fileDownloadUrl(fileId: string): string {
   return `/api/v1/files/${fileId}/download`;
