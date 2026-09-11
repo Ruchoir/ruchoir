@@ -78,6 +78,26 @@ export type MessageEditorProps = {
  * owns the DOM); `onSend` receives the serialised plain text (emotes as their Unicode glyph), so the
  * message pipeline is unchanged. The surrounding toolbar drives formatting through the ref handle.
  */
+/**
+ * What to write into the message when someone picks a name.
+ *
+ * A handle ends at the first space, so a two-word name inserted whole is addressed by its first
+ * word alone. That is what the server resolves against, and it is usually right: "@Théo Vilain"
+ * reaches Théo. It stops being right the moment two people in the space share that first word, and
+ * the server, rightly, refuses to guess between them: the mention would resolve to nobody, look
+ * perfectly normal on screen, and notify no one.
+ *
+ * So the first word is used only while it belongs to one person. Otherwise the whole name goes in
+ * without its spaces, which is the other spelling the resolver accepts.
+ */
+function mentionHandle(name: string, members: { name: string }[]): string {
+  const [first] = name.split(/\s+/);
+  if (!first || first === name) return name;
+  const fold = (s: string) => s.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  const sharing = members.filter((m) => fold(m.name.split(/\s+/)[0] ?? "") === fold(first)).length;
+  return sharing > 1 ? name.split(/\s+/).join("") : first;
+}
+
 export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEditorProps) {
   const edRef = useRef<HTMLDivElement>(null);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
@@ -176,7 +196,7 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     const { caret } = editorState(ed);
     const len = caret - trigger.start;
     if (hit.kind === "mention") {
-      replaceTokenBeforeCaret(len, document.createTextNode(`@${hit.name} `));
+      replaceTokenBeforeCaret(len, document.createTextNode(`@${mentionHandle(hit.name, members)} `));
     } else {
       replaceTokenBeforeCaret(len, emojiNode(hit.emoji, manifestRef.current), true);
     }

@@ -42,38 +42,45 @@ impl MentionTokens {
 /// Scan a raw message body for mention tokens. Pure and allocation-light; no I/O.
 pub fn extract_mention_tokens(body: &str) -> MentionTokens {
     let mut tokens = MentionTokens::default();
-    let bytes = body.as_bytes();
+    // Scanned by character rather than by byte, because names are not ASCII. Byte scanning ended a
+    // handle at the first accented letter, so `@Théo` was read as `@Th` and reached nobody: the
+    // message sent, the mention was never recorded, and there was nothing anywhere to say why. The
+    // fold to ASCII happens below, against the name, which is where it belongs.
+    let chars: Vec<(usize, char)> = body.char_indices().collect();
     let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] != b'@' {
+    while i < chars.len() {
+        if chars[i].1 != '@' {
             i += 1;
             continue;
         }
         // A mention starts at the beginning of the body or after a non-word character, so that
         // `user@host` (an email) never triggers one.
-        let at_boundary = i == 0 || !is_handle_char(bytes[i - 1]);
+        let at_boundary = i == 0 || !is_handle_char(chars[i - 1].1);
         if !at_boundary {
             i += 1;
             continue;
         }
         let start = i + 1;
         let mut end = start;
-        while end < bytes.len() && is_handle_char(bytes[end]) {
+        while end < chars.len() && is_handle_char(chars[end].1) {
             end += 1;
         }
         if end == start {
             i += 1;
             continue;
         }
-        // Safe: handle bytes are ASCII (`is_handle_char`), so the slice is valid UTF-8. Trailing
-        // `.`/`-`/`_` are punctuation (e.g. the period ending a sentence), not part of the handle;
-        // interior ones are kept so `first.last` handles survive.
-        let handle = body[start..end].trim_end_matches(['.', '-', '_']);
+        let from = chars[start].0;
+        let to = chars.get(end).map_or(body.len(), |(at, _)| *at);
+        // Trailing `.`/`-`/`_` are punctuation (e.g. the period ending a sentence), not part of the
+        // handle; interior ones are kept so `first.last` handles survive.
+        let handle = body[from..to].trim_end_matches(['.', '-', '_']);
         if handle.is_empty() {
             i = end;
             continue;
         }
-        match handle.to_ascii_lowercase().as_str() {
+        // Folded here so the set holds one spelling per handle: `@Théo`, `@theo` and `@THEO` are
+        // the same mention, and the members are compared in the same folded form.
+        match fold_ascii(handle).as_str() {
             "here" => tokens.here = true,
             "channel" | "everyone" | "all" => tokens.channel = true,
             other => {
@@ -152,14 +159,18 @@ pub async fn resolve_mentions(
     Ok(resolved)
 }
 
-/// Whether a byte may appear inside a mention handle (ASCII word characters plus `.`, `_`, `-`).
-fn is_handle_char(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'.' || b == b'_' || b == b'-'
+/// Whether a character may appear inside a mention handle: any letter or digit, plus `.`, `_`, `-`.
+///
+/// Deliberately not restricted to ASCII. A handle is typed by a person reading a name, and names
+/// carry accents; stopping at the first one silently truncated the handle to something that matched
+/// nobody.
+fn is_handle_char(c: char) -> bool {
+    c.is_alphanumeric() || c == '.' || c == '_' || c == '-'
 }
 
-/// Whether an (already ascii-lowercased) handle addresses a member: it equals one of the display
-/// name's whitespace tokens, or the whole name with spaces removed. Comparison folds Latin accents
-/// to ASCII, since handles are ASCII by grammar but names are not (`@leveque` reaches "Lévêque").
+/// Whether an (already folded) handle addresses a member: it equals one of the display name's
+/// whitespace tokens, or the whole name with spaces removed. Both sides are folded the same way, so
+/// `@leveque` and `@Lévêque` both reach "Lévêque".
 fn display_name_matches(display_name: &str, handle: &str) -> bool {
     display_name
         .split_whitespace()
@@ -193,6 +204,30 @@ fn fold_ascii(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_accented_handle_survives_the_scan() {
+        // The defect this guards: byte scanning ended the handle at the accent, so the message
+        // carried `@Théo` and the server looked for "Th".
+        let t = extract_mention_tokens("merci @Théo pour la relecture");
+        assert!(t.users.contains("theo"), "got {:?}", t.users);
+    }
+
+    #[test]
+    fn a_handle_is_one_token_however_it_is_spelled() {
+        // Case and accents fold to a single spelling, so the same person is mentioned once.
+        let t = extract_mention_tokens("@Théo @theo @THEO");
+        assert_eq!(t.users.len(), 1);
+        assert!(t.users.contains("theo"));
+    }
+
+    #[test]
+    fn a_name_inserted_whole_still_addresses_its_owner() {
+        // What the composer writes when someone picks a suggestion: the display name verbatim. The
+        // handle is its first token, which the resolver matches against the name's tokens.
+        let t = extract_mention_tokens("@Théo Vilain peux-tu regarder ?");
+        assert!(t.users.contains("theo"));
+    }
 
     #[test]
     fn plain_user_mention() {
