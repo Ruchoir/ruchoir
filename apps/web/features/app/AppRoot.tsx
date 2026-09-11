@@ -1556,24 +1556,33 @@ function AppShell() {
    * have to be kept in step. Quiet hours suppress both halves, which is the whole of what quiet
    * hours mean.
    *
-   * The sound plays whether or not the window is focused, because it is what tells you something
-   * arrived in a conversation you are not reading. The system notification does not: laid over the
-   * window you are already working in, it says nothing the sidebar has not.
+   * Something always happens, and which something depends on where the reader is. Away, it is a
+   * system notification. On screen, it is a toast, because an operating-system panel laid over the
+   * window someone is already working in says nothing that window cannot say itself, and because
+   * many browsers refuse to draw one for a focused page at all.
+   *
+   * The first version only had the away half, with the sound off by default, so a reader watching
+   * the app while a mention arrived saw the feature do nothing and had every reason to call it
+   * broken.
    */
   useEffect(() => {
     alertRef.current = (n) => {
       if (!passesPref(n, channelPrefs[n.channelId], settings.notif)) return;
       if (inQuietHours(settings.notif)) return;
       if (settings.notif.sound) playNotificationSound();
-      if (!appIsAway()) return;
-      showDesktopNotification({
-        title: n.isDm ? n.actor : `${n.actor} dans ${n.label}`,
-        body: n.preview || notifSummary(n),
-        // One notification per conversation: ten messages from the same channel while you were away
-        // should be one line to come back to, not ten to dismiss.
-        tag: n.channelId,
-        onClick: () => openNotification(n.channelId, n.messageId, n.id),
-      });
+      const who = n.isDm ? n.actor : `${n.actor} dans ${n.label}`;
+      if (appIsAway()) {
+        showDesktopNotification({
+          title: who,
+          body: n.preview || notifSummary(n),
+          // One notification per conversation: ten messages from the same channel while you were
+          // away should be one line to come back to, not ten to dismiss.
+          tag: n.channelId,
+          onClick: () => openNotification(n.channelId, n.messageId, n.id),
+        });
+        return;
+      }
+      notifyRef.current?.({ tone: "info", title: who, description: n.preview || notifSummary(n) });
     };
   });
 

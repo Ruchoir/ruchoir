@@ -18,8 +18,10 @@ import { DEFAULT_NOTIF_PREFS } from "./notifications";
  *   people block notifications for good, and a denial cannot be taken back from the page: it has to
  *   be undone in the browser's own settings, which most people never find. So the request comes
  *   from a control in the preferences, where the person has just said they want this.
- * - **Nothing is sent while the app is on screen and focused.** A system notification laid over the
- *   window you are already reading is noise; the sidebar badge and the sound are enough there.
+ * - **No system notification while the app is on screen and focused.** One laid over the window you
+ *   are already reading says nothing that window cannot say itself, and several browsers refuse to
+ *   draw one for a focused page in any case. The app shows a toast instead, so something always
+ *   happens.
  *
  * This is the browser's `Notification`, not Web Push: it needs the tab to exist, in some window,
  * somewhere. Notifying a browser that is closed altogether needs a service worker, a push service
