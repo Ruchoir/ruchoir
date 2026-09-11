@@ -521,6 +521,15 @@ export async function createChannel(
 }
 
 /**
+ * `PUT /channels/{id}/favorite`: pin a channel to the caller's own favourites, or unpin it.
+ *
+ * Per caller: a favourite is one person's shortcut and is invisible to everyone else.
+ */
+export async function setChannelFavorite(channelId: string, favorite: boolean): Promise<void> {
+  await apiPut<void>(`/channels/${channelId}/favorite`, { favorite });
+}
+
+/**
  * `PATCH /channels/{id}`: rename a channel, set its topic, or change its visibility. Archiving is
  * `type: "archived"`, which makes the channel read-only without deleting anything.
  */

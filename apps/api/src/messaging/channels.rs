@@ -30,7 +30,9 @@ use sea_orm::DatabaseConnection;
 
 use super::authz::{ensure_space_member, is_channel_moderator, space_member_ids};
 use super::conversations::unread_count;
-use super::dto::{ChannelDto, ChannelSummaryDto, CreateChannelRequest, UpdateChannelRequest};
+use super::dto::{
+    ChannelDto, ChannelSummaryDto, CreateChannelRequest, FavoriteRequest, UpdateChannelRequest,
+};
 use super::error::ApiError;
 use super::slug::slugify;
 use crate::realtime::event::RealtimeEnvelope;
@@ -302,6 +304,40 @@ pub async fn join_channel(
         )
         .await?;
     }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `PUT /api/v1/channels/{channel_id}/favorite`: pin a channel to the caller's favourites, or unpin.
+///
+/// Per caller, not per channel: a favourite is one person's shortcut and says nothing to anyone
+/// else. The column has been read and reported since the channel list existed, and nothing could
+/// ever write it, so the sidebar kept a "Canaux favoris" section that could not fill.
+#[utoipa::path(
+    put,
+    path = "/api/v1/channels/{channel_id}/favorite",
+    tag = "messaging",
+    params(("channel_id" = Uuid, Path, description = "Channel id")),
+    request_body = FavoriteRequest,
+    responses(
+        (status = 204, description = "Favourite set"),
+        (status = 403, description = "Not a member of the channel")
+    )
+)]
+pub async fn set_favorite(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(channel_id): Path<Uuid>,
+    Json(body): Json<FavoriteRequest>,
+) -> Result<StatusCode, ApiError> {
+    // Only a member can favourite a channel: the row that carries the flag is the membership.
+    let membership = channel_members::Entity::find_by_id((channel_id, session.user_id))
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+
+    let mut active = membership.into_active_model();
+    active.favorite = Set(body.favorite);
+    active.update(&state.db).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
