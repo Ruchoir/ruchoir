@@ -188,9 +188,12 @@ export function MessageRow({ m, authorPresence, authorAvatar, grouped = false, e
       data-mid={m.id}
       style={{
         ...styles.msg,
-        // A continued message closes the gap to the one above it: the pair has to read as one block,
-        // and the reserved space for the read receipt is only needed under the last of them.
-        ...(grouped ? { padding: endsRun ? "2px 8px 18px" : "2px 8px 4px" } : {}),
+        // The two halves of the gap are decided separately, because they answer different questions.
+        // Above: is this line continuing the one before it. Below: is anything continuing this one,
+        // which is also what says whether the hover receipt needs room. Tying the bottom to
+        // "grouped" instead left the full reserve under the *first* line of a block, so a run opened
+        // with a gap its own members did not have.
+        padding: `${grouped ? 2 : 6}px 8px ${endsRun ? 18 : 4}px`,
         // The rail is a straight edge, so the corners it runs along are straight too. Rounded ones
         // pinched it at both ends, and broke the line where two highlighted messages meet.
         ...(mentionsMe ? { borderRadius: "0 var(--radius-md) var(--radius-md) 0" } : {}),
