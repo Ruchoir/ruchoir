@@ -346,6 +346,12 @@ pub struct EditMessageRequest {
     pub body: String,
 }
 
+/// Pin a channel to the caller's favourites, or unpin it.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct FavoriteRequest {
+    pub favorite: bool,
+}
+
 /// Advance the caller's read cursor in a conversation.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct ReadRequest {

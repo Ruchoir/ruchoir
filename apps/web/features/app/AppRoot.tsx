@@ -41,6 +41,7 @@ import {
   sendMessage,
   setMessagePinned,
   setMessageSaved,
+  setChannelFavorite,
   setMyPresence as apiSetMyPresence,
   setReadCursor,
   type ApiNotification,
@@ -1893,6 +1894,18 @@ function AppShell() {
     }
   };
 
+  /** Pin or unpin a channel in the caller's own sidebar. */
+  const toggleFavorite = (id: string) => {
+    const before = channels.find((c) => c.id === id);
+    if (!before) return;
+    const next = !before.fav;
+    setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, fav: next } : c)));
+    setChannelFavorite(id, next).catch(() => {
+      setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, fav: before.fav } : c)));
+      showToast({ tone: "info", title: "Favori non enregistré" });
+    });
+  };
+
   /** Save a channel's settings (name, topic, visibility, archived) against the API. */
   const updateChannel = async (id: string, patch: Partial<Channel>) => {
     const before = channels.find((c) => c.id === id);
@@ -2282,6 +2295,7 @@ function AppShell() {
         onChannelSettings={setChannelSettingsId}
         onChannelNotifications={setChannelNotifId}
         onMarkRead={markConversationRead}
+        onToggleFavorite={toggleFavorite}
         onOpenNotification={openNotification}
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
@@ -2580,6 +2594,7 @@ function AppShell() {
                 onChannelSettings={setChannelSettingsId}
                 onChannelNotifications={setChannelNotifId}
                 onMarkRead={markConversationRead}
+                onToggleFavorite={toggleFavorite}
                 onOpenNotification={openNotification}
                 onToggleNotifRead={setNotifRead}
                 onMarkAllNotifsRead={markAllNotifsRead}
