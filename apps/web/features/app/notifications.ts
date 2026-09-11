@@ -39,6 +39,8 @@ export type AppNotification = {
   spaceId: string;
   /** "#canal" for channels, the person's name for direct messages. */
   label: string;
+  /** The space's name, so a notification from another space can say where it happened. */
+  spaceName: string;
   isDm: boolean;
   /** Who triggered the notification (drives the avatar). */
   actor: string;
