@@ -120,7 +120,9 @@ export function getAvatar(name: string): string | undefined {
  * The renderer prefers the longest match, so a full name still wins over its first word.
  */
 export function getMentionNames(): string[] {
-  const names = new Set<string>();
+  // The two room-wide handles are mentions as much as a name is, and are highlighted like one.
+  // Listed in both languages because the server accepts both.
+  const names = new Set<string>(["canal", "ici", "channel", "here", "tous", "everyone", "all"]);
   for (const member of liveMembers) {
     names.add(member.name);
     const words = member.name.split(/\s+/).filter(Boolean);
