@@ -432,6 +432,7 @@
 /* Rich message input (contenteditable): renders inline emote chips the plain textarea cannot show. */
 .wc-rich-input {
   display: block;
+  position: relative;
   width: 100%;
   min-height: 40px;
   max-height: 220px;
@@ -444,10 +445,22 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/*
+ * The placeholder is taken out of the flow, which is the whole point of the two properties below.
+ * An in-flow `::before` is a box inside the editable area, and the caret goes after it: the cursor
+ * sat at the end of "Écrire dans #general" instead of at the start of the empty line. Out of flow
+ * it paints in the same place and occupies nothing, so the caret lands where the first character
+ * will. The element has no padding, so the padding box this is positioned against starts exactly
+ * where the text does.
+ */
 .wc-rich-input[data-empty="true"]::before {
   content: attr(data-placeholder);
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
   color: var(--text-subtle);
   pointer-events: none;
+  user-select: none;
 }
 .wc-ta:disabled {
   background: var(--surface-disabled);

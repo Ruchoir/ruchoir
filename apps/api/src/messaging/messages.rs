@@ -28,6 +28,7 @@ use crate::entities::{
     user_saved_messages, users,
 };
 use crate::realtime::event::RealtimeEnvelope;
+use crate::realtime::presence;
 use crate::state::AppState;
 
 use super::authz::{self, ConversationKind};
@@ -196,12 +197,42 @@ pub async fn send_message(
 
     let audience = authz::conversation_audience(&state.db, &access).await?;
     let tokens = mentions::extract_mention_tokens(text);
-    let resolved =
-        mentions::resolve_mentions(&state.db, session.user_id, &audience, &tokens).await?;
+    let mut resolved =
+        mentions::resolve_mentions(&state.db, session.user_id, &audience, text, &tokens).await?;
+
+    // `@ici` means the people who are here. The resolver expands it to every member, because it
+    // knows the conversation and not who is connected, so the narrowing happens here, where the
+    // presence heartbeat is reachable. Without it `@ici` and `@canal` did the same thing under two
+    // names, which leaves the reader to guess which one is the loud one.
+    if tokens.here && !tokens.channel {
+        let mut present = Vec::with_capacity(resolved.len());
+        for mention in resolved {
+            let keep = mention.mention_type != "here"
+                || presence::is_online(state.hub.valkey(), mention.user_id).await;
+            if keep {
+                present.push(mention);
+            }
+        }
+        resolved = present;
+    }
 
     // Who to notify: mentions, the other DM participants, and the replied-to author (deduped by
     // priority, never the sender).
-    let mention_ids: Vec<Uuid> = resolved.iter().map(|m| m.user_id).collect();
+    //
+    // Being named and being one of the room are kept apart. `@here` and `@channel` expand to one
+    // row per member, so they arrive here looking exactly like a mention by name, and a reader who
+    // has asked not to be pulled out of their afternoon by `@channel` has no way to be obeyed
+    // unless the two are distinguishable downstream.
+    let mention_ids: Vec<Uuid> = resolved
+        .iter()
+        .filter(|m| m.mention_type == "user")
+        .map(|m| m.user_id)
+        .collect();
+    let broadcast_ids: Vec<Uuid> = resolved
+        .iter()
+        .filter(|m| m.mention_type != "user")
+        .map(|m| m.user_id)
+        .collect();
     let dm_recipients: Vec<Uuid> = if access.kind == ConversationKind::Direct {
         audience
             .iter()
@@ -214,6 +245,7 @@ pub async fn send_message(
     let recipients = notifications::compute_recipients(
         session.user_id,
         &mention_ids,
+        &broadcast_ids,
         &dm_recipients,
         reply_target,
     );
@@ -374,7 +406,7 @@ pub async fn edit_message(
     let audience = authz::conversation_audience(&state.db, &access).await?;
     let tokens = mentions::extract_mention_tokens(text);
     let resolved =
-        mentions::resolve_mentions(&state.db, session.user_id, &audience, &tokens).await?;
+        mentions::resolve_mentions(&state.db, session.user_id, &audience, text, &tokens).await?;
 
     let txn = state.db.begin().await?;
     let mut active = message.into_active_model();

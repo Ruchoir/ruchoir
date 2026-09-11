@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Icon, IconButton, Popover } from "@/components/ds";
 import type { MessageAttachment } from "@/lib/data";
 import type { Toast } from "../app/types";
@@ -17,6 +17,15 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--surface-canvas)",
     padding: "10px 12px 8px",
     transition: "border-color var(--duration-fast) var(--ease-out)",
+  },
+  editingBanner: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+    paddingBottom: 8,
+    borderBottom: "1px solid var(--border-subtle)",
+    fontSize: 12,
   },
   tools: { display: "flex", alignItems: "center", gap: 2, marginTop: 6 },
   hint: {
@@ -65,10 +74,32 @@ export type ComposerProps = {
   onNotify: (toast: Toast) => void;
   /** Emit a typing signal as the user composes (throttled here; the server throttles again). */
   onTyping?: () => void;
+  /**
+   * The message being edited, or nothing.
+   *
+   * Editing happens in the composer rather than in a dialog: it is the same act as writing, with
+   * the same toolbar, the same emoji picker and the same `@` autocomplete, and a box floating over
+   * the conversation hides the very thing being corrected. A banner says what is going on, since
+   * text appearing in the composer by itself would otherwise be unexplained.
+   */
+  editing?: { id: string; body: string } | null;
+  /** Save the edit with this text. */
+  onSaveEdit?: (text: string) => void;
+  /** Leave the edit without saving. */
+  onCancelEdit?: () => void;
 };
 
 /** Message composer with a working formatting toolbar and file attachment. */
-export function Composer({ channelName, onSend, onUpload, onNotify, onTyping }: ComposerProps) {
+export function Composer({
+  channelName,
+  onSend,
+  onUpload,
+  onNotify,
+  onTyping,
+  editing,
+  onSaveEdit,
+  onCancelEdit,
+}: ComposerProps) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pending, setPending] = useState<MessageAttachment | null>(null);
   /** True from the moment a file is picked until it is stored (or refused). */
@@ -87,7 +118,21 @@ export function Composer({ channelName, onSend, onUpload, onNotify, onTyping }: 
     onTyping();
   };
 
+  // Load the message being edited into the editor, and restore an empty one when the edit ends.
+  // Keyed on the id so picking a different message while already editing swaps the text.
+  const editingId = editing?.id ?? null;
+  useEffect(() => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    if (editingId) ed.setText(editing?.body ?? "");
+    else ed.clear();
+  }, [editingId, editing?.body]);
+
   const sendWith = (text: string) => {
+    if (editing) {
+      onSaveEdit?.(text);
+      return;
+    }
     // A file still on its way has no id to attach, so the message waits rather than losing it.
     if (uploading) return;
     onSend(text, pending ?? undefined);
@@ -130,8 +175,31 @@ export function Composer({ channelName, onSend, onUpload, onNotify, onTyping }: 
 
   return (
     <div style={styles.wrap}>
-      <div style={styles.composer} onInput={signalTyping}>
-        {pending ? (
+      <div
+        style={{
+          ...styles.composer,
+          ...(editing ? { borderColor: "var(--border-accent)" } : {}),
+        }}
+        onInput={signalTyping}
+        // Escape leaves an edit, which is the shortcut people reach for first. Caught here rather
+        // than on the editor so it works from the toolbar and the emoji picker too.
+        onKeyDown={(e) => {
+          if (editing && e.key === "Escape") {
+            e.stopPropagation();
+            onCancelEdit?.();
+          }
+        }}
+      >
+        {editing ? (
+          <div style={styles.editingBanner}>
+            <Icon name="square-pen" size={14} style={{ color: "var(--text-accent)" }} />
+            <span style={{ fontWeight: 600, color: "var(--text-accent)" }}>Modification du message</span>
+            <span style={{ color: "var(--text-subtle)" }}>Échap pour annuler</span>
+            <div style={{ flex: 1 }} />
+            <IconButton icon="x" label="Annuler la modification" size="sm" onClick={() => onCancelEdit?.()} />
+          </div>
+        ) : null}
+        {pending && !editing ? (
           <div style={styles.chip}>
             <Icon name={pending.kind} size={16} style={{ color: "var(--text-muted)" }} />
             <span style={{ fontWeight: 500, color: "var(--text-strong)" }}>{pending.name}</span>
@@ -145,7 +213,11 @@ export function Composer({ channelName, onSend, onUpload, onNotify, onTyping }: 
             />
           </div>
         ) : null}
-        <MessageEditor ref={editorRef} placeholder={`Écrire dans #${channelName}`} onSend={sendWith} />
+        <MessageEditor
+          ref={editorRef}
+          placeholder={editing ? "Modifier le message" : `Écrire dans #${channelName}`}
+          onSend={sendWith}
+        />
         <div style={styles.tools}>
           <IconButton icon="bold" label="Gras" size="sm" onClick={() => editorRef.current?.wrapSelection("**")} />
           <IconButton icon="italic" label="Italique" size="sm" onClick={() => editorRef.current?.wrapSelection("_")} />

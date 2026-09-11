@@ -119,8 +119,22 @@ pub(crate) async fn api_health(State(state): State<AppState>) -> Json<ApiHealth>
 pub fn router(state: AppState) -> Router {
     let web_dist = state.config.web_dist.clone();
     let index = web_dist.join("index.html");
-    let static_service = ServeDir::new(&web_dist)
-        .fallback(any(move |req: Request| spa_fallback(index.clone(), req)));
+    // Everything that is not a content-hashed asset is revalidated on every load, which for the app
+    // shell means every time someone opens it. Without a `Cache-Control` a browser applies heuristic
+    // caching to a page carrying only `Last-Modified`, and keeps serving it for a while with no
+    // request at all: a deployment then reaches nobody until their cache decides otherwise, and a
+    // fix that is live on the server is still absent from the screen of the person who reported the
+    // bug. `no-cache` is not "do not store": the copy is kept and revalidated, so an unchanged shell
+    // still answers `304` and costs nothing.
+    let static_service = ServiceBuilder::new()
+        .layer(SetResponseHeaderLayer::overriding(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("no-cache"),
+        ))
+        .service(
+            ServeDir::new(&web_dist)
+                .fallback(any(move |req: Request| spa_fallback(index.clone(), req))),
+        );
 
     // Content Security Policy: same-origin only.
     //
@@ -193,6 +207,19 @@ pub fn router(state: AppState) -> Router {
                 .service(emoji_service),
         );
     }
+
+    // The build's own assets, whose names carry a hash of their contents: a change produces a new
+    // name, so the old name can be kept for ever and never revalidated. Mounted before the fallback
+    // so it wins for this prefix.
+    router = router.nest_service(
+        "/_next/static",
+        ServiceBuilder::new()
+            .layer(SetResponseHeaderLayer::overriding(
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("public, max-age=31536000, immutable"),
+            ))
+            .service(ServeDir::new(web_dist.join("_next/static"))),
+    );
 
     router
         .fallback_service(static_service)

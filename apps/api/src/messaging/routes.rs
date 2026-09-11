@@ -38,7 +38,7 @@ pub fn router() -> Router<AppState> {
         // Read cursor.
         .route(
             "/api/v1/conversations/{conversation_id}/read",
-            put(read::set_read_cursor),
+            get(read::get_read_cursors).put(read::set_read_cursor),
         )
         // Pins.
         .route("/api/v1/channels/{channel_id}/pins", get(pins::list_pins))
@@ -90,6 +90,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v1/channels/{channel_id}",
             patch(channels::update_channel),
+        )
+        .route(
+            "/api/v1/channels/{channel_id}/favorite",
+            put(channels::set_favorite),
         )
         .route(
             "/api/v1/channels/{channel_id}/membership",

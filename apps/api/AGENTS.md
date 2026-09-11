@@ -137,6 +137,17 @@ The API needs PostgreSQL and Valkey at startup (see `docker-compose.yml`). Migra
   handler does not know is a client sending something it believes matters. Swallowing it turns a
   disagreement into silence: an upload once answered `201` while quietly dropping the folder it was
   given, and the file went to the root of the space with nothing to show for it.
+- **Static assets ship with a caching policy, and it is two policies.** The app shell and anything
+  whose name does not carry a content hash answer `no-cache`, so a browser revalidates on every load
+  and a deployment reaches people; `/_next/static` is content-hashed and answers `immutable`. Serving
+  either with no `Cache-Control` hands the decision to heuristic caching, which is how a fixed client
+  goes on running its old version for hours after the fix is live.
+- **A new value for an existing column needs a migration.** Several text columns are constrained to
+  the values that existed when their table was created (`notifications.kind`,
+  `message_mentions.mention_type`, `conversations.kind`, `users.manual_presence`). Adding a variant
+  in Rust compiles, passes every unit test, and then fails at the insert, taking the whole request
+  with it: a new notification kind made sending a message answer `500`. Grep the migrations for the
+  column before adding a value to it, and change the constraint in the same change.
 - **Presence is evidence, not a timer.** A heartbeat may only be refreshed on proof the client is
   still there (an inbound frame, a pong), and a connection that says nothing for a whole presence
   window is closed. A TTL that a server-side ticker keeps rewriting can never lapse, which is how a

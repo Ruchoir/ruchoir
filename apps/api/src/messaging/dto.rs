@@ -278,6 +278,16 @@ pub struct NotificationDto {
     /// screen: without it a client holding one space cannot tell which of its notifications belong
     /// there, and would show a mention from another space in every space it opens.
     pub space_id: Uuid,
+    /// The channel's name, absent for a direct message.
+    ///
+    /// Carried because a notification routinely arrives for a space the client has not loaded, and
+    /// a client cannot name a conversation it has never seen. Without it the only thing left to
+    /// show was the conversation's identifier, which is what a notification looked like whenever it
+    /// came from anywhere but the space on screen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_name: Option<String>,
+    /// The space's name, for the same reason: a notification says where it happened.
+    pub space_name: String,
     pub message_id: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub actor_id: Option<Uuid>,
@@ -334,6 +344,12 @@ pub struct SendMessageRequest {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct EditMessageRequest {
     pub body: String,
+}
+
+/// Pin a channel to the caller's favourites, or unpin it.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct FavoriteRequest {
+    pub favorite: bool,
 }
 
 /// Advance the caller's read cursor in a conversation.

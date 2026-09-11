@@ -46,6 +46,12 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-strong)",
   },
   scroll: { flex: 1, overflow: "auto", padding: "8px 8px 16px" },
+  empty: {
+    margin: "2px 6px 4px",
+    fontSize: 12,
+    lineHeight: "var(--leading-snug)",
+    color: "var(--text-subtle)",
+  },
   sect: {
     display: "flex",
     alignItems: "center",
@@ -248,6 +254,8 @@ export type SidebarProps = {
   onInvite: () => void;
   onNewChannel: () => void;
   onNewMessage: () => void;
+  /** Pin or unpin a channel in the caller's own sidebar. */
+  onToggleFavorite: (id: string) => void;
   onGlobalSearch: () => void;
   onLeaveChannel: (id: string) => void;
   /** Rejoin a public channel the user had left (the menu offers one or the other, never both). */
@@ -286,6 +294,7 @@ export function Sidebar({
   onInvite,
   onNewChannel,
   onNewMessage,
+  onToggleFavorite,
   onGlobalSearch,
   onLeaveChannel,
   onJoinChannel,
@@ -306,6 +315,11 @@ export function Sidebar({
   const showMessages = !only || only === "messages";
   const showFooter = !only || only === "channels";
   const channelMenu = (channel: Channel): SideMenuItem[] => [
+    {
+      icon: channel.fav ? "star-off" : "star",
+      label: channel.fav ? "Retirer des favoris" : "Ajouter aux favoris",
+      onClick: () => onToggleFavorite(channel.id),
+    },
     { icon: "check-check", label: "Marquer comme lu", onClick: () => onMarkRead(channel.id) },
     { icon: "bell", label: "Notifications", onClick: () => onChannelNotifications(channel.id) },
     { icon: "settings", label: "Paramètres du canal", onClick: () => onChannelSettings(channel.id) },
@@ -426,6 +440,13 @@ export function Sidebar({
         {showChannels ? (
           <>
             <div style={styles.sect}>Canaux favoris</div>
+            {channels.every((c) => !c.fav) ? (
+              // Says how to fill it, since there is no button that could: a favourite is set on the
+              // channel itself, from its own menu.
+              <p style={styles.empty}>
+                Gardez vos canaux courants à portée : « Ajouter aux favoris » dans le menu d&apos;un canal.
+              </p>
+            ) : null}
             {channels
               .filter((c) => c.fav)
               .map((c) => (
@@ -484,6 +505,9 @@ export function Sidebar({
         {showMessages ? (
           <>
             <div style={styles.sect}>Messages directs</div>
+            {directMessages.length === 0 ? (
+              <SideItem icon="square-pen" label="Démarrer une conversation" onClick={onNewMessage} />
+            ) : null}
             {directMessages.map((d) => (
               <SideItem
                 key={d.id}

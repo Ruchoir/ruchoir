@@ -1,8 +1,8 @@
 "use client";
 
-import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Avatar, Popover } from "@/components/ds";
-import { getChannelMembers } from "@/lib/data";
+import { getChannelMembers, getServerDirectory, subscribeToDirectory } from "@/lib/data";
 import { searchShortcodes } from "@/lib/shortcodes";
 import { Emoji } from "../app/Emoji";
 import { useEmojiManifest } from "../app/emojiManifest";
@@ -20,7 +20,21 @@ type Member = ReturnType<typeof getChannelMembers>[number];
 /** A ranked autocomplete suggestion, tagged by the trigger that produced it. */
 type Hit =
   | { kind: "mention"; name: string; member: Member }
+  | { kind: "broadcast"; name: string; hint: string }
   | { kind: "emoji"; name: string; emoji: string };
+
+/**
+ * The two handles that address a room rather than a person.
+ *
+ * Offered here because a handle nobody can guess is a handle nobody uses: everything else in this
+ * list is a name the reader can see on screen, while these two have to be learned. The hint is what
+ * makes them different from each other, and it is the behaviour, not a paraphrase of the word: one
+ * reaches the whole channel, the other only the people connected right now.
+ */
+const BROADCASTS: { name: string; hint: string }[] = [
+  { name: "canal", hint: "Prévient tous les membres du canal" },
+  { name: "ici", hint: "Prévient seulement les membres connectés" },
+];
 
 type Trigger = { kind: "mention" | "emoji"; query: string; start: number };
 
@@ -38,6 +52,13 @@ export type MessageEditorHandle = {
   isEmpty: () => boolean;
   /** Clear the editor without sending. */
   clear: () => void;
+  /**
+   * Replace everything in the editor with this text, caret at the end.
+   *
+   * For picking up a message to edit: the body has to arrive in the composer as if it had just been
+   * typed there, ready to be continued.
+   */
+  setText: (text: string) => void;
 };
 
 const menuStyle: CSSProperties = {
@@ -48,6 +69,21 @@ const menuStyle: CSSProperties = {
   border: "1px solid var(--border-subtle)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
+};
+
+/** Stands in for the avatar on the two room-wide handles, so the rows line up. */
+const broadcastMark: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "none",
+  width: 22,
+  height: 22,
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface-selected)",
+  color: "var(--text-accent)",
+  fontWeight: 600,
+  fontSize: 12,
 };
 
 const optionStyle: CSSProperties = {
@@ -96,16 +132,25 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
   const listId = `ac-${uid}`;
   const optionId = (i: number) => `${listId}-opt-${i}`;
 
-  const members = useMemo(() => getChannelMembers(), []);
+  // Subscribed, not captured. With an empty dependency list this froze at whatever roster existed
+  // when the composer first mounted, so after a space switch it went on offering the previous
+  // space's people, with no way to notice from here.
+  const members = useSyncExternalStore(subscribeToDirectory, getChannelMembers, getServerDirectory);
 
   const hits = useMemo<Hit[]>(() => {
     if (!trigger) return [];
     if (trigger.kind === "mention") {
       const q = trigger.query.toLowerCase();
-      return members
+      // Above the people, because they are the two entries someone is looking for when they do not
+      // have a particular person in mind, and because there are only ever two of them.
+      const broadcasts = BROADCASTS.filter((b) => b.name.startsWith(q)).map(
+        (b): Hit => ({ kind: "broadcast", name: b.name, hint: b.hint }),
+      );
+      const people = members
         .filter((m) => m.name.toLowerCase().includes(q))
         .slice(0, 6)
         .map((m): Hit => ({ kind: "mention", name: m.name, member: m }));
+      return [...broadcasts, ...people];
     }
     return searchShortcodes(trigger.query).map((r): Hit => ({ kind: "emoji", name: r.name, emoji: r.emoji }));
   }, [trigger, members]);
@@ -172,7 +217,9 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     if (!ed || !trigger) return;
     const { caret } = editorState(ed);
     const len = caret - trigger.start;
-    if (hit.kind === "mention") {
+    if (hit.kind === "mention" || hit.kind === "broadcast") {
+      // The display name, whole. The server resolves it as written, so what is typed, what is shown
+      // and who is notified are the same thing.
       replaceTokenBeforeCaret(len, document.createTextNode(`@${hit.name} `));
     } else {
       replaceTokenBeforeCaret(len, emojiNode(hit.emoji, manifestRef.current), true);
@@ -250,6 +297,25 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
       setTrigger(null);
       setEmpty(true);
     },
+    setText: (text: string) => {
+      const ed = edRef.current;
+      if (!ed) return;
+      // Written as a text node rather than as HTML: the body is the user's own text, and anything
+      // in it that looks like markup is text too.
+      ed.innerHTML = "";
+      ed.append(document.createTextNode(text));
+      setTrigger(null);
+      setEmpty(text === "");
+      ed.focus();
+      // Caret after the last character, which is where someone picking up their own sentence
+      // expects to continue from.
+      const range = document.createRange();
+      range.selectNodeContents(ed);
+      range.collapse(false);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    },
   }));
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -326,7 +392,17 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
               onClick={() => pick(hit)}
               style={{ ...optionStyle, background: idx === activeIdx ? "var(--surface-hover)" : "transparent" }}
             >
-              {hit.kind === "mention" ? (
+              {hit.kind === "broadcast" ? (
+                <>
+                  <span style={broadcastMark} aria-hidden="true">
+                    @
+                  </span>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block" }}>{hit.name}</span>
+                    <span style={{ display: "block", fontSize: 11, color: "var(--text-subtle)" }}>{hit.hint}</span>
+                  </span>
+                </>
+              ) : hit.kind === "mention" ? (
                 <>
                   <Avatar
                     name={hit.member.name}

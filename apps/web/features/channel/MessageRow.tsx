@@ -44,6 +44,17 @@ const styles: Record<string, CSSProperties> = {
     transition: "background-color var(--duration-fast) var(--ease-out)",
   },
   author: { display: "flex", alignItems: "baseline", gap: 8 },
+  gutterTime: {
+    flex: "none",
+    width: 34,
+    paddingTop: 3,
+    textAlign: "right",
+    fontSize: 11,
+    lineHeight: "var(--leading-normal)",
+    color: "var(--text-subtle)",
+    fontVariantNumeric: "tabular-nums",
+    userSelect: "none",
+  },
   name: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
   time: { fontSize: 13, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
   body: {
@@ -99,6 +110,26 @@ export type MessageRowProps = {
   authorPresence?: Presence;
   /** The author's uploaded avatar; absent falls back to the one generated from their name. */
   authorAvatar?: string;
+  /**
+   * This message continues the one above it: same person, minutes apart.
+   *
+   * The avatar and the name line are dropped, and the body keeps its place, so a run of messages
+   * reads as one turn of speech rather than as a stack of identical cards. The time moves into the
+   * gutter the avatar left, shown on hover, so it is still reachable without being repeated down
+   * the page.
+   */
+  grouped?: boolean;
+  /** Display names of the people who have read this message, from the conversation's read cursors. */
+  readBy?: string[];
+  /** How many people other than the reader are in the conversation, so "everyone" can be said. */
+  readAudience?: number;
+  /**
+   * This message ends its run: nothing below continues it.
+   *
+   * The hover receipt needs room under the last line, and only there. Reserving it under every line
+   * of a run would put the gap back that grouping exists to remove.
+   */
+  endsRun?: boolean;
   actions: MessageActions;
 };
 
@@ -122,7 +153,16 @@ const nameBtn: CSSProperties = {
   color: "var(--text-strong)",
 };
 
-export function MessageRow({ m, authorPresence, authorAvatar, actions }: MessageRowProps) {
+export function MessageRow({
+  m,
+  authorPresence,
+  authorAvatar,
+  grouped = false,
+  endsRun = true,
+  readBy,
+  readAudience = 0,
+  actions,
+}: MessageRowProps) {
   const [hover, setHover] = useState(false);
   const [reactOpen, setReactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -161,6 +201,15 @@ export function MessageRow({ m, authorPresence, authorAvatar, actions }: Message
       data-mid={m.id}
       style={{
         ...styles.msg,
+        // The two halves of the gap are decided separately, because they answer different questions.
+        // Above: is this line continuing the one before it. Below: is anything continuing this one,
+        // which is also what says whether the hover receipt needs room. Tying the bottom to
+        // "grouped" instead left the full reserve under the *first* line of a block, so a run opened
+        // with a gap its own members did not have.
+        padding: `${grouped ? 2 : 6}px 8px ${endsRun ? 18 : 4}px`,
+        // The rail is a straight edge, so the corners it runs along are straight too. Rounded ones
+        // pinched it at both ends, and broke the line where two highlighted messages meet.
+        ...(mentionsMe ? { borderRadius: "0 var(--radius-md) var(--radius-md) 0" } : {}),
         background: deleted
           ? "transparent"
           : hover
@@ -174,18 +223,25 @@ export function MessageRow({ m, authorPresence, authorAvatar, actions }: Message
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
-      <button ref={avatarRef} style={avatarBtn} onClick={() => setProfileOpen((o) => !o)} aria-label={`Profil de ${m.author}`}>
-        <Avatar
-          name={m.author}
-          src={authorAvatar}
-          size={34}
-          presence={m.kind === "system" ? undefined : (authorPresence ?? getPresence(m.author))}
-        />
-      </button>
+      {grouped ? (
+        <span style={styles.gutterTime} aria-hidden={!hover}>
+          {hover ? m.time : ""}
+        </span>
+      ) : (
+        <button ref={avatarRef} style={avatarBtn} onClick={() => setProfileOpen((o) => !o)} aria-label={`Profil de ${m.author}`}>
+          <Avatar
+            name={m.author}
+            src={authorAvatar}
+            size={34}
+            presence={m.kind === "system" ? undefined : (authorPresence ?? getPresence(m.author))}
+          />
+        </button>
+      )}
       <Popover anchorRef={avatarRef} open={profileOpen} onClose={() => setProfileOpen(false)} placement="bottom" align="start">
         <UserProfileCard name={m.author} userId={m.authorId} presence={authorPresence} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={messageFromCard} />
       </Popover>
       <div style={{ flex: 1, minWidth: 0 }}>
+        {grouped ? null : (
         <div style={styles.author}>
           <button style={nameBtn} onClick={() => setProfileOpen(true)}>
             {m.author}
@@ -203,6 +259,7 @@ export function MessageRow({ m, authorPresence, authorAvatar, actions }: Message
             </Tag>
           ) : null}
         </div>
+        )}
 
         {deleted ? (
           <p
@@ -317,9 +374,14 @@ export function MessageRow({ m, authorPresence, authorAvatar, actions }: Message
         )}
       </div>
 
-      {hover && !deleted ? (
+      {/*
+        Only under our own messages. "Has this been read" is a question about something you sent;
+        under someone else's it reports on third parties to no purpose, which is how it came to be
+        shown everywhere saying "Lu" with nothing behind it.
+      */}
+      {hover && !deleted && isOwn ? (
         <div style={styles.receipt}>
-          <ReadReceipt names={m.readBy} />
+          <ReadReceipt names={readBy} audience={readAudience} />
         </div>
       ) : null}
 

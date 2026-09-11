@@ -9,7 +9,20 @@
  * them from the unread count without discarding the read state of the others.
  */
 
-export type NotifKind = "mention" | "reply" | "dm";
+/**
+ * Why a notification exists.
+ *
+ * `mention` is someone typing your name. `broadcast` is `@canal` or `@ici`, which reaches you as
+ * one of the room rather than as yourself: a weaker claim on your attention, and the one people
+ * most often want to turn off, which is why it is a kind of its own rather than a mention like any
+ * other.
+ */
+export type NotifKind = "mention" | "broadcast" | "reply" | "dm";
+
+/** Whether a kind belongs under the Mentions badge: named directly, or addressed with the room. */
+export function isMention(kind: NotifKind): boolean {
+  return kind === "mention" || kind === "broadcast";
+}
 
 export type AppNotification = {
   id: string;
@@ -26,6 +39,8 @@ export type AppNotification = {
   spaceId: string;
   /** "#canal" for channels, the person's name for direct messages. */
   label: string;
+  /** The space's name, so a notification from another space can say where it happened. */
+  spaceName: string;
   isDm: boolean;
   /** Who triggered the notification (drives the avatar). */
   actor: string;
@@ -86,6 +101,7 @@ export function quietHoursLabel(prefs: NotifPrefs): string {
 
 const KIND_VERB: Record<NotifKind, string> = {
   mention: "vous a mentionné",
+  broadcast: "a mentionné tout le canal",
   reply: "a répondu dans un fil",
   dm: "vous a envoyé un message",
 };
@@ -102,8 +118,10 @@ export function passesPref(
   prefs: NotifPrefs,
 ): boolean {
   if (!prefs.enabled) return false;
+  // The one preference that is about the message rather than the channel it came from.
+  if (n.kind === "broadcast" && !prefs.channelMentions) return false;
   const pref = channelPref ?? DEFAULT_CHANNEL_PREF;
   if (pref.muted || pref.level === "none") return false;
-  if (pref.level === "mentions") return n.kind === "mention" || n.kind === "dm";
+  if (pref.level === "mentions") return isMention(n.kind) || n.kind === "dm";
   return true;
 }

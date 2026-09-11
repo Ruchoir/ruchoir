@@ -521,6 +521,15 @@ export async function createChannel(
 }
 
 /**
+ * `PUT /channels/{id}/favorite`: pin a channel to the caller's own favourites, or unpin it.
+ *
+ * Per caller: a favourite is one person's shortcut and is invisible to everyone else.
+ */
+export async function setChannelFavorite(channelId: string, favorite: boolean): Promise<void> {
+  await apiPut<void>(`/channels/${channelId}/favorite`, { favorite });
+}
+
+/**
  * `PATCH /channels/{id}`: rename a channel, set its topic, or change its visibility. Archiving is
  * `type: "archived"`, which makes the channel read-only without deleting anything.
  */
@@ -773,6 +782,7 @@ function toMessage(dto: MessageDto): ApiMessage {
     author: dto.author_name ?? "",
     authorId: dto.author_id ?? undefined,
     time: formatTimestamp(dto.created_at),
+    createdAt: dto.created_at,
     body:
       dto.kind === "system" && !dto.body ? systemMessageText(dto.system_event, dto.author_name) : dto.body,
     systemIcon: dto.kind === "system" ? iconForSystemEvent(dto.system_event) : undefined,
@@ -958,6 +968,9 @@ type NotificationDto = {
   kind: string;
   conversation_id: string;
   space_id: string;
+  /** The channel's name; absent for a direct message. */
+  channel_name?: string;
+  space_name: string;
   message_id: string;
   actor_id?: string;
   actor_name?: string;
@@ -972,14 +985,24 @@ type NotificationPageDto = {
   unread_count: number;
 };
 
-/** A notification as this seam returns it. `label`/`isDm` are resolved by the caller (they need the
- * live channel and DM lists, which the seam does not hold). */
+/**
+ * A notification as this seam returns it.
+ *
+ * `channelName` and `spaceName` come from the server because a notification routinely arrives from
+ * a space the client has not loaded, where it can name nothing on its own: the caller used to fall
+ * back to the conversation's identifier, so a notification from anywhere but the space on screen
+ * read as a UUID.
+ */
 export type ApiNotification = {
   id: string;
-  kind: "mention" | "reply" | "dm";
+  kind: "mention" | "broadcast" | "reply" | "dm";
   conversationId: string;
   /** The space it happened in, so the inbox can be shown for the space on screen. */
   spaceId: string;
+  /** The channel's name as the server knows it; absent for a direct message. */
+  channelName?: string;
+  /** The space's name, so a notification can say where it happened. */
+  spaceName: string;
   messageId: string;
   actor: string;
   preview: string;
@@ -991,18 +1014,42 @@ export type ApiNotification = {
 export type NotificationFeed = { notifications: ApiNotification[]; nextBefore?: string; unreadCount: number };
 
 function toApiNotification(dto: NotificationDto): ApiNotification {
-  const kind = dto.kind === "mention" || dto.kind === "reply" || dto.kind === "dm" ? dto.kind : "mention";
+  // `broadcast` belongs here: left out, an `@canal` arrived as an ordinary mention and the
+  // preference that turns those off could never have been obeyed.
+  const kind =
+    dto.kind === "mention" || dto.kind === "broadcast" || dto.kind === "reply" || dto.kind === "dm"
+      ? dto.kind
+      : "mention";
   return {
     id: dto.id,
     kind,
     conversationId: dto.conversation_id,
     spaceId: dto.space_id,
+    channelName: dto.channel_name,
+    spaceName: dto.space_name,
     messageId: dto.message_id,
     actor: dto.actor_name ?? "",
     preview: dto.preview,
     time: formatTimestamp(dto.created_at),
     read: dto.read,
   };
+}
+
+/** One member's read cursor in a conversation. */
+export type ReadCursor = { userId: string; lastReadMessageId?: string };
+
+/**
+ * `GET /conversations/{id}/read`: how far each member has read.
+ *
+ * One cursor per person, not a receipt per message: combined with the order of the messages it
+ * answers the same question, which is who has seen a given one.
+ */
+export async function getReadCursors(conversationId: string, signal?: AbortSignal): Promise<ReadCursor[]> {
+  const rows = await apiGet<{ user_id: string; last_read_message_id?: string }[]>(
+    `/conversations/${conversationId}/read`,
+    signal,
+  );
+  return rows.map((r) => ({ userId: r.user_id, lastReadMessageId: r.last_read_message_id }));
 }
 
 /** `GET /notifications`: the caller's in-app notification inbox. */
@@ -1238,6 +1285,8 @@ export type RealtimeHandlers = {
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
+  /** Someone's read cursor moved in a conversation the recipient belongs to. */
+  onReadCursor?: (conversationId: string, userId: string, lastReadMessageId: string) => void;
 };
 
 /** A live realtime connection: close it on teardown, and signal typing over it. */
@@ -1345,8 +1394,11 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       case "typing":
         handlers.onTyping?.(conv, String(payload.user_id));
         break;
+      case "read.updated":
+        handlers.onReadCursor?.(conv, String(payload.user_id), String(payload.last_read_message_id));
+        break;
       default:
-        // Unhandled event types (saved, read cursor) are ignored for now.
+        // Unhandled event types (saved) are ignored for now.
         break;
     }
   };

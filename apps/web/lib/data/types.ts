@@ -195,6 +195,14 @@ export type Message = {
   /** Author's user id, when known (absent for system messages and optimistic local rows). */
   authorId?: string;
   time: string;
+  /**
+   * When it was sent, as the API gives it (RFC 3339).
+   *
+   * `time` is for reading and has already lost the day and the seconds, so it cannot answer "were
+   * these two sent within five minutes of each other", which is what decides whether consecutive
+   * messages from one person are drawn as one block.
+   */
+  createdAt?: string;
   body: string;
   /** Icon for a system message. */
   systemIcon?: string;
@@ -209,13 +217,6 @@ export type Message = {
   deleted?: boolean;
   /** Whether the current user saved (bookmarked) this message. */
   saved?: boolean;
-  /**
-   * Names who have read this message. Data-model implication (to settle before the schema freezes):
-   * a per-message-per-user receipt (this shape, heavy, privacy-sensitive) vs a single
-   * per-channel-per-user read cursor (light, Slack-style). This exploration renders the former
-   * only to visualize it; the storage decision is open.
-   */
-  readBy?: string[];
 };
 
 export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "image" | "folder";

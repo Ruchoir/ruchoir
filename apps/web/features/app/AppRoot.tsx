@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getChannelMembers, getPresence, setChannelMembers, setCurrentUser, setUserPresence } from "@/lib/data";
+import { getPresence, setChannelMembers, setCurrentUser, setUserPresence } from "@/lib/data";
 import {
   acceptInvitation,
   addReaction,
@@ -20,6 +20,7 @@ import {
   getFolder,
   getInvitations,
   getNotifications,
+  getReadCursors,
   getSession,
   getSpaceMembers,
   getSpacePresence,
@@ -40,6 +41,7 @@ import {
   sendMessage,
   setMessagePinned,
   setMessageSaved,
+  setChannelFavorite,
   setMyPresence as apiSetMyPresence,
   setReadCursor,
   type ApiNotification,
@@ -67,7 +69,7 @@ import type {
   SpaceFile,
   Workspace,
 } from "@/lib/data";
-import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
+import { Button, Dialog, Drawer } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { PresenceChoice } from "@/lib/data";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
@@ -95,9 +97,17 @@ import {
   type AppNotification,
   type ChannelNotifPref,
   DEFAULT_CHANNEL_PREF,
+  isMention,
   type NotifKind,
+  notifSummary,
   passesPref,
 } from "./notifications";
+import {
+  appIsAway,
+  inQuietHours,
+  playNotificationSound,
+  showDesktopNotification,
+} from "./desktopNotifications";
 import { PreferencesScreen, type PrefTab } from "./PreferencesScreen";
 import { SettingsProvider, useSettings } from "./settings";
 import { Sidebar } from "./Sidebar";
@@ -334,6 +344,16 @@ function AppShell() {
   // map like anyone else's: this used to be hardcoded to "online", so the menu always claimed the
   // user was connected and always looked as though "En ligne" had been picked.
   const [myChoice, setMyChoice] = useState<PresenceChoice>("auto");
+  /**
+   * How far each member has read, per conversation: `{ [conversationId]: { [userId]: messageId } }`.
+   *
+   * Loaded when a conversation is opened and kept live by `read.updated`. It is what turns the read
+   * indicator from a decoration into a fact: it used to render "Lu" under every message on hover,
+   * with nothing behind it.
+   */
+  const [readCursors, setReadCursors] = useState<
+    Record<string, { members: string[]; at: Record<string, string> }>
+  >({});
   const [modal, setModal] = useState<Modal>(null);
   const [channelSettingsId, setChannelSettingsId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
@@ -389,6 +409,9 @@ function AppShell() {
     // Which space the in-flight waves belong to. A switch started while another is loading must not
     // have the slower one's results land on top of it.
     loadingSpaceRef.current = activeWs;
+    // The people of the space being left are not an approximation of the people of the one being
+    // entered, not even for the few hundred milliseconds the fetch takes.
+    setMembers([]);
     if (!activeWs) {
       setChannels([]);
       setDms([]);
@@ -465,22 +488,26 @@ function AppShell() {
         return next;
       });
       setSpaceFiles(folder.entries);
-      const labelOf = (id: string): { label: string; isDm: boolean } => {
-        const c = chans.find((x) => x.id === id);
+      // The loaded lists first, because they carry what this client knows about the conversation;
+      // the server's own names otherwise, which is the only thing that can name a conversation in a
+      // space this client has never opened. The identifier is no longer a possible answer.
+      const labelOf = (n: { conversationId: string; channelName?: string }): { label: string; isDm: boolean } => {
+        const c = chans.find((x) => x.id === n.conversationId);
         if (c) return { label: `#${c.name}`, isDm: false };
-        const d = dmList.find((x) => x.id === id);
+        const d = dmList.find((x) => x.id === n.conversationId);
         if (d) return { label: d.name, isDm: true };
-        return { label: id, isDm: false };
+        return n.channelName ? { label: `#${n.channelName}`, isDm: false } : { label: "", isDm: true };
       };
       setNotifs(
         feed.notifications.map((n) => {
-          const { label, isDm } = labelOf(n.conversationId);
+          const { label, isDm } = labelOf(n);
           return {
             id: n.id,
             kind: n.kind as NotifKind,
             channelId: n.conversationId,
             spaceId: n.spaceId,
             label,
+            spaceName: n.spaceName,
             isDm,
             actor: n.actor,
             messageId: n.messageId,
@@ -683,6 +710,12 @@ function AppShell() {
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
 
   /**
+   * Latest "reach the person who is not looking" function, for the same reason as `notifyRef`: the
+   * handlers are wired once per session and this one has to read preferences that change under it.
+   */
+  const alertRef = useRef<((n: AppNotification) => void) | null>(null);
+
+  /**
    * Refresh the per-space counters after an event the client cannot attribute.
    *
    * The transport is user-scoped, so events arrive for every space the account belongs to, but an
@@ -870,7 +903,15 @@ function AppShell() {
         const { channels: chs, dms: dmList, channelId: activeConv, view: activeView } = liveRef.current;
         const channel = chs.find((x) => x.id === n.conversationId);
         const dm = dmList.find((x) => x.id === n.conversationId);
-        const label = channel ? `#${channel.name}` : dm ? dm.name : n.conversationId;
+        // Falls back to the server's name, not to the identifier: a notification from a space that
+        // is not open used to arrive labelled with a UUID.
+        const label = channel
+          ? `#${channel.name}`
+          : dm
+            ? dm.name
+            : n.channelName
+              ? `#${n.channelName}`
+              : "";
         // Addressed to us in a space we have not loaded: it belongs to that space's rail badge, and
         // only the server can say which space that is.
         if (!channel && !dm) refreshSpaceCounters();
@@ -883,7 +924,8 @@ function AppShell() {
           channelId: n.conversationId,
           spaceId: n.spaceId,
           label,
-          isDm: !channel && !!dm,
+          spaceName: n.spaceName,
+          isDm: dm ? true : !channel && !n.channelName,
           actor: n.actor,
           messageId: n.messageId,
           preview: n.preview,
@@ -899,9 +941,22 @@ function AppShell() {
         // the message.created bump when both fire (a mention the viewer also received as a message).
         setChannels((prev) => prev.map((c) => (c.id === n.conversationId ? { ...c, unread: Math.max(c.unread, 1) } : c)));
         setDms((prev) => prev.map((d) => (d.id === n.conversationId ? { ...d, unread: Math.max(d.unread, 1) } : d)));
+        // The badge is for when you come back. This is for when you do not.
+        alertRef.current?.(notif);
       },
       onTyping: (conv, userId) =>
         setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
+      onReadCursor: (conv, userId, lastReadMessageId) =>
+        setReadCursors((prev) => {
+          const known = prev[conv] ?? { members: [], at: {} };
+          return {
+            ...prev,
+            [conv]: {
+              members: known.members.includes(userId) ? known.members : [...known.members, userId],
+              at: { ...known.at, [userId]: lastReadMessageId },
+            },
+          };
+        }),
     });
     rtRef.current = conn;
     return () => {
@@ -986,7 +1041,9 @@ function AppShell() {
   const chan: Channel =
     channels.find((c) => c.id === channelId) ??
     ({ id: channelId, name: dm?.name ?? "général", fav: false, unread: 0, type: "public" } as Channel);
-  const feed = messages[channelId] ?? [];
+  // Memoised because the `?? []` branch is a fresh array every render, which would re-run anything
+  // that depends on the feed (the read receipts below) on every render for no reason.
+  const feed = useMemo(() => messages[channelId] ?? [], [messages, channelId]);
 
   // The space's members with live presence overlaid, feeding the member list, the @-mention
   // autocomplete and the people section of search. Falls back to the mock roster before load.
@@ -1002,14 +1059,47 @@ function AppShell() {
   );
   // Publish the real roster and per-name presence into the data seam, which the composer, message
   // renderer and dialogs read synchronously (getChannelMembers / getMentionNames / getPresence).
+  //
+  // Published even when it is empty. It used to return early instead, on the reasoning that an
+  // empty roster is not worth publishing, which quietly meant the people of the space being left
+  // stayed readable in the space being entered: the mention autocomplete offered colleagues who
+  // were not in the room.
   useEffect(() => {
-    if (members.length === 0) return;
     setChannelMembers(memberRecords);
     for (const m of members) {
       if (presence[m.userId]) setUserPresence(m.name, presence[m.userId]);
     }
   }, [memberRecords, members, presence]);
-  const people = members.length > 0 ? memberRecords : getChannelMembers();
+  const people = memberRecords;
+
+  /**
+   * Who has read each message of the conversation on screen, by display name.
+   *
+   * A cursor names the last message someone read, so everything at or before it in this window has
+   * been read by them. A cursor pointing outside the window is older than everything loaded, which
+   * is the same as having read none of it. Our own cursor is left out: a receipt is what other
+   * people tell you, and reading your own message is not news.
+   */
+  const readBy = useMemo(() => {
+    const conversation = readCursors[channelId] ?? { members: [], at: {} };
+    const position = new Map(feed.map((m, index) => [m.id, index] as const));
+    const out: Record<string, string[]> = {};
+    for (const [userId, messageId] of Object.entries(conversation.at)) {
+      if (userId === session?.id) continue;
+      const upTo = position.get(messageId);
+      if (upTo === undefined) continue;
+      const name = members.find((m) => m.userId === userId)?.name;
+      if (!name) continue;
+      for (let i = 0; i <= upTo; i += 1) {
+        (out[feed[i].id] ??= []).push(name);
+      }
+    }
+    return out;
+  }, [readCursors, channelId, feed, members, session?.id]);
+
+  /** How many people other than us could read this conversation, which is what a count is out of. */
+  const readAudience = Math.max(0, (readCursors[channelId]?.members.length ?? 1) - 1);
+
 
   // Reverse lookup (user id -> display name) for realtime signals that arrive as bare ids (typing,
   // presence), built from the DM counterparts and the authors seen in the loaded feeds.
@@ -1064,7 +1154,7 @@ function AppShell() {
    * only ever grows. Counting the notification rows instead ties the badge to the same read state
    * as the rail and the inbox, so the three cannot disagree.
    */
-  const mentionUnread = visibleNotifs.filter((n) => n.kind === "mention" && !n.read).length;
+  const mentionUnread = visibleNotifs.filter((n) => isMention(n.kind) && !n.read).length;
 
   /**
    * The tab title: what is waiting, where you are, and in which space.
@@ -1100,7 +1190,7 @@ function AppShell() {
   const openView = (next: AppView) => {
     setView(next);
     if (next !== "mentions") return;
-    const toMark = visibleNotifs.filter((n) => n.kind === "mention" && !n.read);
+    const toMark = visibleNotifs.filter((n) => isMention(n.kind) && !n.read);
     if (toMark.length === 0) return;
     const ids = new Set(toMark.map((n) => n.id));
     setNotifs((prev) => prev.map((n) => (ids.has(n.id) ? { ...n, read: true } : n)));
@@ -1454,6 +1544,24 @@ function AppShell() {
     // Opening a conversation marks it read: clears its unread badge, its notifications and advances
     // the read cursor.
     markConversationRead(id);
+    // And asks where everyone else has read up to, which is what the read indicator draws. Live
+    // afterwards, through `read.updated`.
+    void getReadCursors(id)
+      .then((cursors) =>
+        setReadCursors((prev) => ({
+          ...prev,
+          [id]: {
+            // Everyone who could read, so "everyone has" can be told from "three of them have".
+            members: cursors.map((c) => c.userId),
+            at: Object.fromEntries(
+              cursors
+                .filter((c) => c.lastReadMessageId)
+                .map((c) => [c.userId, c.lastReadMessageId as string]),
+            ),
+          },
+        })),
+      )
+      .catch(() => {});
   };
 
   /** Switch the right panel, closing the thread and profile views so it is visible. */
@@ -1523,6 +1631,46 @@ function AppShell() {
     setNotifRead(id, true);
     openMessage(targetChannel, messageId);
   };
+
+  /**
+   * Announce a notification outside the app: a sound, and a system notification when the app is not
+   * the window being looked at.
+   *
+   * The same preferences that already decide whether a notification is counted decide this, through
+   * `passesPref`, so a muted channel is silent here too and there is one rule rather than two that
+   * have to be kept in step. Quiet hours suppress both halves, which is the whole of what quiet
+   * hours mean.
+   *
+   * Something always happens, and which something depends on where the reader is. Away, it is a
+   * system notification. On screen, it is a toast, because an operating-system panel laid over the
+   * window someone is already working in says nothing that window cannot say itself, and because
+   * many browsers refuse to draw one for a focused page at all.
+   *
+   * The first version only had the away half, with the sound off by default, so a reader watching
+   * the app while a mention arrived saw the feature do nothing and had every reason to call it
+   * broken.
+   */
+  useEffect(() => {
+    alertRef.current = (n) => {
+      if (!passesPref(n, channelPrefs[n.channelId], settings.notif)) return;
+      if (inQuietHours(settings.notif)) return;
+      if (settings.notif.sound) playNotificationSound();
+      const where = n.spaceId === liveRef.current.ws ? n.label : `${n.label} · ${n.spaceName}`;
+      const who = n.isDm && !n.label ? n.actor : `${n.actor} dans ${where}`;
+      if (appIsAway()) {
+        showDesktopNotification({
+          title: who,
+          body: n.preview || notifSummary(n),
+          // One notification per conversation: ten messages from the same channel while you were
+          // away should be one line to come back to, not ten to dismiss.
+          tag: n.channelId,
+          onClick: () => openNotification(n.channelId, n.messageId, n.id),
+        });
+        return;
+      }
+      notifyRef.current?.({ tone: "info", title: who, description: n.preview || notifSummary(n) });
+    };
+  });
 
   const messageActions = {
     react: (messageId: string, emoji: string) => {
@@ -1667,6 +1815,7 @@ function AppShell() {
       id: tempId,
       author: currentUser,
       time: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+      createdAt: new Date().toISOString(),
       body: text,
       attachment,
     };
@@ -1689,10 +1838,17 @@ function AppShell() {
       });
   };
 
-  const saveEdit = () => {
+  const saveEdit = (text: string) => {
     if (!editing) return;
     const conv = channelId;
-    const { id, body } = editing;
+    const { id } = editing;
+    const body = text.trim();
+    // An edit emptied out is a deletion asked for by another route: refused here rather than
+    // silently blanking the message, since the menu already has one that says what it does.
+    if (!body) {
+      showToast({ tone: "info", title: "Un message ne peut pas être vidé", description: "Supprimez-le plutôt." });
+      return;
+    }
     const target = (messages[conv] ?? []).find((x) => x.id === id);
     updateMessage(conv, id, (m) => ({ ...m, body, edited: true }));
     setEditing(null);
@@ -1736,6 +1892,18 @@ function AppShell() {
           : "Réessayez dans un instant.",
       });
     }
+  };
+
+  /** Pin or unpin a channel in the caller's own sidebar. */
+  const toggleFavorite = (id: string) => {
+    const before = channels.find((c) => c.id === id);
+    if (!before) return;
+    const next = !before.fav;
+    setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, fav: next } : c)));
+    setChannelFavorite(id, next).catch(() => {
+      setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, fav: before.fav } : c)));
+      showToast({ tone: "info", title: "Favori non enregistré" });
+    });
   };
 
   /** Save a channel's settings (name, topic, visibility, archived) against the API. */
@@ -2127,6 +2295,7 @@ function AppShell() {
         onChannelSettings={setChannelSettingsId}
         onChannelNotifications={setChannelNotifId}
         onMarkRead={markConversationRead}
+        onToggleFavorite={toggleFavorite}
         onOpenNotification={openNotification}
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
@@ -2156,6 +2325,11 @@ function AppShell() {
     >
       {view === "channel" ? (
         <ChannelScreen
+          editing={editing}
+          onSaveEdit={saveEdit}
+          onCancelEdit={() => setEditing(null)}
+          readBy={readBy}
+          readAudience={readAudience}
           channel={chan}
           dm={dm}
           messages={feed}
@@ -2333,29 +2507,6 @@ function AppShell() {
         />
       ) : null}
 
-      {editing ? (
-        <Dialog
-          title="Modifier le message"
-          size="md"
-          onClose={() => setEditing(null)}
-          footer={
-            <>
-              <Button onClick={() => setEditing(null)}>Annuler</Button>
-              <Button variant="primary" onClick={saveEdit}>
-                Enregistrer
-              </Button>
-            </>
-          }
-        >
-          <Textarea
-            rows={4}
-            autoFocus
-            value={editing.body}
-            onChange={(e) => setEditing({ ...editing, body: e.target.value })}
-          />
-        </Dialog>
-      ) : null}
-
       {!settings.welcome.dismissed ? (
         <GettingStarted
           done={settings.welcome.done}
@@ -2443,6 +2594,7 @@ function AppShell() {
                 onChannelSettings={setChannelSettingsId}
                 onChannelNotifications={setChannelNotifId}
                 onMarkRead={markConversationRead}
+                onToggleFavorite={toggleFavorite}
                 onOpenNotification={openNotification}
                 onToggleNotifRead={setNotifRead}
                 onMarkAllNotifsRead={markAllNotifsRead}
