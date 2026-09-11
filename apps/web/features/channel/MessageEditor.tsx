@@ -1,8 +1,8 @@
 "use client";
 
-import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Avatar, Popover } from "@/components/ds";
-import { getChannelMembers } from "@/lib/data";
+import { getChannelMembers, getServerDirectory, subscribeToDirectory } from "@/lib/data";
 import { searchShortcodes } from "@/lib/shortcodes";
 import { Emoji } from "../app/Emoji";
 import { useEmojiManifest } from "../app/emojiManifest";
@@ -96,7 +96,10 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
   const listId = `ac-${uid}`;
   const optionId = (i: number) => `${listId}-opt-${i}`;
 
-  const members = useMemo(() => getChannelMembers(), []);
+  // Subscribed, not captured. With an empty dependency list this froze at whatever roster existed
+  // when the composer first mounted, so after a space switch it went on offering the previous
+  // space's people, with no way to notice from here.
+  const members = useSyncExternalStore(subscribeToDirectory, getChannelMembers, getServerDirectory);
 
   const hits = useMemo<Hit[]>(() => {
     if (!trigger) return [];

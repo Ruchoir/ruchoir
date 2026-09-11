@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getChannelMembers, getPresence, setChannelMembers, setCurrentUser, setUserPresence } from "@/lib/data";
+import { getPresence, setChannelMembers, setCurrentUser, setUserPresence } from "@/lib/data";
 import {
   acceptInvitation,
   addReaction,
@@ -397,6 +397,9 @@ function AppShell() {
     // Which space the in-flight waves belong to. A switch started while another is loading must not
     // have the slower one's results land on top of it.
     loadingSpaceRef.current = activeWs;
+    // The people of the space being left are not an approximation of the people of the one being
+    // entered, not even for the few hundred milliseconds the fetch takes.
+    setMembers([]);
     if (!activeWs) {
       setChannels([]);
       setDms([]);
@@ -1018,14 +1021,18 @@ function AppShell() {
   );
   // Publish the real roster and per-name presence into the data seam, which the composer, message
   // renderer and dialogs read synchronously (getChannelMembers / getMentionNames / getPresence).
+  //
+  // Published even when it is empty. It used to return early instead, on the reasoning that an
+  // empty roster is not worth publishing, which quietly meant the people of the space being left
+  // stayed readable in the space being entered: the mention autocomplete offered colleagues who
+  // were not in the room.
   useEffect(() => {
-    if (members.length === 0) return;
     setChannelMembers(memberRecords);
     for (const m of members) {
       if (presence[m.userId]) setUserPresence(m.name, presence[m.userId]);
     }
   }, [memberRecords, members, presence]);
-  const people = members.length > 0 ? memberRecords : getChannelMembers();
+  const people = memberRecords;
 
   // Reverse lookup (user id -> display name) for realtime signals that arrive as bare ids (typing,
   // presence), built from the DM counterparts and the authors seen in the loaded feeds.
