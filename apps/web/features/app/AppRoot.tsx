@@ -69,6 +69,7 @@ import type {
 } from "@/lib/data";
 import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
 import type { Presence } from "@/components/ds";
+import type { PresenceChoice } from "@/lib/data";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
 import { ChannelNotificationsDialog, ChannelSettingsDialog } from "@/features/channel/ChannelDialogs";
 import { LoginScreen } from "@/features/auth/LoginScreen";
@@ -328,7 +329,11 @@ function AppShell() {
   const [profileEdit, setProfileEdit] = useState(false);
   const [unreadMarker, setUnreadMarker] = useState<string | null>(null);
   const [focusMessageId, setFocusMessageId] = useState<string | null>(null);
-  const [myPresence, setMyPresence] = useState<Presence>("online");
+  // The availability *choice*, which is the user's instruction. What they and everyone else see is
+  // computed by the server from that choice and from a live connection, and arrives in the presence
+  // map like anyone else's: this used to be hardcoded to "online", so the menu always claimed the
+  // user was connected and always looked as though "En ligne" had been picked.
+  const [myChoice, setMyChoice] = useState<PresenceChoice>("auto");
   const [modal, setModal] = useState<Modal>(null);
   const [channelSettingsId, setChannelSettingsId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
@@ -580,6 +585,7 @@ function AppShell() {
         setInviteToken("");
         forgetInvite();
         setSession(user);
+        setMyChoice(user.presenceChoice);
         const spaces = await loadInitialData();
         if (!active) return;
         setBooting(false);
@@ -616,6 +622,7 @@ function AppShell() {
         const user = await getSession();
         if (!active) return;
         setSession(user);
+        setMyChoice(user.presenceChoice);
         await loadInitialData();
         if (!active) return;
         // By now the preferences have loaded (their effect runs on mount, well before this awaits
@@ -664,6 +671,9 @@ function AppShell() {
   // The realtime handlers read the latest lists/ids through a ref so the socket does not reconnect on
   // every state change. Updated after each render (not during, to respect the ref rules).
   const rtRef = useRef<RealtimeConnection | null>(null);
+  // Our own dot: the server's answer for us, exactly as it is for everyone else in the space.
+  const myPresence: Presence = (session?.id ? presence[session.id] : undefined) ?? "offline";
+
   const liveRef = useRef({ channels, dms, channelId, view, myId: session?.id, ws });
   /**
    * Latest toast function, for the realtime handlers. They are wired once per session, so they
@@ -764,8 +774,9 @@ function AppShell() {
                   topic: channel.topic,
                   fav: false,
                   unread: 0,
-                  // The creator's own row already came from the POST; for everyone else the channel
-                  // exists but they have not joined it.
+                  // Nobody has joined a channel they have only just been told about. The creator
+                  // is the exception, and the response to their own call corrects this row when
+                  // it lands, whichever of the two arrives first.
                   member: false,
                 },
               ],
@@ -1170,6 +1181,7 @@ function AppShell() {
    */
   const enterApp = async (user: SessionUser) => {
     setSession(user);
+    setMyChoice(user.presenceChoice);
     setMfaChallenge(null);
     setBooting(true);
     // An invitation the visitor arrived with is accepted before the spaces are loaded, so they land
@@ -1702,7 +1714,15 @@ function AppShell() {
   const createChannel = async ({ name, type, topic }: { name: string; type: Channel["type"]; topic: string }) => {
     try {
       const channel = await apiCreateChannel(ws, { name, type, topic });
-      setChannels((prev) => [...prev, channel]);
+      // Merged by id, never appended. The server publishes the creation to the space before it
+      // answers this call, so our own frame usually arrives first and has already put a row in
+      // the sidebar; appending a second one showed the channel twice until the next full load.
+      // The response wins where they overlap: it is the complete row, the frame is not.
+      setChannels((prev) =>
+        prev.some((c) => c.id === channel.id)
+          ? prev.map((c) => (c.id === channel.id ? { ...c, ...channel } : c))
+          : [...prev, channel],
+      );
       setMessages((prev) => ({ ...prev, [channel.id]: [] }));
       setModal(null);
       openChannel(channel.id);
@@ -2054,11 +2074,18 @@ function AppShell() {
       onHelp={() => setModal("help")}
       onLogout={handleLogout}
       presence={myPresence}
-      onSetPresence={(p) => {
-        setUserPresence(currentUser, p);
-        setMyPresence(p);
-        // Persist and broadcast the manual override so other members see the change live.
-        void apiSetMyPresence(p).catch(() => {});
+      presenceChoice={myChoice}
+      onSetPresence={(choice) => {
+        setMyChoice(choice);
+        // The resulting dot is the server's to decide, not ours to guess: "automatique" reads the
+        // connection, and an override only colours a connection that exists. So the answer to this
+        // call is what we display.
+        void apiSetMyPresence(choice)
+          .then((p) => {
+            setUserPresence(currentUser, p);
+            if (session?.id) setPresence((prev) => ({ ...prev, [session.id]: p }));
+          })
+          .catch(() => setMyChoice(myChoice));
       }}
       onOpenSettings={() => openPreferences()}
       onOpenOwnProfile={() => {

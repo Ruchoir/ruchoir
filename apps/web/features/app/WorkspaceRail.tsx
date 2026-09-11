@@ -1,6 +1,7 @@
 import { type CSSProperties, useRef, useState } from "react";
 import { Avatar, Badge, IconButton, Tooltip } from "@/components/ds";
 import type { Presence } from "@/components/ds";
+import type { PresenceChoice } from "@/lib/data";
 import type { Workspace } from "@/lib/data";
 import { UserMenu } from "./UserMenu";
 import { getAvatar } from "@/lib/data";
@@ -65,10 +66,13 @@ export type WorkspaceRailProps = {
   workspaces: Workspace[];
   active: string;
   currentUser: string;
+  /** The dot on the user's own avatar: their effective presence, as others see it. */
   presence: Presence;
+  /** Which availability entry is in force, for the menu to mark. */
+  presenceChoice: PresenceChoice;
   onSelect: (id: string) => void;
   onNew: () => void;
-  onSetPresence: (p: Presence) => void;
+  onSetPresence: (choice: PresenceChoice) => void;
   onOpenOwnProfile: () => void;
   onEditOwnProfile: () => void;
   onOpenSettings: () => void;
@@ -82,6 +86,7 @@ export function WorkspaceRail({
   active,
   currentUser,
   presence,
+  presenceChoice,
   onSelect,
   onNew,
   onSetPresence,
@@ -149,6 +154,7 @@ export function WorkspaceRail({
       <UserMenu
         currentUser={currentUser}
         presence={presence}
+        choice={presenceChoice}
         anchorRef={userRef}
         open={userMenu}
         onClose={() => setUserMenu(false)}

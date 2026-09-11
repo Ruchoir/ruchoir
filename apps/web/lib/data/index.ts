@@ -90,6 +90,7 @@ export type {
   Message,
   MessageAttachment,
   MessageKind,
+  PresenceChoice,
   Profile,
   Reaction,
   SpaceFile,

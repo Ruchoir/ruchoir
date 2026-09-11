@@ -3,6 +3,7 @@
 import { type CSSProperties, type RefObject } from "react";
 import { Avatar, Icon, Popover } from "@/components/ds";
 import type { Presence } from "@/components/ds";
+import type { PresenceChoice } from "@/lib/data";
 import { presenceLabel } from "./presence";
 import { getAvatar } from "@/lib/data";
 
@@ -41,11 +42,24 @@ const item: CSSProperties = {
   cursor: "pointer",
 };
 
-const PRESENCES: { key: Presence; label: string }[] = [
-  { key: "online", label: "En ligne" },
-  { key: "away", label: "Absent" },
-  { key: "busy", label: "Ne pas déranger" },
-  { key: "offline", label: "Invisible" },
+/**
+ * The availability entries, and the dot each one produces.
+ *
+ * "En ligne" is the default, and it is the one that writes no override at all: presence then
+ * follows the connection, which is what being online means. That mechanism is deliberately not
+ * surfaced. There is no "automatic" entry to pick, because automatic is not a state anyone should
+ * have to reason about, it is simply what the product does when you have not asked for anything
+ * else. The other three are the cases where you do mean to say something the connection does not:
+ * here but away, here but busy, here but not showing it.
+ *
+ * What changed underneath is that "En ligne" used to store a permanent `active` override, which
+ * left everyone lit whether they were connected or not and could not be undone from the menu.
+ */
+const CHOICES: { key: PresenceChoice; label: string; dot: Presence }[] = [
+  { key: "auto", label: "En ligne", dot: "online" },
+  { key: "away", label: "Absent", dot: "away" },
+  { key: "busy", label: "Ne pas déranger", dot: "busy" },
+  { key: "invisible", label: "Invisible", dot: "offline" },
 ];
 
 function hover(on: boolean) {
@@ -56,11 +70,14 @@ function hover(on: boolean) {
 
 export type UserMenuProps = {
   currentUser: string;
+  /** The dot: what other people see, as the server computes it. */
   presence: Presence;
+  /** The instruction: which entry of the availability list is in force. */
+  choice: PresenceChoice;
   anchorRef: RefObject<HTMLElement | null>;
   open: boolean;
   onClose: () => void;
-  onSetPresence: (p: Presence) => void;
+  onSetPresence: (choice: PresenceChoice) => void;
   onOpenProfile: () => void;
   onEditProfile: () => void;
   onOpenSettings: () => void;
@@ -71,6 +88,7 @@ export type UserMenuProps = {
 export function UserMenu({
   currentUser,
   presence,
+  choice,
   anchorRef,
   open,
   onClose,
@@ -98,20 +116,23 @@ export function UserMenu({
 
         <div style={section}>
           <div style={label}>Disponibilité</div>
-          {PRESENCES.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => run(() => onSetPresence(p.key))}
-              style={{ ...item, background: p.key === presence ? "var(--surface-selected)" : "transparent" }}
-              onMouseEnter={hover(p.key !== presence)}
-              onMouseLeave={hover(false)}
-            >
-              <span style={{ width: 10, height: 10, borderRadius: "var(--radius-full)", background: `var(--presence-${p.key})`, border: p.key === "offline" ? "1px solid var(--border-strong)" : undefined }} />
-              <span style={{ flex: 1, color: p.key === presence ? "var(--text-accent)" : "var(--text-body)" }}>{p.label}</span>
-              {p.key === presence ? <Icon name="check" size={14} style={{ color: "var(--text-accent)" }} /> : null}
-            </button>
-          ))}
+          {CHOICES.map((c) => {
+            const on = c.key === choice;
+            return (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => run(() => onSetPresence(c.key))}
+                style={{ ...item, background: on ? "var(--surface-selected)" : "transparent" }}
+                onMouseEnter={hover(!on)}
+                onMouseLeave={hover(false)}
+              >
+                <span style={{ width: 10, height: 10, borderRadius: "var(--radius-full)", background: `var(--presence-${c.dot})`, border: c.dot === "offline" ? "1px solid var(--border-strong)" : undefined }} />
+                <span style={{ flex: 1, minWidth: 0, color: on ? "var(--text-accent)" : "var(--text-body)" }}>{c.label}</span>
+                {on ? <Icon name="check" size={14} style={{ color: "var(--text-accent)" }} /> : null}
+              </button>
+            );
+          })}
         </div>
 
         <div style={{ padding: 4 }}>

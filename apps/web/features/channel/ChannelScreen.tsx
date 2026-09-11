@@ -24,6 +24,7 @@ import { MessageRow } from "./MessageRow";
 import { SystemMessage } from "./SystemMessage";
 import { ThreadPanel } from "./ThreadPanel";
 import { TypingIndicator } from "./TypingIndicator";
+import { useStickToBottom } from "./useStickToBottom";
 
 /** Right-hand dock: animates in/out, stays mounted during exit, and cross-fades on content switch. */
 function RightDock({
@@ -140,6 +141,24 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-muted)",
   },
   feed: { flex: 1, overflow: "auto", padding: "20px 0 8px" },
+  toBottom: {
+    position: "absolute",
+    left: "50%",
+    transform: "translateX(-50%)",
+    bottom: 12,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "7px 14px",
+    borderRadius: 999,
+    border: "1px solid var(--border-subtle)",
+    background: "var(--surface-raised)",
+    boxShadow: "var(--shadow-popover)",
+    color: "var(--text-strong)",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
   inner: { maxWidth: "var(--channel-measure)", margin: "0 auto", padding: "0 24px" },
   day: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
   dayLine: { flex: 1, height: 1, background: "var(--border-subtle)" },
@@ -272,13 +291,12 @@ export function ChannelScreen({
   const togglePanel = (p: Exclude<ChannelPanel, null>) => onPanel(panel === p ? null : p);
   const [menuDialog, setMenuDialog] = useState<MenuDialog>(null);
 
-  const feedRef = useRef<HTMLDivElement>(null);
+  // Follows the conversation while the reader is at the end of it, and leaves them alone when
+  // they are not. Height changes count as much as new messages: an attachment that finishes
+  // loading, an edit, a reaction wrapping onto a new line, or the feed's own padding growing for
+  // the typing indicator all used to leave the last message half off screen.
+  const { ref: feedRef, following, scrollToBottom } = useStickToBottom<HTMLDivElement>(channel.id);
   const msgCount = messages.length;
-  // Land at the latest message when entering a conversation, and follow new messages.
-  useEffect(() => {
-    const el = feedRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [channel.id, msgCount]);
 
   const [highlightFile, setHighlightFile] = useState<string | null>(null);
   const jumpToFile = (fileName: string) => {
@@ -511,6 +529,19 @@ export function ChannelScreen({
             ))}
           </div>
         </div>
+          {!following && msgCount > 0 ? (
+            // Offered rather than forced: the reader scrolled up on purpose, and this is how they
+            // say they are done. It sits above the typing indicator, which occupies the same
+            // corner when someone is writing.
+            <button
+              type="button"
+              onClick={() => scrollToBottom("smooth")}
+              style={styles.toBottom}
+            >
+              <Icon name="chevron-down" size={14} />
+              Derniers messages
+            </button>
+          ) : null}
           {typing.length > 0 ? (
             <>
               <div

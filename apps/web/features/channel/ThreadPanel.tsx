@@ -7,6 +7,7 @@ import type { Message } from "@/lib/data";
 import { getReplies, sendMessage } from "@/lib/data/api";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
+import { useStickToBottom } from "./useStickToBottom";
 
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 720;
@@ -112,6 +113,10 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
       active = false;
     };
   }, [parent.id]);
+  // A thread reads like the main feed: it follows its latest reply while the reader is at the end
+  // of it. It had no scrolling of its own at all, so a reply arriving in an open thread stayed
+  // below the fold.
+  const { ref: scrollRef } = useStickToBottom<HTMLDivElement>(parent.id);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const editorRef = useRef<MessageEditorHandle>(null);
   const emojiRef = useRef<HTMLButtonElement>(null);
@@ -160,7 +165,7 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
         <span style={styles.title}>Fil de discussion</span>
         <IconButton icon="x" label="Fermer le fil" size="sm" onClick={onClose} />
       </div>
-      <div style={styles.scroll}>
+      <div style={styles.scroll} ref={scrollRef}>
         <ReplyRow r={{ id: parent.id, author: parent.author, time: parent.time, body: parent.body }} />
         <div style={styles.count}>
           <span style={styles.countLine} />

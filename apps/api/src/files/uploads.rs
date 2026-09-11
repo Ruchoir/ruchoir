@@ -388,9 +388,13 @@ async fn collect_upload(
                 }
                 data = Some(bytes.to_vec());
             }
-            _ => {
-                // Drain any unexpected field so the stream advances.
+            other => {
+                // Refused rather than drained. A field this handler does not know is a client
+                // sending something it believes matters, and swallowing it turns a mismatch into
+                // silence: an upload answering 201 with the folder it was given quietly dropped.
                 let _ = field.bytes().await?;
+                tracing::warn!(field = ?other, "unknown field in a file upload");
+                return Err(FileError::BadRequest("unknown field in the upload"));
             }
         }
     }

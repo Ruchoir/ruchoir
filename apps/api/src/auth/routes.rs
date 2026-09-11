@@ -139,6 +139,14 @@ pub struct UserSummary {
     /// Whether the account can sign in already. False after an ordinary registration, which waits on
     /// the address being confirmed; true when an invitation had already proved the address.
     pub active: bool,
+    /// The caller's own availability choice (`away`, `dnd`, `invisible`), or absent for automatic.
+    ///
+    /// Only ever sent to the account it belongs to. It is a choice, not a state: what other people
+    /// see is the presence computed from it and from a live connection, which is carried by the
+    /// presence endpoints. The client needs it to show which entry of its availability menu is the
+    /// one in force, and it has no other way to know.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manual_presence: Option<String>,
 }
 
 impl From<users::Model> for UserSummary {
@@ -148,6 +156,7 @@ impl From<users::Model> for UserSummary {
             id: model.id,
             email: model.email,
             display_name: model.display_name,
+            manual_presence: model.manual_presence,
         }
     }
 }
