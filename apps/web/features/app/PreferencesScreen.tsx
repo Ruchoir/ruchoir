@@ -165,7 +165,7 @@ function Row({ title, desc, children }: { title: ReactNode; desc?: ReactNode; ch
  * The permission is read on mount rather than rendered from the start, because there is no such
  * thing during the static export's render pass and assuming one would flash the wrong state.
  */
-function BrowserNotificationRow({ soundOn }: { soundOn: boolean }) {
+function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNotify?: (t: Toast) => void }) {
   // Read as what it is: a value owned by the browser, not by React. The third argument is the
   // snapshot for the render that happens without one, which is every render of the static export.
   const permission = useSyncExternalStore(
@@ -181,6 +181,19 @@ function BrowserNotificationRow({ soundOn }: { soundOn: boolean }) {
       body: "Voilà à quoi ressemblera une notification.",
       tag: "ruchoir-test",
       onClick: () => {},
+      // Said out loud, because the alternative is a button that looks broken. The browser accepted
+      // it; whether anything was drawn is the system's decision and it does not report back.
+      onDelivered: (shown) =>
+        onNotify?.(
+          shown
+            ? { tone: "success", title: "Notification affichée" }
+            : {
+                tone: "warning",
+                title: "Rien ne s'est affiché",
+                description:
+                  "Le navigateur l'a acceptée, mais le système ne l'a pas montrée. Vérifiez les notifications autorisées pour votre navigateur dans les réglages du système, et qu'aucun mode de concentration ou « Ne pas déranger » n'est actif.",
+              },
+        ),
     });
   };
 
@@ -637,7 +650,7 @@ export function PreferencesScreen({ onClose, onNotify, compact = false, initialT
               <>
                 <h2 style={st.h}>Notifications</h2>
                 <p style={st.sub}>Choisissez quand et comment Ruchoir vous alerte.</p>
-                <BrowserNotificationRow soundOn={s.notif.sound} />
+                <BrowserNotificationRow soundOn={s.notif.sound} onNotify={onNotify} />
                 <Row title="Activer les notifications" desc="Coupe toutes les notifications de bureau et sonores quand c'est désactivé.">
                   <Switch checked={s.notif.enabled} onChange={(e) => s.set("notif", { ...s.notif, enabled: e.target.checked })} aria-label="Activer les notifications" />
                 </Row>

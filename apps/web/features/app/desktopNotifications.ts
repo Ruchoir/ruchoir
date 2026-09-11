@@ -150,6 +150,16 @@ export type DesktopNotification = {
   tag: string;
   /** Run when the person clicks it, after the window has been brought forward. */
   onClick: () => void;
+  /**
+   * Called with whether the notification was actually drawn, shortly after it was handed over.
+   *
+   * Granted permission is not delivery. The operating system has the last word and exercises it
+   * silently: Windows drops notifications for an application whose entry is turned off in its
+   * settings, and a focus mode routes them straight to the notification centre with nothing on
+   * screen. There is no error anywhere, in the page or in the console, which leaves someone testing
+   * the feature with no way to tell a broken product from a muted one.
+   */
+  onDelivered?: (shown: boolean) => void;
 };
 
 /**
@@ -160,7 +170,10 @@ export type DesktopNotification = {
  * chime in the other.
  */
 export function showDesktopNotification(n: DesktopNotification): void {
-  if (notificationPermission() !== "granted") return;
+  if (notificationPermission() !== "granted") {
+    n.onDelivered?.(false);
+    return;
+  }
   try {
     const notification = new Notification(n.title, {
       body: n.body,
@@ -168,6 +181,20 @@ export function showDesktopNotification(n: DesktopNotification): void {
       icon: "/icon.png",
       silent: true,
     });
+    if (n.onDelivered) {
+      // `show` fires when the notification is put on screen. A grace period rather than an instant
+      // verdict, because it arrives asynchronously, and the answer is read as "we cannot confirm
+      // it appeared" rather than "it failed": some browsers never fire it even when all is well.
+      let settled = false;
+      const settle = (shown: boolean) => {
+        if (settled) return;
+        settled = true;
+        n.onDelivered?.(shown);
+      };
+      notification.onshow = () => settle(true);
+      notification.onerror = () => settle(false);
+      setTimeout(() => settle(false), 1500);
+    }
     notification.onclick = () => {
       // Bring the window forward first: the click handler runs in a page that may be behind three
       // others, and jumping to a message nobody can see is not an answer.
@@ -178,5 +205,6 @@ export function showDesktopNotification(n: DesktopNotification): void {
   } catch {
     // Some browsers throw here rather than returning a refusal (a page without a service worker on
     // Android, for one). The in-app inbox has the notification either way.
+    n.onDelivered?.(false);
   }
 }
