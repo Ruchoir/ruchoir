@@ -476,22 +476,26 @@ function AppShell() {
         return next;
       });
       setSpaceFiles(folder.entries);
-      const labelOf = (id: string): { label: string; isDm: boolean } => {
-        const c = chans.find((x) => x.id === id);
+      // The loaded lists first, because they carry what this client knows about the conversation;
+      // the server's own names otherwise, which is the only thing that can name a conversation in a
+      // space this client has never opened. The identifier is no longer a possible answer.
+      const labelOf = (n: { conversationId: string; channelName?: string }): { label: string; isDm: boolean } => {
+        const c = chans.find((x) => x.id === n.conversationId);
         if (c) return { label: `#${c.name}`, isDm: false };
-        const d = dmList.find((x) => x.id === id);
+        const d = dmList.find((x) => x.id === n.conversationId);
         if (d) return { label: d.name, isDm: true };
-        return { label: id, isDm: false };
+        return n.channelName ? { label: `#${n.channelName}`, isDm: false } : { label: "", isDm: true };
       };
       setNotifs(
         feed.notifications.map((n) => {
-          const { label, isDm } = labelOf(n.conversationId);
+          const { label, isDm } = labelOf(n);
           return {
             id: n.id,
             kind: n.kind as NotifKind,
             channelId: n.conversationId,
             spaceId: n.spaceId,
             label,
+            spaceName: n.spaceName,
             isDm,
             actor: n.actor,
             messageId: n.messageId,
@@ -887,7 +891,15 @@ function AppShell() {
         const { channels: chs, dms: dmList, channelId: activeConv, view: activeView } = liveRef.current;
         const channel = chs.find((x) => x.id === n.conversationId);
         const dm = dmList.find((x) => x.id === n.conversationId);
-        const label = channel ? `#${channel.name}` : dm ? dm.name : n.conversationId;
+        // Falls back to the server's name, not to the identifier: a notification from a space that
+        // is not open used to arrive labelled with a UUID.
+        const label = channel
+          ? `#${channel.name}`
+          : dm
+            ? dm.name
+            : n.channelName
+              ? `#${n.channelName}`
+              : "";
         // Addressed to us in a space we have not loaded: it belongs to that space's rail badge, and
         // only the server can say which space that is.
         if (!channel && !dm) refreshSpaceCounters();
@@ -900,7 +912,8 @@ function AppShell() {
           channelId: n.conversationId,
           spaceId: n.spaceId,
           label,
-          isDm: !channel && !!dm,
+          spaceName: n.spaceName,
+          isDm: dm ? true : !channel && !n.channelName,
           actor: n.actor,
           messageId: n.messageId,
           preview: n.preview,
@@ -1570,7 +1583,8 @@ function AppShell() {
       if (!passesPref(n, channelPrefs[n.channelId], settings.notif)) return;
       if (inQuietHours(settings.notif)) return;
       if (settings.notif.sound) playNotificationSound();
-      const who = n.isDm ? n.actor : `${n.actor} dans ${n.label}`;
+      const where = n.spaceId === liveRef.current.ws ? n.label : `${n.label} · ${n.spaceName}`;
+      const who = n.isDm && !n.label ? n.actor : `${n.actor} dans ${where}`;
       if (appIsAway()) {
         showDesktopNotification({
           title: who,

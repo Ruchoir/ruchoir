@@ -958,6 +958,9 @@ type NotificationDto = {
   kind: string;
   conversation_id: string;
   space_id: string;
+  /** The channel's name; absent for a direct message. */
+  channel_name?: string;
+  space_name: string;
   message_id: string;
   actor_id?: string;
   actor_name?: string;
@@ -972,14 +975,24 @@ type NotificationPageDto = {
   unread_count: number;
 };
 
-/** A notification as this seam returns it. `label`/`isDm` are resolved by the caller (they need the
- * live channel and DM lists, which the seam does not hold). */
+/**
+ * A notification as this seam returns it.
+ *
+ * `channelName` and `spaceName` come from the server because a notification routinely arrives from
+ * a space the client has not loaded, where it can name nothing on its own: the caller used to fall
+ * back to the conversation's identifier, so a notification from anywhere but the space on screen
+ * read as a UUID.
+ */
 export type ApiNotification = {
   id: string;
-  kind: "mention" | "reply" | "dm";
+  kind: "mention" | "broadcast" | "reply" | "dm";
   conversationId: string;
   /** The space it happened in, so the inbox can be shown for the space on screen. */
   spaceId: string;
+  /** The channel's name as the server knows it; absent for a direct message. */
+  channelName?: string;
+  /** The space's name, so a notification can say where it happened. */
+  spaceName: string;
   messageId: string;
   actor: string;
   preview: string;
@@ -991,12 +1004,19 @@ export type ApiNotification = {
 export type NotificationFeed = { notifications: ApiNotification[]; nextBefore?: string; unreadCount: number };
 
 function toApiNotification(dto: NotificationDto): ApiNotification {
-  const kind = dto.kind === "mention" || dto.kind === "reply" || dto.kind === "dm" ? dto.kind : "mention";
+  // `broadcast` belongs here: left out, an `@canal` arrived as an ordinary mention and the
+  // preference that turns those off could never have been obeyed.
+  const kind =
+    dto.kind === "mention" || dto.kind === "broadcast" || dto.kind === "reply" || dto.kind === "dm"
+      ? dto.kind
+      : "mention";
   return {
     id: dto.id,
     kind,
     conversationId: dto.conversation_id,
     spaceId: dto.space_id,
+    channelName: dto.channel_name,
+    spaceName: dto.space_name,
     messageId: dto.message_id,
     actor: dto.actor_name ?? "",
     preview: dto.preview,
