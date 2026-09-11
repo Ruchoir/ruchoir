@@ -691,6 +691,12 @@ function AppShell() {
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
 
   /**
+   * Latest "reach the person who is not looking" function, for the same reason as `notifyRef`: the
+   * handlers are wired once per session and this one has to read preferences that change under it.
+   */
+  const alertRef = useRef<((n: AppNotification) => void) | null>(null);
+
+  /**
    * Refresh the per-space counters after an event the client cannot attribute.
    *
    * The transport is user-scoped, so events arrive for every space the account belongs to, but an
@@ -907,6 +913,8 @@ function AppShell() {
         // the message.created bump when both fire (a mention the viewer also received as a message).
         setChannels((prev) => prev.map((c) => (c.id === n.conversationId ? { ...c, unread: Math.max(c.unread, 1) } : c)));
         setDms((prev) => prev.map((d) => (d.id === n.conversationId ? { ...d, unread: Math.max(d.unread, 1) } : d)));
+        // The badge is for when you come back. This is for when you do not.
+        alertRef.current?.(notif);
       },
       onTyping: (conv, userId) =>
         setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
@@ -1531,6 +1539,36 @@ function AppShell() {
     setNotifRead(id, true);
     openMessage(targetChannel, messageId);
   };
+
+  /**
+   * Announce a notification outside the app: a sound, and a system notification when the app is not
+   * the window being looked at.
+   *
+   * The same preferences that already decide whether a notification is counted decide this, through
+   * `passesPref`, so a muted channel is silent here too and there is one rule rather than two that
+   * have to be kept in step. Quiet hours suppress both halves, which is the whole of what quiet
+   * hours mean.
+   *
+   * The sound plays whether or not the window is focused, because it is what tells you something
+   * arrived in a conversation you are not reading. The system notification does not: laid over the
+   * window you are already working in, it says nothing the sidebar has not.
+   */
+  useEffect(() => {
+    alertRef.current = (n) => {
+      if (!passesPref(n, channelPrefs[n.channelId], settings.notif)) return;
+      if (inQuietHours(settings.notif)) return;
+      if (settings.notif.sound) playNotificationSound();
+      if (!appIsAway()) return;
+      showDesktopNotification({
+        title: n.isDm ? n.actor : `${n.actor} dans ${n.label}`,
+        body: n.preview || notifSummary(n),
+        // One notification per conversation: ten messages from the same channel while you were away
+        // should be one line to come back to, not ten to dismiss.
+        tag: n.channelId,
+        onClick: () => openNotification(n.channelId, n.messageId, n.id),
+      });
+    };
+  });
 
   const messageActions = {
     react: (messageId: string, emoji: string) => {

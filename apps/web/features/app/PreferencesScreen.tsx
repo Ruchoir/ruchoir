@@ -1,11 +1,19 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, Field, Icon, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
 import { Emoji } from "./Emoji";
 import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
+import {
+  notificationPermission,
+  playNotificationSound,
+  requestNotificationPermission,
+  serverNotificationPermission,
+  showDesktopNotification,
+  subscribeToNotificationPermission,
+} from "./desktopNotifications";
 import {
   useSettings,
   type DefaultPanel,
@@ -143,6 +151,66 @@ function Row({ title, desc, children }: { title: ReactNode; desc?: ReactNode; ch
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * The browser's permission for system notifications, and the one place it can be asked for.
+ *
+ * Asking is a deliberate act here rather than something the app does on load: a page that prompts
+ * the moment it opens is why people refuse notifications for good, and a refusal cannot be undone
+ * from the page. Which is also why the refused state says where to go instead of offering a button
+ * that would do nothing.
+ *
+ * The permission is read on mount rather than rendered from the start, because there is no such
+ * thing during the static export's render pass and assuming one would flash the wrong state.
+ */
+function BrowserNotificationRow({ soundOn }: { soundOn: boolean }) {
+  // Read as what it is: a value owned by the browser, not by React. The third argument is the
+  // snapshot for the render that happens without one, which is every render of the static export.
+  const permission = useSyncExternalStore(
+    subscribeToNotificationPermission,
+    notificationPermission,
+    serverNotificationPermission,
+  );
+
+  const test = () => {
+    if (soundOn) playNotificationSound();
+    showDesktopNotification({
+      title: "Ruchoir",
+      body: "Voilà à quoi ressemblera une notification.",
+      tag: "ruchoir-test",
+      onClick: () => {},
+    });
+  };
+
+  const desc =
+    permission === "granted"
+      ? "Autorisées. Elles apparaissent quand Ruchoir n'est pas la fenêtre que vous regardez."
+      : permission === "denied"
+        ? "Refusées pour ce site. Le navigateur est le seul à pouvoir revenir dessus : ouvrez les informations du site dans la barre d'adresse, puis réautorisez les notifications."
+        : permission === "unsupported"
+          ? "Ce navigateur ne propose pas de notifications système."
+          : "Ruchoir ne peut pas vous prévenir hors de l'onglet tant que le navigateur ne l'autorise pas.";
+
+  return (
+    <Row title="Notifications du navigateur" desc={desc}>
+      {permission === "default" ? (
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => {
+            void requestNotificationPermission();
+          }}
+        >
+          Autoriser
+        </Button>
+      ) : permission === "granted" ? (
+        <Button size="sm" onClick={test}>
+          Tester
+        </Button>
+      ) : null}
+    </Row>
   );
 }
 
@@ -569,6 +637,7 @@ export function PreferencesScreen({ onClose, onNotify, compact = false, initialT
               <>
                 <h2 style={st.h}>Notifications</h2>
                 <p style={st.sub}>Choisissez quand et comment Ruchoir vous alerte.</p>
+                <BrowserNotificationRow soundOn={s.notif.sound} />
                 <Row title="Activer les notifications" desc="Coupe toutes les notifications de bureau et sonores quand c'est désactivé.">
                   <Switch checked={s.notif.enabled} onChange={(e) => s.set("notif", { ...s.notif, enabled: e.target.checked })} aria-label="Activer les notifications" />
                 </Row>
