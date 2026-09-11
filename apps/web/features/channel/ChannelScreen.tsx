@@ -246,6 +246,29 @@ export type ChannelScreenProps = {
 };
 
 /** The channel (or direct message) view: header, message feed, composer, and optional right panel. */
+/** How long a silence has to be before the same person starts a new block. */
+const GROUPING_WINDOW_MS = 5 * 60 * 1000;
+
+/**
+ * Whether a message continues the one before it, and should be drawn without repeating its header.
+ *
+ * Someone writing three sentences in a row wrote one thing; stamping their name and face on each
+ * line turns a conversation into a list of records and pushes the actual words down the page. Five
+ * minutes is the pause after which they are saying something new, and the block starts again.
+ *
+ * A system notice never continues anything, and never lets anything continue across it: whatever
+ * came before it is over.
+ */
+function followsSameAuthor(previous: Message | undefined, current: Message): boolean {
+  if (!previous || previous.kind === "system" || current.kind === "system") return false;
+  if (previous.author !== current.author) return false;
+  // Ids are compared when both are known, so two people sharing a display name are still two people.
+  if (previous.authorId && current.authorId && previous.authorId !== current.authorId) return false;
+  if (!previous.createdAt || !current.createdAt) return false;
+  const gap = Date.parse(current.createdAt) - Date.parse(previous.createdAt);
+  return Number.isFinite(gap) && gap >= 0 && gap < GROUPING_WINDOW_MS;
+}
+
 export function ChannelScreen({
   channel,
   dm,
@@ -493,7 +516,7 @@ export function ChannelScreen({
                 <span style={styles.dayLine} />
               </div>
             ) : null}
-            {messages.map((m) => (
+            {messages.map((m, index) => (
               <Fragment key={m.id}>
                 {m.id === unreadMarker ? (
                   <div style={styles.unread}>
@@ -506,6 +529,12 @@ export function ChannelScreen({
                 ) : (
                   <MessageRow
                     m={m}
+                    grouped={followsSameAuthor(messages[index - 1], m) && m.id !== unreadMarker}
+                    endsRun={
+                      !messages[index + 1] ||
+                      messages[index + 1].id === unreadMarker ||
+                      !followsSameAuthor(m, messages[index + 1])
+                    }
                     authorPresence={presenceByName.get(m.author)}
                     authorAvatar={avatarByName.get(m.author)}
                     actions={{
