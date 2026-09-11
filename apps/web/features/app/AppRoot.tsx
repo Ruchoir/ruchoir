@@ -68,7 +68,7 @@ import type {
   SpaceFile,
   Workspace,
 } from "@/lib/data";
-import { Button, Dialog, Drawer, Textarea } from "@/components/ds";
+import { Button, Dialog, Drawer } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { PresenceChoice } from "@/lib/data";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
@@ -1837,10 +1837,17 @@ function AppShell() {
       });
   };
 
-  const saveEdit = () => {
+  const saveEdit = (text: string) => {
     if (!editing) return;
     const conv = channelId;
-    const { id, body } = editing;
+    const { id } = editing;
+    const body = text.trim();
+    // An edit emptied out is a deletion asked for by another route: refused here rather than
+    // silently blanking the message, since the menu already has one that says what it does.
+    if (!body) {
+      showToast({ tone: "info", title: "Un message ne peut pas être vidé", description: "Supprimez-le plutôt." });
+      return;
+    }
     const target = (messages[conv] ?? []).find((x) => x.id === id);
     updateMessage(conv, id, (m) => ({ ...m, body, edited: true }));
     setEditing(null);
@@ -2304,6 +2311,9 @@ function AppShell() {
     >
       {view === "channel" ? (
         <ChannelScreen
+          editing={editing}
+          onSaveEdit={saveEdit}
+          onCancelEdit={() => setEditing(null)}
           readBy={readBy}
           readAudience={readAudience}
           channel={chan}
@@ -2481,29 +2491,6 @@ function AppShell() {
           onSave={(pref) => saveChannelPref(channelNotifId, pref)}
           onNotify={showToast}
         />
-      ) : null}
-
-      {editing ? (
-        <Dialog
-          title="Modifier le message"
-          size="md"
-          onClose={() => setEditing(null)}
-          footer={
-            <>
-              <Button onClick={() => setEditing(null)}>Annuler</Button>
-              <Button variant="primary" onClick={saveEdit}>
-                Enregistrer
-              </Button>
-            </>
-          }
-        >
-          <Textarea
-            rows={4}
-            autoFocus
-            value={editing.body}
-            onChange={(e) => setEditing({ ...editing, body: e.target.value })}
-          />
-        </Dialog>
       ) : null}
 
       {!settings.welcome.dismissed ? (
