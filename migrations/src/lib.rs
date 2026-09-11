@@ -18,6 +18,7 @@ mod m20260904_000001_search_and_notifications;
 mod m20260907_000001_space_invitations;
 mod m20260907_000002_user_uploads;
 mod m20260907_000003_space_slug_history;
+mod m20260911_000001_broadcast_notification_kind;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -38,6 +39,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260907_000001_space_invitations::Migration),
             Box::new(m20260907_000002_user_uploads::Migration),
             Box::new(m20260907_000003_space_slug_history::Migration),
+            Box::new(m20260911_000001_broadcast_notification_kind::Migration),
         ]
     }
 }
