@@ -236,6 +236,10 @@ export type ChannelScreenProps = {
   readBy: Record<string, string[]>;
   /** How many people other than the reader are in this conversation, for "everyone". */
   readAudience: number;
+  /** The message being edited, which the composer picks up instead of a dialog. */
+  editing?: { id: string; body: string } | null;
+  onSaveEdit?: (text: string) => void;
+  onCancelEdit?: () => void;
   /** The space's files, for the in-channel file panel and search. */
   files: SpaceFile[];
   /** User id of the profile shown in the right panel, when known (enables the real profile fetch). */
@@ -298,6 +302,9 @@ export function ChannelScreen({
   members,
   readBy,
   readAudience,
+  editing,
+  onSaveEdit,
+  onCancelEdit,
   files,
   dmPresence,
   typingNames,
@@ -613,6 +620,9 @@ export function ChannelScreen({
             onUpload={onUploadAttachment}
             onNotify={onNotify}
             onTyping={onTyping}
+            editing={editing}
+            onSaveEdit={onSaveEdit}
+            onCancelEdit={onCancelEdit}
           />
         )}
       </div>

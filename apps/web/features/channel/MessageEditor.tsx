@@ -52,6 +52,13 @@ export type MessageEditorHandle = {
   isEmpty: () => boolean;
   /** Clear the editor without sending. */
   clear: () => void;
+  /**
+   * Replace everything in the editor with this text, caret at the end.
+   *
+   * For picking up a message to edit: the body has to arrive in the composer as if it had just been
+   * typed there, ready to be continued.
+   */
+  setText: (text: string) => void;
 };
 
 const menuStyle: CSSProperties = {
@@ -289,6 +296,25 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
       ed.innerHTML = "";
       setTrigger(null);
       setEmpty(true);
+    },
+    setText: (text: string) => {
+      const ed = edRef.current;
+      if (!ed) return;
+      // Written as a text node rather than as HTML: the body is the user's own text, and anything
+      // in it that looks like markup is text too.
+      ed.innerHTML = "";
+      ed.append(document.createTextNode(text));
+      setTrigger(null);
+      setEmpty(text === "");
+      ed.focus();
+      // Caret after the last character, which is where someone picking up their own sentence
+      // expects to continue from.
+      const range = document.createRange();
+      range.selectNodeContents(ed);
+      range.collapse(false);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
     },
   }));
 
