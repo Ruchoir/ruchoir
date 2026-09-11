@@ -201,7 +201,21 @@ pub async fn send_message(
 
     // Who to notify: mentions, the other DM participants, and the replied-to author (deduped by
     // priority, never the sender).
-    let mention_ids: Vec<Uuid> = resolved.iter().map(|m| m.user_id).collect();
+    //
+    // Being named and being one of the room are kept apart. `@here` and `@channel` expand to one
+    // row per member, so they arrive here looking exactly like a mention by name, and a reader who
+    // has asked not to be pulled out of their afternoon by `@channel` has no way to be obeyed
+    // unless the two are distinguishable downstream.
+    let mention_ids: Vec<Uuid> = resolved
+        .iter()
+        .filter(|m| m.mention_type == "user")
+        .map(|m| m.user_id)
+        .collect();
+    let broadcast_ids: Vec<Uuid> = resolved
+        .iter()
+        .filter(|m| m.mention_type != "user")
+        .map(|m| m.user_id)
+        .collect();
     let dm_recipients: Vec<Uuid> = if access.kind == ConversationKind::Direct {
         audience
             .iter()
@@ -214,6 +228,7 @@ pub async fn send_message(
     let recipients = notifications::compute_recipients(
         session.user_id,
         &mention_ids,
+        &broadcast_ids,
         &dm_recipients,
         reply_target,
     );

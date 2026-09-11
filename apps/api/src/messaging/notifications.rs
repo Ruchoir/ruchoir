@@ -32,9 +32,15 @@ const PREVIEW_CHARS: usize = 140;
 
 /// Relative priority of the notification kinds, so a user who is both mentioned and a DM participant
 /// (or the replied-to author) gets a single, most-specific notification.
+///
+/// `broadcast` (`@channel`, `@here`) sits below a mention by name and above a reply: being one of
+/// fifty people addressed at once is a weaker claim on someone's attention than being named, and
+/// the client is entitled to treat it differently, which it cannot do if the two arrive under the
+/// same kind.
 fn rank(kind: &str) -> u8 {
     match kind {
-        "mention" => 3,
+        "mention" => 4,
+        "broadcast" => 3,
         "reply" => 2,
         "dm" => 1,
         _ => 0,
@@ -46,6 +52,7 @@ fn rank(kind: &str) -> u8 {
 pub fn compute_recipients(
     author_id: Uuid,
     mention_user_ids: &[Uuid],
+    broadcast_user_ids: &[Uuid],
     dm_recipients: &[Uuid],
     reply_target: Option<Uuid>,
 ) -> Vec<(Uuid, &'static str)> {
@@ -65,6 +72,9 @@ pub fn compute_recipients(
 
     for &user_id in mention_user_ids {
         consider(user_id, "mention");
+    }
+    for &user_id in broadcast_user_ids {
+        consider(user_id, "broadcast");
     }
     if let Some(target) = reply_target {
         consider(target, "reply");
@@ -307,4 +317,53 @@ pub async fn mark_all_read(
         .exec(&state.db)
         .await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute_recipients;
+    use uuid::Uuid;
+
+    fn kind_for(recipients: &[(Uuid, &'static str)], user: Uuid) -> Option<&'static str> {
+        recipients
+            .iter()
+            .find(|(id, _)| *id == user)
+            .map(|(_, kind)| *kind)
+    }
+
+    #[test]
+    fn being_named_outranks_being_in_the_room() {
+        let author = Uuid::new_v4();
+        let reader = Uuid::new_v4();
+        // `@here` expands to every member, so the same person is very often in both lists. They get
+        // one notification, and it is the stronger one.
+        let recipients = compute_recipients(author, &[reader], &[reader], &[], None);
+        assert_eq!(recipients.len(), 1);
+        assert_eq!(kind_for(&recipients, reader), Some("mention"));
+    }
+
+    #[test]
+    fn a_broadcast_outranks_a_reply_and_a_direct_message() {
+        let author = Uuid::new_v4();
+        let reader = Uuid::new_v4();
+        let recipients = compute_recipients(author, &[], &[reader], &[reader], Some(reader));
+        assert_eq!(kind_for(&recipients, reader), Some("broadcast"));
+    }
+
+    #[test]
+    fn a_broadcast_is_not_reported_as_a_mention() {
+        // The distinction the reader's preference rests on: someone who has turned off `@canal`
+        // can only be obeyed if these two never arrive under the same name.
+        let author = Uuid::new_v4();
+        let reader = Uuid::new_v4();
+        let recipients = compute_recipients(author, &[], &[reader], &[], None);
+        assert_eq!(kind_for(&recipients, reader), Some("broadcast"));
+    }
+
+    #[test]
+    fn the_author_is_never_notified_of_their_own_message() {
+        let author = Uuid::new_v4();
+        let recipients = compute_recipients(author, &[author], &[author], &[author], Some(author));
+        assert!(recipients.is_empty());
+    }
 }

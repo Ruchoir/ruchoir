@@ -3,10 +3,13 @@
 import { type CSSProperties, type RefObject, useState } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Popover, Tabs } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
-import { type AppNotification, type NotifKind, notifSummary } from "./notifications";
+import { type AppNotification, isMention, type NotifKind, notifSummary } from "./notifications";
 
 const KIND_ICON: Record<NotifKind, string> = {
   mention: "at-sign",
+  // Told apart from a mention by name at a glance, which is the whole point of the two being
+  // different kinds: one person typed your name, or everyone in the channel got this.
+  broadcast: "users",
   reply: "message-square",
   dm: "mail",
 };
@@ -92,7 +95,7 @@ export function NotificationCenter({
     filter === "unread"
       ? notifications.filter((n) => !n.read)
       : filter === "mentions"
-        ? notifications.filter((n) => n.kind === "mention")
+        ? notifications.filter((n) => isMention(n.kind))
         : notifications;
 
   return (

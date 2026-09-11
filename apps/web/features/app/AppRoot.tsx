@@ -95,9 +95,17 @@ import {
   type AppNotification,
   type ChannelNotifPref,
   DEFAULT_CHANNEL_PREF,
+  isMention,
   type NotifKind,
+  notifSummary,
   passesPref,
 } from "./notifications";
+import {
+  appIsAway,
+  inQuietHours,
+  playNotificationSound,
+  showDesktopNotification,
+} from "./desktopNotifications";
 import { PreferencesScreen, type PrefTab } from "./PreferencesScreen";
 import { SettingsProvider, useSettings } from "./settings";
 import { Sidebar } from "./Sidebar";
@@ -1064,7 +1072,7 @@ function AppShell() {
    * only ever grows. Counting the notification rows instead ties the badge to the same read state
    * as the rail and the inbox, so the three cannot disagree.
    */
-  const mentionUnread = visibleNotifs.filter((n) => n.kind === "mention" && !n.read).length;
+  const mentionUnread = visibleNotifs.filter((n) => isMention(n.kind) && !n.read).length;
 
   /**
    * The tab title: what is waiting, where you are, and in which space.
@@ -1100,7 +1108,7 @@ function AppShell() {
   const openView = (next: AppView) => {
     setView(next);
     if (next !== "mentions") return;
-    const toMark = visibleNotifs.filter((n) => n.kind === "mention" && !n.read);
+    const toMark = visibleNotifs.filter((n) => isMention(n.kind) && !n.read);
     if (toMark.length === 0) return;
     const ids = new Set(toMark.map((n) => n.id));
     setNotifs((prev) => prev.map((n) => (ids.has(n.id) ? { ...n, read: true } : n)));
