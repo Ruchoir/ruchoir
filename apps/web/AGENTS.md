@@ -81,6 +81,14 @@ side that wins: it is the complete row, while a frame cannot know whether the pe
 member, has favourited it, or has anything unread. Appending blindly is what put a newly created
 channel in the sidebar twice.
 
+**A module-level registry is shared state, so it needs subscribers.** `lib/data/index.ts` holds a few
+values read synchronously rather than threaded through props (the member roster, presence by name).
+Read as a plain variable they go stale in two directions at once: a reader that captures one in a
+`useMemo` with empty dependencies freezes it for its lifetime, and a writer that skips publishing an
+empty value leaves the previous space's contents readable. Both happened at the same time in the
+mention autocomplete, which offered the people of the first space opened in every space after it.
+Subscribe with `useSyncExternalStore`, publish even when empty, and clear on a space switch.
+
 **Presence is observed, not asserted.** The availability entry a user picks (`PresenceChoice`) is an
 instruction; the dot anyone sees is the server's answer, computed from that choice *and* a live
 connection, and it arrives through the presence map. Never seed a presence from a local default and
