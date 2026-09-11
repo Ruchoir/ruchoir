@@ -99,14 +99,24 @@ pub struct ResolvedMention {
     pub mention_type: &'static str,
 }
 
-/// Resolve tokens to concrete `message_mentions` rows against `audience` (the conversation's
-/// members). User handles are matched case-insensitively on `display_name` within the audience;
-/// ambiguous handles (more than one match) are dropped. `@here`/`@channel` expand to one row per
-/// audience member (excluding the author), so downstream notification logic is a plain lookup.
+/// Resolve a message to concrete `message_mentions` rows against `audience` (the conversation's
+/// members).
+///
+/// Two ways to address someone, because there are two ways people write it. A handle is one word
+/// (`@theo`, `@Théo`, `@ThéoVilain`), matched against the tokens of each display name; ambiguous
+/// ones, matching more than one member, are dropped rather than guessed at. And an `@` followed by
+/// a member's **whole** display name addresses that member, spaces and all, which is what the
+/// composer writes when someone picks a suggestion and what a person types when they read a name
+/// on screen. The second is why `body` is needed here and not only its tokens: "Théo Vilain" is not
+/// a token, and reducing it to its first word is exactly what fails the day two people share it.
+///
+/// `@here`/`@channel` expand to one row per audience member (excluding the author), so downstream
+/// notification logic is a plain lookup.
 pub async fn resolve_mentions(
     db: &DatabaseConnection,
     author_id: Uuid,
     audience: &[Uuid],
+    body: &str,
     tokens: &MentionTokens,
 ) -> Result<Vec<ResolvedMention>, ApiError> {
     if tokens.is_empty() || audience.is_empty() {
@@ -134,6 +144,23 @@ pub async fn resolve_mentions(
         }
     }
 
+    // Whole display names first, since they are the most specific thing anyone can write: `@Théo
+    // Vilain` names one person even in a space holding two Théos, where the handle `@théo` names
+    // nobody on purpose.
+    for member in &members {
+        if member.id == author_id || !full_name_mentioned(body, &member.display_name) {
+            continue;
+        }
+        if seen.insert(member.id) {
+            resolved.push(ResolvedMention {
+                user_id: member.id,
+                mention_type: "user",
+            });
+        } else if let Some(existing) = resolved.iter_mut().find(|r| r.user_id == member.id) {
+            existing.mention_type = "user";
+        }
+    }
+
     // User handles: unambiguous, accent- and case-insensitive matches within the audience. A handle
     // matches a member if it equals any whitespace token of their display name (so `@yanis` reaches
     // "Yanis Berthier") or the whole name with spaces removed (`@yanisberthier`). Ambiguous handles
@@ -157,6 +184,44 @@ pub async fn resolve_mentions(
     }
 
     Ok(resolved)
+}
+
+/// Whether `body` contains an `@` followed by this display name, spaces and all.
+///
+/// Compared word by word after folding both sides, so accents and case do not matter and the
+/// spacing in the message need not match the spacing in the name. The word after the name is left
+/// alone: only as many words as the name holds are consumed, and trailing punctuation on the last
+/// of them is ignored, so "@Théo Vilain, peux-tu" still names him.
+fn full_name_mentioned(body: &str, display_name: &str) -> bool {
+    let wanted: Vec<String> = display_name
+        .split_whitespace()
+        .map(fold_ascii)
+        .filter(|w| !w.is_empty())
+        .collect();
+    // One word is a handle, and the handle pass below already covers it.
+    if wanted.len() < 2 {
+        return false;
+    }
+
+    let chars: Vec<(usize, char)> = body.char_indices().collect();
+    for i in 0..chars.len() {
+        if chars[i].1 != '@' {
+            continue;
+        }
+        if i > 0 && is_handle_char(chars[i - 1].1) {
+            continue;
+        }
+        let after = &body[chars[i].0 + '@'.len_utf8()..];
+        let found: Vec<String> = after
+            .split_whitespace()
+            .take(wanted.len())
+            .map(|word| fold_ascii(word.trim_end_matches(['.', ',', ';', ':', '!', '?'])))
+            .collect();
+        if found == wanted {
+            return true;
+        }
+    }
+    false
 }
 
 /// Whether a character may appear inside a mention handle: any letter or digit, plus `.`, `_`, `-`.
@@ -204,6 +269,43 @@ fn fold_ascii(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_whole_display_name_addresses_its_owner() {
+        assert!(full_name_mentioned(
+            "merci @Théo Vilain pour la relecture",
+            "Théo Vilain"
+        ));
+        // Case, accents and the spacing of the message do not have to match the stored name.
+        assert!(full_name_mentioned("@theo  vilain ?", "Théo Vilain"));
+        // Trailing punctuation belongs to the sentence, not to the name.
+        assert!(full_name_mentioned(
+            "@Théo Vilain, peux-tu regarder ?",
+            "Théo Vilain"
+        ));
+    }
+
+    #[test]
+    fn a_whole_name_does_not_address_someone_else() {
+        assert!(!full_name_mentioned(
+            "@Théo Martin a répondu",
+            "Théo Vilain"
+        ));
+        assert!(!full_name_mentioned(
+            "theo vilain sans arobase",
+            "Théo Vilain"
+        ));
+        // An address is not a mention, here as everywhere else.
+        assert!(!full_name_mentioned(
+            "ecrire a theo@Théo Vilain",
+            "Théo Vilain"
+        ));
+    }
+
+    #[test]
+    fn a_one_word_name_is_left_to_the_handle_pass() {
+        assert!(!full_name_mentioned("@alice bonjour", "alice"));
+    }
 
     #[test]
     fn an_accented_handle_survives_the_scan() {

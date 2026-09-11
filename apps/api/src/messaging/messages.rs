@@ -197,7 +197,7 @@ pub async fn send_message(
     let audience = authz::conversation_audience(&state.db, &access).await?;
     let tokens = mentions::extract_mention_tokens(text);
     let resolved =
-        mentions::resolve_mentions(&state.db, session.user_id, &audience, &tokens).await?;
+        mentions::resolve_mentions(&state.db, session.user_id, &audience, text, &tokens).await?;
 
     // Who to notify: mentions, the other DM participants, and the replied-to author (deduped by
     // priority, never the sender).
@@ -389,7 +389,7 @@ pub async fn edit_message(
     let audience = authz::conversation_audience(&state.db, &access).await?;
     let tokens = mentions::extract_mention_tokens(text);
     let resolved =
-        mentions::resolve_mentions(&state.db, session.user_id, &audience, &tokens).await?;
+        mentions::resolve_mentions(&state.db, session.user_id, &audience, text, &tokens).await?;
 
     let txn = state.db.begin().await?;
     let mut active = message.into_active_model();
