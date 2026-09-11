@@ -20,7 +20,21 @@ type Member = ReturnType<typeof getChannelMembers>[number];
 /** A ranked autocomplete suggestion, tagged by the trigger that produced it. */
 type Hit =
   | { kind: "mention"; name: string; member: Member }
+  | { kind: "broadcast"; name: string; hint: string }
   | { kind: "emoji"; name: string; emoji: string };
+
+/**
+ * The two handles that address a room rather than a person.
+ *
+ * Offered here because a handle nobody can guess is a handle nobody uses: everything else in this
+ * list is a name the reader can see on screen, while these two have to be learned. The hint is what
+ * makes them different from each other, and it is the behaviour, not a paraphrase of the word: one
+ * reaches the whole channel, the other only the people connected right now.
+ */
+const BROADCASTS: { name: string; hint: string }[] = [
+  { name: "canal", hint: "Prévient tous les membres du canal" },
+  { name: "ici", hint: "Prévient seulement les membres connectés" },
+];
 
 type Trigger = { kind: "mention" | "emoji"; query: string; start: number };
 
@@ -48,6 +62,21 @@ const menuStyle: CSSProperties = {
   border: "1px solid var(--border-subtle)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
+};
+
+/** Stands in for the avatar on the two room-wide handles, so the rows line up. */
+const broadcastMark: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "none",
+  width: 22,
+  height: 22,
+  borderRadius: "var(--radius-sm)",
+  background: "var(--surface-selected)",
+  color: "var(--text-accent)",
+  fontWeight: 600,
+  fontSize: 12,
 };
 
 const optionStyle: CSSProperties = {
@@ -105,10 +134,16 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     if (!trigger) return [];
     if (trigger.kind === "mention") {
       const q = trigger.query.toLowerCase();
-      return members
+      // Above the people, because they are the two entries someone is looking for when they do not
+      // have a particular person in mind, and because there are only ever two of them.
+      const broadcasts = BROADCASTS.filter((b) => b.name.startsWith(q)).map(
+        (b): Hit => ({ kind: "broadcast", name: b.name, hint: b.hint }),
+      );
+      const people = members
         .filter((m) => m.name.toLowerCase().includes(q))
         .slice(0, 6)
         .map((m): Hit => ({ kind: "mention", name: m.name, member: m }));
+      return [...broadcasts, ...people];
     }
     return searchShortcodes(trigger.query).map((r): Hit => ({ kind: "emoji", name: r.name, emoji: r.emoji }));
   }, [trigger, members]);
@@ -175,7 +210,7 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     if (!ed || !trigger) return;
     const { caret } = editorState(ed);
     const len = caret - trigger.start;
-    if (hit.kind === "mention") {
+    if (hit.kind === "mention" || hit.kind === "broadcast") {
       // The display name, whole. The server resolves it as written, so what is typed, what is shown
       // and who is notified are the same thing.
       replaceTokenBeforeCaret(len, document.createTextNode(`@${hit.name} `));
@@ -331,7 +366,17 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
               onClick={() => pick(hit)}
               style={{ ...optionStyle, background: idx === activeIdx ? "var(--surface-hover)" : "transparent" }}
             >
-              {hit.kind === "mention" ? (
+              {hit.kind === "broadcast" ? (
+                <>
+                  <span style={broadcastMark} aria-hidden="true">
+                    @
+                  </span>
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block" }}>{hit.name}</span>
+                    <span style={{ display: "block", fontSize: 11, color: "var(--text-subtle)" }}>{hit.hint}</span>
+                  </span>
+                </>
+              ) : hit.kind === "mention" ? (
                 <>
                   <Avatar
                     name={hit.member.name}

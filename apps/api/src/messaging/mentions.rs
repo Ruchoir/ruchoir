@@ -80,9 +80,11 @@ pub fn extract_mention_tokens(body: &str) -> MentionTokens {
         }
         // Folded here so the set holds one spelling per handle: `@Théo`, `@theo` and `@THEO` are
         // the same mention, and the members are compared in the same folded form.
+        // Both languages of the interface, because a French reader writes `@canal`, not `@channel`,
+        // and a token nobody can guess is a token nobody uses.
         match fold_ascii(handle).as_str() {
-            "here" => tokens.here = true,
-            "channel" | "everyone" | "all" => tokens.channel = true,
+            "here" | "ici" => tokens.here = true,
+            "channel" | "everyone" | "all" | "canal" | "tous" => tokens.channel = true,
             other => {
                 tokens.users.insert(other.to_string());
             }
@@ -336,6 +338,15 @@ mod tests {
         let t = extract_mention_tokens("hey @alice can you look?");
         assert!(t.users.contains("alice"));
         assert!(!t.here && !t.channel);
+    }
+
+    #[test]
+    fn broadcast_tokens_are_recognised_in_french_too() {
+        assert!(extract_mention_tokens("@canal on se voit demain").channel);
+        assert!(extract_mention_tokens("@tous bonjour").channel);
+        assert!(extract_mention_tokens("@ici quelqu'un ?").here);
+        // Accents and case fold like any other handle.
+        assert!(extract_mention_tokens("@ICI").here);
     }
 
     #[test]

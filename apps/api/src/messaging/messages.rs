@@ -28,6 +28,7 @@ use crate::entities::{
     user_saved_messages, users,
 };
 use crate::realtime::event::RealtimeEnvelope;
+use crate::realtime::presence;
 use crate::state::AppState;
 
 use super::authz::{self, ConversationKind};
@@ -196,8 +197,24 @@ pub async fn send_message(
 
     let audience = authz::conversation_audience(&state.db, &access).await?;
     let tokens = mentions::extract_mention_tokens(text);
-    let resolved =
+    let mut resolved =
         mentions::resolve_mentions(&state.db, session.user_id, &audience, text, &tokens).await?;
+
+    // `@ici` means the people who are here. The resolver expands it to every member, because it
+    // knows the conversation and not who is connected, so the narrowing happens here, where the
+    // presence heartbeat is reachable. Without it `@ici` and `@canal` did the same thing under two
+    // names, which leaves the reader to guess which one is the loud one.
+    if tokens.here && !tokens.channel {
+        let mut present = Vec::with_capacity(resolved.len());
+        for mention in resolved {
+            let keep = mention.mention_type != "here"
+                || presence::is_online(state.hub.valkey(), mention.user_id).await;
+            if keep {
+                present.push(mention);
+            }
+        }
+        resolved = present;
+    }
 
     // Who to notify: mentions, the other DM participants, and the replied-to author (deduped by
     // priority, never the sender).
