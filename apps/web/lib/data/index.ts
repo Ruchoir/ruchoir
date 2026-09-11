@@ -108,9 +108,28 @@ export function getAvatar(name: string): string | undefined {
   return liveMembers.find((m) => m.name === name)?.avatar;
 }
 
-/** Names that can be @mentioned in the current channel. */
+/**
+ * Every spelling a mention can take, for the renderer to highlight.
+ *
+ * Three per member: the display name, its first word, and the name without its spaces. They are the
+ * same three the server resolves a handle against, and the composer writes one of them. Listing
+ * only the full name left "@Théo" as plain text even though it had reached Théo, which is the kind
+ * of disagreement between what the server did and what the screen shows that makes a feature feel
+ * unreliable.
+ *
+ * The renderer prefers the longest match, so a full name still wins over its first word.
+ */
 export function getMentionNames(): string[] {
-  return liveMembers.map((m) => m.name);
+  const names = new Set<string>();
+  for (const member of liveMembers) {
+    names.add(member.name);
+    const words = member.name.split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      names.add(words[0]);
+      names.add(words.join(""));
+    }
+  }
+  return [...names];
 }
 
 export type {
