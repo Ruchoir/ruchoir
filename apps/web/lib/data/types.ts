@@ -217,13 +217,6 @@ export type Message = {
   deleted?: boolean;
   /** Whether the current user saved (bookmarked) this message. */
   saved?: boolean;
-  /**
-   * Names who have read this message. Data-model implication (to settle before the schema freezes):
-   * a per-message-per-user receipt (this shape, heavy, privacy-sensitive) vs a single
-   * per-channel-per-user read cursor (light, Slack-style). This exploration renders the former
-   * only to visualize it; the storage decision is open.
-   */
-  readBy?: string[];
 };
 
 export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "image" | "folder";

@@ -119,6 +119,10 @@ export type MessageRowProps = {
    * the page.
    */
   grouped?: boolean;
+  /** Display names of the people who have read this message, from the conversation's read cursors. */
+  readBy?: string[];
+  /** How many people other than the reader are in the conversation, so "everyone" can be said. */
+  readAudience?: number;
   /**
    * This message ends its run: nothing below continues it.
    *
@@ -149,7 +153,16 @@ const nameBtn: CSSProperties = {
   color: "var(--text-strong)",
 };
 
-export function MessageRow({ m, authorPresence, authorAvatar, grouped = false, endsRun = true, actions }: MessageRowProps) {
+export function MessageRow({
+  m,
+  authorPresence,
+  authorAvatar,
+  grouped = false,
+  endsRun = true,
+  readBy,
+  readAudience = 0,
+  actions,
+}: MessageRowProps) {
   const [hover, setHover] = useState(false);
   const [reactOpen, setReactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -361,9 +374,14 @@ export function MessageRow({ m, authorPresence, authorAvatar, grouped = false, e
         )}
       </div>
 
-      {hover && !deleted && endsRun ? (
+      {/*
+        Only under our own messages. "Has this been read" is a question about something you sent;
+        under someone else's it reports on third parties to no purpose, which is how it came to be
+        shown everywhere saying "Lu" with nothing behind it.
+      */}
+      {hover && !deleted && isOwn ? (
         <div style={styles.receipt}>
-          <ReadReceipt names={m.readBy} />
+          <ReadReceipt names={readBy} audience={readAudience} />
         </div>
       ) : null}
 

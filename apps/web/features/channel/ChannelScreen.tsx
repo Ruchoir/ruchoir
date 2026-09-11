@@ -232,6 +232,10 @@ export type ChannelScreenProps = {
   typingNames?: string[];
   /** The space's members with live presence and uploaded avatar (member list + message rows). */
   members: { name: string; presence: Presence; bot?: boolean; avatar?: string }[];
+  /** Who has read each message, by display name, keyed by message id. */
+  readBy: Record<string, string[]>;
+  /** How many people other than the reader are in this conversation, for "everyone". */
+  readAudience: number;
   /** The space's files, for the in-channel file panel and search. */
   files: SpaceFile[];
   /** User id of the profile shown in the right panel, when known (enables the real profile fetch). */
@@ -292,6 +296,8 @@ export function ChannelScreen({
   onSaveNotifPref,
   focusMessageId,
   members,
+  readBy,
+  readAudience,
   files,
   dmPresence,
   typingNames,
@@ -529,6 +535,8 @@ export function ChannelScreen({
                 ) : (
                   <MessageRow
                     m={m}
+                    readBy={readBy[m.id]}
+                    readAudience={readAudience}
                     grouped={followsSameAuthor(messages[index - 1], m) && m.id !== unreadMarker}
                     endsRun={
                       !messages[index + 1] ||

@@ -20,6 +20,7 @@ import {
   getFolder,
   getInvitations,
   getNotifications,
+  getReadCursors,
   getSession,
   getSpaceMembers,
   getSpacePresence,
@@ -342,6 +343,16 @@ function AppShell() {
   // map like anyone else's: this used to be hardcoded to "online", so the menu always claimed the
   // user was connected and always looked as though "En ligne" had been picked.
   const [myChoice, setMyChoice] = useState<PresenceChoice>("auto");
+  /**
+   * How far each member has read, per conversation: `{ [conversationId]: { [userId]: messageId } }`.
+   *
+   * Loaded when a conversation is opened and kept live by `read.updated`. It is what turns the read
+   * indicator from a decoration into a fact: it used to render "Lu" under every message on hover,
+   * with nothing behind it.
+   */
+  const [readCursors, setReadCursors] = useState<
+    Record<string, { members: string[]; at: Record<string, string> }>
+  >({});
   const [modal, setModal] = useState<Modal>(null);
   const [channelSettingsId, setChannelSettingsId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
@@ -934,6 +945,17 @@ function AppShell() {
       },
       onTyping: (conv, userId) =>
         setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
+      onReadCursor: (conv, userId, lastReadMessageId) =>
+        setReadCursors((prev) => {
+          const known = prev[conv] ?? { members: [], at: {} };
+          return {
+            ...prev,
+            [conv]: {
+              members: known.members.includes(userId) ? known.members : [...known.members, userId],
+              at: { ...known.at, [userId]: lastReadMessageId },
+            },
+          };
+        }),
     });
     rtRef.current = conn;
     return () => {
@@ -1018,7 +1040,9 @@ function AppShell() {
   const chan: Channel =
     channels.find((c) => c.id === channelId) ??
     ({ id: channelId, name: dm?.name ?? "général", fav: false, unread: 0, type: "public" } as Channel);
-  const feed = messages[channelId] ?? [];
+  // Memoised because the `?? []` branch is a fresh array every render, which would re-run anything
+  // that depends on the feed (the read receipts below) on every render for no reason.
+  const feed = useMemo(() => messages[channelId] ?? [], [messages, channelId]);
 
   // The space's members with live presence overlaid, feeding the member list, the @-mention
   // autocomplete and the people section of search. Falls back to the mock roster before load.
@@ -1046,6 +1070,35 @@ function AppShell() {
     }
   }, [memberRecords, members, presence]);
   const people = memberRecords;
+
+  /**
+   * Who has read each message of the conversation on screen, by display name.
+   *
+   * A cursor names the last message someone read, so everything at or before it in this window has
+   * been read by them. A cursor pointing outside the window is older than everything loaded, which
+   * is the same as having read none of it. Our own cursor is left out: a receipt is what other
+   * people tell you, and reading your own message is not news.
+   */
+  const readBy = useMemo(() => {
+    const conversation = readCursors[channelId] ?? { members: [], at: {} };
+    const position = new Map(feed.map((m, index) => [m.id, index] as const));
+    const out: Record<string, string[]> = {};
+    for (const [userId, messageId] of Object.entries(conversation.at)) {
+      if (userId === session?.id) continue;
+      const upTo = position.get(messageId);
+      if (upTo === undefined) continue;
+      const name = members.find((m) => m.userId === userId)?.name;
+      if (!name) continue;
+      for (let i = 0; i <= upTo; i += 1) {
+        (out[feed[i].id] ??= []).push(name);
+      }
+    }
+    return out;
+  }, [readCursors, channelId, feed, members, session?.id]);
+
+  /** How many people other than us could read this conversation, which is what a count is out of. */
+  const readAudience = Math.max(0, (readCursors[channelId]?.members.length ?? 1) - 1);
+
 
   // Reverse lookup (user id -> display name) for realtime signals that arrive as bare ids (typing,
   // presence), built from the DM counterparts and the authors seen in the loaded feeds.
@@ -1490,6 +1543,24 @@ function AppShell() {
     // Opening a conversation marks it read: clears its unread badge, its notifications and advances
     // the read cursor.
     markConversationRead(id);
+    // And asks where everyone else has read up to, which is what the read indicator draws. Live
+    // afterwards, through `read.updated`.
+    void getReadCursors(id)
+      .then((cursors) =>
+        setReadCursors((prev) => ({
+          ...prev,
+          [id]: {
+            // Everyone who could read, so "everyone has" can be told from "three of them have".
+            members: cursors.map((c) => c.userId),
+            at: Object.fromEntries(
+              cursors
+                .filter((c) => c.lastReadMessageId)
+                .map((c) => [c.userId, c.lastReadMessageId as string]),
+            ),
+          },
+        })),
+      )
+      .catch(() => {});
   };
 
   /** Switch the right panel, closing the thread and profile views so it is visible. */
@@ -2233,6 +2304,8 @@ function AppShell() {
     >
       {view === "channel" ? (
         <ChannelScreen
+          readBy={readBy}
+          readAudience={readAudience}
           channel={chan}
           dm={dm}
           messages={feed}
