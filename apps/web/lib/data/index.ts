@@ -45,20 +45,56 @@ export function getPresence(name: string): Presence {
 type MemberRecord = { name: string; presence: Presence; bot?: boolean; avatar?: string };
 
 /**
- * Live member roster, populated once the real space members are loaded. Kept here (not threaded
- * through props) because the `@`-mention autocomplete and a couple of dialogs read it synchronously.
- * Empty until loaded.
+ * Live member roster for the space on screen, read synchronously by the `@`-mention autocomplete
+ * and a couple of dialogs rather than threaded through props.
+ *
+ * It is a *store*, not a variable, and the difference is the whole point: readers subscribe, so
+ * they see the space they are in. Read as a plain variable it froze at whatever was loaded when the
+ * reader first rendered, and the composer went on offering the people of the first space opened,
+ * in every space after it. Names of colleagues who are not in the room is not a cosmetic defect.
+ *
+ * Empty until a space is loaded, and emptied again while switching, because the people of the space
+ * being left are not a usable approximation of the people of the space being entered.
  */
-let liveMembers: MemberRecord[] = [];
+const NO_MEMBERS: MemberRecord[] = [];
 
-/** Replace the member roster with the real space members. */
+let liveMembers: MemberRecord[] = NO_MEMBERS;
+
+const directoryListeners = new Set<() => void>();
+
+/**
+ * Replace the roster with the members of the space on screen.
+ *
+ * The presence map keyed by display name goes with it: it describes these people, and a name from
+ * another space surviving here is the same leak by a different route.
+ */
 export function setChannelMembers(members: MemberRecord[]): void {
   liveMembers = members;
+  for (const name of Object.keys(presenceOverride)) delete presenceOverride[name];
+  for (const listener of directoryListeners) listener();
 }
 
-/** Channel members (for mention autocomplete and member dialogs). */
+/** Subscribe to roster changes, for `useSyncExternalStore`. */
+export function subscribeToDirectory(onChange: () => void): () => void {
+  directoryListeners.add(onChange);
+  return () => {
+    directoryListeners.delete(onChange);
+  };
+}
+
+/**
+ * Channel members (for mention autocomplete and member dialogs).
+ *
+ * The same array is returned until it is actually replaced, which is what lets it be a snapshot:
+ * a fresh array on every call would loop a subscriber forever.
+ */
 export function getChannelMembers(): MemberRecord[] {
   return liveMembers;
+}
+
+/** The snapshot for a render with no browser behind it: nobody, rather than someone stale. */
+export function getServerDirectory(): MemberRecord[] {
+  return NO_MEMBERS;
 }
 
 /**
