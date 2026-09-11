@@ -1026,6 +1026,23 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
   };
 }
 
+/** One member's read cursor in a conversation. */
+export type ReadCursor = { userId: string; lastReadMessageId?: string };
+
+/**
+ * `GET /conversations/{id}/read`: how far each member has read.
+ *
+ * One cursor per person, not a receipt per message: combined with the order of the messages it
+ * answers the same question, which is who has seen a given one.
+ */
+export async function getReadCursors(conversationId: string, signal?: AbortSignal): Promise<ReadCursor[]> {
+  const rows = await apiGet<{ user_id: string; last_read_message_id?: string }[]>(
+    `/conversations/${conversationId}/read`,
+    signal,
+  );
+  return rows.map((r) => ({ userId: r.user_id, lastReadMessageId: r.last_read_message_id }));
+}
+
 /** `GET /notifications`: the caller's in-app notification inbox. */
 export async function getNotifications(
   opts: { unread?: boolean; before?: string; limit?: number } = {},
@@ -1259,6 +1276,8 @@ export type RealtimeHandlers = {
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
+  /** Someone's read cursor moved in a conversation the recipient belongs to. */
+  onReadCursor?: (conversationId: string, userId: string, lastReadMessageId: string) => void;
 };
 
 /** A live realtime connection: close it on teardown, and signal typing over it. */
@@ -1366,8 +1385,11 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       case "typing":
         handlers.onTyping?.(conv, String(payload.user_id));
         break;
+      case "read.updated":
+        handlers.onReadCursor?.(conv, String(payload.user_id), String(payload.last_read_message_id));
+        break;
       default:
-        // Unhandled event types (saved, read cursor) are ignored for now.
+        // Unhandled event types (saved) are ignored for now.
         break;
     }
   };
