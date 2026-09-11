@@ -773,6 +773,7 @@ function toMessage(dto: MessageDto): ApiMessage {
     author: dto.author_name ?? "",
     authorId: dto.author_id ?? undefined,
     time: formatTimestamp(dto.created_at),
+    createdAt: dto.created_at,
     body:
       dto.kind === "system" && !dto.body ? systemMessageText(dto.system_event, dto.author_name) : dto.body,
     systemIcon: dto.kind === "system" ? iconForSystemEvent(dto.system_event) : undefined,

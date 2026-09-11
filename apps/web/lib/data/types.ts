@@ -195,6 +195,14 @@ export type Message = {
   /** Author's user id, when known (absent for system messages and optimistic local rows). */
   authorId?: string;
   time: string;
+  /**
+   * When it was sent, as the API gives it (RFC 3339).
+   *
+   * `time` is for reading and has already lost the day and the seconds, so it cannot answer "were
+   * these two sent within five minutes of each other", which is what decides whether consecutive
+   * messages from one person are drawn as one block.
+   */
+  createdAt?: string;
   body: string;
   /** Icon for a system message. */
   systemIcon?: string;
