@@ -4,7 +4,7 @@ import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Dialog, Field, Icon, Input, Radio, Select } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { ChannelType, Invitation } from "@/lib/data";
-import { ChannelRoleAccess } from "@/features/channel/ChannelRoleAccess";
+import { ChannelAccess } from "@/features/channel/ChannelAccess";
 import { COMMANDS, formatChord, isMac } from "./shortcuts";
 import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
@@ -75,28 +75,16 @@ export function NewChannelDialog({
             }}
           />
         </Field>
-        <Field label={t("channel.visibility")}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <Radio
-              name="ch-type"
-              checked={type === "public"}
-              onChange={() => setType("public")}
-              label={t("channel.public")}
-              description={t("channel.publicHint")}
-            />
-            <Radio
-              name="ch-type"
-              checked={type === "private"}
-              onChange={() => setType("private")}
-              label={t("channel.private")}
-              description={t("dialogs.privateHint")}
-            />
-          </div>
-        </Field>
         <Field label={t("channel.topic")} optional htmlFor="ch-topic">
           <Input id="ch-topic" placeholder={t("channel.topicPlaceholder")} value={topic} onChange={(e) => setTopic(e.target.value)} />
         </Field>
-        <ChannelRoleAccess value={allowedRoles} onChange={setAllowedRoles} myRole={myRole} />
+        <ChannelAccess
+          type={type}
+          onTypeChange={setType}
+          allowedRoles={allowedRoles}
+          onRolesChange={setAllowedRoles}
+          myRole={myRole}
+        />
       </div>
     </Dialog>
   );

@@ -3,7 +3,7 @@
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
 import { getAvatar, getChannelMembers } from "@/lib/data";
-import { getConversationFiles, getPinnedMessages } from "@/lib/data/api";
+import { getConversationFiles, getPinnedMessages, listChannelMembers } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { useProfile } from "../app/useProfile";
@@ -326,7 +326,38 @@ export function ChannelScreen({
   const isDm = !!dm;
   // An archived channel is read-only: the API refuses new messages, so the composer gives way to a note.
   const isArchived = !isDm && channel.type === "archived";
-  const memberList: ChannelMember[] = members.map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot, avatar: m.avatar }));
+  /**
+   * Who is actually in this channel.
+   *
+   * The panel is called "channel members" and was drawing the whole *space* roster, so a private
+   * channel with one person in it announced eight, and a channel reserved to administrators listed
+   * the people it is reserved from. The space roster is still what the rest of the screen resolves
+   * authors and mentions against; only this list is the channel's own.
+   *
+   * A direct message has no roster endpoint: its people are the ones it is with, which the sidebar
+   * row already names.
+   */
+  const [roster, setRoster] = useState<{ channelId: string; names: string[] } | null>(null);
+  useEffect(() => {
+    if (isDm) return;
+    let active = true;
+    listChannelMembers(channel.id)
+      .then((rows) => active && setRoster({ channelId: channel.id, names: rows.map((m) => m.name) }))
+      // A failed roster leaves the panel on the space list rather than on nothing: it is the same
+      // approximation the screen has always shown, and it is never the reason to hide the panel.
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [channel.id, isDm]);
+
+  // Derived, not reset in the effect: a roster still carrying the previous channel's id is simply
+  // not this channel's answer yet, which is the same thing as not having one.
+  const channelRoster = roster?.channelId === channel.id ? roster.names : null;
+  const inChannel = (name: string) => channelRoster === null || channelRoster.includes(name);
+  const memberList: ChannelMember[] = members
+    .filter((m) => isDm || inChannel(m.name))
+    .map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot, avatar: m.avatar }));
   const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
   // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one
   // place that holds the picture. Absent means the locally generated avatar, which is the default.

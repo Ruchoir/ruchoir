@@ -9,7 +9,7 @@ import type { Channel, ChannelType } from "@/lib/data";
 import type { Member } from "@/lib/data/api";
 import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import type { Toast } from "../app/types";
-import { ChannelRoleAccess } from "./ChannelRoleAccess";
+import { ChannelAccess } from "./ChannelAccess";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 /**
@@ -135,13 +135,14 @@ export function ChannelSettingsDialog({
         <Field label={t("channel.topic")} optional htmlFor="cs-topic">
           <Input id="cs-topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={t("channel.topicPlaceholder")} />
         </Field>
-        <Field label={t("channel.visibility")}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <Radio name="cs-type" checked={type === "public"} disabled={archived} onChange={() => setType("public")} label={t("channel.public")} description={t("channel.publicHint")} />
-            <Radio name="cs-type" checked={type === "private"} disabled={archived} onChange={() => setType("private")} label={t("channel.private")} description={t("channel.privateHint")} />
-          </div>
-        </Field>
-        <ChannelRoleAccess value={allowedRoles} onChange={setAllowedRoles} myRole={myRole} />
+        <ChannelAccess
+          type={type}
+          onTypeChange={setType}
+          allowedRoles={allowedRoles}
+          onRolesChange={setAllowedRoles}
+          myRole={myRole}
+          disabled={archived}
+        />
 
         <Field label={t("channel.membersAndAccess", { count: members?.length ?? 0 })}>
           {rosterError ? (
