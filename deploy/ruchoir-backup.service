@@ -1,0 +1,17 @@
+# Nightly backup of a Ruchoir instance. Paired with ruchoir-backup.timer.
+#
+# Copy both to /etc/systemd/system/, adjust WorkingDirectory if the instance does not live in
+# /opt/ruchoir, then: systemctl enable --now ruchoir-backup.timer
+[Unit]
+Description=Ruchoir instance backup
+Documentation=file:///opt/ruchoir/docs/backup.md
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ruchoir
+ExecStart=/opt/ruchoir/scripts/backup.sh
+# The script reads .env itself; nothing secret is named here.
+Nice=10
+IOSchedulingClass=idle
