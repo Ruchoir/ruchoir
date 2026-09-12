@@ -1,22 +1,18 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useRef, useState } from "react";
-import { Avatar, Button, Card, Checkbox, Dialog, Field, Icon, IconButton, Input, Select, Switch, Tag } from "@/components/ds";
+import { type CSSProperties, type ReactNode, useRef, useState, useSyncExternalStore } from "react";
+import { Avatar, Button, Card, Field, Icon, IconButton, Input, Select, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setSpaceIcon } from "@/lib/data/api";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { getAvatar } from "@/lib/data";
 
-type NavKey = "general" | "members" | "notifs" | "imports" | "storage" | "security";
+type NavKey = "general" | "members";
 
 const NAV: [NavKey, string, string][] = [
   ["general", "Général", "settings"],
   ["members", "Membres", "users"],
-  ["notifs", "Notifications", "bell"],
-  ["imports", "Imports", "import"],
-  ["storage", "Stockage", "hard-drive"],
-  ["security", "Sécurité", "shield"],
 ];
 
 const st: Record<string, CSSProperties> = {
@@ -139,7 +135,13 @@ export function WorkspaceSettings({
   compact = false,
 }: WorkspaceSettingsProps) {
   const [tab, setTab] = useState<NavKey>("general");
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // Read as what it is: a value owned by the browser. Empty for the static export's render, which
+  // has no location, so nothing flashes a guessed address before the real one.
+  const serverAddress = useSyncExternalStore(
+    () => () => {},
+    () => window.location.host,
+    () => "",
+  );
   /** A local change since the space was loaded: a URL just uploaded, `null` just removed. */
   const [iconOverride, setIconOverride] = useState<string | null | undefined>(undefined);
   const [iconBusy, setIconBusy] = useState(false);
@@ -298,26 +300,13 @@ export function WorkspaceSettings({
                     ) : null}
                   </div>
                 </Field>
-                <Field label="Adresse du serveur" hint="Modifiable par un administrateur système uniquement" htmlFor="wu">
-                  <Input id="wu" defaultValue="atelier.ruchoir.fr" disabled />
-                </Field>
-                <Field label="Langue par défaut" htmlFor="wl">
-                  <Select id="wl" options={["Français", "English", "Deutsch", "Español"]} />
-                </Field>
-                <Field label="Fuseau horaire" htmlFor="wt">
-                  <Select id="wt" options={["Europe/Paris", "Europe/Bruxelles", "Atlantique/Reykjavik"]} />
+                <Field label="Adresse du serveur" hint="Définie à l'installation de l'instance" htmlFor="wu">
+                  {/* Read from the page rather than stored: this client is served by the instance it
+                      is describing, so its own address is the answer. It used to show a name that
+                      was invented, and therefore wrong everywhere. */}
+                  <Input id="wu" value={serverAddress} readOnly disabled />
                 </Field>
               </div>
-              <div style={st.sect}>Comportement</div>
-              <SettingRow title="Créer des canaux librement" desc="Tous les membres peuvent créer des canaux publics.">
-                <Switch defaultChecked />
-              </SettingRow>
-              <SettingRow title="Archiver les canaux inactifs" desc="Après 180 jours sans message, le canal passe en archive.">
-                <Switch defaultChecked />
-              </SettingRow>
-              <SettingRow title="Rendre l'espace découvrable" desc="Les personnes de votre domaine peuvent demander à rejoindre.">
-                <Switch />
-              </SettingRow>
             </>
           ) : null}
 
@@ -379,172 +368,9 @@ export function WorkspaceSettings({
             </>
           ) : null}
 
-          {tab === "notifs" ? (
-            <>
-              <h2 style={st.h}>Notifications</h2>
-              <p style={st.sub}>Réglages appliqués à votre compte sur cet espace.</p>
-              <div style={st.sect}>Bureau</div>
-              <SettingRow title="Notifications sur le bureau" desc="Mentions directes et messages privés.">
-                <Switch defaultChecked />
-              </SettingRow>
-              <SettingRow title="Aperçu du message" desc="Afficher le début du message dans la notification.">
-                <Switch />
-              </SettingRow>
-              <SettingRow title="Son à la réception">
-                <Switch defaultChecked />
-              </SettingRow>
-              <div style={st.sect}>Heures calmes</div>
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-end", maxWidth: 420 }}>
-                <Field label="De" htmlFor="q1">
-                  <Input id="q1" defaultValue="19:00" />
-                </Field>
-                <Field label="À" htmlFor="q2">
-                  <Input id="q2" defaultValue="08:30" />
-                </Field>
-                <Field label="Jours" htmlFor="q3">
-                  <Select id="q3" options={["Tous les jours", "Jours ouvrés", "Week-end"]} />
-                </Field>
-              </div>
-            </>
-          ) : null}
-
-          {tab === "imports" ? (
-            <>
-              <h2 style={st.h}>Imports</h2>
-              <p style={st.sub}>Historique des migrations vers cet espace.</p>
-              <Card>
-                {(
-                  [
-                    ["Slack", "Terminé", "14 janv. 2026", "8 912 messages · 143 fichiers", "success", "check"],
-                    ["Mattermost", "Terminé", "3 févr. 2026", "2 104 messages · 38 fichiers", "success", "check"],
-                    ["Nextcloud", "En cours", "Aujourd'hui, 08:12", "4,7 Go sur 11 Go", "warning", "clock"],
-                  ] as const
-                ).map(([n, s, d, det, tone, icon], i) => (
-                  <div
-                    key={n}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "12px 14px",
-                      borderTop: i ? "1px solid var(--border-subtle)" : "none",
-                    }}
-                  >
-                    <Icon name="import" size={18} style={{ color: "var(--text-muted)" }} />
-                    <span style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{n}</div>
-                      <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{det}</div>
-                    </span>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{d}</span>
-                    <Tag tone={tone} icon={icon}>
-                      {s}
-                    </Tag>
-                  </div>
-                ))}
-              </Card>
-              <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12 }}>
-                Un import terminé peut être annulé pendant 30 jours ; les contenus repris sont alors supprimés.
-              </p>
-            </>
-          ) : null}
-
-          {tab === "storage" ? (
-            <>
-              <h2 style={st.h}>Stockage</h2>
-              <p style={st.sub}>11,4 Go utilisés sur 200 Go.</p>
-              <div style={{ height: 8, borderRadius: 999, background: "var(--grey-100)", overflow: "hidden", maxWidth: 520, display: "flex" }}>
-                <div style={{ width: "42%", background: "var(--terracotta-500)" }} />
-                <div style={{ width: "14%", background: "var(--terracotta-200)" }} />
-              </div>
-              <div style={{ display: "flex", gap: 18, marginTop: 10, fontSize: 12, color: "var(--text-muted)" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--terracotta-500)" }} />
-                  Fichiers 8,1 Go
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: "var(--terracotta-200)" }} />
-                  Historique importé 3,3 Go
-                </span>
-              </div>
-              <div style={st.sect}>Rétention</div>
-              <div style={{ maxWidth: 420, display: "flex", flexDirection: "column", gap: 14 }}>
-                <Field label="Conserver les messages" htmlFor="r1">
-                  <Select id="r1" options={["Indéfiniment", "5 ans", "3 ans", "1 an"]} />
-                </Field>
-                <Checkbox label="Supprimer les fichiers des canaux archivés" description="90 jours après l'archivage" />
-              </div>
-            </>
-          ) : null}
-
-          {tab === "security" ? (
-            <>
-              <h2 style={st.h}>Sécurité</h2>
-              <p style={st.sub}>Accès, sessions et journalisation.</p>
-              <SettingRow title="Authentification à deux facteurs obligatoire" desc="Pour tous les membres, hors invités externes.">
-                <Switch defaultChecked />
-              </SettingRow>
-              <SettingRow title="Authentification unique (SSO)" desc="Connecté à Keycloak sur auth.atelier-nantes.fr.">
-                <Switch defaultChecked />
-              </SettingRow>
-              <SettingRow title="Chiffrement des fichiers au repos" desc="AES-256 côté serveur.">
-                <Switch defaultChecked />
-              </SettingRow>
-              <SettingRow title="Journal d'audit exportable" desc="Format CSV, 12 mois glissants.">
-                <Switch />
-              </SettingRow>
-              <div
-                style={{
-                  marginTop: 24,
-                  padding: 14,
-                  border: "1px solid var(--status-danger-border)",
-                  background: "var(--status-danger-bg)",
-                  borderRadius: "var(--radius-md)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                }}
-              >
-                <span style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--status-danger-fg)" }}>Supprimer l&apos;espace</div>
-                  <div style={{ fontSize: 12, color: "var(--status-danger-fg)", opacity: 0.85 }}>
-                    Les 8 912 messages et 143 fichiers seront effacés après 30 jours.
-                  </div>
-                </span>
-                <Button variant="danger" iconLeft="trash-2" onClick={() => setConfirmDelete(true)}>
-                  Supprimer
-                </Button>
-              </div>
-            </>
-          ) : null}
         </div>
       </div>
 
-      <Dialog
-        open={confirmDelete}
-        title="Supprimer l'espace ?"
-        size="sm"
-        onClose={() => setConfirmDelete(false)}
-        footer={
-          <>
-            <Button onClick={() => setConfirmDelete(false)}>Annuler</Button>
-            <Button
-              variant="danger"
-              iconLeft="trash-2"
-              onClick={() => {
-                setConfirmDelete(false);
-                onNotify({ tone: "warning", title: "Suppression programmée", description: `L'espace ${workspaceName} sera effacé dans 30 jours.` });
-              }}
-            >
-              Supprimer l&apos;espace
-            </Button>
-          </>
-        }
-      >
-        <p style={{ fontSize: 13, color: "var(--text-body)" }}>
-          Cette action programme l&apos;effacement de {workspaceName} et de tous ses contenus après un délai de 30 jours.
-          Vous pouvez l&apos;annuler pendant ce délai.
-        </p>
-      </Dialog>
 
       {cropping ? (
         <ImageCropDialog
