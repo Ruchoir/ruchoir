@@ -29,6 +29,7 @@ import type {
   InlineImage,
   Invitation,
   InvitationPreview,
+  InvitationStatus,
   Message,
   MessageAttachment,
   MessageKind,
@@ -49,6 +50,8 @@ type UserSummaryDto = {
   active: boolean;
   /** The caller's own availability choice; absent means automatic. Never sent for anyone else. */
   manual_presence?: string;
+  /** Whether this account administers the instance. */
+  is_instance_admin?: boolean;
   timezone?: string;
 };
 
@@ -138,6 +141,7 @@ type UserProfileDto = {
   timezone?: string;
   bio?: string;
   is_bot: boolean;
+  is_instance_admin?: boolean;
 };
 
 // --- Session / auth ---
@@ -148,6 +152,8 @@ export type SessionUser = {
   email: string;
   name: string;
   presenceChoice: PresenceChoice;
+  /** Whether this account administers the instance, which is what opens the recovery screen. */
+  isInstanceAdmin: boolean;
   /** The account's timezone; absent when it has never had one. */
   timezone?: string;
 };
@@ -163,6 +169,7 @@ function toSessionUser(dto: UserSummaryDto): SessionUser {
     email: dto.email,
     name: dto.display_name,
     presenceChoice: toPresenceChoice(dto.manual_presence),
+    isInstanceAdmin: dto.is_instance_admin === true,
     timezone: dto.timezone,
   };
 }
@@ -381,6 +388,96 @@ export async function confirmPasswordReset(token: string, password: string): Pro
   await apiPost<void>("/auth/password-reset/confirm", { token, password });
 }
 
+/**
+ * `POST /auth/password-reset/recovery`: take the account back with a recovery code.
+ *
+ * The path for an instance that cannot send email, and for anyone whose mailbox is out of reach.
+ * The code is spent whether or not it is ever used again, and every session of the account is
+ * dropped, exactly as for an emailed reset.
+ */
+export async function resetPasswordWithRecoveryCode(email: string, code: string, password: string): Promise<void> {
+  await apiPost<void>("/auth/password-reset/recovery", { email, code, password });
+}
+
+// --- What this instance can do ---
+
+/** What the instance supports, as far as a client needs to know before signing in. */
+export type InstanceCapabilities = {
+  /** Whether a mail relay is configured. False means every emailed flow is a dead end. */
+  emailDelivery: boolean;
+};
+
+/**
+ * `GET /instance`: the instance's capabilities, without a session.
+ *
+ * Running with no mail relay is a supported configuration, so screens that would otherwise promise
+ * a message ask this first and offer the other way in instead.
+ */
+export async function getInstanceCapabilities(signal?: AbortSignal): Promise<InstanceCapabilities> {
+  const dto = await apiGet<{ email_delivery: boolean }>("/instance", signal);
+  return { emailDelivery: dto.email_delivery };
+}
+
+// --- Instance administration ---
+
+/** An account as the recovery screen lists it. */
+export type AdminUser = {
+  id: string;
+  email: string;
+  name: string;
+  /** `pending`, `active` or `locked`. */
+  status: string;
+  isInstanceAdmin: boolean;
+};
+
+/**
+ * `GET /admin/users?query=`: find an account to act on. Instance administrators only; to anyone
+ * else the route answers 404, so a caller who is not one sees no administration surface at all.
+ */
+export async function searchAccounts(query: string, signal?: AbortSignal): Promise<AdminUser[]> {
+  const rows = await apiGet<
+    { id: string; email: string; display_name: string; status: string; is_instance_admin: boolean }[]
+  >(`/admin/users?query=${encodeURIComponent(query)}`, signal);
+  return rows.map((dto) => ({
+    id: dto.id,
+    email: dto.email,
+    name: dto.display_name,
+    status: dto.status,
+    isInstanceAdmin: dto.is_instance_admin,
+  }));
+}
+
+/**
+ * `POST /admin/users/{id}/password-reset`: issue a single-use reset link for someone locked out.
+ *
+ * The link is returned once and never retrievable again, and the account's current password keeps
+ * working until its holder uses it.
+ */
+export async function issuePasswordResetLink(userId: string): Promise<{ url: string; expiresInSecs: number }> {
+  const dto = await apiPost<{ url: string; expires_in_secs: number }>(`/admin/users/${userId}/password-reset`);
+  return { url: dto.url, expiresInSecs: dto.expires_in_secs };
+}
+
+/** What an administrator has decided for the whole instance. */
+export type InstanceSettings = {
+  /** Whether the interface tells everyone who administers the instance. */
+  showInstanceAdmins: boolean;
+};
+
+/** `GET /admin/settings`: the instance's settings. Instance administrators only. */
+export async function getInstanceSettings(signal?: AbortSignal): Promise<InstanceSettings> {
+  const dto = await apiGet<{ show_instance_admins: boolean }>("/admin/settings", signal);
+  return { showInstanceAdmins: dto.show_instance_admins };
+}
+
+/** `PATCH /admin/settings`: change them. Fields left out are left alone. */
+export async function updateInstanceSettings(patch: Partial<InstanceSettings>): Promise<InstanceSettings> {
+  const dto = await apiPatch<{ show_instance_admins: boolean }>("/admin/settings", {
+    show_instance_admins: patch.showInstanceAdmins,
+  });
+  return { showInstanceAdmins: dto.show_instance_admins };
+}
+
 // --- Second factor at sign-in ---
 
 /**
@@ -506,6 +603,7 @@ type InvitationDto = {
   expires_at?: string;
   created_at: string;
   usable: boolean;
+  status?: string;
 };
 
 type CreatedInvitationDto = InvitationDto & { url: string; emailed: boolean };
@@ -523,7 +621,21 @@ function toInvitation(dto: InvitationDto): Invitation {
     expiresAt: dto.expires_at,
     createdAt: dto.created_at,
     usable: dto.usable,
+    status: toInvitationStatus(dto),
   };
+}
+
+/** Statuses the API sends, with a fallback for an API older than the field. */
+function toInvitationStatus(dto: InvitationDto): InvitationStatus {
+  switch (dto.status) {
+    case "accepted":
+    case "revoked":
+    case "expired":
+    case "active":
+      return dto.status;
+    default:
+      return dto.usable ? "active" : "expired";
+  }
 }
 
 /**
@@ -758,6 +870,7 @@ export async function getUserProfile(userId: string, signal?: AbortSignal): Prom
     pronouns: dto.pronouns,
     bio: dto.bio,
     bot: dto.is_bot || undefined,
+    instanceAdmin: dto.is_instance_admin || undefined,
     avatarUrl: dto.avatar_url,
   };
 }

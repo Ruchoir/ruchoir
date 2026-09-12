@@ -105,6 +105,35 @@ pub(crate) async fn api_health(State(state): State<AppState>) -> Json<ApiHealth>
     })
 }
 
+/// What a client can count on from this instance, before it has a session.
+///
+/// Today it carries one fact, and one that matters: whether the instance can send email. A sign-in
+/// screen cannot guess it, and offering "we will email you a reset link" on an instance with no
+/// relay sends someone to wait for a message that will never arrive. Running without a relay is a
+/// supported configuration, not a misconfiguration, so the interface has to be able to say so.
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct InstanceCapabilities {
+    /// Whether an SMTP relay is configured. When false, every flow that would depend on a message
+    /// arriving has an alternative the interface offers instead.
+    email_delivery: bool,
+}
+
+/// Public description of the instance. Deliberately unauthenticated: the screens that need it are
+/// the ones shown before anyone has signed in.
+#[utoipa::path(
+    get,
+    path = "/api/v1/instance",
+    tag = "health",
+    responses((status = 200, description = "What this instance supports", body = InstanceCapabilities))
+)]
+pub(crate) async fn instance_capabilities(
+    State(state): State<AppState>,
+) -> Json<InstanceCapabilities> {
+    Json(InstanceCapabilities {
+        email_delivery: state.mailer.can_send(),
+    })
+}
+
 /// Build the full application router.
 ///
 /// Order of concerns:
@@ -170,6 +199,7 @@ pub fn router(state: AppState) -> Router {
     let mut router = Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/health", get(api_health))
+        .route("/api/v1/instance", get(instance_capabilities))
         .route("/api/openapi.json", get(crate::openapi::openapi_json))
         .nest("/api/v1/auth", auth_routes)
         // The messaging REST surface and the real-time transport use absolute `/api/v1/...` paths
@@ -177,6 +207,9 @@ pub fn router(state: AppState) -> Router {
         // blanket auth layer is needed. Merging (not a second `/api/v1` nest) avoids path overlap
         // with the health route and the auth nest above.
         .merge(crate::messaging::routes::router())
+        // Instance administration: guarded per request by the instance-admin flag, and invisible
+        // (a flat 404) to everyone else.
+        .merge(crate::admin::router())
         .merge(crate::realtime::routes::router())
         // The files surface (tree, upload/versions, download/preview/thumbnail, shares). Its upload
         // routes carry a raised request-body limit sized from the configured cap plus a small

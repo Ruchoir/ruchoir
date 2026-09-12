@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Icon, IconButton, Input, Select, Textarea } from "@/components/ds";
+import { Avatar, Button, Icon, IconButton, Input, Select, Tag, Textarea } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import type { Profile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
@@ -281,6 +281,15 @@ export function ProfilePanel({
             <span style={{ width: 9, height: 9, borderRadius: "var(--radius-full)", background: `var(--presence-${shownPresence})` }} />
             {presenceLabel(shownPresence)}
           </div>
+          {/* The person to ask when an account has to be handed back. Recovery without a mail relay
+              ends there, so being able to recognize them is part of the path working. */}
+          {p.instanceAdmin ? (
+            <div style={{ marginTop: 8 }}>
+              <Tag tone="accent" icon="shield">
+                Administrateur de l&apos;instance
+              </Tag>
+            </div>
+          ) : null}
           <div style={{ marginTop: 10, width: "100%" }}>
             {isOwn ? (
               editing ? null : (
