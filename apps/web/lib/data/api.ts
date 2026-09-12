@@ -95,6 +95,7 @@ type AttachmentDto = {
   image_width?: number;
   image_height?: number;
   alt_text?: string;
+  deleted?: boolean;
 };
 
 type MessageDto = {
@@ -870,6 +871,19 @@ function splitAttachments(attachments: AttachmentDto[]): {
   let attachment: MessageAttachment | undefined;
   let image: InlineImage | undefined;
   for (const a of attachments) {
+    // A file removed from the space keeps its place in the message, without a link: every URL to
+    // its bytes answers 404, and an image whose source 404s is a broken frame rather than an
+    // absence. What the message carried is still worth saying; what it carried is simply gone.
+    if (a.deleted) {
+      attachment ??= {
+        fileId: a.file_id,
+        name: a.name,
+        size: formatSize(a.size_bytes),
+        kind: attachmentIcon(a.kind),
+        deleted: true,
+      };
+      continue;
+    }
     if (!image && a.kind === "image" && a.image_width && a.image_height) {
       image = {
         alt: a.alt_text ?? a.name,

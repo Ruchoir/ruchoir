@@ -114,6 +114,14 @@ pub struct AttachmentDto {
     pub image_height: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub alt_text: Option<String>,
+    /// The file has since been removed from the space.
+    ///
+    /// The attachment is still reported, because the message said something by carrying it and a
+    /// silent disappearance reads as a bug. What changes is that the client must not offer to open
+    /// bytes that are gone: every link to them answers 404, which is what a deleted attachment
+    /// looked like before this field existed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub deleted: bool,
 }
 
 impl AttachmentDto {
@@ -134,6 +142,7 @@ impl AttachmentDto {
             image_width: version.and_then(|v| v.image_width),
             image_height: version.and_then(|v| v.image_height),
             alt_text,
+            deleted: file.deleted_at.is_some(),
         }
     }
 }

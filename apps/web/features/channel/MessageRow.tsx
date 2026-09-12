@@ -310,7 +310,29 @@ export function MessageRow({
             {m.link ? <LinkPreviewCard link={m.link} /> : null}
             {m.image ? <InlineImage image={m.image} /> : null}
 
-            {m.attachment ? (
+            {m.attachment?.deleted ? (
+              // The file is gone from the space. The message keeps the trace, quietly and without
+              // controls: it explains a conversation that refers to something no longer there.
+              <div style={{ marginTop: 8, maxWidth: 360 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 10px",
+                    borderRadius: "var(--radius-md)",
+                    border: "1px dashed var(--border-default)",
+                    color: "var(--text-subtle)",
+                    fontSize: 13,
+                  }}
+                >
+                  <Icon name="trash-2" size={14} />
+                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    Fichier supprimé · {m.attachment.name}
+                  </span>
+                </div>
+              </div>
+            ) : m.attachment ? (
               <div style={{ marginTop: 8, maxWidth: 360 }}>
                 <Card
                   variant="interactive"
