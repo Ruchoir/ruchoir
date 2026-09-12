@@ -134,9 +134,11 @@ export type WorkspaceSettingsProps = {
   spaceId: string;
   /** Its current icon, when one was uploaded. */
   iconUrl?: string;
-  /** Whether the caller may change the icon or the name. The API is the real guard; this hides a
-   * dead control. */
-  canAdminister: boolean;
+  /**
+   * Whether the caller may change the space's identity: its name and its icon. The owner alone, who
+   * holds the space; an administrator runs it. The API is the real guard; this hides a dead control.
+   */
+  canEditIdentity: boolean;
   members: {
     /** Needed to address the membership: a role is changed by id, never by display name. */
     userId: string;
@@ -185,7 +187,7 @@ export function WorkspaceSettings({
   workspaceName,
   spaceId,
   iconUrl,
-  canAdminister,
+  canEditIdentity,
   members,
   myRole,
   onChangeRole,
@@ -321,7 +323,7 @@ export function WorkspaceSettings({
                 <Field label={t("space.icon")}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <Avatar name={workspaceName} src={icon} kind="workspace" size={48} />
-                    {canAdminister ? (
+                    {canEditIdentity ? (
                       <>
                         <Button
                           size="sm"
@@ -340,7 +342,7 @@ export function WorkspaceSettings({
                       </>
                     ) : (
                       <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                        {t("space.adminsOnlyIcon")}
+                        {t("space.ownerOnlyIcon")}
                       </span>
                     )}
                     <input
@@ -355,9 +357,9 @@ export function WorkspaceSettings({
                 <Field
                   label={t("space.name")}
                   hint={
-                    canAdminister
+                    canEditIdentity
                       ? t("space.addressFollowsName")
-                      : t("space.adminsOnlyRename")
+                      : t("space.ownerOnlyRename")
                   }
                   htmlFor="wn"
                 >
@@ -365,11 +367,11 @@ export function WorkspaceSettings({
                     <Input
                       id="wn"
                       value={name}
-                      disabled={!canAdminister || nameBusy}
+                      disabled={!canEditIdentity || nameBusy}
                       onChange={(e) => setName(e.target.value)}
                       style={{ flex: 1 }}
                     />
-                    {canAdminister ? (
+                    {canEditIdentity ? (
                       <Button
                         size="sm"
                         variant="secondary"

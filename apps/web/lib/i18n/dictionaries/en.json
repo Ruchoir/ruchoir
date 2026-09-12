@@ -708,10 +708,8 @@
     "bots_one": "{{count}} bot",
     "bots_other": "{{count}} bots",
     "changeIcon": "Change the icon",
-    "adminsOnlyIcon": "Only space administrators can change it.",
     "name": "Space name",
     "addressFollowsName": "The space address will follow the name. The old ones keep working.",
-    "adminsOnlyRename": "Only space administrators can rename it.",
     "serverAddress": "Server address",
     "setAtInstall": "Set when the instance was installed",
     "leave": "Leave the space",
@@ -736,7 +734,9 @@
     "removeNamed": "Remove {{name}} from the space",
     "removeTitle": "Remove {{name}} from the space?",
     "removeBody": "{{name}} loses access to {{space}}: its channels, its messages and its files. Coming back will take a new invitation.",
-    "removeKeepsMessages": "What they wrote there stays: a conversation belongs to the people who had it."
+    "removeKeepsMessages": "What they wrote there stays: a conversation belongs to the people who had it.",
+    "ownerOnlyIcon": "Only the space owner can change it.",
+    "ownerOnlyRename": "Only the space owner can rename it."
   },
   "prefs": {
     "title": "Preferences",

@@ -2958,7 +2958,10 @@ function AppShell() {
           workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
           spaceId={ws}
           iconUrl={workspaces.find((w) => w.id === ws)?.iconUrl}
-          canAdminister={["owner", "admin"].includes(workspaces.find((w) => w.id === ws)?.role ?? "")}
+          // The space's name and icon are its identity, and that is the owner's alone. Everything
+          // else on this screen (the people, their roles, who is shown the door) stays with the
+          // administrators, which is the line the API draws too.
+          canEditIdentity={currentWorkspace?.role === "owner"}
           onIconChanged={applySpaceIcon}
           onRenamed={applySpaceName}
           // The real records, so the screen shows the role the server holds rather than a mapping

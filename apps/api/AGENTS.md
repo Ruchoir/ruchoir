@@ -91,6 +91,11 @@ context and takes precedence here.
   message they can read, which matters because an attachment posted in a *public* channel carries no
   `conversation_id` and lives in the space tree. Before this, `guest` was accepted by the schema and
   read by nothing, so an "external guest" saw exactly what a member saw.
+  **An administrator runs a space, an owner holds it.** Three guards, narrowing:
+  `ensure_space_member` ("may they see it"), `ensure_space_admin` ("may they run it": invitations,
+  roles below their own, removals, moderation) and `ensure_space_owner` ("is it theirs": the name,
+  the icon, the transfer, the deletion, and the billing the day it exists). Two roles allowed to do
+  exactly the same things would be one role with two names.
   **Roles** (`PATCH /spaces/{id}/members/{user_id}`) run on one rule applied twice: you may only act
   on someone ranked strictly below you, and only hand out a rank strictly below your own
   (`guest` < `member` < `admin` < `owner`, ordered in `authz::SPACE_ROLES`). Nobody changing their own

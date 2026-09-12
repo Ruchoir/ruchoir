@@ -185,6 +185,24 @@ pub async fn ensure_space_admin(
     }
 }
 
+/// Require the `owner` role in the space, or fail with the same flat `403`.
+///
+/// The third guard of the space boundary, and the narrowest. [`ensure_space_member`] answers "may
+/// they see this space", [`ensure_space_admin`] "may they run it", this one "is it theirs". The line
+/// between the last two is deliberate: an administrator manages the people and the conversations,
+/// an owner holds the space itself, its identity, its end, and the billing the day that exists. Two
+/// roles that could do exactly the same things would be one role with two names.
+pub async fn ensure_space_owner(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), ApiError> {
+    match space_role(db, space_id, user_id).await?.as_deref() {
+        Some("owner") => Ok(()),
+        _ => Err(ApiError::Forbidden),
+    }
+}
+
 /// Whether the caller may moderate a channel (delete others' messages, pin): an `owner`/`admin`
 /// channel role, or an `owner`/`admin` role in the owning space.
 pub async fn is_channel_moderator(

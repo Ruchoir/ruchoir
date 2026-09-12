@@ -708,10 +708,8 @@
     "bots_one": "{{count}} Bot",
     "bots_other": "{{count}} Bots",
     "changeIcon": "Symbol ändern",
-    "adminsOnlyIcon": "Nur Bereichsadministratoren können es ändern.",
     "name": "Name des Bereichs",
     "addressFollowsName": "Die Adresse des Bereichs folgt dem Namen. Die alten funktionieren weiter.",
-    "adminsOnlyRename": "Nur Bereichsadministratoren können ihn umbenennen.",
     "serverAddress": "Serveradresse",
     "setAtInstall": "Bei der Installation der Instanz festgelegt",
     "leave": "Bereich verlassen",
@@ -736,7 +734,9 @@
     "removeNamed": "{{name}} aus dem Bereich entfernen",
     "removeTitle": "{{name}} aus dem Bereich entfernen?",
     "removeBody": "{{name}} verliert den Zugang zu {{space}}: dessen Kanäle, Nachrichten und Dateien. Für eine Rückkehr braucht es eine neue Einladung.",
-    "removeKeepsMessages": "Was diese Person dort geschrieben hat, bleibt: ein Gespräch gehört denen, die es geführt haben."
+    "removeKeepsMessages": "Was diese Person dort geschrieben hat, bleibt: ein Gespräch gehört denen, die es geführt haben.",
+    "ownerOnlyIcon": "Nur die Eigentümerin oder der Eigentümer des Bereichs kann es ändern.",
+    "ownerOnlyRename": "Nur die Eigentümerin oder der Eigentümer des Bereichs kann ihn umbenennen."
   },
   "prefs": {
     "title": "Einstellungen",

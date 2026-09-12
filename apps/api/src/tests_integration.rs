@@ -2298,3 +2298,37 @@ async fn a_new_channel_says_it_was_created() {
         .iter()
         .any(|m| m["system_event"] == "channel_created" && m["author_id"].is_null()));
 }
+
+#[tokio::test]
+async fn an_administrator_runs_a_space_but_does_not_own_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    // The space's identity is the owner's: an administrator manages the people, not the name.
+    let refused = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/spaces/{}", fx.space_id),
+            &bob,
+        )
+        .json(&json!({ "name": "Atelier Repris" }))
+        .send()
+        .await
+        .expect("rename");
+    assert_eq!(refused.status(), 403);
+
+    // What they do run, they still run: an invitation is theirs to issue.
+    let invited = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/invitations", fx.space_id),
+            &bob,
+        )
+        .json(&json!({ "role": "member" }))
+        .send()
+        .await
+        .expect("invite");
+    assert_eq!(invited.status(), 201);
+}

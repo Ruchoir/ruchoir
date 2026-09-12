@@ -156,7 +156,7 @@ pub async fn get_avatar(
     serve_object(&state, &key).await
 }
 
-/// `PUT /api/v1/spaces/{space_id}/icon`: replace a space's icon. Owner or admin only.
+/// `PUT /api/v1/spaces/{space_id}/icon`: replace a space's icon. Owner only.
 #[utoipa::path(
     put,
     path = "/api/v1/spaces/{space_id}/icon",
@@ -166,7 +166,7 @@ pub async fn get_avatar(
     responses(
         (status = 200, description = "Icon stored", body = ImageRef),
         (status = 400, description = "Missing or undecodable image"),
-        (status = 403, description = "Not an owner or admin of the space")
+        (status = 403, description = "Not the owner of the space")
     )
 )]
 pub async fn set_space_icon(
@@ -175,7 +175,7 @@ pub async fn set_space_icon(
     Path(space_id): Path<Uuid>,
     multipart: Multipart,
 ) -> Result<Json<ImageRef>, FileError> {
-    if !authz::is_space_admin(&state.db, space_id, session.user_id).await? {
+    if !authz::is_space_owner(&state.db, space_id, session.user_id).await? {
         return Err(FileError::Forbidden);
     }
     let space = spaces::Entity::find_by_id(space_id)
@@ -197,7 +197,7 @@ pub async fn set_space_icon(
     Ok(Json(ImageRef { url }))
 }
 
-/// `DELETE /api/v1/spaces/{space_id}/icon`: fall back to the generated mark. Owner or admin only.
+/// `DELETE /api/v1/spaces/{space_id}/icon`: fall back to the generated mark. Owner only.
 #[utoipa::path(
     delete,
     path = "/api/v1/spaces/{space_id}/icon",
@@ -205,7 +205,7 @@ pub async fn set_space_icon(
     params(("space_id" = Uuid, Path, description = "Space id")),
     responses(
         (status = 204, description = "Icon removed"),
-        (status = 403, description = "Not an owner or admin of the space")
+        (status = 403, description = "Not the owner of the space")
     )
 )]
 pub async fn clear_space_icon(
@@ -213,7 +213,7 @@ pub async fn clear_space_icon(
     session: AuthSession,
     Path(space_id): Path<Uuid>,
 ) -> Result<StatusCode, FileError> {
-    if !authz::is_space_admin(&state.db, space_id, session.user_id).await? {
+    if !authz::is_space_owner(&state.db, space_id, session.user_id).await? {
         return Err(FileError::Forbidden);
     }
     let space = spaces::Entity::find_by_id(space_id)
