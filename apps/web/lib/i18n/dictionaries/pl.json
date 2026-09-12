@@ -37,7 +37,6 @@
     "noMatch": "Żadne konto nie pasuje.",
     "loadFailed": "Nie udało się wczytać listy kont.",
     "searchFailed": "Wyszukiwanie nie powiodło się. Spróbuj ponownie.",
-    "adminTag": "Administrator",
     "statusPending": "oczekujące",
     "statusLocked": "zablokowane",
     "issueLink": "Wystaw link",
@@ -419,7 +418,10 @@
     "added_other": "Dodano {{count}} osób"
   },
   "role": {
-    "member": "Członek"
+    "member": "Członek",
+    "owner": "Właściciel",
+    "admin": "Administrator",
+    "guest": "Gość zewnętrzny"
   },
   "onboarding": {
     "enter": "Wejdź do Ruchoira",
@@ -497,7 +499,6 @@
     "privateHint": "Tylko na zaproszenie.",
     "writeTo": "Do kogo chcesz napisać?",
     "nobodyMatches": "Nikt nie pasuje.",
-    "guest": "Gość zewnętrzny",
     "accepted": "· przyjęte",
     "revoked": "· cofnięte",
     "expired": "· wygasłe",
@@ -583,5 +584,32 @@
     "currentPassword": "Obecne hasło",
     "unknown": "…",
     "wrongPassword": "Nieprawidłowe hasło."
+  },
+  "space": {
+    "general": "Ogólne",
+    "generalSub": "Tożsamość i język przestrzeni {{name}}.",
+    "icon": "Ikona przestrzeni",
+    "iconUpdated": "Ikona zaktualizowana",
+    "iconFailed": "Ikona nie została zapisana",
+    "iconNotRemoved": "Ikona nie została usunięta",
+    "renamed": "Przestrzeń przemianowana",
+    "nameFailed": "Nazwa nie została zapisana",
+    "retry": "Spróbuj ponownie.",
+    "searchMember": "Szukaj członka",
+    "invite": "Zaproś",
+    "external": "Zewnętrzny",
+    "cropIcon": "Wykadruj ikonę",
+    "members_one": "{{count}} członek",
+    "members_few": "{{count}} członkowie",
+    "members_many": "{{count}} członków",
+    "members_other": "{{count}} członków",
+    "guests_one": "{{count}} gość zewnętrzny",
+    "guests_few": "{{count}} gości zewnętrznych",
+    "guests_many": "{{count}} gości zewnętrznych",
+    "guests_other": "{{count}} gości zewnętrznych",
+    "bots_one": "{{count}} bot",
+    "bots_few": "{{count}} boty",
+    "bots_many": "{{count}} botów",
+    "bots_other": "{{count}} botów"
   }
 }

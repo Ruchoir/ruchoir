@@ -173,7 +173,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
                   {user.name}
                   {user.isInstanceAdmin ? (
                     <span style={{ marginLeft: 8 }}>
-                      <Tag tone="accent">{t("admin.adminTag")}</Tag>
+                      <Tag tone="accent">{t("role.admin")}</Tag>
                     </span>
                   ) : null}
                 </div>

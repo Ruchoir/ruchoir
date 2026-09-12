@@ -37,7 +37,6 @@
     "noMatch": "No account matches.",
     "loadFailed": "The list of accounts could not be loaded.",
     "searchFailed": "The search failed. Try again.",
-    "adminTag": "Administrator",
     "statusPending": "pending",
     "statusLocked": "locked",
     "issueLink": "Issue a link",
@@ -413,7 +412,10 @@
     "added_other": "{{count}} people added"
   },
   "role": {
-    "member": "Member"
+    "member": "Member",
+    "owner": "Owner",
+    "admin": "Administrator",
+    "guest": "External guest"
   },
   "onboarding": {
     "enter": "Enter Ruchoir",
@@ -489,7 +491,6 @@
     "privateHint": "By invitation only.",
     "writeTo": "Who do you want to write to?",
     "nobodyMatches": "Nobody matches.",
-    "guest": "External guest",
     "accepted": "· accepted",
     "revoked": "· revoked",
     "expired": "· expired",
@@ -571,5 +572,26 @@
     "currentPassword": "Current password",
     "unknown": "…",
     "wrongPassword": "Wrong password."
+  },
+  "space": {
+    "general": "General",
+    "generalSub": "Identity and language of the {{name}} space.",
+    "icon": "Space icon",
+    "iconUpdated": "Icon updated",
+    "iconFailed": "Icon not saved",
+    "iconNotRemoved": "Icon not removed",
+    "renamed": "Space renamed",
+    "nameFailed": "Name not saved",
+    "retry": "Try again.",
+    "searchMember": "Search a member",
+    "invite": "Invite",
+    "external": "External",
+    "cropIcon": "Frame the icon",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "guests_one": "{{count}} external guest",
+    "guests_other": "{{count}} external guests",
+    "bots_one": "{{count}} bot",
+    "bots_other": "{{count}} bots"
   }
 }

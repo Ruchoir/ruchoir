@@ -7,12 +7,14 @@ import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setSpaceIcon } from "@/lib/data/api";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { getAvatar } from "@/lib/data";
+import { useTranslation } from "@/lib/i18n";
 
 type NavKey = "general" | "members";
 
+/** The sections, with the dictionary key of each label. */
 const NAV: [NavKey, string, string][] = [
-  ["general", "Général", "settings"],
-  ["members", "Membres", "users"],
+  ["general", "space.general", "settings"],
+  ["members", "conversation.members", "users"],
 ];
 
 const st: Record<string, CSSProperties> = {
@@ -92,12 +94,12 @@ function SettingRow({ title, desc, children }: { title: string; desc?: string; c
   );
 }
 
-/** The space roles the API uses, in the words the screen shows. */
+/** The space roles the API uses, as dictionary keys. */
 const ROLE_LABEL: Record<string, string> = {
-  owner: "Propriétaire",
-  admin: "Administrateur",
-  member: "Membre",
-  guest: "Invité externe",
+  owner: "role.owner",
+  admin: "role.admin",
+  member: "role.member",
+  guest: "role.guest",
 };
 
 export type WorkspaceSettingsProps = {
@@ -136,6 +138,7 @@ export function WorkspaceSettings({
   onNotify,
   compact = false,
 }: WorkspaceSettingsProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<NavKey>("general");
   // Read as what it is: a value owned by the browser. Empty for the static export's render, which
   // has no location, so nothing flashes a guessed address before the real one.
@@ -149,9 +152,9 @@ export function WorkspaceSettings({
     const guests = members.filter((m) => m.role === "guest").length;
     const bots = members.filter((m) => m.bot).length;
     const people = members.length - bots;
-    const parts = [`${people} membre${people > 1 ? "s" : ""}`];
-    if (guests > 0) parts.push(`${guests} invité${guests > 1 ? "s" : ""} externe${guests > 1 ? "s" : ""}`);
-    if (bots > 0) parts.push(`${bots} bot${bots > 1 ? "s" : ""}`);
+    const parts = [t("space.members", { count: people })];
+    if (guests > 0) parts.push(t("space.guests", { count: guests }));
+    if (bots > 0) parts.push(t("space.bots", { count: bots }));
     return parts.join(", ");
   })();
   const serverAddress = useSyncExternalStore(
@@ -186,9 +189,9 @@ export function WorkspaceSettings({
       const url = await setSpaceIcon(spaceId, file);
       setIconOverride(url);
       onIconChanged(url);
-      onNotify({ tone: "success", title: "Icône mise à jour", description: workspaceName });
+      onNotify({ tone: "success", title: t("space.iconUpdated"), description: workspaceName });
     } catch {
-      onNotify({ tone: "danger", title: "Icône non enregistrée", description: "Choisissez une image plus légère." });
+      onNotify({ tone: "danger", title: t("space.iconFailed"), description: t("profile.photoFailedHint") });
     } finally {
       setIconBusy(false);
     }
@@ -199,9 +202,9 @@ export function WorkspaceSettings({
     try {
       const space = await renameSpace(spaceId, name.trim());
       onRenamed(space.name);
-      onNotify({ tone: "success", title: "Espace renommé", description: space.name });
+      onNotify({ tone: "success", title: t("space.renamed"), description: space.name });
     } catch {
-      onNotify({ tone: "danger", title: "Nom non enregistré", description: "Réessayez." });
+      onNotify({ tone: "danger", title: t("space.nameFailed"), description: t("space.retry") });
     } finally {
       setNameBusy(false);
     }
@@ -214,7 +217,7 @@ export function WorkspaceSettings({
       setIconOverride(null);
       onIconChanged(undefined);
     } catch {
-      onNotify({ tone: "danger", title: "Icône non retirée" });
+      onNotify({ tone: "danger", title: t("space.iconNotRemoved") });
     } finally {
       setIconBusy(false);
     }
@@ -251,10 +254,10 @@ export function WorkspaceSettings({
         <div style={compact ? { ...st.main, padding: "16px 16px 24px" } : st.main}>
           {tab === "general" ? (
             <>
-              <h2 style={st.h}>Général</h2>
-              <p style={st.sub}>Identité et langue de l&apos;espace {workspaceName}.</p>
+              <h2 style={st.h}>{t("space.general")}</h2>
+              <p style={st.sub}>{t("space.generalSub", { name: workspaceName })}</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 420 }}>
-                <Field label="Icône de l'espace">
+                <Field label={t("space.icon")}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <Avatar name={workspaceName} src={icon} kind="workspace" size={48} />
                     {canAdminister ? (
@@ -329,21 +332,21 @@ export function WorkspaceSettings({
 
           {tab === "members" ? (
             <>
-              <h2 style={st.h}>Membres</h2>
+              <h2 style={st.h}>{t("conversation.members")}</h2>
               <p style={st.sub}>{memberSummary}</p>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 260 }}>
                   <Input
                     size="sm"
                     icon="search"
-                    placeholder="Rechercher un membre"
+                    placeholder={t("space.searchMember")}
                     value={memberQuery}
                     onChange={(e) => setMemberQuery(e.target.value)}
                   />
                 </div>
                 <div style={{ flex: 1 }} />
                 <Button size="sm" variant="primary" iconLeft="user-plus" onClick={onInvite}>
-                  Inviter
+                  {t("space.invite")}
                 </Button>
               </div>
               <Card>
@@ -368,8 +371,8 @@ export function WorkspaceSettings({
                             invented from the first name and a domain nobody owns. */}
                         {m.title ? <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{m.title}</div> : null}
                       </span>
-                      {m.bot ? <Tag>Bot</Tag> : null}
-                      {guest ? <Tag tone="warning">Externe</Tag> : null}
+                      {m.bot ? <Tag>{t("sidebar.bot")}</Tag> : null}
+                      {guest ? <Tag tone="warning">{t("space.external")}</Tag> : null}
                       {/* Read, not set: changing someone's role needs rules that do not exist yet, and
                           a select that reported success without moving anything is worse than none. */}
                       <span style={{ fontSize: 12, color: "var(--text-muted)", width: 130, textAlign: "right" }}>
@@ -389,7 +392,7 @@ export function WorkspaceSettings({
       {cropping ? (
         <ImageCropDialog
           file={cropping}
-          title="Cadrer l'icône"
+          title={t("space.cropIcon")}
           onCancel={() => setCropping(null)}
           onConfirm={(cropped) => void uploadCropped(cropped)}
         />

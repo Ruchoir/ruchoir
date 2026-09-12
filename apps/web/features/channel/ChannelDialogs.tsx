@@ -11,7 +11,7 @@ import type { Toast } from "../app/types";
 import { useTranslation } from "@/lib/i18n";
 
 /** Channel roles, as dictionary keys. */
-const CHANNEL_ROLES = ["role.member", "channel.moderator", "admin.adminTag"];
+const CHANNEL_ROLES = ["role.member", "channel.moderator", "role.admin"];
 
 /** Edit a channel's name, topic, visibility and (for private channels) member access and roles. */
 export function ChannelSettingsDialog({

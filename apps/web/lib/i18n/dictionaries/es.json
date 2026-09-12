@@ -37,7 +37,6 @@
     "noMatch": "Ninguna cuenta coincide.",
     "loadFailed": "No se ha podido cargar la lista de cuentas.",
     "searchFailed": "La búsqueda ha fallado. Inténtalo de nuevo.",
-    "adminTag": "Administrador",
     "statusPending": "pendiente",
     "statusLocked": "bloqueada",
     "issueLink": "Emitir un enlace",
@@ -416,7 +415,10 @@
     "added_many": "{{count}} personas añadidas"
   },
   "role": {
-    "member": "Miembro"
+    "member": "Miembro",
+    "owner": "Propietario",
+    "admin": "Administrador",
+    "guest": "Invitado externo"
   },
   "onboarding": {
     "enter": "Entrar en Ruchoir",
@@ -493,7 +495,6 @@
     "privateHint": "Solo por invitación.",
     "writeTo": "¿A quién quieres escribir?",
     "nobodyMatches": "Nadie coincide.",
-    "guest": "Invitado externo",
     "accepted": "· aceptada",
     "revoked": "· revocada",
     "expired": "· caducada",
@@ -577,5 +578,29 @@
     "currentPassword": "Contraseña actual",
     "unknown": "…",
     "wrongPassword": "Contraseña incorrecta."
+  },
+  "space": {
+    "general": "General",
+    "generalSub": "Identidad e idioma del espacio {{name}}.",
+    "icon": "Icono del espacio",
+    "iconUpdated": "Icono actualizado",
+    "iconFailed": "Icono no guardado",
+    "iconNotRemoved": "Icono no eliminado",
+    "renamed": "Espacio renombrado",
+    "nameFailed": "Nombre no guardado",
+    "retry": "Inténtalo de nuevo.",
+    "searchMember": "Buscar un miembro",
+    "invite": "Invitar",
+    "external": "Externo",
+    "cropIcon": "Encuadrar el icono",
+    "members_one": "{{count}} miembro",
+    "members_many": "{{count}} miembros",
+    "members_other": "{{count}} miembros",
+    "guests_one": "{{count}} invitado externo",
+    "guests_many": "{{count}} invitados externos",
+    "guests_other": "{{count}} invitados externos",
+    "bots_one": "{{count}} bot",
+    "bots_many": "{{count}} bots",
+    "bots_other": "{{count}} bots"
   }
 }

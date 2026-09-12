@@ -37,7 +37,6 @@
     "noMatch": "Kein Konto passt.",
     "loadFailed": "Die Kontenliste konnte nicht geladen werden.",
     "searchFailed": "Die Suche ist fehlgeschlagen. Versuchen Sie es erneut.",
-    "adminTag": "Administrator",
     "statusPending": "ausstehend",
     "statusLocked": "gesperrt",
     "issueLink": "Link ausstellen",
@@ -413,7 +412,10 @@
     "added_other": "{{count}} Personen hinzugefügt"
   },
   "role": {
-    "member": "Mitglied"
+    "member": "Mitglied",
+    "owner": "Eigentümer",
+    "admin": "Administrator",
+    "guest": "Externer Gast"
   },
   "onboarding": {
     "enter": "Ruchoir betreten",
@@ -489,7 +491,6 @@
     "privateHint": "Nur auf Einladung.",
     "writeTo": "Wem möchten Sie schreiben?",
     "nobodyMatches": "Niemand passt.",
-    "guest": "Externer Gast",
     "accepted": "· angenommen",
     "revoked": "· widerrufen",
     "expired": "· abgelaufen",
@@ -571,5 +572,26 @@
     "currentPassword": "Aktuelles Passwort",
     "unknown": "…",
     "wrongPassword": "Falsches Passwort."
+  },
+  "space": {
+    "general": "Allgemein",
+    "generalSub": "Identität und Sprache des Bereichs {{name}}.",
+    "icon": "Symbol des Bereichs",
+    "iconUpdated": "Symbol aktualisiert",
+    "iconFailed": "Symbol nicht gespeichert",
+    "iconNotRemoved": "Symbol nicht entfernt",
+    "renamed": "Bereich umbenannt",
+    "nameFailed": "Name nicht gespeichert",
+    "retry": "Versuchen Sie es erneut.",
+    "searchMember": "Mitglied suchen",
+    "invite": "Einladen",
+    "external": "Extern",
+    "cropIcon": "Symbol zuschneiden",
+    "members_one": "{{count}} Mitglied",
+    "members_other": "{{count}} Mitglieder",
+    "guests_one": "{{count}} externer Gast",
+    "guests_other": "{{count}} externe Gäste",
+    "bots_one": "{{count}} Bot",
+    "bots_other": "{{count}} Bots"
   }
 }

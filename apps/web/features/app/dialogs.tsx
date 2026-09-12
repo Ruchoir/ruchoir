@@ -143,8 +143,8 @@ export function NewMessageDialog({
  */
 const INVITE_ROLES = [
   { value: "member", labelKey: "role.member" },
-  { value: "admin", labelKey: "admin.adminTag" },
-  { value: "guest", labelKey: "dialogs.guest" },
+  { value: "admin", labelKey: "role.admin" },
+  { value: "guest", labelKey: "role.guest" },
 ];
 
 const inviteStyles: Record<string, CSSProperties> = {
