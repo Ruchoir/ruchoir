@@ -387,6 +387,63 @@ function AppShell() {
   const markReadRef = useRef<(id: string, loaded?: Message[]) => void>(() => {});
 
   /**
+   * Refresh the per-space counters after an event the client cannot attribute.
+   *
+   * The transport is user-scoped, so events arrive for every space the account belongs to, but an
+   * envelope names a conversation and not a space: one belonging to a space that is not loaded
+   * cannot be counted locally. Rather than widen a shared payload, re-read `/me/spaces`, which is one
+   * small request. Debounced, because a burst in a busy background space would otherwise fire one
+   * request per message.
+   */
+  const countersTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Both are stable by construction (a ref and a state setter), so they can be dependencies of the
+  // realtime effect without tearing its socket down on every render.
+  const reloadSpaceCounters = useCallback(
+    () =>
+      getWorkspaces()
+        .then(setWorkspaces)
+        .catch(() => {
+          // A failed refresh leaves the previous counters: stale beats blank.
+        }),
+    [],
+  );
+  /**
+   * Fetch where everyone has read up to in a conversation, which is what the read indicator draws.
+   *
+   * Called from both ways into a conversation, and that is the whole point: hooked onto the click
+   * alone, the conversation opened by entering a space never had any, so every one of your own
+   * messages read "Non lu" until you left the channel and came back. Live from there on, through
+   * `read.updated`.
+   */
+  const loadReadCursors = useCallback(
+    (id: string) =>
+      getReadCursors(id)
+        .then((cursors) =>
+          setReadCursors((prev) => ({
+            ...prev,
+            [id]: {
+              // Everyone who could read, so "everyone has" can be told from "three of them have".
+              members: cursors.map((c) => c.userId),
+              at: Object.fromEntries(
+                cursors
+                  .filter((c) => c.lastReadMessageId)
+                  .map((c) => [c.userId, c.lastReadMessageId as string]),
+              ),
+            },
+          })),
+        )
+        .catch(() => {
+          // The indicator simply says nothing until the next visit; not worth a message.
+        }),
+    [],
+  );
+
+  const refreshSpaceCounters = useCallback(() => {
+    clearTimeout(countersTimer.current);
+    countersTimer.current = setTimeout(() => void reloadSpaceCounters(), 1500);
+  }, [reloadSpaceCounters]);
+
+  /**
    * Seed the shell state for one space, in three waves rather than one batch.
    *
    * 1. **Blocking:** channels, DMs, members and presence. Everything the space cannot be drawn
@@ -465,6 +522,7 @@ function AppShell() {
       // The page is passed in because the read cursor needs its last message and the state holding
       // it was only just set.
       markReadRef.current(opening, page.messages);
+      void loadReadCursors(opening);
     }
 
     // Third wave, behind the screen: everything the first view does not need. The other
@@ -498,6 +556,11 @@ function AppShell() {
         if (d) return { label: d.name, isDm: true };
         return n.channelName ? { label: `#${n.channelName}`, isDm: false } : { label: "", isDm: true };
       };
+      // The inbox lands here, well after the conversation was opened and marked read: at that
+      // point it held none of these rows, so a mention pointing at the very channel being read
+      // stayed unread on the server and kept the space's badge lit. Anything addressed to the
+      // conversation on screen is read by definition, so it is filed as such now, once.
+      const openedHere = feed.notifications.filter((n) => n.conversationId === opening && !n.read);
       setNotifs(
         feed.notifications.map((n) => {
           const { label, isDm } = labelOf(n);
@@ -513,12 +576,17 @@ function AppShell() {
             messageId: n.messageId,
             preview: n.preview,
             time: n.time,
-            read: n.read,
+            read: n.read || n.conversationId === opening,
           };
         }),
       );
+      if (openedHere.length > 0) {
+        for (const n of openedHere) void markNotificationRead(n.id).catch(() => {});
+        refreshSpaceCounters();
+      }
     })();
-  }, []);
+    // Both stable by construction, and listed rather than omitted so the rule stays a rule.
+  }, [refreshSpaceCounters, loadReadCursors]);
 
   /**
    * Load the signed-in user's spaces and enter the first one. Returns the spaces, so the caller can
@@ -715,31 +783,6 @@ function AppShell() {
    */
   const alertRef = useRef<((n: AppNotification) => void) | null>(null);
 
-  /**
-   * Refresh the per-space counters after an event the client cannot attribute.
-   *
-   * The transport is user-scoped, so events arrive for every space the account belongs to, but an
-   * envelope names a conversation and not a space: one belonging to a space that is not loaded
-   * cannot be counted locally. Rather than widen a shared payload, re-read `/me/spaces`, which is one
-   * small request. Debounced, because a burst in a busy background space would otherwise fire one
-   * request per message.
-   */
-  const countersTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  // Both are stable by construction (a ref and a state setter), so they can be dependencies of the
-  // realtime effect without tearing its socket down on every render.
-  const reloadSpaceCounters = useCallback(
-    () =>
-      getWorkspaces()
-        .then(setWorkspaces)
-        .catch(() => {
-          // A failed refresh leaves the previous counters: stale beats blank.
-        }),
-    [],
-  );
-  const refreshSpaceCounters = useCallback(() => {
-    clearTimeout(countersTimer.current);
-    countersTimer.current = setTimeout(() => void reloadSpaceCounters(), 1500);
-  }, [reloadSpaceCounters]);
   useEffect(() => {
     liveRef.current = { channels, dms, channelId, view, myId: session?.id, ws };
   });
@@ -1223,6 +1266,10 @@ function AppShell() {
     const list = loaded ?? messages[id] ?? [];
     const last = [...list].reverse().find((m) => !isPendingId(m.id));
     if (last) void setReadCursor(id, last.id).catch(() => {});
+    // The rail counts the whole account, so reading here changes a number drawn over there. It is
+    // re-read rather than decremented: the arithmetic would have to mirror the server's definition
+    // of unread, and the two would drift the day one of them changed.
+    refreshSpaceCounters();
   };
   useEffect(() => {
     markReadRef.current = markConversationRead;
@@ -1546,22 +1593,7 @@ function AppShell() {
     markConversationRead(id);
     // And asks where everyone else has read up to, which is what the read indicator draws. Live
     // afterwards, through `read.updated`.
-    void getReadCursors(id)
-      .then((cursors) =>
-        setReadCursors((prev) => ({
-          ...prev,
-          [id]: {
-            // Everyone who could read, so "everyone has" can be told from "three of them have".
-            members: cursors.map((c) => c.userId),
-            at: Object.fromEntries(
-              cursors
-                .filter((c) => c.lastReadMessageId)
-                .map((c) => [c.userId, c.lastReadMessageId as string]),
-            ),
-          },
-        })),
-      )
-      .catch(() => {});
+    void loadReadCursors(id);
   };
 
   /** Switch the right panel, closing the thread and profile views so it is visible. */

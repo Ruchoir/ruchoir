@@ -54,6 +54,11 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-subtle)",
     fontVariantNumeric: "tabular-nums",
     userSelect: "none",
+    // One line, always. It wrapped, which made the row taller and pushed every message below it
+    // down for as long as the cursor stayed there. Clipping it instead would have been worse: what
+    // goes here is short by construction (see `gutterTime`), so it is allowed to spill into the
+    // row's left padding on the rare wide glyph rather than be cut.
+    whiteSpace: "nowrap",
   },
   name: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
   time: { fontSize: 13, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
@@ -183,6 +188,23 @@ export function MessageRow({
     (m.body.includes(`@${me}`) || (firstName.length > 1 && m.body.includes(`@${firstName}`)));
   const showActions = (hover || reactOpen || menuOpen) && !deleted;
 
+  /**
+   * What the gutter of a continued message shows: the hour, and only the hour.
+   *
+   * `m.time` is written for the header of a block and says as much as that position needs: "17:45"
+   * today, "Hier, 17:45", or a bare date further back. In a gutter 34 pixels wide those longer
+   * forms wrapped onto a second line and moved every message under them. They are also redundant
+   * there: a block spans five minutes, so its header has already said which day, and the only thing
+   * that changes from one line to the next is the time of day.
+   */
+  const gutterTime = (() => {
+    if (!m.createdAt) return m.time;
+    const at = new Date(m.createdAt);
+    return Number.isNaN(at.getTime())
+      ? m.time
+      : at.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  })();
+
   const openProfileFromCard = () => {
     setProfileOpen(false);
     actions.onOpenProfile();
@@ -225,7 +247,7 @@ export function MessageRow({
     >
       {grouped ? (
         <span style={styles.gutterTime} aria-hidden={!hover}>
-          {hover ? m.time : ""}
+          {hover ? gutterTime : ""}
         </span>
       ) : (
         <button ref={avatarRef} style={avatarBtn} onClick={() => setProfileOpen((o) => !o)} aria-label={`Profil de ${m.author}`}>
