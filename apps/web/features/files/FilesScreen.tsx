@@ -3,7 +3,15 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
-import { createFolder as apiCreateFolder, deleteFile, fileDownloadUrl, filePreviewUrl, getFolder, uploadFile } from "@/lib/data/api";
+import {
+  createFolder as apiCreateFolder,
+  deleteFile,
+  fileDownloadUrl,
+  filePreviewUrl,
+  getFolder,
+  updateFile,
+  uploadFile,
+} from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
@@ -158,6 +166,15 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
   // What a confirmed removal would take. Held as the entries themselves, so the dialog can name
   // them and warn about a folder, which takes everything under it.
   const [pendingDelete, setPendingDelete] = useState<SpaceFile[]>([]);
+  /** The entry being renamed, and the name as typed. */
+  const [renaming, setRenaming] = useState<{ entry: SpaceFile; name: string } | null>(null);
+  /**
+   * Entries picked up for a move, kept while the folder browser is used to choose where.
+   *
+   * The destination is chosen by walking to it, which is the navigation this screen already has,
+   * rather than by a second tree inside a dialog. It survives `load`, which clears the selection.
+   */
+  const [moving, setMoving] = useState<SpaceFile[]>([]);
   const uploadRef = useRef<HTMLInputElement>(null);
 
   // `onNotify` (AppRoot's toast) is a fresh function each parent render; keep the latest in a ref so
@@ -278,6 +295,57 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
       });
   };
 
+  const confirmRename = () => {
+    const entry = renaming?.entry;
+    const name = renaming?.name.trim() ?? "";
+    if (!entry?.id) return;
+    setRenaming(null);
+    if (!name || name === entry.name) return;
+    updateFile(entry.id, { name })
+      .then(() => {
+        onNotify({ tone: "success", title: "Renommé", description: name });
+        load(folderId);
+      })
+      .catch((err) =>
+        onNotify({
+          tone: "danger",
+          title: "Renommage impossible",
+          description: isApiError(err, 403)
+            ? "Vous ne pouvez renommer que vos propres fichiers, sauf si vous administrez l'espace."
+            : "Ce nom n'est peut-être pas utilisable.",
+        }),
+      );
+  };
+
+  /** Drop the entries being moved into the folder currently open. */
+  const confirmMove = () => {
+    const targets = moving;
+    setMoving([]);
+    if (targets.length === 0) return;
+    Promise.allSettled(
+      targets.filter((f) => f.id).map((f) => updateFile(f.id as string, { parentFolderId: folderId ?? null })),
+    ).then((results) => {
+      const moved = results.filter((r) => r.status === "fulfilled").length;
+      if (moved > 0) {
+        onNotify({
+          tone: "success",
+          title: moved === 1 ? "Élément déplacé" : `${moved} éléments déplacés`,
+          description: currentFolderName ?? workspaceName,
+        });
+      }
+      if (moved < results.length) {
+        onNotify({
+          tone: "danger",
+          title: "Déplacement incomplet",
+          // The server refuses a folder moved into itself or into its own descendant, which is the
+          // one mistake this way of choosing a destination makes easy.
+          description: "Un dossier ne peut pas être déplacé dans lui-même.",
+        });
+      }
+      load(folderId);
+    });
+  };
+
   const onFilePicked = (fileList: FileList | null) => {
     const file = fileList?.[0];
     if (!file) return;
@@ -384,7 +452,26 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
           ) : null}
         </div>
 
-        {selectedEntries.length > 0 ? (
+        {moving.length > 0 ? (
+          // A move in progress takes over the bar: the destination is chosen by walking to it, so
+          // this has to stay visible and actionable while the folders are being browsed.
+          <div style={styles.selectionBar}>
+            <Icon name="folder-open" size={15} style={{ color: "var(--text-accent)" }} />
+            <span style={{ fontSize: 13, color: "var(--text-strong)" }}>
+              <strong>
+                {moving.length} élément{moving.length > 1 ? "s" : ""}
+              </strong>{" "}
+              à déplacer : ouvrez le dossier de destination.
+            </span>
+            <div style={{ flex: 1 }} />
+            <Button size="sm" onClick={() => setMoving([])}>
+              Annuler
+            </Button>
+            <Button size="sm" variant="primary" iconLeft="folder-plus" onClick={confirmMove}>
+              Déplacer ici
+            </Button>
+          </div>
+        ) : selectedEntries.length > 0 ? (
           // The checkboxes had built a selection nothing could act on. This is what they are for.
           <div style={styles.selectionBar}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
@@ -393,6 +480,16 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             <div style={{ flex: 1 }} />
             <Button size="sm" onClick={() => setSelected(new Set())}>
               Annuler
+            </Button>
+            <Button
+              size="sm"
+              iconLeft="folder-open"
+              onClick={() => {
+                setMoving(selectedEntries);
+                setSelected(new Set());
+              }}
+            >
+              Déplacer
             </Button>
             <Button size="sm" variant="danger" iconLeft="trash-2" onClick={() => setPendingDelete(selectedEntries)}>
               Supprimer
@@ -436,6 +533,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                     onToggle={() => toggle(rowKey(f))}
                     onOpen={() => openEntry(f)}
                     onDelete={f.id ? () => setPendingDelete([f]) : undefined}
+                    onRename={f.id ? () => setRenaming({ entry: f, name: f.name }) : undefined}
                   />
                 ))}
               </tbody>
@@ -525,6 +623,33 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             onChange={(e) => setFolderName(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") createFolder();
+            }}
+          />
+        </Field>
+      </Dialog>
+
+      <Dialog
+        open={renaming != null}
+        title="Renommer"
+        size="sm"
+        onClose={() => setRenaming(null)}
+        footer={
+          <>
+            <Button onClick={() => setRenaming(null)}>Annuler</Button>
+            <Button variant="primary" onClick={confirmRename}>
+              Renommer
+            </Button>
+          </>
+        }
+      >
+        <Field label="Nom" htmlFor="rename">
+          <Input
+            id="rename"
+            autoFocus
+            value={renaming?.name ?? ""}
+            onChange={(e) => setRenaming((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") confirmRename();
             }}
           />
         </Field>
@@ -645,13 +770,15 @@ function FileRow({
   onToggle,
   onOpen,
   onDelete,
+  onRename,
 }: {
   f: SpaceFile;
   checked: boolean;
   onToggle: () => void;
   onOpen: () => void;
-  /** Absent for an entry the API cannot address, which is the only case with no id. */
+  /** Both absent for an entry the API cannot address, which is the only case with no id. */
   onDelete?: () => void;
+  onRename?: () => void;
 }) {
   const [hover, setHover] = useState(false);
   const isFolder = f.kind === "folder";
@@ -700,6 +827,15 @@ function FileRow({
             tabIndex={hover ? 0 : -1}
             onClick={onOpen}
           />
+          {onRename ? (
+            <IconButton
+              icon="square-pen"
+              label={`Renommer ${f.name}`}
+              size="sm"
+              tabIndex={hover ? 0 : -1}
+              onClick={onRename}
+            />
+          ) : null}
           {onDelete ? (
             <IconButton
               icon="trash-2"

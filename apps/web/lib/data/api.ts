@@ -1204,6 +1204,26 @@ export async function uploadFile(spaceId: string, file: File, parentId?: string)
 }
 
 /**
+ * `PATCH /files/{id}`: rename an entry, or move it into another folder.
+ *
+ * `parentFolderId` of `null` means the space's root, which the API takes as an explicit flag rather
+ * than an absent field: leaving it out means "do not move", and the two have to be told apart.
+ * Refusals are the server's to make (a folder cannot be moved into itself or into its own
+ * descendant), so nothing is checked twice here.
+ */
+export async function updateFile(
+  fileId: string,
+  patch: { name?: string; parentFolderId?: string | null },
+): Promise<SpaceFile> {
+  const dto = await apiPatch<FileDto>(`/files/${fileId}`, {
+    name: patch.name,
+    parent_folder_id: patch.parentFolderId ?? undefined,
+    move_to_root: patch.parentFolderId === null ? true : undefined,
+  });
+  return toSpaceFile(dto);
+}
+
+/**
  * `DELETE /files/{id}`: remove a file, or a folder and everything under it.
  *
  * The API has always answered this; nothing in the interface ever called it, so a file could be
