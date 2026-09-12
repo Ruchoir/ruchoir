@@ -100,6 +100,7 @@ type AttachmentDto = {
   image_width?: number;
   image_height?: number;
   alt_text?: string;
+  deleted?: boolean;
 };
 
 type MessageDto = {
@@ -964,8 +965,22 @@ function splitAttachments(attachments: AttachmentDto[]): {
   let attachment: MessageAttachment | undefined;
   let image: InlineImage | undefined;
   for (const a of attachments) {
+    // A file removed from the space keeps its place in the message, without a link: every URL to
+    // its bytes answers 404, and an image whose source 404s is a broken frame rather than an
+    // absence. What the message carried is still worth saying; what it carried is simply gone.
+    if (a.deleted) {
+      attachment ??= {
+        fileId: a.file_id,
+        name: a.name,
+        size: formatSize(a.size_bytes),
+        kind: attachmentIcon(a.kind),
+        deleted: true,
+      };
+      continue;
+    }
     if (!image && a.kind === "image" && a.image_width && a.image_height) {
       image = {
+        fileId: a.file_id,
         alt: a.alt_text ?? a.name,
         width: a.image_width,
         height: a.image_height,
@@ -1475,6 +1490,8 @@ export type RealtimeHandlers = {
   onTyping?: (conversationId: string, userId: string) => void;
   /** Someone's read cursor moved in a conversation the recipient belongs to. */
   onReadCursor?: (conversationId: string, userId: string, lastReadMessageId: string) => void;
+  /** Files were removed from a space: anything showing them has to stop offering them. */
+  onFilesDeleted?: (spaceId: string, fileIds: string[]) => void;
 };
 
 /** A live realtime connection: close it on teardown, and signal typing over it. */
@@ -1500,6 +1517,7 @@ const REALTIME_EVENTS = [
   "notification.created",
   "typing",
   "read.updated",
+  "files.deleted",
 ] as const;
 
 /** How many failed WebSocket attempts, none of which ever opened, before falling back to SSE. */
@@ -1622,6 +1640,9 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         break;
       case "read.updated":
         handlers.onReadCursor?.(conv, String(payload.user_id), String(payload.last_read_message_id));
+        break;
+      case "files.deleted":
+        handlers.onFilesDeleted?.(String(payload.space_id), (payload.file_ids as string[]) ?? []);
         break;
       default:
         // Unhandled event types (saved) are ignored for now.

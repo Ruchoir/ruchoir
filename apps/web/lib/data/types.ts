@@ -150,6 +150,8 @@ export type MessageAttachment = {
   url?: string;
   /** Same-origin URL serving the original bytes inline, for opening in a tab at full quality. */
   previewUrl?: string;
+  /** The file was removed from the space: the message keeps a trace of it, without a way to open it. */
+  deleted?: boolean;
 };
 
 /**
@@ -172,6 +174,8 @@ export type LinkPreview = {
  * a locally-generated placeholder, never a remote image (sovereignty + CSP).
  */
 export type InlineImage = {
+  /** The stored file behind it, so a deletion arriving live can find the messages showing it. */
+  fileId?: string;
   alt: string;
   width: number;
   height: number;

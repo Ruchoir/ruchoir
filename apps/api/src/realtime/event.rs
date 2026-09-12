@@ -145,6 +145,15 @@ impl RealtimeEnvelope {
         Self::global("space.updated", payload)
     }
 
+    /// One or more files were removed from a space.
+    ///
+    /// Delivered to the space's members, the one who deleted them included. A file is not only a
+    /// row of the files screen: it may be hanging off a message someone else has on screen, and
+    /// without this that message goes on offering bytes that are gone until the page is reloaded.
+    pub fn files_deleted(payload: impl Serialize) -> Self {
+        Self::global("files.deleted", payload)
+    }
+
     /// A user's effective presence changed.
     pub fn presence(payload: impl Serialize) -> Self {
         Self::global("presence", payload)

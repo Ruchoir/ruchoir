@@ -785,6 +785,12 @@ function AppShell() {
    */
   const alertRef = useRef<((n: AppNotification) => void) | null>(null);
 
+  /**
+   * Latest "this message has been seen" function, for the same reason as the others: the realtime
+   * handlers are wired once per session and this one advances a cursor that moves under them.
+   */
+  const markSeenRef = useRef<(conversationId: string, messageId: string) => void>(() => {});
+
   useEffect(() => {
     liveRef.current = { channels, dms, channelId, view, myId: session?.id, ws };
   });
@@ -810,6 +816,14 @@ function AppShell() {
             delete next[author];
             return { ...prev, [conv]: next };
           });
+        }
+        // Reading is having it on screen while looking at the screen. Sitting in a conversation
+        // never advanced the read cursor: it moved only when a conversation was opened, so someone
+        // who stayed in a channel accumulated unread messages they were watching arrive, and their
+        // read receipt told the sender "Non lu" about a message they had just answered.
+        if (conv === active && liveRef.current.view === "channel" && !appIsAway()) {
+          markSeenRef.current(conv, m.id);
+          return;
         }
         // Someone else posted in a conversation we are not looking at: bump its unread badge.
         if (conv !== active) {
@@ -991,6 +1005,41 @@ function AppShell() {
       },
       onTyping: (conv, userId) =>
         setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
+      onFilesDeleted: (spaceId, fileIds) => {
+        if (fileIds.length === 0) return;
+        const gone = new Set(fileIds);
+        // Every loaded conversation, not only the one on screen: the others are in memory and
+        // would otherwise keep a working-looking attachment until they were next opened.
+        setMessages((prev) => {
+          let touched = false;
+          const next: typeof prev = {};
+          for (const [conversationId, list] of Object.entries(prev)) {
+            next[conversationId] = list.map((m) => {
+              // An image attachment is held as an image and not as a file, so both have to be
+              // looked at: a picture whose bytes are gone draws an empty frame the size of the
+              // picture, which is the loudest way to show an absence.
+              const fileId = m.attachment?.fileId ?? m.image?.fileId;
+              if (!fileId || !gone.has(fileId)) return m;
+              touched = true;
+              return {
+                ...m,
+                image: undefined,
+                attachment: {
+                  fileId,
+                  name: m.attachment?.name ?? m.image?.alt ?? "Fichier",
+                  size: m.attachment?.size ?? "",
+                  kind: m.attachment?.kind ?? "image",
+                  deleted: true,
+                },
+              };
+            });
+          }
+          return touched ? next : prev;
+        });
+        if (spaceId === liveRef.current.ws) {
+          setSpaceFiles((prev) => prev.filter((f) => !f.id || !gone.has(f.id)));
+        }
+      },
       onReadCursor: (conv, userId, lastReadMessageId) =>
         setReadCursors((prev) => {
           const known = prev[conv] ?? { members: [], at: {} };
@@ -1306,6 +1355,45 @@ function AppShell() {
   };
   useEffect(() => {
     markReadRef.current = markConversationRead;
+  });
+
+  /**
+   * A message watched arriving is a message read: advance the cursor to it, and clear anything the
+   * inbox holds for that conversation.
+   *
+   * Filed at once rather than debounced. A cursor is a single value and the last write wins, so a
+   * burst of messages costs a handful of small requests and never leaves the cursor behind the
+   * conversation, which is the failure this exists to prevent.
+   */
+  useEffect(() => {
+    markSeenRef.current = (conversationId, messageId) => {
+      void setReadCursor(conversationId, messageId).catch(() => {});
+      const waiting = notifs.filter((n) => n.channelId === conversationId && !n.read);
+      if (waiting.length === 0) return;
+      setNotifs((prev) => prev.map((n) => (n.channelId === conversationId ? { ...n, read: true } : n)));
+      for (const n of waiting) void markNotificationRead(n.id).catch(() => {});
+      refreshSpaceCounters();
+    };
+  });
+
+  /**
+   * Coming back to the window catches up on whatever arrived while it was elsewhere.
+   *
+   * Messages that land while the app is in the background are deliberately left unread, since
+   * nobody read them. Returning is what reads them, and without this the conversation on screen
+   * stayed unread until it was opened again.
+   */
+  useEffect(() => {
+    const catchUp = () => {
+      if (document.visibilityState !== "visible" || view !== "channel" || !channelId) return;
+      markConversationRead(channelId);
+    };
+    window.addEventListener("focus", catchUp);
+    document.addEventListener("visibilitychange", catchUp);
+    return () => {
+      window.removeEventListener("focus", catchUp);
+      document.removeEventListener("visibilitychange", catchUp);
+    };
   });
 
   /** Jump to the next (dir 1) or previous (dir -1) unread conversation, channels then DMs, cyclically. */

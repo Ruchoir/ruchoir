@@ -14,12 +14,14 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
     TransactionTrait,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
 use crate::entities::files;
+use crate::messaging::authz as messaging_authz;
+use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
 
 use super::authz;
@@ -254,12 +256,39 @@ pub async fn delete_file(
     files::Entity::update_many()
         .col_expr(files::Column::DeletedAt, Expr::value(now))
         .col_expr(files::Column::UpdatedAt, Expr::value(now))
-        .filter(files::Column::Id.is_in(to_delete))
+        .filter(files::Column::Id.is_in(to_delete.clone()))
         .exec(&txn)
         .await?;
     txn.commit().await?;
 
+    // Told to the space, not only to the caller. A deleted file may be attached to a message
+    // someone else is looking at right now, where it would go on offering bytes that no longer
+    // exist until that page happened to be reloaded.
+    let audience = messaging_authz::space_member_ids(&state.db, file.space_id, session.user_id)
+        .await
+        .unwrap_or_default();
+    if !audience.is_empty() {
+        state
+            .hub
+            .publish(
+                audience,
+                RealtimeEnvelope::files_deleted(FilesDeletedEvent {
+                    space_id: file.space_id,
+                    file_ids: to_delete,
+                }),
+            )
+            .await;
+    }
+
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// The payload carried by a `files.deleted` event: a folder takes its subtree with it, so this is
+/// a list rather than one id.
+#[derive(Debug, Serialize)]
+struct FilesDeletedEvent {
+    space_id: Uuid,
+    file_ids: Vec<Uuid>,
 }
 
 /// Clean a user-supplied name: strip any path component, drop control characters, trim, and cap the

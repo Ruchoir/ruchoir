@@ -3,6 +3,7 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Icon, IconButton, Popover } from "@/components/ds";
 import type { MessageAttachment } from "@/lib/data";
+import { deleteFile } from "@/lib/data/api";
 import type { Toast } from "../app/types";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
@@ -152,10 +153,25 @@ export function Composer({
     ed.submit();
   };
 
+  /**
+   * Forget an attachment that was stored but never sent.
+   *
+   * The upload happens when the file is picked, so the bytes are in the space before the message
+   * exists. Dropping the pick without sending used to leave them there: replacing one attachment
+   * with another, or removing it, put a file in "Fichiers de l'espace" belonging to no message,
+   * which nobody remembers uploading. Best-effort: a failed cleanup leaves exactly the state we
+   * were leaving behind before.
+   */
+  const discardStored = (attachment: MessageAttachment | null) => {
+    if (attachment?.fileId) void deleteFile(attachment.fileId).catch(() => {});
+  };
+
   const onFilePicked = async (fileList: FileList | null) => {
     const file = fileList?.[0];
     if (!file) return;
     if (fileRef.current) fileRef.current.value = "";
+    // A second pick replaces the first, which then has nothing left to belong to.
+    discardStored(pending);
     // Show it immediately, with what the browser knows, then replace it with the stored file.
     setPending({ name: file.name, size: bytesToSize(file.size), kind: iconForType(file.type) });
     setUploading(true);
@@ -209,7 +225,10 @@ export function Composer({
               label="Retirer la pièce jointe"
               size="sm"
               disabled={uploading}
-              onClick={() => setPending(null)}
+              onClick={() => {
+                discardStored(pending);
+                setPending(null);
+              }}
             />
           </div>
         ) : null}
