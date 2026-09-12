@@ -8,6 +8,7 @@ import type { Presence } from "@/components/ds";
 import { clearMyAvatar, getUserProfile, setMyAvatar, updateMyProfile } from "@/lib/data/api";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { minimalProfile } from "../app/useProfile";
+import { useLocalTime } from "../app/useLocalTime";
 import { presenceLabel } from "../app/presence";
 import type { Toast } from "../app/types";
 
@@ -132,6 +133,9 @@ export function ProfilePanel({
   }, [userId]);
   const p = fetched ?? minimalProfile(name);
   const shownPresence = presence ?? p.presence;
+  // Derived here and kept ticking: a profile left open for twenty minutes used to show a time
+  // twenty minutes wrong, which is worse than showing none because it is precise.
+  const localTime = useLocalTime(p.timezone);
   const isOwn = name === getCurrentUser().name;
   const [editing, setEditing] = useState(!!startEditing && isOwn);
   const [role, setRole] = useState(p.role);
@@ -220,15 +224,26 @@ export function ProfilePanel({
               disabled={photoBusy}
               title="Changer la photo"
               aria-label="Changer la photo de profil"
-              style={{ border: 0, background: "transparent", padding: 0, cursor: photoBusy ? "wait" : "pointer", borderRadius: "var(--radius-full)", position: "relative" }}
+              // `inline-flex` with no line box: a plain button is as tall as its line height, so the
+              // badge anchored to its corner floated below and beside the photo instead of on it.
+              style={{
+                display: "inline-flex",
+                border: 0,
+                background: "transparent",
+                padding: 0,
+                cursor: photoBusy ? "wait" : "pointer",
+                borderRadius: "var(--radius-full)",
+                position: "relative",
+                lineHeight: 0,
+              }}
             >
               <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
               <span
                 aria-hidden
                 style={{
                   position: "absolute",
-                  right: 2,
-                  bottom: 2,
+                  right: 0,
+                  bottom: 0,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -241,6 +256,18 @@ export function ProfilePanel({
               >
                 <Icon name={photoBusy ? "clock" : "square-pen"} size={14} style={{ color: "var(--text-muted)" }} />
               </span>
+              {/*
+                The file picker itself. It used to live in the edit form, next to the duplicate
+                preview; removing that duplicate took the input with it and left the button opening
+                a reference attached to nothing, which is a click that does nothing at all.
+              */}
+              <input
+                ref={photoRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => onPhotoPicked(e.target.files)}
+              />
             </button>
           ) : (
             <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
@@ -319,7 +346,7 @@ export function ProfilePanel({
               {p.email ? <Field icon="at-sign">{p.email}</Field> : null}
               {/* Absent rather than guessed: every profile used to report Europe/Paris, including
                   those of people who had never been asked. */}
-              {p.localTime ? <Field icon="clock">{p.localTime} heure locale</Field> : null}
+              {localTime ? <Field icon="clock">{localTime} heure locale</Field> : null}
               {p.timezone ? <Field icon="globe">{p.timezone}</Field> : null}
             </div>
           </>

@@ -4,6 +4,7 @@ import type { Presence } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import { presenceLabel } from "./presence";
 import { useProfile } from "./useProfile";
+import { useLocalTime } from "./useLocalTime";
 
 const card: CSSProperties = {
   width: 280,
@@ -37,6 +38,7 @@ export type UserProfileCardProps = {
 export function UserProfileCard({ name, userId, presence, onViewFull, onEditProfile, onMessage }: UserProfileCardProps) {
   const p = useProfile(userId, name);
   const dot = presence ?? p.presence;
+  const localTime = useLocalTime(p.timezone);
   const isOwn = name === getCurrentUser().name;
   return (
     <div style={card}>
@@ -60,10 +62,10 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
           </div>
           {/* Only when they chose a timezone: the card used to fall back to Europe/Paris and present
               it as this person's local time, which is worse than saying nothing. */}
-          {p.localTime ? (
+          {localTime ? (
             <div style={row}>
               <Icon name="clock" size={14} />
-              {p.localTime} heure locale
+              {localTime} heure locale
             </div>
           ) : null}
           {p.email ? (

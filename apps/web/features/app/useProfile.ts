@@ -11,8 +11,8 @@ export function minimalProfile(name: string): Profile {
     role: "Membre",
     presence: "offline",
     email: "",
-    timezone: "Europe/Paris",
-    localTime: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+    // No timezone: this is the placeholder shown while the real profile loads, and inventing one
+    // here is how every profile came to report Europe/Paris in the first place.
   };
 }
 

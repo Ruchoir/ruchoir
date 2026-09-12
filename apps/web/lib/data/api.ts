@@ -755,7 +755,6 @@ export async function getUserProfile(userId: string, signal?: AbortSignal): Prom
     // No invented default: a profile that has never set one said "Europe/Paris", which the card
     // rendered as this person's local time. Absent now means absent, and the card says nothing.
     timezone: dto.timezone,
-    localTime: dto.timezone ? localTimeIn(dto.timezone) : undefined,
     pronouns: dto.pronouns,
     bio: dto.bio,
     bot: dto.is_bot || undefined,
@@ -853,7 +852,6 @@ export async function updateMyProfile(patch: {
     presence: "offline",
     email: dto.email,
     timezone: dto.timezone,
-    localTime: dto.timezone ? localTimeIn(dto.timezone) : undefined,
     pronouns: dto.pronouns,
     bio: dto.bio,
     bot: dto.is_bot || undefined,
@@ -1182,18 +1180,6 @@ function formatTimestamp(iso: string): string {
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
-/** Current local time in a timezone, as "HH:MM"; falls back to the local zone on an invalid name. */
-function localTimeIn(timezone?: string): string {
-  try {
-    return new Date().toLocaleTimeString("fr-FR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: timezone || undefined,
-    });
-  } catch {
-    return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  }
-}
 
 // --- Notifications ---
 

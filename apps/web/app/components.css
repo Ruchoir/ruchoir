@@ -1020,18 +1020,22 @@
   border-color: var(--border-default);
 }
 /*
- * Checked and disabled at once: still checked.
+ * Checked and disabled at once: still checked, and still the accent colour.
  *
  * The disabled rule came after the checked one and won, so a box that was ticked and then made
  * read-only rendered empty and white: the interface said "no" where the state said "yes". It happens
  * wherever a fact is shown as a checkbox nobody may change, which is the honest way to show one.
- * Muted rather than accented, so it still reads as out of reach.
+ *
+ * It keeps the accent rather than going grey, because the state is what the reader is looking at;
+ * the reduced opacity is what says "not yours to change", and it says it without touching the two
+ * colours whose contrast was checked.
  */
 .wc-cb input:disabled:checked + .wc-cb__box,
 .wc-cb input:disabled:indeterminate + .wc-cb__box {
-  background: var(--surface-disabled);
-  border-color: var(--border-strong);
-  color: var(--text-muted);
+  background: var(--action-primary-bg);
+  border-color: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+  opacity: 0.55;
 }
 .wc-cb--disabled {
   color: var(--text-disabled);
