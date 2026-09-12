@@ -407,6 +407,37 @@ function AppShell() {
         }),
     [],
   );
+  /**
+   * Fetch where everyone has read up to in a conversation, which is what the read indicator draws.
+   *
+   * Called from both ways into a conversation, and that is the whole point: hooked onto the click
+   * alone, the conversation opened by entering a space never had any, so every one of your own
+   * messages read "Non lu" until you left the channel and came back. Live from there on, through
+   * `read.updated`.
+   */
+  const loadReadCursors = useCallback(
+    (id: string) =>
+      getReadCursors(id)
+        .then((cursors) =>
+          setReadCursors((prev) => ({
+            ...prev,
+            [id]: {
+              // Everyone who could read, so "everyone has" can be told from "three of them have".
+              members: cursors.map((c) => c.userId),
+              at: Object.fromEntries(
+                cursors
+                  .filter((c) => c.lastReadMessageId)
+                  .map((c) => [c.userId, c.lastReadMessageId as string]),
+              ),
+            },
+          })),
+        )
+        .catch(() => {
+          // The indicator simply says nothing until the next visit; not worth a message.
+        }),
+    [],
+  );
+
   const refreshSpaceCounters = useCallback(() => {
     clearTimeout(countersTimer.current);
     countersTimer.current = setTimeout(() => void reloadSpaceCounters(), 1500);
@@ -491,6 +522,7 @@ function AppShell() {
       // The page is passed in because the read cursor needs its last message and the state holding
       // it was only just set.
       markReadRef.current(opening, page.messages);
+      void loadReadCursors(opening);
     }
 
     // Third wave, behind the screen: everything the first view does not need. The other
@@ -553,8 +585,8 @@ function AppShell() {
         refreshSpaceCounters();
       }
     })();
-    // Stable by construction, and listed rather than omitted so the rule stays a rule.
-  }, [refreshSpaceCounters]);
+    // Both stable by construction, and listed rather than omitted so the rule stays a rule.
+  }, [refreshSpaceCounters, loadReadCursors]);
 
   /**
    * Load the signed-in user's spaces and enter the first one. Returns the spaces, so the caller can
@@ -1561,22 +1593,7 @@ function AppShell() {
     markConversationRead(id);
     // And asks where everyone else has read up to, which is what the read indicator draws. Live
     // afterwards, through `read.updated`.
-    void getReadCursors(id)
-      .then((cursors) =>
-        setReadCursors((prev) => ({
-          ...prev,
-          [id]: {
-            // Everyone who could read, so "everyone has" can be told from "three of them have".
-            members: cursors.map((c) => c.userId),
-            at: Object.fromEntries(
-              cursors
-                .filter((c) => c.lastReadMessageId)
-                .map((c) => [c.userId, c.lastReadMessageId as string]),
-            ),
-          },
-        })),
-      )
-      .catch(() => {});
+    void loadReadCursors(id);
   };
 
   /** Switch the right panel, closing the thread and profile views so it is visible. */
