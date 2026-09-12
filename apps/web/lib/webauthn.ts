@@ -60,6 +60,69 @@ function toBase64Url(buffer: ArrayBuffer): string {
   return window.btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+/** A `POST /auth/mfa/passkey/register/start` challenge, as sent on the wire. */
+export type PasskeyCreationChallenge = {
+  publicKey: {
+    challenge: string;
+    rp: { id?: string; name: string };
+    user: { id: string; name: string; displayName: string };
+    pubKeyCredParams: { type: string; alg: number }[];
+    timeout?: number;
+    excludeCredentials?: { type: string; id: string; transports?: string[] }[];
+    authenticatorSelection?: Record<string, unknown>;
+    attestation?: string;
+  };
+};
+
+/** A new credential in the JSON shape the API deserialises. */
+export type PasskeyRegistration = {
+  id: string;
+  rawId: string;
+  type: string;
+  response: { attestationObject: string; clientDataJSON: string };
+  extensions: Record<string, never>;
+};
+
+/**
+ * Create a passkey on this device, answering the server's registration challenge.
+ *
+ * The mirror of {@link getPasskeyAssertion}: same translation between the API's base64url JSON and
+ * the `ArrayBuffer`s the browser wants, in the other direction. The private key stays in the
+ * authenticator; what comes back is a public credential bound to this site.
+ */
+export async function createPasskeyCredential(
+  challenge: PasskeyCreationChallenge,
+): Promise<PasskeyRegistration> {
+  if (!isPasskeySupported()) throw new Error("passkeys are not supported by this browser");
+  const options = challenge.publicKey;
+  const credential = (await navigator.credentials.create({
+    publicKey: {
+      ...options,
+      challenge: fromBase64Url(options.challenge),
+      user: { ...options.user, id: fromBase64Url(options.user.id) },
+      excludeCredentials: options.excludeCredentials?.map((c) => ({
+        ...c,
+        id: fromBase64Url(c.id),
+        type: "public-key" as const,
+        transports: c.transports as AuthenticatorTransport[] | undefined,
+      })),
+    } as PublicKeyCredentialCreationOptions,
+  })) as PublicKeyCredential | null;
+  if (!credential) throw new Error("no credential was created");
+
+  const response = credential.response as AuthenticatorAttestationResponse;
+  return {
+    id: credential.id,
+    rawId: toBase64Url(credential.rawId),
+    type: credential.type,
+    response: {
+      attestationObject: toBase64Url(response.attestationObject),
+      clientDataJSON: toBase64Url(response.clientDataJSON),
+    },
+    extensions: {},
+  };
+}
+
 /**
  * Prompt the authenticator for an assertion answering `challenge`, and return it in the API's JSON
  * shape. Rejects when passkeys are unsupported, and when the user dismisses or cancels the prompt

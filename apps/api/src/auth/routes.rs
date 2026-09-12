@@ -4,14 +4,17 @@
 //! The API owns auth end to end. MFA step-up (TOTP, passkeys) lands in a later step; the shapes
 //! here are the contract the web client calls.
 
-use axum::extract::State;
+use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use axum_extra::extract::cookie::CookieJar;
 use sea_orm::ActiveValue::{NotSet, Set};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    QueryOrder,
+};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
@@ -25,6 +28,7 @@ use super::{crypto, mfa, passkey, password, recovery, session, throttle, totp};
 use crate::entities::{
     recovery_codes, space_invitations, totp_secrets, users, webauthn_credentials,
 };
+use crate::messaging::dto::rfc3339;
 use crate::state::AppState;
 use webauthn_rs::prelude::{
     CreationChallengeResponse, Passkey, PublicKeyCredential, RegisterPublicKeyCredential,
@@ -86,6 +90,45 @@ pub struct TotpEnrollResponse {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct TotpConfirm {
     pub code: String,
+}
+
+/// One registered passkey, as the account screen lists them.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PasskeySummary {
+    pub id: Uuid,
+    /// The label given at registration; absent for a key registered without one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_used_at: Option<String>,
+}
+
+/// What second factors the caller's account actually holds.
+///
+/// The account screen had no way to ask this and so invented an answer, which is how it came to
+/// report two-factor authentication as enabled on accounts that had never enrolled.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct MfaStateResponse {
+    /// A confirmed TOTP secret exists. An unconfirmed enrollment does not count.
+    pub totp_enabled: bool,
+    /// Unused single-use codes left.
+    pub recovery_codes_remaining: u32,
+    pub passkeys: Vec<PasskeySummary>,
+}
+
+/// Turning off TOTP, which asks for the password: a session someone else has taken over must not
+/// be able to strip the factor that would have stopped them.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DisableTotpRequest {
+    pub password: String,
+}
+
+/// Changing one's own password, knowing the current one.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ChangePasswordRequest {
+    pub current_password: String,
+    pub new_password: String,
 }
 
 /// A freshly generated set of recovery codes, shown to the user exactly once.
@@ -173,6 +216,13 @@ pub fn router() -> Router<AppState> {
         .route("/verify-email/confirm", post(verify_email_confirm))
         .route("/password-reset/request", post(password_reset_request))
         .route("/password-reset/confirm", post(password_reset_confirm))
+        .route("/mfa", get(mfa_state))
+        .route("/password", post(change_password))
+        .route("/mfa/totp/disable", post(totp_disable))
+        .route(
+            "/mfa/passkey/{credential_id}",
+            axum::routing::delete(passkey_remove),
+        )
         .route("/mfa/totp/enroll", post(totp_enroll))
         .route("/mfa/totp/confirm", post(totp_confirm))
         .route("/mfa/recovery-codes/generate", post(recovery_generate))
@@ -565,6 +615,217 @@ pub async fn password_reset_confirm(
     // A password change invalidates every existing session.
     session::delete_all(&state.valkey, user_id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// `GET /api/v1/auth/mfa`: what second factors this account holds.
+#[utoipa::path(
+    get,
+    path = "/api/v1/auth/mfa",
+    tag = "auth",
+    responses(
+        (status = 200, description = "The caller's second factors", body = MfaStateResponse),
+        (status = 401, description = "Not authenticated")
+    )
+)]
+pub async fn mfa_state(
+    State(state): State<AppState>,
+    auth: AuthSession,
+) -> Result<Json<MfaStateResponse>, AuthError> {
+    // Only a confirmed secret counts: an enrollment abandoned at the QR code leaves a row behind,
+    // and reporting that as protection would be the very thing this endpoint exists to stop.
+    let totp_enabled = totp_secrets::Entity::find_by_id(auth.user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .is_some_and(|row| row.confirmed_at.is_some());
+
+    let recovery_codes_remaining = recovery_codes::Entity::find()
+        .filter(recovery_codes::Column::UserId.eq(auth.user_id))
+        .filter(recovery_codes::Column::UsedAt.is_null())
+        .count(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)? as u32;
+
+    let passkeys = webauthn_credentials::Entity::find()
+        .filter(webauthn_credentials::Column::UserId.eq(auth.user_id))
+        .order_by_asc(webauthn_credentials::Column::CreatedAt)
+        .all(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .into_iter()
+        .map(|c| PasskeySummary {
+            id: c.id,
+            label: c.label,
+            created_at: rfc3339(c.created_at),
+            last_used_at: c.last_used_at.map(rfc3339),
+        })
+        .collect();
+
+    Ok(Json(MfaStateResponse {
+        totp_enabled,
+        recovery_codes_remaining,
+        passkeys,
+    }))
+}
+
+/// `POST /api/v1/auth/mfa/totp/disable`: turn off the authenticator app.
+///
+/// The password is required. Someone sitting at an unlocked machine should not be able to remove
+/// the factor that protects the account from them.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/mfa/totp/disable",
+    tag = "auth",
+    request_body = DisableTotpRequest,
+    responses(
+        (status = 204, description = "TOTP disabled"),
+        (status = 401, description = "Not authenticated, or the password is wrong")
+    )
+)]
+pub async fn totp_disable(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Json(body): Json<DisableTotpRequest>,
+) -> Result<StatusCode, AuthError> {
+    let user = users::Entity::find_by_id(auth.user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::Unauthorized)?;
+    let hash = user
+        .password_hash
+        .as_deref()
+        .ok_or(AuthError::Unauthorized)?;
+    if !password::verify_password(&state.config, &body.password, hash) {
+        return Err(AuthError::InvalidCredentials);
+    }
+
+    totp_secrets::Entity::delete_by_id(auth.user_id)
+        .exec(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    sync_mfa_enforced(&state, user).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `DELETE /api/v1/auth/mfa/passkey/{credential_id}`: forget one registered key.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/auth/mfa/passkey/{credential_id}",
+    tag = "auth",
+    params(("credential_id" = Uuid, Path, description = "Credential id")),
+    responses(
+        (status = 204, description = "Key removed"),
+        (status = 401, description = "Not authenticated"),
+        (status = 404, description = "No such key on this account")
+    )
+)]
+pub async fn passkey_remove(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Path(credential_id): Path<Uuid>,
+) -> Result<StatusCode, AuthError> {
+    let credential = webauthn_credentials::Entity::find_by_id(credential_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::InvalidToken)?;
+    // Somebody else's key is not found rather than forbidden: the id says nothing about whose it is.
+    if credential.user_id != auth.user_id {
+        return Err(AuthError::InvalidToken);
+    }
+    webauthn_credentials::Entity::delete_by_id(credential_id)
+        .exec(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    let user = users::Entity::find_by_id(auth.user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::Unauthorized)?;
+    sync_mfa_enforced(&state, user).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `POST /api/v1/auth/password`: change the password, knowing the current one.
+///
+/// Every session goes, this one included, which is the same rule the emailed reset follows: a
+/// password is changed because it may be known to someone else, and leaving their session alive
+/// would defeat the change.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/password",
+    tag = "auth",
+    request_body = ChangePasswordRequest,
+    responses(
+        (status = 204, description = "Password changed; every session ended"),
+        (status = 400, description = "The new password is too weak or breached"),
+        (status = 401, description = "Not authenticated, or the current password is wrong")
+    )
+)]
+pub async fn change_password(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Json(body): Json<ChangePasswordRequest>,
+) -> Result<StatusCode, AuthError> {
+    let user = users::Entity::find_by_id(auth.user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::Unauthorized)?;
+    let hash = user
+        .password_hash
+        .as_deref()
+        .ok_or(AuthError::Unauthorized)?;
+    if !password::verify_password(&state.config, &body.current_password, hash) {
+        return Err(AuthError::InvalidCredentials);
+    }
+    // Checked before anything is written, so a refused password leaves the account untouched.
+    password::check_policy(&body.new_password, &state.breaches)?;
+
+    let new_hash = password::hash_password(&state.config, &body.new_password)?;
+    let user_id = user.id;
+    let mut active = user.into_active_model();
+    active.password_hash = Set(Some(new_hash));
+    active.updated_at = Set(OffsetDateTime::now_utc());
+    active
+        .update(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    session::delete_all(&state.valkey, user_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Keep `mfa_enforced` equal to "this account still has a second factor".
+///
+/// It is set when one is added and has to be cleared when the last one goes, or the account would
+/// be asked at sign-in for a factor it no longer holds, which is a lockout.
+async fn sync_mfa_enforced(state: &AppState, user: users::Model) -> Result<(), AuthError> {
+    let has_totp = totp_secrets::Entity::find_by_id(user.id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .is_some_and(|row| row.confirmed_at.is_some());
+    let passkeys = webauthn_credentials::Entity::find()
+        .filter(webauthn_credentials::Column::UserId.eq(user.id))
+        .count(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    let enforced = has_totp || passkeys > 0;
+    if user.mfa_enforced == enforced {
+        return Ok(());
+    }
+    let mut active = user.into_active_model();
+    active.mfa_enforced = Set(enforced);
+    active.updated_at = Set(OffsetDateTime::now_utc());
+    active
+        .update(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    Ok(())
 }
 
 /// Begin TOTP enrollment: generate a secret, store it encrypted (unconfirmed), and return the
