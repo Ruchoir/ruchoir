@@ -137,6 +137,17 @@ impl RealtimeEnvelope {
         Self::global("member.left", payload)
     }
 
+    /// A member's role in a space changed.
+    ///
+    /// Separate from `member.updated`, which carries an identity and deliberately no role: a name or
+    /// a photo is the same in every space, while a role is a fact about one space and decides what
+    /// the person receiving the event is allowed to see offered. Delivered to the space, the person
+    /// whose role changed included, because their own interface has to gain or lose the controls
+    /// that go with it without a reload.
+    pub fn member_role_changed(payload: impl Serialize) -> Self {
+        Self::global("member.role_changed", payload)
+    }
+
     /// A space is no longer the recipient's: they left it, or it was deleted under them.
     ///
     /// One event for both because the client does the same thing with either: drop the space from

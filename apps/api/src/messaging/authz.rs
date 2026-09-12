@@ -135,6 +135,26 @@ pub async fn ensure_space_member(
     }
 }
 
+/// The roles a space membership can hold, weakest first. The order is the rule: everything about who
+/// may do what to whom is a comparison of two positions in this list, and the database constrains
+/// `space_members.role` to exactly these four values.
+pub const SPACE_ROLES: [&str; 4] = ["guest", "member", "admin", "owner"];
+
+/// Where a role sits in [`SPACE_ROLES`]. An unknown string ranks lowest, which is the safe direction:
+/// it can never authorise anything.
+pub fn role_rank(role: &str) -> usize {
+    SPACE_ROLES
+        .iter()
+        .position(|known| *known == role)
+        .map(|index| index + 1)
+        .unwrap_or(0)
+}
+
+/// Whether a string names a role the schema accepts.
+pub fn is_space_role(role: &str) -> bool {
+    SPACE_ROLES.contains(&role)
+}
+
 /// Require an `owner` or `admin` role in the space, or fail with the same flat `403`.
 ///
 /// The second guard of the space boundary: [`ensure_space_member`] answers "may they see this

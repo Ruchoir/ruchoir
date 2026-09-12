@@ -35,7 +35,8 @@ use crate::entities::{
 use crate::state::AppState;
 
 use super::dto::{
-    CreateSpaceRequest, SpaceDto, SpaceRefDto, SpaceRemovedDto, SpaceUpdatedDto, UpdateSpaceRequest,
+    CreateSpaceRequest, MemberRoleChangedDto, SpaceDto, SpaceRefDto, SpaceRemovedDto,
+    SpaceUpdatedDto, UpdateMemberRoleRequest, UpdateSpaceRequest,
 };
 use super::error::ApiError;
 use super::slug::{slugify, MAX_HANDLE_LEN};
@@ -356,6 +357,119 @@ pub async fn resolve_space_slug(
     }))
 }
 
+/// `PATCH /api/v1/spaces/{space_id}/members/{user_id}`: change what a member may do in a space.
+///
+/// **One rule, applied twice.** You may only act on someone ranked strictly below you, and you may
+/// only hand out a rank strictly below your own. Ranks are `guest` < `member` < `admin` < `owner`.
+/// Everything follows from it: nobody can change their own role, an admin can make members and
+/// guests but not other admins, an admin cannot demote another admin, and nobody outranks the owner.
+///
+/// **The one exception is the transfer.** An owner may set someone else to `owner`, and becomes an
+/// `admin` in the same write. A space therefore has exactly one owner at any moment, which is what
+/// the refusal in [`leave_space`] points at: an owner who wants out hands the space over first. The
+/// demotion is not a courtesy the code invents, it is the transfer: two people holding the same
+/// space would make "the last owner" a question rather than a fact.
+///
+/// Invitations cannot grant `owner` either (the schema constrains them to `admin`, `member`,
+/// `guest`), so this endpoint is the only door ownership ever moves through after a space is
+/// created.
+#[utoipa::path(
+    patch,
+    path = "/api/v1/spaces/{space_id}/members/{user_id}",
+    tag = "messaging",
+    params(
+        ("space_id" = Uuid, Path, description = "Space id"),
+        ("user_id" = Uuid, Path, description = "The member whose role is changing")
+    ),
+    request_body = UpdateMemberRoleRequest,
+    responses(
+        (status = 200, description = "Every membership this changed", body = Vec<MemberRoleChangedDto>),
+        (status = 400, description = "Not a role this instance knows"),
+        (status = 403, description = "Not allowed to give this role to this member"),
+        (status = 404, description = "Not a member of this space")
+    )
+)]
+pub async fn update_member_role(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path((space_id, user_id)): Path<(Uuid, Uuid)>,
+    Json(body): Json<UpdateMemberRoleRequest>,
+) -> Result<Json<Vec<MemberRoleChangedDto>>, ApiError> {
+    let wanted = body.role.trim().to_lowercase();
+    if !super::authz::is_space_role(&wanted) {
+        return Err(ApiError::BadRequest("this instance has no such role"));
+    }
+
+    let actor = space_members::Entity::find_by_id((space_id, session.user_id))
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    let actor_rank = super::authz::role_rank(&actor.role);
+    // Acting on one's own membership is caught by the rank rule below (nobody ranks below
+    // themselves), but it is worth refusing by name: it is the one case a client could reach by
+    // accident rather than by trying.
+    if user_id == session.user_id || actor_rank < super::authz::role_rank("admin") {
+        return Err(ApiError::Forbidden);
+    }
+
+    let target = space_members::Entity::find_by_id((space_id, user_id))
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    if target.role == wanted {
+        // Nothing to write, and nothing to announce. Answering `200` with an empty list keeps the
+        // call idempotent instead of making a second press an error.
+        return Ok(Json(Vec::new()));
+    }
+
+    let transfer = wanted == "owner";
+    let allowed = super::authz::role_rank(&target.role) < actor_rank
+        && if transfer {
+            actor.role == "owner"
+        } else {
+            super::authz::role_rank(&wanted) < actor_rank
+        };
+    if !allowed {
+        return Err(ApiError::Forbidden);
+    }
+
+    let txn = state.db.begin().await?;
+    let mut promoted = target.into_active_model();
+    promoted.role = Set(wanted.clone());
+    promoted.update(&txn).await?;
+    let mut changes = vec![MemberRoleChangedDto {
+        space_id,
+        user_id,
+        role: wanted,
+    }];
+    if transfer {
+        let mut stepping_down = actor.into_active_model();
+        stepping_down.role = Set("admin".to_owned());
+        stepping_down.update(&txn).await?;
+        changes.push(MemberRoleChangedDto {
+            space_id,
+            user_id: session.user_id,
+            role: "admin".to_owned(),
+        });
+    }
+    txn.commit().await?;
+
+    // Told to the whole space, not only to the two people involved: a role decides what the member
+    // list shows, who may be invited, and which controls each person is offered. The actor is in the
+    // audience too, so their own other tabs follow a transfer they made here.
+    let audience = super::authz::space_member_ids(&state.db, space_id, session.user_id).await?;
+    for change in &changes {
+        state
+            .hub
+            .publish(
+                audience.clone(),
+                RealtimeEnvelope::member_role_changed(change),
+            )
+            .await;
+    }
+    Ok(Json(changes))
+}
+
 /// `DELETE /api/v1/spaces/{space_id}/membership`: leave a space.
 ///
 /// Only the caller's own membership goes, here and in the channels of that space. What they wrote
@@ -396,7 +510,7 @@ pub async fn leave_space(
             .await?;
         if owners <= 1 {
             return Err(ApiError::Conflict(
-                "you are this space's last owner: make someone else an owner, or delete the space",
+                "you are this space's last owner: hand the space over to someone else, or delete it",
             ));
         }
     }

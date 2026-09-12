@@ -740,7 +740,11 @@
     "deleteFinal": "Es inmediato y definitivo: no se conserva nada y nada se puede restaurar.",
     "deleteConfirm": "Eliminar definitivamente",
     "deleteConfirmLabel": "Escribe «{{name}}» para confirmar",
-    "leaveDesc": "Sales de este espacio. Continúa sin ti, y para volver hará falta una invitación."
+    "leaveDesc": "Sales de este espacio. Continúa sin ti, y para volver hará falta una invitación.",
+    "transferTitle": "¿Ceder el espacio a {{name}}?",
+    "transferBody": "{{name}} pasa a ser propietario de {{space}} y podrá hacerlo todo en él, incluso eliminarlo.",
+    "transferStepDown": "Un espacio tiene un solo propietario: vuelves a ser administrador, y solo el nuevo propietario podrá devolverte el rol.",
+    "transferConfirm": "Ceder el espacio"
   },
   "prefs": {
     "title": "Preferencias",
@@ -837,7 +841,8 @@
     "passkeyCancelled": "Autenticación con clave de acceso cancelada.",
     "invalidEmail": "Esa dirección no parece válida.",
     "noChannelRights": "No tienes permisos en este canal.",
-    "nameUnusable": "Ese nombre no se puede usar."
+    "nameUnusable": "Ese nombre no se puede usar.",
+    "noSpaceRights": "No tienes permisos sobre este espacio."
   },
   "toast": {
     "noUnread": "Ninguna conversación sin leer",
@@ -881,7 +886,11 @@
     "leaveSpaceFailed": "No se ha podido salir de este espacio",
     "spaceDeleted": "Espacio eliminado",
     "deleteSpaceFailed": "No se ha podido eliminar este espacio",
-    "spaceDeletedElsewhere": "{{name}} ha sido eliminado"
+    "spaceDeletedElsewhere": "{{name}} ha sido eliminado",
+    "roleChanged": "Rol modificado",
+    "roleFailed": "No se ha podido cambiar el rol",
+    "spaceHandedOver": "Espacio cedido",
+    "nowOwner": "Ahora {{name}} es el propietario."
   },
   "boot": {
     "loading": "Cargando",

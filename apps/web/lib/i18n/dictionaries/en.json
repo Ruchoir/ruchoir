@@ -724,7 +724,11 @@
     "deleteFinal": "Immediate and final: nothing is kept, and nothing can be restored.",
     "deleteConfirm": "Delete for good",
     "deleteConfirmLabel": "Type “{{name}}” to confirm",
-    "leaveDesc": "You step out of this space. It carries on without you, and coming back takes an invitation."
+    "leaveDesc": "You step out of this space. It carries on without you, and coming back takes an invitation.",
+    "transferTitle": "Hand the space to {{name}}?",
+    "transferBody": "{{name}} becomes the owner of {{space}} and can do anything in it, deleting it included.",
+    "transferStepDown": "A space has one owner: you go back to being an administrator, and only the new owner can give the role back.",
+    "transferConfirm": "Hand it over"
   },
   "prefs": {
     "title": "Preferences",
@@ -821,7 +825,8 @@
     "passkeyCancelled": "Passkey authentication cancelled.",
     "invalidEmail": "That address does not look valid.",
     "noChannelRights": "You do not have rights on this channel.",
-    "nameUnusable": "That name cannot be used."
+    "nameUnusable": "That name cannot be used.",
+    "noSpaceRights": "You do not have the rights on this space."
   },
   "toast": {
     "noUnread": "No unread conversation",
@@ -865,7 +870,11 @@
     "leaveSpaceFailed": "Could not leave this space",
     "spaceDeleted": "Space deleted",
     "deleteSpaceFailed": "Could not delete this space",
-    "spaceDeletedElsewhere": "{{name}} has been deleted"
+    "spaceDeletedElsewhere": "{{name}} has been deleted",
+    "roleChanged": "Role changed",
+    "roleFailed": "Role not changed",
+    "spaceHandedOver": "Space handed over",
+    "nowOwner": "{{name}} owns it now."
   },
   "boot": {
     "loading": "Loading",

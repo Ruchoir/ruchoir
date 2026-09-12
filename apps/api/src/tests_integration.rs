@@ -1738,3 +1738,108 @@ async fn an_administrator_may_not_delete_a_space() {
         .expect("space")
         .is_some());
 }
+
+/// Set a member's role through the endpoint, returning the status and the body it answered with.
+async fn set_role(
+    app: &TestApp,
+    cookie: &str,
+    space_id: Uuid,
+    user_id: Uuid,
+    role: &str,
+) -> (reqwest::StatusCode, Value) {
+    let response = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/spaces/{space_id}/members/{user_id}"),
+            cookie,
+        )
+        .json(&json!({ "role": role }))
+        .send()
+        .await
+        .expect("set role");
+    let status = response.status();
+    let body = response.json().await.unwrap_or(Value::Null);
+    (status, body)
+}
+
+/// The role a membership currently holds, read straight from the table.
+async fn role_of(db: &DatabaseConnection, space_id: Uuid, user_id: Uuid) -> String {
+    space_members::Entity::find_by_id((space_id, user_id))
+        .one(db)
+        .await
+        .expect("membership")
+        .expect("member row")
+        .role
+}
+
+#[tokio::test]
+async fn handing_a_space_over_makes_the_former_owner_an_admin() {
+    let Some(app) = boot().await else { return };
+    let founder = make_user(&app.db, "founder").await;
+    let heir = make_user(&app.db, "heir").await;
+    let cookie = app.cookie_for(founder).await;
+    let created: Value = app
+        .req(reqwest::Method::POST, "/api/v1/spaces", &cookie)
+        .json(&json!({ "name": format!("Atelier {}", Uuid::new_v4().simple()) }))
+        .send()
+        .await
+        .expect("create space")
+        .json()
+        .await
+        .expect("json");
+    let space_id: Uuid = created["id"].as_str().expect("id").parse().expect("uuid");
+    space_members::ActiveModel {
+        space_id: Set(space_id),
+        user_id: Set(heir),
+        role: Set("member".to_owned()),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("space member");
+
+    let (status, body) = set_role(&app, &cookie, space_id, heir, "owner").await;
+    assert_eq!(status, 200);
+    // Both sides of the transfer come back, because both have to be redrawn.
+    let changes = body.as_array().expect("array");
+    assert_eq!(changes.len(), 2);
+    assert_eq!(role_of(&app.db, space_id, heir).await, "owner");
+    assert_eq!(
+        role_of(&app.db, space_id, founder).await,
+        "admin",
+        "a space has one owner, so handing it over is a step down"
+    );
+
+    // And the step down is real: an admin cannot reach the owner's membership any more.
+    let (refused, _) = set_role(&app, &cookie, space_id, heir, "member").await;
+    assert_eq!(refused, 403);
+}
+
+#[tokio::test]
+async fn an_admin_may_not_hand_out_their_own_rank_or_touch_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    // Below them: allowed.
+    let (demoted, _) = set_role(&app, &bob, fx.space_id, fx.carol, "guest").await;
+    assert_eq!(demoted, 200);
+    assert_eq!(role_of(&app.db, fx.space_id, fx.carol).await, "guest");
+
+    // Their own rank: only the owner names administrators.
+    let (refused, _) = set_role(&app, &bob, fx.space_id, fx.carol, "admin").await;
+    assert_eq!(refused, 403);
+    assert_eq!(role_of(&app.db, fx.space_id, fx.carol).await, "guest");
+
+    // Someone holding it: not theirs to take away either.
+    let (peer, _) = set_role(&app, &bob, fx.space_id, fx.alice, "member").await;
+    assert_eq!(peer, 403);
+    assert_eq!(role_of(&app.db, fx.space_id, fx.alice).await, "admin");
+
+    // Their own membership, which is the same rule seen from the inside.
+    let (own, _) = set_role(&app, &bob, fx.space_id, fx.bob, "owner").await;
+    assert_eq!(own, 403);
+    assert_eq!(role_of(&app.db, fx.space_id, fx.bob).await, "admin");
+}

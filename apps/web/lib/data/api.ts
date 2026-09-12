@@ -610,6 +610,26 @@ export async function renameSpace(spaceId: string, name: string): Promise<SpaceI
 }
 
 /**
+ * `PATCH /spaces/{id}/members/{userId}`: change what a member may do in the space.
+ *
+ * Returns every membership the call changed, which is one for an ordinary promotion or demotion and
+ * **two** for a transfer of ownership: a space has a single owner, so the person handing it over
+ * becomes an admin in the same write. Apply them all rather than assuming the one that was asked
+ * for, or the former owner keeps being offered controls the server has just taken away.
+ */
+export async function setMemberRole(
+  spaceId: string,
+  userId: string,
+  role: string,
+): Promise<{ userId: string; role: string }[]> {
+  const changes = await apiPatch<{ space_id: string; user_id: string; role: string }[]>(
+    `/spaces/${spaceId}/members/${userId}`,
+    { role },
+  );
+  return changes.map((c) => ({ userId: c.user_id, role: c.role }));
+}
+
+/**
  * `DELETE /spaces/{id}/membership`: leave a space, taking only the caller's own membership.
  *
  * What they wrote stays where it was written. Coming back needs a new invitation, so the caller is
@@ -1674,6 +1694,11 @@ export type RealtimeHandlers = {
   onMemberJoined?: (member: RealtimeMember) => void;
   /** Someone left a space the user belongs to: the roster on screen has to lose them. */
   onMemberLeft?: (spaceId: string, userId: string) => void;
+  /**
+   * A member's role in a space changed. Also fires for the recipient's own membership, which is how
+   * a space they have just been handed (or stepped down from) gains or loses its controls.
+   */
+  onMemberRoleChanged?: (spaceId: string, userId: string, role: string) => void;
   /** Someone the user shares a space with changed their display name, title or avatar. */
   onMemberUpdated?: (member: MemberIdentity) => void;
   /** A space the user belongs to was renamed, or had its icon replaced or removed. */
@@ -1710,6 +1735,7 @@ const REALTIME_EVENTS = [
   "channel.updated",
   "member.joined",
   "member.left",
+  "member.role_changed",
   "member.updated",
   "space.updated",
   "space.removed",
@@ -1810,6 +1836,13 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       }
       case "member.left":
         handlers.onMemberLeft?.(String(payload.space_id), String(payload.user_id));
+        break;
+      case "member.role_changed":
+        handlers.onMemberRoleChanged?.(
+          String(payload.space_id),
+          String(payload.user_id),
+          String(payload.role),
+        );
         break;
       case "space.removed":
         handlers.onSpaceRemoved?.(String(payload.space_id), Boolean(payload.deleted));

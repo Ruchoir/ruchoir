@@ -49,6 +49,7 @@ import {
   setMessagePinned,
   setMessageSaved,
   setChannelFavorite,
+  setMemberRole as apiSetMemberRole,
   setMyPresence as apiSetMyPresence,
   setReadCursor,
   type ApiNotification,
@@ -105,6 +106,7 @@ import {
   NewChannelDialog,
   NewMessageDialog,
   NewWorkspaceDialog,
+  TransferOwnershipDialog,
 } from "./dialogs";
 import { GettingStarted } from "./GettingStarted";
 import { GlobalSearchDialog } from "./GlobalSearchDialog";
@@ -307,6 +309,8 @@ function AppShell() {
   const [switchingSpace, setSwitchingSpace] = useState(false);
   /** A space exit in flight (leaving or deleting), so its dialog can refuse a second press. */
   const [spaceBusy, setSpaceBusy] = useState(false);
+  /** The member a transfer of ownership is being confirmed for, if any. */
+  const [transferTo, setTransferTo] = useState<{ userId: string; name: string } | null>(null);
   const [bootError, setBootError] = useState<TranslationKey | null>(null);
   // Shared by every screen of the authentication flow: the message under the form, and whether a
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
@@ -1018,6 +1022,16 @@ function AppShell() {
             tone: "info",
             title: tRef.current("toast.spaceDeletedElsewhere", { name: gone.name }),
           });
+        }
+      },
+      onMemberRoleChanged: (spaceId, userId, role) => {
+        // The roster only when it is the space on screen; the caller's own role in *any* space,
+        // because that one decides what the rail and the settings offer and is held per space.
+        if (spaceId === liveRef.current.ws) {
+          setMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, role } : m)));
+        }
+        if (userId === liveRef.current.myId) {
+          setWorkspaces((prev) => prev.map((w) => (w.id === spaceId ? { ...w, role } : w)));
         }
       },
       onMemberUpdated: (member) => {
@@ -2387,6 +2401,72 @@ function AppShell() {
     dropSpaceRef.current = (spaceId: string) => void dropWorkspace(spaceId);
   });
 
+  /**
+   * Apply the role changes a call came back with: one for an ordinary change, two for a transfer of
+   * ownership. Shared with the real-time handler, so a change made in another tab (or by someone
+   * else) lands identically.
+   */
+  const applyRoleChange = (spaceId: string, userId: string, role: string) => {
+    setMembers((prev) => prev.map((m) => (m.userId === userId ? { ...m, role } : m)));
+    // The caller's own role is not a detail of the member list: it is what decides whether the space
+    // offers its administration at all, and it lives on the space rather than on the roster.
+    if (userId === session?.id) {
+      setWorkspaces((prev) => prev.map((w) => (w.id === spaceId ? { ...w, role } : w)));
+    }
+  };
+
+  /**
+   * Change what a member may do in the space on screen.
+   *
+   * Handing the space over is routed through a confirmation instead of being applied: it is the one
+   * role change that acts on two people, since the giver steps down to admin in the same write and
+   * only the new owner can give it back.
+   */
+  const changeMemberRole = async (member: { userId: string; name: string }, role: string) => {
+    if (role === "owner") {
+      setTransferTo(member);
+      return;
+    }
+    const previous = members.find((m) => m.userId === member.userId)?.role;
+    try {
+      const changes = await apiSetMemberRole(ws, member.userId, role);
+      for (const change of changes) applyRoleChange(ws, change.userId, change.role);
+      showToast({ tone: "success", title: t("toast.roleChanged"), description: member.name });
+    } catch (err) {
+      // Nothing was written, so nothing on screen may pretend otherwise.
+      if (previous) applyRoleChange(ws, member.userId, previous);
+      showToast({
+        tone: "danger",
+        title: t("toast.roleFailed"),
+        description: isApiError(err, 403) ? t("error.noSpaceRights") : t("common.tryAgain"),
+      });
+    }
+  };
+
+  /** Hand the space over, from the confirmation dialog. */
+  const transferOwnership = async (member: { userId: string; name: string }) => {
+    setSpaceBusy(true);
+    try {
+      const changes = await apiSetMemberRole(ws, member.userId, "owner");
+      for (const change of changes) applyRoleChange(ws, change.userId, change.role);
+    } catch (err) {
+      setSpaceBusy(false);
+      showToast({
+        tone: "danger",
+        title: t("toast.roleFailed"),
+        description: isApiError(err, 403) ? t("error.noSpaceRights") : t("common.tryAgain"),
+      });
+      return;
+    }
+    setSpaceBusy(false);
+    setTransferTo(null);
+    showToast({
+      tone: "success",
+      title: t("toast.spaceHandedOver"),
+      description: t("toast.nowOwner", { name: member.name }),
+    });
+  };
+
   /** Leave the space on screen, from the confirmation dialog. */
   const leaveWorkspace = async (spaceId: string) => {
     const name = workspaces.find((w) => w.id === spaceId)?.name;
@@ -2822,6 +2902,10 @@ function AppShell() {
       ) : null}
       {view === "settings" ? (
         <WorkspaceSettings
+          // Keyed by the space: the screen holds the name being edited in its own state, seeded once
+          // from the space it was opened on. Without this, switching space left the previous name in
+          // the field, and pressing save would have renamed the new space to the old one's name.
+          key={ws}
           workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
           spaceId={ws}
           iconUrl={workspaces.find((w) => w.id === ws)?.iconUrl}
@@ -2831,12 +2915,15 @@ function AppShell() {
           // The real records, so the screen shows the role the server holds rather than a mapping
           // by display name, and can say how many guests and bots there are instead of asserting it.
           members={members.map((m) => ({
+            userId: m.userId,
             name: m.name,
             presence: presence[m.userId] ?? "offline",
             role: m.role,
             title: m.title,
             bot: m.bot,
           }))}
+          myRole={currentWorkspace?.role ?? "member"}
+          onChangeRole={(member, role) => void changeMemberRole(member, role)}
           compact={compact}
           onInvite={() => setModal("invite")}
           onNotify={showToast}
@@ -2904,6 +2991,15 @@ function AppShell() {
         />
       ) : null}
       {modal === "newWorkspace" ? <NewWorkspaceDialog onClose={() => setModal(null)} onCreate={createWorkspace} /> : null}
+      {transferTo && currentWorkspace ? (
+        <TransferOwnershipDialog
+          spaceName={currentWorkspace.name}
+          memberName={transferTo.name}
+          busy={spaceBusy}
+          onClose={() => setTransferTo(null)}
+          onConfirm={() => void transferOwnership(transferTo)}
+        />
+      ) : null}
       {modal === "leaveSpace" && currentWorkspace ? (
         <LeaveSpaceDialog
           name={currentWorkspace.name}
