@@ -18,6 +18,10 @@ pub struct Model {
     /// Account lifecycle: `pending`, `active` or `locked`.
     pub status: String,
     pub mfa_enforced: bool,
+    /// Instance-wide administrator: set on the first account by `bootstrap`, never granted by the
+    /// running server. Distinct from the per-space roles in `space_members`, which say nothing
+    /// about an account outside their own space.
+    pub is_instance_admin: bool,
     /// Global profile fields surfaced by the UI. All optional and self-editable except
     /// `is_bot`, which marks service accounts (e.g. the import assistant).
     pub title: Option<String>,

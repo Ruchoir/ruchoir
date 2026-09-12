@@ -44,6 +44,16 @@ impl Mailer {
         })
     }
 
+    /// Whether this instance can actually deliver mail.
+    ///
+    /// [`Self::send`] answers `Ok` with no relay configured, because logging the message is the
+    /// right behaviour for local development. Anything that *reports* a delivery to a person must
+    /// ask this first: telling an administrator "the email is on its way" when it went to a log
+    /// file is exactly the kind of lie the interface is being cleaned of.
+    pub fn can_send(&self) -> bool {
+        self.transport.is_some()
+    }
+
     /// Send a plain-text email. In dev (no relay) the message is logged instead.
     pub async fn send(&self, to: &str, subject: &str, body: String) -> Result<(), String> {
         let Some(transport) = &self.transport else {

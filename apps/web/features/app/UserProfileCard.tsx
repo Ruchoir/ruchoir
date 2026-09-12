@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Avatar, Button, Icon } from "@/components/ds";
+import { Avatar, Button, Icon, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import { presenceLabel } from "./presence";
@@ -52,6 +52,15 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
           ) : null}
         </div>
         <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 1 }}>{p.role}</div>
+        {/* Who to ask when an account has to be handed back: without this the recovery instructions
+            name a person nobody can pick out. */}
+        {p.instanceAdmin ? (
+          <div style={{ marginTop: 8 }}>
+            <Tag tone="accent" icon="shield">
+              Administrateur de l&apos;instance
+            </Tag>
+          </div>
+        ) : null}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
           <div style={row}>

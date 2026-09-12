@@ -136,9 +136,14 @@ pub async fn create_invitation(
     // The row is committed before the email is attempted: a relay failure must not lose an
     // invitation the administrator can still hand over by copying the link, so it is reported
     // rather than rolled back.
+    // An instance with no relay logs the message instead of sending it, which is the right
+    // behaviour in development but must never be reported as a delivery: the administrator would
+    // stop watching for a link that nobody received.
     let emailed = match &email {
-        Some(address) => send_invitation_email(&state, address, space_id, &url).await,
-        None => false,
+        Some(address) if state.mailer.can_send() => {
+            send_invitation_email(&state, address, space_id, &url).await
+        }
+        _ => false,
     };
 
     let inviter = display_name(&state, Some(session.user_id)).await?;
@@ -575,5 +580,24 @@ fn to_dto(
         expires_at: record.expires_at.map(rfc3339),
         created_at: rfc3339(record.created_at),
         usable: is_usable(record, now),
+        status: status_of(record, now).to_owned(),
+    }
+}
+
+/// Which of the four states an invitation is in.
+///
+/// Acceptance comes first: an addressed invitation is issued for one use, so the moment it is taken
+/// up it is spent, and it would otherwise read as expired the moment its week ran out. Revocation
+/// then beats expiry, because it is the deliberate one of the two.
+fn status_of(record: &space_invitations::Model, now: OffsetDateTime) -> &'static str {
+    let spent = record.max_uses.is_some_and(|max| record.uses >= max);
+    if spent {
+        "accepted"
+    } else if record.revoked_at.is_some() {
+        "revoked"
+    } else if record.expires_at.is_some_and(|expiry| expiry <= now) {
+        "expired"
+    } else {
+        "active"
     }
 }

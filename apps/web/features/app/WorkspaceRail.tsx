@@ -76,6 +76,8 @@ export type WorkspaceRailProps = {
   onOpenOwnProfile: () => void;
   onEditOwnProfile: () => void;
   onOpenSettings: () => void;
+  /** Open the instance administration. Absent unless the signed-in account administers it. */
+  onOpenInstanceAdmin?: () => void;
   onHelp: () => void;
   onLogout: () => void;
 };
@@ -93,6 +95,7 @@ export function WorkspaceRail({
   onOpenOwnProfile,
   onEditOwnProfile,
   onOpenSettings,
+  onOpenInstanceAdmin,
   onHelp,
   onLogout,
 }: WorkspaceRailProps) {
@@ -162,6 +165,7 @@ export function WorkspaceRail({
         onOpenProfile={onOpenOwnProfile}
         onEditProfile={onEditOwnProfile}
         onOpenSettings={onOpenSettings}
+        onOpenInstanceAdmin={onOpenInstanceAdmin}
         onLogout={onLogout}
       />
     </div>
