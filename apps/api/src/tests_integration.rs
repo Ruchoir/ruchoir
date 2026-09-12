@@ -2332,3 +2332,195 @@ async fn an_administrator_runs_a_space_but_does_not_own_it() {
         .expect("invite");
     assert_eq!(invited.status(), 201);
 }
+
+#[tokio::test]
+async fn a_channel_reserved_to_roles_admits_only_those() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    // A room for the people who run the space. Alice is an admin, so she is in the list.
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({
+            "name": format!("direction-{}", Uuid::new_v4().simple()),
+            "type": "public",
+            "allowed_roles": ["owner", "admin"],
+        }))
+        .send()
+        .await
+        .expect("create");
+    assert_eq!(created.status(), 201);
+    let channel: Value = created.json().await.expect("json");
+    let channel_id = channel["id"].as_str().expect("id").to_owned();
+
+    // A public channel, and still closed to a plain member: the type says who may walk in, the list
+    // says who may be there at all.
+    let refused = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(refused.status(), 403);
+    let joined = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/channels/{channel_id}/membership"),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("join");
+    assert_eq!(joined.status(), 403);
+
+    // It is not offered to him either, and an admin cannot add him to it.
+    let channels: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    assert!(!channels
+        .as_array()
+        .expect("array")
+        .iter()
+        .any(|c| c["id"] == channel_id));
+    let added = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/channels/{channel_id}/members"),
+            &alice,
+        )
+        .json(&json!({ "user_ids": [fx.bob] }))
+        .send()
+        .await
+        .expect("add");
+    assert_eq!(added.status(), 400);
+
+    // Alice may not shut herself out of it either.
+    let locked_out = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{channel_id}"),
+            &alice,
+        )
+        .json(&json!({ "allowed_roles": ["guest"] }))
+        .send()
+        .await
+        .expect("reserve");
+    assert_eq!(locked_out.status(), 400);
+
+    // Lifting the reservation opens it again, and Bob is offered it like any public channel.
+    let lifted = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{channel_id}"),
+            &alice,
+        )
+        .json(&json!({ "allowed_roles": [] }))
+        .send()
+        .await
+        .expect("lift");
+    assert_eq!(lifted.status(), 200);
+    let page = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(page.status(), 200);
+}
+
+#[tokio::test]
+async fn a_reservation_takes_the_channel_back_when_a_role_changes() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    let channel: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({
+            "name": format!("direction-{}", Uuid::new_v4().simple()),
+            "type": "private",
+            "allowed_roles": ["owner", "admin"],
+        }))
+        .send()
+        .await
+        .expect("create")
+        .json()
+        .await
+        .expect("json");
+    let channel_id = channel["id"].as_str().expect("id").to_owned();
+    app.req(
+        reqwest::Method::POST,
+        &format!("/api/v1/channels/{channel_id}/members"),
+        &alice,
+    )
+    .json(&json!({ "user_ids": [fx.bob] }))
+    .send()
+    .await
+    .expect("add");
+
+    let readable = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(
+        readable.status(),
+        200,
+        "an admin belongs in an admin channel"
+    );
+
+    // Demoted: the membership row is still there, and it no longer opens anything. A door somebody
+    // walked through last week is not a right they keep.
+    let member = space_members::Entity::find_by_id((fx.space_id, fx.bob))
+        .one(&app.db)
+        .await
+        .expect("membership")
+        .expect("member row");
+    let mut active = member.into_active_model();
+    active.role = Set("member".to_owned());
+    active.update(&app.db).await.expect("demote");
+
+    let refused = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(refused.status(), 403);
+}

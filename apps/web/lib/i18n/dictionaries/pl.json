@@ -480,7 +480,10 @@
     "membersAndAccess": "Członkowie i dostęp ({{count}})",
     "fallbackName": "ogólny",
     "noConversation": "Na razie nie ma nic do pokazania",
-    "noConversationHint": "Utwórz kanał albo zacznij rozmowę, żeby ruszyć."
+    "noConversationHint": "Utwórz kanał albo zacznij rozmowę, żeby ruszyć.",
+    "roleAccess": "Dostęp według roli",
+    "reserveToRoles": "Zarezerwuj ten kanał dla wybranych ról",
+    "roleAccessHint": "Pozostałe role go nie widzą i nie można ich do niego dodać. Twoja rola pozostaje zaznaczona: kanał, z którego jesteś wykluczony, nie jest kanałem, który chciałeś utworzyć."
   },
   "role": {
     "member": "Członek",

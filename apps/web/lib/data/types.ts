@@ -107,6 +107,11 @@ export type Channel = {
    * only members receive its real-time pushes, so the menus offer joining or leaving accordingly.
    */
   member?: boolean;
+  /**
+   * The space roles this channel admits, when it is reserved to some of them. Absent means everyone:
+   * a channel is unrestricted until somebody draws the line.
+   */
+  allowedRoles?: string[];
 };
 
 export type DirectMessage = {

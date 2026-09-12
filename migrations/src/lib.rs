@@ -22,6 +22,7 @@ mod m20260911_000001_broadcast_notification_kind;
 mod m20260912_000001_instance_admin;
 mod m20260912_000002_instance_settings;
 mod m20260912_000003_user_locale;
+mod m20260912_000004_channel_role_access;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -46,6 +47,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260912_000001_instance_admin::Migration),
             Box::new(m20260912_000002_instance_settings::Migration),
             Box::new(m20260912_000003_user_locale::Migration),
+            Box::new(m20260912_000004_channel_role_access::Migration),
         ]
     }
 }

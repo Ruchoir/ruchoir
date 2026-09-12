@@ -24,6 +24,7 @@ pub mod files;
 
 // Messaging.
 pub mod channel_pins;
+pub mod channel_role_access;
 pub mod message_attachments;
 pub mod message_link_previews;
 pub mod message_mentions;

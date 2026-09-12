@@ -2252,9 +2252,19 @@ function AppShell() {
    * Create a channel in the current space. The server normalises the name into a handle, so the row
    * added to the sidebar is the one it will keep, which may differ from what was typed.
    */
-  const createChannel = async ({ name, type, topic }: { name: string; type: Channel["type"]; topic: string }) => {
+  const createChannel = async ({
+    name,
+    type,
+    topic,
+    allowedRoles,
+  }: {
+    name: string;
+    type: Channel["type"];
+    topic: string;
+    allowedRoles?: string[];
+  }) => {
     try {
-      const channel = await apiCreateChannel(ws, { name, type, topic });
+      const channel = await apiCreateChannel(ws, { name, type, topic, allowedRoles });
       // Merged by id, never appended. The server publishes the creation to the space before it
       // answers this call, so our own frame usually arrives first and has already put a row in
       // the sidebar; appending a second one showed the channel twice until the next full load.
@@ -2297,7 +2307,12 @@ function AppShell() {
     // Optimistic: the settings dialog closes on save, so the sidebar must not lag behind it.
     setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
     try {
-      const saved = await apiUpdateChannel(id, { name: patch.name, type: patch.type, topic: patch.topic });
+      const saved = await apiUpdateChannel(id, {
+        name: patch.name,
+        type: patch.type,
+        topic: patch.topic,
+        allowedRoles: patch.allowedRoles,
+      });
       setChannels((prev) => prev.map((c) => (c.id === id ? saved : c)));
     } catch (err) {
       if (before) setChannels((prev) => prev.map((c) => (c.id === id ? before : c)));
@@ -2306,7 +2321,10 @@ function AppShell() {
         title: t("toast.editNotSaved"),
         description: isApiError(err, 403)
           ? t("error.noChannelRights")
-          : isApiError(err, 400)
+          : // A 400 on a name is a name already taken; a 400 without one came from the role
+            // reservation, whose only reachable case the dialog already prevents. Saying "that name
+            // is taken" about a name nobody submitted would be worse than saying nothing precise.
+            isApiError(err, 400) && patch.name
             ? t("error.nameTaken")
             : t("common.tryAgain"),
       });
@@ -2926,6 +2944,7 @@ function AppShell() {
           onCloseProfile={() => setProfile(null)}
           onNotify={showToast}
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
+          myRole={currentWorkspace?.role ?? "member"}
           onLeaveChannel={() => leaveChannel(channelId)}
           onJoinChannel={() => joinChannel(channelId)}
           notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
@@ -3016,7 +3035,13 @@ function AppShell() {
           <InstanceAdminScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
         </div>
       ) : null}
-      {modal === "newChannel" ? <NewChannelDialog onClose={() => setModal(null)} onCreate={createChannel} /> : null}
+      {modal === "newChannel" ? (
+        <NewChannelDialog
+          onClose={() => setModal(null)}
+          onCreate={createChannel}
+          myRole={currentWorkspace?.role ?? "member"}
+        />
+      ) : null}
       {modal === "newMessage" ? (
         <NewMessageDialog people={people} onClose={() => setModal(null)} onSelect={openDmByName} />
       ) : null}
@@ -3130,6 +3155,7 @@ function AppShell() {
           onClose={() => setChannelSettingsId(null)}
           onUpdate={(patch) => updateChannel(channelSettingsId, patch)}
           onNotify={showToast}
+          myRole={currentWorkspace?.role ?? "member"}
         />
       ) : null}
 

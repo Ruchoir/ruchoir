@@ -4,6 +4,7 @@ import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Dialog, Field, Icon, Input, Radio, Select } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { ChannelType, Invitation } from "@/lib/data";
+import { ChannelRoleAccess } from "@/features/channel/ChannelRoleAccess";
 import { COMMANDS, formatChord, isMac } from "./shortcuts";
 import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
@@ -26,19 +27,23 @@ const listItem: CSSProperties = {
 export function NewChannelDialog({
   onClose,
   onCreate,
+  myRole,
 }: {
   onClose: () => void;
-  onCreate: (channel: { name: string; type: ChannelType; topic: string }) => void;
+  onCreate: (channel: { name: string; type: ChannelType; topic: string; allowedRoles?: string[] }) => void;
+  /** The caller's own space role: always admitted by a reservation, and never unticked. */
+  myRole: string;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [type, setType] = useState<ChannelType>("public");
   const [topic, setTopic] = useState("");
+  const [allowedRoles, setAllowedRoles] = useState<string[] | undefined>(undefined);
 
   const submit = () => {
     const clean = name.trim().replace(/^#/, "");
     if (!clean) return;
-    onCreate({ name: clean, type, topic: topic.trim() });
+    onCreate({ name: clean, type, topic: topic.trim(), allowedRoles });
   };
 
   return (
@@ -91,6 +96,7 @@ export function NewChannelDialog({
         <Field label={t("channel.topic")} optional htmlFor="ch-topic">
           <Input id="ch-topic" placeholder={t("channel.topicPlaceholder")} value={topic} onChange={(e) => setTopic(e.target.value)} />
         </Field>
+        <ChannelRoleAccess value={allowedRoles} onChange={setAllowedRoles} myRole={myRole} />
       </div>
     </Dialog>
   );

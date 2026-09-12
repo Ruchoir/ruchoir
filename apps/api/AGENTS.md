@@ -80,6 +80,15 @@ context and takes precedence here.
   `spaces.id`, so one row deletion empties the schema, but the stored objects are not in the
   database: the file versions' keys are collected *before* the delete and removed behind it, or a
   deleted space would leave its bytes in the store while the interface reported them gone.
+  **A channel can be reserved to roles** (`channel_role_access`, one row per admitted role, *no row*
+  meaning no restriction, so "open to everyone" and "reserved to nobody" can never be the same
+  value). It stacks on the channel type rather than replacing it: the type answers "who may walk in",
+  the list answers "who may be in it at all". The list is checked even for someone holding a
+  membership row, so a demotion takes back the channels the old role opened; it filters the listing,
+  the search, the join, the "add people" call and even the real-time frames, or a reserved channel
+  would appear in the sidebar of the people it is reserved from for exactly one frame. A list that
+  excludes its author is refused (`400`): a room you have shut yourself out of is not a room you
+  meant to make.
   **`guest` is a real restriction, not a label.** For that role every channel behaves like a private
   one: the member reaches a conversation only where they hold an explicit `channel_members` /
   `dm_participants` row, public or not. Everything else follows from that one rule rather than being

@@ -470,7 +470,10 @@
     "membersAndAccess": "Mitglieder und Zugriff ({{count}})",
     "fallbackName": "allgemein",
     "noConversation": "Noch nichts zu zeigen",
-    "noConversationHint": "Legen Sie einen Kanal an oder beginnen Sie ein Gespräch."
+    "noConversationHint": "Legen Sie einen Kanal an oder beginnen Sie ein Gespräch.",
+    "roleAccess": "Zugang nach Rolle",
+    "reserveToRoles": "Diesen Kanal bestimmten Rollen vorbehalten",
+    "roleAccessHint": "Die anderen Rollen sehen ihn nicht und können nicht hinzugefügt werden. Ihre eigene Rolle bleibt angehakt: ein Kanal, aus dem Sie ausgesperrt sind, ist nicht der Kanal, den Sie anlegen wollten."
   },
   "role": {
     "member": "Mitglied",
