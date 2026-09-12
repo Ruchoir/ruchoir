@@ -66,6 +66,11 @@ Set `RUCHOIR_SMTP_HOST` and its companions if you have a relay. With none the AP
 instead of sending them, and `GET /api/v1/instance` says so, which is how the interface knows to stop
 offering the flows that would depend on a message arriving.
 
+[Email delivery](email-delivery.md) covers the settings themselves: which relay to point at, why a
+home connection cannot deliver mail whatever software is put in front of it, what a domain has to
+publish before anything it sends is believed, and how to check that a message really arrives before
+counting on it.
+
 **Running with no relay is supported, not a degraded mode.** Delivering mail from a home server is
 the hard half of self-hosting it: the software is easy, deliverability is not (a fixed address with a
 matching PTR, SPF, DKIM, DMARC, and port 25 outbound, which most residential connections block). So
