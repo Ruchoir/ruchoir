@@ -55,7 +55,11 @@ context and takes precedence here.
   to the space and writes a `member_joined` system message into that channel in the same transaction
   (only on a real arrival: an existing member re-opening their link announces nothing). A system row
   stores the *event* and an empty body, never a sentence: user-facing copy belongs to the client,
-  like the auth error codes. Its `author_id` is the person the notice is about, so the client can name
+  like the auth error codes. **A channel keeps its own history of who came and went** the same way:
+  `channel_created` when one is created, `channel_joined` when someone joins or is added,
+  `channel_left` when they leave. All three had a sentence, an icon and a renderer in the client from
+  the start and **nothing on the server ever wrote them**, so only seeded channels announced their
+  creation and a channel's membership changed in silence. Its `author_id` is the person the notice is about, so the client can name
   them without a second lookup; it stays `None` for a notice about nothing in particular. `spaces` and `channels` carry
   the lifecycle: creating a space (the caller becomes
   its owner and it is born with one public channel, so it is never an empty shell), creating a

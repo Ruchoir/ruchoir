@@ -721,7 +721,8 @@ async fn archiving_a_channel_makes_it_read_only() {
         "an archived channel takes no message"
     );
 
-    // The history stays readable: archiving is not a deletion.
+    // The history stays readable: archiving is not a deletion. Counted over what people wrote, not
+    // over every row: a channel also carries the notice saying it was created.
     let page: Value = app
         .req(
             reqwest::Method::GET,
@@ -734,7 +735,14 @@ async fn archiving_a_channel_makes_it_read_only() {
         .json()
         .await
         .expect("json");
-    assert_eq!(page["messages"].as_array().expect("array").len(), 1);
+    let written: Vec<&Value> = page["messages"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .filter(|m| m["kind"] == "message")
+        .collect();
+    assert_eq!(written.len(), 1);
+    assert_eq!(written[0]["body"], "avant archivage");
 }
 
 #[tokio::test]
@@ -2158,4 +2166,135 @@ async fn removing_a_member_follows_the_same_rank_rule_as_a_role() {
         .expect("array")
         .iter()
         .any(|m| m["system_event"] == "member_removed" && m["author_id"] == fx.carol.to_string()));
+}
+
+#[tokio::test]
+async fn a_channel_says_who_came_and_who_went() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let carol = app.cookie_for(fx.carol).await;
+
+    // Carol walks into the public channel herself.
+    let joined = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/channels/{}/membership", fx.public_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("join");
+    assert_eq!(joined.status(), 204);
+
+    let notices = |messages: &Value, event: &str, who: Uuid| {
+        messages
+            .as_array()
+            .expect("array")
+            .iter()
+            .filter(|m| m["system_event"] == event && m["author_id"] == who.to_string())
+            .count()
+    };
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(notices(&page["messages"], "channel_joined", fx.carol), 1);
+
+    // Pressing join again changes nothing, and says nothing.
+    app.req(
+        reqwest::Method::PUT,
+        &format!("/api/v1/channels/{}/membership", fx.public_channel),
+        &carol,
+    )
+    .send()
+    .await
+    .expect("join twice");
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(notices(&page["messages"], "channel_joined", fx.carol), 1);
+
+    // And leaving leaves its own trace, for the people who stayed.
+    let left = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/channels/{}/membership", fx.public_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("leave");
+    assert_eq!(left.status(), 204);
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(notices(&page["messages"], "channel_left", fx.carol), 1);
+}
+
+#[tokio::test]
+async fn a_new_channel_says_it_was_created() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+
+    let created: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": format!("sujet-{}", Uuid::new_v4().simple()), "type": "public" }))
+        .send()
+        .await
+        .expect("create")
+        .json()
+        .await
+        .expect("json");
+    let channel_id = created["id"].as_str().expect("id");
+
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    // A notice about nobody in particular: the channel was created, and the sentence names no one.
+    assert!(page["messages"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .any(|m| m["system_event"] == "channel_created" && m["author_id"].is_null()));
 }

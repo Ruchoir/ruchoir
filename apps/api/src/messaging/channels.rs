@@ -24,7 +24,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::entities::{channel_members, channels, conversations, users};
+use crate::entities::{channel_members, channels, conversations, messages, users};
 use crate::state::AppState;
 use sea_orm::DatabaseConnection;
 
@@ -37,6 +37,75 @@ use super::dto::{
 use super::error::ApiError;
 use super::slug::slugify;
 use crate::realtime::event::RealtimeEnvelope;
+
+/// The `system_event` discriminators written into a channel's own history. The client turns each
+/// into a sentence; the database stores the event and never the words, like everywhere else.
+///
+/// These existed in the client from the start (six languages, an icon, a renderer) and **nothing on
+/// the server ever wrote them**: joining or leaving a channel left no trace, and only the seed
+/// announced a creation, so every demonstration channel said it had been created and every real one
+/// stayed silent about it.
+const CREATED_EVENT: &str = "channel_created";
+const JOINED_EVENT: &str = "channel_joined";
+const LEFT_EVENT: &str = "channel_left";
+
+/// Write a system notice into a channel and push it to the people in it.
+///
+/// `subject` is the person the notice is about, which is what lets the client name them without a
+/// second lookup; `None` for a notice about nobody in particular, such as the channel's creation.
+/// Best-effort in spirit but not in error handling: it runs after the write it describes, and a
+/// failure here is a missing line in a history, never a failed request, so callers log rather than
+/// propagate.
+async fn write_channel_notice(
+    state: &AppState,
+    channel_id: Uuid,
+    subject: Option<Uuid>,
+    event: &str,
+) {
+    let notice = messages::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        conversation_id: Set(channel_id),
+        author_id: Set(subject),
+        kind: Set("system".to_owned()),
+        system_event: Set(Some(event.to_owned())),
+        created_at: Set(OffsetDateTime::now_utc()),
+        ..Default::default()
+    }
+    .insert(&state.db)
+    .await;
+    let notice = match notice {
+        Ok(notice) => notice,
+        Err(error) => {
+            tracing::warn!(%error, "could not write a channel notice");
+            return;
+        }
+    };
+    let Ok(members) = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .all(&state.db)
+        .await
+    else {
+        return;
+    };
+    let audience: Vec<Uuid> = members.into_iter().map(|m| m.user_id).collect();
+    if audience.is_empty() {
+        return;
+    }
+    // Hydrated for whoever wrote it; the per-caller fields a system notice carries are all false.
+    if let Ok(Some(dto)) = super::messages::hydrate_messages(
+        &state.db,
+        subject.unwrap_or_else(Uuid::nil),
+        vec![notice],
+    )
+    .await
+    .map(|mut rows| rows.pop())
+    {
+        state
+            .hub
+            .publish(audience, RealtimeEnvelope::message_created(channel_id, dto))
+            .await;
+    }
+}
 
 /// `POST /api/v1/spaces/{space_id}/channels`: create a channel, owned by the caller.
 #[utoipa::path(
@@ -142,6 +211,9 @@ pub async fn create_channel(
             RealtimeEnvelope::channel_created(channel_id, &summary),
         )
         .await;
+    // The channel's own history says it was created, the way every seeded channel already did and
+    // no real one ever did.
+    write_channel_notice(&state, channel_id, None, CREATED_EVENT).await;
 
     Ok((
         StatusCode::CREATED,
@@ -312,6 +384,9 @@ pub async fn join_channel(
             OffsetDateTime::now_utc(),
         )
         .await?;
+        // Only on a real arrival: re-pressing "join" on a channel you are already in announces
+        // nothing, the same rule the space invitation follows.
+        write_channel_notice(&state, channel_id, Some(session.user_id), JOINED_EVENT).await;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -463,6 +538,12 @@ pub async fn add_channel_members(
         join_row(&state.db, channel_id, user_id, "member", now).await?;
         added.push(user_id);
     }
+    // One notice per arrival, after the writes: the channel's history is how the people already in
+    // it learn who turned up, and a member list that silently grows is the same defect as one that
+    // silently shrinks.
+    for user_id in &added {
+        write_channel_notice(&state, channel_id, Some(*user_id), JOINED_EVENT).await;
+    }
 
     // A private channel is invisible until you are in it, so the people just added have to be told
     // it exists; for a public one they could already see it, and the sidebar only gains the
@@ -546,9 +627,17 @@ pub async fn leave_channel(
         .ok_or(ApiError::Forbidden)?;
     ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
 
+    let membership = channel_members::Entity::find_by_id((channel_id, session.user_id))
+        .one(&state.db)
+        .await?;
     channel_members::Entity::delete_by_id((channel_id, session.user_id))
         .exec(&state.db)
         .await?;
+    // Written after the row is gone, so the audience is the people who stayed. Only if there was
+    // something to leave: this endpoint is idempotent, and a second press says nothing.
+    if membership.is_some() {
+        write_channel_notice(&state, channel_id, Some(session.user_id), LEFT_EVENT).await;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
