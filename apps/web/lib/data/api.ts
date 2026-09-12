@@ -81,6 +81,7 @@ type ChannelDto = {
   favorite: boolean;
   member: boolean;
   unread: number;
+  allowed_roles?: string[];
 };
 
 type DirectMessageDto = {
@@ -583,6 +584,7 @@ function toChannel(dto: ChannelDto): Channel {
     topic: dto.topic,
     imported: toImportSource(dto.imported),
     member: dto.member,
+    allowedRoles: dto.allowed_roles,
   };
 }
 
@@ -847,12 +849,15 @@ export async function getChannels(spaceId: string, signal?: AbortSignal): Promis
  */
 export async function createChannel(
   spaceId: string,
-  channel: { name: string; type: ChannelType; topic?: string },
+  channel: { name: string; type: ChannelType; topic?: string; allowedRoles?: string[] },
 ): Promise<Channel> {
   const dto = await apiPost<ChannelDto>(`/spaces/${spaceId}/channels`, {
     name: channel.name,
     type: channel.type,
     topic: channel.topic,
+    // Absent leaves the channel open to every role; an empty list says the same thing, which is what
+    // an empty selection means on screen.
+    allowed_roles: channel.allowedRoles,
   });
   return toChannel(dto);
 }
@@ -872,12 +877,13 @@ export async function setChannelFavorite(channelId: string, favorite: boolean): 
  */
 export async function updateChannel(
   channelId: string,
-  patch: { name?: string; type?: ChannelType; topic?: string },
+  patch: { name?: string; type?: ChannelType; topic?: string; allowedRoles?: string[] },
 ): Promise<Channel> {
   const dto = await apiPatch<ChannelDto>(`/channels/${channelId}`, {
     name: patch.name,
     type: patch.type,
     topic: patch.topic,
+    allowed_roles: patch.allowedRoles,
   });
   return toChannel(dto);
 }

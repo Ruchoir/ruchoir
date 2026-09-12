@@ -220,6 +220,8 @@ export type ChannelScreenProps = {
   onCloseProfile: () => void;
   onNotify: (toast: Toast) => void;
   onUpdateChannel: (patch: Partial<Channel>) => void;
+  /** The caller's own space role, for the channel settings' role reservation. */
+  myRole: string;
   onLeaveChannel: () => void;
   /** Rejoin this channel after leaving it (public channels only). */
   onJoinChannel: () => void;
@@ -296,6 +298,7 @@ export function ChannelScreen({
   onCloseProfile,
   onNotify,
   onUpdateChannel,
+  myRole,
   onLeaveChannel,
   onJoinChannel,
   notifPref,
@@ -686,7 +689,13 @@ export function ChannelScreen({
       </RightDock>
 
       {menuDialog === "settings" ? (
-        <ChannelSettingsDialog channel={channel} onClose={() => setMenuDialog(null)} onUpdate={onUpdateChannel} onNotify={onNotify} />
+        <ChannelSettingsDialog
+          channel={channel}
+          onClose={() => setMenuDialog(null)}
+          onUpdate={onUpdateChannel}
+          onNotify={onNotify}
+          myRole={myRole}
+        />
       ) : null}
       {menuDialog === "notifications" ? (
         <ChannelNotificationsDialog

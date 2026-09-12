@@ -8,6 +8,13 @@
 //! - **Private channels** require an explicit `channel_members` row.
 //! - **Direct messages** require a `dm_participants` row.
 //!
+//! **A channel may be reserved to some roles.** `channel_role_access` holds one row per admitted
+//! role, and no row at all means no restriction. It is an extra condition, not a replacement: the
+//! channel type answers "who may join without being asked", the role list answers "who may be in it
+//! at all". A leadership channel, or one an external guest never sees, is the second question. The
+//! list is checked even for someone who already holds a membership row, so demoting a person takes
+//! the channel away from them rather than leaving a door they walked through last week.
+//!
 //! **A `guest` inherits nothing.** For someone holding that role, every channel behaves like a
 //! private one: they reach a conversation only where they hold an explicit row, public or not. That
 //! single rule is what the role means, and everything else about guests follows from it rather than
@@ -25,7 +32,8 @@ use uuid::Uuid;
 
 use super::error::ApiError;
 use crate::entities::{
-    channel_members, channels, conversations, dm_conversations, dm_participants, space_members,
+    channel_members, channel_role_access, channels, conversations, dm_conversations,
+    dm_participants, space_members,
 };
 
 /// Whether a conversation is a channel or a direct message.
@@ -80,7 +88,10 @@ pub async fn ensure_conversation_access(
                 // Public and archived channels are open to any member of the space.
                 is_space_member(db, conversation.space_id, user_id).await?
             };
-            if !authorized {
+            // And the channel's own guest list, when it has one, on top of all that.
+            let admitted =
+                role_admitted(db, conversation_id, conversation.space_id, user_id).await?;
+            if !authorized || !admitted {
                 return Err(ApiError::Forbidden);
             }
             Ok(ConversationAccess {
@@ -288,7 +299,10 @@ pub async fn accessible_conversation_ids(
     let explicit_only = is_guest(db, space_id, user_id).await?;
     for channel in channels {
         let open = !explicit_only && channel.channel_type != "private";
-        if open || joined_channels.contains(&channel.id) {
+        if !(open || joined_channels.contains(&channel.id)) {
+            continue;
+        }
+        if role_admitted(db, channel.id, space_id, user_id).await? {
             ids.push(channel.id);
         }
     }
@@ -331,6 +345,43 @@ pub async fn space_member_ids(
         .map(|m| m.user_id)
         .collect();
     Ok(ids)
+}
+
+/// The roles a channel admits, or `None` when it admits every role.
+///
+/// `None` and "every role listed" are the same thing to a reader, and deliberately not the same
+/// thing in the table: a channel with no restriction was never given one, and gains nothing if the
+/// set of roles changes later.
+pub async fn channel_allowed_roles(
+    db: &DatabaseConnection,
+    channel_id: Uuid,
+) -> Result<Option<BTreeSet<String>>, ApiError> {
+    let rows = channel_role_access::Entity::find()
+        .filter(channel_role_access::Column::ChannelId.eq(channel_id))
+        .all(db)
+        .await?;
+    if rows.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(rows.into_iter().map(|row| row.role).collect()))
+}
+
+/// Whether the role a user holds in the space is one this channel admits.
+///
+/// True when the channel has no list, which is every channel until someone draws one.
+pub async fn role_admitted(
+    db: &DatabaseConnection,
+    channel_id: Uuid,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, ApiError> {
+    let Some(allowed) = channel_allowed_roles(db, channel_id).await? else {
+        return Ok(true);
+    };
+    let Some(role) = space_role(db, space_id, user_id).await? else {
+        return Ok(false);
+    };
+    Ok(allowed.contains(&role))
 }
 
 /// The role a user holds in a space, or `None` when they are not in it.

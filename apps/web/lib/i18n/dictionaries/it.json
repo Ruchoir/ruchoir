@@ -475,7 +475,10 @@
     "membersAndAccess": "Membri e accesso ({{count}})",
     "fallbackName": "generale",
     "noConversation": "Ancora niente da mostrare",
-    "noConversationHint": "Crea un canale, o avvia una conversazione, per cominciare."
+    "noConversationHint": "Crea un canale, o avvia una conversazione, per cominciare.",
+    "roleAccess": "Accesso per ruolo",
+    "reserveToRoles": "Riserva questo canale ad alcuni ruoli",
+    "roleAccessHint": "Gli altri ruoli non lo vedono e non possono esservi aggiunti. Il tuo ruolo resta selezionato: un canale da cui sei escluso non è il canale che volevi creare."
   },
   "role": {
     "member": "Membro",

@@ -124,6 +124,10 @@ pub struct ChannelDto {
     pub member: bool,
     /// Count of unread messages for the caller (derived from the read cursor).
     pub unread: i64,
+    /// The space roles this channel admits, when it is reserved to some of them. Absent means it
+    /// admits everyone, which is every channel until somebody says otherwise.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allowed_roles: Option<Vec<String>>,
 }
 
 /// A channel's shared facts, pushed in real time when one is created or changed.
@@ -580,6 +584,11 @@ pub struct CreateChannelRequest {
     pub channel_type: String,
     #[serde(default)]
     pub topic: Option<String>,
+    /// Reserve the channel to these space roles. Absent or empty leaves it open to every role, and
+    /// the caller's own role has to be in the list: a room you are shut out of is not a room you
+    /// meant to make.
+    #[serde(default)]
+    pub allowed_roles: Option<Vec<String>>,
 }
 
 /// Fields to change on a channel. An absent field is left untouched; an empty `topic` clears it.
@@ -592,6 +601,10 @@ pub struct UpdateChannelRequest {
     pub channel_type: Option<String>,
     #[serde(default)]
     pub topic: Option<String>,
+    /// Replace the roles the channel admits. An empty list lifts the restriction; absent leaves it
+    /// as it is, like every other field here.
+    #[serde(default)]
+    pub allowed_roles: Option<Vec<String>>,
 }
 
 /// A reference to a just-created or fetched conversation.

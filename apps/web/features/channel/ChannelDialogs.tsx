@@ -8,6 +8,7 @@ import { addChannelMembers, listChannelMembers } from "@/lib/data/api";
 import type { Channel, ChannelType } from "@/lib/data";
 import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import type { Toast } from "../app/types";
+import { ChannelRoleAccess } from "./ChannelRoleAccess";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 /** Channel roles, as dictionary keys. */
@@ -20,11 +21,14 @@ export function ChannelSettingsDialog({
   onClose,
   onUpdate,
   onNotify,
+  myRole,
 }: {
   channel: Channel;
   onClose: () => void;
   onUpdate: (patch: Partial<Channel>) => void;
   onNotify: (toast: Toast) => void;
+  /** The caller's own space role: always admitted, and what the reservation is checked against. */
+  myRole: string;
 }) {
   const { t } = useTranslation();
   const members = getChannelMembers();
@@ -32,6 +36,7 @@ export function ChannelSettingsDialog({
   const [topic, setTopic] = useState(channel.topic ?? "");
   const [type, setType] = useState<ChannelType>(channel.type === "archived" ? "public" : channel.type);
   const [archived, setArchived] = useState(channel.type === "archived");
+  const [allowedRoles, setAllowedRoles] = useState<string[] | undefined>(channel.allowedRoles);
   // Every member has access by default; toggled per member for private channels.
   const [access, setAccess] = useState<Set<string>>(() => new Set(members.map((m) => m.name)));
 
@@ -47,7 +52,13 @@ export function ChannelSettingsDialog({
 
   const save = () => {
     const clean = name.trim().replace(/^#/, "");
-    onUpdate({ name: clean || channel.name, topic: topic.trim(), type: archived ? "archived" : type });
+    onUpdate({
+      name: clean || channel.name,
+      topic: topic.trim(),
+      type: archived ? "archived" : type,
+      // An empty list and no list say the same thing to the API: this channel admits everyone.
+      allowedRoles: allowedRoles ?? [],
+    });
     onNotify({ tone: "success", title: t("channel.updated"), description: `#${clean || channel.name}` });
     onClose();
   };
@@ -80,6 +91,7 @@ export function ChannelSettingsDialog({
             <Radio name="cs-type" checked={type === "private"} disabled={archived} onChange={() => setType("private")} label={t("channel.private")} description={t("channel.privateHint")} />
           </div>
         </Field>
+        <ChannelRoleAccess value={allowedRoles} onChange={setAllowedRoles} myRole={myRole} />
 
         {isPrivate ? (
           <Field label={t("channel.membersAndAccess", { count: access.size })}>

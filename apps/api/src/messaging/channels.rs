@@ -24,7 +24,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::entities::{channel_members, channels, conversations, messages, users};
+use crate::entities::{
+    channel_members, channel_role_access, channels, conversations, messages, users,
+};
 use crate::state::AppState;
 use sea_orm::DatabaseConnection;
 
@@ -37,6 +39,57 @@ use super::dto::{
 use super::error::ApiError;
 use super::slug::slugify;
 use crate::realtime::event::RealtimeEnvelope;
+
+/// Read a submitted role list, or fail with a reason the caller can act on.
+///
+/// An empty list means "no restriction" rather than "nobody", which is what an empty selection means
+/// on screen. The caller's own role has to be admitted: a room you have shut yourself out of is not
+/// a room you meant to make, and the API is the only place that can say so before it happens.
+fn clean_allowed_roles(
+    submitted: Vec<String>,
+    actor_role: &str,
+) -> Result<Option<Vec<String>>, ApiError> {
+    let mut roles: Vec<String> = Vec::new();
+    for role in submitted {
+        let role = role.trim().to_lowercase();
+        if !super::authz::is_space_role(&role) {
+            return Err(ApiError::BadRequest("this instance has no such role"));
+        }
+        if !roles.contains(&role) {
+            roles.push(role);
+        }
+    }
+    if roles.is_empty() {
+        return Ok(None);
+    }
+    if !roles.iter().any(|role| role == actor_role) {
+        return Err(ApiError::BadRequest(
+            "your own role has to be among the ones this channel admits",
+        ));
+    }
+    Ok(Some(roles))
+}
+
+/// Replace the roles a channel admits. `None` lifts the restriction entirely.
+async fn set_allowed_roles<C: sea_orm::ConnectionTrait>(
+    db: &C,
+    channel_id: Uuid,
+    roles: Option<Vec<String>>,
+) -> Result<(), ApiError> {
+    channel_role_access::Entity::delete_many()
+        .filter(channel_role_access::Column::ChannelId.eq(channel_id))
+        .exec(db)
+        .await?;
+    for role in roles.into_iter().flatten() {
+        channel_role_access::ActiveModel {
+            channel_id: Set(channel_id),
+            role: Set(role),
+        }
+        .insert(db)
+        .await?;
+    }
+    Ok(())
+}
 
 /// The `system_event` discriminators written into a channel's own history. The client turns each
 /// into a sentence; the database stores the event and never the words, like everywhere else.
@@ -152,6 +205,13 @@ pub async fn create_channel(
             "a channel with this name already exists in this space",
         ));
     }
+    let actor_role = super::authz::space_role(&state.db, space_id, session.user_id)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    let allowed_roles = match body.allowed_roles {
+        Some(roles) => clean_allowed_roles(roles, &actor_role)?,
+        None => None,
+    };
 
     let channel_id = Uuid::new_v4();
     let now = OffsetDateTime::now_utc();
@@ -185,6 +245,7 @@ pub async fn create_channel(
     .insert(&txn)
     .await?;
     join_row(&txn, channel_id, session.user_id, "owner", now).await?;
+    set_allowed_roles(&txn, channel_id, allowed_roles.clone()).await?;
     txn.commit().await?;
 
     // Tell the space (or, for a private channel, only its members) that the channel exists, so the
@@ -204,6 +265,9 @@ pub async fn create_channel(
         session.user_id,
     )
     .await?;
+    // Announced only to the roles the channel admits: a reserved channel that appears in everyone's
+    // sidebar for one frame, and disappears on their next load, has already said what it was for.
+    let audience = admitted_only(&state.db, space_id, channel_id, audience).await?;
     state
         .hub
         .publish(
@@ -226,6 +290,7 @@ pub async fn create_channel(
             favorite: false,
             member: true,
             unread: 0,
+            allowed_roles,
         }),
     ))
 }
@@ -301,6 +366,16 @@ pub async fn update_channel(
         }
     }
 
+    if let Some(roles) = body.allowed_roles {
+        // Changed by whoever may change the channel, under the same guard as its name, and with the
+        // same refusal: you cannot reserve a channel to roles that do not include your own.
+        let actor_role = super::authz::space_role(&state.db, space_id, session.user_id)
+            .await?
+            .ok_or(ApiError::Forbidden)?;
+        let roles = clean_allowed_roles(roles, &actor_role)?;
+        set_allowed_roles(&state.db, channel_id, roles).await?;
+    }
+
     let updated = active.update(&state.db).await?;
 
     // Every member of the space is told, whatever the new visibility: a channel turned private has
@@ -314,6 +389,7 @@ pub async fn update_channel(
         topic: updated.topic.clone(),
     };
     let audience = space_member_ids(&state.db, space_id, session.user_id).await?;
+    let audience = admitted_only(&state.db, space_id, channel_id, audience).await?;
     state
         .hub
         .publish(
@@ -334,6 +410,9 @@ pub async fn update_channel(
         favorite: membership.as_ref().is_some_and(|m| m.favorite),
         member: membership.is_some(),
         unread: unread_count(&state.db, channel_id, session.user_id).await?,
+        allowed_roles: super::authz::channel_allowed_roles(&state.db, channel_id)
+            .await?
+            .map(|roles| roles.into_iter().collect()),
     }))
 }
 
@@ -364,6 +443,8 @@ pub async fn join_channel(
     // for the same reason on any channel: every room they are in, somebody put them in.
     if channel.channel_type == "private"
         || super::authz::is_guest(&state.db, channel.space_id, session.user_id).await?
+        || !super::authz::role_admitted(&state.db, channel_id, channel.space_id, session.user_id)
+            .await?
     {
         return Err(ApiError::Forbidden);
     }
@@ -535,6 +616,13 @@ pub async fn add_channel_members(
         if already.contains(&user_id) {
             continue;
         }
+        // A reserved channel refuses the people it is reserved from, whoever is doing the adding:
+        // otherwise the restriction would hold only until somebody worked around it.
+        if !super::authz::role_admitted(&state.db, channel_id, channel.space_id, user_id).await? {
+            return Err(ApiError::BadRequest(
+                "this channel is reserved to roles one of these people does not hold",
+            ));
+        }
         join_row(&state.db, channel_id, user_id, "member", now).await?;
         added.push(user_id);
     }
@@ -661,6 +749,31 @@ async fn channel_audience(
             .collect());
     }
     space_member_ids(db, space_id, user_id).await
+}
+
+/// Keep, out of an audience, only the people whose space role the channel admits.
+///
+/// A frame about a reserved channel must not reach the people it is reserved from: they would see it
+/// appear in their sidebar and lose it on their next load, which is a worse way of finding out that
+/// a leadership channel exists than never seeing it.
+async fn admitted_only(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    channel_id: Uuid,
+    audience: Vec<Uuid>,
+) -> Result<Vec<Uuid>, ApiError> {
+    let Some(allowed) = super::authz::channel_allowed_roles(db, channel_id).await? else {
+        return Ok(audience);
+    };
+    let mut kept = Vec::with_capacity(audience.len());
+    for user_id in audience {
+        if let Some(role) = super::authz::space_role(db, space_id, user_id).await? {
+            if allowed.contains(&role) {
+                kept.push(user_id);
+            }
+        }
+    }
+    Ok(kept)
 }
 
 /// Insert a membership row with the given role and the default notification settings.

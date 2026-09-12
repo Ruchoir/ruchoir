@@ -470,7 +470,10 @@
     "membersAndAccess": "Members and access ({{count}})",
     "fallbackName": "general",
     "noConversation": "Nothing to show yet",
-    "noConversationHint": "Create a channel, or start a conversation, to get going."
+    "noConversationHint": "Create a channel, or start a conversation, to get going.",
+    "roleAccess": "Access by role",
+    "reserveToRoles": "Reserve this channel to some roles",
+    "roleAccessHint": "The other roles neither see it nor can be added to it. Your own role stays ticked: a channel you are shut out of is not a channel you meant to make."
   },
   "role": {
     "member": "Member",

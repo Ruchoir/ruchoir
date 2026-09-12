@@ -195,8 +195,16 @@ pub async fn list_channels(
         if (channel.channel_type == "private" || explicit_only) && membership.is_none() {
             continue;
         }
+        // And the channel's own guest list, checked even for a member: a role taken away takes the
+        // channels that role opened with it.
+        if !super::authz::role_admitted(&state.db, channel.id, space_id, session.user_id).await? {
+            continue;
+        }
         let favorite = membership.as_ref().map(|m| m.favorite).unwrap_or(false);
         let unread = unread_count(&state.db, channel.id, session.user_id).await?;
+        let allowed_roles = super::authz::channel_allowed_roles(&state.db, channel.id)
+            .await?
+            .map(|roles| roles.into_iter().collect());
         out.push(ChannelDto {
             id: channel.id,
             name: channel.name,
@@ -206,6 +214,7 @@ pub async fn list_channels(
             favorite,
             member: membership.is_some(),
             unread,
+            allowed_roles,
         });
     }
     Ok(Json(out))
