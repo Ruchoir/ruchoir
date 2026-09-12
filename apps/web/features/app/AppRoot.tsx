@@ -2411,7 +2411,15 @@ function AppShell() {
           canAdminister={["owner", "admin"].includes(workspaces.find((w) => w.id === ws)?.role ?? "")}
           onIconChanged={applySpaceIcon}
           onRenamed={applySpaceName}
-          members={people.filter((p) => !p.bot).map((p) => ({ name: p.name, presence: p.presence }))}
+          // The real records, so the screen shows the role the server holds rather than a mapping
+          // by display name, and can say how many guests and bots there are instead of asserting it.
+          members={members.map((m) => ({
+            name: m.name,
+            presence: presence[m.userId] ?? "offline",
+            role: m.role,
+            title: m.title,
+            bot: m.bot,
+          }))}
           compact={compact}
           onInvite={() => setModal("invite")}
           onNotify={showToast}

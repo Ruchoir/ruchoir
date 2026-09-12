@@ -2,7 +2,6 @@
 
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 import { DEFAULT_NOTIF_PREFS, type NotifPrefs } from "./notifications";
-import { DEFAULT_ACCOUNT_SECURITY, type AccountSecurity } from "./security";
 import { DEFAULT_BINDINGS, mergeBindings, type Bindings } from "./shortcuts";
 
 /** The four shipped themes. RuchUI (warm cream + terracotta) is the default. */
@@ -76,7 +75,6 @@ export type Settings = {
   /** Global notification preferences (master switch, sound, quiet hours, @channel). */
   notif: NotifPrefs;
   /** Personal account security (two-factor, passkeys, recovery codes). */
-  security: AccountSecurity;
   /** Customizable keyboard shortcut bindings, keyed by command id. */
   shortcuts: Bindings;
   /** First-run getting-started checklist state. */
@@ -96,7 +94,6 @@ const DEFAULTS: Settings = {
   emojiAnimated: true,
   emojiPack: true,
   notif: DEFAULT_NOTIF_PREFS,
-  security: DEFAULT_ACCOUNT_SECURITY,
   shortcuts: DEFAULT_BINDINGS,
   welcome: DEFAULT_WELCOME,
 };
@@ -140,8 +137,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           defaultPanel: isDefaultPanel(parsed.defaultPanel) ? parsed.defaultPanel : DEFAULTS.defaultPanel,
           // Deep-merge notif so a stored object missing newer keys still gets their defaults.
           notif: { ...DEFAULT_NOTIF_PREFS, ...(parsed.notif ?? {}) },
-          // Same deep-merge for account security (passkeys array kept as stored when present).
-          security: { ...DEFAULT_ACCOUNT_SECURITY, ...(parsed.security ?? {}) },
           // Keep only known commands and string bindings; unknown/missing ones fall back to default.
           shortcuts: mergeBindings(parsed.shortcuts),
           welcome: {

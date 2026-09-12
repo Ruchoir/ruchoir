@@ -689,7 +689,7 @@ export function PreferencesScreen({ onClose, onNotify, compact = false, initialT
               <>
                 <h2 style={st.h}>Compte et sécurité</h2>
                 <p style={st.sub}>Mot de passe, double authentification, clés d&apos;accès et codes de récupération.</p>
-                <AccountSecuritySection onNotify={onNotify} />
+                <AccountSecuritySection />
               </>
             ) : null}
 

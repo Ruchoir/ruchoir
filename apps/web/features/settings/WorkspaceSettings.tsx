@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useRef, useState, useSyncExternalStore } from "react";
-import { Avatar, Button, Card, Field, Icon, IconButton, Input, Select, Tag } from "@/components/ds";
+import { Avatar, Button, Card, Field, Icon, Input, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setSpaceIcon } from "@/lib/data/api";
@@ -92,10 +92,12 @@ function SettingRow({ title, desc, children }: { title: string; desc?: string; c
   );
 }
 
-const ROLE_BY_NAME: Record<string, string> = {
-  "Camille Roussel": "Administrateur",
-  "Adèle Fournier": "Modérateur",
-  "Sofia Nadir": "Invité externe",
+/** The space roles the API uses, in the words the screen shows. */
+const ROLE_LABEL: Record<string, string> = {
+  owner: "Propriétaire",
+  admin: "Administrateur",
+  member: "Membre",
+  guest: "Invité externe",
 };
 
 export type WorkspaceSettingsProps = {
@@ -107,7 +109,7 @@ export type WorkspaceSettingsProps = {
   /** Whether the caller may change the icon or the name. The API is the real guard; this hides a
    * dead control. */
   canAdminister: boolean;
-  members: { name: string; presence: Presence }[];
+  members: { name: string; presence: Presence; role: string; title?: string; bot: boolean }[];
   onInvite: () => void;
   /**
    * The icon changed. The rail reads the space list, not this screen's state, so without this the
@@ -137,6 +139,21 @@ export function WorkspaceSettings({
   const [tab, setTab] = useState<NavKey>("general");
   // Read as what it is: a value owned by the browser. Empty for the static export's render, which
   // has no location, so nothing flashes a guessed address before the real one.
+  const [memberQuery, setMemberQuery] = useState("");
+  const shownMembers = members.filter((m) =>
+    m.name.toLowerCase().includes(memberQuery.trim().toLowerCase()),
+  );
+  // Counted rather than asserted: the line used to read "2 invités externes, 1 bot" whatever the
+  // space held.
+  const memberSummary = (() => {
+    const guests = members.filter((m) => m.role === "guest").length;
+    const bots = members.filter((m) => m.bot).length;
+    const people = members.length - bots;
+    const parts = [`${people} membre${people > 1 ? "s" : ""}`];
+    if (guests > 0) parts.push(`${guests} invité${guests > 1 ? "s" : ""} externe${guests > 1 ? "s" : ""}`);
+    if (bots > 0) parts.push(`${bots} bot${bots > 1 ? "s" : ""}`);
+    return parts.join(", ");
+  })();
   const serverAddress = useSyncExternalStore(
     () => () => {},
     () => window.location.host,
@@ -313,12 +330,16 @@ export function WorkspaceSettings({
           {tab === "members" ? (
             <>
               <h2 style={st.h}>Membres</h2>
-              <p style={st.sub}>
-                {members.length} membres, 2 invités externes, 1 bot.
-              </p>
+              <p style={st.sub}>{memberSummary}</p>
               <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 260 }}>
-                  <Input size="sm" icon="search" placeholder="Rechercher un membre" />
+                  <Input
+                    size="sm"
+                    icon="search"
+                    placeholder="Rechercher un membre"
+                    value={memberQuery}
+                    onChange={(e) => setMemberQuery(e.target.value)}
+                  />
                 </div>
                 <div style={{ flex: 1 }} />
                 <Button size="sm" variant="primary" iconLeft="user-plus" onClick={onInvite}>
@@ -326,10 +347,9 @@ export function WorkspaceSettings({
                 </Button>
               </div>
               <Card>
-                {members.map((m, i) => {
-                  const role = ROLE_BY_NAME[m.name] ?? "Membre";
-                  const guest = role.startsWith("Invité");
-                  const email = `${m.name.split(" ")[0].toLowerCase()}@atelier-nantes.fr`;
+                {shownMembers.map((m, i) => {
+                  const role = ROLE_LABEL[m.role] ?? "Membre";
+                  const guest = m.role === "guest";
                   return (
                     <div
                       key={m.name}
@@ -342,25 +362,19 @@ export function WorkspaceSettings({
                       }}
                     >
                       <Avatar name={m.name} src={getAvatar(m.name)} size={28} presence={m.presence} shape={guest ? "round" : "square"} />
-                      <span style={{ flex: 1 }}>
+                      <span style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
-                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{email}</div>
+                        {/* Their job title when they have set one. The address used to be shown here,
+                            invented from the first name and a domain nobody owns. */}
+                        {m.title ? <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{m.title}</div> : null}
                       </span>
+                      {m.bot ? <Tag>Bot</Tag> : null}
                       {guest ? <Tag tone="warning">Externe</Tag> : null}
-                      <div style={{ width: 170 }}>
-                        <Select
-                          size="sm"
-                          options={["Membre", "Modérateur", "Administrateur", "Invité externe"]}
-                          defaultValue={role}
-                          onChange={() => onNotify({ tone: "success", title: "Rôle mis à jour", description: m.name })}
-                        />
-                      </div>
-                      <IconButton
-                        icon="more-horizontal"
-                        label={`Actions pour ${m.name}`}
-                        size="sm"
-                        onClick={() => onNotify({ tone: "info", title: m.name, description: `${role} · ${email}` })}
-                      />
+                      {/* Read, not set: changing someone's role needs rules that do not exist yet, and
+                          a select that reported success without moving anything is worse than none. */}
+                      <span style={{ fontSize: 12, color: "var(--text-muted)", width: 130, textAlign: "right" }}>
+                        {role}
+                      </span>
                     </div>
                   );
                 })}
