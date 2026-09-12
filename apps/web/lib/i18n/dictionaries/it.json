@@ -178,5 +178,43 @@
   },
   "profile": {
     "edit": "Modifica il profilo"
+  },
+  "activity": {
+    "threads": "Discussioni",
+    "threadsEmptyTitle": "Nessuna discussione in attesa",
+    "threadsEmptyText": "Le discussioni a cui partecipi appaiono qui, prima le più recenti.",
+    "mentions": "Menzioni",
+    "mentionsEmptyTitle": "Nessuna menzione",
+    "mentionsEmptyText": "Quando qualcuno ti menziona con @, il messaggio appare qui.",
+    "saved": "Salvati",
+    "savedEmptyTitle": "Niente di salvato",
+    "savedEmptyText": "Salva un messaggio dalle sue azioni al passaggio del mouse per ritrovarlo qui.",
+    "attachment": "(allegato)"
+  },
+  "notif": {
+    "title": "Notifiche",
+    "nothingNew": "Niente di nuovo",
+    "nothingNewText": "Le tue menzioni, risposte e messaggi diretti appariranno qui.",
+    "allRead": "Tutto letto",
+    "allReadText": "Sei aggiornato, nessuna notifica da leggere.",
+    "markAllRead": "Segna tutto come letto",
+    "preferences": "Preferenze di notifica",
+    "all": "Tutto",
+    "unread": "Da leggere",
+    "mentioned": "ti ha menzionato",
+    "broadcast": "ha menzionato tutto il canale",
+    "replied": "ha risposto in una discussione",
+    "dm": "ti ha inviato un messaggio"
+  },
+  "switcher": {
+    "title": "Vai a una conversazione",
+    "filterLabel": "Filtra le conversazioni",
+    "filterPlaceholder": "Nome di un canale, di una persona o di uno spazio…",
+    "conversations": "Conversazioni",
+    "empty": "Nessuna conversazione",
+    "navigate": "↑ ↓ per spostarti",
+    "open": "Invio per aprire",
+    "close": "Esc per chiudere",
+    "noMatch": "Nulla corrisponde a «{{query}}»."
   }
 }

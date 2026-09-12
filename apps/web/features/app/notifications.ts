@@ -99,16 +99,22 @@ export function quietHoursLabel(prefs: NotifPrefs): string {
   return `${fmt(prefs.quietFrom ?? DEFAULT_NOTIF_PREFS.quietFrom)} - ${fmt(prefs.quietTo ?? DEFAULT_NOTIF_PREFS.quietTo)}`;
 }
 
+/** The dictionary key naming what happened, per notification kind. */
 const KIND_VERB: Record<NotifKind, string> = {
-  mention: "vous a mentionné",
-  broadcast: "a mentionné tout le canal",
-  reply: "a répondu dans un fil",
-  dm: "vous a envoyé un message",
+  mention: "notif.mentioned",
+  broadcast: "notif.broadcast",
+  reply: "notif.replied",
+  dm: "notif.dm",
 };
 
-/** Short human sentence for a notification, e.g. "Alice vous a mentionné". */
-export function notifSummary(n: AppNotification): string {
-  return `${n.actor} ${KIND_VERB[n.kind]}`;
+/**
+ * Short sentence for a notification, e.g. "Alice vous a mentionné".
+ *
+ * Takes the translator rather than reaching for one: this is a plain function called from
+ * components, and each of them already holds it.
+ */
+export function notifSummary(n: AppNotification, t: (key: string) => string): string {
+  return `${n.actor} ${t(KIND_VERB[n.kind])}`;
 }
 
 /** Whether a notification should be shown given the channel and global preferences. */

@@ -1,30 +1,32 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { Avatar, EmptyState, Icon, Tag } from "@/components/ds";
+import { Avatar, EmptyState, Icon, type IconName, Tag } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 import { getAvatar, getPresence } from "@/lib/data";
 import { type ActivityItem, messageSummary } from "./activity";
 
 export type ActivityKind = "threads" | "mentions" | "saved";
 
-const META: Record<ActivityKind, { icon: string; title: string; emptyTitle: string; emptyText: string }> = {
+/** Per-view copy, as dictionary keys: the table is built at module load, before a language exists. */
+const META: Record<ActivityKind, { icon: IconName; title: string; emptyTitle: string; emptyText: string }> = {
   threads: {
     icon: "inbox",
-    title: "Fils",
-    emptyTitle: "Aucun fil en attente",
-    emptyText: "Les fils auxquels vous participez apparaissent ici, les plus récents d'abord.",
+    title: "activity.threads",
+    emptyTitle: "activity.threadsEmptyTitle",
+    emptyText: "activity.threadsEmptyText",
   },
   mentions: {
     icon: "at-sign",
-    title: "Mentions",
-    emptyTitle: "Aucune mention",
-    emptyText: "Quand quelqu'un vous mentionne avec @, le message apparaît ici.",
+    title: "activity.mentions",
+    emptyTitle: "activity.mentionsEmptyTitle",
+    emptyText: "activity.mentionsEmptyText",
   },
   saved: {
     icon: "bookmark",
-    title: "Enregistrés",
-    emptyTitle: "Rien d'enregistré",
-    emptyText: "Enregistrez un message depuis ses actions au survol pour le retrouver ici.",
+    title: "activity.saved",
+    emptyTitle: "activity.savedEmptyTitle",
+    emptyText: "activity.savedEmptyText",
   },
 };
 
@@ -68,13 +70,14 @@ export type ActivityViewProps = {
 
 /** Filtered cross-channel list for the Threads, Mentions and Saved views. */
 export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
+  const { t } = useTranslation();
   const meta = META[kind];
 
   return (
     <div style={styles.root}>
       <h1 style={styles.top}>
         <Icon name={meta.icon} size={15} style={{ color: "var(--text-muted)" }} />
-        {meta.title}
+        {t(meta.title)}
         {items.length > 0 ? (
           <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)" }}>· {items.length}</span>
         ) : null}
@@ -82,7 +85,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
 
       {items.length === 0 ? (
         <div style={styles.empty}>
-          <EmptyState icon={meta.icon} title={meta.emptyTitle} description={meta.emptyText} />
+          <EmptyState icon={meta.icon} title={t(meta.emptyTitle)} description={t(meta.emptyText)} />
         </div>
       ) : (
         <div style={styles.scroll}>
@@ -114,7 +117,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
                       color: "var(--text-body)",
                     }}
                   >
-                    {messageSummary(it.message)}
+                    {messageSummary(it.message) ?? t("activity.attachment")}
                   </span>
                   {kind === "threads" && it.message.replies ? (
                     <span style={{ display: "inline-flex", marginTop: 8 }}>

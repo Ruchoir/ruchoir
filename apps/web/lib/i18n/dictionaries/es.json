@@ -178,5 +178,43 @@
   },
   "profile": {
     "edit": "Editar el perfil"
+  },
+  "activity": {
+    "threads": "Hilos",
+    "threadsEmptyTitle": "Ningún hilo pendiente",
+    "threadsEmptyText": "Los hilos en los que participas aparecen aquí, primero los más recientes.",
+    "mentions": "Menciones",
+    "mentionsEmptyTitle": "Ninguna mención",
+    "mentionsEmptyText": "Cuando alguien te menciona con @, el mensaje aparece aquí.",
+    "saved": "Guardados",
+    "savedEmptyTitle": "Nada guardado",
+    "savedEmptyText": "Guarda un mensaje desde sus acciones al pasar el cursor para encontrarlo aquí.",
+    "attachment": "(archivo adjunto)"
+  },
+  "notif": {
+    "title": "Notificaciones",
+    "nothingNew": "Nada nuevo",
+    "nothingNewText": "Tus menciones, respuestas y mensajes directos aparecerán aquí.",
+    "allRead": "Todo leído",
+    "allReadText": "Estás al día, no hay notificaciones sin leer.",
+    "markAllRead": "Marcar todo como leído",
+    "preferences": "Preferencias de notificación",
+    "all": "Todo",
+    "unread": "Sin leer",
+    "mentioned": "te ha mencionado",
+    "broadcast": "ha mencionado a todo el canal",
+    "replied": "ha respondido en un hilo",
+    "dm": "te ha enviado un mensaje"
+  },
+  "switcher": {
+    "title": "Ir a una conversación",
+    "filterLabel": "Filtrar conversaciones",
+    "filterPlaceholder": "Nombre de un canal, una persona o un espacio…",
+    "conversations": "Conversaciones",
+    "empty": "Ninguna conversación",
+    "navigate": "↑ ↓ para navegar",
+    "open": "Intro para abrir",
+    "close": "Esc para cerrar",
+    "noMatch": "Nada coincide con «{{query}}»."
   }
 }

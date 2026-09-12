@@ -178,5 +178,43 @@
   },
   "profile": {
     "edit": "Modifier le profil"
+  },
+  "activity": {
+    "threads": "Fils",
+    "threadsEmptyTitle": "Aucun fil en attente",
+    "threadsEmptyText": "Les fils auxquels vous participez apparaissent ici, les plus récents d'abord.",
+    "mentions": "Mentions",
+    "mentionsEmptyTitle": "Aucune mention",
+    "mentionsEmptyText": "Quand quelqu'un vous mentionne avec @, le message apparaît ici.",
+    "saved": "Enregistrés",
+    "savedEmptyTitle": "Rien d'enregistré",
+    "savedEmptyText": "Enregistrez un message depuis ses actions au survol pour le retrouver ici.",
+    "attachment": "(pièce jointe)"
+  },
+  "notif": {
+    "title": "Notifications",
+    "nothingNew": "Rien de neuf",
+    "nothingNewText": "Vos mentions, réponses et messages directs apparaîtront ici.",
+    "allRead": "Tout est lu",
+    "allReadText": "Vous êtes à jour, aucune notification non lue.",
+    "markAllRead": "Tout marquer comme lu",
+    "preferences": "Préférences de notification",
+    "all": "Tout",
+    "unread": "Non lus",
+    "mentioned": "vous a mentionné",
+    "broadcast": "a mentionné tout le canal",
+    "replied": "a répondu dans un fil",
+    "dm": "vous a envoyé un message"
+  },
+  "switcher": {
+    "title": "Aller à une conversation",
+    "filterLabel": "Filtrer les conversations",
+    "filterPlaceholder": "Nom d'un canal, d'une personne ou d'un espace…",
+    "conversations": "Conversations",
+    "empty": "Aucune conversation",
+    "navigate": "↑ ↓ pour naviguer",
+    "open": "Entrée pour ouvrir",
+    "close": "Échap pour fermer",
+    "noMatch": "Rien ne correspond à « {{query}} »."
   }
 }

@@ -4,6 +4,7 @@ import { type CSSProperties, type RefObject, useState } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Popover, Tabs } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import { type AppNotification, isMention, type NotifKind, notifSummary } from "./notifications";
+import { useTranslation } from "@/lib/i18n";
 
 const KIND_ICON: Record<NotifKind, string> = {
   mention: "at-sign",
@@ -59,10 +60,11 @@ const styles: Record<string, CSSProperties> = {
 
 type Filter = "all" | "unread" | "mentions";
 
+/** Empty-state copy per filter, as dictionary keys. */
 const EMPTY: Record<Filter, { title: string; text: string }> = {
-  all: { title: "Rien de neuf", text: "Vos mentions, réponses et messages directs apparaîtront ici." },
-  unread: { title: "Tout est lu", text: "Vous êtes à jour, aucune notification non lue." },
-  mentions: { title: "Aucune mention", text: "Quand quelqu'un vous mentionne avec @, cela s'affiche ici." },
+  all: { title: "notif.nothingNew", text: "notif.nothingNewText" },
+  unread: { title: "notif.allRead", text: "notif.allReadText" },
+  mentions: { title: "activity.mentionsEmptyTitle", text: "activity.mentionsEmptyText" },
 };
 
 export type NotificationCenterProps = {
@@ -88,6 +90,7 @@ export function NotificationCenter({
   onMarkAllRead,
   onOpenPrefs,
 }: NotificationCenterProps) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<Filter>("all");
   const unread = notifications.filter((n) => !n.read).length;
 
@@ -100,18 +103,18 @@ export function NotificationCenter({
 
   return (
     <Popover anchorRef={anchorRef} open={open} onClose={onClose} placement="bottom" align="start">
-      <div style={styles.panel} role="dialog" aria-label="Notifications">
+      <div style={styles.panel} role="dialog" aria-label={t("notif.title")}>
         <div style={styles.head}>
-          <span style={styles.title}>Notifications</span>
+          <span style={styles.title}>{t("notif.title")}</span>
           <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
             <IconButton
               icon="check-check"
-              label="Tout marquer comme lu"
+              label={t("notif.markAllRead")}
               size="sm"
               disabled={unread === 0}
               onClick={onMarkAllRead}
             />
-            <IconButton icon="settings" label="Préférences de notification" size="sm" onClick={onOpenPrefs} />
+            <IconButton icon="settings" label={t("notif.preferences")} size="sm" onClick={onOpenPrefs} />
           </span>
         </div>
 
@@ -121,9 +124,9 @@ export function NotificationCenter({
             value={filter}
             onChange={(v) => setFilter(v as Filter)}
             items={[
-              { value: "all", label: "Tout" },
-              { value: "unread", label: "Non lus", count: unread || undefined },
-              { value: "mentions", label: "Mentions" },
+              { value: "all", label: t("notif.all") },
+              { value: "unread", label: t("notif.unread"), count: unread || undefined },
+              { value: "mentions", label: t("activity.mentions") },
             ]}
           />
         </div>
@@ -132,8 +135,8 @@ export function NotificationCenter({
           <EmptyState
             size="compact"
             icon={filter === "mentions" ? "at-sign" : filter === "unread" ? "check-check" : "bell"}
-            title={EMPTY[filter].title}
-            description={EMPTY[filter].text}
+            title={t(EMPTY[filter].title)}
+            description={t(EMPTY[filter].text)}
           />
         ) : (
           <div style={styles.scroll}>
@@ -176,6 +179,7 @@ function NotifRow({
   onOpen: (channelId: string, messageId: string, id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const [hover, setHover] = useState(false);
 
   return (
@@ -230,7 +234,7 @@ function NotifRow({
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 2 }}>
           <span style={{ fontSize: 13, fontWeight: notif.read ? 500 : 600, color: "var(--text-strong)", minWidth: 0 }}>
-            {notifSummary(notif)}
+            {notifSummary(notif, t)}
           </span>
         </span>
         <span

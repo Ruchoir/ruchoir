@@ -178,5 +178,43 @@
   },
   "profile": {
     "edit": "Profil bearbeiten"
+  },
+  "activity": {
+    "threads": "Threads",
+    "threadsEmptyTitle": "Kein wartender Thread",
+    "threadsEmptyText": "Die Threads, an denen Sie teilnehmen, erscheinen hier, die neuesten zuerst.",
+    "mentions": "Erwähnungen",
+    "mentionsEmptyTitle": "Keine Erwähnung",
+    "mentionsEmptyText": "Wenn jemand Sie mit @ erwähnt, erscheint die Nachricht hier.",
+    "saved": "Gespeichert",
+    "savedEmptyTitle": "Nichts gespeichert",
+    "savedEmptyText": "Speichern Sie eine Nachricht über ihre Aktionen beim Überfahren, um sie hier wiederzufinden.",
+    "attachment": "(Anhang)"
+  },
+  "notif": {
+    "title": "Benachrichtigungen",
+    "nothingNew": "Nichts Neues",
+    "nothingNewText": "Ihre Erwähnungen, Antworten und Direktnachrichten erscheinen hier.",
+    "allRead": "Alles gelesen",
+    "allReadText": "Sie sind auf dem Stand, nichts Ungelesenes.",
+    "markAllRead": "Alle als gelesen markieren",
+    "preferences": "Benachrichtigungseinstellungen",
+    "all": "Alle",
+    "unread": "Ungelesen",
+    "mentioned": "hat Sie erwähnt",
+    "broadcast": "hat den ganzen Kanal erwähnt",
+    "replied": "hat in einem Thread geantwortet",
+    "dm": "hat Ihnen eine Nachricht geschickt"
+  },
+  "switcher": {
+    "title": "Zu einer Unterhaltung wechseln",
+    "filterLabel": "Unterhaltungen filtern",
+    "filterPlaceholder": "Name eines Kanals, einer Person oder eines Bereichs…",
+    "conversations": "Unterhaltungen",
+    "empty": "Keine Unterhaltung",
+    "navigate": "↑ ↓ zum Wechseln",
+    "open": "Eingabe zum Öffnen",
+    "close": "Esc zum Schließen",
+    "noMatch": "Nichts passt zu „{{query}}“."
   }
 }

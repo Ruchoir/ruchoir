@@ -5,6 +5,7 @@ import { Avatar, EmptyState, Icon, IconButton, Tag } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import type { DirectMessage, Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -74,6 +75,7 @@ export type SidePanelProps = {
 
 /** Right-hand panel of the channel: file, member, or pinned-message list. */
 export function SidePanel({ kind, files, members, pinned, highlightFile, onClose, onSelectMember, onJump, onNotify }: SidePanelProps) {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // When asked to jump to a file, scroll it into view and flash it (after the panel mounts).
@@ -167,7 +169,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                       <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
                     </span>
                     <span style={{ display: "block", fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)", marginTop: 2, textWrap: "pretty" }}>
-                      {messageSummary(m)}
+                      {messageSummary(m) ?? t("activity.attachment")}
                     </span>
                     {m.image?.src ? (
                       // A pinned photograph is pinned for what it shows. The row is already

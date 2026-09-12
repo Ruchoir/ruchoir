@@ -6,6 +6,7 @@ import type { Presence } from "@/components/ds";
 import { type FileHit, search, type SearchMessage } from "@/lib/data/api";
 import { getAvatar } from "@/lib/data";
 import { messageSummary } from "./activity";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   label: {
@@ -50,6 +51,7 @@ export function GlobalSearchDialog({
   onOpenFile,
   onOpenProfile,
 }: GlobalSearchDialogProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [msgHits, setMsgHits] = useState<SearchMessage[]>([]);
@@ -213,7 +215,7 @@ export function GlobalSearchDialog({
                           color: "var(--text-body)",
                         }}
                       >
-                        {messageSummary(m)}
+                        {messageSummary(m) ?? t("activity.attachment")}
                       </span>
                     </span>
                   </button>

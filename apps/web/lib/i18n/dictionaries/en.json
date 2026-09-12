@@ -178,5 +178,43 @@
   },
   "profile": {
     "edit": "Edit profile"
+  },
+  "activity": {
+    "threads": "Threads",
+    "threadsEmptyTitle": "No thread waiting",
+    "threadsEmptyText": "The threads you take part in appear here, most recent first.",
+    "mentions": "Mentions",
+    "mentionsEmptyTitle": "No mention",
+    "mentionsEmptyText": "When someone mentions you with @, the message appears here.",
+    "saved": "Saved",
+    "savedEmptyTitle": "Nothing saved",
+    "savedEmptyText": "Save a message from its hover actions to find it here.",
+    "attachment": "(attachment)"
+  },
+  "notif": {
+    "title": "Notifications",
+    "nothingNew": "Nothing new",
+    "nothingNewText": "Your mentions, replies and direct messages will appear here.",
+    "allRead": "All read",
+    "allReadText": "You are up to date, nothing unread.",
+    "markAllRead": "Mark all as read",
+    "preferences": "Notification preferences",
+    "all": "All",
+    "unread": "Unread",
+    "mentioned": "mentioned you",
+    "broadcast": "mentioned the whole channel",
+    "replied": "replied in a thread",
+    "dm": "sent you a message"
+  },
+  "switcher": {
+    "title": "Go to a conversation",
+    "filterLabel": "Filter conversations",
+    "filterPlaceholder": "Name of a channel, a person or a space…",
+    "conversations": "Conversations",
+    "empty": "No conversation",
+    "navigate": "↑ ↓ to move",
+    "open": "Enter to open",
+    "close": "Esc to close",
+    "noMatch": "Nothing matches “{{query}}”."
   }
 }

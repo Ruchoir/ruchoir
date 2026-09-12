@@ -5,6 +5,7 @@ import { Avatar, EmptyState, Icon, IconButton, Input } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import type { Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -60,6 +61,7 @@ export type SearchPanelProps = {
 
 /** In-channel search over messages and files (mock filter over the loaded channel data). */
 export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: SearchPanelProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
 
@@ -115,7 +117,7 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                         <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
                       </span>
                       <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 13, color: "var(--text-body)" }}>
-                        {messageSummary(m)}
+                        {messageSummary(m) ?? t("activity.attachment")}
                       </span>
                     </span>
                   </button>

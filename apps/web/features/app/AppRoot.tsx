@@ -1955,7 +1955,7 @@ function AppShell() {
       if (appIsAway()) {
         showDesktopNotification({
           title: who,
-          body: n.preview || notifSummary(n),
+          body: n.preview || notifSummary(n, t),
           // One notification per conversation: ten messages from the same channel while you were
           // away should be one line to come back to, not ten to dismiss.
           tag: n.channelId,
@@ -1963,7 +1963,7 @@ function AppShell() {
         });
         return;
       }
-      notifyRef.current?.({ tone: "info", title: who, description: n.preview || notifSummary(n) });
+      notifyRef.current?.({ tone: "info", title: who, description: n.preview || notifSummary(n, t) });
     };
   });
 

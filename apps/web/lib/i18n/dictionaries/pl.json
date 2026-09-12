@@ -178,5 +178,43 @@
   },
   "profile": {
     "edit": "Edytuj profil"
+  },
+  "activity": {
+    "threads": "Wątki",
+    "threadsEmptyTitle": "Brak oczekujących wątków",
+    "threadsEmptyText": "Wątki, w których bierzesz udział, pojawiają się tutaj, najnowsze na górze.",
+    "mentions": "Wzmianki",
+    "mentionsEmptyTitle": "Brak wzmianek",
+    "mentionsEmptyText": "Gdy ktoś wspomni o Tobie przez @, wiadomość pojawi się tutaj.",
+    "saved": "Zapisane",
+    "savedEmptyTitle": "Nic nie zapisano",
+    "savedEmptyText": "Zapisz wiadomość z jej akcji po najechaniu, aby znaleźć ją tutaj.",
+    "attachment": "(załącznik)"
+  },
+  "notif": {
+    "title": "Powiadomienia",
+    "nothingNew": "Nic nowego",
+    "nothingNewText": "Twoje wzmianki, odpowiedzi i wiadomości bezpośrednie pojawią się tutaj.",
+    "allRead": "Wszystko przeczytane",
+    "allReadText": "Jesteś na bieżąco, brak nieprzeczytanych.",
+    "markAllRead": "Oznacz wszystko jako przeczytane",
+    "preferences": "Ustawienia powiadomień",
+    "all": "Wszystko",
+    "unread": "Nieprzeczytane",
+    "mentioned": "wspomniał o Tobie",
+    "broadcast": "wspomniał o całym kanale",
+    "replied": "odpowiedział w wątku",
+    "dm": "wysłał Ci wiadomość"
+  },
+  "switcher": {
+    "title": "Przejdź do rozmowy",
+    "filterLabel": "Filtruj rozmowy",
+    "filterPlaceholder": "Nazwa kanału, osoby lub przestrzeni…",
+    "conversations": "Rozmowy",
+    "empty": "Brak rozmów",
+    "navigate": "↑ ↓ aby przechodzić",
+    "open": "Enter aby otworzyć",
+    "close": "Esc aby zamknąć",
+    "noMatch": "Nic nie pasuje do „{{query}}”."
   }
 }
