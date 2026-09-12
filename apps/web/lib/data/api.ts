@@ -14,7 +14,12 @@
  */
 import type { Presence } from "@/components/ds";
 import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./http";
-import { getPasskeyAssertion, type PasskeyChallenge } from "@/lib/webauthn";
+import {
+  createPasskeyCredential,
+  getPasskeyAssertion,
+  type PasskeyChallenge,
+  type PasskeyCreationChallenge,
+} from "@/lib/webauthn";
 import type {
   Channel,
   ChannelType,
@@ -196,6 +201,95 @@ export async function logoutEverywhere(): Promise<void> {
 /** `POST /auth/logout`: end the current session. */
 export async function logout(): Promise<void> {
   await apiPost<void>("/auth/logout");
+}
+
+// --- Account security (second factors, password) ---
+
+/** One registered passkey, as the account screen lists them. */
+export type PasskeySummary = { id: string; label?: string; createdAt: string; lastUsedAt?: string };
+
+/** What second factors the account actually holds, as the server knows it. */
+export type MfaState = { totpEnabled: boolean; recoveryCodesRemaining: number; passkeys: PasskeySummary[] };
+
+/**
+ * `GET /auth/mfa`: the account's real second factors.
+ *
+ * The screen used to keep this in the browser's local storage, so it reported two-factor
+ * authentication as enabled on accounts that had never enrolled. There is one source now.
+ */
+export async function getMfaState(signal?: AbortSignal): Promise<MfaState> {
+  const dto = await apiGet<{
+    totp_enabled: boolean;
+    recovery_codes_remaining: number;
+    passkeys: { id: string; label?: string; created_at: string; last_used_at?: string }[];
+  }>("/auth/mfa", signal);
+  return {
+    totpEnabled: dto.totp_enabled,
+    recoveryCodesRemaining: dto.recovery_codes_remaining,
+    passkeys: dto.passkeys.map((p) => ({
+      id: p.id,
+      label: p.label,
+      createdAt: p.created_at,
+      lastUsedAt: p.last_used_at,
+    })),
+  };
+}
+
+/** `POST /auth/mfa/totp/enroll`: start enrolment, returning the provisioning URI and its QR code. */
+export async function enrollTotp(): Promise<{ otpauthUrl: string; qrSvg: string }> {
+  const dto = await apiPost<{ otpauth_url: string; qr_svg: string }>("/auth/mfa/totp/enroll");
+  return { otpauthUrl: dto.otpauth_url, qrSvg: dto.qr_svg };
+}
+
+/** `POST /auth/mfa/totp/confirm`: finish enrolment with a code from the authenticator. */
+export async function confirmTotp(code: string): Promise<void> {
+  await apiPost<void>("/auth/mfa/totp/confirm", { code });
+}
+
+/**
+ * `POST /auth/mfa/totp/disable`: turn it off.
+ *
+ * A body, so a POST: the password is required on purpose, since someone sitting at an unlocked
+ * machine must not be able to strip the factor that protects the account from them.
+ */
+export async function disableTotp(password: string): Promise<void> {
+  await apiPost<void>("/auth/mfa/totp/disable", { password });
+}
+
+/**
+ * `POST /auth/mfa/recovery-codes/generate`: a fresh set, replacing any previous one.
+ *
+ * Returned in the clear exactly once; the server keeps only their hashes. Generating again voids
+ * the old set, which is why the screen says so before offering it.
+ */
+export async function generateRecoveryCodes(): Promise<string[]> {
+  const dto = await apiPost<{ codes: string[] }>("/auth/mfa/recovery-codes/generate");
+  return dto.codes;
+}
+
+/** Register a passkey on this device: challenge, authenticator ceremony, then attestation. */
+export async function registerPasskey(): Promise<void> {
+  const challenge = await apiPost<PasskeyCreationChallenge>("/auth/mfa/passkey/register/start");
+  const credential = await createPasskeyCredential(challenge);
+  await apiPost<void>("/auth/mfa/passkey/register/finish", credential);
+}
+
+/** `DELETE /auth/mfa/passkey/{id}`: forget one registered key. */
+export async function removePasskey(credentialId: string): Promise<void> {
+  await apiDelete<void>(`/auth/mfa/passkey/${credentialId}`);
+}
+
+/**
+ * `POST /auth/password`: change the password, knowing the current one.
+ *
+ * Every session ends, this one included: a password is changed because someone else may know it,
+ * and leaving their session alive would defeat the change. The caller returns to sign-in.
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await apiPost<void>("/auth/password", {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
 }
 
 // --- Registration, email verification and password reset ---

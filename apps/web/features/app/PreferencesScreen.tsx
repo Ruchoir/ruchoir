@@ -37,7 +37,7 @@ export type PrefTab = "appearance" | "notifications" | "shortcuts" | "security" 
 const NAV: [PrefTab, string, string][] = [
   ["appearance", "Apparence", "layout-grid"],
   ["notifications", "Notifications", "bell"],
-  ["shortcuts", "Raccourcis clavier", "key-round"],
+  ["shortcuts", "Raccourcis clavier", "keyboard"],
   ["security", "Compte et sécurité", "shield"],
   ["emojis", "Emojis", "smile"],
 ];
