@@ -174,6 +174,8 @@ export type LinkPreview = {
  * a locally-generated placeholder, never a remote image (sovereignty + CSP).
  */
 export type InlineImage = {
+  /** The stored file behind it, so a deletion arriving live can find the messages showing it. */
+  fileId?: string;
   alt: string;
   width: number;
   height: number;

@@ -1005,6 +1005,41 @@ function AppShell() {
       },
       onTyping: (conv, userId) =>
         setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
+      onFilesDeleted: (spaceId, fileIds) => {
+        if (fileIds.length === 0) return;
+        const gone = new Set(fileIds);
+        // Every loaded conversation, not only the one on screen: the others are in memory and
+        // would otherwise keep a working-looking attachment until they were next opened.
+        setMessages((prev) => {
+          let touched = false;
+          const next: typeof prev = {};
+          for (const [conversationId, list] of Object.entries(prev)) {
+            next[conversationId] = list.map((m) => {
+              // An image attachment is held as an image and not as a file, so both have to be
+              // looked at: a picture whose bytes are gone draws an empty frame the size of the
+              // picture, which is the loudest way to show an absence.
+              const fileId = m.attachment?.fileId ?? m.image?.fileId;
+              if (!fileId || !gone.has(fileId)) return m;
+              touched = true;
+              return {
+                ...m,
+                image: undefined,
+                attachment: {
+                  fileId,
+                  name: m.attachment?.name ?? m.image?.alt ?? "Fichier",
+                  size: m.attachment?.size ?? "",
+                  kind: m.attachment?.kind ?? "image",
+                  deleted: true,
+                },
+              };
+            });
+          }
+          return touched ? next : prev;
+        });
+        if (spaceId === liveRef.current.ws) {
+          setSpaceFiles((prev) => prev.filter((f) => !f.id || !gone.has(f.id)));
+        }
+      },
       onReadCursor: (conv, userId, lastReadMessageId) =>
         setReadCursors((prev) => {
           const known = prev[conv] ?? { members: [], at: {} };

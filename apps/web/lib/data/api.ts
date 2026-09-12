@@ -886,6 +886,7 @@ function splitAttachments(attachments: AttachmentDto[]): {
     }
     if (!image && a.kind === "image" && a.image_width && a.image_height) {
       image = {
+        fileId: a.file_id,
         alt: a.alt_text ?? a.name,
         width: a.image_width,
         height: a.image_height,
@@ -1395,6 +1396,8 @@ export type RealtimeHandlers = {
   onTyping?: (conversationId: string, userId: string) => void;
   /** Someone's read cursor moved in a conversation the recipient belongs to. */
   onReadCursor?: (conversationId: string, userId: string, lastReadMessageId: string) => void;
+  /** Files were removed from a space: anything showing them has to stop offering them. */
+  onFilesDeleted?: (spaceId: string, fileIds: string[]) => void;
 };
 
 /** A live realtime connection: close it on teardown, and signal typing over it. */
@@ -1420,6 +1423,7 @@ const REALTIME_EVENTS = [
   "notification.created",
   "typing",
   "read.updated",
+  "files.deleted",
 ] as const;
 
 /** How many failed WebSocket attempts, none of which ever opened, before falling back to SSE. */
@@ -1542,6 +1546,9 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         break;
       case "read.updated":
         handlers.onReadCursor?.(conv, String(payload.user_id), String(payload.last_read_message_id));
+        break;
+      case "files.deleted":
+        handlers.onFilesDeleted?.(String(payload.space_id), (payload.file_ids as string[]) ?? []);
         break;
       default:
         // Unhandled event types (saved) are ignored for now.
