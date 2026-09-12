@@ -4,6 +4,7 @@ import { type CSSProperties, useState } from "react";
 import { EmptyState, Input } from "@/components/ds";
 import { EMOJI_CATEGORIES, QUICK_REACTIONS, searchEmojis } from "@/lib/emoji";
 import { Emoji } from "../app/Emoji";
+import { useTranslation } from "@/lib/i18n";
 
 const panel: CSSProperties = {
   width: 320,
@@ -70,6 +71,7 @@ export function EmojiPicker({
   /** Animate the pickable glyphs (quick row + grid). Set when the picker chooses a reaction. */
   animated?: boolean;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState(EMOJI_CATEGORIES[0].id);
 
@@ -78,7 +80,7 @@ export function EmojiPicker({
   const shown = results ?? active.emojis;
 
   return (
-    <div style={panel} role="dialog" aria-label="Choisir un emoji">
+    <div style={panel} role="dialog" aria-label={t("emoji.title")}>
       <div style={quickRow}>
         {QUICK_REACTIONS.map((e) => (
           <button
@@ -99,7 +101,7 @@ export function EmojiPicker({
         <Input
           size="sm"
           icon="search"
-          placeholder="Rechercher un emoji"
+          placeholder={t("emoji.search")}
           value={query}
           onChange={(ev) => setQuery(ev.target.value)}
           autoFocus
@@ -133,7 +135,7 @@ export function EmojiPicker({
       <div style={grid}>
         {shown.length === 0 ? (
           <div style={{ gridColumn: "1 / -1" }}>
-            <EmptyState size="compact" icon="smile" title="Aucun emoji" description={`Rien ne correspond à « ${query} ».`} />
+            <EmptyState size="compact" icon="smile" title={t("emoji.empty")} description={t("switcher.noMatch", { query })} />
           </div>
         ) : (
           shown.map((em) => (

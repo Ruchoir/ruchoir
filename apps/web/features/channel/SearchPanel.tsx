@@ -80,13 +80,13 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
   return (
     <div style={styles.panel}>
       <div style={styles.head}>
-        <span style={styles.title}>Rechercher</span>
-        <IconButton icon="x" label="Fermer la recherche" size="sm" onClick={onClose} />
+        <span style={styles.title}>{t("common.search")}</span>
+        <IconButton icon="x" label={t("search.close")} size="sm" onClick={onClose} />
       </div>
       <div style={styles.search}>
         <Input
           icon="search"
-          placeholder="Messages, fichiers, personnes…"
+          placeholder={t("search.placeholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoFocus
@@ -94,9 +94,9 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
       </div>
       <div style={styles.scroll}>
         {!q ? (
-          <EmptyState size="compact" icon="search" description="Tapez pour rechercher dans ce canal." />
+          <EmptyState size="compact" icon="search" description={t("search.prompt")} />
         ) : total === 0 ? (
-          <EmptyState size="compact" icon="search" title="Aucun résultat" description={`Aucun message ou fichier pour « ${query} ».`} />
+          <EmptyState size="compact" icon="search" title={t("search.noResult")} description={t("search.noMessageOrFile", { query })} />
         ) : (
           <>
             {msgHits.length > 0 ? (

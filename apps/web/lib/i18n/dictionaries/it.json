@@ -114,7 +114,8 @@
     "search": "Cerca",
     "help": "Aiuto",
     "cancel": "Annulla",
-    "copied": "Copiato"
+    "copied": "Copiato",
+    "save": "Salva"
   },
   "mfa": {
     "totpTitle": "Verifica in due passaggi",
@@ -340,5 +341,57 @@
   "image": {
     "openInNewTab": "Apri in una nuova scheda",
     "download": "Scarica l'immagine"
+  },
+  "panel": {
+    "files": "File del canale",
+    "members": "Membri del canale",
+    "pinned": "Messaggi fissati",
+    "close": "Chiudi il pannello",
+    "noPinned": "Nessun messaggio fissato",
+    "noPinnedText": "Fissa un messaggio dal suo menu per ritrovarlo qui.",
+    "downloading": "Download",
+    "openingLink": "Apertura del link",
+    "openFolder": "Apri la cartella"
+  },
+  "search": {
+    "placeholder": "Messaggi, file, persone…",
+    "close": "Chiudi la ricerca",
+    "prompt": "Digita per cercare in questo canale.",
+    "noResult": "Nessun risultato",
+    "noMessageOrFile": "Nessun messaggio o file per «{{query}}»."
+  },
+  "emoji": {
+    "title": "Scegli un emoji",
+    "search": "Cerca un emoji",
+    "empty": "Nessun emoji"
+  },
+  "channel": {
+    "addPeople": "Aggiungi persone",
+    "updated": "Canale aggiornato",
+    "name": "Nome del canale",
+    "topic": "Argomento",
+    "topicPlaceholder": "A cosa serve questo canale?",
+    "visibility": "Visibilità",
+    "public": "Pubblico",
+    "publicHint": "Tutti i membri dello spazio possono unirsi.",
+    "private": "Privato",
+    "privateHint": "Solo le persone qui sotto hanno accesso.",
+    "archive": "Archivia il canale (sola lettura)",
+    "notifUpdated": "Notifiche aggiornate",
+    "allMessages": "Tutti i messaggi",
+    "mentionsOnly": "Solo menzioni",
+    "mentionsOnlyHint": "@te e @canale",
+    "nothing": "Niente",
+    "moderator": "Moderatore",
+    "membersLoadFailed": "Non è stato possibile caricare l'elenco dei membri del canale.",
+    "nobodyToAdd": "Nessuno da aggiungere",
+    "addFailed": "L'aggiunta non è riuscita. Riprova.",
+    "searchPerson": "Cerca una persona",
+    "alreadyIn": "Già nel canale",
+    "added_one": "{{count}} persona aggiunta",
+    "added_other": "{{count}} persone aggiunte"
+  },
+  "role": {
+    "member": "Membro"
   }
 }

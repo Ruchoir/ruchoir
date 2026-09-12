@@ -8,13 +8,8 @@
     "features/app/PreferencesScreen.tsx",
     "features/app/dialogs.tsx",
     "features/auth/OnboardingFlow.tsx",
-    "features/channel/ChannelDialogs.tsx",
-    "features/channel/ChannelMenu.tsx",
     "features/channel/ChannelScreen.tsx",
-    "features/channel/EmojiPicker.tsx",
     "features/channel/ProfilePanel.tsx",
-    "features/channel/SearchPanel.tsx",
-    "features/channel/SidePanel.tsx",
     "features/files/FilesScreen.tsx",
     "features/import/ImportDialog.tsx",
     "features/settings/WorkspaceSettings.tsx"

@@ -114,7 +114,8 @@
     "search": "Szukaj",
     "help": "Pomoc",
     "cancel": "Anuluj",
-    "copied": "Skopiowano"
+    "copied": "Skopiowano",
+    "save": "Zapisz"
   },
   "mfa": {
     "totpTitle": "Weryfikacja dwuetapowa",
@@ -344,5 +345,59 @@
   "image": {
     "openInNewTab": "Otwórz w nowej karcie",
     "download": "Pobierz obraz"
+  },
+  "panel": {
+    "files": "Pliki kanału",
+    "members": "Członkowie kanału",
+    "pinned": "Przypięte wiadomości",
+    "close": "Zamknij panel",
+    "noPinned": "Brak przypiętych wiadomości",
+    "noPinnedText": "Przypnij wiadomość z jej menu, aby znaleźć ją tutaj.",
+    "downloading": "Pobieranie",
+    "openingLink": "Otwieranie linku",
+    "openFolder": "Otwórz folder"
+  },
+  "search": {
+    "placeholder": "Wiadomości, pliki, osoby…",
+    "close": "Zamknij wyszukiwanie",
+    "prompt": "Pisz, aby przeszukać ten kanał.",
+    "noResult": "Brak wyników",
+    "noMessageOrFile": "Brak wiadomości i plików dla „{{query}}”."
+  },
+  "emoji": {
+    "title": "Wybierz emoji",
+    "search": "Szukaj emoji",
+    "empty": "Brak emoji"
+  },
+  "channel": {
+    "addPeople": "Dodaj osoby",
+    "updated": "Kanał zaktualizowany",
+    "name": "Nazwa kanału",
+    "topic": "Temat",
+    "topicPlaceholder": "Do czego służy ten kanał?",
+    "visibility": "Widoczność",
+    "public": "Publiczny",
+    "publicHint": "Każdy członek przestrzeni może dołączyć.",
+    "private": "Prywatny",
+    "privateHint": "Dostęp mają tylko osoby poniżej.",
+    "archive": "Zarchiwizuj kanał (tylko do odczytu)",
+    "notifUpdated": "Powiadomienia zaktualizowane",
+    "allMessages": "Wszystkie wiadomości",
+    "mentionsOnly": "Tylko wzmianki",
+    "mentionsOnlyHint": "@Ty i @kanał",
+    "nothing": "Nic",
+    "moderator": "Moderator",
+    "membersLoadFailed": "Nie udało się wczytać listy członków kanału.",
+    "nobodyToAdd": "Nikogo do dodania",
+    "addFailed": "Dodawanie nie powiodło się. Spróbuj ponownie.",
+    "searchPerson": "Szukaj osoby",
+    "alreadyIn": "Już w kanale",
+    "added_one": "Dodano {{count}} osobę",
+    "added_few": "Dodano {{count}} osoby",
+    "added_many": "Dodano {{count}} osób",
+    "added_other": "Dodano {{count}} osób"
+  },
+  "role": {
+    "member": "Członek"
   }
 }

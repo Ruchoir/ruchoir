@@ -159,7 +159,12 @@ function findHardCoded(source, path) {
  * a role and a status), so a pair that is identical here may have to differ in German or Polish.
  * Each entry is that claim, made once, in writing.
  */
-const ALLOWED_DUPLICATES = new Set([]);
+const ALLOWED_DUPLICATES = new Set([
+  // "Enregistrer" is two different verbs in French: saving a form, and setting a message aside for
+  // later. English happens to collapse them too, but German ("Speichern" / "Merken") and Polish do
+  // not, so merging the keys would force one language to say the wrong thing.
+  "message.save",
+]);
 
 /** Every key path in a dictionary object, flattened to `a.b.c`. */
 function keyPaths(value, prefix = "", out = []) {

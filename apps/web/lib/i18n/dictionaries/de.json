@@ -114,7 +114,8 @@
     "search": "Suchen",
     "help": "Hilfe",
     "cancel": "Abbrechen",
-    "copied": "Kopiert"
+    "copied": "Kopiert",
+    "save": "Speichern"
   },
   "mfa": {
     "totpTitle": "Bestätigung in zwei Schritten",
@@ -340,5 +341,57 @@
   "image": {
     "openInNewTab": "In neuem Tab öffnen",
     "download": "Bild herunterladen"
+  },
+  "panel": {
+    "files": "Dateien des Kanals",
+    "members": "Mitglieder des Kanals",
+    "pinned": "Angeheftete Nachrichten",
+    "close": "Bereich schließen",
+    "noPinned": "Keine angeheftete Nachricht",
+    "noPinnedText": "Heften Sie eine Nachricht über ihr Menü an, um sie hier wiederzufinden.",
+    "downloading": "Wird heruntergeladen",
+    "openingLink": "Link wird geöffnet",
+    "openFolder": "Ordner öffnen"
+  },
+  "search": {
+    "placeholder": "Nachrichten, Dateien, Personen…",
+    "close": "Suche schließen",
+    "prompt": "Tippen Sie, um diesen Kanal zu durchsuchen.",
+    "noResult": "Kein Ergebnis",
+    "noMessageOrFile": "Keine Nachricht und keine Datei für „{{query}}“."
+  },
+  "emoji": {
+    "title": "Emoji auswählen",
+    "search": "Emoji suchen",
+    "empty": "Kein Emoji"
+  },
+  "channel": {
+    "addPeople": "Personen hinzufügen",
+    "updated": "Kanal aktualisiert",
+    "name": "Name des Kanals",
+    "topic": "Thema",
+    "topicPlaceholder": "Wofür ist dieser Kanal da?",
+    "visibility": "Sichtbarkeit",
+    "public": "Öffentlich",
+    "publicHint": "Alle Mitglieder des Bereichs können beitreten.",
+    "private": "Privat",
+    "privateHint": "Nur die Personen unten haben Zugriff.",
+    "archive": "Kanal archivieren (schreibgeschützt)",
+    "notifUpdated": "Benachrichtigungen aktualisiert",
+    "allMessages": "Alle Nachrichten",
+    "mentionsOnly": "Nur Erwähnungen",
+    "mentionsOnlyHint": "@Sie und @Kanal",
+    "nothing": "Nichts",
+    "moderator": "Moderator",
+    "membersLoadFailed": "Die Mitgliederliste des Kanals konnte nicht geladen werden.",
+    "nobodyToAdd": "Niemand hinzuzufügen",
+    "addFailed": "Das Hinzufügen ist fehlgeschlagen. Versuchen Sie es erneut.",
+    "searchPerson": "Person suchen",
+    "alreadyIn": "Bereits im Kanal",
+    "added_one": "{{count}} Person hinzugefügt",
+    "added_other": "{{count}} Personen hinzugefügt"
+  },
+  "role": {
+    "member": "Mitglied"
   }
 }

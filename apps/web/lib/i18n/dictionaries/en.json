@@ -114,7 +114,8 @@
     "search": "Search",
     "help": "Help",
     "cancel": "Cancel",
-    "copied": "Copied"
+    "copied": "Copied",
+    "save": "Save"
   },
   "mfa": {
     "totpTitle": "Two-step verification",
@@ -340,5 +341,57 @@
   "image": {
     "openInNewTab": "Open in a new tab",
     "download": "Download the image"
+  },
+  "panel": {
+    "files": "Channel files",
+    "members": "Channel members",
+    "pinned": "Pinned messages",
+    "close": "Close the panel",
+    "noPinned": "No pinned message",
+    "noPinnedText": "Pin a message from its menu to find it here.",
+    "downloading": "Downloading",
+    "openingLink": "Opening the link",
+    "openFolder": "Open the folder"
+  },
+  "search": {
+    "placeholder": "Messages, files, people…",
+    "close": "Close the search",
+    "prompt": "Type to search this channel.",
+    "noResult": "No result",
+    "noMessageOrFile": "No message or file for “{{query}}”."
+  },
+  "emoji": {
+    "title": "Choose an emoji",
+    "search": "Search an emoji",
+    "empty": "No emoji"
+  },
+  "channel": {
+    "addPeople": "Add people",
+    "updated": "Channel updated",
+    "name": "Channel name",
+    "topic": "Topic",
+    "topicPlaceholder": "What is this channel for?",
+    "visibility": "Visibility",
+    "public": "Public",
+    "publicHint": "Every member of the space can join it.",
+    "private": "Private",
+    "privateHint": "Only the people below have access.",
+    "archive": "Archive the channel (read-only)",
+    "notifUpdated": "Notifications updated",
+    "allMessages": "All messages",
+    "mentionsOnly": "Mentions only",
+    "mentionsOnlyHint": "@you and @channel",
+    "nothing": "Nothing",
+    "moderator": "Moderator",
+    "membersLoadFailed": "The channel's member list could not be loaded.",
+    "nobodyToAdd": "Nobody to add",
+    "addFailed": "Adding failed. Try again.",
+    "searchPerson": "Search a person",
+    "alreadyIn": "Already in the channel",
+    "added_one": "{{count}} person added",
+    "added_other": "{{count}} people added"
+  },
+  "role": {
+    "member": "Member"
   }
 }
