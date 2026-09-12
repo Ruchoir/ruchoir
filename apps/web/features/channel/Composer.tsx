@@ -8,6 +8,7 @@ import type { Toast } from "../app/types";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 import { useTranslation } from "@/lib/i18n";
+import { formatBytes } from "@/lib/i18n/format";
 
 const styles: Record<string, CSSProperties> = {
   wrap: { flex: "none", padding: "8px 24px 20px" },
@@ -49,12 +50,6 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-body)",
   },
 };
-
-/** Format a byte count into a French-formatted size string. */
-function bytesToSize(bytes: number): string {
-  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1).replace(".", ",")} Mo`;
-  return `${Math.max(1, Math.round(bytes / 1e3))} Ko`;
-}
 
 function iconForType(type: string): string {
   if (type.includes("spreadsheet") || type.includes("csv")) return "file-spreadsheet";
@@ -175,7 +170,7 @@ export function Composer({
     // A second pick replaces the first, which then has nothing left to belong to.
     discardStored(pending);
     // Show it immediately, with what the browser knows, then replace it with the stored file.
-    setPending({ name: file.name, size: bytesToSize(file.size), kind: iconForType(file.type) });
+    setPending({ name: file.name, sizeBytes: file.size, kind: iconForType(file.type) });
     setUploading(true);
     try {
       setPending(await onUpload(file));
@@ -184,7 +179,7 @@ export function Composer({
       onNotify({
         tone: "danger",
         title: t("composer.uploadFailed"),
-        description: `« ${file.name} » n'a pas pu être téléversé.`,
+        description: t("composer.uploadFailedName", { name: file.name }),
       });
     } finally {
       setUploading(false);
@@ -221,7 +216,7 @@ export function Composer({
           <div style={styles.chip}>
             <Icon name={pending.kind} size={16} style={{ color: "var(--text-muted)" }} />
             <span style={{ fontWeight: 500, color: "var(--text-strong)" }}>{pending.name}</span>
-            <span style={{ color: "var(--text-subtle)" }}>{uploading ? "envoi…" : pending.size}</span>
+            <span style={{ color: "var(--text-subtle)" }}>{uploading ? t("composer.uploading") : formatBytes(pending.sizeBytes)}</span>
             <IconButton
               icon="x"
               label={t("composer.removeAttachment")}
@@ -236,7 +231,7 @@ export function Composer({
         ) : null}
         <MessageEditor
           ref={editorRef}
-          placeholder={editing ? "Modifier le message" : `Écrire dans #${channelName}`}
+          placeholder={editing ? t("message.editMessage") : t("composer.writeIn", { name: channelName })}
           onSend={sendWith}
         />
         <div style={styles.tools}>

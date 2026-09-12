@@ -14,7 +14,8 @@ export type DialogProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> & {
    * Accessible name of the close button.
    *
    * Passed in rather than looked up: the design system carries no dictionary, and reaching for the
-   * application's translation runtime from here would tie a component library to one app.
+   * application's translation runtime from here would tie a component library to one app. It has no
+   * default either: "Fermer" was read out to every reader, whatever language they had chosen.
    */
   closeLabel?: string;
   children?: ReactNode;
@@ -30,9 +31,7 @@ export function Dialog({
   onClose,
   children,
   className = "",
-  // Default in the source language: the design system carries no dictionary, so a caller that
-  // cares passes the translated label, and one that does not still gets an accessible name.
-  closeLabel = "Fermer",
+  closeLabel,
   ...rest
 }: DialogProps) {
   useEffect(() => {

@@ -6,6 +6,7 @@ import { getAvatar, getPresence } from "@/lib/data";
 import type { Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
 import { useTranslation } from "@/lib/i18n";
+import { formatBytes, formatStamp } from "@/lib/i18n/format";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -101,7 +102,7 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
           <>
             {msgHits.length > 0 ? (
               <>
-                <div style={styles.label}>Messages ({msgHits.length})</div>
+                <div style={styles.label}>{t("search.messagesCount", { count: msgHits.length })}</div>
                 {msgHits.map((m) => (
                   <button
                     key={m.id}
@@ -114,7 +115,7 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
                         {m.author}
-                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
+                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                       </span>
                       <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 13, color: "var(--text-body)" }}>
                         {messageSummary(m) ?? t("activity.attachment")}
@@ -126,7 +127,7 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
             ) : null}
             {fileHits.length > 0 ? (
               <>
-                <div style={styles.label}>Fichiers ({fileHits.length})</div>
+                <div style={styles.label}>{t("search.filesCount", { count: fileHits.length })}</div>
                 {fileHits.map((f) => (
                   <button
                     key={f.name}
@@ -141,7 +142,8 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                         {f.name}
                       </span>
                       <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                        {f.size} · {f.when}
+                        {f.kind === "folder" ? "" : `${formatBytes(f.sizeBytes)} · `}
+                        {formatStamp(f.updatedAt)}
                       </span>
                     </span>
                   </button>

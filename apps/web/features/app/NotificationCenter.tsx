@@ -4,7 +4,8 @@ import { type CSSProperties, type RefObject, useState } from "react";
 import { Avatar, EmptyState, Icon, IconButton, Popover, Tabs } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import { type AppNotification, isMention, type NotifKind, notifSummary } from "./notifications";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { formatStamp } from "@/lib/i18n/format";
 
 const KIND_ICON: Record<NotifKind, string> = {
   mention: "at-sign",
@@ -61,10 +62,10 @@ const styles: Record<string, CSSProperties> = {
 type Filter = "all" | "unread" | "mentions";
 
 /** Empty-state copy per filter, as dictionary keys. */
-const EMPTY: Record<Filter, { title: string; text: string }> = {
-  all: { title: "notif.nothingNew", text: "notif.nothingNewText" },
-  unread: { title: "notif.allRead", text: "notif.allReadText" },
-  mentions: { title: "activity.mentionsEmptyTitle", text: "activity.mentionsEmptyText" },
+const EMPTY: Record<Filter, { title: TranslationKey; text: TranslationKey }> = {
+  all: { title: key("notif.nothingNew"), text: key("notif.nothingNewText") },
+  unread: { title: key("notif.allRead"), text: key("notif.allReadText") },
+  mentions: { title: key("activity.mentionsEmptyTitle"), text: key("activity.mentionsEmptyText") },
 };
 
 export type NotificationCenterProps = {
@@ -161,7 +162,7 @@ export function NotificationCenter({
                 padding: "4px 8px",
               }}
             >
-              Gérer les préférences de notification
+              {t("notif.managePrefs")}
             </button>
           </div>
         ) : null}
@@ -250,13 +251,13 @@ function NotifRow({
           {notif.preview}
         </span>
         <span style={{ display: "block", marginTop: 3, fontSize: 11, color: "var(--text-muted)" }}>
-          {notif.label} · {notif.time}
+          {notif.label} · {formatStamp(notif.createdAt)}
         </span>
       </span>
 
       <IconButton
         icon={notif.read ? "bell" : "check"}
-        label={notif.read ? "Marquer comme non lu" : "Marquer comme lu"}
+        label={notif.read ? t("toast.markedUnread") : t("sidebar.markRead")}
         size="sm"
         tabIndex={hover ? 0 : -1}
         aria-hidden={!hover}

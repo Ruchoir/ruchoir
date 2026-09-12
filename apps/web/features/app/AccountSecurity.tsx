@@ -61,8 +61,7 @@ function RecoveryCodes({ codes, onNotify }: { codes: string[]; onNotify?: (t: To
   return (
     <>
       <p style={{ fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
-        Gardez-les hors de votre téléphone : ils servent précisément le jour où vous ne l&apos;avez plus.
-        Chacun ne fonctionne qu&apos;une fois, et cette liste ne sera plus affichée.
+        {t("security.recoveryKeep")}
       </p>
       <div
         style={{
@@ -90,7 +89,7 @@ function RecoveryCodes({ codes, onNotify }: { codes: string[]; onNotify?: (t: To
           onNotify?.({ tone: "success", title: t("security.codesCopied") });
         }}
       >
-        Copier
+        {t("admin.copy")}
       </Button>
     </>
   );
@@ -176,7 +175,7 @@ export function AccountSecuritySection({
       })
       .catch(() => {
         setBusy(false);
-        setError("Ce code n'est pas le bon. Il change toutes les trente secondes.");
+        setError(t("security.wrongTotpCode"));
       });
   };
 
@@ -244,13 +243,13 @@ export function AccountSecuritySection({
       .catch((err) => {
         setBusy(false);
         if (isApiError(err, 401)) {
-          setError("Mot de passe actuel incorrect.");
+          setError(t("security.wrongCurrentPassword"));
           return;
         }
         const code = apiErrorCode(err);
         setError(
           code === "breached_password"
-            ? "Ce mot de passe figure dans des fuites connues. Choisissez-en un autre."
+            ? t("error.passwordBreached")
             : t("security.weakPassword"),
         );
       });
@@ -273,7 +272,7 @@ export function AccountSecuritySection({
     <>
       <Row title={t("login.password")} desc={t("security.passwordRowDesc")}>
         <Button size="sm" onClick={() => setOpen("password")}>
-          Modifier
+          {t("message.edit")}
         </Button>
       </Row>
 
@@ -379,7 +378,7 @@ export function AccountSecuritySection({
         desc={t("security.sessionsDesc")}
       >
         <Button size="sm" variant="danger" disabled={busy} onClick={signOutEverywhere}>
-          Se déconnecter partout
+          {t("security.signOutEverywhere")}
         </Button>
       </Row>
 
@@ -394,7 +393,7 @@ export function AccountSecuritySection({
           <>
             <Button onClick={close}>{t("common.cancel")}</Button>
             <Button variant="primary" disabled={busy || code.trim().length < 6} onClick={finishTotp}>
-              {busy ? t("common.verifying") : "Activer"}
+              {busy ? t("common.verifying") : t("notifPrompt.allow")}
             </Button>
           </>
         }
@@ -408,7 +407,7 @@ export function AccountSecuritySection({
               dangerouslySetInnerHTML={{ __html: enrolment.qrSvg }}
             />
             <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", margin: "8px 0 16px" }}>
-              Impossible de scanner ? Saisissez cette adresse dans votre application : {enrolment.otpauthUrl}
+              {t("security.cannotScan", { url: enrolment.otpauthUrl })}
             </p>
           </>
         ) : (
@@ -439,13 +438,13 @@ export function AccountSecuritySection({
           <>
             <Button onClick={close}>{t("common.cancel")}</Button>
             <Button variant="danger" disabled={busy || !password} onClick={confirmDisable}>
-              Désactiver
+              {t("security.disable")}
             </Button>
           </>
         }
       >
         <p style={{ fontSize: 13, color: "var(--text-body)", marginBottom: 14 }}>
-          Votre compte ne sera plus protégé que par son mot de passe.
+          {t("security.passwordOnlyWarning")}
         </p>
         <Field label={t("security.yourPassword")} htmlFor="disable-pw" error={error ?? undefined}>
           <Input
@@ -467,7 +466,7 @@ export function AccountSecuritySection({
         onClose={close}
         footer={
           <Button variant="primary" onClick={close}>
-            Je les ai notés
+            {t("security.notedThem")}
           </Button>
         }
       >
@@ -484,14 +483,13 @@ export function AccountSecuritySection({
           <>
             <Button onClick={close}>{t("common.cancel")}</Button>
             <Button variant="primary" disabled={busy || !password || !newPassword} onClick={submitPassword}>
-              {busy ? "Enregistrement…" : "Modifier"}
+              {busy ? t("reset.submitting") : t("message.edit")}
             </Button>
           </>
         }
       >
         <p style={{ fontSize: 13, color: "var(--text-body)", marginBottom: 14 }}>
-          Toutes vos sessions seront fermées, y compris celle-ci : vous vous reconnecterez avec le
-          nouveau mot de passe.
+          {t("security.allSessionsClosed")}
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Field label={t("security.currentPassword")} htmlFor="pw-old">

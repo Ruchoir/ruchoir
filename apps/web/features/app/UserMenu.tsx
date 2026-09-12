@@ -6,7 +6,7 @@ import type { Presence } from "@/components/ds";
 import type { PresenceChoice } from "@/lib/data";
 import { presenceLabelKey } from "./presence";
 import { getAvatar } from "@/lib/data";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 const panel: CSSProperties = {
   width: 260,
@@ -56,11 +56,11 @@ const item: CSSProperties = {
  * What changed underneath is that "En ligne" used to store a permanent `active` override, which
  * left everyone lit whether they were connected or not and could not be undone from the menu.
  */
-const CHOICES: { key: PresenceChoice; labelKey: string; dot: Presence }[] = [
-  { key: "auto", labelKey: "presence.online", dot: "online" },
-  { key: "away", labelKey: "presence.away", dot: "away" },
-  { key: "busy", labelKey: "presence.doNotDisturb", dot: "busy" },
-  { key: "invisible", labelKey: "presence.invisible", dot: "offline" },
+const CHOICES: { key: PresenceChoice; labelKey: TranslationKey; dot: Presence }[] = [
+  { key: "auto", labelKey: key("presence.online"), dot: "online" },
+  { key: "away", labelKey: key("presence.away"), dot: "away" },
+  { key: "busy", labelKey: key("presence.doNotDisturb"), dot: "busy" },
+  { key: "invisible", labelKey: key("presence.invisible"), dot: "offline" },
 ];
 
 function hover(on: boolean) {
@@ -149,7 +149,7 @@ export function UserMenu({
             <Icon name="settings" size={14} />{t("prefs.title")}</button>
           {onOpenInstanceAdmin ? (
             <button type="button" onClick={() => run(onOpenInstanceAdmin)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
-              <Icon name="shield" size={14} /> Administration de l&apos;instance
+              <Icon name="shield" size={14} /> {t("admin.screenTitle")}
             </button>
           ) : null}
           <button type="button" onClick={() => run(onLogout)} style={{ ...item, color: "var(--status-danger-fg)" }} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>

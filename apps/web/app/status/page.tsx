@@ -14,6 +14,9 @@ type Probe =
   | { state: "ok"; health: Health }
   | { state: "error"; message: string };
 
+// i18n-audit-ignore-file -- an operator page, not part of the product's interface: it answers
+// "is the API serving the bundle" and is read in English like the rest of the repository.
+
 /**
  * Status page. Exercises the full path end to end: a static asset served by the Rust API
  * calls the API's own health endpoint. Kept while the app shell takes over /.

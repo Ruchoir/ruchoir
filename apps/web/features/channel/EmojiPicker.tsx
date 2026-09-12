@@ -90,7 +90,7 @@ export function EmojiPicker({
             onMouseEnter={hoverIn}
             onMouseLeave={hoverOut}
             onClick={() => onPick(e)}
-            aria-label={`Réagir ${e}`}
+            aria-label={t("message.reactWith", { emoji: e })}
           >
             <Emoji emoji={e} size={22} animated={animated} />
           </button>
@@ -114,8 +114,8 @@ export function EmojiPicker({
             <button
               key={c.id}
               type="button"
-              title={c.label}
-              aria-label={c.label}
+              title={t(c.label)}
+              aria-label={t(c.label)}
               aria-pressed={c.id === cat}
               onClick={() => setCat(c.id)}
               style={{
@@ -140,15 +140,17 @@ export function EmojiPicker({
         ) : (
           shown.map((em) => (
             <button
-              key={em.e}
+              key={em}
               type="button"
               style={emojiBtn}
               onMouseEnter={hoverIn}
               onMouseLeave={hoverOut}
-              onClick={() => onPick(em.e)}
-              aria-label={em.k.split(" ")[0]}
+              onClick={() => onPick(em)}
+              // The character itself: a screen reader announces an emoji with its own name, in the
+              // language it is reading in, which no keyword of ours can do in six languages.
+              aria-label={em}
             >
-              <Emoji emoji={em.e} size={20} animated={animated} />
+              <Emoji emoji={em} size={20} animated={animated} />
             </button>
           ))
         )}

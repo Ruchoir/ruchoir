@@ -76,7 +76,7 @@ export function CodeBlock({ code, declaredLang, editable }: CodeBlockProps) {
         )}
         <button type="button" className="wc-codecopy" onClick={copy} aria-label={t("code.copy")}>
           <Icon name={copied ? "check" : "copy"} size={13} />
-          {copied ? t("common.copied") : "Copier"}
+          {copied ? t("common.copied") : t("admin.copy")}
         </button>
       </div>
       <pre>
@@ -91,7 +91,7 @@ export function CodeBlock({ code, declaredLang, editable }: CodeBlockProps) {
             </div>
             <div style={{ maxHeight: 240, overflowY: "auto", padding: 4 }} role="listbox">
               <button type="button" onClick={() => pick("auto")} style={langItem(chosen === "auto" || !chosen)}>
-                Auto-détection
+                {t("code.autoDetect")}
               </button>
               {hits.map((l) => (
                 <button key={l} type="button" onClick={() => pick(l)} style={langItem(chosen === l)}>

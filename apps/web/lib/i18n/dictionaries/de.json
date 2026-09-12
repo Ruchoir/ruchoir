@@ -113,7 +113,10 @@
     "save": "Speichern",
     "creating": "Wird erstellt…",
     "imported": "Importiert",
-    "tryAgain": "Versuchen Sie es gleich noch einmal."
+    "tryAgain": "Versuchen Sie es gleich noch einmal.",
+    "delete": "Löschen",
+    "create": "Erstellen",
+    "retry": "Erneut versuchen"
   },
   "mfa": {
     "totpTitle": "Bestätigung in zwei Schritten",
@@ -196,7 +199,10 @@
     "about": "Über",
     "contact": "Kontakt",
     "cropPhoto": "Foto zuschneiden",
-    "localTime": "{{time}} Ortszeit"
+    "localTime": "{{time}} Ortszeit",
+    "of": "Profil von {{name}}",
+    "title": "Profil",
+    "sendMessage": "Nachricht senden"
   },
   "activity": {
     "threads": "Threads",
@@ -223,7 +229,8 @@
     "mentioned": "hat Sie erwähnt",
     "broadcast": "hat den ganzen Kanal erwähnt",
     "replied": "hat in einem Thread geantwortet",
-    "dm": "hat Ihnen eine Nachricht geschickt"
+    "dm": "hat Ihnen eine Nachricht geschickt",
+    "managePrefs": "Benachrichtigungseinstellungen verwalten"
   },
   "switcher": {
     "title": "Zu einer Unterhaltung wechseln",
@@ -259,7 +266,14 @@
     "directMessages": "Direktnachrichten",
     "startConversation": "Unterhaltung beginnen",
     "bot": "Bot",
-    "allFavourites": "Alle Ihre Kanäle stehen oben in den Favoriten."
+    "allFavourites": "Alle Ihre Kanäle stehen oben in den Favoriten.",
+    "actionsFor": "Aktionen für {{name}}",
+    "favourite": "Zu Favoriten hinzufügen",
+    "unfavourite": "Aus Favoriten entfernen",
+    "spaceSwitch": "Bereich wechseln",
+    "spaceSwitchNamed": "Bereich {{name}}, Bereich wechseln",
+    "space": "Bereich",
+    "favouriteHint": "Halten Sie Ihre häufigen Kanäle griffbereit: \\u201eZu Favoriten hinzufügen\\u201c im Menü eines Kanals."
   },
   "welcome": {
     "title": "Erste Schritte",
@@ -271,7 +285,8 @@
     "message": "Senden Sie eine erste Nachricht",
     "messageDesc": "Sagen Sie in einem Kanal Hallo.",
     "invite": "Laden Sie Ihr Team ein",
-    "inviteDesc": "Ruchoir ergibt zu mehreren Sinn."
+    "inviteDesc": "Ruchoir ergibt zu mehreren Sinn.",
+    "hideForever": "Nicht mehr anzeigen"
   },
   "crop": {
     "zoom": "Zoom",
@@ -292,7 +307,11 @@
     "help": "Hilfe und Tastenkürzel",
     "helpHint": "Das Hilfecenter öffnen",
     "editShortcut": "Tastenkürzel ändern: {{label}}",
-    "resetShortcut": "Standardkürzel wiederherstellen: {{label}}"
+    "resetShortcut": "Standardkürzel wiederherstellen: {{label}}",
+    "conflict": "Bereits von „{{label}}“ belegt.",
+    "pressCombination": "Tastenkombination drücken…",
+    "customizeHint": "Passen Sie die Kürzel an. Klicken Sie auf \\u201eBearbeiten\\u201c und drücken Sie dann die gewünschte Kombination; die Rücktaste entfernt sie, Escape bricht ab.",
+    "resetAll": "Standardwerte wiederherstellen"
   },
   "key": {
     "escape": "Esc",
@@ -324,7 +343,18 @@
     "replies_other": "{{count}} Antworten",
     "reactionCount_one": "{{count}} Reaktion",
     "reactionCount_other": "{{count}} Reaktionen",
-    "pinnedTag": "Angeheftet"
+    "pinnedTag": "Angeheftet",
+    "file": "Datei",
+    "sentAt": "Gesendet {{at}}",
+    "savedTag": "Gemerkt",
+    "deleted": "Nachricht gelöscht",
+    "editedTag": "(bearbeitet)",
+    "fileDeleted": "Datei gelöscht · {{name}}",
+    "openInNewTab": "{{name}} in einem neuen Tab öffnen",
+    "downloadNamed": "{{name}} herunterladen",
+    "reactWith": "Mit {{emoji}} reagieren",
+    "enlargeImage": "Bild vergrößern: {{alt}}",
+    "reactionCount": "Reaktion {{emoji}}, {{count}}"
   },
   "thread": {
     "title": "Thread",
@@ -347,12 +377,16 @@
     "send": "Senden",
     "hint": "Eingabe zum Senden · Umschalt+Eingabe für eine neue Zeile",
     "broadcastChannel": "Benachrichtigt alle Mitglieder des Kanals",
-    "broadcastHere": "Benachrichtigt nur die gerade Verbundenen"
+    "broadcastHere": "Benachrichtigt nur die gerade Verbundenen",
+    "uploading": "wird gesendet…",
+    "uploadFailedName": "\\u201e{{name}}\\u201c konnte nicht hochgeladen werden.",
+    "writeIn": "In #{{name}} schreiben"
   },
   "code": {
     "changeLanguage": "Sprache ändern",
     "copy": "Code kopieren",
-    "languagePlaceholder": "Sprache…"
+    "languagePlaceholder": "Sprache…",
+    "autoDetect": "Automatisch erkennen"
   },
   "image": {
     "openInNewTab": "In neuem Tab öffnen",
@@ -367,19 +401,35 @@
     "noPinnedText": "Heften Sie eine Nachricht über ihr Menü an, um sie hier wiederzufinden.",
     "downloading": "Wird heruntergeladen",
     "openingLink": "Link wird geöffnet",
-    "openFolder": "Ordner öffnen"
+    "openFolder": "Ordner öffnen",
+    "openingFolder": "Ordner wird geöffnet"
   },
   "search": {
     "placeholder": "Nachrichten, Dateien, Personen…",
     "close": "Suche schließen",
     "prompt": "Tippen Sie, um diesen Kanal zu durchsuchen.",
     "noResult": "Kein Ergebnis",
-    "noMessageOrFile": "Keine Nachricht und keine Datei für „{{query}}“."
+    "noMessageOrFile": "Keine Nachricht und keine Datei für „{{query}}“.",
+    "searching": "Wird gesucht…",
+    "querying": "Der Server wird abgefragt.",
+    "messagesCount_one": "Nachrichten ({{count}})",
+    "messagesCount_other": "Nachrichten ({{count}})",
+    "filesCount_one": "Dateien ({{count}})",
+    "filesCount_other": "Dateien ({{count}})"
   },
   "emoji": {
     "title": "Emoji auswählen",
     "search": "Emoji suchen",
-    "empty": "Kein Emoji"
+    "empty": "Kein Emoji",
+    "smileys": "Emotionen",
+    "gestures": "Gesten",
+    "hearts": "Herzen",
+    "nature": "Natur",
+    "food": "Essen",
+    "travel": "Reisen",
+    "activities": "Aktivitäten",
+    "objects": "Gegenstände",
+    "symbols": "Symbole"
   },
   "channel": {
     "addPeople": "Personen hinzufügen",
@@ -405,7 +455,19 @@
     "searchPerson": "Person suchen",
     "alreadyIn": "Bereits im Kanal",
     "added_one": "{{count}} Person hinzugefügt",
-    "added_other": "{{count}} Personen hinzugefügt"
+    "added_other": "{{count}} Personen hinzugefügt",
+    "accessOf": "Zugriff von {{name}}",
+    "roleOf": "Rolle von {{name}}",
+    "dmNotifications": "Benachrichtigungen der Unterhaltung",
+    "channelNotifications": "Kanalbenachrichtigungen",
+    "muteDm": "Unterhaltung stummschalten",
+    "muteChannel": "Kanal stummschalten",
+    "add": "Hinzufügen",
+    "addCount": "Hinzufügen ({{count}})",
+    "leaveTitle": "#{{name}} verlassen?",
+    "leaveBody": "Sie erhalten keine Nachrichten aus #{{name}} mehr. Solange der Kanal öffentlich ist, können Sie ihn wieder betreten.",
+    "membersAndAccess": "Mitglieder und Zugriff ({{count}})",
+    "fallbackName": "allgemein"
   },
   "role": {
     "member": "Mitglied",
@@ -418,8 +480,16 @@
     "nameStep": "Wie heißt Ihr Bereich?",
     "nameHint": "Das ist der angezeigte Name Ihres Arbeitsbereichs. Sie können ihn später ändern.",
     "inviteHint": "Fügen Sie ein paar Adressen hinzu, um zu mehreren zu starten. Weitere Personen können Sie später einladen.",
-    "spaceName": "Name des Bereichs",
-    "spaceNamePlaceholder": "z. B. Atelier Nantes"
+    "spaceNamePlaceholder": "z. B. Atelier Nantes",
+    "ready": "Alles ist bereit",
+    "readyNamed": "Alles ist bereit, {{name}}",
+    "readyBody": "Der Bereich <strong>{{name}}</strong> wird erstellt. Sie können Ihren Verlauf aus Slack, Mattermost oder Nextcloud jederzeit über die Seitenleiste importieren.",
+    "stepOf": "Schritt {{step}} von {{total}}",
+    "skip": "Überspringen",
+    "finish": "Fertigstellen",
+    "continue": "Weiter",
+    "readyBodyInvited_one": "Der Bereich <strong>{{name}}</strong> wird erstellt, mit {{count}} Einladung. Sie können Ihren Verlauf aus Slack, Mattermost oder Nextcloud jederzeit über die Seitenleiste importieren.",
+    "readyBodyInvited_other": "Der Bereich <strong>{{name}}</strong> wird erstellt, mit {{count}} Einladungen. Sie können Ihren Verlauf aus Slack, Mattermost oder Nextcloud jederzeit über die Seitenleiste importieren."
   },
   "files": {
     "loadFailed": "Dateien konnten nicht geladen werden",
@@ -468,7 +538,30 @@
     "noFile": "Keine Datei",
     "folderEmptyText": "Dieser Ordner enthält noch keine Datei.",
     "noFileMatch": "Keine Datei passt zu „{{query}}“.",
-    "deleteManyTitle": "{{count}} Elemente löschen?"
+    "deleteManyTitle": "{{count}} Elemente löschen?",
+    "previewMeta": "{{size}} · geändert von {{by}} · {{when}}",
+    "ownFilesOnlyDelete": "Sie können nur Ihre eigenen Dateien löschen, außer wenn Sie den Bereich verwalten.",
+    "ownFilesOnlyRename": "Sie können nur Ihre eigenen Dateien umbenennen, außer wenn Sie den Bereich verwalten.",
+    "ownFilesOnlyReplace": "Sie können nur Ihre eigenen Dateien ersetzen, außer wenn Sie den Bereich verwalten.",
+    "versionUploaded": "Version {{version}} hochgeladen",
+    "deletedMany_one": "{{count}} Element gelöscht",
+    "deletedMany_other": "{{count}} Elemente gelöscht",
+    "movedMany_one": "{{count}} Element verschoben",
+    "movedMany_other": "{{count}} Elemente verschoben",
+    "upload": "Datei hochladen",
+    "chooseDestination": "zu verschieben: Zielordner öffnen.",
+    "moveHere": "Hierher verschieben",
+    "move": "Verschieben",
+    "selectedCount_one": "{{count}} ausgewählt",
+    "selectedCount_other": "{{count}} ausgewählt",
+    "deleteOneBody": "{{name}} wird aus dem Bereich entfernt.",
+    "folderTakesAll": "Ein Ordner nimmt alles mit, was er enthält.",
+    "newVersion": "Neue Version",
+    "select": "{{name}} auswählen",
+    "open": "{{name}} öffnen",
+    "preview": "Vorschau von {{name}}",
+    "renameNamed": "{{name}} umbenennen",
+    "deleteNamed": "{{name}} löschen"
   },
   "status": {
     "checking": "API-Zustand wird geprüft…"
@@ -512,17 +605,33 @@
     "revoke": "Widerrufen",
     "cannotInvite": "Nur Eigentümer und Administratoren des Bereichs können Personen einladen. Bitten Sie eine dieser Personen um eine Einladung.",
     "uses_one": "{{count}} Verwendung",
-    "uses_other": "{{count}} Verwendungen"
+    "uses_other": "{{count}} Verwendungen",
+    "emailPlaceholder": "name@beispiel.de",
+    "createChannel": "Kanal erstellen",
+    "createSpace": "Bereich erstellen",
+    "customize": "Anpassen",
+    "noMailNotice": "Ein teilbarer Link führt zu einem Konto, das auf die Bestätigung seiner Adresse wartet, und diese Instanz kann keine Bestätigungsmail senden. Geben Sie eine Adresse an: Eine namentliche Einladung aktiviert das Konto sofort."
   },
   "conversation": {
     "searchInConversation": "In der Unterhaltung suchen",
     "members": "Mitglieder",
-    "archivedNotice": "Archivierter Kanal.",
+    "archivedNotice": "Dieser Kanal ist archiviert: Er bleibt lesbar, aber es wird nicht mehr darin geschrieben.",
     "privateNotice": "Privater Kanal.",
     "importedNotice": "Der Verlauf wurde aus {{source}} übernommen.",
     "today": "Heute",
     "publicNotice": "Öffentlicher Kanal.",
-    "channelStart": "Der Anfang des Kanals."
+    "channelStart": "Der Anfang des Kanals.",
+    "dmStart": "Das ist der Anfang Ihrer privaten Unterhaltung mit {{name}}. Die Nachrichten sehen nur Sie beide.",
+    "latestMessages": "Neueste Nachrichten",
+    "typingOne": "{{name}} schreibt gerade",
+    "read": "Gelesen",
+    "readByEveryone": "Von allen gelesen",
+    "readByOne": "Gelesen von {{name}}",
+    "readByTwo": "Gelesen von {{first}} und {{second}}",
+    "readBySome": "Von {{count}} von {{audience}} gelesen",
+    "typingMany_one": "{{names}} schreibt gerade",
+    "typingMany_other": "{{names}} und weitere schreiben gerade",
+    "unread": "Ungelesen"
   },
   "security": {
     "codesCopied": "Codes kopiert",
@@ -565,7 +674,15 @@
     "changePassword": "Passwort ändern",
     "currentPassword": "Aktuelles Passwort",
     "unknown": "…",
-    "wrongPassword": "Falsches Passwort."
+    "wrongPassword": "Falsches Passwort.",
+    "recoveryKeep": "Bewahren Sie sie nicht auf dem Telefon auf: Sie helfen genau an dem Tag, an dem Sie es nicht mehr haben. Jeder Code funktioniert einmal, und diese Liste wird nicht erneut angezeigt.",
+    "wrongTotpCode": "Dieser Code stimmt nicht. Er ändert sich alle dreißig Sekunden.",
+    "wrongCurrentPassword": "Das aktuelle Passwort ist falsch.",
+    "disable": "Deaktivieren",
+    "cannotScan": "Scannen nicht möglich? Geben Sie diese Adresse in Ihrer App ein: {{url}}",
+    "passwordOnlyWarning": "Ihr Konto ist dann nur noch durch sein Passwort geschützt.",
+    "notedThem": "Ich habe sie notiert",
+    "allSessionsClosed": "Alle Sitzungen werden beendet, auch diese: Sie melden sich mit dem neuen Passwort erneut an."
   },
   "space": {
     "general": "Allgemein",
@@ -586,7 +703,14 @@
     "guests_one": "{{count}} externer Gast",
     "guests_other": "{{count}} externe Gäste",
     "bots_one": "{{count}} Bot",
-    "bots_other": "{{count}} Bots"
+    "bots_other": "{{count}} Bots",
+    "changeIcon": "Symbol ändern",
+    "adminsOnlyIcon": "Nur Bereichsadministratoren können es ändern.",
+    "name": "Name des Bereichs",
+    "addressFollowsName": "Die Adresse des Bereichs folgt dem Namen. Die alten funktionieren weiter.",
+    "adminsOnlyRename": "Nur Bereichsadministratoren können ihn umbenennen.",
+    "serverAddress": "Serveradresse",
+    "setAtInstall": "Bei der Installation der Instanz festgelegt"
   },
   "prefs": {
     "title": "Einstellungen",
@@ -650,7 +774,9 @@
     "shown": "Benachrichtigung angezeigt",
     "notShown": "Es wurde nichts angezeigt",
     "notShownDesc": "Der Browser hat sie angenommen, das System hat sie aber nicht angezeigt. Prüfen Sie in den Systemeinstellungen, ob Benachrichtigungen für Ihren Browser erlaubt sind und kein Fokus- oder Nicht-stören-Modus aktiv ist.",
-    "quietHoursActive": "Benachrichtigungen ausgesetzt von {{window}}."
+    "quietHoursActive": "Benachrichtigungen ausgesetzt von {{window}}.",
+    "fontSampleLetters": "Ag",
+    "fontSampleText": "Franz jagt im komplett verwahrlosten Taxi quer durch Bayern."
   },
   "error": {
     "sessionExpired": "Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.",
@@ -674,12 +800,14 @@
     "resetFailed": "Zurücksetzen fehlgeschlagen. Versuchen Sie es erneut.",
     "signInExpired": "Diese Anmeldeanfrage ist abgelaufen. Beginnen Sie erneut.",
     "verifyFailed": "Prüfung fehlgeschlagen. Versuchen Sie es erneut.",
-    "passkeyFailedTitle": "Anmeldung per Passkey fehlgeschlagen",
     "passkeyFailedBody": "Dieser Passkey konnte nicht verwendet werden. Versuchen Sie eine andere Methode.",
     "nameTaken": "Dieser Name ist in diesem Bereich bereits vergeben oder nicht verwendbar.",
     "invalidCredentials": "Adresse oder Passwort falsch.",
     "spaceNameUnusable": "Dieser Bereichsname ist nicht verwendbar. Versuchen Sie einen anderen.",
-    "passkeyCancelled": "Passkey-Anmeldung abgebrochen."
+    "passkeyCancelled": "Passkey-Anmeldung abgebrochen.",
+    "invalidEmail": "Diese Adresse sieht nicht gültig aus.",
+    "noChannelRights": "Sie haben keine Rechte für diesen Kanal.",
+    "nameUnusable": "Dieser Name ist nicht verwendbar."
   },
   "toast": {
     "noUnread": "Keine ungelesene Unterhaltung",
@@ -700,7 +828,6 @@
     "pinNotSynced": "Anheften nicht synchronisiert",
     "messageCopied": "Nachricht kopiert",
     "markedUnread": "Als ungelesen markiert",
-    "messageDeleted": "Nachricht gelöscht",
     "deleteFailed": "Löschen fehlgeschlagen",
     "messageNotSent": "Nachricht nicht gesendet",
     "cannotEmpty": "Eine Nachricht kann nicht geleert werden",
@@ -717,7 +844,9 @@
     "spaceUnreachable": "Bereich nicht erreichbar",
     "inviteRevoked": "Einladung widerrufen",
     "inviteLinkCreated": "Einladungslink erstellt",
-    "ssoUnavailable": "SSO ist auf dieser Instanz nicht eingerichtet."
+    "ssoUnavailable": "SSO ist auf dieser Instanz nicht eingerichtet.",
+    "welcome": "Willkommen, {{name}}.",
+    "stillReadable": "Sie können weiter mitlesen, ohne Benachrichtigungen."
   },
   "boot": {
     "loading": "Wird geladen",
@@ -729,5 +858,15 @@
     "activity": "Aktivität",
     "search": "Suche",
     "mainContent": "Hauptinhalt"
+  },
+  "system": {
+    "memberJoined": "{{who}} ist dem Bereich beigetreten.",
+    "memberLeft": "{{who}} hat den Bereich verlassen.",
+    "channelJoined": "{{who}} ist dem Kanal beigetreten.",
+    "channelLeft": "{{who}} hat den Kanal verlassen.",
+    "channelCreated": "Der Kanal wurde erstellt."
+  },
+  "rail": {
+    "unreadActivity": "{{name}}, ungelesene Aktivität"
   }
 }

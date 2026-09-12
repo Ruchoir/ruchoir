@@ -2,17 +2,17 @@
 
 import { type CSSProperties, useState } from "react";
 import { Button, Icon, type IconName, IconButton } from "@/components/ds";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 /** A step, holding dictionary keys: the list is built at module load, before a language exists. */
-export type GettingStartedStep = { id: string; icon: IconName; label: string; desc: string };
+export type GettingStartedStep = { id: string; icon: IconName; label: TranslationKey; desc: TranslationKey };
 
 /** The first-run steps, in order. Ids are persisted in settings.welcome.done. */
 export const GETTING_STARTED_STEPS: GettingStartedStep[] = [
-  { id: "profile", icon: "smile", label: "welcome.profile", desc: "welcome.profileDesc" },
-  { id: "channel", icon: "hash", label: "welcome.channel", desc: "welcome.channelDesc" },
-  { id: "message", icon: "send", label: "welcome.message", desc: "welcome.messageDesc" },
-  { id: "invite", icon: "user-plus", label: "welcome.invite", desc: "welcome.inviteDesc" },
+  { id: "profile", icon: "smile", label: key("welcome.profile"), desc: key("welcome.profileDesc") },
+  { id: "channel", icon: "hash", label: key("welcome.channel"), desc: key("welcome.channelDesc") },
+  { id: "message", icon: "send", label: key("welcome.message"), desc: key("welcome.messageDesc") },
+  { id: "invite", icon: "user-plus", label: key("welcome.invite"), desc: key("welcome.inviteDesc") },
   // The import step is deliberately absent until an importer exists: a first-run checklist that
   // asks for something the product cannot do is the worst place to make that promise. It comes back
   // with the first real importer, alongside the sidebar entry.
@@ -172,11 +172,11 @@ export function GettingStarted({ done, onRun, onDismiss, compact = false }: Gett
             <div style={st.foot}>
               {allDone ? (
                 <Button size="sm" variant="primary" onClick={onDismiss}>
-                  Terminer
+                  {t("onboarding.finish")}
                 </Button>
               ) : (
                 <Button size="sm" variant="link" onClick={onDismiss}>
-                  Ne plus afficher
+                  {t("welcome.hideForever")}
                 </Button>
               )}
             </div>

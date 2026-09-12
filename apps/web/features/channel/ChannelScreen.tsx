@@ -26,7 +26,7 @@ import { SystemMessage } from "./SystemMessage";
 import { ThreadPanel } from "./ThreadPanel";
 import { TypingIndicator } from "./TypingIndicator";
 import { useStickToBottom } from "./useStickToBottom";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 /** Right-hand dock: animates in/out, stays mounted during exit, and cross-fades on content switch. */
 function RightDock({
@@ -87,11 +87,11 @@ function RightDock({
 }
 
 /** Presence labels, as dictionary keys: shared with the rest of the app through `presence.ts`. */
-const PRESENCE_LABEL: Record<string, string> = {
-  online: "presence.online",
-  away: "presence.away",
-  busy: "presence.busy",
-  offline: "presence.offline",
+const PRESENCE_LABEL: Record<string, TranslationKey> = {
+  online: key("presence.online"),
+  away: key("presence.away"),
+  busy: key("presence.busy"),
+  offline: key("presence.offline"),
 };
 const styles: Record<string, CSSProperties> = {
   archivedNotice: {
@@ -561,8 +561,7 @@ export function ChannelScreen({
                     </div>
                   </div>
                   <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 10, maxWidth: 560 }}>
-                    Ceci est le début de votre conversation privée avec {dm.name.split(" ")[0]}. Les messages ne sont visibles que
-                    par vous deux.
+                    {t("conversation.dmStart", { name: dm.name.split(" ")[0] })}
                   </p>
                 </>
               ) : (
@@ -639,7 +638,7 @@ export function ChannelScreen({
               style={styles.toBottom}
             >
               <Icon name="chevron-down" size={14} />
-              Derniers messages
+              {t("conversation.latestMessages")}
             </button>
           ) : null}
           {typing.length > 0 ? (
@@ -667,7 +666,7 @@ export function ChannelScreen({
           // the API refuses. The history stays open.
           <p style={styles.archivedNotice}>
             <Icon name="archive" size={14} />
-            Ce canal est archivé : il reste consultable, mais on n&apos;y écrit plus.
+            {t("conversation.archivedNotice")}
           </p>
         ) : (
           <Composer

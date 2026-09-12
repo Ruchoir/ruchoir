@@ -5,7 +5,8 @@ import { Avatar, EmptyState, Icon, IconButton, Tag } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import type { DirectMessage, Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { formatBytes, formatStamp } from "@/lib/i18n/format";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -54,10 +55,10 @@ export type ChannelMember = Pick<DirectMessage, "id" | "name" | "presence" | "bo
 };
 
 /** Panel titles, as dictionary keys: built at module load, translated where drawn. */
-const TITLES: Record<SidePanelKind, string> = {
-  files: "panel.files",
-  members: "panel.members",
-  pinned: "panel.pinned",
+const TITLES: Record<SidePanelKind, TranslationKey> = {
+  files: key("panel.files"),
+  members: key("panel.members"),
+  pinned: key("panel.pinned"),
 };
 
 export type SidePanelKind = "files" | "members" | "pinned";
@@ -109,7 +110,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                     {fl.name}
                   </span>
                   <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                    {fl.size} · {fl.when}
+                    {fl.kind === "folder" ? "" : `${formatBytes(fl.sizeBytes)} · `}{formatStamp(fl.updatedAt)}
                   </span>
                 </span>
                 {fl.source !== "Ruchoir" ? <Tag>{fl.source}</Tag> : null}
@@ -120,7 +121,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                   onClick={() =>
                     onNotify({
                       tone: "info",
-                      title: fl.kind === "folder" ? "Ouverture du dossier" : t("panel.downloading"),
+                      title: fl.kind === "folder" ? t("panel.openingFolder") : t("panel.downloading"),
                       description: fl.name,
                     })
                   }
@@ -167,7 +168,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
                       {m.author}
-                      <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
+                      <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                     </span>
                     <span style={{ display: "block", fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)", marginTop: 2, textWrap: "pretty" }}>
                       {messageSummary(m) ?? t("activity.attachment")}

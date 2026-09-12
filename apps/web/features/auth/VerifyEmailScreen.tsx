@@ -143,7 +143,7 @@ export function VerifyEmailScreen({
               type="submit"
               disabled={pending || !typedEmail.includes("@")}
             >
-              {pending ? "Envoi…" : "Renvoyer le lien"}
+              {pending ? t("common.sending") : t("verify.resend")}
             </Button>
           </form>
         </>

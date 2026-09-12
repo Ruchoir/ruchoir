@@ -86,7 +86,7 @@ import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
 import { InstanceAdminScreen } from "./InstanceAdmin";
 import { NotificationPrompt } from "./NotificationPrompt";
-import { initialLocale, useTranslation } from "@/lib/i18n";
+import { initialLocale, key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { MfaChallengeScreen } from "@/features/auth/MfaChallengeScreen";
 import { ResetPasswordScreen } from "@/features/auth/ResetPasswordScreen";
 import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
@@ -212,17 +212,17 @@ type AuthStage = "login" | "signup" | "mfa" | "forgot" | "reset" | "verify" | "i
  * machine-readable code (`{ "error": "email_taken", … }`) plus an English message meant for
  * operators; the client owns what the user reads.
  */
-const AUTH_MESSAGES: Record<string, string> = {
-  invalid_credentials: "error.invalidCredentials",
-  unauthorized: "error.sessionExpired",
-  email_taken: "error.emailTaken",
-  weak_password: "error.passwordShort",
-  breached_password: "error.passwordBreached",
-  account_locked: "error.accountLocked",
-  too_many_attempts: "error.tooManyAttempts",
-  email_not_verified: "error.confirmEmailFirst",
-  invalid_token: "error.invalidLink",
-  invalid_code: "error.wrongCode",
+const AUTH_MESSAGES: Record<string, TranslationKey> = {
+  invalid_credentials: key("error.invalidCredentials"),
+  unauthorized: key("error.sessionExpired"),
+  email_taken: key("error.emailTaken"),
+  weak_password: key("error.passwordShort"),
+  breached_password: key("error.passwordBreached"),
+  account_locked: key("error.accountLocked"),
+  too_many_attempts: key("error.tooManyAttempts"),
+  email_not_verified: key("error.confirmEmailFirst"),
+  invalid_token: key("error.invalidLink"),
+  invalid_code: key("error.wrongCode"),
 };
 
 /**
@@ -231,7 +231,7 @@ const AUTH_MESSAGES: Record<string, string> = {
  * Keys rather than sentences, so the table can be built at module load and the text looked up where
  * it is shown.
  */
-function authMessage(err: unknown, fallbackKey: string): string {
+function authMessage(err: unknown, fallbackKey: TranslationKey): TranslationKey {
   const code = apiErrorCode(err);
   return (code && AUTH_MESSAGES[code]) || fallbackKey;
 }
@@ -242,14 +242,14 @@ function authMessage(err: unknown, fallbackKey: string): string {
  * flow, then keeps the space's channels, DMs, feeds and realtime updates in state for the screens.
  */
 /** Screen names, for the tab title and the compact top bar. Conversations name themselves. */
-const VIEW_TITLES: Record<string, string> = {
-  files: "sidebar.spaceFiles",
-  settings: "sidebar.spaceSettings",
-  prefs: "prefs.title",
-  "instance-admin": "admin.screenTitle",
-  threads: "sidebar.threads",
-  mentions: "activity.mentions",
-  saved: "activity.saved",
+const VIEW_TITLES: Record<string, TranslationKey> = {
+  files: key("sidebar.spaceFiles"),
+  settings: key("sidebar.spaceSettings"),
+  prefs: key("prefs.title"),
+  "instance-admin": key("admin.screenTitle"),
+  threads: key("sidebar.threads"),
+  mentions: key("activity.mentions"),
+  saved: key("activity.saved"),
 };
 
 function AppShell() {
@@ -285,10 +285,10 @@ function AppShell() {
    * mounted and only fades what is being replaced.
    */
   const [switchingSpace, setSwitchingSpace] = useState(false);
-  const [bootError, setBootError] = useState<string | null>(null);
+  const [bootError, setBootError] = useState<TranslationKey | null>(null);
   // Shared by every screen of the authentication flow: the message under the form, and whether a
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<TranslationKey | null>(null);
   const [authPending, setAuthPending] = useState(false);
   /** True once a link (verification or reset) has been sent from the current screen. */
   const [authSent, setAuthSent] = useState(false);
@@ -599,7 +599,7 @@ function AppShell() {
             actor: n.actor,
             messageId: n.messageId,
             preview: n.preview,
-            time: n.time,
+            createdAt: n.createdAt,
             read: n.read || n.conversationId === opening,
           };
         }),
@@ -695,7 +695,7 @@ function AppShell() {
           if (active) {
             // Most often an invitation addressed to a different address than the open session.
             setInviteStatus("ready");
-            setAuthError("error.wrongAccountForInvite");
+            setAuthError(key("error.wrongAccountForInvite"));
             setBooting(false);
           }
           return;
@@ -718,7 +718,7 @@ function AppShell() {
         setLinkToken(link.token);
         if (link.kind === "reset-password") {
           setAuthStage("reset");
-          if (!link.token) setAuthError("error.resetLinkIncomplete");
+          if (!link.token) setAuthError(key("error.resetLinkIncomplete"));
           return;
         }
         setAuthStage("verify");
@@ -733,7 +733,7 @@ function AppShell() {
         } catch (err) {
           if (!active) return;
           setVerifyStatus("error");
-          setAuthError(authMessage(err, "error.confirmFailed"));
+          setAuthError(authMessage(err, key("error.confirmFailed")));
         }
         return;
       }
@@ -758,7 +758,7 @@ function AppShell() {
       } catch (err) {
         if (!active) return;
         if (isApiError(err, 401)) setAuthStage("login");
-        else setBootError("error.serverUnreachable");
+        else setBootError(key("error.serverUnreachable"));
       } finally {
         if (active) setBooting(false);
       }
@@ -828,6 +828,13 @@ function AppShell() {
    * handlers are wired once per session and this one has to read preferences that change under it.
    */
   const alertRef = useRef<((n: AppNotification) => void) | null>(null);
+
+  /**
+   * The translator, for the same reason as the others: the realtime handlers are wired once per
+   * session, and the sentences they raise have to be in the language in force when they fire, not
+   * in the one that happened to be on when the socket was opened.
+   */
+  const tRef = useRef(t);
 
   /**
    * Latest "this message has been seen" function, for the same reason as the others: the realtime
@@ -953,7 +960,7 @@ function AppShell() {
         );
         // The newcomer is in the audience too; they do not need to be told they arrived.
         if (member.userId !== liveRef.current.myId) {
-          notifyRef.current?.({ tone: "info", title: `${member.name} a rejoint l'espace` });
+          notifyRef.current?.({ tone: "info", title: tRef.current("system.memberJoined", { who: member.name }) });
         }
       },
       onMemberUpdated: (member) => {
@@ -1032,7 +1039,7 @@ function AppShell() {
           actor: n.actor,
           messageId: n.messageId,
           preview: n.preview,
-          time: n.time,
+          createdAt: n.createdAt,
           read: n.read || viewing,
         };
         setNotifs((prev) => [notif, ...prev.filter((x) => x.id !== n.id)]);
@@ -1070,8 +1077,8 @@ function AppShell() {
                 image: undefined,
                 attachment: {
                   fileId,
-                  name: m.attachment?.name ?? m.image?.alt ?? "Fichier",
-                  size: m.attachment?.size ?? "",
+                  name: m.attachment?.name ?? m.image?.alt ?? tRef.current("message.file"),
+                  sizeBytes: m.attachment?.sizeBytes ?? 0,
                   kind: m.attachment?.kind ?? "image",
                   deleted: true,
                 },
@@ -1179,7 +1186,7 @@ function AppShell() {
   const dm = dms.find((d) => d.id === channelId) ?? null;
   const chan: Channel =
     channels.find((c) => c.id === channelId) ??
-    ({ id: channelId, name: dm?.name ?? "général", fav: false, unread: 0, type: "public" } as Channel);
+    ({ id: channelId, name: dm?.name ?? t("channel.fallbackName"), fav: false, unread: 0, type: "public" } as Channel);
   // Memoised because the `?? []` branch is a fresh array every render, which would re-run anything
   // that depends on the feed (the read receipts below) on every render for no reason.
   const feed = useMemo(() => messages[channelId] ?? [], [messages, channelId]);
@@ -1414,10 +1421,10 @@ function AppShell() {
     const here =
       view === "channel"
         ? (dmHere?.name ?? (channelHere ? `#${channelHere.name}` : undefined))
-        : VIEW_TITLES[view];
+        : (VIEW_TITLES[view] ? t(VIEW_TITLES[view]) : undefined);
     const parts = [here, workspaces.find((w) => w.id === ws)?.name, "Ruchoir"].filter(Boolean);
     document.title = `${waiting > 0 ? `(${waiting}) ` : ""}${parts.join(" · ")}`;
-  }, [session, notifs, view, channelId, channels, dms, workspaces, ws]);
+  }, [session, notifs, view, channelId, channels, dms, workspaces, ws, t]);
 
   /**
    * Switch the main view, and treat opening Mentions as reading them.
@@ -1535,6 +1542,7 @@ function AppShell() {
   // freeze the first one instead of tracking it.
   useEffect(() => {
     notifyRef.current = showToast;
+    tRef.current = t;
   });
 
   /** Move to an authentication screen with a clean slate (no stale error, notice or pending flag). */
@@ -1579,7 +1587,7 @@ function AppShell() {
       return;
     }
     setAuthStage("app");
-    showToast({ tone: "success", title: t("toast.signedIn"), description: `Bienvenue, ${user.name.split(" ")[0]}.` });
+    showToast({ tone: "success", title: t("toast.signedIn"), description: t("toast.welcome", { name: user.name.split(" ")[0] }) });
   };
 
   /**
@@ -1601,8 +1609,8 @@ function AppShell() {
       setBooting(false);
       setAuthError(
         isApiError(err, 400)
-          ? "error.spaceNameUnusable"
-          : "error.createFailed",
+          ? key("error.spaceNameUnusable")
+          : key("error.createFailed"),
       );
     } finally {
       setAuthPending(false);
@@ -1627,7 +1635,7 @@ function AppShell() {
       await enterApp(result.user);
     } catch (err) {
       if (apiErrorCode(err) === "email_not_verified") setPendingEmail(email);
-      setAuthError(authMessage(err, "error.signInFailed"));
+      setAuthError(authMessage(err, key("error.signInFailed")));
     } finally {
       setAuthPending(false);
     }
@@ -1657,7 +1665,7 @@ function AppShell() {
       setVerifyStatus("sent");
       goToStage("verify");
     } catch (err) {
-      setAuthError(authMessage(err, "error.createFailed"));
+      setAuthError(authMessage(err, key("error.createFailed")));
     } finally {
       setAuthPending(false);
     }
@@ -1672,7 +1680,7 @@ function AppShell() {
       setAuthSent(true);
       setAuthError(null);
     } catch {
-      setAuthError("error.sendFailed");
+      setAuthError(key("error.sendFailed"));
     } finally {
       setAuthPending(false);
     }
@@ -1686,7 +1694,7 @@ function AppShell() {
       setAuthSent(true);
       setAuthError(null);
     } catch {
-      setAuthError("error.sendFailed");
+      setAuthError(key("error.sendFailed"));
     } finally {
       setAuthPending(false);
     }
@@ -1705,11 +1713,11 @@ function AppShell() {
       setRecoveryDone(true);
     } catch (err) {
       if (isApiError(err, 429)) {
-        setAuthError("error.tooManyAttemptsWait");
+        setAuthError(key("error.tooManyAttemptsWait"));
       } else if (isApiError(err, 422)) {
-        setAuthError("error.passwordBreached");
+        setAuthError(key("error.passwordBreached"));
       } else {
-        setAuthError("error.codeUnknown");
+        setAuthError(key("error.codeUnknown"));
       }
     } finally {
       setAuthPending(false);
@@ -1719,7 +1727,7 @@ function AppShell() {
   /** Set the new password behind the emailed token. The server drops every session of that account. */
   const handlePasswordReset = async (password: string) => {
     if (!linkToken) {
-      setAuthError("error.resetLinkIncomplete");
+      setAuthError(key("error.resetLinkIncomplete"));
       return;
     }
     setAuthError(null);
@@ -1729,7 +1737,7 @@ function AppShell() {
       setLinkToken("");
       setResetDone(true);
     } catch (err) {
-      setAuthError(authMessage(err, "error.resetFailed"));
+      setAuthError(authMessage(err, key("error.resetFailed")));
     } finally {
       setAuthPending(false);
     }
@@ -1748,10 +1756,10 @@ function AppShell() {
       if (apiErrorCode(err) === "invalid_token") {
         setMfaChallenge(null);
         goToStage("login");
-        setAuthError("error.signInExpired");
+        setAuthError(key("error.signInExpired"));
         return;
       }
-      setAuthError(authMessage(err, "error.verifyFailed"));
+      setAuthError(authMessage(err, key("error.verifyFailed")));
     } finally {
       setAuthPending(false);
     }
@@ -1769,8 +1777,8 @@ function AppShell() {
       const cancelled = err instanceof DOMException && err.name === "NotAllowedError";
       setAuthError(
         cancelled
-          ? "error.passkeyCancelled"
-          : authMessage(err, "error.passkeyFailedBody"),
+          ? key("error.passkeyCancelled")
+          : authMessage(err, key("error.passkeyFailedBody")),
       );
     } finally {
       setAuthPending(false);
@@ -2067,7 +2075,7 @@ function AppShell() {
         return;
       }
       updateMessage(conv, messageId, (m) => ({ ...m, deleted: true, body: "" }));
-      showToast({ tone: "info", title: t("toast.messageDeleted") });
+      showToast({ tone: "info", title: t("message.deleted") });
       deleteMessage(messageId)
         .then((m) => updateMessage(conv, messageId, () => m))
         .catch(() => {
@@ -2114,7 +2122,6 @@ function AppShell() {
     const optimistic: Message = {
       id: tempId,
       author: currentUser,
-      time: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
       createdAt: new Date().toISOString(),
       body: text,
       attachment,
@@ -2220,7 +2227,7 @@ function AppShell() {
         tone: "danger",
         title: t("toast.editNotSaved"),
         description: isApiError(err, 403)
-          ? "Vous n'avez pas les droits sur ce canal."
+          ? t("error.noChannelRights")
           : isApiError(err, 400)
             ? t("error.nameTaken")
             : t("common.tryAgain"),
@@ -2251,7 +2258,7 @@ function AppShell() {
     showToast({
       tone: "info",
       title: t("toast.channelLeft"),
-      description: isPrivate ? undefined : "Vous pouvez toujours le lire, sans notifications.",
+      description: isPrivate ? undefined : t("toast.stillReadable"),
     });
   };
 
@@ -2281,7 +2288,7 @@ function AppShell() {
       showToast({
         tone: "danger",
         title: t("toast.spaceFailed"),
-        description: isApiError(err, 400) ? "Ce nom n'est pas utilisable." : t("common.tryAgain"),
+        description: isApiError(err, 400) ? t("error.nameUnusable") : t("common.tryAgain"),
       });
     }
   };
@@ -2399,7 +2406,7 @@ function AppShell() {
             window.location.reload();
           }}
         >
-          Réessayer
+          {t("common.retry")}
         </Button>
       </div>
     );
@@ -2527,7 +2534,7 @@ function AppShell() {
   }
 
   const wsName = workspaces.find((w) => w.id === ws)?.name ?? "espace";
-  const contentTitle = view === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (VIEW_TITLES[view] ?? wsName);
+  const contentTitle = view === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (VIEW_TITLES[view] ? t(VIEW_TITLES[view]) : wsName);
   const mobileTabs = [
     { id: "channels", label: t("tabs.channels"), icon: "hash" },
     { id: "messages", label: t("tabs.messages"), icon: "message-square" },

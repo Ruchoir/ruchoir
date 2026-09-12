@@ -9,6 +9,12 @@ export type TagProps = {
   mono?: boolean;
   onRemove?: MouseEventHandler<HTMLButtonElement>;
   /** Accessible name of the remove button; passed in, like every other string this library shows. */
+  /**
+   * Accessible name of the remove button.
+   *
+   * No default: the design system carries no dictionary, and a French word defaulted in here would
+   * be read out to every reader in every language. A tag that can be removed names its button.
+   */
   removeLabel?: string;
   children?: ReactNode;
   className?: string;
@@ -20,7 +26,7 @@ export function Tag({
   icon,
   mono,
   onRemove,
-  removeLabel = "Retirer",
+  removeLabel,
   children,
   className = "",
 }: TagProps) {

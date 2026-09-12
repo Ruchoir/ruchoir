@@ -1,4 +1,5 @@
 import type { Presence } from "@/components/ds";
+import { key, type TranslationKey } from "@/lib/i18n";
 
 /**
  * The dictionary key naming a presence state.
@@ -7,15 +8,15 @@ import type { Presence } from "@/components/ds";
  * them already holds a translator. Returning text here would have meant either a second way of
  * reaching the dictionaries from outside React, or four sentences frozen in French.
  */
-export function presenceLabelKey(presence: Presence): string {
+export function presenceLabelKey(presence: Presence): TranslationKey {
   switch (presence) {
     case "online":
-      return "presence.online";
+      return key("presence.online");
     case "away":
-      return "presence.away";
+      return key("presence.away");
     case "busy":
-      return "presence.busy";
+      return key("presence.busy");
     default:
-      return "presence.offline";
+      return key("presence.offline");
   }
 }

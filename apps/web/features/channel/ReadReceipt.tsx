@@ -1,4 +1,5 @@
 import { Icon } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * Who has read a message, shown on hover under one's own messages.
@@ -23,17 +24,18 @@ import { Icon } from "@/components/ds";
  * message and the proportion is what carries the meaning.
  */
 export function ReadReceipt({ names, audience }: { names?: string[]; audience: number }) {
+  const { t } = useTranslation();
   const readers = names ?? [];
   const everyone = audience > 0 && readers.length >= audience;
 
   const label = (() => {
-    if (readers.length === 0) return "Non lu";
+    if (readers.length === 0) return t("conversation.unread");
     // A conversation with one other person has no "everyone" worth naming: it is that person.
-    if (audience <= 1) return "Lu";
-    if (everyone) return "Lu par tout le monde";
-    if (readers.length === 1) return `Lu par ${readers[0]}`;
-    if (readers.length === 2) return `Lu par ${readers[0]} et ${readers[1]}`;
-    return `Lu par ${readers.length} personnes sur ${audience}`;
+    if (audience <= 1) return t("conversation.read");
+    if (everyone) return t("conversation.readByEveryone");
+    if (readers.length === 1) return t("conversation.readByOne", { name: readers[0] });
+    if (readers.length === 2) return t("conversation.readByTwo", { first: readers[0], second: readers[1] });
+    return t("conversation.readBySome", { count: readers.length, audience });
   })();
 
   return (

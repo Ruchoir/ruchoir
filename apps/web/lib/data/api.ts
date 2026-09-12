@@ -38,6 +38,7 @@ import type {
   Profile,
   Reaction,
   SpaceFile,
+  SystemEvent,
   Workspace,
 } from "./types";
 
@@ -741,7 +742,7 @@ export async function uploadAttachment(conversationId: string, file: File): Prom
   return {
     fileId: dto.id,
     name: dto.name,
-    size: formatSize(dto.size_bytes),
+    sizeBytes: dto.size_bytes,
     kind: attachmentIcon(dto.kind),
     url: `/api/v1/files/${dto.id}/download`,
     previewUrl: `/api/v1/files/${dto.id}/preview`,
@@ -894,7 +895,7 @@ export async function getUserProfile(userId: string, signal?: AbortSignal): Prom
   const dto = await apiGet<UserProfileDto>(`/users/${userId}`, signal);
   return {
     name: dto.display_name,
-    role: dto.title ?? "Membre",
+    role: dto.title,
     presence: "offline",
     email: dto.email,
     // No invented default: a profile that has never set one said "Europe/Paris", which the card
@@ -998,7 +999,7 @@ export async function updateMyProfile(patch: {
   });
   return {
     name: dto.display_name,
-    role: dto.title ?? "Membre",
+    role: dto.title,
     presence: "offline",
     email: dto.email,
     timezone: dto.timezone,
@@ -1149,10 +1150,12 @@ function toMessage(dto: MessageDto): ApiMessage {
     kind: (dto.kind === "system" ? "system" : "message") as MessageKind,
     author: dto.author_name ?? "",
     authorId: dto.author_id ?? undefined,
-    time: formatTimestamp(dto.created_at),
     createdAt: dto.created_at,
-    body:
-      dto.kind === "system" && !dto.body ? systemMessageText(dto.system_event, dto.author_name) : dto.body,
+    body: dto.body,
+    system:
+      dto.kind === "system" && !dto.body && isSystemEvent(dto.system_event)
+        ? { event: dto.system_event, actor: dto.author_name ?? "" }
+        : undefined,
     systemIcon: dto.kind === "system" ? iconForSystemEvent(dto.system_event) : undefined,
     attachment,
     image,
@@ -1190,7 +1193,7 @@ function splitAttachments(attachments: AttachmentDto[]): {
       attachment ??= {
         fileId: a.file_id,
         name: a.name,
-        size: formatSize(a.size_bytes),
+        sizeBytes: a.size_bytes,
         kind: attachmentIcon(a.kind),
         deleted: true,
       };
@@ -1211,7 +1214,7 @@ function splitAttachments(attachments: AttachmentDto[]): {
       attachment = {
         fileId: a.file_id,
         name: a.name,
-        size: formatSize(a.size_bytes),
+        sizeBytes: a.size_bytes,
         kind: attachmentIcon(a.kind),
         url: `/api/v1/files/${a.file_id}/download`,
         previewUrl: `/api/v1/files/${a.file_id}/preview`,
@@ -1261,29 +1264,11 @@ function iconForSystemEvent(event?: string): string {
   }
 }
 
-/**
- * Human text for a system message, derived from its event.
- *
- * The API stores the event, never a sentence: user-facing copy lives in the client, the same
- * separation the auth error codes follow. A system row that does carry a body keeps it, which is how
- * an imported notice from another product survives with its original wording.
- */
-function systemMessageText(event: string | undefined, author: string | null | undefined): string {
-  const who = author && author.length > 0 ? author : "Quelqu'un";
-  switch (event) {
-    case "member_joined":
-      return `${who} a rejoint l'espace.`;
-    case "member_left":
-      return `${who} a quitté l'espace.`;
-    case "channel_joined":
-      return `${who} a rejoint le canal.`;
-    case "channel_left":
-      return `${who} a quitté le canal.`;
-    case "channel_created":
-      return "Le canal a été créé.";
-    default:
-      return "";
-  }
+const SYSTEM_EVENTS: SystemEvent[] = ["member_joined", "member_left", "channel_joined", "channel_left", "channel_created"];
+
+/** Whether the API reported an event this client knows a sentence for. */
+function isSystemEvent(value: string | undefined): value is SystemEvent {
+  return !!value && (SYSTEM_EVENTS as string[]).includes(value);
 }
 
 /** Map an attachment kind to the DS file icon the UI expects. */
@@ -1296,38 +1281,6 @@ function attachmentIcon(kind: string): string {
     default:
       return "file";
   }
-}
-
-/** Format a byte count as a French display size ("248 Ko", "3,4 Mo"). */
-function formatSize(bytes: number): string {
-  if (bytes < 1000) return `${bytes} o`;
-  const units = ["Ko", "Mo", "Go", "To"];
-  let value = bytes / 1000;
-  let unit = 0;
-  while (value >= 1000 && unit < units.length - 1) {
-    value /= 1000;
-    unit += 1;
-  }
-  const rounded = value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
-  return `${String(rounded).replace(".", ",")} ${units[unit]}`;
-}
-
-/**
- * Format an RFC 3339 timestamp as the short human label the feed shows: the time for today, "Hier,
- * HH:MM" for yesterday, and a "j mois" date beyond that. Locale-French, the app's only locale today.
- */
-function formatTimestamp(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const now = new Date();
-  const time = date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  if (sameDay(date, now)) return time;
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (sameDay(date, yesterday)) return `Hier, ${time}`;
-  return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
 
@@ -1376,7 +1329,8 @@ export type ApiNotification = {
   messageId: string;
   actor: string;
   preview: string;
-  time: string;
+  /** When the triggering message was sent, RFC 3339. */
+  createdAt: string;
   read: boolean;
 };
 
@@ -1400,7 +1354,7 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
     messageId: dto.message_id,
     actor: dto.actor_name ?? "",
     preview: dto.preview,
-    time: formatTimestamp(dto.created_at),
+    createdAt: dto.created_at,
     read: dto.read,
   };
 }
@@ -1520,9 +1474,9 @@ function toSpaceFile(dto: FileDto): SpaceFile {
     id: dto.id,
     name: dto.name,
     kind: toSpaceFileKind(dto.kind, dto.is_folder),
-    size: dto.is_folder ? "" : formatSize(dto.size_bytes),
+    sizeBytes: dto.is_folder ? 0 : dto.size_bytes,
     by: dto.owner_name ?? "",
-    when: formatTimestamp(dto.updated_at),
+    updatedAt: dto.updated_at,
     // The connector a migrated file came from; native files (and unknown connectors) read as Ruchoir.
     source: toImportSource(dto.imported_source) ?? "Ruchoir",
     version: dto.version_no != null ? `v${dto.version_no}` : "",

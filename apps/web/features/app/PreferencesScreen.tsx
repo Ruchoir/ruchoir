@@ -2,10 +2,10 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Button, Field, Icon, Input, Select, Switch } from "@/components/ds";
+import { Button, Field, Icon, type IconName, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
 import { updateMyProfile } from "@/lib/data/api";
-import { initialLocale, useTranslation } from "@/lib/i18n";
+import { initialLocale, key, literal, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { LanguagePicker } from "./LanguagePicker";
 import { Emoji } from "./Emoji";
 import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
@@ -37,23 +37,21 @@ import type { Toast } from "./types";
 
 export type PrefTab = "appearance" | "notifications" | "shortcuts" | "security" | "emojis";
 
-const NAV: [PrefTab, string, string][] = [
-  ["appearance", "prefs.appearance", "layout-grid"],
-  ["notifications", "notif.title", "bell"],
-  ["shortcuts", "prefs.shortcuts", "keyboard"],
-  ["security", "prefs.security", "shield"],
-  ["emojis", "prefs.emojis", "smile"],
+const NAV: [PrefTab, TranslationKey, IconName][] = [
+  ["appearance", key("prefs.appearance"), "layout-grid"],
+  ["notifications", key("notif.title"), "bell"],
+  ["shortcuts", key("prefs.shortcuts"), "keyboard"],
+  ["security", key("prefs.security"), "shield"],
+  ["emojis", key("prefs.emojis"), "smile"],
 ];
 
 
 /** Representative swatches per theme, purely for the picker preview (fixed, not live tokens). */
-const THEME_PREVIEWS: { id: ThemeName; label: string; canvas: string; chrome: string; accent: string; ink: string }[] = [
-  // i18n-audit-ignore-next-line — a brand name, the same in every language.
-  { id: "ruchui", label: "RuchUI", canvas: "#f7f3ed", chrome: "#f0e8e0", accent: "#c65d45", ink: "#171716" },
-  { id: "light", label: "prefs.themeLight", canvas: "#ffffff", chrome: "#f4f5f6", accent: "#c65d45", ink: "#17181b" },
-  // i18n-audit-ignore-next-line — a brand name, the same in every language.
-  { id: "ruchui-dark", label: "RuchUI Dark", canvas: "#143336", chrome: "#0f2629", accent: "#d07a66", ink: "#f5f3ec" },
-  { id: "dark", label: "prefs.themeDark", canvas: "#1a1a1c", chrome: "#141416", accent: "#db9788", ink: "#f4f4f6" },
+const THEME_PREVIEWS: { id: ThemeName; label: TranslationKey; canvas: string; chrome: string; accent: string; ink: string }[] = [
+  { id: "ruchui", label: literal("RuchUI"), canvas: "#f7f3ed", chrome: "#f0e8e0", accent: "#c65d45", ink: "#171716" },
+  { id: "light", label: key("prefs.themeLight"), canvas: "#ffffff", chrome: "#f4f5f6", accent: "#c65d45", ink: "#17181b" },
+  { id: "ruchui-dark", label: literal("RuchUI Dark"), canvas: "#143336", chrome: "#0f2629", accent: "#d07a66", ink: "#f5f3ec" },
+  { id: "dark", label: key("prefs.themeDark"), canvas: "#1a1a1c", chrome: "#141416", accent: "#db9788", ink: "#f4f4f6" },
 ];
 
 const st: Record<string, CSSProperties> = {
@@ -235,10 +233,10 @@ function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNot
 }
 
 /** Preview font stacks, independent of the live --font-sans so each card always shows its own type. */
-const FONT_OPTIONS: { id: FontChoice; label: string; desc: string; stack: string }[] = [
-  { id: "plex", label: "IBM Plex Sans", desc: "prefs.fontDefault", stack: '"IBM Plex Sans", "Helvetica Neue", sans-serif' },
-  { id: "system", label: "prefs.fontSystem", desc: "prefs.fontSystemDesc", stack: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
-  { id: "dyslexic", label: "OpenDyslexic", desc: "prefs.fontDyslexic", stack: '"OpenDyslexic", "Comic Sans MS", sans-serif' },
+const FONT_OPTIONS: { id: FontChoice; label: TranslationKey; desc: TranslationKey; stack: string }[] = [
+  { id: "plex", label: literal("IBM Plex Sans"), desc: key("prefs.fontDefault"), stack: '"IBM Plex Sans", "Helvetica Neue", sans-serif' },
+  { id: "system", label: key("prefs.fontSystem"), desc: key("prefs.fontSystemDesc"), stack: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
+  { id: "dyslexic", label: literal("OpenDyslexic"), desc: key("prefs.fontDyslexic"), stack: '"OpenDyslexic", "Comic Sans MS", sans-serif' },
 ];
 
 function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: FontChoice) => void }) {
@@ -269,17 +267,17 @@ function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: Font
             }}
           >
             <span aria-hidden style={{ fontFamily: f.stack, fontSize: 30, lineHeight: 1, color: "var(--text-strong)", flex: "none", width: 44, textAlign: "center" }}>
-              Ag
+              {t("prefs.fontSampleLetters")}
             </span>
             <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{f.label.startsWith("prefs.") ? t(f.label) : f.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(f.label)}</span>
                 {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>{t("prefs.active")}</span> : null}
               </span>
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(f.desc)}</span>
               {/* Sample rendered in the target font so the choice previews before it is applied. */}
               <span style={{ fontFamily: f.stack, fontSize: 13, color: "var(--text-body)" }}>
-                Portez ce vieux whisky au juge blond qui fume.
+                {t("prefs.fontSampleText")}
               </span>
             </span>
           </button>
@@ -289,11 +287,11 @@ function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: Font
   );
 }
 
-const SIZE_OPTIONS: { id: TextSize; label: string; sample: number }[] = [
-  { id: "s", label: "prefs.sizeS", sample: 13 },
-  { id: "m", label: "prefs.sizeM", sample: 15 },
-  { id: "l", label: "prefs.sizeL", sample: 17 },
-  { id: "xl", label: "prefs.sizeXL", sample: 20 },
+const SIZE_OPTIONS: { id: TextSize; label: TranslationKey; sample: number }[] = [
+  { id: "s", label: key("prefs.sizeS"), sample: 13 },
+  { id: "m", label: key("prefs.sizeM"), sample: 15 },
+  { id: "l", label: key("prefs.sizeL"), sample: 17 },
+  { id: "xl", label: key("prefs.sizeXL"), sample: 20 },
 ];
 
 function TextSizePicker({ value, onChange }: { value: TextSize; onChange: (t: TextSize) => void }) {
@@ -383,7 +381,7 @@ function ThemePicker({ value, onChange }: { value: ThemeName; onChange: (t: Them
               </span>
             </span>
             <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{theme.label}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(theme.label)}</span>
               {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>{t("prefs.active")}</span> : null}
             </span>
           </button>
@@ -419,7 +417,7 @@ function ShortcutRow({
   capturing: boolean;
   chord: string;
   isDefault: boolean;
-  conflict: string | null;
+  conflict: TranslationKey | null;
   mac: boolean;
   onStart: () => void;
   onReset: () => void;
@@ -433,7 +431,7 @@ function ShortcutRow({
         <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{t(def.hint)}</div>
         {conflict ? (
           <div style={{ fontSize: 12, color: "var(--status-danger-fg)", marginTop: 4 }}>
-            Déjà utilisé par « {conflict} ».
+            {t("shortcut.conflict", { label: t(conflict) })}
           </div>
         ) : null}
       </div>
@@ -447,7 +445,7 @@ function ShortcutRow({
               background: "var(--surface-selected)",
             }}
           >
-            Appuyez sur une combinaison…
+            {t("shortcut.pressCombination")}
           </span>
         ) : chord ? (
           <kbd style={kbdStyle}>{formatChord(chord, mac, t)}</kbd>
@@ -455,7 +453,7 @@ function ShortcutRow({
           <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("dialogs.unassigned")}</span>
         )}
         <Button size="sm" variant="secondary" onClick={onStart} aria-label={t("shortcut.editShortcut", { label: t(def.label) })}>
-          {capturing ? "Annuler" : "Modifier"}
+          {capturing ? t("common.cancel") : t("message.edit")}
         </Button>
         {!isDefault ? (
           <Button
@@ -519,7 +517,7 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
     const ch = bindings[c.id];
     if (ch) (usedBy[ch] ??= []).push(c.id);
   }
-  const conflictLabel = (id: ShortcutId): string | null => {
+  const conflictLabel = (id: ShortcutId): TranslationKey | null => {
     const ch = bindings[id];
     if (!ch) return null;
     const other = (usedBy[ch] ?? []).find((x) => x !== id);
@@ -536,8 +534,7 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
     <>
       <h2 style={st.h}>{t("prefs.shortcuts")}</h2>
       <p style={st.sub}>
-        Personnalisez les raccourcis. Cliquez sur « Modifier » puis appuyez sur la combinaison voulue ;
-        la touche Retour arrière la retire, Échap annule.
+        {t("shortcut.customizeHint")}
       </p>
       {COMMANDS.map((c) => (
         <ShortcutRow
@@ -554,7 +551,7 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
       ))}
       <div style={{ marginTop: 18 }}>
         <Button variant="secondary" iconLeft="refresh-cw" onClick={resetAll}>
-          Rétablir les valeurs par défaut
+          {t("shortcut.resetAll")}
         </Button>
       </div>
     </>
@@ -618,7 +615,7 @@ export function PreferencesScreen({
           {NAV.map(([v, l, i]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
               <Icon name={i} size={14} style={{ color: "var(--text-muted)" }} />
-              {l}
+              {t(l)}
             </button>
           ))}
         </div>

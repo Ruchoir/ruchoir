@@ -8,10 +8,11 @@ import { addChannelMembers, listChannelMembers } from "@/lib/data/api";
 import type { Channel, ChannelType } from "@/lib/data";
 import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import type { Toast } from "../app/types";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 /** Channel roles, as dictionary keys. */
-const CHANNEL_ROLES = ["role.member", "channel.moderator", "role.admin"];
+/** The roles a channel member can hold, as dictionary keys: translated where the select is drawn. */
+const CHANNEL_ROLES: TranslationKey[] = [key("role.member"), key("channel.moderator"), key("role.admin")];
 
 /** Edit a channel's name, topic, visibility and (for private channels) member access and roles. */
 export function ChannelSettingsDialog({
@@ -81,7 +82,7 @@ export function ChannelSettingsDialog({
         </Field>
 
         {isPrivate ? (
-          <Field label={`Membres et accès (${access.size})`}>
+          <Field label={t("channel.membersAndAccess", { count: access.size })}>
             <div
               style={{
                 border: "1px solid var(--border-subtle)",
@@ -103,11 +104,17 @@ export function ChannelSettingsDialog({
                       borderTop: i ? "1px solid var(--border-subtle)" : "none",
                     }}
                   >
-                    <Checkbox checked={has} onChange={() => toggleAccess(m.name)} aria-label={`Accès de ${m.name}`} />
+                    <Checkbox checked={has} onChange={() => toggleAccess(m.name)} aria-label={t("channel.accessOf", { name: m.name })} />
                     <Avatar name={m.name} src={m.avatar} size={26} presence={m.presence} kind={m.bot ? "bot" : "person"} />
                     <span style={{ flex: 1, fontSize: 13, color: has ? "var(--text-strong)" : "var(--text-muted)" }}>{m.name}</span>
                     <div style={{ width: 150 }}>
-                      <Select size="sm" options={CHANNEL_ROLES} disabled={!has} defaultValue="Membre" aria-label={`Rôle de ${m.name}`} />
+                      <Select
+                        size="sm"
+                        options={CHANNEL_ROLES.map((r) => ({ value: r as unknown as string, label: t(r) }))}
+                        disabled={!has}
+                        defaultValue={CHANNEL_ROLES[0] as unknown as string}
+                        aria-label={t("channel.roleOf", { name: m.name })}
+                      />
                     </div>
                   </div>
                 );
@@ -151,7 +158,7 @@ export function ChannelNotificationsDialog({
 
   return (
     <Dialog
-      title={isDm ? "Notifications de la conversation" : "Notifications du canal"}
+      title={isDm ? t("channel.dmNotifications") : t("channel.channelNotifications")}
       subtitle={label}
       size="sm"
       onClose={onClose}
@@ -159,7 +166,7 @@ export function ChannelNotificationsDialog({
         <>
           <Button onClick={onClose}>{t("common.cancel")}</Button>
           <Button variant="primary" onClick={save}>
-            Enregistrer
+            {t("common.save")}
           </Button>
         </>
       }
@@ -169,7 +176,7 @@ export function ChannelNotificationsDialog({
         <Radio name="notif" checked={level === "mentions"} onChange={() => setLevel("mentions")} label={t("channel.mentionsOnly")} description={t("channel.mentionsOnlyHint")} />
         <Radio name="notif" checked={level === "none"} onChange={() => setLevel("none")} label={t("channel.nothing")} />
         <div style={{ height: 1, background: "var(--border-subtle)", margin: "6px 0" }} />
-        <Switch checked={muted} onChange={() => setMuted((m) => !m)} label={isDm ? "Mettre la conversation en sourdine" : "Mettre le canal en sourdine"} reverse />
+        <Switch checked={muted} onChange={() => setMuted((m) => !m)} label={isDm ? t("channel.muteDm") : t("channel.muteChannel")} reverse />
       </div>
     </Dialog>
   );
@@ -205,7 +212,7 @@ export function AddPeopleDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [current, setCurrent] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TranslationKey | null>(null);
 
   // Who is already in. Until it arrives nobody is offered as addable, because adding someone who is
   // already there is the one outcome this dialog must not appear to produce.
@@ -213,7 +220,7 @@ export function AddPeopleDialog({
     let active = true;
     listChannelMembers(channelId)
       .then((rows) => active && setCurrent(new Set(rows.map((m) => m.userId))))
-      .catch(() => active && setError("channel.membersLoadFailed"));
+      .catch(() => active && setError(key("channel.membersLoadFailed")));
     return () => {
       active = false;
     };
@@ -246,7 +253,7 @@ export function AddPeopleDialog({
       onAdded?.();
       onClose();
     } catch {
-      setError("channel.addFailed");
+      setError(key("channel.addFailed"));
       setBusy(false);
     }
   };
@@ -262,7 +269,7 @@ export function AddPeopleDialog({
         <>
           <Button onClick={onClose}>{t("common.cancel")}</Button>
           <Button variant="primary" iconLeft="user-plus" disabled={busy || selected.size === 0} onClick={() => void add()}>
-            Ajouter{selected.size > 0 ? ` (${selected.size})` : ""}
+            {selected.size > 0 ? t("channel.addCount", { count: selected.size }) : t("channel.add")}
           </Button>
         </>
       }
@@ -324,20 +331,20 @@ export function LeaveChannelDialog({
   const { t } = useTranslation();
   return (
     <Dialog
-      title={`Quitter #${channelName} ?`}
+      title={t("channel.leaveTitle", { name: channelName })}
       size="sm"
       onClose={onClose}
       footer={
         <>
           <Button onClick={onClose}>{t("common.cancel")}</Button>
           <Button variant="danger" iconLeft="arrow-left" onClick={onConfirm}>
-            Quitter le canal
+            {t("sidebar.leaveChannel")}
           </Button>
         </>
       }
     >
       <p style={{ fontSize: 13, color: "var(--text-body)" }}>
-        Vous ne recevrez plus les messages de #{channelName}. Vous pourrez le rejoindre à nouveau tant qu&apos;il est public.
+        {t("channel.leaveBody", { name: channelName })}
       </p>
     </Dialog>
   );

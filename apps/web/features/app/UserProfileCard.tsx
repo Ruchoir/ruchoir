@@ -77,7 +77,7 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
           {localTime ? (
             <div style={row}>
               <Icon name="clock" size={14} />
-              {localTime} heure locale
+              {t("profile.localTime", { time: localTime })}
             </div>
           ) : null}
           {p.email ? (
@@ -98,15 +98,15 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
           {isOwn ? (
             <Button variant="secondary" size="sm" iconLeft="square-pen" onClick={onEditProfile} fullWidth>
-              Modifier le profil
+              {t("profile.edit")}
             </Button>
           ) : (
             <>
               <Button variant="primary" size="sm" iconLeft="message-square" onClick={onMessage} fullWidth>
-                Message
+                {t("tabs.messages")}
               </Button>
               <Button variant="secondary" size="sm" onClick={onViewFull}>
-                Profil
+                {t("profile.title")}
               </Button>
             </>
           )}

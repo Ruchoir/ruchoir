@@ -96,7 +96,7 @@ export function ReactionPill({
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
         aria-pressed={mine}
-        aria-label={`Réaction ${emoji}, ${count}`}
+        aria-label={t("message.reactionCount", { emoji, count })}
       >
         <Emoji emoji={emoji} size={16} animated={hovered || playing} />
         {count}

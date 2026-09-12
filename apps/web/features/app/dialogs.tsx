@@ -7,7 +7,7 @@ import type { ChannelType, Invitation } from "@/lib/data";
 import { COMMANDS, formatChord, isMac } from "./shortcuts";
 import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
-import { useTranslation } from "@/lib/i18n";
+import { key, type Translate, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 const listItem: CSSProperties = {
   display: "flex",
@@ -51,7 +51,7 @@ export function NewChannelDialog({
         <>
           <Button onClick={onClose}>{t("common.cancel")}</Button>
           <Button variant="primary" onClick={submit}>
-            Créer le canal
+            {t("dialogs.createChannel")}
           </Button>
         </>
       }
@@ -142,9 +142,9 @@ export function NewMessageDialog({
  * dictionary keys: the list is built at module load, where no language is in force yet.
  */
 const INVITE_ROLES = [
-  { value: "member", labelKey: "role.member" },
-  { value: "admin", labelKey: "role.admin" },
-  { value: "guest", labelKey: "role.guest" },
+  { value: "member", labelKey: key("role.member") },
+  { value: "admin", labelKey: key("role.admin") },
+  { value: "guest", labelKey: key("role.guest") },
 ];
 
 const inviteStyles: Record<string, CSSProperties> = {
@@ -197,18 +197,18 @@ const inviteStyles: Record<string, CSSProperties> = {
  *
  * Takes the translator: the plural of "use" is the dictionary's business, and so is the role.
  */
-function describeInvitation(invitation: Invitation, t: (key: string, options?: Record<string, unknown>) => string): string {
+function describeInvitation(invitation: Invitation, t: Translate): string {
   const found = INVITE_ROLES.find((r) => r.value === invitation.role);
   const role = found ? t(found.labelKey) : invitation.role;
   const uses =
     invitation.maxUses === undefined
       ? t("dialogs.uses", { count: invitation.uses })
       : `${invitation.uses}/${invitation.maxUses}`;
-  const outcome = {
-    active: "",
-    accepted: "dialogs.accepted",
-    revoked: "dialogs.revoked",
-    expired: "dialogs.expired",
+  const outcome: TranslationKey | null = {
+    active: null,
+    accepted: key("dialogs.accepted"),
+    revoked: key("dialogs.revoked"),
+    expired: key("dialogs.expired"),
   }[invitation.status];
   return `${role} · ${uses}${outcome ? ` ${t(outcome)}` : ""}`;
 }
@@ -253,7 +253,7 @@ export function InviteDialog({
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TranslationKey | null>(null);
   const [created, setCreated] = useState<{ url: string; emailed: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -269,7 +269,7 @@ export function InviteDialog({
   const submit = async () => {
     if (pending) return;
     if (addressed && !address.includes("@")) {
-      setError("Cette adresse ne semble pas valide.");
+      setError(key("error.invalidEmail"));
       return;
     }
     setPending(true);
@@ -279,7 +279,7 @@ export function InviteDialog({
       setCreated(await onCreate({ email: addressed ? address : undefined, role }));
       setEmail("");
     } catch {
-      setError("dialogs.inviteFailed");
+      setError(key("dialogs.inviteFailed"));
     } finally {
       setPending(false);
     }
@@ -334,7 +334,7 @@ export function InviteDialog({
             id="inv"
             autoFocus
             icon="mail"
-            placeholder="prenom@exemple.fr"
+            placeholder={t("dialogs.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -350,15 +350,13 @@ export function InviteDialog({
 
         {noRelay && !addressed ? (
           <p style={inviteStyles.notice}>
-            Un lien partageable mène à un compte en attente de confirmation d&apos;adresse, et cette instance ne peut
-            envoyer aucun courriel de confirmation. Indiquez une adresse : une invitation nominative active le compte
-            immédiatement.
+            {t("dialogs.noMailNotice")}
           </p>
         ) : null}
 
         {error ? (
           <p role="alert" style={{ ...inviteStyles.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
-            {error}
+            {t(error)}
           </p>
         ) : null}
 
@@ -408,7 +406,7 @@ export function InviteDialog({
             {finished.map((invitation) => (
               <div key={invitation.id} style={inviteStyles.row}>
                 <div style={inviteStyles.rowMain}>
-                  <div style={{ color: "var(--text-muted)" }}>{invitation.email ?? "Lien partageable"}</div>
+                  <div style={{ color: "var(--text-muted)" }}>{invitation.email ?? t("dialogs.shareableLink")}</div>
                   <div style={inviteStyles.rowMeta}>{describeInvitation(invitation, t)}</div>
                 </div>
               </div>
@@ -441,12 +439,12 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
         <>
           <Button onClick={onClose}>{t("common.cancel")}</Button>
           <Button variant="primary" onClick={submit}>
-            Créer l&apos;espace
+            {t("dialogs.createSpace")}
           </Button>
         </>
       }
     >
-      <Field label={t("onboarding.spaceName")} hint={t("dialogs.workspaceHint")} htmlFor="ws-name">
+      <Field label={t("space.name")} hint={t("dialogs.workspaceHint")} htmlFor="ws-name">
         <Input
           id="ws-name"
           autoFocus
@@ -515,11 +513,11 @@ export function HelpDialog({
             color: "var(--text-subtle)",
           }}
         >
-          Raccourcis clavier
+          {t("prefs.shortcuts")}
         </span>
         {onCustomize ? (
           <Button size="sm" variant="link" onClick={onCustomize}>
-            Personnaliser
+            {t("dialogs.customize")}
           </Button>
         ) : null}
       </div>

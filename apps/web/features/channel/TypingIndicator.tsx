@@ -2,12 +2,19 @@
  * "Someone is typing" indicator. Ephemeral: the realtime layer delivers this over the channel and
  * never stores it. Rendered just above the composer.
  */
+
+import { useTranslation } from "@/lib/i18n";
+
 export function TypingIndicator({ names }: { names: string[] }) {
+  const { t } = useTranslation();
   if (names.length === 0) return null;
   const label =
     names.length === 1
-      ? `${names[0]} est en train d'écrire`
-      : `${names.slice(0, 2).join(", ")}${names.length > 2 ? " et d'autres" : ""} sont en train d'écrire`;
+      ? t("conversation.typingOne", { name: names[0] })
+      : t("conversation.typingMany", {
+          names: names.slice(0, 2).join(", "),
+          count: names.length,
+        });
   return (
     <div
       aria-live="polite"

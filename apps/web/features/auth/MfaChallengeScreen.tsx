@@ -5,7 +5,7 @@ import { Button, Field, Input } from "@/components/ds";
 import type { MfaMethod } from "@/lib/data/api";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   switcher: { display: "flex", flexDirection: "column", gap: 8, marginTop: 18 },
@@ -23,26 +23,26 @@ const styles: Record<string, CSSProperties> = {
  * Keys rather than sentences: this table is built once at module load, where no language is in force
  * yet, and the text is looked up in the component that draws it.
  */
-const COPY: Record<MfaMethod, { title: string; subtitle: string; label: string; hint?: string; switchTo: string }> = {
+const COPY: Record<MfaMethod, { title: TranslationKey; subtitle: TranslationKey; label: TranslationKey; hint?: TranslationKey; switchTo: TranslationKey }> = {
   totp: {
-    title: "mfa.totpTitle",
-    subtitle: "mfa.totpSubtitle",
-    label: "mfa.totpLabel",
-    switchTo: "mfa.totpSwitch",
+    title: key("mfa.totpTitle"),
+    subtitle: key("mfa.totpSubtitle"),
+    label: key("mfa.totpLabel"),
+    switchTo: key("mfa.totpSwitch"),
   },
   passkey: {
-    title: "mfa.passkeyTitle",
-    subtitle: "mfa.passkeySubtitle",
-    label: "mfa.passkeyLabel",
-    switchTo: "mfa.passkeySwitch",
+    title: key("mfa.passkeyTitle"),
+    subtitle: key("mfa.passkeySubtitle"),
+    label: key("mfa.passkeyLabel"),
+    switchTo: key("mfa.passkeySwitch"),
   },
   recovery: {
-    title: "common.recoveryCode",
-    subtitle: "mfa.recoverySubtitle",
-    label: "common.recoveryCode",
+    title: key("common.recoveryCode"),
+    subtitle: key("mfa.recoverySubtitle"),
+    label: key("common.recoveryCode"),
     // The server mints three groups of five characters from an unambiguous alphabet (no 0/O/1/l/i).
-    hint: "mfa.recoveryHint",
-    switchTo: "common.useRecoveryCode",
+    hint: key("mfa.recoveryHint"),
+    switchTo: key("common.useRecoveryCode"),
   },
 };
 

@@ -1,20 +1,20 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useRef, useState, useSyncExternalStore } from "react";
-import { Avatar, Button, Card, Field, Icon, Input, Tag } from "@/components/ds";
+import { Avatar, Button, Card, Field, Icon, type IconName, Input, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setSpaceIcon } from "@/lib/data/api";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { getAvatar } from "@/lib/data";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 type NavKey = "general" | "members";
 
 /** The sections, with the dictionary key of each label. */
-const NAV: [NavKey, string, string][] = [
-  ["general", "space.general", "settings"],
-  ["members", "conversation.members", "users"],
+const NAV: [NavKey, TranslationKey, IconName][] = [
+  ["general", key("space.general"), "settings"],
+  ["members", key("conversation.members"), "users"],
 ];
 
 const st: Record<string, CSSProperties> = {
@@ -95,11 +95,11 @@ function SettingRow({ title, desc, children }: { title: string; desc?: string; c
 }
 
 /** The space roles the API uses, as dictionary keys. */
-const ROLE_LABEL: Record<string, string> = {
-  owner: "role.owner",
-  admin: "role.admin",
-  member: "role.member",
-  guest: "role.guest",
+const ROLE_LABEL: Record<string, TranslationKey> = {
+  owner: key("role.owner"),
+  admin: key("role.admin"),
+  member: key("role.member"),
+  guest: key("role.guest"),
 };
 
 export type WorkspaceSettingsProps = {
@@ -227,7 +227,7 @@ export function WorkspaceSettings({
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
       <h1 style={st.top}>
         <Icon name="settings" size={15} style={{ color: "var(--text-muted)" }} />
-        Réglages de l&apos;espace
+        {t("sidebar.spaceSettings")}
       </h1>
       <div style={compact ? { ...st.body, flexDirection: "column" } : st.body}>
         <div
@@ -247,7 +247,7 @@ export function WorkspaceSettings({
           {NAV.map(([v, l, i]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
               <Icon name={i} size={14} style={{ color: "var(--text-muted)" }} />
-              {l}
+              {t(l)}
             </button>
           ))}
         </div>
@@ -269,17 +269,17 @@ export function WorkspaceSettings({
                           disabled={iconBusy}
                           onClick={() => iconRef.current?.click()}
                         >
-                          {iconBusy ? "Envoi…" : "Changer l'icône"}
+                          {iconBusy ? t("common.sending") : t("space.changeIcon")}
                         </Button>
                         {icon ? (
                           <Button size="sm" variant="link" disabled={iconBusy} onClick={() => void removeIcon()}>
-                            Retirer
+                            {t("common.remove")}
                           </Button>
                         ) : null}
                       </>
                     ) : (
                       <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                        Seuls les administrateurs de l&apos;espace peuvent la changer.
+                        {t("space.adminsOnlyIcon")}
                       </span>
                     )}
                     <input
@@ -292,11 +292,11 @@ export function WorkspaceSettings({
                   </div>
                 </Field>
                 <Field
-                  label="Nom de l'espace"
+                  label={t("space.name")}
                   hint={
                     canAdminister
-                      ? "L'adresse de l'espace suivra le nom. Les anciennes continuent de fonctionner."
-                      : "Seuls les administrateurs de l'espace peuvent le renommer."
+                      ? t("space.addressFollowsName")
+                      : t("space.adminsOnlyRename")
                   }
                   htmlFor="wn"
                 >
@@ -315,12 +315,12 @@ export function WorkspaceSettings({
                         disabled={!nameDirty || nameBusy}
                         onClick={() => void saveName()}
                       >
-                        {nameBusy ? "Envoi…" : "Enregistrer"}
+                        {nameBusy ? t("common.sending") : t("common.save")}
                       </Button>
                     ) : null}
                   </div>
                 </Field>
-                <Field label="Adresse du serveur" hint="Définie à l'installation de l'instance" htmlFor="wu">
+                <Field label={t("space.serverAddress")} hint={t("space.setAtInstall")} htmlFor="wu">
                   {/* Read from the page rather than stored: this client is served by the instance it
                       is describing, so its own address is the answer. It used to show a name that
                       was invented, and therefore wrong everywhere. */}
@@ -351,7 +351,7 @@ export function WorkspaceSettings({
               </div>
               <Card>
                 {shownMembers.map((m, i) => {
-                  const role = ROLE_LABEL[m.role] ?? "Membre";
+                  const role = ROLE_LABEL[m.role] ?? key("role.member");
                   const guest = m.role === "guest";
                   return (
                     <div
@@ -376,7 +376,7 @@ export function WorkspaceSettings({
                       {/* Read, not set: changing someone's role needs rules that do not exist yet, and
                           a select that reported success without moving anything is worse than none. */}
                       <span style={{ fontSize: 12, color: "var(--text-muted)", width: 130, textAlign: "right" }}>
-                        {role}
+                        {t(role)}
                       </span>
                     </div>
                   );

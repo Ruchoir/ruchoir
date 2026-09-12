@@ -34,6 +34,7 @@ type Item = { icon: string; label: string; onClick: () => void; danger?: boolean
 export type MessageMenuProps = {
   pinned?: boolean;
   own?: boolean;
+  /** When the message was sent, already formatted in the reader's language. */
   sentAt: string;
   /** Whether the message carries reactions (shows the "see reactions" entry). */
   hasReactions?: boolean;
@@ -119,7 +120,7 @@ export function MessageMenu({
           <div style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: 12, color: "var(--text-subtle)" }}>
             <Icon name="clock" size={14} />
-            Envoyé {sentAt}
+            {t("message.sentAt", { at: sentAt })}
           </div>
         </div>
       </Popover>

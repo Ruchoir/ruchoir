@@ -1,15 +1,23 @@
 #!/usr/bin/env node
 /**
- * Two questions, answered on every run and in CI:
+ * Three questions, answered on every run and in CI:
  *
  * 1. **Is any user-visible text still hard-coded?** A string typed into a component is invisible to
- *    translation: it ships in French to a Polish reader and nothing reports it. Adding one is easy,
- *    noticing one is not, which is exactly the kind of drift a check belongs on.
- * 2. **Do the six dictionaries agree?** TypeScript already refuses a locale missing a key, but it
+ *    translation: it ships in French to a Polish reader and nothing reports it.
+ * 2. **Does every key a call site asks for exist?** `t("prefs.themeLight")` with no such key draws
+ *    the key itself on the screen, which is worse than the French it replaced.
+ * 3. **Do the dictionaries agree?** TypeScript already refuses a locale missing a key, but it
  *    cannot see a key nobody uses, or a French string left untranslated in another locale.
  *
  * It reads the source rather than the build: the point is to fail the change that introduces the
  * problem, next to the line that introduces it.
+ *
+ * The first question is answered from the TypeScript syntax tree rather than from the text of each
+ * line. Line matching missed whole shapes of the same mistake: a literal inside a JSX expression
+ * (`{busy ? "Envoi…" : "Enregistrer"}`), a label held in an array of tabs, a French word with no
+ * accent in it. Parsing asks the question the right way round: rather than guessing which literals
+ * look like prose, it finds the positions whose value reaches a person's eyes, and every literal
+ * that lands in one is a finding whatever language it is written in.
  *
  * Usage: `pnpm --filter @ruchoir/web i18n:check` (CI runs the same command).
  */
@@ -17,15 +25,17 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 const WEB_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const SCAN_DIRS = ["app", "components", "features"];
+const SCAN_DIRS = ["app", "components", "features", "lib"];
 const DICT_DIR = join(WEB_ROOT, "lib/i18n/dictionaries");
 
-/** Attributes whose value reaches a person's eyes or a screen reader. */
-const TEXT_ATTRS = [
+/** Attributes and object fields whose value reaches a person's eyes or a screen reader. */
+const TEXT_FIELDS = new Set([
   "label",
   "aria-label",
+  "aria-description",
   "placeholder",
   "title",
   "subtitle",
@@ -35,7 +45,18 @@ const TEXT_ATTRS = [
   "confirmLabel",
   "cancelLabel",
   "emptyLabel",
-];
+  "closeLabel",
+  "heading",
+  "text",
+  "message",
+  "summary",
+  "caption",
+  "tooltip",
+  "name",
+]);
+
+/** Fields named like the above whose value is never drawn: they name a thing, they do not say it. */
+const TECHNICAL_FIELDS = new Set(["name"]);
 
 /**
  * Strings that are not prose, listed once rather than guessed at by pattern.
@@ -45,6 +66,9 @@ const TEXT_ATTRS = [
  */
 const ALLOWED = new Set([
   "Ruchoir",
+  "Nextcloud",
+  "Slack",
+  "Mattermost",
   "IBM Plex Sans",
   "IBM Plex Mono",
   "OpenDyslexic",
@@ -71,94 +95,202 @@ function walk(dir, out = []) {
   return out;
 }
 
-/** Whether a string looks like prose rather than an identifier, a class list or a CSS value. */
-function looksLikeProse(value) {
+/** Whether a literal carries words at all, as opposed to punctuation, a separator or a unit. */
+function carriesWords(value) {
   const text = value.trim();
-  if (text.length < 3) return false;
+  if (text.length < 2) return false;
   if (ALLOWED.has(text)) return false;
-  // Needs at least one run of three letters: `px`, `1fr`, `#fff`, `sm` and friends are not prose.
-  if (!/[A-Za-zÀ-ÿ]{3}/.test(text)) return false;
-  // CSS values, custom properties, selectors, URLs, paths, mime types, format strings.
-  if (/^(var\(|--|#|\.|\/|https?:|data:|blob:|[a-z-]+\/[a-z-]+$)/.test(text)) return false;
+  if (!/[A-Za-zÀ-ÿ]{2}/.test(text)) return false;
+  if (/^(var\(|--|#|\/|https?:|data:|blob:|mailto:)/.test(text)) return false;
   if (/^[\d.]+(px|rem|em|%|vh|vw|s|ms|fr)$/.test(text)) return false;
-  // A single lower-case word with no space is an identifier (an icon name, a key, a variant).
-  if (!/\s/.test(text) && !/[A-ZÀ-Ý]/.test(text) && !/['’]/.test(text)) return false;
-  // camelCase and kebab-case identifiers, even with capitals.
-  if (/^[a-z]+([A-Z][a-z]*)+$/.test(text)) return false;
-  if (/^[a-z]+(-[a-z]+)+$/.test(text)) return false;
-  // A TypeScript type in a signature: `Promise<MessageAttachment>` reads as text between two tags.
-  if (/^(Promise|Record|Array|Map|Set|Partial|Omit|Pick|Readonly)$/.test(text)) return false;
-  // A dictionary key, not a sentence: `mfa.totpTitle`. Tables built at module load hold keys and
-  // are translated where they are drawn, which is the shape this check wants to encourage.
-  if (/^[a-z][\w]*(\.[A-Za-z]\w*)+$/.test(text)) return false;
-  // Code caught between a `>` and a `<`: `x > 0 && x < 10` reads as text between two tags to a
-  // scanner that does not parse. Operators never appear in prose the product shows.
-  if (/(&&|\|\||===?|!==?|=>|\+\+|;\s*$)/.test(text)) return false;
   return true;
 }
 
-/** Hard-coded strings in one file, as `{ line, text }`. */
-function findHardCoded(source, path) {
-  if (source.includes(FILE_OPT_OUT)) return [];
-  const isJsx = path.endsWith(".tsx");
+/** Whether a literal reads as an identifier rather than as something said to a reader. */
+function looksTechnical(value) {
+  const text = value.trim();
+  // A dictionary key, not a sentence: `mfa.totpTitle`.
+  if (/^[a-z][\w]*(\.[A-Za-z]\w*)+$/.test(text)) return true;
+  // camelCase, kebab-case and snake_case identifiers, icon names, CSS keywords, variants.
+  if (/^[a-z][a-z\d]*([A-Z][a-z\d]*)+$/.test(text)) return true;
+  if (/^[a-z\d]+([-_][a-z\d]+)*$/.test(text)) return true;
+  // A CSS declaration list or shorthand value: `0 8px`, `1px solid var(--x)`, `flex-start`.
+  if (/^[\d.]+\s/.test(text)) return true;
+  // A font stack: quoted family names and a generic one at the end. "sans-serif" carries the French
+  // word "sans", which is the sort of coincidence a word list cannot be asked to know about.
+  if (/(^|,\s*)(sans-serif|serif|monospace|system-ui|cursive|fantasy)\s*$/.test(text)) return true;
+  return false;
+}
+
+/** Whether a literal is French prose wherever it sits: accents, or words French alone strings together. */
+const FRENCH_WORDS =
+  /(?:^|[\s'’(])(?:le|la|les|un|une|des|du|de|au|aux|ce|cet|cette|ces|vous|votre|vos|votre|nos|notre|est|sont|pas|plus|dans|pour|par|avec|sans|sur|qui|que|quand|mais|donc|ou|et|ne|se|son|sa|ses|leur|tout|tous|toute|toutes|ici|encore|depuis|puis)(?:[\s'’,.:;!?)]|$)/i;
+
+function looksFrench(value) {
+  const text = value.trim();
+  if (looksTechnical(text)) return false;
+  if (/[À-ÿ]/.test(text)) return true;
+  return FRENCH_WORDS.test(text) && /\s/.test(text);
+}
+
+/** A single capitalised word: "Membre", "Modifier", "Offline". */
+const CAPITALISED_WORD = /^[A-ZÀ-Ý][a-zà-ÿ]{2,}$/;
+
+/**
+ * Whether a literal is being compared rather than shown.
+ *
+ * `e.key === "Escape"` and `"Notification" in window` are the shape of a word this file reads, not
+ * one it writes. A default on the other hand (`dto.title ?? "Membre"`) is written, and is exactly
+ * how a role shipped in one language, so `??` and `||` stay inside the rule.
+ */
+function isCompared(node) {
+  const parent = node.parent;
+  if (!parent) return false;
+  if (ts.isCaseClause(parent)) return true;
+  if (ts.isBinaryExpression(parent)) {
+    const op = parent.operatorToken.kind;
+    return op !== ts.SyntaxKind.QuestionQuestionToken && op !== ts.SyntaxKind.BarBarToken;
+  }
+  if (ts.isArrayLiteralExpression(parent) && parent.parent && ts.isCallExpression(parent.parent)) return true;
+  if (ts.isCallExpression(parent)) return true;
+  return false;
+}
+
+const TEXT_LITERAL = new Set([ts.SyntaxKind.StringLiteral, ts.SyntaxKind.NoSubstitutionTemplateLiteral]);
+
+/**
+ * Whether a literal sits somewhere the interface draws it.
+ *
+ * Walks up from the literal: a JSX child expression (anything between two tags, including the
+ * branches of a ternary), a translatable attribute, or a field named like one. The walk stops at
+ * the first enclosing JSX attribute, so `style={{ content: "x" }}` inside a child does not count.
+ */
+function visiblePosition(node) {
+  let current = node;
+  let parent = node.parent;
+  while (parent) {
+    if (ts.isJsxAttribute(parent)) {
+      const name = parent.name.getText();
+      return TEXT_FIELDS.has(name) && !TECHNICAL_FIELDS.has(name) ? `attribute ${name}` : null;
+    }
+    if (ts.isPropertyAssignment(parent) && parent.initializer === current) {
+      const name = parent.name.getText().replace(/^["']|["']$/g, "");
+      if (TEXT_FIELDS.has(name) && !TECHNICAL_FIELDS.has(name)) return `field ${name}`;
+      return null;
+    }
+    if (ts.isJsxExpression(parent) && parent.parent && !ts.isJsxAttribute(parent.parent)) {
+      return "JSX child";
+    }
+    if (ts.isCallExpression(parent) || ts.isFunctionLike(parent)) {
+      // An argument to a function is only visible through what that function does with it, which
+      // this check cannot see. `t("…")` and friends are handled by the key check instead.
+      return null;
+    }
+    current = parent;
+    parent = parent.parent;
+  }
+  return null;
+}
+
+/**
+ * Formatting calls with a language written into them.
+ *
+ * `toLocaleDateString("fr-FR")` is not a hard-coded sentence, so no amount of looking at string
+ * literals finds it, and it is the same bug: a Polish reader is shown "7 sept." because a call site
+ * decided the language once, in French, for everyone. The same goes for an `Intl` formatter built
+ * on a fixed tag. Both take the language in force instead.
+ */
+const LOCALE_METHODS = /\.(toLocaleDateString|toLocaleTimeString|toLocaleString|toLocaleUpperCase|toLocaleLowerCase)\s*\(/;
+const LOCALE_TAG = /^[a-z]{2}(-[A-Za-z0-9]{2,8})*$/;
+
+function findFrozenLocales(source, path) {
+  const sf = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const lines = source.split("\n");
   const found = [];
-  // A `{/* … */}` comment spans lines, and its middle lines start with prose rather than a marker:
-  // the French in them is documentation, not interface, and reporting it is pure noise.
-  let inBlockComment = false;
-
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    if (inBlockComment) {
-      if (line.includes("*/")) inBlockComment = false;
-      continue;
-    }
-    if (/\{?\/\*/.test(line) && !line.includes("*/")) {
-      inBlockComment = true;
-      continue;
-    }
-    if (i > 0 && lines[i - 1].includes(LINE_OPT_OUT)) continue;
-    // Imports and type-only lines carry no prose.
-    if (/^\s*(import|export type|export \{)/.test(line)) continue;
-    // Comments are written for whoever reads the code, in English like the rest of the repository,
-    // and are never rendered. A doc comment quoting an element name looked like text between tags.
-    if (/^\s*(\/\/|\/\*|\*)/.test(line)) continue;
-    // A line that is already translating is not a finding, whatever quotes it contains.
-    const stripped = line.replace(/\bt\(\s*["'][^"']+["']/g, "");
-
-    // 1. Text between JSX tags: `>Bonjour<`, and the start of a multi-line run. Only in `.tsx`:
-    // in plain TypeScript the same shape is a comparison (`x >= from && now <= to`).
-    if (isJsx) {
-      for (const match of stripped.matchAll(/>\s*([^<>{}\n][^<>{}\n]*)</g)) {
-        if (looksLikeProse(match[1])) found.push({ line: i + 1, text: match[1].trim() });
+  const visit = (node) => {
+    if (ts.isCallExpression(node) || ts.isNewExpression(node)) {
+      const callee = node.expression.getText(sf);
+      const first = node.arguments?.[0];
+      const isFormatter = LOCALE_METHODS.test(`${callee}(`) || /^Intl\.[A-Za-z]+$/.test(callee);
+      if (isFormatter && first && TEXT_LITERAL.has(first.kind) && LOCALE_TAG.test(first.text)) {
+        const line = sf.getLineAndCharacterOfPosition(first.getStart(sf)).line + 1;
+        if (!(line > 1 && lines[line - 2].includes(LINE_OPT_OUT))) {
+          found.push({ line, text: `${callee}("${first.text}")`, file: relative(WEB_ROOT, path) });
+        }
       }
     }
-    // 2. Translatable attributes with a literal value.
-    for (const attr of TEXT_ATTRS) {
-      const re = new RegExp(`\\b${attr}\\s*=\\s*(?:\\{\\s*)?["']([^"']+)["']`, "g");
-      for (const match of stripped.matchAll(re)) {
-        if (looksLikeProse(match[1])) found.push({ line: i + 1, text: match[1].trim() });
-      }
-      // Object form: `{ label: "Inviter des personnes" }`.
-      const objRe = new RegExp(`\\b${attr}\\s*:\\s*["']([^"']+)["']`, "g");
-      for (const match of stripped.matchAll(objRe)) {
-        if (looksLikeProse(match[1])) found.push({ line: i + 1, text: match[1].trim() });
-      }
-    }
-    // 3. Any literal holding an accented character: French prose the other two rules missed.
-    for (const match of stripped.matchAll(/["']([^"'\n]*[À-ÿ][^"'\n]*)["']/g)) {
-      if (looksLikeProse(match[1])) found.push({ line: i + 1, text: match[1].trim() });
-    }
-  }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sf, visit);
+  return found;
+}
 
-  // One report per line, however many rules fired on it.
+/** Hard-coded strings in one file, as `{ line, text, why }`. */
+function findHardCoded(source, path) {
+  if (source.includes(FILE_OPT_OUT)) return [];
+  const sf = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const lines = source.split("\n");
+  const found = [];
+
+  /**
+   * Whether the line carries the marker in the comment above it.
+   *
+   * The comment is read upwards rather than one line back: a reason worth writing rarely fits on one
+   * line, and a marker that stops working when its explanation grows teaches people to write shorter
+   * reasons.
+   */
+  const optedOut = (line) => {
+    for (let i = line - 2; i >= 0; i -= 1) {
+      const text = lines[i].trim();
+      if (text.includes(LINE_OPT_OUT)) return true;
+      if (!text.startsWith("//") && !text.startsWith("*") && !text.startsWith("/*")) return false;
+    }
+    return false;
+  };
+
+  const visit = (node) => {
+    if (ts.isJsxText(node)) {
+      const text = node.text.trim();
+      if (carriesWords(text) && !looksTechnical(text)) {
+        const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+        if (!optedOut(line)) found.push({ line, text, why: "JSX text" });
+      }
+    } else if (ts.isTemplateExpression(node)) {
+      // A sentence built around a value (`${name} a rejoint l'espace`) is still a sentence. Its
+      // words live in the quoted parts, which a scanner looking only at string literals never saw.
+      const parts = [node.head, ...node.templateSpans.map((span) => span.literal)];
+      const text = parts.map((part) => part.text).join(" ").trim();
+      const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+      if (carriesWords(text) && !optedOut(line)) {
+        const where = visiblePosition(node);
+        if (where && !looksTechnical(text)) found.push({ line, text, why: where });
+        else if (looksFrench(text)) found.push({ line, text, why: "French prose" });
+      }
+    } else if (TEXT_LITERAL.has(node.kind)) {
+      const text = node.text.trim();
+      const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+      if (carriesWords(text) && !optedOut(line)) {
+        const where = visiblePosition(node);
+        if (where && !looksTechnical(text)) found.push({ line, text, why: where });
+        else if (looksFrench(text)) found.push({ line, text, why: "French prose" });
+        else if (CAPITALISED_WORD.test(text) && !looksTechnical(text) && !isCompared(node)) {
+          found.push({ line, text, why: "one word, one language" });
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  ts.forEachChild(sf, visit);
+
   const seen = new Set();
-  return found.filter((f) => {
-    const key = `${f.line}:${f.text}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }).map((f) => ({ ...f, file: relative(WEB_ROOT, path) }));
+  return found
+    .filter((f) => {
+      const key = `${f.line}:${f.text}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map((f) => ({ ...f, file: relative(WEB_ROOT, path) }));
 }
 
 /**
@@ -175,6 +307,15 @@ const ALLOWED_DUPLICATES = new Set([
   // later. English happens to collapse them too, but German ("Speichern" / "Merken") and Polish do
   // not, so merging the keys would force one language to say the wrong thing.
   "message.save",
+  // "Espace" is the workspace and the space bar. German says "Bereich" and "Leertaste", Polish
+  // "przestrzeń" and "spacja": one key would put a keyboard key in a navigation menu.
+  "key.space",
+  // "Ajouter" adds people to a channel and adds a second factor to an account. German says
+  // "hinzufügen" for the first and "einrichten" for the second.
+  "security.add",
+  // "Désactiver" turns a notification setting off and takes two-factor authentication off an
+  // account. The second is a security decision and several languages mark it more strongly.
+  "security.disable",
   // "Nom" is the file's name and a person's surname. English already says "Name" and "Surname",
   // German "Name" and "Nachname": merging them would put one of the two words in the wrong place.
   "signup.lastName",
@@ -190,7 +331,7 @@ function keyPaths(value, prefix = "", out = []) {
   return out;
 }
 
-async function loadDictionaries() {
+function loadDictionaries() {
   const locales = readdirSync(DICT_DIR)
     .filter((f) => f.endsWith(".json"))
     .map((f) => f.replace(/\.json$/, ""));
@@ -206,12 +347,35 @@ function valueAt(dict, path) {
   return path.split(".").reduce((node, key) => (node == null ? undefined : node[key]), dict);
 }
 
-/** Keys used in the source, as `t("some.key")`. Dynamic keys are invisible here, by construction. */
+/** The shape of a dictionary key: `section.name`, or `section.group.name`. */
+const KEY_SHAPE = /^[a-z][\w]*(\.[A-Za-z]\w*)+$/;
+
+/**
+ * Keys the source asks for, and where.
+ *
+ * Only the literal inside a `t(...)` or `key(...)` call: a key held in a table is `key("…")`, whose
+ * argument the compiler already checks against the dictionary, and guessing at every other string
+ * shaped like a key reported event names ("message.created") and file names ("image.png") instead.
+ */
 function usedKeys(files) {
-  const used = new Set();
+  const used = new Map();
   for (const file of files) {
     const source = readFileSync(file, "utf8");
-    for (const match of source.matchAll(/\bt\(\s*["']([\w.]+)["']/g)) used.add(match[1]);
+    const relPath = relative(WEB_ROOT, file);
+    // `t("…")` and `key("…")`, but also `tRef.current("…")` and a `<Trans i18nKey="…">`: a key is a
+    // key however it reaches the runtime, and a warning that cannot see three of the four shapes
+    // spends its time reporting live keys as dead ones.
+    const record = (name, index) => {
+      if (used.has(name)) return;
+      used.set(name, `${relPath}:${source.slice(0, index).split("\n").length}`);
+    };
+    for (const match of source.matchAll(/\b(?:t|key|tRef\.current)\(\s*["']([\w.]+)["']/g)) {
+      record(match[1], match.index);
+    }
+    // `<Trans i18nKey={…}>` holds its key in an attribute, and sometimes chooses between two.
+    for (const attr of source.matchAll(/i18nKey=\{?\s*([^}]+)/g)) {
+      for (const literal of attr[1].matchAll(/["']([\w.]+)["']/g)) record(literal[1], attr.index);
+    }
   }
   return used;
 }
@@ -219,24 +383,21 @@ function usedKeys(files) {
 /**
  * Files not yet translated, and tolerated until they are.
  *
- * The interface was written in French throughout before any of this existed, so the choice was
- * between one unreviewable change touching every screen, and a list that shrinks. This is the list.
  * It buys nothing except time: a file on it is still untranslated, and the check fails the moment a
- * new hard-coded string appears anywhere else.
- *
- * Two rules keep it honest: nothing may be added to it (a new screen is written translated), and a
- * file that has become clean is reported so the line goes.
+ * new hard-coded string appears anywhere else. Two rules keep it honest: nothing may be added to it
+ * (a new screen is written translated), and a file that has become clean is reported so the line goes.
  */
 const DEBT_FILE = join(WEB_ROOT, "tools/i18n-audit/untranslated.json");
 const debt = new Set(JSON.parse(readFileSync(DEBT_FILE, "utf8")).files);
 
 const files = SCAN_DIRS.flatMap((dir) => walk(join(WEB_ROOT, dir)));
 const allFindings = files.flatMap((file) => findHardCoded(readFileSync(file, "utf8"), file));
+const frozenLocales = files.flatMap((file) => findFrozenLocales(readFileSync(file, "utf8"), file));
 const hardCoded = allFindings.filter((f) => !debt.has(f.file));
 const stillOwed = new Set(allFindings.filter((f) => debt.has(f.file)).map((f) => f.file));
 const settled = [...debt].filter((file) => !stillOwed.has(file));
 
-const dicts = await loadDictionaries();
+const dicts = loadDictionaries();
 const source = dicts.fr ?? {};
 const sourceKeys = keyPaths(source);
 const problems = [];
@@ -295,10 +456,19 @@ for (const key of sourceKeys) {
   if (!byText.has(normalized)) byText.set(normalized, []);
   byText.get(normalized).push(key);
 }
-const duplicates = [...byText.entries()].filter(([, keys]) => keys.length > 1);
+// Two plural categories of one key saying the same thing is not a duplicate: a language with no
+// distinction there still has to fill both, and the key is one key.
+const duplicates = [...byText.entries()]
+  .map(([text, keys]) => [text, [...new Set(keys.map((k) => pluralBase(k) ?? k))]])
+  .filter(([, keys]) => keys.length > 1);
 
 const used = usedKeys(files);
-const unused = sourceKeys.filter((key) => !used.has(key));
+// A key the source asks for and no dictionary answers draws the key itself on the screen.
+const missing = [...used.entries()].filter(([key]) => {
+  if (sourcePlain.has(key) || sourceBases.has(key)) return false;
+  return true;
+});
+const unused = sourceKeys.filter((key) => !used.has(key) && !used.has(pluralBase(key) ?? key));
 
 let failed = false;
 
@@ -306,12 +476,33 @@ if (hardCoded.length > 0) {
   failed = true;
   console.error(`\n${hardCoded.length} hard-coded string(s): they ship in French to every reader.\n`);
   for (const finding of hardCoded) {
-    console.error(`  ${finding.file}:${finding.line}  ${JSON.stringify(finding.text)}`);
+    console.error(`  ${finding.file}:${finding.line}  ${JSON.stringify(finding.text)}  [${finding.why}]`);
   }
   console.error(
     `\nMove each into lib/i18n/dictionaries and call t("..."). For something that is not prose,\n` +
       `add it to ALLOWED in this script, or mark the line with ${LINE_OPT_OUT} and say why.\n`,
   );
+}
+
+if (frozenLocales.length > 0) {
+  failed = true;
+  console.error(
+    `\n${frozenLocales.length} formatting call(s) with a language written into them: every reader\n` +
+      `gets that one, whatever they chose.\n`,
+  );
+  for (const finding of frozenLocales) {
+    console.error(`  ${finding.file}:${finding.line}  ${finding.text}`);
+  }
+  console.error(`\nFormat with the language in force (see lib/i18n/format.ts).\n`);
+}
+
+if (missing.length > 0) {
+  failed = true;
+  console.error(
+    `\n${missing.length} key(s) asked for and answered by no dictionary: the key itself is drawn.\n`,
+  );
+  for (const [key, where] of missing) console.error(`  ${key}  (${where})`);
+  console.error("");
 }
 
 if (settled.length > 0) {

@@ -113,7 +113,10 @@
     "save": "Salva",
     "creating": "Creazione…",
     "imported": "Importato",
-    "tryAgain": "Riprova tra un istante."
+    "tryAgain": "Riprova tra un istante.",
+    "delete": "Elimina",
+    "create": "Crea",
+    "retry": "Riprova"
   },
   "mfa": {
     "totpTitle": "Verifica in due passaggi",
@@ -196,7 +199,10 @@
     "about": "Informazioni",
     "contact": "Contatti",
     "cropPhoto": "Inquadra la foto",
-    "localTime": "{{time}} ora locale"
+    "localTime": "{{time}} ora locale",
+    "of": "Profilo di {{name}}",
+    "title": "Profilo",
+    "sendMessage": "Invia un messaggio"
   },
   "activity": {
     "threads": "Discussioni",
@@ -223,7 +229,8 @@
     "mentioned": "ti ha menzionato",
     "broadcast": "ha menzionato tutto il canale",
     "replied": "ha risposto in una discussione",
-    "dm": "ti ha inviato un messaggio"
+    "dm": "ti ha inviato un messaggio",
+    "managePrefs": "Gestisci le preferenze di notifica"
   },
   "switcher": {
     "title": "Vai a una conversazione",
@@ -259,7 +266,14 @@
     "directMessages": "Messaggi diretti",
     "startConversation": "Inizia una conversazione",
     "bot": "Bot",
-    "allFavourites": "Tutti i tuoi canali sono nei preferiti, qui sopra."
+    "allFavourites": "Tutti i tuoi canali sono nei preferiti, qui sopra.",
+    "actionsFor": "Azioni per {{name}}",
+    "favourite": "Aggiungi ai preferiti",
+    "unfavourite": "Rimuovi dai preferiti",
+    "spaceSwitch": "Cambia spazio",
+    "spaceSwitchNamed": "Spazio {{name}}, cambia spazio",
+    "space": "Spazio",
+    "favouriteHint": "Tieni a portata i canali che usi: «Aggiungi ai preferiti» nel menu di un canale."
   },
   "welcome": {
     "title": "Primi passi",
@@ -271,7 +285,8 @@
     "message": "Invia un primo messaggio",
     "messageDesc": "Saluta in un canale.",
     "invite": "Invita il tuo team",
-    "inviteDesc": "Ruchoir ha senso in più persone."
+    "inviteDesc": "Ruchoir ha senso in più persone.",
+    "hideForever": "Non mostrare più"
   },
   "crop": {
     "zoom": "Zoom",
@@ -292,7 +307,11 @@
     "help": "Aiuto e scorciatoie",
     "helpHint": "Apri il centro assistenza",
     "editShortcut": "Modifica la scorciatoia: {{label}}",
-    "resetShortcut": "Ripristina la scorciatoia predefinita: {{label}}"
+    "resetShortcut": "Ripristina la scorciatoia predefinita: {{label}}",
+    "conflict": "Già usato da «{{label}}».",
+    "pressCombination": "Premi una combinazione…",
+    "customizeHint": "Personalizza le scorciatoie. Clicca su «Modifica» poi premi la combinazione desiderata; Backspace la rimuove, Esc annulla.",
+    "resetAll": "Ripristina i valori predefiniti"
   },
   "key": {
     "escape": "Esc",
@@ -326,7 +345,18 @@
     "reactionCount_other": "{{count}} reazioni",
     "pinnedTag": "Fissato",
     "replies_many": "{{count}} risposte",
-    "reactionCount_many": "{{count}} reazioni"
+    "reactionCount_many": "{{count}} reazioni",
+    "file": "File",
+    "sentAt": "Inviato {{at}}",
+    "savedTag": "Salvato",
+    "deleted": "Messaggio eliminato",
+    "editedTag": "(modificato)",
+    "fileDeleted": "File eliminato · {{name}}",
+    "openInNewTab": "Apri {{name}} in una nuova scheda",
+    "downloadNamed": "Scarica {{name}}",
+    "reactWith": "Reagisci {{emoji}}",
+    "enlargeImage": "Ingrandisci l'immagine: {{alt}}",
+    "reactionCount": "Reazione {{emoji}}, {{count}}"
   },
   "thread": {
     "title": "Discussione",
@@ -349,12 +379,16 @@
     "send": "Invia",
     "hint": "Invio per inviare · Maiusc+Invio per andare a capo",
     "broadcastChannel": "Avvisa tutti i membri del canale",
-    "broadcastHere": "Avvisa solo chi è connesso"
+    "broadcastHere": "Avvisa solo chi è connesso",
+    "uploading": "invio…",
+    "uploadFailedName": "Non è stato possibile caricare «{{name}}».",
+    "writeIn": "Scrivi in #{{name}}"
   },
   "code": {
     "changeLanguage": "Cambia linguaggio",
     "copy": "Copia il codice",
-    "languagePlaceholder": "Linguaggio…"
+    "languagePlaceholder": "Linguaggio…",
+    "autoDetect": "Rilevamento automatico"
   },
   "image": {
     "openInNewTab": "Apri in una nuova scheda",
@@ -369,19 +403,37 @@
     "noPinnedText": "Fissa un messaggio dal suo menu per ritrovarlo qui.",
     "downloading": "Download",
     "openingLink": "Apertura del link",
-    "openFolder": "Apri la cartella"
+    "openFolder": "Apri la cartella",
+    "openingFolder": "Apertura della cartella"
   },
   "search": {
     "placeholder": "Messaggi, file, persone…",
     "close": "Chiudi la ricerca",
     "prompt": "Digita per cercare in questo canale.",
     "noResult": "Nessun risultato",
-    "noMessageOrFile": "Nessun messaggio o file per «{{query}}»."
+    "noMessageOrFile": "Nessun messaggio o file per «{{query}}».",
+    "searching": "Ricerca…",
+    "querying": "Interrogazione del server.",
+    "messagesCount_one": "Messaggi ({{count}})",
+    "messagesCount_other": "Messaggi ({{count}})",
+    "filesCount_one": "File ({{count}})",
+    "filesCount_other": "File ({{count}})",
+    "messagesCount_many": "Messaggi ({{count}})",
+    "filesCount_many": "File ({{count}})"
   },
   "emoji": {
     "title": "Scegli un emoji",
     "search": "Cerca un emoji",
-    "empty": "Nessun emoji"
+    "empty": "Nessun emoji",
+    "smileys": "Emozioni",
+    "gestures": "Gesti",
+    "hearts": "Cuori",
+    "nature": "Natura",
+    "food": "Cibo",
+    "travel": "Viaggi",
+    "activities": "Attività",
+    "objects": "Oggetti",
+    "symbols": "Simboli"
   },
   "channel": {
     "addPeople": "Aggiungi persone",
@@ -408,7 +460,19 @@
     "alreadyIn": "Già nel canale",
     "added_one": "{{count}} persona aggiunta",
     "added_other": "{{count}} persone aggiunte",
-    "added_many": "{{count}} persone aggiunte"
+    "added_many": "{{count}} persone aggiunte",
+    "accessOf": "Accesso di {{name}}",
+    "roleOf": "Ruolo di {{name}}",
+    "dmNotifications": "Notifiche della conversazione",
+    "channelNotifications": "Notifiche del canale",
+    "muteDm": "Silenzia la conversazione",
+    "muteChannel": "Silenzia il canale",
+    "add": "Aggiungi",
+    "addCount": "Aggiungi ({{count}})",
+    "leaveTitle": "Lasciare #{{name}}?",
+    "leaveBody": "Non riceverai più i messaggi di #{{name}}. Potrai rientrare finché resta pubblico.",
+    "membersAndAccess": "Membri e accesso ({{count}})",
+    "fallbackName": "generale"
   },
   "role": {
     "member": "Membro",
@@ -421,8 +485,17 @@
     "nameStep": "Come si chiama il tuo spazio?",
     "nameHint": "Sarà il nome visibile del tuo spazio di lavoro. Potrai cambiarlo in seguito.",
     "inviteHint": "Aggiungi qualche indirizzo per iniziare in più persone. Potrai invitarne altre dopo.",
-    "spaceName": "Nome dello spazio",
-    "spaceNamePlaceholder": "es. Atelier Nantes"
+    "spaceNamePlaceholder": "es. Atelier Nantes",
+    "ready": "È tutto pronto",
+    "readyNamed": "È tutto pronto, {{name}}",
+    "readyBody": "Lo spazio <strong>{{name}}</strong> sta per essere creato. Potrai importare la cronologia di Slack, Mattermost o Nextcloud in qualsiasi momento dalla barra laterale.",
+    "stepOf": "Passaggio {{step}} di {{total}}",
+    "skip": "Salta",
+    "finish": "Termina",
+    "continue": "Continua",
+    "readyBodyInvited_one": "Lo spazio <strong>{{name}}</strong> sta per essere creato, con {{count}} invito. Potrai importare la cronologia di Slack, Mattermost o Nextcloud in qualsiasi momento dalla barra laterale.",
+    "readyBodyInvited_other": "Lo spazio <strong>{{name}}</strong> sta per essere creato, con {{count}} inviti. Potrai importare la cronologia di Slack, Mattermost o Nextcloud in qualsiasi momento dalla barra laterale.",
+    "readyBodyInvited_many": "Lo spazio <strong>{{name}}</strong> sta per essere creato, con {{count}} inviti. Potrai importare la cronologia di Slack, Mattermost o Nextcloud in qualsiasi momento dalla barra laterale."
   },
   "files": {
     "loadFailed": "Impossibile caricare i file",
@@ -472,7 +545,33 @@
     "folderEmptyText": "Questa cartella non contiene ancora alcun file.",
     "noFileMatch": "Nessun file corrisponde a «{{query}}».",
     "deleteManyTitle": "Eliminare {{count}} elementi?",
-    "count_many": "{{count}} elementi"
+    "count_many": "{{count}} elementi",
+    "previewMeta": "{{size}} · modificato da {{by}} · {{when}}",
+    "ownFilesOnlyDelete": "Puoi eliminare solo i tuoi file, a meno che tu non amministri lo spazio.",
+    "ownFilesOnlyRename": "Puoi rinominare solo i tuoi file, a meno che tu non amministri lo spazio.",
+    "ownFilesOnlyReplace": "Puoi sostituire solo i tuoi file, a meno che tu non amministri lo spazio.",
+    "versionUploaded": "Versione {{version}} caricata",
+    "deletedMany_one": "{{count}} elemento eliminato",
+    "deletedMany_other": "{{count}} elementi eliminati",
+    "movedMany_one": "{{count}} elemento spostato",
+    "movedMany_other": "{{count}} elementi spostati",
+    "upload": "Carica un file",
+    "chooseDestination": "da spostare: apri la cartella di destinazione.",
+    "moveHere": "Sposta qui",
+    "move": "Sposta",
+    "selectedCount_one": "{{count}} selezionato",
+    "selectedCount_other": "{{count}} selezionati",
+    "deleteOneBody": "{{name}} sarà rimosso dallo spazio.",
+    "folderTakesAll": "Una cartella porta con sé tutto ciò che contiene.",
+    "newVersion": "Nuova versione",
+    "select": "Seleziona {{name}}",
+    "open": "Apri {{name}}",
+    "preview": "Anteprima di {{name}}",
+    "renameNamed": "Rinomina {{name}}",
+    "deleteNamed": "Elimina {{name}}",
+    "deletedMany_many": "{{count}} elementi eliminati",
+    "movedMany_many": "{{count}} elementi spostati",
+    "selectedCount_many": "{{count}} selezionati"
   },
   "status": {
     "checking": "Verifica dello stato dell'API…"
@@ -517,17 +616,34 @@
     "cannotInvite": "Solo i proprietari e gli amministratori dello spazio possono invitare persone. Chiedine una a uno di loro.",
     "uses_one": "{{count}} utilizzo",
     "uses_many": "{{count}} utilizzi",
-    "uses_other": "{{count}} utilizzi"
+    "uses_other": "{{count}} utilizzi",
+    "emailPlaceholder": "nome@esempio.it",
+    "createChannel": "Crea il canale",
+    "createSpace": "Crea lo spazio",
+    "customize": "Personalizza",
+    "noMailNotice": "Un link condivisibile porta a un account in attesa di conferma dell'indirizzo, e questa istanza non può inviare alcuna email di conferma. Indica un indirizzo: un invito nominativo attiva subito l'account."
   },
   "conversation": {
     "searchInConversation": "Cerca nella conversazione",
     "members": "Membri",
-    "archivedNotice": "Canale archiviato.",
+    "archivedNotice": "Questo canale è archiviato: resta consultabile, ma non ci si scrive più.",
     "privateNotice": "Canale privato.",
     "importedNotice": "La cronologia è stata ripresa da {{source}}.",
     "today": "Oggi",
     "publicNotice": "Canale pubblico.",
-    "channelStart": "Inizio del canale."
+    "channelStart": "Inizio del canale.",
+    "dmStart": "Questo è l'inizio della tua conversazione privata con {{name}}. I messaggi sono visibili solo a voi due.",
+    "latestMessages": "Ultimi messaggi",
+    "typingOne": "{{name}} sta scrivendo",
+    "read": "Letto",
+    "readByEveryone": "Letto da tutti",
+    "readByOne": "Letto da {{name}}",
+    "readByTwo": "Letto da {{first}} e {{second}}",
+    "readBySome": "Letto da {{count}} su {{audience}}",
+    "typingMany_one": "{{names}} sta scrivendo",
+    "typingMany_other": "{{names}} e altri stanno scrivendo",
+    "unread": "Non letto",
+    "typingMany_many": "{{names}} e altri stanno scrivendo"
   },
   "security": {
     "codesCopied": "Codici copiati",
@@ -571,7 +687,15 @@
     "changePassword": "Modifica la password",
     "currentPassword": "Password attuale",
     "unknown": "…",
-    "wrongPassword": "Password errata."
+    "wrongPassword": "Password errata.",
+    "recoveryKeep": "Conservale fuori dal telefono: servono proprio il giorno in cui non ce l'hai più. Ognuna funziona una sola volta e questo elenco non sarà più mostrato.",
+    "wrongTotpCode": "Questo codice non è corretto. Cambia ogni trenta secondi.",
+    "wrongCurrentPassword": "La password attuale non è corretta.",
+    "disable": "Disattiva",
+    "cannotScan": "Non riesci a scansionare? Inserisci questo indirizzo nella tua app: {{url}}",
+    "passwordOnlyWarning": "Il tuo account sarà protetto solo dalla password.",
+    "notedThem": "Li ho annotati",
+    "allSessionsClosed": "Tutte le sessioni saranno chiuse, compresa questa: accederai di nuovo con la nuova password."
   },
   "space": {
     "general": "Generale",
@@ -595,7 +719,14 @@
     "guests_other": "{{count}} ospiti esterni",
     "bots_one": "{{count}} bot",
     "bots_many": "{{count}} bot",
-    "bots_other": "{{count}} bot"
+    "bots_other": "{{count}} bot",
+    "changeIcon": "Cambia l'icona",
+    "adminsOnlyIcon": "Solo gli amministratori dello spazio possono cambiarla.",
+    "name": "Nome dello spazio",
+    "addressFollowsName": "L'indirizzo dello spazio seguirà il nome. I precedenti continuano a funzionare.",
+    "adminsOnlyRename": "Solo gli amministratori dello spazio possono rinominarlo.",
+    "serverAddress": "Indirizzo del server",
+    "setAtInstall": "Definito all'installazione dell'istanza"
   },
   "prefs": {
     "title": "Preferenze",
@@ -659,7 +790,9 @@
     "shown": "Notifica mostrata",
     "notShown": "Non è apparso nulla",
     "notShownDesc": "Il browser l'ha accettata, ma il sistema non l'ha mostrata. Verifica che le notifiche siano consentite per il tuo browser nelle impostazioni di sistema e che non sia attiva alcuna modalità di concentrazione o «Non disturbare».",
-    "quietHoursActive": "Notifiche sospese dalle {{window}}."
+    "quietHoursActive": "Notifiche sospese dalle {{window}}.",
+    "fontSampleLetters": "Ag",
+    "fontSampleText": "Pranzo d'acqua fa volti sghembi."
   },
   "error": {
     "sessionExpired": "La tua sessione è scaduta. Accedi di nuovo.",
@@ -683,12 +816,14 @@
     "resetFailed": "Reimpostazione non riuscita. Riprova.",
     "signInExpired": "Questa richiesta di accesso è scaduta. Ricomincia.",
     "verifyFailed": "Verifica non riuscita. Riprova.",
-    "passkeyFailedTitle": "Autenticazione con passkey non riuscita",
     "passkeyFailedBody": "Non è stato possibile usare questa passkey. Prova un altro metodo.",
     "nameTaken": "Questo nome è già usato in questo spazio oppure non è utilizzabile.",
     "invalidCredentials": "Indirizzo o password errati.",
     "spaceNameUnusable": "Questo nome di spazio non è utilizzabile. Provane un altro.",
-    "passkeyCancelled": "Autenticazione con passkey annullata."
+    "passkeyCancelled": "Autenticazione con passkey annullata.",
+    "invalidEmail": "Questo indirizzo non sembra valido.",
+    "noChannelRights": "Non hai i diritti su questo canale.",
+    "nameUnusable": "Questo nome non è utilizzabile."
   },
   "toast": {
     "noUnread": "Nessuna conversazione da leggere",
@@ -709,7 +844,6 @@
     "pinNotSynced": "Fissaggio non sincronizzato",
     "messageCopied": "Messaggio copiato",
     "markedUnread": "Segnato come non letto",
-    "messageDeleted": "Messaggio eliminato",
     "deleteFailed": "Eliminazione non riuscita",
     "messageNotSent": "Messaggio non inviato",
     "cannotEmpty": "Un messaggio non può restare vuoto",
@@ -726,7 +860,9 @@
     "spaceUnreachable": "Spazio irraggiungibile",
     "inviteRevoked": "Invito revocato",
     "inviteLinkCreated": "Link d'invito creato",
-    "ssoUnavailable": "Il SSO non è configurato su questa istanza."
+    "ssoUnavailable": "Il SSO non è configurato su questa istanza.",
+    "welcome": "Benvenuto, {{name}}.",
+    "stillReadable": "Puoi continuare a leggerlo, senza notifiche."
   },
   "boot": {
     "loading": "Caricamento",
@@ -738,5 +874,15 @@
     "activity": "Attività",
     "search": "Ricerca",
     "mainContent": "Contenuto principale"
+  },
+  "system": {
+    "memberJoined": "{{who}} si è unito allo spazio.",
+    "memberLeft": "{{who}} ha lasciato lo spazio.",
+    "channelJoined": "{{who}} si è unito al canale.",
+    "channelLeft": "{{who}} ha lasciato il canale.",
+    "channelCreated": "Il canale è stato creato."
+  },
+  "rail": {
+    "unreadActivity": "{{name}}, attività non letta"
   }
 }

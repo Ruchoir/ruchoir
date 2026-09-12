@@ -61,7 +61,7 @@ export function InlineImage({ image }: { image: InlineImageData }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        aria-label={`Agrandir l'image : ${image.alt}`}
+        aria-label={t("message.enlargeImage", { alt: image.alt })}
         style={{
           display: "block",
           marginTop: 8,

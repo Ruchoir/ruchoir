@@ -14,8 +14,8 @@
  * the browser. One dependency doing one thing.
  */
 
-import i18next from "i18next";
-import { initReactI18next } from "react-i18next";
+import i18next, { type ParseKeys, type TOptions } from "i18next";
+import { initReactI18next, Trans, useTranslation as useReactTranslation } from "react-i18next";
 
 import de from "./dictionaries/de.json";
 import en from "./dictionaries/en.json";
@@ -34,6 +34,34 @@ import { DEFAULT_LOCALE, isLocale, matchBrowserLocale, type Locale } from "./con
  * maintenance cost.
  */
 export type Dictionary = typeof fr;
+
+declare module "i18next" {
+  interface CustomTypeOptions {
+    defaultNS: "translation";
+    resources: { translation: Dictionary };
+  }
+}
+
+/** A key the dictionary answers. A typo is a compilation error rather than a word on the screen. */
+export type DictKey = ParseKeys;
+
+/**
+ * A key carried by something other than the call that draws it.
+ *
+ * Tables built at module load (the tabs of a screen, the themes of a picker) hold keys rather than
+ * sentences, so the language of what they draw is decided where they are drawn. The risk that comes
+ * with that is exactly one mistake: forgetting the `t` at the drawing site, which paints
+ * `prefs.themeLight` on the screen instead of "Clair". It shipped that way once.
+ *
+ * So a stored key is not a string. It is an opaque token whose only use is `t`, which makes
+ * rendering one a type error rather than something a reader discovers.
+ */
+export type TranslationKey = { readonly __translationKey: unique symbol };
+
+/** Store a key for a table to hold. The argument is checked against the dictionary. */
+export function key(name: DictKey): TranslationKey {
+  return name as unknown as TranslationKey;
+}
 
 const resources: Record<Locale, { translation: Dictionary }> = {
   fr: { translation: fr },
@@ -104,5 +132,35 @@ export function startI18n(locale: Locale = DEFAULT_LOCALE): typeof i18next {
  */
 startI18n(DEFAULT_LOCALE);
 
-export { useTranslation } from "react-i18next";
+/**
+ * A word that is the same in every language, marked so it can sit in a table of keys.
+ *
+ * Brand names ("IBM Plex Sans", "RuchUI") are not translated and must not take a dictionary entry
+ * each: six copies of "IBM Plex Sans" is six copies of a string nobody will ever translate. Passing
+ * one through `t` draws it unchanged, since a key no dictionary answers is drawn as itself, which is
+ * the behaviour wanted here rather than a fallback being tolerated.
+ */
+export function literal(text: string): TranslationKey {
+  return text as unknown as TranslationKey;
+}
+
+/** The translator, as a helper outside a component receives it. */
+export type Translate = (name: DictKey | TranslationKey, options?: TOptions) => string;
+
+/**
+ * The application's translator: react-i18next's, with `t` widened to accept a stored key.
+ *
+ * Everything imports this rather than the library directly, so the opaque-key rule holds everywhere
+ * without each screen having to know about it.
+ */
+export function useTranslation() {
+  const { t, i18n, ready } = useReactTranslation();
+  const translate = t as unknown as Translate;
+  return { t: translate, i18n, ready };
+}
+/**
+ * For a sentence with markup inside it: the tags stay in the dictionary, so a translator can put
+ * the bold on the word their language puts it on rather than where French happened to.
+ */
+export { Trans };
 export type { Locale } from "./config";

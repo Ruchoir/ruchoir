@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "@/lib/i18n";
+import { asLocale } from "@/lib/i18n/current";
 
 /**
  * Someone's current local time, kept current while it is on screen.
@@ -17,6 +19,7 @@ import { useEffect, useState } from "react";
  * known, and the caller renders no row at all.
  */
 export function useLocalTime(timezone?: string): string | undefined {
+  const { i18n } = useTranslation();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -34,11 +37,11 @@ export function useLocalTime(timezone?: string): string | undefined {
 
   if (!timezone) return undefined;
   try {
-    return new Date(now).toLocaleTimeString("fr-FR", {
+    return new Intl.DateTimeFormat(asLocale(i18n.language), {
       hour: "2-digit",
       minute: "2-digit",
       timeZone: timezone,
-    });
+    }).format(now);
   } catch {
     // A timezone the browser does not know: the row is dropped rather than shown in this browser's
     // own time, which would be someone else's hour presented as theirs.

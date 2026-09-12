@@ -190,7 +190,7 @@ function SideItem({ icon, label, active, unread, muted, notifMuted, tag, onClick
           <IconButton
             ref={moreRef}
             icon="more-horizontal"
-            label={`Actions pour ${label}`}
+            label={t("sidebar.actionsFor", { name: label })}
             size="sm"
             tabIndex={showMore ? 0 : -1}
             aria-hidden={!showMore}
@@ -321,7 +321,7 @@ export function Sidebar({
   const channelMenu = (channel: Channel): SideMenuItem[] => [
     {
       icon: channel.fav ? "star-off" : "star",
-      label: channel.fav ? "Retirer des favoris" : "Ajouter aux favoris",
+      label: channel.fav ? t("sidebar.unfavourite") : t("sidebar.favourite"),
       onClick: () => onToggleFavorite(channel.id),
     },
     { icon: "check-check", label: t("sidebar.markRead"), onClick: () => onMarkRead(channel.id) },
@@ -381,7 +381,7 @@ export function Sidebar({
               aria-expanded={wsMenu}
               // The visible label is the workspace name; give the control a stable accessible name so
               // it is announced even before a workspace has loaded (empty name).
-              aria-label={workspace?.name ? `Espace ${workspace.name}, changer d'espace` : "Changer d'espace"}
+              aria-label={workspace?.name ? t("sidebar.spaceSwitchNamed", { name: workspace.name }) : t("sidebar.spaceSwitch")}
             >
               {workspace?.name}
               <Icon name="chevron-down" size={14} />
@@ -391,7 +391,7 @@ export function Sidebar({
               open={wsMenu}
               onClose={() => setWsMenu(false)}
               items={[
-                { type: "label", label: workspace?.name ?? "Espace" },
+                { type: "label", label: workspace?.name ?? t("sidebar.space") },
                 { icon: "user-plus", label: t("sidebar.invitePeople"), onClick: onInvite },
                 { icon: "settings", label: t("sidebar.spaceSettings"), onClick: () => onView("settings") },
                 { icon: "hard-drive", label: t("sidebar.spaceFiles"), onClick: () => onView("files") },
@@ -462,7 +462,7 @@ export function Sidebar({
               // Says how to fill it, since there is no button that could: a favourite is set on the
               // channel itself, from its own menu.
               <p style={styles.empty}>
-                Gardez vos canaux courants à portée : « Ajouter aux favoris » dans le menu d&apos;un canal.
+                {t("sidebar.favouriteHint")}
               </p>
             ) : null}
             {channels
@@ -487,7 +487,7 @@ export function Sidebar({
               ))}
 
             <div style={styles.sect}>
-              Canaux
+              {t("tabs.channels")}
               <button
                 onClick={onNewChannel}
                 aria-label={t("sidebar.newChannel")}

@@ -6,7 +6,7 @@ import { getChannelMembers, getServerDirectory, subscribeToDirectory } from "@/l
 import { searchShortcodes } from "@/lib/shortcodes";
 import { Emoji } from "../app/Emoji";
 import { useEmojiManifest } from "../app/emojiManifest";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import {
   editorState,
   emojiNode,
@@ -21,7 +21,7 @@ type Member = ReturnType<typeof getChannelMembers>[number];
 /** A ranked autocomplete suggestion, tagged by the trigger that produced it. */
 type Hit =
   | { kind: "mention"; name: string; member: Member }
-  | { kind: "broadcast"; name: string; hint: string }
+  | { kind: "broadcast"; name: string; hint: TranslationKey }
   | { kind: "emoji"; name: string; emoji: string };
 
 /**
@@ -33,9 +33,9 @@ type Hit =
  * reaches the whole channel, the other only the people connected right now.
  */
 /** The two broadcast mentions, with the dictionary key of their hint. */
-const BROADCASTS: { name: string; hint: string }[] = [
-  { name: "canal", hint: "composer.broadcastChannel" },
-  { name: "ici", hint: "composer.broadcastHere" },
+const BROADCASTS: { name: string; hint: TranslationKey }[] = [
+  { name: "canal", hint: key("composer.broadcastChannel") },
+  { name: "ici", hint: key("composer.broadcastHere") },
 ];
 
 type Trigger = { kind: "mention" | "emoji"; query: string; start: number };
@@ -382,7 +382,7 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
         onPaste={onPaste}
       />
       <Popover anchorRef={edRef} open={acOpen} onClose={() => setTrigger(null)} placement="top" align="start">
-        <div id={listId} style={menuStyle} role="listbox" aria-label={trigger?.kind === "emoji" ? "Emojis" : "Membres"}>
+        <div id={listId} style={menuStyle} role="listbox" aria-label={trigger?.kind === "emoji" ? t("prefs.emojis") : t("conversation.members")}>
           {hits.map((hit, idx) => (
             <button
               key={`${hit.kind}-${hit.name}`}

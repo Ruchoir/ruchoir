@@ -9,6 +9,7 @@ import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 import { useStickToBottom } from "./useStickToBottom";
 import { useTranslation } from "@/lib/i18n";
+import { formatStamp } from "@/lib/i18n/format";
 
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 720;
@@ -69,11 +70,11 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-type Reply = { id: string; author: string; time: string; body: string };
+type Reply = { id: string; author: string; createdAt: string; body: string };
 
 /** Reduce a message to the fields the thread row renders. */
-function toReply(m: { id: string; author: string; time: string; body: string }): Reply {
-  return { id: m.id, author: m.author, time: m.time, body: m.body };
+function toReply(m: { id: string; author: string; createdAt: string; body: string }): Reply {
+  return { id: m.id, author: m.author, createdAt: m.createdAt, body: m.body };
 }
 
 function ReplyRow({ r }: { r: Reply }) {
@@ -83,7 +84,7 @@ function ReplyRow({ r }: { r: Reply }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div>
           <span style={styles.name}>{r.author}</span>
-          <span style={styles.time}>{r.time}</span>
+          <span style={styles.time}>{formatStamp(r.createdAt)}</span>
         </div>
         <p style={styles.body}>{r.body}</p>
       </div>
@@ -151,7 +152,7 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
       {
         id: tempId,
         author: me,
-        time: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+        createdAt: new Date().toISOString(),
         body: text,
       },
     ]);
@@ -168,10 +169,10 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
         <IconButton icon="x" label={t("thread.close")} size="sm" onClick={onClose} />
       </div>
       <div style={styles.scroll} ref={scrollRef}>
-        <ReplyRow r={{ id: parent.id, author: parent.author, time: parent.time, body: parent.body }} />
+        <ReplyRow r={{ id: parent.id, author: parent.author, createdAt: parent.createdAt, body: parent.body }} />
         <div style={styles.count}>
           <span style={styles.countLine} />
-          {replies.length} réponses
+          {t("message.replies", { count: replies.length })}
           <span style={styles.countLine} />
         </div>
         {replies.map((r) => (

@@ -1,6 +1,6 @@
 import { type CSSProperties, type FormEvent, useEffect, useState } from "react";
-import { Button, Field, Icon, Input, Switch, Tag } from "@/components/ds";
-import { useTranslation } from "@/lib/i18n";
+import { Button, Field, Icon, type IconName, Input, Switch, Tag } from "@/components/ds";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import {
   getInstanceSettings,
   issuePasswordResetLink,
@@ -77,7 +77,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
   const [busy, setBusy] = useState(false);
   // The dictionary key of the failure, not its sentence: the text is looked up where it is drawn,
   // so an effect never has to capture `t` and re-run every time the language changes.
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TranslationKey | null>(null);
   const [issued, setIssued] = useState<Issued | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -88,7 +88,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
     let active = true;
     searchAccounts("")
       .then((rows) => active && setResults(rows))
-      .catch(() => active && setError("admin.loadFailed"));
+      .catch(() => active && setError(key("admin.loadFailed")));
     return () => {
       active = false;
     };
@@ -103,7 +103,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
     try {
       setResults(await searchAccounts(query.trim()));
     } catch {
-      setError("admin.searchFailed");
+      setError(key("admin.searchFailed"));
     } finally {
       setBusy(false);
     }
@@ -118,7 +118,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
       const { url, expiresInSecs } = await issuePasswordResetLink(user.id);
       setIssued({ user, url, expiresInSecs });
     } catch {
-      setError("admin.issueFailed");
+      setError(key("admin.issueFailed"));
     } finally {
       setBusy(false);
     }
@@ -229,13 +229,13 @@ function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }
   const [busy, setBusy] = useState(false);
   // The dictionary key of the failure, not its sentence: the text is looked up where it is drawn,
   // so an effect never has to capture `t` and re-run every time the language changes.
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TranslationKey | null>(null);
 
   useEffect(() => {
     let active = true;
     getInstanceSettings()
       .then((settings) => active && setShowAdmins(settings.showInstanceAdmins))
-      .catch(() => active && setError("admin.settingsLoadFailed"));
+      .catch(() => active && setError(key("admin.settingsLoadFailed")));
     return () => {
       active = false;
     };
@@ -257,7 +257,7 @@ function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }
       });
     } catch {
       setShowAdmins(!next);
-      setError("admin.settingsSaveFailed");
+      setError(key("admin.settingsSaveFailed"));
     } finally {
       setBusy(false);
     }
@@ -340,9 +340,9 @@ const screen: Record<string, CSSProperties> = {
 type AdminTab = "accounts" | "settings";
 
 /** The sections, with the dictionary key for each label rather than the label itself. */
-const ADMIN_NAV: [AdminTab, string, string][] = [
-  ["accounts", "admin.navAccounts", "users"],
-  ["settings", "admin.navSettings", "settings"],
+const ADMIN_NAV: [AdminTab, TranslationKey, IconName][] = [
+  ["accounts", key("admin.navAccounts"), "users"],
+  ["settings", key("admin.navSettings"), "settings"],
 ];
 
 /** One nav entry, styled like the preferences one so the two screens read as the same furniture. */

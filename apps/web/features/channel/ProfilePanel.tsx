@@ -211,7 +211,7 @@ export function ProfilePanel({
   return (
     <div style={styles.panel}>
       <div style={styles.head}>
-        <span style={styles.title}>{isOwn ? "Mon profil" : "Profil"}</span>
+        <span style={styles.title}>{isOwn ? t("shell.myProfile") : t("profile.title")}</span>
         <IconButton icon="x" label={t("profile.close")} size="sm" onClick={onClose} />
       </div>
       <div style={styles.scroll}>
@@ -302,7 +302,7 @@ export function ProfilePanel({
               )
             ) : (
               <Button variant="primary" size="md" iconLeft="message-square" onClick={onMessage} fullWidth>
-                Envoyer un message
+                {t("profile.sendMessage")}
               </Button>
             )}
           </div>
@@ -337,10 +337,10 @@ export function ProfilePanel({
             <Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
               <Button variant="primary" size="sm" onClick={save}>
-                Enregistrer
+                {t("common.save")}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>
-                Annuler
+                {t("common.cancel")}
               </Button>
             </div>
           </div>

@@ -113,7 +113,10 @@
     "save": "Zapisz",
     "creating": "Tworzenie…",
     "imported": "Zaimportowane",
-    "tryAgain": "Spróbuj ponownie za chwilę."
+    "tryAgain": "Spróbuj ponownie za chwilę.",
+    "delete": "Usuń",
+    "create": "Utwórz",
+    "retry": "Spróbuj ponownie"
   },
   "mfa": {
     "totpTitle": "Weryfikacja dwuetapowa",
@@ -160,7 +163,7 @@
     "online": "Dostępny",
     "away": "Zaraz wracam",
     "busy": "Zajęty",
-    "offline": "Offline",
+    "offline": "Niedostępny",
     "doNotDisturb": "Nie przeszkadzać",
     "invisible": "Niewidoczny"
   },
@@ -196,7 +199,10 @@
     "about": "O mnie",
     "contact": "Kontakt",
     "cropPhoto": "Wykadruj zdjęcie",
-    "localTime": "{{time}} czasu lokalnego"
+    "localTime": "{{time}} czasu lokalnego",
+    "of": "Profil: {{name}}",
+    "title": "Profil",
+    "sendMessage": "Wyślij wiadomość"
   },
   "activity": {
     "threads": "Wątki",
@@ -223,7 +229,8 @@
     "mentioned": "wspomniał o Tobie",
     "broadcast": "wspomniał o całym kanale",
     "replied": "odpowiedział w wątku",
-    "dm": "wysłał Ci wiadomość"
+    "dm": "wysłał Ci wiadomość",
+    "managePrefs": "Zarządzaj ustawieniami powiadomień"
   },
   "switcher": {
     "title": "Przejdź do rozmowy",
@@ -259,7 +266,14 @@
     "directMessages": "Wiadomości bezpośrednie",
     "startConversation": "Rozpocznij rozmowę",
     "bot": "Bot",
-    "allFavourites": "Wszystkie Twoje kanały są w ulubionych, powyżej."
+    "allFavourites": "Wszystkie Twoje kanały są w ulubionych, powyżej.",
+    "actionsFor": "Akcje dla {{name}}",
+    "favourite": "Dodaj do ulubionych",
+    "unfavourite": "Usuń z ulubionych",
+    "spaceSwitch": "Zmień przestrzeń",
+    "spaceSwitchNamed": "Przestrzeń {{name}}, zmień przestrzeń",
+    "space": "Przestrzeń",
+    "favouriteHint": "Miej pod ręką najczęstsze kanały: „Dodaj do ulubionych” w menu kanału."
   },
   "welcome": {
     "title": "Pierwsze kroki",
@@ -271,7 +285,8 @@
     "message": "Wyślij pierwszą wiadomość",
     "messageDesc": "Przywitaj się na kanale.",
     "invite": "Zaproś swój zespół",
-    "inviteDesc": "Ruchoir ma sens, gdy jest was więcej."
+    "inviteDesc": "Ruchoir ma sens, gdy jest was więcej.",
+    "hideForever": "Nie pokazuj ponownie"
   },
   "crop": {
     "zoom": "Powiększenie",
@@ -292,7 +307,11 @@
     "help": "Pomoc i skróty",
     "helpHint": "Otwórz centrum pomocy",
     "editShortcut": "Zmień skrót: {{label}}",
-    "resetShortcut": "Przywróć domyślny skrót: {{label}}"
+    "resetShortcut": "Przywróć domyślny skrót: {{label}}",
+    "conflict": "Już używany przez „{{label}}”.",
+    "pressCombination": "Naciśnij kombinację…",
+    "customizeHint": "Dostosuj skróty. Kliknij „Edytuj”, a potem naciśnij wybraną kombinację; Backspace ją usuwa, Escape anuluje.",
+    "resetAll": "Przywróć ustawienia domyślne"
   },
   "key": {
     "escape": "Esc",
@@ -328,7 +347,18 @@
     "reactionCount_few": "{{count}} reakcje",
     "reactionCount_many": "{{count}} reakcji",
     "reactionCount_other": "{{count}} reakcji",
-    "pinnedTag": "Przypięte"
+    "pinnedTag": "Przypięte",
+    "file": "Plik",
+    "sentAt": "Wysłano {{at}}",
+    "savedTag": "Zapisana",
+    "deleted": "Wiadomość usunięta",
+    "editedTag": "(edytowano)",
+    "fileDeleted": "Plik usunięty · {{name}}",
+    "openInNewTab": "Otwórz {{name}} w nowej karcie",
+    "downloadNamed": "Pobierz {{name}}",
+    "reactWith": "Zareaguj {{emoji}}",
+    "enlargeImage": "Powiększ obraz: {{alt}}",
+    "reactionCount": "Reakcja {{emoji}}, {{count}}"
   },
   "thread": {
     "title": "Wątek",
@@ -351,12 +381,16 @@
     "send": "Wyślij",
     "hint": "Enter aby wysłać · Shift+Enter aby przejść do nowej linii",
     "broadcastChannel": "Powiadamia wszystkich członków kanału",
-    "broadcastHere": "Powiadamia tylko osoby połączone"
+    "broadcastHere": "Powiadamia tylko osoby połączone",
+    "uploading": "wysyłanie…",
+    "uploadFailedName": "Nie udało się przesłać „{{name}}”.",
+    "writeIn": "Napisz w #{{name}}"
   },
   "code": {
     "changeLanguage": "Zmień język",
     "copy": "Kopiuj kod",
-    "languagePlaceholder": "Język…"
+    "languagePlaceholder": "Język…",
+    "autoDetect": "Wykryj automatycznie"
   },
   "image": {
     "openInNewTab": "Otwórz w nowej karcie",
@@ -371,19 +405,39 @@
     "noPinnedText": "Przypnij wiadomość z jej menu, aby znaleźć ją tutaj.",
     "downloading": "Pobieranie",
     "openingLink": "Otwieranie linku",
-    "openFolder": "Otwórz folder"
+    "openFolder": "Otwórz folder",
+    "openingFolder": "Otwieranie folderu"
   },
   "search": {
     "placeholder": "Wiadomości, pliki, osoby…",
     "close": "Zamknij wyszukiwanie",
     "prompt": "Pisz, aby przeszukać ten kanał.",
     "noResult": "Brak wyników",
-    "noMessageOrFile": "Brak wiadomości i plików dla „{{query}}”."
+    "noMessageOrFile": "Brak wiadomości i plików dla „{{query}}”.",
+    "searching": "Szukanie…",
+    "querying": "Odpytywanie serwera.",
+    "messagesCount_one": "Wiadomości ({{count}})",
+    "messagesCount_few": "Wiadomości ({{count}})",
+    "messagesCount_many": "Wiadomości ({{count}})",
+    "messagesCount_other": "Wiadomości ({{count}})",
+    "filesCount_one": "Pliki ({{count}})",
+    "filesCount_few": "Pliki ({{count}})",
+    "filesCount_many": "Pliki ({{count}})",
+    "filesCount_other": "Pliki ({{count}})"
   },
   "emoji": {
     "title": "Wybierz emoji",
     "search": "Szukaj emoji",
-    "empty": "Brak emoji"
+    "empty": "Brak emoji",
+    "smileys": "Emocje",
+    "gestures": "Gesty",
+    "hearts": "Serca",
+    "nature": "Natura",
+    "food": "Jedzenie",
+    "travel": "Podróże",
+    "activities": "Aktywności",
+    "objects": "Przedmioty",
+    "symbols": "Symbole"
   },
   "channel": {
     "addPeople": "Dodaj osoby",
@@ -411,7 +465,19 @@
     "added_one": "Dodano {{count}} osobę",
     "added_few": "Dodano {{count}} osoby",
     "added_many": "Dodano {{count}} osób",
-    "added_other": "Dodano {{count}} osób"
+    "added_other": "Dodano {{count}} osób",
+    "accessOf": "Dostęp: {{name}}",
+    "roleOf": "Rola: {{name}}",
+    "dmNotifications": "Powiadomienia rozmowy",
+    "channelNotifications": "Powiadomienia kanału",
+    "muteDm": "Wycisz rozmowę",
+    "muteChannel": "Wycisz kanał",
+    "add": "Dodaj",
+    "addCount": "Dodaj ({{count}})",
+    "leaveTitle": "Opuścić #{{name}}?",
+    "leaveBody": "Nie będziesz już otrzymywać wiadomości z #{{name}}. Możesz dołączyć ponownie, dopóki kanał jest publiczny.",
+    "membersAndAccess": "Członkowie i dostęp ({{count}})",
+    "fallbackName": "ogólny"
   },
   "role": {
     "member": "Członek",
@@ -424,8 +490,18 @@
     "nameStep": "Jak nazywa się Twoja przestrzeń?",
     "nameHint": "To będzie wyświetlana nazwa Twojej przestrzeni roboczej. Możesz ją później zmienić.",
     "inviteHint": "Dodaj kilka adresów, aby zacząć w większym gronie. Kolejne osoby zaprosisz później.",
-    "spaceName": "Nazwa przestrzeni",
-    "spaceNamePlaceholder": "np. Pracownia Nantes"
+    "spaceNamePlaceholder": "np. Pracownia Nantes",
+    "ready": "Wszystko gotowe",
+    "readyNamed": "Wszystko gotowe, {{name}}",
+    "readyBody": "Przestrzeń <strong>{{name}}</strong> zostanie utworzona. Historię ze Slacka, Mattermosta lub Nextcloud możesz zaimportować w każdej chwili z panelu bocznego.",
+    "stepOf": "Krok {{step}} z {{total}}",
+    "skip": "Pomiń",
+    "finish": "Zakończ",
+    "continue": "Dalej",
+    "readyBodyInvited_one": "Przestrzeń <strong>{{name}}</strong> zostanie utworzona, z {{count}} zaproszeniem. Historię ze Slacka, Mattermosta lub Nextcloud możesz zaimportować w każdej chwili z panelu bocznego.",
+    "readyBodyInvited_few": "Przestrzeń <strong>{{name}}</strong> zostanie utworzona, z {{count}} zaproszeniami. Historię ze Slacka, Mattermosta lub Nextcloud możesz zaimportować w każdej chwili z panelu bocznego.",
+    "readyBodyInvited_many": "Przestrzeń <strong>{{name}}</strong> zostanie utworzona, z {{count}} zaproszeniami. Historię ze Slacka, Mattermosta lub Nextcloud możesz zaimportować w każdej chwili z panelu bocznego.",
+    "readyBodyInvited_other": "Przestrzeń <strong>{{name}}</strong> zostanie utworzona, z {{count}} zaproszenia. Historię ze Slacka, Mattermosta lub Nextcloud możesz zaimportować w każdej chwili z panelu bocznego."
   },
   "files": {
     "loadFailed": "Nie udało się wczytać plików",
@@ -476,7 +552,36 @@
     "noFile": "Brak plików",
     "folderEmptyText": "Ten folder nie zawiera jeszcze żadnego pliku.",
     "noFileMatch": "Żaden plik nie pasuje do „{{query}}”.",
-    "deleteManyTitle": "Usunąć {{count}} elementów?"
+    "deleteManyTitle": "Usunąć {{count}} elementów?",
+    "previewMeta": "{{size}} · zmienione przez {{by}} · {{when}}",
+    "ownFilesOnlyDelete": "Możesz usuwać tylko własne pliki, chyba że administrujesz przestrzenią.",
+    "ownFilesOnlyRename": "Możesz zmieniać nazwy tylko własne pliki, chyba że administrujesz przestrzenią.",
+    "ownFilesOnlyReplace": "Możesz zastępować tylko własne pliki, chyba że administrujesz przestrzenią.",
+    "versionUploaded": "Wersja {{version}} przesłana",
+    "deletedMany_one": "Usunięto {{count}} element",
+    "deletedMany_few": "Usunięto {{count}} elementy",
+    "deletedMany_many": "Usunięto {{count}} elementów",
+    "deletedMany_other": "Usunięto {{count}} elementu",
+    "movedMany_one": "Przeniesiono {{count}} element",
+    "movedMany_few": "Przeniesiono {{count}} elementy",
+    "movedMany_many": "Przeniesiono {{count}} elementów",
+    "movedMany_other": "Przeniesiono {{count}} elementu",
+    "upload": "Prześlij plik",
+    "chooseDestination": "do przeniesienia: otwórz folder docelowy.",
+    "moveHere": "Przenieś tutaj",
+    "move": "Przenieś",
+    "selectedCount_one": "{{count}} zaznaczony",
+    "selectedCount_few": "{{count}} zaznaczone",
+    "selectedCount_many": "{{count}} zaznaczonych",
+    "selectedCount_other": "{{count}} zaznaczonego",
+    "deleteOneBody": "{{name}} zostanie usunięty z przestrzeni.",
+    "folderTakesAll": "Folder zabiera ze sobą całą zawartość.",
+    "newVersion": "Nowa wersja",
+    "select": "Zaznacz {{name}}",
+    "open": "Otwórz {{name}}",
+    "preview": "Podgląd {{name}}",
+    "renameNamed": "Zmień nazwę {{name}}",
+    "deleteNamed": "Usuń {{name}}"
   },
   "status": {
     "checking": "Sprawdzanie stanu API…"
@@ -522,17 +627,35 @@
     "uses_one": "{{count}} użycie",
     "uses_few": "{{count}} użycia",
     "uses_many": "{{count}} użyć",
-    "uses_other": "{{count}} użyć"
+    "uses_other": "{{count}} użyć",
+    "emailPlaceholder": "imie@przyklad.pl",
+    "createChannel": "Utwórz kanał",
+    "createSpace": "Utwórz przestrzeń",
+    "customize": "Dostosuj",
+    "noMailNotice": "Link do udostępnienia prowadzi do konta czekającego na potwierdzenie adresu, a ta instancja nie może wysłać żadnego e-maila potwierdzającego. Podaj adres: imienne zaproszenie aktywuje konto od razu."
   },
   "conversation": {
     "searchInConversation": "Szukaj w rozmowie",
     "members": "Członkowie",
-    "archivedNotice": "Kanał zarchiwizowany.",
+    "archivedNotice": "Ten kanał jest zarchiwizowany: można go czytać, ale nie można już w nim pisać.",
     "privateNotice": "Kanał prywatny.",
     "importedNotice": "Historia została przeniesiona z: {{source}}.",
     "today": "Dzisiaj",
     "publicNotice": "Kanał publiczny.",
-    "channelStart": "Początek kanału."
+    "channelStart": "Początek kanału.",
+    "dmStart": "To początek Twojej prywatnej rozmowy z {{name}}. Wiadomości widzicie tylko wy dwoje.",
+    "latestMessages": "Najnowsze wiadomości",
+    "typingOne": "{{name}} pisze",
+    "read": "Przeczytane",
+    "readByEveryone": "Przeczytane przez wszystkich",
+    "readByOne": "Przeczytane przez: {{name}}",
+    "readByTwo": "Przeczytane przez: {{first}} i {{second}}",
+    "readBySome": "Przeczytane przez {{count}} z {{audience}}",
+    "typingMany_one": "{{names}} pisze",
+    "typingMany_few": "{{names}} i inni piszą",
+    "typingMany_many": "{{names}} i inni piszą",
+    "typingMany_other": "{{names}} i inni piszą",
+    "unread": "Nieprzeczytane"
   },
   "security": {
     "codesCopied": "Kody skopiowane",
@@ -577,7 +700,15 @@
     "changePassword": "Zmień hasło",
     "currentPassword": "Obecne hasło",
     "unknown": "…",
-    "wrongPassword": "Nieprawidłowe hasło."
+    "wrongPassword": "Nieprawidłowe hasło.",
+    "recoveryKeep": "Przechowuj je poza telefonem: przydadzą się dokładnie wtedy, gdy go zabraknie. Każdy działa raz, a ta lista nie zostanie pokazana ponownie.",
+    "wrongTotpCode": "Ten kod jest nieprawidłowy. Zmienia się co trzydzieści sekund.",
+    "wrongCurrentPassword": "Obecne hasło jest nieprawidłowe.",
+    "disable": "Wyłącz",
+    "cannotScan": "Nie możesz zeskanować? Wpisz ten adres w aplikacji: {{url}}",
+    "passwordOnlyWarning": "Twoje konto będzie chronione wyłącznie hasłem.",
+    "notedThem": "Zapisałem je",
+    "allSessionsClosed": "Wszystkie sesje zostaną zamknięte, łącznie z tą: zalogujesz się ponownie nowym hasłem."
   },
   "space": {
     "general": "Ogólne",
@@ -604,7 +735,14 @@
     "bots_one": "{{count}} bot",
     "bots_few": "{{count}} boty",
     "bots_many": "{{count}} botów",
-    "bots_other": "{{count}} botów"
+    "bots_other": "{{count}} botów",
+    "changeIcon": "Zmień ikonę",
+    "adminsOnlyIcon": "Tylko administratorzy przestrzeni mogą ją zmienić.",
+    "name": "Nazwa przestrzeni",
+    "addressFollowsName": "Adres przestrzeni podąży za nazwą. Poprzednie nadal działają.",
+    "adminsOnlyRename": "Tylko administratorzy przestrzeni mogą ją przemianować.",
+    "serverAddress": "Adres serwera",
+    "setAtInstall": "Ustalony przy instalacji instancji"
   },
   "prefs": {
     "title": "Preferencje",
@@ -668,7 +806,9 @@
     "shown": "Powiadomienie wyświetlone",
     "notShown": "Nic się nie pojawiło",
     "notShownDesc": "Przeglądarka je przyjęła, ale system go nie pokazał. Sprawdź w ustawieniach systemu, czy powiadomienia są dozwolone dla Twojej przeglądarki i czy nie jest włączony tryb skupienia lub „Nie przeszkadzać”.",
-    "quietHoursActive": "Powiadomienia wstrzymane od {{window}}."
+    "quietHoursActive": "Powiadomienia wstrzymane od {{window}}.",
+    "fontSampleLetters": "Ąg",
+    "fontSampleText": "Pchnąć w tę łódź jeża lub ośm skrzyń fig."
   },
   "error": {
     "sessionExpired": "Twoja sesja wygasła. Zaloguj się ponownie.",
@@ -692,12 +832,14 @@
     "resetFailed": "Nie udało się zresetować. Spróbuj ponownie.",
     "signInExpired": "To żądanie logowania wygasło. Zacznij od nowa.",
     "verifyFailed": "Weryfikacja nie powiodła się. Spróbuj ponownie.",
-    "passkeyFailedTitle": "Uwierzytelnianie kluczem dostępu nie powiodło się",
     "passkeyFailedBody": "Nie udało się użyć tego klucza dostępu. Spróbuj innej metody.",
     "nameTaken": "Ta nazwa jest już zajęta w tej przestrzeni albo nie można jej użyć.",
     "invalidCredentials": "Nieprawidłowy adres lub hasło.",
     "spaceNameUnusable": "Tej nazwy przestrzeni nie można użyć. Spróbuj innej.",
-    "passkeyCancelled": "Uwierzytelnianie kluczem dostępu anulowane."
+    "passkeyCancelled": "Uwierzytelnianie kluczem dostępu anulowane.",
+    "invalidEmail": "Ten adres nie wygląda poprawnie.",
+    "noChannelRights": "Nie masz uprawnień do tego kanału.",
+    "nameUnusable": "Tej nazwy nie można użyć."
   },
   "toast": {
     "noUnread": "Brak nieprzeczytanych rozmów",
@@ -718,7 +860,6 @@
     "pinNotSynced": "Przypięcie niezsynchronizowane",
     "messageCopied": "Skopiowano wiadomość",
     "markedUnread": "Oznaczono jako nieprzeczytane",
-    "messageDeleted": "Wiadomość usunięta",
     "deleteFailed": "Nie udało się usunąć",
     "messageNotSent": "Wiadomość nie została wysłana",
     "cannotEmpty": "Wiadomość nie może zostać opróżniona",
@@ -735,7 +876,9 @@
     "spaceUnreachable": "Przestrzeń nieosiągalna",
     "inviteRevoked": "Zaproszenie cofnięte",
     "inviteLinkCreated": "Link z zaproszeniem utworzony",
-    "ssoUnavailable": "SSO nie jest skonfigurowane w tej instancji."
+    "ssoUnavailable": "SSO nie jest skonfigurowane w tej instancji.",
+    "welcome": "Witaj, {{name}}.",
+    "stillReadable": "Nadal możesz go czytać, bez powiadomień."
   },
   "boot": {
     "loading": "Wczytywanie",
@@ -747,5 +890,15 @@
     "activity": "Aktywność",
     "search": "Wyszukiwanie",
     "mainContent": "Treść główna"
+  },
+  "system": {
+    "memberJoined": "{{who}} dołączył(a) do przestrzeni.",
+    "memberLeft": "{{who}} opuścił(a) przestrzeń.",
+    "channelJoined": "{{who}} dołączył(a) do kanału.",
+    "channelLeft": "{{who}} opuścił(a) kanał.",
+    "channelCreated": "Kanał został utworzony."
+  },
+  "rail": {
+    "unreadActivity": "{{name}}, nieprzeczytana aktywność"
   }
 }

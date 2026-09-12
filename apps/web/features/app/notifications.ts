@@ -9,6 +9,8 @@
  * them from the unread count without discarding the read state of the others.
  */
 
+import { key, type Translate, type TranslationKey } from "@/lib/i18n";
+
 /**
  * Why a notification exists.
  *
@@ -48,8 +50,8 @@ export type AppNotification = {
   messageId: string;
   /** Short one-line preview of the triggering message. */
   preview: string;
-  /** Human time carried from the source message (e.g. "10:24"). */
-  time: string;
+  /** When the triggering message was sent (RFC 3339): the words around it are drawn per reader. */
+  createdAt: string;
   read: boolean;
 };
 
@@ -100,11 +102,11 @@ export function quietHoursLabel(prefs: NotifPrefs): string {
 }
 
 /** The dictionary key naming what happened, per notification kind. */
-const KIND_VERB: Record<NotifKind, string> = {
-  mention: "notif.mentioned",
-  broadcast: "notif.broadcast",
-  reply: "notif.replied",
-  dm: "notif.dm",
+const KIND_VERB: Record<NotifKind, TranslationKey> = {
+  mention: key("notif.mentioned"),
+  broadcast: key("notif.broadcast"),
+  reply: key("notif.replied"),
+  dm: key("notif.dm"),
 };
 
 /**
@@ -113,7 +115,7 @@ const KIND_VERB: Record<NotifKind, string> = {
  * Takes the translator rather than reaching for one: this is a plain function called from
  * components, and each of them already holds it.
  */
-export function notifSummary(n: AppNotification, t: (key: string) => string): string {
+export function notifSummary(n: AppNotification, t: Translate): string {
   return `${n.actor} ${t(KIND_VERB[n.kind])}`;
 }
 

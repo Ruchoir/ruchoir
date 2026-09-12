@@ -113,7 +113,10 @@
     "save": "Save",
     "creating": "Creating…",
     "imported": "Imported",
-    "tryAgain": "Try again in a moment."
+    "tryAgain": "Try again in a moment.",
+    "delete": "Delete",
+    "create": "Create",
+    "retry": "Try again"
   },
   "mfa": {
     "totpTitle": "Two-step verification",
@@ -196,7 +199,10 @@
     "about": "About",
     "contact": "Contact",
     "cropPhoto": "Frame the photo",
-    "localTime": "{{time}} local time"
+    "localTime": "{{time}} local time",
+    "of": "{{name}}'s profile",
+    "title": "Profile",
+    "sendMessage": "Send a message"
   },
   "activity": {
     "threads": "Threads",
@@ -223,7 +229,8 @@
     "mentioned": "mentioned you",
     "broadcast": "mentioned the whole channel",
     "replied": "replied in a thread",
-    "dm": "sent you a message"
+    "dm": "sent you a message",
+    "managePrefs": "Manage notification preferences"
   },
   "switcher": {
     "title": "Go to a conversation",
@@ -259,7 +266,14 @@
     "directMessages": "Direct messages",
     "startConversation": "Start a conversation",
     "bot": "Bot",
-    "allFavourites": "All your channels are in favourites, above."
+    "allFavourites": "All your channels are in favourites, above.",
+    "actionsFor": "Actions for {{name}}",
+    "favourite": "Add to favourites",
+    "unfavourite": "Remove from favourites",
+    "spaceSwitch": "Switch space",
+    "spaceSwitchNamed": "Space {{name}}, switch space",
+    "space": "Space",
+    "favouriteHint": "Keep the channels you use within reach: \\u201cAdd to favourites\\u201d in a channel's menu."
   },
   "welcome": {
     "title": "Getting started",
@@ -271,7 +285,8 @@
     "message": "Send a first message",
     "messageDesc": "Say hello in a channel.",
     "invite": "Invite your team",
-    "inviteDesc": "Ruchoir makes sense with other people in it."
+    "inviteDesc": "Ruchoir makes sense with other people in it.",
+    "hideForever": "Do not show again"
   },
   "crop": {
     "zoom": "Zoom",
@@ -292,7 +307,11 @@
     "help": "Help and shortcuts",
     "helpHint": "Open the help centre",
     "editShortcut": "Change the shortcut: {{label}}",
-    "resetShortcut": "Restore the default shortcut: {{label}}"
+    "resetShortcut": "Restore the default shortcut: {{label}}",
+    "conflict": "Already used by “{{label}}”.",
+    "pressCombination": "Press a combination…",
+    "customizeHint": "Customize the shortcuts. Click \\u201cEdit\\u201d, then press the combination you want; Backspace clears it, Escape cancels.",
+    "resetAll": "Restore the defaults"
   },
   "key": {
     "escape": "Esc",
@@ -324,7 +343,18 @@
     "replies_other": "{{count}} replies",
     "reactionCount_one": "{{count}} reaction",
     "reactionCount_other": "{{count}} reactions",
-    "pinnedTag": "Pinned"
+    "pinnedTag": "Pinned",
+    "file": "File",
+    "sentAt": "Sent {{at}}",
+    "savedTag": "Saved",
+    "deleted": "Message deleted",
+    "editedTag": "(edited)",
+    "fileDeleted": "File deleted · {{name}}",
+    "openInNewTab": "Open {{name}} in a new tab",
+    "downloadNamed": "Download {{name}}",
+    "reactWith": "React with {{emoji}}",
+    "enlargeImage": "Enlarge the image: {{alt}}",
+    "reactionCount": "Reaction {{emoji}}, {{count}}"
   },
   "thread": {
     "title": "Thread",
@@ -347,12 +377,16 @@
     "send": "Send",
     "hint": "Enter to send · Shift+Enter for a new line",
     "broadcastChannel": "Notifies every member of the channel",
-    "broadcastHere": "Notifies only the people connected"
+    "broadcastHere": "Notifies only the people connected",
+    "uploading": "uploading…",
+    "uploadFailedName": "\\u201c{{name}}\\u201d could not be uploaded.",
+    "writeIn": "Write in #{{name}}"
   },
   "code": {
     "changeLanguage": "Change the language",
     "copy": "Copy the code",
-    "languagePlaceholder": "Language…"
+    "languagePlaceholder": "Language…",
+    "autoDetect": "Auto-detect"
   },
   "image": {
     "openInNewTab": "Open in a new tab",
@@ -367,19 +401,35 @@
     "noPinnedText": "Pin a message from its menu to find it here.",
     "downloading": "Downloading",
     "openingLink": "Opening the link",
-    "openFolder": "Open the folder"
+    "openFolder": "Open the folder",
+    "openingFolder": "Opening the folder"
   },
   "search": {
     "placeholder": "Messages, files, people…",
     "close": "Close the search",
     "prompt": "Type to search this channel.",
     "noResult": "No result",
-    "noMessageOrFile": "No message or file for “{{query}}”."
+    "noMessageOrFile": "No message or file for “{{query}}”.",
+    "searching": "Searching…",
+    "querying": "Asking the server.",
+    "messagesCount_one": "Messages ({{count}})",
+    "messagesCount_other": "Messages ({{count}})",
+    "filesCount_one": "Files ({{count}})",
+    "filesCount_other": "Files ({{count}})"
   },
   "emoji": {
     "title": "Choose an emoji",
     "search": "Search an emoji",
-    "empty": "No emoji"
+    "empty": "No emoji",
+    "smileys": "Smileys",
+    "gestures": "Gestures",
+    "hearts": "Hearts",
+    "nature": "Nature",
+    "food": "Food",
+    "travel": "Travel",
+    "activities": "Activities",
+    "objects": "Objects",
+    "symbols": "Symbols"
   },
   "channel": {
     "addPeople": "Add people",
@@ -405,7 +455,19 @@
     "searchPerson": "Search a person",
     "alreadyIn": "Already in the channel",
     "added_one": "{{count}} person added",
-    "added_other": "{{count}} people added"
+    "added_other": "{{count}} people added",
+    "accessOf": "Access for {{name}}",
+    "roleOf": "Role for {{name}}",
+    "dmNotifications": "Conversation notifications",
+    "channelNotifications": "Channel notifications",
+    "muteDm": "Mute the conversation",
+    "muteChannel": "Mute the channel",
+    "add": "Add",
+    "addCount": "Add ({{count}})",
+    "leaveTitle": "Leave #{{name}}?",
+    "leaveBody": "You will stop receiving messages from #{{name}}. You can join again while it stays public.",
+    "membersAndAccess": "Members and access ({{count}})",
+    "fallbackName": "general"
   },
   "role": {
     "member": "Member",
@@ -418,8 +480,16 @@
     "nameStep": "What is your space called?",
     "nameHint": "This is the display name of your workspace. You can change it later.",
     "inviteHint": "Add a few addresses to start with other people. You can invite more afterwards.",
-    "spaceName": "Space name",
-    "spaceNamePlaceholder": "e.g. Nantes Studio"
+    "spaceNamePlaceholder": "e.g. Nantes Studio",
+    "ready": "Everything is ready",
+    "readyNamed": "Everything is ready, {{name}}",
+    "readyBody": "The space <strong>{{name}}</strong> is about to be created. You can import your Slack, Mattermost or Nextcloud history at any time from the sidebar.",
+    "stepOf": "Step {{step}} of {{total}}",
+    "skip": "Skip",
+    "finish": "Finish",
+    "continue": "Continue",
+    "readyBodyInvited_one": "The space <strong>{{name}}</strong> is about to be created, with {{count}} invitation. You can import your Slack, Mattermost or Nextcloud history at any time from the sidebar.",
+    "readyBodyInvited_other": "The space <strong>{{name}}</strong> is about to be created, with {{count}} invitations. You can import your Slack, Mattermost or Nextcloud history at any time from the sidebar."
   },
   "files": {
     "loadFailed": "Could not load the files",
@@ -468,7 +538,30 @@
     "noFile": "No file",
     "folderEmptyText": "This folder holds no file yet.",
     "noFileMatch": "No file matches “{{query}}”.",
-    "deleteManyTitle": "Delete {{count}} items?"
+    "deleteManyTitle": "Delete {{count}} items?",
+    "previewMeta": "{{size}} · changed by {{by}} · {{when}}",
+    "ownFilesOnlyDelete": "You can only delete your own files, unless you administer the space.",
+    "ownFilesOnlyRename": "You can only rename your own files, unless you administer the space.",
+    "ownFilesOnlyReplace": "You can only replace your own files, unless you administer the space.",
+    "versionUploaded": "Version {{version}} uploaded",
+    "deletedMany_one": "{{count}} item deleted",
+    "deletedMany_other": "{{count}} items deleted",
+    "movedMany_one": "{{count}} item moved",
+    "movedMany_other": "{{count}} items moved",
+    "upload": "Upload a file",
+    "chooseDestination": "to move: open the destination folder.",
+    "moveHere": "Move here",
+    "move": "Move",
+    "selectedCount_one": "{{count}} selected",
+    "selectedCount_other": "{{count}} selected",
+    "deleteOneBody": "{{name}} will be removed from the space.",
+    "folderTakesAll": "A folder takes everything it holds with it.",
+    "newVersion": "New version",
+    "select": "Select {{name}}",
+    "open": "Open {{name}}",
+    "preview": "Preview {{name}}",
+    "renameNamed": "Rename {{name}}",
+    "deleteNamed": "Delete {{name}}"
   },
   "status": {
     "checking": "Checking API health…"
@@ -512,17 +605,33 @@
     "revoke": "Revoke",
     "cannotInvite": "Only the owners and administrators of the space can invite people. Ask one of them to send you an invitation.",
     "uses_one": "{{count}} use",
-    "uses_other": "{{count}} uses"
+    "uses_other": "{{count}} uses",
+    "emailPlaceholder": "name@example.com",
+    "createChannel": "Create the channel",
+    "createSpace": "Create the space",
+    "customize": "Customize",
+    "noMailNotice": "A shareable link leads to an account waiting for its address to be confirmed, and this instance cannot send any confirmation email. Give an address instead: a named invitation activates the account straight away."
   },
   "conversation": {
     "searchInConversation": "Search this conversation",
     "members": "Members",
-    "archivedNotice": "Archived channel.",
+    "archivedNotice": "This channel is archived: it can still be read, but nothing more is written in it.",
     "privateNotice": "Private channel.",
     "importedNotice": "The history was brought over from {{source}}.",
     "today": "Today",
     "publicNotice": "Public channel.",
-    "channelStart": "The start of the channel."
+    "channelStart": "The start of the channel.",
+    "dmStart": "This is the start of your private conversation with {{name}}. The messages are visible to the two of you only.",
+    "latestMessages": "Latest messages",
+    "typingOne": "{{name}} is typing",
+    "read": "Read",
+    "readByEveryone": "Read by everyone",
+    "readByOne": "Read by {{name}}",
+    "readByTwo": "Read by {{first}} and {{second}}",
+    "readBySome": "Read by {{count}} of {{audience}}",
+    "typingMany_one": "{{names}} is typing",
+    "typingMany_other": "{{names}} and others are typing",
+    "unread": "Unread"
   },
   "security": {
     "codesCopied": "Codes copied",
@@ -565,7 +674,15 @@
     "changePassword": "Change the password",
     "currentPassword": "Current password",
     "unknown": "…",
-    "wrongPassword": "Wrong password."
+    "wrongPassword": "Wrong password.",
+    "recoveryKeep": "Keep them off your phone: they are for the day you no longer have it. Each works once, and this list will not be shown again.",
+    "wrongTotpCode": "That code is not right. It changes every thirty seconds.",
+    "wrongCurrentPassword": "Current password is wrong.",
+    "disable": "Turn off",
+    "cannotScan": "Cannot scan? Enter this address in your app: {{url}}",
+    "passwordOnlyWarning": "Your account will be protected by its password alone.",
+    "notedThem": "I have written them down",
+    "allSessionsClosed": "Every session will be closed, including this one: you will sign in again with the new password."
   },
   "space": {
     "general": "General",
@@ -586,7 +703,14 @@
     "guests_one": "{{count}} external guest",
     "guests_other": "{{count}} external guests",
     "bots_one": "{{count}} bot",
-    "bots_other": "{{count}} bots"
+    "bots_other": "{{count}} bots",
+    "changeIcon": "Change the icon",
+    "adminsOnlyIcon": "Only space administrators can change it.",
+    "name": "Space name",
+    "addressFollowsName": "The space address will follow the name. The old ones keep working.",
+    "adminsOnlyRename": "Only space administrators can rename it.",
+    "serverAddress": "Server address",
+    "setAtInstall": "Set when the instance was installed"
   },
   "prefs": {
     "title": "Preferences",
@@ -650,7 +774,9 @@
     "shown": "Notification shown",
     "notShown": "Nothing appeared",
     "notShownDesc": "The browser accepted it, but the system did not show it. Check that notifications are allowed for your browser in the system settings, and that no focus or do-not-disturb mode is on.",
-    "quietHoursActive": "Notifications held from {{window}}."
+    "quietHoursActive": "Notifications held from {{window}}.",
+    "fontSampleLetters": "Ag",
+    "fontSampleText": "The quick brown fox jumps over the lazy dog."
   },
   "error": {
     "sessionExpired": "Your session has expired. Sign in again.",
@@ -674,12 +800,14 @@
     "resetFailed": "Could not reset. Try again.",
     "signInExpired": "This sign-in request has expired. Start again.",
     "verifyFailed": "Could not verify. Try again.",
-    "passkeyFailedTitle": "Passkey authentication failed",
     "passkeyFailedBody": "That passkey could not be used. Try another method.",
     "nameTaken": "That name is already taken in this space, or it cannot be used.",
     "invalidCredentials": "Wrong address or password.",
     "spaceNameUnusable": "That space name cannot be used. Try another one.",
-    "passkeyCancelled": "Passkey authentication cancelled."
+    "passkeyCancelled": "Passkey authentication cancelled.",
+    "invalidEmail": "That address does not look valid.",
+    "noChannelRights": "You do not have rights on this channel.",
+    "nameUnusable": "That name cannot be used."
   },
   "toast": {
     "noUnread": "No unread conversation",
@@ -700,7 +828,6 @@
     "pinNotSynced": "Pin not synced",
     "messageCopied": "Message copied",
     "markedUnread": "Marked as unread",
-    "messageDeleted": "Message deleted",
     "deleteFailed": "Could not delete",
     "messageNotSent": "Message not sent",
     "cannotEmpty": "A message cannot be emptied",
@@ -717,7 +844,9 @@
     "spaceUnreachable": "Space unreachable",
     "inviteRevoked": "Invitation revoked",
     "inviteLinkCreated": "Invitation link created",
-    "ssoUnavailable": "SSO is not configured on this instance."
+    "ssoUnavailable": "SSO is not configured on this instance.",
+    "welcome": "Welcome, {{name}}.",
+    "stillReadable": "You can still read it, without notifications."
   },
   "boot": {
     "loading": "Loading",
@@ -729,5 +858,15 @@
     "activity": "Activity",
     "search": "Search",
     "mainContent": "Main content"
+  },
+  "system": {
+    "memberJoined": "{{who}} joined the space.",
+    "memberLeft": "{{who}} left the space.",
+    "channelJoined": "{{who}} joined the channel.",
+    "channelLeft": "{{who}} left the channel.",
+    "channelCreated": "The channel was created."
+  },
+  "rail": {
+    "unreadActivity": "{{name}}, unread activity"
   }
 }

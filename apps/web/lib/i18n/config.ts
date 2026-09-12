@@ -27,10 +27,17 @@ export const LOCALES: Locale[] = ["fr", "en", "es", "de", "it", "pl"];
 /** The source language: what the interface is written in, and what an untranslated key falls back to. */
 export const DEFAULT_LOCALE: Locale = "fr";
 
-/** What each language calls itself. A language menu that named them in French would be self-defeating. */
+/**
+ * What each language calls itself. A language menu that named them in French would be self-defeating.
+ *
+ * i18n-audit-ignore-file is not what this needs, so the entries carry the marker themselves: these
+ * are the one place in the application where a French-looking string is deliberately not translated.
+ */
 export const LOCALE_NAMES: Record<Locale, string> = {
+  // i18n-audit-ignore-next-line -- a language's own name, by definition not translated
   fr: "Français",
   en: "English",
+  // i18n-audit-ignore-next-line -- a language's own name, by definition not translated
   es: "Español",
   de: "Deutsch",
   it: "Italiano",

@@ -4,7 +4,7 @@ import { type CSSProperties, type FormEvent, useState } from "react";
 import { Button, Checkbox, Field, Icon, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   nameRow: { display: "flex", gap: 10 },
@@ -19,8 +19,8 @@ const styles: Record<string, CSSProperties> = {
 const MIN_PASSWORD_LENGTH = 12;
 
 /** Password rules, as a key and the count it interpolates: the sentence is built where it is drawn. */
-const RULES: { key: string; count: number; test: (pw: string) => boolean }[] = [
-  { key: "signup.minLength", count: MIN_PASSWORD_LENGTH, test: (pw) => pw.length >= MIN_PASSWORD_LENGTH },
+const RULES: { key: TranslationKey; count: number; test: (pw: string) => boolean }[] = [
+  { key: key("signup.minLength"), count: MIN_PASSWORD_LENGTH, test: (pw) => pw.length >= MIN_PASSWORD_LENGTH },
 ];
 
 /** The account details submitted to `POST /auth/register`. */
@@ -111,7 +111,7 @@ export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }
           {RULES.map((r) => {
             const ok = r.test(pw);
             return (
-              <span key={r.key} style={{ ...styles.rule, color: ok ? "var(--status-success-fg)" : "var(--text-subtle)" }}>
+              <span key={String(r.key)} style={{ ...styles.rule, color: ok ? "var(--status-success-fg)" : "var(--text-subtle)" }}>
                 <Icon name={ok ? "check" : "minus"} size={13} />
                 {t(r.key, { count: r.count })}
               </span>

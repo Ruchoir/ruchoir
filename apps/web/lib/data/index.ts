@@ -152,5 +152,6 @@ export type {
   Reaction,
   SpaceFile,
   SpaceFileKind,
+  SystemEvent,
   Workspace,
 } from "./types";

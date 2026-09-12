@@ -8,6 +8,8 @@
  * customized in the preferences.
  */
 
+import { key, literal, type Translate, type TranslationKey } from "@/lib/i18n";
+
 export type ShortcutId =
   | "search"
   | "switcher"
@@ -22,10 +24,10 @@ export type Bindings = Record<ShortcutId, string>;
 
 export type CommandDef = {
   id: ShortcutId;
-  /** French UI label. */
-  label: string;
-  /** Short description shown under the label. */
-  hint: string;
+  /** The dictionary key naming the command. */
+  label: TranslationKey;
+  /** Key of the short description shown under the label. */
+  hint: TranslationKey;
   /** Factory-default chord. */
   defaultChord: string;
 };
@@ -41,13 +43,13 @@ export type CommandDef = {
  * before a language is in force, and the help screen translates each entry as it draws it.
  */
 export const COMMANDS: CommandDef[] = [
-  { id: "search", label: "shortcut.search", hint: "shortcut.searchHint", defaultChord: "Mod+K" },
-  { id: "switcher", label: "switcher.title", hint: "shortcut.switcherHint", defaultChord: "Mod+J" },
-  { id: "newMessage", label: "shell.newMessage", hint: "shortcut.newMessageHint", defaultChord: "Mod+Shift+M" },
-  { id: "nextUnread", label: "shortcut.nextUnread", hint: "shortcut.nextUnreadHint", defaultChord: "Alt+Shift+ArrowDown" },
-  { id: "prevUnread", label: "shortcut.prevUnread", hint: "shortcut.prevUnreadHint", defaultChord: "Alt+Shift+ArrowUp" },
-  { id: "markRead", label: "sidebar.markRead", hint: "shortcut.markReadHint", defaultChord: "Shift+Escape" },
-  { id: "help", label: "shortcut.help", hint: "shortcut.helpHint", defaultChord: "?" },
+  { id: "search", label: key("shortcut.search"), hint: key("shortcut.searchHint"), defaultChord: "Mod+K" },
+  { id: "switcher", label: key("switcher.title"), hint: key("shortcut.switcherHint"), defaultChord: "Mod+J" },
+  { id: "newMessage", label: key("shell.newMessage"), hint: key("shortcut.newMessageHint"), defaultChord: "Mod+Shift+M" },
+  { id: "nextUnread", label: key("shortcut.nextUnread"), hint: key("shortcut.nextUnreadHint"), defaultChord: "Alt+Shift+ArrowDown" },
+  { id: "prevUnread", label: key("shortcut.prevUnread"), hint: key("shortcut.prevUnreadHint"), defaultChord: "Alt+Shift+ArrowUp" },
+  { id: "markRead", label: key("sidebar.markRead"), hint: key("shortcut.markReadHint"), defaultChord: "Shift+Escape" },
+  { id: "help", label: key("shortcut.help"), hint: key("shortcut.helpHint"), defaultChord: "?" },
 ];
 
 // No positional "switch to space N" command. Every modifier plus a digit is taken by some browser
@@ -74,6 +76,8 @@ export function mergeBindings(raw: unknown): Bindings {
 
 /** Normalize a single key name for a chord (letters upper-cased, space named). */
 function normalizeKey(key: string): string {
+  // i18n-audit-ignore-next-line -- the stored name of a key inside a chord ("Mod+Space"), never
+  // drawn: what a reader sees comes from NAMED_LABELS below.
   if (key === " " || key === "Spacebar") return "Space";
   if (key.length === 1) return /[a-z]/i.test(key) ? key.toUpperCase() : key;
   return key; // ArrowDown, Escape, Enter, Tab, F-keys, etc.
@@ -109,17 +113,17 @@ export function isMac(): boolean {
   return /Mac|iPhone|iPad|iPod/.test(p);
 }
 
-const NAMED_LABELS: Record<string, string> = {
-  ArrowUp: "↑",
-  ArrowDown: "↓",
-  ArrowLeft: "←",
-  ArrowRight: "→",
-  Escape: "key.escape",
-  Enter: "key.enter",
-  Space: "key.space",
-  Tab: "Tab",
-  Backspace: "key.backspace",
-  Delete: "key.delete",
+const NAMED_LABELS: Record<string, TranslationKey> = {
+  ArrowUp: literal("↑"),
+  ArrowDown: literal("↓"),
+  ArrowLeft: literal("←"),
+  ArrowRight: literal("→"),
+  Escape: key("key.escape"),
+  Enter: key("key.enter"),
+  Space: key("key.space"),
+  Tab: literal("Tab"),
+  Backspace: key("key.backspace"),
+  Delete: key("key.delete"),
 };
 
 /**
@@ -130,18 +134,24 @@ const NAMED_LABELS: Record<string, string> = {
  * prints the same way, so they pass straight through. A missing translator leaves the raw key name,
  * which is still readable and never a French word shown to someone reading Polish.
  */
-export function formatChord(chord: string, mac: boolean = isMac(), t?: (key: string) => string): string {
+export function formatChord(chord: string, mac: boolean = isMac(), t?: Translate): string {
   if (!chord) return "";
   const sep = mac ? " " : " + ";
   return chord
     .split("+")
     .map((p) => {
+      // i18n-audit-ignore-next-line -- what is printed on the key itself: every keyboard this runs
+      // on says Ctrl and Alt, including the French ones, which is why only Shift has a dictionary entry.
       if (p === "Mod") return mac ? "⌘" : "Ctrl";
+      // i18n-audit-ignore-next-line -- what is printed on the key itself, on every keyboard
       if (p === "Alt") return mac ? "⌥" : "Alt";
+      // i18n-audit-ignore-next-line -- the fallback when no translator is in hand, as above
       if (p === "Shift") return mac ? "⇧" : t ? t("key.shift") : "Shift";
       const named = NAMED_LABELS[p];
       if (!named) return p;
-      return named.startsWith("key.") ? (t ? t(named) : p) : named;
+      // Without a translator (a chord drawn before one is in hand) the raw key name is the honest
+      // fallback: it is what the keyboard has written on it.
+      return t ? t(named) : p;
     })
     .join(sep);
 }

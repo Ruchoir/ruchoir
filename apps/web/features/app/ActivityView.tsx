@@ -2,31 +2,32 @@
 
 import type { CSSProperties } from "react";
 import { Avatar, EmptyState, Icon, type IconName, Tag } from "@/components/ds";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { getAvatar, getPresence } from "@/lib/data";
 import { type ActivityItem, messageSummary } from "./activity";
+import { formatStamp } from "@/lib/i18n/format";
 
 export type ActivityKind = "threads" | "mentions" | "saved";
 
 /** Per-view copy, as dictionary keys: the table is built at module load, before a language exists. */
-const META: Record<ActivityKind, { icon: IconName; title: string; emptyTitle: string; emptyText: string }> = {
+const META: Record<ActivityKind, { icon: IconName; title: TranslationKey; emptyTitle: TranslationKey; emptyText: TranslationKey }> = {
   threads: {
     icon: "inbox",
-    title: "activity.threads",
-    emptyTitle: "activity.threadsEmptyTitle",
-    emptyText: "activity.threadsEmptyText",
+    title: key("activity.threads"),
+    emptyTitle: key("activity.threadsEmptyTitle"),
+    emptyText: key("activity.threadsEmptyText"),
   },
   mentions: {
     icon: "at-sign",
-    title: "activity.mentions",
-    emptyTitle: "activity.mentionsEmptyTitle",
-    emptyText: "activity.mentionsEmptyText",
+    title: key("activity.mentions"),
+    emptyTitle: key("activity.mentionsEmptyTitle"),
+    emptyText: key("activity.mentionsEmptyText"),
   },
   saved: {
     icon: "bookmark",
-    title: "activity.saved",
-    emptyTitle: "activity.savedEmptyTitle",
-    emptyText: "activity.savedEmptyText",
+    title: key("activity.saved"),
+    emptyTitle: key("activity.savedEmptyTitle"),
+    emptyText: key("activity.savedEmptyText"),
   },
 };
 
@@ -103,7 +104,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
                   <span style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
                     <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{it.message.author}</span>
                     <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      {it.label} · {it.message.time}
+                      {it.label} · {formatStamp(it.message.createdAt)}
                     </span>
                     {kind === "saved" ? <Icon name="bookmark" size={13} style={{ color: "var(--terracotta-500)" }} /> : null}
                   </span>
@@ -122,7 +123,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
                   {kind === "threads" && it.message.replies ? (
                     <span style={{ display: "inline-flex", marginTop: 8 }}>
                       <Tag tone="accent" icon="message-square">
-                        {it.message.replies} réponse{it.message.replies > 1 ? "s" : ""}
+                        {t("message.replies", { count: it.message.replies })}
                       </Tag>
                     </span>
                   ) : null}

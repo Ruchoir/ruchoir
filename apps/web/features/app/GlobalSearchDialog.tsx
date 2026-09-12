@@ -7,6 +7,7 @@ import { type FileHit, search, type SearchMessage } from "@/lib/data/api";
 import { getAvatar } from "@/lib/data";
 import { messageSummary } from "./activity";
 import { useTranslation } from "@/lib/i18n";
+import { formatStamp } from "@/lib/i18n/format";
 
 const styles: Record<string, CSSProperties> = {
   label: {
@@ -181,8 +182,8 @@ export function GlobalSearchDialog({
           <EmptyState
             size="compact"
             icon="search"
-            title={loading ? "Recherche…" : t("search.noResult")}
-            description={loading ? "Interrogation du serveur." : `Rien ne correspond à « ${query} ».`}
+            title={loading ? t("search.searching") : t("search.noResult")}
+            description={loading ? t("search.querying") : t("switcher.noMatch", { query })}
           />
         ) : (
           <>
@@ -203,7 +204,7 @@ export function GlobalSearchDialog({
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
                         {m.author}
-                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
+                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                       </span>
                       <span
                         style={{

@@ -133,7 +133,7 @@ export function WorkspaceRail({
           mentions > 0
             ? `${w.name}, ${mentions} notification${mentions > 1 ? "s" : ""}`
             : activity
-              ? `${w.name}, activité non lue`
+              ? t("rail.unreadActivity", { name: w.name })
               : w.name;
         return (
           <Tooltip key={w.id} label={label} side="right">
