@@ -771,10 +771,54 @@ export async function setReadCursor(conversationId: string, lastReadMessageId: s
   await apiPut<void>(`/conversations/${conversationId}/read`, { last_read_message_id: lastReadMessageId });
 }
 
+/** A bookmarked message with where it was said, since it often sits in a space not loaded here. */
+export type SavedMessage = {
+  message: ApiMessage;
+  /** The conversation it was said in. The front `Message` does not carry it, and the label needs it. */
+  conversationId: string;
+  spaceId: string;
+  spaceName: string;
+  /** The channel's name; absent for a direct message, which is how the two are told apart. */
+  channelName?: string;
+};
+
+/**
+ * `GET /me/saved`: every message the caller has bookmarked, newest first.
+ *
+ * The whole account, not the space on screen. The view used to filter the messages held in memory,
+ * which meant a bookmark kept its promise only until the conversation moved on or the reader
+ * switched space, and surviving both is the point of a bookmark.
+ */
+export async function getSavedMessages(signal?: AbortSignal): Promise<SavedMessage[]> {
+  const rows = await apiGet<(MessageDto & { space_id: string; space_name: string; channel_name?: string })[]>(
+    "/me/saved",
+    signal,
+  );
+  return rows.map((row) => ({
+    message: toMessage(row),
+    conversationId: row.conversation_id,
+    spaceId: row.space_id,
+    spaceName: row.space_name,
+    channelName: row.channel_name,
+  }));
+}
+
 /** `PUT|DELETE /messages/{id}/save`: bookmark or un-bookmark a message. */
 export async function setMessageSaved(messageId: string, saved: boolean): Promise<void> {
   if (saved) await apiPut<void>(`/messages/${messageId}/save`);
   else await apiDelete<void>(`/messages/${messageId}/save`);
+}
+
+/**
+ * `GET /channels/{id}/pins`: every pinned message of a channel, newest first.
+ *
+ * Asked for rather than filtered out of what is on screen: a pin is meant to survive the
+ * conversation moving on, so the one that matters is usually older than the page in memory, and
+ * deriving the panel from the loaded messages hid exactly the pins worth keeping.
+ */
+export async function getPinnedMessages(channelId: string, signal?: AbortSignal): Promise<ApiMessage[]> {
+  const rows = await apiGet<MessageDto[]>(`/channels/${channelId}/pins`, signal);
+  return rows.map(toMessage);
 }
 
 /** `PUT|DELETE /channels/{channelId}/pins/{messageId}`: pin or unpin a message in a channel. */

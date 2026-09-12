@@ -23,7 +23,8 @@ use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
 
 use super::authz;
-use super::dto::MessageDto;
+use super::conversations;
+use super::dto::SavedMessageDto;
 use super::error::ApiError;
 use super::messages::{hydrate_messages, load_message};
 
@@ -39,12 +40,12 @@ struct SaveEvent {
     get,
     path = "/api/v1/me/saved",
     tag = "messaging",
-    responses((status = 200, description = "Saved messages", body = [MessageDto]))
+    responses((status = 200, description = "Saved messages", body = [SavedMessageDto]))
 )]
 pub async fn list_saved(
     State(state): State<AppState>,
     session: AuthSession,
-) -> Result<Json<Vec<MessageDto>>, ApiError> {
+) -> Result<Json<Vec<SavedMessageDto>>, ApiError> {
     let saved = user_saved_messages::Entity::find()
         .filter(user_saved_messages::Column::UserId.eq(session.user_id))
         .order_by_desc(user_saved_messages::Column::SavedAt)
@@ -80,8 +81,23 @@ pub async fn list_saved(
         }
     }
 
+    let conversation_ids: Vec<Uuid> = rows.iter().map(|m| m.conversation_id).collect();
+    let labels = conversations::label_conversations(&state.db, conversation_ids).await?;
+    let hydrated = hydrate_messages(&state.db, session.user_id, rows).await?;
+
     Ok(Json(
-        hydrate_messages(&state.db, session.user_id, rows).await?,
+        hydrated
+            .into_iter()
+            .map(|message| {
+                let label = labels.get(&message.conversation_id);
+                SavedMessageDto {
+                    space_id: label.map(|l| l.space_id).unwrap_or_default(),
+                    space_name: label.map(|l| l.space_name.clone()).unwrap_or_default(),
+                    channel_name: label.and_then(|l| l.channel_name.clone()),
+                    message,
+                }
+            })
+            .collect(),
     ))
 }
 

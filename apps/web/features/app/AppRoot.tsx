@@ -21,6 +21,7 @@ import {
   getInvitations,
   getNotifications,
   getReadCursors,
+  getSavedMessages,
   getSession,
   getSpaceMembers,
   getSpacePresence,
@@ -71,6 +72,7 @@ import type {
 } from "@/lib/data";
 import { Button, Dialog, Drawer } from "@/components/ds";
 import type { Presence } from "@/components/ds";
+import type { SavedMessage } from "@/lib/data/api";
 import type { PresenceChoice } from "@/lib/data";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
 import { ChannelNotificationsDialog, ChannelSettingsDialog } from "@/features/channel/ChannelDialogs";
@@ -86,7 +88,7 @@ import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
 import { ImportDialog } from "@/features/import/ImportDialog";
 import { ActivityView } from "./ActivityView";
-import { collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
+import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import { HelpDialog, InviteDialog, NewChannelDialog, NewMessageDialog, NewWorkspaceDialog } from "./dialogs";
 import { GettingStarted } from "./GettingStarted";
 import { GlobalSearchDialog } from "./GlobalSearchDialog";
@@ -1173,7 +1175,38 @@ function AppShell() {
     if (dm?.userId) return dm.userId;
     return Object.entries(userNames).find(([, name]) => name === profile)?.[0];
   }, [profile, dms, userNames]);
-  const saved = collectSaved(messages, channels, dms);
+  /**
+   * Bookmarks, from the server, for the whole account.
+   *
+   * Derived from the loaded messages until the request lands, so the view is never blank, and
+   * re-read whenever the Saved view is opened: it is a small list and the alternative is a page
+   * that silently omits everything outside the space on screen, which is most of it.
+   */
+  const [savedRows, setSavedRows] = useState<SavedMessage[] | null>(null);
+  useEffect(() => {
+    if (view !== "saved") return;
+    let active = true;
+    getSavedMessages()
+      .then((rows) => active && setSavedRows(rows))
+      .catch(() => {
+        // The derived list stays: fewer bookmarks than there are beats none.
+      });
+    return () => {
+      active = false;
+    };
+  }, [view]);
+  const saved: ActivityItem[] =
+    savedRows?.map((row) => ({
+      channelId: row.conversationId,
+      // The server's name, unless this client knows the conversation and can say it its own way.
+      label:
+        channels.find((c) => c.id === row.conversationId)?.name !== undefined
+          ? `#${channels.find((c) => c.id === row.conversationId)?.name}`
+          : (dms.find((d) => d.id === row.conversationId)?.name ??
+            (row.channelName ? `#${row.channelName}` : row.message.author)),
+      isDm: !row.channelName,
+      message: row.message,
+    })) ?? collectSaved(messages, channels, dms);
   const mentions = collectMentions(messages, channels, dms, currentUser);
   const threads = collectThreads(messages, channels, dms);
 

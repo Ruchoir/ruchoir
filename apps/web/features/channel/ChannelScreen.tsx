@@ -3,6 +3,7 @@
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
 import { getAvatar, getChannelMembers } from "@/lib/data";
+import { getPinnedMessages } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { useProfile } from "../app/useProfile";
@@ -323,7 +324,34 @@ export function ChannelScreen({
   // place that holds the picture. Absent means the locally generated avatar, which is the default.
   const avatarByName = new Map(members.map((m) => [m.name, m.avatar] as const));
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
-  const pinned = messages.filter((m) => m.pinned && !m.deleted);
+  /**
+   * The channel's pins, from the server, with what is on screen as the starting point.
+   *
+   * The derived list is kept as the first answer so the panel is never empty while the request is
+   * in flight, and it is what keeps the panel honest between a pin and the refetch: pinning a
+   * message updates the loaded one immediately.
+   */
+  const derivedPins = messages.filter((m) => m.pinned && !m.deleted);
+  // Stamped with the conversation it belongs to, so switching channels falls back to the derived
+  // list on the spot rather than showing the previous channel's pins until the fetch returns.
+  const [fetchedPins, setFetchedPins] = useState<{ channelId: string; rows: Message[] } | null>(null);
+  const pinCount = derivedPins.length;
+  useEffect(() => {
+    if (panel !== "pinned") return;
+    let active = true;
+    const id = channel.id;
+    getPinnedMessages(id)
+      .then((rows) => active && setFetchedPins({ channelId: id, rows }))
+      .catch(() => {
+        // The derived list stays on screen: fewer pins than there are beats none at all.
+      });
+    return () => {
+      active = false;
+    };
+    // Re-read when the panel opens, when the conversation changes, and when a pin is added or
+    // removed here, which is what `pinCount` stands for.
+  }, [panel, channel.id, pinCount]);
+  const pinned = fetchedPins?.channelId === channel.id ? fetchedPins.rows : derivedPins;
   const togglePanel = (p: Exclude<ChannelPanel, null>) => onPanel(panel === p ? null : p);
   const [menuDialog, setMenuDialog] = useState<MenuDialog>(null);
 

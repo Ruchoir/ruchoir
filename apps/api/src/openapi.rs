@@ -138,6 +138,7 @@ use utoipa::OpenApi;
         crate::messaging::dto::SendMessageRequest,
         crate::messaging::dto::EditMessageRequest,
         crate::messaging::dto::FavoriteRequest,
+        crate::messaging::dto::SavedMessageDto,
         crate::messaging::dto::ReadRequest,
         crate::messaging::read::ReadCursorDto,
         crate::messaging::dto::CreateDmRequest,

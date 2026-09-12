@@ -399,6 +399,70 @@ pub async fn create_dm(
     Ok((StatusCode::CREATED, Json(ConversationRef { id: dm_id })))
 }
 
+/// Where a set of conversations live, in words: the channel's name (absent for a direct message)
+/// and the space's.
+///
+/// Shared by the notification feed and the saved list, which both hand a client rows pointing at
+/// conversations it may never have loaded. A client cannot name those, so anything that travels
+/// outside the space on screen carries its labels with it, and the two lists derive them the same
+/// way rather than each growing its own.
+pub(super) struct ConversationLabel {
+    pub space_id: Uuid,
+    pub space_name: String,
+    /// The channel's name; `None` for a direct message, which is how the two are told apart.
+    pub channel_name: Option<String>,
+}
+
+pub(super) async fn label_conversations<C: ConnectionTrait>(
+    db: &C,
+    ids: Vec<Uuid>,
+) -> Result<HashMap<Uuid, ConversationLabel>, ApiError> {
+    if ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let spaces_by_conversation: HashMap<Uuid, Uuid> = conversations::Entity::find()
+        .filter(conversations::Column::Id.is_in(ids.clone()))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|c| (c.id, c.space_id))
+        .collect();
+
+    // A channel and its conversation share an id, so this is a lookup by the same key.
+    let channel_names: HashMap<Uuid, String> = channels::Entity::find()
+        .filter(channels::Column::Id.is_in(ids))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|c| (c.id, c.name))
+        .collect();
+
+    let space_names: HashMap<Uuid, String> = spaces::Entity::find()
+        .filter(
+            spaces::Column::Id.is_in(spaces_by_conversation.values().copied().collect::<Vec<_>>()),
+        )
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|s| (s.id, s.name))
+        .collect();
+
+    Ok(spaces_by_conversation
+        .into_iter()
+        .map(|(conversation_id, space_id)| {
+            (
+                conversation_id,
+                ConversationLabel {
+                    space_id,
+                    space_name: space_names.get(&space_id).cloned().unwrap_or_default(),
+                    channel_name: channel_names.get(&conversation_id).cloned(),
+                },
+            )
+        })
+        .collect())
+}
+
 /// Count of unread, non-deleted root messages for a caller in a conversation.
 pub(super) async fn unread_count(
     db: &DatabaseConnection,
