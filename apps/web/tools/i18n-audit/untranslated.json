@@ -1,6 +1,4 @@
 {
   "note": "Files still written in French in the source. The list only ever shrinks: see tools/i18n-audit/run.mjs.",
-  "files": [
-    "features/app/AppRoot.tsx"
-  ]
+  "files": []
 }

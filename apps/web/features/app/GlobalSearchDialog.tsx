@@ -188,7 +188,7 @@ export function GlobalSearchDialog({
           <>
             {msgHits.length > 0 ? (
               <>
-                <div style={styles.label}>{t("gsearch.messages")}</div>
+                <div style={styles.label}>{t("tabs.messages")}</div>
                 {msgHits.map((m, i) => (
                   <button
                     key={`${m.conversationId}:${m.id}`}

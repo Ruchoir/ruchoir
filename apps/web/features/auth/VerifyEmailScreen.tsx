@@ -119,7 +119,7 @@ export function VerifyEmailScreen({
         <>
           <h1 style={authStyles.title}>{t("verify.errorTitle")}</h1>
           <p style={authStyles.subtitle}>
-            {error ?? t("verify.errorDefault")} {t("verify.errorHint")}
+            {error ?? t("error.invalidLink")} {t("verify.errorHint")}
           </p>
           <form style={authStyles.fields} onSubmit={resend}>
             <Field label={t("login.email")} htmlFor="verify-mail">

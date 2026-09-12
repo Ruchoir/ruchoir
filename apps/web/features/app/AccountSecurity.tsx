@@ -233,7 +233,7 @@ export function AccountSecuritySection({
         refresh();
         onNotify?.({ tone: "info", title: t("security.passkeyRemoved") });
       })
-      .catch(() => onNotify?.({ tone: "danger", title: t("security.removeFailed") }));
+      .catch(() => onNotify?.({ tone: "danger", title: t("toast.deleteFailed") }));
   };
 
   const submitPassword = () => {
