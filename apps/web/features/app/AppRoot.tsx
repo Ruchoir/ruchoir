@@ -2902,6 +2902,10 @@ function AppShell() {
       ) : null}
       {view === "settings" ? (
         <WorkspaceSettings
+          // Keyed by the space: the screen holds the name being edited in its own state, seeded once
+          // from the space it was opened on. Without this, switching space left the previous name in
+          // the field, and pressing save would have renamed the new space to the old one's name.
+          key={ws}
           workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
           spaceId={ws}
           iconUrl={workspaces.find((w) => w.id === ws)?.iconUrl}

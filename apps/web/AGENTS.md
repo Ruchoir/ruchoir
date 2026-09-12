@@ -99,6 +99,18 @@ own role does not live in the roster: it is `Workspace.role`, which is what deci
 space offers its administration at all, so `member.role_changed` for one's own id has to be written
 there too, in whichever space it names, open or not.
 
+**A design-system control owns its width; the wrapper owns its place.** `.wc-sel` is `width: 100%`
+by design, so a width passed to `<Select>` lands on the inner `<select>` while its shell still takes
+the whole flex line. In a row, that ate the member's name. Put the width on a wrapping element
+(`flex: "none"`), which is what the channel dialog already did. Same discipline for a column that
+holds a control on some rows and plain text on others: give the slot the control's height, or the
+rows breathe unevenly down the list.
+
+**A screen that seeds state from a prop needs a key when the prop is the subject.** The space
+settings hold the name being edited in `useState(workspaceName)`, seeded once. Switching space kept
+the previous name in the field, so one space's settings offered to rename it to another's. `key={ws}`
+on the screen: the subject changing restarts the state that was derived from it.
+
 **A module-level registry is shared state, so it needs subscribers.** `lib/data/index.ts` holds a few
 values read synchronously rather than threaded through props (the member roster, presence by name).
 Read as a plain variable they go stale in two directions at once: a reader that captures one in a
