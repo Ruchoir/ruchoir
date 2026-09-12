@@ -137,7 +137,12 @@ pub async fn create_invitation(
     // invitation the administrator can still hand over by copying the link, so it is reported
     // rather than rolled back.
     let emailed = match &email {
-        Some(address) => send_invitation_email(&state, address, space_id, &url).await,
+        // In the inviter's language: the recipient has no account yet, so nothing is known about
+        // what they read, and the person who just typed their address presumably shares a working
+        // language with them.
+        Some(address) => {
+            send_invitation_email(&state, address, space_id, &url, session.user_id).await
+        }
         None => false,
     };
 
@@ -534,18 +539,22 @@ fn validate_email(address: &str) -> Result<&str, ApiError> {
 
 /// Send the invitation email. Returns whether it went out; a relay failure is logged and reported,
 /// never fatal, because the administrator can still hand over the link from the response.
-async fn send_invitation_email(state: &AppState, address: &str, space_id: Uuid, url: &str) -> bool {
+async fn send_invitation_email(
+    state: &AppState,
+    address: &str,
+    space_id: Uuid,
+    url: &str,
+    inviter: Uuid,
+) -> bool {
     let space_name = match spaces::Entity::find_by_id(space_id).one(&state.db).await {
         Ok(Some(space)) => space.name,
-        _ => "a Ruchoir space".to_owned(),
+        _ => "Ruchoir".to_owned(),
     };
-    let body = format!(
-        "You have been invited to join {space_name} on Ruchoir.\n\nAccept the invitation here:\n{url}\n\n\
-         If you were not expecting this, ignore this message."
-    );
+    let locale = crate::auth::routes::account_locale(state, inviter).await;
+    let message = crate::auth::mail_text::invitation(locale, &space_name, url);
     match state
         .mailer
-        .send(address, &format!("Join {space_name} on Ruchoir"), body)
+        .send(address, &message.subject, message.body)
         .await
     {
         Ok(()) => true,

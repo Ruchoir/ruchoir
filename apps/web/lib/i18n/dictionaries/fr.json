@@ -1,0 +1,26 @@
+{
+  "brand": {
+    "tagline": "Une ruche pour tout votre travail."
+  },
+  "login": {
+    "title": "Connexion",
+    "subtitle": "Connectez-vous à votre espace de travail.",
+    "email": "Adresse électronique",
+    "password": "Mot de passe",
+    "resendVerification": "Renvoyer le lien de confirmation",
+    "forgotPassword": "Mot de passe oublié ?",
+    "submit": "Se connecter",
+    "submitting": "Connexion…",
+    "or": "ou",
+    "sso": "Authentification unique (SSO)",
+    "noAccount": "Pas encore de compte ?",
+    "createAccount": "Créer un compte",
+    "hosting": "Hébergement en France, données chez vous."
+  },
+  "language": {
+    "section": "Langue",
+    "title": "Langue de l'interface",
+    "description": "Change les textes de Ruchoir. Les messages que vous écrivez ne sont jamais traduits.",
+    "automatic": "Celle du navigateur"
+  }
+}

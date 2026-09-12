@@ -14,6 +14,7 @@
  */
 import type { Presence } from "@/components/ds";
 import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./http";
+import { currentLocale } from "@/lib/i18n/current";
 import {
   createPasskeyCredential,
   getPasskeyAssertion,
@@ -315,6 +316,10 @@ export async function register(
     display_name: displayName,
     password,
     invitation_token: invitationToken,
+    // The language of the page they are registering on: the confirmation email is the very next
+    // thing that happens, and arriving in another language than the screen that sent it is the kind
+    // of detail that makes a product feel translated rather than written.
+    locale: currentLocale(),
   });
   return { user: toSessionUser(dto), active: dto.active };
 }
@@ -770,12 +775,15 @@ export async function updateMyProfile(patch: {
   title?: string;
   pronouns?: string;
   bio?: string;
+  /** Interface language, so what the server writes arrives in the language being read. */
+  locale?: string;
 }): Promise<Profile> {
   const dto = await apiPatch<UserProfileDto>("/users/me", {
     display_name: patch.displayName,
     title: patch.title,
     pronouns: patch.pronouns,
     bio: patch.bio,
+    locale: patch.locale,
   });
   return {
     name: dto.display_name,

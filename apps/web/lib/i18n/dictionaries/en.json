@@ -1,0 +1,26 @@
+{
+  "brand": {
+    "tagline": "One hive for all your work."
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Sign in to your workspace.",
+    "email": "Email address",
+    "password": "Password",
+    "resendVerification": "Send the confirmation link again",
+    "forgotPassword": "Forgotten your password?",
+    "submit": "Sign in",
+    "submitting": "Signing in…",
+    "or": "or",
+    "sso": "Single sign-on (SSO)",
+    "noAccount": "No account yet?",
+    "createAccount": "Create an account",
+    "hosting": "Hosted in France, your data stays with you."
+  },
+  "language": {
+    "section": "Language",
+    "title": "Interface language",
+    "description": "Changes Ruchoir's own text. What you write is never translated.",
+    "automatic": "Whatever the browser asks for"
+  }
+}

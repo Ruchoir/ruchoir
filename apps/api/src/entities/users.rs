@@ -18,6 +18,9 @@ pub struct Model {
     /// Account lifecycle: `pending`, `active` or `locked`.
     pub status: String,
     pub mfa_enforced: bool,
+    /// Interface language (`fr`, `en`, `es`, `de`, `it`, `pl`), or `None` when nobody has chosen.
+    /// Read by the server for what it writes: confirmations, resets, invitations.
+    pub locale: Option<String>,
     /// Global profile fields surfaced by the UI. All optional and self-editable except
     /// `is_bot`, which marks service accounts (e.g. the import assistant).
     pub title: Option<String>,

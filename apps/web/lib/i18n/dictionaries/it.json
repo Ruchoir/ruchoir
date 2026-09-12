@@ -1,0 +1,26 @@
+{
+  "brand": {
+    "tagline": "Un alveare per tutto il tuo lavoro."
+  },
+  "login": {
+    "title": "Accedi",
+    "subtitle": "Accedi al tuo spazio di lavoro.",
+    "email": "Indirizzo e-mail",
+    "password": "Password",
+    "resendVerification": "Invia di nuovo il link di conferma",
+    "forgotPassword": "Password dimenticata?",
+    "submit": "Accedi",
+    "submitting": "Accesso in corso…",
+    "or": "oppure",
+    "sso": "Accesso unico (SSO)",
+    "noAccount": "Non hai ancora un account?",
+    "createAccount": "Crea un account",
+    "hosting": "Ospitato in Francia, i tuoi dati restano con te."
+  },
+  "language": {
+    "section": "Lingua",
+    "title": "Lingua dell'interfaccia",
+    "description": "Cambia i testi di Ruchoir. Ciò che scrivi non viene mai tradotto.",
+    "automatic": "Quella del browser"
+  }
+}

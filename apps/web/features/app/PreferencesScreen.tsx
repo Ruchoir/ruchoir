@@ -4,6 +4,9 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, Field, Icon, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
+import { updateMyProfile } from "@/lib/data/api";
+import { isLocale, LOCALE_NAMES, LOCALES } from "@/lib/i18n/config";
+import { useTranslation } from "@/lib/i18n";
 import { Emoji } from "./Emoji";
 import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
 import {
@@ -569,6 +572,7 @@ export function PreferencesScreen({
   initialTab = "appearance",
 }: PreferencesScreenProps) {
   const s = useSettings();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<PrefTab>(initialTab);
 
   // Escape leaves the preferences, but only when no sub-dialog is open (a dialog handles Escape first).
@@ -616,6 +620,29 @@ export function PreferencesScreen({
               <>
                 <h2 style={st.h}>Apparence</h2>
                 <p style={st.sub}>Thème, police, taille du texte et affichage par défaut de l&apos;interface.</p>
+
+                <div style={st.sect}>{t("language.section")}</div>
+                <Row title={t("language.title")} desc={t("language.description")}>
+                  <Select
+                    value={s.locale ?? ""}
+                    onChange={(e) => {
+                      const next = isLocale(e.target.value) ? e.target.value : null;
+                      s.set("locale", next);
+                      // Told to the server too, because the server writes: confirmations, password
+                      // resets and invitations are the half of the product a browser preference
+                      // cannot reach. A blank clears it back to following the browser.
+                      void updateMyProfile({ locale: next ?? "" }).catch(() => {
+                        // A language that did not reach the account still applies to the interface;
+                        // it is not worth an error in the middle of a preferences screen.
+                      });
+                    }}
+                    options={[
+                      { value: "", label: t("language.automatic") },
+                      ...LOCALES.map((code) => ({ value: code, label: LOCALE_NAMES[code] })),
+                    ]}
+                  />
+                </Row>
+
                 <div style={st.sect}>Thème</div>
                 <ThemePicker value={s.theme} onChange={(t) => s.set("theme", t)} />
                 <div style={st.sect}>Police d&apos;écriture</div>

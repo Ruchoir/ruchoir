@@ -1,0 +1,26 @@
+{
+  "brand": {
+    "tagline": "Ein Bienenstock für Ihre gesamte Arbeit."
+  },
+  "login": {
+    "title": "Anmelden",
+    "subtitle": "Melden Sie sich in Ihrem Arbeitsbereich an.",
+    "email": "E-Mail-Adresse",
+    "password": "Passwort",
+    "resendVerification": "Bestätigungslink erneut senden",
+    "forgotPassword": "Passwort vergessen?",
+    "submit": "Anmelden",
+    "submitting": "Anmeldung läuft…",
+    "or": "oder",
+    "sso": "Single Sign-on (SSO)",
+    "noAccount": "Noch kein Konto?",
+    "createAccount": "Konto erstellen",
+    "hosting": "Gehostet in Frankreich, Ihre Daten bleiben bei Ihnen."
+  },
+  "language": {
+    "section": "Sprache",
+    "title": "Sprache der Oberfläche",
+    "description": "Ändert die Texte von Ruchoir. Was Sie schreiben, wird nie übersetzt.",
+    "automatic": "Die des Browsers"
+  }
+}

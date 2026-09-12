@@ -1,0 +1,26 @@
+{
+  "brand": {
+    "tagline": "Una colmena para todo tu trabajo."
+  },
+  "login": {
+    "title": "Iniciar sesión",
+    "subtitle": "Inicia sesión en tu espacio de trabajo.",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "resendVerification": "Volver a enviar el enlace de confirmación",
+    "forgotPassword": "¿Has olvidado la contraseña?",
+    "submit": "Iniciar sesión",
+    "submitting": "Iniciando sesión…",
+    "or": "o",
+    "sso": "Inicio de sesión único (SSO)",
+    "noAccount": "¿Aún no tienes cuenta?",
+    "createAccount": "Crear una cuenta",
+    "hosting": "Alojado en Francia, tus datos se quedan contigo."
+  },
+  "language": {
+    "section": "Idioma",
+    "title": "Idioma de la interfaz",
+    "description": "Cambia los textos de Ruchoir. Lo que escribes nunca se traduce.",
+    "automatic": "El del navegador"
+  }
+}

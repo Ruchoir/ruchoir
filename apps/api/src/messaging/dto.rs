@@ -263,6 +263,9 @@ pub struct UpdateProfileRequest {
     pub pronouns: Option<String>,
     #[serde(default)]
     pub bio: Option<String>,
+    /// Interface language, so what the server writes arrives in the language the reader chose.
+    #[serde(default)]
+    pub locale: Option<String>,
 }
 
 // --- Search & notifications ---

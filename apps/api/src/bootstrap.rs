@@ -77,6 +77,9 @@ pub async fn run(db: &DatabaseConnection, config: &Config) -> Result<(), Failure
         // only account cannot sign in is the situation this command exists to prevent.
         status: Set("active".to_owned()),
         mfa_enforced: Set(false),
+        // Unset: the administrator picks a language on their first sign-in, like everyone else, and
+        // an unattended install has no way of knowing which one they read.
+        locale: NotSet,
         title: NotSet,
         pronouns: NotSet,
         timezone: NotSet,

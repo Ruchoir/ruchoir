@@ -145,6 +145,15 @@ pub async fn update_my_profile(
     if let Some(bio) = body.bio {
         active.bio = Set(clean(bio));
     }
+    if let Some(locale) = body.locale {
+        // Normalized through the same parser the emails use, so the column can only ever hold one of
+        // the six the product speaks, and a blank clears it back to "follow the browser".
+        active.locale = Set(clean(locale).map(|tag| {
+            crate::auth::mail_text::Locale::parse(Some(&tag))
+                .as_str()
+                .to_owned()
+        }));
+    }
     active.updated_at = Set(OffsetDateTime::now_utc());
     let updated = active.update(&state.db).await?;
     broadcast_profile_change(&state, &updated).await;

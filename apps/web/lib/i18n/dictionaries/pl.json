@@ -1,0 +1,26 @@
+{
+  "brand": {
+    "tagline": "Jeden ul dla całej Twojej pracy."
+  },
+  "login": {
+    "title": "Zaloguj się",
+    "subtitle": "Zaloguj się do swojej przestrzeni roboczej.",
+    "email": "Adres e-mail",
+    "password": "Hasło",
+    "resendVerification": "Wyślij link potwierdzający ponownie",
+    "forgotPassword": "Nie pamiętasz hasła?",
+    "submit": "Zaloguj się",
+    "submitting": "Logowanie…",
+    "or": "lub",
+    "sso": "Logowanie jednokrotne (SSO)",
+    "noAccount": "Nie masz jeszcze konta?",
+    "createAccount": "Utwórz konto",
+    "hosting": "Hostowane we Francji, Twoje dane zostają u Ciebie."
+  },
+  "language": {
+    "section": "Język",
+    "title": "Język interfejsu",
+    "description": "Zmienia teksty Ruchoira. To, co piszesz, nigdy nie jest tłumaczone.",
+    "automatic": "Zgodnie z przeglądarką"
+  }
+}
