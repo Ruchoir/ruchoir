@@ -23,11 +23,26 @@ pub fn generate_codes() -> Result<Vec<String>, AuthError> {
 }
 
 /// HMAC-SHA-256 digest of a code, for storage and lookup. Constant in length and non-reversible.
+///
+/// The code is normalized first (see [`normalize`]), so a code typed back in capitals or with
+/// stray spacing still matches the one that was issued.
 pub fn hash_code(secret_key: &[u8; 32], code: &str) -> Vec<u8> {
     let subkey = derive_key(secret_key);
     let mut mac = HmacSha256::new_from_slice(&subkey).expect("HMAC accepts any key length");
-    mac.update(code.as_bytes());
+    mac.update(normalize(code).as_bytes());
     mac.finalize().into_bytes().to_vec()
+}
+
+/// Bring a code back to the form it was issued in: lower case, no surrounding or internal spaces.
+///
+/// Someone reading a code off paper types what they see, and what they see has no case (the
+/// alphabet is lower case) and three groups that invite a space. Hyphens are kept, since they are
+/// part of the issued string; everything else that differs is the reader's, not the code's.
+fn normalize(code: &str) -> String {
+    code.chars()
+        .filter(|c| !c.is_whitespace())
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 /// Derive the recovery-code HMAC key from the data-encryption key with a fixed label.
@@ -68,6 +83,17 @@ mod tests {
             assert_eq!(code.len(), 17); // 15 chars + two hyphens
             assert_eq!(code.matches('-').count(), 2);
         }
+    }
+
+    #[test]
+    fn hashing_ignores_case_and_spacing() {
+        let key = [3u8; 32];
+        assert_eq!(
+            hash_code(&key, "abc-def-ghi"),
+            hash_code(&key, "  ABC-def- GHI ")
+        );
+        // Hyphens are part of the code, not decoration: dropping them is a different code.
+        assert_ne!(hash_code(&key, "abc-def-ghi"), hash_code(&key, "abcdefghi"));
     }
 
     #[test]

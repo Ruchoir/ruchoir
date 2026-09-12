@@ -188,6 +188,12 @@ pub struct UserProfileDto {
     pub bio: Option<String>,
     /// Whether this is a service account (e.g. the import assistant).
     pub is_bot: bool,
+    /// Whether this person administers the instance.
+    ///
+    /// Not a privacy leak but the point: recovering an account that has lost both its password and
+    /// its recovery codes means asking an administrator, and nobody can ask someone they cannot
+    /// identify. It says nothing about what the account can see, only who to go to.
+    pub is_instance_admin: bool,
     /// Same-origin URL of the uploaded avatar. Absent means there is none, and the client generates
     /// one from the display name, which is what it already does by default.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -452,6 +458,12 @@ pub struct InvitationDto {
     pub created_at: String,
     /// Whether it would be accepted right now: not revoked, not expired, uses left.
     pub usable: bool,
+    /// Why it is in that state: `active`, `accepted`, `revoked` or `expired`.
+    ///
+    /// `usable` alone flattens four situations into one word, and the interface showed all of them
+    /// as "inactive" next to a Revoke button: an invitation someone had just accepted looked like a
+    /// failure that still needed cleaning up. An accepted invitation is a finished one.
+    pub status: String,
 }
 
 /// The response to creating an invitation: the row, plus the link, shown exactly once.

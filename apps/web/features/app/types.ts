@@ -4,6 +4,7 @@ export type AppView =
   | "files"
   | "settings"
   | "prefs"
+  | "instance-admin"
   | "threads"
   | "mentions"
   | "saved";

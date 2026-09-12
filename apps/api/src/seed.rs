@@ -11,6 +11,7 @@
 //! Timestamps are left unset on insert so PostgreSQL fills its `now()` defaults; only natural keys
 //! and non-default columns are written.
 
+use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DatabaseTransaction, DbErr, EntityTrait,
     IntoActiveModel, QueryFilter, Set, TransactionTrait,
@@ -49,6 +50,9 @@ pub async fn run(
 
     // Accounts first (upserted by email so re-runs and existing dev accounts both work).
     let admin = upsert_user(&txn, config, "admin@atelier.test", "Camille Roussel").await?;
+    // The demo administrator carries the instance-admin flag, so the account-recovery screen is
+    // reachable in development without running `bootstrap` against the dev database.
+    mark_instance_admin(&txn, admin).await?;
     let alice = upsert_user(&txn, config, "alice@atelier.test", "Alice Fournier").await?;
     let bob = upsert_user(&txn, config, "bob@atelier.test", "Yanis Berthier").await?;
     let carol = upsert_user(&txn, config, "carol@atelier.test", "Carol Nguyen").await?;
@@ -655,6 +659,19 @@ async fn upsert_user(
     .insert(txn)
     .await?;
     Ok(id)
+}
+
+/// Flag an existing account as an instance administrator. Idempotent.
+async fn mark_instance_admin(
+    txn: &DatabaseTransaction,
+    user_id: Uuid,
+) -> Result<(), Box<dyn std::error::Error>> {
+    users::Entity::update_many()
+        .col_expr(users::Column::IsInstanceAdmin, Expr::value(true))
+        .filter(users::Column::Id.eq(user_id))
+        .exec(txn)
+        .await?;
+    Ok(())
 }
 
 /// Create a bot account: no password, active, flagged `is_bot`.

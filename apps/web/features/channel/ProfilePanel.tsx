@@ -1,13 +1,14 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Icon, IconButton, Input, Select, Textarea } from "@/components/ds";
+import { Avatar, Button, Icon, IconButton, Input, Select, Tag, Textarea } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import type { Profile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { clearMyAvatar, getUserProfile, setMyAvatar, updateMyProfile } from "@/lib/data/api";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { minimalProfile } from "../app/useProfile";
+import { useLocalTime } from "../app/useLocalTime";
 import { presenceLabel } from "../app/presence";
 import type { Toast } from "../app/types";
 
@@ -132,6 +133,9 @@ export function ProfilePanel({
   }, [userId]);
   const p = fetched ?? minimalProfile(name);
   const shownPresence = presence ?? p.presence;
+  // Derived here and kept ticking: a profile left open for twenty minutes used to show a time
+  // twenty minutes wrong, which is worse than showing none because it is precise.
+  const localTime = useLocalTime(p.timezone);
   const isOwn = name === getCurrentUser().name;
   const [editing, setEditing] = useState(!!startEditing && isOwn);
   const [role, setRole] = useState(p.role);
@@ -209,25 +213,37 @@ export function ProfilePanel({
       </div>
       <div style={styles.scroll}>
         <div style={styles.hero}>
-          {/* Your own photo is changed by clicking the photo. The form below used to carry a second,
-              smaller copy of it with the buttons, so the screen showed the same picture twice and
-              the obvious target did nothing. */}
-          {isOwn ? (
+          {/* While editing, the photo is the control: clicking it picks a new one. Outside editing it
+              is just a photo, like everyone else's. The form below used to carry a second, smaller
+              copy of it with its own buttons, so the screen showed the same picture twice and the
+              obvious target did nothing. */}
+          {isOwn && editing ? (
             <button
               type="button"
               onClick={() => photoRef.current?.click()}
               disabled={photoBusy}
               title="Changer la photo"
               aria-label="Changer la photo de profil"
-              style={{ border: 0, background: "transparent", padding: 0, cursor: photoBusy ? "wait" : "pointer", borderRadius: "var(--radius-full)", position: "relative" }}
+              // `inline-flex` with no line box: a plain button is as tall as its line height, so the
+              // badge anchored to its corner floated below and beside the photo instead of on it.
+              style={{
+                display: "inline-flex",
+                border: 0,
+                background: "transparent",
+                padding: 0,
+                cursor: photoBusy ? "wait" : "pointer",
+                borderRadius: "var(--radius-full)",
+                position: "relative",
+                lineHeight: 0,
+              }}
             >
               <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
               <span
                 aria-hidden
                 style={{
                   position: "absolute",
-                  right: 2,
-                  bottom: 2,
+                  right: 0,
+                  bottom: 0,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -238,8 +254,20 @@ export function ProfilePanel({
                   border: "1px solid var(--border-default)",
                 }}
               >
-                <Icon name={photoBusy ? "clock" : "image"} size={14} style={{ color: "var(--text-muted)" }} />
+                <Icon name={photoBusy ? "clock" : "square-pen"} size={14} style={{ color: "var(--text-muted)" }} />
               </span>
+              {/*
+                The file picker itself. It used to live in the edit form, next to the duplicate
+                preview; removing that duplicate took the input with it and left the button opening
+                a reference attached to nothing, which is a click that does nothing at all.
+              */}
+              <input
+                ref={photoRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => onPhotoPicked(e.target.files)}
+              />
             </button>
           ) : (
             <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
@@ -253,6 +281,15 @@ export function ProfilePanel({
             <span style={{ width: 9, height: 9, borderRadius: "var(--radius-full)", background: `var(--presence-${shownPresence})` }} />
             {presenceLabel(shownPresence)}
           </div>
+          {/* The person to ask when an account has to be handed back. Recovery without a mail relay
+              ends there, so being able to recognize them is part of the path working. */}
+          {p.instanceAdmin ? (
+            <div style={{ marginTop: 8 }}>
+              <Tag tone="accent" icon="shield">
+                Administrateur de l&apos;instance
+              </Tag>
+            </div>
+          ) : null}
           <div style={{ marginTop: 10, width: "100%" }}>
             {isOwn ? (
               editing ? null : (
@@ -318,7 +355,7 @@ export function ProfilePanel({
               {p.email ? <Field icon="at-sign">{p.email}</Field> : null}
               {/* Absent rather than guessed: every profile used to report Europe/Paris, including
                   those of people who had never been asked. */}
-              {p.localTime ? <Field icon="clock">{p.localTime} heure locale</Field> : null}
+              {localTime ? <Field icon="clock">{localTime} heure locale</Field> : null}
               {p.timezone ? <Field icon="globe">{p.timezone}</Field> : null}
             </div>
           </>

@@ -81,6 +81,8 @@ export type UserMenuProps = {
   onOpenProfile: () => void;
   onEditProfile: () => void;
   onOpenSettings: () => void;
+  /** Open the instance administration. Absent for anyone who does not administer the instance. */
+  onOpenInstanceAdmin?: () => void;
   onLogout: () => void;
 };
 
@@ -96,6 +98,7 @@ export function UserMenu({
   onOpenProfile,
   onEditProfile,
   onOpenSettings,
+  onOpenInstanceAdmin,
   onLogout,
 }: UserMenuProps) {
   const run = (fn: () => void) => {
@@ -145,6 +148,11 @@ export function UserMenu({
           <button type="button" onClick={() => run(onOpenSettings)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
             <Icon name="settings" size={14} /> Préférences
           </button>
+          {onOpenInstanceAdmin ? (
+            <button type="button" onClick={() => run(onOpenInstanceAdmin)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
+              <Icon name="shield" size={14} /> Administration de l&apos;instance
+            </button>
+          ) : null}
           <button type="button" onClick={() => run(onLogout)} style={{ ...item, color: "var(--status-danger-fg)" }} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
             <Icon name="log-out" size={14} /> Se déconnecter
           </button>

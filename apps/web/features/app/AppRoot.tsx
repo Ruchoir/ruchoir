@@ -22,6 +22,7 @@ import {
   getNotifications,
   getReadCursors,
   getSavedMessages,
+  adoptBrowserTimezone,
   getSession,
   getSpaceMembers,
   getSpacePresence,
@@ -37,6 +38,8 @@ import {
   removeReaction,
   requestEmailVerification,
   requestPasswordReset,
+  resetPasswordWithRecoveryCode,
+  getInstanceCapabilities,
   resolveSpaceSlug,
   revokeInvitation,
   sendMessage,
@@ -80,6 +83,7 @@ import { LoginScreen } from "@/features/auth/LoginScreen";
 import { SignupScreen, type SignupValues } from "@/features/auth/SignupScreen";
 import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
+import { InstanceAdminScreen } from "./InstanceAdmin";
 import { NotificationPrompt } from "./NotificationPrompt";
 import { MfaChallengeScreen } from "@/features/auth/MfaChallengeScreen";
 import { ResetPasswordScreen } from "@/features/auth/ResetPasswordScreen";
@@ -236,6 +240,7 @@ const VIEW_TITLES: Record<string, string> = {
   files: "Fichiers de l'espace",
   settings: "Réglages de l'espace",
   prefs: "Préférences",
+  "instance-admin": "Administration de l'instance",
   threads: "Fils de discussion",
   mentions: "Mentions",
   saved: "Enregistrés",
@@ -292,6 +297,13 @@ function AppShell() {
   const [linkToken, setLinkToken] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<VerifyEmailStatus>("sent");
   const [resetDone, setResetDone] = useState(false);
+  /** True once a recovery code has taken an account back, which is a different outcome from a sent link. */
+  const [recoveryDone, setRecoveryDone] = useState(false);
+  /**
+   * Whether this instance can send email. `undefined` until the answer arrives, which the screens
+   * read as "assume it can": a slow answer must not hide the ordinary path.
+   */
+  const [emailDelivery, setEmailDelivery] = useState<boolean | undefined>(undefined);
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -723,6 +735,9 @@ function AppShell() {
         if (!active) return;
         setSession(user);
         setMyChoice(user.presenceChoice);
+        // An account that has never had a timezone gets the browser's, once. Everything that shows
+        // a local time depended on a column nothing could write, so it showed nothing.
+        void adoptBrowserTimezone(user.timezone);
         await loadInitialData();
         if (!active) return;
         // By now the preferences have loaded (their effect runs on mount, well before this awaits
@@ -742,6 +757,22 @@ function AppShell() {
       active = false;
     };
   }, [loadInitialData]);
+
+  // What this instance supports, read once and kept for the whole session. Unauthenticated on
+  // purpose: the screens that need it (password recovery, the invitation dialog) include ones shown
+  // before anyone has signed in. A failure leaves it undefined, which every reader treats as "the
+  // usual behaviour", so an unreachable endpoint never removes a working path.
+  useEffect(() => {
+    let active = true;
+    void getInstanceCapabilities()
+      .then((capabilities) => {
+        if (active) setEmailDelivery(capabilities.emailDelivery);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Load the space's outstanding invitations whenever the invite dialog opens. Fetching on open
   // rather than on space load keeps an administration-only call off the boot path, and means the
@@ -1650,6 +1681,30 @@ function AppShell() {
     }
   };
 
+  /**
+   * Take an account back with a recovery code: no message is sent, and nothing here depends on a
+   * relay. The failure is deliberately vague, because the API answers the same way for an unknown
+   * address and for a wrong code.
+   */
+  const handleRecoveryReset = async (values: { email: string; code: string; password: string }) => {
+    setAuthError(null);
+    setAuthPending(true);
+    try {
+      await resetPasswordWithRecoveryCode(values.email, values.code, values.password);
+      setRecoveryDone(true);
+    } catch (err) {
+      if (isApiError(err, 429)) {
+        setAuthError("Trop de tentatives. Patientez quelques minutes avant de réessayer.");
+      } else if (isApiError(err, 422)) {
+        setAuthError("Ce mot de passe est trop faible, ou figure dans une fuite connue.");
+      } else {
+        setAuthError("Ce code ne correspond à aucun compte, ou il a déjà été utilisé.");
+      }
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
   /** Set the new password behind the emailed token. The server drops every session of that account. */
   const handlePasswordReset = async (password: string) => {
     if (!linkToken) {
@@ -1754,6 +1809,18 @@ function AppShell() {
   };
 
   /** Open the full-screen preferences on a given section, remembering the current view so closing returns to it. */
+  /**
+   * Open the instance administration, the same way preferences open: a full-screen view that leaves
+   * the underlying space untouched, so closing it comes back exactly where it was.
+   */
+  const openInstanceAdmin = () => {
+    setModal(null);
+    if (view !== "instance-admin") setPrevView(view);
+    setView("instance-admin");
+    setMobileContent(true);
+    setRailOpen(false);
+  };
+
   const openPreferences = (tab: PrefTab = "appearance") => {
     setModal(null);
     setPrefsTab(tab);
@@ -2376,8 +2443,14 @@ function AppShell() {
         {authStage === "forgot" ? (
           <ForgotPasswordScreen
             onSubmit={(email) => void handlePasswordResetRequest(email)}
-            onBackToLogin={() => goToStage("login")}
+            onRecovery={(values) => void handleRecoveryReset(values)}
+            onBackToLogin={() => {
+              setRecoveryDone(false);
+              goToStage("login");
+            }}
             sent={authSent}
+            recovered={recoveryDone}
+            emailDelivery={emailDelivery}
             error={authError}
             pending={authPending}
           />
@@ -2479,6 +2552,7 @@ function AppShell() {
           .catch(() => setMyChoice(myChoice));
       }}
       onOpenSettings={() => openPreferences()}
+      onOpenInstanceAdmin={session?.isInstanceAdmin === true ? () => openInstanceAdmin() : undefined}
       onOpenOwnProfile={() => {
         setView("channel");
         setThread(null);
@@ -2638,6 +2712,13 @@ function AppShell() {
           />
         </div>
       ) : null}
+      {/* Instance administration, full-screen like the preferences and for the same reason: it is
+          about the account and the instance, never about the space underneath. */}
+      {view === "instance-admin" && session?.isInstanceAdmin ? (
+        <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
+          <InstanceAdminScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
+        </div>
+      ) : null}
       {modal === "import" ? (
         <ImportDialog
           onClose={() => setModal(null)}
@@ -2656,6 +2737,7 @@ function AppShell() {
           onClose={() => setModal(null)}
           canInvite={["owner", "admin"].includes(workspaces.find((w) => w.id === ws)?.role ?? "")}
           invitations={invitations}
+          emailDelivery={emailDelivery}
           onCreate={async ({ email, role }) => {
             const created = await createInvitation(ws, { email, role });
             setInvitations(await getInvitations(ws));

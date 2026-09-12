@@ -173,7 +173,32 @@ const inviteStyles: Record<string, CSSProperties> = {
   rowMain: { flex: 1, minWidth: 0 },
   rowMeta: { fontSize: 12, color: "var(--text-muted)" },
   empty: { fontSize: 13, color: "var(--text-muted)" },
+  notice: {
+    fontSize: 12,
+    lineHeight: 1.5,
+    color: "var(--text-muted)",
+    padding: "8px 10px",
+    background: "var(--surface-sunken)",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: "var(--radius-md)",
+  },
 };
+
+/** What an invitation's state is called, in the order it reads best: role, uses, outcome. */
+function describeInvitation(invitation: Invitation): string {
+  const role = INVITE_ROLES.find((r) => r.value === invitation.role)?.label ?? invitation.role;
+  const uses =
+    invitation.maxUses === undefined
+      ? `${invitation.uses} utilisation${invitation.uses > 1 ? "s" : ""}`
+      : `${invitation.uses}/${invitation.maxUses}`;
+  const outcome = {
+    active: "",
+    accepted: " · acceptée",
+    revoked: " · révoquée",
+    expired: " · expirée",
+  }[invitation.status];
+  return `${role} · ${uses}${outcome}`;
+}
 
 export type InviteDialogProps = {
   onClose: () => void;
@@ -188,6 +213,12 @@ export type InviteDialogProps = {
   invitations: Invitation[];
   /** Stop accepting one. The caller refreshes the list. */
   onRevoke: (id: string) => Promise<void>;
+  /**
+   * Whether this instance can send email. When it cannot, an addressed invitation still works (the
+   * link has to be handed over by other means) but a shareable link leads to an account waiting on
+   * a confirmation message that is never sent, so the dialog says so.
+   */
+  emailDelivery?: boolean;
 };
 
 /**
@@ -197,7 +228,14 @@ export type InviteDialogProps = {
  * hand it back. That is why the field stays on screen with a copy button until the dialog is
  * closed, and why revoking and re-issuing is one click rather than a recovery flow.
  */
-export function InviteDialog({ onClose, canInvite, onCreate, invitations, onRevoke }: InviteDialogProps) {
+export function InviteDialog({
+  onClose,
+  canInvite,
+  onCreate,
+  invitations,
+  onRevoke,
+  emailDelivery,
+}: InviteDialogProps) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [pending, setPending] = useState(false);
@@ -207,6 +245,12 @@ export function InviteDialog({ onClose, canInvite, onCreate, invitations, onRevo
 
   const address = email.trim();
   const addressed = address.length > 0;
+  const noRelay = emailDelivery === false;
+
+  // An invitation that was taken up is finished, not broken. Listing it among the outstanding ones,
+  // greyed out next to a Revoke button, read as a failure that still needed cleaning up.
+  const outstanding = invitations.filter((invitation) => invitation.status === "active");
+  const finished = invitations.filter((invitation) => invitation.status !== "active");
 
   const submit = async () => {
     if (pending) return;
@@ -265,7 +309,11 @@ export function InviteDialog({ onClose, canInvite, onCreate, invitations, onRevo
       <div style={inviteStyles.body}>
         <Field
           label="Adresse électronique"
-          hint="Laissez vide pour créer un lien partageable au lieu d'un envoi par courriel."
+          hint={
+            noRelay
+              ? "Cette instance n'envoie pas de courriels : le lien s'affichera ici, à vous de le transmettre."
+              : "Laissez vide pour créer un lien partageable au lieu d'un envoi par courriel."
+          }
           htmlFor="inv"
         >
           <Input
@@ -286,6 +334,14 @@ export function InviteDialog({ onClose, canInvite, onCreate, invitations, onRevo
           />
         </Field>
 
+        {noRelay && !addressed ? (
+          <p style={inviteStyles.notice}>
+            Un lien partageable mène à un compte en attente de confirmation d&apos;adresse, et cette instance ne peut
+            envoyer aucun courriel de confirmation. Indiquez une adresse : une invitation nominative active le compte
+            immédiatement.
+          </p>
+        ) : null}
+
         {error ? (
           <p role="alert" style={{ ...inviteStyles.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
             {error}
@@ -300,7 +356,7 @@ export function InviteDialog({ onClose, canInvite, onCreate, invitations, onRevo
             <p style={inviteStyles.empty}>
               {created.emailed
                 ? "Le courriel est parti. Ce lien ne sera plus affiché, copiez-le si vous voulez le transmettre autrement."
-                : "Copiez ce lien maintenant : il ne pourra plus être affiché."}
+                : "Copiez ce lien maintenant : il ne pourra plus être affiché. Aucun courriel n'a été envoyé."}
             </p>
             <div style={inviteStyles.link}>
               <span style={inviteStyles.linkText}>{created.url}</span>
@@ -313,21 +369,14 @@ export function InviteDialog({ onClose, canInvite, onCreate, invitations, onRevo
 
         <div style={inviteStyles.section}>
           <div style={inviteStyles.sectionTitle}>Invitations en cours</div>
-          {invitations.length === 0 ? (
+          {outstanding.length === 0 ? (
             <p style={inviteStyles.empty}>Aucune invitation en attente.</p>
           ) : (
-            invitations.map((invitation) => (
+            outstanding.map((invitation) => (
               <div key={invitation.id} style={inviteStyles.row}>
                 <div style={inviteStyles.rowMain}>
                   <div>{invitation.email ?? "Lien partageable"}</div>
-                  <div style={inviteStyles.rowMeta}>
-                    {INVITE_ROLES.find((r) => r.value === invitation.role)?.label ?? invitation.role}
-                    {" · "}
-                    {invitation.maxUses === undefined
-                      ? `${invitation.uses} utilisation${invitation.uses > 1 ? "s" : ""}`
-                      : `${invitation.uses}/${invitation.maxUses}`}
-                    {invitation.usable ? "" : " · inactive"}
-                  </div>
+                  <div style={inviteStyles.rowMeta}>{describeInvitation(invitation)}</div>
                 </div>
                 <Button size="sm" iconLeft="x" onClick={() => void onRevoke(invitation.id)}>
                   Révoquer
@@ -336,6 +385,24 @@ export function InviteDialog({ onClose, canInvite, onCreate, invitations, onRevo
             ))
           )}
         </div>
+
+        {/*
+          Finished invitations, kept visible but out of the way: they answer "has this person joined
+          yet?", and nothing about them is actionable, so they carry no button.
+        */}
+        {finished.length > 0 ? (
+          <div style={inviteStyles.section}>
+            <div style={inviteStyles.sectionTitle}>Terminées</div>
+            {finished.map((invitation) => (
+              <div key={invitation.id} style={inviteStyles.row}>
+                <div style={inviteStyles.rowMain}>
+                  <div style={{ color: "var(--text-muted)" }}>{invitation.email ?? "Lien partageable"}</div>
+                  <div style={inviteStyles.rowMeta}>{describeInvitation(invitation)}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
       )}
     </Dialog>
