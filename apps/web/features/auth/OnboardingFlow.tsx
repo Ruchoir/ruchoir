@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useState } from "react";
-import { Button, Checkbox, Field, Icon, Input, Select } from "@/components/ds";
+import { Button, Field, Icon, Input } from "@/components/ds";
 
 const styles: Record<string, CSSProperties> = {
   root: {
@@ -48,10 +48,8 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-const TOTAL = 3;
+const TOTAL = 2;
 
-const ROLES = ["Gérant·e", "Comptable", "Chef·fe d'atelier", "Menuisier·ère", "Autre"];
-const SIZES = ["1 à 5 personnes", "6 à 20 personnes", "21 à 50 personnes", "Plus de 50 personnes"];
 
 export function OnboardingFlow({
   firstName,
@@ -132,14 +130,12 @@ export function OnboardingFlow({
         <div>
           <div style={styles.step}>Étape {step + 1} sur {TOTAL}</div>
           <h1 style={{ ...styles.heading, marginTop: 8 }}>
-            {step === 0 ? "Comment s'appelle votre espace ?" : step === 1 ? "Parlez-nous de vous" : "Invitez votre équipe"}
+            {step === 0 ? "Comment s'appelle votre espace ?" : "Invitez votre équipe"}
           </h1>
           <p style={styles.sub}>
             {step === 0
               ? "Ce sera le nom affiché de votre espace de travail. Vous pourrez le changer plus tard."
-              : step === 1
-                ? "Ces informations nous aident à préparer votre espace. Rien n'est obligatoire."
-                : "Ajoutez quelques adresses pour démarrer à plusieurs. Vous pourrez inviter d'autres personnes ensuite."}
+              : "Ajoutez quelques adresses pour démarrer à plusieurs. Vous pourrez inviter d'autres personnes ensuite."}
           </p>
         </div>
 
@@ -159,22 +155,10 @@ export function OnboardingFlow({
                   }}
                 />
               </Field>
-              <Checkbox defaultChecked label="Autoriser toute personne de mon domaine à rejoindre cet espace" />
             </>
           ) : null}
 
           {step === 1 ? (
-            <>
-              <Field label="Votre rôle" htmlFor="ob-role">
-                <Select id="ob-role" size="lg" options={ROLES} />
-              </Field>
-              <Field label="Taille de l'équipe" htmlFor="ob-size">
-                <Select id="ob-size" size="lg" options={SIZES} />
-              </Field>
-            </>
-          ) : null}
-
-          {step === 2 ? (
             <>
               {invites.map((email, i) => (
                 <Input
@@ -187,7 +171,6 @@ export function OnboardingFlow({
                   onChange={(e) => setInvite(i, e.target.value)}
                 />
               ))}
-              <Checkbox defaultChecked label="Autoriser toute personne de mon domaine à rejoindre" />
             </>
           ) : null}
         </div>
@@ -201,13 +184,13 @@ export function OnboardingFlow({
             <span />
           )}
           <div style={{ display: "flex", gap: 8 }}>
-            {step === 2 ? (
+            {step === 1 ? (
               <Button variant="ghost" onClick={next}>
                 Passer
               </Button>
             ) : null}
             <Button variant="primary" onClick={next}>
-              {step === 2 ? "Terminer" : "Continuer"}
+              {step === 1 ? "Terminer" : "Continuer"}
             </Button>
           </div>
         </div>

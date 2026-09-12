@@ -1,12 +1,12 @@
 "use client";
 
 import { type CSSProperties, type FormEvent, useState } from "react";
-import { Button, Checkbox, Field, Input } from "@/components/ds";
+import { Button, Field, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
 
 const styles: Record<string, CSSProperties> = {
-  optionRow: { display: "flex", alignItems: "center", justifyContent: "space-between" },
+  optionRow: { display: "flex", alignItems: "center", justifyContent: "flex-end" },
   divider: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
   dividerLine: { flex: 1, height: 1, background: "var(--border-default)" },
   dividerLabel: {
@@ -46,7 +46,6 @@ export function LoginScreen({
   error,
   pending = false,
 }: LoginScreenProps) {
-  const [server, setServer] = useState("");
   const [mail, setMail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -76,18 +75,8 @@ export function LoginScreen({
       }
     >
       <h1 style={authStyles.title}>Connexion</h1>
-      <p style={authStyles.subtitle}>Connectez-vous au serveur de votre organisation.</p>
+      <p style={authStyles.subtitle}>Connectez-vous à votre espace de travail.</p>
       <form style={authStyles.fields} onSubmit={submit}>
-        <Field label="Serveur" hint="Adresse fournie par votre administrateur" htmlFor="srv">
-          <Input
-            id="srv"
-            size="lg"
-            icon="server"
-            placeholder="atelier.exemple.fr"
-            value={server}
-            onChange={(e) => setServer(e.target.value)}
-          />
-        </Field>
         <Field label="Adresse électronique" htmlFor="mail">
           <Input
             id="mail"
@@ -131,7 +120,6 @@ export function LoginScreen({
           </div>
         ) : null}
         <div style={styles.optionRow}>
-          <Checkbox label="Rester connecté" defaultChecked />
           <a
             href="#"
             style={{ fontSize: 13 }}

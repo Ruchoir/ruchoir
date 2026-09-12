@@ -20,7 +20,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::entities::{channels, conversations, messages, notifications, spaces, users};
+use crate::entities::{messages, notifications, users};
 use crate::state::AppState;
 
 use super::dto::{rfc3339, NotificationDto, NotificationPage};
@@ -148,32 +148,10 @@ pub async fn hydrate<C: ConnectionTrait>(
     // The space each notification happened in, read from its conversation: the client shows the
     // inbox for the space on screen, and a notification whose space it cannot determine would be
     // shown everywhere.
+    // Where each one happened, in words: shared with the saved list, which needs exactly the same
+    // thing for exactly the same reason.
     let conversation_ids: Vec<Uuid> = rows.iter().map(|r| r.conversation_id).collect();
-    let spaces: HashMap<Uuid, Uuid> = conversations::Entity::find()
-        .filter(conversations::Column::Id.is_in(conversation_ids.clone()))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|c| (c.id, c.space_id))
-        .collect();
-
-    // Where it happened, in words. A channel and a conversation share an id, so this is a lookup by
-    // the same key; a direct message has no row here, which is exactly how it is told apart.
-    let channel_names: HashMap<Uuid, String> = channels::Entity::find()
-        .filter(channels::Column::Id.is_in(conversation_ids))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|c| (c.id, c.name))
-        .collect();
-
-    let space_names: HashMap<Uuid, String> = spaces::Entity::find()
-        .filter(spaces::Column::Id.is_in(spaces.values().copied().collect::<Vec<_>>()))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|s| (s.id, s.name))
-        .collect();
+    let labels = super::conversations::label_conversations(db, conversation_ids).await?;
 
     let actor_ids: Vec<Uuid> = rows.iter().filter_map(|r| r.actor_id).collect();
     let names: HashMap<Uuid, String> = if actor_ids.is_empty() {
@@ -200,12 +178,16 @@ pub async fn hydrate<C: ConnectionTrait>(
             created_at: rfc3339(r.created_at),
             id: r.id,
             kind: r.kind,
-            space_id: spaces.get(&r.conversation_id).copied().unwrap_or_default(),
-            channel_name: channel_names.get(&r.conversation_id).cloned(),
-            space_name: spaces
+            space_id: labels
                 .get(&r.conversation_id)
-                .and_then(|space_id| space_names.get(space_id))
-                .cloned()
+                .map(|l| l.space_id)
+                .unwrap_or_default(),
+            channel_name: labels
+                .get(&r.conversation_id)
+                .and_then(|l| l.channel_name.clone()),
+            space_name: labels
+                .get(&r.conversation_id)
+                .map(|l| l.space_name.clone())
                 .unwrap_or_default(),
             conversation_id: r.conversation_id,
             message_id: r.message_id,

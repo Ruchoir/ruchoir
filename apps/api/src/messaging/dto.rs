@@ -346,6 +346,21 @@ pub struct EditMessageRequest {
     pub body: String,
 }
 
+/// A bookmarked message, with where it was said.
+///
+/// The saved list is the caller's whole account, so most of it points at conversations the client
+/// has not loaded and cannot name on its own.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SavedMessageDto {
+    #[serde(flatten)]
+    pub message: MessageDto,
+    pub space_id: Uuid,
+    pub space_name: String,
+    /// The channel's name, absent for a direct message.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_name: Option<String>,
+}
+
 /// Pin a channel to the caller's favourites, or unpin it.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct FavoriteRequest {

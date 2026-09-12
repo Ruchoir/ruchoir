@@ -182,6 +182,17 @@ export async function login(email: string, password: string): Promise<LoginResul
   return { kind: "authenticated", user: toSessionUser(body as UserSummaryDto) };
 }
 
+/**
+ * `POST /auth/logout/all`: end every session of this account, on every device.
+ *
+ * Including this one: the server drops them all and clears the cookie, which is what makes it the
+ * answer to "someone else may be signed in as me". A "log out the others but keep me here" would
+ * be a different, weaker thing, and is not what this route does.
+ */
+export async function logoutEverywhere(): Promise<void> {
+  await apiPost<void>("/auth/logout/all");
+}
+
 /** `POST /auth/logout`: end the current session. */
 export async function logout(): Promise<void> {
   await apiPost<void>("/auth/logout");
@@ -760,10 +771,54 @@ export async function setReadCursor(conversationId: string, lastReadMessageId: s
   await apiPut<void>(`/conversations/${conversationId}/read`, { last_read_message_id: lastReadMessageId });
 }
 
+/** A bookmarked message with where it was said, since it often sits in a space not loaded here. */
+export type SavedMessage = {
+  message: ApiMessage;
+  /** The conversation it was said in. The front `Message` does not carry it, and the label needs it. */
+  conversationId: string;
+  spaceId: string;
+  spaceName: string;
+  /** The channel's name; absent for a direct message, which is how the two are told apart. */
+  channelName?: string;
+};
+
+/**
+ * `GET /me/saved`: every message the caller has bookmarked, newest first.
+ *
+ * The whole account, not the space on screen. The view used to filter the messages held in memory,
+ * which meant a bookmark kept its promise only until the conversation moved on or the reader
+ * switched space, and surviving both is the point of a bookmark.
+ */
+export async function getSavedMessages(signal?: AbortSignal): Promise<SavedMessage[]> {
+  const rows = await apiGet<(MessageDto & { space_id: string; space_name: string; channel_name?: string })[]>(
+    "/me/saved",
+    signal,
+  );
+  return rows.map((row) => ({
+    message: toMessage(row),
+    conversationId: row.conversation_id,
+    spaceId: row.space_id,
+    spaceName: row.space_name,
+    channelName: row.channel_name,
+  }));
+}
+
 /** `PUT|DELETE /messages/{id}/save`: bookmark or un-bookmark a message. */
 export async function setMessageSaved(messageId: string, saved: boolean): Promise<void> {
   if (saved) await apiPut<void>(`/messages/${messageId}/save`);
   else await apiDelete<void>(`/messages/${messageId}/save`);
+}
+
+/**
+ * `GET /channels/{id}/pins`: every pinned message of a channel, newest first.
+ *
+ * Asked for rather than filtered out of what is on screen: a pin is meant to survive the
+ * conversation moving on, so the one that matters is usually older than the page in memory, and
+ * deriving the panel from the loaded messages hid exactly the pins worth keeping.
+ */
+export async function getPinnedMessages(channelId: string, signal?: AbortSignal): Promise<ApiMessage[]> {
+  const rows = await apiGet<MessageDto[]>(`/channels/${channelId}/pins`, signal);
+  return rows.map(toMessage);
 }
 
 /** `PUT|DELETE /channels/{channelId}/pins/{messageId}`: pin or unpin a message in a channel. */
@@ -1204,6 +1259,45 @@ export async function uploadFile(spaceId: string, file: File, parentId?: string)
 }
 
 /**
+ * `POST /files/{id}/versions`: replace a file's contents, keeping its name, place and history.
+ *
+ * The version becomes the one served by download and preview, and the previous bytes stay stored.
+ * Reading the history back needs a route that does not exist yet, so what this offers today is
+ * "here is a newer copy of the same document" rather than a version browser.
+ */
+export async function uploadFileVersion(fileId: string, file: File): Promise<SpaceFile> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/api/v1/files/${fileId}/versions`, {
+    method: "POST",
+    credentials: "same-origin",
+    body: form,
+  });
+  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
+  return toSpaceFile((await res.json()) as FileDto);
+}
+
+/**
+ * `PATCH /files/{id}`: rename an entry, or move it into another folder.
+ *
+ * `parentFolderId` of `null` means the space's root, which the API takes as an explicit flag rather
+ * than an absent field: leaving it out means "do not move", and the two have to be told apart.
+ * Refusals are the server's to make (a folder cannot be moved into itself or into its own
+ * descendant), so nothing is checked twice here.
+ */
+export async function updateFile(
+  fileId: string,
+  patch: { name?: string; parentFolderId?: string | null },
+): Promise<SpaceFile> {
+  const dto = await apiPatch<FileDto>(`/files/${fileId}`, {
+    name: patch.name,
+    parent_folder_id: patch.parentFolderId ?? undefined,
+    move_to_root: patch.parentFolderId === null ? true : undefined,
+  });
+  return toSpaceFile(dto);
+}
+
+/**
  * `DELETE /files/{id}`: remove a file, or a folder and everything under it.
  *
  * The API has always answered this; nothing in the interface ever called it, so a file could be
@@ -1292,16 +1386,54 @@ export type RealtimeHandlers = {
 /** A live realtime connection: close it on teardown, and signal typing over it. */
 export type RealtimeConnection = { close: () => void; sendTyping: (conversationId: string) => void };
 
+/** Every event the server names. Needed by name because `EventSource` only routes named events. */
+const REALTIME_EVENTS = [
+  "message.created",
+  "message.updated",
+  "message.deleted",
+  "message.pinned",
+  "message.unpinned",
+  "message.saved",
+  "message.unsaved",
+  "reaction.added",
+  "reaction.removed",
+  "channel.created",
+  "channel.updated",
+  "member.joined",
+  "member.updated",
+  "space.updated",
+  "presence",
+  "notification.created",
+  "typing",
+  "read.updated",
+] as const;
+
+/** How many failed WebSocket attempts, none of which ever opened, before falling back to SSE. */
+const WS_ATTEMPTS_BEFORE_SSE = 2;
+
 /**
- * Open the realtime WebSocket and dispatch decoded events to `handlers`. The socket authenticates
- * from the same-origin session cookie on the upgrade (no token), reconnects with a capped backoff
- * after an unexpected close, and sends a periodic ping so a quiet connection stays counted as online.
- * All mutations still go through REST; this socket only receives pushes and sends typing/ping.
+ * Open the realtime channel and dispatch decoded events to `handlers`.
+ *
+ * A WebSocket first: it carries both directions, so typing and the keep-alive travel on the same
+ * connection. It authenticates from the same-origin session cookie on the upgrade (no token) and
+ * reconnects with a capped backoff after an unexpected close.
+ *
+ * **Server-sent events when that never opens.** Some corporate proxies pass ordinary HTTP and drop
+ * the upgrade, and Ruchoir is aimed squarely at organisations that sit behind such things: the
+ * fallback exists in the API and was, until now, offered to nobody. It is one-way, so typing goes
+ * over `POST /realtime/typing` instead, and presence is kept by a server-side timer rather than by
+ * pings. The switch is made only after the socket has failed without ever opening: a connection
+ * that opens and later drops is a network blip, and downgrading on one of those would leave a
+ * client on the weaker transport for the rest of its session.
+ *
+ * All mutations still go through REST either way; this only receives.
  */
 export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection {
   let socket: WebSocket | null = null;
+  let events: EventSource | null = null;
   let closed = false;
   let reconnectDelay = 1000;
+  let failedAttempts = 0;
   let pingTimer: ReturnType<typeof setInterval> | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -1405,6 +1537,13 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
 
   const connect = () => {
     if (closed) return;
+    // A way to reach the fallback on purpose. Without it the only way to see the SSE path is to be
+    // behind a proxy that blocks the upgrade, which is exactly the situation nobody developing the
+    // product is in, and is how a fallback rots unnoticed.
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("transport") === "sse") {
+      startEvents();
+      return;
+    }
     let ws: WebSocket;
     try {
       ws = new WebSocket(url());
@@ -1415,6 +1554,7 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
     socket = ws;
     ws.onopen = () => {
       reconnectDelay = 1000;
+      failedAttempts = 0;
       pingTimer = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
       }, 25000);
@@ -1426,13 +1566,46 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         // Ignore an unparseable frame rather than tearing the connection down.
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       clearInterval(pingTimer);
-      if (!closed) scheduleReconnect();
+      if (closed) return;
+      // `wasClean` is false for a handshake a proxy refused, and true for a socket that lived and
+      // then ended. Only the first kind counts towards giving up on WebSocket.
+      if (!event.wasClean) failedAttempts += 1;
+      if (failedAttempts >= WS_ATTEMPTS_BEFORE_SSE) {
+        startEvents();
+        return;
+      }
+      scheduleReconnect();
     };
     ws.onerror = () => {
       // The close handler drives reconnection; nothing extra to do here.
     };
+  };
+
+  /**
+   * The one-way fallback. `EventSource` reconnects on its own, so there is no backoff to write
+   * here; what it cannot do is tell us the response was a 401, which is why a closed connection
+   * that never delivers is left to the session check on the next navigation.
+   */
+  const startEvents = () => {
+    if (closed || events) return;
+    socket = null;
+    try {
+      events = new EventSource("/api/v1/realtime/sse", { withCredentials: true });
+    } catch {
+      scheduleReconnect();
+      return;
+    }
+    for (const name of REALTIME_EVENTS) {
+      events.addEventListener(name, (event) => {
+        try {
+          dispatch(JSON.parse((event as MessageEvent<string>).data) as RealtimeEnvelope);
+        } catch {
+          // Same as on the socket: an unparseable frame is dropped, not fatal.
+        }
+      });
+    }
   };
 
   const scheduleReconnect = () => {
@@ -1449,10 +1622,18 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       clearInterval(pingTimer);
       clearTimeout(reconnectTimer);
       socket?.close();
+      events?.close();
+      events = null;
     },
     sendTyping: (conversationId: string) => {
       if (socket?.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "typing", conversation_id: conversationId }));
+        return;
+      }
+      // Nothing travels up an event stream, so on the fallback this is a request. Best-effort, as
+      // it is on the socket: a typing signal nobody receives is not worth reporting.
+      if (events) {
+        void apiPost<void>("/realtime/typing", { conversation_id: conversationId }).catch(() => {});
       }
     },
   };
