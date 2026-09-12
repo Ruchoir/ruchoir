@@ -1,0 +1,12 @@
+# Runs the backup every night, and catches up after a machine that was off at the time.
+[Unit]
+Description=Nightly Ruchoir instance backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+# A few minutes of jitter so several instances on one host do not all wake together.
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -141,8 +141,10 @@ to the sign-in screen.
 
 Deliberate gaps, so nobody discovers them the hard way:
 
-- **No backups.** PostgreSQL, Valkey and Garage all hold state and nothing here dumps them. Do not
-  put anything you would miss on an instance until that exists.
+- **No off-site copies, and no point-in-time recovery.** `scripts/backup.sh` takes the three stores
+  into one encrypted archive and `scripts/restore.sh` puts them back (see
+  [Backup and restore](backup.md)), but the archives land on the same machine unless you copy them
+  elsewhere, and they let you go back to an archive rather than to an arbitrary minute.
 - **No guided installer.** This document is the installer.
 - **One host for every space.** Spaces are addressed in the path (`/e/{slug}/…`); serving each on its
   own subdomain is a later change, and the client already reads both forms.
