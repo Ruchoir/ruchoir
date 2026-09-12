@@ -503,7 +503,7 @@ fn is_usable(record: &space_invitations::Model, now: OffsetDateTime) -> bool {
 }
 
 /// The space's oldest public, non-archived channel: the one a new member is joined to.
-async fn first_public_channel<C: sea_orm::ConnectionTrait>(
+pub(super) async fn first_public_channel<C: sea_orm::ConnectionTrait>(
     db: &C,
     space_id: Uuid,
 ) -> Result<Option<Uuid>, ApiError> {

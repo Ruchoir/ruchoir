@@ -460,6 +460,101 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
   );
 }
 
+/**
+ * Leave a space. Confirmed rather than immediate: the door locks behind you, and getting back in
+ * takes an invitation somebody else has to issue.
+ */
+export function LeaveSpaceDialog({
+  name,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  name: string;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Dialog
+      title={t("space.leaveTitle", { name })}
+      closeLabel={t("common.close")}
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="danger" disabled={busy} onClick={onConfirm}>
+            {busy ? t("common.sending") : t("space.leave")}
+          </Button>
+        </>
+      }
+    >
+      <p style={{ fontSize: 13, color: "var(--text-body)", margin: 0 }}>{t("space.leaveBody")}</p>
+      <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
+        {t("space.leaveKeepsMessages")}
+      </p>
+    </Dialog>
+  );
+}
+
+/**
+ * Delete a space. The name has to be typed out: this is the one action in the product that destroys
+ * other people's work, and a button that only needs one click is not enough of a pause.
+ */
+export function DeleteSpaceDialog({
+  name,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  name: string;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  const [typed, setTyped] = useState("");
+  const matches = typed.trim() === name.trim();
+  return (
+    <Dialog
+      title={t("space.deleteTitle", { name })}
+      closeLabel={t("common.close")}
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="danger" disabled={!matches || busy} onClick={onConfirm}>
+            {busy ? t("common.sending") : t("space.deleteConfirm")}
+          </Button>
+        </>
+      }
+    >
+      <p style={{ fontSize: 13, color: "var(--text-body)", margin: "0 0 6px" }}>{t("space.deleteBody")}</p>
+      <p style={{ fontSize: 13, color: "var(--status-danger-fg)", margin: "0 0 14px" }}>
+        {t("space.deleteFinal")}
+      </p>
+      <Field label={t("space.deleteConfirmLabel", { name })} htmlFor="del-space">
+        <Input
+          id="del-space"
+          autoFocus
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && matches && !busy) onConfirm();
+          }}
+        />
+      </Field>
+    </Dialog>
+  );
+}
+
 /** Help centre: documentation links and the live (customizable) keyboard shortcuts. */
 export function HelpDialog({
   onClose,

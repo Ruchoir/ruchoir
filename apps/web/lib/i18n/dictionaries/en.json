@@ -710,7 +710,21 @@
     "addressFollowsName": "The space address will follow the name. The old ones keep working.",
     "adminsOnlyRename": "Only space administrators can rename it.",
     "serverAddress": "Server address",
-    "setAtInstall": "Set when the instance was installed"
+    "setAtInstall": "Set when the instance was installed",
+    "leave": "Leave the space",
+    "leaveTitle": "Leave {{name}}?",
+    "leaveBody": "You will lose access to its channels, its messages and its files. Coming back takes a new invitation.",
+    "leaveKeepsMessages": "What you wrote there stays: a conversation belongs to the people who had it.",
+    "leaveLastOwner": "You are this space's last owner. Make someone else an owner, or delete the space.",
+    "danger": "Danger zone",
+    "delete": "Delete the space",
+    "deleteDesc": "Erases the space and everything in it, for every member.",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteBody": "This space's channels, messages, files and invitations will be erased, for everyone.",
+    "deleteFinal": "Immediate and final: nothing is kept, and nothing can be restored.",
+    "deleteConfirm": "Delete for good",
+    "deleteConfirmLabel": "Type “{{name}}” to confirm",
+    "leaveDesc": "You step out of this space. It carries on without you, and coming back takes an invitation."
   },
   "prefs": {
     "title": "Preferences",
@@ -846,7 +860,12 @@
     "inviteLinkCreated": "Invitation link created",
     "ssoUnavailable": "SSO is not configured on this instance.",
     "welcome": "Welcome, {{name}}.",
-    "stillReadable": "You can still read it, without notifications."
+    "stillReadable": "You can still read it, without notifications.",
+    "spaceLeft": "Space left",
+    "leaveSpaceFailed": "Could not leave this space",
+    "spaceDeleted": "Space deleted",
+    "deleteSpaceFailed": "Could not delete this space",
+    "spaceDeletedElsewhere": "{{name}} has been deleted"
   },
   "boot": {
     "loading": "Loading",

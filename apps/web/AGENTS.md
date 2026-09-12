@@ -81,6 +81,15 @@ side that wins: it is the complete row, while a frame cannot know whether the pe
 member, has favourited it, or has anything unread. Appending blindly is what put a newly created
 channel in the sidebar twice.
 
+**A menu acts on what it hangs under.** The menu opened from the space's name ended with "sign
+out", which closed the whole session from a control about one space: the only way out of a space was
+to leave the product. It now offers **leaving the space** (`DELETE /spaces/{id}/membership`, behind a
+confirmation, because coming back needs an invitation), and the space settings carry both exits:
+leaving again, because the compact shell draws no space menu and leaving must not be a desktop-only
+act, and deleting, owner only and behind typing the space's name. Both drop the space through
+the same path as the `space.removed` frame, so leaving in one tab, or an owner deleting under
+everyone, takes the space off the rail exactly the way pressing the button does.
+
 **A module-level registry is shared state, so it needs subscribers.** `lib/data/index.ts` holds a few
 values read synchronously rather than threaded through props (the member roster, presence by name).
 Read as a plain variable they go stale in two directions at once: a reader that captures one in a

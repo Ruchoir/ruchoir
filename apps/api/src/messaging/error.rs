@@ -20,6 +20,11 @@ pub enum ApiError {
     Forbidden,
     /// The request is malformed or violates a simple rule. The static reason is safe to expose.
     BadRequest(&'static str),
+    /// The request is well formed and allowed, but the current state refuses it. Distinct from
+    /// [`ApiError::BadRequest`] because nothing about the request needs fixing: a last owner asking
+    /// to leave their space has sent a perfectly good request, and has to change the space (hand
+    /// ownership over, or delete it) rather than the call. The static reason is safe to expose.
+    Conflict(&'static str),
     /// No valid session. Mirrors the auth guard's 401 so the client reacts identically.
     Unauthorized,
     /// Any unexpected server-side failure. Never leaks internals to the client.
@@ -42,6 +47,7 @@ impl IntoResponse for ApiError {
                 "You do not have access to this resource.",
             ),
             ApiError::BadRequest(message) => (StatusCode::BAD_REQUEST, "bad_request", message),
+            ApiError::Conflict(message) => (StatusCode::CONFLICT, "conflict", message),
             ApiError::Unauthorized => (
                 StatusCode::UNAUTHORIZED,
                 "unauthorized",

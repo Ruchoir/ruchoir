@@ -742,7 +742,21 @@
     "addressFollowsName": "Adres przestrzeni podąży za nazwą. Poprzednie nadal działają.",
     "adminsOnlyRename": "Tylko administratorzy przestrzeni mogą ją przemianować.",
     "serverAddress": "Adres serwera",
-    "setAtInstall": "Ustalony przy instalacji instancji"
+    "setAtInstall": "Ustalony przy instalacji instancji",
+    "leave": "Opuść przestrzeń",
+    "leaveTitle": "Opuścić {{name}}?",
+    "leaveBody": "Stracisz dostęp do jej kanałów, wiadomości i plików. Powrót będzie wymagał nowego zaproszenia.",
+    "leaveKeepsMessages": "To, co tam napisałeś, zostaje: rozmowa należy do tych, którzy ją prowadzili.",
+    "leaveLastOwner": "Jesteś ostatnim właścicielem tej przestrzeni. Wyznacz innego właściciela albo usuń przestrzeń.",
+    "danger": "Strefa zagrożenia",
+    "delete": "Usuń przestrzeń",
+    "deleteDesc": "Kasuje przestrzeń i wszystko, co w niej jest, dla wszystkich jej członków.",
+    "deleteTitle": "Usunąć {{name}}?",
+    "deleteBody": "Kanały, wiadomości, pliki i zaproszenia tej przestrzeni zostaną skasowane dla wszystkich.",
+    "deleteFinal": "Natychmiast i nieodwracalnie: nic nie zostaje zachowane i niczego nie da się przywrócić.",
+    "deleteConfirm": "Usuń bezpowrotnie",
+    "deleteConfirmLabel": "Wpisz „{{name}}”, aby potwierdzić",
+    "leaveDesc": "Wychodzisz z tej przestrzeni. Działa dalej bez ciebie, a powrót będzie wymagał zaproszenia."
   },
   "prefs": {
     "title": "Preferencje",
@@ -878,7 +892,12 @@
     "inviteLinkCreated": "Link z zaproszeniem utworzony",
     "ssoUnavailable": "SSO nie jest skonfigurowane w tej instancji.",
     "welcome": "Witaj, {{name}}.",
-    "stillReadable": "Nadal możesz go czytać, bez powiadomień."
+    "stillReadable": "Nadal możesz go czytać, bez powiadomień.",
+    "spaceLeft": "Przestrzeń opuszczona",
+    "leaveSpaceFailed": "Nie udało się opuścić tej przestrzeni",
+    "spaceDeleted": "Przestrzeń usunięta",
+    "deleteSpaceFailed": "Nie udało się usunąć tej przestrzeni",
+    "spaceDeletedElsewhere": "{{name}} została usunięta"
   },
   "boot": {
     "loading": "Wczytywanie",

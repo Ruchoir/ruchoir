@@ -277,6 +277,28 @@ pub struct MemberJoinedDto {
     pub member: MemberDto,
 }
 
+/// A member's departure from a space, pushed in real time.
+///
+/// The counterpart of [`MemberJoinedDto`], and carries only the two ids: an arrival has to describe
+/// someone the recipient may never have seen, a departure names someone whose row is already on
+/// screen and is only being taken off it.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct MemberLeftDto {
+    pub space_id: Uuid,
+    pub user_id: Uuid,
+}
+
+/// A space that stopped being the recipient's, pushed in real time.
+///
+/// `deleted` separates the two ways that happens: the space is gone for everyone, or the recipient
+/// walked out of a space that carries on without them. The client drops it from the rail either
+/// way; only the sentence it shows differs.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct SpaceRemovedDto {
+    pub space_id: Uuid,
+    pub deleted: bool,
+}
+
 /// Edit the caller's own profile. Absent fields are left unchanged; an empty string clears the field
 /// (except `display_name`, which is required and ignored when blank).
 #[derive(Debug, Deserialize, ToSchema)]

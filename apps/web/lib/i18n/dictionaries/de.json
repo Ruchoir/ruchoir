@@ -710,7 +710,21 @@
     "addressFollowsName": "Die Adresse des Bereichs folgt dem Namen. Die alten funktionieren weiter.",
     "adminsOnlyRename": "Nur Bereichsadministratoren können ihn umbenennen.",
     "serverAddress": "Serveradresse",
-    "setAtInstall": "Bei der Installation der Instanz festgelegt"
+    "setAtInstall": "Bei der Installation der Instanz festgelegt",
+    "leave": "Bereich verlassen",
+    "leaveTitle": "{{name}} verlassen?",
+    "leaveBody": "Sie verlieren den Zugang zu seinen Kanälen, Nachrichten und Dateien. Für eine Rückkehr braucht es eine neue Einladung.",
+    "leaveKeepsMessages": "Was Sie dort geschrieben haben, bleibt: ein Gespräch gehört denen, die es geführt haben.",
+    "leaveLastOwner": "Sie sind die letzte Eigentümerin oder der letzte Eigentümer dieses Bereichs. Machen Sie jemand anderen zur Eigentümerin oder zum Eigentümer, oder löschen Sie den Bereich.",
+    "danger": "Gefahrenzone",
+    "delete": "Bereich löschen",
+    "deleteDesc": "Löscht den Bereich und alles darin, für alle seine Mitglieder.",
+    "deleteTitle": "{{name}} löschen?",
+    "deleteBody": "Die Kanäle, Nachrichten, Dateien und Einladungen dieses Bereichs werden für alle gelöscht.",
+    "deleteFinal": "Sofort und endgültig: nichts wird aufbewahrt, nichts lässt sich wiederherstellen.",
+    "deleteConfirm": "Endgültig löschen",
+    "deleteConfirmLabel": "Tippen Sie „{{name}}“ zur Bestätigung",
+    "leaveDesc": "Sie treten aus diesem Bereich aus. Er läuft ohne Sie weiter, und für eine Rückkehr braucht es eine Einladung."
   },
   "prefs": {
     "title": "Einstellungen",
@@ -846,7 +860,12 @@
     "inviteLinkCreated": "Einladungslink erstellt",
     "ssoUnavailable": "SSO ist auf dieser Instanz nicht eingerichtet.",
     "welcome": "Willkommen, {{name}}.",
-    "stillReadable": "Sie können weiter mitlesen, ohne Benachrichtigungen."
+    "stillReadable": "Sie können weiter mitlesen, ohne Benachrichtigungen.",
+    "spaceLeft": "Bereich verlassen",
+    "leaveSpaceFailed": "Bereich konnte nicht verlassen werden",
+    "spaceDeleted": "Bereich gelöscht",
+    "deleteSpaceFailed": "Bereich konnte nicht gelöscht werden",
+    "spaceDeletedElsewhere": "{{name}} wurde gelöscht"
   },
   "boot": {
     "loading": "Wird geladen",
