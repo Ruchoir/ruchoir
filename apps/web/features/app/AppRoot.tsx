@@ -24,6 +24,7 @@ import {
   getSavedMessages,
   adoptBrowserTimezone,
   getSession,
+  syncAccountLocale,
   getSpaceMembers,
   getSpacePresence,
   getWorkspaces,
@@ -85,7 +86,7 @@ import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
 import { InstanceAdminScreen } from "./InstanceAdmin";
 import { NotificationPrompt } from "./NotificationPrompt";
-import { useTranslation } from "@/lib/i18n";
+import { initialLocale, useTranslation } from "@/lib/i18n";
 import { MfaChallengeScreen } from "@/features/auth/MfaChallengeScreen";
 import { ResetPasswordScreen } from "@/features/auth/ResetPasswordScreen";
 import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
@@ -740,6 +741,9 @@ function AppShell() {
         // An account that has never had a timezone gets the browser's, once. Everything that shows
         // a local time depended on a column nothing could write, so it showed nothing.
         void adoptBrowserTimezone(user.timezone);
+        // And the language in force, chosen or detected: someone on "follow the browser" reads in a
+        // language all the same, and their profile said nothing about it.
+        void syncAccountLocale(user.locale, initialLocale());
         await loadInitialData();
         if (!active) return;
         // By now the preferences have loaded (their effect runs on mount, well before this awaits

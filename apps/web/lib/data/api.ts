@@ -54,6 +54,7 @@ type UserSummaryDto = {
   /** Whether this account administers the instance. */
   is_instance_admin?: boolean;
   timezone?: string;
+  locale?: string;
 };
 
 /** Alternative login outcome when a second factor is required (same 200 status as a success). */
@@ -158,6 +159,8 @@ export type SessionUser = {
   isInstanceAdmin: boolean;
   /** The account's timezone; absent when it has never had one. */
   timezone?: string;
+  /** The language the account is recorded as reading in; absent until the first sign-in writes it. */
+  locale?: string;
 };
 
 /** Outcome of a login attempt: authenticated, or challenged for a second factor. */
@@ -173,6 +176,7 @@ function toSessionUser(dto: UserSummaryDto): SessionUser {
     presenceChoice: toPresenceChoice(dto.manual_presence),
     isInstanceAdmin: dto.is_instance_admin === true,
     timezone: dto.timezone,
+    locale: dto.locale,
   };
 }
 
@@ -200,6 +204,29 @@ export async function adoptBrowserTimezone(current?: string): Promise<string | u
   } catch {
     // Not worth surfacing: the interface is unaffected, and the next sign-in tries again.
     return undefined;
+  }
+}
+
+/**
+ * Keep the account's language in step with the one being read.
+ *
+ * `users.locale` holds **the language in force**, not the preference: someone on "follow the
+ * browser" is reading in a language all the same, and a profile that says nothing about it is
+ * simply wrong. Whether that language was chosen or detected is the browser's business, and stays
+ * in the local preferences.
+ *
+ * So it is written on sign-in whenever it differs from what the account holds, which covers the
+ * person who never opened the language menu as well as the one who changed it on another machine.
+ * Same shape as the timezone, and for the same reason: the server keeps the last known fact, the
+ * client keeps the preference.
+ */
+export async function syncAccountLocale(current: string | undefined, inForce: string): Promise<void> {
+  if (current === inForce) return;
+  try {
+    await updateMyProfile({ locale: inForce });
+  } catch {
+    // Not worth surfacing: the interface is already in the right language, and the next sign-in
+    // tries again.
   }
 }
 

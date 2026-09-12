@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, Field, Icon, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
 import { updateMyProfile } from "@/lib/data/api";
-import { useTranslation } from "@/lib/i18n";
+import { initialLocale, useTranslation } from "@/lib/i18n";
 import { LanguagePicker } from "./LanguagePicker";
 import { Emoji } from "./Emoji";
 import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
@@ -642,7 +642,10 @@ export function PreferencesScreen({
                       // Told to the server too, because the server writes: confirmations, password
                       // resets and invitations are the half of the product a browser preference
                       // cannot reach. A blank clears it back to following the browser.
-                      void updateMyProfile({ locale: next ?? "" }).catch(() => {
+                      // Back to "follow the browser" still means reading in a language: the account
+                      // records the one now in force, not a blank, or the profile would go quiet
+                      // about something that is plainly true.
+                      void updateMyProfile({ locale: next ?? initialLocale() }).catch(() => {
                         // A language that did not reach the account still applies to the interface;
                         // it is not worth an error in the middle of a preferences screen.
                       });
