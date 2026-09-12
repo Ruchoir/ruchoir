@@ -36,14 +36,18 @@ export type CommandDef = {
  * used everywhere to close dialogs, panels and menus, so binding a global action to it would
  * clash. Shift+Escape stays reachable without stealing the plain key.
  */
+/**
+ * The commands, with dictionary keys rather than sentences: this list is built at module load,
+ * before a language is in force, and the help screen translates each entry as it draws it.
+ */
 export const COMMANDS: CommandDef[] = [
-  { id: "search", label: "Recherche globale", hint: "Chercher dans les messages, fichiers et personnes", defaultChord: "Mod+K" },
-  { id: "switcher", label: "Aller à une conversation", hint: "Sauter vers un canal ou un message privé", defaultChord: "Mod+J" },
-  { id: "newMessage", label: "Nouveau message", hint: "Démarrer un message privé", defaultChord: "Mod+Shift+M" },
-  { id: "nextUnread", label: "Conversation non lue suivante", hint: "Passer à la conversation non lue suivante", defaultChord: "Alt+Shift+ArrowDown" },
-  { id: "prevUnread", label: "Conversation non lue précédente", hint: "Revenir à la conversation non lue précédente", defaultChord: "Alt+Shift+ArrowUp" },
-  { id: "markRead", label: "Marquer comme lu", hint: "Marquer la conversation ouverte comme lue", defaultChord: "Shift+Escape" },
-  { id: "help", label: "Aide et raccourcis", hint: "Ouvrir le centre d'aide", defaultChord: "?" },
+  { id: "search", label: "shortcut.search", hint: "shortcut.searchHint", defaultChord: "Mod+K" },
+  { id: "switcher", label: "switcher.title", hint: "shortcut.switcherHint", defaultChord: "Mod+J" },
+  { id: "newMessage", label: "shell.newMessage", hint: "shortcut.newMessageHint", defaultChord: "Mod+Shift+M" },
+  { id: "nextUnread", label: "shortcut.nextUnread", hint: "shortcut.nextUnreadHint", defaultChord: "Alt+Shift+ArrowDown" },
+  { id: "prevUnread", label: "shortcut.prevUnread", hint: "shortcut.prevUnreadHint", defaultChord: "Alt+Shift+ArrowUp" },
+  { id: "markRead", label: "sidebar.markRead", hint: "shortcut.markReadHint", defaultChord: "Shift+Escape" },
+  { id: "help", label: "shortcut.help", hint: "shortcut.helpHint", defaultChord: "?" },
 ];
 
 // No positional "switch to space N" command. Every modifier plus a digit is taken by some browser
@@ -110,16 +114,23 @@ const NAMED_LABELS: Record<string, string> = {
   ArrowDown: "↓",
   ArrowLeft: "←",
   ArrowRight: "→",
-  Escape: "Échap",
-  Enter: "Entrée",
-  Space: "Espace",
+  Escape: "key.escape",
+  Enter: "key.enter",
+  Space: "key.space",
   Tab: "Tab",
-  Backspace: "Retour arr.",
-  Delete: "Suppr",
+  Backspace: "key.backspace",
+  Delete: "key.delete",
 };
 
-/** Human-readable form of a chord for a given platform (French labels, glyphs on macOS). */
-export function formatChord(chord: string, mac: boolean = isMac()): string {
+/**
+ * Human-readable form of a chord for a given platform (glyphs on macOS).
+ *
+ * Takes the translator, because key names belong to a language: Escape is "Échap" in French, "Esc"
+ * elsewhere, and Enter is "Eingabe" in German. Arrows and `Tab` are glyphs or a word every keyboard
+ * prints the same way, so they pass straight through. A missing translator leaves the raw key name,
+ * which is still readable and never a French word shown to someone reading Polish.
+ */
+export function formatChord(chord: string, mac: boolean = isMac(), t?: (key: string) => string): string {
   if (!chord) return "";
   const sep = mac ? " " : " + ";
   return chord
@@ -127,8 +138,10 @@ export function formatChord(chord: string, mac: boolean = isMac()): string {
     .map((p) => {
       if (p === "Mod") return mac ? "⌘" : "Ctrl";
       if (p === "Alt") return mac ? "⌥" : "Alt";
-      if (p === "Shift") return mac ? "⇧" : "Maj";
-      return NAMED_LABELS[p] ?? p;
+      if (p === "Shift") return mac ? "⇧" : t ? t("key.shift") : "Shift";
+      const named = NAMED_LABELS[p];
+      if (!named) return p;
+      return named.startsWith("key.") ? (t ? t(named) : p) : named;
     })
     .join(sep);
 }

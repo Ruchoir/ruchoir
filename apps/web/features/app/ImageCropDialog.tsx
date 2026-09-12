@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { Button, Dialog } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 
 /** Side of the exported image, in pixels. Matches what the API stores, so nothing is resampled twice. */
 const EXPORT_PX = 512;
@@ -65,6 +66,7 @@ function hasTransparency(context: CanvasRenderingContext2D): boolean {
 }
 
 export function ImageCropDialog({ file, title, onCancel, onConfirm }: ImageCropDialogProps) {
+  const { t } = useTranslation();
   const [natural, setNatural] = useState<{ width: number; height: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   /**
@@ -160,9 +162,9 @@ export function ImageCropDialog({ file, title, onCancel, onConfirm }: ImageCropD
       onClose={onCancel}
       footer={
         <>
-          <Button onClick={onCancel}>Annuler</Button>
+          <Button onClick={onCancel}>{t("common.cancel")}</Button>
           <Button variant="primary" disabled={!natural || busy} onClick={confirm}>
-            {busy ? "Préparation…" : "Utiliser cette image"}
+            {busy ? t("crop.preparing") : t("crop.use")}
           </Button>
         </>
       }
@@ -197,19 +199,19 @@ export function ImageCropDialog({ file, title, onCancel, onConfirm }: ImageCropD
         </div>
 
         <div style={styles.zoom}>
-          <span style={styles.zoomLabel}>Zoom</span>
+          <span style={styles.zoomLabel}>{t("crop.zoom")}</span>
           <input
             type="range"
             min={1}
             max={3}
             step={0.01}
             value={zoom}
-            aria-label="Zoom"
+            aria-label={t("crop.zoom")}
             onChange={(e) => setZoom(Number(e.target.value))}
             style={{ flex: 1 }}
           />
         </div>
-        <p style={styles.hint}>Faites glisser l&apos;image pour choisir ce qui reste dans le cadre.</p>
+        <p style={styles.hint}>{t("crop.hint")}</p>
       </div>
     </Dialog>
   );

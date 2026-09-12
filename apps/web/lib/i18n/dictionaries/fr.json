@@ -113,7 +113,8 @@
     "remove": "Retirer",
     "back": "Retour",
     "search": "Rechercher",
-    "help": "Aide"
+    "help": "Aide",
+    "cancel": "Annuler"
   },
   "mfa": {
     "totpTitle": "Vérification en deux étapes",
@@ -216,5 +217,71 @@
     "open": "Entrée pour ouvrir",
     "close": "Échap pour fermer",
     "noMatch": "Rien ne correspond à « {{query}} »."
+  },
+  "sidebar": {
+    "muted": "Notifications en sourdine",
+    "markRead": "Marquer comme lu",
+    "channelSettings": "Paramètres du canal",
+    "joinChannel": "Rejoindre le canal",
+    "leaveChannel": "Quitter le canal",
+    "hideConversation": "Masquer la conversation",
+    "hidden": "Conversation masquée",
+    "hiddenHint": "{{name}} · elle reviendra au prochain message",
+    "channelsAndMessages": "Canaux et messages",
+    "invitePeople": "Inviter des personnes",
+    "spaceSettings": "Réglages de l'espace",
+    "spaceFiles": "Fichiers de l'espace",
+    "searchPlaceholder": "Rechercher un canal, une personne…",
+    "threads": "Fils de discussion",
+    "favourites": "Canaux favoris",
+    "privateChannel": "Canal privé",
+    "archivedChannel": "Canal archivé",
+    "newChannel": "Nouveau canal",
+    "noChannel": "Aucun canal pour l'instant. Créez-en un avec le +.",
+    "directMessages": "Messages directs",
+    "startConversation": "Démarrer une conversation",
+    "bot": "Bot",
+    "allFavourites": "Tous vos canaux sont en favoris, au-dessus."
+  },
+  "welcome": {
+    "title": "Prise en main",
+    "hide": "Masquer la prise en main",
+    "profile": "Complétez votre profil",
+    "profileDesc": "Ajoutez une photo et votre fonction.",
+    "channel": "Créez un canal",
+    "channelDesc": "Organisez les échanges par sujet.",
+    "message": "Envoyez un premier message",
+    "messageDesc": "Dites bonjour dans un canal.",
+    "invite": "Invitez votre équipe",
+    "inviteDesc": "Ruchoir prend tout son sens à plusieurs."
+  },
+  "crop": {
+    "zoom": "Zoom",
+    "hint": "Faites glisser l'image pour choisir ce qui reste dans le cadre.",
+    "preparing": "Préparation…",
+    "use": "Utiliser cette image"
+  },
+  "shortcut": {
+    "search": "Recherche globale",
+    "searchHint": "Chercher dans les messages, fichiers et personnes",
+    "switcherHint": "Sauter vers un canal ou un message privé",
+    "newMessageHint": "Démarrer un message privé",
+    "nextUnread": "Conversation non lue suivante",
+    "nextUnreadHint": "Passer à la conversation non lue suivante",
+    "prevUnread": "Conversation non lue précédente",
+    "prevUnreadHint": "Revenir à la conversation non lue précédente",
+    "markReadHint": "Marquer la conversation ouverte comme lue",
+    "help": "Aide et raccourcis",
+    "helpHint": "Ouvrir le centre d'aide",
+    "editShortcut": "Modifier le raccourci : {{label}}",
+    "resetShortcut": "Rétablir le raccourci par défaut : {{label}}"
+  },
+  "key": {
+    "escape": "Échap",
+    "enter": "Entrée",
+    "space": "Espace",
+    "shift": "Maj",
+    "backspace": "Retour arr.",
+    "delete": "Suppr"
   }
 }

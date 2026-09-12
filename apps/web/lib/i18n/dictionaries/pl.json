@@ -113,7 +113,8 @@
     "remove": "Usuń",
     "back": "Powrót",
     "search": "Szukaj",
-    "help": "Pomoc"
+    "help": "Pomoc",
+    "cancel": "Anuluj"
   },
   "mfa": {
     "totpTitle": "Weryfikacja dwuetapowa",
@@ -216,5 +217,71 @@
     "open": "Enter aby otworzyć",
     "close": "Esc aby zamknąć",
     "noMatch": "Nic nie pasuje do „{{query}}”."
+  },
+  "sidebar": {
+    "muted": "Powiadomienia wyciszone",
+    "markRead": "Oznacz jako przeczytane",
+    "channelSettings": "Ustawienia kanału",
+    "joinChannel": "Dołącz do kanału",
+    "leaveChannel": "Opuść kanał",
+    "hideConversation": "Ukryj rozmowę",
+    "hidden": "Rozmowa ukryta",
+    "hiddenHint": "{{name}} · wróci przy następnej wiadomości",
+    "channelsAndMessages": "Kanały i wiadomości",
+    "invitePeople": "Zaproś osoby",
+    "spaceSettings": "Ustawienia przestrzeni",
+    "spaceFiles": "Pliki przestrzeni",
+    "searchPlaceholder": "Szukaj kanału, osoby…",
+    "threads": "Wątki",
+    "favourites": "Ulubione kanały",
+    "privateChannel": "Kanał prywatny",
+    "archivedChannel": "Kanał zarchiwizowany",
+    "newChannel": "Nowy kanał",
+    "noChannel": "Na razie brak kanałów. Utwórz jeden przyciskiem +.",
+    "directMessages": "Wiadomości bezpośrednie",
+    "startConversation": "Rozpocznij rozmowę",
+    "bot": "Bot",
+    "allFavourites": "Wszystkie Twoje kanały są w ulubionych, powyżej."
+  },
+  "welcome": {
+    "title": "Pierwsze kroki",
+    "hide": "Ukryj pierwsze kroki",
+    "profile": "Uzupełnij swój profil",
+    "profileDesc": "Dodaj zdjęcie i swoją funkcję.",
+    "channel": "Utwórz kanał",
+    "channelDesc": "Uporządkuj rozmowy według tematu.",
+    "message": "Wyślij pierwszą wiadomość",
+    "messageDesc": "Przywitaj się na kanale.",
+    "invite": "Zaproś swój zespół",
+    "inviteDesc": "Ruchoir ma sens, gdy jest was więcej."
+  },
+  "crop": {
+    "zoom": "Powiększenie",
+    "hint": "Przeciągnij obraz, aby wybrać, co zostanie w kadrze.",
+    "preparing": "Przygotowywanie…",
+    "use": "Użyj tego obrazu"
+  },
+  "shortcut": {
+    "search": "Wyszukiwanie globalne",
+    "searchHint": "Szukaj w wiadomościach, plikach i osobach",
+    "switcherHint": "Przeskocz do kanału lub wiadomości bezpośredniej",
+    "newMessageHint": "Rozpocznij wiadomość bezpośrednią",
+    "nextUnread": "Następna nieprzeczytana rozmowa",
+    "nextUnreadHint": "Przejdź do następnej nieprzeczytanej rozmowy",
+    "prevUnread": "Poprzednia nieprzeczytana rozmowa",
+    "prevUnreadHint": "Wróć do poprzedniej nieprzeczytanej rozmowy",
+    "markReadHint": "Oznacz otwartą rozmowę jako przeczytaną",
+    "help": "Pomoc i skróty",
+    "helpHint": "Otwórz centrum pomocy",
+    "editShortcut": "Zmień skrót: {{label}}",
+    "resetShortcut": "Przywróć domyślny skrót: {{label}}"
+  },
+  "key": {
+    "escape": "Esc",
+    "enter": "Enter",
+    "space": "Spacja",
+    "shift": "Shift",
+    "backspace": "Backspace",
+    "delete": "Delete"
   }
 }

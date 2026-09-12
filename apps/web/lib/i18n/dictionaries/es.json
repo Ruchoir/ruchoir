@@ -113,7 +113,8 @@
     "remove": "Quitar",
     "back": "Volver",
     "search": "Buscar",
-    "help": "Ayuda"
+    "help": "Ayuda",
+    "cancel": "Cancelar"
   },
   "mfa": {
     "totpTitle": "Verificación en dos pasos",
@@ -216,5 +217,71 @@
     "open": "Intro para abrir",
     "close": "Esc para cerrar",
     "noMatch": "Nada coincide con «{{query}}»."
+  },
+  "sidebar": {
+    "muted": "Notificaciones silenciadas",
+    "markRead": "Marcar como leído",
+    "channelSettings": "Ajustes del canal",
+    "joinChannel": "Unirse al canal",
+    "leaveChannel": "Salir del canal",
+    "hideConversation": "Ocultar la conversación",
+    "hidden": "Conversación oculta",
+    "hiddenHint": "{{name}} · volverá con el próximo mensaje",
+    "channelsAndMessages": "Canales y mensajes",
+    "invitePeople": "Invitar personas",
+    "spaceSettings": "Ajustes del espacio",
+    "spaceFiles": "Archivos del espacio",
+    "searchPlaceholder": "Buscar un canal, una persona…",
+    "threads": "Hilos",
+    "favourites": "Canales favoritos",
+    "privateChannel": "Canal privado",
+    "archivedChannel": "Canal archivado",
+    "newChannel": "Nuevo canal",
+    "noChannel": "Aún no hay ningún canal. Crea uno con el +.",
+    "directMessages": "Mensajes directos",
+    "startConversation": "Iniciar una conversación",
+    "bot": "Bot",
+    "allFavourites": "Todos tus canales están en favoritos, arriba."
+  },
+  "welcome": {
+    "title": "Primeros pasos",
+    "hide": "Ocultar los primeros pasos",
+    "profile": "Completa tu perfil",
+    "profileDesc": "Añade una foto y tu función.",
+    "channel": "Crea un canal",
+    "channelDesc": "Organiza las conversaciones por tema.",
+    "message": "Envía un primer mensaje",
+    "messageDesc": "Saluda en un canal.",
+    "invite": "Invita a tu equipo",
+    "inviteDesc": "Ruchoir cobra sentido con más gente."
+  },
+  "crop": {
+    "zoom": "Zoom",
+    "hint": "Arrastra la imagen para elegir lo que queda en el marco.",
+    "preparing": "Preparando…",
+    "use": "Usar esta imagen"
+  },
+  "shortcut": {
+    "search": "Búsqueda global",
+    "searchHint": "Buscar en mensajes, archivos y personas",
+    "switcherHint": "Saltar a un canal o a un mensaje directo",
+    "newMessageHint": "Iniciar un mensaje directo",
+    "nextUnread": "Siguiente conversación sin leer",
+    "nextUnreadHint": "Pasar a la siguiente conversación sin leer",
+    "prevUnread": "Conversación sin leer anterior",
+    "prevUnreadHint": "Volver a la conversación sin leer anterior",
+    "markReadHint": "Marcar como leída la conversación abierta",
+    "help": "Ayuda y atajos",
+    "helpHint": "Abrir el centro de ayuda",
+    "editShortcut": "Cambiar el atajo: {{label}}",
+    "resetShortcut": "Restablecer el atajo por defecto: {{label}}"
+  },
+  "key": {
+    "escape": "Esc",
+    "enter": "Intro",
+    "space": "Espacio",
+    "shift": "Mayús",
+    "backspace": "Retroceso",
+    "delete": "Supr"
   }
 }

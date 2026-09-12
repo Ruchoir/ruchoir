@@ -113,7 +113,8 @@
     "remove": "Entfernen",
     "back": "Zurück",
     "search": "Suchen",
-    "help": "Hilfe"
+    "help": "Hilfe",
+    "cancel": "Abbrechen"
   },
   "mfa": {
     "totpTitle": "Bestätigung in zwei Schritten",
@@ -216,5 +217,71 @@
     "open": "Eingabe zum Öffnen",
     "close": "Esc zum Schließen",
     "noMatch": "Nichts passt zu „{{query}}“."
+  },
+  "sidebar": {
+    "muted": "Benachrichtigungen stummgeschaltet",
+    "markRead": "Als gelesen markieren",
+    "channelSettings": "Kanaleinstellungen",
+    "joinChannel": "Kanal beitreten",
+    "leaveChannel": "Kanal verlassen",
+    "hideConversation": "Unterhaltung ausblenden",
+    "hidden": "Unterhaltung ausgeblendet",
+    "hiddenHint": "{{name}} · sie kommt bei der nächsten Nachricht zurück",
+    "channelsAndMessages": "Kanäle und Nachrichten",
+    "invitePeople": "Personen einladen",
+    "spaceSettings": "Bereichseinstellungen",
+    "spaceFiles": "Dateien des Bereichs",
+    "searchPlaceholder": "Kanal oder Person suchen…",
+    "threads": "Threads",
+    "favourites": "Favorisierte Kanäle",
+    "privateChannel": "Privater Kanal",
+    "archivedChannel": "Archivierter Kanal",
+    "newChannel": "Neuer Kanal",
+    "noChannel": "Noch kein Kanal. Erstellen Sie einen mit dem +.",
+    "directMessages": "Direktnachrichten",
+    "startConversation": "Unterhaltung beginnen",
+    "bot": "Bot",
+    "allFavourites": "Alle Ihre Kanäle stehen oben in den Favoriten."
+  },
+  "welcome": {
+    "title": "Erste Schritte",
+    "hide": "Erste Schritte ausblenden",
+    "profile": "Vervollständigen Sie Ihr Profil",
+    "profileDesc": "Fügen Sie ein Foto und Ihre Funktion hinzu.",
+    "channel": "Erstellen Sie einen Kanal",
+    "channelDesc": "Ordnen Sie Gespräche nach Thema.",
+    "message": "Senden Sie eine erste Nachricht",
+    "messageDesc": "Sagen Sie in einem Kanal Hallo.",
+    "invite": "Laden Sie Ihr Team ein",
+    "inviteDesc": "Ruchoir ergibt zu mehreren Sinn."
+  },
+  "crop": {
+    "zoom": "Zoom",
+    "hint": "Ziehen Sie das Bild, um zu wählen, was im Rahmen bleibt.",
+    "preparing": "Wird vorbereitet…",
+    "use": "Dieses Bild verwenden"
+  },
+  "shortcut": {
+    "search": "Globale Suche",
+    "searchHint": "Nachrichten, Dateien und Personen durchsuchen",
+    "switcherHint": "Zu einem Kanal oder einer Direktnachricht springen",
+    "newMessageHint": "Direktnachricht beginnen",
+    "nextUnread": "Nächste ungelesene Unterhaltung",
+    "nextUnreadHint": "Zur nächsten ungelesenen Unterhaltung wechseln",
+    "prevUnread": "Vorherige ungelesene Unterhaltung",
+    "prevUnreadHint": "Zur vorherigen ungelesenen Unterhaltung zurück",
+    "markReadHint": "Die offene Unterhaltung als gelesen markieren",
+    "help": "Hilfe und Tastenkürzel",
+    "helpHint": "Das Hilfecenter öffnen",
+    "editShortcut": "Tastenkürzel ändern: {{label}}",
+    "resetShortcut": "Standardkürzel wiederherstellen: {{label}}"
+  },
+  "key": {
+    "escape": "Esc",
+    "enter": "Eingabe",
+    "space": "Leertaste",
+    "shift": "Umschalt",
+    "backspace": "Rücktaste",
+    "delete": "Entf"
   }
 }

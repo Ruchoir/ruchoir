@@ -9,6 +9,7 @@ import type { AppNotification, ChannelNotifPref } from "./notifications";
 import type { AppView, Toast } from "./types";
 import { Wordmark } from "./Wordmark";
 import { getAvatar } from "@/lib/data";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   side: {
@@ -138,6 +139,7 @@ type SideItemProps = {
 };
 
 function SideItem({ icon, label, active, unread, muted, notifMuted, tag, onClick, children, menuItems }: SideItemProps) {
+  const { t } = useTranslation();
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -178,7 +180,7 @@ function SideItem({ icon, label, active, unread, muted, notifMuted, tag, onClick
       </span>
       {tag}
       {notifMuted ? (
-        <Icon name="bell-off" size={13} title="Notifications en sourdine" style={{ flex: "none", color: "var(--text-subtle)" }} />
+        <Icon name="bell-off" size={13} title={t("sidebar.muted")} style={{ flex: "none", color: "var(--text-subtle)" }} />
       ) : null}
       {menuItems && menuItems.length > 0 ? (
         // Fixed-width slot: the more-button is always mounted (opacity toggled) so the popover anchor
@@ -311,6 +313,7 @@ export function Sidebar({
   only,
   openNotifications = false,
 }: SidebarProps) {
+  const { t } = useTranslation();
   const showActivity = !only || only === "activity";
   const showChannels = !only || only === "channels";
   const showMessages = !only || only === "messages";
@@ -321,30 +324,30 @@ export function Sidebar({
       label: channel.fav ? "Retirer des favoris" : "Ajouter aux favoris",
       onClick: () => onToggleFavorite(channel.id),
     },
-    { icon: "check-check", label: "Marquer comme lu", onClick: () => onMarkRead(channel.id) },
-    { icon: "bell", label: "Notifications", onClick: () => onChannelNotifications(channel.id) },
-    { icon: "settings", label: "Paramètres du canal", onClick: () => onChannelSettings(channel.id) },
+    { icon: "check-check", label: t("sidebar.markRead"), onClick: () => onMarkRead(channel.id) },
+    { icon: "bell", label: t("notif.title"), onClick: () => onChannelNotifications(channel.id) },
+    { icon: "settings", label: t("sidebar.channelSettings"), onClick: () => onChannelSettings(channel.id) },
     // A public channel stays readable after leaving it, so the entry flips to rejoining rather than
     // disappearing: leaving is not a one-way door.
     channel.member === false
-      ? { icon: "user-plus", label: "Rejoindre le canal", onClick: () => onJoinChannel(channel.id) }
-      : { icon: "log-out", label: "Quitter le canal", danger: true, onClick: () => onLeaveChannel(channel.id) },
+      ? { icon: "user-plus", label: t("sidebar.joinChannel"), onClick: () => onJoinChannel(channel.id) }
+      : { icon: "log-out", label: t("sidebar.leaveChannel"), danger: true, onClick: () => onLeaveChannel(channel.id) },
   ];
   const dmMenu = (id: string, name: string): SideMenuItem[] => [
-    { icon: "check-check", label: "Marquer comme lu", onClick: () => onMarkRead(id) },
-    { icon: "bell", label: "Notifications", onClick: () => onChannelNotifications(id) },
+    { icon: "check-check", label: t("sidebar.markRead"), onClick: () => onMarkRead(id) },
+    { icon: "bell", label: t("notif.title"), onClick: () => onChannelNotifications(id) },
     // Hiding used to be a toast and nothing else. It now takes the conversation out of the list
     // until it has something to say again; the history is untouched and a new message brings it
     // back, which is what keeps this from being a way to miss one.
     {
       icon: "x",
-      label: "Masquer la conversation",
+      label: t("sidebar.hideConversation"),
       onClick: () => {
         onHideDm(id);
         onNotify({
           tone: "info",
-          title: "Conversation masquée",
-          description: `${name} · elle reviendra au prochain message`,
+          title: t("sidebar.hidden"),
+          description: t("sidebar.hiddenHint", { name }),
         });
       },
     },
@@ -364,7 +367,7 @@ export function Sidebar({
 
   return (
     <nav
-      aria-label="Canaux et messages"
+      aria-label={t("sidebar.channelsAndMessages")}
       style={{ ...styles.side, width: compact ? "100%" : styles.side.width, flex: compact ? 1 : styles.side.flex }}
     >
       {!compact ? (
@@ -389,11 +392,11 @@ export function Sidebar({
               onClose={() => setWsMenu(false)}
               items={[
                 { type: "label", label: workspace?.name ?? "Espace" },
-                { icon: "user-plus", label: "Inviter des personnes", onClick: onInvite },
-                { icon: "settings", label: "Réglages de l'espace", onClick: () => onView("settings") },
-                { icon: "hard-drive", label: "Fichiers de l'espace", onClick: () => onView("files") },
+                { icon: "user-plus", label: t("sidebar.invitePeople"), onClick: onInvite },
+                { icon: "settings", label: t("sidebar.spaceSettings"), onClick: () => onView("settings") },
+                { icon: "hard-drive", label: t("sidebar.spaceFiles"), onClick: () => onView("files") },
                 { type: "separator" },
-                { icon: "log-out", label: "Se déconnecter", danger: true, onClick: onLogout },
+                { icon: "log-out", label: t("shell.signOut"), danger: true, onClick: onLogout },
               ]}
             />
             <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -401,7 +404,7 @@ export function Sidebar({
                 <IconButton
                   ref={bellRef}
                   icon="bell"
-                  label="Notifications"
+                  label={t("notif.title")}
                   size="sm"
                   aria-expanded={notifOpen}
                   onClick={() => setNotifOpen((o) => !o)}
@@ -412,7 +415,7 @@ export function Sidebar({
                   </span>
                 ) : null}
               </span>
-              <IconButton icon="square-pen" label="Nouveau message" size="sm" onClick={onNewMessage} />
+              <IconButton icon="square-pen" label={t("shell.newMessage")} size="sm" onClick={onNewMessage} />
             </span>
             <NotificationCenter
               anchorRef={bellRef}
@@ -435,7 +438,7 @@ export function Sidebar({
             <Input
               size="sm"
               icon="search"
-              placeholder="Rechercher un canal, une personne…"
+              placeholder={t("sidebar.searchPlaceholder")}
               readOnly
               onClick={onGlobalSearch}
             />
@@ -445,16 +448,16 @@ export function Sidebar({
       <div style={styles.scroll}>
         {showActivity ? (
           <>
-            <SideItem icon="inbox" label="Fils de discussion" active={view === "threads"} onClick={() => onView("threads")} />
-            <SideItem icon="at-sign" label="Mentions" active={view === "mentions"} unread={mentionCount} onClick={() => onView("mentions")} />
-            <SideItem icon="hard-drive" label="Fichiers de l'espace" active={view === "files"} onClick={() => onView("files")} />
-            <SideItem icon="bookmark" label="Enregistrés" active={view === "saved"} onClick={() => onView("saved")} />
+            <SideItem icon="inbox" label={t("sidebar.threads")} active={view === "threads"} onClick={() => onView("threads")} />
+            <SideItem icon="at-sign" label={t("activity.mentions")} active={view === "mentions"} unread={mentionCount} onClick={() => onView("mentions")} />
+            <SideItem icon="hard-drive" label={t("sidebar.spaceFiles")} active={view === "files"} onClick={() => onView("files")} />
+            <SideItem icon="bookmark" label={t("activity.saved")} active={view === "saved"} onClick={() => onView("saved")} />
           </>
         ) : null}
 
         {showChannels ? (
           <>
-            <div style={styles.sect}>Canaux favoris</div>
+            <div style={styles.sect}>{t("sidebar.favourites")}</div>
             {channels.every((c) => !c.fav) ? (
               // Says how to fill it, since there is no button that could: a favourite is set on the
               // channel itself, from its own menu.
@@ -477,7 +480,7 @@ export function Sidebar({
                   <Icon
                     name={c.type === "private" ? "lock" : "hash"}
                     size={13}
-                    title={c.type === "private" ? "Canal privé" : undefined}
+                    title={c.type === "private" ? t("sidebar.privateChannel") : undefined}
                     style={{ color: "var(--text-muted)" }}
                   />
                 </SideItem>
@@ -487,7 +490,7 @@ export function Sidebar({
               Canaux
               <button
                 onClick={onNewChannel}
-                aria-label="Nouveau canal"
+                aria-label={t("sidebar.newChannel")}
                 style={{ border: 0, background: "none", padding: 0, cursor: "pointer", color: "var(--text-subtle)", display: "flex" }}
               >
                 <Icon name="plus" size={13} />
@@ -499,8 +502,8 @@ export function Sidebar({
               // not the same sentence.
               <p style={styles.empty}>
                 {channels.length === 0
-                  ? "Aucun canal pour l'instant. Créez-en un avec le +."
-                  : "Tous vos canaux sont en favoris, au-dessus."}
+                  ? t("sidebar.noChannel")
+                  : t("sidebar.allFavourites")}
               </p>
             ) : null}
             {channels
@@ -519,7 +522,7 @@ export function Sidebar({
                   <Icon
                     name={c.type === "archived" ? "archive" : c.type === "private" ? "lock" : "hash"}
                     size={13}
-                    title={c.type === "archived" ? "Canal archivé" : c.type === "private" ? "Canal privé" : undefined}
+                    title={c.type === "archived" ? t("sidebar.archivedChannel") : c.type === "private" ? t("sidebar.privateChannel") : undefined}
                     style={{ color: "var(--text-muted)" }}
                   />
                 </SideItem>
@@ -529,9 +532,9 @@ export function Sidebar({
 
         {showMessages ? (
           <>
-            <div style={styles.sect}>Messages directs</div>
+            <div style={styles.sect}>{t("sidebar.directMessages")}</div>
             {directMessages.length === 0 ? (
-              <SideItem icon="square-pen" label="Démarrer une conversation" onClick={onNewMessage} />
+              <SideItem icon="square-pen" label={t("sidebar.startConversation")} onClick={onNewMessage} />
             ) : null}
             {directMessages.map((d) => (
               <SideItem
@@ -540,7 +543,7 @@ export function Sidebar({
                 unread={d.unread}
                 notifMuted={notifMutedFor(d.id)}
                 active={view === "channel" && channel === d.id}
-                tag={d.bot ? <Tag>Bot</Tag> : undefined}
+                tag={d.bot ? <Tag>{t("sidebar.bot")}</Tag> : undefined}
                 onClick={() => onChannel(d.id)}
                 menuItems={dmMenu(d.id, d.name)}
               >
@@ -558,7 +561,7 @@ export function Sidebar({
               and this line comes back with the first real importer, listing only the sources that
               are actually supported by then.
             */}
-            <SideItem icon="settings" label="Réglages de l'espace" active={view === "settings"} onClick={() => onView("settings")} />
+            <SideItem icon="settings" label={t("sidebar.spaceSettings")} active={view === "settings"} onClick={() => onView("settings")} />
           </div>
         ) : null}
       </div>

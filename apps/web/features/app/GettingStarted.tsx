@@ -1,16 +1,18 @@
 "use client";
 
 import { type CSSProperties, useState } from "react";
-import { Button, Icon, IconButton } from "@/components/ds";
+import { Button, Icon, type IconName, IconButton } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 
-export type GettingStartedStep = { id: string; icon: string; label: string; desc: string };
+/** A step, holding dictionary keys: the list is built at module load, before a language exists. */
+export type GettingStartedStep = { id: string; icon: IconName; label: string; desc: string };
 
 /** The first-run steps, in order. Ids are persisted in settings.welcome.done. */
 export const GETTING_STARTED_STEPS: GettingStartedStep[] = [
-  { id: "profile", icon: "smile", label: "Complétez votre profil", desc: "Ajoutez une photo et votre fonction." },
-  { id: "channel", icon: "hash", label: "Créez un canal", desc: "Organisez les échanges par sujet." },
-  { id: "message", icon: "send", label: "Envoyez un premier message", desc: "Dites bonjour dans un canal." },
-  { id: "invite", icon: "user-plus", label: "Invitez votre équipe", desc: "Ruchoir prend tout son sens à plusieurs." },
+  { id: "profile", icon: "smile", label: "welcome.profile", desc: "welcome.profileDesc" },
+  { id: "channel", icon: "hash", label: "welcome.channel", desc: "welcome.channelDesc" },
+  { id: "message", icon: "send", label: "welcome.message", desc: "welcome.messageDesc" },
+  { id: "invite", icon: "user-plus", label: "welcome.invite", desc: "welcome.inviteDesc" },
   // The import step is deliberately absent until an importer exists: a first-run checklist that
   // asks for something the product cannot do is the worst place to make that promise. It comes back
   // with the first real importer, alongside the sidebar entry.
@@ -86,6 +88,7 @@ export type GettingStartedProps = {
 
 /** First-run getting-started checklist, floating bottom-right (above the bottom tabs on compact). */
 export function GettingStarted({ done, onRun, onDismiss, compact = false }: GettingStartedProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(true);
   const doneSet = new Set(done);
   const count = GETTING_STARTED_STEPS.filter((s) => doneSet.has(s.id)).length;
@@ -102,10 +105,10 @@ export function GettingStarted({ done, onRun, onDismiss, compact = false }: Gett
         zIndex: 55,
       }}
     >
-      <div style={st.card} role="region" aria-label="Prise en main">
+      <div style={st.card} role="region" aria-label={t("welcome.title")}>
         <div style={st.head}>
           <button type="button" style={st.headToggle} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-            <span style={st.title}>Prise en main</span>
+            <span style={st.title}>{t("welcome.title")}</span>
             <span style={st.count}>
               {count}/{total}
             </span>
@@ -119,7 +122,7 @@ export function GettingStarted({ done, onRun, onDismiss, compact = false }: Gett
               }}
             />
           </button>
-          <IconButton icon="x" label="Masquer la prise en main" size="sm" onClick={onDismiss} />
+          <IconButton icon="x" label={t("welcome.hide")} size="sm" onClick={onDismiss} />
         </div>
 
         <div style={st.bar}>
@@ -157,9 +160,9 @@ export function GettingStarted({ done, onRun, onDismiss, compact = false }: Gett
                           color: isDone ? "var(--text-muted)" : "var(--text-strong)",
                         }}
                       >
-                        {s.label}
+                        {t(s.label)}
                       </span>
-                      <span style={{ display: "block", fontSize: 12, color: "var(--text-subtle)", marginTop: 1 }}>{s.desc}</span>
+                      <span style={{ display: "block", fontSize: 12, color: "var(--text-subtle)", marginTop: 1 }}>{t(s.desc)}</span>
                     </span>
                     <Icon name="chevron-right" size={15} style={{ color: "var(--text-subtle)", flex: "none" }} />
                   </button>

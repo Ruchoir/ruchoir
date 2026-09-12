@@ -418,12 +418,13 @@ function ShortcutRow({
   onStart: () => void;
   onReset: () => void;
 }) {
+  const { t } = useTranslation();
   const def = COMMANDS.find((c) => c.id === id)!;
   return (
     <div style={rowStyle}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{def.label}</div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{def.hint}</div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(def.label)}</div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{t(def.hint)}</div>
         {conflict ? (
           <div style={{ fontSize: 12, color: "var(--status-danger-fg)", marginTop: 4 }}>
             Déjà utilisé par « {conflict} ».
@@ -443,11 +444,11 @@ function ShortcutRow({
             Appuyez sur une combinaison…
           </span>
         ) : chord ? (
-          <kbd style={kbdStyle}>{formatChord(chord, mac)}</kbd>
+          <kbd style={kbdStyle}>{formatChord(chord, mac, t)}</kbd>
         ) : (
           <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>Non attribué</span>
         )}
-        <Button size="sm" variant="secondary" onClick={onStart} aria-label={`Modifier le raccourci : ${def.label}`}>
+        <Button size="sm" variant="secondary" onClick={onStart} aria-label={t("shortcut.editShortcut", { label: t(def.label) })}>
           {capturing ? "Annuler" : "Modifier"}
         </Button>
         {!isDefault ? (
@@ -456,7 +457,7 @@ function ShortcutRow({
             variant="ghost"
             iconLeft="refresh-cw"
             onClick={onReset}
-            aria-label={`Rétablir le raccourci par défaut : ${def.label}`}
+            aria-label={t("shortcut.resetShortcut", { label: t(def.label) })}
           />
         ) : null}
       </div>

@@ -113,7 +113,8 @@
     "remove": "Remove",
     "back": "Back",
     "search": "Search",
-    "help": "Help"
+    "help": "Help",
+    "cancel": "Cancel"
   },
   "mfa": {
     "totpTitle": "Two-step verification",
@@ -216,5 +217,71 @@
     "open": "Enter to open",
     "close": "Esc to close",
     "noMatch": "Nothing matches “{{query}}”."
+  },
+  "sidebar": {
+    "muted": "Notifications muted",
+    "markRead": "Mark as read",
+    "channelSettings": "Channel settings",
+    "joinChannel": "Join the channel",
+    "leaveChannel": "Leave the channel",
+    "hideConversation": "Hide the conversation",
+    "hidden": "Conversation hidden",
+    "hiddenHint": "{{name}} · it comes back on the next message",
+    "channelsAndMessages": "Channels and messages",
+    "invitePeople": "Invite people",
+    "spaceSettings": "Space settings",
+    "spaceFiles": "Space files",
+    "searchPlaceholder": "Search a channel, a person…",
+    "threads": "Threads",
+    "favourites": "Favourite channels",
+    "privateChannel": "Private channel",
+    "archivedChannel": "Archived channel",
+    "newChannel": "New channel",
+    "noChannel": "No channel yet. Create one with the +.",
+    "directMessages": "Direct messages",
+    "startConversation": "Start a conversation",
+    "bot": "Bot",
+    "allFavourites": "All your channels are in favourites, above."
+  },
+  "welcome": {
+    "title": "Getting started",
+    "hide": "Hide getting started",
+    "profile": "Complete your profile",
+    "profileDesc": "Add a photo and your job title.",
+    "channel": "Create a channel",
+    "channelDesc": "Organise conversations by topic.",
+    "message": "Send a first message",
+    "messageDesc": "Say hello in a channel.",
+    "invite": "Invite your team",
+    "inviteDesc": "Ruchoir makes sense with other people in it."
+  },
+  "crop": {
+    "zoom": "Zoom",
+    "hint": "Drag the image to choose what stays in the frame.",
+    "preparing": "Preparing…",
+    "use": "Use this image"
+  },
+  "shortcut": {
+    "search": "Global search",
+    "searchHint": "Search messages, files and people",
+    "switcherHint": "Jump to a channel or a direct message",
+    "newMessageHint": "Start a direct message",
+    "nextUnread": "Next unread conversation",
+    "nextUnreadHint": "Move to the next unread conversation",
+    "prevUnread": "Previous unread conversation",
+    "prevUnreadHint": "Go back to the previous unread conversation",
+    "markReadHint": "Mark the open conversation as read",
+    "help": "Help and shortcuts",
+    "helpHint": "Open the help centre",
+    "editShortcut": "Change the shortcut: {{label}}",
+    "resetShortcut": "Restore the default shortcut: {{label}}"
+  },
+  "key": {
+    "escape": "Esc",
+    "enter": "Enter",
+    "space": "Space",
+    "shift": "Shift",
+    "backspace": "Backspace",
+    "delete": "Del"
   }
 }

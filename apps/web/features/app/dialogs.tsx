@@ -7,6 +7,7 @@ import type { ChannelType, Invitation } from "@/lib/data";
 import { COMMANDS, formatChord, isMac } from "./shortcuts";
 import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
+import { useTranslation } from "@/lib/i18n";
 
 const listItem: CSSProperties = {
   display: "flex",
@@ -459,6 +460,7 @@ export function HelpDialog({
   onGettingStarted?: () => void;
 }) {
   const { shortcuts } = useSettings();
+  const { t } = useTranslation();
   const mac = isMac();
   return (
     <Dialog title="Aide" subtitle="Documentation et raccourcis" size="md" onClose={onClose}>
@@ -510,10 +512,10 @@ export function HelpDialog({
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {COMMANDS.map((c) => {
-          const keys = formatChord(shortcuts[c.id], mac);
+          const keys = formatChord(shortcuts[c.id], mac, t);
           return (
             <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "6px 2px" }}>
-              <span style={{ fontSize: 13, color: "var(--text-body)" }}>{c.label}</span>
+              <span style={{ fontSize: 13, color: "var(--text-body)" }}>{t(c.label)}</span>
               {keys ? (
                 <kbd
                   style={{
