@@ -623,7 +623,18 @@ export function PreferencesScreen({
                 <p style={st.sub}>Thème, police, taille du texte et affichage par défaut de l&apos;interface.</p>
 
                 <div style={st.sect}>{t("language.section")}</div>
-                <Row title={t("language.title")} desc={t("language.description")}>
+                {/*
+                  Under its description rather than beside it: the control is wide (a flag, a
+                  language named in its own script, a chevron), and squeezed into the right-hand
+                  column of a Row it fought the sentence explaining it for the same inches.
+                */}
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>
+                    {t("language.title")}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 10px", maxWidth: 520 }}>
+                    {t("language.description")}
+                  </div>
                   <LanguagePicker
                     value={s.locale}
                     onChange={(next) => {
@@ -637,7 +648,7 @@ export function PreferencesScreen({
                       });
                     }}
                   />
-                </Row>
+                </div>
 
                 <div style={st.sect}>Thème</div>
                 <ThemePicker value={s.theme} onChange={(t) => s.set("theme", t)} />

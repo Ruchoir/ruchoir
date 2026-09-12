@@ -362,7 +362,7 @@ export function ProfilePanel({
               {p.timezone ? <Field icon="globe">{p.timezone}</Field> : null}
               {/* Their reading language, named in the reader's own: useful to know before writing
                   to someone, and the one thing on this card that is about how to reach them. */}
-              {p.locale ? <Field icon="message-square">{languageName(p.locale, i18n.language)}</Field> : null}
+              {p.locale ? <Field icon="languages">{languageName(p.locale, i18n.language)}</Field> : null}
             </div>
           </>
         )}

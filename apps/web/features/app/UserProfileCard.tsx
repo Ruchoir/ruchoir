@@ -89,7 +89,7 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
           {/* The language they read, named in the reader's own. Worth knowing before writing. */}
           {p.locale ? (
             <div style={row}>
-              <Icon name="message-square" size={14} />
+              <Icon name="languages" size={14} />
               {languageName(p.locale, i18n.language)}
             </div>
           ) : null}

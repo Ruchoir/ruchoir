@@ -48,7 +48,11 @@ export const LOCALE_NAMES: Record<Locale, string> = {
  */
 export function languageName(tag: string, readIn: string): string {
   try {
-    return new Intl.DisplayNames([readIn], { type: "language" }).of(tag) ?? tag;
+    const name = new Intl.DisplayNames([readIn], { type: "language" }).of(tag) ?? tag;
+    // French and most others hand back a lower-case name ("polonais"), which is right mid-sentence
+    // and wrong as a standalone value in a list of facts, where every neighbour starts with a
+    // capital. Only the first character is touched: a name like "français (Canada)" keeps its shape.
+    return name.charAt(0).toLocaleUpperCase(readIn) + name.slice(1);
   } catch {
     return tag;
   }

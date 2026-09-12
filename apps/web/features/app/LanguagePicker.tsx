@@ -21,21 +21,23 @@ const st: Record<string, CSSProperties> = {
   trigger: {
     display: "inline-flex",
     alignItems: "center",
-    gap: 10,
-    minWidth: 190,
-    height: 34,
-    padding: "0 10px",
+    gap: 12,
+    // Wide and tall enough to be read as the main control of its row rather than as a footnote to
+    // the sentence above it, and it now sits on its own line.
+    minWidth: 280,
+    height: 40,
+    padding: "0 12px",
     background: "var(--surface-canvas)",
     border: "1px solid var(--border-default)",
     borderRadius: "var(--radius-md)",
     color: "var(--text-strong)",
     fontFamily: "var(--font-sans)",
-    fontSize: 13,
+    fontSize: 14,
     cursor: "pointer",
     textAlign: "left",
   },
   list: {
-    minWidth: 210,
+    minWidth: 280,
     padding: 4,
     background: "var(--surface-canvas)",
     border: "1px solid var(--border-default)",
@@ -49,19 +51,22 @@ const st: Record<string, CSSProperties> = {
     // tight against each other they read as one smudge at the start of the line.
     gap: 12,
     width: "100%",
-    height: 32,
-    padding: "0 10px",
+    height: 36,
+    padding: "0 12px",
     border: 0,
     borderRadius: "var(--radius-sm)",
     background: "transparent",
     color: "var(--text-body)",
     fontFamily: "var(--font-sans)",
-    fontSize: 13,
+    fontSize: 14,
     cursor: "pointer",
     textAlign: "left",
   },
-  /** Where a flag would be, for the "follow the browser" row, so the names stay in one column. */
-  flagSlot: { width: 20, flex: "none" },
+  /**
+   * The icon standing where a flag stands on the other rows: "follow the browser" is a choice about
+   * the device, not about a country, and an empty gap there made the row look unfinished.
+   */
+  autoIcon: { width: 20, flex: "none", display: "flex", justifyContent: "center" },
 };
 
 export function LanguagePicker({
@@ -97,7 +102,13 @@ export function LanguagePicker({
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        {value ? <Flag code={value} /> : <span style={st.flagSlot} />}
+        {value ? (
+          <Flag locale={value} />
+        ) : (
+          <span style={st.autoIcon}>
+            <Icon name="monitor" size={16} style={{ color: "var(--text-muted)" }} />
+          </span>
+        )}
         <span style={{ flex: 1, minWidth: 0 }}>{value ? LOCALE_NAMES[value] : t("language.automatic")}</span>
         <Icon name="chevron-down" size={14} style={{ color: "var(--text-muted)" }} />
       </button>
@@ -125,7 +136,13 @@ export function LanguagePicker({
                   if (!selected) e.currentTarget.style.background = "transparent";
                 }}
               >
-                {row.locale ? <Flag code={row.locale} /> : <span style={st.flagSlot} />}
+                {row.locale ? (
+                  <Flag locale={row.locale} />
+                ) : (
+                  <span style={st.autoIcon}>
+                    <Icon name="monitor" size={16} style={{ color: "var(--text-muted)" }} />
+                  </span>
+                )}
                 <span style={{ flex: 1, minWidth: 0 }}>{row.label}</span>
                 {selected ? <Icon name="check" size={14} /> : null}
               </button>

@@ -1,103 +1,62 @@
 import type { CSSProperties } from "react";
 
 /**
- * Flags, drawn here rather than fetched or typed as emoji.
+ * The flag for a language, worked out rather than listed.
  *
- * Emoji flags looked right on the machine they were written on and nowhere else: Chrome and Edge on
- * Windows carry no flag glyphs at all and fall back to the two regional letters, so half the readers
- * would have seen "GB" where the design says a flag. An icon that renders differently per operating
- * system is not an icon.
+ * Two earlier attempts were worse. Emoji flags looked right on the machine they were written on and
+ * nowhere else: Chrome and Edge on Windows carry no flag glyphs and fall back to two regional
+ * letters. Six flags drawn by hand fixed that but had to be extended by hand too, so a seventh
+ * language would have arrived with no flag and nothing to say so.
  *
- * Six small SVGs, inline: no network request (a self-hosted instance makes none), no dependency, and
- * no sprite sheet to keep in step. They are the simplified civil flags, without coats of arms, which
- * is what survives being drawn 20 pixels wide anyway.
+ * This asks the runtime instead. `Intl.Locale.maximize()` answers "which region does this language
+ * most likely belong to" (`pl` → `PL`, `de` → `DE`), which is exactly the question, and the flag
+ * comes from `flag-icons` (MIT, European authorship, bundled with the app: a self-hosted instance
+ * still makes no outside request). Any language the product gains from here on has its flag already.
  *
- * A flag is a country and a language is not, which the menu answers by putting the endonym next to
- * it: the flag is the icon people aim at, the name is what it means.
+ * A flag is a country and a language is not, which the menu answers by naming each language in
+ * itself beside it: the flag is the icon people aim at, the name is what it means.
  */
 
-export type FlagCode = "fr" | "en" | "es" | "de" | "it" | "pl";
+/**
+ * Where the runtime's guess is wrong for this product.
+ *
+ * `en` maximizes to `US`, which is defensible arithmetic and the wrong flag for a European product
+ * whose English is the one spoken next door. One entry, so the exception stays visible.
+ */
+const REGION_OVERRIDES: Record<string, string> = { en: "GB" };
 
-const base: CSSProperties = {
-  display: "block",
-  flex: "none",
-  borderRadius: 2,
-  // Pale flags (Poland's lower half, the white in several others) would otherwise dissolve into a
-  // light background: a hairline keeps the shape without drawing attention to itself.
-  boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--text-default) 18%, transparent)",
-};
-
-/** One flag, `size` being its width; the height follows the 3:2 the drawings use. */
-export function Flag({ code, size = 20, style }: { code: FlagCode; size?: number; style?: CSSProperties }) {
-  const shared = {
-    width: size,
-    height: Math.round((size * 2) / 3),
-    viewBox: "0 0 30 20",
-    role: "presentation" as const,
-    "aria-hidden": true,
-    style: { ...base, ...style },
-  };
-
-  switch (code) {
-    case "fr":
-      return (
-        <svg {...shared}>
-          <rect width="10" height="20" fill="#000091" />
-          <rect x="10" width="10" height="20" fill="#fff" />
-          <rect x="20" width="10" height="20" fill="#e1000f" />
-        </svg>
-      );
-    case "it":
-      return (
-        <svg {...shared}>
-          <rect width="10" height="20" fill="#008c45" />
-          <rect x="10" width="10" height="20" fill="#f4f9ff" />
-          <rect x="20" width="10" height="20" fill="#cd212a" />
-        </svg>
-      );
-    case "de":
-      return (
-        <svg {...shared}>
-          <rect width="30" height="6.67" fill="#000" />
-          <rect y="6.67" width="30" height="6.67" fill="#dd0000" />
-          <rect y="13.33" width="30" height="6.67" fill="#ffce00" />
-        </svg>
-      );
-    case "es":
-      return (
-        <svg {...shared}>
-          <rect width="30" height="20" fill="#aa151b" />
-          <rect y="5" width="30" height="10" fill="#f1bf00" />
-        </svg>
-      );
-    case "pl":
-      return (
-        <svg {...shared}>
-          <rect width="30" height="10" fill="#fff" />
-          <rect y="10" width="30" height="10" fill="#dc143c" />
-        </svg>
-      );
-    case "en":
-      // The Union Flag, at 30x20. The red saltire is counterchanged (offset within the white one),
-      // which is the detail that separates a drawn flag from an approximation of one.
-      return (
-        <svg {...shared}>
-          <clipPath id="ruchoir-flag-uk">
-            <rect width="30" height="20" />
-          </clipPath>
-          <g clipPath="url(#ruchoir-flag-uk)">
-            <rect width="30" height="20" fill="#012169" />
-            <path d="M0,0 L30,20 M30,0 L0,20" stroke="#fff" strokeWidth="4" />
-            <path
-              d="M0,0 L30,20 M30,0 L0,20"
-              stroke="#c8102e"
-              strokeWidth="2.4"
-              clipPath="url(#ruchoir-flag-uk)"
-            />
-            <path d="M15,0 V20 M0,10 H30" stroke="#fff" strokeWidth="6.6" />
-            <path d="M15,0 V20 M0,10 H30" stroke="#c8102e" strokeWidth="4" />
-          </g>
-        </svg>
-      );
+/** The region a language tag belongs to, lower-cased for `flag-icons`, or `null` if unknown. */
+export function regionForLocale(tag: string): string | null {
+  const primary = tag.toLowerCase().split(/[-_]/)[0];
+  if (REGION_OVERRIDES[primary]) return REGION_OVERRIDES[primary].toLowerCase();
+  try {
+    const region = new Intl.Locale(tag).maximize().region;
+    return region ? region.toLowerCase() : null;
+  } catch {
+    return null;
   }
+}
+
+/**
+ * One flag, `size` being its width.
+ *
+ * Presentational: it never carries the meaning on its own, so it is hidden from assistive
+ * technology and the language's name is what is read out.
+ */
+export function Flag({ locale, size = 20, style }: { locale: string; size?: number; style?: CSSProperties }) {
+  const region = regionForLocale(locale);
+  const box: CSSProperties = {
+    width: size,
+    height: Math.round((size * 3) / 4),
+    flex: "none",
+    borderRadius: 2,
+    // Pale flags (Poland's lower half, Japan's field) would dissolve into a light background: a
+    // hairline keeps the shape without drawing attention to itself.
+    boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--text-default) 18%, transparent)",
+    ...style,
+  };
+  // No region: a blank of the same size, so a menu of languages keeps its columns aligned rather
+  // than having one row start further left than the others.
+  if (!region) return <span aria-hidden style={{ ...box, boxShadow: "none" }} />;
+  return <span aria-hidden className={`fi fi-${region}`} style={box} />;
 }
