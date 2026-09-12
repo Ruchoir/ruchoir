@@ -72,7 +72,6 @@
     "minLength": "Al menos {{count}} caracteres",
     "terms": "Acepto las condiciones de uso y la política de privacidad.",
     "submit": "Crear la cuenta",
-    "submitting": "Creando…",
     "haveAccount": "¿Ya tienes cuenta?"
   },
   "reset": {
@@ -115,7 +114,9 @@
     "help": "Ayuda",
     "cancel": "Cancelar",
     "copied": "Copiado",
-    "save": "Guardar"
+    "save": "Guardar",
+    "creating": "Creando…",
+    "imported": "Importado"
   },
   "mfa": {
     "totpTitle": "Verificación en dos pasos",
@@ -286,7 +287,6 @@
     "delete": "Supr"
   },
   "message": {
-    "importedTag": "Importado",
     "download": "Descargar",
     "replyInThread": "Responder en un hilo",
     "edit": "Editar",
@@ -308,7 +308,9 @@
     "replies_other": "{{count}} respuestas",
     "reactionCount_one": "{{count}} reacción",
     "reactionCount_other": "{{count}} reacciones",
-    "pinnedTag": "Fijado"
+    "pinnedTag": "Fijado",
+    "replies_many": "{{count}} respuestas",
+    "reactionCount_many": "{{count}} reacciones"
   },
   "thread": {
     "title": "Hilo",
@@ -389,9 +391,72 @@
     "searchPerson": "Buscar una persona",
     "alreadyIn": "Ya está en el canal",
     "added_one": "{{count}} persona añadida",
-    "added_other": "{{count}} personas añadidas"
+    "added_other": "{{count}} personas añadidas",
+    "added_many": "{{count}} personas añadidas"
   },
   "role": {
     "member": "Miembro"
+  },
+  "onboarding": {
+    "enter": "Entrar en Ruchoir",
+    "nameStep": "¿Cómo se llama tu espacio?",
+    "nameHint": "Será el nombre visible de tu espacio de trabajo. Podrás cambiarlo más adelante.",
+    "inviteHint": "Añade algunas direcciones para empezar acompañado. Podrás invitar a más personas después.",
+    "spaceName": "Nombre del espacio",
+    "spaceNamePlaceholder": "p. ej. Taller Nantes"
+  },
+  "files": {
+    "loadFailed": "No se han podido cargar los archivos",
+    "imported": "Importados",
+    "folderCreated": "Carpeta creada",
+    "folderFailed": "No se ha podido crear la carpeta",
+    "deleted": "Elemento eliminado",
+    "deleteIncomplete": "Eliminación incompleta",
+    "tryAgain": "Inténtalo de nuevo en un momento.",
+    "renamed": "Renombrado",
+    "renameFailed": "No se ha podido renombrar",
+    "renameHint": "Puede que ese nombre no sea válido.",
+    "moved": "Elemento movido",
+    "moveIncomplete": "Movimiento incompleto",
+    "moveIntoItself": "Una carpeta no puede moverse dentro de sí misma.",
+    "uploadingVersion": "Subiendo la nueva versión",
+    "versionFailed": "Versión no subida",
+    "uploading": "Subiendo",
+    "uploaded": "Archivo subido",
+    "uploadFailed": "No se ha podido subir",
+    "filter": "Filtrar los archivos",
+    "all": "Todos",
+    "folders": "Carpetas",
+    "gridView": "Vista de cuadrícula",
+    "listView": "Vista de lista",
+    "selectAll": "Seleccionar todo",
+    "name": "Nombre",
+    "version": "Versión",
+    "modifiedBy": "Modificado por",
+    "date": "Fecha",
+    "source": "Origen",
+    "actions": "Acciones",
+    "loading": "Recuperando los archivos del espacio…",
+    "emptyText": "Sube tus primeros archivos o tráelos desde Slack, Mattermost o Nextcloud en una importación.",
+    "newFolder": "Nueva carpeta",
+    "folderName": "Nombre de la carpeta",
+    "folderPlaceholder": "p. ej. Facturas 2026",
+    "rename": "Renombrar",
+    "deleteTitle": "¿Eliminar este elemento?",
+    "deleteBody": "Estos elementos se retirarán del espacio.",
+    "noPreview": "Vista previa no disponible",
+    "noPreviewText": "Descarga el archivo para abrirlo.",
+    "count_one": "{{count}} elemento",
+    "count_other": "{{count}} elementos",
+    "loadingShort": "Cargando…",
+    "emptyFolder": "Carpeta vacía",
+    "noFile": "Ningún archivo",
+    "folderEmptyText": "Esta carpeta aún no contiene ningún archivo.",
+    "noFileMatch": "Ningún archivo coincide con «{{query}}».",
+    "deleteManyTitle": "¿Eliminar {{count}} elementos?",
+    "count_many": "{{count}} elementos"
+  },
+  "status": {
+    "checking": "Comprobando el estado de la API…"
   }
 }

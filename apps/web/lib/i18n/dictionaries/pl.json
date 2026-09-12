@@ -72,7 +72,6 @@
     "minLength": "Co najmniej {{count}} znaków",
     "terms": "Akceptuję warunki korzystania i politykę prywatności.",
     "submit": "Utwórz konto",
-    "submitting": "Tworzenie…",
     "haveAccount": "Masz już konto?"
   },
   "reset": {
@@ -115,7 +114,9 @@
     "help": "Pomoc",
     "cancel": "Anuluj",
     "copied": "Skopiowano",
-    "save": "Zapisz"
+    "save": "Zapisz",
+    "creating": "Tworzenie…",
+    "imported": "Zaimportowane"
   },
   "mfa": {
     "totpTitle": "Weryfikacja dwuetapowa",
@@ -286,7 +287,6 @@
     "delete": "Delete"
   },
   "message": {
-    "importedTag": "Zaimportowane",
     "download": "Pobierz",
     "replyInThread": "Odpowiedz w wątku",
     "edit": "Edytuj",
@@ -399,5 +399,68 @@
   },
   "role": {
     "member": "Członek"
+  },
+  "onboarding": {
+    "enter": "Wejdź do Ruchoira",
+    "nameStep": "Jak nazywa się Twoja przestrzeń?",
+    "nameHint": "To będzie wyświetlana nazwa Twojej przestrzeni roboczej. Możesz ją później zmienić.",
+    "inviteHint": "Dodaj kilka adresów, aby zacząć w większym gronie. Kolejne osoby zaprosisz później.",
+    "spaceName": "Nazwa przestrzeni",
+    "spaceNamePlaceholder": "np. Pracownia Nantes"
+  },
+  "files": {
+    "loadFailed": "Nie udało się wczytać plików",
+    "imported": "Zaimportowane",
+    "folderCreated": "Folder utworzony",
+    "folderFailed": "Nie udało się utworzyć folderu",
+    "deleted": "Element usunięty",
+    "deleteIncomplete": "Usuwanie niekompletne",
+    "tryAgain": "Spróbuj ponownie za chwilę.",
+    "renamed": "Zmieniono nazwę",
+    "renameFailed": "Nie udało się zmienić nazwy",
+    "renameHint": "Ta nazwa może być nieprawidłowa.",
+    "moved": "Element przeniesiony",
+    "moveIncomplete": "Przenoszenie niekompletne",
+    "moveIntoItself": "Folder nie może zostać przeniesiony do samego siebie.",
+    "uploadingVersion": "Wysyłanie nowej wersji",
+    "versionFailed": "Wersja nie została wysłana",
+    "uploading": "Wysyłanie",
+    "uploaded": "Plik wysłany",
+    "uploadFailed": "Wysyłanie nie powiodło się",
+    "filter": "Filtruj pliki",
+    "all": "Wszystkie",
+    "folders": "Foldery",
+    "gridView": "Widok siatki",
+    "listView": "Widok listy",
+    "selectAll": "Zaznacz wszystko",
+    "name": "Nazwa",
+    "version": "Wersja",
+    "modifiedBy": "Zmienione przez",
+    "date": "Data",
+    "source": "Źródło",
+    "actions": "Akcje",
+    "loading": "Pobieranie plików przestrzeni…",
+    "emptyText": "Wyślij pierwsze pliki albo przenieś je ze Slacka, Mattermosta lub Nextclouda podczas importu.",
+    "newFolder": "Nowy folder",
+    "folderName": "Nazwa folderu",
+    "folderPlaceholder": "np. Faktury 2026",
+    "rename": "Zmień nazwę",
+    "deleteTitle": "Usunąć ten element?",
+    "deleteBody": "Te elementy zostaną usunięte z przestrzeni.",
+    "noPreview": "Podgląd niedostępny",
+    "noPreviewText": "Pobierz plik, aby go otworzyć.",
+    "count_one": "{{count}} element",
+    "count_few": "{{count}} elementy",
+    "count_many": "{{count}} elementów",
+    "count_other": "{{count}} elementów",
+    "loadingShort": "Wczytywanie…",
+    "emptyFolder": "Pusty folder",
+    "noFile": "Brak plików",
+    "folderEmptyText": "Ten folder nie zawiera jeszcze żadnego pliku.",
+    "noFileMatch": "Żaden plik nie pasuje do „{{query}}”.",
+    "deleteManyTitle": "Usunąć {{count}} elementów?"
+  },
+  "status": {
+    "checking": "Sprawdzanie stanu API…"
   }
 }

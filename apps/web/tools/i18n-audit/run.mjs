@@ -164,6 +164,9 @@ const ALLOWED_DUPLICATES = new Set([
   // later. English happens to collapse them too, but German ("Speichern" / "Merken") and Polish do
   // not, so merging the keys would force one language to say the wrong thing.
   "message.save",
+  // "Nom" is the file's name and a person's surname. English already says "Name" and "Surname",
+  // German "Name" and "Nachname": merging them would put one of the two words in the wrong place.
+  "signup.lastName",
 ]);
 
 /** Every key path in a dictionary object, flattened to `a.b.c`. */
@@ -227,14 +230,48 @@ const source = dicts.fr ?? {};
 const sourceKeys = keyPaths(source);
 const problems = [];
 
+/**
+ * Plural suffixes are i18next's, and how many a key needs depends on the language, not on French.
+ *
+ * `x_one`/`x_other` in French becomes `x_one`/`x_few`/`x_many`/`x_other` in Polish, which is not a
+ * disagreement but the point of having plurals at all. So keys are compared on their base, and each
+ * language is then held to the categories its own rules actually use (`Intl.PluralRules`), which
+ * catches the real mistake: a Polish translation that stopped at two forms.
+ */
+const PLURAL_SUFFIXES = ["zero", "one", "two", "few", "many", "other"];
+
+function pluralBase(key) {
+  const match = key.match(/^(.*)_(\w+)$/);
+  return match && PLURAL_SUFFIXES.includes(match[2]) ? match[1] : null;
+}
+
+const sourceBases = new Map();
+for (const key of sourceKeys) {
+  const base = pluralBase(key);
+  if (base) sourceBases.set(base, true);
+}
+const sourcePlain = new Set(sourceKeys.filter((key) => !pluralBase(key)));
+
 for (const [locale, dict] of Object.entries(dicts)) {
   if (locale === "fr") continue;
   const keys = new Set(keyPaths(dict));
-  for (const key of sourceKeys) {
+  const categories = new Intl.PluralRules(locale).resolvedOptions().pluralCategories;
+
+  for (const key of sourcePlain) {
     if (!keys.has(key)) problems.push(`${locale}: missing key ${key}`);
   }
+  for (const base of sourceBases.keys()) {
+    for (const category of categories) {
+      if (!keys.has(`${base}_${category}`)) {
+        problems.push(`${locale}: missing plural form ${base}_${category}`);
+      }
+    }
+  }
   for (const key of keys) {
-    if (!sourceKeys.includes(key)) problems.push(`${locale}: key ${key} exists in no source dictionary`);
+    const base = pluralBase(key);
+    if (base ? !sourceBases.has(base) : !sourcePlain.has(key)) {
+      problems.push(`${locale}: key ${key} exists in no source dictionary`);
+    }
   }
 }
 

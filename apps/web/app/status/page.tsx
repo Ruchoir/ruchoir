@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "@/lib/i18n";
 
 type Health = {
   status: string;
@@ -18,6 +19,7 @@ type Probe =
  * calls the API's own health endpoint. Kept while the app shell takes over /.
  */
 export default function Status() {
+  const { t } = useTranslation();
   const [probe, setProbe] = useState<Probe>({ state: "loading" });
 
   useEffect(() => {
@@ -53,7 +55,7 @@ export default function Status() {
         className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 font-mono text-sm"
         aria-live="polite"
       >
-        {probe.state === "loading" && <span>Checking API health…</span>}
+        {probe.state === "loading" && <span>{t("status.checking")}</span>}
         {probe.state === "ok" && (
           <span>
             API {probe.health.status} · {probe.health.service} v{probe.health.version}

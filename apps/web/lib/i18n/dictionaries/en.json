@@ -72,7 +72,6 @@
     "minLength": "At least {{count}} characters",
     "terms": "I accept the terms of use and the privacy policy.",
     "submit": "Create the account",
-    "submitting": "Creating…",
     "haveAccount": "Already have an account?"
   },
   "reset": {
@@ -115,7 +114,9 @@
     "help": "Help",
     "cancel": "Cancel",
     "copied": "Copied",
-    "save": "Save"
+    "save": "Save",
+    "creating": "Creating…",
+    "imported": "Imported"
   },
   "mfa": {
     "totpTitle": "Two-step verification",
@@ -286,7 +287,6 @@
     "delete": "Del"
   },
   "message": {
-    "importedTag": "Imported",
     "download": "Download",
     "replyInThread": "Reply in a thread",
     "edit": "Edit",
@@ -393,5 +393,66 @@
   },
   "role": {
     "member": "Member"
+  },
+  "onboarding": {
+    "enter": "Enter Ruchoir",
+    "nameStep": "What is your space called?",
+    "nameHint": "This is the display name of your workspace. You can change it later.",
+    "inviteHint": "Add a few addresses to start with other people. You can invite more afterwards.",
+    "spaceName": "Space name",
+    "spaceNamePlaceholder": "e.g. Nantes Studio"
+  },
+  "files": {
+    "loadFailed": "Could not load the files",
+    "imported": "Imported",
+    "folderCreated": "Folder created",
+    "folderFailed": "Could not create the folder",
+    "deleted": "Item deleted",
+    "deleteIncomplete": "Deletion incomplete",
+    "tryAgain": "Try again in a moment.",
+    "renamed": "Renamed",
+    "renameFailed": "Could not rename",
+    "renameHint": "That name may not be usable.",
+    "moved": "Item moved",
+    "moveIncomplete": "Move incomplete",
+    "moveIntoItself": "A folder cannot be moved into itself.",
+    "uploadingVersion": "Uploading the new version",
+    "versionFailed": "Version not uploaded",
+    "uploading": "Uploading",
+    "uploaded": "File uploaded",
+    "uploadFailed": "Upload failed",
+    "filter": "Filter the files",
+    "all": "All",
+    "folders": "Folders",
+    "gridView": "Grid view",
+    "listView": "List view",
+    "selectAll": "Select all",
+    "name": "Name",
+    "version": "Version",
+    "modifiedBy": "Modified by",
+    "date": "Date",
+    "source": "Source",
+    "actions": "Actions",
+    "loading": "Fetching the space's files…",
+    "emptyText": "Upload your first files, or bring them over from Slack, Mattermost or Nextcloud in an import.",
+    "newFolder": "New folder",
+    "folderName": "Folder name",
+    "folderPlaceholder": "e.g. Invoices 2026",
+    "rename": "Rename",
+    "deleteTitle": "Delete this item?",
+    "deleteBody": "These items will be removed from the space.",
+    "noPreview": "No preview",
+    "noPreviewText": "Download the file to open it.",
+    "count_one": "{{count}} item",
+    "count_other": "{{count}} items",
+    "loadingShort": "Loading…",
+    "emptyFolder": "Empty folder",
+    "noFile": "No file",
+    "folderEmptyText": "This folder holds no file yet.",
+    "noFileMatch": "No file matches “{{query}}”.",
+    "deleteManyTitle": "Delete {{count}} items?"
+  },
+  "status": {
+    "checking": "Checking API health…"
   }
 }

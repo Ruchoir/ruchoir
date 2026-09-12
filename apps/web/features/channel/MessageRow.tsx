@@ -271,7 +271,7 @@ export function MessageRow({
             {m.author}
           </button>
           <span style={styles.time}>{m.time}</span>
-          {!deleted && m.imported ? <Tag icon="import">{t("message.importedTag")}</Tag> : null}
+          {!deleted && m.imported ? <Tag icon="import">{t("common.imported")}</Tag> : null}
           {!deleted && m.pinned ? (
             <Tag icon="pin" tone="accent">
               {t("message.pinnedTag")}

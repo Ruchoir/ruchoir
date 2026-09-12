@@ -72,7 +72,6 @@
     "minLength": "Almeno {{count}} caratteri",
     "terms": "Accetto le condizioni d'uso e l'informativa sulla privacy.",
     "submit": "Crea l'account",
-    "submitting": "Creazione…",
     "haveAccount": "Hai già un account?"
   },
   "reset": {
@@ -115,7 +114,9 @@
     "help": "Aiuto",
     "cancel": "Annulla",
     "copied": "Copiato",
-    "save": "Salva"
+    "save": "Salva",
+    "creating": "Creazione…",
+    "imported": "Importato"
   },
   "mfa": {
     "totpTitle": "Verifica in due passaggi",
@@ -286,7 +287,6 @@
     "delete": "Canc"
   },
   "message": {
-    "importedTag": "Importato",
     "download": "Scarica",
     "replyInThread": "Rispondi in una discussione",
     "edit": "Modifica",
@@ -308,7 +308,9 @@
     "replies_other": "{{count}} risposte",
     "reactionCount_one": "{{count}} reazione",
     "reactionCount_other": "{{count}} reazioni",
-    "pinnedTag": "Fissato"
+    "pinnedTag": "Fissato",
+    "replies_many": "{{count}} risposte",
+    "reactionCount_many": "{{count}} reazioni"
   },
   "thread": {
     "title": "Discussione",
@@ -389,9 +391,72 @@
     "searchPerson": "Cerca una persona",
     "alreadyIn": "Già nel canale",
     "added_one": "{{count}} persona aggiunta",
-    "added_other": "{{count}} persone aggiunte"
+    "added_other": "{{count}} persone aggiunte",
+    "added_many": "{{count}} persone aggiunte"
   },
   "role": {
     "member": "Membro"
+  },
+  "onboarding": {
+    "enter": "Entra in Ruchoir",
+    "nameStep": "Come si chiama il tuo spazio?",
+    "nameHint": "Sarà il nome visibile del tuo spazio di lavoro. Potrai cambiarlo in seguito.",
+    "inviteHint": "Aggiungi qualche indirizzo per iniziare in più persone. Potrai invitarne altre dopo.",
+    "spaceName": "Nome dello spazio",
+    "spaceNamePlaceholder": "es. Atelier Nantes"
+  },
+  "files": {
+    "loadFailed": "Impossibile caricare i file",
+    "imported": "Importati",
+    "folderCreated": "Cartella creata",
+    "folderFailed": "Impossibile creare la cartella",
+    "deleted": "Elemento eliminato",
+    "deleteIncomplete": "Eliminazione incompleta",
+    "tryAgain": "Riprova tra un istante.",
+    "renamed": "Rinominato",
+    "renameFailed": "Impossibile rinominare",
+    "renameHint": "Questo nome potrebbe non essere utilizzabile.",
+    "moved": "Elemento spostato",
+    "moveIncomplete": "Spostamento incompleto",
+    "moveIntoItself": "Una cartella non può essere spostata dentro se stessa.",
+    "uploadingVersion": "Caricamento della nuova versione",
+    "versionFailed": "Versione non caricata",
+    "uploading": "Caricamento",
+    "uploaded": "File caricato",
+    "uploadFailed": "Caricamento non riuscito",
+    "filter": "Filtra i file",
+    "all": "Tutti",
+    "folders": "Cartelle",
+    "gridView": "Vista a griglia",
+    "listView": "Vista a elenco",
+    "selectAll": "Seleziona tutto",
+    "name": "Nome",
+    "version": "Versione",
+    "modifiedBy": "Modificato da",
+    "date": "Data",
+    "source": "Origine",
+    "actions": "Azioni",
+    "loading": "Recupero dei file dello spazio…",
+    "emptyText": "Carica i tuoi primi file oppure recuperali da Slack, Mattermost o Nextcloud con un'importazione.",
+    "newFolder": "Nuova cartella",
+    "folderName": "Nome della cartella",
+    "folderPlaceholder": "es. Fatture 2026",
+    "rename": "Rinomina",
+    "deleteTitle": "Eliminare questo elemento?",
+    "deleteBody": "Questi elementi saranno rimossi dallo spazio.",
+    "noPreview": "Anteprima non disponibile",
+    "noPreviewText": "Scarica il file per aprirlo.",
+    "count_one": "{{count}} elemento",
+    "count_other": "{{count}} elementi",
+    "loadingShort": "Caricamento…",
+    "emptyFolder": "Cartella vuota",
+    "noFile": "Nessun file",
+    "folderEmptyText": "Questa cartella non contiene ancora alcun file.",
+    "noFileMatch": "Nessun file corrisponde a «{{query}}».",
+    "deleteManyTitle": "Eliminare {{count}} elementi?",
+    "count_many": "{{count}} elementi"
+  },
+  "status": {
+    "checking": "Verifica dello stato dell'API…"
   }
 }

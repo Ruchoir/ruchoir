@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useState } from "react";
 import { Button, Field, Icon, Input } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   root: {
@@ -65,6 +66,7 @@ export function OnboardingFlow({
   /** Error to surface on the last step when the creation was refused. */
   error?: string | null;
 }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const [workspace, setWorkspace] = useState("");
   const [invites, setInvites] = useState(["", "", ""]);
@@ -111,7 +113,7 @@ export function OnboardingFlow({
               disabled={pending}
               onClick={() => onFinish({ workspaceName: name })}
             >
-              {pending ? "Création…" : "Entrer dans Ruchoir"}
+              {pending ? t("common.creating") : t("onboarding.enter")}
             </Button>
           </div>
         </div>
@@ -130,24 +132,24 @@ export function OnboardingFlow({
         <div>
           <div style={styles.step}>Étape {step + 1} sur {TOTAL}</div>
           <h1 style={{ ...styles.heading, marginTop: 8 }}>
-            {step === 0 ? "Comment s'appelle votre espace ?" : "Invitez votre équipe"}
+            {step === 0 ? t("onboarding.nameStep") : t("welcome.invite")}
           </h1>
           <p style={styles.sub}>
             {step === 0
-              ? "Ce sera le nom affiché de votre espace de travail. Vous pourrez le changer plus tard."
-              : "Ajoutez quelques adresses pour démarrer à plusieurs. Vous pourrez inviter d'autres personnes ensuite."}
+              ? t("onboarding.nameHint")
+              : t("onboarding.inviteHint")}
           </p>
         </div>
 
         <div style={styles.card}>
           {step === 0 ? (
             <>
-              <Field label="Nom de l'espace" htmlFor="ob-ws">
+              <Field label={t("onboarding.spaceName")} htmlFor="ob-ws">
                 <Input
                   id="ob-ws"
                   size="lg"
                   autoFocus
-                  placeholder="ex. Atelier Nantes"
+                  placeholder={t("onboarding.spaceNamePlaceholder")}
                   value={workspace}
                   onChange={(e) => setWorkspace(e.target.value)}
                   onKeyDown={(e) => {

@@ -72,7 +72,6 @@
     "minLength": "Au moins {{count}} caractères",
     "terms": "J'accepte les conditions d'utilisation et la politique de confidentialité.",
     "submit": "Créer le compte",
-    "submitting": "Création…",
     "haveAccount": "Déjà un compte ?"
   },
   "reset": {
@@ -115,7 +114,9 @@
     "help": "Aide",
     "cancel": "Annuler",
     "copied": "Copié",
-    "save": "Enregistrer"
+    "save": "Enregistrer",
+    "creating": "Création…",
+    "imported": "Importé"
   },
   "mfa": {
     "totpTitle": "Vérification en deux étapes",
@@ -286,7 +287,6 @@
     "delete": "Suppr"
   },
   "message": {
-    "importedTag": "Importé",
     "download": "Télécharger",
     "replyInThread": "Répondre dans un fil",
     "edit": "Modifier",
@@ -393,5 +393,66 @@
   },
   "role": {
     "member": "Membre"
+  },
+  "onboarding": {
+    "enter": "Entrer dans Ruchoir",
+    "nameStep": "Comment s'appelle votre espace ?",
+    "nameHint": "Ce sera le nom affiché de votre espace de travail. Vous pourrez le changer plus tard.",
+    "inviteHint": "Ajoutez quelques adresses pour démarrer à plusieurs. Vous pourrez inviter d'autres personnes ensuite.",
+    "spaceName": "Nom de l'espace",
+    "spaceNamePlaceholder": "ex. Atelier Nantes"
+  },
+  "files": {
+    "loadFailed": "Chargement des fichiers impossible",
+    "imported": "Importés",
+    "folderCreated": "Dossier créé",
+    "folderFailed": "Création du dossier impossible",
+    "deleted": "Élément supprimé",
+    "deleteIncomplete": "Suppression incomplète",
+    "tryAgain": "Réessayez dans un instant.",
+    "renamed": "Renommé",
+    "renameFailed": "Renommage impossible",
+    "renameHint": "Ce nom n'est peut-être pas utilisable.",
+    "moved": "Élément déplacé",
+    "moveIncomplete": "Déplacement incomplet",
+    "moveIntoItself": "Un dossier ne peut pas être déplacé dans lui-même.",
+    "uploadingVersion": "Envoi de la nouvelle version",
+    "versionFailed": "Version non déposée",
+    "uploading": "Dépôt en cours",
+    "uploaded": "Fichier déposé",
+    "uploadFailed": "Dépôt impossible",
+    "filter": "Filtrer les fichiers",
+    "all": "Tous",
+    "folders": "Dossiers",
+    "gridView": "Vue en grille",
+    "listView": "Vue en liste",
+    "selectAll": "Tout sélectionner",
+    "name": "Nom",
+    "version": "Version",
+    "modifiedBy": "Modifié par",
+    "date": "Date",
+    "source": "Source",
+    "actions": "Actions",
+    "loading": "Récupération des fichiers de l'espace…",
+    "emptyText": "Déposez vos premiers fichiers, ou reprenez-les depuis Slack, Mattermost ou Nextcloud lors d'un import.",
+    "newFolder": "Nouveau dossier",
+    "folderName": "Nom du dossier",
+    "folderPlaceholder": "ex. Factures 2026",
+    "rename": "Renommer",
+    "deleteTitle": "Supprimer cet élément ?",
+    "deleteBody": "Ces éléments seront retirés de l'espace.",
+    "noPreview": "Aperçu indisponible",
+    "noPreviewText": "Téléchargez le fichier pour l'ouvrir.",
+    "count_one": "{{count}} élément",
+    "count_other": "{{count}} éléments",
+    "loadingShort": "Chargement…",
+    "emptyFolder": "Dossier vide",
+    "noFile": "Aucun fichier",
+    "folderEmptyText": "Ce dossier ne contient aucun fichier pour l'instant.",
+    "noFileMatch": "Aucun fichier ne correspond à « {{query}} ».",
+    "deleteManyTitle": "Supprimer {{count}} éléments ?"
+  },
+  "status": {
+    "checking": "Vérification de l'état de l'API…"
   }
 }

@@ -1,17 +1,13 @@
 {
   "note": "Files still written in French in the source. The list only ever shrinks: see tools/i18n-audit/run.mjs.",
   "files": [
-    "app/status/page.tsx",
     "features/app/AccountSecurity.tsx",
     "features/app/AppRoot.tsx",
     "features/app/GlobalSearchDialog.tsx",
     "features/app/PreferencesScreen.tsx",
     "features/app/dialogs.tsx",
-    "features/auth/OnboardingFlow.tsx",
     "features/channel/ChannelScreen.tsx",
     "features/channel/ProfilePanel.tsx",
-    "features/files/FilesScreen.tsx",
-    "features/import/ImportDialog.tsx",
     "features/settings/WorkspaceSettings.tsx"
   ]
 }

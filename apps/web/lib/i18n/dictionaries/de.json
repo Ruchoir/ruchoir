@@ -72,7 +72,6 @@
     "minLength": "Mindestens {{count}} Zeichen",
     "terms": "Ich akzeptiere die Nutzungsbedingungen und die Datenschutzerklärung.",
     "submit": "Konto erstellen",
-    "submitting": "Wird erstellt…",
     "haveAccount": "Schon ein Konto?"
   },
   "reset": {
@@ -115,7 +114,9 @@
     "help": "Hilfe",
     "cancel": "Abbrechen",
     "copied": "Kopiert",
-    "save": "Speichern"
+    "save": "Speichern",
+    "creating": "Wird erstellt…",
+    "imported": "Importiert"
   },
   "mfa": {
     "totpTitle": "Bestätigung in zwei Schritten",
@@ -286,7 +287,6 @@
     "delete": "Entf"
   },
   "message": {
-    "importedTag": "Importiert",
     "download": "Herunterladen",
     "replyInThread": "In einem Thread antworten",
     "edit": "Bearbeiten",
@@ -393,5 +393,66 @@
   },
   "role": {
     "member": "Mitglied"
+  },
+  "onboarding": {
+    "enter": "Ruchoir betreten",
+    "nameStep": "Wie heißt Ihr Bereich?",
+    "nameHint": "Das ist der angezeigte Name Ihres Arbeitsbereichs. Sie können ihn später ändern.",
+    "inviteHint": "Fügen Sie ein paar Adressen hinzu, um zu mehreren zu starten. Weitere Personen können Sie später einladen.",
+    "spaceName": "Name des Bereichs",
+    "spaceNamePlaceholder": "z. B. Atelier Nantes"
+  },
+  "files": {
+    "loadFailed": "Dateien konnten nicht geladen werden",
+    "imported": "Importiert",
+    "folderCreated": "Ordner erstellt",
+    "folderFailed": "Ordner konnte nicht erstellt werden",
+    "deleted": "Element gelöscht",
+    "deleteIncomplete": "Löschen unvollständig",
+    "tryAgain": "Versuchen Sie es gleich noch einmal.",
+    "renamed": "Umbenannt",
+    "renameFailed": "Umbenennen nicht möglich",
+    "renameHint": "Dieser Name ist möglicherweise nicht verwendbar.",
+    "moved": "Element verschoben",
+    "moveIncomplete": "Verschieben unvollständig",
+    "moveIntoItself": "Ein Ordner kann nicht in sich selbst verschoben werden.",
+    "uploadingVersion": "Neue Version wird hochgeladen",
+    "versionFailed": "Version nicht hochgeladen",
+    "uploading": "Wird hochgeladen",
+    "uploaded": "Datei hochgeladen",
+    "uploadFailed": "Hochladen fehlgeschlagen",
+    "filter": "Dateien filtern",
+    "all": "Alle",
+    "folders": "Ordner",
+    "gridView": "Rasteransicht",
+    "listView": "Listenansicht",
+    "selectAll": "Alle auswählen",
+    "name": "Name",
+    "version": "Version",
+    "modifiedBy": "Geändert von",
+    "date": "Datum",
+    "source": "Quelle",
+    "actions": "Aktionen",
+    "loading": "Dateien des Bereichs werden geladen…",
+    "emptyText": "Laden Sie Ihre ersten Dateien hoch oder holen Sie sie bei einem Import aus Slack, Mattermost oder Nextcloud.",
+    "newFolder": "Neuer Ordner",
+    "folderName": "Name des Ordners",
+    "folderPlaceholder": "z. B. Rechnungen 2026",
+    "rename": "Umbenennen",
+    "deleteTitle": "Dieses Element löschen?",
+    "deleteBody": "Diese Elemente werden aus dem Bereich entfernt.",
+    "noPreview": "Keine Vorschau",
+    "noPreviewText": "Laden Sie die Datei herunter, um sie zu öffnen.",
+    "count_one": "{{count}} Element",
+    "count_other": "{{count}} Elemente",
+    "loadingShort": "Wird geladen…",
+    "emptyFolder": "Leerer Ordner",
+    "noFile": "Keine Datei",
+    "folderEmptyText": "Dieser Ordner enthält noch keine Datei.",
+    "noFileMatch": "Keine Datei passt zu „{{query}}“.",
+    "deleteManyTitle": "{{count}} Elemente löschen?"
+  },
+  "status": {
+    "checking": "API-Zustand wird geprüft…"
   }
 }

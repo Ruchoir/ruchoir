@@ -129,7 +129,7 @@ export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }
           label={<span style={{ fontSize: 13 }}>{t("signup.terms")}</span>}
         />
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={!canSubmit}>
-          {pending ? t("signup.submitting") : t("signup.submit")}
+          {pending ? t("common.creating") : t("signup.submit")}
         </Button>
       </form>
     </AuthShell>

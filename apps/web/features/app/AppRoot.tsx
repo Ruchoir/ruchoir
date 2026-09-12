@@ -93,7 +93,6 @@ import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
 import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/VerifyEmailScreen";
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
-import { ImportDialog } from "@/features/import/ImportDialog";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import { HelpDialog, InviteDialog, NewChannelDialog, NewMessageDialog, NewWorkspaceDialog } from "./dialogs";
@@ -138,7 +137,7 @@ export function AppRoot() {
   );
 }
 
-type Modal = "import" | "newChannel" | "newMessage" | "invite" | "newWorkspace" | "help" | "search" | "switcher" | null;
+type Modal = "newChannel" | "newMessage" | "invite" | "newWorkspace" | "help" | "search" | "switcher" | null;
 
 const toastStyle: Record<string, CSSProperties> = {
   wrap: { position: "fixed", right: 20, bottom: 20, zIndex: 60 },
@@ -2724,15 +2723,6 @@ function AppShell() {
         <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
           <InstanceAdminScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
         </div>
-      ) : null}
-      {modal === "import" ? (
-        <ImportDialog
-          onClose={() => setModal(null)}
-          onDone={(source) => {
-            setModal(null);
-            showToast({ tone: "success", title: "Import lancé", description: `Reprise depuis ${source} en arrière-plan.` });
-          }}
-        />
       ) : null}
       {modal === "newChannel" ? <NewChannelDialog onClose={() => setModal(null)} onCreate={createChannel} /> : null}
       {modal === "newMessage" ? (

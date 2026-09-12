@@ -17,6 +17,7 @@ import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
 import { getAvatar } from "@/lib/data";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   root: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 },
@@ -148,12 +149,16 @@ export type FilesScreenProps = {
 
 /** The space files view, backed by the API (folder tree, upload, download, preview). */
 export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false }: FilesScreenProps) {
+  const { t } = useTranslation();
+
   const [entries, setEntries] = useState<SpaceFile[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<{ id: string; name: string }[]>([]);
   const [folderId, setFolderId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [tab, setTab] = useState("Tous");
+  // The tab is state, so its value is an identifier rather than a French word: a label belongs in
+  // the dictionary, and comparing against one would break the moment it is translated.
+  const [tab, setTab] = useState("all");
   // Seeded from the preference, then free to change for this visit: a default is a starting point,
   // not a lock.
   const settings = useSettings();
@@ -185,8 +190,12 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
   // `load` stays stable across renders (otherwise the load effect below refires every render, which
   // loops a failing fetch and never lets the network go idle).
   const onNotifyRef = useRef(onNotify);
+  // Same treatment for the translator: the loader is memoised on the space id, and a language change
+  // must not rebuild it and refetch the folder.
+  const tRef = useRef(t);
   useEffect(() => {
     onNotifyRef.current = onNotify;
+    tRef.current = t;
   });
 
   /** Load a folder (the space root when `id` is undefined) and reset the local view state. */
@@ -204,7 +213,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
         .catch(() => {
           setEntries([]);
           setLoading(false);
-          onNotifyRef.current({ tone: "danger", title: "Chargement des fichiers impossible" });
+          onNotifyRef.current({ tone: "danger", title: tRef.current("files.loadFailed") });
         });
     },
     [spaceId],
@@ -223,7 +232,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
 
   const rows = entries
     .filter((f) => f.name.toLowerCase().includes(q.toLowerCase()))
-    .filter((f) => tab === "Tous" || (tab === "Importés" ? !!f.imported : f.kind === "folder"));
+    .filter((f) => tab === "all" || (tab === "imported" ? !!f.imported : f.kind === "folder"));
 
   const openEntry = (f: SpaceFile) => {
     if (f.kind === "folder") {
@@ -258,10 +267,10 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
     setFolderOpen(false);
     apiCreateFolder(spaceId, name, folderId)
       .then(() => {
-        onNotify({ tone: "success", title: "Dossier créé", description: name });
+        onNotify({ tone: "success", title: t("files.folderCreated"), description: name });
         load(folderId);
       })
-      .catch(() => onNotify({ tone: "danger", title: "Création du dossier impossible" }));
+      .catch(() => onNotify({ tone: "danger", title: t("files.folderFailed") }));
   };
 
   /**
@@ -282,17 +291,17 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
         if (gone > 0) {
           onNotify({
             tone: "success",
-            title: gone === 1 ? "Élément supprimé" : `${gone} éléments supprimés`,
+            title: gone === 1 ? t("files.deleted") : `${gone} éléments supprimés`,
             description: gone === 1 ? targets[0].name : undefined,
           });
         }
         if (gone < results.length) {
           onNotify({
             tone: "danger",
-            title: "Suppression incomplète",
+            title: t("files.deleteIncomplete"),
             description: refused
               ? "Vous ne pouvez supprimer que vos propres fichiers, sauf si vous administrez l'espace."
-              : "Réessayez dans un instant.",
+              : t("files.tryAgain"),
           });
         }
         load(folderId);
@@ -307,16 +316,16 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
     if (!name || name === entry.name) return;
     updateFile(entry.id, { name })
       .then(() => {
-        onNotify({ tone: "success", title: "Renommé", description: name });
+        onNotify({ tone: "success", title: t("files.renamed"), description: name });
         load(folderId);
       })
       .catch((err) =>
         onNotify({
           tone: "danger",
-          title: "Renommage impossible",
+          title: t("files.renameFailed"),
           description: isApiError(err, 403)
             ? "Vous ne pouvez renommer que vos propres fichiers, sauf si vous administrez l'espace."
-            : "Ce nom n'est peut-être pas utilisable.",
+            : t("files.renameHint"),
         }),
       );
   };
@@ -333,17 +342,17 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
       if (moved > 0) {
         onNotify({
           tone: "success",
-          title: moved === 1 ? "Élément déplacé" : `${moved} éléments déplacés`,
+          title: moved === 1 ? t("files.moved") : `${moved} éléments déplacés`,
           description: currentFolderName ?? workspaceName,
         });
       }
       if (moved < results.length) {
         onNotify({
           tone: "danger",
-          title: "Déplacement incomplet",
+          title: t("files.moveIncomplete"),
           // The server refuses a folder moved into itself or into its own descendant, which is the
           // one mistake this way of choosing a destination makes easy.
-          description: "Un dossier ne peut pas être déplacé dans lui-même.",
+          description: t("files.moveIntoItself"),
         });
       }
       load(folderId);
@@ -357,7 +366,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
     if (versionRef.current) versionRef.current.value = "";
     setVersionTarget(null);
     if (!file || !target?.id) return;
-    onNotify({ tone: "info", title: "Envoi de la nouvelle version", description: target.name });
+    onNotify({ tone: "info", title: t("files.uploadingVersion"), description: target.name });
     uploadFileVersion(target.id, file)
       .then((updated) => {
         onNotify({ tone: "success", title: `Version ${updated.version} déposée`, description: target.name });
@@ -366,7 +375,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
       .catch((err) =>
         onNotify({
           tone: "danger",
-          title: "Version non déposée",
+          title: t("files.versionFailed"),
           description: isApiError(err, 403)
             ? "Vous ne pouvez remplacer que vos propres fichiers, sauf si vous administrez l'espace."
             : target.name,
@@ -378,13 +387,13 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
     const file = fileList?.[0];
     if (!file) return;
     if (uploadRef.current) uploadRef.current.value = "";
-    onNotify({ tone: "info", title: "Dépôt en cours", description: file.name });
+    onNotify({ tone: "info", title: t("files.uploading"), description: file.name });
     uploadFile(spaceId, file, folderId)
       .then(() => {
-        onNotify({ tone: "success", title: "Fichier déposé", description: file.name });
+        onNotify({ tone: "success", title: t("files.uploaded"), description: file.name });
         load(folderId);
       })
-      .catch(() => onNotify({ tone: "danger", title: "Dépôt impossible", description: file.name }));
+      .catch(() => onNotify({ tone: "danger", title: t("files.uploadFailed"), description: file.name }));
   };
 
   return (
@@ -459,21 +468,21 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             </Button>
             <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)" }} />
             <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{currentFolderName}</span>
-            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>· {rows.length} élément{rows.length > 1 ? "s" : ""}</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>· {t("files.count", { count: rows.length })}</span>
           </div>
         ) : null}
         <div style={{ ...styles.bar, flexWrap: compact ? "wrap" : "nowrap" }}>
           <div style={{ width: compact ? "100%" : 280 }}>
-            <Input size="sm" icon="search" placeholder="Filtrer les fichiers" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input size="sm" icon="search" placeholder={t("files.filter")} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <Tabs
             variant="pills"
             value={tab}
             onChange={setTab}
             items={[
-              { value: "Tous", label: "Tous" },
-              { value: "Dossiers", label: "Dossiers" },
-              { value: "Importés", label: "Importés" },
+              { value: "all", label: t("files.all") },
+              { value: "folders", label: t("files.folders") },
+              { value: "imported", label: t("files.imported") },
             ]}
           />
           <div style={{ flex: 1 }} />
@@ -483,8 +492,8 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
           </span>
           {!compact ? (
             <>
-              <IconButton icon="layout-grid" label="Vue en grille" size="sm" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")} />
-              <IconButton icon="list" label="Vue en liste" size="sm" aria-pressed={layout === "list"} onClick={() => setLayout("list")} />
+              <IconButton icon="layout-grid" label={t("files.gridView")} size="sm" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")} />
+              <IconButton icon="list" label={t("files.listView")} size="sm" aria-pressed={layout === "list"} onClick={() => setLayout("list")} />
             </>
           ) : null}
         </div>
@@ -550,15 +559,15 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                 <tr>
                   <th style={styles.th}>
                     <span style={styles.checkCell}>
-                      <Checkbox checked={allSelected} onChange={toggleAll} aria-label="Tout sélectionner" />
+                      <Checkbox checked={allSelected} onChange={toggleAll} aria-label={t("files.selectAll")} />
                     </span>
                   </th>
-                  <th style={styles.th}>Nom</th>
-                  <th style={styles.th}>Version</th>
-                  <th style={styles.th}>Modifié par</th>
-                  <th style={styles.th}>Date</th>
-                  <th style={styles.th}>Source</th>
-                  <th style={styles.th} aria-label="Actions" />
+                  <th style={styles.th}>{t("files.name")}</th>
+                  <th style={styles.th}>{t("files.version")}</th>
+                  <th style={styles.th}>{t("files.modifiedBy")}</th>
+                  <th style={styles.th}>{t("files.date")}</th>
+                  <th style={styles.th}>{t("files.source")}</th>
+                  <th style={styles.th} aria-label={t("files.actions")} />
                 </tr>
               </thead>
               <tbody>
@@ -607,7 +616,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                   <Avatar name={f.by} src={getAvatar(f.by)} size={18} />
                   {f.size}
                 </div>
-                {f.imported ? <Tag icon="import">{f.source !== "Ruchoir" ? f.source : "Importé"}</Tag> : null}
+                {f.imported ? <Tag icon="import">{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : null}
               </Card>
             ))}
           </div>
@@ -616,15 +625,15 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
         {rows.length === 0 ? (
           <EmptyState
             icon={loading ? "loader" : q ? "search" : currentFolderName ? "folder-open" : "folder"}
-            title={loading ? "Chargement…" : q ? "Aucun résultat" : currentFolderName ? "Dossier vide" : "Aucun fichier"}
+            title={loading ? t("files.loadingShort") : q ? t("search.noResult") : currentFolderName ? t("files.emptyFolder") : t("files.noFile")}
             description={
               loading
-                ? "Récupération des fichiers de l'espace."
+                ? t("files.loading")
                 : q
-                  ? `Aucun fichier ne correspond à « ${q} ».`
+                  ? t("files.noFileMatch", { query: q })
                   : currentFolderName
-                    ? "Ce dossier ne contient aucun fichier pour l'instant."
-                    : "Déposez vos premiers fichiers, ou reprenez-les depuis Slack, Mattermost ou Nextcloud lors d'un import."
+                    ? t("files.folderEmptyText")
+                    : t("files.emptyText")
             }
             action={
               !q && !loading ? (
@@ -639,23 +648,24 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
 
       <Dialog
         open={folderOpen}
-        title="Nouveau dossier"
+        title={t("files.newFolder")}
+        closeLabel={t("common.close")}
         size="sm"
         onClose={() => setFolderOpen(false)}
         footer={
           <>
-            <Button onClick={() => setFolderOpen(false)}>Annuler</Button>
+            <Button onClick={() => setFolderOpen(false)}>{t("common.cancel")}</Button>
             <Button variant="primary" onClick={createFolder}>
               Créer
             </Button>
           </>
         }
       >
-        <Field label="Nom du dossier" htmlFor="fname">
+        <Field label={t("files.folderName")} htmlFor="fname">
           <Input
             id="fname"
             autoFocus
-            placeholder="ex. Factures 2026"
+            placeholder={t("files.folderPlaceholder")}
             value={folderName}
             onChange={(e) => setFolderName(e.target.value)}
             onKeyDown={(e) => {
@@ -667,19 +677,20 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
 
       <Dialog
         open={renaming != null}
-        title="Renommer"
+        title={t("files.rename")}
+        closeLabel={t("common.close")}
         size="sm"
         onClose={() => setRenaming(null)}
         footer={
           <>
-            <Button onClick={() => setRenaming(null)}>Annuler</Button>
+            <Button onClick={() => setRenaming(null)}>{t("common.cancel")}</Button>
             <Button variant="primary" onClick={confirmRename}>
               Renommer
             </Button>
           </>
         }
       >
-        <Field label="Nom" htmlFor="rename">
+        <Field label={t("files.name")} htmlFor="rename">
           <Input
             id="rename"
             autoFocus
@@ -694,12 +705,12 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
 
       <Dialog
         open={pendingDelete.length > 0}
-        title={pendingDelete.length > 1 ? `Supprimer ${pendingDelete.length} éléments ?` : "Supprimer cet élément ?"}
+        title={pendingDelete.length > 1 ? t("files.deleteManyTitle", { count: pendingDelete.length }) : t("files.deleteTitle")}
         size="sm"
         onClose={() => setPendingDelete([])}
         footer={
           <>
-            <Button onClick={() => setPendingDelete([])}>Annuler</Button>
+            <Button onClick={() => setPendingDelete([])}>{t("common.cancel")}</Button>
             <Button variant="danger" iconLeft="trash-2" onClick={confirmDelete}>
               Supprimer
             </Button>
@@ -713,7 +724,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
               l&apos;espace.
             </>
           ) : (
-            <>Ces éléments seront retirés de l&apos;espace.</>
+            <>{t("files.deleteBody")}</>
           )}
           {pendingDelete.some((f) => f.kind === "folder")
             ? " Un dossier emporte tout ce qu'il contient."
@@ -730,7 +741,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
         footer={
           preview ? (
             <>
-              {preview.imported ? <Tag icon="import">{preview.source !== "Ruchoir" ? preview.source : "Importé"}</Tag> : null}
+              {preview.imported ? <Tag icon="import">{preview.source !== "Ruchoir" ? preview.source : t("common.imported")}</Tag> : null}
               {preview.version ? (
                 <Tag mono tone="info">
                   {preview.version}
@@ -762,7 +773,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                   Supprimer
                 </Button>
               ) : null}
-              <Button onClick={() => setPreview(null)}>Fermer</Button>
+              <Button onClick={() => setPreview(null)}>{t("common.close")}</Button>
               <Button
                 variant="primary"
                 iconLeft="download"
@@ -802,8 +813,8 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             ) : (
               <>
                 <Icon name={isImage(preview.name) ? "image" : preview.kind === "folder" ? "folder" : preview.kind} size={52} style={{ color: "var(--text-subtle)" }} />
-                <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Aperçu indisponible</div>
-                <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>Téléchargez le fichier pour l&apos;ouvrir.</div>
+                <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("files.noPreview")}</div>
+                <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("files.noPreviewText")}</div>
               </>
             )}
           </div>
@@ -829,6 +840,7 @@ function FileRow({
   onDelete?: () => void;
   onRename?: () => void;
 }) {
+  const { t } = useTranslation();
   const [hover, setHover] = useState(false);
   const isFolder = f.kind === "folder";
   return (
@@ -865,7 +877,7 @@ function FileRow({
       </td>
       <td style={{ ...styles.td, color: "var(--text-muted)", fontSize: 12 }}>{f.when}</td>
       <td style={styles.td}>
-        {f.imported ? <Tag icon="import">{f.source !== "Ruchoir" ? f.source : "Importé"}</Tag> : <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>-</span>}
+        {f.imported ? <Tag icon="import">{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>-</span>}
       </td>
       <td style={styles.td}>
         <span style={{ ...styles.checkCell, opacity: hover ? 1 : 0, transition: "opacity var(--duration-fast) var(--ease-out)" }}>
