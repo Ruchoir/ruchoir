@@ -80,6 +80,7 @@ import { LoginScreen } from "@/features/auth/LoginScreen";
 import { SignupScreen, type SignupValues } from "@/features/auth/SignupScreen";
 import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
+import { NotificationPrompt } from "./NotificationPrompt";
 import { MfaChallengeScreen } from "@/features/auth/MfaChallengeScreen";
 import { ResetPasswordScreen } from "@/features/auth/ResetPasswordScreen";
 import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
@@ -107,7 +108,9 @@ import {
 import {
   appIsAway,
   inQuietHours,
+  notificationPermission,
   playNotificationSound,
+  requestNotificationPermission,
   showDesktopNotification,
 } from "./desktopNotifications";
 import { PreferencesScreen, type PrefTab } from "./PreferencesScreen";
@@ -1138,6 +1141,71 @@ function AppShell() {
   // Memoised because the `?? []` branch is a fresh array every render, which would re-run anything
   // that depends on the feed (the read receipts below) on every render for no reason.
   const feed = useMemo(() => messages[channelId] ?? [], [messages, channelId]);
+
+  /**
+   * The spaces in the order this person arranged them.
+   *
+   * The stored order holds ids, not spaces: one they have left is skipped, and one they have joined
+   * since arranging the rail appears at the end rather than forcing the arrangement to be redone.
+   */
+  const orderedWorkspaces = useMemo(() => {
+    const order = settings.spaceOrder;
+    if (order.length === 0) return workspaces;
+    const rank = new Map(order.map((id, i) => [id, i] as const));
+    return [...workspaces].sort((a, b) => {
+      const ra = rank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const rb = rank.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return ra === rb ? 0 : ra - rb;
+    });
+  }, [workspaces, settings.spaceOrder]);
+
+  /**
+   * The direct conversations the sidebar shows.
+   *
+   * A hidden one comes back the moment it has something unread, and the one being read stays put:
+   * hiding the conversation you are looking at and watching it vanish under you would be its own
+   * small defect. Hiding is a display choice, so it lives with the preferences and touches nothing
+   * on the server.
+   */
+  const visibleDms = useMemo(() => {
+    if (settings.hiddenDms.length === 0) return dms;
+    const hidden = new Set(settings.hiddenDms);
+    return dms.filter((d) => !hidden.has(d.id) || d.unread > 0 || d.id === channelId);
+  }, [dms, settings.hiddenDms, channelId]);
+
+  // A hidden conversation that receives something is back for good, not until it is read: leaving it
+  // in the hidden list would make it disappear again the moment the message is seen, which reads as
+  // the app losing a conversation.
+  useEffect(() => {
+    if (settings.hiddenDms.length === 0) return;
+    const returning = dms.filter((d) => d.unread > 0 && settings.hiddenDms.includes(d.id)).map((d) => d.id);
+    if (returning.length === 0) return;
+    settings.set(
+      "hiddenDms",
+      settings.hiddenDms.filter((id) => !returning.includes(id)),
+    );
+    // `settings` is a context value rebuilt on every change; depending on it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dms, settings.hiddenDms]);
+
+  /** Hide a direct conversation, and leave it if it is the one on screen. */
+  const hideDm = (id: string) => {
+    if (!settings.hiddenDms.includes(id)) settings.set("hiddenDms", [...settings.hiddenDms, id]);
+    if (channelId === id) {
+      const fallback = channels[0]?.id;
+      if (fallback) openChannel(fallback);
+    }
+  };
+
+  /** Move a space in the rail and remember the whole resulting order. */
+  const reorderWorkspace = (spaceId: string, toIndex: number) => {
+    const ids = orderedWorkspaces.map((w) => w.id);
+    const from = ids.indexOf(spaceId);
+    if (from === -1) return;
+    ids.splice(from, 1);
+    ids.splice(toIndex, 0, spaceId);
+    settings.set("spaceOrder", ids);
+  };
 
   // The space's members with live presence overlaid, feeding the member list, the @-mention
   // autocomplete and the people section of search. Falls back to the mock roster before load.
@@ -2385,7 +2453,8 @@ function AppShell() {
 
   const rail = (
     <WorkspaceRail
-      workspaces={workspaces}
+      workspaces={orderedWorkspaces}
+      onReorder={reorderWorkspace}
       active={ws}
       currentUser={currentUser}
       onSelect={(id) => {
@@ -2429,7 +2498,8 @@ function AppShell() {
     <Sidebar
         workspace={workspaces.find((w) => w.id === ws)}
         channels={channels}
-        directMessages={dms}
+        directMessages={visibleDms}
+        onHideDm={hideDm}
         view={view}
         channel={channelId}
         mentionCount={mentionUnread}
@@ -2674,6 +2744,24 @@ function AppShell() {
         />
       ) : null}
 
+      {/*
+        Offered once, to someone who has just signed in and has not been asked before. The browser's
+        permission is the only thing between them and being told about a message while they are
+        elsewhere, and nothing else in the app will bring it up.
+      */}
+      {authStage === "app" && !settings.notifPrompted && notificationPermission() === "default" ? (
+        <NotificationPrompt
+          compact={compact}
+          onAllow={() => {
+            settings.set("notifPrompted", true);
+            void requestNotificationPermission().then((outcome) => {
+              if (outcome === "granted") showToast({ tone: "success", title: "Notifications activées" });
+            });
+          }}
+          onDismiss={() => settings.set("notifPrompted", true)}
+        />
+      ) : null}
+
       {!settings.welcome.dismissed ? (
         <GettingStarted
           done={settings.welcome.done}
@@ -2733,7 +2821,8 @@ function AppShell() {
                 <Sidebar
                   workspace={workspaces.find((w) => w.id === ws)}
                 channels={channels}
-                directMessages={dms}
+                directMessages={visibleDms}
+                onHideDm={hideDm}
                 view={view}
                 channel={channelId}
                 mentionCount={mentionUnread}

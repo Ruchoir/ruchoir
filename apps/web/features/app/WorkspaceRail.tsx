@@ -78,6 +78,12 @@ export type WorkspaceRailProps = {
   onOpenSettings: () => void;
   onHelp: () => void;
   onLogout: () => void;
+  /**
+   * Move a space to a new position in the rail. Absent leaves the rail fixed, which is what it was.
+   *
+   * The order is the caller's to persist: the rail says what was asked for, not where it is stored.
+   */
+  onReorder?: (spaceId: string, toIndex: number) => void;
 };
 
 /** Left-most rail: one square per workspace, plus help and the signed-in user. */
@@ -95,13 +101,24 @@ export function WorkspaceRail({
   onOpenSettings,
   onHelp,
   onLogout,
+  onReorder,
 }: WorkspaceRailProps) {
   const [userMenu, setUserMenu] = useState(false);
   const userRef = useRef<HTMLButtonElement>(null);
+  /** The space being dragged, and the slot it is hovering, so the rail can show where it would land. */
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+
+  const move = (spaceId: string, toIndex: number) => {
+    const from = workspaces.findIndex((w) => w.id === spaceId);
+    const to = Math.max(0, Math.min(workspaces.length - 1, toIndex));
+    if (from === -1 || from === to) return;
+    onReorder?.(spaceId, to);
+  };
 
   return (
     <div style={rail}>
-      {workspaces.map((w) => {
+      {workspaces.map((w, index) => {
         // Nothing on the space being read: its per-channel badges are already in the sidebar, and a
         // counter fetched at boot would go stale the moment its owner starts reading.
         const background = w.id !== active;
@@ -115,8 +132,57 @@ export function WorkspaceRail({
               : w.name;
         return (
           <Tooltip key={w.id} label={label} side="right">
-            <span style={wsSlot}>
-              <button style={wsButton(w.id === active)} onClick={() => onSelect(w.id)} aria-label={label}>
+            <span
+              style={{
+                ...wsSlot,
+                opacity: dragging === w.id ? 0.4 : 1,
+                // Where it would land, drawn on the slot being hovered rather than as a moving
+                // placeholder: the rail is one column of squares, and a line above the target says
+                // the same thing with nothing jumping around.
+                boxShadow:
+                  dropIndex === index && dragging && dragging !== w.id
+                    ? "inset 0 3px 0 0 var(--terracotta-500)"
+                    : undefined,
+              }}
+              onDragOver={(e) => {
+                if (!onReorder || !dragging) return;
+                e.preventDefault();
+                setDropIndex(index);
+              }}
+              onDrop={(e) => {
+                if (!onReorder || !dragging) return;
+                e.preventDefault();
+                move(dragging, index);
+                setDragging(null);
+                setDropIndex(null);
+              }}
+            >
+              <button
+                style={wsButton(w.id === active)}
+                onClick={() => onSelect(w.id)}
+                aria-label={label}
+                // Reordering is a mouse gesture *and* a keyboard one: alt with the arrow keys moves
+                // the focused space, so the arrangement is not a feature reserved to pointers.
+                draggable={!!onReorder}
+                onDragStart={() => {
+                  setDragging(w.id);
+                  setDropIndex(index);
+                }}
+                onDragEnd={() => {
+                  setDragging(null);
+                  setDropIndex(null);
+                }}
+                onKeyDown={(e) => {
+                  if (!onReorder || !e.altKey) return;
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    move(w.id, index - 1);
+                  } else if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    move(w.id, index + 1);
+                  }
+                }}
+              >
                 <Avatar name={w.name} src={w.iconUrl} kind="workspace" size={36} />
               </button>
               {mentions > 0 ? (
