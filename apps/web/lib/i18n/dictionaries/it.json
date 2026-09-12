@@ -724,10 +724,8 @@
     "bots_many": "{{count}} bot",
     "bots_other": "{{count}} bot",
     "changeIcon": "Cambia l'icona",
-    "adminsOnlyIcon": "Solo gli amministratori dello spazio possono cambiarla.",
     "name": "Nome dello spazio",
     "addressFollowsName": "L'indirizzo dello spazio seguirà il nome. I precedenti continuano a funzionare.",
-    "adminsOnlyRename": "Solo gli amministratori dello spazio possono rinominarlo.",
     "serverAddress": "Indirizzo del server",
     "setAtInstall": "Definito all'installazione dell'istanza",
     "leave": "Esci dallo spazio",
@@ -752,7 +750,9 @@
     "removeNamed": "Rimuovi {{name}} dallo spazio",
     "removeTitle": "Rimuovere {{name}} dallo spazio?",
     "removeBody": "{{name}} perde l'accesso a {{space}}: i suoi canali, i suoi messaggi e i suoi file. Per rientrare servirà un nuovo invito.",
-    "removeKeepsMessages": "Quello che ha scritto resta: una conversazione appartiene a chi l'ha avuta."
+    "removeKeepsMessages": "Quello che ha scritto resta: una conversazione appartiene a chi l'ha avuta.",
+    "ownerOnlyIcon": "Solo il proprietario dello spazio può cambiarla.",
+    "ownerOnlyRename": "Solo il proprietario dello spazio può rinominarlo."
   },
   "prefs": {
     "title": "Preferenze",

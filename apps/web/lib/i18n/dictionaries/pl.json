@@ -740,10 +740,8 @@
     "bots_many": "{{count}} botów",
     "bots_other": "{{count}} botów",
     "changeIcon": "Zmień ikonę",
-    "adminsOnlyIcon": "Tylko administratorzy przestrzeni mogą ją zmienić.",
     "name": "Nazwa przestrzeni",
     "addressFollowsName": "Adres przestrzeni podąży za nazwą. Poprzednie nadal działają.",
-    "adminsOnlyRename": "Tylko administratorzy przestrzeni mogą ją przemianować.",
     "serverAddress": "Adres serwera",
     "setAtInstall": "Ustalony przy instalacji instancji",
     "leave": "Opuść przestrzeń",
@@ -768,7 +766,9 @@
     "removeNamed": "Usuń osobę {{name}} z przestrzeni",
     "removeTitle": "Usunąć osobę {{name}} z przestrzeni?",
     "removeBody": "{{name}} traci dostęp do przestrzeni {{space}}: jej kanałów, wiadomości i plików. Powrót będzie wymagał nowego zaproszenia.",
-    "removeKeepsMessages": "To, co tam napisała, zostaje: rozmowa należy do tych, którzy ją prowadzili."
+    "removeKeepsMessages": "To, co tam napisała, zostaje: rozmowa należy do tych, którzy ją prowadzili.",
+    "ownerOnlyIcon": "Tylko właściciel przestrzeni może ją zmienić.",
+    "ownerOnlyRename": "Tylko właściciel przestrzeni może zmienić jej nazwę."
   },
   "prefs": {
     "title": "Preferencje",

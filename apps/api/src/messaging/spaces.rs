@@ -262,7 +262,7 @@ async fn remember_slug<C: ConnectionTrait>(
     Ok(())
 }
 
-/// `PATCH /api/v1/spaces/{space_id}`: rename a space. Owner or admin only.
+/// `PATCH /api/v1/spaces/{space_id}`: rename a space. Owner only.
 ///
 /// The slug follows the name, and the one it leaves behind keeps working: every slug a space has
 /// ever answered to is kept, and resolves to it forever. That is what lets the address stay honest
@@ -278,7 +278,7 @@ async fn remember_slug<C: ConnectionTrait>(
     responses(
         (status = 200, description = "The space's new shared identity", body = SpaceUpdatedDto),
         (status = 400, description = "Empty or over-long name"),
-        (status = 403, description = "Not an owner or admin of the space")
+        (status = 403, description = "Not the owner of the space")
     )
 )]
 pub async fn update_space(
@@ -287,7 +287,9 @@ pub async fn update_space(
     Path(space_id): Path<Uuid>,
     Json(body): Json<UpdateSpaceRequest>,
 ) -> Result<Json<SpaceUpdatedDto>, ApiError> {
-    super::authz::ensure_space_admin(&state.db, space_id, session.user_id).await?;
+    // The space's name is its identity, and an identity belongs to whoever holds the space. An
+    // administrator runs it; renaming it out from under its owner is not running it.
+    super::authz::ensure_space_owner(&state.db, space_id, session.user_id).await?;
     let name = body.name.trim();
     if name.is_empty() || name.chars().count() > MAX_HANDLE_LEN {
         return Err(ApiError::BadRequest("a space needs a name"));

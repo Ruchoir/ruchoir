@@ -99,6 +99,20 @@ async fn reaches_through_a_message(
     Ok(false)
 }
 
+/// Whether the caller owns a space. The icon is the space's identity, like its name, so it follows
+/// the same line: an administrator runs the space, the owner holds it.
+pub async fn is_space_owner(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, FileError> {
+    Ok(space_members::Entity::find_by_id((space_id, user_id))
+        .one(db)
+        .await?
+        .map(|m| m.role == "owner")
+        .unwrap_or(false))
+}
+
 /// Whether the caller is an `owner`/`admin` of a space.
 pub async fn is_space_admin(
     db: &DatabaseConnection,
