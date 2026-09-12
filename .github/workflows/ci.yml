@@ -84,13 +84,31 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint
         run: pnpm --filter @ruchoir/web lint
-      # Fails on user-visible text typed into a component rather than translated, and on any
-      # disagreement between the six dictionaries. Both are invisible in review and silent at
-      # runtime: an untranslated string simply ships in French to everyone.
-      - name: Translations
-        run: pnpm --filter @ruchoir/web i18n:check
       - name: Build (static export)
         run: pnpm --filter @ruchoir/web build
+
+  # A job of its own rather than a step of the web build, so that it is named in the checks list and
+  # can be required on its own: what it guards is invisible in review and silent at runtime, and a
+  # green "Web" tells nobody whether it ran.
+  translations:
+    name: Translations (six languages)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      # Fails on user-visible text typed into a component rather than translated, on a formatting
+      # call with a language written into it, on one sentence held under two keys, and on any
+      # disagreement between the six dictionaries. An untranslated string ships in French to
+      # everyone and reports nothing.
+      - name: Check
+        run: pnpm --filter @ruchoir/web i18n:check
 
   responsive:
     name: Responsive audit (web)
