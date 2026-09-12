@@ -641,6 +641,16 @@ export async function leaveSpace(spaceId: string): Promise<void> {
 }
 
 /**
+ * `DELETE /spaces/{id}/members/{userId}`: take someone out of a space.
+ *
+ * The administrator's counterpart of leaving, under the same rank rule as a role change: only on
+ * someone ranked below the caller. What they wrote stays where it was written.
+ */
+export async function removeMember(spaceId: string, userId: string): Promise<void> {
+  await apiDelete<void>(`/spaces/${spaceId}/members/${userId}`);
+}
+
+/**
  * `DELETE /spaces/{id}`: delete a space and everything in it. Owner only, immediate, and final:
  * there is no grace period and nothing is kept back.
  */
@@ -1296,6 +1306,7 @@ function iconForSystemEvent(event?: string): string {
     case "channel_joined":
       return "user-plus";
     case "member_left":
+    case "member_removed":
     case "channel_left":
       return "user-minus";
     default:
@@ -1303,7 +1314,14 @@ function iconForSystemEvent(event?: string): string {
   }
 }
 
-const SYSTEM_EVENTS: SystemEvent[] = ["member_joined", "member_left", "channel_joined", "channel_left", "channel_created"];
+const SYSTEM_EVENTS: SystemEvent[] = [
+  "member_joined",
+  "member_left",
+  "member_removed",
+  "channel_joined",
+  "channel_left",
+  "channel_created",
+];
 
 /** Whether the API reported an event this client knows a sentence for. */
 function isSystemEvent(value: string | undefined): value is SystemEvent {
@@ -1704,10 +1722,11 @@ export type RealtimeHandlers = {
   /** A space the user belongs to was renamed, or had its icon replaced or removed. */
   onSpaceUpdated?: (space: SpaceIdentity) => void;
   /**
-   * A space stopped being the user's: they left it (from here or from another tab), or its owner
-   * deleted it. `deleted` is what separates the two, and only the sentence shown differs.
+   * A space stopped being the user's. The reason is what the sentence is drawn from: `left` (from
+   * here or another tab, so they already know), `deleted` (its owner ended it), `removed` (somebody
+   * took them out of it, which they have to be told or a space vanishes from under them).
    */
-  onSpaceRemoved?: (spaceId: string, deleted: boolean) => void;
+  onSpaceRemoved?: (spaceId: string, reason: "left" | "deleted" | "removed") => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
@@ -1844,9 +1863,14 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
           String(payload.role),
         );
         break;
-      case "space.removed":
-        handlers.onSpaceRemoved?.(String(payload.space_id), Boolean(payload.deleted));
+      case "space.removed": {
+        const reason = String(payload.reason);
+        handlers.onSpaceRemoved?.(
+          String(payload.space_id),
+          reason === "deleted" || reason === "removed" ? reason : "left",
+        );
         break;
+      }
       case "space.updated": {
         handlers.onSpaceUpdated?.({
           id: String(payload.id),

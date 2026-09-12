@@ -273,7 +273,8 @@
     "spaceSwitch": "Switch space",
     "spaceSwitchNamed": "Space {{name}}, switch space",
     "space": "Space",
-    "favouriteHint": "Keep the channels you use within reach: \\u201cAdd to favourites\\u201d in a channel's menu."
+    "favouriteHint": "Keep the channels you use within reach: \\u201cAdd to favourites\\u201d in a channel's menu.",
+    "noChannelYet": "No channel yet. One will appear as soon as you are added to it."
   },
   "welcome": {
     "title": "Getting started",
@@ -467,7 +468,9 @@
     "leaveTitle": "Leave #{{name}}?",
     "leaveBody": "You will stop receiving messages from #{{name}}. You can join again while it stays public.",
     "membersAndAccess": "Members and access ({{count}})",
-    "fallbackName": "general"
+    "fallbackName": "general",
+    "noConversation": "Nothing to show yet",
+    "noConversationHint": "Create a channel, or start a conversation, to get going."
   },
   "role": {
     "member": "Member",
@@ -728,7 +731,12 @@
     "transferTitle": "Hand the space to {{name}}?",
     "transferBody": "{{name}} becomes the owner of {{space}} and can do anything in it, deleting it included.",
     "transferStepDown": "A space has one owner: you go back to being an administrator, and only the new owner can give the role back.",
-    "transferConfirm": "Hand it over"
+    "transferConfirm": "Hand it over",
+    "remove": "Remove from the space",
+    "removeNamed": "Remove {{name}} from the space",
+    "removeTitle": "Remove {{name}} from the space?",
+    "removeBody": "{{name}} loses access to {{space}}: its channels, its messages and its files. Coming back will take a new invitation.",
+    "removeKeepsMessages": "What they wrote there stays: a conversation belongs to the people who had it."
   },
   "prefs": {
     "title": "Preferences",
@@ -874,7 +882,10 @@
     "roleChanged": "Role changed",
     "roleFailed": "Role not changed",
     "spaceHandedOver": "Space handed over",
-    "nowOwner": "{{name}} owns it now."
+    "nowOwner": "{{name}} owns it now.",
+    "memberRemoved": "Member removed",
+    "removeFailed": "Could not remove this member",
+    "removedFromSpace": "You have been removed from {{name}}"
   },
   "boot": {
     "loading": "Loading",
@@ -892,7 +903,8 @@
     "memberLeft": "{{who}} left the space.",
     "channelJoined": "{{who}} joined the channel.",
     "channelLeft": "{{who}} left the channel.",
-    "channelCreated": "The channel was created."
+    "channelCreated": "The channel was created.",
+    "memberRemoved": "{{who}} was removed from the space."
   },
   "rail": {
     "unreadActivity": "{{name}}, unread activity"

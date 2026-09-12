@@ -250,7 +250,13 @@ export type Message = {
 };
 
 /** The system events the API reports, each with a sentence in every dictionary. */
-export type SystemEvent = "member_joined" | "member_left" | "channel_joined" | "channel_left" | "channel_created";
+export type SystemEvent =
+  | "member_joined"
+  | "member_left"
+  | "member_removed"
+  | "channel_joined"
+  | "channel_left"
+  | "channel_created";
 
 export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "image" | "folder";
 

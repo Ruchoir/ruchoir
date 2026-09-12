@@ -50,6 +50,16 @@ const DEFAULT_CHANNEL: &str = "general";
 /// sentence: the database never stores one.
 const LEFT_EVENT: &str = "member_left";
 
+/// The `system_event` written when someone is taken out of a space by an administrator. Distinct
+/// from [`LEFT_EVENT`] because "X left the space" about someone who was shown the door is a small
+/// lie, and the channel notice is the durable record the people who stayed will read.
+const REMOVED_EVENT: &str = "member_removed";
+
+/// Why a space stopped being someone's, as carried by `space.removed`.
+const REASON_LEFT: &str = "left";
+const REASON_DELETED: &str = "deleted";
+const REASON_REMOVED: &str = "removed";
+
 /// Announce a changed space to its members.
 ///
 /// A space's name and mark are drawn by the rail, the mobile top bar, the switcher and the sidebar
@@ -520,54 +530,70 @@ pub async fn leave_space(
     let audience = super::authz::space_member_ids(&state.db, space_id, session.user_id).await?;
 
     let txn = state.db.begin().await?;
-    let channel_ids: Vec<Uuid> = channels::Entity::find()
-        .filter(channels::Column::SpaceId.eq(space_id))
-        .all(&txn)
-        .await?
-        .into_iter()
-        .map(|channel| channel.id)
-        .collect();
-    // The channel memberships inside the space go with it. Leaving them would leave rows granting
-    // access to private channels of a space the person is no longer in, which is the kind of
-    // leftover that only surfaces the day someone is invited back.
-    if !channel_ids.is_empty() {
-        channel_members::Entity::delete_many()
-            .filter(channel_members::Column::UserId.eq(session.user_id))
-            .filter(channel_members::Column::ChannelId.is_in(channel_ids))
-            .exec(&txn)
-            .await?;
-    }
-    space_members::Entity::delete_by_id((space_id, session.user_id))
-        .exec(&txn)
-        .await?;
-
-    // The departure notice, written where the arrival notice was: the space's oldest public
-    // channel. A push scrolls away, the history stays, and a member list that silently loses a row
-    // leaves the people who stayed with no idea when it happened. Like the arrival, the row holds
-    // the event and no sentence.
-    let notice = match super::invitations::first_public_channel(&txn, space_id).await? {
-        Some(channel) => Some(
-            messages::ActiveModel {
-                id: Set(Uuid::new_v4()),
-                conversation_id: Set(channel),
-                author_id: Set(Some(session.user_id)),
-                kind: Set("system".to_owned()),
-                system_event: Set(Some(LEFT_EVENT.to_owned())),
-                created_at: Set(OffsetDateTime::now_utc()),
-                ..Default::default()
-            }
-            .insert(&txn)
-            .await?,
-        ),
-        None => None,
-    };
+    let notice = withdraw_membership(&txn, space_id, session.user_id, LEFT_EVENT).await?;
     txn.commit().await?;
 
-    announce_departure(&state, space_id, session.user_id, audience).await;
+    announce_departure(&state, space_id, session.user_id, audience, REASON_LEFT).await;
     if let Some(notice) = notice {
         publish_notice(&state, session.user_id, notice).await?;
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Take one membership out of a space, and write the notice that says so.
+///
+/// Shared by leaving and by being removed, because the two differ in who decided and in nothing
+/// else. The channel memberships inside the space go with the space membership: leaving them would
+/// leave rows granting access to private channels of a space the person is no longer in, the kind of
+/// leftover that only surfaces the day somebody is invited back.
+///
+/// The notice is written where the arrival notice is, the space's oldest public channel. A push
+/// scrolls away, the history stays, and a member list that silently loses a row leaves the people
+/// who stayed with no idea when it happened. Like the arrival, the row holds the *event* and never a
+/// sentence: the words belong to whoever is reading.
+async fn withdraw_membership<C: ConnectionTrait>(
+    txn: &C,
+    space_id: Uuid,
+    user_id: Uuid,
+    event: &str,
+) -> Result<Option<messages::Model>, ApiError> {
+    let channel_ids: Vec<Uuid> = channels::Entity::find()
+        .filter(channels::Column::SpaceId.eq(space_id))
+        .all(txn)
+        .await?
+        .into_iter()
+        .map(|channel| channel.id)
+        .collect();
+    if !channel_ids.is_empty() {
+        channel_members::Entity::delete_many()
+            .filter(channel_members::Column::UserId.eq(user_id))
+            .filter(channel_members::Column::ChannelId.is_in(channel_ids))
+            .exec(txn)
+            .await?;
+    }
+    space_members::Entity::delete_by_id((space_id, user_id))
+        .exec(txn)
+        .await?;
+
+    let Some(channel) = super::invitations::first_public_channel(txn, space_id).await? else {
+        return Ok(None);
+    };
+    Ok(Some(
+        messages::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            conversation_id: Set(channel),
+            // The person the notice is about, so the client can name them without a second lookup.
+            // For a removal that is still the person who left the space, not the one who decided it:
+            // the roster lost a name, and that name is the subject of the sentence.
+            author_id: Set(Some(user_id)),
+            kind: Set("system".to_owned()),
+            system_event: Set(Some(event.to_owned())),
+            created_at: Set(OffsetDateTime::now_utc()),
+            ..Default::default()
+        }
+        .insert(txn)
+        .await?,
+    ))
 }
 
 /// Send a freshly written system message to the channel it belongs to. It travels as an ordinary
@@ -601,6 +627,67 @@ async fn publish_notice(
             .await;
     }
     Ok(())
+}
+
+/// `DELETE /api/v1/spaces/{space_id}/members/{user_id}`: take someone out of a space.
+///
+/// The administrator's counterpart of [`leave_space`], and the same rank rule as a role change: you
+/// may only act on someone ranked strictly below you. An owner can remove an admin, an admin cannot;
+/// nobody can remove the owner; and nobody removes themselves through here, which is what
+/// [`leave_space`] is for and what makes the difference between walking out and being shown the
+/// door legible in the history afterwards.
+///
+/// What they wrote stays, exactly as when they leave: a conversation is not one member's to erase,
+/// and it is not an administrator's to erase on their behalf either. Coming back needs a new
+/// invitation.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/spaces/{space_id}/members/{user_id}",
+    tag = "messaging",
+    params(
+        ("space_id" = Uuid, Path, description = "Space id"),
+        ("user_id" = Uuid, Path, description = "The member being removed")
+    ),
+    responses(
+        (status = 204, description = "They are no longer a member"),
+        (status = 403, description = "Not allowed to remove this member"),
+        (status = 404, description = "Not a member of this space")
+    )
+)]
+pub async fn remove_member(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path((space_id, user_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    let actor = space_members::Entity::find_by_id((space_id, session.user_id))
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    let actor_rank = super::authz::role_rank(&actor.role);
+    if user_id == session.user_id || actor_rank < super::authz::role_rank("admin") {
+        return Err(ApiError::Forbidden);
+    }
+    let target = space_members::Entity::find_by_id((space_id, user_id))
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    if super::authz::role_rank(&target.role) >= actor_rank {
+        return Err(ApiError::Forbidden);
+    }
+
+    // Read while they are still on the roster: it is who the departure is announced to, and the
+    // person leaving has to be in it to be told the space is no longer theirs.
+    let audience = super::authz::space_member_ids(&state.db, space_id, session.user_id).await?;
+
+    let txn = state.db.begin().await?;
+    let notice = withdraw_membership(&txn, space_id, user_id, REMOVED_EVENT).await?;
+    txn.commit().await?;
+
+    announce_departure(&state, space_id, user_id, audience, REASON_REMOVED).await;
+    if let Some(notice) = notice {
+        publish_notice(&state, session.user_id, notice).await?;
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// `DELETE /api/v1/spaces/{space_id}`: delete a space and everything in it. Owner only.
@@ -650,7 +737,7 @@ pub async fn delete_space(
     forget_objects(&state, keys).await;
     let removed = SpaceRemovedDto {
         space_id,
-        deleted: true,
+        reason: REASON_DELETED.to_owned(),
     };
     state
         .hub
@@ -666,7 +753,13 @@ pub async fn delete_space(
 /// need the roster corrected, the person leaving needs the space off their rail (in every tab they
 /// have open, not only the one they clicked in). Best-effort, like every other push: the membership
 /// is already gone, and a delivery problem must not turn that into a failed request.
-async fn announce_departure(state: &AppState, space_id: Uuid, user_id: Uuid, audience: Vec<Uuid>) {
+async fn announce_departure(
+    state: &AppState,
+    space_id: Uuid,
+    user_id: Uuid,
+    audience: Vec<Uuid>,
+    reason: &str,
+) {
     let staying: Vec<Uuid> = audience.into_iter().filter(|id| *id != user_id).collect();
     if !staying.is_empty() {
         let left = super::dto::MemberLeftDto { space_id, user_id };
@@ -677,7 +770,7 @@ async fn announce_departure(state: &AppState, space_id: Uuid, user_id: Uuid, aud
     }
     let removed = SpaceRemovedDto {
         space_id,
-        deleted: false,
+        reason: reason.to_owned(),
     };
     state
         .hub

@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useRef, useState, useSyncExternalStore } from "react";
-import { Avatar, Button, Card, Field, Icon, type IconName, Input, Select, Tag } from "@/components/ds";
+import { Avatar, Button, Card, Field, Icon, IconButton, type IconName, Input, Select, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setSpaceIcon } from "@/lib/data/api";
@@ -153,6 +153,8 @@ export type WorkspaceSettingsProps = {
    * over is confirmed by name and the caller should not have to look it up again.
    */
   onChangeRole: (member: { userId: string; name: string }, role: string) => void;
+  /** Ask to take a member out of the space. Confirmed elsewhere; this only opens the question. */
+  onRemoveMember: (member: { userId: string; name: string }) => void;
   onInvite: () => void;
   /**
    * The icon changed. The rail reads the space list, not this screen's state, so without this the
@@ -187,6 +189,7 @@ export function WorkspaceSettings({
   members,
   myRole,
   onChangeRole,
+  onRemoveMember,
   onInvite,
   onIconChanged,
   onRenamed,
@@ -479,6 +482,19 @@ export function WorkspaceSettings({
                         ) : (
                           <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(role)}</span>
                         )}
+                      </div>
+                      {/* Removing sits next to the role and not in it: a role is what someone may do
+                          here, being shown the door is not one of its values. Offered on exactly the
+                          memberships this caller outranks, which is what the API accepts. */}
+                      <div style={{ width: 28, flex: "none", display: "flex", justifyContent: "flex-end" }}>
+                        {!m.bot && grantableRoles(myRole, m.role).length > 0 ? (
+                          <IconButton
+                            icon="user-minus"
+                            size="sm"
+                            label={t("space.removeNamed", { name: m.name })}
+                            onClick={() => onRemoveMember({ userId: m.userId, name: m.name })}
+                          />
+                        ) : null}
                       </div>
                     </div>
                   );

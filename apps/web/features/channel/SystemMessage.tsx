@@ -7,6 +7,7 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 const EVENT_TEXT: Record<SystemEvent, TranslationKey> = {
   member_joined: key("system.memberJoined"),
   member_left: key("system.memberLeft"),
+  member_removed: key("system.memberRemoved"),
   channel_joined: key("system.channelJoined"),
   channel_left: key("system.channelLeft"),
   channel_created: key("system.channelCreated"),

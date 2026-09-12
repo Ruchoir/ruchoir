@@ -60,7 +60,14 @@ context and takes precedence here.
   the lifecycle: creating a space (the caller becomes
   its owner and it is born with one public channel, so it is never an empty shell), creating a
   channel, updating one (rename, topic, visibility, and archiving, which is a state that makes it
-  read-only rather than a deletion), and joining or leaving one. A space has two exits, and they are
+  read-only rather than a deletion), and joining or leaving one. A member is taken out of a space by
+  `DELETE /spaces/{id}/members/{user_id}`, under the same rank rule as a role change (an owner may
+  remove an admin, an admin may not), which is the only coherent answer: an administrator who cannot
+  demote someone must not be able to expel them instead. Leaving and being removed are one withdrawal
+  decided by two different people, so they share `withdraw_membership`, but they write different
+  notices (`member_left` / `member_removed`) and `space.removed` carries a `reason`
+  (`left`/`deleted`/`removed`) rather than a boolean: the client drops the space in all three cases
+  and says something in the two the person did not decide. A space has two exits, and they are
   different acts: **leaving** (`DELETE /spaces/{id}/membership`) takes the caller's own membership
   and their channel memberships inside that space, leaves everything they wrote where it was
   written, and is refused with a `409` for the space's last owner, who would otherwise leave it with

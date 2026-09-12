@@ -2089,3 +2089,73 @@ async fn a_guest_gets_no_space_files_but_keeps_the_ones_they_can_see() {
         .expect("file");
     assert_eq!(opened.status(), 200);
 }
+
+#[tokio::test]
+async fn removing_a_member_follows_the_same_rank_rule_as_a_role() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    // An admin does not remove another admin, nor themselves (that is leaving, and it reads
+    // differently in the history afterwards).
+    for (target, expected) in [(fx.alice, 403), (fx.bob, 403)] {
+        let refused = app
+            .req(
+                reqwest::Method::DELETE,
+                &format!("/api/v1/spaces/{}/members/{}", fx.space_id, target),
+                &bob,
+            )
+            .send()
+            .await
+            .expect("remove");
+        assert_eq!(refused.status(), expected);
+    }
+
+    // Someone below them: removed, with their channel memberships, and their messages left alone.
+    let removed = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{}/members/{}", fx.space_id, fx.carol),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("remove");
+    assert_eq!(removed.status(), 204);
+    assert!(space_members::Entity::find_by_id((fx.space_id, fx.carol))
+        .one(&app.db)
+        .await
+        .expect("membership")
+        .is_none());
+
+    // The space is no longer hers, and the channel says what happened rather than that she left.
+    let refused = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &app.cookie_for(fx.carol).await,
+        )
+        .send()
+        .await
+        .expect("channels");
+    assert_eq!(refused.status(), 403);
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    assert!(page["messages"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .any(|m| m["system_event"] == "member_removed" && m["author_id"] == fx.carol.to_string()));
+}

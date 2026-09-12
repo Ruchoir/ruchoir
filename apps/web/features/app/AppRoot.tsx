@@ -38,6 +38,7 @@ import {
   markNotificationRead,
   previewInvitation,
   register as apiRegister,
+  removeMember as apiRemoveMember,
   removeReaction,
   requestEmailVerification,
   requestPasswordReset,
@@ -77,7 +78,7 @@ import type {
   SpaceFile,
   Workspace,
 } from "@/lib/data";
-import { Button, Dialog, Drawer } from "@/components/ds";
+import { Button, Dialog, Drawer, EmptyState } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { SavedMessage } from "@/lib/data/api";
 import type { PresenceChoice } from "@/lib/data";
@@ -106,6 +107,7 @@ import {
   NewChannelDialog,
   NewMessageDialog,
   NewWorkspaceDialog,
+  RemoveMemberDialog,
   TransferOwnershipDialog,
 } from "./dialogs";
 import { GettingStarted } from "./GettingStarted";
@@ -311,6 +313,8 @@ function AppShell() {
   const [spaceBusy, setSpaceBusy] = useState(false);
   /** The member a transfer of ownership is being confirmed for, if any. */
   const [transferTo, setTransferTo] = useState<{ userId: string; name: string } | null>(null);
+  /** The member being removed from the space, once confirmed. */
+  const [removing, setRemoving] = useState<{ userId: string; name: string } | null>(null);
   const [bootError, setBootError] = useState<TranslationKey | null>(null);
   // Shared by every screen of the authentication flow: the message under the form, and whether a
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
@@ -1009,20 +1013,23 @@ function AppShell() {
         if (spaceId !== liveRef.current.ws) return;
         setMembers((prev) => prev.filter((m) => m.userId !== userId));
       },
-      onSpaceRemoved: (spaceId, deleted) => {
-        // Either this account left the space in another tab, or its owner deleted it under
-        // everyone. The rail has to lose it either way. The sentence is only for a deletion someone
-        // else decided: whoever pressed the button in this tab has already been told by the handler
-        // that pressed it, and telling them twice is how a confirmation starts reading as an alarm.
+      onSpaceRemoved: (spaceId, reason) => {
+        // This account left the space in another tab, or its owner deleted it, or somebody took
+        // this account out of it. The rail has to lose it in all three. The sentence is only for the
+        // two the person did not decide: whoever pressed the button in this tab has already been
+        // told by the handler that pressed it, and saying it twice is how a confirmation starts
+        // reading as an alarm.
         const gone = liveRef.current.spaces.find((w) => w.id === spaceId);
         const ours = droppedSpacesRef.current.has(spaceId);
         dropSpaceRef.current(spaceId);
-        if (deleted && gone && !ours) {
-          notifyRef.current?.({
-            tone: "info",
-            title: tRef.current("toast.spaceDeletedElsewhere", { name: gone.name }),
-          });
-        }
+        if (reason === "left" || !gone || ours) return;
+        notifyRef.current?.({
+          tone: "info",
+          title:
+            reason === "deleted"
+              ? tRef.current("toast.spaceDeletedElsewhere", { name: gone.name })
+              : tRef.current("toast.removedFromSpace", { name: gone.name }),
+        });
       },
       onMemberRoleChanged: (spaceId, userId, role) => {
         // The roster only when it is the space on screen; the caller's own role in *any* space,
@@ -2467,6 +2474,28 @@ function AppShell() {
     });
   };
 
+  /** Take someone out of the space on screen, from the confirmation dialog. */
+  const removeMember = async (member: { userId: string; name: string }) => {
+    setSpaceBusy(true);
+    try {
+      await apiRemoveMember(ws, member.userId);
+    } catch (err) {
+      setSpaceBusy(false);
+      showToast({
+        tone: "danger",
+        title: t("toast.removeFailed"),
+        description: isApiError(err, 403) ? t("error.noSpaceRights") : t("common.tryAgain"),
+      });
+      return;
+    }
+    setSpaceBusy(false);
+    setRemoving(null);
+    // The roster is patched here as well as by the frame, for the same reason every other mutation
+    // is: whichever arrives first, the screen has to agree with what was just done.
+    setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
+    showToast({ tone: "info", title: t("toast.memberRemoved"), description: member.name });
+  };
+
   /** Leave the space on screen, from the confirmation dialog. */
   const leaveWorkspace = async (spaceId: string) => {
     const name = workspaces.find((w) => w.id === spaceId)?.name;
@@ -2855,7 +2884,24 @@ function AppShell() {
       aria-label={t("tabs.mainContent")}
       style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
     >
-      {view === "channel" ? (
+      {/* No conversation at all: a space just created, the last one left, or a guest nobody has added
+          to anything yet. The screen used to draw a channel that did not exist, named from a
+          fallback string, with a composer that would have failed on send. */}
+      {view === "channel" && !channelId ? (
+        <EmptyState
+          icon="message-square"
+          // A heading and not a line of text: this *is* the view's title while there is nothing to
+          // show, and the channel's own <h1> is what it replaces. Without one the main landmark has
+          // no heading to jump to, and the first heading on the page is no longer an h1.
+          title={<h1 style={{ margin: 0, font: "inherit" }}>{t("channel.noConversation")}</h1>}
+          description={
+            currentWorkspace?.role === "guest"
+              ? t("sidebar.noChannelYet")
+              : t("channel.noConversationHint")
+          }
+        />
+      ) : null}
+      {view === "channel" && channelId ? (
         <ChannelScreen
           editing={editing}
           onSaveEdit={saveEdit}
@@ -2927,6 +2973,7 @@ function AppShell() {
           }))}
           myRole={currentWorkspace?.role ?? "member"}
           onChangeRole={(member, role) => void changeMemberRole(member, role)}
+          onRemoveMember={setRemoving}
           compact={compact}
           onInvite={() => setModal("invite")}
           onNotify={showToast}
@@ -2994,6 +3041,15 @@ function AppShell() {
         />
       ) : null}
       {modal === "newWorkspace" ? <NewWorkspaceDialog onClose={() => setModal(null)} onCreate={createWorkspace} /> : null}
+      {removing && currentWorkspace ? (
+        <RemoveMemberDialog
+          spaceName={currentWorkspace.name}
+          memberName={removing.name}
+          busy={spaceBusy}
+          onClose={() => setRemoving(null)}
+          onConfirm={() => void removeMember(removing)}
+        />
+      ) : null}
       {transferTo && currentWorkspace ? (
         <TransferOwnershipDialog
           spaceName={currentWorkspace.name}
