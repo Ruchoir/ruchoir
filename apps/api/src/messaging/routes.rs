@@ -96,6 +96,10 @@ pub fn router() -> Router<AppState> {
             put(channels::set_favorite),
         )
         .route(
+            "/api/v1/channels/{channel_id}/members",
+            get(channels::list_channel_members).post(channels::add_channel_members),
+        )
+        .route(
             "/api/v1/channels/{channel_id}/membership",
             put(channels::join_channel).delete(channels::leave_channel),
         )

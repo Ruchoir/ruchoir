@@ -142,6 +142,17 @@ function findHardCoded(source, path) {
   }).map((f) => ({ ...f, file: relative(WEB_ROOT, path) }));
 }
 
+/**
+ * Keys that deliberately hold the same French text as another key.
+ *
+ * The rule is that one sentence gets one key: duplicating it costs bytes in six files and, worse,
+ * lets two copies of the same sentence drift apart until the interface says it two ways. The
+ * exception exists because French collapses distinctions other languages keep (a label and a verb,
+ * a role and a status), so a pair that is identical here may have to differ in German or Polish.
+ * Each entry is that claim, made once, in writing.
+ */
+const ALLOWED_DUPLICATES = new Set([]);
+
 /** Every key path in a dictionary object, flattened to `a.b.c`. */
 function keyPaths(value, prefix = "", out = []) {
   for (const [key, child] of Object.entries(value)) {
@@ -161,6 +172,11 @@ async function loadDictionaries() {
     dicts[locale] = JSON.parse(readFileSync(join(DICT_DIR, `${locale}.json`), "utf8"));
   }
   return dicts;
+}
+
+/** The value at a flattened key path. */
+function valueAt(dict, path) {
+  return path.split(".").reduce((node, key) => (node == null ? undefined : node[key]), dict);
 }
 
 /** Keys used in the source, as `t("some.key")`. Dynamic keys are invisible here, by construction. */
@@ -209,6 +225,17 @@ for (const [locale, dict] of Object.entries(dicts)) {
   }
 }
 
+// One sentence, one key. Checked on the source dictionary, since the others follow its shape.
+const byText = new Map();
+for (const key of sourceKeys) {
+  const text = valueAt(source, key);
+  if (typeof text !== "string" || ALLOWED_DUPLICATES.has(key)) continue;
+  const normalized = text.trim();
+  if (!byText.has(normalized)) byText.set(normalized, []);
+  byText.get(normalized).push(key);
+}
+const duplicates = [...byText.entries()].filter(([, keys]) => keys.length > 1);
+
 const used = usedKeys(files);
 const unused = sourceKeys.filter((key) => !used.has(key));
 
@@ -234,6 +261,21 @@ if (settled.length > 0) {
   );
   for (const file of settled) console.error(`  ${file}`);
   console.error("");
+}
+
+if (duplicates.length > 0) {
+  failed = true;
+  console.error(
+    `\n${duplicates.length} text(s) held under more than one key. One sentence, one key: two copies\n` +
+      `cost six files' worth of bytes and drift apart until the interface says it two ways.\n`,
+  );
+  for (const [text, keys] of duplicates) {
+    console.error(`  ${JSON.stringify(text)}\n    ${keys.join("\n    ")}`);
+  }
+  console.error(
+    `\nPoint every call site at one key. If two of them genuinely have to differ in another\n` +
+      `language, list the key in ALLOWED_DUPLICATES in this script and say why.\n`,
+  );
 }
 
 if (problems.length > 0) {

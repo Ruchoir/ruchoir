@@ -19,7 +19,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::entities::files;
+use crate::entities::{files, message_attachments, messages};
 use crate::messaging::authz as messaging_authz;
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
@@ -30,6 +30,71 @@ use super::error::FileError;
 
 /// Guards against a pathological or corrupted parent chain when walking folders.
 const MAX_TREE_DEPTH: usize = 64;
+
+/// `GET /api/v1/conversations/{conversation_id}/files`: the files shared in one conversation.
+///
+/// The channel's file panel listed the whole space tree instead, under a title that promised the
+/// channel's own: everything anyone had ever uploaded anywhere in the space, in a panel opened to
+/// answer "what was shared here". A file belongs to this list because a message in this
+/// conversation carries it, which is the only sense in which a conversation has files at all.
+///
+/// Newest first, deduplicated: the same file attached twice is one entry, dated by its latest use.
+#[utoipa::path(
+    get,
+    path = "/api/v1/conversations/{conversation_id}/files",
+    tag = "files",
+    params(("conversation_id" = Uuid, Path, description = "Conversation id")),
+    responses(
+        (status = 200, description = "Files attached to this conversation's messages", body = [FileDto]),
+        (status = 403, description = "No access to this conversation")
+    )
+)]
+pub async fn list_conversation_files(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(conversation_id): Path<Uuid>,
+) -> Result<Json<Vec<FileDto>>, FileError> {
+    authz::conversation_access(&state.db, conversation_id, session.user_id).await?;
+
+    // Message ids first, then their attachments: two indexed lookups rather than a join the ORM
+    // would have to be taught, and the same shape the message hydrate already uses.
+    let message_ids: Vec<Uuid> = messages::Entity::find()
+        .filter(messages::Column::ConversationId.eq(conversation_id))
+        .filter(messages::Column::DeletedAt.is_null())
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|m| m.id)
+        .collect();
+    if message_ids.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+
+    let links = message_attachments::Entity::find()
+        .filter(message_attachments::Column::MessageId.is_in(message_ids))
+        .all(&state.db)
+        .await?;
+    if links.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+
+    // Deduplicated, because a file attached to several messages is still one file.
+    let mut file_ids: Vec<Uuid> = links.into_iter().map(|l| l.file_id).collect();
+    file_ids.sort();
+    file_ids.dedup();
+
+    let rows = files::Entity::find()
+        .filter(files::Column::Id.is_in(file_ids))
+        // A deleted file keeps its tombstone so the message still renders, but it has nothing left
+        // to list here.
+        .filter(files::Column::DeletedAt.is_null())
+        .all(&state.db)
+        .await?;
+
+    let mut out = super::hydrate_files(&state.db, rows).await?;
+    out.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+    Ok(Json(out))
+}
 
 /// Query string for a folder listing: the folder to open (absent = the space root).
 #[derive(Debug, Deserialize)]

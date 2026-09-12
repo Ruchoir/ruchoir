@@ -35,3 +35,6 @@ pub mod user_saved_messages;
 
 // Per-user client preferences.
 pub mod user_preferences;
+
+// Server-wide settings, one row.
+pub mod instance_settings;

@@ -24,14 +24,15 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::entities::{channel_members, channels, conversations};
+use crate::entities::{channel_members, channels, conversations, users};
 use crate::state::AppState;
 use sea_orm::DatabaseConnection;
 
 use super::authz::{ensure_space_member, is_channel_moderator, space_member_ids};
 use super::conversations::unread_count;
 use super::dto::{
-    ChannelDto, ChannelSummaryDto, CreateChannelRequest, FavoriteRequest, UpdateChannelRequest,
+    AddChannelMembersRequest, AddedMembersDto, ChannelDto, ChannelSummaryDto, CreateChannelRequest,
+    FavoriteRequest, MemberDto, UpdateChannelRequest,
 };
 use super::error::ApiError;
 use super::slug::slugify;
@@ -305,6 +306,177 @@ pub async fn join_channel(
         .await?;
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// `GET /api/v1/channels/{channel_id}/members`: who is actually in this channel.
+///
+/// The member panel and the add-people dialog both showed the members of the *space* instead, which
+/// is a different set the moment a channel is private or anyone leaves one. Roles are the channel's
+/// own (`owner`, `admin`, `member`), not the space's.
+#[utoipa::path(
+    get,
+    path = "/api/v1/channels/{channel_id}/members",
+    tag = "messaging",
+    params(("channel_id" = Uuid, Path, description = "Channel id")),
+    responses(
+        (status = 200, description = "Channel members, by name", body = [MemberDto]),
+        (status = 403, description = "Not allowed to see this channel")
+    )
+)]
+pub async fn list_channel_members(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(channel_id): Path<Uuid>,
+) -> Result<Json<Vec<MemberDto>>, ApiError> {
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
+    // A private channel does not list its people to someone outside it: its membership is as private
+    // as its messages.
+    if channel.channel_type == "private"
+        && channel_members::Entity::find_by_id((channel_id, session.user_id))
+            .one(&state.db)
+            .await?
+            .is_none()
+    {
+        return Err(ApiError::Forbidden);
+    }
+
+    let memberships = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .all(&state.db)
+        .await?;
+    let ids: Vec<Uuid> = memberships.iter().map(|m| m.user_id).collect();
+    let by_id: std::collections::HashMap<Uuid, users::Model> = users::Entity::find()
+        .filter(users::Column::Id.is_in(ids))
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|u| (u.id, u))
+        .collect();
+
+    let mut out = Vec::with_capacity(memberships.len());
+    for membership in memberships {
+        if let Some(user) = by_id.get(&membership.user_id) {
+            out.push(MemberDto {
+                user_id: user.id,
+                display_name: user.display_name.clone(),
+                title: user.title.clone(),
+                role: membership.role,
+                is_bot: user.is_bot,
+                avatar_url: user
+                    .avatar_key
+                    .as_deref()
+                    .map(|key| crate::files::avatar_url(user.id, key)),
+            });
+        }
+    }
+    out.sort_by_key(|m| m.display_name.to_lowercase());
+    Ok(Json(out))
+}
+
+/// `POST /api/v1/channels/{channel_id}/members`: add other people to a channel.
+///
+/// Joining is something you do to yourself (`PUT .../membership`); this is the other half, and it
+/// did not exist. The dialog offering it showed every member of the space with a checkbox, added
+/// nobody, and reported success, which also made it look as though unchecking someone would remove
+/// them. Removing is a third thing, with its own authorization, and is not this endpoint either.
+///
+/// Anyone who is in the channel may bring someone else in, as in every tool people arrive here
+/// from; a moderator of the space may do it without being in the channel themselves. Targets must
+/// already belong to the space: a channel is not a way into one.
+#[utoipa::path(
+    post,
+    path = "/api/v1/channels/{channel_id}/members",
+    tag = "messaging",
+    params(("channel_id" = Uuid, Path, description = "Channel id")),
+    request_body = AddChannelMembersRequest,
+    responses(
+        (status = 200, description = "Who was added, skipping those already in", body = AddedMembersDto),
+        (status = 400, description = "The channel is archived, or a target is not in the space"),
+        (status = 403, description = "Not allowed to add people to this channel")
+    )
+)]
+pub async fn add_channel_members(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(channel_id): Path<Uuid>,
+    Json(body): Json<AddChannelMembersRequest>,
+) -> Result<Json<AddedMembersDto>, ApiError> {
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
+    if channel.channel_type == "archived" {
+        return Err(ApiError::BadRequest("this channel is archived"));
+    }
+
+    let caller_is_member = channel_members::Entity::find_by_id((channel_id, session.user_id))
+        .one(&state.db)
+        .await?
+        .is_some();
+    if !caller_is_member
+        && !is_channel_moderator(&state.db, channel_id, channel.space_id, session.user_id).await?
+    {
+        return Err(ApiError::Forbidden);
+    }
+
+    // Everyone in the space, so a target outside it is refused without a query per person, and
+    // without confirming to the caller whether an id belongs to an account elsewhere.
+    let in_space: std::collections::HashSet<Uuid> =
+        space_member_ids(&state.db, channel.space_id, session.user_id)
+            .await?
+            .into_iter()
+            .collect();
+    let already: std::collections::HashSet<Uuid> = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|m| m.user_id)
+        .collect();
+
+    let now = OffsetDateTime::now_utc();
+    let mut added = Vec::new();
+    for user_id in body.user_ids.iter().copied() {
+        if !in_space.contains(&user_id) {
+            return Err(ApiError::BadRequest(
+                "someone in this list does not belong to the space",
+            ));
+        }
+        // Already in is not an error: the dialog may be working from a list a moment out of date,
+        // and the outcome the caller asked for is already true.
+        if already.contains(&user_id) {
+            continue;
+        }
+        join_row(&state.db, channel_id, user_id, "member", now).await?;
+        added.push(user_id);
+    }
+
+    // A private channel is invisible until you are in it, so the people just added have to be told
+    // it exists; for a public one they could already see it, and the sidebar only gains the
+    // membership mark on their next load.
+    if !added.is_empty() && channel.channel_type == "private" {
+        let summary = ChannelSummaryDto {
+            id: channel_id,
+            space_id: channel.space_id,
+            name: channel.name.clone(),
+            channel_type: channel.channel_type.clone(),
+            topic: channel.topic.clone(),
+        };
+        state
+            .hub
+            .publish(
+                added.clone(),
+                RealtimeEnvelope::channel_created(channel_id, &summary),
+            )
+            .await;
+    }
+
+    Ok(Json(AddedMembersDto { added }))
 }
 
 /// `PUT /api/v1/channels/{channel_id}/favorite`: pin a channel to the caller's favourites, or unpin.

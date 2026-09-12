@@ -45,6 +45,7 @@ const NAV: [PrefTab, string, string][] = [
   ["emojis", "Emojis", "smile"],
 ];
 
+
 /** Representative swatches per theme, purely for the picker preview (fixed, not live tokens). */
 const THEME_PREVIEWS: { id: ThemeName; label: string; canvas: string; chrome: string; accent: string; ink: string }[] = [
   { id: "ruchui", label: "RuchUI", canvas: "#f7f3ed", chrome: "#f0e8e0", accent: "#c65d45", ink: "#171716" },

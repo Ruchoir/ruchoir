@@ -18,6 +18,10 @@ pub struct Model {
     /// Account lifecycle: `pending`, `active` or `locked`.
     pub status: String,
     pub mfa_enforced: bool,
+    /// Instance-wide administrator: set on the first account by `bootstrap`, never granted by the
+    /// running server. Distinct from the per-space roles in `space_members`, which say nothing
+    /// about an account outside their own space.
+    pub is_instance_admin: bool,
     /// Interface language (`fr`, `en`, `es`, `de`, `it`, `pl`), or `None` when nobody has chosen.
     /// Read by the server for what it writes: confirmations, resets, invitations.
     pub locale: Option<String>,

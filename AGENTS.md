@@ -114,8 +114,13 @@ the other five until they carry it.
 - Server-side text (three emails) lives in `apps/api/src/auth/mail_text.rs`, in the same six
   languages, with no translation crate: three messages do not justify a dependency and a loader.
 
+**One sentence, one key.** The same text under two keys costs six files' worth of bytes and, worse,
+lets two copies of the same sentence drift apart until the interface says it two ways. Point both
+call sites at one key. The exception is a pair that French collapses and another language does not
+(a label and a verb, a role and a status): list the key in `ALLOWED_DUPLICATES` with the reason.
+
 **`pnpm --filter @ruchoir/web i18n:check` (CI runs it) fails on any user-visible string typed into a
-component, and on any disagreement between the six dictionaries.** A string that is not prose goes in
+component, on any duplicated text, and on any disagreement between the six dictionaries.** A string that is not prose goes in
 that script's `ALLOWED` list, with the reason. Files still written in French are listed in
 `apps/web/tools/i18n-audit/untranslated.json`: **that list only ever shrinks**, nothing may be added
 to it, and a new screen is written translated from the start.

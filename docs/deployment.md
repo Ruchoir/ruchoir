@@ -62,15 +62,31 @@ the container name. `DATABASE_URL` and `VALKEY_URL` work the same way.
 
 ## Email
 
-Set `RUCHOIR_SMTP_HOST` and its companions. With no relay the API logs messages instead of sending
-them, which is right for development and wrong here: password resets and address confirmations
-silently never arrive.
+Set `RUCHOIR_SMTP_HOST` and its companions if you have a relay. With none the API logs messages
+instead of sending them, and `GET /api/v1/instance` says so, which is how the interface knows to stop
+offering the flows that would depend on a message arriving.
 
-One flow does not need it. **An invitation addressed to someone's address activates their account
-outright**, since delivery to that mailbox is the same proof a confirmation email would collect. So a
-first pilot can run without a relay by inviting people by address, and hand-delivering nothing. A
-shareable link proves no address, so an account created from one still waits on a confirmation it
-cannot receive: do not use links until the relay is up.
+**Running with no relay is supported, not a degraded mode.** Delivering mail from a home server is
+the hard half of self-hosting it: the software is easy, deliverability is not (a fixed address with a
+matching PTR, SPF, DKIM, DMARC, and port 25 outbound, which most residential connections block). So
+nothing essential is behind an email:
+
+- **Joining.** An invitation addressed to someone's address activates their account outright, since
+  delivery to that mailbox is the same proof a confirmation email would collect. A shareable link
+  proves no address, so an account created from one still waits on a confirmation it cannot receive;
+  with no relay the invitation dialog says so and points at the addressed form instead.
+- **Getting back in.** Someone who has kept their recovery codes resets their own password with one,
+  from "Mot de passe oublié". The code is spent and every session of that account is dropped, exactly
+  as for an emailed reset.
+- **Getting back in when the codes are gone too.** An instance administrator issues a single-use
+  reset link from the account menu ("Administration de l'instance") and hands it over in person. They
+  never see or set the password, and the account's current one keeps working until the link is used.
+
+The first account is the instance administrator (see `bootstrap` below); the flag is
+`users.is_instance_admin` and nothing in the running server grants it. By default the interface shows
+a badge on an administrator's profile, so someone locked out knows who to ask; an instance that would
+rather not designate anyone turns that off in the administration screen, and administrators still see
+each other.
 
 ## Bringing it up
 
@@ -107,7 +123,8 @@ The API's startup log is the fastest diagnosis:
 
 - `object store ready` means Garage is reachable and the bucket is usable. A warning naming
   `scripts/bootstrap-garage.sh` means uploads will fail with a `502` until it is run.
-- `no SMTP relay configured` means confirmation and reset emails are only written to this log.
+- `no SMTP relay configured` means confirmation and reset emails are only written to this log. The
+  recovery paths above are what an instance in that state runs on.
 - `RUCHOIR_SECRET_ENCRYPTION_KEY unset` means MFA secrets are encrypted with a key that is in the
   source. Fix before anyone enrols a second factor.
 

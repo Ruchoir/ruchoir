@@ -66,7 +66,12 @@ export type Invitation = {
   createdAt: string;
   /** Whether it would be accepted right now. */
   usable: boolean;
+  /** Why it is in that state. An accepted invitation is finished, not broken. */
+  status: InvitationStatus;
 };
+
+/** The four states an invitation can be in, as the API reports them. */
+export type InvitationStatus = "active" | "accepted" | "revoked" | "expired";
 
 /** A freshly created invitation: the row, plus the link, which is shown exactly once. */
 export type CreatedInvitation = {
@@ -119,12 +124,23 @@ export type Profile = {
   role: string;
   presence: Presence;
   email: string;
-  timezone: string;
-  /** Mocked local time string for the user's timezone. */
-  localTime: string;
+  /**
+   * IANA timezone the person chose; absent when they have not chosen one.
+   *
+   * The time itself is not carried: it would be stale the moment it was computed. Screens derive it
+   * from this with `useLocalTime`, which keeps it current while it is on screen.
+   */
+  timezone?: string;
   pronouns?: string;
   bio?: string;
   bot?: boolean;
+  /**
+   * Whether this person administers the instance.
+   *
+   * Shown on the profile because account recovery without a mail relay ends with "ask an
+   * administrator", and that only works if they can be told apart from everyone else.
+   */
+  instanceAdmin?: boolean;
   /** Same-origin URL of the uploaded avatar; absent means the locally generated one. */
   avatarUrl?: string;
 };

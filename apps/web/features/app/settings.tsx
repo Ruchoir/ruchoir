@@ -83,6 +83,24 @@ export type Settings = {
   /** First-run getting-started checklist state. */
   welcome: WelcomeState;
   /**
+   * The order of the spaces in the rail, by space id.
+   *
+   * A person's own arrangement, so it lives with the preferences rather than with the space. Ids
+   * absent from it keep their server order, after the ones listed: joining a space must not require
+   * rewriting this, and leaving one must not disturb the rest.
+   */
+  spaceOrder: string[];
+  /**
+   * Direct conversations hidden from the sidebar, by id.
+   *
+   * Hiding is not leaving and not archiving: the conversation and its history are untouched, it is
+   * out of the list until it has something to say again. A new message brings it straight back,
+   * which is what stops this from being a way to miss one.
+   */
+  hiddenDms: string[];
+  /** Whether the browser-notification prompt has already been offered, so it is offered once. */
+  notifPrompted: boolean;
+  /**
    * The interface language.
    *
    * `null` means "whatever the browser asks for", which is what a fresh account gets: guessing is
@@ -107,6 +125,9 @@ const DEFAULTS: Settings = {
   notif: DEFAULT_NOTIF_PREFS,
   shortcuts: DEFAULT_BINDINGS,
   welcome: DEFAULT_WELCOME,
+  spaceOrder: [],
+  hiddenDms: [],
+  notifPrompted: false,
   locale: null,
 };
 
@@ -124,6 +145,11 @@ function initialTheme(): ThemeName {
     if (isTheme(t)) return t;
   }
   return DEFAULTS.theme;
+}
+
+/** A stored array of ids, keeping only the strings: anything else is somebody's corrupted storage. */
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((x): x is string => typeof x === "string") : [];
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
@@ -158,6 +184,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
               ? parsed.welcome.done.filter((x: unknown) => typeof x === "string")
               : [],
           },
+          spaceOrder: stringList(parsed.spaceOrder),
+          hiddenDms: stringList(parsed.hiddenDms),
+          notifPrompted: parsed.notifPrompted === true,
         });
       }
     } catch {

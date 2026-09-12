@@ -1,9 +1,11 @@
 import type { CSSProperties } from "react";
-import { Avatar, Button, Icon } from "@/components/ds";
+import { Avatar, Button, Icon, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import { presenceLabel } from "./presence";
 import { useProfile } from "./useProfile";
+import { useLocalTime } from "./useLocalTime";
+import { useTranslation } from "@/lib/i18n";
 
 const card: CSSProperties = {
   width: 280,
@@ -37,6 +39,8 @@ export type UserProfileCardProps = {
 export function UserProfileCard({ name, userId, presence, onViewFull, onEditProfile, onMessage }: UserProfileCardProps) {
   const p = useProfile(userId, name);
   const dot = presence ?? p.presence;
+  const { t } = useTranslation();
+  const localTime = useLocalTime(p.timezone);
   const isOwn = name === getCurrentUser().name;
   return (
     <div style={card}>
@@ -52,16 +56,29 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
           ) : null}
         </div>
         <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 1 }}>{p.role}</div>
+        {/* Who to ask when an account has to be handed back: without this the recovery instructions
+            name a person nobody can pick out. */}
+        {p.instanceAdmin ? (
+          <div style={{ marginTop: 8 }}>
+            <Tag tone="accent" icon="shield">
+              {t("admin.instanceAdminBadge")}
+            </Tag>
+          </div>
+        ) : null}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
           <div style={row}>
             <span style={{ width: 8, height: 8, borderRadius: "var(--radius-full)", background: `var(--presence-${dot})` }} />
             {presenceLabel(dot)}
           </div>
-          <div style={row}>
-            <Icon name="clock" size={14} />
-            {p.localTime} heure locale
-          </div>
+          {/* Only when they chose a timezone: the card used to fall back to Europe/Paris and present
+              it as this person's local time, which is worse than saying nothing. */}
+          {localTime ? (
+            <div style={row}>
+              <Icon name="clock" size={14} />
+              {localTime} heure locale
+            </div>
+          ) : null}
           {p.email ? (
             <div style={{ ...row, minWidth: 0 }}>
               <Icon name="at-sign" size={14} />

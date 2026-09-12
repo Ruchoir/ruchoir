@@ -22,6 +22,7 @@ import {
   getNotifications,
   getReadCursors,
   getSavedMessages,
+  adoptBrowserTimezone,
   getSession,
   getSpaceMembers,
   getSpacePresence,
@@ -37,6 +38,8 @@ import {
   removeReaction,
   requestEmailVerification,
   requestPasswordReset,
+  resetPasswordWithRecoveryCode,
+  getInstanceCapabilities,
   resolveSpaceSlug,
   revokeInvitation,
   sendMessage,
@@ -80,6 +83,9 @@ import { LoginScreen } from "@/features/auth/LoginScreen";
 import { SignupScreen, type SignupValues } from "@/features/auth/SignupScreen";
 import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
+import { InstanceAdminScreen } from "./InstanceAdmin";
+import { NotificationPrompt } from "./NotificationPrompt";
+import { useTranslation } from "@/lib/i18n";
 import { MfaChallengeScreen } from "@/features/auth/MfaChallengeScreen";
 import { ResetPasswordScreen } from "@/features/auth/ResetPasswordScreen";
 import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
@@ -107,7 +113,9 @@ import {
 import {
   appIsAway,
   inQuietHours,
+  notificationPermission,
   playNotificationSound,
+  requestNotificationPermission,
   showDesktopNotification,
 } from "./desktopNotifications";
 import { PreferencesScreen, type PrefTab } from "./PreferencesScreen";
@@ -233,6 +241,7 @@ const VIEW_TITLES: Record<string, string> = {
   files: "Fichiers de l'espace",
   settings: "Réglages de l'espace",
   prefs: "Préférences",
+  "instance-admin": "Administration de l'instance",
   threads: "Fils de discussion",
   mentions: "Mentions",
   saved: "Enregistrés",
@@ -240,6 +249,7 @@ const VIEW_TITLES: Record<string, string> = {
 
 function AppShell() {
   const settings = useSettings();
+  const { t } = useTranslation();
   /** The side panel a conversation opens with, from the preferences. `none` means it opens closed. */
   const defaultPanel: ChannelPanel = settings.defaultPanel === "none" ? null : settings.defaultPanel;
   /**
@@ -289,6 +299,13 @@ function AppShell() {
   const [linkToken, setLinkToken] = useState("");
   const [verifyStatus, setVerifyStatus] = useState<VerifyEmailStatus>("sent");
   const [resetDone, setResetDone] = useState(false);
+  /** True once a recovery code has taken an account back, which is a different outcome from a sent link. */
+  const [recoveryDone, setRecoveryDone] = useState(false);
+  /**
+   * Whether this instance can send email. `undefined` until the answer arrives, which the screens
+   * read as "assume it can": a slow answer must not hide the ordinary path.
+   */
+  const [emailDelivery, setEmailDelivery] = useState<boolean | undefined>(undefined);
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -720,6 +737,9 @@ function AppShell() {
         if (!active) return;
         setSession(user);
         setMyChoice(user.presenceChoice);
+        // An account that has never had a timezone gets the browser's, once. Everything that shows
+        // a local time depended on a column nothing could write, so it showed nothing.
+        void adoptBrowserTimezone(user.timezone);
         await loadInitialData();
         if (!active) return;
         // By now the preferences have loaded (their effect runs on mount, well before this awaits
@@ -739,6 +759,22 @@ function AppShell() {
       active = false;
     };
   }, [loadInitialData]);
+
+  // What this instance supports, read once and kept for the whole session. Unauthenticated on
+  // purpose: the screens that need it (password recovery, the invitation dialog) include ones shown
+  // before anyone has signed in. A failure leaves it undefined, which every reader treats as "the
+  // usual behaviour", so an unreachable endpoint never removes a working path.
+  useEffect(() => {
+    let active = true;
+    void getInstanceCapabilities()
+      .then((capabilities) => {
+        if (active) setEmailDelivery(capabilities.emailDelivery);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Load the space's outstanding invitations whenever the invite dialog opens. Fetching on open
   // rather than on space load keeps an administration-only call off the boot path, and means the
@@ -1139,11 +1175,79 @@ function AppShell() {
   // that depends on the feed (the read receipts below) on every render for no reason.
   const feed = useMemo(() => messages[channelId] ?? [], [messages, channelId]);
 
+  /**
+   * The spaces in the order this person arranged them.
+   *
+   * The stored order holds ids, not spaces: one they have left is skipped, and one they have joined
+   * since arranging the rail appears at the end rather than forcing the arrangement to be redone.
+   */
+  const orderedWorkspaces = useMemo(() => {
+    const order = settings.spaceOrder;
+    if (order.length === 0) return workspaces;
+    const rank = new Map(order.map((id, i) => [id, i] as const));
+    return [...workspaces].sort((a, b) => {
+      const ra = rank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const rb = rank.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      return ra === rb ? 0 : ra - rb;
+    });
+  }, [workspaces, settings.spaceOrder]);
+
+  /**
+   * The direct conversations the sidebar shows.
+   *
+   * A hidden one comes back the moment it has something unread, and the one being read stays put:
+   * hiding the conversation you are looking at and watching it vanish under you would be its own
+   * small defect. Hiding is a display choice, so it lives with the preferences and touches nothing
+   * on the server.
+   */
+  const visibleDms = useMemo(() => {
+    if (settings.hiddenDms.length === 0) return dms;
+    const hidden = new Set(settings.hiddenDms);
+    return dms.filter((d) => !hidden.has(d.id) || d.unread > 0 || d.id === channelId);
+  }, [dms, settings.hiddenDms, channelId]);
+
+  // A hidden conversation that receives something is back for good, not until it is read: leaving it
+  // in the hidden list would make it disappear again the moment the message is seen, which reads as
+  // the app losing a conversation.
+  useEffect(() => {
+    if (settings.hiddenDms.length === 0) return;
+    const returning = dms.filter((d) => d.unread > 0 && settings.hiddenDms.includes(d.id)).map((d) => d.id);
+    if (returning.length === 0) return;
+    settings.set(
+      "hiddenDms",
+      settings.hiddenDms.filter((id) => !returning.includes(id)),
+    );
+    // `settings` is a context value rebuilt on every change; depending on it would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dms, settings.hiddenDms]);
+
+  /** Hide a direct conversation, and leave it if it is the one on screen. */
+  const hideDm = (id: string) => {
+    if (!settings.hiddenDms.includes(id)) settings.set("hiddenDms", [...settings.hiddenDms, id]);
+    if (channelId === id) {
+      const fallback = channels[0]?.id;
+      if (fallback) openChannel(fallback);
+    }
+  };
+
+  /** Move a space in the rail and remember the whole resulting order. */
+  const reorderWorkspace = (spaceId: string, toIndex: number) => {
+    const ids = orderedWorkspaces.map((w) => w.id);
+    const from = ids.indexOf(spaceId);
+    if (from === -1) return;
+    ids.splice(from, 1);
+    ids.splice(toIndex, 0, spaceId);
+    settings.set("spaceOrder", ids);
+  };
+
   // The space's members with live presence overlaid, feeding the member list, the @-mention
   // autocomplete and the people section of search. Falls back to the mock roster before load.
   const memberRecords = useMemo(
     () =>
       members.map((m) => ({
+        // The account id travels with the record: a dialog that acts on a person (adding them to a
+        // channel) needs the identifier the API uses, and a display name is not one.
+        userId: m.userId,
         name: m.name,
         presence: (presence[m.userId] ?? "offline") as Presence,
         bot: m.bot,
@@ -1579,6 +1683,30 @@ function AppShell() {
     }
   };
 
+  /**
+   * Take an account back with a recovery code: no message is sent, and nothing here depends on a
+   * relay. The failure is deliberately vague, because the API answers the same way for an unknown
+   * address and for a wrong code.
+   */
+  const handleRecoveryReset = async (values: { email: string; code: string; password: string }) => {
+    setAuthError(null);
+    setAuthPending(true);
+    try {
+      await resetPasswordWithRecoveryCode(values.email, values.code, values.password);
+      setRecoveryDone(true);
+    } catch (err) {
+      if (isApiError(err, 429)) {
+        setAuthError("Trop de tentatives. Patientez quelques minutes avant de réessayer.");
+      } else if (isApiError(err, 422)) {
+        setAuthError("Ce mot de passe est trop faible, ou figure dans une fuite connue.");
+      } else {
+        setAuthError("Ce code ne correspond à aucun compte, ou il a déjà été utilisé.");
+      }
+    } finally {
+      setAuthPending(false);
+    }
+  };
+
   /** Set the new password behind the emailed token. The server drops every session of that account. */
   const handlePasswordReset = async (password: string) => {
     if (!linkToken) {
@@ -1679,12 +1807,22 @@ function AppShell() {
       openChannel(channels[0]?.id ?? channelId);
     } else if (id === "invite") {
       setModal("invite");
-    } else if (id === "import") {
-      setModal("import");
     }
   };
 
   /** Open the full-screen preferences on a given section, remembering the current view so closing returns to it. */
+  /**
+   * Open the instance administration, the same way preferences open: a full-screen view that leaves
+   * the underlying space untouched, so closing it comes back exactly where it was.
+   */
+  const openInstanceAdmin = () => {
+    setModal(null);
+    if (view !== "instance-admin") setPrevView(view);
+    setView("instance-admin");
+    setMobileContent(true);
+    setRailOpen(false);
+  };
+
   const openPreferences = (tab: PrefTab = "appearance") => {
     setModal(null);
     setPrefsTab(tab);
@@ -2307,8 +2445,14 @@ function AppShell() {
         {authStage === "forgot" ? (
           <ForgotPasswordScreen
             onSubmit={(email) => void handlePasswordResetRequest(email)}
-            onBackToLogin={() => goToStage("login")}
+            onRecovery={(values) => void handleRecoveryReset(values)}
+            onBackToLogin={() => {
+              setRecoveryDone(false);
+              goToStage("login");
+            }}
             sent={authSent}
+            recovered={recoveryDone}
+            emailDelivery={emailDelivery}
             error={authError}
             pending={authPending}
           />
@@ -2384,7 +2528,8 @@ function AppShell() {
 
   const rail = (
     <WorkspaceRail
-      workspaces={workspaces}
+      workspaces={orderedWorkspaces}
+      onReorder={reorderWorkspace}
       active={ws}
       currentUser={currentUser}
       onSelect={(id) => {
@@ -2409,6 +2554,7 @@ function AppShell() {
           .catch(() => setMyChoice(myChoice));
       }}
       onOpenSettings={() => openPreferences()}
+      onOpenInstanceAdmin={session?.isInstanceAdmin === true ? () => openInstanceAdmin() : undefined}
       onOpenOwnProfile={() => {
         setView("channel");
         setThread(null);
@@ -2428,7 +2574,8 @@ function AppShell() {
     <Sidebar
         workspace={workspaces.find((w) => w.id === ws)}
         channels={channels}
-        directMessages={dms}
+        directMessages={visibleDms}
+        onHideDm={hideDm}
         view={view}
         channel={channelId}
         mentionCount={mentionUnread}
@@ -2438,7 +2585,6 @@ function AppShell() {
         onView={openView}
         onChannel={openChannel}
         onNotify={showToast}
-        onImport={() => setModal("import")}
         onInvite={() => setModal("invite")}
         onNewChannel={() => setModal("newChannel")}
         onNewMessage={() => setModal("newMessage")}
@@ -2568,6 +2714,13 @@ function AppShell() {
           />
         </div>
       ) : null}
+      {/* Instance administration, full-screen like the preferences and for the same reason: it is
+          about the account and the instance, never about the space underneath. */}
+      {view === "instance-admin" && session?.isInstanceAdmin ? (
+        <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
+          <InstanceAdminScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
+        </div>
+      ) : null}
       {modal === "import" ? (
         <ImportDialog
           onClose={() => setModal(null)}
@@ -2586,6 +2739,7 @@ function AppShell() {
           onClose={() => setModal(null)}
           canInvite={["owner", "admin"].includes(workspaces.find((w) => w.id === ws)?.role ?? "")}
           invitations={invitations}
+          emailDelivery={emailDelivery}
           onCreate={async ({ email, role }) => {
             const created = await createInvitation(ws, { email, role });
             setInvitations(await getInvitations(ws));
@@ -2674,6 +2828,24 @@ function AppShell() {
         />
       ) : null}
 
+      {/*
+        Offered once, to someone who has just signed in and has not been asked before. The browser's
+        permission is the only thing between them and being told about a message while they are
+        elsewhere, and nothing else in the app will bring it up.
+      */}
+      {authStage === "app" && !settings.notifPrompted && notificationPermission() === "default" ? (
+        <NotificationPrompt
+          compact={compact}
+          onAllow={() => {
+            settings.set("notifPrompted", true);
+            void requestNotificationPermission().then((outcome) => {
+              if (outcome === "granted") showToast({ tone: "success", title: t("notifPrompt.enabled") });
+            });
+          }}
+          onDismiss={() => settings.set("notifPrompted", true)}
+        />
+      ) : null}
+
       {!settings.welcome.dismissed ? (
         <GettingStarted
           done={settings.welcome.done}
@@ -2733,7 +2905,8 @@ function AppShell() {
                 <Sidebar
                   workspace={workspaces.find((w) => w.id === ws)}
                 channels={channels}
-                directMessages={dms}
+                directMessages={visibleDms}
+                onHideDm={hideDm}
                 view={view}
                 channel={channelId}
                 mentionCount={mentionUnread}
@@ -2751,7 +2924,6 @@ function AppShell() {
                   setMobileContent(true);
                 }}
                 onNotify={showToast}
-                onImport={() => setModal("import")}
                 onInvite={() => setModal("invite")}
                 onNewChannel={() => setModal("newChannel")}
                 onNewMessage={() => setModal("newMessage")}

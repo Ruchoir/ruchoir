@@ -238,6 +238,8 @@ export type SidebarProps = {
   workspace: Workspace | undefined;
   channels: Channel[];
   directMessages: DirectMessage[];
+  /** Take a direct conversation out of the list until it has a new message. */
+  onHideDm: (id: string) => void;
   view: AppView;
   channel: string;
   mentionCount: number;
@@ -250,7 +252,6 @@ export type SidebarProps = {
   onView: (view: AppView) => void;
   onChannel: (id: string) => void;
   onNotify: (toast: Toast) => void;
-  onImport: () => void;
   onInvite: () => void;
   onNewChannel: () => void;
   onNewMessage: () => void;
@@ -281,6 +282,7 @@ export function Sidebar({
   workspace,
   channels,
   directMessages,
+  onHideDm,
   view,
   channel,
   mentionCount,
@@ -290,7 +292,6 @@ export function Sidebar({
   onView,
   onChannel,
   onNotify,
-  onImport,
   onInvite,
   onNewChannel,
   onNewMessage,
@@ -332,7 +333,21 @@ export function Sidebar({
   const dmMenu = (id: string, name: string): SideMenuItem[] => [
     { icon: "check-check", label: "Marquer comme lu", onClick: () => onMarkRead(id) },
     { icon: "bell", label: "Notifications", onClick: () => onChannelNotifications(id) },
-    { icon: "x", label: "Masquer la conversation", onClick: () => onNotify({ tone: "info", title: "Conversation masquée", description: name }) },
+    // Hiding used to be a toast and nothing else. It now takes the conversation out of the list
+    // until it has something to say again; the history is untouched and a new message brings it
+    // back, which is what keeps this from being a way to miss one.
+    {
+      icon: "x",
+      label: "Masquer la conversation",
+      onClick: () => {
+        onHideDm(id);
+        onNotify({
+          tone: "info",
+          title: "Conversation masquée",
+          description: `${name} · elle reviendra au prochain message`,
+        });
+      },
+    },
   ];
   const notifMutedFor = (id: string): boolean => {
     const p = channelPrefs[id];
@@ -537,7 +552,12 @@ export function Sidebar({
 
         {showFooter ? (
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
-            <SideItem icon="import" label="Importer une conversation…" onClick={onImport} />
+            {/*
+              The import entry is deliberately absent: no importer exists yet, so offering it
+              promises a migration the product cannot perform. The dialog behind it is kept intact
+              and this line comes back with the first real importer, listing only the sources that
+              are actually supported by then.
+            */}
             <SideItem icon="settings" label="Réglages de l'espace" active={view === "settings"} onClick={() => onView("settings")} />
           </div>
         ) : null}
