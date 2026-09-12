@@ -235,5 +235,15 @@ async fn shares_a_space(db: &DatabaseConnection, a: Uuid, b: Uuid) -> Result<boo
     };
     let a_spaces = spaces_of(a).await?;
     let b_spaces = spaces_of(b).await?;
-    Ok(a_spaces.intersection(&b_spaces).next().is_some())
+    // Sharing a space is enough between members. Where either side is a guest there, it is not:
+    // a guest reads the profile of the people they share a conversation with, and is readable by
+    // them, which is the same set seen from either end. A profile card is a small thing, but it is
+    // also the last place the roster could be read after the member list stopped serving it.
+    for space_id in a_spaces.intersection(&b_spaces) {
+        let visible = super::authz::visible_member_ids(db, *space_id, a).await?;
+        if visible.contains(&b) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }

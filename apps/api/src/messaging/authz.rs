@@ -8,6 +8,13 @@
 //! - **Private channels** require an explicit `channel_members` row.
 //! - **Direct messages** require a `dm_participants` row.
 //!
+//! **A `guest` inherits nothing.** For someone holding that role, every channel behaves like a
+//! private one: they reach a conversation only where they hold an explicit row, public or not. That
+//! single rule is what the role means, and everything else about guests follows from it rather than
+//! being enforced a second time somewhere else: what they may list, search, mention, direct-message
+//! and download all resolve through the helpers here. Before this, `guest` was a label the schema
+//! accepted and no rule ever read, so an "external guest" saw exactly what a member saw.
+//!
 //! The audience helpers compute *who receives a push* for a conversation, evaluated once at publish
 //! time so the real-time fan-out never queries the database on delivery.
 
@@ -63,8 +70,11 @@ pub async fn ensure_conversation_access(
                 .one(db)
                 .await?
                 .ok_or(ApiError::Forbidden)?;
-            let is_private = channel.channel_type == "private";
-            let authorized = if is_private {
+            // A private channel is joined explicitly, and so is *every* channel for a guest: that
+            // is the whole of what the role means. Both paths end at the same row.
+            let explicit_only = channel.channel_type == "private"
+                || is_guest(db, conversation.space_id, user_id).await?;
+            let authorized = if explicit_only {
                 is_channel_member(db, conversation_id, user_id).await?
             } else {
                 // Public and archived channels are open to any member of the space.
@@ -218,13 +228,15 @@ pub async fn space_co_members(
     if space_ids.is_empty() {
         return Ok(vec![user_id]);
     }
-    let mut co: BTreeSet<Uuid> = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.is_in(space_ids))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|m| m.user_id)
-        .collect();
+    // Space by space, because the answer depends on the role held in each: a guest's presence is
+    // exchanged with the people they share a conversation with, not with the whole organisation.
+    // Without this, a guest's socket would receive a presence frame for every account in the space
+    // and could enumerate it from ids alone, after the member list had been narrowed to stop exactly
+    // that.
+    let mut co: BTreeSet<Uuid> = BTreeSet::new();
+    for space_id in space_ids {
+        co.extend(visible_member_ids(db, space_id, user_id).await?);
+    }
     co.insert(user_id);
     Ok(co.into_iter().collect())
 }
@@ -253,8 +265,12 @@ pub async fn accessible_conversation_ids(
         .filter(channels::Column::SpaceId.eq(space_id))
         .all(db)
         .await?;
+    // Same rule as [`ensure_conversation_access`], and it has to be the same or search would find
+    // what opening the conversation refuses to show.
+    let explicit_only = is_guest(db, space_id, user_id).await?;
     for channel in channels {
-        if channel.channel_type != "private" || joined_channels.contains(&channel.id) {
+        let open = !explicit_only && channel.channel_type != "private";
+        if open || joined_channels.contains(&channel.id) {
             ids.push(channel.id);
         }
     }
@@ -297,6 +313,63 @@ pub async fn space_member_ids(
         .map(|m| m.user_id)
         .collect();
     Ok(ids)
+}
+
+/// The role a user holds in a space, or `None` when they are not in it.
+pub async fn space_role(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<String>, ApiError> {
+    Ok(space_members::Entity::find_by_id((space_id, user_id))
+        .one(db)
+        .await?
+        .map(|member| member.role))
+}
+
+/// Whether a user reaches this space only where they were explicitly added.
+///
+/// A non-member answers `false` rather than `true`: this narrows what a member sees, it is never the
+/// thing that keeps an outsider out. That is [`is_space_member`]'s job, and every caller runs it
+/// first.
+pub async fn is_guest(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, ApiError> {
+    Ok(space_role(db, space_id, user_id).await?.as_deref() == Some("guest"))
+}
+
+/// The members of a space `user_id` may be shown: everyone, or for a guest, only the people they
+/// share a conversation with (themselves included).
+///
+/// Used by the member list, the mention candidates, the direct-message candidates and the profile
+/// endpoint. Restricting the conversations while publishing the roster would hand an outside
+/// contractor the company directory, which is the thing "external guest" is chosen to avoid.
+pub async fn visible_member_ids(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<Vec<Uuid>, ApiError> {
+    if !is_guest(db, space_id, user_id).await? {
+        return space_member_ids(db, space_id, user_id).await;
+    }
+    let conversations = accessible_conversation_ids(db, space_id, user_id).await?;
+    let mut visible: BTreeSet<Uuid> = BTreeSet::new();
+    visible.insert(user_id);
+    if !conversations.is_empty() {
+        let from_channels = channel_members::Entity::find()
+            .filter(channel_members::Column::ChannelId.is_in(conversations.clone()))
+            .all(db)
+            .await?;
+        visible.extend(from_channels.into_iter().map(|m| m.user_id));
+        let from_dms = dm_participants::Entity::find()
+            .filter(dm_participants::Column::DmId.is_in(conversations))
+            .all(db)
+            .await?;
+        visible.extend(from_dms.into_iter().map(|p| p.user_id));
+    }
+    Ok(visible.into_iter().collect())
 }
 
 /// Whether a user belongs to a space. Space membership is the outer boundary: every channel and DM

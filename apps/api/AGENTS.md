@@ -69,6 +69,17 @@ context and takes precedence here.
   `spaces.id`, so one row deletion empties the schema, but the stored objects are not in the
   database: the file versions' keys are collected *before* the delete and removed behind it, or a
   deleted space would leave its bytes in the store while the interface reported them gone.
+  **`guest` is a real restriction, not a label.** For that role every channel behaves like a private
+  one: the member reaches a conversation only where they hold an explicit `channel_members` /
+  `dm_participants` row, public or not. Everything else follows from that one rule rather than being
+  re-enforced: `accessible_conversation_ids` (so search cannot find what opening refuses),
+  `visible_member_ids` (the roster, the mention and direct-message candidates, and the profile
+  endpoint, narrowed to the people they share a conversation with), `space_co_members` (presence, or
+  a guest's socket would enumerate the space by id after the member list stopped serving it), no
+  channel creation, no self-join, and no space file tree. A guest still reads a file that hangs off a
+  message they can read, which matters because an attachment posted in a *public* channel carries no
+  `conversation_id` and lives in the space tree. Before this, `guest` was accepted by the schema and
+  read by nothing, so an "external guest" saw exactly what a member saw.
   **Roles** (`PATCH /spaces/{id}/members/{user_id}`) run on one rule applied twice: you may only act
   on someone ranked strictly below you, and only hand out a rank strictly below your own
   (`guest` < `member` < `admin` < `owner`, ordered in `authz::SPACE_ROLES`). Nobody changing their own

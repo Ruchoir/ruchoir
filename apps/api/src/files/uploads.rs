@@ -69,7 +69,7 @@ pub async fn upload_file(
     Path(space_id): Path<Uuid>,
     multipart: Multipart,
 ) -> Result<(StatusCode, Json<FileDto>), FileError> {
-    authz::ensure_space_member(&state.db, space_id, session.user_id).await?;
+    authz::ensure_space_files_member(&state.db, space_id, session.user_id).await?;
     let storage = state
         .storage
         .as_ref()

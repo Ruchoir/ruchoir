@@ -2817,6 +2817,9 @@ function AppShell() {
         onNotify={showToast}
         onInvite={() => setModal("invite")}
         onNewChannel={() => setModal("newChannel")}
+        // A guest reaches the space only through what they were added to: no space files, no new
+        // channel, no invitation. The API refuses all three; this keeps them off the column.
+        canBrowseSpace={currentWorkspace?.role !== "guest"}
         onNewMessage={() => setModal("newMessage")}
         onGlobalSearch={() => setModal("search")}
         onLeaveChannel={leaveChannel}
@@ -3184,6 +3187,7 @@ function AppShell() {
                 onNotify={showToast}
                 onInvite={() => setModal("invite")}
                 onNewChannel={() => setModal("newChannel")}
+                canBrowseSpace={currentWorkspace?.role !== "guest"}
                 onNewMessage={() => setModal("newMessage")}
                 onGlobalSearch={() => setModal("search")}
                 onLeaveChannel={leaveChannel}
