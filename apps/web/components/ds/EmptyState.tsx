@@ -1,11 +1,11 @@
 import type { CSSProperties, ReactNode } from "react";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 export type EmptyStateSize = "hero" | "compact";
 
 export type EmptyStateProps = {
   /** Optional icon name (rendered in a soft badge in `hero`, plain in `compact`). */
-  icon?: string;
+  icon?: IconName;
   title?: ReactNode;
   description?: ReactNode;
   /** Optional call to action (e.g. a Button) shown below the text. */

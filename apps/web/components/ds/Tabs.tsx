@@ -1,9 +1,9 @@
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 export type TabItem = {
   value: string;
   label: string;
-  icon?: string;
+  icon?: IconName;
   count?: number;
 };
 

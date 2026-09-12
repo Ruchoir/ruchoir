@@ -1,9 +1,9 @@
 import type { AnchorHTMLAttributes, CSSProperties } from "react";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 import type { IconButtonSize, IconButtonVariant } from "./IconButton";
 
 export type IconLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
-  icon: string;
+  icon: IconName;
   label: string;
   size?: IconButtonSize;
   variant?: IconButtonVariant;

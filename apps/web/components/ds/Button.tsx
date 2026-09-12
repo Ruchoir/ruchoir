@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes, ElementType, ReactNode } from "react";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "link";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -7,8 +7,8 @@ export type ButtonSize = "sm" | "md" | "lg";
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  iconLeft?: string;
-  iconRight?: string;
+  iconLeft?: IconName;
+  iconRight?: IconName;
   fullWidth?: boolean;
   as?: ElementType;
   children?: ReactNode;

@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Icon, IconButton, Input, Select, Tag, Textarea } from "@/components/ds";
+import { Avatar, Button, Icon, type IconName, IconButton, Input, Select, Tag, Textarea } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import type { Profile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
@@ -80,7 +80,7 @@ const styles: Record<string, CSSProperties> = {
   formLabel: { display: "block", fontSize: 12, color: "var(--text-muted)", margin: "10px 0 4px" },
 };
 
-function Field({ icon, children }: { icon: string; children: ReactNode }) {
+function Field({ icon, children }: { icon: IconName; children: ReactNode }) {
   return (
     <div style={styles.field}>
       <Icon name={icon} size={15} style={{ color: "var(--text-muted)" }} />

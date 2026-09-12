@@ -1,11 +1,11 @@
 import type { ButtonHTMLAttributes, Ref } from "react";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 export type IconButtonSize = "sm" | "md" | "lg";
 export type IconButtonVariant = "ghost" | "outlined" | "accent";
 
 export type IconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  icon: string;
+  icon: IconName;
   label: string;
   size?: IconButtonSize;
   variant?: IconButtonVariant;

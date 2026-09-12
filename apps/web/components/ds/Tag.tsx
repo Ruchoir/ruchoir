@@ -1,11 +1,11 @@
 import type { MouseEventHandler, ReactNode } from "react";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 export type TagTone = "neutral" | "accent" | "success" | "warning" | "danger" | "info";
 
 export type TagProps = {
   tone?: TagTone;
-  icon?: string;
+  icon?: IconName;
   mono?: boolean;
   onRemove?: MouseEventHandler<HTMLButtonElement>;
   children?: ReactNode;
