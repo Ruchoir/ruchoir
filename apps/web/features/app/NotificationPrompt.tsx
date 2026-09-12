@@ -63,7 +63,7 @@ export function NotificationPrompt({
 }) {
   const { t } = useTranslation();
   return (
-    <div style={compact ? { ...st.card, bottom: 76 } : st.card} role="dialog" aria-label={t("notifPrompt.dialogLabel")}>
+    <div style={compact ? { ...st.card, bottom: 76 } : st.card} role="dialog" aria-label={t("prefs.enableNotif")}>
       <span style={st.icon}>
         <Icon name="bell" size={16} style={{ color: "var(--text-accent)" }} />
       </span>

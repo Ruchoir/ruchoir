@@ -408,7 +408,7 @@ export function InstanceAdminScreen({
         <span style={screen.divider} aria-hidden />
         <h1 style={screen.title}>{t("admin.screenTitle")}</h1>
         <Button variant="secondary" iconLeft="arrow-left" onClick={onClose} style={{ flexShrink: 0 }}>
-          {compact ? t("common.back") : t("admin.back")}
+          {compact ? t("common.back") : t("prefs.backToSpace")}
         </Button>
       </div>
       <div style={compact ? { ...screen.body, flexDirection: "column" } : screen.body}>

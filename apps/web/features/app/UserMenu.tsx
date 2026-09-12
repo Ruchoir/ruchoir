@@ -146,7 +146,7 @@ export function UserMenu({
           <button type="button" onClick={() => run(onEditProfile)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
             <Icon name="square-pen" size={14} />{t("profile.edit")}</button>
           <button type="button" onClick={() => run(onOpenSettings)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
-            <Icon name="settings" size={14} />{t("shell.preferences")}</button>
+            <Icon name="settings" size={14} />{t("prefs.title")}</button>
           {onOpenInstanceAdmin ? (
             <button type="button" onClick={() => run(onOpenInstanceAdmin)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
               <Icon name="shield" size={14} /> Administration de l&apos;instance
