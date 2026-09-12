@@ -1,5 +1,7 @@
-import { type CSSProperties, type ReactNode } from "react";
-import { Icon, Tag } from "@/components/ds";
+import { type CSSProperties, type ReactNode, useState } from "react";
+import { Button, Icon, Tag } from "@/components/ds";
+import { logoutEverywhere } from "@/lib/data/api";
+import type { Toast } from "./types";
 
 /**
  * Account security, as it actually stands.
@@ -26,19 +28,38 @@ const row: CSSProperties = {
   borderBottom: "1px solid var(--border-subtle)",
 };
 
-function Row({ title, desc, tag }: { title: string; desc: ReactNode; tag: string }) {
+function Row({ title, desc, children }: { title: string; desc: ReactNode; children: ReactNode }) {
   return (
     <div style={row}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{title}</div>
         <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 520 }}>{desc}</div>
       </div>
-      <Tag tone="neutral">{tag}</Tag>
+      {children}
     </div>
   );
 }
 
-export function AccountSecuritySection() {
+export function AccountSecuritySection({
+  onNotify,
+  onSignedOut,
+}: {
+  onNotify?: (t: Toast) => void;
+  /** Called once every session is gone, so the app can return to the sign-in screen. */
+  onSignedOut?: () => void;
+}) {
+  const [signingOut, setSigningOut] = useState(false);
+
+  const signOutEverywhere = () => {
+    setSigningOut(true);
+    logoutEverywhere()
+      .then(() => onSignedOut?.())
+      .catch(() => {
+        setSigningOut(false);
+        onNotify?.({ tone: "danger", title: "Déconnexion impossible", description: "Réessayez dans un instant." });
+      });
+  };
+
   return (
     <>
       <div
@@ -70,26 +91,39 @@ export function AccountSecuritySection() {
             l&apos;ancien, viendra avec les écrans de sécurité.
           </>
         }
-        tag="Par courriel"
-      />
+      >
+        <Tag tone="neutral">Par courriel</Tag>
+      </Row>
 
       <Row
         title="Authentification à deux facteurs"
         desc="Le serveur sait déjà la demander à la connexion. L'inscription d'une application d'authentification depuis cet écran n'existe pas encore."
-        tag="Bientôt"
-      />
+      >
+        <Tag tone="neutral">Bientôt</Tag>
+      </Row>
 
       <Row
         title="Codes de récupération"
         desc="Ils accompagnent la double authentification : de quoi entrer si vous perdez votre téléphone."
-        tag="Bientôt"
-      />
+      >
+        <Tag tone="neutral">Bientôt</Tag>
+      </Row>
+
+      <Row
+        title="Sessions"
+        desc="Si vous pensez qu'un autre appareil est resté connecté, coupez tout : chaque session est fermée, y compris celle-ci, et vous vous reconnectez ici."
+      >
+        <Button size="sm" variant="danger" disabled={signingOut} onClick={signOutEverywhere}>
+          {signingOut ? "Déconnexion…" : "Se déconnecter partout"}
+        </Button>
+      </Row>
 
       <Row
         title="Clés d'accès (passkeys)"
         desc="Connexion par empreinte, visage ou code de l'appareil. Reconnues à la connexion ; leur enregistrement depuis cet écran reste à faire."
-        tag="Bientôt"
-      />
+      >
+        <Tag tone="neutral">Bientôt</Tag>
+      </Row>
     </>
   );
 }

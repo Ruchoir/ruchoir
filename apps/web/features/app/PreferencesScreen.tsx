@@ -552,6 +552,8 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
 export type PreferencesScreenProps = {
   onClose: () => void;
   onNotify?: (t: Toast) => void;
+  /** Every session was just ended: the app returns to the sign-in screen. */
+  onSignedOut?: () => void;
   /** Compact (mobile): stack the sub-nav above the panel. */
   compact?: boolean;
   /** Section to open on mount (defaults to appearance). */
@@ -559,7 +561,13 @@ export type PreferencesScreenProps = {
 };
 
 /** Full-screen personal preferences view: appearance, notifications, account security and emojis. */
-export function PreferencesScreen({ onClose, onNotify, compact = false, initialTab = "appearance" }: PreferencesScreenProps) {
+export function PreferencesScreen({
+  onClose,
+  onNotify,
+  onSignedOut,
+  compact = false,
+  initialTab = "appearance",
+}: PreferencesScreenProps) {
   const s = useSettings();
   const [tab, setTab] = useState<PrefTab>(initialTab);
 
@@ -689,7 +697,7 @@ export function PreferencesScreen({ onClose, onNotify, compact = false, initialT
               <>
                 <h2 style={st.h}>Compte et sécurité</h2>
                 <p style={st.sub}>Mot de passe, double authentification, clés d&apos;accès et codes de récupération.</p>
-                <AccountSecuritySection />
+                <AccountSecuritySection onNotify={onNotify} onSignedOut={onSignedOut} />
               </>
             ) : null}
 

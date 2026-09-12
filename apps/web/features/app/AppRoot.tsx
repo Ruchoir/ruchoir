@@ -2438,7 +2438,13 @@ function AppShell() {
           and dialogs (z 90) so the security sub-dialogs still layer on top. */}
       {view === "prefs" ? (
         <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
-          <PreferencesScreen compact={compact} initialTab={prefsTab} onClose={() => setView(prevView)} onNotify={showToast} />
+          <PreferencesScreen
+            compact={compact}
+            initialTab={prefsTab}
+            onClose={() => setView(prevView)}
+            onNotify={showToast}
+            onSignedOut={() => void handleLogout()}
+          />
         </div>
       ) : null}
       {modal === "import" ? (

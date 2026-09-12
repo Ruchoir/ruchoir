@@ -182,6 +182,17 @@ export async function login(email: string, password: string): Promise<LoginResul
   return { kind: "authenticated", user: toSessionUser(body as UserSummaryDto) };
 }
 
+/**
+ * `POST /auth/logout/all`: end every session of this account, on every device.
+ *
+ * Including this one: the server drops them all and clears the cookie, which is what makes it the
+ * answer to "someone else may be signed in as me". A "log out the others but keep me here" would
+ * be a different, weaker thing, and is not what this route does.
+ */
+export async function logoutEverywhere(): Promise<void> {
+  await apiPost<void>("/auth/logout/all");
+}
+
 /** `POST /auth/logout`: end the current session. */
 export async function logout(): Promise<void> {
   await apiPost<void>("/auth/logout");
