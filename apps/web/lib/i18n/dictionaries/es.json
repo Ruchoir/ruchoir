@@ -180,7 +180,27 @@
     "signOut": "Cerrar sesión"
   },
   "profile": {
-    "edit": "Editar el perfil"
+    "edit": "Editar el perfil",
+    "photoUpdated": "Foto actualizada",
+    "photoFailed": "Foto no guardada",
+    "photoFailedHint": "Elige una imagen más ligera.",
+    "photoNotRemoved": "Foto no eliminada",
+    "updated": "Perfil actualizado",
+    "updateFailed": "No se ha podido actualizar el perfil",
+    "close": "Cerrar el perfil",
+    "changePhoto": "Cambiar la foto",
+    "changePhotoLabel": "Cambiar la foto de perfil",
+    "removePhoto": "Quitar la foto",
+    "jobTitle": "Función",
+    "jobTitlePlaceholder": "p. ej. Gerente, Desarrollador",
+    "pronouns": "Pronombres",
+    "pronounsPlaceholder": "p. ej. ella, él, elle",
+    "timezone": "Zona horaria",
+    "unspecified": "Sin especificar",
+    "about": "Acerca de",
+    "contact": "Contacto",
+    "cropPhoto": "Encuadrar la foto",
+    "localTime": "{{time}} hora local"
   },
   "activity": {
     "threads": "Hilos",
@@ -458,5 +478,59 @@
   },
   "status": {
     "checking": "Comprobando el estado de la API…"
+  },
+  "gsearch": {
+    "open": "Buscar en todas partes",
+    "title": "Buscar en todo el espacio",
+    "placeholder": "Mensajes, archivos, personas de todo el espacio…",
+    "prompt": "Escribe para buscar en los canales, los archivos y el directorio.",
+    "messages": "Mensajes",
+    "files": "Archivos",
+    "people": "Personas"
+  },
+  "dialogs": {
+    "channelPlaceholder": "p. ej. lanzamiento-producto",
+    "privateHint": "Solo por invitación.",
+    "writeTo": "¿A quién quieres escribir?",
+    "nobodyMatches": "Nadie coincide.",
+    "guest": "Invitado externo",
+    "accepted": "· aceptada",
+    "revoked": "· revocada",
+    "expired": "· caducada",
+    "inviteFailed": "No se ha podido crear la invitación. Inténtalo de nuevo.",
+    "createLink": "Crear un enlace",
+    "sendInvite": "Enviar la invitación",
+    "noRelayHint": "Esta instancia no envía correos: el enlace aparecerá aquí y tú lo transmites.",
+    "emailHint": "Déjalo vacío para crear un enlace compartible en lugar de enviar un correo.",
+    "roleOnArrival": "Rol al llegar",
+    "inviteSent": "Invitación enviada",
+    "inviteLink": "Enlace de invitación",
+    "emailedHint": "El correo ha salido. Este enlace no volverá a mostrarse; cópialo si quieres transmitirlo de otra forma.",
+    "copyNowHint": "Copia este enlace ahora: no podrá mostrarse de nuevo. No se ha enviado ningún correo.",
+    "outstanding": "Invitaciones en curso",
+    "noOutstanding": "Ninguna invitación pendiente.",
+    "finished": "Terminadas",
+    "newWorkspace": "Nuevo espacio de trabajo",
+    "workspaceHint": "Podrás invitar a miembros justo después.",
+    "workspacePlaceholder": "p. ej. Estudio Loire",
+    "helpSubtitle": "Documentación y atajos",
+    "gettingStartedGuide": "Guía de primeros pasos",
+    "unassigned": "Sin asignar",
+    "shareableLink": "Enlace compartible",
+    "revoke": "Revocar",
+    "cannotInvite": "Solo los propietarios y administradores del espacio pueden invitar personas. Pide a uno de ellos que te envíe una invitación.",
+    "uses_one": "{{count}} uso",
+    "uses_many": "{{count}} usos",
+    "uses_other": "{{count}} usos"
+  },
+  "conversation": {
+    "searchInConversation": "Buscar en la conversación",
+    "members": "Miembros",
+    "archivedNotice": "Canal archivado.",
+    "privateNotice": "Canal privado.",
+    "importedNotice": "El historial se ha traído desde {{source}}.",
+    "today": "Hoy",
+    "publicNotice": "Canal público.",
+    "channelStart": "Inicio del canal."
   }
 }

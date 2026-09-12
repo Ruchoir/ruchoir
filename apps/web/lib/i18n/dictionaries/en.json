@@ -180,7 +180,27 @@
     "signOut": "Sign out"
   },
   "profile": {
-    "edit": "Edit profile"
+    "edit": "Edit profile",
+    "photoUpdated": "Photo updated",
+    "photoFailed": "Photo not saved",
+    "photoFailedHint": "Choose a lighter image.",
+    "photoNotRemoved": "Photo not removed",
+    "updated": "Profile updated",
+    "updateFailed": "Could not update the profile",
+    "close": "Close the profile",
+    "changePhoto": "Change the photo",
+    "changePhotoLabel": "Change the profile photo",
+    "removePhoto": "Remove the photo",
+    "jobTitle": "Job title",
+    "jobTitlePlaceholder": "e.g. Manager, Developer",
+    "pronouns": "Pronouns",
+    "pronounsPlaceholder": "e.g. she, he, they",
+    "timezone": "Timezone",
+    "unspecified": "Not specified",
+    "about": "About",
+    "contact": "Contact",
+    "cropPhoto": "Frame the photo",
+    "localTime": "{{time}} local time"
   },
   "activity": {
     "threads": "Threads",
@@ -454,5 +474,58 @@
   },
   "status": {
     "checking": "Checking API health…"
+  },
+  "gsearch": {
+    "open": "Search everywhere",
+    "title": "Search the whole space",
+    "placeholder": "Messages, files, people across the space…",
+    "prompt": "Type to search channels, files and the directory.",
+    "messages": "Messages",
+    "files": "Files",
+    "people": "People"
+  },
+  "dialogs": {
+    "channelPlaceholder": "e.g. product-launch",
+    "privateHint": "By invitation only.",
+    "writeTo": "Who do you want to write to?",
+    "nobodyMatches": "Nobody matches.",
+    "guest": "External guest",
+    "accepted": "· accepted",
+    "revoked": "· revoked",
+    "expired": "· expired",
+    "inviteFailed": "The invitation could not be created. Try again.",
+    "createLink": "Create a link",
+    "sendInvite": "Send the invitation",
+    "noRelayHint": "This instance does not send email: the link appears here, for you to pass on.",
+    "emailHint": "Leave empty to create a shareable link instead of sending an email.",
+    "roleOnArrival": "Role on arrival",
+    "inviteSent": "Invitation sent",
+    "inviteLink": "Invitation link",
+    "emailedHint": "The email is on its way. This link will not be shown again; copy it if you want to pass it on another way.",
+    "copyNowHint": "Copy this link now: it cannot be shown again. No email was sent.",
+    "outstanding": "Outstanding invitations",
+    "noOutstanding": "No invitation pending.",
+    "finished": "Finished",
+    "newWorkspace": "New workspace",
+    "workspaceHint": "You can invite members right after.",
+    "workspacePlaceholder": "e.g. Loire Studio",
+    "helpSubtitle": "Documentation and shortcuts",
+    "gettingStartedGuide": "Getting-started guide",
+    "unassigned": "Unassigned",
+    "shareableLink": "Shareable link",
+    "revoke": "Revoke",
+    "cannotInvite": "Only the owners and administrators of the space can invite people. Ask one of them to send you an invitation.",
+    "uses_one": "{{count}} use",
+    "uses_other": "{{count}} uses"
+  },
+  "conversation": {
+    "searchInConversation": "Search this conversation",
+    "members": "Members",
+    "archivedNotice": "Archived channel.",
+    "privateNotice": "Private channel.",
+    "importedNotice": "The history was brought over from {{source}}.",
+    "today": "Today",
+    "publicNotice": "Public channel.",
+    "channelStart": "The start of the channel."
   }
 }

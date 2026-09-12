@@ -26,6 +26,7 @@ import { SystemMessage } from "./SystemMessage";
 import { ThreadPanel } from "./ThreadPanel";
 import { TypingIndicator } from "./TypingIndicator";
 import { useStickToBottom } from "./useStickToBottom";
+import { useTranslation } from "@/lib/i18n";
 
 /** Right-hand dock: animates in/out, stays mounted during exit, and cross-fades on content switch. */
 function RightDock({
@@ -85,13 +86,13 @@ function RightDock({
   );
 }
 
+/** Presence labels, as dictionary keys: shared with the rest of the app through `presence.ts`. */
 const PRESENCE_LABEL: Record<string, string> = {
-  online: "En ligne",
-  away: "Absent",
-  busy: "Occupé",
-  offline: "Hors ligne",
+  online: "presence.online",
+  away: "presence.away",
+  busy: "presence.busy",
+  offline: "presence.offline",
 };
-
 const styles: Record<string, CSSProperties> = {
   archivedNotice: {
     display: "flex",
@@ -315,6 +316,7 @@ export function ChannelScreen({
   compact = false,
   actions,
 }: ChannelScreenProps) {
+  const { t } = useTranslation();
   const isDm = !!dm;
   // An archived channel is read-only: the API refuses new messages, so the composer gives way to a note.
   const isArchived = !isDm && channel.type === "archived";
@@ -466,7 +468,7 @@ export function ChannelScreen({
                 <Avatar name={dm.name} src={getAvatar(dm.name)} size={22} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
                 {dm.name}
               </h1>
-              <div style={styles.meta}>{dmProfile?.role ?? PRESENCE_LABEL[(dmPresence ?? "offline")]}</div>
+              <div style={styles.meta}>{dmProfile?.role ?? t(PRESENCE_LABEL[dmPresence ?? "offline"])}</div>
             </>
           ) : (
             <>
@@ -474,7 +476,7 @@ export function ChannelScreen({
                 <Icon
                   name={channel.type === "private" ? "lock" : "hash"}
                   size={15}
-                  title={channel.type === "private" ? "Canal privé" : undefined}
+                  title={channel.type === "private" ? t("sidebar.privateChannel") : undefined}
                   style={{ color: "var(--text-muted)" }}
                 />
                 {channel.name}
@@ -493,39 +495,39 @@ export function ChannelScreen({
           )}
           <div style={{ flex: 1 }} />
           <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflowX: "auto", flexShrink: 1, scrollbarWidth: "none" }}>
-          <Tooltip label="Rechercher dans la conversation" side="bottom">
+          <Tooltip label={t("conversation.searchInConversation")} side="bottom">
             <IconButton
               className="wc-ibtn--bare"
               icon="search"
-              label="Rechercher dans la conversation"
+              label={t("conversation.searchInConversation")}
               aria-pressed={panel === "search"}
               onClick={() => togglePanel("search")}
             />
           </Tooltip>
-          <Tooltip label="Messages épinglés" side="bottom">
+          <Tooltip label={t("panel.pinned")} side="bottom">
             <IconButton
               className="wc-ibtn--bare"
               icon="pin"
-              label="Messages épinglés"
+              label={t("panel.pinned")}
               aria-pressed={panel === "pinned"}
               onClick={() => togglePanel("pinned")}
             />
           </Tooltip>
-          <Tooltip label="Fichiers" side="bottom">
+          <Tooltip label={t("gsearch.files")} side="bottom">
             <IconButton
               className="wc-ibtn--bare"
               icon="folder"
-              label="Fichiers"
+              label={t("gsearch.files")}
               aria-pressed={panel === "files"}
               onClick={() => togglePanel("files")}
             />
           </Tooltip>
           {!isDm ? (
-            <Tooltip label="Membres" side="bottom">
+            <Tooltip label={t("conversation.members")} side="bottom">
               <IconButton
                 className="wc-ibtn--bare"
                 icon="users"
-                label="Membres"
+                label={t("conversation.members")}
                 aria-pressed={panel === "members"}
                 onClick={() => togglePanel("members")}
               />
@@ -569,9 +571,9 @@ export function ChannelScreen({
                     #{channel.name}
                   </div>
                   <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6, maxWidth: 560 }}>
-                    {isArchived ? "Canal archivé." : channel.type === "private" ? "Canal privé." : "Canal public."}{" "}
+                    {isArchived ? t("conversation.archivedNotice") : channel.type === "private" ? t("conversation.privateNotice") : t("conversation.publicNotice")}{" "}
                     {channel.topic ? `${channel.topic}. ` : ""}
-                    {channel.imported ? `L'historique a été repris depuis ${channel.imported}.` : "Début du canal."}
+                    {channel.imported ? t("conversation.importedNotice", { source: channel.imported }) : t("conversation.channelStart")}
                   </p>
                 </>
               )}
@@ -579,7 +581,7 @@ export function ChannelScreen({
             {msgCount > 0 ? (
               <div style={styles.day}>
                 <span style={styles.dayLine} />
-                <span style={styles.dayLbl}>Aujourd&apos;hui</span>
+                <span style={styles.dayLbl}>{t("conversation.today")}</span>
                 <span style={styles.dayLine} />
               </div>
             ) : null}
@@ -588,7 +590,7 @@ export function ChannelScreen({
                 {m.id === unreadMarker ? (
                   <div style={styles.unread}>
                     <span style={styles.unreadLine} />
-                    <span style={styles.unreadLabel}>Non lus</span>
+                    <span style={styles.unreadLabel}>{t("notif.unread")}</span>
                   </div>
                 ) : null}
                 {m.kind === "system" ? (

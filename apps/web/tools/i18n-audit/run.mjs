@@ -103,9 +103,20 @@ function findHardCoded(source, path) {
   const isJsx = path.endsWith(".tsx");
   const lines = source.split("\n");
   const found = [];
+  // A `{/* … */}` comment spans lines, and its middle lines start with prose rather than a marker:
+  // the French in them is documentation, not interface, and reporting it is pure noise.
+  let inBlockComment = false;
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
+    if (inBlockComment) {
+      if (line.includes("*/")) inBlockComment = false;
+      continue;
+    }
+    if (/\{?\/\*/.test(line) && !line.includes("*/")) {
+      inBlockComment = true;
+      continue;
+    }
     if (i > 0 && lines[i - 1].includes(LINE_OPT_OUT)) continue;
     // Imports and type-only lines carry no prose.
     if (/^\s*(import|export type|export \{)/.test(line)) continue;

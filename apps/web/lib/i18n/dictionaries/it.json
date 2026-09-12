@@ -180,7 +180,27 @@
     "signOut": "Esci"
   },
   "profile": {
-    "edit": "Modifica il profilo"
+    "edit": "Modifica il profilo",
+    "photoUpdated": "Foto aggiornata",
+    "photoFailed": "Foto non salvata",
+    "photoFailedHint": "Scegli un'immagine più leggera.",
+    "photoNotRemoved": "Foto non rimossa",
+    "updated": "Profilo aggiornato",
+    "updateFailed": "Impossibile aggiornare il profilo",
+    "close": "Chiudi il profilo",
+    "changePhoto": "Cambia la foto",
+    "changePhotoLabel": "Cambia la foto del profilo",
+    "removePhoto": "Rimuovi la foto",
+    "jobTitle": "Funzione",
+    "jobTitlePlaceholder": "es. Titolare, Sviluppatore",
+    "pronouns": "Pronomi",
+    "pronounsPlaceholder": "es. lei, lui",
+    "timezone": "Fuso orario",
+    "unspecified": "Non indicato",
+    "about": "Informazioni",
+    "contact": "Contatti",
+    "cropPhoto": "Inquadra la foto",
+    "localTime": "{{time}} ora locale"
   },
   "activity": {
     "threads": "Discussioni",
@@ -458,5 +478,59 @@
   },
   "status": {
     "checking": "Verifica dello stato dell'API…"
+  },
+  "gsearch": {
+    "open": "Cerca ovunque",
+    "title": "Cerca in tutto lo spazio",
+    "placeholder": "Messaggi, file, persone in tutto lo spazio…",
+    "prompt": "Digita per cercare nei canali, nei file e nella rubrica.",
+    "messages": "Messaggi",
+    "files": "File",
+    "people": "Persone"
+  },
+  "dialogs": {
+    "channelPlaceholder": "es. lancio-prodotto",
+    "privateHint": "Solo su invito.",
+    "writeTo": "A chi vuoi scrivere?",
+    "nobodyMatches": "Nessuna corrispondenza.",
+    "guest": "Ospite esterno",
+    "accepted": "· accettato",
+    "revoked": "· revocato",
+    "expired": "· scaduto",
+    "inviteFailed": "Non è stato possibile creare l'invito. Riprova.",
+    "createLink": "Crea un link",
+    "sendInvite": "Invia l'invito",
+    "noRelayHint": "Questa istanza non invia e-mail: il link appare qui, sta a te trasmetterlo.",
+    "emailHint": "Lascia vuoto per creare un link condivisibile invece di inviare un'e-mail.",
+    "roleOnArrival": "Ruolo all'arrivo",
+    "inviteSent": "Invito inviato",
+    "inviteLink": "Link d'invito",
+    "emailedHint": "L'e-mail è partita. Questo link non sarà più mostrato; copialo se vuoi trasmetterlo in altro modo.",
+    "copyNowHint": "Copia questo link ora: non potrà più essere mostrato. Nessuna e-mail è stata inviata.",
+    "outstanding": "Inviti in corso",
+    "noOutstanding": "Nessun invito in attesa.",
+    "finished": "Terminati",
+    "newWorkspace": "Nuovo spazio di lavoro",
+    "workspaceHint": "Potrai invitare i membri subito dopo.",
+    "workspacePlaceholder": "es. Studio Loire",
+    "helpSubtitle": "Documentazione e scorciatoie",
+    "gettingStartedGuide": "Guida ai primi passi",
+    "unassigned": "Non assegnato",
+    "shareableLink": "Link condivisibile",
+    "revoke": "Revoca",
+    "cannotInvite": "Solo i proprietari e gli amministratori dello spazio possono invitare persone. Chiedine una a uno di loro.",
+    "uses_one": "{{count}} utilizzo",
+    "uses_many": "{{count}} utilizzi",
+    "uses_other": "{{count}} utilizzi"
+  },
+  "conversation": {
+    "searchInConversation": "Cerca nella conversazione",
+    "members": "Membri",
+    "archivedNotice": "Canale archiviato.",
+    "privateNotice": "Canale privato.",
+    "importedNotice": "La cronologia è stata ripresa da {{source}}.",
+    "today": "Oggi",
+    "publicNotice": "Canale pubblico.",
+    "channelStart": "Inizio del canale."
   }
 }

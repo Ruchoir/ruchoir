@@ -3,11 +3,7 @@
   "files": [
     "features/app/AccountSecurity.tsx",
     "features/app/AppRoot.tsx",
-    "features/app/GlobalSearchDialog.tsx",
     "features/app/PreferencesScreen.tsx",
-    "features/app/dialogs.tsx",
-    "features/channel/ChannelScreen.tsx",
-    "features/channel/ProfilePanel.tsx",
     "features/settings/WorkspaceSettings.tsx"
   ]
 }
