@@ -12,8 +12,8 @@ use axum::http::StatusCode;
 use axum::Json;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait,
-    PaginatorTrait, QueryFilter, Statement, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, DbBackend,
+    EntityTrait, PaginatorTrait, QueryFilter, Statement, TransactionTrait,
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -89,8 +89,9 @@ pub async fn list_my_spaces(
 
 /// Unread root messages per space, for the conversations the caller has actually joined.
 ///
-/// Mirrors [`unread_count`] exactly (root messages only, tombstones excluded, everything after the
-/// timestamp of the caller's last-read message) but for every space at once. Written as SQL because
+/// Mirrors [`unread_count`] exactly (root messages only, tombstones excluded, never the caller's
+/// own, everything after the timestamp of the caller's last-read message) but for every space at
+/// once. Written as SQL because
 /// the whole point is to replace N per-conversation round trips with one grouped scan; the shape is
 /// small enough to read, and every value is bound rather than interpolated.
 async fn unread_messages_by_space(
@@ -108,6 +109,7 @@ async fn unread_messages_by_space(
                 WHERE m.parent_message_id IS NULL \
                   AND m.deleted_at IS NULL \
                   AND m.kind <> 'system' \
+                  AND (m.author_id IS NULL OR m.author_id <> $1) \
                   AND (lm.created_at IS NULL OR m.created_at > lm.created_at) \
                   AND ( \
                     m.conversation_id IN (SELECT channel_id FROM channel_members WHERE user_id = $1) \
@@ -423,7 +425,15 @@ pub(super) async fn unread_count(
         // System notices are not something anyone is behind on. It matters now that they are written
         // at runtime: without this, every arrival in a space would bump the unread badge of every
         // member of the channel it was announced in.
-        .filter(messages::Column::Kind.ne("system"));
+        .filter(messages::Column::Kind.ne("system"))
+        // Nobody is behind on what they wrote themselves. Without this, sending a message lit the
+        // badge of the space it was sent from until the sender's own read cursor caught up, which
+        // is a space telling someone they have not read themselves.
+        .filter(
+            Condition::any()
+                .add(messages::Column::AuthorId.is_null())
+                .add(messages::Column::AuthorId.ne(user_id)),
+        );
     if let Some(ts) = last_ts {
         query = query.filter(messages::Column::CreatedAt.gt(ts));
     }
