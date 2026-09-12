@@ -54,6 +54,11 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-subtle)",
     fontVariantNumeric: "tabular-nums",
     userSelect: "none",
+    // "17:45" fits 34px by a hair, and the hair ran out: it wrapped onto a second line, which made
+    // the row taller and pushed every message below it down for as long as the cursor stayed there.
+    // A time is one line by nature, so it is told so rather than given more room.
+    whiteSpace: "nowrap",
+    overflow: "hidden",
   },
   name: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
   time: { fontSize: 13, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },

@@ -478,6 +478,16 @@ export function Sidebar({
                 <Icon name="plus" size={13} />
               </button>
             </div>
+            {channels.every((c) => c.fav) ? (
+              // Favouriting the only channel of a space emptied this section, which then read as a
+              // space with no channels at all. What is true is said instead, and the two cases are
+              // not the same sentence.
+              <p style={styles.empty}>
+                {channels.length === 0
+                  ? "Aucun canal pour l'instant. Créez-en un avec le +."
+                  : "Tous vos canaux sont en favoris, au-dessus."}
+              </p>
+            ) : null}
             {channels
               .filter((c) => !c.fav)
               .map((c) => (
