@@ -69,7 +69,9 @@ docs/                    Technical documentation
   conventional naming (`feat/…`, `fix/…`, `chore/…`).
 
 Running an instance for other people is a different exercise from running one to develop against:
-see [`docs/deployment.md`](docs/deployment.md), which starts with why HTTPS is not optional.
+see [`docs/deployment.md`](docs/deployment.md), which starts with why HTTPS is not optional, and
+[`docs/email-delivery.md`](docs/email-delivery.md) for the day that instance should send mail (it
+runs perfectly well without).
 
 Contributors - including AI coding agents - should read [`AGENTS.md`](AGENTS.md) first.
 
