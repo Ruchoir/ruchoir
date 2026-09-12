@@ -1259,6 +1259,25 @@ export async function uploadFile(spaceId: string, file: File, parentId?: string)
 }
 
 /**
+ * `POST /files/{id}/versions`: replace a file's contents, keeping its name, place and history.
+ *
+ * The version becomes the one served by download and preview, and the previous bytes stay stored.
+ * Reading the history back needs a route that does not exist yet, so what this offers today is
+ * "here is a newer copy of the same document" rather than a version browser.
+ */
+export async function uploadFileVersion(fileId: string, file: File): Promise<SpaceFile> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`/api/v1/files/${fileId}/versions`, {
+    method: "POST",
+    credentials: "same-origin",
+    body: form,
+  });
+  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
+  return toSpaceFile((await res.json()) as FileDto);
+}
+
+/**
  * `PATCH /files/{id}`: rename an entry, or move it into another folder.
  *
  * `parentFolderId` of `null` means the space's root, which the API takes as an explicit flag rather

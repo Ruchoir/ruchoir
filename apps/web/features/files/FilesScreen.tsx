@@ -11,6 +11,7 @@ import {
   getFolder,
   updateFile,
   uploadFile,
+  uploadFileVersion,
 } from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
@@ -176,6 +177,9 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
    */
   const [moving, setMoving] = useState<SpaceFile[]>([]);
   const uploadRef = useRef<HTMLInputElement>(null);
+  /** The file a new version is being picked for, and the input that picks it. */
+  const versionRef = useRef<HTMLInputElement>(null);
+  const [versionTarget, setVersionTarget] = useState<SpaceFile | null>(null);
 
   // `onNotify` (AppRoot's toast) is a fresh function each parent render; keep the latest in a ref so
   // `load` stays stable across renders (otherwise the load effect below refires every render, which
@@ -346,6 +350,30 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
     });
   };
 
+  /** Replace a file's contents, keeping its name and its place. */
+  const onVersionPicked = (fileList: FileList | null) => {
+    const file = fileList?.[0];
+    const target = versionTarget;
+    if (versionRef.current) versionRef.current.value = "";
+    setVersionTarget(null);
+    if (!file || !target?.id) return;
+    onNotify({ tone: "info", title: "Envoi de la nouvelle version", description: target.name });
+    uploadFileVersion(target.id, file)
+      .then((updated) => {
+        onNotify({ tone: "success", title: `Version ${updated.version} déposée`, description: target.name });
+        load(folderId);
+      })
+      .catch((err) =>
+        onNotify({
+          tone: "danger",
+          title: "Version non déposée",
+          description: isApiError(err, 403)
+            ? "Vous ne pouvez remplacer que vos propres fichiers, sauf si vous administrez l'espace."
+            : target.name,
+        }),
+      );
+  };
+
   const onFilePicked = (fileList: FileList | null) => {
     const file = fileList?.[0];
     if (!file) return;
@@ -401,6 +429,15 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
           Déposer un fichier
         </Button>
         <input ref={uploadRef} type="file" style={{ display: "none" }} onChange={(e) => onFilePicked(e.target.files)} />
+        {/* A second picker, so choosing a replacement never runs through the one that creates a new
+            file: the two differ only in where the bytes are sent, which is exactly the confusion
+            worth designing out. */}
+        <input
+          ref={versionRef}
+          type="file"
+          style={{ display: "none" }}
+          onChange={(e) => onVersionPicked(e.target.files)}
+        />
       </div>
 
       <div style={styles.body}>
@@ -700,6 +737,18 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                 </Tag>
               ) : null}
               <div style={{ flex: 1 }} />
+              {preview.id ? (
+                <Button
+                  iconLeft="upload"
+                  onClick={() => {
+                    setVersionTarget(preview);
+                    setPreview(null);
+                    versionRef.current?.click();
+                  }}
+                >
+                  Nouvelle version
+                </Button>
+              ) : null}
               {preview.id ? (
                 <Button
                   variant="danger"
