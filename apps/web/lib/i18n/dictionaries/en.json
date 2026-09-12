@@ -26,7 +26,6 @@
   "admin": {
     "screenTitle": "Instance administration",
     "back": "Back to the space",
-    "backShort": "Back",
     "navAccounts": "Accounts",
     "navSettings": "Settings",
     "accountsTitle": "Hand an account back",
@@ -34,7 +33,6 @@
     "filterLabel": "Filter accounts",
     "filterPlaceholder": "Name or email address",
     "showAll": "Show all",
-    "search": "Search",
     "loading": "Loading accounts…",
     "noMatch": "No account matches.",
     "loadFailed": "The list of accounts could not be loaded.",
@@ -110,7 +108,12 @@
     "sending": "Sending…",
     "recoveryCode": "Recovery code",
     "useRecoveryCode": "Use a recovery code",
-    "verifying": "Verifying…"
+    "verifying": "Verifying…",
+    "close": "Close",
+    "remove": "Remove",
+    "back": "Back",
+    "search": "Search",
+    "help": "Help"
   },
   "mfa": {
     "totpTitle": "Two-step verification",
@@ -152,5 +155,28 @@
     "recoveryHint": "For example mbtqr-4zdkn-p8xwe.",
     "reclaim": "Take my account back",
     "switchToEmail": "Send a link by email instead"
+  },
+  "presence": {
+    "online": "Online",
+    "away": "Away",
+    "busy": "Busy",
+    "offline": "Offline",
+    "doNotDisturb": "Do not disturb",
+    "invisible": "Invisible"
+  },
+  "shell": {
+    "mainNav": "Main navigation",
+    "workspaces": "Workspaces",
+    "newMessage": "New message",
+    "newSpace": "New space",
+    "myProfile": "My profile",
+    "myProfileAndStatus": "My profile and status",
+    "availability": "Availability",
+    "viewProfile": "View my profile",
+    "preferences": "Preferences",
+    "signOut": "Sign out"
+  },
+  "profile": {
+    "edit": "Edit profile"
   }
 }

@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { Avatar, IconButton } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 
 const bar: CSSProperties = {
   height: "var(--topbar-height)",
@@ -52,23 +53,24 @@ export function MobileTopBar({
   onSearch: () => void;
   onCompose: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div style={bar}>
       {onBack ? (
-        <IconButton icon="arrow-left" label="Retour" onClick={onBack} style={tapTarget} />
+        <IconButton icon="arrow-left" label={t("common.back")} onClick={onBack} style={tapTarget} />
       ) : (
         <button
           type="button"
           onClick={onOpenRail}
-          aria-label="Espaces de travail"
+          aria-label={t("shell.workspaces")}
           style={{ border: 0, background: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", ...tapTarget }}
         >
           <Avatar name={workspaceName} src={workspaceIcon} kind="workspace" size={26} shape="square" />
         </button>
       )}
       <span style={title}>{text}</span>
-      <IconButton icon="search" label="Rechercher" onClick={onSearch} style={tapTarget} />
-      <IconButton icon="square-pen" label="Nouveau message" onClick={onCompose} style={tapTarget} />
+      <IconButton icon="search" label={t("common.search")} onClick={onSearch} style={tapTarget} />
+      <IconButton icon="square-pen" label={t("shell.newMessage")} onClick={onCompose} style={tapTarget} />
     </div>
   );
 }

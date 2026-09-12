@@ -26,7 +26,6 @@
   "admin": {
     "screenTitle": "Administración de la instancia",
     "back": "Volver al espacio",
-    "backShort": "Volver",
     "navAccounts": "Cuentas",
     "navSettings": "Ajustes",
     "accountsTitle": "Devolver el acceso a una cuenta",
@@ -34,7 +33,6 @@
     "filterLabel": "Filtrar cuentas",
     "filterPlaceholder": "Nombre o correo electrónico",
     "showAll": "Mostrar todo",
-    "search": "Buscar",
     "loading": "Cargando cuentas…",
     "noMatch": "Ninguna cuenta coincide.",
     "loadFailed": "No se ha podido cargar la lista de cuentas.",
@@ -110,7 +108,12 @@
     "sending": "Enviando…",
     "recoveryCode": "Código de recuperación",
     "useRecoveryCode": "Usar un código de recuperación",
-    "verifying": "Verificando…"
+    "verifying": "Verificando…",
+    "close": "Cerrar",
+    "remove": "Quitar",
+    "back": "Volver",
+    "search": "Buscar",
+    "help": "Ayuda"
   },
   "mfa": {
     "totpTitle": "Verificación en dos pasos",
@@ -152,5 +155,28 @@
     "recoveryHint": "Por ejemplo mbtqr-4zdkn-p8xwe.",
     "reclaim": "Recuperar mi cuenta",
     "switchToEmail": "Recibir mejor un enlace por correo"
+  },
+  "presence": {
+    "online": "En línea",
+    "away": "Ausente",
+    "busy": "Ocupado",
+    "offline": "Desconectado",
+    "doNotDisturb": "No molestar",
+    "invisible": "Invisible"
+  },
+  "shell": {
+    "mainNav": "Navegación principal",
+    "workspaces": "Espacios de trabajo",
+    "newMessage": "Nuevo mensaje",
+    "newSpace": "Nuevo espacio",
+    "myProfile": "Mi perfil",
+    "myProfileAndStatus": "Mi perfil y estado",
+    "availability": "Disponibilidad",
+    "viewProfile": "Ver mi perfil",
+    "preferences": "Preferencias",
+    "signOut": "Cerrar sesión"
+  },
+  "profile": {
+    "edit": "Editar el perfil"
   }
 }

@@ -26,7 +26,6 @@
   "admin": {
     "screenTitle": "Instanzverwaltung",
     "back": "Zurück zum Bereich",
-    "backShort": "Zurück",
     "navAccounts": "Konten",
     "navSettings": "Einstellungen",
     "accountsTitle": "Zugang zu einem Konto zurückgeben",
@@ -34,7 +33,6 @@
     "filterLabel": "Konten filtern",
     "filterPlaceholder": "Name oder E-Mail-Adresse",
     "showAll": "Alle anzeigen",
-    "search": "Suchen",
     "loading": "Konten werden geladen…",
     "noMatch": "Kein Konto passt.",
     "loadFailed": "Die Kontenliste konnte nicht geladen werden.",
@@ -110,7 +108,12 @@
     "sending": "Wird gesendet…",
     "recoveryCode": "Wiederherstellungscode",
     "useRecoveryCode": "Wiederherstellungscode verwenden",
-    "verifying": "Wird geprüft…"
+    "verifying": "Wird geprüft…",
+    "close": "Schließen",
+    "remove": "Entfernen",
+    "back": "Zurück",
+    "search": "Suchen",
+    "help": "Hilfe"
   },
   "mfa": {
     "totpTitle": "Bestätigung in zwei Schritten",
@@ -152,5 +155,28 @@
     "recoveryHint": "Zum Beispiel mbtqr-4zdkn-p8xwe.",
     "reclaim": "Mein Konto zurückholen",
     "switchToEmail": "Lieber einen Link per E-Mail erhalten"
+  },
+  "presence": {
+    "online": "Online",
+    "away": "Abwesend",
+    "busy": "Beschäftigt",
+    "offline": "Offline",
+    "doNotDisturb": "Nicht stören",
+    "invisible": "Unsichtbar"
+  },
+  "shell": {
+    "mainNav": "Hauptnavigation",
+    "workspaces": "Arbeitsbereiche",
+    "newMessage": "Neue Nachricht",
+    "newSpace": "Neuer Bereich",
+    "myProfile": "Mein Profil",
+    "myProfileAndStatus": "Mein Profil und Status",
+    "availability": "Verfügbarkeit",
+    "viewProfile": "Mein Profil ansehen",
+    "preferences": "Einstellungen",
+    "signOut": "Abmelden"
+  },
+  "profile": {
+    "edit": "Profil bearbeiten"
   }
 }

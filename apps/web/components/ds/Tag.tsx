@@ -8,6 +8,8 @@ export type TagProps = {
   icon?: IconName;
   mono?: boolean;
   onRemove?: MouseEventHandler<HTMLButtonElement>;
+  /** Accessible name of the remove button; passed in, like every other string this library shows. */
+  removeLabel?: string;
   children?: ReactNode;
   className?: string;
 };
@@ -18,6 +20,7 @@ export function Tag({
   icon,
   mono,
   onRemove,
+  removeLabel = "Retirer",
   children,
   className = "",
 }: TagProps) {
@@ -26,7 +29,7 @@ export function Tag({
       {icon ? <Icon name={icon} size={12} /> : null}
       {children}
       {onRemove ? (
-        <button className="wc-tag__x" aria-label="Retirer" onClick={onRemove}>
+        <button className="wc-tag__x" aria-label={removeLabel} onClick={onRemove}>
           <Icon name="x" size={12} />
         </button>
       ) : null}

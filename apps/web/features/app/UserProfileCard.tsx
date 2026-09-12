@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { Avatar, Button, Icon, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
-import { presenceLabel } from "./presence";
+import { presenceLabelKey } from "./presence";
 import { useProfile } from "./useProfile";
 import { useLocalTime } from "./useLocalTime";
 import { useTranslation } from "@/lib/i18n";
@@ -70,7 +70,7 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
           <div style={row}>
             <span style={{ width: 8, height: 8, borderRadius: "var(--radius-full)", background: `var(--presence-${dot})` }} />
-            {presenceLabel(dot)}
+            {t(presenceLabelKey(dot))}
           </div>
           {/* Only when they chose a timezone: the card used to fall back to Europe/Paris and present
               it as this person's local time, which is worse than saying nothing. */}

@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { Badge, Icon } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 
 export type BottomTab = { id: string; label: string; icon: string; badge?: number };
 
@@ -42,25 +43,26 @@ export function BottomTabs({
   active: string;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
-    <nav style={bar} aria-label="Navigation principale">
-      {tabs.map((t) => (
+    <nav style={bar} aria-label={t("shell.mainNav")}>
+      {tabs.map((tab) => (
         <button
-          key={t.id}
+          key={tab.id}
           type="button"
-          style={tabStyle(active === t.id)}
-          aria-current={active === t.id ? "page" : undefined}
-          onClick={() => onSelect(t.id)}
+          style={tabStyle(active === tab.id)}
+          aria-current={active === tab.id ? "page" : undefined}
+          onClick={() => onSelect(tab.id)}
         >
           <span style={{ position: "relative", display: "flex" }}>
-            <Icon name={t.icon} size={20} />
-            {t.badge ? (
+            <Icon name={tab.icon} size={20} />
+            {tab.badge ? (
               <span style={{ position: "absolute", top: -6, left: 12 }}>
-                <Badge count={t.badge} />
+                <Badge count={tab.badge} />
               </span>
             ) : null}
           </span>
-          {t.label}
+          {tab.label}
         </button>
       ))}
     </nav>

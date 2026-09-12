@@ -9,7 +9,7 @@ import { clearMyAvatar, getUserProfile, setMyAvatar, updateMyProfile } from "@/l
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { minimalProfile } from "../app/useProfile";
 import { useLocalTime } from "../app/useLocalTime";
-import { presenceLabel } from "../app/presence";
+import { presenceLabelKey } from "../app/presence";
 import type { Toast } from "../app/types";
 import { useTranslation } from "@/lib/i18n";
 import { languageName } from "@/lib/i18n/config";
@@ -282,7 +282,7 @@ export function ProfilePanel({
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
             <span style={{ width: 9, height: 9, borderRadius: "var(--radius-full)", background: `var(--presence-${shownPresence})` }} />
-            {presenceLabel(shownPresence)}
+            {t(presenceLabelKey(shownPresence))}
           </div>
           {/* The person to ask when an account has to be handed back. Recovery without a mail relay
               ends there, so being able to recognize them is part of the path working. */}

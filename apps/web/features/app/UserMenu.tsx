@@ -4,8 +4,9 @@ import { type CSSProperties, type RefObject } from "react";
 import { Avatar, Icon, Popover } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { PresenceChoice } from "@/lib/data";
-import { presenceLabel } from "./presence";
+import { presenceLabelKey } from "./presence";
 import { getAvatar } from "@/lib/data";
+import { useTranslation } from "@/lib/i18n";
 
 const panel: CSSProperties = {
   width: 260,
@@ -55,11 +56,11 @@ const item: CSSProperties = {
  * What changed underneath is that "En ligne" used to store a permanent `active` override, which
  * left everyone lit whether they were connected or not and could not be undone from the menu.
  */
-const CHOICES: { key: PresenceChoice; label: string; dot: Presence }[] = [
-  { key: "auto", label: "En ligne", dot: "online" },
-  { key: "away", label: "Absent", dot: "away" },
-  { key: "busy", label: "Ne pas déranger", dot: "busy" },
-  { key: "invisible", label: "Invisible", dot: "offline" },
+const CHOICES: { key: PresenceChoice; labelKey: string; dot: Presence }[] = [
+  { key: "auto", labelKey: "presence.online", dot: "online" },
+  { key: "away", labelKey: "presence.away", dot: "away" },
+  { key: "busy", labelKey: "presence.doNotDisturb", dot: "busy" },
+  { key: "invisible", labelKey: "presence.invisible", dot: "offline" },
 ];
 
 function hover(on: boolean) {
@@ -101,6 +102,7 @@ export function UserMenu({
   onOpenInstanceAdmin,
   onLogout,
 }: UserMenuProps) {
+  const { t } = useTranslation();
   const run = (fn: () => void) => {
     fn();
     onClose();
@@ -113,12 +115,12 @@ export function UserMenu({
           <Avatar name={currentUser} src={getAvatar(currentUser)} size={40} presence={presence} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{currentUser}</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{presenceLabel(presence)}</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(presenceLabelKey(presence))}</div>
           </div>
         </div>
 
         <div style={section}>
-          <div style={label}>Disponibilité</div>
+          <div style={label}>{t("shell.availability")}</div>
           {CHOICES.map((c) => {
             const on = c.key === choice;
             return (
@@ -131,7 +133,7 @@ export function UserMenu({
                 onMouseLeave={hover(false)}
               >
                 <span style={{ width: 10, height: 10, borderRadius: "var(--radius-full)", background: `var(--presence-${c.dot})`, border: c.dot === "offline" ? "1px solid var(--border-strong)" : undefined }} />
-                <span style={{ flex: 1, minWidth: 0, color: on ? "var(--text-accent)" : "var(--text-body)" }}>{c.label}</span>
+                <span style={{ flex: 1, minWidth: 0, color: on ? "var(--text-accent)" : "var(--text-body)" }}>{t(c.labelKey)}</span>
                 {on ? <Icon name="check" size={14} style={{ color: "var(--text-accent)" }} /> : null}
               </button>
             );
@@ -140,22 +142,18 @@ export function UserMenu({
 
         <div style={{ padding: 4 }}>
           <button type="button" onClick={() => run(onOpenProfile)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
-            <Icon name="smile" size={14} /> Voir mon profil
-          </button>
+            <Icon name="smile" size={14} />{t("shell.viewProfile")}</button>
           <button type="button" onClick={() => run(onEditProfile)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
-            <Icon name="square-pen" size={14} /> Modifier le profil
-          </button>
+            <Icon name="square-pen" size={14} />{t("profile.edit")}</button>
           <button type="button" onClick={() => run(onOpenSettings)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
-            <Icon name="settings" size={14} /> Préférences
-          </button>
+            <Icon name="settings" size={14} />{t("shell.preferences")}</button>
           {onOpenInstanceAdmin ? (
             <button type="button" onClick={() => run(onOpenInstanceAdmin)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
               <Icon name="shield" size={14} /> Administration de l&apos;instance
             </button>
           ) : null}
           <button type="button" onClick={() => run(onLogout)} style={{ ...item, color: "var(--status-danger-fg)" }} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
-            <Icon name="log-out" size={14} /> Se déconnecter
-          </button>
+            <Icon name="log-out" size={14} />{t("shell.signOut")}</button>
         </div>
       </div>
     </Popover>

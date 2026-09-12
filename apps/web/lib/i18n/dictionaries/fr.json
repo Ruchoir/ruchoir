@@ -26,7 +26,6 @@
   "admin": {
     "screenTitle": "Administration de l'instance",
     "back": "Retour à l'espace",
-    "backShort": "Retour",
     "navAccounts": "Comptes",
     "navSettings": "Réglages",
     "accountsTitle": "Rendre l'accès à un compte",
@@ -34,7 +33,6 @@
     "filterLabel": "Filtrer les comptes",
     "filterPlaceholder": "Nom ou adresse électronique",
     "showAll": "Tout afficher",
-    "search": "Rechercher",
     "loading": "Chargement des comptes…",
     "noMatch": "Aucun compte ne correspond.",
     "loadFailed": "La liste des comptes n'a pas pu être chargée.",
@@ -110,7 +108,12 @@
     "sending": "Envoi…",
     "recoveryCode": "Code de récupération",
     "useRecoveryCode": "Utiliser un code de récupération",
-    "verifying": "Vérification…"
+    "verifying": "Vérification…",
+    "close": "Fermer",
+    "remove": "Retirer",
+    "back": "Retour",
+    "search": "Rechercher",
+    "help": "Aide"
   },
   "mfa": {
     "totpTitle": "Vérification en deux étapes",
@@ -152,5 +155,28 @@
     "recoveryHint": "Par exemple mbtqr-4zdkn-p8xwe.",
     "reclaim": "Reprendre mon compte",
     "switchToEmail": "Recevoir plutôt un lien par courriel"
+  },
+  "presence": {
+    "online": "En ligne",
+    "away": "Absent",
+    "busy": "Occupé",
+    "offline": "Hors ligne",
+    "doNotDisturb": "Ne pas déranger",
+    "invisible": "Invisible"
+  },
+  "shell": {
+    "mainNav": "Navigation principale",
+    "workspaces": "Espaces de travail",
+    "newMessage": "Nouveau message",
+    "newSpace": "Nouvel espace",
+    "myProfile": "Mon profil",
+    "myProfileAndStatus": "Mon profil et statut",
+    "availability": "Disponibilité",
+    "viewProfile": "Voir mon profil",
+    "preferences": "Préférences",
+    "signOut": "Se déconnecter"
+  },
+  "profile": {
+    "edit": "Modifier le profil"
   }
 }

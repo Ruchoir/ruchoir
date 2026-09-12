@@ -150,7 +150,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
           />
         </Field>
         <Button variant="primary" type="submit" disabled={busy}>
-          {query.trim().length === 0 ? t("admin.showAll") : t("admin.search")}
+          {query.trim().length === 0 ? t("admin.showAll") : t("common.search")}
         </Button>
       </form>
 
@@ -408,7 +408,7 @@ export function InstanceAdminScreen({
         <span style={screen.divider} aria-hidden />
         <h1 style={screen.title}>{t("admin.screenTitle")}</h1>
         <Button variant="secondary" iconLeft="arrow-left" onClick={onClose} style={{ flexShrink: 0 }}>
-          {compact ? t("admin.backShort") : t("admin.back")}
+          {compact ? t("common.back") : t("admin.back")}
         </Button>
       </div>
       <div style={compact ? { ...screen.body, flexDirection: "column" } : screen.body}>
