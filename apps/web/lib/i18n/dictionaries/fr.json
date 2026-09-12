@@ -273,7 +273,8 @@
     "spaceSwitch": "Changer d'espace",
     "spaceSwitchNamed": "Espace {{name}}, changer d'espace",
     "space": "Espace",
-    "favouriteHint": "Gardez vos canaux courants à portée : « Ajouter aux favoris » dans le menu d'un canal."
+    "favouriteHint": "Gardez vos canaux courants à portée : « Ajouter aux favoris » dans le menu d'un canal.",
+    "noChannelYet": "Aucun canal pour l'instant. Vous en verrez un dès qu'on vous y ajoutera."
   },
   "welcome": {
     "title": "Prise en main",
@@ -467,7 +468,9 @@
     "leaveTitle": "Quitter #{{name}} ?",
     "leaveBody": "Vous ne recevrez plus les messages de #{{name}}. Vous pourrez le rejoindre à nouveau tant qu'il est public.",
     "membersAndAccess": "Membres et accès ({{count}})",
-    "fallbackName": "général"
+    "fallbackName": "général",
+    "noConversation": "Rien à afficher pour l'instant",
+    "noConversationHint": "Créez un canal, ou démarrez une conversation, pour commencer."
   },
   "role": {
     "member": "Membre",
@@ -728,7 +731,12 @@
     "transferTitle": "Confier l'espace à {{name}} ?",
     "transferBody": "{{name}} devient propriétaire de {{space}} et peut tout y faire, y compris le supprimer.",
     "transferStepDown": "Un espace a un seul propriétaire : vous redevenez administrateur, et seul le nouveau propriétaire pourra vous rendre le rôle.",
-    "transferConfirm": "Confier l'espace"
+    "transferConfirm": "Confier l'espace",
+    "remove": "Retirer de l'espace",
+    "removeNamed": "Retirer {{name}} de l'espace",
+    "removeTitle": "Retirer {{name}} de l'espace ?",
+    "removeBody": "{{name}} perd l'accès à {{space}} : ses canaux, ses messages et ses fichiers. Il lui faudra une nouvelle invitation pour revenir.",
+    "removeKeepsMessages": "Ce qu'elle ou il y a écrit reste : une conversation appartient à ceux qui l'ont tenue."
   },
   "prefs": {
     "title": "Préférences",
@@ -874,7 +882,10 @@
     "roleChanged": "Rôle modifié",
     "roleFailed": "Rôle non modifié",
     "spaceHandedOver": "Espace confié",
-    "nowOwner": "{{name}} en est désormais propriétaire."
+    "nowOwner": "{{name}} en est désormais propriétaire.",
+    "memberRemoved": "Membre retiré",
+    "removeFailed": "Membre non retiré",
+    "removedFromSpace": "Vous avez été retiré de {{name}}"
   },
   "boot": {
     "loading": "Chargement",
@@ -892,7 +903,8 @@
     "memberLeft": "{{who}} a quitté l'espace.",
     "channelJoined": "{{who}} a rejoint le canal.",
     "channelLeft": "{{who}} a quitté le canal.",
-    "channelCreated": "Le canal a été créé."
+    "channelCreated": "Le canal a été créé.",
+    "memberRemoved": "{{who}} a été retiré de l'espace."
   },
   "rail": {
     "unreadActivity": "{{name}}, activité non lue"

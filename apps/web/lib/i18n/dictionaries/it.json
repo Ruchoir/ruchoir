@@ -273,7 +273,8 @@
     "spaceSwitch": "Cambia spazio",
     "spaceSwitchNamed": "Spazio {{name}}, cambia spazio",
     "space": "Spazio",
-    "favouriteHint": "Tieni a portata i canali che usi: «Aggiungi ai preferiti» nel menu di un canale."
+    "favouriteHint": "Tieni a portata i canali che usi: «Aggiungi ai preferiti» nel menu di un canale.",
+    "noChannelYet": "Ancora nessun canale. Ne vedrai uno appena ti ci aggiungeranno."
   },
   "welcome": {
     "title": "Primi passi",
@@ -472,7 +473,9 @@
     "leaveTitle": "Lasciare #{{name}}?",
     "leaveBody": "Non riceverai più i messaggi di #{{name}}. Potrai rientrare finché resta pubblico.",
     "membersAndAccess": "Membri e accesso ({{count}})",
-    "fallbackName": "generale"
+    "fallbackName": "generale",
+    "noConversation": "Ancora niente da mostrare",
+    "noConversationHint": "Crea un canale, o avvia una conversazione, per cominciare."
   },
   "role": {
     "member": "Membro",
@@ -744,7 +747,12 @@
     "transferTitle": "Affidare lo spazio a {{name}}?",
     "transferBody": "{{name}} diventa proprietario di {{space}} e potrà farci qualsiasi cosa, compreso eliminarlo.",
     "transferStepDown": "Uno spazio ha un solo proprietario: torni amministratore, e solo il nuovo proprietario potrà restituirti il ruolo.",
-    "transferConfirm": "Affida lo spazio"
+    "transferConfirm": "Affida lo spazio",
+    "remove": "Rimuovi dallo spazio",
+    "removeNamed": "Rimuovi {{name}} dallo spazio",
+    "removeTitle": "Rimuovere {{name}} dallo spazio?",
+    "removeBody": "{{name}} perde l'accesso a {{space}}: i suoi canali, i suoi messaggi e i suoi file. Per rientrare servirà un nuovo invito.",
+    "removeKeepsMessages": "Quello che ha scritto resta: una conversazione appartiene a chi l'ha avuta."
   },
   "prefs": {
     "title": "Preferenze",
@@ -890,7 +898,10 @@
     "roleChanged": "Ruolo modificato",
     "roleFailed": "Impossibile modificare il ruolo",
     "spaceHandedOver": "Spazio affidato",
-    "nowOwner": "Ora è {{name}} a possederlo."
+    "nowOwner": "Ora è {{name}} a possederlo.",
+    "memberRemoved": "Membro rimosso",
+    "removeFailed": "Impossibile rimuovere questo membro",
+    "removedFromSpace": "Sei stato rimosso da {{name}}"
   },
   "boot": {
     "loading": "Caricamento",
@@ -908,7 +919,8 @@
     "memberLeft": "{{who}} ha lasciato lo spazio.",
     "channelJoined": "{{who}} si è unito al canale.",
     "channelLeft": "{{who}} ha lasciato il canale.",
-    "channelCreated": "Il canale è stato creato."
+    "channelCreated": "Il canale è stato creato.",
+    "memberRemoved": "{{who}} è stato rimosso dallo spazio."
   },
   "rail": {
     "unreadActivity": "{{name}}, attività non letta"

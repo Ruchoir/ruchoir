@@ -273,7 +273,8 @@
     "spaceSwitch": "Zmień przestrzeń",
     "spaceSwitchNamed": "Przestrzeń {{name}}, zmień przestrzeń",
     "space": "Przestrzeń",
-    "favouriteHint": "Miej pod ręką najczęstsze kanały: „Dodaj do ulubionych” w menu kanału."
+    "favouriteHint": "Miej pod ręką najczęstsze kanały: „Dodaj do ulubionych” w menu kanału.",
+    "noChannelYet": "Na razie żadnego kanału. Zobaczysz go, gdy ktoś cię do niego doda."
   },
   "welcome": {
     "title": "Pierwsze kroki",
@@ -477,7 +478,9 @@
     "leaveTitle": "Opuścić #{{name}}?",
     "leaveBody": "Nie będziesz już otrzymywać wiadomości z #{{name}}. Możesz dołączyć ponownie, dopóki kanał jest publiczny.",
     "membersAndAccess": "Członkowie i dostęp ({{count}})",
-    "fallbackName": "ogólny"
+    "fallbackName": "ogólny",
+    "noConversation": "Na razie nie ma nic do pokazania",
+    "noConversationHint": "Utwórz kanał albo zacznij rozmowę, żeby ruszyć."
   },
   "role": {
     "member": "Członek",
@@ -760,7 +763,12 @@
     "transferTitle": "Przekazać przestrzeń osobie {{name}}?",
     "transferBody": "{{name}} zostaje właścicielem przestrzeni {{space}} i może w niej wszystko, łącznie z jej usunięciem.",
     "transferStepDown": "Przestrzeń ma jednego właściciela: wracasz do roli administratora, a rolę może ci oddać tylko nowy właściciel.",
-    "transferConfirm": "Przekaż przestrzeń"
+    "transferConfirm": "Przekaż przestrzeń",
+    "remove": "Usuń z przestrzeni",
+    "removeNamed": "Usuń osobę {{name}} z przestrzeni",
+    "removeTitle": "Usunąć osobę {{name}} z przestrzeni?",
+    "removeBody": "{{name}} traci dostęp do przestrzeni {{space}}: jej kanałów, wiadomości i plików. Powrót będzie wymagał nowego zaproszenia.",
+    "removeKeepsMessages": "To, co tam napisała, zostaje: rozmowa należy do tych, którzy ją prowadzili."
   },
   "prefs": {
     "title": "Preferencje",
@@ -906,7 +914,10 @@
     "roleChanged": "Rola zmieniona",
     "roleFailed": "Nie udało się zmienić roli",
     "spaceHandedOver": "Przestrzeń przekazana",
-    "nowOwner": "Teraz należy do osoby {{name}}."
+    "nowOwner": "Teraz należy do osoby {{name}}.",
+    "memberRemoved": "Członek usunięty",
+    "removeFailed": "Nie udało się usunąć tego członka",
+    "removedFromSpace": "Zostałeś usunięty z przestrzeni {{name}}"
   },
   "boot": {
     "loading": "Wczytywanie",
@@ -924,7 +935,8 @@
     "memberLeft": "{{who}} opuścił(a) przestrzeń.",
     "channelJoined": "{{who}} dołączył(a) do kanału.",
     "channelLeft": "{{who}} opuścił(a) kanał.",
-    "channelCreated": "Kanał został utworzony."
+    "channelCreated": "Kanał został utworzony.",
+    "memberRemoved": "{{who}} został usunięty z przestrzeni."
   },
   "rail": {
     "unreadActivity": "{{name}}, nieprzeczytana aktywność"

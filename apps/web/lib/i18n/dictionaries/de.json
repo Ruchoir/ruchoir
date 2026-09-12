@@ -273,7 +273,8 @@
     "spaceSwitch": "Bereich wechseln",
     "spaceSwitchNamed": "Bereich {{name}}, Bereich wechseln",
     "space": "Bereich",
-    "favouriteHint": "Halten Sie Ihre häufigen Kanäle griffbereit: \\u201eZu Favoriten hinzufügen\\u201c im Menü eines Kanals."
+    "favouriteHint": "Halten Sie Ihre häufigen Kanäle griffbereit: \\u201eZu Favoriten hinzufügen\\u201c im Menü eines Kanals.",
+    "noChannelYet": "Noch kein Kanal. Sobald Sie zu einem hinzugefügt werden, erscheint er hier."
   },
   "welcome": {
     "title": "Erste Schritte",
@@ -467,7 +468,9 @@
     "leaveTitle": "#{{name}} verlassen?",
     "leaveBody": "Sie erhalten keine Nachrichten aus #{{name}} mehr. Solange der Kanal öffentlich ist, können Sie ihn wieder betreten.",
     "membersAndAccess": "Mitglieder und Zugriff ({{count}})",
-    "fallbackName": "allgemein"
+    "fallbackName": "allgemein",
+    "noConversation": "Noch nichts zu zeigen",
+    "noConversationHint": "Legen Sie einen Kanal an oder beginnen Sie ein Gespräch."
   },
   "role": {
     "member": "Mitglied",
@@ -728,7 +731,12 @@
     "transferTitle": "Den Bereich an {{name}} übergeben?",
     "transferBody": "{{name}} wird Eigentümerin oder Eigentümer von {{space}} und darf darin alles, auch ihn löschen.",
     "transferStepDown": "Ein Bereich hat genau eine Eigentümerin oder einen Eigentümer: Sie sind wieder Administrator, und nur die neue Eigentümerin oder der neue Eigentümer kann die Rolle zurückgeben.",
-    "transferConfirm": "Bereich übergeben"
+    "transferConfirm": "Bereich übergeben",
+    "remove": "Aus dem Bereich entfernen",
+    "removeNamed": "{{name}} aus dem Bereich entfernen",
+    "removeTitle": "{{name}} aus dem Bereich entfernen?",
+    "removeBody": "{{name}} verliert den Zugang zu {{space}}: dessen Kanäle, Nachrichten und Dateien. Für eine Rückkehr braucht es eine neue Einladung.",
+    "removeKeepsMessages": "Was diese Person dort geschrieben hat, bleibt: ein Gespräch gehört denen, die es geführt haben."
   },
   "prefs": {
     "title": "Einstellungen",
@@ -874,7 +882,10 @@
     "roleChanged": "Rolle geändert",
     "roleFailed": "Rolle konnte nicht geändert werden",
     "spaceHandedOver": "Bereich übergeben",
-    "nowOwner": "{{name}} gehört er jetzt."
+    "nowOwner": "{{name}} gehört er jetzt.",
+    "memberRemoved": "Mitglied entfernt",
+    "removeFailed": "Mitglied konnte nicht entfernt werden",
+    "removedFromSpace": "Sie wurden aus {{name}} entfernt"
   },
   "boot": {
     "loading": "Wird geladen",
@@ -892,7 +903,8 @@
     "memberLeft": "{{who}} hat den Bereich verlassen.",
     "channelJoined": "{{who}} ist dem Kanal beigetreten.",
     "channelLeft": "{{who}} hat den Kanal verlassen.",
-    "channelCreated": "Der Kanal wurde erstellt."
+    "channelCreated": "Der Kanal wurde erstellt.",
+    "memberRemoved": "{{who}} wurde aus dem Bereich entfernt."
   },
   "rail": {
     "unreadActivity": "{{name}}, ungelesene Aktivität"

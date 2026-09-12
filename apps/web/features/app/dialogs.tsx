@@ -601,6 +601,51 @@ export function TransferOwnershipDialog({
   );
 }
 
+/**
+ * Take someone out of a space. Confirmed, because it acts on somebody else and they cannot undo it:
+ * getting back in needs an invitation from the people who just showed them the door.
+ */
+export function RemoveMemberDialog({
+  spaceName,
+  memberName,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  spaceName: string;
+  memberName: string;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Dialog
+      title={t("space.removeTitle", { name: memberName })}
+      closeLabel={t("common.close")}
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="danger" disabled={busy} onClick={onConfirm}>
+            {busy ? t("common.sending") : t("space.remove")}
+          </Button>
+        </>
+      }
+    >
+      <p style={{ fontSize: 13, color: "var(--text-body)", margin: 0 }}>
+        {t("space.removeBody", { name: memberName, space: spaceName })}
+      </p>
+      <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
+        {t("space.removeKeepsMessages")}
+      </p>
+    </Dialog>
+  );
+}
+
 /** Help centre: documentation links and the live (customizable) keyboard shortcuts. */
 export function HelpDialog({
   onClose,

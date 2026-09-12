@@ -77,6 +77,7 @@ use utoipa::OpenApi;
         crate::messaging::spaces::leave_space,
         crate::messaging::spaces::delete_space,
         crate::messaging::spaces::update_member_role,
+        crate::messaging::spaces::remove_member,
         crate::messaging::invitations::create_invitation,
         crate::messaging::invitations::list_invitations,
         crate::messaging::invitations::revoke_invitation,

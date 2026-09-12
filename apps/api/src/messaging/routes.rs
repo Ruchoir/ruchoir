@@ -123,7 +123,7 @@ pub fn router() -> Router<AppState> {
         // What one member may do in the space. Ownership moves through here and nowhere else.
         .route(
             "/api/v1/spaces/{space_id}/members/{user_id}",
-            patch(spaces::update_member_role),
+            patch(spaces::update_member_role).delete(spaces::remove_member),
         )
         .route(
             "/api/v1/spaces/{space_id}/dm",

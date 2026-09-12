@@ -312,13 +312,15 @@ pub struct MemberRoleChangedDto {
 
 /// A space that stopped being the recipient's, pushed in real time.
 ///
-/// `deleted` separates the two ways that happens: the space is gone for everyone, or the recipient
-/// walked out of a space that carries on without them. The client drops it from the rail either
-/// way; only the sentence it shows differs.
+/// `reason` separates the three ways that happens: they walked out (`left`), the space is gone for
+/// everyone (`deleted`), or someone took them out of it (`removed`). The client drops it from the
+/// rail in all three; what differs is what it says, and whether it says anything at all. A person
+/// who left knows they left; a person who was removed has to be told, or a space simply vanishes
+/// from under them.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct SpaceRemovedDto {
     pub space_id: Uuid,
-    pub deleted: bool,
+    pub reason: String,
 }
 
 /// Edit the caller's own profile. Absent fields are left unchanged; an empty string clears the field

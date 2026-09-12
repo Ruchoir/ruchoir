@@ -520,9 +520,13 @@ export function Sidebar({
               // space with no channels at all. What is true is said instead, and the two cases are
               // not the same sentence.
               <p style={styles.empty}>
-                {channels.length === 0
-                  ? t("sidebar.noChannel")
-                  : t("sidebar.allFavourites")}
+                {channels.length > 0
+                  ? t("sidebar.allFavourites")
+                  : canBrowseSpace
+                    ? t("sidebar.noChannel")
+                    : // A guest has no `+`, so telling them to press it would be the third sentence
+                      // in this column that describes somebody else's product.
+                      t("sidebar.noChannelYet")}
               </p>
             ) : null}
             {channels
