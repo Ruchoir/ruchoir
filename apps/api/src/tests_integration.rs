@@ -1843,3 +1843,249 @@ async fn an_admin_may_not_hand_out_their_own_rank_or_touch_it() {
     assert_eq!(own, 403);
     assert_eq!(role_of(&app.db, fx.space_id, fx.bob).await, "admin");
 }
+
+/// Turn a seeded member into a guest of their space.
+async fn make_guest(db: &DatabaseConnection, space_id: Uuid, user_id: Uuid) {
+    let member = space_members::Entity::find_by_id((space_id, user_id))
+        .one(db)
+        .await
+        .expect("membership")
+        .expect("member row");
+    let mut active = member.into_active_model();
+    active.role = Set("guest".to_owned());
+    active.update(db).await.expect("demote to guest");
+}
+
+#[tokio::test]
+async fn a_guest_reaches_only_what_they_were_added_to() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Carol is in the space and in no channel; Alice and Bob are in the public one.
+    make_guest(&app.db, fx.space_id, fx.carol).await;
+    let carol = app.cookie_for(fx.carol).await;
+
+    // The public channel is public to members, and she is not that kind of member.
+    let refused = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(refused.status(), 403, "a guest inherits no channel");
+
+    // It is not listed to her either, so the refusal is not a surprise waiting to happen.
+    let channels: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    assert!(channels.as_array().expect("array").is_empty());
+
+    // Nor may she open a room of her own, or walk into one.
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &carol,
+        )
+        .json(&json!({ "name": "chez-moi", "type": "public" }))
+        .send()
+        .await
+        .expect("create channel");
+    assert_eq!(created.status(), 403);
+    let joined = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/channels/{}/membership", fx.public_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("join");
+    assert_eq!(joined.status(), 403);
+
+    // Added to the channel by someone who may: now it is hers, and only that one.
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let page = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(
+        page.status(),
+        200,
+        "an explicit row is the whole of the rule"
+    );
+    let private = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.private_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("private history");
+    assert_eq!(private.status(), 403);
+}
+
+#[tokio::test]
+async fn a_guest_is_shown_the_people_they_share_a_conversation_with() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    make_guest(&app.db, fx.space_id, fx.carol).await;
+    let carol = app.cookie_for(fx.carol).await;
+
+    // In no conversation yet: the roster is herself and nobody else.
+    let alone: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/members", fx.space_id),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("members")
+        .json()
+        .await
+        .expect("json");
+    let alone = alone.as_array().expect("array");
+    assert_eq!(alone.len(), 1);
+    assert_eq!(alone[0]["user_id"], fx.carol.to_string());
+
+    // A profile she has no conversation with stays closed, and so does a direct message to them.
+    let profile = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/users/{}", fx.bob),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("profile");
+    assert_eq!(profile.status(), 403);
+    let dm = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/dm", fx.space_id),
+            &carol,
+        )
+        .json(&json!({ "user_ids": [fx.bob] }))
+        .send()
+        .await
+        .expect("dm");
+    assert_eq!(dm.status(), 403);
+
+    // Added to the public channel, she gains exactly the people in it: Alice and Bob.
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let roster: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/members", fx.space_id),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("members")
+        .json()
+        .await
+        .expect("json");
+    let ids: Vec<String> = roster
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|m| m["user_id"].as_str().expect("id").to_owned())
+        .collect();
+    assert_eq!(ids.len(), 3);
+    assert!(ids.contains(&fx.alice.to_string()));
+    assert!(ids.contains(&fx.bob.to_string()));
+    assert!(ids.contains(&fx.carol.to_string()));
+}
+
+#[tokio::test]
+async fn a_guest_gets_no_space_files_but_keeps_the_ones_they_can_see() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    make_guest(&app.db, fx.space_id, fx.carol).await;
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let alice = app.cookie_for(fx.alice).await;
+
+    // The space tree is the organisation's, and she is not in the space that way.
+    let tree = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/files", fx.space_id),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("tree");
+    assert_eq!(tree.status(), 403);
+
+    // A file sitting in that tree is closed to her too.
+    let file_id = Uuid::new_v4();
+    files::ActiveModel {
+        id: Set(file_id),
+        space_id: Set(fx.space_id),
+        owner_id: Set(Some(fx.alice)),
+        name: Set("plan.pdf".to_owned()),
+        kind: Set("file".to_owned()),
+        size_bytes: Set(12),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("file");
+    // Asked through the share list, which is the one read that needs no object store to answer.
+    let closed = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{file_id}/shares"),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("file");
+    assert_eq!(closed.status(), 403);
+
+    // Until it is attached to a message in a channel she is in: she sees the message, so she gets
+    // the document it is about.
+    let sent: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &alice,
+        )
+        .json(&json!({ "body": "le plan", "attachments": [file_id] }))
+        .send()
+        .await
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    assert!(sent["id"].is_string());
+    let opened = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{file_id}/shares"),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("file");
+    assert_eq!(opened.status(), 200);
+}

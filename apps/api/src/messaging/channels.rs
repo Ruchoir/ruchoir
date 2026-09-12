@@ -58,6 +58,11 @@ pub async fn create_channel(
     Json(body): Json<CreateChannelRequest>,
 ) -> Result<(StatusCode, Json<ChannelDto>), ApiError> {
     ensure_space_member(&state.db, space_id, session.user_id).await?;
+    // A guest is in the space to take part in what they were brought into, not to open new rooms in
+    // an organisation that is not theirs.
+    if super::authz::is_guest(&state.db, space_id, session.user_id).await? {
+        return Err(ApiError::Forbidden);
+    }
 
     let name = slugify(&body.name);
     if name.is_empty() {
@@ -283,8 +288,11 @@ pub async fn join_channel(
         .ok_or(ApiError::Forbidden)?;
     ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
     // A private channel is joined by invitation, which is not this endpoint. The 403 is the same
-    // one a non-member gets when reading it, so nothing is revealed either way.
-    if channel.channel_type == "private" {
+    // one a non-member gets when reading it, so nothing is revealed either way. A guest is refused
+    // for the same reason on any channel: every room they are in, somebody put them in.
+    if channel.channel_type == "private"
+        || super::authz::is_guest(&state.db, channel.space_id, session.user_id).await?
+    {
         return Err(ApiError::Forbidden);
     }
     if channel.channel_type == "archived" {

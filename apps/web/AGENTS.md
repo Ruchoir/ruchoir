@@ -99,6 +99,11 @@ own role does not live in the roster: it is `Workspace.role`, which is what deci
 space offers its administration at all, so `member.role_changed` for one's own id has to be written
 there too, in whichever space it names, open or not.
 
+**A guest is in the space only through what they were added to.** `Workspace.role === "guest"` is
+what the column reads to stop offering the space at large: no space files, no new channel, no
+invitation. The API refuses all three, so this is not the guard; it is the difference between a
+product that does not offer something and one that offers it and then says no.
+
 **A design-system control owns its width; the wrapper owns its place.** `.wc-sel` is `width: 100%`
 by design, so a width passed to `<Select>` lands on the inner `<select>` while its shell still takes
 the whole flex line. In a row, that ate the member's name. Put the width on a wrapping element

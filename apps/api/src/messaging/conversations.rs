@@ -182,6 +182,9 @@ pub async fn list_channels(
         .filter(channels::Column::SpaceId.eq(space_id))
         .all(&state.db)
         .await?;
+    // A guest is offered nothing they were not added to, so for them every channel is listed the
+    // way a private one is. Same test as the one that would refuse them the conversation itself.
+    let explicit_only = super::authz::is_guest(&state.db, space_id, session.user_id).await?;
 
     let mut out = Vec::new();
     for channel in all {
@@ -189,7 +192,7 @@ pub async fn list_channels(
         let membership = channel_members::Entity::find_by_id((channel.id, session.user_id))
             .one(&state.db)
             .await?;
-        if channel.channel_type == "private" && membership.is_none() {
+        if (channel.channel_type == "private" || explicit_only) && membership.is_none() {
             continue;
         }
         let favorite = membership.as_ref().map(|m| m.favorite).unwrap_or(false);
@@ -227,8 +230,12 @@ pub async fn list_members(
 ) -> Result<Json<Vec<MemberDto>>, ApiError> {
     ensure_space_member(&state.db, space_id, session.user_id).await?;
 
+    // Everyone, or for a guest only the people they share a conversation with: restricting what
+    // someone reads while handing them the directory would defeat the point of the role.
+    let visible = super::authz::visible_member_ids(&state.db, space_id, session.user_id).await?;
     let memberships = space_members::Entity::find()
         .filter(space_members::Column::SpaceId.eq(space_id))
+        .filter(space_members::Column::UserId.is_in(visible))
         .all(&state.db)
         .await?;
     let ids: Vec<Uuid> = memberships.iter().map(|m| m.user_id).collect();
@@ -350,10 +357,20 @@ pub async fn create_dm(
             "a direct message needs another participant",
         ));
     }
-    // Every participant must belong to the space.
+    // Every participant must belong to the space, and must be someone the caller may address: a
+    // guest writes to the people they already share a conversation with, not to anyone whose id they
+    // can guess.
+    let addressable: BTreeSet<Uuid> =
+        super::authz::visible_member_ids(&state.db, space_id, session.user_id)
+            .await?
+            .into_iter()
+            .collect();
     for user_id in &participants {
         if !is_space_member(&state.db, space_id, *user_id).await? {
             return Err(ApiError::BadRequest("a participant is not in this space"));
+        }
+        if !addressable.contains(user_id) {
+            return Err(ApiError::Forbidden);
         }
     }
 

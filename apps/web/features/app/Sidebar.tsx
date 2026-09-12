@@ -256,6 +256,12 @@ export type SidebarProps = {
   onNotify: (toast: Toast) => void;
   onInvite: () => void;
   onNewChannel: () => void;
+  /**
+   * Whether the caller reaches the space at large: its files, a new channel, an invitation. False
+   * for a guest, who is in the space only through the conversations they were added to. The API
+   * refuses all three either way; this keeps the column from offering them.
+   */
+  canBrowseSpace: boolean;
   onNewMessage: () => void;
   /** Pin or unpin a channel in the caller's own sidebar. */
   onToggleFavorite: (id: string) => void;
@@ -300,6 +306,7 @@ export function Sidebar({
   onNotify,
   onInvite,
   onNewChannel,
+  canBrowseSpace,
   onNewMessage,
   onToggleFavorite,
   onGlobalSearch,
@@ -396,9 +403,13 @@ export function Sidebar({
               onClose={() => setWsMenu(false)}
               items={[
                 { type: "label", label: workspace?.name ?? t("sidebar.space") },
-                { icon: "user-plus", label: t("sidebar.invitePeople"), onClick: onInvite },
+                ...(canBrowseSpace
+                  ? [{ icon: "user-plus", label: t("sidebar.invitePeople"), onClick: onInvite }]
+                  : []),
                 { icon: "settings", label: t("sidebar.spaceSettings"), onClick: () => onView("settings") },
-                { icon: "hard-drive", label: t("sidebar.spaceFiles"), onClick: () => onView("files") },
+                ...(canBrowseSpace
+                  ? [{ icon: "hard-drive", label: t("sidebar.spaceFiles"), onClick: () => onView("files") }]
+                  : []),
                 { type: "separator" },
                 { icon: "log-out", label: t("space.leave"), danger: true, onClick: onLeaveSpace },
               ]}
@@ -454,7 +465,9 @@ export function Sidebar({
           <>
             <SideItem icon="inbox" label={t("sidebar.threads")} active={view === "threads"} onClick={() => onView("threads")} />
             <SideItem icon="at-sign" label={t("activity.mentions")} active={view === "mentions"} unread={mentionCount} onClick={() => onView("mentions")} />
-            <SideItem icon="hard-drive" label={t("sidebar.spaceFiles")} active={view === "files"} onClick={() => onView("files")} />
+            {canBrowseSpace ? (
+              <SideItem icon="hard-drive" label={t("sidebar.spaceFiles")} active={view === "files"} onClick={() => onView("files")} />
+            ) : null}
             <SideItem icon="bookmark" label={t("activity.saved")} active={view === "saved"} onClick={() => onView("saved")} />
           </>
         ) : null}
@@ -492,13 +505,15 @@ export function Sidebar({
 
             <div style={styles.sect}>
               {t("tabs.channels")}
-              <button
-                onClick={onNewChannel}
-                aria-label={t("sidebar.newChannel")}
-                style={{ border: 0, background: "none", padding: 0, cursor: "pointer", color: "var(--text-subtle)", display: "flex" }}
-              >
-                <Icon name="plus" size={13} />
-              </button>
+              {canBrowseSpace ? (
+                <button
+                  onClick={onNewChannel}
+                  aria-label={t("sidebar.newChannel")}
+                  style={{ border: 0, background: "none", padding: 0, cursor: "pointer", color: "var(--text-subtle)", display: "flex" }}
+                >
+                  <Icon name="plus" size={13} />
+                </button>
+              ) : null}
             </div>
             {channels.every((c) => c.fav) ? (
               // Favouriting the only channel of a space emptied this section, which then read as a
