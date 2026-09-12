@@ -38,24 +38,21 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 };
 
 /**
- * A flag per language, for the language menu.
+ * A language's name in the reader's own language: "polonais" for a French reader, "Polish" for an
+ * English one.
  *
- * A flag is a country and a language is not, which is a real objection: English is not the United
- * Kingdom's, Spanish is spoken by far more people outside Spain than in it, and German is also
- * Austria's and Switzerland's. They are here because a row of flags is scanned in an instant where a
- * column of words has to be read, and because the name in its own language sits next to each one and
- * carries the actual meaning. The flag is the icon; the endonym is the label.
- *
- * Typed against `Locale`, so a seventh language cannot be added without choosing one.
+ * `Intl.DisplayNames` carries these, so there is no seventh dictionary to keep in step, and it knows
+ * far more languages than the six this product is translated into: a profile can say what someone
+ * reads even if Ruchoir does not speak it. Falls back to the tag itself where the browser has no
+ * answer, which is better than an empty row.
  */
-export const LOCALE_FLAGS: Record<Locale, string> = {
-  fr: "🇫🇷",
-  en: "🇬🇧",
-  es: "🇪🇸",
-  de: "🇩🇪",
-  it: "🇮🇹",
-  pl: "🇵🇱",
-};
+export function languageName(tag: string, readIn: string): string {
+  try {
+    return new Intl.DisplayNames([readIn], { type: "language" }).of(tag) ?? tag;
+  } catch {
+    return tag;
+  }
+}
 
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as string[]).includes(value);

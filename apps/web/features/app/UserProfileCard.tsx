@@ -6,6 +6,7 @@ import { presenceLabel } from "./presence";
 import { useProfile } from "./useProfile";
 import { useLocalTime } from "./useLocalTime";
 import { useTranslation } from "@/lib/i18n";
+import { languageName } from "@/lib/i18n/config";
 
 const card: CSSProperties = {
   width: 280,
@@ -39,7 +40,7 @@ export type UserProfileCardProps = {
 export function UserProfileCard({ name, userId, presence, onViewFull, onEditProfile, onMessage }: UserProfileCardProps) {
   const p = useProfile(userId, name);
   const dot = presence ?? p.presence;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const localTime = useLocalTime(p.timezone);
   const isOwn = name === getCurrentUser().name;
   return (
@@ -83,6 +84,13 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
             <div style={{ ...row, minWidth: 0 }}>
               <Icon name="at-sign" size={14} />
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
+            </div>
+          ) : null}
+          {/* The language they read, named in the reader's own. Worth knowing before writing. */}
+          {p.locale ? (
+            <div style={row}>
+              <Icon name="message-square" size={14} />
+              {languageName(p.locale, i18n.language)}
             </div>
           ) : null}
         </div>

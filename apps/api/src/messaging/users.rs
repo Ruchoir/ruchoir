@@ -56,6 +56,7 @@ fn profile_of(user: users::Model, show_admin: bool) -> UserProfileDto {
         pronouns: user.pronouns,
         timezone: user.timezone,
         bio: user.bio,
+        locale: user.locale.clone(),
         is_bot: user.is_bot,
         is_instance_admin: user.is_instance_admin && show_admin,
         avatar_url,

@@ -131,6 +131,8 @@ export type Profile = {
    * from this with `useLocalTime`, which keeps it current while it is on screen.
    */
   timezone?: string;
+  /** The language they read the interface in, as a tag; absent when they have not chosen one. */
+  locale?: string;
   pronouns?: string;
   bio?: string;
   bot?: boolean;

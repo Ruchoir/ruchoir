@@ -141,6 +141,7 @@ type UserProfileDto = {
   pronouns?: string;
   timezone?: string;
   bio?: string;
+  locale?: string;
   is_bot: boolean;
   is_instance_admin?: boolean;
 };
@@ -875,6 +876,7 @@ export async function getUserProfile(userId: string, signal?: AbortSignal): Prom
     pronouns: dto.pronouns,
     bio: dto.bio,
     bot: dto.is_bot || undefined,
+    locale: dto.locale,
     instanceAdmin: dto.is_instance_admin || undefined,
     avatarUrl: dto.avatar_url,
   };

@@ -20,6 +20,8 @@ export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps, EmptyStateSize } from "./EmptyState";
 export { Field } from "./Field";
 export type { FieldProps } from "./Field";
+export { Flag } from "./Flag";
+export type { FlagCode } from "./Flag";
 export { Icon } from "./Icon";
 export type { IconName, IconProps } from "./Icon";
 export { IconButton } from "./IconButton";

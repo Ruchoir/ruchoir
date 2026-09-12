@@ -12,6 +12,7 @@ import { useLocalTime } from "../app/useLocalTime";
 import { presenceLabel } from "../app/presence";
 import type { Toast } from "../app/types";
 import { useTranslation } from "@/lib/i18n";
+import { languageName } from "@/lib/i18n/config";
 
 /**
  * The timezones offered in the profile form.
@@ -134,7 +135,7 @@ export function ProfilePanel({
   }, [userId]);
   const p = fetched ?? minimalProfile(name);
   const shownPresence = presence ?? p.presence;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Derived here and kept ticking: a profile left open for twenty minutes used to show a time
   // twenty minutes wrong, which is worse than showing none because it is precise.
   const localTime = useLocalTime(p.timezone);
@@ -359,6 +360,9 @@ export function ProfilePanel({
                   those of people who had never been asked. */}
               {localTime ? <Field icon="clock">{localTime} heure locale</Field> : null}
               {p.timezone ? <Field icon="globe">{p.timezone}</Field> : null}
+              {/* Their reading language, named in the reader's own: useful to know before writing
+                  to someone, and the one thing on this card that is about how to reach them. */}
+              {p.locale ? <Field icon="message-square">{languageName(p.locale, i18n.language)}</Field> : null}
             </div>
           </>
         )}

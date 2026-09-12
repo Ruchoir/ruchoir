@@ -5,8 +5,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, Field, Icon, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
 import { updateMyProfile } from "@/lib/data/api";
-import { isLocale, LOCALE_FLAGS, LOCALE_NAMES } from "@/lib/i18n/config";
-import { AVAILABLE_LOCALES, useTranslation } from "@/lib/i18n";
+import { useTranslation } from "@/lib/i18n";
+import { LanguagePicker } from "./LanguagePicker";
 import { Emoji } from "./Emoji";
 import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
 import {
@@ -624,10 +624,9 @@ export function PreferencesScreen({
 
                 <div style={st.sect}>{t("language.section")}</div>
                 <Row title={t("language.title")} desc={t("language.description")}>
-                  <Select
-                    value={s.locale ?? ""}
-                    onChange={(e) => {
-                      const next = isLocale(e.target.value) ? e.target.value : null;
+                  <LanguagePicker
+                    value={s.locale}
+                    onChange={(next) => {
                       s.set("locale", next);
                       // Told to the server too, because the server writes: confirmations, password
                       // resets and invitations are the half of the product a browser preference
@@ -637,15 +636,6 @@ export function PreferencesScreen({
                         // it is not worth an error in the middle of a preferences screen.
                       });
                     }}
-                    options={[
-                      { value: "", label: t("language.automatic") },
-                      // Each language names itself, behind its flag: a menu that listed them in
-                      // French would be unreadable to exactly the person who needs it.
-                      ...AVAILABLE_LOCALES.map((code) => ({
-                        value: code,
-                        label: `${LOCALE_FLAGS[code]}  ${LOCALE_NAMES[code]}`,
-                      })),
-                    ]}
                   />
                 </Row>
 

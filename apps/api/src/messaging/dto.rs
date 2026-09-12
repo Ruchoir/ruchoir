@@ -186,6 +186,13 @@ pub struct UserProfileDto {
     pub timezone: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bio: Option<String>,
+    /// Interface language (`fr`, `en`, ...), or absent when they have not chosen one.
+    ///
+    /// On the profile for the same reason the timezone is: it says something about working with
+    /// this person. Nothing else reads it, and it is the language *they* read, not one to write to
+    /// them in from the interface.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
     /// Whether this is a service account (e.g. the import assistant).
     pub is_bot: bool,
     /// Whether this person administers the instance.
