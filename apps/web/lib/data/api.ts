@@ -1312,16 +1312,54 @@ export type RealtimeHandlers = {
 /** A live realtime connection: close it on teardown, and signal typing over it. */
 export type RealtimeConnection = { close: () => void; sendTyping: (conversationId: string) => void };
 
+/** Every event the server names. Needed by name because `EventSource` only routes named events. */
+const REALTIME_EVENTS = [
+  "message.created",
+  "message.updated",
+  "message.deleted",
+  "message.pinned",
+  "message.unpinned",
+  "message.saved",
+  "message.unsaved",
+  "reaction.added",
+  "reaction.removed",
+  "channel.created",
+  "channel.updated",
+  "member.joined",
+  "member.updated",
+  "space.updated",
+  "presence",
+  "notification.created",
+  "typing",
+  "read.updated",
+] as const;
+
+/** How many failed WebSocket attempts, none of which ever opened, before falling back to SSE. */
+const WS_ATTEMPTS_BEFORE_SSE = 2;
+
 /**
- * Open the realtime WebSocket and dispatch decoded events to `handlers`. The socket authenticates
- * from the same-origin session cookie on the upgrade (no token), reconnects with a capped backoff
- * after an unexpected close, and sends a periodic ping so a quiet connection stays counted as online.
- * All mutations still go through REST; this socket only receives pushes and sends typing/ping.
+ * Open the realtime channel and dispatch decoded events to `handlers`.
+ *
+ * A WebSocket first: it carries both directions, so typing and the keep-alive travel on the same
+ * connection. It authenticates from the same-origin session cookie on the upgrade (no token) and
+ * reconnects with a capped backoff after an unexpected close.
+ *
+ * **Server-sent events when that never opens.** Some corporate proxies pass ordinary HTTP and drop
+ * the upgrade, and Ruchoir is aimed squarely at organisations that sit behind such things: the
+ * fallback exists in the API and was, until now, offered to nobody. It is one-way, so typing goes
+ * over `POST /realtime/typing` instead, and presence is kept by a server-side timer rather than by
+ * pings. The switch is made only after the socket has failed without ever opening: a connection
+ * that opens and later drops is a network blip, and downgrading on one of those would leave a
+ * client on the weaker transport for the rest of its session.
+ *
+ * All mutations still go through REST either way; this only receives.
  */
 export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection {
   let socket: WebSocket | null = null;
+  let events: EventSource | null = null;
   let closed = false;
   let reconnectDelay = 1000;
+  let failedAttempts = 0;
   let pingTimer: ReturnType<typeof setInterval> | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -1425,6 +1463,13 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
 
   const connect = () => {
     if (closed) return;
+    // A way to reach the fallback on purpose. Without it the only way to see the SSE path is to be
+    // behind a proxy that blocks the upgrade, which is exactly the situation nobody developing the
+    // product is in, and is how a fallback rots unnoticed.
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("transport") === "sse") {
+      startEvents();
+      return;
+    }
     let ws: WebSocket;
     try {
       ws = new WebSocket(url());
@@ -1435,6 +1480,7 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
     socket = ws;
     ws.onopen = () => {
       reconnectDelay = 1000;
+      failedAttempts = 0;
       pingTimer = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
       }, 25000);
@@ -1446,13 +1492,46 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         // Ignore an unparseable frame rather than tearing the connection down.
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (event) => {
       clearInterval(pingTimer);
-      if (!closed) scheduleReconnect();
+      if (closed) return;
+      // `wasClean` is false for a handshake a proxy refused, and true for a socket that lived and
+      // then ended. Only the first kind counts towards giving up on WebSocket.
+      if (!event.wasClean) failedAttempts += 1;
+      if (failedAttempts >= WS_ATTEMPTS_BEFORE_SSE) {
+        startEvents();
+        return;
+      }
+      scheduleReconnect();
     };
     ws.onerror = () => {
       // The close handler drives reconnection; nothing extra to do here.
     };
+  };
+
+  /**
+   * The one-way fallback. `EventSource` reconnects on its own, so there is no backoff to write
+   * here; what it cannot do is tell us the response was a 401, which is why a closed connection
+   * that never delivers is left to the session check on the next navigation.
+   */
+  const startEvents = () => {
+    if (closed || events) return;
+    socket = null;
+    try {
+      events = new EventSource("/api/v1/realtime/sse", { withCredentials: true });
+    } catch {
+      scheduleReconnect();
+      return;
+    }
+    for (const name of REALTIME_EVENTS) {
+      events.addEventListener(name, (event) => {
+        try {
+          dispatch(JSON.parse((event as MessageEvent<string>).data) as RealtimeEnvelope);
+        } catch {
+          // Same as on the socket: an unparseable frame is dropped, not fatal.
+        }
+      });
+    }
   };
 
   const scheduleReconnect = () => {
@@ -1469,10 +1548,18 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       clearInterval(pingTimer);
       clearTimeout(reconnectTimer);
       socket?.close();
+      events?.close();
+      events = null;
     },
     sendTyping: (conversationId: string) => {
       if (socket?.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: "typing", conversation_id: conversationId }));
+        return;
+      }
+      // Nothing travels up an event stream, so on the fallback this is a request. Best-effort, as
+      // it is on the socket: a typing signal nobody receives is not worth reporting.
+      if (events) {
+        void apiPost<void>("/realtime/typing", { conversation_id: conversationId }).catch(() => {});
       }
     },
   };
