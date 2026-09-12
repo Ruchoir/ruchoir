@@ -210,6 +210,29 @@ fn looks_like_timezone(value: &str) -> bool {
     })
 }
 
+/// Whether a string is shaped like an IANA timezone name (`Europe/Paris`, `America/Argentina/Salta`,
+/// or a bare `UTC`).
+///
+/// Shape only, not existence: checking that a zone is real would mean carrying the tz database in
+/// the API, and the real list belongs to the client anyway, where the browser already holds it
+/// (`Intl.supportedValuesOf("timeZone")`) and offers it as a list to choose from. What this stops is
+/// free text landing in a field the interface renders as somebody's working hours.
+fn looks_like_timezone(value: &str) -> bool {
+    if value.len() > 64 {
+        return false;
+    }
+    let segments: Vec<&str> = value.split('/').collect();
+    if segments.is_empty() || segments.len() > 3 {
+        return false;
+    }
+    segments.iter().all(|segment| {
+        !segment.is_empty()
+            && segment
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '+')
+    })
+}
+
 /// Whether two users belong to at least one common space.
 async fn shares_a_space(db: &DatabaseConnection, a: Uuid, b: Uuid) -> Result<bool, ApiError> {
     let spaces_of = |user: Uuid| async move {
