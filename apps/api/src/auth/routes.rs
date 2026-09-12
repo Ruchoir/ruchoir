@@ -77,6 +77,15 @@ pub struct PasswordResetConfirm {
     pub password: String,
 }
 
+/// Reset a password with a recovery code instead of an emailed link.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct RecoveryResetRequest {
+    pub email: String,
+    /// One unused recovery code, as it was shown when the set was generated.
+    pub code: String,
+    pub password: String,
+}
+
 /// TOTP enrollment material returned to the client to display.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct TotpEnrollResponse {
@@ -190,6 +199,9 @@ pub struct UserSummary {
     /// one in force, and it has no other way to know.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manual_presence: Option<String>,
+    /// Whether this account administers the instance. Carried so the client knows whether to offer
+    /// the account-recovery screen; the routes behind it check the flag themselves.
+    pub is_instance_admin: bool,
 }
 
 impl From<users::Model> for UserSummary {
@@ -200,6 +212,7 @@ impl From<users::Model> for UserSummary {
             email: model.email,
             display_name: model.display_name,
             manual_presence: model.manual_presence,
+            is_instance_admin: model.is_instance_admin,
         }
     }
 }
@@ -216,6 +229,7 @@ pub fn router() -> Router<AppState> {
         .route("/verify-email/confirm", post(verify_email_confirm))
         .route("/password-reset/request", post(password_reset_request))
         .route("/password-reset/confirm", post(password_reset_confirm))
+        .route("/password-reset/recovery", post(password_reset_recovery))
         .route("/mfa", get(mfa_state))
         .route("/password", post(change_password))
         .route("/mfa/totp/disable", post(totp_disable))
@@ -294,6 +308,9 @@ pub async fn register(
         password_hash: Set(Some(password_hash)),
         status: Set(if invited { "active" } else { "pending" }.to_string()),
         mfa_enforced: Set(false),
+        // Registration never mints an administrator: the flag is set at the console, by the
+        // `bootstrap` subcommand, on the first account of the instance.
+        is_instance_admin: Set(false),
         // Profile fields: unset at registration, filled in later via profile editing.
         title: NotSet,
         pronouns: NotSet,
@@ -613,6 +630,100 @@ pub async fn password_reset_confirm(
         .map_err(|_| AuthError::Internal)?;
 
     // A password change invalidates every existing session.
+    session::delete_all(&state.valkey, user_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Reset a password with a recovery code, for an instance that cannot send email.
+///
+/// The recovery code *is* the proof of possession: it was shown once, noted by its owner, and is
+/// good for a single use. Minting an intermediate reset token from it would add a round trip and
+/// nothing else, so the new password is set in the same request.
+///
+/// Every failure answers the same way, whether the address is unknown, the account has no password,
+/// or the code is wrong: the caller learns only that it did not work. Failures feed the same
+/// per-address cooldown as sign-in, because a guessing endpoint without one would be the weakest
+/// door into the instance even with codes this long.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/password-reset/recovery",
+    tag = "auth",
+    request_body = RecoveryResetRequest,
+    responses(
+        (status = 204, description = "Password changed and the code spent"),
+        (status = 400, description = "Unknown address or incorrect code"),
+        (status = 422, description = "Password does not meet requirements"),
+        (status = 429, description = "Too many attempts")
+    )
+)]
+pub async fn password_reset_recovery(
+    State(state): State<AppState>,
+    Json(body): Json<RecoveryResetRequest>,
+) -> Result<StatusCode, AuthError> {
+    let email = body.email.trim().to_lowercase();
+
+    if throttle::is_locked(&state.valkey, &email).await? {
+        return Err(AuthError::TooManyAttempts);
+    }
+
+    // Validate the password before spending a code: a rejected password must not cost the caller
+    // one of the ten they hold.
+    password::check_policy(&body.password, &state.breaches)?;
+
+    let user = users::Entity::find()
+        .filter(users::Column::Email.eq(email.clone()))
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    // A password-less account (a future OIDC-only one) has nothing to reset. Treated as a failure
+    // like any other so the answer stays uniform.
+    let user = match user {
+        Some(user) if user.password_hash.is_some() => user,
+        _ => {
+            throttle::record_failure(&state.valkey, &state.config, &email).await?;
+            return Err(AuthError::InvalidCode);
+        }
+    };
+
+    // The code is looked up by its HMAC digest and scoped to this account, so a code belonging to
+    // someone else cannot open this one.
+    let hash = recovery::hash_code(&state.secret_key, &body.code);
+    let row = recovery_codes::Entity::find()
+        .filter(recovery_codes::Column::UserId.eq(user.id))
+        .filter(recovery_codes::Column::CodeHash.eq(hash))
+        .filter(recovery_codes::Column::UsedAt.is_null())
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    let Some(row) = row else {
+        throttle::record_failure(&state.valkey, &state.config, &email).await?;
+        return Err(AuthError::InvalidCode);
+    };
+
+    // Spend the code first: if the password update failed afterwards the caller can try again with
+    // another code, whereas the reverse order would leave a spent password change behind a code
+    // still advertised as unused.
+    let mut spent = row.into_active_model();
+    spent.used_at = Set(Some(OffsetDateTime::now_utc()));
+    spent
+        .update(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    let new_hash = password::hash_password(&state.config, &body.password)?;
+    let user_id = user.id;
+    let mut active = user.into_active_model();
+    active.password_hash = Set(Some(new_hash));
+    active.updated_at = Set(OffsetDateTime::now_utc());
+    active
+        .update(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    throttle::record_success(&state.valkey, &email).await?;
+    // Whoever knew the old password is no longer the only claimant: as with any password change,
+    // every existing session goes.
     session::delete_all(&state.valkey, user_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

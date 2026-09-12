@@ -36,6 +36,12 @@ use utoipa::OpenApi;
         crate::auth::routes::totp_verify,
         crate::auth::routes::recovery_verify,
         crate::auth::routes::oidc_providers,
+        crate::auth::routes::password_reset_recovery,
+        crate::http::instance_capabilities,
+        crate::admin::search_users,
+        crate::admin::issue_password_reset,
+        crate::admin::read_settings,
+        crate::admin::update_settings,
         crate::messaging::messages::list_messages,
         crate::messaging::messages::list_replies,
         crate::messaging::messages::send_message,
@@ -108,6 +114,12 @@ use utoipa::OpenApi;
         crate::http::Health,
         crate::http::ApiHealth,
         crate::auth::routes::RegisterRequest,
+        crate::auth::routes::RecoveryResetRequest,
+        crate::http::InstanceCapabilities,
+        crate::admin::AdminUserDto,
+        crate::admin::IssuedResetDto,
+        crate::admin::InstanceSettingsDto,
+        crate::admin::InstanceSettingsPatch,
         crate::auth::routes::LoginRequest,
         crate::auth::routes::UserSummary,
         crate::auth::routes::MfaStateResponse,
@@ -175,7 +187,8 @@ use utoipa::OpenApi;
         (name = "auth", description = "Registration, login, sessions"),
         (name = "messaging", description = "Channels, direct messages, messages, threads, reactions, pins, saved"),
         (name = "realtime", description = "WebSocket / SSE transport, typing and presence"),
-        (name = "files", description = "File tree, upload and versions, download, preview, thumbnails, shares")
+        (name = "files", description = "File tree, upload and versions, download, preview, thumbnails, shares"),
+        (name = "admin", description = "Instance administration: account lookup and recovery")
     )
 )]
 pub struct ApiDoc;

@@ -37,7 +37,13 @@ fn clean(value: String) -> Option<String> {
 }
 
 /// Build the profile DTO from a user row.
-fn profile_of(user: users::Model) -> UserProfileDto {
+///
+/// `show_admin` decides whether the instance-administrator badge is carried. It is a setting of the
+/// instance: on by default, because an account recovered without a mail relay is recovered by
+/// asking an administrator, and turned off by an instance that would rather not point at anyone.
+/// Administrators still see each other, so turning it off never leaves them unable to find one
+/// another.
+fn profile_of(user: users::Model, show_admin: bool) -> UserProfileDto {
     let avatar_url = user
         .avatar_key
         .as_deref()
@@ -51,6 +57,7 @@ fn profile_of(user: users::Model) -> UserProfileDto {
         timezone: user.timezone,
         bio: user.bio,
         is_bot: user.is_bot,
+        is_instance_admin: user.is_instance_admin && show_admin,
         avatar_url,
     }
 }
@@ -109,7 +116,16 @@ pub async fn get_user_profile(
         .await?
         .ok_or(ApiError::Forbidden)?;
 
-    Ok(Json(profile_of(user)))
+    // Administrators are shown to each other whatever the setting says: the setting is about what
+    // the instance advertises to its members, not about hiding colleagues from one another.
+    let caller_is_admin = session.user_id == user.id && user.is_instance_admin;
+    let show_admin = caller_is_admin
+        || crate::admin::instance_settings(&state.db)
+            .await?
+            .show_instance_admins
+        || is_instance_admin(&state.db, session.user_id).await?;
+
+    Ok(Json(profile_of(user, show_admin)))
 }
 
 /// `PATCH /api/v1/users/me`: update the caller's own profile fields.
@@ -148,7 +164,18 @@ pub async fn update_my_profile(
     active.updated_at = Set(OffsetDateTime::now_utc());
     let updated = active.update(&state.db).await?;
     broadcast_profile_change(&state, &updated).await;
-    Ok(Json(profile_of(updated)))
+    // Their own profile: they know whether they administer the instance, so the setting has nothing
+    // to hide from them here.
+    Ok(Json(profile_of(updated, true)))
+}
+
+/// Whether an account administers the instance. Used to decide what a caller is shown, never what
+/// they may do; the administration routes check the flag themselves.
+async fn is_instance_admin(db: &DatabaseConnection, user_id: Uuid) -> Result<bool, ApiError> {
+    Ok(users::Entity::find_by_id(user_id)
+        .one(db)
+        .await?
+        .is_some_and(|user| user.is_instance_admin))
 }
 
 /// Whether two users belong to at least one common space.

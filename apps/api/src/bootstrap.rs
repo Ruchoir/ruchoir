@@ -77,6 +77,10 @@ pub async fn run(db: &DatabaseConnection, config: &Config) -> Result<(), Failure
         // only account cannot sign in is the situation this command exists to prevent.
         status: Set("active".to_owned()),
         mfa_enforced: Set(false),
+        // The instance administrator: the one account that can hand an access back to someone
+        // locked out of theirs. Nothing in the running server grants this, so if it is not set
+        // here an instance without a mail relay has no way out of a forgotten password.
+        is_instance_admin: Set(true),
         title: NotSet,
         pronouns: NotSet,
         timezone: NotSet,
