@@ -190,6 +190,13 @@ pub struct UserSummary {
     /// one in force, and it has no other way to know.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manual_presence: Option<String>,
+    /// The account's timezone, or absent when it has none.
+    ///
+    /// Carried on the session so the client can notice an account that has never had one and offer
+    /// the browser's, which is a fact about where this person is rather than a guess. Without it
+    /// the profile card had a "local time" row that nobody could ever fill.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
 }
 
 impl From<users::Model> for UserSummary {
@@ -200,6 +207,7 @@ impl From<users::Model> for UserSummary {
             email: model.email,
             display_name: model.display_name,
             manual_presence: model.manual_presence,
+            timezone: model.timezone,
         }
     }
 }

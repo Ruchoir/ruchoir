@@ -22,6 +22,7 @@ import {
   getNotifications,
   getReadCursors,
   getSavedMessages,
+  adoptBrowserTimezone,
   getSession,
   getSpaceMembers,
   getSpacePresence,
@@ -720,6 +721,9 @@ function AppShell() {
         if (!active) return;
         setSession(user);
         setMyChoice(user.presenceChoice);
+        // An account that has never had a timezone gets the browser's, once. Everything that shows
+        // a local time depended on a column nothing could write, so it showed nothing.
+        void adoptBrowserTimezone(user.timezone);
         await loadInitialData();
         if (!active) return;
         // By now the preferences have loaded (their effect runs on mount, well before this awaits

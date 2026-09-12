@@ -209,10 +209,11 @@ export function ProfilePanel({
       </div>
       <div style={styles.scroll}>
         <div style={styles.hero}>
-          {/* Your own photo is changed by clicking the photo. The form below used to carry a second,
-              smaller copy of it with the buttons, so the screen showed the same picture twice and
-              the obvious target did nothing. */}
-          {isOwn ? (
+          {/* While editing, the photo is the control: clicking it picks a new one. Outside editing it
+              is just a photo, like everyone else's. The form below used to carry a second, smaller
+              copy of it with its own buttons, so the screen showed the same picture twice and the
+              obvious target did nothing. */}
+          {isOwn && editing ? (
             <button
               type="button"
               onClick={() => photoRef.current?.click()}
@@ -238,7 +239,7 @@ export function ProfilePanel({
                   border: "1px solid var(--border-default)",
                 }}
               >
-                <Icon name={photoBusy ? "clock" : "image"} size={14} style={{ color: "var(--text-muted)" }} />
+                <Icon name={photoBusy ? "clock" : "square-pen"} size={14} style={{ color: "var(--text-muted)" }} />
               </span>
             </button>
           ) : (

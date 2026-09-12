@@ -49,6 +49,7 @@ type UserSummaryDto = {
   active: boolean;
   /** The caller's own availability choice; absent means automatic. Never sent for anyone else. */
   manual_presence?: string;
+  timezone?: string;
 };
 
 /** Alternative login outcome when a second factor is required (same 200 status as a success). */
@@ -142,7 +143,14 @@ type UserProfileDto = {
 // --- Session / auth ---
 
 /** The signed-in user in the shape the app shell holds it. */
-export type SessionUser = { id: string; email: string; name: string; presenceChoice: PresenceChoice };
+export type SessionUser = {
+  id: string;
+  email: string;
+  name: string;
+  presenceChoice: PresenceChoice;
+  /** The account's timezone; absent when it has never had one. */
+  timezone?: string;
+};
 
 /** Outcome of a login attempt: authenticated, or challenged for a second factor. */
 export type LoginResult =
@@ -155,7 +163,35 @@ function toSessionUser(dto: UserSummaryDto): SessionUser {
     email: dto.email,
     name: dto.display_name,
     presenceChoice: toPresenceChoice(dto.manual_presence),
+    timezone: dto.timezone,
   };
+}
+
+/**
+ * Give an account the browser's timezone when it has none.
+ *
+ * The profile card shows a local time, and until now nothing could ever fill it: the column was
+ * writable by nobody, so every profile said "Europe/Paris" (invented) or, once that was removed,
+ * nothing at all. The browser knows where its reader is, and that is a fact rather than a guess, so
+ * an account that has never had one is given it, once, silently. It stays editable, and a second
+ * device does not overwrite the choice, since this only ever fires on an empty value.
+ */
+export async function adoptBrowserTimezone(current?: string): Promise<string | undefined> {
+  if (current) return current;
+  let detected: string | undefined;
+  try {
+    detected = Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+  if (!detected) return undefined;
+  try {
+    await updateMyProfile({ timezone: detected });
+    return detected;
+  } catch {
+    // Not worth surfacing: the interface is unaffected, and the next sign-in tries again.
+    return undefined;
+  }
 }
 
 /** The stored override as the menu names it. Absent, empty or unknown all mean automatic. */
