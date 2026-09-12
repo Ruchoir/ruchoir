@@ -3,7 +3,7 @@
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
 import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
 import { getAvatar, getChannelMembers } from "@/lib/data";
-import { getPinnedMessages } from "@/lib/data/api";
+import { getConversationFiles, getPinnedMessages } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { useProfile } from "../app/useProfile";
@@ -232,7 +232,7 @@ export type ChannelScreenProps = {
   /** Display names currently typing in this conversation. */
   typingNames?: string[];
   /** The space's members with live presence and uploaded avatar (member list + message rows). */
-  members: { name: string; presence: Presence; bot?: boolean; avatar?: string }[];
+  members: { userId: string; name: string; presence: Presence; bot?: boolean; avatar?: string }[];
   /** Who has read each message, by display name, keyed by message id. */
   readBy: Record<string, string[]>;
   /** How many people other than the reader are in this conversation, for "everyone". */
@@ -336,6 +336,32 @@ export function ChannelScreen({
   // list on the spot rather than showing the previous channel's pins until the fetch returns.
   const [fetchedPins, setFetchedPins] = useState<{ channelId: string; rows: Message[] } | null>(null);
   const pinCount = derivedPins.length;
+
+  /**
+   * The files shared in this conversation, for the file panel.
+   *
+   * The panel used to be handed the space's whole tree under the title "Fichiers du canal": every
+   * file anyone had uploaded anywhere in the space, in a panel opened to ask what was shared here.
+   * Stamped with its conversation, like the pins, so switching channels shows nothing rather than
+   * the previous one's files while the request is in flight.
+   */
+  const [conversationFiles, setConversationFiles] = useState<{ channelId: string; rows: SpaceFile[] } | null>(null);
+  useEffect(() => {
+    if (panel !== "files") return;
+    let active = true;
+    const id = channel.id;
+    getConversationFiles(id)
+      .then((rows) => active && setConversationFiles({ channelId: id, rows }))
+      .catch(() => {
+        // Left as "nothing shared yet" rather than falling back to the space tree, which is the
+        // wrong answer this is fixing.
+      });
+    return () => {
+      active = false;
+    };
+  }, [panel, channel.id, messages.length]);
+  const panelFiles = conversationFiles?.channelId === channel.id ? conversationFiles.rows : [];
+
   useEffect(() => {
     if (panel !== "pinned") return;
     let active = true;
@@ -416,7 +442,7 @@ export function ChannelScreen({
   ) : panel ? (
     <SidePanel
       kind={panel}
-      files={files}
+      files={panelFiles}
       members={memberList}
       pinned={pinned}
       highlightFile={highlightFile}
@@ -672,7 +698,13 @@ export function ChannelScreen({
         />
       ) : null}
       {menuDialog === "addpeople" ? (
-        <AddPeopleDialog channelName={channel.name} people={getChannelMembers()} onClose={() => setMenuDialog(null)} onNotify={onNotify} />
+        <AddPeopleDialog
+          channelId={channel.id}
+          channelName={channel.name}
+          people={members.map((m) => ({ userId: m.userId, name: m.name, presence: m.presence, bot: m.bot, avatarUrl: m.avatar }))}
+          onClose={() => setMenuDialog(null)}
+          onNotify={onNotify}
+        />
       ) : null}
       {menuDialog === "leave" ? (
         <LeaveChannelDialog

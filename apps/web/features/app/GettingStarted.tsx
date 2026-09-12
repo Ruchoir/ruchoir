@@ -11,7 +11,9 @@ export const GETTING_STARTED_STEPS: GettingStartedStep[] = [
   { id: "channel", icon: "hash", label: "Créez un canal", desc: "Organisez les échanges par sujet." },
   { id: "message", icon: "send", label: "Envoyez un premier message", desc: "Dites bonjour dans un canal." },
   { id: "invite", icon: "user-plus", label: "Invitez votre équipe", desc: "Ruchoir prend tout son sens à plusieurs." },
-  { id: "import", icon: "import", label: "Importez vos historiques", desc: "Depuis Slack, Mattermost ou Nextcloud." },
+  // The import step is deliberately absent until an importer exists: a first-run checklist that
+  // asks for something the product cannot do is the worst place to make that promise. It comes back
+  // with the first real importer, alongside the sidebar entry.
 ];
 
 const st: Record<string, CSSProperties> = {

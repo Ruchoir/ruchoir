@@ -58,10 +58,14 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
             <span style={{ width: 8, height: 8, borderRadius: "var(--radius-full)", background: `var(--presence-${dot})` }} />
             {presenceLabel(dot)}
           </div>
-          <div style={row}>
-            <Icon name="clock" size={14} />
-            {p.localTime} heure locale
-          </div>
+          {/* Only when they chose a timezone: the card used to fall back to Europe/Paris and present
+              it as this person's local time, which is worse than saying nothing. */}
+          {p.localTime ? (
+            <div style={row}>
+              <Icon name="clock" size={14} />
+              {p.localTime} heure locale
+            </div>
+          ) : null}
           {p.email ? (
             <div style={{ ...row, minWidth: 0 }}>
               <Icon name="at-sign" size={14} />

@@ -194,6 +194,19 @@ pub struct UserProfileDto {
     pub avatar_url: Option<String>,
 }
 
+/// Who to add to a channel.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AddChannelMembersRequest {
+    /// Accounts to bring in. Anyone already in the channel is skipped rather than refused.
+    pub user_ids: Vec<Uuid>,
+}
+
+/// Who was actually added, which is the request minus whoever was already there.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct AddedMembersDto {
+    pub added: Vec<Uuid>,
+}
+
 /// A space member row: identity plus the caller-independent role in the space. Presence is overlaid
 /// client-side from the presence map, so it is not carried here.
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -263,6 +276,12 @@ pub struct UpdateProfileRequest {
     pub pronouns: Option<String>,
     #[serde(default)]
     pub bio: Option<String>,
+    /// IANA timezone (e.g. `Europe/Paris`), or blank to clear it.
+    ///
+    /// The column existed and was read by the profile card from the start, and nothing could ever
+    /// write it: every profile reported a timezone nobody had chosen.
+    #[serde(default)]
+    pub timezone: Option<String>,
 }
 
 // --- Search & notifications ---

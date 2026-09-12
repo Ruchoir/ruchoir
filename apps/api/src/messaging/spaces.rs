@@ -124,7 +124,6 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
     // `atelier-2`. Resolved inside the caller's transaction, and the unique index stays the real
     // guard.
     let slug = unique_slug(txn, &slugify(name)).await?;
-    remember_slug(txn, space_id, &slug).await?;
     spaces::ActiveModel {
         id: Set(space_id),
         name: Set(name.to_owned()),
@@ -136,6 +135,11 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
     }
     .insert(txn)
     .await?;
+    // The address is recorded after the space exists, not before: `space_slugs.space_id` points at
+    // `spaces.id` and the constraint is checked immediately, so the other order made every single
+    // space creation fail on a foreign key. It had gone unnoticed because the only two spaces on the
+    // instance predate the address history.
+    remember_slug(txn, space_id, &slug).await?;
     space_members::ActiveModel {
         space_id: Set(space_id),
         user_id: Set(owner),

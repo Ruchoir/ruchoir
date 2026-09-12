@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar, Button, Checkbox, Dialog, Field, Input, Radio, Select, Switch } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { getAvatar, getChannelMembers } from "@/lib/data";
+import { addChannelMembers, listChannelMembers } from "@/lib/data/api";
 import type { Channel, ChannelType } from "@/lib/data";
 import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import type { Toast } from "../app/types";
@@ -169,38 +170,79 @@ export function ChannelNotificationsDialog({
   );
 }
 
-/** Add people to a channel. */
+/**
+ * Add people to a channel.
+ *
+ * It used to list every member of the *space* with a checkbox, add nobody, and report success. Two
+ * things were wrong at once: nothing was added, and unchecking someone already in the channel read
+ * as removing them. Removing is a different act, with its own authorization, and is not offered
+ * here; people already in the channel are shown as such, and cannot be unchecked.
+ */
 export function AddPeopleDialog({
+  channelId,
   channelName,
   people,
   onClose,
   onNotify,
+  onAdded,
 }: {
+  channelId: string;
   channelName: string;
-  people: { name: string; presence: Presence; bot?: boolean }[];
+  /** Everyone in the space: the pool to pick from. */
+  people: { userId: string; name: string; presence: Presence; bot?: boolean; avatarUrl?: string }[];
   onClose: () => void;
   onNotify: (toast: Toast) => void;
+  /** Called once people were actually added, so the caller can refresh what it shows. */
+  onAdded?: () => void;
 }) {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [current, setCurrent] = useState<Set<string> | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Who is already in. Until it arrives nobody is offered as addable, because adding someone who is
+  // already there is the one outcome this dialog must not appear to produce.
+  useEffect(() => {
+    let active = true;
+    listChannelMembers(channelId)
+      .then((rows) => active && setCurrent(new Set(rows.map((m) => m.userId))))
+      .catch(() => active && setError("La liste des membres du canal n'a pas pu être chargée."));
+    return () => {
+      active = false;
+    };
+  }, [channelId]);
+
   const rows = people.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
 
-  const toggle = (name: string) =>
+  const toggle = (userId: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
       return next;
     });
 
-  const add = () => {
-    if (selected.size === 0) return;
-    onNotify({
-      tone: "success",
-      title: `${selected.size} personne${selected.size > 1 ? "s" : ""} ajoutée${selected.size > 1 ? "s" : ""}`,
-      description: `#${channelName}`,
-    });
-    onClose();
+  const add = async () => {
+    if (selected.size === 0 || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const added = await addChannelMembers(channelId, [...selected]);
+      onNotify({
+        tone: "success",
+        title:
+          added.length === 0
+            ? "Personne à ajouter"
+            : `${added.length} personne${added.length > 1 ? "s" : ""} ajoutée${added.length > 1 ? "s" : ""}`,
+        description: `#${channelName}`,
+      });
+      onAdded?.();
+      onClose();
+    } catch {
+      setError("L'ajout a échoué. Réessayez.");
+      setBusy(false);
+    }
   };
 
   return (
@@ -212,7 +254,7 @@ export function AddPeopleDialog({
       footer={
         <>
           <Button onClick={onClose}>Annuler</Button>
-          <Button variant="primary" iconLeft="user-plus" onClick={add}>
+          <Button variant="primary" iconLeft="user-plus" disabled={busy || selected.size === 0} onClick={() => void add()}>
             Ajouter{selected.size > 0 ? ` (${selected.size})` : ""}
           </Button>
         </>
@@ -220,18 +262,42 @@ export function AddPeopleDialog({
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <Input autoFocus icon="search" placeholder="Rechercher une personne" value={q} onChange={(e) => setQ(e.target.value)} />
+        {error ? (
+          <p role="alert" style={{ fontSize: 12, color: "var(--text-danger, var(--terracotta-700))" }}>
+            {error}
+          </p>
+        ) : null}
         <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 260, overflow: "auto" }}>
-          {rows.map((p) => (
-            <label
-              key={p.name}
-              className="wc-listrow"
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: "var(--radius-md)", cursor: "pointer" }}
-            >
-              <Checkbox checked={selected.has(p.name)} onChange={() => toggle(p.name)} aria-label={p.name} />
-              <Avatar name={p.name} src={getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
-              <span style={{ fontSize: 13, color: "var(--text-strong)" }}>{p.name}</span>
-            </label>
-          ))}
+          {rows.map((p) => {
+            const inChannel = current?.has(p.userId) ?? false;
+            return (
+              <label
+                key={p.userId}
+                className={inChannel ? undefined : "wc-listrow"}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "8px 10px",
+                  borderRadius: "var(--radius-md)",
+                  cursor: inChannel ? "default" : "pointer",
+                }}
+              >
+                {/* Already in: shown as a fact, not as a box someone could uncheck to remove them. */}
+                <Checkbox
+                  checked={inChannel || selected.has(p.userId)}
+                  disabled={inChannel || current === null}
+                  onChange={() => toggle(p.userId)}
+                  aria-label={p.name}
+                />
+                <Avatar name={p.name} src={p.avatarUrl ?? getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
+                <span style={{ flex: 1, fontSize: 13, color: inChannel ? "var(--text-muted)" : "var(--text-strong)" }}>
+                  {p.name}
+                </span>
+                {inChannel ? <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>Déjà dans le canal</span> : null}
+              </label>
+            );
+          })}
         </div>
       </div>
     </Dialog>

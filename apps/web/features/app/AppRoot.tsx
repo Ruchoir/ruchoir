@@ -1144,6 +1144,9 @@ function AppShell() {
   const memberRecords = useMemo(
     () =>
       members.map((m) => ({
+        // The account id travels with the record: a dialog that acts on a person (adding them to a
+        // channel) needs the identifier the API uses, and a display name is not one.
+        userId: m.userId,
         name: m.name,
         presence: (presence[m.userId] ?? "offline") as Presence,
         bot: m.bot,
@@ -1679,8 +1682,6 @@ function AppShell() {
       openChannel(channels[0]?.id ?? channelId);
     } else if (id === "invite") {
       setModal("invite");
-    } else if (id === "import") {
-      setModal("import");
     }
   };
 
@@ -2438,7 +2439,6 @@ function AppShell() {
         onView={openView}
         onChannel={openChannel}
         onNotify={showToast}
-        onImport={() => setModal("import")}
         onInvite={() => setModal("invite")}
         onNewChannel={() => setModal("newChannel")}
         onNewMessage={() => setModal("newMessage")}
@@ -2751,7 +2751,6 @@ function AppShell() {
                   setMobileContent(true);
                 }}
                 onNotify={showToast}
-                onImport={() => setModal("import")}
                 onInvite={() => setModal("invite")}
                 onNewChannel={() => setModal("newChannel")}
                 onNewMessage={() => setModal("newMessage")}

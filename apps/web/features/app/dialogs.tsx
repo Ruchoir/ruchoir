@@ -381,13 +381,6 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
   );
 }
 
-const HELP_LINKS: [string, string][] = [
-  ["Guide de prise en main", "book-open"],
-  ["Importer depuis Slack, Mattermost, Nextcloud", "import"],
-  ["Raccourcis clavier et astuces", "keyboard"],
-  ["Contacter le support", "life-buoy"],
-];
-
 /** Help centre: documentation links and the live (customizable) keyboard shortcuts. */
 export function HelpDialog({
   onClose,
@@ -402,28 +395,26 @@ export function HelpDialog({
   const mac = isMac();
   return (
     <Dialog title="Aide" subtitle="Documentation et raccourcis" size="md" onClose={onClose}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
-        {HELP_LINKS.map(([label, icon]) => {
-          // The first link reopens the in-app getting-started checklist; the rest are placeholder docs.
-          const isGettingStarted = icon === "book-open" && !!onGettingStarted;
-          return (
-            <a
-              key={label}
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                if (isGettingStarted) onGettingStarted!();
-              }}
-              style={{ ...listItem, textDecoration: "none", color: "var(--text-strong)" }}
-              className="wc-listrow"
-            >
-              <Icon name={icon === "book-open" ? "file-text" : icon} size={16} style={{ color: "var(--text-muted)" }} />
-              <span style={{ flex: 1, fontSize: 13 }}>{label}</span>
-              <Icon name={isGettingStarted ? "chevron-right" : "external-link"} size={13} style={{ color: "var(--text-subtle)" }} />
-            </a>
-          );
-        })}
-      </div>
+      {/*
+        One entry, because one is all that leads anywhere. The other two ("Raccourcis clavier et
+        astuces", "Contacter le support") were inert: the first duplicated the shortcut list printed
+        just below, and the second had no destination at all, this product having no support address
+        to send anyone to yet. They come back when there is something behind them.
+      */}
+      {onGettingStarted ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 18 }}>
+          <button
+            type="button"
+            onClick={onGettingStarted}
+            style={{ ...listItem, textAlign: "left", border: 0, background: "transparent", cursor: "pointer", color: "var(--text-strong)", font: "inherit" }}
+            className="wc-listrow"
+          >
+            <Icon name="file-text" size={16} style={{ color: "var(--text-muted)" }} />
+            <span style={{ flex: 1, fontSize: 13 }}>Guide de prise en main</span>
+            <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
+          </button>
+        </div>
+      ) : null}
       <div
         style={{
           display: "flex",

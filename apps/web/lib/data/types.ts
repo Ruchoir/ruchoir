@@ -119,9 +119,10 @@ export type Profile = {
   role: string;
   presence: Presence;
   email: string;
-  timezone: string;
-  /** Mocked local time string for the user's timezone. */
-  localTime: string;
+  /** IANA timezone the person chose; absent when they have not chosen one. */
+  timezone?: string;
+  /** Their current local time, derived from `timezone`; absent when there is no timezone. */
+  localTime?: string;
   pronouns?: string;
   bio?: string;
   bot?: boolean;
