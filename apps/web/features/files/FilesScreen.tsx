@@ -301,7 +301,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             title: t("files.deleteIncomplete"),
             description: refused
               ? "Vous ne pouvez supprimer que vos propres fichiers, sauf si vous administrez l'espace."
-              : t("files.tryAgain"),
+              : t("common.tryAgain"),
           });
         }
         load(folderId);
