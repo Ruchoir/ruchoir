@@ -5,8 +5,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, Field, Icon, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
 import { updateMyProfile } from "@/lib/data/api";
-import { isLocale, LOCALE_NAMES, LOCALES } from "@/lib/i18n/config";
-import { useTranslation } from "@/lib/i18n";
+import { isLocale, LOCALE_FLAGS, LOCALE_NAMES } from "@/lib/i18n/config";
+import { AVAILABLE_LOCALES, useTranslation } from "@/lib/i18n";
 import { Emoji } from "./Emoji";
 import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
 import {
@@ -639,7 +639,12 @@ export function PreferencesScreen({
                     }}
                     options={[
                       { value: "", label: t("language.automatic") },
-                      ...LOCALES.map((code) => ({ value: code, label: LOCALE_NAMES[code] })),
+                      // Each language names itself, behind its flag: a menu that listed them in
+                      // French would be unreadable to exactly the person who needs it.
+                      ...AVAILABLE_LOCALES.map((code) => ({
+                        value: code,
+                        label: `${LOCALE_FLAGS[code]}  ${LOCALE_NAMES[code]}`,
+                      })),
                     ]}
                   />
                 </Row>

@@ -45,6 +45,16 @@ const resources: Record<Locale, { translation: Dictionary }> = {
 };
 
 /**
+ * The languages this build actually carries, derived from the bundled dictionaries.
+ *
+ * The language menu reads this rather than the list in `config.ts`: the two cannot disagree, because
+ * one is the other's source. Adding a language is an import and an entry here, and it appears in the
+ * menu by itself; removing one takes it out of the menu the same way, instead of leaving an option
+ * that selects a dictionary nobody shipped.
+ */
+export const AVAILABLE_LOCALES = Object.keys(resources) as Locale[];
+
+/**
  * The language to start in, before any preference has been read.
  *
  * Called during the first client render, so it must never touch the DOM in a way the static export

@@ -14,7 +14,14 @@
 /** A language tag this application carries a full dictionary for. */
 export type Locale = "fr" | "en" | "es" | "de" | "it" | "pl";
 
-/** Every locale, in the order the language menu lists them (source language first, then alphabetical). */
+/**
+ * Every locale the type allows, for validating a stored or submitted tag.
+ *
+ * Not what the language menu reads: that takes `AVAILABLE_LOCALES`, derived from the dictionaries
+ * this build actually carries, so the menu can never offer a language whose dictionary is missing.
+ * This list exists because validation runs in places that must not pull the dictionaries in (the
+ * settings loader, which runs before anything renders).
+ */
 export const LOCALES: Locale[] = ["fr", "en", "es", "de", "it", "pl"];
 
 /** The source language: what the interface is written in, and what an untranslated key falls back to. */
@@ -28,6 +35,26 @@ export const LOCALE_NAMES: Record<Locale, string> = {
   de: "Deutsch",
   it: "Italiano",
   pl: "Polski",
+};
+
+/**
+ * A flag per language, for the language menu.
+ *
+ * A flag is a country and a language is not, which is a real objection: English is not the United
+ * Kingdom's, Spanish is spoken by far more people outside Spain than in it, and German is also
+ * Austria's and Switzerland's. They are here because a row of flags is scanned in an instant where a
+ * column of words has to be read, and because the name in its own language sits next to each one and
+ * carries the actual meaning. The flag is the icon; the endonym is the label.
+ *
+ * Typed against `Locale`, so a seventh language cannot be added without choosing one.
+ */
+export const LOCALE_FLAGS: Record<Locale, string> = {
+  fr: "🇫🇷",
+  en: "🇬🇧",
+  es: "🇪🇸",
+  de: "🇩🇪",
+  it: "🇮🇹",
+  pl: "🇵🇱",
 };
 
 export function isLocale(value: unknown): value is Locale {
