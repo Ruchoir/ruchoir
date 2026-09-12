@@ -81,6 +81,9 @@ pub async fn run(db: &DatabaseConnection, config: &Config) -> Result<(), Failure
         // locked out of theirs. Nothing in the running server grants this, so if it is not set
         // here an instance without a mail relay has no way out of a forgotten password.
         is_instance_admin: Set(true),
+        // Unset: the administrator picks a language on their first sign-in, like everyone else, and
+        // an unattended install has no way of knowing which one they read.
+        locale: NotSet,
         title: NotSet,
         pronouns: NotSet,
         timezone: NotSet,

@@ -1,6 +1,12 @@
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./components.css";
+/*
+ * Country flags, for the language menu (MIT, bundled: a self-hosted instance makes no outside
+ * request). The stylesheet points at one SVG per region; only the handful a reader actually sees is
+ * ever fetched, and which one is worked out from the language tag rather than listed by hand.
+ */
+@import "flag-icons/css/flag-icons.min.css";
 
 /*
  * Design tokens (Tailwind v4 is CSS-first: theme values live here, not in a JS config).

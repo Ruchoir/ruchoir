@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useRef, useState } from "react";
 import { Icon, IconButton, Popover } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 
 const menu: CSSProperties = {
   minWidth: 220,
@@ -50,6 +51,7 @@ export function ChannelMenu({
   onJoin,
   member = true,
 }: ChannelMenuProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
 
@@ -59,13 +61,13 @@ export function ChannelMenu({
   };
 
   const items: Item[] = [
-    { icon: "settings", label: "Paramètres du canal", onClick: onSettings },
-    { icon: "inbox", label: "Notifications", onClick: onNotifications },
-    { icon: "user-plus", label: "Ajouter des personnes", onClick: onAddPeople },
+    { icon: "settings", label: t("sidebar.channelSettings"), onClick: onSettings },
+    { icon: "inbox", label: t("notif.title"), onClick: onNotifications },
+    { icon: "user-plus", label: t("channel.addPeople"), onClick: onAddPeople },
     // Leaving a public channel is reversible, so the entry flips to rejoining instead of vanishing.
     member
-      ? { icon: "arrow-left", label: "Quitter le canal", onClick: onLeave, danger: true }
-      : { icon: "user-plus", label: "Rejoindre le canal", onClick: onJoin },
+      ? { icon: "arrow-left", label: t("sidebar.leaveChannel"), onClick: onLeave, danger: true }
+      : { icon: "user-plus", label: t("sidebar.joinChannel"), onClick: onJoin },
   ];
 
   return (
@@ -74,7 +76,7 @@ export function ChannelMenu({
         ref={anchorRef}
         className="wc-ibtn--bare"
         icon="more-horizontal"
-        label="Plus d'actions"
+        label={t("message.more")}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       />

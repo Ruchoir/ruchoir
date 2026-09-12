@@ -4,6 +4,7 @@ import { type CSSProperties, type FormEvent, useState } from "react";
 import { Button, Checkbox, Field, Icon, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   nameRow: { display: "flex", gap: 10 },
@@ -17,8 +18,9 @@ const styles: Record<string, CSSProperties> = {
  */
 const MIN_PASSWORD_LENGTH = 12;
 
-const RULES: { label: string; test: (pw: string) => boolean }[] = [
-  { label: `Au moins ${MIN_PASSWORD_LENGTH} caractères`, test: (pw) => pw.length >= MIN_PASSWORD_LENGTH },
+/** Password rules, as a key and the count it interpolates: the sentence is built where it is drawn. */
+const RULES: { key: TranslationKey; count: number; test: (pw: string) => boolean }[] = [
+  { key: key("signup.minLength"), count: MIN_PASSWORD_LENGTH, test: (pw) => pw.length >= MIN_PASSWORD_LENGTH },
 ];
 
 /** The account details submitted to `POST /auth/register`. */
@@ -36,6 +38,7 @@ export type SignupScreenProps = {
 
 /** Account creation screen. The account stays unverified until the emailed link is confirmed. */
 export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }: SignupScreenProps) {
+  const { t } = useTranslation();
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [mail, setMail] = useState("");
@@ -57,7 +60,7 @@ export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }
     <AuthShell
       footer={
         <>
-          Déjà un compte ?{" "}
+          {t("signup.haveAccount")}{" "}
           <a
             href="#"
             onClick={(e) => {
@@ -66,23 +69,23 @@ export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }
             }}
             style={authStyles.link}
           >
-            Se connecter
+            {t("login.submit")}
           </a>
         </>
       }
     >
-      <h1 style={authStyles.title}>Créer votre compte</h1>
-      <p style={authStyles.subtitle}>Un compte Ruchoir, hébergé par votre organisation.</p>
+      <h1 style={authStyles.title}>{t("signup.title")}</h1>
+      <p style={authStyles.subtitle}>{t("signup.subtitle")}</p>
       <form style={authStyles.fields} onSubmit={submit}>
         <div style={styles.nameRow}>
-          <Field label="Prénom" htmlFor="first" style={{ flex: 1, minWidth: 0 }}>
+          <Field label={t("signup.firstName")} htmlFor="first" style={{ flex: 1, minWidth: 0 }}>
             <Input id="first" size="lg" value={first} onChange={(e) => setFirst(e.target.value)} autoFocus />
           </Field>
-          <Field label="Nom" optional htmlFor="last" style={{ flex: 1, minWidth: 0 }}>
+          <Field label={t("signup.lastName")} optional htmlFor="last" style={{ flex: 1, minWidth: 0 }}>
             <Input id="last" size="lg" value={last} onChange={(e) => setLast(e.target.value)} />
           </Field>
         </div>
-        <Field label="Adresse électronique" htmlFor="s-mail">
+        <Field label={t("login.email")} htmlFor="s-mail">
           <Input
             id="s-mail"
             size="lg"
@@ -93,7 +96,7 @@ export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }
             onChange={(e) => setMail(e.target.value)}
           />
         </Field>
-        <Field label="Mot de passe" htmlFor="s-pw">
+        <Field label={t("login.password")} htmlFor="s-pw">
           <Input
             id="s-pw"
             size="lg"
@@ -108,9 +111,9 @@ export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }
           {RULES.map((r) => {
             const ok = r.test(pw);
             return (
-              <span key={r.label} style={{ ...styles.rule, color: ok ? "var(--status-success-fg)" : "var(--text-subtle)" }}>
+              <span key={String(r.key)} style={{ ...styles.rule, color: ok ? "var(--status-success-fg)" : "var(--text-subtle)" }}>
                 <Icon name={ok ? "check" : "minus"} size={13} />
-                {r.label}
+                {t(r.key, { count: r.count })}
               </span>
             );
           })}
@@ -123,10 +126,10 @@ export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }
         <Checkbox
           checked={agreed}
           onChange={() => setAgreed((a) => !a)}
-          label={<span style={{ fontSize: 13 }}>J&apos;accepte les conditions d&apos;utilisation et la politique de confidentialité.</span>}
+          label={<span style={{ fontSize: 13 }}>{t("signup.terms")}</span>}
         />
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={!canSubmit}>
-          {pending ? "Création…" : "Créer le compte"}
+          {pending ? t("common.creating") : t("signup.submit")}
         </Button>
       </form>
     </AuthShell>

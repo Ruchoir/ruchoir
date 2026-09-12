@@ -1,5 +1,6 @@
 import { type CSSProperties, type FormEvent, useEffect, useState } from "react";
-import { Button, Field, Icon, Input, Switch, Tag } from "@/components/ds";
+import { Button, Field, Icon, type IconName, Input, Switch, Tag } from "@/components/ds";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import {
   getInstanceSettings,
   issuePasswordResetLink,
@@ -70,10 +71,13 @@ const st: Record<string, CSSProperties> = {
 type Issued = { user: AdminUser; url: string; expiresInSecs: number };
 
 export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AdminUser[] | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // The dictionary key of the failure, not its sentence: the text is looked up where it is drawn,
+  // so an effect never has to capture `t` and re-run every time the language changes.
+  const [error, setError] = useState<TranslationKey | null>(null);
   const [issued, setIssued] = useState<Issued | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -84,7 +88,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
     let active = true;
     searchAccounts("")
       .then((rows) => active && setResults(rows))
-      .catch(() => active && setError("La liste des comptes n'a pas pu être chargée."));
+      .catch(() => active && setError(key("admin.loadFailed")));
     return () => {
       active = false;
     };
@@ -99,7 +103,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
     try {
       setResults(await searchAccounts(query.trim()));
     } catch {
-      setError("La recherche a échoué. Réessayez.");
+      setError(key("admin.searchFailed"));
     } finally {
       setBusy(false);
     }
@@ -114,7 +118,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
       const { url, expiresInSecs } = await issuePasswordResetLink(user.id);
       setIssued({ user, url, expiresInSecs });
     } catch {
-      setError("Ce lien n'a pas pu être émis. Réessayez.");
+      setError(key("admin.issueFailed"));
     } finally {
       setBusy(false);
     }
@@ -125,7 +129,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
     void navigator.clipboard?.writeText(issued.url).then(
       () => {
         setCopied(true);
-        onNotify?.({ tone: "success", title: "Lien copié" });
+        onNotify?.({ tone: "success", title: t("admin.copiedToast") });
       },
       () => setCopied(false),
     );
@@ -133,37 +137,33 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
 
   return (
     <>
-      <p style={st.sub}>
-        Pour quelqu&apos;un qui ne peut plus se connecter et n&apos;a plus de code de récupération. Vous lui
-        transmettez le lien vous-même, de vive voix ou par un autre canal : vous ne voyez jamais son mot de passe, et
-        celui qu&apos;il a aujourd&apos;hui continue de fonctionner tant qu&apos;il n&apos;a pas ouvert le lien.
-      </p>
+      <p style={st.sub}>{t("admin.accountsIntro")}</p>
 
       <form style={st.form} onSubmit={search}>
-        <Field label="Filtrer les comptes" htmlFor="admin-q" style={{ flex: 1 }}>
+        <Field label={t("admin.filterLabel")} htmlFor="admin-q" style={{ flex: 1 }}>
           <Input
             id="admin-q"
             icon="search"
-            placeholder="Nom ou adresse électronique"
+            placeholder={t("admin.filterPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </Field>
         <Button variant="primary" type="submit" disabled={busy}>
-          {query.trim().length === 0 ? "Tout afficher" : "Rechercher"}
+          {query.trim().length === 0 ? t("admin.showAll") : t("common.search")}
         </Button>
       </form>
 
       {error ? (
         <p role="alert" style={{ ...st.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
-          {error}
+          {t(error)}
         </p>
       ) : null}
 
       {results === null ? (
-        <p style={st.empty}>Chargement des comptes…</p>
+        <p style={st.empty}>{t("admin.loading")}</p>
       ) : results.length === 0 ? (
-        <p style={st.empty}>Aucun compte ne correspond.</p>
+        <p style={st.empty}>{t("admin.noMatch")}</p>
       ) : (
         <div style={{ marginTop: 8 }}>
           {results.map((user) => (
@@ -173,17 +173,19 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
                   {user.name}
                   {user.isInstanceAdmin ? (
                     <span style={{ marginLeft: 8 }}>
-                      <Tag tone="accent">Administrateur</Tag>
+                      <Tag tone="accent">{t("role.admin")}</Tag>
                     </span>
                   ) : null}
                 </div>
                 <div style={st.meta}>
                   {user.email}
-                  {user.status === "active" ? "" : ` · ${user.status === "pending" ? "en attente" : "verrouillé"}`}
+                  {user.status === "active"
+                    ? ""
+                    : ` · ${user.status === "pending" ? t("admin.statusPending") : t("admin.statusLocked")}`}
                 </div>
               </div>
               <Button size="sm" iconLeft="shield" disabled={busy} onClick={() => void issue(user)}>
-                Émettre un lien
+                {t("admin.issueLink")}
               </Button>
             </div>
           ))}
@@ -195,17 +197,16 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Icon name="shield" size={16} style={{ color: "var(--text-accent)" }} />
             <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>
-              Lien pour {issued.user.name}
+              {t("admin.linkFor", { name: issued.user.name })}
             </span>
           </div>
           <p style={{ ...st.meta, marginTop: 6 }}>
-            À usage unique, valable {Math.round(issued.expiresInSecs / 60)} minutes. Il ne sera plus affiché après
-            avoir quitté cet écran.
+            {t("admin.linkValidity", { minutes: Math.round(issued.expiresInSecs / 60) })}
           </p>
           <div style={st.link}>
             <span style={st.linkText}>{issued.url}</span>
             <Button size="sm" iconLeft={copied ? "check" : "copy"} onClick={copy}>
-              {copied ? "Copié" : "Copier"}
+              {copied ? t("common.copied") : t("admin.copy")}
             </Button>
           </div>
         </div>
@@ -223,15 +224,18 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
  * one that would rather not point at anyone turns it off, and administrators still see each other.
  */
 function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
+  const { t } = useTranslation();
   const [showAdmins, setShowAdmins] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // The dictionary key of the failure, not its sentence: the text is looked up where it is drawn,
+  // so an effect never has to capture `t` and re-run every time the language changes.
+  const [error, setError] = useState<TranslationKey | null>(null);
 
   useEffect(() => {
     let active = true;
     getInstanceSettings()
       .then((settings) => active && setShowAdmins(settings.showInstanceAdmins))
-      .catch(() => active && setError("Les réglages n'ont pas pu être chargés."));
+      .catch(() => active && setError(key("admin.settingsLoadFailed")));
     return () => {
       active = false;
     };
@@ -249,11 +253,11 @@ function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }
       setShowAdmins(saved.showInstanceAdmins);
       onNotify?.({
         tone: "success",
-        title: saved.showInstanceAdmins ? "Administrateurs visibles" : "Administrateurs masqués",
+        title: saved.showInstanceAdmins ? t("admin.adminsShown") : t("admin.adminsHidden"),
       });
     } catch {
       setShowAdmins(!next);
-      setError("Ce réglage n'a pas pu être enregistré.");
+      setError(key("admin.settingsSaveFailed"));
     } finally {
       setBusy(false);
     }
@@ -261,30 +265,24 @@ function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }
 
   return (
     <>
-      <p style={st.sub}>
-        Ce que l&apos;instance applique à tout le monde, quel que soit l&apos;espace.
-      </p>
+      <p style={st.sub}>{t("admin.settingsIntro")}</p>
 
       <div style={st.row}>
         <div style={st.main}>
-          <div style={st.name}>Afficher qui administre l&apos;instance</div>
-          <div style={{ ...st.meta, maxWidth: 460, lineHeight: 1.5 }}>
-            Un badge sur le profil des administrateurs. C&apos;est ce qui permet à quelqu&apos;un qui a perdu son
-            mot de passe et ses codes de récupération de savoir à qui s&apos;adresser. Désactivé, le badge n&apos;est
-            plus visible que par les administrateurs eux-mêmes.
-          </div>
+          <div style={st.name}>{t("admin.showAdmins")}</div>
+          <div style={{ ...st.meta, maxWidth: 460, lineHeight: 1.5 }}>{t("admin.showAdminsDescription")}</div>
         </div>
         <Switch
           checked={showAdmins ?? true}
           disabled={busy || showAdmins === null}
           onChange={(e) => void toggle(e.target.checked)}
-          aria-label="Afficher qui administre l'instance"
+          aria-label={t("admin.showAdmins")}
         />
       </div>
 
       {error ? (
         <p role="alert" style={{ ...st.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
-          {error}
+          {t(error)}
         </p>
       ) : null}
     </>
@@ -341,9 +339,10 @@ const screen: Record<string, CSSProperties> = {
 /** The sections of the administration screen. */
 type AdminTab = "accounts" | "settings";
 
-const ADMIN_NAV: [AdminTab, string, string][] = [
-  ["accounts", "Comptes", "users"],
-  ["settings", "Réglages", "settings"],
+/** The sections, with the dictionary key for each label rather than the label itself. */
+const ADMIN_NAV: [AdminTab, TranslationKey, IconName][] = [
+  ["accounts", key("admin.navAccounts"), "users"],
+  ["settings", key("admin.navSettings"), "settings"],
 ];
 
 /** One nav entry, styled like the preferences one so the two screens read as the same furniture. */
@@ -386,6 +385,7 @@ export function InstanceAdminScreen({
   onNotify?: (t: Toast) => void;
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<AdminTab>("accounts");
 
   // Escape leaves the screen, but only when no dialog is open (a dialog handles Escape first).
@@ -406,9 +406,9 @@ export function InstanceAdminScreen({
         <img src="/brand/ruchoir-mark.png" alt="" style={screen.mark} />
         {compact ? null : <span style={screen.wordmark}>Ruchoir</span>}
         <span style={screen.divider} aria-hidden />
-        <h1 style={screen.title}>Administration de l&apos;instance</h1>
+        <h1 style={screen.title}>{t("admin.screenTitle")}</h1>
         <Button variant="secondary" iconLeft="arrow-left" onClick={onClose} style={{ flexShrink: 0 }}>
-          {compact ? "Retour" : "Retour à l'espace"}
+          {compact ? t("common.back") : t("prefs.backToSpace")}
         </Button>
       </div>
       <div style={compact ? { ...screen.body, flexDirection: "column" } : screen.body}>
@@ -419,10 +419,10 @@ export function InstanceAdminScreen({
               : screen.nav
           }
         >
-          {ADMIN_NAV.map(([v, label, icon]) => (
+          {ADMIN_NAV.map(([v, labelKey, icon]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
               <Icon name={icon} size={14} style={{ color: "var(--text-muted)" }} />
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
@@ -431,12 +431,12 @@ export function InstanceAdminScreen({
           <div style={compact ? { ...screen.main, padding: "16px 16px 48px" } : screen.main}>
             {tab === "accounts" ? (
               <>
-                <h2 style={screen.h}>Rendre l&apos;accès à un compte</h2>
+                <h2 style={screen.h}>{t("admin.accountsTitle")}</h2>
                 <InstanceAdminSection onNotify={onNotify} />
               </>
             ) : (
               <>
-                <h2 style={screen.h}>Réglages de l&apos;instance</h2>
+                <h2 style={screen.h}>{t("admin.settingsTitle")}</h2>
                 <InstanceSettingsSection onNotify={onNotify} />
               </>
             )}

@@ -2,9 +2,11 @@ import type { CSSProperties } from "react";
 import { Avatar, Button, Icon, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
-import { presenceLabel } from "./presence";
+import { presenceLabelKey } from "./presence";
 import { useProfile } from "./useProfile";
 import { useLocalTime } from "./useLocalTime";
+import { useTranslation } from "@/lib/i18n";
+import { languageName } from "@/lib/i18n/config";
 
 const card: CSSProperties = {
   width: 280,
@@ -38,6 +40,7 @@ export type UserProfileCardProps = {
 export function UserProfileCard({ name, userId, presence, onViewFull, onEditProfile, onMessage }: UserProfileCardProps) {
   const p = useProfile(userId, name);
   const dot = presence ?? p.presence;
+  const { t, i18n } = useTranslation();
   const localTime = useLocalTime(p.timezone);
   const isOwn = name === getCurrentUser().name;
   return (
@@ -59,7 +62,7 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
         {p.instanceAdmin ? (
           <div style={{ marginTop: 8 }}>
             <Tag tone="accent" icon="shield">
-              Administrateur de l&apos;instance
+              {t("admin.instanceAdminBadge")}
             </Tag>
           </div>
         ) : null}
@@ -67,14 +70,14 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
           <div style={row}>
             <span style={{ width: 8, height: 8, borderRadius: "var(--radius-full)", background: `var(--presence-${dot})` }} />
-            {presenceLabel(dot)}
+            {t(presenceLabelKey(dot))}
           </div>
           {/* Only when they chose a timezone: the card used to fall back to Europe/Paris and present
               it as this person's local time, which is worse than saying nothing. */}
           {localTime ? (
             <div style={row}>
               <Icon name="clock" size={14} />
-              {localTime} heure locale
+              {t("profile.localTime", { time: localTime })}
             </div>
           ) : null}
           {p.email ? (
@@ -83,20 +86,27 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.email}</span>
             </div>
           ) : null}
+          {/* The language they read, named in the reader's own. Worth knowing before writing. */}
+          {p.locale ? (
+            <div style={row}>
+              <Icon name="languages" size={14} />
+              {languageName(p.locale, i18n.language)}
+            </div>
+          ) : null}
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
           {isOwn ? (
             <Button variant="secondary" size="sm" iconLeft="square-pen" onClick={onEditProfile} fullWidth>
-              Modifier le profil
+              {t("profile.edit")}
             </Button>
           ) : (
             <>
               <Button variant="primary" size="sm" iconLeft="message-square" onClick={onMessage} fullWidth>
-                Message
+                {t("tabs.messages")}
               </Button>
               <Button variant="secondary" size="sm" onClick={onViewFull}>
-                Profil
+                {t("profile.title")}
               </Button>
             </>
           )}

@@ -13,6 +13,8 @@ import { LinkPreviewCard } from "./LinkPreviewCard";
 import { MessageMenu } from "./MessageMenu";
 import { ReactionMenu } from "./ReactionMenu";
 import { ReadReceipt } from "./ReadReceipt";
+import { useTranslation } from "@/lib/i18n";
+import { formatBytes, formatDateTime, formatStamp, formatTime } from "@/lib/i18n/format";
 
 /** Everything a message row can do. Grouped to keep the prop surface readable. */
 export type MessageActions = {
@@ -168,6 +170,7 @@ export function MessageRow({
   readAudience = 0,
   actions,
 }: MessageRowProps) {
+  const { t } = useTranslation();
   const [hover, setHover] = useState(false);
   const [reactOpen, setReactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -197,13 +200,7 @@ export function MessageRow({
    * there: a block spans five minutes, so its header has already said which day, and the only thing
    * that changes from one line to the next is the time of day.
    */
-  const gutterTime = (() => {
-    if (!m.createdAt) return m.time;
-    const at = new Date(m.createdAt);
-    return Number.isNaN(at.getTime())
-      ? m.time
-      : at.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  })();
+  const gutterTime = formatTime(m.createdAt);
 
   const openProfileFromCard = () => {
     setProfileOpen(false);
@@ -250,7 +247,7 @@ export function MessageRow({
           {hover ? gutterTime : ""}
         </span>
       ) : (
-        <button ref={avatarRef} style={avatarBtn} onClick={() => setProfileOpen((o) => !o)} aria-label={`Profil de ${m.author}`}>
+        <button ref={avatarRef} style={avatarBtn} onClick={() => setProfileOpen((o) => !o)} aria-label={t("profile.of", { name: m.author })}>
           <Avatar
             name={m.author}
             src={authorAvatar}
@@ -268,16 +265,16 @@ export function MessageRow({
           <button style={nameBtn} onClick={() => setProfileOpen(true)}>
             {m.author}
           </button>
-          <span style={styles.time}>{m.time}</span>
-          {!deleted && m.imported ? <Tag icon="import">Importé</Tag> : null}
+          <span style={styles.time}>{formatStamp(m.createdAt)}</span>
+          {!deleted && m.imported ? <Tag icon="import">{t("common.imported")}</Tag> : null}
           {!deleted && m.pinned ? (
             <Tag icon="pin" tone="accent">
-              Épinglé
+              {t("message.pinnedTag")}
             </Tag>
           ) : null}
           {!deleted && m.saved ? (
             <Tag icon="bookmark" tone="accent">
-              Enregistré
+              {t("message.savedTag")}
             </Tag>
           ) : null}
         </div>
@@ -296,14 +293,14 @@ export function MessageRow({
             }}
           >
             <Icon name="trash-2" size={14} />
-            Message supprimé
+            {t("message.deleted")}
           </p>
         ) : (
           <>
             {m.body ? (
               <div style={styles.body}>
                 {renderRichText(m.body, getMentionNames(), isOwn, actions.onOpenMention, me)}
-                {m.edited ? <span style={styles.edited}>(modifié)</span> : null}
+                {m.edited ? <span style={styles.edited}>{t("message.editedTag")}</span> : null}
               </div>
             ) : null}
 
@@ -328,7 +325,7 @@ export function MessageRow({
                 >
                   <Icon name="trash-2" size={14} />
                   <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    Fichier supprimé · {m.attachment.name}
+                    {t("message.fileDeleted", { name: m.attachment.name })}
                   </span>
                 </div>
               </div>
@@ -344,7 +341,7 @@ export function MessageRow({
                       {m.attachment.name}
                     </span>
                     <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                      {m.attachment.size}
+                      {formatBytes(m.attachment.sizeBytes)}
                     </span>
                   </span>
                   {m.attachment.url ? (
@@ -352,7 +349,7 @@ export function MessageRow({
                       {/* The original bytes, inline: full quality, and the browser's own viewer. */}
                       <IconLink
                         icon="external-link"
-                        label={`Ouvrir ${m.attachment.name} dans un nouvel onglet`}
+                        label={t("message.openInNewTab", { name: m.attachment.name })}
                         size="sm"
                         href={m.attachment.previewUrl ?? m.attachment.url}
                         target="_blank"
@@ -360,7 +357,7 @@ export function MessageRow({
                       />
                       <IconLink
                         icon="download"
-                        label={`Télécharger ${m.attachment.name}`}
+                        label={t("message.downloadNamed", { name: m.attachment.name })}
                         size="sm"
                         href={m.attachment.url}
                         download={m.attachment.name}
@@ -368,7 +365,7 @@ export function MessageRow({
                     </>
                   ) : (
                     // Still uploading: nothing to fetch yet.
-                    <IconButton icon="download" label="Télécharger" size="sm" disabled />
+                    <IconButton icon="download" label={t("message.download")} size="sm" disabled />
                   )}
                 </Card>
               </div>
@@ -410,8 +407,7 @@ export function MessageRow({
                 }}
               >
                 <Icon name="message-square" size={14} />
-                {m.replies} réponses
-                <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>· dernière il y a 12 min</span>
+                {t("message.replies", { count: m.replies })}
               </button>
             ) : null}
           </>
@@ -432,11 +428,11 @@ export function MessageRow({
       {showActions ? (
         <div style={styles.actions}>
           <ReactionMenu variant="action" onPick={actions.onReact} onOpenChange={setReactOpen} />
-          <IconButton icon="message-square" label="Répondre dans un fil" size="sm" onClick={actions.onOpenThread} />
-          {isOwn ? <IconButton icon="square-pen" label="Modifier" size="sm" onClick={actions.onEdit} /> : null}
+          <IconButton icon="message-square" label={t("message.replyInThread")} size="sm" onClick={actions.onOpenThread} />
+          {isOwn ? <IconButton icon="square-pen" label={t("message.edit")} size="sm" onClick={actions.onEdit} /> : null}
           <IconButton
             icon="bookmark"
-            label={m.saved ? "Retirer des enregistrés" : "Enregistrer"}
+            label={m.saved ? t("message.unsave") : t("message.save")}
             size="sm"
             aria-pressed={m.saved}
             onClick={actions.onToggleSave}
@@ -444,7 +440,7 @@ export function MessageRow({
           <MessageMenu
             pinned={m.pinned}
             own={isOwn}
-            sentAt={`aujourd'hui à ${m.time}`}
+            sentAt={formatDateTime(m.createdAt)}
             hasReactions={!!m.reactions?.length}
             onShowReactions={() => setReactionsOpen(true)}
             onEdit={actions.onEdit}
@@ -459,7 +455,7 @@ export function MessageRow({
       ) : null}
 
       {reactionsOpen ? (
-        <Dialog title="Réactions" size="sm" onClose={() => setReactionsOpen(false)}>
+        <Dialog title={t("message.reactions")} size="sm" onClose={() => setReactionsOpen(false)} closeLabel={t("common.close")}>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {m.reactions?.map((r) => (
               <div

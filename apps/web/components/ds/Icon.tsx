@@ -33,6 +33,7 @@ import {
   Inbox,
   Info,
   Italic,
+  Languages,
   Keyboard,
   KeyRound,
   LayoutGrid,
@@ -43,6 +44,7 @@ import {
   type LucideIcon,
   Mail,
   MessageSquare,
+  Monitor,
   Minus,
   MoreHorizontal,
   Paperclip,
@@ -112,6 +114,7 @@ const ICONS: Record<string, LucideIcon> = {
   inbox: Inbox,
   info: Info,
   italic: Italic,
+  languages: Languages,
   keyboard: Keyboard,
   "key-round": KeyRound,
   "layout-grid": LayoutGrid,
@@ -121,6 +124,7 @@ const ICONS: Record<string, LucideIcon> = {
   "log-out": LogOut,
   mail: Mail,
   "message-square": MessageSquare,
+  monitor: Monitor,
   minus: Minus,
   "more-horizontal": MoreHorizontal,
   paperclip: Paperclip,
@@ -148,10 +152,18 @@ const ICONS: Record<string, LucideIcon> = {
   x: X,
 };
 
+/**
+ * A registered icon name.
+ *
+ * `IconProps.name` is typed from it rather than left as `string`, because an unregistered name
+ * rendered nothing at all: a `console.warn` in development is no help to whoever did not have the
+ * dev server open, and a missing icon reached a deployed instance that way. It is a build error now,
+ * next to the typo.
+ */
 export type IconName = keyof typeof ICONS;
 
 export type IconProps = {
-  name: string;
+  name: IconName;
   size?: number;
   title?: string;
   className?: string;

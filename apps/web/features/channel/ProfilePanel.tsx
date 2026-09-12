@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Icon, IconButton, Input, Select, Tag, Textarea } from "@/components/ds";
+import { Avatar, Button, Icon, type IconName, IconButton, Input, Select, Tag, Textarea } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import type { Profile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
@@ -9,8 +9,10 @@ import { clearMyAvatar, getUserProfile, setMyAvatar, updateMyProfile } from "@/l
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { minimalProfile } from "../app/useProfile";
 import { useLocalTime } from "../app/useLocalTime";
-import { presenceLabel } from "../app/presence";
+import { presenceLabelKey } from "../app/presence";
 import type { Toast } from "../app/types";
+import { useTranslation } from "@/lib/i18n";
+import { languageName } from "@/lib/i18n/config";
 
 /**
  * The timezones offered in the profile form.
@@ -78,7 +80,7 @@ const styles: Record<string, CSSProperties> = {
   formLabel: { display: "block", fontSize: 12, color: "var(--text-muted)", margin: "10px 0 4px" },
 };
 
-function Field({ icon, children }: { icon: string; children: ReactNode }) {
+function Field({ icon, children }: { icon: IconName; children: ReactNode }) {
   return (
     <div style={styles.field}>
       <Icon name={icon} size={15} style={{ color: "var(--text-muted)" }} />
@@ -133,6 +135,7 @@ export function ProfilePanel({
   }, [userId]);
   const p = fetched ?? minimalProfile(name);
   const shownPresence = presence ?? p.presence;
+  const { t, i18n } = useTranslation();
   // Derived here and kept ticking: a profile left open for twenty minutes used to show a time
   // twenty minutes wrong, which is worse than showing none because it is precise.
   const localTime = useLocalTime(p.timezone);
@@ -173,9 +176,9 @@ export function ProfilePanel({
       const url = await setMyAvatar(file);
       setPhotoOverride(url);
       onAvatarChanged?.(url);
-      onNotify({ tone: "success", title: "Photo mise à jour" });
+      onNotify({ tone: "success", title: t("profile.photoUpdated") });
     } catch {
-      onNotify({ tone: "danger", title: "Photo non enregistrée", description: "Choisissez une image plus légère." });
+      onNotify({ tone: "danger", title: t("profile.photoFailed"), description: t("profile.photoFailedHint") });
     } finally {
       setPhotoBusy(false);
     }
@@ -188,7 +191,7 @@ export function ProfilePanel({
       setPhotoOverride(null);
       onAvatarChanged?.(undefined);
     } catch {
-      onNotify({ tone: "danger", title: "Photo non retirée" });
+      onNotify({ tone: "danger", title: t("profile.photoNotRemoved") });
     } finally {
       setPhotoBusy(false);
     }
@@ -200,16 +203,16 @@ export function ProfilePanel({
     updateMyProfile({ title: role, pronouns, bio, timezone })
       .then((profile) => {
         setFetched(profile);
-        onNotify({ tone: "success", title: "Profil mis à jour" });
+        onNotify({ tone: "success", title: t("profile.updated") });
       })
-      .catch(() => onNotify({ tone: "danger", title: "Mise à jour du profil impossible" }));
+      .catch(() => onNotify({ tone: "danger", title: t("profile.updateFailed") }));
   };
 
   return (
     <div style={styles.panel}>
       <div style={styles.head}>
-        <span style={styles.title}>{isOwn ? "Mon profil" : "Profil"}</span>
-        <IconButton icon="x" label="Fermer le profil" size="sm" onClick={onClose} />
+        <span style={styles.title}>{isOwn ? t("shell.myProfile") : t("profile.title")}</span>
+        <IconButton icon="x" label={t("profile.close")} size="sm" onClick={onClose} />
       </div>
       <div style={styles.scroll}>
         <div style={styles.hero}>
@@ -222,8 +225,8 @@ export function ProfilePanel({
               type="button"
               onClick={() => photoRef.current?.click()}
               disabled={photoBusy}
-              title="Changer la photo"
-              aria-label="Changer la photo de profil"
+              title={t("profile.changePhoto")}
+              aria-label={t("profile.changePhotoLabel")}
               // `inline-flex` with no line box: a plain button is as tall as its line height, so the
               // badge anchored to its corner floated below and beside the photo instead of on it.
               style={{
@@ -279,14 +282,14 @@ export function ProfilePanel({
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
             <span style={{ width: 9, height: 9, borderRadius: "var(--radius-full)", background: `var(--presence-${shownPresence})` }} />
-            {presenceLabel(shownPresence)}
+            {t(presenceLabelKey(shownPresence))}
           </div>
           {/* The person to ask when an account has to be handed back. Recovery without a mail relay
               ends there, so being able to recognize them is part of the path working. */}
           {p.instanceAdmin ? (
             <div style={{ marginTop: 8 }}>
               <Tag tone="accent" icon="shield">
-                Administrateur de l&apos;instance
+                {t("admin.instanceAdminBadge")}
               </Tag>
             </div>
           ) : null}
@@ -294,12 +297,12 @@ export function ProfilePanel({
             {isOwn ? (
               editing ? null : (
                 <Button variant="secondary" size="md" iconLeft="square-pen" onClick={() => setEditing(true)} fullWidth>
-                  Modifier le profil
+                  {t("profile.edit")}
                 </Button>
               )
             ) : (
               <Button variant="primary" size="md" iconLeft="message-square" onClick={onMessage} fullWidth>
-                Envoyer un message
+                {t("profile.sendMessage")}
               </Button>
             )}
           </div>
@@ -307,11 +310,11 @@ export function ProfilePanel({
 
         {isOwn && editing ? (
           <div style={styles.section}>
-            <div style={styles.label}>Modifier</div>
+            <div style={styles.label}>{t("message.edit")}</div>
             {photo ? (
               <div style={{ marginBottom: 8 }}>
                 <Button variant="link" size="sm" disabled={photoBusy} onClick={() => void removePhoto()}>
-                  Retirer la photo
+                  {t("profile.removePhoto")}
                 </Button>
               </div>
             ) : null}
@@ -320,24 +323,24 @@ export function ProfilePanel({
               admin, member, guest), and reading "Rôle : Gérante" next to a member list where the
               role is "Administrateur" invited exactly the wrong conclusion. The column is `title`.
             */}
-            <label style={styles.formLabel}>Fonction</label>
-            <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="ex. Gérante, Développeur" />
-            <label style={styles.formLabel}>Pronoms</label>
-            <Input value={pronouns} onChange={(e) => setPronouns(e.target.value)} placeholder="ex. elle, il, iel" />
-            <label style={styles.formLabel}>Fuseau horaire</label>
+            <label style={styles.formLabel}>{t("profile.jobTitle")}</label>
+            <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder={t("profile.jobTitlePlaceholder")} />
+            <label style={styles.formLabel}>{t("profile.pronouns")}</label>
+            <Input value={pronouns} onChange={(e) => setPronouns(e.target.value)} placeholder={t("profile.pronounsPlaceholder")} />
+            <label style={styles.formLabel}>{t("profile.timezone")}</label>
             <Select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              options={[{ value: "", label: "Non précisé" }, ...TIMEZONES.map((tz) => ({ value: tz, label: tz }))]}
+              options={[{ value: "", label: t("profile.unspecified") }, ...TIMEZONES.map((tz) => ({ value: tz, label: tz }))]}
             />
-            <label style={styles.formLabel}>À propos</label>
+            <label style={styles.formLabel}>{t("profile.about")}</label>
             <Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
               <Button variant="primary" size="sm" onClick={save}>
-                Enregistrer
+                {t("common.save")}
               </Button>
               <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>
-                Annuler
+                {t("common.cancel")}
               </Button>
             </div>
           </div>
@@ -345,18 +348,21 @@ export function ProfilePanel({
           <>
             {p.bio ? (
               <div style={styles.section}>
-                <div style={styles.label}>À propos</div>
+                <div style={styles.label}>{t("profile.about")}</div>
                 <p style={{ fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)" }}>{p.bio}</p>
               </div>
             ) : null}
 
             <div style={styles.section}>
-              <div style={styles.label}>Coordonnées</div>
+              <div style={styles.label}>{t("profile.contact")}</div>
               {p.email ? <Field icon="at-sign">{p.email}</Field> : null}
               {/* Absent rather than guessed: every profile used to report Europe/Paris, including
                   those of people who had never been asked. */}
-              {localTime ? <Field icon="clock">{localTime} heure locale</Field> : null}
+              {localTime ? <Field icon="clock">{t("profile.localTime", { time: localTime })}</Field> : null}
               {p.timezone ? <Field icon="globe">{p.timezone}</Field> : null}
+              {/* Their reading language, named in the reader's own: useful to know before writing
+                  to someone, and the one thing on this card that is about how to reach them. */}
+              {p.locale ? <Field icon="languages">{languageName(p.locale, i18n.language)}</Field> : null}
             </div>
           </>
         )}
@@ -365,7 +371,7 @@ export function ProfilePanel({
       {cropping ? (
         <ImageCropDialog
           file={cropping}
-          title="Cadrer la photo"
+          title={t("profile.cropPhoto")}
           onCancel={() => setCropping(null)}
           onConfirm={(cropped) => void uploadCropped(cropped)}
         />

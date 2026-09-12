@@ -84,6 +84,11 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint
         run: pnpm --filter @ruchoir/web lint
+      # Fails on user-visible text typed into a component rather than translated, and on any
+      # disagreement between the six dictionaries. Both are invisible in review and silent at
+      # runtime: an untranslated string simply ships in French to everyone.
+      - name: Translations
+        run: pnpm --filter @ruchoir/web i18n:check
       - name: Build (static export)
         run: pnpm --filter @ruchoir/web build
 

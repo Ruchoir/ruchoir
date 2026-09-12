@@ -8,6 +8,8 @@ import { getReplies, sendMessage } from "@/lib/data/api";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 import { useStickToBottom } from "./useStickToBottom";
+import { useTranslation } from "@/lib/i18n";
+import { formatStamp } from "@/lib/i18n/format";
 
 const MIN_WIDTH = 320;
 const MAX_WIDTH = 720;
@@ -68,11 +70,11 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-type Reply = { id: string; author: string; time: string; body: string };
+type Reply = { id: string; author: string; createdAt: string; body: string };
 
 /** Reduce a message to the fields the thread row renders. */
-function toReply(m: { id: string; author: string; time: string; body: string }): Reply {
-  return { id: m.id, author: m.author, time: m.time, body: m.body };
+function toReply(m: { id: string; author: string; createdAt: string; body: string }): Reply {
+  return { id: m.id, author: m.author, createdAt: m.createdAt, body: m.body };
 }
 
 function ReplyRow({ r }: { r: Reply }) {
@@ -82,7 +84,7 @@ function ReplyRow({ r }: { r: Reply }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div>
           <span style={styles.name}>{r.author}</span>
-          <span style={styles.time}>{r.time}</span>
+          <span style={styles.time}>{formatStamp(r.createdAt)}</span>
         </div>
         <p style={styles.body}>{r.body}</p>
       </div>
@@ -99,6 +101,7 @@ export type ThreadPanelProps = {
 
 /** Right-hand thread view for a message's replies, loaded from and posted to the API. */
 export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProps) {
+  const { t } = useTranslation();
   const me = getCurrentUser().name;
   const [replies, setReplies] = useState<Reply[]>([]);
   const [width, setWidth] = useState(420);
@@ -149,7 +152,7 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
       {
         id: tempId,
         author: me,
-        time: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
+        createdAt: new Date().toISOString(),
         body: text,
       },
     ]);
@@ -162,14 +165,14 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
     <div style={{ ...styles.panel, width }}>
       <div style={styles.handle} onMouseDown={startResize} role="separator" aria-orientation="vertical" />
       <div style={styles.head}>
-        <span style={styles.title}>Fil de discussion</span>
-        <IconButton icon="x" label="Fermer le fil" size="sm" onClick={onClose} />
+        <span style={styles.title}>{t("thread.title")}</span>
+        <IconButton icon="x" label={t("thread.close")} size="sm" onClick={onClose} />
       </div>
       <div style={styles.scroll} ref={scrollRef}>
-        <ReplyRow r={{ id: parent.id, author: parent.author, time: parent.time, body: parent.body }} />
+        <ReplyRow r={{ id: parent.id, author: parent.author, createdAt: parent.createdAt, body: parent.body }} />
         <div style={styles.count}>
           <span style={styles.countLine} />
-          {replies.length} réponses
+          {t("message.replies", { count: replies.length })}
           <span style={styles.countLine} />
         </div>
         {replies.map((r) => (
@@ -178,12 +181,12 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
       </div>
       <div style={styles.composer}>
         <div style={styles.composerBox}>
-          <MessageEditor ref={editorRef} placeholder="Répondre dans le fil" onSend={addReply} />
+          <MessageEditor ref={editorRef} placeholder={t("thread.replyPlaceholder")} onSend={addReply} />
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, marginTop: 4 }}>
             <IconButton
               ref={emojiRef}
               icon="smile"
-              label="Émoji"
+              label={t("composer.emoji")}
               size="sm"
               aria-expanded={emojiOpen}
               onClick={() => setEmojiOpen((o) => !o)}
@@ -196,7 +199,7 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
                 }}
               />
             </Popover>
-            <IconButton icon="send" label="Envoyer" variant="accent" size="sm" onClick={() => editorRef.current?.submit()} />
+            <IconButton icon="send" label={t("composer.send")} variant="accent" size="sm" onClick={() => editorRef.current?.submit()} />
           </div>
         </div>
       </div>

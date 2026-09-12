@@ -2,8 +2,11 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Button, Field, Icon, Input, Select, Switch } from "@/components/ds";
+import { Button, Field, Icon, type IconName, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
+import { updateMyProfile } from "@/lib/data/api";
+import { initialLocale, key, literal, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { LanguagePicker } from "./LanguagePicker";
 import { Emoji } from "./Emoji";
 import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
 import {
@@ -34,21 +37,21 @@ import type { Toast } from "./types";
 
 export type PrefTab = "appearance" | "notifications" | "shortcuts" | "security" | "emojis";
 
-const NAV: [PrefTab, string, string][] = [
-  ["appearance", "Apparence", "layout-grid"],
-  ["notifications", "Notifications", "bell"],
-  ["shortcuts", "Raccourcis clavier", "keyboard"],
-  ["security", "Compte et sécurité", "shield"],
-  ["emojis", "Emojis", "smile"],
+const NAV: [PrefTab, TranslationKey, IconName][] = [
+  ["appearance", key("prefs.appearance"), "layout-grid"],
+  ["notifications", key("notif.title"), "bell"],
+  ["shortcuts", key("prefs.shortcuts"), "keyboard"],
+  ["security", key("prefs.security"), "shield"],
+  ["emojis", key("prefs.emojis"), "smile"],
 ];
 
 
 /** Representative swatches per theme, purely for the picker preview (fixed, not live tokens). */
-const THEME_PREVIEWS: { id: ThemeName; label: string; canvas: string; chrome: string; accent: string; ink: string }[] = [
-  { id: "ruchui", label: "RuchUI", canvas: "#f7f3ed", chrome: "#f0e8e0", accent: "#c65d45", ink: "#171716" },
-  { id: "light", label: "Clair", canvas: "#ffffff", chrome: "#f4f5f6", accent: "#c65d45", ink: "#17181b" },
-  { id: "ruchui-dark", label: "RuchUI Dark", canvas: "#143336", chrome: "#0f2629", accent: "#d07a66", ink: "#f5f3ec" },
-  { id: "dark", label: "Sombre", canvas: "#1a1a1c", chrome: "#141416", accent: "#db9788", ink: "#f4f4f6" },
+const THEME_PREVIEWS: { id: ThemeName; label: TranslationKey; canvas: string; chrome: string; accent: string; ink: string }[] = [
+  { id: "ruchui", label: literal("RuchUI"), canvas: "#f7f3ed", chrome: "#f0e8e0", accent: "#c65d45", ink: "#171716" },
+  { id: "light", label: key("prefs.themeLight"), canvas: "#ffffff", chrome: "#f4f5f6", accent: "#c65d45", ink: "#17181b" },
+  { id: "ruchui-dark", label: literal("RuchUI Dark"), canvas: "#143336", chrome: "#0f2629", accent: "#d07a66", ink: "#f5f3ec" },
+  { id: "dark", label: key("prefs.themeDark"), canvas: "#1a1a1c", chrome: "#141416", accent: "#db9788", ink: "#f4f4f6" },
 ];
 
 const st: Record<string, CSSProperties> = {
@@ -167,6 +170,7 @@ function Row({ title, desc, children }: { title: ReactNode; desc?: ReactNode; ch
  * thing during the static export's render pass and assuming one would flash the wrong state.
  */
 function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNotify?: (t: Toast) => void }) {
+  const { t } = useTranslation();
   // Read as what it is: a value owned by the browser, not by React. The third argument is the
   // snapshot for the render that happens without one, which is every render of the static export.
   const permission = useSyncExternalStore(
@@ -179,7 +183,7 @@ function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNot
     if (soundOn) playNotificationSound();
     showDesktopNotification({
       title: "Ruchoir",
-      body: "Voilà à quoi ressemblera une notification.",
+      body: t("prefs.testBody"),
       tag: "ruchoir-test",
       onClick: () => {},
       // Said out loud, because the alternative is a button that looks broken. The browser accepted
@@ -187,12 +191,12 @@ function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNot
       onDelivered: (shown) =>
         onNotify?.(
           shown
-            ? { tone: "success", title: "Notification affichée" }
+            ? { tone: "success", title: t("prefs.shown") }
             : {
                 tone: "warning",
-                title: "Rien ne s'est affiché",
+                title: t("prefs.notShown"),
                 description:
-                  "Le navigateur l'a acceptée, mais le système ne l'a pas montrée. Vérifiez les notifications autorisées pour votre navigateur dans les réglages du système, et qu'aucun mode de concentration ou « Ne pas déranger » n'est actif.",
+                  t("prefs.notShownDesc"),
               },
         ),
     });
@@ -200,15 +204,15 @@ function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNot
 
   const desc =
     permission === "granted"
-      ? "Autorisées. Elles apparaissent quand Ruchoir n'est pas la fenêtre que vous regardez."
+      ? t("prefs.notifGranted")
       : permission === "denied"
-        ? "Refusées pour ce site. Le navigateur est le seul à pouvoir revenir dessus : ouvrez les informations du site dans la barre d'adresse, puis réautorisez les notifications."
+        ? t("prefs.notifDenied")
         : permission === "unsupported"
-          ? "Ce navigateur ne propose pas de notifications système."
-          : "Ruchoir ne peut pas vous prévenir hors de l'onglet tant que le navigateur ne l'autorise pas.";
+          ? t("prefs.notifUnsupported")
+          : t("prefs.notifDefault");
 
   return (
-    <Row title="Notifications du navigateur" desc={desc}>
+    <Row title={t("prefs.browserNotif")} desc={desc}>
       {permission === "default" ? (
         <Button
           size="sm"
@@ -217,11 +221,11 @@ function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNot
             void requestNotificationPermission();
           }}
         >
-          Autoriser
+          {t("prefs.allow")}
         </Button>
       ) : permission === "granted" ? (
         <Button size="sm" onClick={test}>
-          Tester
+          {t("prefs.test")}
         </Button>
       ) : null}
     </Row>
@@ -229,15 +233,16 @@ function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNot
 }
 
 /** Preview font stacks, independent of the live --font-sans so each card always shows its own type. */
-const FONT_OPTIONS: { id: FontChoice; label: string; desc: string; stack: string }[] = [
-  { id: "plex", label: "IBM Plex Sans", desc: "Par défaut", stack: '"IBM Plex Sans", "Helvetica Neue", sans-serif' },
-  { id: "system", label: "Système", desc: "La police de votre appareil", stack: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
-  { id: "dyslexic", label: "OpenDyslexic", desc: "Lecture facilitée (dyslexie)", stack: '"OpenDyslexic", "Comic Sans MS", sans-serif' },
+const FONT_OPTIONS: { id: FontChoice; label: TranslationKey; desc: TranslationKey; stack: string }[] = [
+  { id: "plex", label: literal("IBM Plex Sans"), desc: key("prefs.fontDefault"), stack: '"IBM Plex Sans", "Helvetica Neue", sans-serif' },
+  { id: "system", label: key("prefs.fontSystem"), desc: key("prefs.fontSystemDesc"), stack: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
+  { id: "dyslexic", label: literal("OpenDyslexic"), desc: key("prefs.fontDyslexic"), stack: '"OpenDyslexic", "Comic Sans MS", sans-serif' },
 ];
 
 function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: FontChoice) => void }) {
+  const { t } = useTranslation();
   return (
-    <div role="radiogroup" aria-label="Police d'écriture" style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 520 }}>
+    <div role="radiogroup" aria-label={t("prefs.font")} style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 520 }}>
       {FONT_OPTIONS.map((f) => {
         const selected = f.id === value;
         return (
@@ -262,17 +267,17 @@ function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: Font
             }}
           >
             <span aria-hidden style={{ fontFamily: f.stack, fontSize: 30, lineHeight: 1, color: "var(--text-strong)", flex: "none", width: 44, textAlign: "center" }}>
-              Ag
+              {t("prefs.fontSampleLetters")}
             </span>
             <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{f.label}</span>
-                {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>Actif</span> : null}
+                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(f.label)}</span>
+                {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>{t("prefs.active")}</span> : null}
               </span>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{f.desc}</span>
+              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(f.desc)}</span>
               {/* Sample rendered in the target font so the choice previews before it is applied. */}
               <span style={{ fontFamily: f.stack, fontSize: 13, color: "var(--text-body)" }}>
-                Portez ce vieux whisky au juge blond qui fume.
+                {t("prefs.fontSampleText")}
               </span>
             </span>
           </button>
@@ -282,16 +287,17 @@ function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: Font
   );
 }
 
-const SIZE_OPTIONS: { id: TextSize; label: string; sample: number }[] = [
-  { id: "s", label: "Petite", sample: 13 },
-  { id: "m", label: "Normale", sample: 15 },
-  { id: "l", label: "Grande", sample: 17 },
-  { id: "xl", label: "Très grande", sample: 20 },
+const SIZE_OPTIONS: { id: TextSize; label: TranslationKey; sample: number }[] = [
+  { id: "s", label: key("prefs.sizeS"), sample: 13 },
+  { id: "m", label: key("prefs.sizeM"), sample: 15 },
+  { id: "l", label: key("prefs.sizeL"), sample: 17 },
+  { id: "xl", label: key("prefs.sizeXL"), sample: 20 },
 ];
 
 function TextSizePicker({ value, onChange }: { value: TextSize; onChange: (t: TextSize) => void }) {
+  const { t } = useTranslation();
   return (
-    <div role="radiogroup" aria-label="Taille du texte" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+    <div role="radiogroup" aria-label={t("prefs.textSize")} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       {SIZE_OPTIONS.map((o) => {
         const selected = o.id === value;
         return (
@@ -318,7 +324,7 @@ function TextSizePicker({ value, onChange }: { value: TextSize; onChange: (t: Te
             }}
           >
             <span aria-hidden style={{ fontSize: o.sample, fontWeight: 600, lineHeight: 1, color: "var(--text-strong)" }}>A</span>
-            <span style={{ fontSize: 12, color: selected ? "var(--text-accent)" : "var(--text-muted)" }}>{o.label}</span>
+            <span style={{ fontSize: 12, color: selected ? "var(--text-accent)" : "var(--text-muted)" }}>{t(o.label)}</span>
           </button>
         );
       })}
@@ -327,17 +333,18 @@ function TextSizePicker({ value, onChange }: { value: TextSize; onChange: (t: Te
 }
 
 function ThemePicker({ value, onChange }: { value: ThemeName; onChange: (t: ThemeName) => void }) {
+  const { t } = useTranslation();
   return (
-    <div role="radiogroup" aria-label="Thème" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 520 }}>
-      {THEME_PREVIEWS.map((t) => {
-        const selected = t.id === value;
+    <div role="radiogroup" aria-label={t("prefs.theme")} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 520 }}>
+      {THEME_PREVIEWS.map((theme) => {
+        const selected = theme.id === value;
         return (
           <button
-            key={t.id}
+            key={theme.id}
             type="button"
             role="radio"
             aria-checked={selected}
-            onClick={() => onChange(t.id)}
+            onClick={() => onChange(theme.id)}
             style={{
               display: "flex",
               alignItems: "center",
@@ -363,19 +370,19 @@ function ThemePicker({ value, onChange }: { value: ThemeName; onChange: (t: Them
                 borderRadius: "var(--radius-sm)",
                 overflow: "hidden",
                 border: "1px solid var(--border-subtle)",
-                background: t.canvas,
+                background: theme.canvas,
               }}
             >
-              <span style={{ width: 12, height: "100%", background: t.chrome }} />
+              <span style={{ width: 12, height: "100%", background: theme.chrome }} />
               <span style={{ flex: 1, position: "relative", padding: 5 }}>
-                <span style={{ display: "block", width: 8, height: 8, borderRadius: "var(--radius-full)", background: t.accent }} />
-                <span style={{ display: "block", width: "80%", height: 3, marginTop: 4, borderRadius: 2, background: t.ink, opacity: 0.55 }} />
-                <span style={{ display: "block", width: "55%", height: 3, marginTop: 3, borderRadius: 2, background: t.ink, opacity: 0.3 }} />
+                <span style={{ display: "block", width: 8, height: 8, borderRadius: "var(--radius-full)", background: theme.accent }} />
+                <span style={{ display: "block", width: "80%", height: 3, marginTop: 4, borderRadius: 2, background: theme.ink, opacity: 0.55 }} />
+                <span style={{ display: "block", width: "55%", height: 3, marginTop: 3, borderRadius: 2, background: theme.ink, opacity: 0.3 }} />
               </span>
             </span>
             <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t.label}</span>
-              {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>Actif</span> : null}
+              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(theme.label)}</span>
+              {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>{t("prefs.active")}</span> : null}
             </span>
           </button>
         );
@@ -410,20 +417,21 @@ function ShortcutRow({
   capturing: boolean;
   chord: string;
   isDefault: boolean;
-  conflict: string | null;
+  conflict: TranslationKey | null;
   mac: boolean;
   onStart: () => void;
   onReset: () => void;
 }) {
+  const { t } = useTranslation();
   const def = COMMANDS.find((c) => c.id === id)!;
   return (
     <div style={rowStyle}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{def.label}</div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{def.hint}</div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(def.label)}</div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{t(def.hint)}</div>
         {conflict ? (
           <div style={{ fontSize: 12, color: "var(--status-danger-fg)", marginTop: 4 }}>
-            Déjà utilisé par « {conflict} ».
+            {t("shortcut.conflict", { label: t(conflict) })}
           </div>
         ) : null}
       </div>
@@ -437,15 +445,15 @@ function ShortcutRow({
               background: "var(--surface-selected)",
             }}
           >
-            Appuyez sur une combinaison…
+            {t("shortcut.pressCombination")}
           </span>
         ) : chord ? (
-          <kbd style={kbdStyle}>{formatChord(chord, mac)}</kbd>
+          <kbd style={kbdStyle}>{formatChord(chord, mac, t)}</kbd>
         ) : (
-          <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>Non attribué</span>
+          <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("dialogs.unassigned")}</span>
         )}
-        <Button size="sm" variant="secondary" onClick={onStart} aria-label={`Modifier le raccourci : ${def.label}`}>
-          {capturing ? "Annuler" : "Modifier"}
+        <Button size="sm" variant="secondary" onClick={onStart} aria-label={t("shortcut.editShortcut", { label: t(def.label) })}>
+          {capturing ? t("common.cancel") : t("message.edit")}
         </Button>
         {!isDefault ? (
           <Button
@@ -453,7 +461,7 @@ function ShortcutRow({
             variant="ghost"
             iconLeft="refresh-cw"
             onClick={onReset}
-            aria-label={`Rétablir le raccourci par défaut : ${def.label}`}
+            aria-label={t("shortcut.resetShortcut", { label: t(def.label) })}
           />
         ) : null}
       </div>
@@ -463,6 +471,7 @@ function ShortcutRow({
 
 /** The "Raccourcis clavier" preferences panel: view, rebind, unbind and reset each command. */
 function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
+  const { t } = useTranslation();
   const s = useSettings();
   const bindings = s.shortcuts;
   const [capturing, setCapturing] = useState<ShortcutId | null>(null);
@@ -508,7 +517,7 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
     const ch = bindings[c.id];
     if (ch) (usedBy[ch] ??= []).push(c.id);
   }
-  const conflictLabel = (id: ShortcutId): string | null => {
+  const conflictLabel = (id: ShortcutId): TranslationKey | null => {
     const ch = bindings[id];
     if (!ch) return null;
     const other = (usedBy[ch] ?? []).find((x) => x !== id);
@@ -518,15 +527,14 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
   const resetAll = () => {
     setRef.current("shortcuts", { ...DEFAULT_BINDINGS });
     setCapturing(null);
-    onNotify?.({ tone: "info", title: "Raccourcis réinitialisés" });
+    onNotify?.({ tone: "info", title: t("prefs.shortcutsReset") });
   };
 
   return (
     <>
-      <h2 style={st.h}>Raccourcis clavier</h2>
+      <h2 style={st.h}>{t("prefs.shortcuts")}</h2>
       <p style={st.sub}>
-        Personnalisez les raccourcis. Cliquez sur « Modifier » puis appuyez sur la combinaison voulue ;
-        la touche Retour arrière la retire, Échap annule.
+        {t("shortcut.customizeHint")}
       </p>
       {COMMANDS.map((c) => (
         <ShortcutRow
@@ -543,7 +551,7 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
       ))}
       <div style={{ marginTop: 18 }}>
         <Button variant="secondary" iconLeft="refresh-cw" onClick={resetAll}>
-          Rétablir les valeurs par défaut
+          {t("shortcut.resetAll")}
         </Button>
       </div>
     </>
@@ -570,6 +578,7 @@ export function PreferencesScreen({
   initialTab = "appearance",
 }: PreferencesScreenProps) {
   const s = useSettings();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<PrefTab>(initialTab);
 
   // Escape leaves the preferences, but only when no sub-dialog is open (a dialog handles Escape first).
@@ -590,9 +599,9 @@ export function PreferencesScreen({
         <img src="/brand/ruchoir-mark.png" alt="" style={st.mark} />
         {compact ? null : <span style={st.wordmark}>Ruchoir</span>}
         <span style={st.divider} aria-hidden />
-        <h1 style={st.title}>Préférences</h1>
+        <h1 style={st.title}>{t("prefs.title")}</h1>
         <Button variant="secondary" iconLeft="arrow-left" onClick={onClose} style={{ flexShrink: 0 }}>
-          {compact ? "Retour" : "Retour à l'espace"}
+          {compact ? t("common.back") : t("prefs.backToSpace")}
         </Button>
       </div>
       <div style={compact ? { ...st.body, flexDirection: "column" } : st.body}>
@@ -606,7 +615,7 @@ export function PreferencesScreen({
           {NAV.map(([v, l, i]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
               <Icon name={i} size={14} style={{ color: "var(--text-muted)" }} />
-              {l}
+              {t(l)}
             </button>
           ))}
         </div>
@@ -615,40 +624,72 @@ export function PreferencesScreen({
           <div style={compact ? { ...st.main, padding: "16px 16px 48px" } : st.main}>
             {tab === "appearance" ? (
               <>
-                <h2 style={st.h}>Apparence</h2>
-                <p style={st.sub}>Thème, police, taille du texte et affichage par défaut de l&apos;interface.</p>
-                <div style={st.sect}>Thème</div>
+                <h2 style={st.h}>{t("prefs.appearance")}</h2>
+                <p style={st.sub}>{t("prefs.appearanceSub")}</p>
+
+                <div style={st.sect}>{t("language.section")}</div>
+                {/*
+                  Under its description rather than beside it: the control is wide (a flag, a
+                  language named in its own script, a chevron), and squeezed into the right-hand
+                  column of a Row it fought the sentence explaining it for the same inches.
+                */}
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>
+                    {t("language.title")}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 10px", maxWidth: 520 }}>
+                    {t("language.description")}
+                  </div>
+                  <LanguagePicker
+                    value={s.locale}
+                    onChange={(next) => {
+                      s.set("locale", next);
+                      // Told to the server too, because the server writes: confirmations, password
+                      // resets and invitations are the half of the product a browser preference
+                      // cannot reach. A blank clears it back to following the browser.
+                      // Back to "follow the browser" still means reading in a language: the account
+                      // records the one now in force, not a blank, or the profile would go quiet
+                      // about something that is plainly true.
+                      void updateMyProfile({ locale: next ?? initialLocale() }).catch(() => {
+                        // A language that did not reach the account still applies to the interface;
+                        // it is not worth an error in the middle of a preferences screen.
+                      });
+                    }}
+                  />
+                </div>
+
+                <div style={st.sect}>{t("prefs.theme")}</div>
                 <ThemePicker value={s.theme} onChange={(t) => s.set("theme", t)} />
-                <div style={st.sect}>Police d&apos;écriture</div>
+                <div style={st.sect}>{t("prefs.font")}</div>
                 <FontPicker value={s.font} onChange={(f) => s.set("font", f)} />
-                <div style={st.sect}>Taille du texte</div>
+                <div style={st.sect}>{t("prefs.textSize")}</div>
                 <TextSizePicker value={s.textSize} onChange={(t) => s.set("textSize", t)} />
 
-                <div style={st.sect}>Affichage par défaut</div>
-                <Row title="Vue des fichiers" desc="Comment l'écran Fichiers s'ouvre. Vous pouvez toujours en changer une fois dedans.">
+                <div style={st.sect}>{t("prefs.defaultDisplay")}</div>
+                <Row title={t("prefs.filesView")} desc={t("prefs.filesViewDesc")}>
                   <Select
-                    aria-label="Vue des fichiers par défaut"
+                    aria-label={t("prefs.filesViewLabel")}
                     value={s.filesLayout}
                     onChange={(e) => s.set("filesLayout", e.target.value as FilesLayout)}
                     options={[
-                      { value: "list", label: "Tableau" },
-                      { value: "grid", label: "Cartes" },
+                      { value: "list", label: t("prefs.table") },
+                      { value: "grid", label: t("prefs.cards") },
                     ]}
                   />
                 </Row>
                 <Row
-                  title="Panneau de droite"
-                  desc="Le panneau ouvert en entrant dans une conversation. Le fermer à la main le garde fermé jusqu'à ce que vous en rouvriez un."
+                  title={t("prefs.rightPanel")}
+                  desc={t("prefs.rightPanelDesc")}
                 >
                   <Select
-                    aria-label="Panneau de droite par défaut"
+                    aria-label={t("prefs.rightPanelLabel")}
                     value={s.defaultPanel}
                     onChange={(e) => s.set("defaultPanel", e.target.value as DefaultPanel)}
                     options={[
-                      { value: "members", label: "Membres" },
-                      { value: "files", label: "Fichiers" },
-                      { value: "pinned", label: "Épinglés" },
-                      { value: "none", label: "Aucun" },
+                      { value: "members", label: t("conversation.members") },
+                      { value: "files", label: t("gsearch.files") },
+                      { value: "pinned", label: t("prefs.pinnedShort") },
+                      { value: "none", label: t("prefs.none") },
                     ]}
                   />
                 </Row>
@@ -657,34 +698,34 @@ export function PreferencesScreen({
 
             {tab === "notifications" ? (
               <>
-                <h2 style={st.h}>Notifications</h2>
-                <p style={st.sub}>Choisissez quand et comment Ruchoir vous alerte.</p>
+                <h2 style={st.h}>{t("notif.title")}</h2>
+                <p style={st.sub}>{t("prefs.notifSub")}</p>
                 <BrowserNotificationRow soundOn={s.notif.sound} onNotify={onNotify} />
-                <Row title="Activer les notifications" desc="Coupe toutes les notifications de bureau et sonores quand c'est désactivé.">
-                  <Switch checked={s.notif.enabled} onChange={(e) => s.set("notif", { ...s.notif, enabled: e.target.checked })} aria-label="Activer les notifications" />
+                <Row title={t("prefs.enableNotif")} desc={t("prefs.enableNotifDesc")}>
+                  <Switch checked={s.notif.enabled} onChange={(e) => s.set("notif", { ...s.notif, enabled: e.target.checked })} aria-label={t("prefs.enableNotif")} />
                 </Row>
-                <Row title="Son de notification" desc="Joue un son discret à chaque nouvelle notification.">
-                  <Switch checked={s.notif.sound} onChange={(e) => s.set("notif", { ...s.notif, sound: e.target.checked })} aria-label="Son de notification" />
+                <Row title={t("prefs.notifSound")} desc={t("prefs.notifSoundDesc")}>
+                  <Switch checked={s.notif.sound} onChange={(e) => s.set("notif", { ...s.notif, sound: e.target.checked })} aria-label={t("prefs.notifSound")} />
                 </Row>
-                <Row title="Mentions de canal" desc="Être notifié aussi sur @canal et @ici, pas seulement sur les mentions directes.">
-                  <Switch checked={s.notif.channelMentions} onChange={(e) => s.set("notif", { ...s.notif, channelMentions: e.target.checked })} aria-label="Mentions de canal" />
+                <Row title={t("prefs.channelMentions")} desc={t("prefs.channelMentionsDesc")}>
+                  <Switch checked={s.notif.channelMentions} onChange={(e) => s.set("notif", { ...s.notif, channelMentions: e.target.checked })} aria-label={t("prefs.channelMentions")} />
                 </Row>
                 <Row
-                  title="Heures calmes"
+                  title={t("prefs.quietHours")}
                   desc={
                     s.notif.quietHours
-                      ? `Notifications suspendues de ${quietHoursLabel(s.notif)}.`
-                      : "Suspend les notifications sur une plage horaire que vous définissez."
+                      ? t("prefs.quietHoursActive", { window: quietHoursLabel(s.notif) })
+                      : t("prefs.quietHoursDesc")
                   }
                 >
-                  <Switch checked={s.notif.quietHours} onChange={(e) => s.set("notif", { ...s.notif, quietHours: e.target.checked })} aria-label="Heures calmes" />
+                  <Switch checked={s.notif.quietHours} onChange={(e) => s.set("notif", { ...s.notif, quietHours: e.target.checked })} aria-label={t("prefs.quietHours")} />
                 </Row>
                 {s.notif.quietHours ? (
                   <div style={{ display: "flex", gap: 12, padding: "16px 0 4px" }}>
-                    <Field label="Début" htmlFor="quiet-from">
+                    <Field label={t("prefs.from")} htmlFor="quiet-from">
                       <Input id="quiet-from" type="time" size="sm" value={s.notif.quietFrom ?? DEFAULT_NOTIF_PREFS.quietFrom} onChange={(e) => s.set("notif", { ...s.notif, quietFrom: e.target.value })} />
                     </Field>
-                    <Field label="Fin" htmlFor="quiet-to">
+                    <Field label={t("prefs.to")} htmlFor="quiet-to">
                       <Input id="quiet-to" type="time" size="sm" value={s.notif.quietTo ?? DEFAULT_NOTIF_PREFS.quietTo} onChange={(e) => s.set("notif", { ...s.notif, quietTo: e.target.value })} />
                     </Field>
                   </div>
@@ -696,31 +737,31 @@ export function PreferencesScreen({
 
             {tab === "security" ? (
               <>
-                <h2 style={st.h}>Compte et sécurité</h2>
-                <p style={st.sub}>Mot de passe, double authentification, clés d&apos;accès et codes de récupération.</p>
+                <h2 style={st.h}>{t("prefs.security")}</h2>
+                <p style={st.sub}>{t("prefs.securitySub")}</p>
                 <AccountSecuritySection onNotify={onNotify} onSignedOut={onSignedOut} />
               </>
             ) : null}
 
             {tab === "emojis" ? (
               <>
-                <h2 style={st.h}>Emojis</h2>
-                <p style={st.sub}>Rendu des emojis dans les messages et les réactions.</p>
+                <h2 style={st.h}>{t("prefs.emojis")}</h2>
+                <p style={st.sub}>{t("prefs.emojisSub")}</p>
                 <Row
                   title={
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      Emojis animés <Emoji emoji="🎉" size={18} />
+                      {t("prefs.animatedEmoji")} <Emoji emoji="🎉" size={18} />
                     </span>
                   }
-                  desc="Anime les emojis Fluent des réactions (quand le pack est installé). Ailleurs, ils restent statiques."
+                  desc={t("prefs.animatedEmojiDesc")}
                 >
-                  <Switch checked={s.emojiAnimated} onChange={(e) => s.set("emojiAnimated", e.target.checked)} aria-label="Emojis animés" />
+                  <Switch checked={s.emojiAnimated} onChange={(e) => s.set("emojiAnimated", e.target.checked)} aria-label={t("prefs.animatedEmoji")} />
                 </Row>
                 {/* Dev-only: simulates the operator NOT installing the pack, to demo the native fallback.
                     In production the pack presence comes from the server, so this toggle has no place there. */}
                 {process.env.NODE_ENV !== "production" ? (
-                  <Row title="Pack emoji installé" desc="Active le pack Fluent auto-hébergé. Désactivé, les emojis reviennent au rendu natif du système.">
-                    <Switch checked={s.emojiPack} onChange={(e) => s.set("emojiPack", e.target.checked)} aria-label="Pack emoji installé" />
+                  <Row title={t("prefs.emojiPack")} desc={t("prefs.emojiPackDesc")}>
+                    <Switch checked={s.emojiPack} onChange={(e) => s.set("emojiPack", e.target.checked)} aria-label={t("prefs.emojiPack")} />
                   </Row>
                 ) : null}
               </>

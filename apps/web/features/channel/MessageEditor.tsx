@@ -6,6 +6,7 @@ import { getChannelMembers, getServerDirectory, subscribeToDirectory } from "@/l
 import { searchShortcodes } from "@/lib/shortcodes";
 import { Emoji } from "../app/Emoji";
 import { useEmojiManifest } from "../app/emojiManifest";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import {
   editorState,
   emojiNode,
@@ -20,7 +21,7 @@ type Member = ReturnType<typeof getChannelMembers>[number];
 /** A ranked autocomplete suggestion, tagged by the trigger that produced it. */
 type Hit =
   | { kind: "mention"; name: string; member: Member }
-  | { kind: "broadcast"; name: string; hint: string }
+  | { kind: "broadcast"; name: string; hint: TranslationKey }
   | { kind: "emoji"; name: string; emoji: string };
 
 /**
@@ -31,9 +32,10 @@ type Hit =
  * makes them different from each other, and it is the behaviour, not a paraphrase of the word: one
  * reaches the whole channel, the other only the people connected right now.
  */
-const BROADCASTS: { name: string; hint: string }[] = [
-  { name: "canal", hint: "Prévient tous les membres du canal" },
-  { name: "ici", hint: "Prévient seulement les membres connectés" },
+/** The two broadcast mentions, with the dictionary key of their hint. */
+const BROADCASTS: { name: string; hint: TranslationKey }[] = [
+  { name: "canal", hint: key("composer.broadcastChannel") },
+  { name: "ici", hint: key("composer.broadcastHere") },
 ];
 
 type Trigger = { kind: "mention" | "emoji"; query: string; start: number };
@@ -115,6 +117,7 @@ export type MessageEditorProps = {
  * message pipeline is unchanged. The surrounding toolbar drives formatting through the ref handle.
  */
 export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEditorProps) {
+  const { t } = useTranslation();
   const edRef = useRef<HTMLDivElement>(null);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
   const [active, setActive] = useState(0);
@@ -379,7 +382,7 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
         onPaste={onPaste}
       />
       <Popover anchorRef={edRef} open={acOpen} onClose={() => setTrigger(null)} placement="top" align="start">
-        <div id={listId} style={menuStyle} role="listbox" aria-label={trigger?.kind === "emoji" ? "Emojis" : "Membres"}>
+        <div id={listId} style={menuStyle} role="listbox" aria-label={trigger?.kind === "emoji" ? t("prefs.emojis") : t("conversation.members")}>
           {hits.map((hit, idx) => (
             <button
               key={`${hit.kind}-${hit.name}`}
@@ -399,7 +402,7 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
                   </span>
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: "block" }}>{hit.name}</span>
-                    <span style={{ display: "block", fontSize: 11, color: "var(--text-subtle)" }}>{hit.hint}</span>
+                    <span style={{ display: "block", fontSize: 11, color: "var(--text-subtle)" }}>{t(hit.hint)}</span>
                   </span>
                 </>
               ) : hit.kind === "mention" ? (

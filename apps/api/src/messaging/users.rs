@@ -56,6 +56,7 @@ fn profile_of(user: users::Model, show_admin: bool) -> UserProfileDto {
         pronouns: user.pronouns,
         timezone: user.timezone,
         bio: user.bio,
+        locale: user.locale.clone(),
         is_bot: user.is_bot,
         is_instance_admin: user.is_instance_admin && show_admin,
         avatar_url,
@@ -170,6 +171,15 @@ pub async fn update_my_profile(
             _ => active.timezone = Set(cleaned),
         }
     }
+    if let Some(locale) = body.locale {
+        // Normalized through the same parser the emails use, so the column can only ever hold one of
+        // the six the product speaks, and a blank clears it back to "follow the browser".
+        active.locale = Set(clean(locale).map(|tag| {
+            crate::auth::mail_text::Locale::parse(Some(&tag))
+                .as_str()
+                .to_owned()
+        }));
+    }
     active.updated_at = Set(OffsetDateTime::now_utc());
     let updated = active.update(&state.db).await?;
     broadcast_profile_change(&state, &updated).await;
@@ -185,29 +195,6 @@ async fn is_instance_admin(db: &DatabaseConnection, user_id: Uuid) -> Result<boo
         .one(db)
         .await?
         .is_some_and(|user| user.is_instance_admin))
-}
-
-/// Whether a string is shaped like an IANA timezone name (`Europe/Paris`, `America/Argentina/Salta`,
-/// or a bare `UTC`).
-///
-/// Shape only, not existence: checking that a zone is real would mean carrying the tz database in
-/// the API, and the real list belongs to the client anyway, where the browser already holds it
-/// (`Intl.supportedValuesOf("timeZone")`) and offers it as a list to choose from. What this stops is
-/// free text landing in a field the interface renders as somebody's working hours.
-fn looks_like_timezone(value: &str) -> bool {
-    if value.len() > 64 {
-        return false;
-    }
-    let segments: Vec<&str> = value.split('/').collect();
-    if segments.is_empty() || segments.len() > 3 {
-        return false;
-    }
-    segments.iter().all(|segment| {
-        !segment.is_empty()
-            && segment
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '+')
-    })
 }
 
 /// Whether a string is shaped like an IANA timezone name (`Europe/Paris`, `America/Argentina/Salta`,

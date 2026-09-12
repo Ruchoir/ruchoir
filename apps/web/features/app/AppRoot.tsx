@@ -24,6 +24,7 @@ import {
   getSavedMessages,
   adoptBrowserTimezone,
   getSession,
+  syncAccountLocale,
   getSpaceMembers,
   getSpacePresence,
   getWorkspaces,
@@ -85,13 +86,13 @@ import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
 import { InstanceAdminScreen } from "./InstanceAdmin";
 import { NotificationPrompt } from "./NotificationPrompt";
+import { initialLocale, key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { MfaChallengeScreen } from "@/features/auth/MfaChallengeScreen";
 import { ResetPasswordScreen } from "@/features/auth/ResetPasswordScreen";
 import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
 import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/VerifyEmailScreen";
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
-import { ImportDialog } from "@/features/import/ImportDialog";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import { HelpDialog, InviteDialog, NewChannelDialog, NewMessageDialog, NewWorkspaceDialog } from "./dialogs";
@@ -136,7 +137,7 @@ export function AppRoot() {
   );
 }
 
-type Modal = "import" | "newChannel" | "newMessage" | "invite" | "newWorkspace" | "help" | "search" | "switcher" | null;
+type Modal = "newChannel" | "newMessage" | "invite" | "newWorkspace" | "help" | "search" | "switcher" | null;
 
 const toastStyle: Record<string, CSSProperties> = {
   wrap: { position: "fixed", right: 20, bottom: 20, zIndex: 60 },
@@ -211,23 +212,28 @@ type AuthStage = "login" | "signup" | "mfa" | "forgot" | "reset" | "verify" | "i
  * machine-readable code (`{ "error": "email_taken", … }`) plus an English message meant for
  * operators; the client owns what the user reads.
  */
-const AUTH_MESSAGES: Record<string, string> = {
-  invalid_credentials: "Adresse ou mot de passe incorrect.",
-  unauthorized: "Votre session a expiré. Connectez-vous à nouveau.",
-  email_taken: "Un compte existe déjà avec cette adresse.",
-  weak_password: "Ce mot de passe est trop court : 12 caractères au minimum.",
-  breached_password: "Ce mot de passe apparaît dans une fuite de données connue. Choisissez-en un autre.",
-  account_locked: "Ce compte est verrouillé. Contactez votre administrateur.",
-  too_many_attempts: "Trop de tentatives. Réessayez dans quelques minutes.",
-  email_not_verified: "Confirmez votre adresse électronique avant de vous connecter.",
-  invalid_token: "Ce lien est invalide ou a expiré.",
-  invalid_code: "Code incorrect. Vérifiez-le et réessayez.",
+const AUTH_MESSAGES: Record<string, TranslationKey> = {
+  invalid_credentials: key("error.invalidCredentials"),
+  unauthorized: key("error.sessionExpired"),
+  email_taken: key("error.emailTaken"),
+  weak_password: key("error.passwordShort"),
+  breached_password: key("error.passwordBreached"),
+  account_locked: key("error.accountLocked"),
+  too_many_attempts: key("error.tooManyAttempts"),
+  email_not_verified: key("error.confirmEmailFirst"),
+  invalid_token: key("error.invalidLink"),
+  invalid_code: key("error.wrongCode"),
 };
 
-/** The message to show for a failed auth request: the mapped code, else the caller's fallback. */
-function authMessage(err: unknown, fallback: string): string {
+/**
+ * The dictionary key for a failed auth request: the mapped code, else the caller's fallback key.
+ *
+ * Keys rather than sentences, so the table can be built at module load and the text looked up where
+ * it is shown.
+ */
+function authMessage(err: unknown, fallbackKey: TranslationKey): TranslationKey {
   const code = apiErrorCode(err);
-  return (code && AUTH_MESSAGES[code]) || fallback;
+  return (code && AUTH_MESSAGES[code]) || fallbackKey;
 }
 
 /**
@@ -236,18 +242,19 @@ function authMessage(err: unknown, fallback: string): string {
  * flow, then keeps the space's channels, DMs, feeds and realtime updates in state for the screens.
  */
 /** Screen names, for the tab title and the compact top bar. Conversations name themselves. */
-const VIEW_TITLES: Record<string, string> = {
-  files: "Fichiers de l'espace",
-  settings: "Réglages de l'espace",
-  prefs: "Préférences",
-  "instance-admin": "Administration de l'instance",
-  threads: "Fils de discussion",
-  mentions: "Mentions",
-  saved: "Enregistrés",
+const VIEW_TITLES: Record<string, TranslationKey> = {
+  files: key("sidebar.spaceFiles"),
+  settings: key("sidebar.spaceSettings"),
+  prefs: key("prefs.title"),
+  "instance-admin": key("admin.screenTitle"),
+  threads: key("sidebar.threads"),
+  mentions: key("activity.mentions"),
+  saved: key("activity.saved"),
 };
 
 function AppShell() {
   const settings = useSettings();
+  const { t } = useTranslation();
   /** The side panel a conversation opens with, from the preferences. `none` means it opens closed. */
   const defaultPanel: ChannelPanel = settings.defaultPanel === "none" ? null : settings.defaultPanel;
   /**
@@ -278,10 +285,10 @@ function AppShell() {
    * mounted and only fades what is being replaced.
    */
   const [switchingSpace, setSwitchingSpace] = useState(false);
-  const [bootError, setBootError] = useState<string | null>(null);
+  const [bootError, setBootError] = useState<TranslationKey | null>(null);
   // Shared by every screen of the authentication flow: the message under the form, and whether a
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<TranslationKey | null>(null);
   const [authPending, setAuthPending] = useState(false);
   /** True once a link (verification or reset) has been sent from the current screen. */
   const [authSent, setAuthSent] = useState(false);
@@ -592,7 +599,7 @@ function AppShell() {
             actor: n.actor,
             messageId: n.messageId,
             preview: n.preview,
-            time: n.time,
+            createdAt: n.createdAt,
             read: n.read || n.conversationId === opening,
           };
         }),
@@ -688,7 +695,7 @@ function AppShell() {
           if (active) {
             // Most often an invitation addressed to a different address than the open session.
             setInviteStatus("ready");
-            setAuthError("Cette invitation ne correspond pas au compte connecté. Connectez-vous avec le bon compte.");
+            setAuthError(key("error.wrongAccountForInvite"));
             setBooting(false);
           }
           return;
@@ -711,7 +718,7 @@ function AppShell() {
         setLinkToken(link.token);
         if (link.kind === "reset-password") {
           setAuthStage("reset");
-          if (!link.token) setAuthError("Ce lien de réinitialisation est incomplet. Demandez-en un nouveau.");
+          if (!link.token) setAuthError(key("error.resetLinkIncomplete"));
           return;
         }
         setAuthStage("verify");
@@ -726,7 +733,7 @@ function AppShell() {
         } catch (err) {
           if (!active) return;
           setVerifyStatus("error");
-          setAuthError(authMessage(err, "La confirmation a échoué. Réessayez plus tard."));
+          setAuthError(authMessage(err, key("error.confirmFailed")));
         }
         return;
       }
@@ -738,6 +745,9 @@ function AppShell() {
         // An account that has never had a timezone gets the browser's, once. Everything that shows
         // a local time depended on a column nothing could write, so it showed nothing.
         void adoptBrowserTimezone(user.timezone);
+        // And the language in force, chosen or detected: someone on "follow the browser" reads in a
+        // language all the same, and their profile said nothing about it.
+        void syncAccountLocale(user.locale, initialLocale());
         await loadInitialData();
         if (!active) return;
         // By now the preferences have loaded (their effect runs on mount, well before this awaits
@@ -748,7 +758,7 @@ function AppShell() {
       } catch (err) {
         if (!active) return;
         if (isApiError(err, 401)) setAuthStage("login");
-        else setBootError("Le serveur est injoignable. Réessayez plus tard.");
+        else setBootError(key("error.serverUnreachable"));
       } finally {
         if (active) setBooting(false);
       }
@@ -818,6 +828,13 @@ function AppShell() {
    * handlers are wired once per session and this one has to read preferences that change under it.
    */
   const alertRef = useRef<((n: AppNotification) => void) | null>(null);
+
+  /**
+   * The translator, for the same reason as the others: the realtime handlers are wired once per
+   * session, and the sentences they raise have to be in the language in force when they fire, not
+   * in the one that happened to be on when the socket was opened.
+   */
+  const tRef = useRef(t);
 
   /**
    * Latest "this message has been seen" function, for the same reason as the others: the realtime
@@ -943,7 +960,7 @@ function AppShell() {
         );
         // The newcomer is in the audience too; they do not need to be told they arrived.
         if (member.userId !== liveRef.current.myId) {
-          notifyRef.current?.({ tone: "info", title: `${member.name} a rejoint l'espace` });
+          notifyRef.current?.({ tone: "info", title: tRef.current("system.memberJoined", { who: member.name }) });
         }
       },
       onMemberUpdated: (member) => {
@@ -1022,7 +1039,7 @@ function AppShell() {
           actor: n.actor,
           messageId: n.messageId,
           preview: n.preview,
-          time: n.time,
+          createdAt: n.createdAt,
           read: n.read || viewing,
         };
         setNotifs((prev) => [notif, ...prev.filter((x) => x.id !== n.id)]);
@@ -1060,8 +1077,8 @@ function AppShell() {
                 image: undefined,
                 attachment: {
                   fileId,
-                  name: m.attachment?.name ?? m.image?.alt ?? "Fichier",
-                  size: m.attachment?.size ?? "",
+                  name: m.attachment?.name ?? m.image?.alt ?? tRef.current("message.file"),
+                  sizeBytes: m.attachment?.sizeBytes ?? 0,
                   kind: m.attachment?.kind ?? "image",
                   deleted: true,
                 },
@@ -1128,6 +1145,7 @@ function AppShell() {
     // offline: seed the card it renders for a real invitation so the state is auditable.
     if (link.stage === "invite") {
       setInviteStatus("ready");
+      // i18n-audit-ignore-next-line -- sample data for the offline preview, not interface prose
       setInvitePreview({ spaceName: "Atelier Néon", invitedBy: "Alice Moreau", role: "member" });
     }
     if (link.view) setView(link.view);
@@ -1168,7 +1186,7 @@ function AppShell() {
   const dm = dms.find((d) => d.id === channelId) ?? null;
   const chan: Channel =
     channels.find((c) => c.id === channelId) ??
-    ({ id: channelId, name: dm?.name ?? "général", fav: false, unread: 0, type: "public" } as Channel);
+    ({ id: channelId, name: dm?.name ?? t("channel.fallbackName"), fav: false, unread: 0, type: "public" } as Channel);
   // Memoised because the `?? []` branch is a fresh array every render, which would re-run anything
   // that depends on the feed (the read receipts below) on every render for no reason.
   const feed = useMemo(() => messages[channelId] ?? [], [messages, channelId]);
@@ -1403,10 +1421,10 @@ function AppShell() {
     const here =
       view === "channel"
         ? (dmHere?.name ?? (channelHere ? `#${channelHere.name}` : undefined))
-        : VIEW_TITLES[view];
+        : (VIEW_TITLES[view] ? t(VIEW_TITLES[view]) : undefined);
     const parts = [here, workspaces.find((w) => w.id === ws)?.name, "Ruchoir"].filter(Boolean);
     document.title = `${waiting > 0 ? `(${waiting}) ` : ""}${parts.join(" · ")}`;
-  }, [session, notifs, view, channelId, channels, dms, workspaces, ws]);
+  }, [session, notifs, view, channelId, channels, dms, workspaces, ws, t]);
 
   /**
    * Switch the main view, and treat opening Mentions as reading them.
@@ -1502,7 +1520,7 @@ function AppShell() {
   const gotoUnread = (dir: 1 | -1) => {
     const ids = [...channels, ...dms].filter((c) => c.unread > 0).map((c) => c.id);
     if (ids.length === 0) {
-      showToast({ tone: "info", title: "Aucune conversation non lue" });
+      showToast({ tone: "info", title: t("toast.noUnread") });
       return;
     }
     const cur = ids.indexOf(channelId);
@@ -1524,6 +1542,7 @@ function AppShell() {
   // freeze the first one instead of tracking it.
   useEffect(() => {
     notifyRef.current = showToast;
+    tRef.current = t;
   });
 
   /** Move to an authentication screen with a clean slate (no stale error, notice or pending flag). */
@@ -1552,8 +1571,8 @@ function AppShell() {
       } catch {
         showToast({
           tone: "danger",
-          title: "Invitation refusée",
-          description: "Ce lien ne correspond pas à ce compte.",
+          title: t("toast.inviteRefused"),
+          description: t("toast.inviteWrongAccount"),
         });
       }
       setInviteToken("");
@@ -1568,7 +1587,7 @@ function AppShell() {
       return;
     }
     setAuthStage("app");
-    showToast({ tone: "success", title: "Connecté", description: `Bienvenue, ${user.name.split(" ")[0]}.` });
+    showToast({ tone: "success", title: t("toast.signedIn"), description: t("toast.welcome", { name: user.name.split(" ")[0] }) });
   };
 
   /**
@@ -1585,13 +1604,13 @@ function AppShell() {
       await loadSpace(space.id);
       setBooting(false);
       setAuthStage("app");
-      showToast({ tone: "success", title: "Espace créé", description: space.name });
+      showToast({ tone: "success", title: t("toast.spaceCreated"), description: space.name });
     } catch (err) {
       setBooting(false);
       setAuthError(
         isApiError(err, 400)
-          ? "Ce nom d'espace n'est pas utilisable. Essayez-en un autre."
-          : "Création impossible. Réessayez.",
+          ? key("error.spaceNameUnusable")
+          : key("error.createFailed"),
       );
     } finally {
       setAuthPending(false);
@@ -1616,7 +1635,7 @@ function AppShell() {
       await enterApp(result.user);
     } catch (err) {
       if (apiErrorCode(err) === "email_not_verified") setPendingEmail(email);
-      setAuthError(authMessage(err, "Connexion impossible. Réessayez."));
+      setAuthError(authMessage(err, key("error.signInFailed")));
     } finally {
       setAuthPending(false);
     }
@@ -1638,15 +1657,15 @@ function AppShell() {
         goToStage("login");
         showToast({
           tone: "success",
-          title: "Compte créé",
-          description: "Connectez-vous, votre invitation vous attend.",
+          title: t("toast.accountCreated"),
+          description: t("toast.inviteWaiting"),
         });
         return;
       }
       setVerifyStatus("sent");
       goToStage("verify");
     } catch (err) {
-      setAuthError(authMessage(err, "Création impossible. Réessayez."));
+      setAuthError(authMessage(err, key("error.createFailed")));
     } finally {
       setAuthPending(false);
     }
@@ -1661,7 +1680,7 @@ function AppShell() {
       setAuthSent(true);
       setAuthError(null);
     } catch {
-      setAuthError("Envoi impossible. Réessayez plus tard.");
+      setAuthError(key("error.sendFailed"));
     } finally {
       setAuthPending(false);
     }
@@ -1675,7 +1694,7 @@ function AppShell() {
       setAuthSent(true);
       setAuthError(null);
     } catch {
-      setAuthError("Envoi impossible. Réessayez plus tard.");
+      setAuthError(key("error.sendFailed"));
     } finally {
       setAuthPending(false);
     }
@@ -1694,11 +1713,11 @@ function AppShell() {
       setRecoveryDone(true);
     } catch (err) {
       if (isApiError(err, 429)) {
-        setAuthError("Trop de tentatives. Patientez quelques minutes avant de réessayer.");
+        setAuthError(key("error.tooManyAttemptsWait"));
       } else if (isApiError(err, 422)) {
-        setAuthError("Ce mot de passe est trop faible, ou figure dans une fuite connue.");
+        setAuthError(key("error.passwordBreached"));
       } else {
-        setAuthError("Ce code ne correspond à aucun compte, ou il a déjà été utilisé.");
+        setAuthError(key("error.codeUnknown"));
       }
     } finally {
       setAuthPending(false);
@@ -1708,7 +1727,7 @@ function AppShell() {
   /** Set the new password behind the emailed token. The server drops every session of that account. */
   const handlePasswordReset = async (password: string) => {
     if (!linkToken) {
-      setAuthError("Ce lien de réinitialisation est incomplet. Demandez-en un nouveau.");
+      setAuthError(key("error.resetLinkIncomplete"));
       return;
     }
     setAuthError(null);
@@ -1718,7 +1737,7 @@ function AppShell() {
       setLinkToken("");
       setResetDone(true);
     } catch (err) {
-      setAuthError(authMessage(err, "Réinitialisation impossible. Réessayez."));
+      setAuthError(authMessage(err, key("error.resetFailed")));
     } finally {
       setAuthPending(false);
     }
@@ -1737,10 +1756,10 @@ function AppShell() {
       if (apiErrorCode(err) === "invalid_token") {
         setMfaChallenge(null);
         goToStage("login");
-        setAuthError("Cette demande de connexion a expiré. Recommencez.");
+        setAuthError(key("error.signInExpired"));
         return;
       }
-      setAuthError(authMessage(err, "Vérification impossible. Réessayez."));
+      setAuthError(authMessage(err, key("error.verifyFailed")));
     } finally {
       setAuthPending(false);
     }
@@ -1758,8 +1777,8 @@ function AppShell() {
       const cancelled = err instanceof DOMException && err.name === "NotAllowedError";
       setAuthError(
         cancelled
-          ? "Authentification par clé d'accès annulée."
-          : authMessage(err, "Cette clé d'accès n'a pas pu être utilisée. Essayez une autre méthode."),
+          ? key("error.passkeyCancelled")
+          : authMessage(err, key("error.passkeyFailedBody")),
       );
     } finally {
       setAuthPending(false);
@@ -1883,7 +1902,7 @@ function AppShell() {
     }
     const target = members.find((m) => m.name === name);
     if (!target) {
-      showToast({ tone: "info", title: "Impossible d'ouvrir la conversation", description: name });
+      showToast({ tone: "info", title: t("toast.dmFailed"), description: name });
       return;
     }
     createDm(ws, [target.userId])
@@ -1906,7 +1925,7 @@ function AppShell() {
         setMessages((prev) => (prev[id] ? prev : { ...prev, [id]: [] }));
         openChannel(id);
       })
-      .catch(() => showToast({ tone: "danger", title: "Ouverture du message direct impossible" }));
+      .catch(() => showToast({ tone: "danger", title: t("toast.dmFailed") }));
   };
 
   const openMessage = (targetChannel: string, messageId: string) => {
@@ -1949,7 +1968,7 @@ function AppShell() {
       if (appIsAway()) {
         showDesktopNotification({
           title: who,
-          body: n.preview || notifSummary(n),
+          body: n.preview || notifSummary(n, t),
           // One notification per conversation: ten messages from the same channel while you were
           // away should be one line to come back to, not ten to dismiss.
           tag: n.channelId,
@@ -1957,7 +1976,7 @@ function AppShell() {
         });
         return;
       }
-      notifyRef.current?.({ tone: "info", title: who, description: n.preview || notifSummary(n) });
+      notifyRef.current?.({ tone: "info", title: who, description: n.preview || notifSummary(n, t) });
     };
   });
 
@@ -1984,7 +2003,7 @@ function AppShell() {
       const request = wasMine ? removeReaction(messageId, emoji) : addReaction(messageId, emoji);
       request.catch(() => {
         rollbackMessage(conv, target);
-        showToast({ tone: "info", title: "Réaction non enregistrée" });
+        showToast({ tone: "info", title: t("toast.reactionFailed") });
       });
     },
     openThread: (messageId: string) => {
@@ -2010,11 +2029,11 @@ function AppShell() {
       updateMessage(conv, messageId, (m) => ({ ...m, saved: nowSaved }));
       showToast({
         tone: nowSaved ? "success" : "info",
-        title: nowSaved ? "Message enregistré" : "Retiré des enregistrés",
+        title: nowSaved ? t("toast.messageSaved") : t("toast.messageUnsaved"),
       });
       setMessageSaved(messageId, nowSaved).catch(() => {
         rollbackMessage(conv, target);
-        showToast({ tone: "info", title: "Enregistrement non synchronisé" });
+        showToast({ tone: "info", title: t("toast.saveNotSynced") });
       });
     },
     edit: (messageId: string) => {
@@ -2027,24 +2046,24 @@ function AppShell() {
       if (!target || isPendingId(messageId)) return;
       const nowPinned = !(target.pinned ?? false);
       updateMessage(conv, messageId, (m) => ({ ...m, pinned: nowPinned }));
-      showToast({ tone: "info", title: nowPinned ? "Message épinglé" : "Message désépinglé" });
+      showToast({ tone: "info", title: nowPinned ? t("toast.messagePinned") : t("toast.messageUnpinned") });
       // Pins are a channel concept (the endpoint is channel-scoped); DMs keep the toggle client-side.
       if (channels.some((c) => c.id === conv)) {
         setMessagePinned(conv, messageId, nowPinned).catch(() => {
           rollbackMessage(conv, target);
-          showToast({ tone: "info", title: "Épinglage non synchronisé" });
+          showToast({ tone: "info", title: t("toast.pinNotSynced") });
         });
       }
     },
-    copyLink: () => showToast({ tone: "success", title: "Lien copié" }),
+    copyLink: () => showToast({ tone: "success", title: t("admin.copiedToast") }),
     copyMessage: (messageId: string) => {
       const target = feed.find((x) => x.id === messageId);
       navigator.clipboard?.writeText(target?.body ?? "");
-      showToast({ tone: "success", title: "Message copié" });
+      showToast({ tone: "success", title: t("toast.messageCopied") });
     },
     markUnread: (messageId: string) => {
       setUnreadMarker(messageId);
-      showToast({ tone: "info", title: "Marqué comme non lu" });
+      showToast({ tone: "info", title: t("toast.markedUnread") });
     },
     remove: (messageId: string) => {
       const conv = channelId;
@@ -2056,12 +2075,12 @@ function AppShell() {
         return;
       }
       updateMessage(conv, messageId, (m) => ({ ...m, deleted: true, body: "" }));
-      showToast({ tone: "info", title: "Message supprimé" });
+      showToast({ tone: "info", title: t("message.deleted") });
       deleteMessage(messageId)
         .then((m) => updateMessage(conv, messageId, () => m))
         .catch(() => {
           rollbackMessage(conv, target);
-          showToast({ tone: "info", title: "Suppression impossible" });
+          showToast({ tone: "info", title: t("toast.deleteFailed") });
         });
     },
   };
@@ -2103,7 +2122,6 @@ function AppShell() {
     const optimistic: Message = {
       id: tempId,
       author: currentUser,
-      time: new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }),
       createdAt: new Date().toISOString(),
       body: text,
       attachment,
@@ -2123,7 +2141,7 @@ function AppShell() {
       )
       .catch(() => {
         setMessages((prev) => ({ ...prev, [conv]: (prev[conv] ?? []).filter((x) => x.id !== tempId) }));
-        showToast({ tone: "info", title: "Message non envoyé" });
+        showToast({ tone: "info", title: t("toast.messageNotSent") });
       });
   };
 
@@ -2135,19 +2153,19 @@ function AppShell() {
     // An edit emptied out is a deletion asked for by another route: refused here rather than
     // silently blanking the message, since the menu already has one that says what it does.
     if (!body) {
-      showToast({ tone: "info", title: "Un message ne peut pas être vidé", description: "Supprimez-le plutôt." });
+      showToast({ tone: "info", title: t("toast.cannotEmpty"), description: t("toast.deleteInstead") });
       return;
     }
     const target = (messages[conv] ?? []).find((x) => x.id === id);
     updateMessage(conv, id, (m) => ({ ...m, body, edited: true }));
     setEditing(null);
-    showToast({ tone: "success", title: "Message modifié" });
+    showToast({ tone: "success", title: t("toast.messageEdited") });
     if (isPendingId(id)) return;
     editMessage(id, body)
       .then((m) => updateMessage(conv, id, () => m))
       .catch(() => {
         if (target) rollbackMessage(conv, target);
-        showToast({ tone: "info", title: "Modification non enregistrée" });
+        showToast({ tone: "info", title: t("toast.editNotSaved") });
       });
   };
 
@@ -2171,14 +2189,14 @@ function AppShell() {
       setMessages((prev) => ({ ...prev, [channel.id]: [] }));
       setModal(null);
       openChannel(channel.id);
-      showToast({ tone: "success", title: "Canal créé", description: `#${channel.name}` });
+      showToast({ tone: "success", title: t("toast.channelCreated"), description: `#${channel.name}` });
     } catch (err) {
       showToast({
         tone: "danger",
-        title: "Canal non créé",
+        title: t("toast.channelFailed"),
         description: isApiError(err, 400)
-          ? "Ce nom est déjà pris dans cet espace, ou il n'est pas utilisable."
-          : "Réessayez dans un instant.",
+          ? t("error.nameTaken")
+          : t("common.tryAgain"),
       });
     }
   };
@@ -2191,7 +2209,7 @@ function AppShell() {
     setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, fav: next } : c)));
     setChannelFavorite(id, next).catch(() => {
       setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, fav: before.fav } : c)));
-      showToast({ tone: "info", title: "Favori non enregistré" });
+      showToast({ tone: "info", title: t("toast.favouriteNotSaved") });
     });
   };
 
@@ -2207,12 +2225,12 @@ function AppShell() {
       if (before) setChannels((prev) => prev.map((c) => (c.id === id ? before : c)));
       showToast({
         tone: "danger",
-        title: "Modification non enregistrée",
+        title: t("toast.editNotSaved"),
         description: isApiError(err, 403)
-          ? "Vous n'avez pas les droits sur ce canal."
+          ? t("error.noChannelRights")
           : isApiError(err, 400)
-            ? "Ce nom est déjà pris dans cet espace, ou il n'est pas utilisable."
-            : "Réessayez dans un instant.",
+            ? t("error.nameTaken")
+            : t("common.tryAgain"),
       });
     }
   };
@@ -2227,7 +2245,7 @@ function AppShell() {
     try {
       await apiLeaveChannel(id);
     } catch {
-      showToast({ tone: "danger", title: "Impossible de quitter ce canal", description: "Réessayez dans un instant." });
+      showToast({ tone: "danger", title: t("toast.leaveFailed"), description: t("common.tryAgain") });
       return;
     }
     if (isPrivate) {
@@ -2239,8 +2257,8 @@ function AppShell() {
     }
     showToast({
       tone: "info",
-      title: "Canal quitté",
-      description: isPrivate ? undefined : "Vous pouvez toujours le lire, sans notifications.",
+      title: t("toast.channelLeft"),
+      description: isPrivate ? undefined : t("toast.stillReadable"),
     });
   };
 
@@ -2249,9 +2267,9 @@ function AppShell() {
     try {
       await apiJoinChannel(id);
       setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, member: true } : c)));
-      showToast({ tone: "success", title: "Canal rejoint" });
+      showToast({ tone: "success", title: t("toast.channelJoined") });
     } catch {
-      showToast({ tone: "danger", title: "Impossible de rejoindre ce canal", description: "Réessayez dans un instant." });
+      showToast({ tone: "danger", title: t("toast.joinFailed"), description: t("common.tryAgain") });
     }
   };
 
@@ -2264,13 +2282,13 @@ function AppShell() {
       setSwitchingSpace(true);
       await loadSpace(space.id);
       setSwitchingSpace(false);
-      showToast({ tone: "success", title: "Espace créé", description: space.name });
+      showToast({ tone: "success", title: t("toast.spaceCreated"), description: space.name });
     } catch (err) {
       setSwitchingSpace(false);
       showToast({
         tone: "danger",
-        title: "Espace non créé",
-        description: isApiError(err, 400) ? "Ce nom n'est pas utilisable." : "Réessayez dans un instant.",
+        title: t("toast.spaceFailed"),
+        description: isApiError(err, 400) ? t("error.nameUnusable") : t("common.tryAgain"),
       });
     }
   };
@@ -2286,7 +2304,7 @@ function AppShell() {
     try {
       await loadSpace(id);
     } catch {
-      showToast({ tone: "danger", title: "Espace injoignable", description: "Réessayez dans un instant." });
+      showToast({ tone: "danger", title: t("toast.spaceUnreachable"), description: t("common.tryAgain") });
     } finally {
       setSwitchingSpace(false);
     }
@@ -2343,7 +2361,7 @@ function AppShell() {
           background: "var(--surface-canvas)",
         }}
         aria-busy
-        aria-label="Chargement"
+        aria-label={t("boot.loading")}
       >
         <div className="wc-boot">
           <div className="wc-boot__ring">
@@ -2356,7 +2374,7 @@ function AppShell() {
             <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
               Ruchoir
             </div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>Préparation de votre espace…</div>
+            <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>{t("boot.preparing")}</div>
           </div>
         </div>
       </div>
@@ -2380,7 +2398,7 @@ function AppShell() {
           textAlign: "center",
         }}
       >
-        <span>{bootError}</span>
+        <span>{t(bootError)}</span>
         <Button
           onClick={() => {
             setBootError(null);
@@ -2388,7 +2406,7 @@ function AppShell() {
             window.location.reload();
           }}
         >
-          Réessayer
+          {t("common.retry")}
         </Button>
       </div>
     );
@@ -2402,7 +2420,7 @@ function AppShell() {
             onSubmit={handleLogin}
             onCreateAccount={() => goToStage("signup")}
             onForgotPassword={() => goToStage("forgot")}
-            onSso={() => showToast({ tone: "info", title: "Le SSO n'est pas encore disponible" })}
+            onSso={() => showToast({ tone: "info", title: t("toast.ssoUnavailable") })}
             onResendVerification={
               // Offered only when the sign-in was refused for an unconfirmed address.
               pendingEmail
@@ -2413,7 +2431,7 @@ function AppShell() {
                   }
                 : undefined
             }
-            error={authError}
+            error={authError ? t(authError) : null}
             pending={authPending}
           />
         ) : null}
@@ -2421,7 +2439,7 @@ function AppShell() {
           <SignupScreen
             onSubmit={(values) => void handleSignup(values)}
             onBackToLogin={() => goToStage("login")}
-            error={authError}
+            error={authError ? t(authError) : null}
             pending={authPending}
           />
         ) : null}
@@ -2436,7 +2454,7 @@ function AppShell() {
               setMfaChallenge(null);
               goToStage("login");
             }}
-            error={authError}
+            error={authError ? t(authError) : null}
             pending={authPending}
           />
         ) : null}
@@ -2451,7 +2469,7 @@ function AppShell() {
             sent={authSent}
             recovered={recoveryDone}
             emailDelivery={emailDelivery}
-            error={authError}
+            error={authError ? t(authError) : null}
             pending={authPending}
           />
         ) : null}
@@ -2463,7 +2481,7 @@ function AppShell() {
               goToStage("login");
             }}
             done={resetDone}
-            error={authError}
+            error={authError ? t(authError) : null}
             pending={authPending}
           />
         ) : null}
@@ -2473,7 +2491,7 @@ function AppShell() {
             email={pendingEmail || undefined}
             onResend={(email) => void handleResendVerification(email)}
             onBackToLogin={() => goToStage("login")}
-            error={authError}
+            error={authError ? t(authError) : null}
             pending={authPending}
             resent={authSent}
           />
@@ -2487,7 +2505,7 @@ function AppShell() {
           <InviteScreen
             status={inviteStatus}
             preview={invitePreview}
-            error={authError}
+            error={authError ? t(authError) : null}
             onSignIn={() => goToStage("login")}
             onCreateAccount={() => goToStage("signup")}
             onDismiss={() => {
@@ -2507,7 +2525,7 @@ function AppShell() {
           <OnboardingFlow
             firstName={signupFirst || undefined}
             pending={authPending}
-            error={authError}
+            error={authError ? t(authError) : null}
             onFinish={({ workspaceName }) => void handleCreateFirstSpace(workspaceName)}
           />
         ) : null}
@@ -2516,12 +2534,12 @@ function AppShell() {
   }
 
   const wsName = workspaces.find((w) => w.id === ws)?.name ?? "espace";
-  const contentTitle = view === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (VIEW_TITLES[view] ?? wsName);
+  const contentTitle = view === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (VIEW_TITLES[view] ? t(VIEW_TITLES[view]) : wsName);
   const mobileTabs = [
-    { id: "channels", label: "Canaux", icon: "hash" },
-    { id: "messages", label: "Messages", icon: "message-square" },
-    { id: "activity", label: "Activité", icon: "bell", badge: notifUnread || undefined },
-    { id: "search", label: "Recherche", icon: "search" },
+    { id: "channels", label: t("tabs.channels"), icon: "hash" },
+    { id: "messages", label: t("tabs.messages"), icon: "message-square" },
+    { id: "activity", label: t("tabs.activity"), icon: "bell", badge: notifUnread || undefined },
+    { id: "search", label: t("tabs.search"), icon: "search" },
   ];
 
   const rail = (
@@ -2617,7 +2635,7 @@ function AppShell() {
     // view renders at a time, so there is always exactly one main. Flex container so the view fills it
     // in both the desktop row shell and the compact column shell.
     <main
-      aria-label="Contenu principal"
+      aria-label={t("tabs.mainContent")}
       style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
     >
       {view === "channel" ? (
@@ -2719,15 +2737,6 @@ function AppShell() {
           <InstanceAdminScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
         </div>
       ) : null}
-      {modal === "import" ? (
-        <ImportDialog
-          onClose={() => setModal(null)}
-          onDone={(source) => {
-            setModal(null);
-            showToast({ tone: "success", title: "Import lancé", description: `Reprise depuis ${source} en arrière-plan.` });
-          }}
-        />
-      ) : null}
       {modal === "newChannel" ? <NewChannelDialog onClose={() => setModal(null)} onCreate={createChannel} /> : null}
       {modal === "newMessage" ? (
         <NewMessageDialog people={people} onClose={() => setModal(null)} onSelect={openDmByName} />
@@ -2743,7 +2752,7 @@ function AppShell() {
             setInvitations(await getInvitations(ws));
             showToast({
               tone: "success",
-              title: created.emailed ? "Invitation envoyée" : "Lien d'invitation créé",
+              title: created.emailed ? t("dialogs.inviteSent") : t("toast.inviteLinkCreated"),
               description: email ?? undefined,
             });
             return { url: created.url, emailed: created.emailed };
@@ -2751,7 +2760,7 @@ function AppShell() {
           onRevoke={async (id) => {
             await revokeInvitation(ws, id);
             setInvitations(await getInvitations(ws));
-            showToast({ tone: "info", title: "Invitation révoquée" });
+            showToast({ tone: "info", title: t("toast.inviteRevoked") });
           }}
         />
       ) : null}
@@ -2837,7 +2846,7 @@ function AppShell() {
           onAllow={() => {
             settings.set("notifPrompted", true);
             void requestNotificationPermission().then((outcome) => {
-              if (outcome === "granted") showToast({ tone: "success", title: "Notifications activées" });
+              if (outcome === "granted") showToast({ tone: "success", title: t("notifPrompt.enabled") });
             });
           }}
           onDismiss={() => settings.set("notifPrompted", true)}
@@ -2954,7 +2963,7 @@ function AppShell() {
             }}
           />
         </div>
-        <Drawer open={railOpen} onClose={() => setRailOpen(false)} side="left" width={72} label="Espaces de travail">
+        <Drawer open={railOpen} onClose={() => setRailOpen(false)} side="left" width={72} label={t("shell.workspaces")}>
           {rail}
         </Drawer>
         {overlays}

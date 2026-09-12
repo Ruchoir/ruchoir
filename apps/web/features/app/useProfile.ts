@@ -8,7 +8,6 @@ import { getUserProfile } from "@/lib/data/api";
 export function minimalProfile(name: string): Profile {
   return {
     name,
-    role: "Membre",
     presence: "offline",
     email: "",
     // No timezone: this is the placeholder shown while the real profile loads, and inventing one

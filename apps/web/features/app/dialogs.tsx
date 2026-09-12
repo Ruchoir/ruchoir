@@ -7,6 +7,7 @@ import type { ChannelType, Invitation } from "@/lib/data";
 import { COMMANDS, formatChord, isMac } from "./shortcuts";
 import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
+import { key, type Translate, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 const listItem: CSSProperties = {
   display: "flex",
@@ -29,6 +30,7 @@ export function NewChannelDialog({
   onClose: () => void;
   onCreate: (channel: { name: string; type: ChannelType; topic: string }) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [type, setType] = useState<ChannelType>("public");
   const [topic, setTopic] = useState("");
@@ -41,25 +43,26 @@ export function NewChannelDialog({
 
   return (
     <Dialog
-      title="Nouveau canal"
+      title={t("sidebar.newChannel")}
+      closeLabel={t("common.close")}
       size="sm"
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
           <Button variant="primary" onClick={submit}>
-            Créer le canal
+            {t("dialogs.createChannel")}
           </Button>
         </>
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <Field label="Nom du canal" htmlFor="ch-name">
+        <Field label={t("channel.name")} htmlFor="ch-name">
           <Input
             id="ch-name"
             autoFocus
             icon="hash"
-            placeholder="ex. lancement-produit"
+            placeholder={t("dialogs.channelPlaceholder")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
@@ -67,26 +70,26 @@ export function NewChannelDialog({
             }}
           />
         </Field>
-        <Field label="Visibilité">
+        <Field label={t("channel.visibility")}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Radio
               name="ch-type"
               checked={type === "public"}
               onChange={() => setType("public")}
-              label="Public"
-              description="Tous les membres de l'espace peuvent le rejoindre."
+              label={t("channel.public")}
+              description={t("channel.publicHint")}
             />
             <Radio
               name="ch-type"
               checked={type === "private"}
               onChange={() => setType("private")}
-              label="Privé"
-              description="Sur invitation uniquement."
+              label={t("channel.private")}
+              description={t("dialogs.privateHint")}
             />
           </div>
         </Field>
-        <Field label="Sujet" optional htmlFor="ch-topic">
-          <Input id="ch-topic" placeholder="À quoi sert ce canal ?" value={topic} onChange={(e) => setTopic(e.target.value)} />
+        <Field label={t("channel.topic")} optional htmlFor="ch-topic">
+          <Input id="ch-topic" placeholder={t("channel.topicPlaceholder")} value={topic} onChange={(e) => setTopic(e.target.value)} />
         </Field>
       </div>
     </Dialog>
@@ -103,13 +106,15 @@ export function NewMessageDialog({
   onClose: () => void;
   onSelect: (name: string) => void;
 }) {
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const rows = people.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <Dialog title="Nouveau message" size="sm" onClose={onClose}>
+    <Dialog title={t("shell.newMessage")}
+      closeLabel={t("common.close")} size="sm" onClose={onClose}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <Input autoFocus icon="search" placeholder="À qui souhaitez-vous écrire ?" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input autoFocus icon="search" placeholder={t("dialogs.writeTo")} value={q} onChange={(e) => setQ(e.target.value)} />
         <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 280, overflow: "auto" }}>
           {rows.map((p) => (
             <button
@@ -124,7 +129,7 @@ export function NewMessageDialog({
             </button>
           ))}
           {rows.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>Personne ne correspond.</p>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>{t("dialogs.nobodyMatches")}</p>
           ) : null}
         </div>
       </div>
@@ -132,11 +137,14 @@ export function NewMessageDialog({
   );
 }
 
-/** Role labels, in the order an administrator is likely to want them. Values are the API's. */
+/**
+ * Roles, in the order an administrator is likely to want them. Values are the API's, labels are
+ * dictionary keys: the list is built at module load, where no language is in force yet.
+ */
 const INVITE_ROLES = [
-  { value: "member", label: "Membre" },
-  { value: "admin", label: "Administrateur" },
-  { value: "guest", label: "Invité externe" },
+  { value: "member", labelKey: key("role.member") },
+  { value: "admin", labelKey: key("role.admin") },
+  { value: "guest", labelKey: key("role.guest") },
 ];
 
 const inviteStyles: Record<string, CSSProperties> = {
@@ -184,20 +192,25 @@ const inviteStyles: Record<string, CSSProperties> = {
   },
 };
 
-/** What an invitation's state is called, in the order it reads best: role, uses, outcome. */
-function describeInvitation(invitation: Invitation): string {
-  const role = INVITE_ROLES.find((r) => r.value === invitation.role)?.label ?? invitation.role;
+/**
+ * What an invitation's state is called, in the order it reads best: role, uses, outcome.
+ *
+ * Takes the translator: the plural of "use" is the dictionary's business, and so is the role.
+ */
+function describeInvitation(invitation: Invitation, t: Translate): string {
+  const found = INVITE_ROLES.find((r) => r.value === invitation.role);
+  const role = found ? t(found.labelKey) : invitation.role;
   const uses =
     invitation.maxUses === undefined
-      ? `${invitation.uses} utilisation${invitation.uses > 1 ? "s" : ""}`
+      ? t("dialogs.uses", { count: invitation.uses })
       : `${invitation.uses}/${invitation.maxUses}`;
-  const outcome = {
-    active: "",
-    accepted: " · acceptée",
-    revoked: " · révoquée",
-    expired: " · expirée",
+  const outcome: TranslationKey | null = {
+    active: null,
+    accepted: key("dialogs.accepted"),
+    revoked: key("dialogs.revoked"),
+    expired: key("dialogs.expired"),
   }[invitation.status];
-  return `${role} · ${uses}${outcome}`;
+  return `${role} · ${uses}${outcome ? ` ${t(outcome)}` : ""}`;
 }
 
 export type InviteDialogProps = {
@@ -236,10 +249,11 @@ export function InviteDialog({
   onRevoke,
   emailDelivery,
 }: InviteDialogProps) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<TranslationKey | null>(null);
   const [created, setCreated] = useState<{ url: string; emailed: boolean } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -255,7 +269,7 @@ export function InviteDialog({
   const submit = async () => {
     if (pending) return;
     if (addressed && !address.includes("@")) {
-      setError("Cette adresse ne semble pas valide.");
+      setError(key("error.invalidEmail"));
       return;
     }
     setPending(true);
@@ -265,7 +279,7 @@ export function InviteDialog({
       setCreated(await onCreate({ email: addressed ? address : undefined, role }));
       setEmail("");
     } catch {
-      setError("L'invitation n'a pas pu être créée. Réessayez.");
+      setError(key("dialogs.inviteFailed"));
     } finally {
       setPending(false);
     }
@@ -281,12 +295,13 @@ export function InviteDialog({
 
   return (
     <Dialog
-      title="Inviter des personnes"
+      title={t("sidebar.invitePeople")}
+      closeLabel={t("common.close")}
       size="sm"
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>Fermer</Button>
+          <Button onClick={onClose}>{t("common.close")}</Button>
           {canInvite ? (
             <Button
               variant="primary"
@@ -294,7 +309,7 @@ export function InviteDialog({
               disabled={pending}
               onClick={() => void submit()}
             >
-              {addressed ? "Envoyer l'invitation" : "Créer un lien"}
+              {addressed ? t("dialogs.sendInvite") : t("dialogs.createLink")}
             </Button>
           ) : null}
         </>
@@ -302,17 +317,16 @@ export function InviteDialog({
     >
       {!canInvite ? (
         <p style={inviteStyles.empty}>
-          Seuls les propriétaires et les administrateurs de l&apos;espace peuvent inviter des personnes. Demandez à
-          l&apos;un d&apos;eux de vous envoyer une invitation.
+          {t("dialogs.cannotInvite")}
         </p>
       ) : (
       <div style={inviteStyles.body}>
         <Field
-          label="Adresse électronique"
+          label={t("login.email")}
           hint={
             noRelay
-              ? "Cette instance n'envoie pas de courriels : le lien s'affichera ici, à vous de le transmettre."
-              : "Laissez vide pour créer un lien partageable au lieu d'un envoi par courriel."
+              ? t("dialogs.noRelayHint")
+              : t("dialogs.emailHint")
           }
           htmlFor="inv"
         >
@@ -320,15 +334,15 @@ export function InviteDialog({
             id="inv"
             autoFocus
             icon="mail"
-            placeholder="prenom@exemple.fr"
+            placeholder={t("dialogs.emailPlaceholder")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
-        <Field label="Rôle à l'arrivée" htmlFor="inv-role">
+        <Field label={t("dialogs.roleOnArrival")} htmlFor="inv-role">
           <Select
             id="inv-role"
-            options={INVITE_ROLES}
+            options={INVITE_ROLES.map((r) => ({ value: r.value, label: t(r.labelKey) }))}
             value={role}
             onChange={(e) => setRole(e.target.value)}
           />
@@ -336,50 +350,46 @@ export function InviteDialog({
 
         {noRelay && !addressed ? (
           <p style={inviteStyles.notice}>
-            Un lien partageable mène à un compte en attente de confirmation d&apos;adresse, et cette instance ne peut
-            envoyer aucun courriel de confirmation. Indiquez une adresse : une invitation nominative active le compte
-            immédiatement.
+            {t("dialogs.noMailNotice")}
           </p>
         ) : null}
 
         {error ? (
           <p role="alert" style={{ ...inviteStyles.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
-            {error}
+            {t(error)}
           </p>
         ) : null}
 
         {created ? (
           <div style={inviteStyles.section}>
             <div style={inviteStyles.sectionTitle}>
-              {created.emailed ? "Invitation envoyée" : "Lien d'invitation"}
+              {created.emailed ? t("dialogs.inviteSent") : t("dialogs.inviteLink")}
             </div>
             <p style={inviteStyles.empty}>
-              {created.emailed
-                ? "Le courriel est parti. Ce lien ne sera plus affiché, copiez-le si vous voulez le transmettre autrement."
-                : "Copiez ce lien maintenant : il ne pourra plus être affiché. Aucun courriel n'a été envoyé."}
+              {created.emailed ? t("dialogs.emailedHint") : t("dialogs.copyNowHint")}
             </p>
             <div style={inviteStyles.link}>
               <span style={inviteStyles.linkText}>{created.url}</span>
               <Button size="sm" iconLeft={copied ? "check" : "copy"} onClick={copy}>
-                {copied ? "Copié" : "Copier"}
+                {copied ? t("common.copied") : t("admin.copy")}
               </Button>
             </div>
           </div>
         ) : null}
 
         <div style={inviteStyles.section}>
-          <div style={inviteStyles.sectionTitle}>Invitations en cours</div>
+          <div style={inviteStyles.sectionTitle}>{t("dialogs.outstanding")}</div>
           {outstanding.length === 0 ? (
-            <p style={inviteStyles.empty}>Aucune invitation en attente.</p>
+            <p style={inviteStyles.empty}>{t("dialogs.noOutstanding")}</p>
           ) : (
             outstanding.map((invitation) => (
               <div key={invitation.id} style={inviteStyles.row}>
                 <div style={inviteStyles.rowMain}>
-                  <div>{invitation.email ?? "Lien partageable"}</div>
-                  <div style={inviteStyles.rowMeta}>{describeInvitation(invitation)}</div>
+                  <div>{invitation.email ?? t("dialogs.shareableLink")}</div>
+                  <div style={inviteStyles.rowMeta}>{describeInvitation(invitation, t)}</div>
                 </div>
                 <Button size="sm" iconLeft="x" onClick={() => void onRevoke(invitation.id)}>
-                  Révoquer
+                  {t("dialogs.revoke")}
                 </Button>
               </div>
             ))
@@ -392,12 +402,12 @@ export function InviteDialog({
         */}
         {finished.length > 0 ? (
           <div style={inviteStyles.section}>
-            <div style={inviteStyles.sectionTitle}>Terminées</div>
+            <div style={inviteStyles.sectionTitle}>{t("dialogs.finished")}</div>
             {finished.map((invitation) => (
               <div key={invitation.id} style={inviteStyles.row}>
                 <div style={inviteStyles.rowMain}>
-                  <div style={{ color: "var(--text-muted)" }}>{invitation.email ?? "Lien partageable"}</div>
-                  <div style={inviteStyles.rowMeta}>{describeInvitation(invitation)}</div>
+                  <div style={{ color: "var(--text-muted)" }}>{invitation.email ?? t("dialogs.shareableLink")}</div>
+                  <div style={inviteStyles.rowMeta}>{describeInvitation(invitation, t)}</div>
                 </div>
               </div>
             ))}
@@ -411,6 +421,7 @@ export function InviteDialog({
 
 /** Create a new workspace. */
 export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => void }) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const submit = () => {
     const clean = name.trim();
@@ -420,23 +431,24 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
 
   return (
     <Dialog
-      title="Nouvel espace de travail"
+      title={t("dialogs.newWorkspace")}
+      closeLabel={t("common.close")}
       size="sm"
       onClose={onClose}
       footer={
         <>
-          <Button onClick={onClose}>Annuler</Button>
+          <Button onClick={onClose}>{t("common.cancel")}</Button>
           <Button variant="primary" onClick={submit}>
-            Créer l&apos;espace
+            {t("dialogs.createSpace")}
           </Button>
         </>
       }
     >
-      <Field label="Nom de l'espace" hint="Vous pourrez inviter des membres juste après." htmlFor="ws-name">
+      <Field label={t("space.name")} hint={t("dialogs.workspaceHint")} htmlFor="ws-name">
         <Input
           id="ws-name"
           autoFocus
-          placeholder="ex. Studio Loire"
+          placeholder={t("dialogs.workspacePlaceholder")}
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
@@ -459,9 +471,10 @@ export function HelpDialog({
   onGettingStarted?: () => void;
 }) {
   const { shortcuts } = useSettings();
+  const { t } = useTranslation();
   const mac = isMac();
   return (
-    <Dialog title="Aide" subtitle="Documentation et raccourcis" size="md" onClose={onClose}>
+    <Dialog title={t("common.help")} subtitle={t("dialogs.helpSubtitle")} size="md" onClose={onClose} closeLabel={t("common.close")}>
       {/*
         One entry, because one is all that leads anywhere. The other two ("Raccourcis clavier et
         astuces", "Contacter le support") were inert: the first duplicated the shortcut list printed
@@ -477,7 +490,7 @@ export function HelpDialog({
             className="wc-listrow"
           >
             <Icon name="file-text" size={16} style={{ color: "var(--text-muted)" }} />
-            <span style={{ flex: 1, fontSize: 13 }}>Guide de prise en main</span>
+            <span style={{ flex: 1, fontSize: 13 }}>{t("dialogs.gettingStartedGuide")}</span>
             <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
           </button>
         </div>
@@ -500,20 +513,20 @@ export function HelpDialog({
             color: "var(--text-subtle)",
           }}
         >
-          Raccourcis clavier
+          {t("prefs.shortcuts")}
         </span>
         {onCustomize ? (
           <Button size="sm" variant="link" onClick={onCustomize}>
-            Personnaliser
+            {t("dialogs.customize")}
           </Button>
         ) : null}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {COMMANDS.map((c) => {
-          const keys = formatChord(shortcuts[c.id], mac);
+          const keys = formatChord(shortcuts[c.id], mac, t);
           return (
             <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "6px 2px" }}>
-              <span style={{ fontSize: 13, color: "var(--text-body)" }}>{c.label}</span>
+              <span style={{ fontSize: 13, color: "var(--text-body)" }}>{t(c.label)}</span>
               {keys ? (
                 <kbd
                   style={{
@@ -530,7 +543,7 @@ export function HelpDialog({
                   {keys}
                 </kbd>
               ) : (
-                <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>Non attribué</span>
+                <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("dialogs.unassigned")}</span>
               )}
             </div>
           );

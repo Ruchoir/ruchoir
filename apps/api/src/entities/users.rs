@@ -22,6 +22,9 @@ pub struct Model {
     /// running server. Distinct from the per-space roles in `space_members`, which say nothing
     /// about an account outside their own space.
     pub is_instance_admin: bool,
+    /// Interface language (`fr`, `en`, `es`, `de`, `it`, `pl`), or `None` when nobody has chosen.
+    /// Read by the server for what it writes: confirmations, resets, invitations.
+    pub locale: Option<String>,
     /// Global profile fields surfaced by the UI. All optional and self-editable except
     /// `is_bot`, which marks service accounts (e.g. the import assistant).
     pub title: Option<String>,

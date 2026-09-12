@@ -1,13 +1,21 @@
 import type { MouseEventHandler, ReactNode } from "react";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 export type TagTone = "neutral" | "accent" | "success" | "warning" | "danger" | "info";
 
 export type TagProps = {
   tone?: TagTone;
-  icon?: string;
+  icon?: IconName;
   mono?: boolean;
   onRemove?: MouseEventHandler<HTMLButtonElement>;
+  /** Accessible name of the remove button; passed in, like every other string this library shows. */
+  /**
+   * Accessible name of the remove button.
+   *
+   * No default: the design system carries no dictionary, and a French word defaulted in here would
+   * be read out to every reader in every language. A tag that can be removed names its button.
+   */
+  removeLabel?: string;
   children?: ReactNode;
   className?: string;
 };
@@ -18,6 +26,7 @@ export function Tag({
   icon,
   mono,
   onRemove,
+  removeLabel,
   children,
   className = "",
 }: TagProps) {
@@ -26,7 +35,7 @@ export function Tag({
       {icon ? <Icon name={icon} size={12} /> : null}
       {children}
       {onRemove ? (
-        <button className="wc-tag__x" aria-label="Retirer" onClick={onRemove}>
+        <button className="wc-tag__x" aria-label={removeLabel} onClick={onRemove}>
           <Icon name="x" size={12} />
         </button>
       ) : null}

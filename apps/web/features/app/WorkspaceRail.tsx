@@ -5,6 +5,7 @@ import type { PresenceChoice } from "@/lib/data";
 import type { Workspace } from "@/lib/data";
 import { UserMenu } from "./UserMenu";
 import { getAvatar } from "@/lib/data";
+import { useTranslation } from "@/lib/i18n";
 
 const rail: CSSProperties = {
   width: "var(--rail-width)",
@@ -106,6 +107,7 @@ export function WorkspaceRail({
   onLogout,
   onReorder,
 }: WorkspaceRailProps) {
+  const { t } = useTranslation();
   const [userMenu, setUserMenu] = useState(false);
   const userRef = useRef<HTMLButtonElement>(null);
   /** The space being dragged, and the slot it is hovering, so the rail can show where it would land. */
@@ -131,7 +133,7 @@ export function WorkspaceRail({
           mentions > 0
             ? `${w.name}, ${mentions} notification${mentions > 1 ? "s" : ""}`
             : activity
-              ? `${w.name}, activité non lue`
+              ? t("rail.unreadActivity", { name: w.name })
               : w.name;
         return (
           <Tooltip key={w.id} label={label} side="right">
@@ -202,18 +204,18 @@ export function WorkspaceRail({
           </Tooltip>
         );
       })}
-      <Tooltip label="Nouvel espace" side="right">
-        <IconButton icon="plus" label="Nouvel espace" onClick={onNew} />
+      <Tooltip label={t("shell.newSpace")} side="right">
+        <IconButton icon="plus" label={t("shell.newSpace")} onClick={onNew} />
       </Tooltip>
       <div style={{ flex: 1 }} />
-      <Tooltip label="Aide" side="right">
-        <IconButton icon="life-buoy" label="Aide" onClick={onHelp} />
+      <Tooltip label={t("common.help")} side="right">
+        <IconButton icon="life-buoy" label={t("common.help")} onClick={onHelp} />
       </Tooltip>
-      <Tooltip label="Mon profil" side="right">
+      <Tooltip label={t("shell.myProfile")} side="right">
         <button
           ref={userRef}
           onClick={() => setUserMenu((o) => !o)}
-          aria-label="Mon profil et statut"
+          aria-label={t("shell.myProfileAndStatus")}
           aria-expanded={userMenu}
           style={{ border: 0, background: "none", padding: 0, cursor: "pointer" }}
         >

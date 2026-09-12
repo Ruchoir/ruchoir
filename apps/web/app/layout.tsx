@@ -3,8 +3,9 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Ruchoir",
-  description:
-    "Sovereign, open-core workspace: real-time team messaging and file sharing.",
+  // i18n-audit-ignore-next-line -- document metadata of a static export: one HTML file is served to
+  // every reader, so this sentence cannot follow a language. English, like the rest of the repository.
+  description: "Sovereign, open-core workspace: real-time team messaging and file sharing.",
   applicationName: "Ruchoir",
 };
 

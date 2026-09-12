@@ -1,11 +1,11 @@
 import type { InputHTMLAttributes, ReactNode } from "react";
-import { Icon } from "./Icon";
+import { Icon, type IconName } from "./Icon";
 
 export type InputSize = "sm" | "md" | "lg";
 
 export type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "size"> & {
   size?: InputSize;
-  icon?: string;
+  icon?: IconName;
   suffix?: ReactNode;
   invalid?: boolean;
 };

@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { Button, Icon } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * Offer to turn on system notifications, once, shortly after signing in.
@@ -60,23 +61,21 @@ export function NotificationPrompt({
   onDismiss: () => void;
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   return (
-    <div style={compact ? { ...st.card, bottom: 76 } : st.card} role="dialog" aria-label="Activer les notifications">
+    <div style={compact ? { ...st.card, bottom: 76 } : st.card} role="dialog" aria-label={t("prefs.enableNotif")}>
       <span style={st.icon}>
         <Icon name="bell" size={16} style={{ color: "var(--text-accent)" }} />
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={st.title}>Être prévenu hors de l&apos;onglet</div>
-        <p style={st.body}>
-          Sans l&apos;autorisation du navigateur, Ruchoir ne peut rien vous signaler quand vous regardez autre chose.
-          Vous pourrez revenir dessus dans les préférences.
-        </p>
+        <div style={st.title}>{t("notifPrompt.title")}</div>
+        <p style={st.body}>{t("notifPrompt.body")}</p>
         <div style={st.actions}>
           <Button size="sm" variant="primary" onClick={onAllow}>
-            Activer
+            {t("notifPrompt.allow")}
           </Button>
           <Button size="sm" onClick={onDismiss}>
-            Plus tard
+            {t("notifPrompt.later")}
           </Button>
         </div>
       </div>

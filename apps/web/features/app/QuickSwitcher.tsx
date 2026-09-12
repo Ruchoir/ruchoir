@@ -4,6 +4,7 @@ import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useMemo, 
 import { Avatar, Badge, Dialog, EmptyState, Icon } from "@/components/ds";
 import type { Channel, DirectMessage, Workspace } from "@/lib/data";
 import { getAvatar } from "@/lib/data";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   search: {
@@ -73,6 +74,7 @@ export type QuickSwitcherProps = {
  * common case (a conversation in the space you are already in) stays first.
  */
 export function QuickSwitcher({ channels, dms, spaces, onOpen, onOpenSpace, onClose }: QuickSwitcherProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
@@ -134,7 +136,7 @@ export function QuickSwitcher({ channels, dms, spaces, onOpen, onOpenSpace, onCl
   };
 
   return (
-    <Dialog title="Aller à une conversation" size="md" onClose={onClose}>
+    <Dialog title={t("switcher.title")} size="md" onClose={onClose} closeLabel={t("common.close")}>
       <div style={styles.search}>
         <Icon name="search" size={16} style={{ color: "var(--text-subtle)" }} />
         <input
@@ -145,15 +147,15 @@ export function QuickSwitcher({ channels, dms, spaces, onOpen, onOpenSpace, onCl
             setActive(0);
           }}
           onKeyDown={onKeyDown}
-          aria-label="Filtrer les conversations"
-          placeholder="Nom d'un canal, d'une personne ou d'un espace…"
+          aria-label={t("switcher.filterLabel")}
+          placeholder={t("switcher.filterPlaceholder")}
           style={styles.input}
         />
       </div>
 
-      <div ref={listRef} style={styles.list} role="listbox" aria-label="Conversations">
+      <div ref={listRef} style={styles.list} role="listbox" aria-label={t("switcher.conversations")}>
         {results.length === 0 ? (
-          <EmptyState size="compact" icon="search" title="Aucune conversation" description={`Rien ne correspond à « ${query} ».`} />
+          <EmptyState size="compact" icon="search" title={t("switcher.empty")} description={t("switcher.noMatch", { query })} />
         ) : (
           results.map((e, i) => {
             const selected = i === active;
@@ -188,9 +190,9 @@ export function QuickSwitcher({ channels, dms, spaces, onOpen, onOpenSpace, onCl
       </div>
 
       <div style={styles.foot}>
-        <span>↑ ↓ pour naviguer</span>
-        <span>Entrée pour ouvrir</span>
-        <span>Échap pour fermer</span>
+        <span>{t("switcher.navigate")}</span>
+        <span>{t("switcher.open")}</span>
+        <span>{t("switcher.close")}</span>
       </div>
     </Dialog>
   );

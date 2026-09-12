@@ -6,6 +6,8 @@ import type { Presence } from "@/components/ds";
 import { type FileHit, search, type SearchMessage } from "@/lib/data/api";
 import { getAvatar } from "@/lib/data";
 import { messageSummary } from "./activity";
+import { useTranslation } from "@/lib/i18n";
+import { formatStamp } from "@/lib/i18n/format";
 
 const styles: Record<string, CSSProperties> = {
   label: {
@@ -50,6 +52,7 @@ export function GlobalSearchDialog({
   onOpenFile,
   onOpenProfile,
 }: GlobalSearchDialogProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [msgHits, setMsgHits] = useState<SearchMessage[]>([]);
@@ -133,7 +136,7 @@ export function GlobalSearchDialog({
   };
 
   return (
-    <Dialog title="Rechercher partout" size="md" onClose={onClose}>
+    <Dialog title={t("gsearch.open")} size="md" onClose={onClose} closeLabel={t("common.close")}>
       <div
         style={{
           display: "flex",
@@ -154,8 +157,8 @@ export function GlobalSearchDialog({
             setActive(0);
           }}
           onKeyDown={onKeyDown}
-          aria-label="Rechercher dans tout l'espace"
-          placeholder="Messages, fichiers, personnes dans tout l'espace…"
+          aria-label={t("gsearch.title")}
+          placeholder={t("gsearch.placeholder")}
           style={{
             flex: 1,
             border: 0,
@@ -173,20 +176,20 @@ export function GlobalSearchDialog({
           <EmptyState
             size="compact"
             icon="search"
-            description="Tapez pour chercher dans les canaux, les fichiers et l'annuaire."
+            description={t("gsearch.prompt")}
           />
         ) : total === 0 ? (
           <EmptyState
             size="compact"
             icon="search"
-            title={loading ? "Recherche…" : "Aucun résultat"}
-            description={loading ? "Interrogation du serveur." : `Rien ne correspond à « ${query} ».`}
+            title={loading ? t("search.searching") : t("search.noResult")}
+            description={loading ? t("search.querying") : t("switcher.noMatch", { query })}
           />
         ) : (
           <>
             {msgHits.length > 0 ? (
               <>
-                <div style={styles.label}>Messages</div>
+                <div style={styles.label}>{t("tabs.messages")}</div>
                 {msgHits.map((m, i) => (
                   <button
                     key={`${m.conversationId}:${m.id}`}
@@ -201,7 +204,7 @@ export function GlobalSearchDialog({
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
                         {m.author}
-                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
+                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                       </span>
                       <span
                         style={{
@@ -213,7 +216,7 @@ export function GlobalSearchDialog({
                           color: "var(--text-body)",
                         }}
                       >
-                        {messageSummary(m)}
+                        {messageSummary(m) ?? t("activity.attachment")}
                       </span>
                     </span>
                   </button>
@@ -223,7 +226,7 @@ export function GlobalSearchDialog({
 
             {fileHits.length > 0 ? (
               <>
-                <div style={styles.label}>Fichiers</div>
+                <div style={styles.label}>{t("gsearch.files")}</div>
                 {fileHits.map((f, i) => (
                   <button
                     key={f.id}
@@ -245,7 +248,7 @@ export function GlobalSearchDialog({
 
             {peopleHits.length > 0 ? (
               <>
-                <div style={styles.label}>Personnes</div>
+                <div style={styles.label}>{t("gsearch.people")}</div>
                 {peopleHits.map((p, i) => (
                   <button
                     key={p.name}
@@ -267,9 +270,9 @@ export function GlobalSearchDialog({
       </div>
       {total > 0 ? (
         <div style={{ display: "flex", gap: 14, padding: "8px 2px 0", fontSize: 11, color: "var(--text-subtle)" }}>
-          <span>↑ ↓ pour naviguer</span>
-          <span>Entrée pour ouvrir</span>
-          <span>Échap pour fermer</span>
+          <span>{t("switcher.navigate")}</span>
+          <span>{t("switcher.open")}</span>
+          <span>{t("switcher.close")}</span>
         </div>
       ) : null}
     </Dialog>

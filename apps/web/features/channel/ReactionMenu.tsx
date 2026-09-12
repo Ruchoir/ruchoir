@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Icon, IconButton, Popover } from "@/components/ds";
 import { EmojiPicker } from "./EmojiPicker";
+import { useTranslation } from "@/lib/i18n";
 
 export type ReactionMenuProps = {
   onPick: (emoji: string) => void;
@@ -13,6 +14,7 @@ export type ReactionMenuProps = {
 
 /** A trigger that opens the emoji picker in a viewport-aware popover. */
 export function ReactionMenu({ onPick, variant = "action", onOpenChange }: ReactionMenuProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
 
@@ -32,7 +34,7 @@ export function ReactionMenu({ onPick, variant = "action", onOpenChange }: React
         <button
           ref={anchorRef}
           type="button"
-          aria-label="Ajouter une réaction"
+          aria-label={t("message.addReaction")}
           aria-expanded={open}
           onClick={() => set(!open)}
           style={{
@@ -53,7 +55,7 @@ export function ReactionMenu({ onPick, variant = "action", onOpenChange }: React
         <IconButton
           ref={anchorRef}
           icon="smile-plus"
-          label="Réagir"
+          label={t("message.react")}
           size="sm"
           aria-expanded={open}
           onClick={() => set(!open)}

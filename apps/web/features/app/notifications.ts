@@ -9,6 +9,8 @@
  * them from the unread count without discarding the read state of the others.
  */
 
+import { key, type Translate, type TranslationKey } from "@/lib/i18n";
+
 /**
  * Why a notification exists.
  *
@@ -48,8 +50,8 @@ export type AppNotification = {
   messageId: string;
   /** Short one-line preview of the triggering message. */
   preview: string;
-  /** Human time carried from the source message (e.g. "10:24"). */
-  time: string;
+  /** When the triggering message was sent (RFC 3339): the words around it are drawn per reader. */
+  createdAt: string;
   read: boolean;
 };
 
@@ -99,16 +101,22 @@ export function quietHoursLabel(prefs: NotifPrefs): string {
   return `${fmt(prefs.quietFrom ?? DEFAULT_NOTIF_PREFS.quietFrom)} - ${fmt(prefs.quietTo ?? DEFAULT_NOTIF_PREFS.quietTo)}`;
 }
 
-const KIND_VERB: Record<NotifKind, string> = {
-  mention: "vous a mentionné",
-  broadcast: "a mentionné tout le canal",
-  reply: "a répondu dans un fil",
-  dm: "vous a envoyé un message",
+/** The dictionary key naming what happened, per notification kind. */
+const KIND_VERB: Record<NotifKind, TranslationKey> = {
+  mention: key("notif.mentioned"),
+  broadcast: key("notif.broadcast"),
+  reply: key("notif.replied"),
+  dm: key("notif.dm"),
 };
 
-/** Short human sentence for a notification, e.g. "Alice vous a mentionné". */
-export function notifSummary(n: AppNotification): string {
-  return `${n.actor} ${KIND_VERB[n.kind]}`;
+/**
+ * Short sentence for a notification, e.g. "Alice vous a mentionné".
+ *
+ * Takes the translator rather than reaching for one: this is a plain function called from
+ * components, and each of them already holds it.
+ */
+export function notifSummary(n: AppNotification, t: Translate): string {
+  return `${n.actor} ${t(KIND_VERB[n.kind])}`;
 }
 
 /** Whether a notification should be shown given the channel and global preferences. */

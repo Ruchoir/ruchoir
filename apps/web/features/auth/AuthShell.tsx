@@ -1,6 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode } from "react";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   root: {
@@ -36,6 +37,7 @@ const styles: Record<string, CSSProperties> = {
 
 /** Shared centered layout for the sign-in and sign-up screens: wordmark, a card, and a footer note. */
 export function AuthShell({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
+  const { t } = useTranslation();
   return (
     <div style={styles.root}>
       <div style={styles.brand}>
@@ -44,7 +46,7 @@ export function AuthShell({ children, footer }: { children: ReactNode; footer?: 
         <div style={styles.wordmark}>
           Ruchoir<span style={{ color: "var(--terracotta-500)" }}>.</span>
         </div>
-        <div style={styles.tagline}>Une ruche pour tout votre travail.</div>
+        <div style={styles.tagline}>{t("brand.tagline")}</div>
       </div>
       <main style={styles.card}>{children}</main>
       {footer ? <div style={styles.footer}>{footer}</div> : null}

@@ -4,6 +4,7 @@ import { type CSSProperties, useState } from "react";
 import { EmptyState, Input } from "@/components/ds";
 import { EMOJI_CATEGORIES, QUICK_REACTIONS, searchEmojis } from "@/lib/emoji";
 import { Emoji } from "../app/Emoji";
+import { useTranslation } from "@/lib/i18n";
 
 const panel: CSSProperties = {
   width: 320,
@@ -70,6 +71,7 @@ export function EmojiPicker({
   /** Animate the pickable glyphs (quick row + grid). Set when the picker chooses a reaction. */
   animated?: boolean;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [cat, setCat] = useState(EMOJI_CATEGORIES[0].id);
 
@@ -78,7 +80,7 @@ export function EmojiPicker({
   const shown = results ?? active.emojis;
 
   return (
-    <div style={panel} role="dialog" aria-label="Choisir un emoji">
+    <div style={panel} role="dialog" aria-label={t("emoji.title")}>
       <div style={quickRow}>
         {QUICK_REACTIONS.map((e) => (
           <button
@@ -88,7 +90,7 @@ export function EmojiPicker({
             onMouseEnter={hoverIn}
             onMouseLeave={hoverOut}
             onClick={() => onPick(e)}
-            aria-label={`Réagir ${e}`}
+            aria-label={t("message.reactWith", { emoji: e })}
           >
             <Emoji emoji={e} size={22} animated={animated} />
           </button>
@@ -99,7 +101,7 @@ export function EmojiPicker({
         <Input
           size="sm"
           icon="search"
-          placeholder="Rechercher un emoji"
+          placeholder={t("emoji.search")}
           value={query}
           onChange={(ev) => setQuery(ev.target.value)}
           autoFocus
@@ -112,8 +114,8 @@ export function EmojiPicker({
             <button
               key={c.id}
               type="button"
-              title={c.label}
-              aria-label={c.label}
+              title={t(c.label)}
+              aria-label={t(c.label)}
               aria-pressed={c.id === cat}
               onClick={() => setCat(c.id)}
               style={{
@@ -133,20 +135,22 @@ export function EmojiPicker({
       <div style={grid}>
         {shown.length === 0 ? (
           <div style={{ gridColumn: "1 / -1" }}>
-            <EmptyState size="compact" icon="smile" title="Aucun emoji" description={`Rien ne correspond à « ${query} ».`} />
+            <EmptyState size="compact" icon="smile" title={t("emoji.empty")} description={t("switcher.noMatch", { query })} />
           </div>
         ) : (
           shown.map((em) => (
             <button
-              key={em.e}
+              key={em}
               type="button"
               style={emojiBtn}
               onMouseEnter={hoverIn}
               onMouseLeave={hoverOut}
-              onClick={() => onPick(em.e)}
-              aria-label={em.k.split(" ")[0]}
+              onClick={() => onPick(em)}
+              // The character itself: a screen reader announces an emoji with its own name, in the
+              // language it is reading in, which no keyword of ours can do in six languages.
+              aria-label={em}
             >
-              <Emoji emoji={em.e} size={20} animated={animated} />
+              <Emoji emoji={em} size={20} animated={animated} />
             </button>
           ))
         )}

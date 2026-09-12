@@ -5,6 +5,8 @@ import { Avatar, EmptyState, Icon, IconButton, Tag } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import type { DirectMessage, Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { formatBytes, formatStamp } from "@/lib/i18n/format";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -52,10 +54,11 @@ export type ChannelMember = Pick<DirectMessage, "id" | "name" | "presence" | "bo
   avatar?: string;
 };
 
-const TITLES: Record<SidePanelKind, string> = {
-  files: "Fichiers du canal",
-  members: "Membres du canal",
-  pinned: "Messages épinglés",
+/** Panel titles, as dictionary keys: built at module load, translated where drawn. */
+const TITLES: Record<SidePanelKind, TranslationKey> = {
+  files: key("panel.files"),
+  members: key("panel.members"),
+  pinned: key("panel.pinned"),
 };
 
 export type SidePanelKind = "files" | "members" | "pinned";
@@ -74,6 +77,7 @@ export type SidePanelProps = {
 
 /** Right-hand panel of the channel: file, member, or pinned-message list. */
 export function SidePanel({ kind, files, members, pinned, highlightFile, onClose, onSelectMember, onJump, onNotify }: SidePanelProps) {
+  const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // When asked to jump to a file, scroll it into view and flash it (after the panel mounts).
@@ -93,8 +97,8 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
   return (
     <div style={styles.panel}>
       <div style={styles.head}>
-        <span style={styles.title}>{TITLES[kind]}</span>
-        <IconButton icon="x" label="Fermer le panneau" size="sm" onClick={onClose} />
+        <span style={styles.title}>{t(TITLES[kind])}</span>
+        <IconButton icon="x" label={t("panel.close")} size="sm" onClick={onClose} />
       </div>
       <div style={{ flex: 1, overflow: "auto" }} ref={scrollRef}>
         {kind === "files"
@@ -106,18 +110,18 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                     {fl.name}
                   </span>
                   <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                    {fl.size} · {fl.when}
+                    {fl.kind === "folder" ? "" : `${formatBytes(fl.sizeBytes)} · `}{formatStamp(fl.updatedAt)}
                   </span>
                 </span>
                 {fl.source !== "Ruchoir" ? <Tag>{fl.source}</Tag> : null}
                 <IconButton
                   icon={fl.kind === "folder" ? "folder-open" : "download"}
-                  label={fl.kind === "folder" ? "Ouvrir le dossier" : "Télécharger"}
+                  label={fl.kind === "folder" ? t("panel.openFolder") : t("message.download")}
                   size="sm"
                   onClick={() =>
                     onNotify({
                       tone: "info",
-                      title: fl.kind === "folder" ? "Ouverture du dossier" : "Téléchargement",
+                      title: fl.kind === "folder" ? t("panel.openingFolder") : t("panel.downloading"),
                       description: fl.name,
                     })
                   }
@@ -137,7 +141,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
               >
                 <Avatar name={p.name} src={p.avatar} size={30} presence={p.presence} kind={p.bot ? "bot" : "person"} shape={p.bot ? "round" : "square"} />
                 <span style={{ flex: 1, fontSize: 14, color: "var(--text-strong)" }}>{p.name}</span>
-                {p.bot ? <Tag>Bot</Tag> : null}
+                {p.bot ? <Tag>{t("sidebar.bot")}</Tag> : null}
               </button>
             ))
           : null}
@@ -148,8 +152,8 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                 <EmptyState
                   size="compact"
                   icon="pin"
-                  title="Aucun message épinglé"
-                  description="Épinglez un message depuis son menu pour le retrouver ici."
+                  title={t("panel.noPinned")}
+                  description={t("panel.noPinnedText")}
                 />
               )
             : pinned.map((m) => (
@@ -164,10 +168,10 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
                       {m.author}
-                      <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
+                      <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                     </span>
                     <span style={{ display: "block", fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)", marginTop: 2, textWrap: "pretty" }}>
-                      {messageSummary(m)}
+                      {messageSummary(m) ?? t("activity.attachment")}
                     </span>
                     {m.image?.src ? (
                       // A pinned photograph is pinned for what it shows. The row is already
@@ -193,7 +197,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          onNotify({ tone: "info", title: "Ouverture du lien", description: m.link?.domain });
+                          onNotify({ tone: "info", title: t("panel.openingLink"), description: m.link?.domain });
                         }}
                         style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 12, color: "var(--text-link)" }}
                       >
@@ -205,7 +209,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onNotify({ tone: "info", title: "Téléchargement", description: m.attachment?.name });
+                          onNotify({ tone: "info", title: t("panel.downloading"), description: m.attachment?.name });
                         }}
                         style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, border: 0, background: "none", padding: 0, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-link)" }}
                       >

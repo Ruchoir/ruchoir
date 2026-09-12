@@ -4,6 +4,7 @@ import { type CSSProperties, type FormEvent, useState } from "react";
 import { Button, Field, Icon, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   body: { fontSize: 14, color: "var(--text-muted)", maxWidth: 340 },
@@ -67,6 +68,7 @@ export function ForgotPasswordScreen({
   pending = false,
   emailDelivery,
 }: ForgotPasswordScreenProps) {
+  const { t } = useTranslation();
   const noRelay = emailDelivery === false;
   const [path, setPath] = useState<Path>(noRelay ? "recovery" : "email");
   const [mail, setMail] = useState("");
@@ -97,7 +99,7 @@ export function ForgotPasswordScreen({
       }}
       style={authStyles.link}
     >
-      Revenir à la connexion
+      {t("common.backToLogin")}
     </a>
   );
 
@@ -108,11 +110,8 @@ export function ForgotPasswordScreen({
           <span style={{ ...authStyles.outcomeBadge, background: "var(--surface-sunken)" }}>
             <Icon name="check" size={26} style={{ color: "var(--text-accent)" }} />
           </span>
-          <h1 style={authStyles.title}>Mot de passe changé</h1>
-          <p style={styles.body}>
-            Ce code de récupération est maintenant utilisé. Vous pouvez vous connecter avec votre nouveau mot de
-            passe : toutes vos autres sessions ont été fermées.
-          </p>
+          <h1 style={authStyles.title}>{t("forgot.recoveredTitle")}</h1>
+          <p style={styles.body}>{t("forgot.recoveredBody")}</p>
         </div>
       </AuthShell>
     );
@@ -125,11 +124,8 @@ export function ForgotPasswordScreen({
           <span style={{ ...authStyles.outcomeBadge, background: "var(--surface-sunken)" }}>
             <Icon name="mail" size={26} style={{ color: "var(--text-accent)" }} />
           </span>
-          <h1 style={authStyles.title}>Vérifiez votre boîte mail</h1>
-          <p style={styles.body}>
-            Si un compte existe pour <strong>{mail}</strong>, un lien de réinitialisation vient d&apos;être envoyé. Il
-            expire au bout de quelques minutes.
-          </p>
+          <h1 style={authStyles.title}>{t("common.checkInbox")}</h1>
+          <p style={styles.body}>{t("forgot.sentBody", { email: mail })}</p>
         </div>
       </AuthShell>
     );
@@ -137,24 +133,18 @@ export function ForgotPasswordScreen({
 
   return (
     <AuthShell footer={footer}>
-      <h1 style={authStyles.title}>Mot de passe oublié</h1>
+      <h1 style={authStyles.title}>{t("forgot.title")}</h1>
       <p style={authStyles.subtitle}>
-        {shownPath === "email"
-          ? "Indiquez l'adresse de votre compte : nous vous enverrons un lien pour choisir un nouveau mot de passe."
-          : "Utilisez l'un des codes de récupération notés en activant la double authentification."}
+        {shownPath === "email" ? t("forgot.subtitleEmail") : t("forgot.subtitleRecovery")}
       </p>
 
       {noRelay ? (
-        <p style={styles.notice}>
-          Cette instance n&apos;envoie pas de courriels : aucun lien ne peut vous être expédié. Utilisez un code de
-          récupération, ou demandez à un administrateur de l&apos;instance de vous transmettre un lien de
-          réinitialisation.
-        </p>
+        <p style={styles.notice}>{t("forgot.noRelay")}</p>
       ) : null}
 
       {shownPath === "email" ? (
         <form style={authStyles.fields} onSubmit={submitEmail}>
-          <Field label="Adresse électronique" htmlFor="fp-mail">
+          <Field label={t("login.email")} htmlFor="fp-mail">
             <Input
               id="fp-mail"
               size="lg"
@@ -172,12 +162,12 @@ export function ForgotPasswordScreen({
             </p>
           ) : null}
           <Button variant="primary" size="lg" fullWidth type="submit" disabled={pending || !mail.includes("@")}>
-            {pending ? "Envoi…" : "Envoyer le lien"}
+            {pending ? t("common.sending") : t("forgot.sendLink")}
           </Button>
         </form>
       ) : (
         <form style={authStyles.fields} onSubmit={submitRecovery}>
-          <Field label="Adresse électronique" htmlFor="fp-mail-rec">
+          <Field label={t("login.email")} htmlFor="fp-mail-rec">
             <Input
               id="fp-mail-rec"
               size="lg"
@@ -189,7 +179,7 @@ export function ForgotPasswordScreen({
               onChange={(e) => setMail(e.target.value)}
             />
           </Field>
-          <Field label="Code de récupération" hint="Par exemple mbtqr-4zdkn-p8xwe." htmlFor="fp-code">
+          <Field label={t("common.recoveryCode")} hint={t("forgot.recoveryHint")} htmlFor="fp-code">
             <Input
               id="fp-code"
               size="lg"
@@ -200,7 +190,7 @@ export function ForgotPasswordScreen({
               onChange={(e) => setCode(e.target.value)}
             />
           </Field>
-          <Field label="Nouveau mot de passe" htmlFor="fp-pass">
+          <Field label={t("reset.newPassword")} htmlFor="fp-pass">
             <Input
               id="fp-pass"
               size="lg"
@@ -223,7 +213,7 @@ export function ForgotPasswordScreen({
             type="submit"
             disabled={pending || !mail.includes("@") || code.trim().length === 0 || password.length === 0}
           >
-            {pending ? "Vérification…" : "Reprendre mon compte"}
+            {pending ? t("common.verifying") : t("forgot.reclaim")}
           </Button>
         </form>
       )}
@@ -238,7 +228,7 @@ export function ForgotPasswordScreen({
               setPath(shownPath === "email" ? "recovery" : "email");
             }}
           >
-            {shownPath === "email" ? "Utiliser un code de récupération" : "Recevoir plutôt un lien par courriel"}
+            {shownPath === "email" ? t("common.useRecoveryCode") : t("forgot.switchToEmail")}
           </a>
         </div>
       )}

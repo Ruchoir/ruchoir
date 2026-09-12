@@ -7,6 +7,8 @@ import { deleteFile } from "@/lib/data/api";
 import type { Toast } from "../app/types";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
+import { useTranslation } from "@/lib/i18n";
+import { formatBytes } from "@/lib/i18n/format";
 
 const styles: Record<string, CSSProperties> = {
   wrap: { flex: "none", padding: "8px 24px 20px" },
@@ -48,12 +50,6 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-body)",
   },
 };
-
-/** Format a byte count into a French-formatted size string. */
-function bytesToSize(bytes: number): string {
-  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1).replace(".", ",")} Mo`;
-  return `${Math.max(1, Math.round(bytes / 1e3))} Ko`;
-}
 
 function iconForType(type: string): string {
   if (type.includes("spreadsheet") || type.includes("csv")) return "file-spreadsheet";
@@ -101,6 +97,7 @@ export function Composer({
   onSaveEdit,
   onCancelEdit,
 }: ComposerProps) {
+  const { t } = useTranslation();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [pending, setPending] = useState<MessageAttachment | null>(null);
   /** True from the moment a file is picked until it is stored (or refused). */
@@ -173,7 +170,7 @@ export function Composer({
     // A second pick replaces the first, which then has nothing left to belong to.
     discardStored(pending);
     // Show it immediately, with what the browser knows, then replace it with the stored file.
-    setPending({ name: file.name, size: bytesToSize(file.size), kind: iconForType(file.type) });
+    setPending({ name: file.name, sizeBytes: file.size, kind: iconForType(file.type) });
     setUploading(true);
     try {
       setPending(await onUpload(file));
@@ -181,8 +178,8 @@ export function Composer({
       setPending(null);
       onNotify({
         tone: "danger",
-        title: "Fichier non envoyé",
-        description: `« ${file.name} » n'a pas pu être téléversé.`,
+        title: t("composer.uploadFailed"),
+        description: t("composer.uploadFailedName", { name: file.name }),
       });
     } finally {
       setUploading(false);
@@ -209,20 +206,20 @@ export function Composer({
         {editing ? (
           <div style={styles.editingBanner}>
             <Icon name="square-pen" size={14} style={{ color: "var(--text-accent)" }} />
-            <span style={{ fontWeight: 600, color: "var(--text-accent)" }}>Modification du message</span>
-            <span style={{ color: "var(--text-subtle)" }}>Échap pour annuler</span>
+            <span style={{ fontWeight: 600, color: "var(--text-accent)" }}>{t("composer.editing")}</span>
+            <span style={{ color: "var(--text-subtle)" }}>{t("composer.escToCancel")}</span>
             <div style={{ flex: 1 }} />
-            <IconButton icon="x" label="Annuler la modification" size="sm" onClick={() => onCancelEdit?.()} />
+            <IconButton icon="x" label={t("composer.cancelEdit")} size="sm" onClick={() => onCancelEdit?.()} />
           </div>
         ) : null}
         {pending && !editing ? (
           <div style={styles.chip}>
             <Icon name={pending.kind} size={16} style={{ color: "var(--text-muted)" }} />
             <span style={{ fontWeight: 500, color: "var(--text-strong)" }}>{pending.name}</span>
-            <span style={{ color: "var(--text-subtle)" }}>{uploading ? "envoi…" : pending.size}</span>
+            <span style={{ color: "var(--text-subtle)" }}>{uploading ? t("composer.uploading") : formatBytes(pending.sizeBytes)}</span>
             <IconButton
               icon="x"
-              label="Retirer la pièce jointe"
+              label={t("composer.removeAttachment")}
               size="sm"
               disabled={uploading}
               onClick={() => {
@@ -234,27 +231,27 @@ export function Composer({
         ) : null}
         <MessageEditor
           ref={editorRef}
-          placeholder={editing ? "Modifier le message" : `Écrire dans #${channelName}`}
+          placeholder={editing ? t("message.editMessage") : t("composer.writeIn", { name: channelName })}
           onSend={sendWith}
         />
         <div style={styles.tools}>
-          <IconButton icon="bold" label="Gras" size="sm" onClick={() => editorRef.current?.wrapSelection("**")} />
-          <IconButton icon="italic" label="Italique" size="sm" onClick={() => editorRef.current?.wrapSelection("_")} />
-          <IconButton icon="code" label="Code" size="sm" onClick={() => editorRef.current?.codeFormat()} />
-          <IconButton icon="list" label="Liste" size="sm" onClick={() => editorRef.current?.prefixLines("- ")} />
+          <IconButton icon="bold" label={t("composer.bold")} size="sm" onClick={() => editorRef.current?.wrapSelection("**")} />
+          <IconButton icon="italic" label={t("composer.italic")} size="sm" onClick={() => editorRef.current?.wrapSelection("_")} />
+          <IconButton icon="code" label={t("composer.code")} size="sm" onClick={() => editorRef.current?.codeFormat()} />
+          <IconButton icon="list" label={t("composer.list")} size="sm" onClick={() => editorRef.current?.prefixLines("- ")} />
           <span style={{ width: 1, height: 18, background: "var(--border-subtle)", margin: "0 6px" }} />
-          <IconButton icon="paperclip" label="Joindre un fichier" size="sm" onClick={() => fileRef.current?.click()} />
+          <IconButton icon="paperclip" label={t("composer.attach")} size="sm" onClick={() => fileRef.current?.click()} />
           <input
             ref={fileRef}
             type="file"
             style={{ display: "none" }}
             onChange={(e) => void onFilePicked(e.target.files)}
           />
-          <IconButton icon="at-sign" label="Mentionner" size="sm" onClick={() => editorRef.current?.insertText("@")} />
+          <IconButton icon="at-sign" label={t("composer.mention")} size="sm" onClick={() => editorRef.current?.insertText("@")} />
           <IconButton
             ref={emojiRef}
             icon="smile"
-            label="Émoji"
+            label={t("composer.emoji")}
             size="sm"
             aria-expanded={emojiOpen}
             onClick={() => setEmojiOpen((o) => !o)}
@@ -268,10 +265,10 @@ export function Composer({
             />
           </Popover>
           <div style={{ flex: 1 }} />
-          <IconButton icon="send" label="Envoyer" variant="accent" size="lg" disabled={uploading} onClick={clickSend} />
+          <IconButton icon="send" label={t("composer.send")} variant="accent" size="lg" disabled={uploading} onClick={clickSend} />
         </div>
       </div>
-      <div style={styles.hint}>Entrée pour envoyer · Maj+Entrée pour une nouvelle ligne</div>
+      <div style={styles.hint}>{t("composer.hint")}</div>
     </div>
   );
 }

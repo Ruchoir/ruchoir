@@ -4,6 +4,7 @@ import { type CSSProperties, type FormEvent, useState } from "react";
 import { Button, Field, Icon, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   body: { fontSize: 14, color: "var(--text-muted)", maxWidth: 340 },
@@ -35,6 +36,7 @@ export function ResetPasswordScreen({
   error,
   pending = false,
 }: ResetPasswordScreenProps) {
+  const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
 
@@ -58,7 +60,7 @@ export function ResetPasswordScreen({
           }}
           style={authStyles.link}
         >
-          Revenir à la connexion
+          {t("common.backToLogin")}
         </a>
       }
     >
@@ -67,25 +69,21 @@ export function ResetPasswordScreen({
           <span style={{ ...authStyles.outcomeBadge, background: "var(--status-success-bg)" }}>
             <Icon name="check" size={26} style={{ color: "var(--status-success-fg)" }} />
           </span>
-          <h1 style={authStyles.title}>Mot de passe modifié</h1>
-          <p style={styles.body}>
-            Vos autres sessions ont été fermées. Connectez-vous avec votre nouveau mot de passe.
-          </p>
+          <h1 style={authStyles.title}>{t("reset.doneTitle")}</h1>
+          <p style={styles.body}>{t("reset.doneBody")}</p>
           <Button variant="primary" size="lg" fullWidth onClick={onBackToLogin}>
-            Se connecter
+            {t("login.submit")}
           </Button>
         </div>
       ) : (
         <>
-          <h1 style={authStyles.title}>Choisir un nouveau mot de passe</h1>
-          <p style={authStyles.subtitle}>
-            Au moins {MIN_PASSWORD_LENGTH} caractères. Évitez un mot de passe déjà utilisé ailleurs.
-          </p>
+          <h1 style={authStyles.title}>{t("reset.title")}</h1>
+          <p style={authStyles.subtitle}>{t("reset.subtitle", { count: MIN_PASSWORD_LENGTH })}</p>
           <form style={authStyles.fields} onSubmit={submit}>
             <Field
-              label="Nouveau mot de passe"
+              label={t("reset.newPassword")}
               htmlFor="rp-pw"
-              error={tooShort ? `Au moins ${MIN_PASSWORD_LENGTH} caractères.` : undefined}
+              error={tooShort ? t("reset.tooShort", { count: MIN_PASSWORD_LENGTH }) : undefined}
             >
               <Input
                 id="rp-pw"
@@ -100,9 +98,9 @@ export function ResetPasswordScreen({
               />
             </Field>
             <Field
-              label="Confirmer le mot de passe"
+              label={t("reset.confirmPassword")}
               htmlFor="rp-pw2"
-              error={mismatch ? "Les deux mots de passe ne correspondent pas." : undefined}
+              error={mismatch ? t("reset.mismatch") : undefined}
             >
               <Input
                 id="rp-pw2"
@@ -121,7 +119,7 @@ export function ResetPasswordScreen({
               </p>
             ) : null}
             <Button variant="primary" size="lg" fullWidth type="submit" disabled={!canSubmit}>
-              {pending ? "Enregistrement…" : "Enregistrer le mot de passe"}
+              {pending ? t("reset.submitting") : t("reset.submit")}
             </Button>
           </form>
         </>

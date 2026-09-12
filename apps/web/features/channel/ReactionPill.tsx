@@ -3,6 +3,7 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Tooltip } from "@/components/ds";
 import { Emoji } from "../app/Emoji";
+import { useTranslation } from "@/lib/i18n";
 
 const PLAY_MS = 3000;
 
@@ -32,6 +33,7 @@ export function ReactionPill({
   style: CSSProperties;
   onClick: () => void;
 }) {
+  const { t } = useTranslation();
   const [playing, setPlaying] = useState(false);
   const [hovered, setHovered] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -79,7 +81,9 @@ export function ReactionPill({
   };
   const onLeave = () => setHovered(false);
 
-  const reactors = users && users.length > 0 ? users.join(", ") : `${count} réaction${count > 1 ? "s" : ""}`;
+  // Plural handled by the dictionary: French turns at two, Polish has three forms, and a manual
+  // `s` would have been right in exactly one language.
+  const reactors = users && users.length > 0 ? users.join(", ") : t("message.reactionCount", { count });
 
   return (
     <Tooltip label={reactors} side="top">
@@ -92,7 +96,7 @@ export function ReactionPill({
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
         aria-pressed={mine}
-        aria-label={`Réaction ${emoji}, ${count}`}
+        aria-label={t("message.reactionCount", { emoji, count })}
       >
         <Emoji emoji={emoji} size={16} animated={hovered || playing} />
         {count}

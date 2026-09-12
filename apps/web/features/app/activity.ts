@@ -26,11 +26,13 @@ export type MessageMap = Record<string, Message[]>;
  * an image carries its alternative text or its file name, so there is always something truer to
  * say. The generic wording survives only for the case that has genuinely nothing.
  */
-export function messageSummary(m: Message): string {
+export function messageSummary(m: Message): string | null {
   if (m.body) return m.body;
   if (m.image) return m.image.alt;
   if (m.attachment) return m.attachment.name;
-  return "(pièce jointe)";
+  // Null rather than a sentence: a message that is only an attachment with no name is described
+  // where it is drawn, in the reader's language. The callers all have a translator.
+  return null;
 }
 
 function labelFor(channelId: string, channels: Channel[], dms: DirectMessage[]): { label: string; isDm: boolean } {

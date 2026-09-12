@@ -91,9 +91,39 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | Next.js / React | 16.3.3 / 19.2 | `apps/web/package.json` |
 | TypeScript / ESLint | 6 / 9 (flat config) | `apps/web/package.json` |
 | Tailwind CSS | 4 (CSS-first) | `apps/web/package.json` |
+| i18next / react-i18next | 26.4 / 17.0 | `apps/web/package.json` |
 | PostgreSQL | 18-alpine | `docker-compose.yml` |
 | Valkey | 9-alpine | `docker-compose.yml` |
 | Garage | v2.3.0 | `docker-compose.yml` |
+
+## Languages
+
+The interface speaks French, English, Spanish, German, Italian and Polish. **French is the source
+language**: it is what the product is written in, what a missing key falls back to, and what the
+other five translate. Its dictionary is the contract, so a key added to `fr.json` fails the build of
+the other five until they carry it.
+
+- Dictionaries: `apps/web/lib/i18n/dictionaries/<locale>.json`, bundled rather than fetched (a
+  self-hosted instance must not download its own interface twice).
+- Runtime: i18next + react-i18next. Chosen over FormatJS/react-intl partly for governance: i18next is
+  developed in Europe, react-intl is US-governed, and between two MIT libraries that both run
+  locally, the sovereign one costs nothing.
+- Choosing a language: the person's preference, then the browser, then French. A chosen language is
+  also sent to the account (`users.locale`), because the server writes too, and an address
+  confirmation must not arrive in a language its reader did not ask for.
+- Server-side text (three emails) lives in `apps/api/src/auth/mail_text.rs`, in the same six
+  languages, with no translation crate: three messages do not justify a dependency and a loader.
+
+**One sentence, one key.** The same text under two keys costs six files' worth of bytes and, worse,
+lets two copies of the same sentence drift apart until the interface says it two ways. Point both
+call sites at one key. The exception is a pair that French collapses and another language does not
+(a label and a verb, a role and a status): list the key in `ALLOWED_DUPLICATES` with the reason.
+
+**`pnpm --filter @ruchoir/web i18n:check` (CI runs it) fails on any user-visible string typed into a
+component, on any duplicated text, and on any disagreement between the six dictionaries.** A string that is not prose goes in
+that script's `ALLOWED` list, with the reason. Files still written in French are listed in
+`apps/web/tools/i18n-audit/untranslated.json`: **that list only ever shrinks**, nothing may be added
+to it, and a new screen is written translated from the start.
 
 ## Repository layout (monorepo)
 

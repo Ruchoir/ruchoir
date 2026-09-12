@@ -121,7 +121,8 @@ export type DirectMessage = {
 
 export type Profile = {
   name: string;
-  role: string;
+  /** What they do, in their own words; absent when they have not written one. */
+  role?: string;
   presence: Presence;
   email: string;
   /**
@@ -131,6 +132,8 @@ export type Profile = {
    * from this with `useLocalTime`, which keeps it current while it is on screen.
    */
   timezone?: string;
+  /** The language they read the interface in, as a tag; absent when they have not chosen one. */
+  locale?: string;
   pronouns?: string;
   bio?: string;
   bot?: boolean;
@@ -159,7 +162,8 @@ export type MessageAttachment = {
   /** Stored file id; absent while an optimistic message is still uploading. */
   fileId?: string;
   name: string;
-  size: string;
+  /** Size in bytes, as the API gives it: the words and the separators belong to the reader's language. */
+  sizeBytes: number;
   /** Icon name for the file kind (file, file-text, file-spreadsheet, ...). */
   kind: string;
   /** Same-origin download URL; absent until the file exists server-side. */
@@ -214,16 +218,22 @@ export type Message = {
   author: string;
   /** Author's user id, when known (absent for system messages and optimistic local rows). */
   authorId?: string;
-  time: string;
   /**
    * When it was sent, as the API gives it (RFC 3339).
    *
-   * `time` is for reading and has already lost the day and the seconds, so it cannot answer "were
-   * these two sent within five minutes of each other", which is what decides whether consecutive
-   * messages from one person are drawn as one block.
+   * Carried raw rather than as a formatted string: the day and the seconds are what decides whether
+   * consecutive messages from one person are drawn as one block, and the words around the time
+   * ("Hier", "Yesterday") belong to whoever is reading rather than to whoever fetched it.
    */
-  createdAt?: string;
+  createdAt: string;
   body: string;
+  /**
+   * What happened, for a system row the API did not give a body.
+   *
+   * The event and the person it is about, rather than a sentence: "Alice a rejoint l'espace" is one
+   * language's way of saying it, and the row is drawn long after the fetch that produced it.
+   */
+  system?: { event: SystemEvent; actor: string };
   /** Icon for a system message. */
   systemIcon?: string;
   attachment?: MessageAttachment;
@@ -239,6 +249,9 @@ export type Message = {
   saved?: boolean;
 };
 
+/** The system events the API reports, each with a sentence in every dictionary. */
+export type SystemEvent = "member_joined" | "member_left" | "channel_joined" | "channel_left" | "channel_created";
+
 export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "image" | "folder";
 
 export type SpaceFile = {
@@ -246,9 +259,11 @@ export type SpaceFile = {
   id?: string;
   name: string;
   kind: SpaceFileKind;
-  size: string;
+  /** Size in bytes; zero for a folder, which has none of its own. */
+  sizeBytes: number;
   by: string;
-  when: string;
+  /** Last change, RFC 3339. */
+  updatedAt: string;
   source: ImportSource;
   version: string;
   /** Whether the file was migrated from another tool (the API exposes the flag, not the connector). */

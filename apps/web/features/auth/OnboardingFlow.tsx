@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useState } from "react";
 import { Button, Field, Icon, Input } from "@/components/ds";
+import { Trans, useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   root: {
@@ -65,6 +66,7 @@ export function OnboardingFlow({
   /** Error to surface on the last step when the creation was refused. */
   error?: string | null;
 }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const [workspace, setWorkspace] = useState("");
   const [invites, setInvites] = useState(["", "", ""]);
@@ -94,10 +96,13 @@ export function OnboardingFlow({
             >
               <Icon name="check" size={26} style={{ color: "var(--status-success-fg)" }} />
             </span>
-            <h1 style={styles.heading}>Tout est prêt{firstName ? `, ${firstName}` : ""}</h1>
+            <h1 style={styles.heading}>{firstName ? t("onboarding.readyNamed", { name: firstName }) : t("onboarding.ready")}</h1>
             <p style={{ fontSize: 14, color: "var(--text-muted)", maxWidth: 340 }}>
-              L&apos;espace <strong>{name}</strong> va être créé{invited > 0 ? `, avec ${invited} invitation${invited > 1 ? "s" : ""}` : ""}. Vous pourrez importer vos
-              historiques Slack, Mattermost ou Nextcloud à tout moment depuis la barre latérale.
+              <Trans
+                i18nKey={invited > 0 ? "onboarding.readyBodyInvited" : "onboarding.readyBody"}
+                values={{ name, count: invited }}
+                components={{ strong: <strong /> }}
+              />
             </p>
             {error ? (
               <p style={styles.error} role="alert">
@@ -111,7 +116,7 @@ export function OnboardingFlow({
               disabled={pending}
               onClick={() => onFinish({ workspaceName: name })}
             >
-              {pending ? "Création…" : "Entrer dans Ruchoir"}
+              {pending ? t("common.creating") : t("onboarding.enter")}
             </Button>
           </div>
         </div>
@@ -128,26 +133,26 @@ export function OnboardingFlow({
           ))}
         </div>
         <div>
-          <div style={styles.step}>Étape {step + 1} sur {TOTAL}</div>
+          <div style={styles.step}>{t("onboarding.stepOf", { step: step + 1, total: TOTAL })}</div>
           <h1 style={{ ...styles.heading, marginTop: 8 }}>
-            {step === 0 ? "Comment s'appelle votre espace ?" : "Invitez votre équipe"}
+            {step === 0 ? t("onboarding.nameStep") : t("welcome.invite")}
           </h1>
           <p style={styles.sub}>
             {step === 0
-              ? "Ce sera le nom affiché de votre espace de travail. Vous pourrez le changer plus tard."
-              : "Ajoutez quelques adresses pour démarrer à plusieurs. Vous pourrez inviter d'autres personnes ensuite."}
+              ? t("onboarding.nameHint")
+              : t("onboarding.inviteHint")}
           </p>
         </div>
 
         <div style={styles.card}>
           {step === 0 ? (
             <>
-              <Field label="Nom de l'espace" htmlFor="ob-ws">
+              <Field label={t("space.name")} htmlFor="ob-ws">
                 <Input
                   id="ob-ws"
                   size="lg"
                   autoFocus
-                  placeholder="ex. Atelier Nantes"
+                  placeholder={t("onboarding.spaceNamePlaceholder")}
                   value={workspace}
                   onChange={(e) => setWorkspace(e.target.value)}
                   onKeyDown={(e) => {
@@ -166,7 +171,7 @@ export function OnboardingFlow({
                   size="lg"
                   icon="mail"
                   type="email"
-                  placeholder="prenom@exemple.fr"
+                  placeholder={t("dialogs.emailPlaceholder")}
                   value={email}
                   onChange={(e) => setInvite(i, e.target.value)}
                 />
@@ -178,7 +183,7 @@ export function OnboardingFlow({
         <div style={styles.nav}>
           {step > 0 ? (
             <Button iconLeft="arrow-left" onClick={back}>
-              Retour
+              {t("common.back")}
             </Button>
           ) : (
             <span />
@@ -186,11 +191,11 @@ export function OnboardingFlow({
           <div style={{ display: "flex", gap: 8 }}>
             {step === 1 ? (
               <Button variant="ghost" onClick={next}>
-                Passer
+                {t("onboarding.skip")}
               </Button>
             ) : null}
             <Button variant="primary" onClick={next}>
-              {step === 1 ? "Terminer" : "Continuer"}
+              {step === 1 ? t("onboarding.finish") : t("onboarding.continue")}
             </Button>
           </div>
         </div>

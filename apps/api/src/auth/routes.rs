@@ -24,7 +24,7 @@ use super::cookie::{clear_session_cookie, session_cookie, SESSION_COOKIE};
 use super::error::AuthError;
 use super::extract::AuthSession;
 use super::tokens::{self, TokenPurpose};
-use super::{crypto, mfa, passkey, password, recovery, session, throttle, totp};
+use super::{crypto, mail_text, mfa, passkey, password, recovery, session, throttle, totp};
 use crate::entities::{
     recovery_codes, space_invitations, totp_secrets, users, webauthn_credentials,
 };
@@ -41,6 +41,9 @@ pub struct RegisterRequest {
     pub email: String,
     pub display_name: String,
     pub password: String,
+    /// The language to write to this account in, from the page they registered on.
+    #[serde(default)]
+    pub locale: Option<String>,
     /// The invitation this registration came from, when it came from one.
     ///
     /// An invitation addressed to this very address activates the account without the usual
@@ -319,6 +322,13 @@ pub async fn register(
         // Registration never mints an administrator: the flag is set at the console, by the
         // `bootstrap` subcommand, on the first account of the instance.
         is_instance_admin: Set(false),
+        // The language the browser was reading in when the account was created: the confirmation
+        // email is the very next thing that happens, and it should not arrive in another language
+        // than the page that triggered it.
+        locale: Set(body
+            .locale
+            .as_deref()
+            .map(|l| mail_text::Locale::parse(Some(l)).as_str().to_owned())),
         // Profile fields: unset at registration, filled in later via profile editing.
         title: NotSet,
         pronouns: NotSet,
@@ -1429,13 +1439,10 @@ async fn send_verification_email(
     let base = state.mailer.base_url.trim_end_matches('/');
     let link = format!("{base}/verify-email?token={token}");
     let hours = state.config.email_verification_ttl_secs / 3600;
-    let body = format!(
-        "Welcome to Ruchoir.\n\nConfirm your email address by opening this link:\n{link}\n\n\
-         The link expires in {hours} hours. If you did not create an account, ignore this message."
-    );
+    let message = mail_text::verification(account_locale(state, user_id).await, &link, hours);
     state
         .mailer
-        .send(email, "Confirm your Ruchoir email", body)
+        .send(email, &message.subject, message.body)
         .await
         .map_err(|_| AuthError::Internal)
 }
@@ -1452,13 +1459,25 @@ async fn send_reset_email(state: &AppState, user_id: Uuid, email: &str) -> Resul
     let base = state.mailer.base_url.trim_end_matches('/');
     let link = format!("{base}/reset-password?token={token}");
     let minutes = state.config.password_reset_ttl_secs / 60;
-    let body = format!(
-        "A password reset was requested for your Ruchoir account.\n\nSet a new password here:\n{link}\n\n\
-         The link expires in {minutes} minutes. If you did not request this, ignore this message."
-    );
+    let message = mail_text::password_reset(account_locale(state, user_id).await, &link, minutes);
     state
         .mailer
-        .send(email, "Reset your Ruchoir password", body)
+        .send(email, &message.subject, message.body)
         .await
         .map_err(|_| AuthError::Internal)
+}
+
+/// The language an account reads in, falling back to the source language.
+///
+/// A lookup rather than a parameter: both senders already hold the id and not the row, and a message
+/// in the wrong language is worse than one extra query on a path that is about to talk to an SMTP
+/// relay anyway.
+pub(crate) async fn account_locale(state: &AppState, user_id: Uuid) -> mail_text::Locale {
+    let stored = users::Entity::find_by_id(user_id)
+        .one(&state.db)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|user| user.locale);
+    mail_text::Locale::parse(stored.as_deref())
 }

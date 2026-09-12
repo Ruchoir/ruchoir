@@ -15,6 +15,7 @@ import {
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { isPasskeySupported } from "@/lib/webauthn";
 import type { Toast } from "./types";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * Account security, wired to the account rather than to this browser.
@@ -56,11 +57,11 @@ function Row({ title, desc, children }: { title: ReactNode; desc?: ReactNode; ch
  * proportional font turns a zero into an O at exactly the wrong moment.
  */
 function RecoveryCodes({ codes, onNotify }: { codes: string[]; onNotify?: (t: Toast) => void }) {
+  const { t } = useTranslation();
   return (
     <>
       <p style={{ fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
-        Gardez-les hors de votre téléphone : ils servent précisément le jour où vous ne l&apos;avez plus.
-        Chacun ne fonctionne qu&apos;une fois, et cette liste ne sera plus affichée.
+        {t("security.recoveryKeep")}
       </p>
       <div
         style={{
@@ -85,10 +86,10 @@ function RecoveryCodes({ codes, onNotify }: { codes: string[]; onNotify?: (t: To
         iconLeft="copy"
         onClick={() => {
           void navigator.clipboard?.writeText(codes.join("\n"));
-          onNotify?.({ tone: "success", title: "Codes copiés" });
+          onNotify?.({ tone: "success", title: t("security.codesCopied") });
         }}
       >
-        Copier
+        {t("admin.copy")}
       </Button>
     </>
   );
@@ -104,6 +105,7 @@ export function AccountSecuritySection({
   /** Called when every session has ended, so the app returns to the sign-in screen. */
   onSignedOut?: () => void;
 }) {
+  const { t, i18n } = useTranslation();
   const [state, setState] = useState<MfaState | null>(null);
   const [open, setOpen] = useState<OpenDialog>(null);
   const [busy, setBusy] = useState(false);
@@ -152,7 +154,7 @@ export function AccountSecuritySection({
       })
       .catch(() => {
         close();
-        onNotify?.({ tone: "danger", title: "Configuration impossible", description: "Réessayez dans un instant." });
+        onNotify?.({ tone: "danger", title: t("security.setupFailed"), description: t("common.tryAgain") });
       });
   };
 
@@ -169,11 +171,11 @@ export function AccountSecuritySection({
         setOpen("recovery");
         setBusy(false);
         refresh();
-        onNotify?.({ tone: "success", title: "Double authentification activée" });
+        onNotify?.({ tone: "success", title: t("security.mfaEnabled") });
       })
       .catch(() => {
         setBusy(false);
-        setError("Ce code n'est pas le bon. Il change toutes les trente secondes.");
+        setError(t("security.wrongTotpCode"));
       });
   };
 
@@ -184,11 +186,11 @@ export function AccountSecuritySection({
       .then(() => {
         close();
         refresh();
-        onNotify?.({ tone: "info", title: "Double authentification désactivée" });
+        onNotify?.({ tone: "info", title: t("security.mfaDisabled") });
       })
       .catch((err) => {
         setBusy(false);
-        setError(isApiError(err, 401) ? "Mot de passe incorrect." : "Réessayez dans un instant.");
+        setError(isApiError(err, 401) ? t("security.wrongPassword") : t("common.tryAgain"));
       });
   };
 
@@ -203,7 +205,7 @@ export function AccountSecuritySection({
       })
       .catch(() => {
         setBusy(false);
-        onNotify?.({ tone: "danger", title: "Génération impossible" });
+        onNotify?.({ tone: "danger", title: t("security.generateFailed") });
       });
   };
 
@@ -213,14 +215,14 @@ export function AccountSecuritySection({
       .then(() => {
         setBusy(false);
         refresh();
-        onNotify?.({ tone: "success", title: "Clé d'accès enregistrée" });
+        onNotify?.({ tone: "success", title: t("security.passkeyAdded") });
       })
       .catch((err) => {
         setBusy(false);
         // A dismissed prompt is a decision, not a failure, and the browser reports it the same way.
         const cancelled = err instanceof Error && err.name === "NotAllowedError";
         if (cancelled) return;
-        onNotify?.({ tone: "danger", title: "Clé d'accès non enregistrée", description: "Réessayez dans un instant." });
+        onNotify?.({ tone: "danger", title: t("security.passkeyFailed"), description: t("common.tryAgain") });
       });
   };
 
@@ -228,9 +230,9 @@ export function AccountSecuritySection({
     removePasskey(id)
       .then(() => {
         refresh();
-        onNotify?.({ tone: "info", title: "Clé d'accès retirée" });
+        onNotify?.({ tone: "info", title: t("security.passkeyRemoved") });
       })
-      .catch(() => onNotify?.({ tone: "danger", title: "Suppression impossible" }));
+      .catch(() => onNotify?.({ tone: "danger", title: t("toast.deleteFailed") }));
   };
 
   const submitPassword = () => {
@@ -241,14 +243,14 @@ export function AccountSecuritySection({
       .catch((err) => {
         setBusy(false);
         if (isApiError(err, 401)) {
-          setError("Mot de passe actuel incorrect.");
+          setError(t("security.wrongCurrentPassword"));
           return;
         }
         const code = apiErrorCode(err);
         setError(
           code === "breached_password"
-            ? "Ce mot de passe figure dans des fuites connues. Choisissez-en un autre."
-            : "Ce mot de passe est trop faible : au moins douze caractères.",
+            ? t("error.passwordBreached")
+            : t("security.weakPassword"),
         );
       });
   };
@@ -259,7 +261,7 @@ export function AccountSecuritySection({
       .then(() => onSignedOut?.())
       .catch(() => {
         setBusy(false);
-        onNotify?.({ tone: "danger", title: "Déconnexion impossible", description: "Réessayez dans un instant." });
+        onNotify?.({ tone: "danger", title: t("security.signOutFailed"), description: t("common.tryAgain") });
       });
   };
 
@@ -268,55 +270,55 @@ export function AccountSecuritySection({
 
   return (
     <>
-      <Row title="Mot de passe" desc="Le changer met fin à toutes vos sessions, celle-ci comprise.">
+      <Row title={t("login.password")} desc={t("security.passwordRowDesc")}>
         <Button size="sm" onClick={() => setOpen("password")}>
-          Modifier
+          {t("message.edit")}
         </Button>
       </Row>
 
       <Row
         title={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            Authentification à deux facteurs
+            {t("security.twoFactor")}
             {unknown ? null : state.totpEnabled ? (
               <Tag tone="success" icon="shield-check">
-                Activée
+                {t("security.enabled")}
               </Tag>
             ) : (
-              <Tag tone="neutral">Désactivée</Tag>
+              <Tag tone="neutral">{t("security.disabled")}</Tag>
             )}
           </span>
         }
         desc={
           unknown
-            ? "…"
+            ? t("security.unknown")
             : state.totpEnabled
-              ? "Une application d'authentification est enregistrée sur ce compte."
-              : "Un code à usage unique, en plus du mot de passe, demandé à chaque connexion."
+              ? t("security.totpOn")
+              : t("security.totpOff")
         }
       >
         {unknown ? null : state.totpEnabled ? (
           <Button size="sm" onClick={() => setOpen("disable")}>
-            Désactiver
+            {t("security.turnOff")}
           </Button>
         ) : (
           <Button size="sm" variant="primary" onClick={startTotp}>
-            Configurer
+            {t("security.configure")}
           </Button>
         )}
       </Row>
 
       {state?.totpEnabled ? (
         <Row
-          title="Codes de récupération"
+          title={t("common.recoveryCode")}
           desc={
             codesLeft > 0
-              ? `${codesLeft} code${codesLeft > 1 ? "s" : ""} inutilisé${codesLeft > 1 ? "s" : ""}. En générer de nouveaux annule les précédents.`
-              : "Aucun code disponible. Sans eux, perdre votre téléphone ferme le compte."
+              ? t("security.codesLeft", { count: codesLeft })
+              : t("security.noCode")
           }
         >
           <Button size="sm" variant={codesLeft > 0 ? "secondary" : "primary"} disabled={busy} onClick={showNewCodes}>
-            {codesLeft > 0 ? "Regénérer" : "Générer"}
+            {codesLeft > 0 ? t("security.regenerate") : t("security.generate")}
           </Button>
         </Row>
       ) : null}
@@ -324,18 +326,18 @@ export function AccountSecuritySection({
       <Row
         title={
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            Clés d&apos;accès (passkeys)
+            {t("security.passkeys")}
             {unknown ? null : <Tag tone="info">{state.passkeys.length}</Tag>}
           </span>
         }
         desc={
           isPasskeySupported()
-            ? "Connexion par empreinte, visage ou code de l'appareil, sans mot de passe."
-            : "Ce navigateur ne les propose pas. Sur un appareil qui les gère, la connexion se fait par empreinte ou par visage."
+            ? t("security.passkeysOn")
+            : t("security.passkeysOff")
         }
       >
         <Button size="sm" iconLeft="plus" disabled={busy || !isPasskeySupported()} onClick={addPasskey}>
-          Ajouter
+          {t("security.add")}
         </Button>
       </Row>
 
@@ -356,15 +358,15 @@ export function AccountSecuritySection({
             >
               <Icon name="key-round" size={14} style={{ color: "var(--text-muted)" }} />
               <span style={{ flex: 1, minWidth: 0, color: "var(--text-strong)" }}>
-                {key.label ?? "Clé d'accès"}
+                {key.label ?? t("mfa.passkeyLabel")}
               </span>
               <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>
                 {key.lastUsedAt
-                  ? `utilisée le ${new Date(key.lastUsedAt).toLocaleDateString("fr-FR")}`
-                  : `ajoutée le ${new Date(key.createdAt).toLocaleDateString("fr-FR")}`}
+                  ? t("security.usedOn", { date: new Date(key.lastUsedAt).toLocaleDateString(i18n.language) })
+                  : t("security.addedOn", { date: new Date(key.createdAt).toLocaleDateString(i18n.language) })}
               </span>
               <Button size="sm" variant="ghost" onClick={() => dropPasskey(key.id)}>
-                Retirer
+                {t("common.remove")}
               </Button>
             </div>
           ))}
@@ -372,25 +374,26 @@ export function AccountSecuritySection({
       ) : null}
 
       <Row
-        title="Sessions"
-        desc="Si vous pensez qu'un autre appareil est resté connecté, coupez tout : chaque session est fermée, y compris celle-ci."
+        title={t("security.sessions")}
+        desc={t("security.sessionsDesc")}
       >
         <Button size="sm" variant="danger" disabled={busy} onClick={signOutEverywhere}>
-          Se déconnecter partout
+          {t("security.signOutEverywhere")}
         </Button>
       </Row>
 
       <Dialog
         open={open === "totp"}
-        title="Configurer la double authentification"
-        subtitle="Scannez ce code avec votre application d'authentification, puis saisissez le code qu'elle affiche."
+        title={t("security.setupTotp")}
+          closeLabel={t("common.close")}
+        subtitle={t("security.scanCode")}
         size="sm"
         onClose={close}
         footer={
           <>
-            <Button onClick={close}>Annuler</Button>
+            <Button onClick={close}>{t("common.cancel")}</Button>
             <Button variant="primary" disabled={busy || code.trim().length < 6} onClick={finishTotp}>
-              {busy ? "Vérification…" : "Activer"}
+              {busy ? t("common.verifying") : t("notifPrompt.allow")}
             </Button>
           </>
         }
@@ -404,13 +407,13 @@ export function AccountSecuritySection({
               dangerouslySetInnerHTML={{ __html: enrolment.qrSvg }}
             />
             <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", margin: "8px 0 16px" }}>
-              Impossible de scanner ? Saisissez cette adresse dans votre application : {enrolment.otpauthUrl}
+              {t("security.cannotScan", { url: enrolment.otpauthUrl })}
             </p>
           </>
         ) : (
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Préparation…</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("crop.preparing")}</p>
         )}
-        <Field label="Code à six chiffres" htmlFor="totp-code" error={error ?? undefined}>
+        <Field label={t("security.sixDigits")} htmlFor="totp-code" error={error ?? undefined}>
           <Input
             id="totp-code"
             autoFocus
@@ -427,22 +430,23 @@ export function AccountSecuritySection({
 
       <Dialog
         open={open === "disable"}
-        title="Désactiver la double authentification ?"
+        title={t("security.disableTitle")}
+          closeLabel={t("common.close")}
         size="sm"
         onClose={close}
         footer={
           <>
-            <Button onClick={close}>Annuler</Button>
+            <Button onClick={close}>{t("common.cancel")}</Button>
             <Button variant="danger" disabled={busy || !password} onClick={confirmDisable}>
-              Désactiver
+              {t("security.disable")}
             </Button>
           </>
         }
       >
         <p style={{ fontSize: 13, color: "var(--text-body)", marginBottom: 14 }}>
-          Votre compte ne sera plus protégé que par son mot de passe.
+          {t("security.passwordOnlyWarning")}
         </p>
-        <Field label="Votre mot de passe" htmlFor="disable-pw" error={error ?? undefined}>
+        <Field label={t("security.yourPassword")} htmlFor="disable-pw" error={error ?? undefined}>
           <Input
             id="disable-pw"
             type="password"
@@ -456,12 +460,13 @@ export function AccountSecuritySection({
 
       <Dialog
         open={open === "recovery"}
-        title="Codes de récupération"
+        title={t("common.recoveryCode")}
+        closeLabel={t("common.close")}
         size="sm"
         onClose={close}
         footer={
           <Button variant="primary" onClick={close}>
-            Je les ai notés
+            {t("security.notedThem")}
           </Button>
         }
       >
@@ -470,24 +475,24 @@ export function AccountSecuritySection({
 
       <Dialog
         open={open === "password"}
-        title="Modifier le mot de passe"
+        title={t("security.changePassword")}
+          closeLabel={t("common.close")}
         size="sm"
         onClose={close}
         footer={
           <>
-            <Button onClick={close}>Annuler</Button>
+            <Button onClick={close}>{t("common.cancel")}</Button>
             <Button variant="primary" disabled={busy || !password || !newPassword} onClick={submitPassword}>
-              {busy ? "Enregistrement…" : "Modifier"}
+              {busy ? t("reset.submitting") : t("message.edit")}
             </Button>
           </>
         }
       >
         <p style={{ fontSize: 13, color: "var(--text-body)", marginBottom: 14 }}>
-          Toutes vos sessions seront fermées, y compris celle-ci : vous vous reconnecterez avec le
-          nouveau mot de passe.
+          {t("security.allSessionsClosed")}
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Field label="Mot de passe actuel" htmlFor="pw-old">
+          <Field label={t("security.currentPassword")} htmlFor="pw-old">
             <Input
               id="pw-old"
               type="password"
@@ -497,7 +502,7 @@ export function AccountSecuritySection({
               onChange={(e) => setPassword(e.target.value)}
             />
           </Field>
-          <Field label="Nouveau mot de passe" htmlFor="pw-new" error={error ?? undefined}>
+          <Field label={t("reset.newPassword")} htmlFor="pw-new" error={error ?? undefined}>
             <Input
               id="pw-new"
               type="password"

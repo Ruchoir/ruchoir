@@ -5,6 +5,8 @@ import { Avatar, EmptyState, Icon, IconButton, Input } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import type { Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
+import { useTranslation } from "@/lib/i18n";
+import { formatBytes, formatStamp } from "@/lib/i18n/format";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -60,6 +62,7 @@ export type SearchPanelProps = {
 
 /** In-channel search over messages and files (mock filter over the loaded channel data). */
 export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: SearchPanelProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
 
@@ -78,13 +81,13 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
   return (
     <div style={styles.panel}>
       <div style={styles.head}>
-        <span style={styles.title}>Rechercher</span>
-        <IconButton icon="x" label="Fermer la recherche" size="sm" onClick={onClose} />
+        <span style={styles.title}>{t("common.search")}</span>
+        <IconButton icon="x" label={t("search.close")} size="sm" onClick={onClose} />
       </div>
       <div style={styles.search}>
         <Input
           icon="search"
-          placeholder="Messages, fichiers, personnes…"
+          placeholder={t("search.placeholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoFocus
@@ -92,14 +95,14 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
       </div>
       <div style={styles.scroll}>
         {!q ? (
-          <EmptyState size="compact" icon="search" description="Tapez pour rechercher dans ce canal." />
+          <EmptyState size="compact" icon="search" description={t("search.prompt")} />
         ) : total === 0 ? (
-          <EmptyState size="compact" icon="search" title="Aucun résultat" description={`Aucun message ou fichier pour « ${query} ».`} />
+          <EmptyState size="compact" icon="search" title={t("search.noResult")} description={t("search.noMessageOrFile", { query })} />
         ) : (
           <>
             {msgHits.length > 0 ? (
               <>
-                <div style={styles.label}>Messages ({msgHits.length})</div>
+                <div style={styles.label}>{t("search.messagesCount", { count: msgHits.length })}</div>
                 {msgHits.map((m) => (
                   <button
                     key={m.id}
@@ -112,10 +115,10 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
                         {m.author}
-                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{m.time}</span>
+                        <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                       </span>
                       <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 13, color: "var(--text-body)" }}>
-                        {messageSummary(m)}
+                        {messageSummary(m) ?? t("activity.attachment")}
                       </span>
                     </span>
                   </button>
@@ -124,7 +127,7 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
             ) : null}
             {fileHits.length > 0 ? (
               <>
-                <div style={styles.label}>Fichiers ({fileHits.length})</div>
+                <div style={styles.label}>{t("search.filesCount", { count: fileHits.length })}</div>
                 {fileHits.map((f) => (
                   <button
                     key={f.name}
@@ -139,7 +142,8 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                         {f.name}
                       </span>
                       <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                        {f.size} · {f.when}
+                        {f.kind === "folder" ? "" : `${formatBytes(f.sizeBytes)} · `}
+                        {formatStamp(f.updatedAt)}
                       </span>
                     </span>
                   </button>

@@ -21,7 +21,6 @@ const STAGES = ["login", "signup", "mfa", "forgot", "reset", "verify", "invite",
 const VIEWS = ["channel", "files", "settings", "prefs", "threads", "mentions", "saved"] as const;
 const PANELS = ["files", "members", "pinned", "search"] as const;
 const MODALS = [
-  "import",
   "newChannel",
   "newMessage",
   "invite",

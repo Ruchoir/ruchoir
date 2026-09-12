@@ -4,6 +4,7 @@ import { type CSSProperties, type FormEvent, useState } from "react";
 import { Button, Field, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   optionRow: { display: "flex", alignItems: "center", justifyContent: "flex-end" },
@@ -46,6 +47,7 @@ export function LoginScreen({
   error,
   pending = false,
 }: LoginScreenProps) {
+  const { t } = useTranslation();
   const [mail, setMail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -59,7 +61,7 @@ export function LoginScreen({
     <AuthShell
       footer={
         <>
-          Pas encore de compte ?{" "}
+          {t("login.noAccount")}{" "}
           <a
             href="#"
             onClick={(e) => {
@@ -68,16 +70,16 @@ export function LoginScreen({
             }}
             style={{ color: "var(--text-accent)", fontWeight: 500 }}
           >
-            Créer un compte
+            {t("login.createAccount")}
           </a>
-          <div style={{ marginTop: 10, color: "var(--text-subtle)" }}>Hébergement en France, données chez vous.</div>
+          <div style={{ marginTop: 10, color: "var(--text-subtle)" }}>{t("login.hosting")}</div>
         </>
       }
     >
-      <h1 style={authStyles.title}>Connexion</h1>
-      <p style={authStyles.subtitle}>Connectez-vous à votre espace de travail.</p>
+      <h1 style={authStyles.title}>{t("login.title")}</h1>
+      <p style={authStyles.subtitle}>{t("login.subtitle")}</p>
       <form style={authStyles.fields} onSubmit={submit}>
-        <Field label="Adresse électronique" htmlFor="mail">
+        <Field label={t("login.email")} htmlFor="mail">
           <Input
             id="mail"
             size="lg"
@@ -88,7 +90,7 @@ export function LoginScreen({
             onChange={(e) => setMail(e.target.value)}
           />
         </Field>
-        <Field label="Mot de passe" htmlFor="pw">
+        <Field label={t("login.password")} htmlFor="pw">
           <Input
             id="pw"
             size="lg"
@@ -113,7 +115,7 @@ export function LoginScreen({
                   }}
                   style={authStyles.link}
                 >
-                  Renvoyer le lien de confirmation
+                  {t("login.resendVerification")}
                 </a>
               </>
             ) : null}
@@ -128,20 +130,20 @@ export function LoginScreen({
               onForgotPassword();
             }}
           >
-            Mot de passe oublié ?
+            {t("login.forgotPassword")}
           </a>
         </div>
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={pending}>
-          {pending ? "Connexion…" : "Se connecter"}
+          {pending ? t("login.submitting") : t("login.submit")}
         </Button>
       </form>
       <div style={styles.divider}>
         <span style={styles.dividerLine} />
-        <span style={styles.dividerLabel}>ou</span>
+        <span style={styles.dividerLabel}>{t("login.or")}</span>
         <span style={styles.dividerLine} />
       </div>
       <Button size="lg" fullWidth iconLeft="key-round" onClick={onSso} disabled={pending}>
-        Authentification unique (SSO)
+        {t("login.sso")}
       </Button>
     </AuthShell>
   );

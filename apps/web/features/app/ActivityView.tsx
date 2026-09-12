@@ -1,30 +1,33 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { Avatar, EmptyState, Icon, Tag } from "@/components/ds";
+import { Avatar, EmptyState, Icon, type IconName, Tag } from "@/components/ds";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { getAvatar, getPresence } from "@/lib/data";
 import { type ActivityItem, messageSummary } from "./activity";
+import { formatStamp } from "@/lib/i18n/format";
 
 export type ActivityKind = "threads" | "mentions" | "saved";
 
-const META: Record<ActivityKind, { icon: string; title: string; emptyTitle: string; emptyText: string }> = {
+/** Per-view copy, as dictionary keys: the table is built at module load, before a language exists. */
+const META: Record<ActivityKind, { icon: IconName; title: TranslationKey; emptyTitle: TranslationKey; emptyText: TranslationKey }> = {
   threads: {
     icon: "inbox",
-    title: "Fils",
-    emptyTitle: "Aucun fil en attente",
-    emptyText: "Les fils auxquels vous participez apparaissent ici, les plus récents d'abord.",
+    title: key("activity.threads"),
+    emptyTitle: key("activity.threadsEmptyTitle"),
+    emptyText: key("activity.threadsEmptyText"),
   },
   mentions: {
     icon: "at-sign",
-    title: "Mentions",
-    emptyTitle: "Aucune mention",
-    emptyText: "Quand quelqu'un vous mentionne avec @, le message apparaît ici.",
+    title: key("activity.mentions"),
+    emptyTitle: key("activity.mentionsEmptyTitle"),
+    emptyText: key("activity.mentionsEmptyText"),
   },
   saved: {
     icon: "bookmark",
-    title: "Enregistrés",
-    emptyTitle: "Rien d'enregistré",
-    emptyText: "Enregistrez un message depuis ses actions au survol pour le retrouver ici.",
+    title: key("activity.saved"),
+    emptyTitle: key("activity.savedEmptyTitle"),
+    emptyText: key("activity.savedEmptyText"),
   },
 };
 
@@ -68,13 +71,14 @@ export type ActivityViewProps = {
 
 /** Filtered cross-channel list for the Threads, Mentions and Saved views. */
 export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
+  const { t } = useTranslation();
   const meta = META[kind];
 
   return (
     <div style={styles.root}>
       <h1 style={styles.top}>
         <Icon name={meta.icon} size={15} style={{ color: "var(--text-muted)" }} />
-        {meta.title}
+        {t(meta.title)}
         {items.length > 0 ? (
           <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)" }}>· {items.length}</span>
         ) : null}
@@ -82,7 +86,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
 
       {items.length === 0 ? (
         <div style={styles.empty}>
-          <EmptyState icon={meta.icon} title={meta.emptyTitle} description={meta.emptyText} />
+          <EmptyState icon={meta.icon} title={t(meta.emptyTitle)} description={t(meta.emptyText)} />
         </div>
       ) : (
         <div style={styles.scroll}>
@@ -100,7 +104,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
                   <span style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
                     <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{it.message.author}</span>
                     <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                      {it.label} · {it.message.time}
+                      {it.label} · {formatStamp(it.message.createdAt)}
                     </span>
                     {kind === "saved" ? <Icon name="bookmark" size={13} style={{ color: "var(--terracotta-500)" }} /> : null}
                   </span>
@@ -114,12 +118,12 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
                       color: "var(--text-body)",
                     }}
                   >
-                    {messageSummary(it.message)}
+                    {messageSummary(it.message) ?? t("activity.attachment")}
                   </span>
                   {kind === "threads" && it.message.replies ? (
                     <span style={{ display: "inline-flex", marginTop: 8 }}>
                       <Tag tone="accent" icon="message-square">
-                        {it.message.replies} réponse{it.message.replies > 1 ? "s" : ""}
+                        {t("message.replies", { count: it.message.replies })}
                       </Tag>
                     </span>
                   ) : null}

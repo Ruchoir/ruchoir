@@ -2,6 +2,9 @@
 
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 import { DEFAULT_NOTIF_PREFS, type NotifPrefs } from "./notifications";
+import { isLocale, type Locale } from "@/lib/i18n/config";
+import { initialLocale, startI18n } from "@/lib/i18n";
+import { setCurrentLocale } from "@/lib/i18n/current";
 import { DEFAULT_BINDINGS, mergeBindings, type Bindings } from "./shortcuts";
 
 /** The four shipped themes. RuchUI (warm cream + terracotta) is the default. */
@@ -97,6 +100,14 @@ export type Settings = {
   hiddenDms: string[];
   /** Whether the browser-notification prompt has already been offered, so it is offered once. */
   notifPrompted: boolean;
+  /**
+   * The interface language.
+   *
+   * `null` means "whatever the browser asks for", which is what a fresh account gets: guessing is
+   * right until someone says otherwise, and a stored value is a choice that must then be honoured
+   * on a borrowed machine too.
+   */
+  locale: Locale | null;
 };
 
 type SettingsContextValue = Settings & {
@@ -117,6 +128,7 @@ const DEFAULTS: Settings = {
   spaceOrder: [],
   hiddenDms: [],
   notifPrompted: false,
+  locale: null,
 };
 
 const SettingsContext = createContext<SettingsContextValue>({
@@ -165,6 +177,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           notif: { ...DEFAULT_NOTIF_PREFS, ...(parsed.notif ?? {}) },
           // Keep only known commands and string bindings; unknown/missing ones fall back to default.
           shortcuts: mergeBindings(parsed.shortcuts),
+          locale: isLocale(parsed.locale) ? parsed.locale : null,
           welcome: {
             dismissed: typeof parsed.welcome?.dismissed === "boolean" ? parsed.welcome.dismissed : false,
             done: Array.isArray(parsed.welcome?.done)
@@ -180,6 +193,20 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       // ignore malformed storage
     }
   }, []);
+
+  /**
+   * Keep the translation runtime and `<html lang>` on the chosen language.
+   *
+   * `lang` is not decoration: it tells a screen reader which voice to use, a browser which
+   * dictionary to spell-check against, and CSS which hyphenation rules apply. A French interface
+   * announced as English is read aloud as gibberish.
+   */
+  useEffect(() => {
+    const locale = settings.locale ?? initialLocale();
+    startI18n(locale);
+    setCurrentLocale(locale);
+    document.documentElement.lang = locale;
+  }, [settings.locale]);
 
   // Reflect the active theme onto <html> so the CSS [data-theme] blocks apply.
   useEffect(() => {
