@@ -384,7 +384,7 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
 const HELP_LINKS: [string, string][] = [
   ["Guide de prise en main", "book-open"],
   ["Importer depuis Slack, Mattermost, Nextcloud", "import"],
-  ["Raccourcis clavier et astuces", "key-round"],
+  ["Raccourcis clavier et astuces", "keyboard"],
   ["Contacter le support", "life-buoy"],
 ];
 
