@@ -4,6 +4,7 @@ import { type CSSProperties, type FormEvent, useState } from "react";
 import { Button, Field, Icon, Input } from "@/components/ds";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   body: { fontSize: 14, color: "var(--text-muted)", maxWidth: 340 },
@@ -50,6 +51,7 @@ export function VerifyEmailScreen({
   pending = false,
   resent = false,
 }: VerifyEmailScreenProps) {
+  const { t } = useTranslation();
   const [typedEmail, setTypedEmail] = useState(email ?? "");
 
   const resend = (e: FormEvent) => {
@@ -69,14 +71,14 @@ export function VerifyEmailScreen({
           }}
           style={authStyles.link}
         >
-          Revenir à la connexion
+          {t("common.backToLogin")}
         </a>
       }
     >
       {status === "verifying" ? (
         <div style={authStyles.outcome}>
-          <h1 style={authStyles.title}>Confirmation en cours…</h1>
-          <p style={styles.body}>Nous validons votre lien de confirmation.</p>
+          <h1 style={authStyles.title}>{t("verify.verifyingTitle")}</h1>
+          <p style={styles.body}>{t("verify.verifyingBody")}</p>
         </div>
       ) : null}
 
@@ -85,10 +87,10 @@ export function VerifyEmailScreen({
           <span style={{ ...authStyles.outcomeBadge, background: "var(--status-success-bg)" }}>
             <Icon name="check" size={26} style={{ color: "var(--status-success-fg)" }} />
           </span>
-          <h1 style={authStyles.title}>Adresse confirmée</h1>
-          <p style={styles.body}>Votre compte est actif. Connectez-vous pour entrer dans votre espace.</p>
+          <h1 style={authStyles.title}>{t("verify.doneTitle")}</h1>
+          <p style={styles.body}>{t("verify.doneBody")}</p>
           <Button variant="primary" size="lg" fullWidth onClick={onBackToLogin}>
-            Se connecter
+            {t("login.submit")}
           </Button>
         </div>
       ) : null}
@@ -98,19 +100,16 @@ export function VerifyEmailScreen({
           <span style={{ ...authStyles.outcomeBadge, background: "var(--surface-sunken)" }}>
             <Icon name="mail" size={26} style={{ color: "var(--text-accent)" }} />
           </span>
-          <h1 style={authStyles.title}>Vérifiez votre boîte mail</h1>
+          <h1 style={authStyles.title}>{t("common.checkInbox")}</h1>
           <p style={styles.body}>
-            Un lien de confirmation a été envoyé{email ? " à " : ""}
-            {email ? <strong>{email}</strong> : ""}. Ouvrez-le pour activer votre compte, puis connectez-vous.
+            {email ? t("verify.sentBody", { email }) : t("verify.sentBodyNoAddress")}
           </p>
           {resent ? (
-            <p style={authStyles.notice} role="status">
-              Un nouveau lien vient d&apos;être envoyé.
-            </p>
+            <p style={authStyles.notice} role="status">{t("verify.resentNotice")}</p>
           ) : null}
           <form style={styles.actions} onSubmit={resend}>
             <Button size="lg" fullWidth type="submit" iconLeft="refresh-cw" disabled={pending}>
-              {pending ? "Envoi…" : "Renvoyer le lien"}
+              {pending ? t("common.sending") : t("verify.resend")}
             </Button>
           </form>
         </div>
@@ -118,12 +117,12 @@ export function VerifyEmailScreen({
 
       {status === "error" ? (
         <>
-          <h1 style={authStyles.title}>Lien de confirmation invalide</h1>
+          <h1 style={authStyles.title}>{t("verify.errorTitle")}</h1>
           <p style={authStyles.subtitle}>
-            {error ?? "Ce lien est invalide ou a expiré."} Indiquez votre adresse pour en recevoir un nouveau.
+            {error ?? t("verify.errorDefault")} {t("verify.errorHint")}
           </p>
           <form style={authStyles.fields} onSubmit={resend}>
-            <Field label="Adresse électronique" htmlFor="verify-mail">
+            <Field label={t("login.email")} htmlFor="verify-mail">
               <Input
                 id="verify-mail"
                 size="lg"
@@ -135,9 +134,7 @@ export function VerifyEmailScreen({
               />
             </Field>
             {resent ? (
-              <p style={authStyles.notice} role="status">
-                Si cette adresse correspond à un compte en attente, un nouveau lien vient d&apos;être envoyé.
-              </p>
+              <p style={authStyles.notice} role="status">{t("verify.resentNeutral")}</p>
             ) : null}
             <Button
               variant="primary"

@@ -66,5 +66,91 @@
     "allow": "Activer",
     "later": "Plus tard",
     "enabled": "Notifications activées"
+  },
+  "signup": {
+    "title": "Créer votre compte",
+    "subtitle": "Un compte Ruchoir, hébergé par votre organisation.",
+    "firstName": "Prénom",
+    "lastName": "Nom",
+    "minLength": "Au moins {{count}} caractères",
+    "terms": "J'accepte les conditions d'utilisation et la politique de confidentialité.",
+    "submit": "Créer le compte",
+    "submitting": "Création…",
+    "haveAccount": "Déjà un compte ?"
+  },
+  "reset": {
+    "doneTitle": "Mot de passe modifié",
+    "doneBody": "Vos autres sessions ont été fermées. Connectez-vous avec votre nouveau mot de passe.",
+    "title": "Choisir un nouveau mot de passe",
+    "subtitle": "Au moins {{count}} caractères. Évitez un mot de passe déjà utilisé ailleurs.",
+    "newPassword": "Nouveau mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "tooShort": "Au moins {{count}} caractères.",
+    "mismatch": "Les deux mots de passe ne correspondent pas.",
+    "submit": "Enregistrer le mot de passe",
+    "submitting": "Enregistrement…"
+  },
+  "verify": {
+    "verifyingTitle": "Confirmation en cours…",
+    "verifyingBody": "Nous validons votre lien de confirmation.",
+    "doneTitle": "Adresse confirmée",
+    "doneBody": "Votre compte est actif. Connectez-vous pour entrer dans votre espace.",
+    "sentBody": "Un lien de confirmation a été envoyé à {{email}}. Ouvrez-le pour activer votre compte, puis connectez-vous.",
+    "sentBodyNoAddress": "Un lien de confirmation a été envoyé. Ouvrez-le pour activer votre compte, puis connectez-vous.",
+    "resentNotice": "Un nouveau lien vient d'être envoyé.",
+    "resend": "Renvoyer le lien",
+    "errorTitle": "Lien de confirmation invalide",
+    "errorDefault": "Ce lien est invalide ou a expiré.",
+    "errorHint": "Indiquez votre adresse pour en recevoir un nouveau.",
+    "resentNeutral": "Si cette adresse correspond à un compte en attente, un nouveau lien vient d'être envoyé."
+  },
+  "common": {
+    "backToLogin": "Revenir à la connexion",
+    "checkInbox": "Vérifiez votre boîte mail",
+    "sending": "Envoi…",
+    "recoveryCode": "Code de récupération",
+    "useRecoveryCode": "Utiliser un code de récupération",
+    "verifying": "Vérification…"
+  },
+  "mfa": {
+    "totpTitle": "Vérification en deux étapes",
+    "totpSubtitle": "Saisissez le code à six chiffres affiché par votre application d'authentification.",
+    "totpLabel": "Code de vérification",
+    "totpSwitch": "Utiliser un code de vérification",
+    "passkeyTitle": "Confirmez avec votre clé d'accès",
+    "passkeySubtitle": "Votre navigateur va vous demander de déverrouiller votre clé d'accès (passkey).",
+    "passkeyLabel": "Clé d'accès",
+    "passkeySwitch": "Utiliser une clé d'accès",
+    "recoverySubtitle": "Saisissez l'un des codes de récupération générés lors de l'activation de la double authentification. Chaque code ne sert qu'une fois.",
+    "recoveryHint": "Format : trois groupes de cinq caractères (ex. a2cdf-9fkmp-q34rt)",
+    "usePasskey": "Utiliser ma clé d'accès",
+    "verify": "Vérifier",
+    "otherMethod": "Autre méthode"
+  },
+  "invite": {
+    "checkingTitle": "Vérification de l'invitation…",
+    "checkingBody": "Nous validons votre lien.",
+    "joiningTitle": "Ajout à l'espace…",
+    "joiningBody": "Nous vous ajoutons à {{space}}.",
+    "readyTitle": "Vous êtes invité",
+    "readyBody": "{{who}} vous invite à rejoindre {{space}} sur Ruchoir.",
+    "someone": "Quelqu'un",
+    "addressed": "Cette invitation est adressée à {{email}}. Utilisez ce compte, sinon elle sera refusée.",
+    "haveAccount": "J'ai déjà un compte",
+    "invalidTitle": "Invitation indisponible",
+    "invalidBody": "Ce lien n'est plus valable : il a peut-être expiré, été révoqué ou déjà servi. Demandez une nouvelle invitation à la personne qui vous l'a envoyée."
+  },
+  "forgot": {
+    "recoveredTitle": "Mot de passe changé",
+    "recoveredBody": "Ce code de récupération est maintenant utilisé. Vous pouvez vous connecter avec votre nouveau mot de passe : toutes vos autres sessions ont été fermées.",
+    "sentBody": "Si un compte existe pour {{email}}, un lien de réinitialisation vient d'être envoyé. Il expire au bout de quelques minutes.",
+    "title": "Mot de passe oublié",
+    "subtitleEmail": "Indiquez l'adresse de votre compte : nous vous enverrons un lien pour choisir un nouveau mot de passe.",
+    "subtitleRecovery": "Utilisez l'un des codes de récupération notés en activant la double authentification.",
+    "noRelay": "Cette instance n'envoie pas de courriels : aucun lien ne peut vous être expédié. Utilisez un code de récupération, ou demandez à un administrateur de l'instance de vous transmettre un lien de réinitialisation.",
+    "sendLink": "Envoyer le lien",
+    "recoveryHint": "Par exemple mbtqr-4zdkn-p8xwe.",
+    "reclaim": "Reprendre mon compte",
+    "switchToEmail": "Recevoir plutôt un lien par courriel"
   }
 }

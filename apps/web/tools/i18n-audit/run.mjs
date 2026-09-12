@@ -86,6 +86,12 @@ function looksLikeProse(value) {
   // camelCase and kebab-case identifiers, even with capitals.
   if (/^[a-z]+([A-Z][a-z]*)+$/.test(text)) return false;
   if (/^[a-z]+(-[a-z]+)+$/.test(text)) return false;
+  // A dictionary key, not a sentence: `mfa.totpTitle`. Tables built at module load hold keys and
+  // are translated where they are drawn, which is the shape this check wants to encourage.
+  if (/^[a-z][\w]*(\.[A-Za-z]\w*)+$/.test(text)) return false;
+  // Code caught between a `>` and a `<`: `x > 0 && x < 10` reads as text between two tags to a
+  // scanner that does not parse. Operators never appear in prose the product shows.
+  if (/(&&|\|\||===?|!==?|=>|\+\+|;\s*$)/.test(text)) return false;
   return true;
 }
 

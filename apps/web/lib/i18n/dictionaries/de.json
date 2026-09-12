@@ -66,5 +66,91 @@
     "allow": "Aktivieren",
     "later": "Später",
     "enabled": "Benachrichtigungen aktiviert"
+  },
+  "signup": {
+    "title": "Konto erstellen",
+    "subtitle": "Ein Ruchoir-Konto, gehostet von Ihrer Organisation.",
+    "firstName": "Vorname",
+    "lastName": "Nachname",
+    "minLength": "Mindestens {{count}} Zeichen",
+    "terms": "Ich akzeptiere die Nutzungsbedingungen und die Datenschutzerklärung.",
+    "submit": "Konto erstellen",
+    "submitting": "Wird erstellt…",
+    "haveAccount": "Schon ein Konto?"
+  },
+  "reset": {
+    "doneTitle": "Passwort geändert",
+    "doneBody": "Ihre anderen Sitzungen wurden beendet. Melden Sie sich mit dem neuen Passwort an.",
+    "title": "Neues Passwort wählen",
+    "subtitle": "Mindestens {{count}} Zeichen. Vermeiden Sie ein Passwort, das Sie anderswo verwenden.",
+    "newPassword": "Neues Passwort",
+    "confirmPassword": "Passwort bestätigen",
+    "tooShort": "Mindestens {{count}} Zeichen.",
+    "mismatch": "Die beiden Passwörter stimmen nicht überein.",
+    "submit": "Passwort speichern",
+    "submitting": "Wird gespeichert…"
+  },
+  "verify": {
+    "verifyingTitle": "Bestätigung läuft…",
+    "verifyingBody": "Wir prüfen Ihren Bestätigungslink.",
+    "doneTitle": "Adresse bestätigt",
+    "doneBody": "Ihr Konto ist aktiv. Melden Sie sich an, um Ihren Bereich zu betreten.",
+    "sentBody": "Ein Bestätigungslink wurde an {{email}} gesendet. Öffnen Sie ihn, um Ihr Konto zu aktivieren, und melden Sie sich dann an.",
+    "sentBodyNoAddress": "Ein Bestätigungslink wurde gesendet. Öffnen Sie ihn, um Ihr Konto zu aktivieren, und melden Sie sich dann an.",
+    "resentNotice": "Ein neuer Link wurde soeben gesendet.",
+    "resend": "Link erneut senden",
+    "errorTitle": "Ungültiger Bestätigungslink",
+    "errorDefault": "Dieser Link ist ungültig oder abgelaufen.",
+    "errorHint": "Geben Sie Ihre Adresse an, um einen neuen zu erhalten.",
+    "resentNeutral": "Falls diese Adresse zu einem wartenden Konto gehört, wurde soeben ein neuer Link gesendet."
+  },
+  "common": {
+    "backToLogin": "Zurück zur Anmeldung",
+    "checkInbox": "Sehen Sie in Ihrem Postfach nach",
+    "sending": "Wird gesendet…",
+    "recoveryCode": "Wiederherstellungscode",
+    "useRecoveryCode": "Wiederherstellungscode verwenden",
+    "verifying": "Wird geprüft…"
+  },
+  "mfa": {
+    "totpTitle": "Bestätigung in zwei Schritten",
+    "totpSubtitle": "Geben Sie den sechsstelligen Code aus Ihrer Authenticator-App ein.",
+    "totpLabel": "Bestätigungscode",
+    "totpSwitch": "Bestätigungscode verwenden",
+    "passkeyTitle": "Mit Ihrem Passkey bestätigen",
+    "passkeySubtitle": "Ihr Browser wird Sie bitten, Ihren Passkey zu entsperren.",
+    "passkeyLabel": "Passkey",
+    "passkeySwitch": "Passkey verwenden",
+    "recoverySubtitle": "Geben Sie einen der Wiederherstellungscodes ein, die beim Aktivieren der Zwei-Faktor-Authentifizierung erzeugt wurden. Jeder Code gilt einmal.",
+    "recoveryHint": "Format: drei Gruppen zu fünf Zeichen (z. B. a2cdf-9fkmp-q34rt)",
+    "usePasskey": "Meinen Passkey verwenden",
+    "verify": "Bestätigen",
+    "otherMethod": "Andere Methode"
+  },
+  "invite": {
+    "checkingTitle": "Einladung wird geprüft…",
+    "checkingBody": "Wir prüfen Ihren Link.",
+    "joiningTitle": "Sie werden hinzugefügt…",
+    "joiningBody": "Wir fügen Sie zu {{space}} hinzu.",
+    "readyTitle": "Sie sind eingeladen",
+    "readyBody": "{{who}} lädt Sie ein, {{space}} auf Ruchoir beizutreten.",
+    "someone": "Jemand",
+    "addressed": "Diese Einladung ist an {{email}} gerichtet. Verwenden Sie dieses Konto, sonst wird sie abgelehnt.",
+    "haveAccount": "Ich habe bereits ein Konto",
+    "invalidTitle": "Einladung nicht verfügbar",
+    "invalidBody": "Dieser Link funktioniert nicht mehr: Er ist möglicherweise abgelaufen, widerrufen oder bereits verwendet worden. Bitten Sie um eine neue Einladung."
+  },
+  "forgot": {
+    "recoveredTitle": "Passwort geändert",
+    "recoveredBody": "Dieser Wiederherstellungscode ist nun verbraucht. Sie können sich mit dem neuen Passwort anmelden: alle Ihre anderen Sitzungen wurden beendet.",
+    "sentBody": "Falls ein Konto für {{email}} besteht, wurde soeben ein Link zum Zurücksetzen gesendet. Er läuft in wenigen Minuten ab.",
+    "title": "Passwort vergessen",
+    "subtitleEmail": "Geben Sie die Adresse Ihres Kontos an: Wir senden Ihnen einen Link, um ein neues Passwort zu wählen.",
+    "subtitleRecovery": "Verwenden Sie einen der Wiederherstellungscodes, die Sie beim Aktivieren der Zwei-Faktor-Authentifizierung notiert haben.",
+    "noRelay": "Diese Instanz versendet keine E-Mails: Es kann Ihnen kein Link geschickt werden. Verwenden Sie einen Wiederherstellungscode oder bitten Sie einen Administrator der Instanz um einen Link zum Zurücksetzen.",
+    "sendLink": "Link senden",
+    "recoveryHint": "Zum Beispiel mbtqr-4zdkn-p8xwe.",
+    "reclaim": "Mein Konto zurückholen",
+    "switchToEmail": "Lieber einen Link per E-Mail erhalten"
   }
 }

@@ -66,5 +66,91 @@
     "allow": "Activar",
     "later": "Más tarde",
     "enabled": "Notificaciones activadas"
+  },
+  "signup": {
+    "title": "Crear tu cuenta",
+    "subtitle": "Una cuenta de Ruchoir, alojada por tu organización.",
+    "firstName": "Nombre",
+    "lastName": "Apellidos",
+    "minLength": "Al menos {{count}} caracteres",
+    "terms": "Acepto las condiciones de uso y la política de privacidad.",
+    "submit": "Crear la cuenta",
+    "submitting": "Creando…",
+    "haveAccount": "¿Ya tienes cuenta?"
+  },
+  "reset": {
+    "doneTitle": "Contraseña modificada",
+    "doneBody": "Tus otras sesiones se han cerrado. Inicia sesión con tu nueva contraseña.",
+    "title": "Elegir una nueva contraseña",
+    "subtitle": "Al menos {{count}} caracteres. Evita una contraseña que uses en otro sitio.",
+    "newPassword": "Nueva contraseña",
+    "confirmPassword": "Confirmar la contraseña",
+    "tooShort": "Al menos {{count}} caracteres.",
+    "mismatch": "Las dos contraseñas no coinciden.",
+    "submit": "Guardar la contraseña",
+    "submitting": "Guardando…"
+  },
+  "verify": {
+    "verifyingTitle": "Confirmando…",
+    "verifyingBody": "Estamos comprobando tu enlace de confirmación.",
+    "doneTitle": "Dirección confirmada",
+    "doneBody": "Tu cuenta está activa. Inicia sesión para entrar en tu espacio.",
+    "sentBody": "Se ha enviado un enlace de confirmación a {{email}}. Ábrelo para activar tu cuenta y luego inicia sesión.",
+    "sentBodyNoAddress": "Se ha enviado un enlace de confirmación. Ábrelo para activar tu cuenta y luego inicia sesión.",
+    "resentNotice": "Acabamos de enviar un nuevo enlace.",
+    "resend": "Volver a enviar el enlace",
+    "errorTitle": "Enlace de confirmación no válido",
+    "errorDefault": "Este enlace no es válido o ha caducado.",
+    "errorHint": "Indica tu dirección para recibir uno nuevo.",
+    "resentNeutral": "Si esa dirección corresponde a una cuenta pendiente, acabamos de enviar un nuevo enlace."
+  },
+  "common": {
+    "backToLogin": "Volver al inicio de sesión",
+    "checkInbox": "Revisa tu correo",
+    "sending": "Enviando…",
+    "recoveryCode": "Código de recuperación",
+    "useRecoveryCode": "Usar un código de recuperación",
+    "verifying": "Verificando…"
+  },
+  "mfa": {
+    "totpTitle": "Verificación en dos pasos",
+    "totpSubtitle": "Introduce el código de seis cifras que muestra tu aplicación de autenticación.",
+    "totpLabel": "Código de verificación",
+    "totpSwitch": "Usar un código de verificación",
+    "passkeyTitle": "Confirma con tu clave de acceso",
+    "passkeySubtitle": "Tu navegador te pedirá que desbloquees tu clave de acceso.",
+    "passkeyLabel": "Clave de acceso",
+    "passkeySwitch": "Usar una clave de acceso",
+    "recoverySubtitle": "Introduce uno de los códigos de recuperación generados al activar la doble autenticación. Cada código sirve una sola vez.",
+    "recoveryHint": "Formato: tres grupos de cinco caracteres (p. ej. a2cdf-9fkmp-q34rt)",
+    "usePasskey": "Usar mi clave de acceso",
+    "verify": "Verificar",
+    "otherMethod": "Otro método"
+  },
+  "invite": {
+    "checkingTitle": "Comprobando la invitación…",
+    "checkingBody": "Estamos validando tu enlace.",
+    "joiningTitle": "Añadiéndote al espacio…",
+    "joiningBody": "Te estamos añadiendo a {{space}}.",
+    "readyTitle": "Tienes una invitación",
+    "readyBody": "{{who}} te invita a unirte a {{space}} en Ruchoir.",
+    "someone": "Alguien",
+    "addressed": "Esta invitación está dirigida a {{email}}. Usa esa cuenta o será rechazada.",
+    "haveAccount": "Ya tengo una cuenta",
+    "invalidTitle": "Invitación no disponible",
+    "invalidBody": "Este enlace ya no sirve: puede haber caducado, haber sido revocado o haberse usado. Pide una nueva invitación a quien te la envió."
+  },
+  "forgot": {
+    "recoveredTitle": "Contraseña cambiada",
+    "recoveredBody": "Ese código de recuperación ya se ha usado. Puedes iniciar sesión con tu nueva contraseña: todas tus demás sesiones se han cerrado.",
+    "sentBody": "Si existe una cuenta para {{email}}, acabamos de enviar un enlace de restablecimiento. Caduca en unos minutos.",
+    "title": "Contraseña olvidada",
+    "subtitleEmail": "Indica la dirección de tu cuenta: te enviaremos un enlace para elegir una nueva contraseña.",
+    "subtitleRecovery": "Usa uno de los códigos de recuperación que anotaste al activar la doble autenticación.",
+    "noRelay": "Esta instancia no envía correos: no se te puede enviar ningún enlace. Usa un código de recuperación o pide a un administrador de la instancia que te dé un enlace de restablecimiento.",
+    "sendLink": "Enviar el enlace",
+    "recoveryHint": "Por ejemplo mbtqr-4zdkn-p8xwe.",
+    "reclaim": "Recuperar mi cuenta",
+    "switchToEmail": "Recibir mejor un enlace por correo"
   }
 }

@@ -66,5 +66,91 @@
     "allow": "Turn on",
     "later": "Later",
     "enabled": "Notifications on"
+  },
+  "signup": {
+    "title": "Create your account",
+    "subtitle": "A Ruchoir account, hosted by your organisation.",
+    "firstName": "First name",
+    "lastName": "Surname",
+    "minLength": "At least {{count}} characters",
+    "terms": "I accept the terms of use and the privacy policy.",
+    "submit": "Create the account",
+    "submitting": "Creating…",
+    "haveAccount": "Already have an account?"
+  },
+  "reset": {
+    "doneTitle": "Password changed",
+    "doneBody": "Your other sessions have been closed. Sign in with your new password.",
+    "title": "Choose a new password",
+    "subtitle": "At least {{count}} characters. Avoid a password you use elsewhere.",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm the password",
+    "tooShort": "At least {{count}} characters.",
+    "mismatch": "The two passwords do not match.",
+    "submit": "Save the password",
+    "submitting": "Saving…"
+  },
+  "verify": {
+    "verifyingTitle": "Confirming…",
+    "verifyingBody": "We are checking your confirmation link.",
+    "doneTitle": "Address confirmed",
+    "doneBody": "Your account is active. Sign in to enter your space.",
+    "sentBody": "A confirmation link has been sent to {{email}}. Open it to activate your account, then sign in.",
+    "sentBodyNoAddress": "A confirmation link has been sent. Open it to activate your account, then sign in.",
+    "resentNotice": "A new link has just been sent.",
+    "resend": "Send the link again",
+    "errorTitle": "Invalid confirmation link",
+    "errorDefault": "This link is invalid or has expired.",
+    "errorHint": "Enter your address to receive a new one.",
+    "resentNeutral": "If that address matches an account awaiting confirmation, a new link has just been sent."
+  },
+  "common": {
+    "backToLogin": "Back to sign-in",
+    "checkInbox": "Check your inbox",
+    "sending": "Sending…",
+    "recoveryCode": "Recovery code",
+    "useRecoveryCode": "Use a recovery code",
+    "verifying": "Verifying…"
+  },
+  "mfa": {
+    "totpTitle": "Two-step verification",
+    "totpSubtitle": "Enter the six-digit code shown by your authenticator app.",
+    "totpLabel": "Verification code",
+    "totpSwitch": "Use a verification code",
+    "passkeyTitle": "Confirm with your passkey",
+    "passkeySubtitle": "Your browser will ask you to unlock your passkey.",
+    "passkeyLabel": "Passkey",
+    "passkeySwitch": "Use a passkey",
+    "recoverySubtitle": "Enter one of the recovery codes generated when you turned on two-factor authentication. Each code works once.",
+    "recoveryHint": "Format: three groups of five characters (e.g. a2cdf-9fkmp-q34rt)",
+    "usePasskey": "Use my passkey",
+    "verify": "Verify",
+    "otherMethod": "Another method"
+  },
+  "invite": {
+    "checkingTitle": "Checking the invitation…",
+    "checkingBody": "We are validating your link.",
+    "joiningTitle": "Joining the space…",
+    "joiningBody": "We are adding you to {{space}}.",
+    "readyTitle": "You are invited",
+    "readyBody": "{{who}} invites you to join {{space}} on Ruchoir.",
+    "someone": "Someone",
+    "addressed": "This invitation is addressed to {{email}}. Use that account, or it will be refused.",
+    "haveAccount": "I already have an account",
+    "invalidTitle": "Invitation unavailable",
+    "invalidBody": "This link no longer works: it may have expired, been revoked, or already been used. Ask whoever sent it for a new invitation."
+  },
+  "forgot": {
+    "recoveredTitle": "Password changed",
+    "recoveredBody": "That recovery code is now spent. You can sign in with your new password: all your other sessions have been closed.",
+    "sentBody": "If an account exists for {{email}}, a reset link has just been sent. It expires in a few minutes.",
+    "title": "Forgotten password",
+    "subtitleEmail": "Enter your account's address: we will send you a link to choose a new password.",
+    "subtitleRecovery": "Use one of the recovery codes you wrote down when turning on two-factor authentication.",
+    "noRelay": "This instance does not send email: no link can be sent to you. Use a recovery code, or ask an instance administrator to pass you a reset link.",
+    "sendLink": "Send the link",
+    "recoveryHint": "For example mbtqr-4zdkn-p8xwe.",
+    "reclaim": "Take my account back",
+    "switchToEmail": "Send a link by email instead"
   }
 }

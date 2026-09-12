@@ -66,5 +66,91 @@
     "allow": "Attiva",
     "later": "Più tardi",
     "enabled": "Notifiche attivate"
+  },
+  "signup": {
+    "title": "Crea il tuo account",
+    "subtitle": "Un account Ruchoir, ospitato dalla tua organizzazione.",
+    "firstName": "Nome",
+    "lastName": "Cognome",
+    "minLength": "Almeno {{count}} caratteri",
+    "terms": "Accetto le condizioni d'uso e l'informativa sulla privacy.",
+    "submit": "Crea l'account",
+    "submitting": "Creazione…",
+    "haveAccount": "Hai già un account?"
+  },
+  "reset": {
+    "doneTitle": "Password modificata",
+    "doneBody": "Le tue altre sessioni sono state chiuse. Accedi con la nuova password.",
+    "title": "Scegli una nuova password",
+    "subtitle": "Almeno {{count}} caratteri. Evita una password che usi altrove.",
+    "newPassword": "Nuova password",
+    "confirmPassword": "Conferma la password",
+    "tooShort": "Almeno {{count}} caratteri.",
+    "mismatch": "Le due password non coincidono.",
+    "submit": "Salva la password",
+    "submitting": "Salvataggio…"
+  },
+  "verify": {
+    "verifyingTitle": "Conferma in corso…",
+    "verifyingBody": "Stiamo verificando il tuo link di conferma.",
+    "doneTitle": "Indirizzo confermato",
+    "doneBody": "Il tuo account è attivo. Accedi per entrare nel tuo spazio.",
+    "sentBody": "Un link di conferma è stato inviato a {{email}}. Aprilo per attivare l'account, poi accedi.",
+    "sentBodyNoAddress": "Un link di conferma è stato inviato. Aprilo per attivare l'account, poi accedi.",
+    "resentNotice": "Un nuovo link è appena stato inviato.",
+    "resend": "Invia di nuovo il link",
+    "errorTitle": "Link di conferma non valido",
+    "errorDefault": "Questo link non è valido o è scaduto.",
+    "errorHint": "Indica il tuo indirizzo per riceverne uno nuovo.",
+    "resentNeutral": "Se questo indirizzo corrisponde a un account in attesa, un nuovo link è appena stato inviato."
+  },
+  "common": {
+    "backToLogin": "Torna all'accesso",
+    "checkInbox": "Controlla la tua posta",
+    "sending": "Invio…",
+    "recoveryCode": "Codice di recupero",
+    "useRecoveryCode": "Usa un codice di recupero",
+    "verifying": "Verifica in corso…"
+  },
+  "mfa": {
+    "totpTitle": "Verifica in due passaggi",
+    "totpSubtitle": "Inserisci il codice a sei cifre mostrato dalla tua app di autenticazione.",
+    "totpLabel": "Codice di verifica",
+    "totpSwitch": "Usa un codice di verifica",
+    "passkeyTitle": "Conferma con la tua passkey",
+    "passkeySubtitle": "Il browser ti chiederà di sbloccare la tua passkey.",
+    "passkeyLabel": "Passkey",
+    "passkeySwitch": "Usa una passkey",
+    "recoverySubtitle": "Inserisci uno dei codici di recupero generati quando hai attivato l'autenticazione a due fattori. Ogni codice vale una volta sola.",
+    "recoveryHint": "Formato: tre gruppi da cinque caratteri (es. a2cdf-9fkmp-q34rt)",
+    "usePasskey": "Usa la mia passkey",
+    "verify": "Verifica",
+    "otherMethod": "Altro metodo"
+  },
+  "invite": {
+    "checkingTitle": "Verifica dell'invito…",
+    "checkingBody": "Stiamo convalidando il tuo link.",
+    "joiningTitle": "Accesso allo spazio…",
+    "joiningBody": "Ti stiamo aggiungendo a {{space}}.",
+    "readyTitle": "Hai un invito",
+    "readyBody": "{{who}} ti invita a unirti a {{space}} su Ruchoir.",
+    "someone": "Qualcuno",
+    "addressed": "Questo invito è indirizzato a {{email}}. Usa quell'account, altrimenti sarà rifiutato.",
+    "haveAccount": "Ho già un account",
+    "invalidTitle": "Invito non disponibile",
+    "invalidBody": "Questo link non è più valido: potrebbe essere scaduto, revocato o già usato. Chiedi un nuovo invito a chi te l'ha mandato."
+  },
+  "forgot": {
+    "recoveredTitle": "Password cambiata",
+    "recoveredBody": "Questo codice di recupero è ora usato. Puoi accedere con la nuova password: tutte le altre sessioni sono state chiuse.",
+    "sentBody": "Se esiste un account per {{email}}, un link di reimpostazione è appena stato inviato. Scade tra pochi minuti.",
+    "title": "Password dimenticata",
+    "subtitleEmail": "Indica l'indirizzo del tuo account: ti invieremo un link per scegliere una nuova password.",
+    "subtitleRecovery": "Usa uno dei codici di recupero annotati quando hai attivato l'autenticazione a due fattori.",
+    "noRelay": "Questa istanza non invia e-mail: nessun link può esserti spedito. Usa un codice di recupero oppure chiedi a un amministratore dell'istanza di passarti un link di reimpostazione.",
+    "sendLink": "Invia il link",
+    "recoveryHint": "Ad esempio mbtqr-4zdkn-p8xwe.",
+    "reclaim": "Recupera il mio account",
+    "switchToEmail": "Ricevi piuttosto un link per e-mail"
   }
 }

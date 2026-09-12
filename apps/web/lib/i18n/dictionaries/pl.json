@@ -66,5 +66,91 @@
     "allow": "Włącz",
     "later": "Później",
     "enabled": "Powiadomienia włączone"
+  },
+  "signup": {
+    "title": "Utwórz konto",
+    "subtitle": "Konto Ruchoir, hostowane przez Twoją organizację.",
+    "firstName": "Imię",
+    "lastName": "Nazwisko",
+    "minLength": "Co najmniej {{count}} znaków",
+    "terms": "Akceptuję warunki korzystania i politykę prywatności.",
+    "submit": "Utwórz konto",
+    "submitting": "Tworzenie…",
+    "haveAccount": "Masz już konto?"
+  },
+  "reset": {
+    "doneTitle": "Hasło zmienione",
+    "doneBody": "Twoje pozostałe sesje zostały zamknięte. Zaloguj się nowym hasłem.",
+    "title": "Wybierz nowe hasło",
+    "subtitle": "Co najmniej {{count}} znaków. Unikaj hasła używanego gdzie indziej.",
+    "newPassword": "Nowe hasło",
+    "confirmPassword": "Potwierdź hasło",
+    "tooShort": "Co najmniej {{count}} znaków.",
+    "mismatch": "Oba hasła nie są takie same.",
+    "submit": "Zapisz hasło",
+    "submitting": "Zapisywanie…"
+  },
+  "verify": {
+    "verifyingTitle": "Potwierdzanie…",
+    "verifyingBody": "Sprawdzamy Twój link potwierdzający.",
+    "doneTitle": "Adres potwierdzony",
+    "doneBody": "Twoje konto jest aktywne. Zaloguj się, aby wejść do swojej przestrzeni.",
+    "sentBody": "Link potwierdzający został wysłany na adres {{email}}. Otwórz go, aby aktywować konto, a potem zaloguj się.",
+    "sentBodyNoAddress": "Link potwierdzający został wysłany. Otwórz go, aby aktywować konto, a potem zaloguj się.",
+    "resentNotice": "Nowy link został właśnie wysłany.",
+    "resend": "Wyślij link ponownie",
+    "errorTitle": "Nieprawidłowy link potwierdzający",
+    "errorDefault": "Ten link jest nieprawidłowy lub wygasł.",
+    "errorHint": "Podaj swój adres, aby otrzymać nowy.",
+    "resentNeutral": "Jeśli ten adres odpowiada kontu oczekującemu na potwierdzenie, nowy link został właśnie wysłany."
+  },
+  "common": {
+    "backToLogin": "Powrót do logowania",
+    "checkInbox": "Sprawdź swoją skrzynkę",
+    "sending": "Wysyłanie…",
+    "recoveryCode": "Kod odzyskiwania",
+    "useRecoveryCode": "Użyj kodu odzyskiwania",
+    "verifying": "Weryfikacja…"
+  },
+  "mfa": {
+    "totpTitle": "Weryfikacja dwuetapowa",
+    "totpSubtitle": "Wpisz sześciocyfrowy kod z aplikacji uwierzytelniającej.",
+    "totpLabel": "Kod weryfikacyjny",
+    "totpSwitch": "Użyj kodu weryfikacyjnego",
+    "passkeyTitle": "Potwierdź kluczem dostępu",
+    "passkeySubtitle": "Przeglądarka poprosi o odblokowanie klucza dostępu.",
+    "passkeyLabel": "Klucz dostępu",
+    "passkeySwitch": "Użyj klucza dostępu",
+    "recoverySubtitle": "Wpisz jeden z kodów odzyskiwania wygenerowanych przy włączaniu uwierzytelniania dwuskładnikowego. Każdy kod działa raz.",
+    "recoveryHint": "Format: trzy grupy po pięć znaków (np. a2cdf-9fkmp-q34rt)",
+    "usePasskey": "Użyj mojego klucza dostępu",
+    "verify": "Zweryfikuj",
+    "otherMethod": "Inna metoda"
+  },
+  "invite": {
+    "checkingTitle": "Sprawdzanie zaproszenia…",
+    "checkingBody": "Weryfikujemy Twój link.",
+    "joiningTitle": "Dołączanie do przestrzeni…",
+    "joiningBody": "Dodajemy Cię do: {{space}}.",
+    "readyTitle": "Masz zaproszenie",
+    "readyBody": "{{who}} zaprasza Cię do przestrzeni {{space}} w Ruchoirze.",
+    "someone": "Ktoś",
+    "addressed": "To zaproszenie jest skierowane na adres {{email}}. Użyj tego konta, w przeciwnym razie zostanie odrzucone.",
+    "haveAccount": "Mam już konto",
+    "invalidTitle": "Zaproszenie niedostępne",
+    "invalidBody": "Ten link już nie działa: mógł wygasnąć, zostać cofnięty albo już wykorzystany. Poproś o nowe zaproszenie osobę, która je wysłała."
+  },
+  "forgot": {
+    "recoveredTitle": "Hasło zmienione",
+    "recoveredBody": "Ten kod odzyskiwania został już zużyty. Możesz zalogować się nowym hasłem: wszystkie inne sesje zostały zamknięte.",
+    "sentBody": "Jeśli konto dla adresu {{email}} istnieje, link do zresetowania właśnie został wysłany. Wygasa po kilku minutach.",
+    "title": "Nie pamiętasz hasła",
+    "subtitleEmail": "Podaj adres swojego konta: wyślemy link do wyboru nowego hasła.",
+    "subtitleRecovery": "Użyj jednego z kodów odzyskiwania zapisanych przy włączaniu uwierzytelniania dwuskładnikowego.",
+    "noRelay": "Ta instancja nie wysyła e-maili: nie można wysłać Ci żadnego linku. Użyj kodu odzyskiwania albo poproś administratora instancji o link do zresetowania hasła.",
+    "sendLink": "Wyślij link",
+    "recoveryHint": "Na przykład mbtqr-4zdkn-p8xwe.",
+    "reclaim": "Odzyskaj moje konto",
+    "switchToEmail": "Otrzymaj raczej link e-mailem"
   }
 }

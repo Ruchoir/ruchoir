@@ -5,6 +5,7 @@ import { Button, Field, Input } from "@/components/ds";
 import type { MfaMethod } from "@/lib/data/api";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   switcher: { display: "flex", flexDirection: "column", gap: 8, marginTop: 18 },
@@ -16,27 +17,32 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-/** How each second factor is introduced on the card. */
+/**
+ * How each second factor is introduced on the card, as dictionary keys.
+ *
+ * Keys rather than sentences: this table is built once at module load, where no language is in force
+ * yet, and the text is looked up in the component that draws it.
+ */
 const COPY: Record<MfaMethod, { title: string; subtitle: string; label: string; hint?: string; switchTo: string }> = {
   totp: {
-    title: "Vérification en deux étapes",
-    subtitle: "Saisissez le code à six chiffres affiché par votre application d'authentification.",
-    label: "Code de vérification",
-    switchTo: "Utiliser un code de vérification",
+    title: "mfa.totpTitle",
+    subtitle: "mfa.totpSubtitle",
+    label: "mfa.totpLabel",
+    switchTo: "mfa.totpSwitch",
   },
   passkey: {
-    title: "Confirmez avec votre clé d'accès",
-    subtitle: "Votre navigateur va vous demander de déverrouiller votre clé d'accès (passkey).",
-    label: "Clé d'accès",
-    switchTo: "Utiliser une clé d'accès",
+    title: "mfa.passkeyTitle",
+    subtitle: "mfa.passkeySubtitle",
+    label: "mfa.passkeyLabel",
+    switchTo: "mfa.passkeySwitch",
   },
   recovery: {
-    title: "Code de récupération",
-    subtitle: "Saisissez l'un des codes de récupération générés lors de l'activation de la double authentification. Chaque code ne sert qu'une fois.",
-    label: "Code de récupération",
+    title: "common.recoveryCode",
+    subtitle: "mfa.recoverySubtitle",
+    label: "common.recoveryCode",
     // The server mints three groups of five characters from an unambiguous alphabet (no 0/O/1/l/i).
-    hint: "Format : trois groupes de cinq caractères (ex. a2cdf-9fkmp-q34rt)",
-    switchTo: "Utiliser un code de récupération",
+    hint: "mfa.recoveryHint",
+    switchTo: "common.useRecoveryCode",
   },
 };
 
@@ -69,6 +75,7 @@ export function MfaChallengeScreen({
   error,
   pending = false,
 }: MfaChallengeScreenProps) {
+  const { t } = useTranslation();
   const [method, setMethod] = useState<MfaMethod>(methods[0] ?? "totp");
   const [code, setCode] = useState("");
   const copy = COPY[method];
@@ -92,15 +99,15 @@ export function MfaChallengeScreen({
           }}
           style={authStyles.link}
         >
-          Revenir à la connexion
+          {t("common.backToLogin")}
         </a>
       }
     >
-      <h1 style={authStyles.title}>{copy.title}</h1>
-      <p style={authStyles.subtitle}>{copy.subtitle}</p>
+      <h1 style={authStyles.title}>{t(copy.title)}</h1>
+      <p style={authStyles.subtitle}>{t(copy.subtitle)}</p>
       <form style={authStyles.fields} onSubmit={submit}>
         {method === "passkey" ? null : (
-          <Field label={copy.label} hint={copy.hint} htmlFor="mfa-code">
+          <Field label={t(copy.label)} hint={copy.hint ? t(copy.hint) : undefined} htmlFor="mfa-code">
             <Input
               id="mfa-code"
               size="lg"
@@ -126,12 +133,12 @@ export function MfaChallengeScreen({
           type="submit"
           disabled={pending || (method !== "passkey" && code.trim() === "")}
         >
-          {pending ? "Vérification…" : method === "passkey" ? "Utiliser ma clé d'accès" : "Vérifier"}
+          {pending ? t("common.verifying") : method === "passkey" ? t("mfa.usePasskey") : t("mfa.verify")}
         </Button>
       </form>
       {others.length > 0 ? (
         <div style={styles.switcher}>
-          <span style={styles.switchLabel}>Autre méthode</span>
+          <span style={styles.switchLabel}>{t("mfa.otherMethod")}</span>
           {others.map((other) => (
             <Button
               key={other}
@@ -144,7 +151,7 @@ export function MfaChallengeScreen({
                 setCode("");
               }}
             >
-              {COPY[other].switchTo}
+              {t(COPY[other].switchTo)}
             </Button>
           ))}
         </div>

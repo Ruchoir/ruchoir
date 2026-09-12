@@ -5,6 +5,7 @@ import { Button, Icon } from "@/components/ds";
 import type { InvitationPreview } from "@/lib/data";
 import { AuthShell } from "./AuthShell";
 import { authStyles } from "./authStyles";
+import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   body: { fontSize: 14, color: "var(--text-muted)", maxWidth: 340 },
@@ -46,6 +47,7 @@ export type InviteScreenProps = {
  * will be refused by the API and the reason would otherwise be a bare error.
  */
 export function InviteScreen({ status, preview, onSignIn, onCreateAccount, onDismiss, error }: InviteScreenProps) {
+  const { t } = useTranslation();
   return (
     <AuthShell
       footer={
@@ -58,24 +60,22 @@ export function InviteScreen({ status, preview, onSignIn, onCreateAccount, onDis
             }}
             style={authStyles.link}
           >
-            Revenir à la connexion
+            {t("common.backToLogin")}
           </a>
         ) : null
       }
     >
       {status === "loading" ? (
         <div style={authStyles.outcome}>
-          <h1 style={authStyles.title}>Vérification de l&apos;invitation…</h1>
-          <p style={styles.body}>Nous validons votre lien.</p>
+          <h1 style={authStyles.title}>{t("invite.checkingTitle")}</h1>
+          <p style={styles.body}>{t("invite.checkingBody")}</p>
         </div>
       ) : null}
 
       {status === "joining" ? (
         <div style={authStyles.outcome}>
-          <h1 style={authStyles.title}>Ajout à l&apos;espace…</h1>
-          <p style={styles.body}>
-            Nous vous ajoutons à <span style={styles.space}>{preview?.spaceName}</span>.
-          </p>
+          <h1 style={authStyles.title}>{t("invite.joiningTitle")}</h1>
+          <p style={styles.body}>{t("invite.joiningBody", { space: preview?.spaceName ?? "" })}</p>
         </div>
       ) : null}
 
@@ -84,16 +84,15 @@ export function InviteScreen({ status, preview, onSignIn, onCreateAccount, onDis
           <span style={{ ...authStyles.outcomeBadge, background: "var(--surface-sunken)" }}>
             <Icon name="user-plus" size={26} style={{ color: "var(--text-accent)" }} />
           </span>
-          <h1 style={authStyles.title}>Vous êtes invité</h1>
+          <h1 style={authStyles.title}>{t("invite.readyTitle")}</h1>
           <p style={styles.body}>
-            {preview.invitedBy ? <strong>{preview.invitedBy}</strong> : "Quelqu'un"} vous invite à rejoindre{" "}
-            <span style={styles.space}>{preview.spaceName}</span> sur Ruchoir.
+            {t("invite.readyBody", {
+              who: preview.invitedBy ?? t("invite.someone"),
+              space: preview.spaceName,
+            })}
           </p>
           {preview.email ? (
-            <p style={authStyles.notice}>
-              Cette invitation est adressée à <strong>{preview.email}</strong>. Utilisez ce compte, sinon elle sera
-              refusée.
-            </p>
+            <p style={authStyles.notice}>{t("invite.addressed", { email: preview.email })}</p>
           ) : null}
           {error ? (
             <p style={authStyles.error} role="alert">
@@ -102,10 +101,10 @@ export function InviteScreen({ status, preview, onSignIn, onCreateAccount, onDis
           ) : null}
           <div style={styles.actions}>
             <Button variant="primary" size="lg" fullWidth onClick={onCreateAccount}>
-              Créer un compte
+              {t("login.createAccount")}
             </Button>
             <Button size="lg" fullWidth onClick={onSignIn}>
-              J&apos;ai déjà un compte
+              {t("invite.haveAccount")}
             </Button>
           </div>
         </div>
@@ -116,11 +115,8 @@ export function InviteScreen({ status, preview, onSignIn, onCreateAccount, onDis
           <span style={{ ...authStyles.outcomeBadge, background: "var(--surface-sunken)" }}>
             <Icon name="info" size={26} style={{ color: "var(--text-muted)" }} />
           </span>
-          <h1 style={authStyles.title}>Invitation indisponible</h1>
-          <p style={styles.body}>
-            Ce lien n&apos;est plus valable : il a peut-être expiré, été révoqué ou déjà servi. Demandez une nouvelle
-            invitation à la personne qui vous l&apos;a envoyée.
-          </p>
+          <h1 style={authStyles.title}>{t("invite.invalidTitle")}</h1>
+          <p style={styles.body}>{t("invite.invalidBody")}</p>
         </div>
       ) : null}
     </AuthShell>
