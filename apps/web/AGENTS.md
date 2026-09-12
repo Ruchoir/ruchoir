@@ -104,6 +104,22 @@ what the column reads to stop offering the space at large: no space files, no ne
 invitation. The API refuses all three, so this is not the guard; it is the difference between a
 product that does not offer something and one that offers it and then says no.
 
+**Two settings side by side are one setting nobody reads.** A channel's access was drawn as
+"visibility" (public/private) and "access by role" in two abstract blocks, and the product's own
+owner could not say what the first one changed: whoever configures a channel was left to build a
+two-by-two table in their head. It is one section now, asking two concrete questions ("who may be in
+this channel?", "how do people get in?") and writing the result underneath as a sentence, including
+the asymmetry that matters: a role reservation *takes access back*, visibility never does. When a
+control has to stay ticked, do not draw it disabled either: greyed out reads "unavailable", and this
+one is the opposite. Say why it is fixed instead.
+
+**The channel settings show the channel's roster, not the space's.** That block used to list every
+member of the space with tick boxes that wrote nowhere: it offered to grant and revoke access to a
+private channel and did neither. It now reads `GET /channels/{id}/members` and sets what it shows
+(role, removal), offering each control only where the API would accept it. The members panel in the
+right dock and the header count had the same defect: a private channel with one person in it
+announced eight, and a channel reserved to administrators listed the people it is reserved from.
+
 **A design-system control owns its width; the wrapper owns its place.** `.wc-sel` is `width: 100%`
 by design, so a width passed to `<Select>` lands on the inner `<select>` while its shell still takes
 the whole flex line. In a row, that ate the member's name. Put the width on a wrapping element

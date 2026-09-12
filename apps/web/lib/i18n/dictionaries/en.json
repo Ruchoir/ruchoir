@@ -438,11 +438,6 @@
     "name": "Channel name",
     "topic": "Topic",
     "topicPlaceholder": "What is this channel for?",
-    "visibility": "Visibility",
-    "public": "Public",
-    "publicHint": "Every member of the space can join it.",
-    "private": "Private",
-    "privateHint": "Only the people below have access.",
     "archive": "Archive the channel (read-only)",
     "notifUpdated": "Notifications updated",
     "allMessages": "All messages",
@@ -457,7 +452,6 @@
     "alreadyIn": "Already in the channel",
     "added_one": "{{count}} person added",
     "added_other": "{{count}} people added",
-    "accessOf": "Access for {{name}}",
     "roleOf": "Role for {{name}}",
     "dmNotifications": "Conversation notifications",
     "channelNotifications": "Channel notifications",
@@ -471,9 +465,22 @@
     "fallbackName": "general",
     "noConversation": "Nothing to show yet",
     "noConversationHint": "Create a channel, or start a conversation, to get going.",
-    "roleAccess": "Access by role",
-    "reserveToRoles": "Reserve this channel to some roles",
-    "roleAccessHint": "The other roles neither see it nor can be added to it. Your own role stays ticked: a channel you are shut out of is not a channel you meant to make."
+    "channelOwner": "Channel owner",
+    "removeNamed": "Remove {{name}} from the channel",
+    "memberRemoved": "Removed from the channel",
+    "noMembersYet": "Nobody in this channel yet.",
+    "whoCanBeHere": "Who may be in this channel?",
+    "everyoneInSpace": "Everyone in the space",
+    "onlySomeRoles": "Only some roles",
+    "howToGetIn": "How do people get in?",
+    "anyoneCanJoin": "Anyone may join",
+    "byInvitationOnly": "People are added to it",
+    "summaryOpenJoinable": "Everyone in the space sees this channel and may join it.",
+    "summaryOpenInvite": "This channel only appears to the people in it. Anyone in the space may be added to it.",
+    "summaryRolesJoinable": "Only the ticked roles see this channel and may join it. The others do not see it at all.",
+    "summaryRolesInvite": "This channel only appears to the people in it, and only the ticked roles may be added to it.",
+    "roleLossWarning": "Losing the role loses the channel, even for someone already in it.",
+    "yourOwnRole": "· your own role, always included"
   },
   "role": {
     "member": "Member",
@@ -582,7 +589,6 @@
   },
   "dialogs": {
     "channelPlaceholder": "e.g. product-launch",
-    "privateHint": "By invitation only.",
     "writeTo": "Who do you want to write to?",
     "nobodyMatches": "Nobody matches.",
     "accepted": "· accepted",
@@ -907,7 +913,8 @@
     "channelJoined": "{{who}} joined the channel.",
     "channelLeft": "{{who}} left the channel.",
     "channelCreated": "The channel was created.",
-    "memberRemoved": "{{who}} was removed from the space."
+    "memberRemoved": "{{who}} was removed from the space.",
+    "channelRemoved": "{{who}} was removed from the channel."
   },
   "rail": {
     "unreadActivity": "{{name}}, unread activity"

@@ -302,6 +302,17 @@ pub struct UpdateMemberRoleRequest {
     pub role: String,
 }
 
+/// A channel membership's role after a change.
+///
+/// Its own shape rather than the space one: the ladder is different (a channel has no guests) and so
+/// is the audience, since a channel's roles are read by the people in it and by nobody else.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ChannelMemberRoleDto {
+    pub channel_id: Uuid,
+    pub user_id: Uuid,
+    pub role: String,
+}
+
 /// A membership whose role changed, returned by the call and pushed in real time.
 ///
 /// A transfer produces two of these (the new owner and the former one), which is why the endpoint

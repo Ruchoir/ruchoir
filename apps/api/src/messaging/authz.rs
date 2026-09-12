@@ -214,6 +214,49 @@ pub async fn ensure_space_owner(
     }
 }
 
+/// The roles a channel membership can hold, weakest first. A shorter ladder than the space's: a
+/// channel has no guests, because being in one is already the explicit thing a guest is given.
+pub const CHANNEL_ROLES: [&str; 3] = ["member", "admin", "owner"];
+
+/// Where a channel role sits in [`CHANNEL_ROLES`]; an unknown one ranks lowest.
+pub fn channel_role_rank(role: &str) -> usize {
+    CHANNEL_ROLES
+        .iter()
+        .position(|known| *known == role)
+        .map(|index| index + 1)
+        .unwrap_or(0)
+}
+
+/// Whether a string names a channel role the schema accepts.
+pub fn is_channel_role(role: &str) -> bool {
+    CHANNEL_ROLES.contains(&role)
+}
+
+/// What a caller counts as inside a channel: their channel role, or the top of the ladder when they
+/// administer the space.
+///
+/// Someone who may archive a channel and delete anyone's message in it is already at the top of it;
+/// pretending otherwise would mean a space administrator could moderate a channel but not say who
+/// else may.
+pub async fn effective_channel_rank(
+    db: &DatabaseConnection,
+    channel_id: Uuid,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<usize, ApiError> {
+    if matches!(
+        space_role(db, space_id, user_id).await?.as_deref(),
+        Some("owner") | Some("admin")
+    ) {
+        return Ok(channel_role_rank("owner"));
+    }
+    Ok(channel_members::Entity::find_by_id((channel_id, user_id))
+        .one(db)
+        .await?
+        .map(|member| channel_role_rank(&member.role))
+        .unwrap_or(0))
+}
+
 /// Whether the caller may moderate a channel (delete others' messages, pin): an `owner`/`admin`
 /// channel role, or an `owner`/`admin` role in the owning space.
 pub async fn is_channel_moderator(

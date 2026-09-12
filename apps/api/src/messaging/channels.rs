@@ -33,8 +33,9 @@ use sea_orm::DatabaseConnection;
 use super::authz::{ensure_space_member, is_channel_moderator, space_member_ids};
 use super::conversations::unread_count;
 use super::dto::{
-    AddChannelMembersRequest, AddedMembersDto, ChannelDto, ChannelSummaryDto, CreateChannelRequest,
-    FavoriteRequest, MemberDto, UpdateChannelRequest,
+    AddChannelMembersRequest, AddedMembersDto, ChannelDto, ChannelMemberRoleDto, ChannelSummaryDto,
+    CreateChannelRequest, FavoriteRequest, MemberDto, UpdateChannelRequest,
+    UpdateMemberRoleRequest,
 };
 use super::error::ApiError;
 use super::slug::slugify;
@@ -101,6 +102,11 @@ async fn set_allowed_roles<C: sea_orm::ConnectionTrait>(
 const CREATED_EVENT: &str = "channel_created";
 const JOINED_EVENT: &str = "channel_joined";
 const LEFT_EVENT: &str = "channel_left";
+
+/// Written when someone is taken out of a channel by someone else. Distinct from [`LEFT_EVENT`] for
+/// the reason a space removal is distinct from a departure: "X left the channel" about someone who
+/// was taken out of it is a small lie, told in the record the people who stayed will read.
+const REMOVED_EVENT: &str = "channel_removed";
 
 /// Write a system notice into a channel and push it to the people in it.
 ///
@@ -654,6 +660,144 @@ pub async fn add_channel_members(
     }
 
     Ok(Json(AddedMembersDto { added }))
+}
+
+/// `PATCH /api/v1/channels/{channel_id}/members/{user_id}`: say what someone may do in a channel.
+///
+/// The same rule as a space role, on the channel's own shorter ladder (`member` < `admin` <
+/// `owner`): act only on someone strictly below you, hand out only a rank strictly below your own.
+/// So the channel's owner names moderators and takes the title back, a moderator names nobody, and
+/// nobody changes their own role. A space owner or administrator counts as the channel's owner here,
+/// because they may already archive it and delete anyone's message in it: being able to moderate a
+/// channel but not to say who else may would be a line drawn nowhere.
+///
+/// There is no exception for handing a channel over, unlike a space: `owner` is the mark of whoever
+/// opened the room, the space's administrators can moderate it regardless, and a channel left with
+/// nobody holding the title is not stuck the way an ownerless space would be.
+#[utoipa::path(
+    patch,
+    path = "/api/v1/channels/{channel_id}/members/{user_id}",
+    tag = "messaging",
+    params(
+        ("channel_id" = Uuid, Path, description = "Channel id"),
+        ("user_id" = Uuid, Path, description = "The member whose role is changing")
+    ),
+    request_body = UpdateMemberRoleRequest,
+    responses(
+        (status = 200, description = "The membership's new role", body = ChannelMemberRoleDto),
+        (status = 400, description = "Not a role a channel knows"),
+        (status = 403, description = "Not allowed to give this role to this member"),
+        (status = 404, description = "Not a member of this channel")
+    )
+)]
+pub async fn update_channel_member_role(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path((channel_id, user_id)): Path<(Uuid, Uuid)>,
+    Json(body): Json<UpdateMemberRoleRequest>,
+) -> Result<Json<ChannelMemberRoleDto>, ApiError> {
+    let wanted = body.role.trim().to_lowercase();
+    if !super::authz::is_channel_role(&wanted) {
+        return Err(ApiError::BadRequest("a channel has no such role"));
+    }
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
+    if user_id == session.user_id {
+        return Err(ApiError::Forbidden);
+    }
+
+    let actor_rank = super::authz::effective_channel_rank(
+        &state.db,
+        channel_id,
+        channel.space_id,
+        session.user_id,
+    )
+    .await?;
+    let target = channel_members::Entity::find_by_id((channel_id, user_id))
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    if super::authz::channel_role_rank(&target.role) >= actor_rank
+        || super::authz::channel_role_rank(&wanted) >= actor_rank
+    {
+        return Err(ApiError::Forbidden);
+    }
+    if target.role == wanted {
+        return Ok(Json(ChannelMemberRoleDto {
+            channel_id,
+            user_id,
+            role: wanted,
+        }));
+    }
+
+    let mut active = target.into_active_model();
+    active.role = Set(wanted.clone());
+    active.update(&state.db).await?;
+    Ok(Json(ChannelMemberRoleDto {
+        channel_id,
+        user_id,
+        role: wanted,
+    }))
+}
+
+/// `DELETE /api/v1/channels/{channel_id}/members/{user_id}`: take someone out of a channel.
+///
+/// The counterpart of leaving one, under the same rank rule as a channel role: act only on someone
+/// strictly below you. So a moderator removes ordinary members, the channel's owner removes
+/// moderators, and nobody removes themselves through here (that is leaving, and the notice says so).
+///
+/// A public channel they may still walk back into: this takes the membership, not the right to read
+/// what the whole space can read. Reserving the channel to roles is what closes a door for good.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/channels/{channel_id}/members/{user_id}",
+    tag = "messaging",
+    params(
+        ("channel_id" = Uuid, Path, description = "Channel id"),
+        ("user_id" = Uuid, Path, description = "The member being removed")
+    ),
+    responses(
+        (status = 204, description = "They are no longer in the channel"),
+        (status = 403, description = "Not allowed to remove this member"),
+        (status = 404, description = "Not a member of this channel")
+    )
+)]
+pub async fn remove_channel_member(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path((channel_id, user_id)): Path<(Uuid, Uuid)>,
+) -> Result<StatusCode, ApiError> {
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
+    if user_id == session.user_id {
+        return Err(ApiError::Forbidden);
+    }
+    let actor_rank = super::authz::effective_channel_rank(
+        &state.db,
+        channel_id,
+        channel.space_id,
+        session.user_id,
+    )
+    .await?;
+    let target = channel_members::Entity::find_by_id((channel_id, user_id))
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    if super::authz::channel_role_rank(&target.role) >= actor_rank {
+        return Err(ApiError::Forbidden);
+    }
+
+    channel_members::Entity::delete_by_id((channel_id, user_id))
+        .exec(&state.db)
+        .await?;
+    write_channel_notice(&state, channel_id, Some(user_id), REMOVED_EVENT).await;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// `PUT /api/v1/channels/{channel_id}/favorite`: pin a channel to the caller's favourites, or unpin.

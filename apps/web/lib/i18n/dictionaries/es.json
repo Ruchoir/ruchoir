@@ -442,11 +442,6 @@
     "name": "Nombre del canal",
     "topic": "Tema",
     "topicPlaceholder": "¿Para qué sirve este canal?",
-    "visibility": "Visibilidad",
-    "public": "Público",
-    "publicHint": "Todos los miembros del espacio pueden unirse.",
-    "private": "Privado",
-    "privateHint": "Solo las personas de abajo tienen acceso.",
     "archive": "Archivar el canal (solo lectura)",
     "notifUpdated": "Notificaciones actualizadas",
     "allMessages": "Todos los mensajes",
@@ -462,7 +457,6 @@
     "added_one": "{{count}} persona añadida",
     "added_other": "{{count}} personas añadidas",
     "added_many": "{{count}} personas añadidas",
-    "accessOf": "Acceso de {{name}}",
     "roleOf": "Rol de {{name}}",
     "dmNotifications": "Notificaciones de la conversación",
     "channelNotifications": "Notificaciones del canal",
@@ -476,9 +470,22 @@
     "fallbackName": "general",
     "noConversation": "Nada que mostrar por ahora",
     "noConversationHint": "Crea un canal, o empieza una conversación, para arrancar.",
-    "roleAccess": "Acceso por rol",
-    "reserveToRoles": "Reservar este canal a ciertos roles",
-    "roleAccessHint": "Los demás roles no lo ven ni pueden ser añadidos. Tu propio rol permanece marcado: un canal del que estás excluido no es el canal que querías crear."
+    "channelOwner": "Propietario del canal",
+    "removeNamed": "Expulsar a {{name}} del canal",
+    "memberRemoved": "Expulsado del canal",
+    "noMembersYet": "Todavía no hay nadie en este canal.",
+    "whoCanBeHere": "¿Quién puede estar en este canal?",
+    "everyoneInSpace": "Todo el espacio",
+    "onlySomeRoles": "Solo ciertos roles",
+    "howToGetIn": "¿Cómo se entra?",
+    "anyoneCanJoin": "Cualquiera puede unirse",
+    "byInvitationOnly": "Hay que añadir a la gente",
+    "summaryOpenJoinable": "Todo el mundo en el espacio ve este canal y puede unirse.",
+    "summaryOpenInvite": "Este canal solo aparece a quienes están en él. Se puede añadir a cualquiera del espacio.",
+    "summaryRolesJoinable": "Solo los roles marcados ven este canal y pueden unirse. Los demás no lo ven.",
+    "summaryRolesInvite": "Este canal solo aparece a quienes están en él, y solo se pueden añadir los roles marcados.",
+    "roleLossWarning": "Quien pierde su rol pierde el canal, aunque ya estuviera dentro.",
+    "yourOwnRole": "· tu rol, siempre incluido"
   },
   "role": {
     "member": "Miembro",
@@ -592,7 +599,6 @@
   },
   "dialogs": {
     "channelPlaceholder": "p. ej. lanzamiento-producto",
-    "privateHint": "Solo por invitación.",
     "writeTo": "¿A quién quieres escribir?",
     "nobodyMatches": "Nadie coincide.",
     "accepted": "· aceptada",
@@ -923,7 +929,8 @@
     "channelJoined": "{{who}} se unió al canal.",
     "channelLeft": "{{who}} salió del canal.",
     "channelCreated": "Se creó el canal.",
-    "memberRemoved": "{{who}} fue expulsado del espacio."
+    "memberRemoved": "{{who}} fue expulsado del espacio.",
+    "channelRemoved": "{{who}} fue expulsado del canal."
   },
   "rail": {
     "unreadActivity": "{{name}}, actividad sin leer"

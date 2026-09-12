@@ -261,6 +261,7 @@ export type SystemEvent =
   | "member_removed"
   | "channel_joined"
   | "channel_left"
+  | "channel_removed"
   | "channel_created";
 
 export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "image" | "folder";

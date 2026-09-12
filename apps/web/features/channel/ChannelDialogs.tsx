@@ -1,19 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Avatar, Button, Checkbox, Dialog, Field, Input, Radio, Select, Switch } from "@/components/ds";
+import { Avatar, Button, Checkbox, Dialog, Field, IconButton, Input, Radio, Select, Switch } from "@/components/ds";
 import type { Presence } from "@/components/ds";
-import { getAvatar, getChannelMembers } from "@/lib/data";
-import { addChannelMembers, listChannelMembers } from "@/lib/data/api";
+import { getAvatar } from "@/lib/data";
+import { addChannelMembers, listChannelMembers, removeChannelMember, setChannelMemberRole } from "@/lib/data/api";
 import type { Channel, ChannelType } from "@/lib/data";
+import type { Member } from "@/lib/data/api";
 import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import type { Toast } from "../app/types";
-import { ChannelRoleAccess } from "./ChannelRoleAccess";
+import { ChannelAccess } from "./ChannelAccess";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
-/** Channel roles, as dictionary keys. */
-/** The roles a channel member can hold, as dictionary keys: translated where the select is drawn. */
-const CHANNEL_ROLES: TranslationKey[] = [key("role.member"), key("channel.moderator"), key("role.admin")];
+/**
+ * The roles a channel membership can hold, weakest first, with the label each is drawn as. The
+ * API's ladder, mirrored here to offer only what it would accept; it is not the guard.
+ */
+const CHANNEL_ROLE_VALUES = ["member", "admin", "owner"];
+const CHANNEL_ROLE_LABEL: Record<string, TranslationKey> = {
+  member: key("role.member"),
+  admin: key("channel.moderator"),
+  owner: key("channel.channelOwner"),
+};
+
+/** Where a channel role sits in the ladder; an unknown one ranks lowest and authorises nothing. */
+function channelRank(role: string): number {
+  return CHANNEL_ROLE_VALUES.indexOf(role) + 1;
+}
 
 /** Edit a channel's name, topic, visibility and (for private channels) member access and roles. */
 export function ChannelSettingsDialog({
@@ -22,6 +35,7 @@ export function ChannelSettingsDialog({
   onUpdate,
   onNotify,
   myRole,
+  myChannelRole,
 }: {
   channel: Channel;
   onClose: () => void;
@@ -29,26 +43,60 @@ export function ChannelSettingsDialog({
   onNotify: (toast: Toast) => void;
   /** The caller's own space role: always admitted, and what the reservation is checked against. */
   myRole: string;
+  /**
+   * The caller's own role *in this channel*. A space owner or administrator counts as its owner,
+   * which is how the API reads them too: someone who may archive a channel and delete anyone's
+   * message in it is already at the top of it.
+   */
+  myChannelRole: string;
 }) {
   const { t } = useTranslation();
-  const members = getChannelMembers();
   const [name, setName] = useState(channel.name);
   const [topic, setTopic] = useState(channel.topic ?? "");
   const [type, setType] = useState<ChannelType>(channel.type === "archived" ? "public" : channel.type);
   const [archived, setArchived] = useState(channel.type === "archived");
   const [allowedRoles, setAllowedRoles] = useState<string[] | undefined>(channel.allowedRoles);
-  // Every member has access by default; toggled per member for private channels.
-  const [access, setAccess] = useState<Set<string>>(() => new Set(members.map((m) => m.name)));
+  /**
+   * The channel's real roster. This section used to list the *space*'s members with tick boxes that
+   * wrote nowhere: it offered to grant and revoke access to a private channel and did neither.
+   */
+  const [members, setMembers] = useState<Member[] | null>(null);
+  const [rosterError, setRosterError] = useState<TranslationKey | null>(null);
 
-  const isPrivate = type === "private" && !archived;
+  useEffect(() => {
+    let active = true;
+    listChannelMembers(channel.id)
+      .then((rows) => active && setMembers(rows))
+      .catch(() => active && setRosterError(key("channel.membersLoadFailed")));
+    return () => {
+      active = false;
+    };
+  }, [channel.id]);
 
-  const toggleAccess = (memberName: string) =>
-    setAccess((prev) => {
-      const nextSet = new Set(prev);
-      if (nextSet.has(memberName)) nextSet.delete(memberName);
-      else nextSet.add(memberName);
-      return nextSet;
-    });
+  /** Roles this caller may hand out here: everything strictly below their own rank. */
+  const grantable = CHANNEL_ROLE_VALUES.filter((role) => channelRank(role) < channelRank(myChannelRole));
+
+  const changeRole = async (member: Member, role: string) => {
+    const before = member.role;
+    setMembers((prev) => prev?.map((m) => (m.userId === member.userId ? { ...m, role } : m)) ?? prev);
+    try {
+      await setChannelMemberRole(channel.id, member.userId, role);
+      onNotify({ tone: "success", title: t("toast.roleChanged"), description: member.name });
+    } catch {
+      setMembers((prev) => prev?.map((m) => (m.userId === member.userId ? { ...m, role: before } : m)) ?? prev);
+      onNotify({ tone: "danger", title: t("toast.roleFailed"), description: t("common.tryAgain") });
+    }
+  };
+
+  const removeMember = async (member: Member) => {
+    try {
+      await removeChannelMember(channel.id, member.userId);
+      setMembers((prev) => prev?.filter((m) => m.userId !== member.userId) ?? prev);
+      onNotify({ tone: "info", title: t("channel.memberRemoved"), description: member.name });
+    } catch {
+      onNotify({ tone: "danger", title: t("toast.removeFailed"), description: t("common.tryAgain") });
+    }
+  };
 
   const save = () => {
     const clean = name.trim().replace(/^#/, "");
@@ -67,7 +115,9 @@ export function ChannelSettingsDialog({
     <Dialog
       title={t("sidebar.channelSettings")}
       closeLabel={t("common.close")}
-      size={isPrivate ? "md" : "sm"}
+      // The roster makes this dialog tall whatever the channel's visibility, so it no longer
+      // changes size when public and private are toggled under it.
+      size="md"
       onClose={onClose}
       footer={
         <>
@@ -85,16 +135,21 @@ export function ChannelSettingsDialog({
         <Field label={t("channel.topic")} optional htmlFor="cs-topic">
           <Input id="cs-topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={t("channel.topicPlaceholder")} />
         </Field>
-        <Field label={t("channel.visibility")}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <Radio name="cs-type" checked={type === "public"} disabled={archived} onChange={() => setType("public")} label={t("channel.public")} description={t("channel.publicHint")} />
-            <Radio name="cs-type" checked={type === "private"} disabled={archived} onChange={() => setType("private")} label={t("channel.private")} description={t("channel.privateHint")} />
-          </div>
-        </Field>
-        <ChannelRoleAccess value={allowedRoles} onChange={setAllowedRoles} myRole={myRole} />
+        <ChannelAccess
+          type={type}
+          onTypeChange={setType}
+          allowedRoles={allowedRoles}
+          onRolesChange={setAllowedRoles}
+          myRole={myRole}
+          disabled={archived}
+        />
 
-        {isPrivate ? (
-          <Field label={t("channel.membersAndAccess", { count: access.size })}>
+        <Field label={t("channel.membersAndAccess", { count: members?.length ?? 0 })}>
+          {rosterError ? (
+            <p role="alert" style={{ fontSize: 12, color: "var(--text-danger, var(--terracotta-700))" }}>
+              {t(rosterError)}
+            </p>
+          ) : (
             <div
               style={{
                 border: "1px solid var(--border-subtle)",
@@ -103,11 +158,13 @@ export function ChannelSettingsDialog({
                 overflow: "auto",
               }}
             >
-              {members.map((m, i) => {
-                const has = access.has(m.name);
+              {(members ?? []).map((m, i) => {
+                // Offered only on the people this caller outranks, which is what the API accepts.
+                // Everyone else keeps a plain reading, their own row included.
+                const actionable = channelRank(m.role) < channelRank(myChannelRole) && !m.bot;
                 return (
                   <div
-                    key={m.name}
+                    key={m.userId}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -116,24 +173,44 @@ export function ChannelSettingsDialog({
                       borderTop: i ? "1px solid var(--border-subtle)" : "none",
                     }}
                   >
-                    <Checkbox checked={has} onChange={() => toggleAccess(m.name)} aria-label={t("channel.accessOf", { name: m.name })} />
-                    <Avatar name={m.name} src={m.avatar} size={26} presence={m.presence} kind={m.bot ? "bot" : "person"} />
-                    <span style={{ flex: 1, fontSize: 13, color: has ? "var(--text-strong)" : "var(--text-muted)" }}>{m.name}</span>
-                    <div style={{ width: 150 }}>
-                      <Select
-                        size="sm"
-                        options={CHANNEL_ROLES.map((r) => ({ value: r as unknown as string, label: t(r) }))}
-                        disabled={!has}
-                        defaultValue={CHANNEL_ROLES[0] as unknown as string}
-                        aria-label={t("channel.roleOf", { name: m.name })}
-                      />
+                    <Avatar name={m.name} src={m.avatarUrl ?? getAvatar(m.name)} size={26} kind={m.bot ? "bot" : "person"} />
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--text-strong)" }}>{m.name}</span>
+                    <div style={{ width: 150, flex: "none", display: "flex", justifyContent: "flex-end" }}>
+                      {actionable ? (
+                        <Select
+                          size="sm"
+                          value={m.role}
+                          onChange={(e) => void changeRole(m, e.target.value)}
+                          options={grantable.map((role) => ({ value: role, label: t(CHANNEL_ROLE_LABEL[role]) }))}
+                          aria-label={t("channel.roleOf", { name: m.name })}
+                        />
+                      ) : (
+                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                          {t(CHANNEL_ROLE_LABEL[m.role] ?? key("role.member"))}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ width: 28, flex: "none", display: "flex", justifyContent: "flex-end" }}>
+                      {actionable ? (
+                        <IconButton
+                          icon="user-minus"
+                          size="sm"
+                          label={t("channel.removeNamed", { name: m.name })}
+                          onClick={() => void removeMember(m)}
+                        />
+                      ) : null}
                     </div>
                   </div>
                 );
               })}
+              {members !== null && members.length === 0 ? (
+                <p style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 10px", margin: 0 }}>
+                  {t("channel.noMembersYet")}
+                </p>
+              ) : null}
             </div>
-          </Field>
-        ) : null}
+          )}
+        </Field>
 
         <Switch checked={archived} onChange={() => setArchived((a) => !a)} label={t("channel.archive")} reverse />
       </div>
