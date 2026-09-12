@@ -124,9 +124,13 @@ export type Profile = {
   role: string;
   presence: Presence;
   email: string;
-  timezone: string;
-  /** Mocked local time string for the user's timezone. */
-  localTime: string;
+  /**
+   * IANA timezone the person chose; absent when they have not chosen one.
+   *
+   * The time itself is not carried: it would be stale the moment it was computed. Screens derive it
+   * from this with `useLocalTime`, which keeps it current while it is on screen.
+   */
+  timezone?: string;
   pronouns?: string;
   bio?: string;
   bot?: boolean;

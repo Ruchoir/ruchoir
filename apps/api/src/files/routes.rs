@@ -33,6 +33,12 @@ pub fn router(upload_max_bytes: usize) -> Router<AppState> {
             "/api/v1/conversations/{conversation_id}/attachments",
             post(uploads::upload_attachment),
         )
+        // What was shared in one conversation, which is not the same question as what the space
+        // holds: the channel file panel asks this one.
+        .route(
+            "/api/v1/conversations/{conversation_id}/files",
+            get(tree::list_conversation_files),
+        )
         // Avatars and space icons: their own keys, their own audiences, never files.
         .route(
             "/api/v1/users/me/avatar",

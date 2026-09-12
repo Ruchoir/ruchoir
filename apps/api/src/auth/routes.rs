@@ -202,6 +202,13 @@ pub struct UserSummary {
     /// Whether this account administers the instance. Carried so the client knows whether to offer
     /// the account-recovery screen; the routes behind it check the flag themselves.
     pub is_instance_admin: bool,
+    /// The account's timezone, or absent when it has none.
+    ///
+    /// Carried on the session so the client can notice an account that has never had one and offer
+    /// the browser's, which is a fact about where this person is rather than a guess. Without it
+    /// the profile card had a "local time" row that nobody could ever fill.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
 }
 
 impl From<users::Model> for UserSummary {
@@ -213,6 +220,7 @@ impl From<users::Model> for UserSummary {
             display_name: model.display_name,
             manual_presence: model.manual_presence,
             is_instance_admin: model.is_instance_admin,
+            timezone: model.timezone,
         }
     }
 }

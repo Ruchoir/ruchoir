@@ -1,15 +1,39 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Icon, IconButton, Input, Tag, Textarea } from "@/components/ds";
+import { Avatar, Button, Icon, IconButton, Input, Select, Tag, Textarea } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import type { Profile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { clearMyAvatar, getUserProfile, setMyAvatar, updateMyProfile } from "@/lib/data/api";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { minimalProfile } from "../app/useProfile";
+import { useLocalTime } from "../app/useLocalTime";
 import { presenceLabel } from "../app/presence";
 import type { Toast } from "../app/types";
+
+/**
+ * The timezones offered in the profile form.
+ *
+ * Read from the browser, which carries the IANA database already, rather than shipping a list that
+ * would age. Older browsers without `supportedValuesOf` fall back to whatever the person is already
+ * set to plus the one this browser is in, which is the answer that matters most of the time.
+ */
+const TIMEZONES: string[] = (() => {
+  type WithSupportedValues = { supportedValuesOf?: (key: string) => string[] };
+  const intl = Intl as unknown as WithSupportedValues;
+  try {
+    const all = intl.supportedValuesOf?.("timeZone");
+    if (all && all.length > 0) return all;
+  } catch {
+    // Falls through to the local zone below.
+  }
+  try {
+    return [Intl.DateTimeFormat().resolvedOptions().timeZone].filter(Boolean);
+  } catch {
+    return [];
+  }
+})();
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -109,11 +133,15 @@ export function ProfilePanel({
   }, [userId]);
   const p = fetched ?? minimalProfile(name);
   const shownPresence = presence ?? p.presence;
+  // Derived here and kept ticking: a profile left open for twenty minutes used to show a time
+  // twenty minutes wrong, which is worse than showing none because it is precise.
+  const localTime = useLocalTime(p.timezone);
   const isOwn = name === getCurrentUser().name;
   const [editing, setEditing] = useState(!!startEditing && isOwn);
   const [role, setRole] = useState(p.role);
   const [pronouns, setPronouns] = useState(p.pronouns ?? "");
   const [bio, setBio] = useState(p.bio ?? "");
+  const [timezone, setTimezone] = useState(p.timezone ?? "");
   /**
    * A local change to the avatar since the profile was fetched: a URL just uploaded, `null` for one
    * just removed, `undefined` for no change.
@@ -169,7 +197,7 @@ export function ProfilePanel({
   const save = () => {
     setEditing(false);
     // The role field maps to the profile "title"; the API updates the current session's own profile.
-    updateMyProfile({ title: role, pronouns, bio })
+    updateMyProfile({ title: role, pronouns, bio, timezone })
       .then((profile) => {
         setFetched(profile);
         onNotify({ tone: "success", title: "Profil mis à jour" });
@@ -185,7 +213,65 @@ export function ProfilePanel({
       </div>
       <div style={styles.scroll}>
         <div style={styles.hero}>
-          <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
+          {/* While editing, the photo is the control: clicking it picks a new one. Outside editing it
+              is just a photo, like everyone else's. The form below used to carry a second, smaller
+              copy of it with its own buttons, so the screen showed the same picture twice and the
+              obvious target did nothing. */}
+          {isOwn && editing ? (
+            <button
+              type="button"
+              onClick={() => photoRef.current?.click()}
+              disabled={photoBusy}
+              title="Changer la photo"
+              aria-label="Changer la photo de profil"
+              // `inline-flex` with no line box: a plain button is as tall as its line height, so the
+              // badge anchored to its corner floated below and beside the photo instead of on it.
+              style={{
+                display: "inline-flex",
+                border: 0,
+                background: "transparent",
+                padding: 0,
+                cursor: photoBusy ? "wait" : "pointer",
+                borderRadius: "var(--radius-full)",
+                position: "relative",
+                lineHeight: 0,
+              }}
+            >
+              <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
+              <span
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  bottom: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 26,
+                  height: 26,
+                  borderRadius: "var(--radius-full)",
+                  background: "var(--surface-canvas)",
+                  border: "1px solid var(--border-default)",
+                }}
+              >
+                <Icon name={photoBusy ? "clock" : "square-pen"} size={14} style={{ color: "var(--text-muted)" }} />
+              </span>
+              {/*
+                The file picker itself. It used to live in the edit form, next to the duplicate
+                preview; removing that duplicate took the input with it and left the button opening
+                a reference attached to nothing, which is a click that does nothing at all.
+              */}
+              <input
+                ref={photoRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={(e) => onPhotoPicked(e.target.files)}
+              />
+            </button>
+          ) : (
+            <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
+          )}
           <div style={{ fontSize: 20, fontWeight: 600, color: "var(--text-strong)", marginTop: 4 }}>{p.name}</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
             {p.role}
@@ -222,30 +308,28 @@ export function ProfilePanel({
         {isOwn && editing ? (
           <div style={styles.section}>
             <div style={styles.label}>Modifier</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 4 }}>
-              <Avatar name={p.name} src={photo} size={56} kind={p.bot ? "bot" : "person"} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  iconLeft="image"
-                  disabled={photoBusy}
-                  onClick={() => photoRef.current?.click()}
-                >
-                  {photoBusy ? "Envoi…" : "Changer la photo"}
+            {photo ? (
+              <div style={{ marginBottom: 8 }}>
+                <Button variant="link" size="sm" disabled={photoBusy} onClick={() => void removePhoto()}>
+                  Retirer la photo
                 </Button>
-                {photo ? (
-                  <Button variant="link" size="sm" disabled={photoBusy} onClick={() => void removePhoto()}>
-                    Retirer la photo
-                  </Button>
-                ) : null}
               </div>
-              <input ref={photoRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => onPhotoPicked(e.target.files)} />
-            </div>
-            <label style={styles.formLabel}>Rôle</label>
-            <Input value={role} onChange={(e) => setRole(e.target.value)} />
+            ) : null}
+            {/*
+              "Fonction", not "Rôle": the same word names the permission role in a space (owner,
+              admin, member, guest), and reading "Rôle : Gérante" next to a member list where the
+              role is "Administrateur" invited exactly the wrong conclusion. The column is `title`.
+            */}
+            <label style={styles.formLabel}>Fonction</label>
+            <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="ex. Gérante, Développeur" />
             <label style={styles.formLabel}>Pronoms</label>
             <Input value={pronouns} onChange={(e) => setPronouns(e.target.value)} placeholder="ex. elle, il, iel" />
+            <label style={styles.formLabel}>Fuseau horaire</label>
+            <Select
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              options={[{ value: "", label: "Non précisé" }, ...TIMEZONES.map((tz) => ({ value: tz, label: tz }))]}
+            />
             <label style={styles.formLabel}>À propos</label>
             <Textarea rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
@@ -269,8 +353,10 @@ export function ProfilePanel({
             <div style={styles.section}>
               <div style={styles.label}>Coordonnées</div>
               {p.email ? <Field icon="at-sign">{p.email}</Field> : null}
-              <Field icon="clock">{p.localTime} heure locale</Field>
-              <Field icon="globe">{p.timezone}</Field>
+              {/* Absent rather than guessed: every profile used to report Europe/Paris, including
+                  those of people who had never been asked. */}
+              {localTime ? <Field icon="clock">{localTime} heure locale</Field> : null}
+              {p.timezone ? <Field icon="globe">{p.timezone}</Field> : null}
             </div>
           </>
         )}

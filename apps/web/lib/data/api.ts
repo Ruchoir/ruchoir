@@ -52,6 +52,7 @@ type UserSummaryDto = {
   manual_presence?: string;
   /** Whether this account administers the instance. */
   is_instance_admin?: boolean;
+  timezone?: string;
 };
 
 /** Alternative login outcome when a second factor is required (same 200 status as a success). */
@@ -153,6 +154,8 @@ export type SessionUser = {
   presenceChoice: PresenceChoice;
   /** Whether this account administers the instance, which is what opens the recovery screen. */
   isInstanceAdmin: boolean;
+  /** The account's timezone; absent when it has never had one. */
+  timezone?: string;
 };
 
 /** Outcome of a login attempt: authenticated, or challenged for a second factor. */
@@ -167,7 +170,35 @@ function toSessionUser(dto: UserSummaryDto): SessionUser {
     name: dto.display_name,
     presenceChoice: toPresenceChoice(dto.manual_presence),
     isInstanceAdmin: dto.is_instance_admin === true,
+    timezone: dto.timezone,
   };
+}
+
+/**
+ * Give an account the browser's timezone when it has none.
+ *
+ * The profile card shows a local time, and until now nothing could ever fill it: the column was
+ * writable by nobody, so every profile said "Europe/Paris" (invented) or, once that was removed,
+ * nothing at all. The browser knows where its reader is, and that is a fact rather than a guess, so
+ * an account that has never had one is given it, once, silently. It stays editable, and a second
+ * device does not overwrite the choice, since this only ever fires on an empty value.
+ */
+export async function adoptBrowserTimezone(current?: string): Promise<string | undefined> {
+  if (current) return current;
+  let detected: string | undefined;
+  try {
+    detected = Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+  if (!detected) return undefined;
+  try {
+    await updateMyProfile({ timezone: detected });
+    return detected;
+  } catch {
+    // Not worth surfacing: the interface is unaffected, and the next sign-in tries again.
+    return undefined;
+  }
 }
 
 /** The stored override as the menu names it. Absent, empty or unknown all mean automatic. */
@@ -833,8 +864,9 @@ export async function getUserProfile(userId: string, signal?: AbortSignal): Prom
     role: dto.title ?? "Membre",
     presence: "offline",
     email: dto.email,
-    timezone: dto.timezone ?? "Europe/Paris",
-    localTime: localTimeIn(dto.timezone),
+    // No invented default: a profile that has never set one said "Europe/Paris", which the card
+    // rendered as this person's local time. Absent now means absent, and the card says nothing.
+    timezone: dto.timezone,
     pronouns: dto.pronouns,
     bio: dto.bio,
     bot: dto.is_bot || undefined,
@@ -876,6 +908,35 @@ export async function getSpaceMembers(spaceId: string, signal?: AbortSignal): Pr
   }));
 }
 
+/**
+ * `GET /channels/{id}/members`: who is actually in a channel.
+ *
+ * Not the same set as the space's members, which is what the member panel and the add-people dialog
+ * were both showing: a private channel holds a subset, and anyone can leave a public one.
+ */
+export async function listChannelMembers(channelId: string, signal?: AbortSignal): Promise<Member[]> {
+  const rows = await apiGet<MemberDto[]>(`/channels/${channelId}/members`, signal);
+  return rows.map((m) => ({
+    userId: m.user_id,
+    name: m.display_name,
+    role: m.role,
+    title: m.title,
+    bot: m.is_bot,
+    avatarUrl: m.avatar_url,
+  }));
+}
+
+/**
+ * `POST /channels/{id}/members`: bring other people into a channel.
+ *
+ * Resolves to whoever was actually added: anyone already in the channel is skipped rather than
+ * refused, since the outcome asked for is already true of them.
+ */
+export async function addChannelMembers(channelId: string, userIds: string[]): Promise<string[]> {
+  const dto = await apiPost<{ added: string[] }>(`/channels/${channelId}/members`, { user_ids: userIds });
+  return dto.added;
+}
+
 /** `POST /spaces/{id}/dm`: open (or fetch) a direct message with a set of users; returns its id. */
 export async function createDm(spaceId: string, userIds: string[]): Promise<string> {
   const ref = await apiPost<{ id: string }>(`/spaces/${spaceId}/dm`, { user_ids: userIds });
@@ -888,20 +949,22 @@ export async function updateMyProfile(patch: {
   title?: string;
   pronouns?: string;
   bio?: string;
+  /** IANA name, or "" to clear it. */
+  timezone?: string;
 }): Promise<Profile> {
   const dto = await apiPatch<UserProfileDto>("/users/me", {
     display_name: patch.displayName,
     title: patch.title,
     pronouns: patch.pronouns,
     bio: patch.bio,
+    timezone: patch.timezone,
   });
   return {
     name: dto.display_name,
     role: dto.title ?? "Membre",
     presence: "offline",
     email: dto.email,
-    timezone: dto.timezone ?? "Europe/Paris",
-    localTime: localTimeIn(dto.timezone),
+    timezone: dto.timezone,
     pronouns: dto.pronouns,
     bio: dto.bio,
     bot: dto.is_bot || undefined,
@@ -1230,18 +1293,6 @@ function formatTimestamp(iso: string): string {
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
-/** Current local time in a timezone, as "HH:MM"; falls back to the local zone on an invalid name. */
-function localTimeIn(timezone?: string): string {
-  try {
-    return new Date().toLocaleTimeString("fr-FR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: timezone || undefined,
-    });
-  } catch {
-    return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  }
-}
 
 // --- Notifications ---
 
@@ -1457,6 +1508,18 @@ export async function getFolder(
     breadcrumb: listing.breadcrumb,
     entries: listing.entries.map(toSpaceFile),
   };
+}
+
+/**
+ * `GET /conversations/{id}/files`: what was shared in one conversation.
+ *
+ * Not the space tree: the channel's file panel asked "what was shared here" and was handed
+ * everything anyone had uploaded anywhere in the space. A file is in this list because a message
+ * here carries it. Newest use first.
+ */
+export async function getConversationFiles(conversationId: string, signal?: AbortSignal): Promise<SpaceFile[]> {
+  const rows = await apiGet<FileDto[]>(`/conversations/${conversationId}/files`, signal);
+  return rows.map(toSpaceFile);
 }
 
 /** `POST /spaces/{id}/folders`: create a folder (at the root, or inside `parentId`). */

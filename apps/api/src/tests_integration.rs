@@ -59,6 +59,15 @@ struct TestApp {
 /// Boot the app or return `None` when the test infrastructure is not configured.
 async fn boot() -> Option<TestApp> {
     let Ok(database_url) = std::env::var("RUCHOIR_TEST_DATABASE_URL") else {
+        // Skipping is right on a developer's machine, where a database may not be running. It is
+        // not right in CI: a suite that quietly tests nothing and reports success is worse than no
+        // suite, and that is exactly how a defect one of these tests catches reached production.
+        // So the skip becomes a failure wherever `CI` is set, which is every runner.
+        assert!(
+            std::env::var("CI").is_err(),
+            "RUCHOIR_TEST_DATABASE_URL is unset in CI: these tests would silently pass \
+             without running. Start a PostgreSQL and a Valkey for the job, or delete them."
+        );
         eprintln!("skipping messaging integration tests: RUCHOIR_TEST_DATABASE_URL not set");
         return None;
     };

@@ -22,6 +22,7 @@ import {
   getNotifications,
   getReadCursors,
   getSavedMessages,
+  adoptBrowserTimezone,
   getSession,
   getSpaceMembers,
   getSpacePresence,
@@ -731,6 +732,9 @@ function AppShell() {
         if (!active) return;
         setSession(user);
         setMyChoice(user.presenceChoice);
+        // An account that has never had a timezone gets the browser's, once. Everything that shows
+        // a local time depended on a column nothing could write, so it showed nothing.
+        void adoptBrowserTimezone(user.timezone);
         await loadInitialData();
         if (!active) return;
         // By now the preferences have loaded (their effect runs on mount, well before this awaits
@@ -1171,6 +1175,9 @@ function AppShell() {
   const memberRecords = useMemo(
     () =>
       members.map((m) => ({
+        // The account id travels with the record: a dialog that acts on a person (adding them to a
+        // channel) needs the identifier the API uses, and a display name is not one.
+        userId: m.userId,
         name: m.name,
         presence: (presence[m.userId] ?? "offline") as Presence,
         bot: m.bot,
@@ -1730,8 +1737,6 @@ function AppShell() {
       openChannel(channels[0]?.id ?? channelId);
     } else if (id === "invite") {
       setModal("invite");
-    } else if (id === "import") {
-      setModal("import");
     }
   };
 
@@ -2508,7 +2513,6 @@ function AppShell() {
         onView={openView}
         onChannel={openChannel}
         onNotify={showToast}
-        onImport={() => setModal("import")}
         onInvite={() => setModal("invite")}
         onNewChannel={() => setModal("newChannel")}
         onNewMessage={() => setModal("newMessage")}
@@ -2829,7 +2833,6 @@ function AppShell() {
                   setMobileContent(true);
                 }}
                 onNotify={showToast}
-                onImport={() => setModal("import")}
                 onInvite={() => setModal("invite")}
                 onNewChannel={() => setModal("newChannel")}
                 onNewMessage={() => setModal("newMessage")}

@@ -250,7 +250,6 @@ export type SidebarProps = {
   onView: (view: AppView) => void;
   onChannel: (id: string) => void;
   onNotify: (toast: Toast) => void;
-  onImport: () => void;
   onInvite: () => void;
   onNewChannel: () => void;
   onNewMessage: () => void;
@@ -290,7 +289,6 @@ export function Sidebar({
   onView,
   onChannel,
   onNotify,
-  onImport,
   onInvite,
   onNewChannel,
   onNewMessage,
@@ -537,7 +535,12 @@ export function Sidebar({
 
         {showFooter ? (
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
-            <SideItem icon="import" label="Importer une conversation…" onClick={onImport} />
+            {/*
+              The import entry is deliberately absent: no importer exists yet, so offering it
+              promises a migration the product cannot perform. The dialog behind it is kept intact
+              and this line comes back with the first real importer, listing only the sources that
+              are actually supported by then.
+            */}
             <SideItem icon="settings" label="Réglages de l'espace" active={view === "settings"} onClick={() => onView("settings")} />
           </div>
         ) : null}

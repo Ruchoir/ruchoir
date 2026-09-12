@@ -161,6 +161,15 @@ pub async fn update_my_profile(
     if let Some(bio) = body.bio {
         active.bio = Set(clean(bio));
     }
+    if let Some(timezone) = body.timezone {
+        let cleaned = clean(timezone);
+        match &cleaned {
+            Some(name) if !looks_like_timezone(name) => {
+                return Err(ApiError::BadRequest("this does not look like a timezone"));
+            }
+            _ => active.timezone = Set(cleaned),
+        }
+    }
     active.updated_at = Set(OffsetDateTime::now_utc());
     let updated = active.update(&state.db).await?;
     broadcast_profile_change(&state, &updated).await;
@@ -176,6 +185,29 @@ async fn is_instance_admin(db: &DatabaseConnection, user_id: Uuid) -> Result<boo
         .one(db)
         .await?
         .is_some_and(|user| user.is_instance_admin))
+}
+
+/// Whether a string is shaped like an IANA timezone name (`Europe/Paris`, `America/Argentina/Salta`,
+/// or a bare `UTC`).
+///
+/// Shape only, not existence: checking that a zone is real would mean carrying the tz database in
+/// the API, and the real list belongs to the client anyway, where the browser already holds it
+/// (`Intl.supportedValuesOf("timeZone")`) and offers it as a list to choose from. What this stops is
+/// free text landing in a field the interface renders as somebody's working hours.
+fn looks_like_timezone(value: &str) -> bool {
+    if value.len() > 64 {
+        return false;
+    }
+    let segments: Vec<&str> = value.split('/').collect();
+    if segments.is_empty() || segments.len() > 3 {
+        return false;
+    }
+    segments.iter().all(|segment| {
+        !segment.is_empty()
+            && segment
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '+')
+    })
 }
 
 /// Whether two users belong to at least one common space.
