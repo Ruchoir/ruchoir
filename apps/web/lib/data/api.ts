@@ -1027,6 +1027,26 @@ export async function addChannelMembers(channelId: string, userIds: string[]): P
   return dto.added;
 }
 
+/**
+ * `PATCH /channels/{id}/members/{userId}`: say what someone may do inside a channel.
+ *
+ * The channel's own ladder (`member` < `admin` < `owner`), under the rule the space roles use: only
+ * below your own rank, on someone below it. A space administrator counts as the channel's owner.
+ */
+export async function setChannelMemberRole(
+  channelId: string,
+  userId: string,
+  role: string,
+): Promise<string> {
+  const dto = await apiPatch<{ role: string }>(`/channels/${channelId}/members/${userId}`, { role });
+  return dto.role;
+}
+
+/** `DELETE /channels/{id}/members/{userId}`: take someone out of a channel. Same rank rule. */
+export async function removeChannelMember(channelId: string, userId: string): Promise<void> {
+  await apiDelete<void>(`/channels/${channelId}/members/${userId}`);
+}
+
 /** `POST /spaces/{id}/dm`: open (or fetch) a direct message with a set of users; returns its id. */
 export async function createDm(spaceId: string, userIds: string[]): Promise<string> {
   const ref = await apiPost<{ id: string }>(`/spaces/${spaceId}/dm`, { user_ids: userIds });
@@ -1314,6 +1334,7 @@ function iconForSystemEvent(event?: string): string {
     case "member_left":
     case "member_removed":
     case "channel_left":
+    case "channel_removed":
       return "user-minus";
     default:
       return "info";
@@ -1326,6 +1347,7 @@ const SYSTEM_EVENTS: SystemEvent[] = [
   "member_removed",
   "channel_joined",
   "channel_left",
+  "channel_removed",
   "channel_created",
 ];
 

@@ -10,6 +10,7 @@ const EVENT_TEXT: Record<SystemEvent, TranslationKey> = {
   member_removed: key("system.memberRemoved"),
   channel_joined: key("system.channelJoined"),
   channel_left: key("system.channelLeft"),
+  channel_removed: key("system.channelRemoved"),
   channel_created: key("system.channelCreated"),
 };
 

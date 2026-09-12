@@ -457,7 +457,6 @@
     "alreadyIn": "Already in the channel",
     "added_one": "{{count}} person added",
     "added_other": "{{count}} people added",
-    "accessOf": "Access for {{name}}",
     "roleOf": "Role for {{name}}",
     "dmNotifications": "Conversation notifications",
     "channelNotifications": "Channel notifications",
@@ -473,7 +472,11 @@
     "noConversationHint": "Create a channel, or start a conversation, to get going.",
     "roleAccess": "Access by role",
     "reserveToRoles": "Reserve this channel to some roles",
-    "roleAccessHint": "The other roles neither see it nor can be added to it. Your own role stays ticked: a channel you are shut out of is not a channel you meant to make."
+    "roleAccessHint": "The other roles neither see it nor can be added to it. Your own role stays ticked: a channel you are shut out of is not a channel you meant to make.",
+    "channelOwner": "Channel owner",
+    "removeNamed": "Remove {{name}} from the channel",
+    "memberRemoved": "Removed from the channel",
+    "noMembersYet": "Nobody in this channel yet."
   },
   "role": {
     "member": "Member",
@@ -907,7 +910,8 @@
     "channelJoined": "{{who}} joined the channel.",
     "channelLeft": "{{who}} left the channel.",
     "channelCreated": "The channel was created.",
-    "memberRemoved": "{{who}} was removed from the space."
+    "memberRemoved": "{{who}} was removed from the space.",
+    "channelRemoved": "{{who}} was removed from the channel."
   },
   "rail": {
     "unreadActivity": "{{name}}, unread activity"

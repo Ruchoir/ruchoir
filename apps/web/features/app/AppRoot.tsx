@@ -2393,6 +2393,15 @@ function AppShell() {
   const currentWorkspace = workspaces.find((w) => w.id === ws);
 
   /**
+   * What the caller counts as inside a channel. A space owner or administrator counts as its owner,
+   * the way the API reads them: someone who may archive a channel and delete anyone's message in it
+   * is already at the top of it. Anyone else is an ordinary member here; the channel settings ask
+   * the server for the real roster and its roles.
+   */
+  const myChannelRole = (_channelId: string): string =>
+    ["owner", "admin"].includes(currentWorkspace?.role ?? "") ? "owner" : "member";
+
+  /**
    * Take a space off the rail, whether the caller walked out of it or it was deleted under them.
    *
    * Shared by the two handlers below and by the real-time event, which is what makes a second tab
@@ -2945,6 +2954,7 @@ function AppShell() {
           onNotify={showToast}
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
           myRole={currentWorkspace?.role ?? "member"}
+          myChannelRole={myChannelRole(channelId)}
           onLeaveChannel={() => leaveChannel(channelId)}
           onJoinChannel={() => joinChannel(channelId)}
           notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
@@ -3156,6 +3166,7 @@ function AppShell() {
           onUpdate={(patch) => updateChannel(channelSettingsId, patch)}
           onNotify={showToast}
           myRole={currentWorkspace?.role ?? "member"}
+          myChannelRole={myChannelRole(channelSettingsId)}
         />
       ) : null}
 

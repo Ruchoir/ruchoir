@@ -222,6 +222,8 @@ export type ChannelScreenProps = {
   onUpdateChannel: (patch: Partial<Channel>) => void;
   /** The caller's own space role, for the channel settings' role reservation. */
   myRole: string;
+  /** The caller's own role inside this channel, for its roster controls. */
+  myChannelRole: string;
   onLeaveChannel: () => void;
   /** Rejoin this channel after leaving it (public channels only). */
   onJoinChannel: () => void;
@@ -299,6 +301,7 @@ export function ChannelScreen({
   onNotify,
   onUpdateChannel,
   myRole,
+  myChannelRole,
   onLeaveChannel,
   onJoinChannel,
   notifPref,
@@ -695,6 +698,7 @@ export function ChannelScreen({
           onUpdate={onUpdateChannel}
           onNotify={onNotify}
           myRole={myRole}
+          myChannelRole={myChannelRole}
         />
       ) : null}
       {menuDialog === "notifications" ? (

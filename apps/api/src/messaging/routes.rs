@@ -112,6 +112,11 @@ pub fn router() -> Router<AppState> {
             "/api/v1/channels/{channel_id}/membership",
             put(channels::join_channel).delete(channels::leave_channel),
         )
+        // What one member may do inside a channel: its own ladder, its own audience.
+        .route(
+            "/api/v1/channels/{channel_id}/members/{user_id}",
+            patch(channels::update_channel_member_role).delete(channels::remove_channel_member),
+        )
         .route(
             "/api/v1/spaces/{space_id}/dms",
             get(conversations::list_dms),

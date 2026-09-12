@@ -2524,3 +2524,113 @@ async fn a_reservation_takes_the_channel_back_when_a_role_changes() {
         .expect("history");
     assert_eq!(refused.status(), 403);
 }
+
+#[tokio::test]
+async fn a_channel_owner_names_moderators_and_a_moderator_names_nobody() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    // Alice opens the channel, so she owns it; Bob and Carol are in it.
+    let channel: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": format!("atelier-{}", Uuid::new_v4().simple()), "type": "private" }))
+        .send()
+        .await
+        .expect("create")
+        .json()
+        .await
+        .expect("json");
+    let channel_id = channel["id"].as_str().expect("id").to_owned();
+    app.req(
+        reqwest::Method::POST,
+        &format!("/api/v1/channels/{channel_id}/members"),
+        &alice,
+    )
+    .json(&json!({ "user_ids": [fx.bob, fx.carol] }))
+    .send()
+    .await
+    .expect("add");
+
+    // The owner names a moderator.
+    let promoted = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{channel_id}/members/{}", fx.bob),
+            &alice,
+        )
+        .json(&json!({ "role": "admin" }))
+        .send()
+        .await
+        .expect("promote");
+    assert_eq!(promoted.status(), 200);
+
+    // A moderator hands out nothing of their own rank, and cannot touch the owner.
+    for (target, role) in [(fx.carol, "admin"), (fx.alice, "member")] {
+        let refused = app
+            .req(
+                reqwest::Method::PATCH,
+                &format!("/api/v1/channels/{channel_id}/members/{target}"),
+                &bob,
+            )
+            .json(&json!({ "role": role }))
+            .send()
+            .await
+            .expect("promote");
+        assert_eq!(refused.status(), 403);
+    }
+
+    // But they do moderate: an ordinary member is theirs to take out, and the channel says so.
+    let removed = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/channels/{channel_id}/members/{}", fx.carol),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("remove");
+    assert_eq!(removed.status(), 204);
+    assert!(channel_members::Entity::find_by_id((
+        channel_id.parse::<Uuid>().expect("uuid"),
+        fx.carol
+    ))
+    .one(&app.db)
+    .await
+    .expect("membership")
+    .is_none());
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    assert!(page["messages"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .any(|m| m["system_event"] == "channel_removed" && m["author_id"] == fx.carol.to_string()));
+
+    // And the owner cannot be removed by the moderator either.
+    let refused = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/channels/{channel_id}/members/{}", fx.alice),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("remove owner");
+    assert_eq!(refused.status(), 403);
+}

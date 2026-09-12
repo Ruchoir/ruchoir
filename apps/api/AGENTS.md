@@ -80,6 +80,14 @@ context and takes precedence here.
   `spaces.id`, so one row deletion empties the schema, but the stored objects are not in the
   database: the file versions' keys are collected *before* the delete and removed behind it, or a
   deleted space would leave its bytes in the store while the interface reported them gone.
+  **A channel has its own shorter ladder** (`member` < `admin` < `owner`, no guests: being in a
+  channel is already the explicit thing a guest is given). `PATCH`/`DELETE
+  /channels/{id}/members/{user_id}` set a role and take someone out, under the rule the space roles
+  use: only below your own rank, on someone below it. A space owner or administrator counts as the
+  channel's owner (`effective_channel_rank`), because someone who may archive it and delete anyone's
+  message in it is already at the top of it. No transfer exception here, unlike a space: `owner` is
+  the mark of whoever opened the room, the space's administrators moderate it regardless, and a
+  channel with nobody holding the title is not stuck the way an ownerless space would be.
   **A channel can be reserved to roles** (`channel_role_access`, one row per admitted role, *no row*
   meaning no restriction, so "open to everyone" and "reserved to nobody" can never be the same
   value). It stacks on the channel type rather than replacing it: the type answers "who may walk in",

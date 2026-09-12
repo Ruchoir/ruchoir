@@ -467,7 +467,6 @@
     "added_few": "Dodano {{count}} osoby",
     "added_many": "Dodano {{count}} osób",
     "added_other": "Dodano {{count}} osób",
-    "accessOf": "Dostęp: {{name}}",
     "roleOf": "Rola: {{name}}",
     "dmNotifications": "Powiadomienia rozmowy",
     "channelNotifications": "Powiadomienia kanału",
@@ -483,7 +482,11 @@
     "noConversationHint": "Utwórz kanał albo zacznij rozmowę, żeby ruszyć.",
     "roleAccess": "Dostęp według roli",
     "reserveToRoles": "Zarezerwuj ten kanał dla wybranych ról",
-    "roleAccessHint": "Pozostałe role go nie widzą i nie można ich do niego dodać. Twoja rola pozostaje zaznaczona: kanał, z którego jesteś wykluczony, nie jest kanałem, który chciałeś utworzyć."
+    "roleAccessHint": "Pozostałe role go nie widzą i nie można ich do niego dodać. Twoja rola pozostaje zaznaczona: kanał, z którego jesteś wykluczony, nie jest kanałem, który chciałeś utworzyć.",
+    "channelOwner": "Właściciel kanału",
+    "removeNamed": "Usuń osobę {{name}} z kanału",
+    "memberRemoved": "Usunięto z kanału",
+    "noMembersYet": "Na razie nikogo w tym kanale."
   },
   "role": {
     "member": "Członek",
@@ -939,7 +942,8 @@
     "channelJoined": "{{who}} dołączył(a) do kanału.",
     "channelLeft": "{{who}} opuścił(a) kanał.",
     "channelCreated": "Kanał został utworzony.",
-    "memberRemoved": "{{who}} został usunięty z przestrzeni."
+    "memberRemoved": "{{who}} został usunięty z przestrzeni.",
+    "channelRemoved": "{{who}} został usunięty z kanału."
   },
   "rail": {
     "unreadActivity": "{{name}}, nieprzeczytana aktywność"

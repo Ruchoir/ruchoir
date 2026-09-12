@@ -457,7 +457,6 @@
     "alreadyIn": "Bereits im Kanal",
     "added_one": "{{count}} Person hinzugefügt",
     "added_other": "{{count}} Personen hinzugefügt",
-    "accessOf": "Zugriff von {{name}}",
     "roleOf": "Rolle von {{name}}",
     "dmNotifications": "Benachrichtigungen der Unterhaltung",
     "channelNotifications": "Kanalbenachrichtigungen",
@@ -473,7 +472,11 @@
     "noConversationHint": "Legen Sie einen Kanal an oder beginnen Sie ein Gespräch.",
     "roleAccess": "Zugang nach Rolle",
     "reserveToRoles": "Diesen Kanal bestimmten Rollen vorbehalten",
-    "roleAccessHint": "Die anderen Rollen sehen ihn nicht und können nicht hinzugefügt werden. Ihre eigene Rolle bleibt angehakt: ein Kanal, aus dem Sie ausgesperrt sind, ist nicht der Kanal, den Sie anlegen wollten."
+    "roleAccessHint": "Die anderen Rollen sehen ihn nicht und können nicht hinzugefügt werden. Ihre eigene Rolle bleibt angehakt: ein Kanal, aus dem Sie ausgesperrt sind, ist nicht der Kanal, den Sie anlegen wollten.",
+    "channelOwner": "Kanaleigentümer",
+    "removeNamed": "{{name}} aus dem Kanal entfernen",
+    "memberRemoved": "Aus dem Kanal entfernt",
+    "noMembersYet": "Noch niemand in diesem Kanal."
   },
   "role": {
     "member": "Mitglied",
@@ -907,7 +910,8 @@
     "channelJoined": "{{who}} ist dem Kanal beigetreten.",
     "channelLeft": "{{who}} hat den Kanal verlassen.",
     "channelCreated": "Der Kanal wurde erstellt.",
-    "memberRemoved": "{{who}} wurde aus dem Bereich entfernt."
+    "memberRemoved": "{{who}} wurde aus dem Bereich entfernt.",
+    "channelRemoved": "{{who}} wurde aus dem Kanal entfernt."
   },
   "rail": {
     "unreadActivity": "{{name}}, ungelesene Aktivität"

@@ -462,7 +462,6 @@
     "added_one": "{{count}} persona añadida",
     "added_other": "{{count}} personas añadidas",
     "added_many": "{{count}} personas añadidas",
-    "accessOf": "Acceso de {{name}}",
     "roleOf": "Rol de {{name}}",
     "dmNotifications": "Notificaciones de la conversación",
     "channelNotifications": "Notificaciones del canal",
@@ -478,7 +477,11 @@
     "noConversationHint": "Crea un canal, o empieza una conversación, para arrancar.",
     "roleAccess": "Acceso por rol",
     "reserveToRoles": "Reservar este canal a ciertos roles",
-    "roleAccessHint": "Los demás roles no lo ven ni pueden ser añadidos. Tu propio rol permanece marcado: un canal del que estás excluido no es el canal que querías crear."
+    "roleAccessHint": "Los demás roles no lo ven ni pueden ser añadidos. Tu propio rol permanece marcado: un canal del que estás excluido no es el canal que querías crear.",
+    "channelOwner": "Propietario del canal",
+    "removeNamed": "Expulsar a {{name}} del canal",
+    "memberRemoved": "Expulsado del canal",
+    "noMembersYet": "Todavía no hay nadie en este canal."
   },
   "role": {
     "member": "Miembro",
@@ -923,7 +926,8 @@
     "channelJoined": "{{who}} se unió al canal.",
     "channelLeft": "{{who}} salió del canal.",
     "channelCreated": "Se creó el canal.",
-    "memberRemoved": "{{who}} fue expulsado del espacio."
+    "memberRemoved": "{{who}} fue expulsado del espacio.",
+    "channelRemoved": "{{who}} fue expulsado del canal."
   },
   "rail": {
     "unreadActivity": "{{name}}, actividad sin leer"
