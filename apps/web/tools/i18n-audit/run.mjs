@@ -86,6 +86,8 @@ function looksLikeProse(value) {
   // camelCase and kebab-case identifiers, even with capitals.
   if (/^[a-z]+([A-Z][a-z]*)+$/.test(text)) return false;
   if (/^[a-z]+(-[a-z]+)+$/.test(text)) return false;
+  // A TypeScript type in a signature: `Promise<MessageAttachment>` reads as text between two tags.
+  if (/^(Promise|Record|Array|Map|Set|Partial|Omit|Pick|Readonly)$/.test(text)) return false;
   // A dictionary key, not a sentence: `mfa.totpTitle`. Tables built at module load hold keys and
   // are translated where they are drawn, which is the shape this check wants to encourage.
   if (/^[a-z][\w]*(\.[A-Za-z]\w*)+$/.test(text)) return false;

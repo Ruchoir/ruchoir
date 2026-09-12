@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useRef, useState } from "react";
 import { Icon, IconButton, Popover } from "@/components/ds";
+import { useTranslation } from "@/lib/i18n";
 
 const menu: CSSProperties = {
   minWidth: 208,
@@ -63,6 +64,7 @@ export function MessageMenu({
   onDelete,
   onOpenChange,
 }: MessageMenuProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
 
@@ -78,14 +80,14 @@ export function MessageMenu({
 
   const items: Item[] = [
     ...(hasReactions && onShowReactions
-      ? [{ icon: "smile", label: "Voir les réactions", onClick: onShowReactions }]
+      ? [{ icon: "smile", label: t("message.viewReactions"), onClick: onShowReactions }]
       : []),
-    ...(own ? [{ icon: "square-pen", label: "Modifier le message", onClick: onEdit }] : []),
-    { icon: "copy", label: "Copier le message", onClick: onCopyMessage },
-    { icon: "paperclip", label: "Copier le lien", onClick: onCopyLink },
-    { icon: "inbox", label: "Marquer comme non lu", onClick: onMarkUnread },
-    { icon: "pin", label: pinned ? "Désépingler" : "Épingler", onClick: onTogglePin },
-    ...(own ? [{ icon: "trash-2", label: "Supprimer le message", onClick: onDelete, danger: true }] : []),
+    ...(own ? [{ icon: "square-pen", label: t("message.editMessage"), onClick: onEdit }] : []),
+    { icon: "copy", label: t("message.copyMessage"), onClick: onCopyMessage },
+    { icon: "paperclip", label: t("message.copyLink"), onClick: onCopyLink },
+    { icon: "inbox", label: t("message.markUnread"), onClick: onMarkUnread },
+    { icon: "pin", label: pinned ? t("message.unpin") : t("message.pin"), onClick: onTogglePin },
+    ...(own ? [{ icon: "trash-2", label: t("message.deleteMessage"), onClick: onDelete, danger: true }] : []),
   ];
 
   return (
@@ -93,7 +95,7 @@ export function MessageMenu({
       <IconButton
         ref={anchorRef}
         icon="more-horizontal"
-        label="Plus d'actions"
+        label={t("message.more")}
         size="sm"
         aria-expanded={open}
         onClick={() => set(!open)}

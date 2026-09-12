@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { IconButton, IconLink } from "@/components/ds";
 import type { InlineImage as InlineImageData } from "@/lib/data";
+import { useTranslation } from "@/lib/i18n";
 
 /**
  * A sample chart drawn as inline SVG. Stands in for a real uploaded image: this exploration
@@ -43,6 +44,7 @@ function SampleChart({ rounded }: { rounded?: number }) {
 }
 
 export function InlineImage({ image }: { image: InlineImageData }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const displayWidth = Math.min(image.width, 460);
 
@@ -119,7 +121,7 @@ export function InlineImage({ image }: { image: InlineImageData }) {
               {image.src ? (
                 <IconLink
                   icon="external-link"
-                  label="Ouvrir dans un nouvel onglet"
+                  label={t("image.openInNewTab")}
                   variant="outlined"
                   href={image.src}
                   target="_blank"
@@ -129,13 +131,13 @@ export function InlineImage({ image }: { image: InlineImageData }) {
               {image.downloadUrl ? (
                 <IconLink
                   icon="download"
-                  label="Télécharger l'image"
+                  label={t("image.download")}
                   variant="outlined"
                   href={image.downloadUrl}
                   download
                 />
               ) : null}
-              <IconButton icon="x" label="Fermer" variant="outlined" onClick={() => setOpen(false)} />
+              <IconButton icon="x" label={t("common.close")} variant="outlined" onClick={() => setOpen(false)} />
             </div>
             <div style={{ borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-dialog)" }}>
               {image.src ? (

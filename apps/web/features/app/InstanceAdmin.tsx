@@ -206,7 +206,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
           <div style={st.link}>
             <span style={st.linkText}>{issued.url}</span>
             <Button size="sm" iconLeft={copied ? "check" : "copy"} onClick={copy}>
-              {copied ? t("admin.copied") : t("admin.copy")}
+              {copied ? t("common.copied") : t("admin.copy")}
             </Button>
           </div>
         </div>

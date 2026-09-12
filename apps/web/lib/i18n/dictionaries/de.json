@@ -45,7 +45,6 @@
     "linkFor": "Link für {{name}}",
     "linkValidity": "Einmalig, {{minutes}} Minuten gültig. Nach dem Verlassen dieses Bildschirms wird er nicht mehr angezeigt.",
     "copy": "Kopieren",
-    "copied": "Kopiert",
     "copiedToast": "Link kopiert",
     "settingsTitle": "Einstellungen der Instanz",
     "settingsIntro": "Was die Instanz für alle gilt, unabhängig vom Bereich.",
@@ -114,7 +113,8 @@
     "back": "Zurück",
     "search": "Suchen",
     "help": "Hilfe",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "copied": "Kopiert"
   },
   "mfa": {
     "totpTitle": "Bestätigung in zwei Schritten",
@@ -283,5 +283,62 @@
     "shift": "Umschalt",
     "backspace": "Rücktaste",
     "delete": "Entf"
+  },
+  "message": {
+    "importedTag": "Importiert",
+    "download": "Herunterladen",
+    "replyInThread": "In einem Thread antworten",
+    "edit": "Bearbeiten",
+    "unsave": "Aus Gespeichertem entfernen",
+    "save": "Speichern",
+    "reactions": "Reaktionen",
+    "viewReactions": "Reaktionen ansehen",
+    "editMessage": "Nachricht bearbeiten",
+    "copyMessage": "Nachricht kopieren",
+    "copyLink": "Link kopieren",
+    "markUnread": "Als ungelesen markieren",
+    "pin": "Anheften",
+    "unpin": "Lösen",
+    "deleteMessage": "Nachricht löschen",
+    "more": "Weitere Aktionen",
+    "addReaction": "Reaktion hinzufügen",
+    "react": "Reagieren",
+    "replies_one": "{{count}} Antwort",
+    "replies_other": "{{count}} Antworten",
+    "reactionCount_one": "{{count}} Reaktion",
+    "reactionCount_other": "{{count}} Reaktionen",
+    "pinnedTag": "Angeheftet"
+  },
+  "thread": {
+    "title": "Thread",
+    "close": "Thread schließen",
+    "replyPlaceholder": "Im Thread antworten"
+  },
+  "composer": {
+    "uploadFailed": "Datei nicht gesendet",
+    "editing": "Nachricht wird bearbeitet",
+    "escToCancel": "Esc zum Abbrechen",
+    "cancelEdit": "Bearbeitung abbrechen",
+    "removeAttachment": "Anhang entfernen",
+    "bold": "Fett",
+    "italic": "Kursiv",
+    "code": "Code",
+    "list": "Liste",
+    "attach": "Datei anhängen",
+    "mention": "Erwähnen",
+    "emoji": "Emoji",
+    "send": "Senden",
+    "hint": "Eingabe zum Senden · Umschalt+Eingabe für eine neue Zeile",
+    "broadcastChannel": "Benachrichtigt alle Mitglieder des Kanals",
+    "broadcastHere": "Benachrichtigt nur die gerade Verbundenen"
+  },
+  "code": {
+    "changeLanguage": "Sprache ändern",
+    "copy": "Code kopieren",
+    "languagePlaceholder": "Sprache…"
+  },
+  "image": {
+    "openInNewTab": "In neuem Tab öffnen",
+    "download": "Bild herunterladen"
   }
 }

@@ -45,7 +45,6 @@
     "linkFor": "Link dla: {{name}}",
     "linkValidity": "Jednorazowy, ważny {{minutes}} min. Po opuszczeniu tego ekranu nie zostanie pokazany ponownie.",
     "copy": "Kopiuj",
-    "copied": "Skopiowano",
     "copiedToast": "Skopiowano link",
     "settingsTitle": "Ustawienia instancji",
     "settingsIntro": "To, co instancja stosuje wobec wszystkich, niezależnie od przestrzeni.",
@@ -114,7 +113,8 @@
     "back": "Powrót",
     "search": "Szukaj",
     "help": "Pomoc",
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "copied": "Skopiowano"
   },
   "mfa": {
     "totpTitle": "Weryfikacja dwuetapowa",
@@ -283,5 +283,66 @@
     "shift": "Shift",
     "backspace": "Backspace",
     "delete": "Delete"
+  },
+  "message": {
+    "importedTag": "Zaimportowane",
+    "download": "Pobierz",
+    "replyInThread": "Odpowiedz w wątku",
+    "edit": "Edytuj",
+    "unsave": "Usuń z zapisanych",
+    "save": "Zapisz",
+    "reactions": "Reakcje",
+    "viewReactions": "Zobacz reakcje",
+    "editMessage": "Edytuj wiadomość",
+    "copyMessage": "Kopiuj wiadomość",
+    "copyLink": "Kopiuj link",
+    "markUnread": "Oznacz jako nieprzeczytane",
+    "pin": "Przypnij",
+    "unpin": "Odepnij",
+    "deleteMessage": "Usuń wiadomość",
+    "more": "Więcej akcji",
+    "addReaction": "Dodaj reakcję",
+    "react": "Zareaguj",
+    "replies_one": "{{count}} odpowiedź",
+    "replies_few": "{{count}} odpowiedzi",
+    "replies_many": "{{count}} odpowiedzi",
+    "replies_other": "{{count}} odpowiedzi",
+    "reactionCount_one": "{{count}} reakcja",
+    "reactionCount_few": "{{count}} reakcje",
+    "reactionCount_many": "{{count}} reakcji",
+    "reactionCount_other": "{{count}} reakcji",
+    "pinnedTag": "Przypięte"
+  },
+  "thread": {
+    "title": "Wątek",
+    "close": "Zamknij wątek",
+    "replyPlaceholder": "Odpowiedz w wątku"
+  },
+  "composer": {
+    "uploadFailed": "Plik nie został wysłany",
+    "editing": "Edycja wiadomości",
+    "escToCancel": "Esc aby anulować",
+    "cancelEdit": "Anuluj edycję",
+    "removeAttachment": "Usuń załącznik",
+    "bold": "Pogrubienie",
+    "italic": "Kursywa",
+    "code": "Kod",
+    "list": "Lista",
+    "attach": "Załącz plik",
+    "mention": "Wspomnij",
+    "emoji": "Emoji",
+    "send": "Wyślij",
+    "hint": "Enter aby wysłać · Shift+Enter aby przejść do nowej linii",
+    "broadcastChannel": "Powiadamia wszystkich członków kanału",
+    "broadcastHere": "Powiadamia tylko osoby połączone"
+  },
+  "code": {
+    "changeLanguage": "Zmień język",
+    "copy": "Kopiuj kod",
+    "languagePlaceholder": "Język…"
+  },
+  "image": {
+    "openInNewTab": "Otwórz w nowej karcie",
+    "download": "Pobierz obraz"
   }
 }

@@ -45,7 +45,6 @@
     "linkFor": "Link per {{name}}",
     "linkValidity": "Monouso, valido {{minutes}} minuti. Non sarà più mostrato dopo aver lasciato questa schermata.",
     "copy": "Copia",
-    "copied": "Copiato",
     "copiedToast": "Link copiato",
     "settingsTitle": "Impostazioni dell'istanza",
     "settingsIntro": "Ciò che l'istanza applica a tutti, in qualsiasi spazio.",
@@ -114,7 +113,8 @@
     "back": "Indietro",
     "search": "Cerca",
     "help": "Aiuto",
-    "cancel": "Annulla"
+    "cancel": "Annulla",
+    "copied": "Copiato"
   },
   "mfa": {
     "totpTitle": "Verifica in due passaggi",
@@ -283,5 +283,62 @@
     "shift": "Maiusc",
     "backspace": "Backspace",
     "delete": "Canc"
+  },
+  "message": {
+    "importedTag": "Importato",
+    "download": "Scarica",
+    "replyInThread": "Rispondi in una discussione",
+    "edit": "Modifica",
+    "unsave": "Rimuovi dai salvati",
+    "save": "Salva",
+    "reactions": "Reazioni",
+    "viewReactions": "Vedi le reazioni",
+    "editMessage": "Modifica il messaggio",
+    "copyMessage": "Copia il messaggio",
+    "copyLink": "Copia il link",
+    "markUnread": "Segna come non letto",
+    "pin": "Fissa",
+    "unpin": "Non fissare più",
+    "deleteMessage": "Elimina il messaggio",
+    "more": "Altre azioni",
+    "addReaction": "Aggiungi una reazione",
+    "react": "Reagisci",
+    "replies_one": "{{count}} risposta",
+    "replies_other": "{{count}} risposte",
+    "reactionCount_one": "{{count}} reazione",
+    "reactionCount_other": "{{count}} reazioni",
+    "pinnedTag": "Fissato"
+  },
+  "thread": {
+    "title": "Discussione",
+    "close": "Chiudi la discussione",
+    "replyPlaceholder": "Rispondi nella discussione"
+  },
+  "composer": {
+    "uploadFailed": "File non inviato",
+    "editing": "Modifica del messaggio",
+    "escToCancel": "Esc per annullare",
+    "cancelEdit": "Annulla la modifica",
+    "removeAttachment": "Rimuovi l'allegato",
+    "bold": "Grassetto",
+    "italic": "Corsivo",
+    "code": "Codice",
+    "list": "Elenco",
+    "attach": "Allega un file",
+    "mention": "Menziona",
+    "emoji": "Emoji",
+    "send": "Invia",
+    "hint": "Invio per inviare · Maiusc+Invio per andare a capo",
+    "broadcastChannel": "Avvisa tutti i membri del canale",
+    "broadcastHere": "Avvisa solo chi è connesso"
+  },
+  "code": {
+    "changeLanguage": "Cambia linguaggio",
+    "copy": "Copia il codice",
+    "languagePlaceholder": "Linguaggio…"
+  },
+  "image": {
+    "openInNewTab": "Apri in una nuova scheda",
+    "download": "Scarica l'immagine"
   }
 }

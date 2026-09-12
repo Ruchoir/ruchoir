@@ -3,6 +3,7 @@
 import { type CSSProperties, useMemo, useRef, useState } from "react";
 import { Icon, Input, Popover } from "@/components/ds";
 import { highlightCode, listLanguages } from "./highlight";
+import { useTranslation } from "@/lib/i18n";
 
 export type CodeBlockProps = {
   code: string;
@@ -23,6 +24,7 @@ const pickerPanel: CSSProperties = {
 
 /** A fenced code block: header (language + copy) and highlighted body. Language is editable. */
 export function CodeBlock({ code, declaredLang, editable }: CodeBlockProps) {
+  const { t } = useTranslation();
   const [chosen, setChosen] = useState<string | undefined>(declaredLang);
   const [copied, setCopied] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -64,7 +66,7 @@ export function CodeBlock({ code, declaredLang, editable }: CodeBlockProps) {
             className="wc-codelang wc-codelang--edit"
             onClick={() => setPickerOpen((o) => !o)}
             aria-expanded={pickerOpen}
-            title="Changer le langage"
+            title={t("code.changeLanguage")}
           >
             {displayLang}
             <Icon name="chevron-down" size={12} />
@@ -72,9 +74,9 @@ export function CodeBlock({ code, declaredLang, editable }: CodeBlockProps) {
         ) : (
           <span className="wc-codelang">{displayLang}</span>
         )}
-        <button type="button" className="wc-codecopy" onClick={copy} aria-label="Copier le code">
+        <button type="button" className="wc-codecopy" onClick={copy} aria-label={t("code.copy")}>
           <Icon name={copied ? "check" : "copy"} size={13} />
-          {copied ? "Copié" : "Copier"}
+          {copied ? t("common.copied") : "Copier"}
         </button>
       </div>
       <pre>
@@ -85,7 +87,7 @@ export function CodeBlock({ code, declaredLang, editable }: CodeBlockProps) {
         <Popover anchorRef={langRef} open={pickerOpen} onClose={() => setPickerOpen(false)} placement="bottom" align="start">
           <div style={pickerPanel}>
             <div style={{ padding: 8, borderBottom: "1px solid var(--border-subtle)" }}>
-              <Input size="sm" icon="search" placeholder="Langage…" value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
+              <Input size="sm" icon="search" placeholder={t("code.languagePlaceholder")} value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
             </div>
             <div style={{ maxHeight: 240, overflowY: "auto", padding: 4 }} role="listbox">
               <button type="button" onClick={() => pick("auto")} style={langItem(chosen === "auto" || !chosen)}>

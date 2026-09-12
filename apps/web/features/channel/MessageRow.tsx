@@ -13,6 +13,7 @@ import { LinkPreviewCard } from "./LinkPreviewCard";
 import { MessageMenu } from "./MessageMenu";
 import { ReactionMenu } from "./ReactionMenu";
 import { ReadReceipt } from "./ReadReceipt";
+import { useTranslation } from "@/lib/i18n";
 
 /** Everything a message row can do. Grouped to keep the prop surface readable. */
 export type MessageActions = {
@@ -168,6 +169,7 @@ export function MessageRow({
   readAudience = 0,
   actions,
 }: MessageRowProps) {
+  const { t } = useTranslation();
   const [hover, setHover] = useState(false);
   const [reactOpen, setReactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -269,10 +271,10 @@ export function MessageRow({
             {m.author}
           </button>
           <span style={styles.time}>{m.time}</span>
-          {!deleted && m.imported ? <Tag icon="import">Importé</Tag> : null}
+          {!deleted && m.imported ? <Tag icon="import">{t("message.importedTag")}</Tag> : null}
           {!deleted && m.pinned ? (
             <Tag icon="pin" tone="accent">
-              Épinglé
+              {t("message.pinnedTag")}
             </Tag>
           ) : null}
           {!deleted && m.saved ? (
@@ -368,7 +370,7 @@ export function MessageRow({
                     </>
                   ) : (
                     // Still uploading: nothing to fetch yet.
-                    <IconButton icon="download" label="Télécharger" size="sm" disabled />
+                    <IconButton icon="download" label={t("message.download")} size="sm" disabled />
                   )}
                 </Card>
               </div>
@@ -410,8 +412,7 @@ export function MessageRow({
                 }}
               >
                 <Icon name="message-square" size={14} />
-                {m.replies} réponses
-                <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>· dernière il y a 12 min</span>
+                {t("message.replies", { count: m.replies })}
               </button>
             ) : null}
           </>
@@ -432,11 +433,11 @@ export function MessageRow({
       {showActions ? (
         <div style={styles.actions}>
           <ReactionMenu variant="action" onPick={actions.onReact} onOpenChange={setReactOpen} />
-          <IconButton icon="message-square" label="Répondre dans un fil" size="sm" onClick={actions.onOpenThread} />
-          {isOwn ? <IconButton icon="square-pen" label="Modifier" size="sm" onClick={actions.onEdit} /> : null}
+          <IconButton icon="message-square" label={t("message.replyInThread")} size="sm" onClick={actions.onOpenThread} />
+          {isOwn ? <IconButton icon="square-pen" label={t("message.edit")} size="sm" onClick={actions.onEdit} /> : null}
           <IconButton
             icon="bookmark"
-            label={m.saved ? "Retirer des enregistrés" : "Enregistrer"}
+            label={m.saved ? t("message.unsave") : t("message.save")}
             size="sm"
             aria-pressed={m.saved}
             onClick={actions.onToggleSave}
@@ -459,7 +460,7 @@ export function MessageRow({
       ) : null}
 
       {reactionsOpen ? (
-        <Dialog title="Réactions" size="sm" onClose={() => setReactionsOpen(false)}>
+        <Dialog title={t("message.reactions")} size="sm" onClose={() => setReactionsOpen(false)} closeLabel={t("common.close")}>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {m.reactions?.map((r) => (
               <div

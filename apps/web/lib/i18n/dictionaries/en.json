@@ -45,7 +45,6 @@
     "linkFor": "Link for {{name}}",
     "linkValidity": "Single use, valid for {{minutes}} minutes. It will not be shown again once you leave this screen.",
     "copy": "Copy",
-    "copied": "Copied",
     "copiedToast": "Link copied",
     "settingsTitle": "Instance settings",
     "settingsIntro": "What the instance applies to everyone, whatever the space.",
@@ -114,7 +113,8 @@
     "back": "Back",
     "search": "Search",
     "help": "Help",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "copied": "Copied"
   },
   "mfa": {
     "totpTitle": "Two-step verification",
@@ -283,5 +283,62 @@
     "shift": "Shift",
     "backspace": "Backspace",
     "delete": "Del"
+  },
+  "message": {
+    "importedTag": "Imported",
+    "download": "Download",
+    "replyInThread": "Reply in a thread",
+    "edit": "Edit",
+    "unsave": "Remove from saved",
+    "save": "Save",
+    "reactions": "Reactions",
+    "viewReactions": "View reactions",
+    "editMessage": "Edit the message",
+    "copyMessage": "Copy the message",
+    "copyLink": "Copy the link",
+    "markUnread": "Mark as unread",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "deleteMessage": "Delete the message",
+    "more": "More actions",
+    "addReaction": "Add a reaction",
+    "react": "React",
+    "replies_one": "{{count}} reply",
+    "replies_other": "{{count}} replies",
+    "reactionCount_one": "{{count}} reaction",
+    "reactionCount_other": "{{count}} reactions",
+    "pinnedTag": "Pinned"
+  },
+  "thread": {
+    "title": "Thread",
+    "close": "Close the thread",
+    "replyPlaceholder": "Reply in the thread"
+  },
+  "composer": {
+    "uploadFailed": "File not sent",
+    "editing": "Editing the message",
+    "escToCancel": "Esc to cancel",
+    "cancelEdit": "Cancel the edit",
+    "removeAttachment": "Remove the attachment",
+    "bold": "Bold",
+    "italic": "Italic",
+    "code": "Code",
+    "list": "List",
+    "attach": "Attach a file",
+    "mention": "Mention",
+    "emoji": "Emoji",
+    "send": "Send",
+    "hint": "Enter to send · Shift+Enter for a new line",
+    "broadcastChannel": "Notifies every member of the channel",
+    "broadcastHere": "Notifies only the people connected"
+  },
+  "code": {
+    "changeLanguage": "Change the language",
+    "copy": "Copy the code",
+    "languagePlaceholder": "Language…"
+  },
+  "image": {
+    "openInNewTab": "Open in a new tab",
+    "download": "Download the image"
   }
 }
