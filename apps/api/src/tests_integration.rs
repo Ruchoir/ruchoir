@@ -24,7 +24,9 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, IntoActiveModel};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
+};
 use serde_json::{json, Value};
 use time::OffsetDateTime;
 use tokio::net::TcpStream;
@@ -1565,4 +1567,174 @@ async fn renaming_a_space_moves_its_address_without_breaking_the_old_one() {
         .await
         .expect("rename as an outsider");
     assert_eq!(refused.status(), 403);
+}
+
+#[tokio::test]
+async fn leaving_a_space_takes_the_membership_and_leaves_the_messages() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    // Something Alice wrote before walking out: it belongs to the channel, not to her membership.
+    app.req(
+        reqwest::Method::POST,
+        &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+        &alice,
+    )
+    .json(&json!({ "body": "before leaving" }))
+    .send()
+    .await
+    .expect("send");
+
+    let left = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{}/membership", fx.space_id),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("leave");
+    assert_eq!(left.status(), 204);
+
+    // The membership is gone, and so are the channel memberships inside the space (including the
+    // private channel, whose access would otherwise outlive the space membership).
+    assert!(space_members::Entity::find_by_id((fx.space_id, fx.alice))
+        .one(&app.db)
+        .await
+        .expect("membership")
+        .is_none());
+    assert!(
+        channel_members::Entity::find_by_id((fx.private_channel, fx.alice))
+            .one(&app.db)
+            .await
+            .expect("channel membership")
+            .is_none()
+    );
+
+    // The space is no longer hers to read, and no longer on her list.
+    let refused = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("channels");
+    assert_eq!(refused.status(), 403);
+    let spaces: Value = app
+        .req(reqwest::Method::GET, "/api/v1/me/spaces", &alice)
+        .send()
+        .await
+        .expect("list spaces")
+        .json()
+        .await
+        .expect("json");
+    assert!(!spaces
+        .as_array()
+        .expect("array")
+        .iter()
+        .any(|s| s["id"] == fx.space_id.to_string()));
+
+    // What she wrote is still there for the people who stayed, and the departure left a notice.
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    let messages = page["messages"].as_array().expect("array");
+    assert!(messages.iter().any(|m| m["body"] == "before leaving"));
+    assert!(messages
+        .iter()
+        .any(|m| m["system_event"] == "member_left" && m["author_id"] == fx.alice.to_string()));
+}
+
+#[tokio::test]
+async fn the_last_owner_cannot_leave_but_can_delete() {
+    let Some(app) = boot().await else { return };
+    let founder = make_user(&app.db, "founder").await;
+    let cookie = app.cookie_for(founder).await;
+    let created: Value = app
+        .req(reqwest::Method::POST, "/api/v1/spaces", &cookie)
+        .json(&json!({ "name": format!("Atelier {}", Uuid::new_v4().simple()) }))
+        .send()
+        .await
+        .expect("create space")
+        .json()
+        .await
+        .expect("json");
+    let space_id: Uuid = created["id"].as_str().expect("id").parse().expect("uuid");
+
+    // Walking out would leave the space with nobody able to administer it.
+    let refused = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{space_id}/membership"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("leave");
+    assert_eq!(refused.status(), 409);
+    assert!(space_members::Entity::find_by_id((space_id, founder))
+        .one(&app.db)
+        .await
+        .expect("membership")
+        .is_some());
+
+    // Deleting is the way out, and it takes the space's channels with it through the cascade.
+    let deleted = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{space_id}"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("delete");
+    assert_eq!(deleted.status(), 204);
+    assert!(spaces::Entity::find_by_id(space_id)
+        .one(&app.db)
+        .await
+        .expect("space")
+        .is_none());
+    assert!(channels::Entity::find()
+        .filter(channels::Column::SpaceId.eq(space_id))
+        .all(&app.db)
+        .await
+        .expect("channels")
+        .is_empty());
+}
+
+#[tokio::test]
+async fn an_administrator_may_not_delete_a_space() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    let refused = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{}", fx.space_id),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("delete");
+    assert_eq!(refused.status(), 403, "running a space is not ending it");
+    assert!(spaces::Entity::find_by_id(fx.space_id)
+        .one(&app.db)
+        .await
+        .expect("space")
+        .is_some());
 }

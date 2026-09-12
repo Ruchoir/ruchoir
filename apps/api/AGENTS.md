@@ -60,7 +60,15 @@ context and takes precedence here.
   the lifecycle: creating a space (the caller becomes
   its owner and it is born with one public channel, so it is never an empty shell), creating a
   channel, updating one (rename, topic, visibility, and archiving, which is a state that makes it
-  read-only rather than a deletion), and joining or leaving one. A public channel is joinable by any
+  read-only rather than a deletion), and joining or leaving one. A space has two exits, and they are
+  different acts: **leaving** (`DELETE /spaces/{id}/membership`) takes the caller's own membership
+  and their channel memberships inside that space, leaves everything they wrote where it was
+  written, and is refused with a `409` for the space's last owner, who would otherwise leave it with
+  nobody able to administer it; **deleting** (`DELETE /spaces/{id}`) is the owner's alone (not an
+  admin's) and is immediate and total, with no grace period. Every child table cascades off
+  `spaces.id`, so one row deletion empties the schema, but the stored objects are not in the
+  database: the file versions' keys are collected *before* the delete and removed behind it, or a
+  deleted space would leave its bytes in the store while the interface reported them gone. A public channel is joinable by any
   space member; a private one is joined by invitation only, so the join endpoint refuses it. `search` is
   native-Postgres full-text over messages and file names (a generated `tsvector` with a French
   accent-folding config, plus `pg_trgm` trigram indexes for partial/fuzzy matches), scoped by
@@ -76,7 +84,11 @@ context and takes precedence here.
   name, title or avatar changing, whose payload serialises every field including `null` because it
   replaces an identity rather than patching one: an absent avatar has to mean the photo was removed),
   and `space.updated`, the same idea for a space's name and icon, carrying `SpaceUpdatedDto` rather
-  than `SpaceDto` because that one holds the caller's role and unread counters), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
+  than `SpaceDto` because that one holds the caller's role and unread counters, plus the two
+  departure events: `member.left`, the counterpart of `member.joined` for the roster, and
+  `space.removed`, which says "this space is no longer yours" to the person who left it and to
+  everyone when it is deleted, carrying a `deleted` flag because the client does the same thing
+  either way and only the sentence differs), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
   `SubscriberClient` on `rt:fanout`, delivery gated by a publish-time audience), `presence`
   (ephemeral heartbeat + the persistent `users.manual_presence` override; **its audience is frozen at
   connect time**, computed from the space co-members the user had when their socket opened, so any

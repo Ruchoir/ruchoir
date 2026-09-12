@@ -726,7 +726,21 @@
     "addressFollowsName": "L'indirizzo dello spazio seguirà il nome. I precedenti continuano a funzionare.",
     "adminsOnlyRename": "Solo gli amministratori dello spazio possono rinominarlo.",
     "serverAddress": "Indirizzo del server",
-    "setAtInstall": "Definito all'installazione dell'istanza"
+    "setAtInstall": "Definito all'installazione dell'istanza",
+    "leave": "Esci dallo spazio",
+    "leaveTitle": "Lasciare {{name}}?",
+    "leaveBody": "Perderai l'accesso ai suoi canali, ai suoi messaggi e ai suoi file. Per rientrare servirà un nuovo invito.",
+    "leaveKeepsMessages": "Quello che hai scritto resta: una conversazione appartiene a chi l'ha avuta.",
+    "leaveLastOwner": "Sei l'ultimo proprietario di questo spazio. Nomina un altro proprietario, oppure elimina lo spazio.",
+    "danger": "Zona di pericolo",
+    "delete": "Elimina lo spazio",
+    "deleteDesc": "Cancella lo spazio e tutto quello che contiene, per tutti i suoi membri.",
+    "deleteTitle": "Eliminare {{name}}?",
+    "deleteBody": "I canali, i messaggi, i file e gli inviti di questo spazio saranno cancellati, per tutti.",
+    "deleteFinal": "È immediato e definitivo: non viene conservato nulla e nulla può essere ripristinato.",
+    "deleteConfirm": "Elimina definitivamente",
+    "deleteConfirmLabel": "Scrivi «{{name}}» per confermare",
+    "leaveDesc": "Esci da questo spazio. Continua senza di te, e per rientrare servirà un invito."
   },
   "prefs": {
     "title": "Preferenze",
@@ -862,7 +876,12 @@
     "inviteLinkCreated": "Link d'invito creato",
     "ssoUnavailable": "Il SSO non è configurato su questa istanza.",
     "welcome": "Benvenuto, {{name}}.",
-    "stillReadable": "Puoi continuare a leggerlo, senza notifiche."
+    "stillReadable": "Puoi continuare a leggerlo, senza notifiche.",
+    "spaceLeft": "Spazio abbandonato",
+    "leaveSpaceFailed": "Impossibile uscire da questo spazio",
+    "spaceDeleted": "Spazio eliminato",
+    "deleteSpaceFailed": "Impossibile eliminare questo spazio",
+    "spaceDeletedElsewhere": "{{name}} è stato eliminato"
   },
   "boot": {
     "loading": "Caricamento",

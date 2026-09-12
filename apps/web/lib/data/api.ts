@@ -610,6 +610,25 @@ export async function renameSpace(spaceId: string, name: string): Promise<SpaceI
 }
 
 /**
+ * `DELETE /spaces/{id}/membership`: leave a space, taking only the caller's own membership.
+ *
+ * What they wrote stays where it was written. Coming back needs a new invitation, so the caller is
+ * expected to have confirmed first. Refused with a `409` for the space's last owner, who has to
+ * make someone else an owner or delete the space.
+ */
+export async function leaveSpace(spaceId: string): Promise<void> {
+  await apiDelete<void>(`/spaces/${spaceId}/membership`);
+}
+
+/**
+ * `DELETE /spaces/{id}`: delete a space and everything in it. Owner only, immediate, and final:
+ * there is no grace period and nothing is kept back.
+ */
+export async function deleteSpace(spaceId: string): Promise<void> {
+  await apiDelete<void>(`/spaces/${spaceId}`);
+}
+
+/**
  * `GET /spaces/by-slug/{slug}`: which space an address names, current slug or retired one.
  *
  * Only needed when a slug matches nothing the client holds, which means a link written before a
@@ -1653,10 +1672,17 @@ export type RealtimeHandlers = {
   onChannelUpdated?: (channel: RealtimeChannel) => void;
   /** Someone joined a space the user belongs to. */
   onMemberJoined?: (member: RealtimeMember) => void;
+  /** Someone left a space the user belongs to: the roster on screen has to lose them. */
+  onMemberLeft?: (spaceId: string, userId: string) => void;
   /** Someone the user shares a space with changed their display name, title or avatar. */
   onMemberUpdated?: (member: MemberIdentity) => void;
   /** A space the user belongs to was renamed, or had its icon replaced or removed. */
   onSpaceUpdated?: (space: SpaceIdentity) => void;
+  /**
+   * A space stopped being the user's: they left it (from here or from another tab), or its owner
+   * deleted it. `deleted` is what separates the two, and only the sentence shown differs.
+   */
+  onSpaceRemoved?: (spaceId: string, deleted: boolean) => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
@@ -1683,8 +1709,10 @@ const REALTIME_EVENTS = [
   "channel.created",
   "channel.updated",
   "member.joined",
+  "member.left",
   "member.updated",
   "space.updated",
+  "space.removed",
   "presence",
   "notification.created",
   "typing",
@@ -1780,6 +1808,12 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         });
         break;
       }
+      case "member.left":
+        handlers.onMemberLeft?.(String(payload.space_id), String(payload.user_id));
+        break;
+      case "space.removed":
+        handlers.onSpaceRemoved?.(String(payload.space_id), Boolean(payload.deleted));
+        break;
       case "space.updated": {
         handlers.onSpaceUpdated?.({
           id: String(payload.id),

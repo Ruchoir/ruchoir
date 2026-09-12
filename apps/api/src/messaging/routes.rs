@@ -55,7 +55,16 @@ pub fn router() -> Router<AppState> {
         // Spaces the caller belongs to (SPA bootstrap), and creating one.
         .route("/api/v1/me/spaces", get(conversations::list_my_spaces))
         .route("/api/v1/spaces", post(spaces::create_space))
-        .route("/api/v1/spaces/{space_id}", patch(spaces::update_space))
+        .route(
+            "/api/v1/spaces/{space_id}",
+            patch(spaces::update_space).delete(spaces::delete_space),
+        )
+        // The caller's own membership, mirroring the channel one: leaving is never an act on
+        // someone else, so it is addressed as a membership and not as the space.
+        .route(
+            "/api/v1/spaces/{space_id}/membership",
+            delete(spaces::leave_space),
+        )
         .route(
             "/api/v1/spaces/by-slug/{slug}",
             get(spaces::resolve_space_slug),

@@ -121,6 +121,18 @@ export type WorkspaceSettingsProps = {
   /** The space was renamed. Same reason as `onIconChanged`: the rail reads the space list. */
   onRenamed: (name: string) => void;
   onNotify: (toast: Toast) => void;
+  /**
+   * Whether the caller owns the space, which is the only role allowed to delete it. The API is the
+   * real guard; this keeps a control that would be refused off the screen.
+   */
+  canDelete: boolean;
+  /** Open the deletion confirmation. The screen never deletes anything by itself. */
+  onDelete: () => void;
+  /**
+   * Open the "leave this space" confirmation. Also offered from the space menu, which the compact
+   * shell does not draw: without this entry, leaving a space would be a desktop-only act.
+   */
+  onLeave: () => void;
   /** Compact (mobile): stack the sub-nav above the panel and let setting rows wrap. */
   compact?: boolean;
 };
@@ -136,6 +148,9 @@ export function WorkspaceSettings({
   onIconChanged,
   onRenamed,
   onNotify,
+  canDelete,
+  onDelete,
+  onLeave,
   compact = false,
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
@@ -327,6 +342,24 @@ export function WorkspaceSettings({
                   <Input id="wu" value={serverAddress} readOnly disabled />
                 </Field>
               </div>
+              {/* The two exits. Leaving is also in the space menu, which the compact shell does not
+                  draw, so this is where it is reachable on a phone. Deleting is only here: the menu
+                  is where one person walks out, this is where the space itself is administered. A
+                  button was shown here once with nothing behind it, announcing an erasure in 30 days
+                  that never came; these two call the endpoints, and what they say is what happens. */}
+              <div style={st.sect}>{t("space.danger")}</div>
+              <SettingRow title={t("space.leave")} desc={t("space.leaveDesc")}>
+                <Button size="sm" variant="secondary" iconLeft="log-out" onClick={onLeave}>
+                  {t("space.leave")}
+                </Button>
+              </SettingRow>
+              {canDelete ? (
+                <SettingRow title={t("space.delete")} desc={t("space.deleteDesc")}>
+                  <Button size="sm" variant="danger" iconLeft="trash-2" onClick={onDelete}>
+                    {t("space.delete")}
+                  </Button>
+                </SettingRow>
+              ) : null}
             </>
           ) : null}
 

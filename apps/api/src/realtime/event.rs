@@ -127,6 +127,26 @@ impl RealtimeEnvelope {
         Self::global("member.joined", payload)
     }
 
+    /// Someone left a space the recipient belongs to, or was removed from it.
+    ///
+    /// The counterpart of [`RealtimeEnvelope::member_joined`], and space-scoped for the same
+    /// reason: a departure changes the roster, the mention candidates and the direct-message
+    /// candidates. Without it the member list goes on offering someone who can no longer read what
+    /// is written to them, which is the worst way to be wrong about an audience.
+    pub fn member_left(payload: impl Serialize) -> Self {
+        Self::global("member.left", payload)
+    }
+
+    /// A space is no longer the recipient's: they left it, or it was deleted under them.
+    ///
+    /// One event for both because the client does the same thing with either: drop the space from
+    /// the rail and move on. The difference matters to the person, not to the state, so it travels
+    /// as a `deleted` flag rather than as a second event type. Delivered to the leaver's own
+    /// connections when someone leaves, and to every member when a space is deleted.
+    pub fn space_removed(payload: impl Serialize) -> Self {
+        Self::global("space.removed", payload)
+    }
+
     /// A member's profile changed: display name, title, or avatar.
     ///
     /// Space-scoped like an arrival, and for the same reason: an identity is shown by the member

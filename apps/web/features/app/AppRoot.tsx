@@ -13,6 +13,7 @@ import {
   createInvitation,
   createSpace,
   deleteMessage,
+  deleteSpace as apiDeleteSpace,
   editMessage,
   getChannelMessages,
   getChannels,
@@ -30,6 +31,7 @@ import {
   getWorkspaces,
   joinChannel as apiJoinChannel,
   leaveChannel as apiLeaveChannel,
+  leaveSpace as apiLeaveSpace,
   login as apiLogin,
   logout as apiLogout,
   markAllNotificationsRead,
@@ -95,7 +97,15 @@ import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
-import { HelpDialog, InviteDialog, NewChannelDialog, NewMessageDialog, NewWorkspaceDialog } from "./dialogs";
+import {
+  DeleteSpaceDialog,
+  HelpDialog,
+  InviteDialog,
+  LeaveSpaceDialog,
+  NewChannelDialog,
+  NewMessageDialog,
+  NewWorkspaceDialog,
+} from "./dialogs";
 import { GettingStarted } from "./GettingStarted";
 import { GlobalSearchDialog } from "./GlobalSearchDialog";
 import { QuickSwitcher } from "./QuickSwitcher";
@@ -137,7 +147,17 @@ export function AppRoot() {
   );
 }
 
-type Modal = "newChannel" | "newMessage" | "invite" | "newWorkspace" | "help" | "search" | "switcher" | null;
+type Modal =
+  | "newChannel"
+  | "newMessage"
+  | "invite"
+  | "newWorkspace"
+  | "leaveSpace"
+  | "deleteSpace"
+  | "help"
+  | "search"
+  | "switcher"
+  | null;
 
 const toastStyle: Record<string, CSSProperties> = {
   wrap: { position: "fixed", right: 20, bottom: 20, zIndex: 60 },
@@ -285,6 +305,8 @@ function AppShell() {
    * mounted and only fades what is being replaced.
    */
   const [switchingSpace, setSwitchingSpace] = useState(false);
+  /** A space exit in flight (leaving or deleting), so its dialog can refuse a second press. */
+  const [spaceBusy, setSpaceBusy] = useState(false);
   const [bootError, setBootError] = useState<TranslationKey | null>(null);
   // Shared by every screen of the authentication flow: the message under the form, and whether a
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
@@ -815,7 +837,7 @@ function AppShell() {
   // Our own dot: the server's answer for us, exactly as it is for everyone else in the space.
   const myPresence: Presence = (session?.id ? presence[session.id] : undefined) ?? "offline";
 
-  const liveRef = useRef({ channels, dms, channelId, view, myId: session?.id, ws });
+  const liveRef = useRef({ channels, dms, channelId, view, myId: session?.id, ws, spaces: workspaces });
   /**
    * Latest toast function, for the realtime handlers. They are wired once per session, so they
    * cannot close over `showToast` directly: it is a new function on every render, and adding it to
@@ -842,8 +864,21 @@ function AppShell() {
    */
   const markSeenRef = useRef<(conversationId: string, messageId: string) => void>(() => {});
 
+  /**
+   * Latest "take this space off the rail" function, for the same reason as the others: a space can
+   * be left from another tab or deleted by its owner, and the handler that hears about it is wired
+   * once per session while the space list changes under it.
+   */
+  const dropSpaceRef = useRef<(spaceId: string) => void>(() => {});
+
+  /**
+   * Spaces already taken off the rail. A departure arrives twice (the real-time frame and the answer
+   * to the call that caused it), and the second arrival must not switch space a second time.
+   */
+  const droppedSpacesRef = useRef(new Set<string>());
+
   useEffect(() => {
-    liveRef.current = { channels, dms, channelId, view, myId: session?.id, ws };
+    liveRef.current = { channels, dms, channelId, view, myId: session?.id, ws, spaces: workspaces };
   });
 
   // Live realtime channel: connect once per session and dispatch server pushes into state. Mutations
@@ -961,6 +996,28 @@ function AppShell() {
         // The newcomer is in the audience too; they do not need to be told they arrived.
         if (member.userId !== liveRef.current.myId) {
           notifyRef.current?.({ tone: "info", title: tRef.current("system.memberJoined", { who: member.name }) });
+        }
+      },
+      onMemberLeft: (spaceId, userId) => {
+        // Only the space on screen, like an arrival: a departure elsewhere is folded in when that
+        // space is next loaded. The channel notice that travels alongside is an ordinary message and
+        // lands on its own.
+        if (spaceId !== liveRef.current.ws) return;
+        setMembers((prev) => prev.filter((m) => m.userId !== userId));
+      },
+      onSpaceRemoved: (spaceId, deleted) => {
+        // Either this account left the space in another tab, or its owner deleted it under
+        // everyone. The rail has to lose it either way. The sentence is only for a deletion someone
+        // else decided: whoever pressed the button in this tab has already been told by the handler
+        // that pressed it, and telling them twice is how a confirmation starts reading as an alarm.
+        const gone = liveRef.current.spaces.find((w) => w.id === spaceId);
+        const ours = droppedSpacesRef.current.has(spaceId);
+        dropSpaceRef.current(spaceId);
+        if (deleted && gone && !ours) {
+          notifyRef.current?.({
+            tone: "info",
+            title: tRef.current("toast.spaceDeletedElsewhere", { name: gone.name }),
+          });
         }
       },
       onMemberUpdated: (member) => {
@@ -2293,6 +2350,83 @@ function AppShell() {
     }
   };
 
+  /** The space on screen, when there is one: the name and role the two exit dialogs are about. */
+  const currentWorkspace = workspaces.find((w) => w.id === ws);
+
+  /**
+   * Take a space off the rail, whether the caller walked out of it or it was deleted under them.
+   *
+   * Shared by the two handlers below and by the real-time event, which is what makes a second tab
+   * (or another member's deletion) land the same way: without it, a space that no longer exists
+   * stays on the rail answering 403 to everything until the page is reloaded.
+   */
+  const dropWorkspace = async (spaceId: string) => {
+    // Called twice for the same space, always: the API pushes the frame before it answers the call
+    // that caused it, so the real-time handler and the button's own handler both arrive. The second
+    // one has to be a no-op rather than a second space switch, and the guard is a ref because both
+    // can run before React has re-rendered with the first one's state.
+    if (droppedSpacesRef.current.has(spaceId)) return;
+    droppedSpacesRef.current.add(spaceId);
+    // Read through the live ref for the same reason: whichever of the two callers arrives second
+    // closed over the space list as it stood before any of this.
+    const { spaces, ws: open } = liveRef.current;
+    const remaining = spaces.filter((w) => w.id !== spaceId);
+    setWorkspaces(remaining);
+    if (spaceId !== open) return;
+    // The space being watched is the one that went: land on another, or on the empty shell when
+    // there is none left. `loadSpace("")` clears every screen rather than leaving the last space's
+    // channels under a rail that no longer offers it.
+    setSwitchingSpace(true);
+    await loadSpace(remaining[0]?.id ?? "");
+    setSwitchingSpace(false);
+  };
+
+  // Same reason as `notifyRef`: filled here, after the declaration it points at, so the real-time
+  // handler drops the space from the list as it stands now and not as it stood at connection time.
+  useEffect(() => {
+    dropSpaceRef.current = (spaceId: string) => void dropWorkspace(spaceId);
+  });
+
+  /** Leave the space on screen, from the confirmation dialog. */
+  const leaveWorkspace = async (spaceId: string) => {
+    const name = workspaces.find((w) => w.id === spaceId)?.name;
+    setSpaceBusy(true);
+    try {
+      await apiLeaveSpace(spaceId);
+    } catch (err) {
+      setSpaceBusy(false);
+      // The one refusal worth its own sentence: a last owner is not being denied, they are being
+      // asked to decide what happens to everyone else's work first.
+      showToast({
+        tone: "danger",
+        title: t("toast.leaveSpaceFailed"),
+        description: isApiError(err, 409) ? t("space.leaveLastOwner") : t("common.tryAgain"),
+      });
+      return;
+    }
+    setSpaceBusy(false);
+    setModal(null);
+    await dropWorkspace(spaceId);
+    showToast({ tone: "info", title: t("toast.spaceLeft"), description: name });
+  };
+
+  /** Delete the space on screen, from the confirmation dialog. Owner only, and final. */
+  const deleteWorkspace = async (spaceId: string) => {
+    const name = workspaces.find((w) => w.id === spaceId)?.name;
+    setSpaceBusy(true);
+    try {
+      await apiDeleteSpace(spaceId);
+    } catch {
+      setSpaceBusy(false);
+      showToast({ tone: "danger", title: t("toast.deleteSpaceFailed"), description: t("common.tryAgain") });
+      return;
+    }
+    setSpaceBusy(false);
+    setModal(null);
+    await dropWorkspace(spaceId);
+    showToast({ tone: "info", title: t("toast.spaceDeleted"), description: name });
+  };
+
   /** Switch to another space and load it. */
   const switchWorkspace = async (id: string) => {
     if (id === ws) return;
@@ -2615,7 +2749,7 @@ function AppShell() {
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
         onOpenNotifPrefs={() => openPreferences("notifications")}
-        onLogout={handleLogout}
+        onLeaveSpace={() => setModal("leaveSpace")}
         openNotifications={deepLinkPop === "notifications"}
       />
   );
@@ -2706,6 +2840,11 @@ function AppShell() {
           compact={compact}
           onInvite={() => setModal("invite")}
           onNotify={showToast}
+          // Deleting is the owner's alone, which is also what the API enforces: an admin runs the
+          // space, they do not get to end it.
+          canDelete={currentWorkspace?.role === "owner"}
+          onDelete={() => setModal("deleteSpace")}
+          onLeave={() => setModal("leaveSpace")}
         />
       ) : null}
       {view === "threads" ? <ActivityView kind="threads" items={threads} onOpen={openMessage} /> : null}
@@ -2765,6 +2904,22 @@ function AppShell() {
         />
       ) : null}
       {modal === "newWorkspace" ? <NewWorkspaceDialog onClose={() => setModal(null)} onCreate={createWorkspace} /> : null}
+      {modal === "leaveSpace" && currentWorkspace ? (
+        <LeaveSpaceDialog
+          name={currentWorkspace.name}
+          busy={spaceBusy}
+          onClose={() => setModal(null)}
+          onConfirm={() => void leaveWorkspace(currentWorkspace.id)}
+        />
+      ) : null}
+      {modal === "deleteSpace" && currentWorkspace ? (
+        <DeleteSpaceDialog
+          name={currentWorkspace.name}
+          busy={spaceBusy}
+          onClose={() => setModal(null)}
+          onConfirm={() => void deleteWorkspace(currentWorkspace.id)}
+        />
+      ) : null}
       {modal === "help" ? (
         <HelpDialog
           onClose={() => setModal(null)}
@@ -2945,7 +3100,7 @@ function AppShell() {
                 onToggleNotifRead={setNotifRead}
                 onMarkAllNotifsRead={markAllNotifsRead}
                 onOpenNotifPrefs={() => openPreferences("notifications")}
-                onLogout={handleLogout}
+                onLeaveSpace={() => setModal("leaveSpace")}
                 />
               </main>
             )}

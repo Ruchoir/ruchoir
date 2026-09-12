@@ -270,7 +270,11 @@ export type SidebarProps = {
   onToggleNotifRead: (id: string, read: boolean) => void;
   onMarkAllNotifsRead: () => void;
   onOpenNotifPrefs: () => void;
-  onLogout: () => void;
+  /**
+   * Leave the space on screen. This menu sits under the space's name, so its last entry acts on the
+   * space: it used to be "sign out", which ended the whole session from a menu about one space.
+   */
+  onLeaveSpace: () => void;
   /** Compact (mobile) mode: full width, no wordmark/header/search (the mobile top bar owns those). */
   compact?: boolean;
   /** Render only one section, for the compact bottom-tab panels. Omit for the full desktop column. */
@@ -308,7 +312,7 @@ export function Sidebar({
   onToggleNotifRead,
   onMarkAllNotifsRead,
   onOpenNotifPrefs,
-  onLogout,
+  onLeaveSpace,
   compact = false,
   only,
   openNotifications = false,
@@ -396,7 +400,7 @@ export function Sidebar({
                 { icon: "settings", label: t("sidebar.spaceSettings"), onClick: () => onView("settings") },
                 { icon: "hard-drive", label: t("sidebar.spaceFiles"), onClick: () => onView("files") },
                 { type: "separator" },
-                { icon: "log-out", label: t("shell.signOut"), danger: true, onClick: onLogout },
+                { icon: "log-out", label: t("space.leave"), danger: true, onClick: onLeaveSpace },
               ]}
             />
             <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
