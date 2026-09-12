@@ -724,7 +724,11 @@
     "deleteFinal": "C'est immédiat et définitif : rien n'est conservé, rien ne peut être restauré.",
     "deleteConfirm": "Supprimer définitivement",
     "deleteConfirmLabel": "Tapez « {{name}} » pour confirmer",
-    "leaveDesc": "Vous sortez de cet espace. Il continue sans vous, et il faudra une invitation pour y revenir."
+    "leaveDesc": "Vous sortez de cet espace. Il continue sans vous, et il faudra une invitation pour y revenir.",
+    "transferTitle": "Confier l'espace à {{name}} ?",
+    "transferBody": "{{name}} devient propriétaire de {{space}} et peut tout y faire, y compris le supprimer.",
+    "transferStepDown": "Un espace a un seul propriétaire : vous redevenez administrateur, et seul le nouveau propriétaire pourra vous rendre le rôle.",
+    "transferConfirm": "Confier l'espace"
   },
   "prefs": {
     "title": "Préférences",
@@ -821,7 +825,8 @@
     "passkeyCancelled": "Authentification par clé d'accès annulée.",
     "invalidEmail": "Cette adresse ne semble pas valide.",
     "noChannelRights": "Vous n'avez pas les droits sur ce canal.",
-    "nameUnusable": "Ce nom n'est pas utilisable."
+    "nameUnusable": "Ce nom n'est pas utilisable.",
+    "noSpaceRights": "Vous n'avez pas les droits sur cet espace."
   },
   "toast": {
     "noUnread": "Aucune conversation non lue",
@@ -865,7 +870,11 @@
     "leaveSpaceFailed": "Espace non quitté",
     "spaceDeleted": "Espace supprimé",
     "deleteSpaceFailed": "Espace non supprimé",
-    "spaceDeletedElsewhere": "{{name}} a été supprimé"
+    "spaceDeletedElsewhere": "{{name}} a été supprimé",
+    "roleChanged": "Rôle modifié",
+    "roleFailed": "Rôle non modifié",
+    "spaceHandedOver": "Espace confié",
+    "nowOwner": "{{name}} en est désormais propriétaire."
   },
   "boot": {
     "loading": "Chargement",

@@ -90,6 +90,15 @@ act, and deleting, owner only and behind typing the space's name. Both drop the 
 the same path as the `space.removed` frame, so leaving in one tab, or an owner deleting under
 everyone, takes the space off the rail exactly the way pressing the button does.
 
+**A role is held per space, not per account.** The member list in the space settings sets roles
+(`PATCH /spaces/{id}/members/{userId}`), and it offers only what the API would accept: the same rank
+rule, mirrored client-side as politeness rather than as a guard. Two consequences worth remembering.
+The call can change **two** memberships (handing a space over demotes the giver, since a space has
+one owner), so apply every row it returns rather than the one that was asked for. And the caller's
+own role does not live in the roster: it is `Workspace.role`, which is what decides whether the
+space offers its administration at all, so `member.role_changed` for one's own id has to be written
+there too, in whichever space it names, open or not.
+
 **A module-level registry is shared state, so it needs subscribers.** `lib/data/index.ts` holds a few
 values read synchronously rather than threaded through props (the member roster, presence by name).
 Read as a plain variable they go stale in two directions at once: a reader that captures one in a

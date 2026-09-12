@@ -555,6 +555,52 @@ export function DeleteSpaceDialog({
   );
 }
 
+/**
+ * Hand a space over. Confirmed, because it is the one role change that acts on two people: the space
+ * has a single owner, so giving it away is also stepping down, and only the new owner can give it
+ * back.
+ */
+export function TransferOwnershipDialog({
+  spaceName,
+  memberName,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  spaceName: string;
+  memberName: string;
+  busy: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Dialog
+      title={t("space.transferTitle", { name: memberName })}
+      closeLabel={t("common.close")}
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" disabled={busy} onClick={onConfirm}>
+            {busy ? t("common.sending") : t("space.transferConfirm")}
+          </Button>
+        </>
+      }
+    >
+      <p style={{ fontSize: 13, color: "var(--text-body)", margin: 0 }}>
+        {t("space.transferBody", { name: memberName, space: spaceName })}
+      </p>
+      <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
+        {t("space.transferStepDown")}
+      </p>
+    </Dialog>
+  );
+}
+
 /** Help centre: documentation links and the live (customizable) keyboard shortcuts. */
 export function HelpDialog({
   onClose,

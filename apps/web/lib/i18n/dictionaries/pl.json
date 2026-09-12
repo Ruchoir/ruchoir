@@ -756,7 +756,11 @@
     "deleteFinal": "Natychmiast i nieodwracalnie: nic nie zostaje zachowane i niczego nie da się przywrócić.",
     "deleteConfirm": "Usuń bezpowrotnie",
     "deleteConfirmLabel": "Wpisz „{{name}}”, aby potwierdzić",
-    "leaveDesc": "Wychodzisz z tej przestrzeni. Działa dalej bez ciebie, a powrót będzie wymagał zaproszenia."
+    "leaveDesc": "Wychodzisz z tej przestrzeni. Działa dalej bez ciebie, a powrót będzie wymagał zaproszenia.",
+    "transferTitle": "Przekazać przestrzeń osobie {{name}}?",
+    "transferBody": "{{name}} zostaje właścicielem przestrzeni {{space}} i może w niej wszystko, łącznie z jej usunięciem.",
+    "transferStepDown": "Przestrzeń ma jednego właściciela: wracasz do roli administratora, a rolę może ci oddać tylko nowy właściciel.",
+    "transferConfirm": "Przekaż przestrzeń"
   },
   "prefs": {
     "title": "Preferencje",
@@ -853,7 +857,8 @@
     "passkeyCancelled": "Uwierzytelnianie kluczem dostępu anulowane.",
     "invalidEmail": "Ten adres nie wygląda poprawnie.",
     "noChannelRights": "Nie masz uprawnień do tego kanału.",
-    "nameUnusable": "Tej nazwy nie można użyć."
+    "nameUnusable": "Tej nazwy nie można użyć.",
+    "noSpaceRights": "Nie masz uprawnień w tej przestrzeni."
   },
   "toast": {
     "noUnread": "Brak nieprzeczytanych rozmów",
@@ -897,7 +902,11 @@
     "leaveSpaceFailed": "Nie udało się opuścić tej przestrzeni",
     "spaceDeleted": "Przestrzeń usunięta",
     "deleteSpaceFailed": "Nie udało się usunąć tej przestrzeni",
-    "spaceDeletedElsewhere": "{{name}} została usunięta"
+    "spaceDeletedElsewhere": "{{name}} została usunięta",
+    "roleChanged": "Rola zmieniona",
+    "roleFailed": "Nie udało się zmienić roli",
+    "spaceHandedOver": "Przestrzeń przekazana",
+    "nowOwner": "Teraz należy do osoby {{name}}."
   },
   "boot": {
     "loading": "Wczytywanie",

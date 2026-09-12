@@ -724,7 +724,11 @@
     "deleteFinal": "Sofort und endgültig: nichts wird aufbewahrt, nichts lässt sich wiederherstellen.",
     "deleteConfirm": "Endgültig löschen",
     "deleteConfirmLabel": "Tippen Sie „{{name}}“ zur Bestätigung",
-    "leaveDesc": "Sie treten aus diesem Bereich aus. Er läuft ohne Sie weiter, und für eine Rückkehr braucht es eine Einladung."
+    "leaveDesc": "Sie treten aus diesem Bereich aus. Er läuft ohne Sie weiter, und für eine Rückkehr braucht es eine Einladung.",
+    "transferTitle": "Den Bereich an {{name}} übergeben?",
+    "transferBody": "{{name}} wird Eigentümerin oder Eigentümer von {{space}} und darf darin alles, auch ihn löschen.",
+    "transferStepDown": "Ein Bereich hat genau eine Eigentümerin oder einen Eigentümer: Sie sind wieder Administrator, und nur die neue Eigentümerin oder der neue Eigentümer kann die Rolle zurückgeben.",
+    "transferConfirm": "Bereich übergeben"
   },
   "prefs": {
     "title": "Einstellungen",
@@ -821,7 +825,8 @@
     "passkeyCancelled": "Passkey-Anmeldung abgebrochen.",
     "invalidEmail": "Diese Adresse sieht nicht gültig aus.",
     "noChannelRights": "Sie haben keine Rechte für diesen Kanal.",
-    "nameUnusable": "Dieser Name ist nicht verwendbar."
+    "nameUnusable": "Dieser Name ist nicht verwendbar.",
+    "noSpaceRights": "Sie haben keine Rechte in diesem Bereich."
   },
   "toast": {
     "noUnread": "Keine ungelesene Unterhaltung",
@@ -865,7 +870,11 @@
     "leaveSpaceFailed": "Bereich konnte nicht verlassen werden",
     "spaceDeleted": "Bereich gelöscht",
     "deleteSpaceFailed": "Bereich konnte nicht gelöscht werden",
-    "spaceDeletedElsewhere": "{{name}} wurde gelöscht"
+    "spaceDeletedElsewhere": "{{name}} wurde gelöscht",
+    "roleChanged": "Rolle geändert",
+    "roleFailed": "Rolle konnte nicht geändert werden",
+    "spaceHandedOver": "Bereich übergeben",
+    "nowOwner": "{{name}} gehört er jetzt."
   },
   "boot": {
     "loading": "Wird geladen",

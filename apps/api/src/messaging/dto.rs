@@ -288,6 +288,28 @@ pub struct MemberLeftDto {
     pub user_id: Uuid,
 }
 
+/// Change what a member is allowed to do in a space.
+///
+/// One of `owner`, `admin`, `member`, `guest`. Setting `owner` is a transfer rather than a
+/// promotion: a space has one owner, so the one who hands it over becomes an `admin` in the same
+/// write.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct UpdateMemberRoleRequest {
+    pub role: String,
+}
+
+/// A membership whose role changed, returned by the call and pushed in real time.
+///
+/// A transfer produces two of these (the new owner and the former one), which is why the endpoint
+/// answers with a list rather than with the one member it was addressed at: the caller has to be
+/// able to draw both, and so does everyone watching.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct MemberRoleChangedDto {
+    pub space_id: Uuid,
+    pub user_id: Uuid,
+    pub role: String,
+}
+
 /// A space that stopped being the recipient's, pushed in real time.
 ///
 /// `deleted` separates the two ways that happens: the space is gone for everyone, or the recipient

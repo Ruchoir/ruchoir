@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useRef, useState, useSyncExternalStore } from "react";
-import { Avatar, Button, Card, Field, Icon, type IconName, Input, Tag } from "@/components/ds";
+import { Avatar, Button, Card, Field, Icon, type IconName, Input, Select, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setSpaceIcon } from "@/lib/data/api";
@@ -94,6 +94,32 @@ function SettingRow({ title, desc, children }: { title: string; desc?: string; c
   );
 }
 
+/**
+ * The roles a membership can hold, weakest first. The same order the API ranks them in, mirrored
+ * here for one reason: to offer only what it would accept. It is not the guard, it is the
+ * politeness. The API refuses the rest whatever this list says.
+ */
+const ROLES = ["guest", "member", "admin", "owner"];
+
+/** Where a role sits in {@link ROLES}; an unknown one ranks lowest and can authorise nothing. */
+function roleRank(role: string): number {
+  return ROLES.indexOf(role) + 1;
+}
+
+/**
+ * The roles `mine` may give to someone currently holding `theirs`, or an empty list when they may
+ * not touch that membership at all.
+ *
+ * One rule, the API's: you may only act on someone ranked below you, and only hand out a rank below
+ * your own. The exception is the owner handing the space over, which is the one way `owner` is ever
+ * given, and costs the giver the role in the same write.
+ */
+function grantableRoles(mine: string, theirs: string): string[] {
+  if (roleRank(theirs) >= roleRank(mine)) return [];
+  const below = ROLES.filter((role) => roleRank(role) < roleRank(mine));
+  return mine === "owner" ? [...below, "owner"] : below;
+}
+
 /** The space roles the API uses, as dictionary keys. */
 const ROLE_LABEL: Record<string, TranslationKey> = {
   owner: key("role.owner"),
@@ -111,7 +137,22 @@ export type WorkspaceSettingsProps = {
   /** Whether the caller may change the icon or the name. The API is the real guard; this hides a
    * dead control. */
   canAdminister: boolean;
-  members: { name: string; presence: Presence; role: string; title?: string; bot: boolean }[];
+  members: {
+    /** Needed to address the membership: a role is changed by id, never by display name. */
+    userId: string;
+    name: string;
+    presence: Presence;
+    role: string;
+    title?: string;
+    bot: boolean;
+  }[];
+  /** The caller's own role in this space, which decides which roles they may hand out. */
+  myRole: string;
+  /**
+   * Change a member's role. Carries the member rather than the id alone, because handing the space
+   * over is confirmed by name and the caller should not have to look it up again.
+   */
+  onChangeRole: (member: { userId: string; name: string }, role: string) => void;
   onInvite: () => void;
   /**
    * The icon changed. The rail reads the space list, not this screen's state, so without this the
@@ -144,6 +185,8 @@ export function WorkspaceSettings({
   iconUrl,
   canAdminister,
   members,
+  myRole,
+  onChangeRole,
   onInvite,
   onIconChanged,
   onRenamed,
@@ -388,7 +431,7 @@ export function WorkspaceSettings({
                   const guest = m.role === "guest";
                   return (
                     <div
-                      key={m.name}
+                      key={m.userId}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -398,19 +441,45 @@ export function WorkspaceSettings({
                       }}
                     >
                       <Avatar name={m.name} src={getAvatar(m.name)} size={28} presence={m.presence} shape={guest ? "round" : "square"} />
-                      <span style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
-                        {/* Their job title when they have set one. The address used to be shown here,
-                            invented from the first name and a domain nobody owns. */}
-                        {m.title ? <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{m.title}</div> : null}
+                      {/* Identity on the left, tags with it: what someone *is* belongs next to their
+                          name. Left where they were, at the edge of the role column, "Bot" read as a
+                          role rather than as a kind of account. */}
+                      <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
+                          {/* Their job title when they have set one. The address used to be shown here,
+                              invented from the first name and a domain nobody owns. */}
+                          {m.title ? <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{m.title}</div> : null}
+                        </span>
+                        {m.bot ? <Tag>{t("sidebar.bot")}</Tag> : null}
+                        {guest ? <Tag tone="warning">{t("space.external")}</Tag> : null}
                       </span>
-                      {m.bot ? <Tag>{t("sidebar.bot")}</Tag> : null}
-                      {guest ? <Tag tone="warning">{t("space.external")}</Tag> : null}
-                      {/* Read, not set: changing someone's role needs rules that do not exist yet, and
-                          a select that reported success without moving anything is worse than none. */}
-                      <span style={{ fontSize: 12, color: "var(--text-muted)", width: 130, textAlign: "right" }}>
-                        {t(role)}
-                      </span>
+                      {/* One slot for the role, the height of the control it may hold. Fixed, because
+                          a select is taller than a line of text: rows that held one and rows that
+                          held the other did not have the same height, and the list breathed unevenly
+                          down the card. */}
+                      <div style={{ width: 130, height: 28, flex: "none", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                        {/* A bot has no role: nobody promotes a piece of software, and the "Bot" tag
+                            next to its name already says what it is. Settable for everyone this
+                            caller outranks; a plain reading for the rest, their own row included. */}
+                        {m.bot ? null : grantableRoles(myRole, m.role).length > 0 ? (
+                          // The width lives on the wrapper, not on the control: a `.wc-sel` is
+                          // `width: 100%` by design, so a width passed to it reaches the inner
+                          // `<select>` and the shell still eats the row, name and all.
+                          <Select
+                            size="sm"
+                            aria-label={t("channel.roleOf", { name: m.name })}
+                            value={m.role}
+                            onChange={(e) => onChangeRole({ userId: m.userId, name: m.name }, e.target.value)}
+                            options={grantableRoles(myRole, m.role).map((value) => ({
+                              value,
+                              label: t(ROLE_LABEL[value] ?? key("role.member")),
+                            }))}
+                          />
+                        ) : (
+                          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(role)}</span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
