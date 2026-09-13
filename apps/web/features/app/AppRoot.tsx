@@ -2419,6 +2419,15 @@ function AppShell() {
     ["owner", "admin"].includes(currentWorkspace?.role ?? "") ? "owner" : "member";
 
   /**
+   * Whether the caller may moderate channels here at all.
+   *
+   * False for a guest, whatever role they hold *inside* a channel: someone who opened a channel and
+   * was later made a guest kept an owner row in it, and the menu went on offering them the controls
+   * the API had just stopped accepting. The space role is the outer boundary.
+   */
+  const canModerateChannels = currentWorkspace?.role !== "guest";
+
+  /**
    * Take a space off the rail, whether the caller walked out of it or it was deleted under them.
    *
    * Shared by the two handlers below and by the real-time event, which is what makes a second tab
@@ -2979,6 +2988,7 @@ function AppShell() {
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
           myRole={currentWorkspace?.role ?? "member"}
           myChannelRole={myChannelRole(channelId)}
+          canModerateChannels={canModerateChannels}
           myUserId={session?.id ?? ""}
           onLeaveChannel={() => leaveChannel(channelId)}
           onJoinChannel={() => joinChannel(channelId)}
@@ -3200,7 +3210,7 @@ function AppShell() {
           onUpdate={(patch) => updateChannel(channelSettingsId, patch)}
           onNotify={showToast}
           myRole={currentWorkspace?.role ?? "member"}
-          myChannelRole={myChannelRole(channelSettingsId)}
+          myChannelRole={canModerateChannels ? myChannelRole(channelSettingsId) : "member"}
         />
       ) : null}
 

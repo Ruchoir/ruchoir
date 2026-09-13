@@ -84,6 +84,10 @@ context and takes precedence here.
   the same as deciding who else is, and anyone who had walked into a public one could put anybody in
   it, an external guest included. It takes `is_channel_moderator`, like every other act of
   moderation.
+  **A guest moderates nothing**, whatever a channel's own table says: someone who opened a channel
+  and was later made a guest kept an `owner` row in it, and with it the right to add and remove
+  people in a space they are only visiting. The space role is the outer boundary, and a demotion
+  takes back what the old one opened, here as everywhere else.
   **A channel has its own shorter ladder** (`member` < `admin` < `owner`, no guests: being in a
   channel is already the explicit thing a guest is given). `PATCH`/`DELETE
   /channels/{id}/members/{user_id}` set a role and take someone out, under the rule the space roles

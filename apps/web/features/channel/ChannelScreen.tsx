@@ -230,6 +230,8 @@ export type ChannelScreenProps = {
   myChannelRole: string;
   /** The caller's own user id, to find their row in the channel's roster. */
   myUserId: string;
+  /** False for a guest, who moderates nothing here whatever a channel's own roster says. */
+  canModerateChannels: boolean;
   onLeaveChannel: () => void;
   /** Rejoin this channel after leaving it (public channels only). */
   onJoinChannel: () => void;
@@ -309,6 +311,7 @@ export function ChannelScreen({
   myRole,
   myChannelRole,
   myUserId,
+  canModerateChannels,
   onLeaveChannel,
   onJoinChannel,
   notifPref,
@@ -393,7 +396,8 @@ export function ChannelScreen({
       : roster?.channelId === channel.id
         ? (roster.myRole ?? myChannelRole)
         : myChannelRole;
-  const canModerate = effectiveChannelRole === "owner" || effectiveChannelRole === "admin";
+  const canModerate =
+    canModerateChannels && (effectiveChannelRole === "owner" || effectiveChannelRole === "admin");
   const inChannel = (name: string) => channelRoster === null || channelRoster.includes(name);
   const memberList: ChannelMember[] = members
     .filter((m) => isDm || inChannel(m.name))
@@ -770,7 +774,7 @@ export function ChannelScreen({
           onUpdate={onUpdateChannel}
           onNotify={onNotify}
           myRole={myRole}
-          myChannelRole={effectiveChannelRole}
+          myChannelRole={canModerate ? effectiveChannelRole : "member"}
         />
       ) : null}
       {menuDialog === "notifications" ? (

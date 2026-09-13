@@ -244,11 +244,14 @@ pub async fn effective_channel_rank(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<usize, ApiError> {
-    if matches!(
-        space_role(db, space_id, user_id).await?.as_deref(),
-        Some("owner") | Some("admin")
-    ) {
-        return Ok(channel_role_rank("owner"));
+    match space_role(db, space_id, user_id).await?.as_deref() {
+        Some("owner") | Some("admin") => return Ok(channel_role_rank("owner")),
+        // A guest moderates nothing, whatever the channel's own table says. Someone who opened a
+        // channel and was later made a guest kept an `owner` row in it, and with it the right to
+        // add and remove people in a space they are only visiting: the space role is the outer
+        // boundary, and a demotion takes back what the old one opened.
+        Some("guest") => return Ok(0),
+        _ => {}
     }
     Ok(channel_members::Entity::find_by_id((channel_id, user_id))
         .one(db)
@@ -265,6 +268,11 @@ pub async fn is_channel_moderator(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<bool, ApiError> {
+    // Same reason as in [`effective_channel_rank`]: a guest is in the space to take part, not to
+    // run part of it, and a channel role they held before being demoted does not survive that.
+    if is_guest(db, space_id, user_id).await? {
+        return Ok(false);
+    }
     if let Some(member) = channel_members::Entity::find_by_id((channel_id, user_id))
         .one(db)
         .await?

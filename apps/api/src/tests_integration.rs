@@ -3169,3 +3169,77 @@ async fn a_demoted_member_loses_the_space_in_the_same_breath() {
         .collect();
     assert_eq!(names, vec!["general"]);
 }
+
+#[tokio::test]
+async fn a_demotion_takes_back_a_channel_role_too() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+
+    // Alice opens a channel, so she owns it, and may run it.
+    let channel: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": format!("atelier-{}", Uuid::new_v4().simple()), "type": "public" }))
+        .send()
+        .await
+        .expect("create")
+        .json()
+        .await
+        .expect("json");
+    let channel_id = channel["id"].as_str().expect("id").to_owned();
+    assert_eq!(
+        status_of_json(
+            &app,
+            reqwest::Method::POST,
+            &format!("/api/v1/channels/{channel_id}/members"),
+            &alice,
+            json!({ "user_ids": [fx.bob] })
+        )
+        .await,
+        200
+    );
+
+    // Made a guest of the space, she keeps the channel she is in and loses the running of it: the
+    // `owner` row in that channel does not survive the demotion, or a visitor would go on
+    // administering a room in a space that is no longer theirs.
+    make_guest(&app.db, fx.space_id, fx.alice).await;
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice
+        )
+        .await,
+        200,
+        "she was put in it, so it stays hers to read"
+    );
+    for (method, path, body) in [
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/channels/{channel_id}/members"),
+            Some(json!({ "user_ids": [fx.carol] })),
+        ),
+        (
+            reqwest::Method::DELETE,
+            format!("/api/v1/channels/{channel_id}/members/{}", fx.bob),
+            None,
+        ),
+        (
+            reqwest::Method::PATCH,
+            format!("/api/v1/channels/{channel_id}"),
+            Some(json!({ "name": "repris" })),
+        ),
+    ] {
+        let status = match body {
+            Some(json) => status_of_json(&app, method.clone(), &path, &alice, json).await,
+            None => status_of(&app, method.clone(), &path, &alice).await,
+        };
+        assert_eq!(status, 403, "a guest moderates nothing: {method} {path}");
+    }
+}
