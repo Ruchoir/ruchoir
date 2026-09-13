@@ -960,7 +960,7 @@
     "channels": "Kanäle",
     "directs": "Direktunterhaltungen",
     "changeArchive": "Anderes Archiv wählen",
-    "limitsIntro": "Vom Ursprungswerkzeug selbst genannt, vor dem Import und vollständig. Was nicht auf dieser Liste steht, kommt mit.",
+    "limitsIntro": "Was das Ursprungswerkzeug selbst nicht exportieren kann, vor dem Import und vollständig, in seiner Sprache. Alles, was nicht auf dieser Liste steht, kommt mit.",
     "nothingLeftBehind": "Dieser Export nennt keine Verluste.",
     "accountsNote": "Personen werden an ihrer Adresse erkannt, nie am angezeigten Namen.",
     "withoutAddressNote": "Diese Personen kommen in ihren Unterhaltungen an, können aber nicht per E-Mail eingeladen werden. Geben Sie ihnen eine Adresse oder einen Link.",
@@ -972,6 +972,12 @@
     "importAnother": "Weiteren Export übernehmen",
     "backToSpaces": "Bereiche ansehen",
     "planError": "Dieses Archiv konnte nicht gelesen werden",
-    "emptyHint": "Legen Sie den Export auf den Server, nennen Sie ihn oben, und sehen Sie nach, was ankäme, bevor etwas geschrieben wird."
+    "emptyHint": "Legen Sie den Export auf den Server, nennen Sie ihn oben, und sehen Sie nach, was ankäme, bevor etwas geschrieben wird.",
+    "stopping": "Wird angehalten",
+    "etaMinutes": "noch etwa {{count}} Min.",
+    "etaSeconds": "weniger als eine Minute",
+    "etaUnknown": "Dauer wird geschätzt",
+    "rate": "{{count}} pro Sekunde",
+    "close": "Diesen Bildschirm schließen"
   }
 }

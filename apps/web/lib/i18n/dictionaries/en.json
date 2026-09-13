@@ -960,7 +960,7 @@
     "channels": "channels",
     "directs": "direct conversations",
     "changeArchive": "Choose another archive",
-    "limitsIntro": "Said by the original tool itself, before the import and in full. Anything not on this list crosses.",
+    "limitsIntro": "What the original tool says itself it cannot export, before the import and in full, in its own language. Anything not on this list crosses.",
     "nothingLeftBehind": "This export declares no losses.",
     "accountsNote": "People are recognised by their address, never by their display name.",
     "withoutAddressNote": "These people arrive in their conversations but cannot be invited by email. Give them an address, or hand them a link.",
@@ -972,6 +972,12 @@
     "importAnother": "Bring over another export",
     "backToSpaces": "See the spaces",
     "planError": "This archive could not be read",
-    "emptyHint": "Put the export on the server, name it above, and look at what would arrive before anything is written."
+    "emptyHint": "Put the export on the server, name it above, and look at what would arrive before anything is written.",
+    "stopping": "Stopping",
+    "etaMinutes": "about {{count}} min left",
+    "etaSeconds": "less than a minute",
+    "etaUnknown": "working out how long",
+    "rate": "{{count}} per second",
+    "close": "Close this screen"
   }
 }

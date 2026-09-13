@@ -992,7 +992,7 @@
     "channels": "kanały",
     "directs": "rozmowy bezpośrednie",
     "changeArchive": "Wybierz inne archiwum",
-    "limitsIntro": "Powiedziane przez samo narzędzie źródłowe, przed importem i w całości. To, czego nie ma na tej liście, przechodzi.",
+    "limitsIntro": "To, czego narzędzie źródłowe samo nie potrafi wyeksportować, przed importem i w całości, w swoim języku. Wszystko, czego nie ma na tej liście, przechodzi.",
     "nothingLeftBehind": "Ten eksport nie zgłasza żadnych strat.",
     "accountsNote": "Osoby rozpoznawane są po adresie, nigdy po nazwie wyświetlanej.",
     "withoutAddressNote": "Te osoby trafią do swoich rozmów, ale nie da się ich zaprosić mailem. Podaj im adres albo przekaż odnośnik.",
@@ -1004,6 +1004,12 @@
     "importAnother": "Przenieś kolejny eksport",
     "backToSpaces": "Zobacz przestrzenie",
     "planError": "Nie udało się odczytać tego archiwum",
-    "emptyHint": "Umieść eksport na serwerze, nazwij go powyżej i zobacz, co by trafiło, zanim cokolwiek zostanie zapisane."
+    "emptyHint": "Umieść eksport na serwerze, nazwij go powyżej i zobacz, co by trafiło, zanim cokolwiek zostanie zapisane.",
+    "stopping": "Zatrzymywanie",
+    "etaMinutes": "zostało około {{count}} min",
+    "etaSeconds": "mniej niż minuta",
+    "etaUnknown": "szacowanie czasu",
+    "rate": "{{count}} na sekundę",
+    "close": "Zamknij ten ekran"
   }
 }

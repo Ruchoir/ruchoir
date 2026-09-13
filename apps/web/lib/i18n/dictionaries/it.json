@@ -976,7 +976,7 @@
     "channels": "canali",
     "directs": "conversazioni dirette",
     "changeArchive": "Scegli un altro archivio",
-    "limitsIntro": "Detto dallo strumento di origine, prima dell'importazione e per intero. Ciò che non è in questo elenco passa.",
+    "limitsIntro": "Ciò che lo strumento di origine dice di non saper esportare, prima dell'importazione e per intero, nella sua lingua. Tutto ciò che non è in questo elenco passa.",
     "nothingLeftBehind": "Questa esportazione non dichiara alcuna perdita.",
     "accountsNote": "Le persone sono riconosciute dal loro indirizzo, mai dal nome visualizzato.",
     "withoutAddressNote": "Queste persone arrivano nelle loro conversazioni ma non possono essere invitate via email. Dai loro un indirizzo, o un collegamento.",
@@ -988,6 +988,12 @@
     "importAnother": "Portare un'altra esportazione",
     "backToSpaces": "Vedi gli spazi",
     "planError": "Non è stato possibile leggere questo archivio",
-    "emptyHint": "Metti l'esportazione sul server, nominala qui sopra e guarda cosa arriverebbe prima di scrivere qualsiasi cosa."
+    "emptyHint": "Metti l'esportazione sul server, nominala qui sopra e guarda cosa arriverebbe prima di scrivere qualsiasi cosa.",
+    "stopping": "Arresto in corso",
+    "etaMinutes": "circa {{count}} min rimasti",
+    "etaSeconds": "meno di un minuto",
+    "etaUnknown": "stima in corso",
+    "rate": "{{count}} al secondo",
+    "close": "Chiudi questa schermata"
   }
 }

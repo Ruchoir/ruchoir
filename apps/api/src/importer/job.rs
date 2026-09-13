@@ -119,10 +119,12 @@ async fn run_passes<S: BlobSink>(
         .as_ref()
         .map(|manifest| manifest.source.clone())
         .unwrap_or_default();
-    let mapper = Mapper {
-        job_id,
-        source: &source,
-    };
+    let mapper = Mapper::new(job_id, &source);
+    // Read once, in one query, rather than asked for a row at a time by every pass that follows.
+    let known = mapper.preload(db).await?;
+    if known > 0 {
+        tracing::info!(known, "resuming: correspondences from an earlier run are already here");
+    }
 
     let mut totals = import_jobs::Entity::find_by_id(job_id)
         .one(db)
@@ -164,6 +166,14 @@ async fn run_passes<S: BlobSink>(
     if written.cancelled {
         // Stopped on purpose, and everything written stays. Running the same archive again picks
         // up where this left off, because that is the same mechanism as resuming.
+        //
+        // The reading positions are laid down before leaving, even though the pass that normally
+        // does it is further down: without this, everything imported so far arrives unread, and
+        // somebody who stopped an import at eighty per cent is handed a workspace with thousands
+        // of unread messages in conversations they had already read years ago.
+        let positions = run::import_read_positions(db, &mapper, &index, &resolved).await?;
+        written.read_positions = positions.read_positions;
+        note_progress(db, job_id, &written).await?;
         run::finish_job(db, job_id, "cancelled").await?;
         return Ok(Outcome {
             written,

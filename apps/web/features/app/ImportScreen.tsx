@@ -1,5 +1,6 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { Button, Card, Checkbox, Field, Icon, Input, Tag } from "@/components/ds";
+import { Button, Card, Checkbox, Field, Icon, IconButton, Input, Tag } from "@/components/ds";
+import { formatNumber } from "@/lib/i18n/format";
 import { key, useTranslation } from "@/lib/i18n";
 import {
   cancelImport,
@@ -38,6 +39,9 @@ const st: Record<string, CSSProperties> = {
     padding: "0 16px",
     margin: 0,
     borderBottom: "1px solid var(--border-subtle)",
+  },
+  title: {
+    margin: 0,
     fontSize: 15,
     fontWeight: 600,
     letterSpacing: "var(--tracking-tight)",
@@ -169,8 +173,18 @@ export function ImportScreen({
   const [job, setJob] = useState<ImportJob | null>(null);
   const [busy, setBusy] = useState(false);
   const [replace, setReplace] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [typedAddress, setTypedAddress] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * The first reading of this run, kept so the remaining time is worked out from how fast it is
+   * actually going rather than from an average that includes the minute before anything started:
+   * the archive is read, checked, and its accounts and conversations written before a single
+   * message lands, and folding that silence in would promise an hour on a ten minute job.
+   */
+  const [pace, setPace] = useState<{ at: number; done: number } | null>(null);
+  /** How long is left, in words. Worked out when a reading arrives, never during a render. */
+  const [eta, setEta] = useState<string | null>(null);
 
   const fail = useCallback(
     (error: unknown) => {
@@ -185,12 +199,35 @@ export function ImportScreen({
   useEffect(() => {
     if (!job || (job.status !== "running" && job.status !== "cancelling")) return;
     timer.current = setTimeout(() => {
-      getImport(job.id).then(setJob).catch(fail);
+      getImport(job.id)
+        .then((next) => {
+          setJob(next);
+          const now = Date.now();
+          const from = pace ?? (next.messagesDone > 0 ? { at: now, done: next.messagesDone } : null);
+          if (!pace && from) setPace(from);
+          if (!from || next.messagesTotal === 0) return;
+          const elapsed = (now - from.at) / 1000;
+          const written = next.messagesDone - from.done;
+          // Four seconds and one message before saying anything: an estimate drawn from a single
+          // reading is a number invented, and a wrong one is worse than none.
+          if (elapsed <= 4 || written <= 0) {
+            setEta(t(key("import.etaUnknown")));
+            return;
+          }
+          const perSecond = written / elapsed;
+          const left = Math.max(0, next.messagesTotal - next.messagesDone) / perSecond;
+          const words =
+            left < 60
+              ? t(key("import.etaSeconds"))
+              : t(key("import.etaMinutes"), { count: Math.round(left / 60) });
+          setEta(`${words} · ${t(key("import.rate"), { count: Math.round(perSecond) })}`);
+        })
+        .catch(fail);
     }, POLL_MS);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [job, fail]);
+  }, [job, fail, pace, t]);
 
   const look = async () => {
     setBusy(true);
@@ -222,14 +259,22 @@ export function ImportScreen({
 
   const stop = async () => {
     if (!job) return;
+    // Said at the moment of the click. Stopping is not instant: the run leaves at the end of the
+    // conversation it is in, which on a large archive is seconds away, and a button that stays
+    // pressable meanwhile reads as one that did nothing.
+    setStopping(true);
     try {
       setJob(await cancelImport(job.id));
     } catch (error) {
+      setStopping(false);
       fail(error);
     }
   };
 
   const startOver = () => {
+    setPace(null);
+    setEta(null);
+    setStopping(false);
     setJob(null);
     setPlan(null);
     setPlanError(null);
@@ -238,15 +283,24 @@ export function ImportScreen({
   };
 
   const running = job?.status === "running" || job?.status === "cancelling";
+
   const dying = plan?.replacingWouldDestroy;
   const step: 1 | 2 | 3 = job ? 3 : plan ? 2 : 1;
 
   return (
     <div style={st.shell}>
-      <h1 style={st.top}>
+      <div style={st.top}>
         <Icon name="import" size={15} style={{ color: "var(--text-muted)" }} />
-        {t(key("import.screenTitle"))}
-      </h1>
+        <h1 style={st.title}>{t(key("import.screenTitle"))}</h1>
+        {/* Always here, including while a run is going: the run continues without this screen, and
+            the sentence saying so was true of a screen that could not be left. */}
+        <IconButton
+          icon="x"
+          label={t(key("import.close"))}
+          onClick={onClose}
+          style={{ marginLeft: "auto" }}
+        />
+      </div>
 
       <div style={st.body}>
         <div style={st.page}>
@@ -291,7 +345,7 @@ export function ImportScreen({
                 </Field>
               </div>
               <div style={{ marginTop: 16 }}>
-                <Button variant="primary" iconLeft="search" onClick={look} disabled={!file.trim() || busy}>
+                <Button variant="primary" iconLeft="search" onClick={look} loading={busy} disabled={!file.trim()}>
                   {t(key("import.look"))}
                 </Button>
               </div>
@@ -322,7 +376,7 @@ export function ImportScreen({
                     [plan.files, t(key("import.files"))],
                   ].map(([n, label]) => (
                     <div key={String(label)}>
-                      <div style={st.figure}>{n}</div>
+                      <div style={st.figure}>{formatNumber(Number(n))}</div>
                       <div style={st.figureLabel}>{label}</div>
                     </div>
                   ))}
@@ -487,7 +541,8 @@ export function ImportScreen({
                   variant="primary"
                   iconLeft="play"
                   onClick={begin}
-                  disabled={busy || (replace && typedAddress.trim() !== instanceAddress)}
+                  loading={busy}
+                  disabled={replace && typedAddress.trim() !== instanceAddress}
                 >
                   {t(key("import.start"))}
                 </Button>
@@ -516,8 +571,10 @@ export function ImportScreen({
                     }
                     icon={job.status === "completed" ? "check" : undefined}
                   >
-                    {running
-                      ? t(key("import.running"))
+                    {job.status === "cancelling" || stopping
+                      ? t(key("import.stopping"))
+                      : running
+                        ? t(key("import.running"))
                       : job.status === "completed"
                         ? t(key("import.doneTitle"))
                         : job.status === "cancelled"
@@ -531,7 +588,12 @@ export function ImportScreen({
                   done={job.channelsDone}
                   total={job.channelsTotal}
                 />
-                <Progress label={t(key("import.messages"))} done={job.messagesDone} total={job.messagesTotal} />
+                <Progress
+                  label={t(key("import.messages"))}
+                  done={job.messagesDone}
+                  total={job.messagesTotal}
+                  aside={running ? eta : undefined}
+                />
                 <Progress label={t(key("import.files"))} done={job.filesDone} total={job.filesTotal} />
               </Card>
 
@@ -543,8 +605,8 @@ export function ImportScreen({
 
               <div style={st.actions}>
                 {running ? (
-                  <Button iconLeft="x" onClick={stop}>
-                    {t(key("import.cancel"))}
+                  <Button iconLeft="x" onClick={stop} loading={stopping}>
+                    {stopping ? t(key("import.stopping")) : t(key("import.cancel"))}
                   </Button>
                 ) : (
                   <>
@@ -565,13 +627,6 @@ export function ImportScreen({
             </>
           ) : null}
 
-          {step !== 3 ? (
-            <div style={{ marginTop: 32 }}>
-              <Button variant="ghost" onClick={onClose}>
-                {t("common.close")}
-              </Button>
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
@@ -579,7 +634,18 @@ export function ImportScreen({
 }
 
 /** One line of progress. Shows nothing rather than a full bar when there is nothing to do. */
-function Progress({ label, done, total }: { label: string; done: number; total: number }) {
+function Progress({
+  label,
+  done,
+  total,
+  aside,
+}: {
+  label: string;
+  done: number;
+  total: number;
+  /** What else is worth knowing about this line: how fast, and how much longer. */
+  aside?: string | null;
+}) {
   if (total === 0) return null;
   const share = Math.min(100, Math.round((done / total) * 100));
   return (
@@ -587,9 +653,10 @@ function Progress({ label, done, total }: { label: string; done: number; total: 
       <div style={st.row}>
         <span>{label}</span>
         <span style={st.rowValue}>
-          {done} / {total}
+          {formatNumber(done)} / {formatNumber(total)}
         </span>
       </div>
+      {aside ? <div style={{ ...st.note, margin: "2px 0 6px" }}>{aside}</div> : null}
       <div style={st.bar}>
         <div style={{ ...st.fill, width: `${share}%` }} />
       </div>

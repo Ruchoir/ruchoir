@@ -148,14 +148,68 @@ pub async fn written_so_far<C: ConnectionTrait>(db: &C, job_id: Uuid, kind: &str
         .await?)
 }
 
+/// What identifies one correspondence: a kind, the space it belongs to (none for the things that
+/// are instance-wide), and the identifier the source spells.
+type Correspondence = (String, Option<Uuid>, String);
+
 /// Looks up what an earlier run already wrote, and records what this one writes.
+///
+/// **Every correspondence for this source is held in memory.** Asking the database each time cost
+/// one query per message, one per author, one per person who reacted and two per reply: on an
+/// archive of a hundred and twenty thousand messages that is well over half a million round trips
+/// spent answering questions whose answers together weigh a few tens of megabytes. The table
+/// remains the truth and every write still goes to it; this is a reader in front of it, filled
+/// once and kept in step by `record`.
 pub struct Mapper<'a> {
     pub job_id: Uuid,
     pub source: &'a str,
+    /// Guarded rather than borrowed mutably: the passes hold the mapper by shared reference while
+    /// awaiting, and the lock is never held across an await.
+    seen: std::sync::Mutex<std::collections::HashMap<Correspondence, Uuid>>,
+    /// Whether the whole table has been read for this source.
+    ///
+    /// Until it has, a miss means nothing and the question goes to the database. Only afterwards
+    /// is an absence here an absence there. Without this distinction a caller that forgot to
+    /// preload would be told, silently and wrongly, that nothing had ever been imported, and would
+    /// import all of it a second time.
+    complete: std::sync::atomic::AtomicBool,
 }
 
-impl Mapper<'_> {
+impl<'a> Mapper<'a> {
+    pub fn new(job_id: Uuid, source: &'a str) -> Self {
+        Self {
+            job_id,
+            source,
+            seen: std::sync::Mutex::new(std::collections::HashMap::new()),
+            complete: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+
+    /// Reads every correspondence this source already has, in one query.
+    ///
+    /// Filtered by source and not by job, deliberately: a second archive cut from the same source
+    /// is the ordinary case, and what makes it cheap is finding the first run's work.
+    pub async fn preload<C: ConnectionTrait>(&self, db: &C) -> Result<usize> {
+        let rows = import_mappings::Entity::find()
+            .filter(import_mappings::Column::Source.eq(self.source))
+            .all(db)
+            .await?;
+        let mut seen = self.seen.lock().expect("mapper cache");
+        for row in rows {
+            seen.insert(
+                (row.kind, row.space_id, row.external_ref),
+                row.internal_id,
+            );
+        }
+        self.complete
+            .store(true, std::sync::atomic::Ordering::Release);
+        Ok(seen.len())
+    }
+
     /// The row an earlier run created for this source identifier, if any.
+    ///
+    /// Answered from memory. `preload` has read the whole table for this source and `record` keeps
+    /// what follows in step, so an absence here is an absence there.
     pub async fn resolve<C: ConnectionTrait>(
         &self,
         db: &C,
@@ -163,6 +217,17 @@ impl Mapper<'_> {
         external_ref: &str,
         space_id: Option<Uuid>,
     ) -> Result<Option<Uuid>> {
+        let want: Correspondence = (kind.to_owned(), space_id, external_ref.to_owned());
+        {
+            let seen = self.seen.lock().expect("mapper cache");
+            if let Some(found) = seen.get(&want) {
+                return Ok(Some(*found));
+            }
+            if self.complete.load(std::sync::atomic::Ordering::Acquire) {
+                return Ok(None);
+            }
+        }
+
         let mut query = import_mappings::Entity::find()
             .filter(import_mappings::Column::Source.eq(self.source))
             .filter(import_mappings::Column::Kind.eq(kind))
@@ -171,7 +236,11 @@ impl Mapper<'_> {
             Some(space) => query.filter(import_mappings::Column::SpaceId.eq(space)),
             None => query.filter(import_mappings::Column::SpaceId.is_null()),
         };
-        Ok(query.one(db).await?.map(|row| row.internal_id))
+        let found = query.one(db).await?.map(|row| row.internal_id);
+        if let Some(id) = found {
+            self.seen.lock().expect("mapper cache").insert(want, id);
+        }
+        Ok(found)
     }
 
     /// Records the correspondence. Called in the same transaction as the row it points at: a
@@ -196,6 +265,15 @@ impl Mapper<'_> {
         }
         .insert(db)
         .await?;
+        // In step with the table, or the next pass would ask for something it just wrote and be
+        // told it does not exist.
+        self.seen
+            .lock()
+            .expect("mapper cache")
+            .insert(
+                (kind.to_owned(), space_id, external_ref.to_owned()),
+                internal_id,
+            );
         Ok(())
     }
 }
@@ -595,6 +673,21 @@ pub async fn cancellation_asked<C: ConnectionTrait>(db: &C, job_id: Uuid) -> Res
 ///
 /// Threads are resolved in a second pass. A reply can appear before its root in the file, and
 /// refusing that would make the import depend on a producer's ordering rather than on the contract.
+/// How often a long pass writes down where it has got to. One small update per this many rows,
+/// which is nothing next to the work between them, and often enough that the bar visibly moves.
+const PROGRESS_EVERY: usize = 200;
+
+/// Writes the running count where the screen can read it.
+async fn note_messages_done<C: ConnectionTrait>(db: &C, job_id: Uuid, done: usize) -> Result<()> {
+    let Some(job) = import_jobs::Entity::find_by_id(job_id).one(db).await? else {
+        return Ok(());
+    };
+    let mut model: import_jobs::ActiveModel = job.into();
+    model.messages_done = Set(done as i32);
+    model.update(db).await?;
+    Ok(())
+}
+
 pub async fn import_messages<C: ConnectionTrait>(
     db: &C,
     mapper: &Mapper<'_>,
@@ -739,7 +832,15 @@ pub async fn import_messages<C: ConnectionTrait>(
         if let Some(root) = &record.thread_root {
             pending.push((record.id.clone(), root.clone()));
         }
+
+        // Said out loud while it happens, not once at the end. The messages pass is the long one:
+        // on a real migration it runs for many minutes, and a bar that sits at zero throughout is
+        // indistinguishable from one that has crashed.
+        if written.messages_created % PROGRESS_EVERY == 0 {
+            note_messages_done(db, mapper.job_id, written.messages_created).await?;
+        }
     }
+    note_messages_done(db, mapper.job_id, written.messages_created).await?;
 
     attach_threads(db, mapper, &pending, spaces_by_source, &conversation_of).await?;
     Ok(written)

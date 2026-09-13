@@ -616,6 +616,31 @@
   border-radius: var(--radius-sm);
   padding: 0 4px;
 }
+/* A turning ring, for a control that is working. Drawn rather than imported: one element, one
+   border, no glyph to load. It borrows the colour of whatever it sits in, so it is legible on a
+   primary button and on a quiet one. */
+.wc-spinner {
+  display: inline-block;
+  flex: none;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.75;
+  animation: wc-spin 620ms linear infinite;
+}
+@keyframes wc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Somebody who asked for less motion still needs to know the thing is working, so the ring stays
+   and stops turning: a broken circle is not a full one. */
+@media (prefers-reduced-motion: reduce) {
+  .wc-spinner {
+    animation: none;
+  }
+}
+
 /* A card you can press to take the other road out of a dialog. Quiet until the cursor is on it,
    because it is the alternative rather than the thing the dialog is for. */
 .wc-choice {

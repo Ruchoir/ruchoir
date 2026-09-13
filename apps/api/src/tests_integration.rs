@@ -3729,10 +3729,7 @@ async fn an_unknown_account_arrives_waiting_for_its_person() {
     let job = run::start_job(&app.db, "mattermost", fx.alice, None)
         .await
         .expect("job");
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let written = run::import_accounts(&app.db, &mapper, &plan)
         .await
         .expect("accounts");
@@ -3773,10 +3770,7 @@ async fn an_address_already_here_is_the_same_person_and_is_left_alone() {
     let job = run::start_job(&app.db, "mattermost", fx.alice, None)
         .await
         .expect("job");
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let written = run::import_accounts(&app.db, &mapper, &plan)
         .await
         .expect("accounts");
@@ -3815,10 +3809,7 @@ async fn an_account_with_no_address_still_arrives_and_can_be_told_apart() {
     let job = run::start_job(&app.db, "mattermost", fx.alice, None)
         .await
         .expect("job");
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let written = run::import_accounts(&app.db, &mapper, &plan)
         .await
         .expect("accounts");
@@ -3855,10 +3846,7 @@ async fn running_the_same_import_twice_creates_nothing_twice() {
     let job = run::start_job(&app.db, "mattermost", fx.alice, None)
         .await
         .expect("job");
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
 
     let first_accounts = run::import_accounts(&app.db, &mapper, &plan)
         .await
@@ -3920,10 +3908,7 @@ async fn a_created_space_belongs_to_the_administrator_who_imported_it() {
     let job = run::start_job(&app.db, "mattermost", fx.alice, None)
         .await
         .expect("job");
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let (written, resolved) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
         .await
         .expect("spaces");
@@ -3968,10 +3953,7 @@ async fn a_space_that_already_carries_the_name_is_filled_rather_than_duplicated(
     let job = run::start_job(&app.db, "mattermost", fx.alice, None)
         .await
         .expect("job");
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let (written, resolved) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
         .await
         .expect("spaces");
@@ -4003,10 +3985,7 @@ async fn closing_a_job_records_what_it_brought_in() {
     let job = run::start_job(&app.db, "mattermost", fx.alice, None)
         .await
         .expect("job");
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_accounts(&app.db, &mapper, &plan)
         .await
         .expect("accounts");
@@ -4041,10 +4020,7 @@ async fn import_up_to_conversations(
     let job = run::start_job(&app.db, "mattermost", admin, None)
         .await
         .expect("job");
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_accounts(&app.db, &mapper, &plan)
         .await
         .expect("accounts");
@@ -4085,10 +4061,7 @@ async fn a_channel_arrives_with_the_people_who_were_in_it() {
     };
 
     let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let space_id = spaces[0].1;
     let channel_id = mapper
         .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(space_id))
@@ -4155,10 +4128,7 @@ async fn a_favourite_channel_stays_a_favourite() {
     };
 
     let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let channel_id = mapper
         .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
         .await
@@ -4197,10 +4167,7 @@ async fn an_archived_conversation_arrives_archived() {
     };
 
     let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let channel_id = mapper
         .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
         .await
@@ -4239,10 +4206,7 @@ async fn a_conversation_between_three_people_is_a_group() {
     };
 
     let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let dm_id = mapper
         .resolve(&app.db, KIND_CHANNEL, &direct_ref, Some(spaces[0].1))
         .await
@@ -4294,10 +4258,7 @@ async fn importing_the_conversations_twice_creates_nothing_twice() {
     };
 
     let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let again = run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice)
         .await
         .expect("second run");
@@ -4339,10 +4300,7 @@ async fn a_member_whose_account_was_skipped_is_left_out_rather_than_invented() {
     };
 
     let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let channel_id = mapper
         .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
         .await
@@ -4434,10 +4392,7 @@ async fn import_from_archive(
     let job = run::start_job(&app.db, "mattermost", admin, None)
         .await
         .expect("job");
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_accounts(&app.db, &mapper, &plan)
         .await
         .expect("accounts");
@@ -4479,10 +4434,7 @@ async fn messages_arrive_with_their_text_author_and_time() {
     );
 
     let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let written = run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("messages");
@@ -4547,10 +4499,7 @@ async fn a_reply_finds_its_root_even_when_it_comes_first_in_the_file() {
     );
 
     let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("messages");
@@ -4606,10 +4555,7 @@ async fn what_people_did_with_a_message_comes_with_it() {
     );
 
     let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("messages");
@@ -4671,10 +4617,7 @@ async fn a_message_from_someone_we_could_not_place_keeps_its_text() {
     );
 
     let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("messages");
@@ -4724,10 +4667,7 @@ async fn importing_the_messages_twice_writes_them_once() {
     );
 
     let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let first = run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("first");
@@ -4792,10 +4732,7 @@ async fn import_everything(
     dir: &std::path::Path,
 ) -> (Uuid, Vec<(String, Uuid)>) {
     let (job, spaces) = import_from_archive(app, admin, dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_messages(&app.db, &mapper, dir, None, &spaces)
         .await
         .expect("messages");
@@ -4828,10 +4765,7 @@ async fn a_position_naming_a_message_lands_on_that_message() {
     );
 
     let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let conversation = mapper
         .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
         .await
@@ -4852,6 +4786,89 @@ async fn a_position_naming_a_message_lands_on_that_message() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// Stopping an import must not hand somebody a workspace where everything is unread.
+///
+/// The reading positions are the last pass, so a run that stopped left every conversation it had
+/// already imported showing as never read: thousands of unread messages in conversations the
+/// person had finished with years ago somewhere else. Whoever stopped the import kept what was
+/// written, which was the promise, and lost the one thing that made it usable.
+#[tokio::test]
+async fn an_import_that_was_stopped_still_leaves_the_reading_positions() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "read_message": "older"}),
+    );
+
+    // A first run brought the messages over. This is the ordinary shape of the failure: an import
+    // stops after its messages and before its positions.
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+    let older = mapper
+        .resolve(&app.db, KIND_MESSAGE, "older", Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("m");
+    assert_eq!(
+        cursor_of(&app, conversation, user).await,
+        None,
+        "nothing should have read anything yet"
+    );
+
+    // Somebody presses stop, and the run is asked to leave.
+    let model = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    let mut model: crate::entities::import_jobs::ActiveModel = model.into();
+    model.status = sea_orm::ActiveValue::Set("cancelling".to_owned());
+    model.update(&app.db).await.expect("ask to stop");
+
+    crate::importer::job::execute_into(
+        &app.db,
+        Some(&MemorySink::default()),
+        &dir,
+        None,
+        fx.alice,
+        job,
+    )
+    .await
+    .expect("the run leaves cleanly");
+
+    let after = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert_eq!(after.status, "cancelled");
+    assert_eq!(
+        cursor_of(&app, conversation, user).await,
+        Some(older),
+        "what was imported before the stop should be as read as it was in the other product"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 #[tokio::test]
 async fn a_position_that_only_knows_a_moment_lands_on_the_last_message_before_it() {
     // Mattermost knows an instant, not a message. The closest true statement is the last message
@@ -4868,10 +4885,7 @@ async fn a_position_that_only_knows_a_moment_lands_on_the_last_message_before_it
     );
 
     let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let conversation = mapper
         .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
         .await
@@ -4919,10 +4933,7 @@ async fn a_position_on_a_message_that_did_not_cross_falls_back_rather_than_vanis
     );
 
     let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let conversation = mapper
         .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
         .await
@@ -4954,10 +4965,7 @@ async fn a_favourite_alone_leaves_no_reading_position() {
     );
 
     let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let conversation = mapper
         .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
         .await
@@ -5060,10 +5068,7 @@ async fn a_file_arrives_with_its_bytes_and_hangs_on_its_message() {
     let dir = archive_with_a_file(&person, &space_ref, &channel_ref);
 
     let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("messages");
@@ -5135,10 +5140,7 @@ async fn a_store_that_refuses_leaves_no_file_that_cannot_be_opened() {
     let dir = archive_with_a_file(&person, &space_ref, &channel_ref);
 
     let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     let sink = MemorySink {
         refuse: true,
         ..Default::default()
@@ -5178,10 +5180,7 @@ async fn importing_the_files_twice_stores_them_once() {
     let dir = archive_with_a_file(&person, &space_ref, &channel_ref);
 
     let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("messages");
@@ -5282,10 +5281,7 @@ async fn import_two_spaces(app: &TestApp, admin: Uuid) -> TwoSpaces {
     );
 
     let (job, spaces) = import_from_archive(app, admin, &dir).await;
-    let mapper = Mapper {
-        job_id: job,
-        source: "mattermost",
-    };
+    let mapper = Mapper::new(job, "mattermost");
     run::import_messages(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("messages");
