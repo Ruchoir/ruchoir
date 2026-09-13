@@ -66,8 +66,8 @@ fn clean_allowed_roles(
     // Deliberately no check that the author's own role is among them. Reserving a channel to people
     // you are not one of is a real thing to want (a room for the externals, a room for the people
     // who run the place), and refusing it was the API deciding what a space's owner is allowed to
-    // want. The escape hatch is below: a space owner can always reach a channel's settings, so a
-    // reservation is never a door that locks behind everyone.
+    // want. It is never a door that locks behind everyone either: the space's owner is admitted to
+    // every channel of their space whatever this list says.
     let _ = actor_role;
     Ok(Some(roles))
 }

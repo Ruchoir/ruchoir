@@ -478,6 +478,7 @@
     "summaryRolesInvite": "Este canal solo aparece a quienes están en él, y solo se pueden añadir los roles marcados.",
     "roleLossWarning": "Quien pierde su rol pierde el canal, aunque ya estuviera dentro.",
     "yourOwnRole": "· tu rol, siempre incluido",
+    "ownerAlwaysIncluded": "· siempre incluido",
     "applyChanges_one": "Aplicar 1 cambio",
     "applyChanges_other": "Aplicar {{count}} cambios",
     "willBeAdded": "será añadido",

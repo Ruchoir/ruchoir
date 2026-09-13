@@ -48,10 +48,14 @@ export function ChannelAccess({
 }: ChannelAccessProps) {
   const { t } = useTranslation();
   const reserved = allowedRoles !== undefined;
-  const has = (role: string) => allowedRoles?.includes(role) ?? false;
+  // The owner is admitted to every channel of their space whatever the list says, so the list says
+  // it too. A channel reserved before this rule existed may have no `owner` row; it is ticked here
+  // all the same, because that is what the server does with it.
+  const has = (role: string) => role === "owner" || (allowedRoles?.includes(role) ?? false);
+  const locked = (role: string) => role === "owner" || role === myRole;
 
   const toggle = (role: string) => {
-    if (role === myRole) return;
+    if (locked(role)) return;
     const next = has(role) ? (allowedRoles ?? []).filter((r) => r !== role) : [...(allowedRoles ?? []), role];
     onRolesChange(next);
   };
@@ -79,30 +83,38 @@ export function ChannelAccess({
             name="ca-scope"
             checked={reserved}
             disabled={disabled}
-            // Seeded with the caller's own role, which the API requires and the tick below locks: a
-            // room you have shut yourself out of is not a room you meant to make.
-            onChange={() => onRolesChange([myRole])}
+            // Seeded with the owner and the caller's own role, the two the ticks below lock: a room
+            // you have shut yourself out of is not a room you meant to make.
+            onChange={() => onRolesChange(myRole === "owner" ? ["owner"] : ["owner", myRole])}
             label={t("channel.onlySomeRoles")}
           />
           {reserved ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 24 }}>
               {ROLES.map(([role, label]) => {
-                const mine = role === myRole;
+                // Two reasons a tick cannot be lifted, and they say different things: the owner
+                // holds the space, so no room in it is ever closed to them; your own role is locked
+                // so you do not build a room you are not in without meaning to.
+                const hint =
+                  role === "owner"
+                    ? t("channel.ownerAlwaysIncluded")
+                    : role === myRole
+                      ? t("channel.yourOwnRole")
+                      : null;
                 return (
                   <Checkbox
                     key={role}
                     checked={has(role)}
-                    // The caller's own role is ticked and cannot be unticked, but it is *not* drawn
-                    // as disabled: greyed out reads "unavailable", and this one is the opposite, it
-                    // is the one that is necessarily true. It says so instead.
+                    // A locked tick is ticked and cannot be lifted, but it is *not* drawn as
+                    // disabled: greyed out reads "unavailable", and this one is the opposite, it is
+                    // the one that is necessarily true. It says so instead.
                     disabled={disabled}
-                    aria-disabled={mine || undefined}
+                    aria-disabled={locked(role) || undefined}
                     onChange={() => toggle(role)}
                     label={
-                      mine ? (
+                      hint ? (
                         <>
                           {t(label)}
-                          <span style={{ color: "var(--text-muted)" }}> {t("channel.yourOwnRole")}</span>
+                          <span style={{ color: "var(--text-muted)" }}> {hint}</span>
                         </>
                       ) : (
                         t(label)

@@ -474,6 +474,7 @@
     "summaryRolesInvite": "This channel only appears to the people in it, and only the ticked roles may be added to it.",
     "roleLossWarning": "Losing the role loses the channel, even for someone already in it.",
     "yourOwnRole": "· your own role, always included",
+    "ownerAlwaysIncluded": "· always included",
     "applyChanges_one": "Apply 1 change",
     "applyChanges_other": "Apply {{count}} changes",
     "willBeAdded": "will be added",

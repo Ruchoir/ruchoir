@@ -474,6 +474,7 @@
     "summaryRolesInvite": "Dieser Kanal erscheint nur den Personen, die darin sind, und nur die angehakten Rollen können hinzugefügt werden.",
     "roleLossWarning": "Wer die Rolle verliert, verliert den Kanal, auch wenn er schon darin war.",
     "yourOwnRole": "· Ihre eigene Rolle, immer dabei",
+    "ownerAlwaysIncluded": "· immer enthalten",
     "applyChanges_one": "1 Änderung anwenden",
     "applyChanges_other": "{{count}} Änderungen anwenden",
     "willBeAdded": "wird hinzugefügt",

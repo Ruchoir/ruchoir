@@ -474,6 +474,7 @@
     "summaryRolesInvite": "Ce canal n'apparaît qu'aux personnes qui y sont, et seuls les rôles cochés peuvent y être ajoutés.",
     "roleLossWarning": "Qui perd son rôle perd le canal, même s'il y était déjà.",
     "yourOwnRole": "· votre rôle, toujours inclus",
+    "ownerAlwaysIncluded": "· toujours inclus",
     "applyChanges_one": "Appliquer 1 changement",
     "applyChanges_other": "Appliquer {{count}} changements",
     "willBeAdded": "sera ajouté",

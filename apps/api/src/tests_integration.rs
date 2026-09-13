@@ -888,14 +888,21 @@ async fn expect_no_channel_event(
 
 /// Promote a seeded member to `admin`, so they may administer the space's invitations.
 async fn promote_to_admin(db: &DatabaseConnection, space_id: Uuid, user_id: Uuid) {
+    set_space_role(db, space_id, user_id, "admin").await;
+}
+
+/// Put a seeded member on a given rung of the space ladder, without going through the endpoint that
+/// changes roles: a test about what a role *can do* should not depend on somebody being able to
+/// grant it.
+async fn set_space_role(db: &DatabaseConnection, space_id: Uuid, user_id: Uuid, role: &str) {
     let member = space_members::Entity::find_by_id((space_id, user_id))
         .one(db)
         .await
         .expect("membership")
         .expect("member row");
     let mut active = member.into_active_model();
-    active.role = Set("admin".to_owned());
-    active.update(db).await.expect("promote");
+    active.role = Set(role.to_owned());
+    active.update(db).await.expect("set role");
 }
 
 /// Extract the token from an invitation URL, which is the only place it ever appears.
@@ -2331,6 +2338,87 @@ async fn an_administrator_runs_a_space_but_does_not_own_it() {
         .await
         .expect("invite");
     assert_eq!(invited.status(), 201);
+}
+
+#[tokio::test]
+async fn a_reservation_never_shuts_out_the_space_owner() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    set_space_role(&app.db, fx.space_id, fx.alice, "owner").await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    // An administrator makes a room for the externals, and leaves the owner out of the list. That is
+    // theirs to want: the list is a rule about a room.
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &bob,
+        )
+        .json(&json!({
+            "name": format!("externes-{}", Uuid::new_v4().simple()),
+            "type": "public",
+            "allowed_roles": ["guest", "admin"],
+        }))
+        .send()
+        .await
+        .expect("create");
+    assert_eq!(created.status(), 201);
+    let channel: Value = created.json().await.expect("json");
+    let channel_id = channel["id"].as_str().expect("id").to_owned();
+
+    // It is not a way to take a room out of the space from under the person who holds it. Before
+    // this, the channel simply vanished from the owner's sidebar and only an API call brought it
+    // back.
+    let page = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(
+        page.status(),
+        200,
+        "an owner reads every channel of the space"
+    );
+
+    let channels: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    assert!(
+        channels
+            .as_array()
+            .expect("array")
+            .iter()
+            .any(|c| c["id"] == channel_id),
+        "and it stays in their list"
+    );
+
+    // The restriction is still a restriction for everybody below: a plain member is refused.
+    let refused = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &app.cookie_for(fx.carol).await,
+        )
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(refused.status(), 403);
 }
 
 #[tokio::test]

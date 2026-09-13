@@ -262,6 +262,13 @@ export type SidebarProps = {
    * refuses all three either way; this keeps the column from offering them.
    */
   canBrowseSpace: boolean;
+  /**
+   * Whether the caller administers the space: its name, its icon, its people. False below the
+   * administrator rung, and the settings entry is then not offered at all. The screen behind it
+   * holds nothing else they could act on, and leaving the space is on this menu already, so showing
+   * it was a door that opened onto somebody else's job.
+   */
+  canAdministerSpace: boolean;
   onNewMessage: () => void;
   /** Pin or unpin a channel in the caller's own sidebar. */
   onToggleFavorite: (id: string) => void;
@@ -307,6 +314,7 @@ export function Sidebar({
   onInvite,
   onNewChannel,
   canBrowseSpace,
+  canAdministerSpace,
   onNewMessage,
   onToggleFavorite,
   onGlobalSearch,
@@ -403,10 +411,15 @@ export function Sidebar({
               onClose={() => setWsMenu(false)}
               items={[
                 { type: "label", label: workspace?.name ?? t("sidebar.space") },
-                ...(canBrowseSpace
+                // Inviting is administration, not browsing: the endpoint that issues an invitation
+                // takes an administrator, so a plain member was being offered a dialog that could
+                // only end in a refusal.
+                ...(canAdministerSpace
                   ? [{ icon: "user-plus", label: t("sidebar.invitePeople"), onClick: onInvite }]
                   : []),
-                { icon: "settings", label: t("sidebar.spaceSettings"), onClick: () => onView("settings") },
+                ...(canAdministerSpace
+                  ? [{ icon: "settings", label: t("sidebar.spaceSettings"), onClick: () => onView("settings") }]
+                  : []),
                 ...(canBrowseSpace
                   ? [{ icon: "hard-drive", label: t("sidebar.spaceFiles"), onClick: () => onView("files") }]
                   : []),
@@ -576,7 +589,7 @@ export function Sidebar({
           </>
         ) : null}
 
-        {showFooter ? (
+        {showFooter && canAdministerSpace ? (
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
             {/*
               The import entry is deliberately absent: no importer exists yet, so offering it

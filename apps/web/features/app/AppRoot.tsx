@@ -2454,6 +2454,13 @@ function AppShell() {
    * the API had just stopped accepting. The space role is the outer boundary.
    */
   const canModerateChannels = currentWorkspace?.role !== "guest";
+  /**
+   * Whether the caller runs the space: the settings screen, its people, its identity. The screen
+   * itself already refuses every control below this rung, and the API refuses the calls behind them,
+   * so what this gates is the entry to it: a door that opens onto nothing actionable reads as a
+   * permission somebody has, which is exactly what it is not.
+   */
+  const canAdministerSpace = ["owner", "admin"].includes(currentWorkspace?.role ?? "");
 
   /**
    * Take a space off the rail, whether the caller walked out of it or it was deleted under them.
@@ -2937,6 +2944,7 @@ function AppShell() {
         // A guest reaches the space only through what they were added to: no space files, no new
         // channel, no invitation. The API refuses all three; this keeps them off the column.
         canBrowseSpace={currentWorkspace?.role !== "guest"}
+        canAdministerSpace={canAdministerSpace}
         onNewMessage={() => setModal("newMessage")}
         onGlobalSearch={() => setModal("search")}
         onLeaveChannel={leaveChannel}
@@ -3356,6 +3364,7 @@ function AppShell() {
                 onInvite={() => setModal("invite")}
                 onNewChannel={() => setModal("newChannel")}
                 canBrowseSpace={currentWorkspace?.role !== "guest"}
+                canAdministerSpace={canAdministerSpace}
                 onNewMessage={() => setModal("newMessage")}
                 onGlobalSearch={() => setModal("search")}
                 onLeaveChannel={leaveChannel}

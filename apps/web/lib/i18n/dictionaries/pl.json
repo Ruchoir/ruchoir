@@ -482,6 +482,7 @@
     "summaryRolesInvite": "Ten kanał widzą tylko osoby, które w nim są, i można do niego dodać tylko zaznaczone role.",
     "roleLossWarning": "Kto traci rolę, traci kanał, nawet jeśli już w nim był.",
     "yourOwnRole": "· twoja rola, zawsze włączona",
+    "ownerAlwaysIncluded": "· zawsze uwzględniony",
     "applyChanges_one": "Zastosuj 1 zmianę",
     "applyChanges_other": "Zastosuj zmiany: {{count}}",
     "willBeAdded": "zostanie dodany",

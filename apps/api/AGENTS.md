@@ -111,9 +111,12 @@ context and takes precedence here.
   the search, the join, the "add people" call and even the real-time frames. **Both reasons someone
   would not see a channel have to filter those frames**, the reservation *and* being a guest: a
   frame that ignores either one puts a channel in a sidebar that the next page load takes away
-  again, which is how a guest was told about every public channel the moment it was created. A list that
-  excludes its author is refused (`400`): a room you have shut yourself out of is not a room you
-  meant to make.
+  again, which is how a guest was told about every public channel the moment it was created. A list
+  that excludes its own author is allowed: a room for the externals, or for the people who run the
+  place, is a real thing to want. **The space's `owner` is admitted whatever the list says**
+  (`role_admitted`), and that is the only exception: reserving a channel to the administrators used
+  to take it out of the owner's own sidebar with no way back that did not go through the API. It
+  grants nothing else, a private channel is still entered explicitly, owner included.
   **`guest` is a real restriction, not a label.** For that role every channel behaves like a private
   one: the member reaches a conversation only where they hold an explicit `channel_members` /
   `dm_participants` row, public or not. Everything else follows from that one rule rather than being
