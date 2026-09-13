@@ -263,12 +263,17 @@ SELECT JSON_OBJECT(
   -- JSON_EXTRACT(..., '\$') parses the text back into a JSON value. MariaDB has no
   -- CAST(x AS JSON), and without the parse the array would be embedded as a quoted string.
   'reactions', JSON_EXTRACT(COALESCE((
-    SELECT CONCAT('[', GROUP_CONCAT(JSON_OBJECT('emoji', g.reaction, 'by', g.actors) SEPARATOR ','), ']')
+    -- Ordered so two exports of the same instance produce byte-identical files, which is what
+    -- makes an archive diffable and a checksum meaningful.
+    SELECT CONCAT('[', GROUP_CONCAT(
+      JSON_OBJECT('emoji', g.reaction, 'by', g.actors) ORDER BY g.reaction SEPARATOR ','
+    ), ']')
     FROM (
       SELECT rx.parent_id,
              rx.reaction,
              JSON_ARRAYAGG(
                IF(rx.actor_type = 'users', rx.actor_id, CONCAT(rx.actor_type, ':', rx.actor_id))
+               ORDER BY rx.actor_id
              ) AS actors
       FROM ${PREFIX}reactions rx
       GROUP BY rx.parent_id, rx.reaction

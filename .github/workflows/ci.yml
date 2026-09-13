@@ -185,6 +185,46 @@ jobs:
           path: apps/web/tools/responsive-audit/report/
           if-no-files-found: ignore
 
+  importer:
+    name: Import chain (producers and archive contract)
+    runs-on: ubuntu-latest
+    # The import is the product's signature feature, and its risky half is SQL against a real
+    # database. Every defect the Nextcloud producer has had was invisible until a database
+    # answered: a client speaking utf8mb3 and destroying every emoji, a CAST MariaDB does not
+    # support, a filter that silently dropped guests. So the producer runs here for real.
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: ruchoir
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install a MariaDB client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mariadb-client
+      - name: Check the scripts parse
+        run: |
+          bash -n packages/importer/export-nextcloud.sh
+          python3 -m py_compile packages/importer/convert-mattermost.py packages/importer/validate-archive.py
+      - name: Test the import chain
+        # RUCHOIR_TEST_REQUIRE_MARIADB makes a skipped producer test a failure: a suite that
+        # quietly skips its only end-to-end test reports green over an untested feature.
+        env:
+          RUCHOIR_TEST_MARIADB: host=127.0.0.1,port=3306,user=root,password=ruchoir
+          RUCHOIR_TEST_REQUIRE_MARIADB: '1'
+        working-directory: packages/importer/tests
+        run: python3 -m unittest discover --verbose
+
   audit:
     name: Security audit (informational)
     runs-on: ubuntu-latest
