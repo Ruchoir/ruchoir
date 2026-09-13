@@ -2715,3 +2715,44 @@ async fn writing_in_a_channel_joins_it() {
         1
     );
 }
+
+#[tokio::test]
+async fn a_guest_is_not_told_about_a_channel_they_are_not_in() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    make_guest(&app.db, fx.space_id, fx.carol).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let mut socket = app.connect_ws(&carol).await;
+
+    // Alice opens a public channel. A guest does not see public channels, so nothing about it is
+    // Carol's business yet: it used to arrive in her sidebar and stay there until she reloaded.
+    let created: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": format!("salon-{}", Uuid::new_v4().simple()), "type": "public" }))
+        .send()
+        .await
+        .expect("create")
+        .json()
+        .await
+        .expect("json");
+    let channel_id = created["id"].as_str().expect("id").to_owned();
+    expect_no_message(&mut socket).await;
+
+    // Added to it, she is told at once, because now it is one of hers.
+    app.req(
+        reqwest::Method::POST,
+        &format!("/api/v1/channels/{channel_id}/members"),
+        &alice,
+    )
+    .json(&json!({ "user_ids": [fx.carol] }))
+    .send()
+    .await
+    .expect("add");
+    let frame = wait_for_type(&mut socket, "channel.created").await;
+    assert_eq!(frame["payload"]["id"], channel_id);
+}

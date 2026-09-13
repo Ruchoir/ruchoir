@@ -272,9 +272,9 @@ pub async fn create_channel(
         session.user_id,
     )
     .await?;
-    // Announced only to the roles the channel admits: a reserved channel that appears in everyone's
-    // sidebar for one frame, and disappears on their next load, has already said what it was for.
-    let audience = admitted_only(&state.db, space_id, channel_id, audience).await?;
+    // Announced only to the people whose own list will hold it: a channel that appears in a sidebar
+    // for one frame and is gone on the next load has already said what it was for.
+    let audience = visible_only(&state.db, space_id, channel_id, audience).await?;
     state
         .hub
         .publish(
@@ -396,7 +396,7 @@ pub async fn update_channel(
         topic: updated.topic.clone(),
     };
     let audience = space_member_ids(&state.db, space_id, session.user_id).await?;
-    let audience = admitted_only(&state.db, space_id, channel_id, audience).await?;
+    let audience = visible_only(&state.db, space_id, channel_id, audience).await?;
     state
         .hub
         .publish(
@@ -640,10 +640,11 @@ pub async fn add_channel_members(
         write_channel_notice(&state, channel_id, Some(*user_id), JOINED_EVENT).await;
     }
 
-    // A private channel is invisible until you are in it, so the people just added have to be told
-    // it exists; for a public one they could already see it, and the sidebar only gains the
-    // membership mark on their next load.
-    if !added.is_empty() && channel.channel_type == "private" {
+    // The people just added have to be told the channel exists. For a private one that is obvious;
+    // for a public one it matters just as much to a guest, who does not see a public channel at all
+    // until somebody puts them in it. Sent to everyone added: a client that already has the channel
+    // merges the frame by id and nothing moves.
+    if !added.is_empty() {
         let summary = ChannelSummaryDto {
             id: channel_id,
             space_id: channel.space_id,
@@ -928,27 +929,39 @@ async fn channel_audience(
     space_member_ids(db, space_id, user_id).await
 }
 
-/// Keep, out of an audience, only the people whose space role the channel admits.
+/// Keep, out of an audience, only the people who would see this channel in their own list.
 ///
-/// A frame about a reserved channel must not reach the people it is reserved from: they would see it
-/// appear in their sidebar and lose it on their next load, which is a worse way of finding out that
-/// a leadership channel exists than never seeing it.
-async fn admitted_only(
+/// Two reasons someone would not, and a frame that ignores either one puts a channel in a sidebar
+/// that the next page load takes away again:
+///
+/// - **the channel is reserved** to roles they do not hold, and being told a leadership channel
+///   exists by watching it flash past is worse than never seeing it;
+/// - **they are a guest**, who reaches only what they were explicitly added to. A guest is told
+///   about a channel when somebody puts them in it, and not before.
+async fn visible_only(
     db: &DatabaseConnection,
     space_id: Uuid,
     channel_id: Uuid,
     audience: Vec<Uuid>,
 ) -> Result<Vec<Uuid>, ApiError> {
-    let Some(allowed) = super::authz::channel_allowed_roles(db, channel_id).await? else {
-        return Ok(audience);
-    };
+    let allowed = super::authz::channel_allowed_roles(db, channel_id).await?;
     let mut kept = Vec::with_capacity(audience.len());
     for user_id in audience {
-        if let Some(role) = super::authz::space_role(db, space_id, user_id).await? {
-            if allowed.contains(&role) {
-                kept.push(user_id);
-            }
+        let Some(role) = super::authz::space_role(db, space_id, user_id).await? else {
+            continue;
+        };
+        if allowed.as_ref().is_some_and(|roles| !roles.contains(&role)) {
+            continue;
         }
+        if role == "guest"
+            && channel_members::Entity::find_by_id((channel_id, user_id))
+                .one(db)
+                .await?
+                .is_none()
+        {
+            continue;
+        }
+        kept.push(user_id);
     }
     Ok(kept)
 }
