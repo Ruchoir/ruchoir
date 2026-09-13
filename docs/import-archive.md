@@ -14,6 +14,7 @@ A tar archive (sealed: see Encryption below), containing:
 
 ```
 manifest.json          the archive describing itself
+spaces.jsonl           one space per line
 users.jsonl            one account per line
 channels.jsonl         one conversation per line (channels and direct conversations)
 messages.jsonl         one message per line, ordered by conversation then time
@@ -23,6 +24,11 @@ blobs/<hh>/<hash>      file bytes, addressed by the SHA-256 of their content
 
 JSON Lines, not one big JSON document: an import must stream. A workspace of several gigabytes is
 read line by line and never held in memory, and a producer can append while it works.
+
+**An archive can carry more than one space.** A Mattermost with two teams is two spaces, and
+flattening them into one would merge two organisations that were deliberately apart. A source with
+a single workspace still writes one `spaces.jsonl` line, so the importer never has two shapes to
+handle.
 
 Blobs are content-addressed and stored under the first two hex characters of their digest, so a
 file attached to forty messages is stored once and a directory never holds a million entries.
@@ -54,19 +60,31 @@ with a message saying so.
 
 ## Records
 
+Every conversation names the `space` it belongs to. A direct conversation belongs to the space its
+participants shared, because a message between two people is not floating outside every workspace.
+
 Every record carries an `id` **as the source spells it**, untouched. That identifier is what the
 importer records in its mapping table, and what makes a re-run recognise its own work. Producers
 never invent, renumber or prettify identifiers.
 
+When a source has no single identifier for a thing, the producer builds a deterministic one out of
+what the source does spell, and says how in the manifest. A Mattermost channel has no id in a bulk
+export, only a team and a name, so it becomes `team/name`; a direct conversation becomes
+`direct:` followed by its participants, sorted. Deterministic is the whole requirement: the same
+export must yield the same identifier twice, or replaying it duplicates everything.
+
 ```json
+// spaces.jsonl
+{"id":"atelier","name":"Atelier","description":"","visibility":"public"}
+
 // users.jsonl
 {"id":"alice","email":"alice@example.org","display_name":"Alice Martin","active":true,"avatar":"sha256:..."}
 // `avatar` is optional: a source that generates pictures rather than storing them has none to give.
 
 // channels.jsonl
-{"id":"fiddjs6o","kind":"channel","name":"Général","topic":"…","visibility":"public",
- "archived":false,"members":["alice","bob"],"created_at":"2026-08-29T13:46:00Z"}
-{"id":"zotm4jt7","kind":"direct","members":["alice","bob"]}
+{"id":"atelier/general","space":"atelier","kind":"channel","name":"Général","topic":"…",
+ "visibility":"public","archived":false,"members":["alice","bob"],"created_at":"2026-08-29T13:46:00Z"}
+{"id":"direct:alice+bob","space":"atelier","kind":"direct","members":["alice","bob"]}
 
 // messages.jsonl
 {"id":"1042","channel":"fiddjs6o","author":"alice","sent_at":"2026-08-29T13:47:11Z",

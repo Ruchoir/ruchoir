@@ -16,6 +16,11 @@
 //! migration the following week), and the second must recognise the first's work. Per job, it would
 //! import everything twice.
 //!
+//! An archive is not always one space. A Mattermost with two teams carries two, and flattening
+//! them would merge two organisations that were deliberately apart, so a job either fills a space
+//! that exists or creates the ones the archive names. That is why `space_id` is nullable here and
+//! why `space` is one of the kinds a mapping can carry.
+//!
 //! Provenance already exists inline on the imported rows themselves (`imported_source` and
 //! `external_ref` on channels, messages and files). Those answer "where does this come from" when
 //! looking at one row; this table answers "have I already seen this identifier", which an index on
@@ -35,7 +40,10 @@ impl MigrationTrait for Migration {
             r#"
             CREATE TABLE import_jobs (
                 id uuid NOT NULL PRIMARY KEY,
-                space_id uuid NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+                -- NULL when the archive brings its own spaces (a Mattermost with two teams is two
+                -- spaces): the job then creates them rather than filling one that exists. Set when
+                -- an administrator imports into a space that is already there.
+                space_id uuid NULL REFERENCES spaces(id) ON DELETE CASCADE,
                 -- Provenance only: the job outlives the account that started it.
                 created_by uuid NULL REFERENCES users(id) ON DELETE SET NULL,
                 source text NOT NULL
@@ -88,7 +96,10 @@ impl MigrationTrait for Migration {
                 space_id uuid NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
                 source text NOT NULL
                     CHECK (source IN ('nextcloud', 'mattermost', 'slack', 'teams')),
-                kind text NOT NULL CHECK (kind IN ('user', 'channel', 'message', 'file')),
+                -- 'space' included: an archive can create spaces, and re-running it must find the
+                -- ones it already created instead of making them twice. Such a row points at
+                -- itself, its space_id being the space it created.
+                kind text NOT NULL CHECK (kind IN ('space', 'user', 'channel', 'message', 'file')),
                 -- The identifier as the source spells it, untouched.
                 external_ref text NOT NULL,
                 internal_id uuid NOT NULL,

@@ -14,6 +14,7 @@
 set -euo pipefail
 
 PREFIX="oc_"
+SPACE_NAME="Nextcloud"
 DATA_DIR=""
 OUT=""
 CONFIG=""
@@ -33,6 +34,7 @@ Usage: export-nextcloud.sh --data-dir <path> --out <path> [options]
   --out <path>        Directory to write the archive into. Created if absent.
   --config <path>     Read database credentials from a Nextcloud config.php.
   --prefix <s>        Table prefix (default: oc_).
+  --space-name <s>    Name of the space the conversations land in (default: Nextcloud).
   --docker-db <name>  Run the MySQL client inside this container instead of on the host.
   --passphrase-file <path>
                       Encrypt with the passphrase in this file instead of a generated one.
@@ -51,6 +53,7 @@ while [ $# -gt 0 ]; do
     --out) OUT="$2"; shift 2 ;;
     --config) CONFIG="$2"; shift 2 ;;
     --prefix) PREFIX="$2"; shift 2 ;;
+    --space-name) SPACE_NAME="$2"; shift 2 ;;
     --docker-db) DOCKER_DB="$2"; shift 2 ;;
     --passphrase-file) PASSPHRASE_FILE="$2"; shift 2 ;;
     --no-encrypt) ENCRYPT=0; shift ;;
@@ -124,6 +127,15 @@ expect_jsonl() {
 mkdir -p "${OUT}/blobs"
 echo "exporting into ${OUT}"
 
+# --- Space ------------------------------------------------------------------------------------
+# Nextcloud has no team or workspace: everything belongs to one instance, so the archive carries a
+# single space. Mattermost, which does have teams, carries one line per team, and the importer
+# reads both the same way.
+echo "  space"
+printf '%s\n' "$(python3 -c 'import json,sys; print(json.dumps({"id":"nextcloud","name":sys.argv[1],"description":"","visibility":"private"}, ensure_ascii=False))' "${SPACE_NAME}")" \
+  > "${OUT}/spaces.jsonl"
+expect_jsonl "${OUT}/spaces.jsonl"
+
 # --- Accounts ------------------------------------------------------------------------------------
 # Talk identifies people by their Nextcloud uid, so the uid is the identifier the archive carries
 # and the importer maps. The address is what the import matches on.
@@ -153,6 +165,7 @@ echo "  conversations"
 sql > "${OUT}/channels.jsonl" <<SQL
 SELECT JSON_OBJECT(
   'id', r.token,
+  'space', 'nextcloud',
   'kind', IF(r.type = 1, 'direct', 'channel'),
   'name', COALESCE(NULLIF(r.name, ''), r.token),
   'topic', COALESCE(r.description, ''),
@@ -356,12 +369,14 @@ cat > "${OUT}/manifest.json" <<JSON
   "producer": "ruchoir-export-nextcloud 0.1.0",
   "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "counts": {
+    "spaces": 1,
     "users": $(count "${OUT}/users.jsonl"),
     "channels": $(count "${OUT}/channels.jsonl"),
     "messages": $(count "${OUT}/messages.jsonl"),
     "files": ${FILE_COUNT}
   },
   "checksums": {
+    "spaces.jsonl": "$(digest "${OUT}/spaces.jsonl")",
     "users.jsonl": "$(digest "${OUT}/users.jsonl")",
     "channels.jsonl": "$(digest "${OUT}/channels.jsonl")",
     "messages.jsonl": "$(digest "${OUT}/messages.jsonl")",
