@@ -130,10 +130,11 @@ to it, and a new screen is written translated from the start.
 ```
 apps/api/            Rust backend (axum/tokio)            - has its own AGENTS.md
 apps/web/            Next.js frontend                     - has its own AGENTS.md
-packages/importer/   Nextcloud/Mattermost import scripts + lib - has its own AGENTS.md
+packages/importer/   Export scripts + import adapters     - has its own AGENTS.md
 packages/design-system/  React components + design tokens - has its own AGENTS.md
 migrations/          Versioned SeaORM migrations (Rust crate `ruchoir-migration`)
 docs/                Technical documentation (EN)
+                     incl. `import-archive.md`, the archive format every importer reads
 docker-compose.yml   Full stack (api, web, PostgreSQL, Valkey, Garage)
 ```
 
