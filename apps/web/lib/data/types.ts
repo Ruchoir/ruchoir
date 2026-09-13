@@ -248,6 +248,8 @@ export type Message = {
   replies?: number;
   imported?: boolean;
   pinned?: boolean;
+  /** Who pinned it, when it is pinned: only they (or a moderator) may take it down. */
+  pinnedBy?: string;
   edited?: boolean;
   deleted?: boolean;
   /** Whether the current user saved (bookmarked) this message. */

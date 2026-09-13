@@ -44,6 +44,12 @@ export type MessageMenuProps = {
   onCopyMessage: () => void;
   onCopyLink: () => void;
   onTogglePin: () => void;
+  /**
+   * Whether the caller may put a landmark in this channel, or take this one down. False for a
+   * guest, for someone reading a public channel they never joined, and for anyone but the pin's
+   * author or a moderator once it is pinned.
+   */
+  canPin?: boolean;
   onMarkUnread: () => void;
   onDelete: () => void;
   /** Notified when the menu opens/closes, so a hover-gated container can stay mounted. */
@@ -61,6 +67,7 @@ export function MessageMenu({
   onCopyMessage,
   onCopyLink,
   onTogglePin,
+  canPin = true,
   onMarkUnread,
   onDelete,
   onOpenChange,
@@ -87,7 +94,9 @@ export function MessageMenu({
     { icon: "copy", label: t("message.copyMessage"), onClick: onCopyMessage },
     { icon: "paperclip", label: t("message.copyLink"), onClick: onCopyLink },
     { icon: "inbox", label: t("message.markUnread"), onClick: onMarkUnread },
-    { icon: "pin", label: pinned ? t("message.unpin") : t("message.pin"), onClick: onTogglePin },
+    ...(canPin
+      ? [{ icon: "pin", label: pinned ? t("message.unpin") : t("message.pin"), onClick: onTogglePin }]
+      : []),
     ...(own ? [{ icon: "trash-2", label: t("message.deleteMessage"), onClick: onDelete, danger: true }] : []),
   ];
 

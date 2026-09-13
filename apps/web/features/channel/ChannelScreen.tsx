@@ -689,6 +689,11 @@ export function ChannelScreen({
                     }
                     authorPresence={presenceByName.get(m.author)}
                     authorAvatar={avatarByName.get(m.author)}
+                    canPin={
+                      canModerateChannels &&
+                      channel.member !== false &&
+                      (!m.pinned || m.pinnedBy === myUserId || canModerate)
+                    }
                     actions={{
                       onReact: (emoji) => actions.react(m.id, emoji),
                       onOpenThread: () => actions.openThread(m.id),

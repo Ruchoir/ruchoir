@@ -3243,3 +3243,117 @@ async fn a_demotion_takes_back_a_channel_role_too() {
         assert_eq!(status, 403, "a guest moderates nothing: {method} {path}");
     }
 }
+
+#[tokio::test]
+async fn a_pin_is_a_landmark_not_a_reading_right() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let carol = app.cookie_for(fx.carol).await;
+
+    let sent: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &alice,
+        )
+        .json(&json!({ "body": "le plan" }))
+        .send()
+        .await
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    let message_id = sent["id"].as_str().expect("id").to_owned();
+    let pin = format!("/api/v1/channels/{}/pins/{}", fx.public_channel, message_id);
+
+    // Carol reads this public channel without being in it, which is allowed, and that is not a
+    // reason to let her change what everyone else sees at the top of it.
+    assert_eq!(
+        status_of(&app, reqwest::Method::PUT, &pin, &carol).await,
+        403,
+        "reading a channel does not grant pinning in it"
+    );
+
+    // Alice is in it: she pins freely, because a channel where only moderators may pin is one where
+    // nothing is ever pinned.
+    assert_eq!(
+        status_of(&app, reqwest::Method::PUT, &pin, &alice).await,
+        204
+    );
+
+    // Bob is in it too, and it is not his pin to take down...
+    assert_eq!(
+        status_of(&app, reqwest::Method::DELETE, &pin, &bob).await,
+        403,
+        "somebody else's landmark is not yours to remove"
+    );
+    // ...while its author always may.
+    assert_eq!(
+        status_of(&app, reqwest::Method::DELETE, &pin, &alice).await,
+        204
+    );
+
+    // And a moderator may take down anyone's.
+    assert_eq!(
+        status_of(&app, reqwest::Method::PUT, &pin, &alice).await,
+        204
+    );
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    assert_eq!(
+        status_of(&app, reqwest::Method::DELETE, &pin, &bob).await,
+        204
+    );
+
+    // A guest never pins: taking part is one thing, changing what the whole channel sees is another.
+    make_guest(&app.db, fx.space_id, fx.carol).await;
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    assert_eq!(
+        status_of(&app, reqwest::Method::PUT, &pin, &carol).await,
+        403
+    );
+}
+
+#[tokio::test]
+async fn reacting_joins_the_channel_like_writing_does() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let carol = app.cookie_for(fx.carol).await;
+
+    let sent: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &alice,
+        )
+        .json(&json!({ "body": "le plan" }))
+        .send()
+        .await
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    let message_id = sent["id"].as_str().expect("id").to_owned();
+
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::PUT,
+            &format!("/api/v1/messages/{message_id}/reactions/%F0%9F%91%8D"),
+            &carol
+        )
+        .await,
+        204
+    );
+    // Same reason as writing: what a channel pushes goes to its members, so a reaction from someone
+    // outside reached everyone but its own author.
+    assert!(
+        channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
+            .one(&app.db)
+            .await
+            .expect("membership")
+            .is_some()
+    );
+}

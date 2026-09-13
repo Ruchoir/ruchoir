@@ -201,7 +201,7 @@ pub async fn send_message(
     // nobody. Joining first also puts the arrival in the channel's history, where the people already
     // there can see who turned up.
     if access.kind == authz::ConversationKind::Channel {
-        super::channels::join_before_posting(&state, conversation_id, session.user_id).await?;
+        super::channels::join_before_taking_part(&state, conversation_id, session.user_id).await?;
     }
 
     let audience = authz::conversation_audience(&state.db, &access).await?;
@@ -600,14 +600,15 @@ pub async fn hydrate_messages(
             .push(row.mentioned_user_id);
     }
 
-    // Pinned message ids.
-    let pinned: HashSet<Uuid> = channel_pins::Entity::find()
+    // Pinned message ids, and who put each pin there: taking down somebody else's landmark is
+    // moderation, so the client needs to know whose it is to stop offering what would be refused.
+    let pins: Vec<channel_pins::Model> = channel_pins::Entity::find()
         .filter(channel_pins::Column::MessageId.is_in(ids.clone()))
         .all(db)
-        .await?
-        .into_iter()
-        .map(|p| p.message_id)
-        .collect();
+        .await?;
+    let pinned_by: HashMap<Uuid, Option<Uuid>> =
+        pins.iter().map(|p| (p.message_id, p.pinned_by)).collect();
+    let pinned: HashSet<Uuid> = pins.into_iter().map(|p| p.message_id).collect();
 
     // Saved-by-caller message ids.
     let saved: HashSet<Uuid> = user_saved_messages::Entity::find()
@@ -645,6 +646,7 @@ pub async fn hydrate_messages(
             mentions: mentions_by_msg.remove(&m.id).unwrap_or_default(),
             attachments: attachments.remove(&m.id).unwrap_or_default(),
             pinned: pinned.contains(&m.id),
+            pinned_by: pinned_by.get(&m.id).copied().flatten(),
             saved: saved.contains(&m.id),
             edited: m.edited_at.is_some(),
             deleted: m.deleted_at.is_some(),

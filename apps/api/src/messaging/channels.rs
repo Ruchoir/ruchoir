@@ -744,15 +744,15 @@ pub async fn update_channel_member_role(
     }))
 }
 
-/// Make the caller a member of a channel they are about to write in, if they are not one already.
+/// Make the caller a member of a channel they are about to take part in, if they are not one.
 ///
-/// Reading a public channel without joining is deliberate; posting in one without joining was an
-/// accident of the same rule. The audience of a message is the channel's members, so a message from
-/// a non-member went out to everyone except the person who wrote it.
+/// Reading a public channel without joining is deliberate; *taking part* in one without joining was
+/// an accident of the same rule. Everything a channel pushes goes to its members, so a message or a
+/// reaction from a non-member went out to everyone except the person who made it.
 ///
 /// Returns quietly when they are already in, which is the common case and must stay free of extra
 /// queries in the hot path... one lookup, the same the audience would have done.
-pub(super) async fn join_before_posting(
+pub(super) async fn join_before_taking_part(
     state: &AppState,
     channel_id: Uuid,
     user_id: Uuid,

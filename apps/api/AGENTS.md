@@ -80,6 +80,13 @@ context and takes precedence here.
   `spaces.id`, so one row deletion empties the schema, but the stored objects are not in the
   database: the file versions' keys are collected *before* the delete and removed behind it, or a
   deleted space would leave its bytes in the store while the interface reported them gone.
+  **Reading a channel grants reading it, and nothing else.** Everything a channel pushes goes to its
+  members, so *taking part* from outside reached everyone but its own author: writing and reacting
+  therefore join the channel (`join_before_taking_part`), once, with the arrival in its history. A
+  **pin** is the other shape of the same mistake and takes the opposite answer: it changes what
+  everyone sees at the top, so it needs membership and refuses a guest, and taking down a pin that
+  is not yours is moderation. `MessageDto.pinned_by` exists so the client can offer what would be
+  accepted rather than what would be refused.
   **Adding someone to a channel is moderation**, not a member's errand: being in a channel is not
   the same as deciding who else is, and anyone who had walked into a public one could put anybody in
   it, an external guest included. It takes `is_channel_moderator`, like every other act of

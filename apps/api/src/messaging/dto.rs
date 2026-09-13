@@ -57,6 +57,10 @@ pub struct MessageDto {
     pub deleted: bool,
     /// Whether the message is pinned in its channel.
     pub pinned: bool,
+    /// Who pinned it, when it is pinned. Carried so a client can offer taking a pin down only to
+    /// the person who put it there (a moderator may take down anyone's, which it knows already).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pinned_by: Option<Uuid>,
     /// Whether the caller saved (bookmarked) this message.
     pub saved: bool,
     /// RFC 3339 creation timestamp.
