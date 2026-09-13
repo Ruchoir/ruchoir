@@ -25,8 +25,8 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    PaginatorTrait, QueryFilter,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection,
+    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, Statement,
 };
 use serde_json::{json, Value};
 use time::OffsetDateTime;
@@ -5622,4 +5622,285 @@ async fn an_administrator_cannot_have_the_api_read_a_file_outside_the_import_dir
             .contains("no archive of that name"),
         "a plain name should reach the directory, got {body}"
     );
+}
+
+// --- Replacing the instance ----------------------------------------------------------------------
+//
+// The most destructive thing the product can do, so it is tested on a database of its own: every
+// other test in this binary runs in parallel against the shared one, and a wipe would take their
+// data with it. The guards themselves refuse before touching anything, so those are checked on the
+// shared database; only the deletion gets its own.
+
+use crate::importer::wipe;
+
+/// A database created for one test, migrated, and dropped afterwards.
+struct ScratchDb {
+    db: DatabaseConnection,
+    name: String,
+    admin_url: String,
+}
+
+impl ScratchDb {
+    async fn create() -> Option<Self> {
+        let base = std::env::var("RUCHOIR_TEST_DATABASE_URL").ok()?;
+        let name = format!("ruchoir_wipe_{}", Uuid::new_v4().simple());
+        let (prefix, _) = base.rsplit_once('/')?;
+        let admin_url = format!("{prefix}/postgres");
+
+        let admin = sea_orm::Database::connect(&admin_url).await.ok()?;
+        admin
+            .execute_raw(Statement::from_string(
+                DatabaseBackend::Postgres,
+                format!("CREATE DATABASE \"{name}\""),
+            ))
+            .await
+            .ok()?;
+        drop(admin);
+
+        let db = sea_orm::Database::connect(&format!("{prefix}/{name}"))
+            .await
+            .ok()?;
+        Migrator::up(&db, None).await.ok()?;
+        Some(Self {
+            db,
+            name,
+            admin_url,
+        })
+    }
+
+    async fn drop_it(self) {
+        let Self {
+            db,
+            name,
+            admin_url,
+        } = self;
+        drop(db);
+        if let Ok(admin) = sea_orm::Database::connect(&admin_url).await {
+            let _ = admin
+                .execute_raw(Statement::from_string(
+                    DatabaseBackend::Postgres,
+                    format!("DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)"),
+                ))
+                .await;
+        }
+    }
+}
+
+async fn record_backup(db: &DatabaseConnection, when: OffsetDateTime) {
+    crate::entities::instance_events::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        kind: Set("backup_taken".to_owned()),
+        occurred_at: Set(when),
+        actor_id: Set(None),
+        detail: Set("{}".to_owned()),
+    }
+    .insert(db)
+    .await
+    .expect("backup event");
+}
+
+async fn make_admin(db: &DatabaseConnection) -> Uuid {
+    let id = make_user(db, "wipe-admin").await;
+    let mut model: users::ActiveModel = users::Entity::find_by_id(id)
+        .one(db)
+        .await
+        .expect("query")
+        .expect("user")
+        .into();
+    model.is_instance_admin = Set(true);
+    model.update(db).await.expect("promote");
+    id
+}
+
+#[tokio::test]
+async fn a_replacement_keeps_the_account_that_ordered_it_and_its_rights() {
+    // The invariant the whole file rests on. Without it the administrator loses their session
+    // mid-run and can neither resume, cancel, nor read what happened.
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+    let (space, _) = crate::messaging::spaces::create_owned_space(&scratch.db, "Ancien", bystander)
+        .await
+        .expect("space");
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    let destroyed = wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org/",
+    )
+    .await
+    .expect("replacement");
+
+    assert!(destroyed.spaces >= 1);
+    assert!(destroyed.space_names.iter().any(|name| name == "Ancien"));
+
+    let survivor = users::Entity::find_by_id(admin)
+        .one(&scratch.db)
+        .await
+        .expect("query")
+        .expect("the administrator survives");
+    assert!(
+        survivor.is_instance_admin,
+        "and keeps the rights that let them do it"
+    );
+    assert!(
+        users::Entity::find_by_id(bystander)
+            .one(&scratch.db)
+            .await
+            .expect("query")
+            .is_none(),
+        "everyone else is gone"
+    );
+    assert!(
+        spaces::Entity::find_by_id(space)
+            .one(&scratch.db)
+            .await
+            .expect("query")
+            .is_none(),
+        "and so is every space"
+    );
+
+    scratch.drop_it().await;
+}
+
+#[tokio::test]
+async fn a_replacement_leaves_a_record_of_itself_that_it_cannot_erase() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    make_user(&scratch.db, "bystander").await;
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org",
+    )
+    .await
+    .expect("replacement");
+
+    let record = crate::entities::instance_events::Entity::find()
+        .filter(crate::entities::instance_events::Column::Kind.eq("instance_replaced"))
+        .one(&scratch.db)
+        .await
+        .expect("query")
+        .expect("the only account of it left");
+    assert_eq!(record.actor_id, Some(admin));
+    // What was destroyed, in the record, because everything that could have said so is gone.
+    assert!(record.detail.contains("accounts"), "got {}", record.detail);
+
+    scratch.drop_it().await;
+}
+
+#[tokio::test]
+async fn a_replacement_without_the_address_typed_exactly_destroys_nothing() {
+    // On a database of its own, like every test in this section, and for a reason learned the hard
+    // way: a guard test that gets one case wrong does not fail, it wipes the database every other
+    // test is using. Destructive code is never pointed at shared state, not even to watch it refuse.
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    for typed in [
+        "",
+        "ruchoir",
+        "RUCHOIR.EXAMPLE.ORG",
+        "https://ruchoir.example.org",
+        "ruchoir.example.org.evil.test",
+    ] {
+        let outcome =
+            wipe::replace_instance(&scratch.db, admin, typed, "https://ruchoir.example.org").await;
+        assert!(outcome.is_err(), "{typed:?} should not be accepted");
+    }
+
+    assert!(
+        users::Entity::find_by_id(bystander)
+            .one(&scratch.db)
+            .await
+            .expect("query")
+            .is_some(),
+        "a refused replacement touches nothing"
+    );
+
+    scratch.drop_it().await;
+}
+
+#[tokio::test]
+async fn a_replacement_without_a_recent_backup_is_refused() {
+    // The only guard that makes this reversible. Without it the operation is simply destruction,
+    // and a guard that trusted a checkbox would be decoration.
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+
+    let outcome = wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org",
+    )
+    .await;
+    assert!(
+        outcome.is_err(),
+        "no backup has ever been recorded, so no replacement"
+    );
+
+    // One from last week, which is not a backup of what is here now.
+    record_backup(
+        &scratch.db,
+        OffsetDateTime::now_utc() - time::Duration::days(7),
+    )
+    .await;
+    let outcome = wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org",
+    )
+    .await;
+    assert!(outcome.is_err(), "a week-old backup is not a recent one");
+
+    assert!(
+        users::Entity::find_by_id(bystander)
+            .one(&scratch.db)
+            .await
+            .expect("query")
+            .is_some(),
+        "a refused replacement touches nothing"
+    );
+
+    scratch.drop_it().await;
+}
+
+#[tokio::test]
+async fn what_a_replacement_would_destroy_is_counted_before_anything_happens() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    make_admin(&scratch.db).await;
+    let someone = make_user(&scratch.db, "someone").await;
+    crate::messaging::spaces::create_owned_space(&scratch.db, "Comptabilité", someone)
+        .await
+        .expect("space");
+
+    let dying = wipe::what_would_be_destroyed(&scratch.db)
+        .await
+        .expect("count");
+    assert_eq!(dying.spaces, 1);
+    assert_eq!(dying.accounts, 2);
+    // Names, not only a number: one does not destroy a number.
+    assert_eq!(dying.space_names, vec!["Comptabilité".to_string()]);
+
+    scratch.drop_it().await;
 }

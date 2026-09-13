@@ -39,11 +39,27 @@ pub struct ArchiveRequest {
     /// Absent for an archive that was never sealed, which only happens in development.
     #[serde(default)]
     pub passphrase: Option<String>,
+    /// Set to empty the instance before importing: every space and every account except the one
+    /// asking. Never a default, and refused unless the address matches and a backup less than a day
+    /// old has been recorded.
+    #[serde(default)]
+    pub replace_everything: Option<ReplaceRequest>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ReplaceRequest {
+    /// The instance's own address, typed by hand. There is no instance name in the database, and
+    /// this is the one an administrator reads in their browser every day.
+    pub instance_address: String,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PlanResponse {
     pub source: String,
+    /// What replacing the instance would destroy, so the screen can show it next to what would
+    /// arrive. Counted on every plan, whether or not a replacement is asked for: an administrator
+    /// deciding between the two should see both halves at once.
+    pub replacing_would_destroy: WhatDiesResponse,
     pub spaces: Vec<PlannedSpace>,
     pub accounts: PlannedAccounts,
     pub messages: usize,
@@ -54,6 +70,17 @@ pub struct PlanResponse {
     /// Problems the contract checks allow but an administrator should see, such as a reading
     /// position naming a message that did not cross.
     pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct WhatDiesResponse {
+    pub spaces: u64,
+    pub accounts: u64,
+    pub messages: u64,
+    pub space_names: Vec<String>,
+    /// When the last backup was recorded, if ever. A replacement is refused without a recent one.
+    pub last_backup: Option<String>,
+    pub replacement_allowed: bool,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -151,8 +178,26 @@ pub async fn preview(
     let existing = existing_state(&state).await?;
     let plan = plan::build(&index, &existing);
 
+    let dying = super::wipe::what_would_be_destroyed(&state.db)
+        .await
+        .map_err(|_| ApiError::Internal)?;
+    let backup = super::wipe::last_backup(&state.db)
+        .await
+        .map_err(|_| ApiError::Internal)?;
+    let recent = backup.as_ref().is_some_and(|event| {
+        event.occurred_at > time::OffsetDateTime::now_utc() - super::wipe::BACKUP_MUST_BE_NEWER_THAN
+    });
+
     Ok(Json(PlanResponse {
         source: plan.source.clone(),
+        replacing_would_destroy: WhatDiesResponse {
+            spaces: dying.spaces,
+            accounts: dying.accounts,
+            messages: dying.messages,
+            space_names: dying.space_names,
+            last_backup: backup.map(|event| event.occurred_at.to_string()),
+            replacement_allowed: recent,
+        },
         spaces: plan
             .spaces
             .iter()
@@ -230,6 +275,20 @@ pub async fn start(
         .as_ref()
         .map(|manifest| manifest.source.clone())
         .unwrap_or_default();
+    // The replacement happens before the job exists, and before anything is imported: an
+    // administrator who asked for it and got a refusal has lost nothing, where one who got it
+    // halfway through an import would have lost everything twice.
+    if let Some(replace) = &body.replace_everything {
+        super::wipe::replace_instance(
+            &db,
+            admin,
+            &replace.instance_address,
+            &state.config.public_base_url,
+        )
+        .await
+        .map_err(|e| ApiError::BadRequestOwned(e.to_string()))?;
+    }
+
     let job_id = super::run::start_job(&db, &source, admin, None)
         .await
         .map_err(|e| ApiError::BadRequestOwned(e.to_string()))?;

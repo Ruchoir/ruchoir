@@ -41,5 +41,8 @@ pub mod import_mappings;
 // Per-user client preferences.
 pub mod user_preferences;
 
+// What happened to the instance itself: backups taken, replacements run.
+pub mod instance_events;
+
 // Server-wide settings, one row.
 pub mod instance_settings;

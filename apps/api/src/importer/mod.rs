@@ -10,6 +10,7 @@ pub mod job;
 pub mod plan;
 pub mod routes;
 pub mod run;
+pub mod wipe;
 
 use std::path::Path;
 

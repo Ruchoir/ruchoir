@@ -11,6 +11,20 @@ An instance holds three stores, and a backup that misses one of them is not a ba
 `scripts/backup.sh` takes all three into one encrypted archive, and `scripts/restore.sh` puts them
 back. Both act on the instance in the directory they are run from.
 
+
+## Each backup is recorded in the instance
+
+`scripts/backup.sh` writes a row into `instance_events` once the archive and its checksum are on
+disk, never before. The API cannot look at the backup directory, and one decision depends on knowing
+a backup exists: an import can replace the whole instance before refilling it, and it refuses to do
+so without a backup less than a day old. A guard that trusted a checkbox would be decoration.
+
+If that row cannot be written the backup still succeeds, and the script says so loudly, because the
+replacement will then refuse to run and the reason would otherwise be a mystery.
+
+Nothing ever deletes those rows, including the replacement itself: its own record is the only
+account of it that survives what it destroys.
+
 ## Setting it up
 
 Generate a key, **somewhere that is not this machine**:
