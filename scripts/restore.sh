@@ -116,6 +116,14 @@ docker run --rm -v "ruchoir_valkey-data:/dst" -v "$work:/in:ro" alpine:3 \
 compose up -d valkey >/dev/null
 
 compose start api >/dev/null 2>&1 || compose up -d api >/dev/null
+
+# Waited for, not assumed: the API applies pending migrations as it boots, and the log written just
+# below lives in a table a newer version may only just have created.
+for _ in $(seq 1 60); do
+  compose exec -T postgres psql -U "$pg_user" -d "$pg_db" -tAc \
+    "SELECT to_regclass('public.instance_events')" 2>/dev/null | grep -q instance_events && break
+  sleep 1
+done
 echo
 # The archive this instance was just restored from is itself a backup that exists, and the instance
 # has no other way to know it: a backup records itself after sealing, so the archive never contains
@@ -124,10 +132,17 @@ echo
 # with the moment the archive was taken, not now, because that is what is true.
 if [ -n "$taken_at" ]; then
   detail="$(printf '{"archive":"%s","restored":true}' "$(basename "$archive")")"
-  compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$pg_user" -d "$pg_db" \
-    -c "INSERT INTO instance_events (id, kind, occurred_at, actor_id, detail)
-        VALUES (gen_random_uuid(), 'backup_taken', '$taken_at', NULL, '$detail');" >/dev/null 2>&1 \
-    && echo "  recorded the archive this came from in the instance's own log"
+  if compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$pg_user" -d "$pg_db" \
+      -c "INSERT INTO instance_events (id, kind, occurred_at, actor_id, detail)
+          VALUES (gen_random_uuid(), 'backup_taken', '$taken_at', NULL, '$detail');" >/dev/null 2>&1
+  then
+    echo "  recorded the archive this came from in the instance's own log"
+  else
+    # Said rather than swallowed: without this row an instance replacement refuses to run, and the
+    # reason would otherwise be a mystery to whoever meets it.
+    echo "  note: could not record this archive in the instance's log;" >&2
+    echo "        an instance replacement will refuse until a backup is taken" >&2
+  fi
 fi
 
 echo "Done. Sessions from the archive are back, so anyone signed in since it was taken is signed out."
