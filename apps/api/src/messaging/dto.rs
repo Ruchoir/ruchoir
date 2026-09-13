@@ -49,6 +49,12 @@ pub struct MessageDto {
     pub parent_message_id: Option<Uuid>,
     /// Number of replies in this message's thread.
     pub reply_count: i32,
+    /// Display names of the last few people who answered in this thread, most recent first.
+    ///
+    /// Denormalized on purpose: a feed draws a face next to "3 replies" without opening the thread,
+    /// and doing that from the client would cost one request per message on screen.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub reply_authors: Vec<String>,
     /// Whether the message was migrated from another tool.
     pub imported: bool,
     /// Whether the message was edited.

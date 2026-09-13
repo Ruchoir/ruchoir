@@ -121,6 +121,8 @@ type MessageDto = {
   system_event?: string;
   parent_message_id?: string;
   reply_count: number;
+  /** Display names of the last repliers, most recent first. Absent when the thread is empty. */
+  reply_authors?: string[];
   imported: boolean;
   edited: boolean;
   deleted: boolean;
@@ -1236,7 +1238,9 @@ function toMessage(dto: MessageDto): ApiMessage {
     attachment,
     image,
     reactions: dto.reactions.length > 0 ? dto.reactions.map(toReaction) : undefined,
+    parentId: dto.parent_message_id,
     replies: dto.reply_count > 0 ? dto.reply_count : undefined,
+    replyAuthors: dto.reply_authors?.length ? dto.reply_authors : undefined,
     imported: dto.imported || undefined,
     pinned: dto.pinned || undefined,
     pinnedBy: dto.pinned_by,

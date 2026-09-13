@@ -22,6 +22,7 @@ import {
   getInvitations,
   getNotifications,
   getReadCursors,
+  getReplies,
   getSavedMessages,
   adoptBrowserTimezone,
   getSession,
@@ -183,6 +184,9 @@ const toastStyle: Record<string, CSSProperties> = {
   desc: { fontSize: 12, color: "var(--grey-300)" },
 };
 
+/** How many faces a thread shows next to its reply count. The API caps its own list to match. */
+const MAX_REPLY_FACES = 3;
+
 /** A message that only exists client-side: an optimistic send not yet acknowledged by the API. */
 function isPendingId(id: string): boolean {
   return id.startsWith("tmp-");
@@ -195,6 +199,38 @@ function upsertMessage(map: MessageMap, conv: string, m: Message): MessageMap {
   if (idx === -1) return { ...map, [conv]: [...list, m] };
   const next = list.slice();
   next[idx] = m;
+  return { ...map, [conv]: next };
+}
+
+/**
+ * Move a thread root's reply counter by `delta` (a reply was posted, or taken back).
+ *
+ * A reply is not part of the feed, so the only trace it leaves there is the root's counter: without
+ * this, a thread opened on a message stayed invisible to everyone else until they reloaded the
+ * conversation, and a deleted reply went on being advertised. Mirrors what the API keeps on the
+ * row, floor included, so the two agree until the next fetch says otherwise.
+ */
+function adjustReplyCount(
+  map: MessageMap,
+  conv: string,
+  parentId: string,
+  delta: number,
+  author?: string,
+): MessageMap {
+  const list = map[conv] ?? [];
+  const idx = list.findIndex((x) => x.id === parentId);
+  if (idx === -1) return map;
+  const root = list[idx];
+  const count = Math.max(0, (root.replies ?? 0) + delta);
+  // The faces move with the count, newest first, one per person. Only an arrival is folded in: a
+  // reply taken back says nothing about whether its author still has others in the thread, and the
+  // next read of the conversation settles it either way.
+  const faces =
+    author && delta > 0
+      ? [author, ...(root.replyAuthors ?? []).filter((a) => a !== author)].slice(0, MAX_REPLY_FACES)
+      : root.replyAuthors;
+  const next = list.slice();
+  next[idx] = { ...root, replies: count > 0 ? count : undefined, replyAuthors: faces };
   return { ...map, [conv]: next };
 }
 
@@ -906,7 +942,13 @@ function AppShell() {
         // Our own message is already shown optimistically and reconciled by the POST response; skip
         // the echo so it does not briefly duplicate at the bottom of the feed.
         if (m.authorId && m.authorId === myId) return;
-        setMessages((prev) => upsertMessage(prev, conv, m));
+        const parentId = m.parentId;
+        setMessages((prev) => {
+          const next = upsertMessage(prev, conv, m);
+          // A reply is held with the rest of the conversation, and kept out of the feed when the
+          // feed is drawn. What the feed does show of it is its root's counter and faces.
+          return parentId ? adjustReplyCount(next, conv, parentId, 1, m.author) : next;
+        });
         // The author stopped typing the moment they sent: clear their now-stale typing signal.
         const author = m.authorId;
         if (author) {
@@ -918,6 +960,10 @@ function AppShell() {
             return { ...prev, [conv]: next };
           });
         }
+        // Everything below is about the feed and the counters that follow it, neither of which a
+        // reply takes part in: the history endpoint leaves replies out, and so do the unread counters
+        // the server keeps.
+        if (parentId) return;
         // Reading is having it on screen while looking at the screen. Sitting in a conversation
         // never advanced the read cursor: it moved only when a conversation was opened, so someone
         // who stayed in a channel accumulated unread messages they were watching arrive, and their
@@ -939,7 +985,15 @@ function AppShell() {
         }
       },
       onMessageUpdated: (conv, m) => setMessages((prev) => replaceMessage(prev, conv, m)),
-      onMessageDeleted: (conv, m) => setMessages((prev) => replaceMessage(prev, conv, m)),
+      // A deleted reply also comes off its root's counter, the way the API takes it off the stored
+      // one, so the feed goes on saying how many replies there are to read.
+      onMessageDeleted: (conv, m) => {
+        const parentId = m.parentId;
+        setMessages((prev) => {
+          const next = replaceMessage(prev, conv, m);
+          return parentId ? adjustReplyCount(next, conv, parentId, -1) : next;
+        });
+      },
       onReaction: (conv, r) => {
         // Our own reaction is already applied optimistically; only fold in other users' deltas.
         if (r.userId === liveRef.current.myId) return;
@@ -1281,7 +1335,23 @@ function AppShell() {
     ({ id: channelId, name: dm?.name ?? t("channel.fallbackName"), fav: false, unread: 0, type: "public" } as Channel);
   // Memoised because the `?? []` branch is a fresh array every render, which would re-run anything
   // that depends on the feed (the read receipts below) on every render for no reason.
-  const feed = useMemo(() => messages[channelId] ?? [], [messages, channelId]);
+  //
+  // Replies are held with the rest of their conversation, so that saving, reacting to, editing or
+  // deleting one goes through the very same handlers as a message in the channel. The feed is where
+  // they are taken back out: a thread is read in its panel, and a reply in the channel would be a
+  // sentence out of the conversation it belongs to.
+  const conversationMessages = useMemo(() => messages[channelId] ?? [], [messages, channelId]);
+  const feed = useMemo(() => conversationMessages.filter((m) => !m.parentId), [conversationMessages]);
+  /** The open thread's replies, oldest first, from that same list. */
+  const threadReplies = useMemo(
+    () =>
+      thread == null
+        ? []
+        : conversationMessages
+            .filter((m) => m.parentId === thread)
+            .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    [conversationMessages, thread],
+  );
 
   /**
    * The spaces in the order this person arranged them.
@@ -1558,7 +1628,9 @@ function AppShell() {
     // Advance the server-side read cursor to the latest acknowledged message. Best-effort: a failure
     // only means the badge reappears on reload, so it is not surfaced.
     const list = loaded ?? messages[id] ?? [];
-    const last = [...list].reverse().find((m) => !isPendingId(m.id));
+    // A cursor is a position in the conversation as it is read, and replies are read in their
+    // thread: the last one of those is not where the channel was left off.
+    const last = [...list].reverse().find((m) => !isPendingId(m.id) && !m.parentId);
     if (last) void setReadCursor(id, last.id).catch(() => {});
     // The rail counts the whole account, so reading here changes a number drawn over there. It is
     // re-read rather than decremented: the arithmetic would have to mirror the server's definition
@@ -2020,9 +2092,37 @@ function AppShell() {
       .catch(() => showToast({ tone: "danger", title: t("toast.dmFailed") }));
   };
 
+  /**
+   * Read a thread's replies into the conversation they belong to.
+   *
+   * Called when a thread is opened rather than kept in sync: a conversation's history endpoint
+   * deliberately leaves replies out, so a thread nobody has looked at holds nothing but the ones
+   * that happened to arrive live. Merged by id, so what is already there is refreshed, not doubled.
+   */
+  const loadThread = (conv: string, parentId: string) => {
+    void getReplies(parentId)
+      .then((rows) =>
+        setMessages((prev) => rows.reduce((map, m) => upsertMessage(map, conv, m), prev)),
+      )
+      .catch(() => {
+        showToast({ tone: "info", title: t("toast.threadNotLoaded") });
+      });
+  };
+
   const openMessage = (targetChannel: string, messageId: string) => {
     setModal(null);
     openChannel(targetChannel);
+    // A reply is read in its thread. Focusing one in the feed looked for a row the feed does not
+    // draw, so a notification about an answer led to nothing happening at all; opening the thread
+    // puts it where it can be read. Only when we already hold the reply: otherwise the feed still
+    // has the better chance of finding it.
+    const target = (messages[targetChannel] ?? []).find((m) => m.id === messageId);
+    if (target?.parentId) {
+      setThread(target.parentId);
+      setProfile(null);
+      loadThread(targetChannel, target.parentId);
+      return;
+    }
     setFocusMessageId(messageId);
   };
 
@@ -2103,6 +2203,7 @@ function AppShell() {
     openThread: (messageId: string) => {
       setThread(messageId);
       setProfile(null);
+      loadThread(channelId, messageId);
     },
     openProfile: (name: string) => {
       setProfile(name);
@@ -2131,7 +2232,7 @@ function AppShell() {
       });
     },
     edit: (messageId: string) => {
-      const target = feed.find((x) => x.id === messageId);
+      const target = conversationMessages.find((x) => x.id === messageId);
       if (target) setEditing({ id: messageId, body: target.body });
     },
     togglePin: (messageId: string) => {
@@ -2151,7 +2252,7 @@ function AppShell() {
     },
     copyLink: () => showToast({ tone: "success", title: t("admin.copiedToast") }),
     copyMessage: (messageId: string) => {
-      const target = feed.find((x) => x.id === messageId);
+      const target = conversationMessages.find((x) => x.id === messageId);
       navigator.clipboard?.writeText(target?.body ?? "");
       showToast({ tone: "success", title: t("toast.messageCopied") });
     },
@@ -2257,6 +2358,37 @@ function AppShell() {
         });
         // Writing in a public channel one is only reading puts the writer in it, server-side. The
         // client has to learn that from this call, because nothing else will tell it.
+        if (notInChannel(conv)) void markJoined(conv);
+      })
+      .catch(() => {
+        setMessages((prev) => ({ ...prev, [conv]: (prev[conv] ?? []).filter((x) => x.id !== tempId) }));
+        showToast({ tone: "info", title: t("toast.messageNotSent") });
+      });
+  };
+
+  /**
+   * Answer in a thread. The same optimistic dance as {@link send}, plus the root's counter: our own
+   * reply is never echoed back to us, so nothing else would move it.
+   */
+  const sendReply = (parentId: string, text: string) => {
+    if (!text.trim()) return;
+    const conv = channelId;
+    const tempId = `tmp-${Date.now()}`;
+    const optimistic: Message = {
+      id: tempId,
+      author: currentUser,
+      authorId: session?.id,
+      createdAt: new Date().toISOString(),
+      body: text,
+      parentId,
+    };
+    setMessages((prev) => ({ ...prev, [conv]: [...(prev[conv] ?? []), optimistic] }));
+    sendMessage(conv, text, { parentMessageId: parentId })
+      .then((m) => {
+        setMessages((prev) => {
+          const list = (prev[conv] ?? []).filter((x) => x.id !== tempId && x.id !== m.id);
+          return adjustReplyCount({ ...prev, [conv]: [...list, m] }, conv, parentId, 1, m.author);
+        });
         if (notInChannel(conv)) void markJoined(conv);
       })
       .catch(() => {
@@ -3009,6 +3141,8 @@ function AppShell() {
           messages={feed}
           panel={panel}
           threadId={thread}
+          threadReplies={threadReplies}
+          onSendReply={sendReply}
           profileName={profile}
           profileEditing={profileEdit}
           unreadMarker={unreadMarker}

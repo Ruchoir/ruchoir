@@ -1,18 +1,15 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { Avatar, IconButton, Popover } from "@/components/ds";
-import { getAvatar, getCurrentUser } from "@/lib/data";
+import { Icon, IconButton, Popover } from "@/components/ds";
+import type { Presence } from "@/components/ds";
 import type { Message } from "@/lib/data";
-import { getReplies, sendMessage } from "@/lib/data/api";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
+import { MessageRow, type MessageActions } from "./MessageRow";
 import { useStickToBottom } from "./useStickToBottom";
+import { THREAD_WIDTH_MAX, THREAD_WIDTH_MIN, useSettings } from "../app/settings";
 import { useTranslation } from "@/lib/i18n";
-import { formatStamp } from "@/lib/i18n/format";
-
-const MIN_WIDTH = 320;
-const MAX_WIDTH = 720;
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -44,10 +41,6 @@ const styles: Record<string, CSSProperties> = {
   },
   title: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
   scroll: { flex: 1, overflow: "auto", padding: "12px 16px" },
-  reply: { display: "flex", gap: 10, padding: "8px 0" },
-  name: { fontSize: 13, fontWeight: 600, color: "var(--text-strong)" },
-  time: { fontSize: 12, color: "var(--text-muted)", marginLeft: 6 },
-  body: { fontSize: 14, color: "var(--text-body)", lineHeight: "var(--leading-snug)", marginTop: 1 },
   count: {
     display: "flex",
     alignItems: "center",
@@ -68,54 +61,62 @@ const styles: Record<string, CSSProperties> = {
     background: "var(--surface-canvas)",
     padding: "8px 10px",
   },
+  editingBanner: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+    fontSize: 12,
+    color: "var(--text-muted)",
+  },
 };
-
-type Reply = { id: string; author: string; createdAt: string; body: string };
-
-/** Reduce a message to the fields the thread row renders. */
-function toReply(m: { id: string; author: string; createdAt: string; body: string }): Reply {
-  return { id: m.id, author: m.author, createdAt: m.createdAt, body: m.body };
-}
-
-function ReplyRow({ r }: { r: Reply }) {
-  return (
-    <div style={styles.reply}>
-      <Avatar name={r.author} src={getAvatar(r.author)} size={26} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div>
-          <span style={styles.name}>{r.author}</span>
-          <span style={styles.time}>{formatStamp(r.createdAt)}</span>
-        </div>
-        <p style={styles.body}>{r.body}</p>
-      </div>
-    </div>
-  );
-}
 
 export type ThreadPanelProps = {
   parent: Message;
-  /** The conversation the thread belongs to (for posting replies). */
-  conversationId: string;
+  /** The thread's replies, oldest first, held with the rest of the conversation. */
+  replies: Message[];
+  /** Build a row's actions, so a reply is acted on exactly like a message in the feed. */
+  rowActions: (m: Message) => MessageActions;
+  /** Live presence by display name, for the row avatars. */
+  presenceByName: Map<string, Presence>;
+  /** Uploaded avatars by display name; absent means the generated one. */
+  avatarByName: Map<string, string | undefined>;
+  /** Post a reply in this thread. */
+  onSendReply: (text: string) => void;
+  /** Set while one of *these* messages is being edited: the thread composer takes the edit. */
+  editing?: { id: string; body: string } | null;
+  onSaveEdit?: (text: string) => void;
+  onCancelEdit?: () => void;
   onClose: () => void;
 };
 
-/** Right-hand thread view for a message's replies, loaded from and posted to the API. */
-export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProps) {
+/**
+ * Right-hand thread view: the root message, then its replies, drawn with the same row as the feed.
+ *
+ * A reply used to be a reduced row of its own (name, time, text) with nothing to act on: no
+ * reaction, no edit, no deletion, not even a tombstone for one that had been taken back. A reply is
+ * the same kind of thing as a message in the channel, so it is drawn by the same component, minus
+ * what only the feed can mean (see `inThread` on the row).
+ */
+export function ThreadPanel({
+  parent,
+  replies,
+  rowActions,
+  presenceByName,
+  avatarByName,
+  onSendReply,
+  editing,
+  onSaveEdit,
+  onCancelEdit,
+  onClose,
+}: ThreadPanelProps) {
   const { t } = useTranslation();
-  const me = getCurrentUser().name;
-  const [replies, setReplies] = useState<Reply[]>([]);
-  const [width, setWidth] = useState(420);
-
-  // Load the thread's replies whenever the parent changes.
-  useEffect(() => {
-    let active = true;
-    getReplies(parent.id)
-      .then((list) => active && setReplies(list.map(toReply)))
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [parent.id]);
+  const settings = useSettings();
+  // The dragged width is kept in the preferences, so a thread reopens as wide as it was left. Local
+  // while the handle is held: storing on every mouse move would write a hundred intermediate widths
+  // to keep the last one.
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const width = dragWidth ?? settings.threadWidth;
   // A thread reads like the main feed: it follows its latest reply while the reader is at the end
   // of it. It had no scrolling of its own at all, so a reply arriving in an open thread stayed
   // below the fold.
@@ -124,42 +125,65 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
   const editorRef = useRef<MessageEditorHandle>(null);
   const emojiRef = useRef<HTMLButtonElement>(null);
 
-  const startResize = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = width;
-    const onMove = (ev: MouseEvent) => {
-      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth - (ev.clientX - startX)));
-      setWidth(next);
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [width]);
+  // Tombstones stay on screen (a thread reads as it happened) but are not replies any more, so this
+  // count says the same thing as the one the feed draws under the root message.
+  const liveReplies = replies.filter((r) => !r.deleted).length;
 
-  const addReply = (text: string) => {
-    if (!text.trim()) return;
-    const tempId = `tmp-${Date.now()}`;
-    setReplies((prev) => [
-      ...prev,
-      {
-        id: tempId,
-        author: me,
-        createdAt: new Date().toISOString(),
-        body: text,
-      },
-    ]);
-    sendMessage(conversationId, text, { parentMessageId: parent.id })
-      .then((m) => setReplies((prev) => prev.map((r) => (r.id === tempId ? toReply(m) : r))))
-      .catch(() => setReplies((prev) => prev.filter((r) => r.id !== tempId)));
+  // Load the message being edited into the editor, and restore an empty one when the edit ends.
+  // Same contract as the channel composer, keyed on the id so switching messages swaps the text.
+  const editingId = editing?.id ?? null;
+  useEffect(() => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    if (editingId) ed.setText(editing?.body ?? "");
+    else ed.clear();
+  }, [editingId, editing?.body]);
+
+  const startResize = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = width;
+      let latest = startWidth;
+      const onMove = (ev: MouseEvent) => {
+        latest = Math.min(THREAD_WIDTH_MAX, Math.max(THREAD_WIDTH_MIN, startWidth - (ev.clientX - startX)));
+        setDragWidth(latest);
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        settings.set("threadWidth", latest);
+        setDragWidth(null);
+      };
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+    },
+    [width, settings],
+  );
+
+  const submit = (text: string) => {
+    if (editing) {
+      onSaveEdit?.(text);
+      return;
+    }
+    onSendReply(text);
   };
+
+  const row = (m: Message) => (
+    <MessageRow
+      key={m.id}
+      m={m}
+      inThread
+      canPin={false}
+      authorPresence={presenceByName.get(m.author)}
+      authorAvatar={avatarByName.get(m.author)}
+      actions={rowActions(m)}
+    />
+  );
 
   return (
     <div style={{ ...styles.panel, width }}>
@@ -169,19 +193,41 @@ export function ThreadPanel({ parent, conversationId, onClose }: ThreadPanelProp
         <IconButton icon="x" label={t("thread.close")} size="sm" onClick={onClose} />
       </div>
       <div style={styles.scroll} ref={scrollRef}>
-        <ReplyRow r={{ id: parent.id, author: parent.author, createdAt: parent.createdAt, body: parent.body }} />
+        {/* The root is a message of the feed, drawn here as the thread's first row: offering to open
+            a thread from inside the one it already opened would go nowhere. */}
+        {row(parent)}
         <div style={styles.count}>
           <span style={styles.countLine} />
-          {t("message.replies", { count: replies.length })}
+          {t("message.replies", { count: liveReplies })}
           <span style={styles.countLine} />
         </div>
-        {replies.map((r) => (
-          <ReplyRow key={r.id} r={r} />
-        ))}
+        {replies.map(row)}
       </div>
       <div style={styles.composer}>
         <div style={styles.composerBox}>
-          <MessageEditor ref={editorRef} placeholder={t("thread.replyPlaceholder")} onSend={addReply} />
+          {editing ? (
+            <div style={styles.editingBanner}>
+              <Icon name="square-pen" size={14} style={{ color: "var(--text-accent)" }} />
+              <span style={{ fontWeight: 600, color: "var(--text-accent)" }}>{t("composer.editing")}</span>
+              <span style={{ color: "var(--text-subtle)" }}>{t("composer.escToCancel")}</span>
+              <div style={{ flex: 1 }} />
+              <IconButton icon="x" label={t("composer.cancelEdit")} size="sm" onClick={() => onCancelEdit?.()} />
+            </div>
+          ) : null}
+          <div
+            onKeyDown={(e) => {
+              if (editing && e.key === "Escape") {
+                e.stopPropagation();
+                onCancelEdit?.();
+              }
+            }}
+          >
+            <MessageEditor
+              ref={editorRef}
+              placeholder={editing ? t("message.editMessage") : t("thread.replyPlaceholder")}
+              onSend={submit}
+            />
+          </div>
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, marginTop: 4 }}>
             <IconButton
               ref={emojiRef}

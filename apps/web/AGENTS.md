@@ -247,6 +247,23 @@ and unread state. Mutations still go through REST; the
 socket only receives, plus sends typing/ping. The composer emits a throttled typing signal via
 `rtRef.current.sendTyping`.
 
+**A thread reply is held with its conversation, and kept out of the feed.** Replies live in the
+same `messages[conversationId]` list as everything else, which is what lets a reply be reacted to,
+saved, edited or deleted through the very same handlers as a message in the channel (they all look
+the message up in that list). The feed is where they come back out: `feed` filters `!m.parentId`,
+and `threadReplies` is the same list filtered the other way. `ThreadPanel` draws them with
+`MessageRow`, which drops what only the feed can mean (`inThread`: no thread of its own, no "unread
+from here", no pin).
+
+Three things follow from replies being in the list but not in the feed. A `message.created` frame
+carrying `parentId` moves no unread badge and no read cursor: the history endpoint and the server's
+unread counters both filter on a null parent, so counting one here would only disagree with the
+server. The root's `replies` counter and its `replyAuthors` faces are moved client-side
+(`adjustReplyCount`), on arrival and on our own send, since our own message is never echoed back to
+us; a deletion takes one off the counter, the way the API takes it off the stored one. And a thread
+is read into the list by `loadThread` when it is opened, because the conversation's own history
+never carried it.
+
 The member roster is loaded from `GET /spaces/{id}/members` and published into the mock seam via
 `setChannelMembers`, so the member list, the `@`-mention autocomplete and the people search read the
 real members synchronously through `getChannelMembers`/`getMentionNames`. The signed-in user's name is
@@ -347,7 +364,10 @@ usage with the design-system oxlint config.
   (sprite) -> native. Emoji picker data/keywords live in `lib/emoji.ts`.
 - **User settings** live in `features/app/settings.tsx` (`SettingsProvider` + `useSettings`,
   persisted to localStorage): theme, typeface, text size, notification prefs, account security,
-  emoji animation, the simulated pack-present flag, and keyboard-shortcut bindings.
+  emoji animation, the simulated pack-present flag, keyboard-shortcut bindings, and the dragged
+  width of the thread panel (`threadWidth`, bounded by `THREAD_WIDTH_MIN`/`MAX`, written on mouse-up
+  rather than on every move). A layout the reader adjusts by hand belongs here: one that lives in a
+  component's state has to be adjusted again at every reopening.
 - **Keyboard shortcuts.** Commands and their default chords live in `features/app/shortcuts.ts`
   (`COMMANDS`, `DEFAULT_BINDINGS`, plus `eventToChord`/`formatChord`; `Mod` = Cmd on macOS, Ctrl
   elsewhere). Bindings persist in the settings and are user-editable in Préférences > Raccourcis
