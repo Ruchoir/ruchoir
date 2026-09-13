@@ -44,6 +44,15 @@ CI runs it against a MariaDB service with `RUCHOIR_TEST_REQUIRE_MARIADB=1`, whic
 producer test into a failure. A suite that quietly skips its only end-to-end test reports green
 over an untested feature, which is worse than having no suite.
 
+**The contract has two implementations, and they must agree.** This one runs beside a producer, on
+the customer's machine, so that nobody carries a broken archive across the internet only to be
+refused on arrival. The one inside the API decides whether an archive is actually imported. That
+promise is worth exactly as much as the agreement between the two, and it has been worth nothing
+twice: a rule that existed only in the API let a producer ship an archive the API then refused
+whole. `tests/test_checkers_agree.py` puts the same archives to both and requires the same verdict,
+so a rule added on one side fails at the moment it is written. It needs the API binary
+(`cargo build -p ruchoir-api`); CI builds one and treats a skip as a failure.
+
 `validate-archive.py` is the contract checker. Every producer's test ends by running it over the
 output, so an adapter cannot ship an archive the importer would refuse.
 

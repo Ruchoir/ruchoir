@@ -143,11 +143,24 @@ def main() -> None:
         chan = channels[i % len(channels)]
         cid = chan["id"]
         author = rng.choice(chan["members"])
-        body = " ".join(rng.choices(WORDS, k=rng.randint(4, 40)))
+
+        # A notice is a different shape, not an ordinary message with its body emptied: nobody
+        # pins "Bob joined the channel", edits it, keeps it, reacts to it or attaches a file to it,
+        # and the contract refuses several of those outright. Building it separately is the only
+        # way the decorations below cannot land on one by arithmetic coincidence.
+        if i % 200 == 0:
+            messages.append({
+                "id": f"m{i:06d}", "channel": cid, "author": author, "sent_at": when(i),
+                "body": "", "format": "markdown", "system_event": "channel_joined",
+                "thread_root": None, "pinned": False, "edited_at": None,
+                "reactions": [], "files": [], "saved_by": [],
+            })
+            continue
+
         row = {
             "id": f"m{i:06d}", "channel": cid, "author": author, "sent_at": when(i),
-            "body": body, "format": "markdown", "system_event": None,
-            "thread_root": None, "pinned": i % 500 == 0, "edited_at": None,
+            "body": " ".join(rng.choices(WORDS, k=rng.randint(4, 40))), "format": "markdown",
+            "system_event": None, "thread_root": None, "pinned": i % 500 == 0, "edited_at": None,
             "reactions": [], "files": [], "saved_by": [],
         }
         previous = roots.get(cid)
@@ -163,13 +176,20 @@ def main() -> None:
             row["saved_by"] = rng.sample(chan["members"], 1)
         if i % 60 == 0:
             row["edited_at"] = when(i + 1)
-        if i % 200 == 0:
-            row["system_event"] = "channel_joined"
-            row["body"] = ""
-        attach = by_channel.get(cid)
-        if attach and i % 233 == 0:
-            row["files"] = [attach[i % len(attach)]]
         messages.append(row)
+
+    # Attachments are hung on afterwards rather than during, because a message and a file only meet
+    # if they are in the same conversation, and testing that with a modulus made it a coincidence:
+    # on a small archive it stopped happening at all and nothing exercised the pass that links
+    # them. Every third file is attached to the first ordinary message of its own conversation.
+    first_ordinary: dict[str, dict] = {}
+    for row in messages:
+        if row["system_event"] is None:
+            first_ordinary.setdefault(row["channel"], row)
+    for n, f in enumerate(files):
+        host = first_ordinary.get(f["channel"])
+        if host is not None and n % 3 == 0:
+            host["files"].append(f["id"])
 
     checksums = {
         "spaces.jsonl": write("spaces.jsonl", spaces),

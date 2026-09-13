@@ -216,12 +216,21 @@ jobs:
         run: |
           bash -n packages/importer/export-nextcloud.sh
           python3 -m py_compile packages/importer/convert-mattermost.py packages/importer/validate-archive.py
+      - name: Set up Rust
+        run: rustup show
+      - name: Build the API, for the checker inside it
+        # The contract has two implementations and they have twice reached opposite verdicts on the
+        # same archive, each time letting a broken export through the checker beside the producer.
+        # The cross-check needs the real one, so it is built here rather than skipped.
+        run: cargo build -p ruchoir-api
       - name: Test the import chain
-        # RUCHOIR_TEST_REQUIRE_MARIADB makes a skipped producer test a failure: a suite that
-        # quietly skips its only end-to-end test reports green over an untested feature.
+        # The two REQUIRE flags make a skipped test a failure: a suite that quietly skips its only
+        # end-to-end test, or the only thing keeping the two checkers honest, reports green over an
+        # untested feature.
         env:
           RUCHOIR_TEST_MARIADB: host=127.0.0.1,port=3306,user=root,password=ruchoir
           RUCHOIR_TEST_REQUIRE_MARIADB: '1'
+          RUCHOIR_TEST_REQUIRE_RUST_CHECKER: '1'
         working-directory: packages/importer/tests
         run: python3 -m unittest discover --verbose
 

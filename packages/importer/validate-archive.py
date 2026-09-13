@@ -254,6 +254,10 @@ def _check_messages(messages, channels, users, files, report) -> None:
                     f"message {identifier}: a notice carries an event, never a sentence, "
                     "and this one has a body"
                 )
+            # Nobody pins "Bob joined the channel", and the product has nowhere to show it: the
+            # pinned list is of things somebody chose to keep in view.
+            if message.get("pinned"):
+                report.error(f"message {identifier}: a notice cannot be pinned")
         if author is not None and author not in users and not ABSENT_AUTHOR.match(str(author)):
             report.error(f"message {identifier}: author {author!r} is neither an account nor marked absent")
         if author is None and event is None:
