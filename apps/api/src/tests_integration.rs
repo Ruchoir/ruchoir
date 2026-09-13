@@ -40,7 +40,8 @@ use ruchoir_migration::{Migrator, MigratorTrait};
 use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
 use crate::entities::{
-    channel_members, channels, conversations, files, space_members, spaces, users,
+    channel_members, channels, conversations, files, space_invitations, space_members, spaces,
+    users,
 };
 use crate::state::AppState;
 
@@ -3444,4 +3445,196 @@ async fn reacting_joins_the_channel_like_writing_does() {
             .expect("membership")
             .is_some()
     );
+}
+
+// --- Claiming an account an import placed here ---------------------------------------------------
+//
+// An import creates accounts, puts them in their spaces and channels, and leaves them waiting: the
+// history is here before the person is. Registering with the invitation addressed to them has to
+// take over that account rather than collide with it, and must refuse every other shape, because
+// what it hands over is an account with someone else's conversations already in it.
+
+/// An account exactly as an import leaves one: placed, complete, never used.
+async fn make_waiting_account(db: &DatabaseConnection, email: &str) -> Uuid {
+    let id = Uuid::new_v4();
+    users::ActiveModel {
+        id: Set(id),
+        email: Set(email.to_owned()),
+        display_name: Set("Imported Name".to_owned()),
+        password_hash: Set(None),
+        status: Set("pending".to_owned()),
+        mfa_enforced: Set(false),
+        is_bot: Set(false),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("waiting account");
+    id
+}
+
+/// An invitation row, addressed or not, returning the raw token.
+async fn make_invitation(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    created_by: Uuid,
+    email: Option<&str>,
+) -> String {
+    let token = crate::auth::tokens::generate_token().expect("token");
+    space_invitations::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        space_id: Set(space_id),
+        token_hash: Set(crate::auth::tokens::digest(&token)),
+        email: Set(email.map(str::to_owned)),
+        role: Set("member".to_owned()),
+        created_by: Set(Some(created_by)),
+        max_uses: Set(None),
+        uses: Set(0),
+        expires_at: Set(None),
+        revoked_at: Set(None),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("invitation");
+    token
+}
+
+async fn register(
+    app: &TestApp,
+    email: &str,
+    name: &str,
+    token: Option<&str>,
+) -> reqwest::Response {
+    let mut body = json!({
+        "email": email,
+        "display_name": name,
+        "password": "un-mot-de-passe-bien-assez-long-42",
+    });
+    if let Some(token) = token {
+        body["invitation_token"] = json!(token);
+    }
+    app.http
+        .post(format!("{}/api/v1/auth/register", app.base))
+        .json(&body)
+        .send()
+        .await
+        .expect("register")
+}
+
+#[tokio::test]
+async fn an_invitation_claims_the_account_the_import_left_waiting() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    let waiting = make_waiting_account(&app.db, &email).await;
+    let token = make_invitation(&app.db, fx.space_id, fx.alice, Some(&email)).await;
+
+    let response = register(&app, &email, "Their Own Name", Some(&token)).await;
+
+    // 200, not 201: nothing was created. The account and its history were already here.
+    assert_eq!(response.status(), 200);
+    let body: Value = response.json().await.expect("json");
+    assert_eq!(
+        body["id"],
+        waiting.to_string(),
+        "the same account, not a second one"
+    );
+
+    let account = users::Entity::find_by_id(waiting)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("account");
+    assert_eq!(account.status, "active");
+    assert!(account.password_hash.is_some());
+    // They are the person: the name they type wins over the one the source carried.
+    assert_eq!(account.display_name, "Their Own Name");
+}
+
+#[tokio::test]
+async fn a_shareable_link_cannot_claim_somebody_elses_account() {
+    // The whole safety of this rests on the invitation being addressed. A link invitation carries
+    // no address, so anyone holding one could otherwise type any address and take the account.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    make_waiting_account(&app.db, &email).await;
+    let token = make_invitation(&app.db, fx.space_id, fx.alice, None).await;
+
+    let response = register(&app, &email, "Intruder", Some(&token)).await;
+    assert_eq!(response.status(), 409);
+}
+
+#[tokio::test]
+async fn an_invitation_addressed_to_someone_else_cannot_claim_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    make_waiting_account(&app.db, &email).await;
+    let token = make_invitation(
+        &app.db,
+        fx.space_id,
+        fx.alice,
+        Some("elsewhere@example.test"),
+    )
+    .await;
+
+    let response = register(&app, &email, "Intruder", Some(&token)).await;
+    assert_eq!(response.status(), 409);
+}
+
+#[tokio::test]
+async fn a_revoked_invitation_claims_nothing() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    make_waiting_account(&app.db, &email).await;
+    let token = make_invitation(&app.db, fx.space_id, fx.alice, Some(&email)).await;
+    space_invitations::Entity::update_many()
+        .col_expr(
+            space_invitations::Column::RevokedAt,
+            sea_orm::sea_query::Expr::value(Some(OffsetDateTime::now_utc())),
+        )
+        .filter(space_invitations::Column::TokenHash.eq(crate::auth::tokens::digest(&token)))
+        .exec(&app.db)
+        .await
+        .expect("revoke");
+
+    let response = register(&app, &email, "Too Late", Some(&token)).await;
+    assert_eq!(response.status(), 409);
+}
+
+#[tokio::test]
+async fn an_account_someone_already_uses_is_never_claimed() {
+    // A password means a person set it. Even a correctly addressed invitation must not hand that
+    // account to whoever holds the token.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("inuse-{}@example.test", Uuid::new_v4().simple());
+    let account = make_waiting_account(&app.db, &email).await;
+    let mut model: users::ActiveModel = users::Entity::find_by_id(account)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("account")
+        .into();
+    model.password_hash = Set(Some("already-set".to_owned()));
+    model.status = Set("active".to_owned());
+    model.update(&app.db).await.expect("update");
+
+    let token = make_invitation(&app.db, fx.space_id, fx.alice, Some(&email)).await;
+    let response = register(&app, &email, "Intruder", Some(&token)).await;
+    assert_eq!(response.status(), 409);
+}
+
+#[tokio::test]
+async fn registering_over_a_waiting_account_without_any_invitation_is_still_a_conflict() {
+    let Some(app) = boot().await else { return };
+    let _fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    make_waiting_account(&app.db, &email).await;
+
+    let response = register(&app, &email, "Passer-by", None).await;
+    assert_eq!(response.status(), 409);
 }

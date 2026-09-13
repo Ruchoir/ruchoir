@@ -271,8 +271,16 @@ pub fn router() -> Router<AppState> {
         .route("/oidc/{provider}/callback", get(oidc_not_implemented))
 }
 
-/// Register a new account. The account starts unverified; a verification email is sent and no
-/// session is opened until the address is confirmed.
+/// Register a new account, or claim one that was waiting.
+///
+/// The ordinary case creates an account, unverified, and sends a confirmation; no session opens
+/// until the address is confirmed.
+///
+/// The other case is an account that already exists and has never been used: an import places
+/// people in their spaces and channels before any of them has signed in, so the account, its
+/// membership and its history are all here, waiting. Registering with the invitation addressed to
+/// that person **claims** that account rather than colliding with it. Anything else about an
+/// existing address is still a conflict.
 #[utoipa::path(
     post,
     path = "/api/v1/auth/register",
@@ -280,6 +288,7 @@ pub fn router() -> Router<AppState> {
     request_body = RegisterRequest,
     responses(
         (status = 201, description = "Account created, verification email sent", body = UserSummary),
+        (status = 200, description = "An account that was waiting has been claimed", body = UserSummary),
         (status = 409, description = "Email already registered"),
         (status = 422, description = "Password does not meet requirements")
     )
@@ -300,15 +309,16 @@ pub async fn register(
         .one(&state.db)
         .await
         .map_err(|_| AuthError::Internal)?;
-    if existing.is_some() {
-        return Err(AuthError::EmailTaken);
-    }
 
     // An invitation addressed to this very address has already proved it: it was delivered there.
     // Asking for a confirmation email on top would collect the same proof twice, and on an instance
     // with no SMTP relay it would leave the invitee unable to sign in at all. A shareable link
     // carries no address, so it proves nothing and changes nothing.
     let invited = invitation_proves(&state, body.invitation_token.as_deref(), &email).await;
+
+    if let Some(account) = existing {
+        return claim_waiting_account(&state, account, invited, &body, display_name).await;
+    }
 
     let password_hash = password::hash_password(&state.config, &body.password)?;
     let user_id = Uuid::new_v4();
@@ -350,6 +360,54 @@ pub async fn register(
     }
 
     Ok((StatusCode::CREATED, Json(model.into())))
+}
+
+/// Takes over an account that was placed here and never used.
+///
+/// An import creates accounts, puts them in their spaces and channels, and leaves them `pending`
+/// with no password: everything is ready except the person. This is where the person arrives.
+///
+/// Three conditions, and all three are load-bearing, because this hands over an account with
+/// history attached:
+///
+/// - **A nominative invitation for this exact address.** `invitation_proves` refuses a shareable
+///   link, an expired one, a revoked one and a mismatched address, so the only way through is a
+///   token that was delivered to that mailbox.
+/// - **The account has never had a password.** An account with one belongs to someone who set it.
+/// - **The account is still `pending`.** Anything else has been used.
+///
+/// Fail any of them and the answer is the ordinary conflict, which is also what an attacker probing
+/// addresses would get from a plain registration: this path tells them nothing new.
+async fn claim_waiting_account(
+    state: &AppState,
+    account: users::Model,
+    invited: bool,
+    body: &RegisterRequest,
+    display_name: String,
+) -> Result<(StatusCode, Json<UserSummary>), AuthError> {
+    if !invited || account.password_hash.is_some() || account.status != "pending" {
+        return Err(AuthError::EmailTaken);
+    }
+
+    let password_hash = password::hash_password(&state.config, &body.password)?;
+    let mut model: users::ActiveModel = account.into();
+    model.password_hash = Set(Some(password_hash));
+    model.status = Set("active".to_string());
+    // The name they type wins over the one the source had: they are the person, and a display name
+    // carried over from another product is a suggestion, not a fact.
+    model.display_name = Set(display_name);
+    model.locale = Set(body
+        .locale
+        .as_deref()
+        .map(|l| mail_text::Locale::parse(Some(l)).as_str().to_owned()));
+    let model = model
+        .update(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?;
+
+    // 200 rather than 201: nothing was created. The account, its membership and its history were
+    // already here.
+    Ok((StatusCode::OK, Json(model.into())))
 }
 
 /// Whether an invitation token proves that `email` belongs to whoever is registering.
