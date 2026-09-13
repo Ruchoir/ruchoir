@@ -72,9 +72,46 @@ European providers, for the same reason every other dependency here is European:
 
 | Provider | Where | Note |
 |---|---|---|
-| IONOS | Germany / France | An outbound relay comes with the domain, which makes it the shortest path when the domain is already there |
-| Scaleway Transactional Email | France | Built for exactly this: a handful of messages, authenticated, with delivery reporting |
-| Infomaniak | Switzerland | Same shape, Swiss hosting |
+| Scaleway Transactional Email | France | What this project uses. 300 messages a month at no cost, then 0,25 € per thousand. No mailbox needed |
+| IONOS | Germany / France | A relay comes with the domain, but its SMTP authenticates with a **mailbox** login, so it costs a paid mailbox even if nobody ever reads it |
+| Infomaniak | Switzerland | Same shape as Scaleway, Swiss hosting |
+
+**A domain with no mailbox is not a dead end.** Sending and receiving are separate: a transactional
+relay signs and sends for a domain it has verified, and nobody needs a mailbox behind the address.
+That is the arrangement here, with the domain and its DNS at one provider and the sending at
+another.
+
+### Scaleway, concretely
+
+There is no SMTP password. The username is the identifier the Transactional Email page shows (the
+project id), and the password is the **secret key** of a Scaleway API key, which is displayed once
+at creation and never again.
+
+Generate that key on a dedicated IAM application holding only the Transactional Email permission.
+A default Scaleway key can create servers; the one that lives in a `.env` on a server should be
+able to do exactly one thing.
+
+```dotenv
+RUCHOIR_SMTP_HOST=smtp.tem.scaleway.com
+RUCHOIR_SMTP_PORT=587
+RUCHOIR_SMTP_USERNAME=<the identifier the console shows>
+RUCHOIR_SMTP_PASSWORD=<the API key's secret key>
+RUCHOIR_SMTP_FROM="Ruchoir <no-reply@your-verified-domain>"
+```
+
+The domain has to be verified in Transactional Email first, with the SPF and DKIM records published
+in its DNS zone, and the address in `RUCHOIR_SMTP_FROM` has to belong to it.
+
+### Three ways this goes wrong, all of them silent
+
+- **`docker compose restart` does not reread `.env`.** Environment reaches a container when it is
+  created, so a restart runs with the values it already had. Use `up -d --force-recreate`, and
+  confirm with `docker compose exec api env | grep RUCHOIR_SMTP`.
+- **The defaults look configured.** `no-reply@localhost` and `http://localhost:8080` are valid
+  values that a relay refuses and that turn every link in a message into a dead end. They are the
+  first two things to check, and neither announces itself.
+- **Keep the quotes around `RUCHOIR_SMTP_FROM`.** Compose strips them; a shell sourcing the file
+  reads the `<` as a redirection without them.
 
 Whichever you pick, the sending domain has to authorise them: the provider will give you an SPF
 entry and DKIM records to publish. Publish them. A relay with no authorisation from your domain is a

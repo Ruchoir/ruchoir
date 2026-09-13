@@ -1444,7 +1444,14 @@ async fn send_verification_email(
         .mailer
         .send(email, &message.subject, message.body)
         .await
-        .map_err(|_| AuthError::Internal)
+        .map_err(|error| {
+            // The relay says exactly what is wrong (bad credentials, an unverified sender domain,
+            // a refused recipient) and swallowing it leaves an administrator with a bare 500 and
+            // no way to tell those apart. It goes to the log, never to the caller: the answer to
+            // an unauthenticated request must not reveal whether an address exists here.
+            tracing::error!(%error, "sending the verification email failed");
+            AuthError::Internal
+        })
 }
 
 /// Issue and send a password-reset link for a user.
@@ -1464,7 +1471,10 @@ async fn send_reset_email(state: &AppState, user_id: Uuid, email: &str) -> Resul
         .mailer
         .send(email, &message.subject, message.body)
         .await
-        .map_err(|_| AuthError::Internal)
+        .map_err(|error| {
+            tracing::error!(%error, "sending the password-reset email failed");
+            AuthError::Internal
+        })
 }
 
 /// The language an account reads in, falling back to the source language.
