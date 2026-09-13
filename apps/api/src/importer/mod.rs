@@ -6,17 +6,14 @@
 
 pub mod archive;
 pub mod check;
+pub mod job;
 pub mod plan;
-// Reachable from the tests, which drive it against a real database, and not yet from the binary:
-// its caller is the background task that runs a job, which is the next slice. The allowance is
-// narrow and temporary on purpose, and it is the only one in this module: everything else here is
-// called by `import-check`.
-#[cfg_attr(not(test), allow(dead_code))]
 pub mod run;
 
 use std::path::Path;
 
 use plan::{AccountOutcome, Existing, Plan};
+use sea_orm::DatabaseConnection;
 
 /// `ruchoir-api import-check <archive> [passphrase]`: reads an archive and says whether it holds
 /// together, without touching the database.
@@ -178,4 +175,73 @@ fn human(bytes: i64) -> String {
     } else {
         format!("{size:.1} {}", UNITS[unit])
     }
+}
+
+/// `ruchoir-api import <archive> <administrator address> [passphrase]`: runs a whole import from a
+/// file already on the server.
+///
+/// The other way in is the screen, which an administrator uses for an archive small enough to
+/// upload. This one exists for the case the screen cannot serve: sixty gigabytes that came over on
+/// a disk, on a machine the administrator already has a shell on.
+///
+/// The address is asked for rather than guessed: whoever runs the import owns every space it
+/// creates, and picking "the first administrator" would quietly hand a company's workspaces to
+/// whoever happened to be created first.
+pub async fn import_command(
+    db: &DatabaseConnection,
+    storage: Option<&crate::storage::S3Store>,
+    archive: &Path,
+    admin_email: &str,
+    passphrase: Option<&str>,
+) -> Result<(), String> {
+    use crate::entities::users;
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+    let admin = users::Entity::find()
+        .filter(users::Column::Email.eq(admin_email.trim().to_lowercase()))
+        .one(db)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("no account here has the address {admin_email}"))?;
+    if !admin.is_instance_admin {
+        return Err(format!(
+            "{admin_email} is not an administrator of this instance, and an import creates \
+             accounts and spaces"
+        ));
+    }
+
+    println!("importing {} as {}", archive.display(), admin.display_name);
+    let outcome = job::execute(db, storage, archive, passphrase, admin.id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let written = outcome.written;
+    println!("\ndone");
+    println!(
+        "  {} space(s) created, {} filled",
+        written.spaces_created, written.spaces_filled
+    );
+    println!(
+        "  {} account(s) created, {} recognised",
+        written.accounts_created, written.accounts_matched
+    );
+    println!("  {} conversation(s)", written.conversations_created);
+    println!("  {} message(s)", written.messages_created);
+    println!("  {} file(s)", written.files_created);
+    println!("  {} reading position(s) restored", written.read_positions);
+
+    if !outcome.limits.is_empty() {
+        // The same sentences the administrator read before starting: what did not come over, in
+        // the producer's own words, said again at the end rather than only at the beginning.
+        println!("\nwhat this export left behind");
+        for limit in &outcome.limits {
+            println!("  - {limit}");
+        }
+    }
+
+    println!(
+        "\nEveryone arrived without a password, waiting for their invitation. Nobody has been \
+         emailed: sending is a separate step."
+    );
+    Ok(())
 }

@@ -42,6 +42,15 @@ over an untested feature, which is worse than having no suite.
 `validate-archive.py` is the contract checker. Every producer's test ends by running it over the
 output, so an adapter cannot ship an archive the importer would refuse.
 
+## Running an import
+
+`ruchoir-api import <archive> <administrator address> [passphrase]` runs the whole thing from a file
+already on the server: the path for an archive too large to upload, on a machine the administrator
+already has a shell on. The address is asked for rather than guessed, because whoever runs the
+import owns every space it creates.
+
+Running it twice is how a failed import is resumed: every pass recognises what it already wrote.
+
 ## The other end
 
 `ruchoir-api import-check <archive> [passphrase]` reads an archive and reports what would be

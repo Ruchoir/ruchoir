@@ -106,6 +106,35 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // `ruchoir-api import <archive> <administrator address> [passphrase]` runs a whole import from
+    // a file already on the server: the path for an archive too large to upload, on a machine the
+    // administrator already has a shell on. Migrations first, so a fresh instance can be filled in
+    // two commands.
+    if subcommand.as_deref() == Some("import") {
+        let path = std::env::args()
+            .nth(2)
+            .ok_or("usage: import <archive> <administrator address> [passphrase]")?;
+        let admin = std::env::args()
+            .nth(3)
+            .ok_or("usage: import <archive> <administrator address> [passphrase]")?;
+        let passphrase = std::env::args().nth(4);
+        Migrator::up(&db, None).await?;
+        let storage = if config.s3_enabled() {
+            storage::S3Store::from_config(&config).ok()
+        } else {
+            None
+        };
+        return importer::import_command(
+            &db,
+            storage.as_ref(),
+            std::path::Path::new(&path),
+            &admin,
+            passphrase.as_deref(),
+        )
+        .await
+        .map_err(|e| e.into());
+    }
+
     // In development the API applies pending migrations on boot for convenience. Production sets
     // RUCHOIR_AUTO_MIGRATE=false and runs the `migrate` subcommand explicitly before deploying.
     if config.auto_migrate {
