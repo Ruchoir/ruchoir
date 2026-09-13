@@ -11,7 +11,6 @@
     "forgotPassword": "Passwort vergessen?",
     "submit": "Anmelden",
     "submitting": "Anmeldung läuft…",
-    "or": "oder",
     "sso": "Single Sign-on (SSO)",
     "noAccount": "Noch kein Konto?",
     "createAccount": "Konto erstellen",
@@ -116,7 +115,8 @@
     "tryAgain": "Versuchen Sie es gleich noch einmal.",
     "delete": "Löschen",
     "create": "Erstellen",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "or": "oder"
   },
   "mfa": {
     "totpTitle": "Bestätigung in zwei Schritten",
@@ -930,7 +930,6 @@
     "passphraseLabel": "Passphrase",
     "passphraseHint": "Die vom Exportskript angezeigte. Sie wird nirgends gespeichert.",
     "look": "Ansehen, was ankäme",
-    "wouldArrive": "Was ankäme",
     "spaceCreated": "Neu angelegt",
     "spaceFilled": "Ergänzt",
     "accounts": "Konten",
@@ -952,8 +951,27 @@
     "replaceConfirmLabel": "Tippen Sie zur Bestätigung die Adresse dieser Instanz",
     "replaceConfirmHint": "Genau so:",
     "running": "Import läuft",
-    "finished": "Import abgeschlossen",
     "cancel": "Anhalten",
-    "nobodyEmailed": "Niemand wurde benachrichtigt und niemand angeschrieben. Das Versenden der Einladungen ist ein eigener Schritt."
+    "nobodyEmailed": "Niemand wurde benachrichtigt und niemand angeschrieben. Das Versenden der Einladungen ist ein eigener Schritt.",
+    "stepArchive": "Das Archiv",
+    "stepPlan": "Was ankäme",
+    "stepRun": "Der Import",
+    "spaces": "Bereiche",
+    "channels": "Kanäle",
+    "directs": "Direktunterhaltungen",
+    "changeArchive": "Anderes Archiv wählen",
+    "limitsIntro": "Vom Ursprungswerkzeug selbst genannt, vor dem Import und vollständig. Was nicht auf dieser Liste steht, kommt mit.",
+    "nothingLeftBehind": "Dieser Export nennt keine Verluste.",
+    "accountsNote": "Personen werden an ihrer Adresse erkannt, nie am angezeigten Namen.",
+    "withoutAddressNote": "Diese Personen kommen in ihren Unterhaltungen an, können aber nicht per E-Mail eingeladen werden. Geben Sie ihnen eine Adresse oder einen Link.",
+    "runNote": "Der Import läuft weiter, wenn Sie diesen Bildschirm verlassen. Sie können ihn jederzeit anhalten: Geschriebenes bleibt.",
+    "doneTitle": "Import abgeschlossen",
+    "cancelledTitle": "Import angehalten",
+    "failedTitle": "Import abgebrochen",
+    "cancelledNote": "Alles bereits Geschriebene wurde behalten. Dasselbe Archiv erneut zu starten setzt dort fort.",
+    "importAnother": "Weiteren Export übernehmen",
+    "backToSpaces": "Bereiche ansehen",
+    "planError": "Dieses Archiv konnte nicht gelesen werden",
+    "emptyHint": "Legen Sie den Export auf den Server, nennen Sie ihn oben, und sehen Sie nach, was ankäme, bevor etwas geschrieben wird."
   }
 }

@@ -11,7 +11,6 @@
     "forgotPassword": "Password dimenticata?",
     "submit": "Accedi",
     "submitting": "Accesso in corso…",
-    "or": "oppure",
     "sso": "Accesso unico (SSO)",
     "noAccount": "Non hai ancora un account?",
     "createAccount": "Crea un account",
@@ -116,7 +115,8 @@
     "tryAgain": "Riprova tra un istante.",
     "delete": "Elimina",
     "create": "Crea",
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "or": "oppure"
   },
   "mfa": {
     "totpTitle": "Verifica in due passaggi",
@@ -946,7 +946,6 @@
     "passphraseLabel": "Passphrase",
     "passphraseHint": "Quella mostrata dallo script di esportazione. Non viene conservata da nessuna parte.",
     "look": "Vedere cosa arriverebbe",
-    "wouldArrive": "Cosa arriverebbe",
     "spaceCreated": "Creato",
     "spaceFilled": "Completato",
     "accounts": "Account",
@@ -968,8 +967,27 @@
     "replaceConfirmLabel": "Digita l'indirizzo di questa istanza per confermare",
     "replaceConfirmHint": "Esattamente:",
     "running": "Importazione in corso",
-    "finished": "Importazione terminata",
     "cancel": "Ferma",
-    "nobodyEmailed": "Nessuno è stato avvisato e nessuno ha ricevuto email. L'invio degli inviti è un passaggio a parte."
+    "nobodyEmailed": "Nessuno è stato avvisato e nessuno ha ricevuto email. L'invio degli inviti è un passaggio a parte.",
+    "stepArchive": "L'archivio",
+    "stepPlan": "Ciò che arriverebbe",
+    "stepRun": "L'importazione",
+    "spaces": "Spazi",
+    "channels": "canali",
+    "directs": "conversazioni dirette",
+    "changeArchive": "Scegli un altro archivio",
+    "limitsIntro": "Detto dallo strumento di origine, prima dell'importazione e per intero. Ciò che non è in questo elenco passa.",
+    "nothingLeftBehind": "Questa esportazione non dichiara alcuna perdita.",
+    "accountsNote": "Le persone sono riconosciute dal loro indirizzo, mai dal nome visualizzato.",
+    "withoutAddressNote": "Queste persone arrivano nelle loro conversazioni ma non possono essere invitate via email. Dai loro un indirizzo, o un collegamento.",
+    "runNote": "L'importazione prosegue anche se lasci questa schermata. Puoi fermarla quando vuoi: ciò che è già scritto resta.",
+    "doneTitle": "Importazione conclusa",
+    "cancelledTitle": "Importazione fermata",
+    "failedTitle": "Importazione interrotta",
+    "cancelledNote": "Tutto ciò che era già scritto è stato conservato. Rilanciare lo stesso archivio riprende da dove si era fermato.",
+    "importAnother": "Portare un'altra esportazione",
+    "backToSpaces": "Vedi gli spazi",
+    "planError": "Non è stato possibile leggere questo archivio",
+    "emptyHint": "Metti l'esportazione sul server, nominala qui sopra e guarda cosa arriverebbe prima di scrivere qualsiasi cosa."
   }
 }

@@ -139,7 +139,7 @@ export function LoginScreen({
       </form>
       <div style={styles.divider}>
         <span style={styles.dividerLine} />
-        <span style={styles.dividerLabel}>{t("login.or")}</span>
+        <span style={styles.dividerLabel}>{t("common.or")}</span>
         <span style={styles.dividerLine} />
       </div>
       <Button size="lg" fullWidth iconLeft="key-round" onClick={onSso} disabled={pending}>

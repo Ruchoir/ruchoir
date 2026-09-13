@@ -2958,6 +2958,8 @@ function AppShell() {
         // channel, no invitation. The API refuses all three; this keeps them off the column.
         canBrowseSpace={currentWorkspace?.role !== "guest"}
         canAdministerSpace={canAdministerSpace}
+        canImport={session?.isInstanceAdmin === true}
+        onImport={openImport}
         onNewMessage={() => setModal("newMessage")}
         onGlobalSearch={() => setModal("search")}
         onLeaveChannel={leaveChannel}
@@ -3396,6 +3398,8 @@ function AppShell() {
                 onNewChannel={() => setModal("newChannel")}
                 canBrowseSpace={currentWorkspace?.role !== "guest"}
                 canAdministerSpace={canAdministerSpace}
+                canImport={session?.isInstanceAdmin === true}
+                onImport={openImport}
                 onNewMessage={() => setModal("newMessage")}
                 onGlobalSearch={() => setModal("search")}
                 onLeaveChannel={leaveChannel}

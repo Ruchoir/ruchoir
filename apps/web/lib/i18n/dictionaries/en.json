@@ -11,7 +11,6 @@
     "forgotPassword": "Forgotten your password?",
     "submit": "Sign in",
     "submitting": "Signing in…",
-    "or": "or",
     "sso": "Single sign-on (SSO)",
     "noAccount": "No account yet?",
     "createAccount": "Create an account",
@@ -116,7 +115,8 @@
     "tryAgain": "Try again in a moment.",
     "delete": "Delete",
     "create": "Create",
-    "retry": "Try again"
+    "retry": "Try again",
+    "or": "or"
   },
   "mfa": {
     "totpTitle": "Two-step verification",
@@ -930,7 +930,6 @@
     "passphraseLabel": "Passphrase",
     "passphraseHint": "The one the export script printed. It is kept nowhere.",
     "look": "See what would arrive",
-    "wouldArrive": "What would arrive",
     "spaceCreated": "Created",
     "spaceFilled": "Filled",
     "accounts": "Accounts",
@@ -952,8 +951,27 @@
     "replaceConfirmLabel": "Type this instance's address to confirm",
     "replaceConfirmHint": "Exactly:",
     "running": "Import running",
-    "finished": "Import finished",
     "cancel": "Stop",
-    "nobodyEmailed": "Nobody was notified and nobody was emailed. Sending the invitations is a separate step."
+    "nobodyEmailed": "Nobody was notified and nobody was emailed. Sending the invitations is a separate step.",
+    "stepArchive": "The archive",
+    "stepPlan": "What would arrive",
+    "stepRun": "The import",
+    "spaces": "Spaces",
+    "channels": "channels",
+    "directs": "direct conversations",
+    "changeArchive": "Choose another archive",
+    "limitsIntro": "Said by the original tool itself, before the import and in full. Anything not on this list crosses.",
+    "nothingLeftBehind": "This export declares no losses.",
+    "accountsNote": "People are recognised by their address, never by their display name.",
+    "withoutAddressNote": "These people arrive in their conversations but cannot be invited by email. Give them an address, or hand them a link.",
+    "runNote": "The import carries on if you leave this screen. You can stop it at any point: what is already written stays.",
+    "doneTitle": "Import finished",
+    "cancelledTitle": "Import stopped",
+    "failedTitle": "Import interrupted",
+    "cancelledNote": "Everything already written was kept. Running the same archive again picks up where it stopped.",
+    "importAnother": "Bring over another export",
+    "backToSpaces": "See the spaces",
+    "planError": "This archive could not be read",
+    "emptyHint": "Put the export on the server, name it above, and look at what would arrive before anything is written."
   }
 }

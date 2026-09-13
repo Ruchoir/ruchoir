@@ -66,6 +66,7 @@ import {
   StarOff,
   ThumbsUp,
   Trash2,
+  TriangleAlert,
   Upload,
   UserMinus,
   UserPlus,
@@ -147,6 +148,8 @@ const ICONS: Record<string, LucideIcon> = {
   "star-off": StarOff,
   "thumbs-up": ThumbsUp,
   "trash-2": Trash2,
+  // A warning that is not an error: something to read before acting, not a refusal.
+  "alert-triangle": TriangleAlert,
   upload: Upload,
   "user-minus": UserMinus,
   "user-plus": UserPlus,

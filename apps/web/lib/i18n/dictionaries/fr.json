@@ -11,7 +11,6 @@
     "forgotPassword": "Mot de passe oublié ?",
     "submit": "Se connecter",
     "submitting": "Connexion…",
-    "or": "ou",
     "sso": "Authentification unique (SSO)",
     "noAccount": "Pas encore de compte ?",
     "createAccount": "Créer un compte",
@@ -116,7 +115,8 @@
     "tryAgain": "Réessayez dans un instant.",
     "delete": "Supprimer",
     "create": "Créer",
-    "retry": "Réessayer"
+    "retry": "Réessayer",
+    "or": "ou"
   },
   "mfa": {
     "totpTitle": "Vérification en deux étapes",
@@ -930,7 +930,6 @@
     "passphraseLabel": "Passphrase",
     "passphraseHint": "Celle affichée par le script d'export. Elle n'est conservée nulle part.",
     "look": "Voir ce qui arriverait",
-    "wouldArrive": "Ce qui arriverait",
     "spaceCreated": "Créé",
     "spaceFilled": "Complété",
     "accounts": "Comptes",
@@ -952,8 +951,27 @@
     "replaceConfirmLabel": "Tapez l'adresse de cette instance pour confirmer",
     "replaceConfirmHint": "Exactement :",
     "running": "Import en cours",
-    "finished": "Import terminé",
     "cancel": "Arrêter",
-    "nobodyEmailed": "Personne n'a été notifié ni reçu de courriel. L'envoi des invitations est une étape à part."
+    "nobodyEmailed": "Personne n'a été notifié ni reçu de courriel. L'envoi des invitations est une étape à part.",
+    "stepArchive": "L'archive",
+    "stepPlan": "Ce qui arriverait",
+    "stepRun": "L'import",
+    "spaces": "Espaces",
+    "channels": "canaux",
+    "directs": "conversations directes",
+    "changeArchive": "Changer d'archive",
+    "limitsIntro": "Dit par l'outil d'origine lui-même, avant l'import et en entier. Ce qui n'est pas dans cette liste traverse.",
+    "nothingLeftBehind": "Cet export ne déclare aucune perte.",
+    "accountsNote": "Les comptes sont reconnus à leur adresse, jamais au nom affiché.",
+    "withoutAddressNote": "Ces personnes arrivent à leur place dans les conversations, mais ne peuvent pas être invitées par courriel. Donnez-leur une adresse, ou un lien.",
+    "runNote": "L'import continue même si vous fermez cet écran. Vous pouvez l'arrêter à tout moment : ce qui est déjà écrit reste.",
+    "doneTitle": "Import terminé",
+    "cancelledTitle": "Import arrêté",
+    "failedTitle": "Import interrompu",
+    "cancelledNote": "Ce qui était déjà écrit a été conservé. Relancer la même archive reprend là où elle s'était arrêtée.",
+    "importAnother": "Reprendre un autre export",
+    "backToSpaces": "Voir les espaces",
+    "planError": "Cette archive n'a pas pu être lue",
+    "emptyHint": "Déposez l'export sur le serveur, nommez-le ci-dessus, et regardez ce qui arriverait avant d'écrire quoi que ce soit."
   }
 }

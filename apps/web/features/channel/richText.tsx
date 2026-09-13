@@ -42,9 +42,14 @@ function emojiSizeFor(count: number): number {
 }
 
 /**
- * Rich-text renderer for message bodies. Handles the subset the composer produces: **bold**,
- * _italic_, `code`, fenced ``` code blocks (highlighted by CodeBlock), http(s) links, "- " lists,
- * and @mentions. Inline formatting builds React nodes; code highlighting happens in CodeBlock.
+ * Rich-text renderer for message bodies: **bold**, _italic_, ~~struck through~~, `code`, fenced
+ * ``` code blocks (highlighted by CodeBlock), http(s) links, "- " and "1." lists, "> " quotes, and
+ * @mentions. Inline formatting builds React nodes; code highlighting happens in CodeBlock.
+ *
+ * It deliberately **reads more than the composer writes**. A message brought over from another
+ * product was written in that product's Markdown, and a quotation that arrives as a line beginning
+ * with a greater-than sign is a migration that visibly lost something. Reading a wider vocabulary
+ * than we offer costs nothing and is what every Markdown reader does.
  */
 
 function matchMention(text: string, from: number, names: string[]): string | null {
@@ -101,6 +106,15 @@ function renderInline(
       if (end > i + 1) {
         flush();
         nodes.push(<strong key={`${keyBase}-b${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-b${k}`, emojiSize, onMention, meName)}</strong>);
+        i = end + 2;
+        continue;
+      }
+    }
+    if (text.startsWith("~~", i)) {
+      const end = text.indexOf("~~", i + 2);
+      if (end > i + 1) {
+        flush();
+        nodes.push(<s key={`${keyBase}-s${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-s${k}`, emojiSize, onMention, meName)}</s>);
         i = end + 2;
         continue;
       }
@@ -183,35 +197,73 @@ function renderTextBlock(
 ): ReactNode[] {
   const lines = text.split("\n");
   const blocks: ReactNode[] = [];
-  let list: ReactNode[] | null = null;
+  /** The run of lines being gathered: bullets, numbered items, or quoted lines. */
+  let run: ReactNode[] | null = null;
+  let runKind: "ul" | "ol" | "quote" | null = null;
   let bi = 0;
 
-  const closeList = () => {
-    if (list) {
+  // Consecutive lines of the same kind are one block: three quoted lines are one quotation with
+  // one bar down its side, not three.
+  const closeRun = () => {
+    if (!run) return;
+    const items = run;
+    const key = `${keyBase}-${runKind}${bi++}`;
+    if (runKind === "quote") {
       blocks.push(
-        <ul key={`${keyBase}-ul${bi++}`} style={{ margin: "2px 0", paddingLeft: 20 }}>
-          {list}
+        <blockquote key={key} className="wc-quote">
+          {items}
+        </blockquote>,
+      );
+    } else if (runKind === "ol") {
+      blocks.push(
+        <ol key={key} style={{ margin: "2px 0", paddingLeft: 22 }}>
+          {items}
+        </ol>,
+      );
+    } else {
+      blocks.push(
+        <ul key={key} style={{ margin: "2px 0", paddingLeft: 20 }}>
+          {items}
         </ul>,
       );
-      list = null;
     }
+    run = null;
+    runKind = null;
+  };
+
+  const openRun = (kind: "ul" | "ol" | "quote") => {
+    if (runKind !== kind) closeRun();
+    runKind = kind;
+    run ??= [];
+    return run;
   };
 
   lines.forEach((line, idx) => {
-    if (line.startsWith("- ")) {
-      list ??= [];
-      list.push(<li key={`${keyBase}-li${idx}`}>{renderInline(line.slice(2), names, `${keyBase}li${idx}`, emojiSize, onMention, meName)}</li>);
+    const inline = (from: string) =>
+      renderInline(from, names, `${keyBase}ln${idx}`, emojiSize, onMention, meName);
+    const numbered = /^(\d{1,9})[.)] /.exec(line);
+    if (line.startsWith("- ") || line.startsWith("* ")) {
+      openRun("ul").push(<li key={`${keyBase}-li${idx}`}>{inline(line.slice(2))}</li>);
+    } else if (numbered) {
+      openRun("ol").push(<li key={`${keyBase}-oi${idx}`}>{inline(line.slice(numbered[0].length))}</li>);
+    } else if (line === ">" || line.startsWith("> ")) {
+      openRun("quote").push(
+        <span key={`${keyBase}-q${idx}`}>
+          {inline(line.slice(2))}
+          {"\n"}
+        </span>,
+      );
     } else {
-      closeList();
+      closeRun();
       blocks.push(
         <span key={`${keyBase}-ln${idx}`}>
-          {renderInline(line, names, `${keyBase}ln${idx}`, emojiSize, onMention, meName)}
+          {inline(line)}
           {idx < lines.length - 1 ? "\n" : null}
         </span>,
       );
     }
   });
-  closeList();
+  closeRun();
   return blocks;
 }
 

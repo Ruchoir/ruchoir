@@ -10,6 +10,38 @@ import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
 import { key, type Translate, type TranslationKey, useTranslation } from "@/lib/i18n";
 
+/** The other road offered inside a dialog: a rule, a word, and a card you can press. */
+const sep: Record<string, CSSProperties> = {
+  row: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
+  line: { flex: 1, height: 1, background: "var(--border-default)" },
+  word: {
+    fontSize: 11,
+    letterSpacing: "var(--tracking-caps)",
+    textTransform: "uppercase",
+    color: "var(--text-subtle)",
+  },
+  card: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    width: "100%",
+    textAlign: "left",
+    padding: "12px 14px",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: "var(--radius-md)",
+    background: "var(--surface-canvas)",
+    cursor: "pointer",
+    font: "inherit",
+  },
+  cardTitle: {
+    display: "block",
+    fontSize: 13,
+    fontWeight: "var(--weight-medium)" as CSSProperties["fontWeight"],
+    color: "var(--text-strong)",
+  },
+  cardHint: { display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 2 },
+};
+
 /** Why the thing you just asked for did not happen, said where the eye already is. */
 const dialogError: CSSProperties = {
   margin: "12px 0 0",
@@ -477,31 +509,6 @@ export function NewWorkspaceDialog({
         </>
       }
     >
-      {onImport ? (
-        <button
-          type="button"
-          onClick={onImport}
-          style={{
-            display: "block",
-            width: "100%",
-            textAlign: "left",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            padding: "10px 12px",
-            marginBottom: 16,
-            background: "transparent",
-            cursor: "pointer",
-            font: "inherit",
-          }}
-        >
-          <span style={{ display: "block", fontWeight: 600, fontSize: 13 }}>
-            {t(key("import.screenTitle"))}
-          </span>
-          <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-            {t(key("dialogs.importFromAnotherTool"))}
-          </span>
-        </button>
-      ) : null}
       <Field
         label={t("space.name")}
         hint={t("dialogs.workspaceHint")}
@@ -523,6 +530,25 @@ export function NewWorkspaceDialog({
           }}
         />
       </Field>
+      {/* Under the name, never above it: creating a space is what this dialog is for, and an
+          import is the other road to the same place. The separator says so in one word. */}
+      {onImport ? (
+        <>
+          <div style={sep.row}>
+            <span style={sep.line} />
+            <span style={sep.word}>{t("common.or")}</span>
+            <span style={sep.line} />
+          </div>
+          <button type="button" onClick={onImport} style={sep.card} className="wc-choice">
+            <Icon name="import" size={18} style={{ color: "var(--accent-fg, var(--terracotta-600))" }} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={sep.cardTitle}>{t(key("import.screenTitle"))}</span>
+              <span style={sep.cardHint}>{t(key("dialogs.importFromAnotherTool"))}</span>
+            </span>
+            <Icon name="chevron-right" size={16} style={{ color: "var(--text-subtle)" }} />
+          </button>
+        </>
+      ) : null}
     </Dialog>
   );
 }

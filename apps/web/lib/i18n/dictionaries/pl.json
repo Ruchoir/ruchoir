@@ -11,7 +11,6 @@
     "forgotPassword": "Nie pamiętasz hasła?",
     "submit": "Zaloguj się",
     "submitting": "Logowanie…",
-    "or": "lub",
     "sso": "Logowanie jednokrotne (SSO)",
     "noAccount": "Nie masz jeszcze konta?",
     "createAccount": "Utwórz konto",
@@ -116,7 +115,8 @@
     "tryAgain": "Spróbuj ponownie za chwilę.",
     "delete": "Usuń",
     "create": "Utwórz",
-    "retry": "Spróbuj ponownie"
+    "retry": "Spróbuj ponownie",
+    "or": "albo"
   },
   "mfa": {
     "totpTitle": "Weryfikacja dwuetapowa",
@@ -962,7 +962,6 @@
     "passphraseLabel": "Hasło archiwum",
     "passphraseHint": "To, które wypisał skrypt eksportu. Nigdzie nie jest przechowywane.",
     "look": "Zobacz, co trafi tutaj",
-    "wouldArrive": "Co trafi tutaj",
     "spaceCreated": "Utworzona",
     "spaceFilled": "Uzupełniona",
     "accounts": "Konta",
@@ -984,8 +983,27 @@
     "replaceConfirmLabel": "Wpisz adres tej instancji, aby potwierdzić",
     "replaceConfirmHint": "Dokładnie:",
     "running": "Import w toku",
-    "finished": "Import zakończony",
     "cancel": "Zatrzymaj",
-    "nobodyEmailed": "Nikt nie został powiadomiony ani nie dostał e-maila. Wysyłka zaproszeń to osobny krok."
+    "nobodyEmailed": "Nikt nie został powiadomiony ani nie dostał e-maila. Wysyłka zaproszeń to osobny krok.",
+    "stepArchive": "Archiwum",
+    "stepPlan": "Co by trafiło",
+    "stepRun": "Import",
+    "spaces": "Przestrzenie",
+    "channels": "kanały",
+    "directs": "rozmowy bezpośrednie",
+    "changeArchive": "Wybierz inne archiwum",
+    "limitsIntro": "Powiedziane przez samo narzędzie źródłowe, przed importem i w całości. To, czego nie ma na tej liście, przechodzi.",
+    "nothingLeftBehind": "Ten eksport nie zgłasza żadnych strat.",
+    "accountsNote": "Osoby rozpoznawane są po adresie, nigdy po nazwie wyświetlanej.",
+    "withoutAddressNote": "Te osoby trafią do swoich rozmów, ale nie da się ich zaprosić mailem. Podaj im adres albo przekaż odnośnik.",
+    "runNote": "Import trwa dalej, nawet gdy opuścisz ten ekran. Możesz go zatrzymać w każdej chwili: to, co już zapisane, zostaje.",
+    "doneTitle": "Import zakończony",
+    "cancelledTitle": "Import zatrzymany",
+    "failedTitle": "Import przerwany",
+    "cancelledNote": "Wszystko, co już zapisano, zostało zachowane. Ponowne uruchomienie tego samego archiwum podejmie pracę w tym miejscu.",
+    "importAnother": "Przenieś kolejny eksport",
+    "backToSpaces": "Zobacz przestrzenie",
+    "planError": "Nie udało się odczytać tego archiwum",
+    "emptyHint": "Umieść eksport na serwerze, nazwij go powyżej i zobacz, co by trafiło, zanim cokolwiek zostanie zapisane."
   }
 }

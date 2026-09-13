@@ -9,7 +9,7 @@ import type { AppNotification, ChannelNotifPref } from "./notifications";
 import type { AppView, Toast } from "./types";
 import { Wordmark } from "./Wordmark";
 import { getAvatar } from "@/lib/data";
-import { useTranslation } from "@/lib/i18n";
+import { key, useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   side: {
@@ -269,6 +269,14 @@ export type SidebarProps = {
    * it was a door that opened onto somebody else's job.
    */
   canAdministerSpace: boolean;
+  /**
+   * Whether the caller administers the instance, which is a different and larger thing: bringing a
+   * workspace over creates spaces and accounts, so the entry is offered here only to them and is
+   * absent, not disabled, for everyone else. The routes behind it answer 404 to anybody else.
+   */
+  canImport: boolean;
+  /** Open the screen that brings a workspace over from another product. */
+  onImport: () => void;
   onNewMessage: () => void;
   /** Pin or unpin a channel in the caller's own sidebar. */
   onToggleFavorite: (id: string) => void;
@@ -315,6 +323,8 @@ export function Sidebar({
   onNewChannel,
   canBrowseSpace,
   canAdministerSpace,
+  canImport,
+  onImport,
   onNewMessage,
   onToggleFavorite,
   onGlobalSearch,
@@ -589,15 +599,15 @@ export function Sidebar({
           </>
         ) : null}
 
-        {showFooter && canAdministerSpace ? (
+        {showFooter && (canAdministerSpace || canImport) ? (
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
-            {/*
-              The import entry is deliberately absent: no importer exists yet, so offering it
-              promises a migration the product cannot perform. The dialog behind it is kept intact
-              and this line comes back with the first real importer, listing only the sources that
-              are actually supported by then.
-            */}
-            <SideItem icon="settings" label={t("sidebar.spaceSettings")} active={view === "settings"} onClick={() => onView("settings")} />
+            {canAdministerSpace ? (
+              <SideItem icon="settings" label={t("sidebar.spaceSettings")} active={view === "settings"} onClick={() => onView("settings")} />
+            ) : null}
+            {/* Last, and below the rule: it is done once, by one person, and then never again. */}
+            {canImport ? (
+              <SideItem icon="import" label={t(key("import.screenTitle"))} active={view === "import"} onClick={onImport} />
+            ) : null}
           </div>
         ) : null}
       </div>

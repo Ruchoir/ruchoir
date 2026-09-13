@@ -616,6 +616,30 @@
   border-radius: var(--radius-sm);
   padding: 0 4px;
 }
+/* A card you can press to take the other road out of a dialog. Quiet until the cursor is on it,
+   because it is the alternative rather than the thing the dialog is for. */
+.wc-choice {
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.wc-choice:hover {
+  background: var(--surface-sunken);
+  border-color: var(--border-default);
+}
+.wc-choice:focus-visible {
+  outline: 2px solid var(--border-accent, var(--terracotta-500));
+  outline-offset: 2px;
+}
+
+/* A quotation. Mostly met in messages brought over from another product, where quoting a colleague
+   before answering is ordinary: a bar down the side and quieter text, so it reads as somebody
+   else's words without shouting about it. */
+.wc-quote {
+  margin: 2px 0;
+  padding: 1px 0 1px 10px;
+  border-left: 3px solid var(--border-default);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
 .wc-mention {
   color: var(--terracotta-800);
   background: var(--terracotta-50);
