@@ -27,7 +27,11 @@ from datetime import datetime
 from pathlib import Path
 
 FORMAT_VERSIONS = {1}
-SOURCES = {"nextcloud", "mattermost", "slack", "teams"}
+# `synthetic` is the odd one: an archive nobody exported, generated to run the importer against
+# the size of a real migration. It is named rather than disguised as a product, because the
+# source is written into every mapping the run records and a false one there would outlive the
+# test that produced it.
+SOURCES = {"nextcloud", "mattermost", "slack", "teams", "synthetic"}
 KINDS = {"channel", "direct"}
 VISIBILITIES = {"public", "private"}
 SYSTEM_EVENTS = {

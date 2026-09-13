@@ -55,6 +55,11 @@ file attached to forty messages is stored once and a directory never holds a mil
 import screen shows those lines to the administrator **before** the run. An import that quietly
 leaves things behind is the failure mode this whole feature exists to avoid.
 
+`source` names the product the archive came out of: `nextcloud`, `mattermost`, `slack`, `teams`,
+or `synthetic` for one that was generated rather than exported, to run the importer against the
+size of a real migration. A generated archive says so instead of borrowing a product's name: the
+source is written into every mapping a run records, and a false one there outlives the test.
+
 `format_version` is refused rather than guessed at: an archive from a newer producer is rejected
 with a message saying so.
 

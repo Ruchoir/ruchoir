@@ -18,6 +18,11 @@ them, not before: an entity nothing calls is dead weight, and the compiler says 
   archive. Runs on our host, on an export the customer hands over. Python rather than shell: the
   export is nested JSON with threads inside their root post, which jq turns into something nobody
   will ever review.
+- `make-load-archive.py` : writes a generated archive of any size, to run the importer against
+  something the shape of a real migration rather than a six-account fixture. Its `source` is
+  `synthetic` rather than a borrowed product name, because the source is written into every mapping
+  a run records. Deterministic: the same seed gives the same bytes, so a failure at 120 000 messages
+  can be reproduced instead of described.
 - `export-nextcloud.sh` : runs on the Nextcloud host, reads the database and the data directory,
   writes a sealed Ruchoir archive. Nextcloud Talk has no export of its own, which is why we ship
   one. Read-only: it never writes to the source instance. Sealing is OpenPGP symmetric through
