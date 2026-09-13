@@ -433,7 +433,6 @@
     "symbols": "Symbols"
   },
   "channel": {
-    "addPeople": "Add people",
     "updated": "Channel updated",
     "name": "Channel name",
     "topic": "Topic",
@@ -446,19 +445,13 @@
     "nothing": "Nothing",
     "moderator": "Moderator",
     "membersLoadFailed": "The channel's member list could not be loaded.",
-    "nobodyToAdd": "Nobody to add",
     "addFailed": "Adding failed. Try again.",
     "searchPerson": "Search a person",
-    "alreadyIn": "Already in the channel",
-    "added_one": "{{count}} person added",
-    "added_other": "{{count}} people added",
     "roleOf": "Role for {{name}}",
     "dmNotifications": "Conversation notifications",
     "channelNotifications": "Channel notifications",
     "muteDm": "Mute the conversation",
     "muteChannel": "Mute the channel",
-    "add": "Add",
-    "addCount": "Add ({{count}})",
     "leaveTitle": "Leave #{{name}}?",
     "leaveBody": "You will stop receiving messages from #{{name}}. You can join again while it stays public.",
     "membersAndAccess": "Members and access ({{count}})",
@@ -480,7 +473,13 @@
     "summaryRolesJoinable": "Only the ticked roles see this channel and may join it. The others do not see it at all.",
     "summaryRolesInvite": "This channel only appears to the people in it, and only the ticked roles may be added to it.",
     "roleLossWarning": "Losing the role loses the channel, even for someone already in it.",
-    "yourOwnRole": "· your own role, always included"
+    "yourOwnRole": "· your own role, always included",
+    "applyChanges_one": "Apply 1 change",
+    "applyChanges_other": "Apply {{count}} changes",
+    "willBeAdded": "will be added",
+    "willBeRemoved": "will be removed",
+    "membersUpdated": "Channel membership updated",
+    "addPeople": "Members and access"
   },
   "role": {
     "member": "Member",
@@ -735,7 +734,7 @@
     "deleteConfirm": "Delete for good",
     "deleteConfirmLabel": "Type “{{name}}” to confirm",
     "leaveDesc": "You step out of this space. It carries on without you, and coming back takes an invitation.",
-    "transferTitle": "Hand the space to {{name}}?",
+    "transferTitle": "Hand the space over?",
     "transferBody": "{{name}} becomes the owner of {{space}} and can do anything in it, deleting it included.",
     "transferStepDown": "A space has one owner: you go back to being an administrator, and only the new owner can give the role back.",
     "transferConfirm": "Hand it over",
@@ -745,7 +744,8 @@
     "removeBody": "{{name}} loses access to {{space}}: its channels, its messages and its files. Coming back will take a new invitation.",
     "removeKeepsMessages": "What they wrote there stays: a conversation belongs to the people who had it.",
     "ownerOnlyIcon": "Only the space owner can change it.",
-    "ownerOnlyRename": "Only the space owner can rename it."
+    "ownerOnlyRename": "Only the space owner can rename it.",
+    "deleteNameMismatch": "That is not the space's name."
   },
   "prefs": {
     "title": "Preferences",
@@ -843,7 +843,8 @@
     "invalidEmail": "That address does not look valid.",
     "noChannelRights": "You do not have rights on this channel.",
     "nameUnusable": "That name cannot be used.",
-    "noSpaceRights": "You do not have the rights on this space."
+    "noSpaceRights": "You do not have the rights on this space.",
+    "nameRequired": "A name is needed."
   },
   "toast": {
     "noUnread": "No unread conversation",
@@ -884,9 +885,7 @@
     "welcome": "Welcome, {{name}}.",
     "stillReadable": "You can still read it, without notifications.",
     "spaceLeft": "Space left",
-    "leaveSpaceFailed": "Could not leave this space",
     "spaceDeleted": "Space deleted",
-    "deleteSpaceFailed": "Could not delete this space",
     "spaceDeletedElsewhere": "{{name}} has been deleted",
     "roleChanged": "Role changed",
     "roleFailed": "Role not changed",

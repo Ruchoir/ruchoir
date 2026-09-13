@@ -433,7 +433,6 @@
     "symbols": "Symbole"
   },
   "channel": {
-    "addPeople": "Personen hinzufügen",
     "updated": "Kanal aktualisiert",
     "name": "Name des Kanals",
     "topic": "Thema",
@@ -446,19 +445,13 @@
     "nothing": "Nichts",
     "moderator": "Moderator",
     "membersLoadFailed": "Die Mitgliederliste des Kanals konnte nicht geladen werden.",
-    "nobodyToAdd": "Niemand hinzuzufügen",
     "addFailed": "Das Hinzufügen ist fehlgeschlagen. Versuchen Sie es erneut.",
     "searchPerson": "Person suchen",
-    "alreadyIn": "Bereits im Kanal",
-    "added_one": "{{count}} Person hinzugefügt",
-    "added_other": "{{count}} Personen hinzugefügt",
     "roleOf": "Rolle von {{name}}",
     "dmNotifications": "Benachrichtigungen der Unterhaltung",
     "channelNotifications": "Kanalbenachrichtigungen",
     "muteDm": "Unterhaltung stummschalten",
     "muteChannel": "Kanal stummschalten",
-    "add": "Hinzufügen",
-    "addCount": "Hinzufügen ({{count}})",
     "leaveTitle": "#{{name}} verlassen?",
     "leaveBody": "Sie erhalten keine Nachrichten aus #{{name}} mehr. Solange der Kanal öffentlich ist, können Sie ihn wieder betreten.",
     "membersAndAccess": "Mitglieder und Zugriff ({{count}})",
@@ -480,7 +473,13 @@
     "summaryRolesJoinable": "Nur die angehakten Rollen sehen diesen Kanal und können ihm beitreten. Die anderen sehen ihn nicht.",
     "summaryRolesInvite": "Dieser Kanal erscheint nur den Personen, die darin sind, und nur die angehakten Rollen können hinzugefügt werden.",
     "roleLossWarning": "Wer die Rolle verliert, verliert den Kanal, auch wenn er schon darin war.",
-    "yourOwnRole": "· Ihre eigene Rolle, immer dabei"
+    "yourOwnRole": "· Ihre eigene Rolle, immer dabei",
+    "applyChanges_one": "1 Änderung anwenden",
+    "applyChanges_other": "{{count}} Änderungen anwenden",
+    "willBeAdded": "wird hinzugefügt",
+    "willBeRemoved": "wird entfernt",
+    "membersUpdated": "Kanalmitglieder aktualisiert",
+    "addPeople": "Mitglieder und Zugang"
   },
   "role": {
     "member": "Mitglied",
@@ -735,7 +734,7 @@
     "deleteConfirm": "Endgültig löschen",
     "deleteConfirmLabel": "Tippen Sie „{{name}}“ zur Bestätigung",
     "leaveDesc": "Sie treten aus diesem Bereich aus. Er läuft ohne Sie weiter, und für eine Rückkehr braucht es eine Einladung.",
-    "transferTitle": "Den Bereich an {{name}} übergeben?",
+    "transferTitle": "Bereich übergeben?",
     "transferBody": "{{name}} wird Eigentümerin oder Eigentümer von {{space}} und darf darin alles, auch ihn löschen.",
     "transferStepDown": "Ein Bereich hat genau eine Eigentümerin oder einen Eigentümer: Sie sind wieder Administrator, und nur die neue Eigentümerin oder der neue Eigentümer kann die Rolle zurückgeben.",
     "transferConfirm": "Bereich übergeben",
@@ -745,7 +744,8 @@
     "removeBody": "{{name}} verliert den Zugang zu {{space}}: dessen Kanäle, Nachrichten und Dateien. Für eine Rückkehr braucht es eine neue Einladung.",
     "removeKeepsMessages": "Was diese Person dort geschrieben hat, bleibt: ein Gespräch gehört denen, die es geführt haben.",
     "ownerOnlyIcon": "Nur die Eigentümerin oder der Eigentümer des Bereichs kann es ändern.",
-    "ownerOnlyRename": "Nur die Eigentümerin oder der Eigentümer des Bereichs kann ihn umbenennen."
+    "ownerOnlyRename": "Nur die Eigentümerin oder der Eigentümer des Bereichs kann ihn umbenennen.",
+    "deleteNameMismatch": "Das ist nicht der Name des Bereichs."
   },
   "prefs": {
     "title": "Einstellungen",
@@ -843,7 +843,8 @@
     "invalidEmail": "Diese Adresse sieht nicht gültig aus.",
     "noChannelRights": "Sie haben keine Rechte für diesen Kanal.",
     "nameUnusable": "Dieser Name ist nicht verwendbar.",
-    "noSpaceRights": "Sie haben keine Rechte in diesem Bereich."
+    "noSpaceRights": "Sie haben keine Rechte in diesem Bereich.",
+    "nameRequired": "Ein Name wird gebraucht."
   },
   "toast": {
     "noUnread": "Keine ungelesene Unterhaltung",
@@ -884,9 +885,7 @@
     "welcome": "Willkommen, {{name}}.",
     "stillReadable": "Sie können weiter mitlesen, ohne Benachrichtigungen.",
     "spaceLeft": "Bereich verlassen",
-    "leaveSpaceFailed": "Bereich konnte nicht verlassen werden",
     "spaceDeleted": "Bereich gelöscht",
-    "deleteSpaceFailed": "Bereich konnte nicht gelöscht werden",
     "spaceDeletedElsewhere": "{{name}} wurde gelöscht",
     "roleChanged": "Rolle geändert",
     "roleFailed": "Rolle konnte nicht geändert werden",

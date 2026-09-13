@@ -441,7 +441,6 @@
     "symbols": "Symbole"
   },
   "channel": {
-    "addPeople": "Dodaj osoby",
     "updated": "Kanał zaktualizowany",
     "name": "Nazwa kanału",
     "topic": "Temat",
@@ -454,21 +453,13 @@
     "nothing": "Nic",
     "moderator": "Moderator",
     "membersLoadFailed": "Nie udało się wczytać listy członków kanału.",
-    "nobodyToAdd": "Nikogo do dodania",
     "addFailed": "Dodawanie nie powiodło się. Spróbuj ponownie.",
     "searchPerson": "Szukaj osoby",
-    "alreadyIn": "Już w kanale",
-    "added_one": "Dodano {{count}} osobę",
-    "added_few": "Dodano {{count}} osoby",
-    "added_many": "Dodano {{count}} osób",
-    "added_other": "Dodano {{count}} osób",
     "roleOf": "Rola: {{name}}",
     "dmNotifications": "Powiadomienia rozmowy",
     "channelNotifications": "Powiadomienia kanału",
     "muteDm": "Wycisz rozmowę",
     "muteChannel": "Wycisz kanał",
-    "add": "Dodaj",
-    "addCount": "Dodaj ({{count}})",
     "leaveTitle": "Opuścić #{{name}}?",
     "leaveBody": "Nie będziesz już otrzymywać wiadomości z #{{name}}. Możesz dołączyć ponownie, dopóki kanał jest publiczny.",
     "membersAndAccess": "Członkowie i dostęp ({{count}})",
@@ -490,7 +481,15 @@
     "summaryRolesJoinable": "Tylko zaznaczone role widzą ten kanał i mogą do niego dołączyć. Pozostali go nie widzą.",
     "summaryRolesInvite": "Ten kanał widzą tylko osoby, które w nim są, i można do niego dodać tylko zaznaczone role.",
     "roleLossWarning": "Kto traci rolę, traci kanał, nawet jeśli już w nim był.",
-    "yourOwnRole": "· twoja rola, zawsze włączona"
+    "yourOwnRole": "· twoja rola, zawsze włączona",
+    "applyChanges_one": "Zastosuj 1 zmianę",
+    "applyChanges_other": "Zastosuj zmiany: {{count}}",
+    "willBeAdded": "zostanie dodany",
+    "willBeRemoved": "zostanie usunięty",
+    "membersUpdated": "Zaktualizowano członków kanału",
+    "applyChanges_few": "Zastosuj {{count}} zmiany",
+    "applyChanges_many": "Zastosuj zmian: {{count}}",
+    "addPeople": "Członkowie i dostęp"
   },
   "role": {
     "member": "Członek",
@@ -767,7 +766,7 @@
     "deleteConfirm": "Usuń bezpowrotnie",
     "deleteConfirmLabel": "Wpisz „{{name}}”, aby potwierdzić",
     "leaveDesc": "Wychodzisz z tej przestrzeni. Działa dalej bez ciebie, a powrót będzie wymagał zaproszenia.",
-    "transferTitle": "Przekazać przestrzeń osobie {{name}}?",
+    "transferTitle": "Przekazać przestrzeń?",
     "transferBody": "{{name}} zostaje właścicielem przestrzeni {{space}} i może w niej wszystko, łącznie z jej usunięciem.",
     "transferStepDown": "Przestrzeń ma jednego właściciela: wracasz do roli administratora, a rolę może ci oddać tylko nowy właściciel.",
     "transferConfirm": "Przekaż przestrzeń",
@@ -777,7 +776,8 @@
     "removeBody": "{{name}} traci dostęp do przestrzeni {{space}}: jej kanałów, wiadomości i plików. Powrót będzie wymagał nowego zaproszenia.",
     "removeKeepsMessages": "To, co tam napisała, zostaje: rozmowa należy do tych, którzy ją prowadzili.",
     "ownerOnlyIcon": "Tylko właściciel przestrzeni może ją zmienić.",
-    "ownerOnlyRename": "Tylko właściciel przestrzeni może zmienić jej nazwę."
+    "ownerOnlyRename": "Tylko właściciel przestrzeni może zmienić jej nazwę.",
+    "deleteNameMismatch": "To nie jest nazwa tej przestrzeni."
   },
   "prefs": {
     "title": "Preferencje",
@@ -875,7 +875,8 @@
     "invalidEmail": "Ten adres nie wygląda poprawnie.",
     "noChannelRights": "Nie masz uprawnień do tego kanału.",
     "nameUnusable": "Tej nazwy nie można użyć.",
-    "noSpaceRights": "Nie masz uprawnień w tej przestrzeni."
+    "noSpaceRights": "Nie masz uprawnień w tej przestrzeni.",
+    "nameRequired": "Potrzebna jest nazwa."
   },
   "toast": {
     "noUnread": "Brak nieprzeczytanych rozmów",
@@ -916,9 +917,7 @@
     "welcome": "Witaj, {{name}}.",
     "stillReadable": "Nadal możesz go czytać, bez powiadomień.",
     "spaceLeft": "Przestrzeń opuszczona",
-    "leaveSpaceFailed": "Nie udało się opuścić tej przestrzeni",
     "spaceDeleted": "Przestrzeń usunięta",
-    "deleteSpaceFailed": "Nie udało się usunąć tej przestrzeni",
     "spaceDeletedElsewhere": "{{name}} została usunięta",
     "roleChanged": "Rola zmieniona",
     "roleFailed": "Nie udało się zmienić roli",

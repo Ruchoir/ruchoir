@@ -63,11 +63,12 @@ fn clean_allowed_roles(
     if roles.is_empty() {
         return Ok(None);
     }
-    if !roles.iter().any(|role| role == actor_role) {
-        return Err(ApiError::BadRequest(
-            "your own role has to be among the ones this channel admits",
-        ));
-    }
+    // Deliberately no check that the author's own role is among them. Reserving a channel to people
+    // you are not one of is a real thing to want (a room for the externals, a room for the people
+    // who run the place), and refusing it was the API deciding what a space's owner is allowed to
+    // want. The escape hatch is below: a space owner can always reach a channel's settings, so a
+    // reservation is never a door that locks behind everyone.
+    let _ = actor_role;
     Ok(Some(roles))
 }
 
@@ -741,6 +742,38 @@ pub async fn update_channel_member_role(
         user_id,
         role: wanted,
     }))
+}
+
+/// Make the caller a member of a channel they are about to write in, if they are not one already.
+///
+/// Reading a public channel without joining is deliberate; posting in one without joining was an
+/// accident of the same rule. The audience of a message is the channel's members, so a message from
+/// a non-member went out to everyone except the person who wrote it.
+///
+/// Returns quietly when they are already in, which is the common case and must stay free of extra
+/// queries in the hot path... one lookup, the same the audience would have done.
+pub(super) async fn join_before_posting(
+    state: &AppState,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), ApiError> {
+    if channel_members::Entity::find_by_id((channel_id, user_id))
+        .one(&state.db)
+        .await?
+        .is_some()
+    {
+        return Ok(());
+    }
+    join_row(
+        &state.db,
+        channel_id,
+        user_id,
+        "member",
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    write_channel_notice(state, channel_id, Some(user_id), JOINED_EVENT).await;
+    Ok(())
 }
 
 /// `DELETE /api/v1/channels/{channel_id}/members/{user_id}`: take someone out of a channel.

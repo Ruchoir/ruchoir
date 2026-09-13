@@ -164,7 +164,9 @@ type Modal =
   | null;
 
 const toastStyle: Record<string, CSSProperties> = {
-  wrap: { position: "fixed", right: 20, bottom: 20, zIndex: 60 },
+  // Above the dialog scrim (90), not below it: a refusal raised *by* a dialog was drawn behind it,
+  // blurred, and the only way to read it was to close the thing that had just failed.
+  wrap: { position: "fixed", right: 20, bottom: 20, zIndex: 100 },
   card: {
     display: "flex",
     flexDirection: "column",
@@ -315,6 +317,8 @@ function AppShell() {
   const [transferTo, setTransferTo] = useState<{ userId: string; name: string } | null>(null);
   /** The member being removed from the space, once confirmed. */
   const [removing, setRemoving] = useState<{ userId: string; name: string } | null>(null);
+  /** Why the space exit was refused, said inside the dialog that asked rather than behind it. */
+  const [exitError, setExitError] = useState<TranslationKey | null>(null);
   const [bootError, setBootError] = useState<TranslationKey | null>(null);
   // Shared by every screen of the authentication flow: the message under the form, and whether a
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
@@ -879,6 +883,9 @@ function AppShell() {
    */
   const dropSpaceRef = useRef<(spaceId: string) => void>(() => {});
 
+  /** Latest "read this space again from scratch", for the same reason as the others. */
+  const reloadSpaceRef = useRef<(spaceId: string) => Promise<void>>(async () => {});
+
   /**
    * Spaces already taken off the rail. A departure arrives twice (the real-time frame and the answer
    * to the call that caused it), and the second arrival must not switch space a second time.
@@ -1032,6 +1039,13 @@ function AppShell() {
         });
       },
       onMemberRoleChanged: (spaceId, userId, role) => {
+        // Their own role in the space on screen: reload it. A role decides which channels, people
+        // and files the server will hand over, so the lists this client is holding were computed
+        // under the old one. Demoting someone to guest left them looking at a sidebar they could no
+        // longer open anything in, until they happened to reload.
+        if (userId === liveRef.current.myId && spaceId === liveRef.current.ws) {
+          void reloadSpaceRef.current(spaceId);
+        }
         // The roster only when it is the space on screen; the caller's own role in *any* space,
         // because that one decides what the rail and the settings offer and is held per space.
         if (spaceId === liveRef.current.ws) {
@@ -2274,7 +2288,10 @@ function AppShell() {
           ? prev.map((c) => (c.id === channel.id ? { ...c, ...channel } : c))
           : [...prev, channel],
       );
-      setMessages((prev) => ({ ...prev, [channel.id]: [] }));
+      // Seed the feed only if the real-time frames have not already put something in it: the server
+      // writes the "channel created" notice and pushes it before this call returns, so an
+      // unconditional [] threw it away and the notice only appeared after a reload.
+      setMessages((prev) => (prev[channel.id]?.length ? prev : { ...prev, [channel.id]: [] }));
       setModal(null);
       openChannel(channel.id);
       showToast({ tone: "success", title: t("toast.channelCreated"), description: `#${channel.name}` });
@@ -2427,12 +2444,21 @@ function AppShell() {
     setSwitchingSpace(true);
     await loadSpace(remaining[0]?.id ?? "");
     setSwitchingSpace(false);
+    // Never land on the settings of the next space. They look exactly like the ones just used to
+    // delete a space, on a screen whose danger zone is one press away, and the name at the top is
+    // the only thing that changed.
+    openView("channel");
   };
 
   // Same reason as `notifyRef`: filled here, after the declaration it points at, so the real-time
   // handler drops the space from the list as it stands now and not as it stood at connection time.
   useEffect(() => {
     dropSpaceRef.current = (spaceId: string) => void dropWorkspace(spaceId);
+    reloadSpaceRef.current = async (spaceId: string) => {
+      setSwitchingSpace(true);
+      await loadSpace(spaceId);
+      setSwitchingSpace(false);
+    };
   });
 
   /**
@@ -2527,17 +2553,15 @@ function AppShell() {
   const leaveWorkspace = async (spaceId: string) => {
     const name = workspaces.find((w) => w.id === spaceId)?.name;
     setSpaceBusy(true);
+    setExitError(null);
     try {
       await apiLeaveSpace(spaceId);
     } catch (err) {
       setSpaceBusy(false);
-      // The one refusal worth its own sentence: a last owner is not being denied, they are being
-      // asked to decide what happens to everyone else's work first.
-      showToast({
-        tone: "danger",
-        title: t("toast.leaveSpaceFailed"),
-        description: isApiError(err, 409) ? t("space.leaveLastOwner") : t("common.tryAgain"),
-      });
+      // Said inside the dialog, not behind it: a last owner is not being denied, they are being
+      // asked to decide what happens to everyone else's work first, and that sentence is the whole
+      // point of the refusal.
+      setExitError(isApiError(err, 409) ? key("space.leaveLastOwner") : key("common.tryAgain"));
       return;
     }
     setSpaceBusy(false);
@@ -2554,7 +2578,7 @@ function AppShell() {
       await apiDeleteSpace(spaceId);
     } catch {
       setSpaceBusy(false);
-      showToast({ tone: "danger", title: t("toast.deleteSpaceFailed"), description: t("common.tryAgain") });
+      setExitError(key("common.tryAgain"));
       return;
     }
     setSpaceBusy(false);
@@ -3101,7 +3125,11 @@ function AppShell() {
         <LeaveSpaceDialog
           name={currentWorkspace.name}
           busy={spaceBusy}
-          onClose={() => setModal(null)}
+          error={exitError ? t(exitError) : null}
+          onClose={() => {
+            setExitError(null);
+            setModal(null);
+          }}
           onConfirm={() => void leaveWorkspace(currentWorkspace.id)}
         />
       ) : null}
@@ -3109,7 +3137,11 @@ function AppShell() {
         <DeleteSpaceDialog
           name={currentWorkspace.name}
           busy={spaceBusy}
-          onClose={() => setModal(null)}
+          error={exitError ? t(exitError) : null}
+          onClose={() => {
+            setExitError(null);
+            setModal(null);
+          }}
           onConfirm={() => void deleteWorkspace(currentWorkspace.id)}
         />
       ) : null}

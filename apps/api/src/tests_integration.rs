@@ -2413,8 +2413,9 @@ async fn a_channel_reserved_to_roles_admits_only_those() {
         .expect("add");
     assert_eq!(added.status(), 400);
 
-    // Alice may not shut herself out of it either.
-    let locked_out = app
+    // A room you are not in is a real thing to want (one for the externals, one for the people who
+    // run the place), so reserving it to roles Alice does not hold is allowed...
+    let excluded = app
         .req(
             reqwest::Method::PATCH,
             &format!("/api/v1/channels/{channel_id}"),
@@ -2424,8 +2425,26 @@ async fn a_channel_reserved_to_roles_admits_only_those() {
         .send()
         .await
         .expect("reserve");
-    assert_eq!(locked_out.status(), 400);
+    assert_eq!(excluded.status(), 200);
 
+    // ...and it takes the channel away from her at once, membership row or not.
+    let closed = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(
+        closed.status(),
+        403,
+        "a reservation excludes its own author too"
+    );
+
+    // But it is never a door that locks behind everyone: administering the space still reaches the
+    // channel's settings, which is what makes the exclusion undoable.
     // Lifting the reservation opens it again, and Bob is offered it like any public channel.
     let lifted = app
         .req(
@@ -2633,4 +2652,66 @@ async fn a_channel_owner_names_moderators_and_a_moderator_names_nobody() {
         .await
         .expect("remove owner");
     assert_eq!(refused.status(), 403);
+}
+
+#[tokio::test]
+async fn writing_in_a_channel_joins_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Carol is in the space and in no channel: she may read the public one without joining, which
+    // is deliberate, and she used to be able to write in it without joining, which was not.
+    let carol = app.cookie_for(fx.carol).await;
+    assert!(
+        channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
+            .one(&app.db)
+            .await
+            .expect("membership")
+            .is_none()
+    );
+
+    let sent = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &carol,
+        )
+        .json(&json!({ "body": "bonjour" }))
+        .send()
+        .await
+        .expect("send");
+    assert_eq!(sent.status(), 201);
+
+    // She is in it now, so the message's audience includes its own author: without this she wrote
+    // to everyone except herself, with no echo, no unread count and no reply reaching her.
+    assert!(
+        channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
+            .one(&app.db)
+            .await
+            .expect("membership")
+            .is_some()
+    );
+    // And the channel says who turned up, once.
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(
+        page["messages"]
+            .as_array()
+            .expect("array")
+            .iter()
+            .filter(
+                |m| m["system_event"] == "channel_joined" && m["author_id"] == fx.carol.to_string()
+            )
+            .count(),
+        1
+    );
 }

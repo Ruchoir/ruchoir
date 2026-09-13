@@ -338,6 +338,17 @@ export function ChannelScreen({
    * row already names.
    */
   const [roster, setRoster] = useState<{ channelId: string; names: string[] } | null>(null);
+  /**
+   * How many arrivals and departures this channel's history carries.
+   *
+   * The roster is fetched, so nothing would refresh it when somebody joins or is removed: the panel
+   * kept the list it loaded with until the page was reloaded. Those events *are* already pushed, as
+   * the system notices in the feed, so counting them gives the fetch a reason to run again the
+   * moment one lands.
+   */
+  const membershipMoves = messages.filter(
+    (m) => m.system && ["channel_joined", "channel_left", "channel_removed"].includes(m.system.event),
+  ).length;
   useEffect(() => {
     if (isDm) return;
     let active = true;
@@ -349,7 +360,7 @@ export function ChannelScreen({
     return () => {
       active = false;
     };
-  }, [channel.id, isDm]);
+  }, [channel.id, isDm, membershipMoves]);
 
   // Derived, not reset in the effect: a roster still carrying the previous channel's id is simply
   // not this channel's answer yet, which is the same thing as not having one.

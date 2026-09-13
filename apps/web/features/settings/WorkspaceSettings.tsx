@@ -463,7 +463,9 @@ export function WorkspaceSettings({
                           a select is taller than a line of text: rows that held one and rows that
                           held the other did not have the same height, and the list breathed unevenly
                           down the card. */}
-                      <div style={{ width: 130, height: 28, flex: "none", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                      {/* Wide enough for the longest role name: "Administrateur" was drawn as
+                          "Administrateu" at 130. */}
+                      <div style={{ width: 164, height: 28, flex: "none", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
                         {/* A bot has no role: nobody promotes a piece of software, and the "Bot" tag
                             next to its name already says what it is. Settable for everyone this
                             caller outranks; a plain reading for the rest, their own row included. */}
