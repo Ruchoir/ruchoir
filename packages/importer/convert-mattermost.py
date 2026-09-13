@@ -68,6 +68,8 @@ class Converter:
         self.files: dict[str, dict] = {}
         # Which spaces each account belongs to, so a direct conversation can be placed in one.
         self.user_spaces: dict[str, list[str]] = defaultdict(list)
+        # What each person kept, per conversation: a favourite, a reading position.
+        self.member_state: dict[str, list[dict]] = defaultdict(list)
         self.dropped_system: set[str] = set()
         self.source_version = "unknown"
 
@@ -122,6 +124,24 @@ class Converter:
                 key = f"{team['name']}/{channel['name']}"
                 self.channels.setdefault(key, {"members": []})
                 self.channels[key]["members"].append(username)
+                self._remember_state(key, username, channel)
+
+    def _remember_state(self, channel_key: str, username: str, membership: dict) -> None:
+        """A favourite and a reading position belong to a person, not to the conversation.
+
+        Only people who have something to say about a channel get an entry: a roster of six with
+        one favourite is one line here, not six.
+        """
+        state: dict = {}
+        if membership.get("favorite"):
+            state["favorite"] = True
+        # Mattermost knows a moment, not a message. The importer turns it into the last message
+        # sent at or before it, which is the closest true statement a timestamp allows.
+        read_at = iso(membership.get("last_viewed_at"))
+        if read_at:
+            state["read_at"] = read_at
+        if state:
+            self.member_state[channel_key].append({"user": username, **state})
 
     def _read_channel(self, channel: dict) -> None:
         key = f"{channel['team']}/{channel['name']}"
@@ -144,6 +164,8 @@ class Converter:
     def _read_direct_channel(self, channel: dict) -> None:
         members = sorted(p["username"] for p in channel.get("participants") or [])
         key = "direct:" + "+".join(members)
+        for participant in channel.get("participants") or []:
+            self._remember_state(key, participant["username"], participant)
         self.channels[key] = {
             "id": key,
             "space": None,  # decided once every account's spaces are known
@@ -223,6 +245,9 @@ class Converter:
                 "files": [
                     self._add_attachment(a, post) for a in (post.get("attachments") or [])
                 ],
+                # Who had kept this message. Small, personal, and the sort of thing a migrating
+                # team notices missing on the first morning.
+                "saved_by": sorted(post.get("flagged_by") or []),
             }
         )
 
@@ -283,6 +308,10 @@ class Converter:
         (self.out / "blobs").mkdir(exist_ok=True)
 
         channels = [c for c in self.channels.values() if c.get("id")]
+        for channel in channels:
+            state = self.member_state.get(channel["id"])
+            if state:
+                channel["member_state"] = sorted(state, key=lambda e: e["user"])
         self._write_jsonl("spaces.jsonl", self.spaces.values())
         self._write_jsonl("users.jsonl", self.users.values())
         self._write_jsonl("channels.jsonl", channels)
@@ -295,8 +324,6 @@ class Converter:
             "A bulk export carries no post identifier, so each message is identified by a digest of its channel, author, time and text. Two identical messages sent in the same millisecond by the same person would collapse into one.",
             "Direct conversations carry no team in Mattermost: each one is placed in a space its participants share, the first alphabetically when they share several.",
             "Only Mattermost notices with an equivalent here cross (joining or leaving a channel or a team). Purpose, header and rename notices are dropped.",
-            "Saved messages (flagged posts) are not carried over yet: the export names them and Ruchoir has saved messages, but the archive format has nowhere to put them.",
-            "Favourite channels and read positions are not carried over yet, for the same reason: the data is in the export and the product has both.",
             "Channel notification preferences are not carried over: what someone chose to be notified about in another product is not worth moving.",
             "Bots are not imported as accounts: their posts arrive attributed to an absent author.",
         ]

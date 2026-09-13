@@ -178,6 +178,26 @@ SELECT JSON_OBJECT(
     FROM ${PREFIX}talk_attendees att
     WHERE att.room_id = r.id AND att.actor_type = 'users'
   ), JSON_ARRAY()),
+  -- What each person kept about this conversation: a favourite, a reading position. Only the
+  -- people who have something to say appear, so a roster of six with one favourite is one entry.
+  -- Talk names the last message read, which is more precise than a moment and needs no guessing
+  -- at the other end.
+  'member_state', COALESCE((
+    -- JSON_REMOVE drops the key rather than writing `false`: an entry says what someone kept,
+    -- and a list of six `favorite: false` says nothing while looking like it does.
+    SELECT JSON_ARRAYAGG(JSON_REMOVE(
+      JSON_OBJECT(
+        'user', att.actor_id,
+        'favorite', TRUE,
+        'read_message', CAST(att.last_read_message AS CHAR)
+      ),
+      IF(att.favorite = 1, '\$.absent', '\$.favorite')
+    ))
+    FROM ${PREFIX}talk_attendees att
+    WHERE att.room_id = r.id
+      AND att.actor_type = 'users'
+      AND (att.favorite = 1 OR COALESCE(att.last_read_message, 0) > 0)
+  ), JSON_ARRAY()),
   'created_at', DATE_FORMAT(COALESCE(r.active_since, r.last_activity), '%Y-%m-%dT%H:%i:%sZ')
 )
 FROM ${PREFIX}talk_rooms r
@@ -397,6 +417,8 @@ cat > "${OUT}/manifest.json" <<JSON
     "No conversation is marked archived: in Talk, archiving is a per-participant setting, not a property of the conversation, so the source holds no such fact.",
     "Profile pictures are not exported: Nextcloud generates them from initials unless the account uploaded one.",
     "Deleted messages are not exported: Talk keeps a tombstone, not the text.",
+    "Nobody arrives with saved messages: Talk has no such thing to export.",
+    "A reading position can name a message that did not cross (a system message, or one in a conversation left behind): the import moves it back to the nearest message it does have.",
     "Messages written by guests or bots are exported with an author of the form guests:<id>, which matches no account: they are imported as coming from an absent author."
   ]
 }

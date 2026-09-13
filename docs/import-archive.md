@@ -85,11 +85,17 @@ export must yield the same identifier twice, or replaying it duplicates everythi
 {"id":"atelier/general","space":"atelier","kind":"channel","name":"Général","topic":"…",
  "visibility":"public","archived":false,"members":["alice","bob"],"created_at":"2026-08-29T13:46:00Z"}
 {"id":"direct:alice+bob","space":"atelier","kind":"direct","members":["alice","bob"]}
+// `member_state` is optional and carries only the people who have something extra to say:
+// a channel marked as a favourite, a reading position. Everyone else stays in `members` alone.
+{"id":"atelier/produit","space":"atelier","kind":"channel","name":"Produit","members":["alice","bob"],
+ "member_state":[{"user":"alice","favorite":true,"read_message":"1042"},
+                 {"user":"bob","read_at":"2026-08-29T15:00:00Z"}]}
 
 // messages.jsonl
 {"id":"1042","channel":"fiddjs6o","author":"alice","sent_at":"2026-08-29T13:47:11Z",
  "body":"Bonjour **tout le monde**","format":"markdown","thread_root":null,"pinned":false,
- "edited_at":null,"reactions":[{"emoji":"tada","by":["bob"]}],"files":["emma/Documents/note.txt"]}
+ "edited_at":null,"reactions":[{"emoji":"tada","by":["bob"]}],"files":["emma/Documents/note.txt"],
+ "saved_by":["carol"]}
 
 // a notice, not a sentence: `system_event` names the event and the reader's own language
 // supplies the wording. One of member_joined, member_left, member_removed, channel_joined,
@@ -111,6 +117,29 @@ Whatever it cannot map, it drops and declares.
 Message bodies are Markdown, because that is what the product stores. A producer whose source uses
 something else (Slack's `mrkdwn`, Mattermost's flavour) converts, and says so in `limits` if the
 conversion loses anything.
+
+## What each person kept
+
+Three things belong to a person rather than to a conversation, and all three survive the crossing
+when the source has them: a **saved message**, a **favourite channel**, and **where someone had read
+up to**. They are small, they are what makes a workspace feel like the one you left, and losing them
+is the sort of thing a migrating team notices on the first morning.
+
+`saved_by` on a message lists who had kept it. `member_state` on a conversation carries, per person,
+`favorite` and a reading position.
+
+A reading position is spelled in whichever way the source holds it, and a producer emits the one it
+has: `read_message` when the source names the last message read (Nextcloud does), `read_at` when it
+only knows a moment (Mattermost does). The importer resolves a `read_at` to the last message sent at
+or before it, which is the closest true statement that can be made from a timestamp.
+
+A reading position can name a message that never crossed: a system message, or one in a conversation
+the producer left behind. The importer moves it back to the nearest message it does hold, rather
+than dropping the position or inventing one. Marking a conversation entirely unread because one
+identifier is missing would be worse than being slightly early.
+
+A `member_state` entry for someone absent from `members` is an error, not something to skip
+quietly: it means the producer disagrees with itself about who is in the conversation.
 
 A message's `files` holds the `id` of each attached file, exactly as `files.jsonl` spells it, not
 the content hash: two accounts can hold the same bytes, and the attachment belongs to one of them.
