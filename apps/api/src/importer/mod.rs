@@ -132,9 +132,10 @@ pub fn check_command(path: &Path, passphrase: Option<&str>) -> Result<(), String
         }
     }
 
-    if !report.warnings.is_empty() {
+    let warnings = report.warnings();
+    if !warnings.is_empty() {
         println!();
-        for warning in &report.warnings {
+        for warning in &warnings {
             println!("warning: {warning}");
         }
     }
@@ -144,12 +145,12 @@ pub fn check_command(path: &Path, passphrase: Option<&str>) -> Result<(), String
         return Ok(());
     }
     println!();
-    for error in &report.errors {
+    for error in &report.errors() {
         eprintln!("error: {error}");
     }
     Err(format!(
         "{} problem(s) in {}",
-        report.errors.len(),
+        report.error_count(),
         path.display()
     ))
 }

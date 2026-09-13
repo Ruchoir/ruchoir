@@ -32,23 +32,158 @@ const SYSTEM_EVENTS: &[&str] = &[
 const KINDS: &[&str] = &["channel", "direct"];
 const VISIBILITIES: &[&str] = &["public", "private"];
 
+/// How many kinds of complaint are spelled out before the rest are only counted.
+///
+/// A hundred distinct problems is already far past the point where anybody reads on, and the number
+/// exists so that a thoroughly broken archive produces a page rather than a book.
+const FAMILIES_SHOWN: usize = 100;
+
+/// One complaint, and how many times the archive made it.
+#[derive(Debug)]
+struct Complaint {
+    /// The first time it was seen, spelled out with the identifier that carried it.
+    example: String,
+    times: usize,
+}
+
+/// What the checker found.
+///
+/// Complaints are **grouped by what they say rather than by what they name**. An archive whose
+/// every reaction is malformed has one problem seen a hundred and twenty thousand times, not a
+/// hundred and twenty thousand problems, and the difference decides whether an administrator reads
+/// a sentence or a wall. This is not a display concern: the un-grouped list was megabytes of text
+/// travelling to a browser to be shown in a notification, and nobody learned anything from it.
 #[derive(Debug, Default)]
 pub struct Report {
-    pub errors: Vec<String>,
-    pub warnings: Vec<String>,
+    errors: Complaints,
+    warnings: Complaints,
+}
+
+/// What a complaint is about, which is the part that does not change from one occurrence to the
+/// next: these messages read "<thing> <identifier>: <what is wrong>", so what is wrong is the tail.
+///
+/// Two different problems collapse only if they say exactly the same thing, in which case they are
+/// the same problem.
+/// `tada`, where an emoji belongs. Refused.
+fn is_bare_name(emoji: &str) -> bool {
+    // `+1` and `-1` are names too, and among the most common of them.
+    let mut chars = emoji.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-'))
+        && emoji.len() > 1
+        && emoji
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '+' | '-'))
+}
+
+/// `:tada:`, a producer saying plainly that it met a name it could not translate. Allowed, because
+/// a reaction shown as `:tada:` can still be recognised and put right later, and dropping it
+/// entirely would be worse.
+fn is_shortcode(emoji: &str) -> bool {
+    emoji.len() > 2
+        && emoji.starts_with(':')
+        && emoji.ends_with(':')
+        && is_bare_name(&emoji[1..emoji.len() - 1])
+}
+
+fn family(message: &str) -> &str {
+    message.split_once(": ").map_or(message, |(_, rest)| rest)
+}
+
+/// How many kinds are tracked at all. Past this, occurrences are counted without being told apart:
+/// some complaints name a second identifier in their tail and so are their own family, and an
+/// archive with a million of those must not turn the checker into a memory problem of its own.
+const FAMILIES_TRACKED: usize = 500;
+
+#[derive(Debug, Default)]
+struct Complaints {
+    /// In the order first seen, because the first thing that went wrong is usually the cause of
+    /// everything after it.
+    kinds: Vec<Complaint>,
+    index: HashMap<String, usize>,
+    /// Occurrences past `FAMILIES_TRACKED` kinds, counted rather than kept.
+    untracked: usize,
+}
+
+impl Complaints {
+    fn add(&mut self, message: String) {
+        if let Some(at) = self.index.get(family(&message)) {
+            self.kinds[*at].times += 1;
+            return;
+        }
+        if self.kinds.len() >= FAMILIES_TRACKED {
+            self.untracked += 1;
+            return;
+        }
+        self.index
+            .insert(family(&message).to_owned(), self.kinds.len());
+        self.kinds.push(Complaint {
+            example: message,
+            times: 1,
+        });
+    }
+
+    fn is_empty(&self) -> bool {
+        self.kinds.is_empty()
+    }
+
+    /// How many times something went wrong, rather than how many ways.
+    fn total(&self) -> usize {
+        self.kinds.iter().map(|c| c.times).sum::<usize>() + self.untracked
+    }
+}
+
+/// Renders complaints as lines a person reads, most of them once.
+fn lines(complaints: &Complaints) -> Vec<String> {
+    let mut out: Vec<String> = complaints
+        .kinds
+        .iter()
+        .take(FAMILIES_SHOWN)
+        .map(|c| match c.times {
+            1 => c.example.clone(),
+            n => format!("{} (and {} more like it)", c.example, n - 1),
+        })
+        .collect();
+    let hidden = complaints.kinds.len().saturating_sub(FAMILIES_SHOWN);
+    if hidden > 0 {
+        out.push(format!("and {hidden} other kinds of problem, not listed"));
+    }
+    if complaints.untracked > 0 {
+        out.push(format!(
+            "and {} further problems, too varied to tell apart",
+            complaints.untracked
+        ));
+    }
+    out
 }
 
 impl Report {
     fn error(&mut self, message: String) {
-        self.errors.push(message);
+        self.errors.add(message);
     }
 
     fn warn(&mut self, message: String) {
-        self.warnings.push(message);
+        self.warnings.add(message);
+    }
+
+    /// Every kind of error, one line each, with a count when it happened more than once.
+    pub fn errors(&self) -> Vec<String> {
+        lines(&self.errors)
+    }
+
+    /// Every kind of warning, the same way.
+    pub fn warnings(&self) -> Vec<String> {
+        lines(&self.warnings)
     }
 
     pub fn is_sound(&self) -> bool {
         self.errors.is_empty()
+    }
+
+    /// How many times the archive broke the contract, counting repeats.
+    pub fn error_count(&self) -> usize {
+        self.errors.total()
     }
 }
 
@@ -383,6 +518,20 @@ fn check_message(
                 message.id, reaction.emoji
             ));
         }
+        // The product stores the character. A bare name arrives as that word sitting under the
+        // message, where a face should be, and nothing afterwards says it was ever meant to be one.
+        if is_bare_name(&reaction.emoji) {
+            report.error(format!(
+                "message {}: reaction {:?} is a name, not an emoji",
+                message.id, reaction.emoji
+            ));
+        } else if is_shortcode(&reaction.emoji) {
+            report.warn(format!(
+                "message {}: reaction {:?} could not be translated by its producer and will be \
+                 shown as text",
+                message.id, reaction.emoji
+            ));
+        }
         for who in &reaction.by {
             if !users.contains(who.as_str()) && !is_absent_author(who) {
                 report.error(format!(
@@ -464,4 +613,152 @@ fn is_absent_author(author: &str) -> bool {
     author
         .split_once(':')
         .is_some_and(|(kind, rest)| !kind.is_empty() && !rest.is_empty())
+}
+
+#[cfg(test)]
+mod report_tests {
+    use super::*;
+
+    /// The failure that prompted all of this: an archive whose every reaction was malformed
+    /// produced one error per reaction, and the whole list travelled to a browser to be shown in a
+    /// notification. A hundred and twenty thousand lines say nothing that one line and a count do
+    /// not.
+    #[test]
+    fn the_same_complaint_about_many_things_is_one_line_and_a_count() {
+        let mut report = Report::default();
+        for n in 0..120_000 {
+            report.error(format!("message m{n:06}: a reaction by nobody"));
+        }
+        let lines = report.errors();
+        assert_eq!(lines.len(), 1);
+        assert!(lines[0].starts_with("message m000000: a reaction by nobody"));
+        assert!(lines[0].contains("119999 more like it"), "{}", lines[0]);
+    }
+
+    #[test]
+    fn a_complaint_seen_once_is_spelled_out_with_nothing_added() {
+        let mut report = Report::default();
+        report.error("space s1: no name".into());
+        assert_eq!(report.errors(), vec!["space s1: no name".to_owned()]);
+    }
+
+    #[test]
+    fn different_complaints_stay_apart() {
+        let mut report = Report::default();
+        report.error("space s1: no name".into());
+        report.error("message m1: a notice cannot be pinned".into());
+        report.error("space s2: no name".into());
+        let lines = report.errors();
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert!(lines[0].contains("1 more like it"));
+        assert!(lines[1].contains("a notice cannot be pinned"));
+    }
+
+    #[test]
+    fn the_first_thing_that_went_wrong_is_listed_first() {
+        // Usually the cause of everything after it, so order is kept rather than sorted by count.
+        let mut report = Report::default();
+        report.error("message m1: a notice cannot be pinned".into());
+        for n in 0..50 {
+            report.error(format!("space s{n}: no name"));
+        }
+        assert!(report.errors()[0].contains("a notice cannot be pinned"));
+    }
+
+    #[test]
+    fn a_complaint_with_no_colon_is_its_own_family() {
+        let mut report = Report::default();
+        report.error("the archive names no space".into());
+        report.error("two spaces share an identifier".into());
+        assert_eq!(report.errors().len(), 2);
+    }
+
+    /// Some complaints name a second identifier in their tail and so are each their own kind. That
+    /// must not turn a broken archive into a memory problem of its own.
+    #[test]
+    fn endlessly_varied_complaints_are_counted_rather_than_kept() {
+        let mut report = Report::default();
+        for n in 0..50_000 {
+            report.error(format!("message m{n}: its thread root r{n} is elsewhere"));
+        }
+        // A hundred spelled out, then the kinds that were tracked but not shown, then everything
+        // past the point where telling them apart stopped being worth the memory.
+        let lines = report.errors();
+        assert_eq!(lines.len(), FAMILIES_SHOWN + 2);
+        assert!(lines[FAMILIES_SHOWN].contains("400 other kinds"), "{lines:?}");
+        assert!(
+            lines.last().unwrap().contains("too varied to tell apart"),
+            "{:?}",
+            lines.last()
+        );
+        assert_eq!(report.error_count(), 50_000);
+    }
+
+    #[test]
+    fn past_a_hundred_kinds_the_rest_are_summarised() {
+        let mut report = Report::default();
+        for n in 0..150 {
+            report.error(format!("message m{n}: problem number {n}"));
+        }
+        let lines = report.errors();
+        assert_eq!(lines.len(), FAMILIES_SHOWN + 1);
+        assert!(lines.last().unwrap().contains("50 other kinds"), "{lines:?}");
+    }
+
+    #[test]
+    fn counting_is_of_occurrences_not_of_kinds() {
+        let mut report = Report::default();
+        for n in 0..1_000 {
+            report.error(format!("message m{n}: a reaction by nobody"));
+        }
+        assert_eq!(report.errors().len(), 1);
+        assert_eq!(report.error_count(), 1_000);
+    }
+
+    #[test]
+    fn warnings_are_grouped_the_same_way_and_do_not_make_an_archive_unsound() {
+        let mut report = Report::default();
+        for n in 0..10 {
+            report.warn(format!("channel c{n}: an entry that says nothing"));
+        }
+        assert_eq!(report.warnings().len(), 1);
+        assert!(report.is_sound());
+        assert_eq!(report.error_count(), 0);
+    }
+}
+
+#[cfg(test)]
+mod emoji_tests {
+    use super::{is_bare_name, is_shortcode};
+
+    #[test]
+    fn a_character_is_neither_a_name_nor_a_shortcode() {
+        for emoji in ["🎉", "👍", "❤️", "🇫🇷"] {
+            assert!(!is_bare_name(emoji), "{emoji}");
+            assert!(!is_shortcode(emoji), "{emoji}");
+        }
+    }
+
+    #[test]
+    fn a_bare_name_is_caught() {
+        for name in ["tada", "thumbsup", "+1", "white_check_mark", "100"] {
+            assert!(is_bare_name(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_shortcode_is_told_apart_from_a_bare_name() {
+        assert!(is_shortcode(":shipit:"));
+        assert!(!is_bare_name(":shipit:"));
+    }
+
+    #[test]
+    fn a_lone_letter_or_colon_is_not_mistaken_for_either() {
+        // A single character can be an emoji nobody expected; being over-eager here would refuse
+        // an archive over something that is not wrong.
+        assert!(!is_bare_name("a"));
+        assert!(!is_shortcode("::"));
+        assert!(!is_shortcode(":"));
+        assert!(!is_shortcode(""));
+    }
 }

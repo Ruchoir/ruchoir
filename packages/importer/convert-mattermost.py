@@ -57,6 +57,129 @@ def digest(path: Path) -> str:
     return h.hexdigest()
 
 
+# Mattermost names its reactions rather than storing the character, so the names have to be turned
+# back into emoji here: the product stores native Unicode, and an untranslated name arrives as the
+# word `tada` sitting under a message where a face should be. This is the producer's job because
+# the producer is the only thing that knows its source's vocabulary.
+#
+# The common set, not the whole of it. A name missing from here is not dropped: it crosses as
+# `:name:`, which the archive contract allows, and the export says so in its limits so that nobody
+# discovers it a week later.
+EMOJI = {
+    "+1": "\U0001f44d", "thumbsup": "\U0001f44d", "-1": "\U0001f44e", "thumbsdown": "\U0001f44e",
+    "smile": "\U0001f604", "smiley": "\U0001f603", "grinning": "\U0001f600", "grin": "\U0001f601",
+    "laughing": "\U0001f606", "satisfied": "\U0001f606", "sweat_smile": "\U0001f605",
+    "joy": "\U0001f602", "rofl": "\U0001f923", "slightly_smiling_face": "\U0001f642",
+    "upside_down_face": "\U0001f643", "wink": "\U0001f609", "blush": "\U0001f60a",
+    "innocent": "\U0001f607", "heart_eyes": "\U0001f60d", "kissing_heart": "\U0001f618",
+    "yum": "\U0001f60b", "stuck_out_tongue": "\U0001f61b", "stuck_out_tongue_winking_eye": "\U0001f61c",
+    "zany_face": "\U0001f92a", "raised_eyebrow": "\U0001f928", "neutral_face": "\U0001f610",
+    "expressionless": "\U0001f611", "no_mouth": "\U0001f636", "smirk": "\U0001f60f",
+    "unamused": "\U0001f612", "roll_eyes": "\U0001f644", "grimacing": "\U0001f62c",
+    "lying_face": "\U0001f925", "relieved": "\U0001f60c", "pensive": "\U0001f614",
+    "sleepy": "\U0001f62a", "sleeping": "\U0001f634", "mask": "\U0001f637",
+    "face_with_thermometer": "\U0001f912", "nauseated_face": "\U0001f922", "sneezing_face": "\U0001f927",
+    "hot_face": "\U0001f975", "cold_face": "\U0001f976", "woozy_face": "\U0001f974",
+    "dizzy_face": "\U0001f635", "exploding_head": "\U0001f92f", "cowboy_hat_face": "\U0001f920",
+    "partying_face": "\U0001f973", "sunglasses": "\U0001f60e", "nerd_face": "\U0001f913",
+    "monocle_face": "\U0001f9d0", "confused": "\U0001f615", "worried": "\U0001f61f",
+    "slightly_frowning_face": "\U0001f641", "frowning_face": "\u2639\ufe0f", "open_mouth": "\U0001f62e",
+    "hushed": "\U0001f62f", "astonished": "\U0001f632", "flushed": "\U0001f633",
+    "pleading_face": "\U0001f97a", "frowning": "\U0001f626", "anguished": "\U0001f627",
+    "fearful": "\U0001f628", "cold_sweat": "\U0001f630", "disappointed_relieved": "\U0001f625",
+    "cry": "\U0001f622", "sob": "\U0001f62d", "scream": "\U0001f631", "confounded": "\U0001f616",
+    "persevere": "\U0001f623", "disappointed": "\U0001f61e", "sweat": "\U0001f613",
+    "weary": "\U0001f629", "tired_face": "\U0001f62b", "triumph": "\U0001f624",
+    "rage": "\U0001f621", "angry": "\U0001f620", "exploding": "\U0001f92f",
+    "thinking_face": "\U0001f914", "thinking": "\U0001f914", "shushing_face": "\U0001f92b",
+    "zipper_mouth_face": "\U0001f910", "hugs": "\U0001f917", "star_struck": "\U0001f929",
+    "face_with_monocle": "\U0001f9d0", "money_mouth_face": "\U0001f911", "shrug": "\U0001f937",
+    "man_shrugging": "\U0001f937", "woman_shrugging": "\U0001f937",
+    "heart": "\u2764\ufe0f", "orange_heart": "\U0001f9e1", "yellow_heart": "\U0001f49b",
+    "green_heart": "\U0001f49a", "blue_heart": "\U0001f499", "purple_heart": "\U0001f49c",
+    "black_heart": "\U0001f5a4", "broken_heart": "\U0001f494", "two_hearts": "\U0001f495",
+    "sparkling_heart": "\U0001f496", "heartpulse": "\U0001f497", "cupid": "\U0001f498",
+    "tada": "\U0001f389", "confetti_ball": "\U0001f38a", "sparkles": "\u2728", "star": "\u2b50",
+    "star2": "\U0001f31f", "dizzy": "\U0001f4ab", "boom": "\U0001f4a5", "fire": "\U0001f525",
+    "collision": "\U0001f4a5", "zap": "\u26a1", "sunny": "\u2600\ufe0f", "rainbow": "\U0001f308",
+    "cloud": "\u2601\ufe0f", "snowflake": "\u2744\ufe0f", "droplet": "\U0001f4a7",
+    "ok_hand": "\U0001f44c", "pinching_hand": "\U0001f90f", "v": "\u270c\ufe0f",
+    "crossed_fingers": "\U0001f91e", "love_you_gesture": "\U0001f91f", "metal": "\U0001f918",
+    "call_me_hand": "\U0001f919", "point_left": "\U0001f448", "point_right": "\U0001f449",
+    "point_up_2": "\U0001f446", "point_down": "\U0001f447", "point_up": "\u261d\ufe0f",
+    "raised_hand": "\u270b", "raised_back_of_hand": "\U0001f91a", "wave": "\U0001f44b",
+    "call_me": "\U0001f919", "muscle": "\U0001f4aa", "pray": "\U0001f64f",
+    "handshake": "\U0001f91d", "clap": "\U0001f44f", "raised_hands": "\U0001f64c",
+    "open_hands": "\U0001f450", "writing_hand": "\u270d\ufe0f", "nail_care": "\U0001f485",
+    "eyes": "\U0001f440", "eye": "\U0001f441\ufe0f", "brain": "\U0001f9e0", "ear": "\U0001f442",
+    "white_check_mark": "\u2705", "heavy_check_mark": "\u2714\ufe0f", "ballot_box_with_check": "\u2611\ufe0f",
+    "x": "\u274c", "negative_squared_cross_mark": "\u274e", "heavy_multiplication_x": "\u2716\ufe0f",
+    "warning": "\u26a0\ufe0f", "no_entry": "\u26d4", "no_entry_sign": "\U0001f6ab",
+    "question": "\u2753", "grey_question": "\u2754", "exclamation": "\u2757",
+    "bangbang": "\u203c\ufe0f", "interrobang": "\u2049\ufe0f", "100": "\U0001f4af",
+    "ok": "\U0001f197", "new": "\U0001f195", "top": "\U0001f51d", "soon": "\U0001f51c",
+    "arrow_up": "\u2b06\ufe0f", "arrow_down": "\u2b07\ufe0f", "arrow_left": "\u2b05\ufe0f",
+    "arrow_right": "\u27a1\ufe0f", "recycle": "\u267b\ufe0f", "repeat": "\U0001f501",
+    "rocket": "\U0001f680", "airplane": "\u2708\ufe0f", "car": "\U0001f697", "bike": "\U0001f6b2",
+    "anchor": "\u2693", "construction": "\U0001f6a7", "hammer": "\U0001f528", "wrench": "\U0001f527",
+    "gear": "\u2699\ufe0f", "nut_and_bolt": "\U0001f529", "hammer_and_wrench": "\U0001f6e0\ufe0f",
+    "bug": "\U0001f41b", "spider": "\U0001f577\ufe0f", "snail": "\U0001f40c", "turtle": "\U0001f422",
+    "rabbit": "\U0001f430", "cat": "\U0001f431", "dog": "\U0001f436", "fox_face": "\U0001f98a",
+    "bear": "\U0001f43b", "panda_face": "\U0001f43c", "penguin": "\U0001f427", "owl": "\U0001f989",
+    "unicorn": "\U0001f984", "whale": "\U0001f433", "dolphin": "\U0001f42c", "fish": "\U0001f41f",
+    "coffee": "\u2615", "tea": "\U0001f375", "beer": "\U0001f37a", "beers": "\U0001f37b",
+    "champagne": "\U0001f37e", "clinking_glasses": "\U0001f942", "wine_glass": "\U0001f377",
+    "cake": "\U0001f370", "birthday": "\U0001f382", "pizza": "\U0001f355", "hamburger": "\U0001f354",
+    "fries": "\U0001f35f", "bread": "\U0001f35e", "cheese": "\U0001f9c0", "croissant": "\U0001f950",
+    "apple": "\U0001f34e", "banana": "\U0001f34c", "strawberry": "\U0001f353", "watermelon": "\U0001f349",
+    "bulb": "\U0001f4a1", "moneybag": "\U0001f4b0", "dollar": "\U0001f4b5", "euro": "\U0001f4b6",
+    "chart_with_upwards_trend": "\U0001f4c8", "chart_with_downwards_trend": "\U0001f4c9",
+    "bar_chart": "\U0001f4ca", "clipboard": "\U0001f4cb", "pushpin": "\U0001f4cc",
+    "paperclip": "\U0001f4ce", "lock": "\U0001f512", "unlock": "\U0001f513", "key": "\U0001f511",
+    "mag": "\U0001f50d", "bell": "\U0001f514", "no_bell": "\U0001f515", "loudspeaker": "\U0001f4e2",
+    "mega": "\U0001f4e3", "envelope": "\u2709\ufe0f", "email": "\U0001f4e7", "inbox_tray": "\U0001f4e5",
+    "outbox_tray": "\U0001f4e4", "package": "\U0001f4e6", "calendar": "\U0001f4c5",
+    "date": "\U0001f4c6", "alarm_clock": "\u23f0", "hourglass": "\u231b", "watch": "\u231a",
+    "computer": "\U0001f4bb", "desktop_computer": "\U0001f5a5\ufe0f", "iphone": "\U0001f4f1",
+    "floppy_disk": "\U0001f4be", "cd": "\U0001f4bf", "battery": "\U0001f50b", "electric_plug": "\U0001f50c",
+    "books": "\U0001f4da", "book": "\U0001f4d6", "memo": "\U0001f4dd", "pencil2": "\u270f\ufe0f",
+    "page_facing_up": "\U0001f4c4", "file_folder": "\U0001f4c1", "open_file_folder": "\U0001f4c2",
+    "trophy": "\U0001f3c6", "medal_sports": "\U0001f3c5", "1st_place_medal": "\U0001f947",
+    "dart": "\U0001f3af", "game_die": "\U0001f3b2", "musical_note": "\U0001f3b5", "notes": "\U0001f3b6",
+    "art": "\U0001f3a8", "clapper": "\U0001f3ac", "microphone": "\U0001f3a4", "headphones": "\U0001f3a7",
+    "house": "\U0001f3e0", "office": "\U0001f3e2", "hospital": "\U0001f3e5", "school": "\U0001f3eb",
+    "earth_africa": "\U0001f30d", "earth_americas": "\U0001f30e", "earth_asia": "\U0001f30f",
+    "globe_with_meridians": "\U0001f310", "world_map": "\U0001f5fa\ufe0f", "compass": "\U0001f9ed",
+    "ghost": "\U0001f47b", "alien": "\U0001f47d", "robot": "\U0001f916", "skull": "\U0001f480",
+    "poop": "\U0001f4a9", "hankey": "\U0001f4a9", "smiling_imp": "\U0001f608", "imp": "\U0001f47f",
+    "crown": "\U0001f451", "gem": "\U0001f48e", "ring": "\U0001f48d", "gift": "\U0001f381",
+    "balloon": "\U0001f388", "christmas_tree": "\U0001f384", "jack_o_lantern": "\U0001f383",
+    "sos": "\U0001f198", "vs": "\U0001f19a", "free": "\U0001f193", "cool": "\U0001f192",
+    "seedling": "\U0001f331", "herb": "\U0001f33f", "four_leaf_clover": "\U0001f340",
+    "maple_leaf": "\U0001f341", "cherry_blossom": "\U0001f338", "rose": "\U0001f339",
+    "sunflower": "\U0001f33b", "bouquet": "\U0001f490", "cactus": "\U0001f335", "palm_tree": "\U0001f334",
+    "mountain": "\u26f0\ufe0f", "volcano": "\U0001f30b", "ocean": "\U0001f30a", "tent": "\u26fa",
+    "flag_fr": "\U0001f1eb\U0001f1f7", "fr": "\U0001f1eb\U0001f1f7",
+    "eu": "\U0001f1ea\U0001f1fa", "flag_eu": "\U0001f1ea\U0001f1fa",
+}
+
+
+def as_emoji(name: str) -> str:
+    """The character for a Mattermost reaction name, or the name spelled as a shortcode.
+
+    A skin tone suffix is dropped rather than guessed at: `+1_dark_skin_tone` is a thumb up, and
+    which thumb it was is not worth a second table.
+    """
+    plain = name.strip().strip(":")
+    if plain in EMOJI:
+        return EMOJI[plain]
+    for suffix in ("_dark_skin_tone", "_medium_dark_skin_tone", "_medium_skin_tone",
+                   "_medium_light_skin_tone", "_light_skin_tone"):
+        if plain.endswith(suffix) and plain[: -len(suffix)] in EMOJI:
+            return EMOJI[plain[: -len(suffix)]]
+    return f":{plain}:"
+
+
 class Converter:
     def __init__(self, export: Path, out: Path) -> None:
         self.export = export
@@ -71,6 +194,7 @@ class Converter:
         # What each person kept, per conversation: a favourite, a reading position.
         self.member_state: dict[str, list[dict]] = defaultdict(list)
         self.dropped_system: set[str] = set()
+        self.untranslated_emoji: set[str] = set()
         self.source_version = "unknown"
 
     # -- reading ---------------------------------------------------------------------------
@@ -227,9 +351,15 @@ class Converter:
             return
 
         message_id = self._message_id(channel, post)
+        # Mattermost names its reactions; the product stores the character. Two names can map to
+        # the same character (`+1` and `thumbsup`), so the grouping happens after translation or
+        # the same face would appear twice under one message.
         by_emoji: dict[str, list[str]] = defaultdict(list)
         for reaction in post.get("reactions") or []:
-            by_emoji[reaction["emoji_name"]].append(reaction["user"])
+            emoji = as_emoji(reaction["emoji_name"])
+            if emoji.startswith(":"):
+                self.untranslated_emoji.add(reaction["emoji_name"])
+            by_emoji[emoji].append(reaction["user"])
 
         self.messages.append(
             {
@@ -331,6 +461,12 @@ class Converter:
         if self.dropped_system:
             limits.append(
                 "Notices dropped in this export: " + ", ".join(sorted(self.dropped_system)) + "."
+            )
+        if self.untranslated_emoji:
+            limits.append(
+                "These reaction names have no emoji here and arrive as text: "
+                + ", ".join(f":{name}:" for name in sorted(self.untranslated_emoji))
+                + "."
             )
 
         manifest = {

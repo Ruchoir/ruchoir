@@ -97,7 +97,7 @@ def build_archive(root: Path, **overrides) -> Path:
                 "thread_root": None,
                 "pinned": True,
                 "edited_at": None,
-                "reactions": [{"emoji": "tada", "by": ["bob"]}],
+                "reactions": [{"emoji": "\U0001f389", "by": ["bob"]}],
                 "files": ["note.txt"],
                 "saved_by": ["bob"],
             },

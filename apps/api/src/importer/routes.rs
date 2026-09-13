@@ -171,7 +171,7 @@ pub async fn preview(
     if !report.is_sound() {
         return Err(ApiError::BadRequestOwned(format!(
             "this archive does not hold together: {}",
-            report.errors.join("; ")
+            report.errors().join("; ")
         )));
     }
 
@@ -234,7 +234,7 @@ pub async fn preview(
         messages: plan.messages,
         files: plan.files,
         limits: plan.limits,
-        warnings: report.warnings,
+        warnings: report.warnings(),
     }))
 }
 

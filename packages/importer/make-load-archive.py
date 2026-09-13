@@ -156,7 +156,8 @@ def main() -> None:
         elif rng.random() < 0.1:
             roots[cid] = row["id"]
         if i % 7 == 0:
-            row["reactions"] = [{"emoji": e, "users": rng.sample(chan["members"], min(3, len(chan["members"])))}
+            # `by`, as the contract spells it, and the character rather than a name.
+            row["reactions"] = [{"emoji": e, "by": rng.sample(chan["members"], min(3, len(chan["members"])))}
                                 for e in rng.sample(["👍", "🎉", "😀", "❤️"], rng.randint(1, 2))]
         if i % 40 == 0:
             row["saved_by"] = rng.sample(chan["members"], 1)

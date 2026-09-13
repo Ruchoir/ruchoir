@@ -43,7 +43,7 @@ pub async fn execute<S: BlobSink>(
         // Refusing here costs nothing; refusing halfway costs an administrator their afternoon.
         return Err(RunError::Ambiguous(format!(
             "this archive does not hold together: {}",
-            report.errors.join("; ")
+            report.errors().join("; ")
         )));
     }
 
@@ -93,7 +93,7 @@ pub async fn execute_into<S: BlobSink>(
     if !report.is_sound() {
         let reason = format!(
             "this archive does not hold together: {}",
-            report.errors.join("; ")
+            report.errors().join("; ")
         );
         finish(db, job_id, "failed", &reason).await?;
         return Err(RunError::Ambiguous(reason));

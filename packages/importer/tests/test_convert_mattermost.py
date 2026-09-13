@@ -164,6 +164,37 @@ class ConverterCase(unittest.TestCase):
         # A reply belongs to the same conversation as its root, or the thread lands nowhere.
         self.assertEqual(messages["réponse"]["channel"], root["channel"])
 
+    def test_a_reaction_name_becomes_the_character_the_product_stores(self) -> None:
+        """Otherwise the word `tada` arrives under the message where a face should be."""
+        self.assertEqual(converter.as_emoji("tada"), "\U0001f389")
+        self.assertEqual(converter.as_emoji("thumbsup"), "\U0001f44d")
+        self.assertEqual(converter.as_emoji("+1"), "\U0001f44d")
+
+    def test_a_skin_tone_is_dropped_rather_than_guessed_at(self) -> None:
+        self.assertEqual(converter.as_emoji("+1_dark_skin_tone"), "\U0001f44d")
+
+    def test_a_name_we_do_not_know_crosses_as_a_shortcode_rather_than_being_lost(self) -> None:
+        self.assertEqual(converter.as_emoji("shipit"), ":shipit:")
+
+    def test_an_untranslated_name_is_declared_in_the_limits(self) -> None:
+        """Said before the import rather than discovered a week later."""
+        out = self.convert(self.base(
+            post("bonjour", reactions=[{"user": "bob", "emoji_name": "shipit", "create_at": MS}])
+        ))
+        manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+        self.assertTrue(
+            any(":shipit:" in limit for limit in manifest["limits"]), manifest["limits"]
+        )
+
+    def test_two_names_for_one_face_become_one_reaction(self) -> None:
+        """`+1` and `thumbsup` are the same character, and the same face must not appear twice."""
+        out = self.convert(self.base(post("bonjour", reactions=[
+            {"user": "bob", "emoji_name": "+1", "create_at": MS},
+            {"user": "alice", "emoji_name": "thumbsup", "create_at": MS},
+        ])))
+        message = next(m for m in read_jsonl(out, "messages.jsonl") if m["body"])
+        self.assertEqual(message["reactions"], [{"emoji": "\U0001f44d", "by": ["alice", "bob"]}])
+
     def test_reactions_are_grouped_by_emoji_with_everyone_who_reacted(self) -> None:
         rows = self.base(
             post(
@@ -179,7 +210,9 @@ class ConverterCase(unittest.TestCase):
         message = next(m for m in read_jsonl(out, "messages.jsonl") if m["body"])
         self.assertEqual(
             message["reactions"],
-            [{"emoji": "tada", "by": ["alice", "bob"]}, {"emoji": "thumbsup", "by": ["bob"]}],
+            # Translated, and grouped after translation: the product stores the character.
+            [{"emoji": "\U0001f389", "by": ["alice", "bob"]},
+             {"emoji": "\U0001f44d", "by": ["bob"]}],
         )
 
     def test_a_pinned_message_stays_pinned(self) -> None:

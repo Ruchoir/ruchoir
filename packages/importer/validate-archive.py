@@ -48,6 +48,14 @@ HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
 # An author that matches no account: a guest, a bot, someone the producer could not resolve. The
 # importer attributes these to an absent author rather than dropping the message.
 ABSENT_AUTHOR = re.compile(r"^[a-z_]+:.+$")
+# A bare name where an emoji belongs: `tada`. Refused, because it arrives as that word under the
+# message and nothing says it was ever meant to be a face.
+# `+1` and `-1` are names too, and among the most common of them.
+BARE_NAME = re.compile(r"^[a-z0-9+-][a-z0-9_+-]+$")
+# The honest fallback: `:tada:`, a producer saying it met a name it could not translate. Allowed,
+# with a warning, because a reaction shown as `:tada:` can still be recognised and fixed later,
+# and losing it entirely would be worse.
+SHORTCODE = re.compile(r"^:[a-z0-9+-][a-z0-9_+-]+:$")
 
 
 class Report:
@@ -266,9 +274,26 @@ def _check_messages(messages, channels, users, files, report) -> None:
                 report.error(f"message {identifier}: a reply to a reply, which our threads do not have")
 
         for reaction in message.get("reactions") or []:
-            if not isinstance(reaction, dict) or "emoji" not in reaction:
+            if not isinstance(reaction, dict) or not str(reaction.get("emoji") or "").strip():
                 report.error(f"message {identifier}: a reaction with no emoji")
                 continue
+            # A reaction nobody gave means the producer lost the people, not that nobody reacted.
+            # This is also where a producer that spelled the field some other way is caught: the
+            # checker on the importing side refuses the archive, so refusing it here too is the
+            # whole point of having a checker on this side.
+            if not reaction.get("by"):
+                report.error(f"message {identifier}: a {reaction['emoji']!r} reaction by nobody")
+            emoji = str(reaction["emoji"])
+            if BARE_NAME.match(emoji):
+                report.error(
+                    f"message {identifier}: reaction {emoji!r} is a name, not an emoji: the product "
+                    "stores the character, and this would arrive as that word under the message"
+                )
+            elif SHORTCODE.match(emoji):
+                report.warn(
+                    f"message {identifier}: reaction {emoji!r} could not be translated by its "
+                    "producer and will be shown as text"
+                )
             for who in reaction.get("by") or []:
                 if who not in users and not ABSENT_AUTHOR.match(str(who)):
                     report.error(f"message {identifier}: reaction by {who!r}, who is not an account")

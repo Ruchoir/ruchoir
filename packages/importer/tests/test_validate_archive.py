@@ -130,9 +130,40 @@ class ValidatorCase(unittest.TestCase):
 
     def test_a_reaction_by_a_stranger(self) -> None:
         messages = self.messages()
-        messages[0]["reactions"] = [{"emoji": "tada", "by": ["ghost"]}]
+        messages[0]["reactions"] = [{"emoji": "\U0001f389", "by": ["ghost"]}]
         rewrite(self.archive, "messages.jsonl", messages)
         self.assert_caught("reaction by")
+
+    def test_a_reaction_nobody_gave(self) -> None:
+        """The one that got away. A producer that spelled the people some other way (`users`
+        instead of `by`) produced a hundred and twenty thousand reactions attributed to nobody, and
+        this side of the contract said the archive was fine."""
+        messages = self.messages()
+        messages[0]["reactions"] = [{"emoji": "\U0001f389", "users": ["bob"]}]
+        rewrite(self.archive, "messages.jsonl", messages)
+        self.assert_caught("by nobody")
+
+    def test_a_reaction_that_is_a_name_rather_than_an_emoji(self) -> None:
+        """It would arrive as the word `tada` sitting under the message."""
+        messages = self.messages()
+        messages[0]["reactions"] = [{"emoji": "tada", "by": ["bob"]}]
+        rewrite(self.archive, "messages.jsonl", messages)
+        self.assert_caught("is a name, not an emoji")
+
+    def test_a_reaction_whose_emoji_is_blank(self) -> None:
+        messages = self.messages()
+        messages[0]["reactions"] = [{"emoji": "   ", "by": ["bob"]}]
+        rewrite(self.archive, "messages.jsonl", messages)
+        self.assert_caught("a reaction with no emoji")
+
+    def test_a_shortcode_the_producer_admits_it_could_not_translate_is_allowed(self) -> None:
+        """`:shipit:` crosses and is shown as text. Dropping it would be worse, and the producer
+        said plainly what it did."""
+        messages = self.messages()
+        messages[0]["reactions"] = [{"emoji": ":shipit:", "by": ["bob"]}]
+        rewrite(self.archive, "messages.jsonl", messages)
+        self.assertEqual(self.errors(), [])
+        self.assertTrue(any("shown as text" in w for w in self.warnings()), self.warnings())
 
     def test_two_records_sharing_an_identifier(self) -> None:
         messages = self.messages()

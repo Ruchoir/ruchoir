@@ -99,7 +99,7 @@ export must yield the same identifier twice, or replaying it duplicates everythi
 // messages.jsonl
 {"id":"1042","channel":"fiddjs6o","author":"alice","sent_at":"2026-08-29T13:47:11Z",
  "body":"Bonjour **tout le monde**","format":"markdown","thread_root":null,"pinned":false,
- "edited_at":null,"reactions":[{"emoji":"tada","by":["bob"]}],"files":["emma/Documents/note.txt"],
+ "edited_at":null,"reactions":[{"emoji":"🎉","by":["bob"]}],"files":["emma/Documents/note.txt"],
  "saved_by":["carol"]}
 
 // a notice, not a sentence: `system_event` names the event and the reader's own language
@@ -132,6 +132,13 @@ is the sort of thing a migrating team notices on the first morning.
 
 `saved_by` on a message lists who had kept it. `member_state` on a conversation carries, per person,
 `favorite` and a reading position.
+
+A reaction carries the **emoji itself**, as a character, and the people who gave it in `by`. Not
+`:tada:` and not `tada`: the product stores native Unicode, and a shortcode arrives as the word
+`tada` sitting under a message where a face should be. Translating the names a source uses into
+characters is the producer's job, since the producer is the only thing that knows that source's
+vocabulary. A reaction nobody gave is refused rather than dropped, because it means the producer
+lost the people rather than that nobody reacted.
 
 A reading position is spelled in whichever way the source holds it, and a producer emits the one it
 has: `read_message` when the source names the last message read (Nextcloud does), `read_at` when it
