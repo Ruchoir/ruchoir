@@ -633,7 +633,8 @@
     "createChannel": "Crea il canale",
     "createSpace": "Crea lo spazio",
     "customize": "Personalizza",
-    "noMailNotice": "Un link condivisibile porta a un account in attesa di conferma dell'indirizzo, e questa istanza non può inviare alcuna email di conferma. Indica un indirizzo: un invito nominativo attiva subito l'account."
+    "noMailNotice": "Un link condivisibile porta a un account in attesa di conferma dell'indirizzo, e questa istanza non può inviare alcuna email di conferma. Indica un indirizzo: un invito nominativo attiva subito l'account.",
+    "importFromAnotherTool": "Da Nextcloud, Mattermost o Slack, con le conversazioni e i file."
   },
   "conversation": {
     "searchInConversation": "Cerca nella conversazione",
@@ -936,5 +937,39 @@
   },
   "rail": {
     "unreadActivity": "{{name}}, attività non letta"
+  },
+  "import": {
+    "screenTitle": "Riprendere uno spazio di lavoro",
+    "intro": "Riprende uno spazio di lavoro da un altro strumento. Nulla viene scritto finché non hai letto cosa succederebbe: indica l'archivio, guarda il piano, poi avvia.",
+    "fileLabel": "Archivio",
+    "fileHint": "Il nome di un file collocato nella cartella di importazione del server.",
+    "passphraseLabel": "Passphrase",
+    "passphraseHint": "Quella mostrata dallo script di esportazione. Non viene conservata da nessuna parte.",
+    "look": "Vedere cosa arriverebbe",
+    "wouldArrive": "Cosa arriverebbe",
+    "spaceCreated": "Creato",
+    "spaceFilled": "Completato",
+    "accounts": "Account",
+    "accountsMatched": "Già qui, riconosciuti dall'indirizzo",
+    "accountsInvitable": "Nuovi, invitabili via email",
+    "accountsWithoutAddress": "Senza indirizzo: invitali in altro modo",
+    "messages": "Messaggi",
+    "files": "File",
+    "conversations": "Conversazioni",
+    "leftBehind": "Cosa lascia indietro questa esportazione",
+    "warnings": "Da sapere",
+    "start": "Avvia l'importazione",
+    "startNote": "Le persone arrivano senza password, in attesa del loro invito. Nessuno riceve email: l'invio è un passaggio a parte.",
+    "replaceTitle": "Sostituire l'intera istanza",
+    "replaceExplain": "Svuota l'istanza prima di importare: tutti gli spazi e tutti gli account tranne il tuo. Irreversibile se non ripristinando un backup.",
+    "replaceWouldDestroy": "Verrebbero distrutti (spazi, account, messaggi)",
+    "replaceNoBackup": "Impossibile senza un backup di meno di 24 ore. Falne uno prima.",
+    "replaceEnable": "Sì, svuotare l'istanza prima di importare",
+    "replaceConfirmLabel": "Digita l'indirizzo di questa istanza per confermare",
+    "replaceConfirmHint": "Esattamente:",
+    "running": "Importazione in corso",
+    "finished": "Importazione terminata",
+    "cancel": "Ferma",
+    "nobodyEmailed": "Nessuno è stato avvisato e nessuno ha ricevuto email. L'invio degli inviti è un passaggio a parte."
   }
 }

@@ -5,6 +5,9 @@ export type AppView =
   | "settings"
   | "prefs"
   | "instance-admin"
+  // Bringing a workspace over from another product: full-screen, and only for an administrator of
+  // the instance.
+  | "import"
   | "threads"
   | "mentions"
   | "saved";

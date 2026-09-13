@@ -2046,3 +2046,174 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
     },
   };
 }
+
+// --- Bringing a workspace over from another product ----------------------------------------------
+//
+// Only an instance administrator sees any of this: every route below answers 404 to everyone else,
+// so a client that shows the screen to the wrong person shows them a screen full of errors.
+
+/** What an import would do, from `POST /imports/plan`. Nothing is written to produce it. */
+export type ImportPlan = {
+  source: string;
+  spaces: { name: string; outcome: "created" | "filled"; channels: number; directs: number }[];
+  accounts: {
+    total: number;
+    matched: number;
+    invitable: number;
+    withoutAddress: number;
+    people: { sourceId: string; displayName: string; email: string; outcome: string }[];
+  };
+  messages: number;
+  files: number;
+  /** The producer's own words about what it left behind. Shown in full, never summarised. */
+  limits: string[];
+  warnings: string[];
+  /** What replacing the instance would destroy, so both halves of the choice are visible at once. */
+  replacingWouldDestroy: {
+    spaces: number;
+    accounts: number;
+    messages: number;
+    spaceNames: string[];
+    lastBackup: string | null;
+    replacementAllowed: boolean;
+  };
+};
+
+/** An import, running or finished, from `GET /imports`. */
+export type ImportJob = {
+  id: string;
+  source: string;
+  status: "pending" | "analyzing" | "ready" | "running" | "cancelling" | "cancelled" | "completed" | "failed";
+  accountsDone: number;
+  accountsTotal: number;
+  channelsDone: number;
+  channelsTotal: number;
+  messagesDone: number;
+  messagesTotal: number;
+  filesDone: number;
+  filesTotal: number;
+  error: string | null;
+};
+
+type ImportJobDto = {
+  id: string;
+  source: string;
+  status: ImportJob["status"];
+  accounts_done: number;
+  accounts_total: number;
+  channels_done: number;
+  channels_total: number;
+  messages_done: number;
+  messages_total: number;
+  files_done: number;
+  files_total: number;
+  error: string | null;
+};
+
+function toImportJob(dto: ImportJobDto): ImportJob {
+  return {
+    id: dto.id,
+    source: dto.source,
+    status: dto.status,
+    accountsDone: dto.accounts_done,
+    accountsTotal: dto.accounts_total,
+    channelsDone: dto.channels_done,
+    channelsTotal: dto.channels_total,
+    messagesDone: dto.messages_done,
+    messagesTotal: dto.messages_total,
+    filesDone: dto.files_done,
+    filesTotal: dto.files_total,
+    error: dto.error,
+  };
+}
+
+/** `POST /imports/plan`: what this archive would do. Writes nothing. */
+export async function planImport(file: string, passphrase?: string): Promise<ImportPlan> {
+  const dto = await apiPost<{
+    source: string;
+    spaces: ImportPlan["spaces"];
+    accounts: {
+      total: number;
+      matched: number;
+      invitable: number;
+      without_address: number;
+      people: { source_id: string; display_name: string; email: string; outcome: string }[];
+    };
+    messages: number;
+    files: number;
+    limits: string[];
+    warnings: string[];
+    replacing_would_destroy: {
+      spaces: number;
+      accounts: number;
+      messages: number;
+      space_names: string[];
+      last_backup: string | null;
+      replacement_allowed: boolean;
+    };
+  }>("/imports/plan", { file, passphrase });
+  return {
+    source: dto.source,
+    spaces: dto.spaces,
+    accounts: {
+      total: dto.accounts.total,
+      matched: dto.accounts.matched,
+      invitable: dto.accounts.invitable,
+      withoutAddress: dto.accounts.without_address,
+      people: dto.accounts.people.map((person) => ({
+        sourceId: person.source_id,
+        displayName: person.display_name,
+        email: person.email,
+        outcome: person.outcome,
+      })),
+    },
+    messages: dto.messages,
+    files: dto.files,
+    limits: dto.limits,
+    warnings: dto.warnings,
+    replacingWouldDestroy: {
+      spaces: dto.replacing_would_destroy.spaces,
+      accounts: dto.replacing_would_destroy.accounts,
+      messages: dto.replacing_would_destroy.messages,
+      spaceNames: dto.replacing_would_destroy.space_names,
+      lastBackup: dto.replacing_would_destroy.last_backup,
+      replacementAllowed: dto.replacing_would_destroy.replacement_allowed,
+    },
+  };
+}
+
+/**
+ * `POST /imports`: start it.
+ *
+ * `replaceInstanceAddress`, when given, empties the instance first: every space and every account
+ * except the one asking. The server checks the address, and refuses without a recent backup.
+ */
+export async function startImport(
+  file: string,
+  passphrase?: string,
+  replaceInstanceAddress?: string,
+): Promise<ImportJob> {
+  const dto = await apiPost<ImportJobDto>("/imports", {
+    file,
+    passphrase,
+    replace_everything: replaceInstanceAddress ? { instance_address: replaceInstanceAddress } : undefined,
+  });
+  return toImportJob(dto);
+}
+
+/** `GET /imports`: every import this instance has run, most recent first. */
+export async function listImports(signal?: AbortSignal): Promise<ImportJob[]> {
+  const dtos = await apiGet<ImportJobDto[]>("/imports", signal);
+  return dtos.map(toImportJob);
+}
+
+/** `GET /imports/{id}`: where one has got to. */
+export async function getImport(id: string, signal?: AbortSignal): Promise<ImportJob> {
+  return toImportJob(await apiGet<ImportJobDto>(`/imports/${id}`, signal));
+}
+
+/** `POST /imports/{id}/cancel`: it stops at the next conversation and keeps what it wrote. */
+export async function cancelImport(id: string): Promise<ImportJob> {
+  return toImportJob(await apiPost<ImportJobDto>(`/imports/${id}/cancel`, {}));
+}
+

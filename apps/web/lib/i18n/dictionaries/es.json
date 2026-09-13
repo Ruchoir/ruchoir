@@ -633,7 +633,8 @@
     "createChannel": "Crear el canal",
     "createSpace": "Crear el espacio",
     "customize": "Personalizar",
-    "noMailNotice": "Un enlace compartible lleva a una cuenta pendiente de confirmar su dirección, y esta instancia no puede enviar ningún correo de confirmación. Indica una dirección: una invitación nominativa activa la cuenta de inmediato."
+    "noMailNotice": "Un enlace compartible lleva a una cuenta pendiente de confirmar su dirección, y esta instancia no puede enviar ningún correo de confirmación. Indica una dirección: una invitación nominativa activa la cuenta de inmediato.",
+    "importFromAnotherTool": "Desde Nextcloud, Mattermost o Slack, con las conversaciones y los archivos."
   },
   "conversation": {
     "searchInConversation": "Buscar en la conversación",
@@ -936,5 +937,39 @@
   },
   "rail": {
     "unreadActivity": "{{name}}, actividad sin leer"
+  },
+  "import": {
+    "screenTitle": "Traer un espacio de trabajo",
+    "intro": "Trae un espacio de trabajo desde otra herramienta. No se escribe nada hasta que hayas leído lo que ocurriría: nombra el archivo, mira el plan y luego empieza.",
+    "fileLabel": "Archivo",
+    "fileHint": "El nombre de un fichero colocado en el directorio de importación del servidor.",
+    "passphraseLabel": "Frase de contraseña",
+    "passphraseHint": "La que mostró el script de exportación. No se guarda en ninguna parte.",
+    "look": "Ver lo que llegaría",
+    "wouldArrive": "Lo que llegaría",
+    "spaceCreated": "Creado",
+    "spaceFilled": "Completado",
+    "accounts": "Cuentas",
+    "accountsMatched": "Ya están aquí, reconocidas por su dirección",
+    "accountsInvitable": "Nuevas, se pueden invitar por correo",
+    "accountsWithoutAddress": "Sin dirección: invítalas de otra forma",
+    "messages": "Mensajes",
+    "files": "Archivos",
+    "conversations": "Conversaciones",
+    "leftBehind": "Lo que esta exportación deja atrás",
+    "warnings": "Conviene saberlo",
+    "start": "Iniciar la importación",
+    "startNote": "Las personas llegan sin contraseña, esperando su invitación. No se envía ningún correo: enviarlos es un paso aparte.",
+    "replaceTitle": "Reemplazar toda la instancia",
+    "replaceExplain": "Vacía la instancia antes de importar: todos los espacios y todas las cuentas, salvo la tuya. Irreversible salvo restaurando una copia de seguridad.",
+    "replaceWouldDestroy": "Se destruirían (espacios, cuentas, mensajes)",
+    "replaceNoBackup": "No es posible sin una copia de seguridad de menos de 24 horas. Haz una primero.",
+    "replaceEnable": "Sí, vaciar la instancia antes de importar",
+    "replaceConfirmLabel": "Escribe la dirección de esta instancia para confirmar",
+    "replaceConfirmHint": "Exactamente:",
+    "running": "Importación en curso",
+    "finished": "Importación terminada",
+    "cancel": "Detener",
+    "nobodyEmailed": "No se ha notificado ni escrito a nadie. Enviar las invitaciones es un paso aparte."
   }
 }

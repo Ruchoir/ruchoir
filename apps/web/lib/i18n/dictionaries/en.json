@@ -622,7 +622,8 @@
     "createChannel": "Create the channel",
     "createSpace": "Create the space",
     "customize": "Customize",
-    "noMailNotice": "A shareable link leads to an account waiting for its address to be confirmed, and this instance cannot send any confirmation email. Give an address instead: a named invitation activates the account straight away."
+    "noMailNotice": "A shareable link leads to an account waiting for its address to be confirmed, and this instance cannot send any confirmation email. Give an address instead: a named invitation activates the account straight away.",
+    "importFromAnotherTool": "From Nextcloud, Mattermost or Slack, with the conversations and the files."
   },
   "conversation": {
     "searchInConversation": "Search this conversation",
@@ -920,5 +921,39 @@
   },
   "rail": {
     "unreadActivity": "{{name}}, unread activity"
+  },
+  "import": {
+    "screenTitle": "Bring a workspace over",
+    "intro": "Brings a workspace over from another tool. Nothing is written until you have read what would happen: name the archive, look at the plan, then start.",
+    "fileLabel": "Archive",
+    "fileHint": "The name of a file placed in the server's import directory.",
+    "passphraseLabel": "Passphrase",
+    "passphraseHint": "The one the export script printed. It is kept nowhere.",
+    "look": "See what would arrive",
+    "wouldArrive": "What would arrive",
+    "spaceCreated": "Created",
+    "spaceFilled": "Filled",
+    "accounts": "Accounts",
+    "accountsMatched": "Already here, recognised by their address",
+    "accountsInvitable": "New, and can be invited by email",
+    "accountsWithoutAddress": "No address: invite them another way",
+    "messages": "Messages",
+    "files": "Files",
+    "conversations": "Conversations",
+    "leftBehind": "What this export leaves behind",
+    "warnings": "Worth knowing",
+    "start": "Start the import",
+    "startNote": "People arrive without a password, waiting for their invitation. Nobody is emailed: sending is a separate step.",
+    "replaceTitle": "Replace the whole instance",
+    "replaceExplain": "Empties the instance before importing: every space and every account except yours. Irreversible short of restoring a backup.",
+    "replaceWouldDestroy": "Would be destroyed (spaces, accounts, messages)",
+    "replaceNoBackup": "Not possible without a backup less than 24 hours old. Take one first.",
+    "replaceEnable": "Yes, empty the instance before importing",
+    "replaceConfirmLabel": "Type this instance's address to confirm",
+    "replaceConfirmHint": "Exactly:",
+    "running": "Import running",
+    "finished": "Import finished",
+    "cancel": "Stop",
+    "nobodyEmailed": "Nobody was notified and nobody was emailed. Sending the invitations is a separate step."
   }
 }

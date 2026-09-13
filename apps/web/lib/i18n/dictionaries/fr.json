@@ -622,7 +622,8 @@
     "createChannel": "Créer le canal",
     "createSpace": "Créer l'espace",
     "customize": "Personnaliser",
-    "noMailNotice": "Un lien partageable mène à un compte en attente de confirmation d'adresse, et cette instance ne peut envoyer aucun courriel de confirmation. Indiquez une adresse : une invitation nominative active le compte immédiatement."
+    "noMailNotice": "Un lien partageable mène à un compte en attente de confirmation d'adresse, et cette instance ne peut envoyer aucun courriel de confirmation. Indiquez une adresse : une invitation nominative active le compte immédiatement.",
+    "importFromAnotherTool": "Depuis Nextcloud, Mattermost ou Slack, avec les conversations et les fichiers."
   },
   "conversation": {
     "searchInConversation": "Rechercher dans la conversation",
@@ -920,5 +921,39 @@
   },
   "rail": {
     "unreadActivity": "{{name}}, activité non lue"
+  },
+  "import": {
+    "screenTitle": "Reprendre un espace de travail",
+    "intro": "Reprend un espace de travail depuis un autre outil. Rien n'est écrit tant que vous n'avez pas lu ce qui arriverait : nommez l'archive, regardez le plan, puis lancez.",
+    "fileLabel": "Archive",
+    "fileHint": "Le nom d'un fichier déposé dans le répertoire d'import du serveur.",
+    "passphraseLabel": "Passphrase",
+    "passphraseHint": "Celle affichée par le script d'export. Elle n'est conservée nulle part.",
+    "look": "Voir ce qui arriverait",
+    "wouldArrive": "Ce qui arriverait",
+    "spaceCreated": "Créé",
+    "spaceFilled": "Complété",
+    "accounts": "Comptes",
+    "accountsMatched": "Déjà ici, reconnus à leur adresse",
+    "accountsInvitable": "Nouveaux, invitables par courriel",
+    "accountsWithoutAddress": "Sans adresse : à inviter autrement",
+    "messages": "Messages",
+    "files": "Fichiers",
+    "conversations": "Conversations",
+    "leftBehind": "Ce que cet export laisse derrière lui",
+    "warnings": "À savoir",
+    "start": "Lancer l'import",
+    "startNote": "Les gens arrivent sans mot de passe, en attente de leur invitation. Personne ne reçoit de courriel : l'envoi est une étape à part.",
+    "replaceTitle": "Remplacer toute l'instance",
+    "replaceExplain": "Vide l'instance avant d'importer : tous les espaces et tous les comptes, sauf le vôtre. Irréversible sans restauration de sauvegarde.",
+    "replaceWouldDestroy": "Seraient détruits (espaces, comptes, messages)",
+    "replaceNoBackup": "Impossible sans une sauvegarde de moins de 24 heures. Prenez-en une d'abord.",
+    "replaceEnable": "Oui, vider l'instance avant d'importer",
+    "replaceConfirmLabel": "Tapez l'adresse de cette instance pour confirmer",
+    "replaceConfirmHint": "Exactement :",
+    "running": "Import en cours",
+    "finished": "Import terminé",
+    "cancel": "Arrêter",
+    "nobodyEmailed": "Personne n'a été notifié ni reçu de courriel. L'envoi des invitations est une étape à part."
   }
 }

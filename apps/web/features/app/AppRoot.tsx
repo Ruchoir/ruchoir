@@ -88,6 +88,7 @@ import { LoginScreen } from "@/features/auth/LoginScreen";
 import { SignupScreen, type SignupValues } from "@/features/auth/SignupScreen";
 import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
+import { ImportScreen } from "./ImportScreen";
 import { InstanceAdminScreen } from "./InstanceAdmin";
 import { NotificationPrompt } from "./NotificationPrompt";
 import { initialLocale, key, type TranslationKey, useTranslation } from "@/lib/i18n";
@@ -1932,6 +1933,18 @@ function AppShell() {
     setRailOpen(false);
   };
 
+  /**
+   * Bringing a workspace over from another product. Full-screen like the administration screen, and
+   * for the same reason: it is about the instance, never about the space underneath.
+   */
+  const openImport = () => {
+    setModal(null);
+    if (view !== "import") setPrevView(view);
+    setView("import");
+    setMobileContent(true);
+    setRailOpen(false);
+  };
+
   const openPreferences = (tab: PrefTab = "appearance") => {
     setModal(null);
     setPrefsTab(tab);
@@ -3117,6 +3130,15 @@ function AppShell() {
           <InstanceAdminScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
         </div>
       ) : null}
+      {view === "import" && session?.isInstanceAdmin ? (
+        <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
+          <ImportScreen
+            onClose={() => setView(prevView)}
+            onNotify={showToast}
+            instanceAddress={typeof window === "undefined" ? "" : window.location.host}
+          />
+        </div>
+      ) : null}
       {modal === "newChannel" ? (
         <NewChannelDialog
           onClose={() => setModal(null)}
@@ -3150,7 +3172,16 @@ function AppShell() {
           }}
         />
       ) : null}
-      {modal === "newWorkspace" ? <NewWorkspaceDialog onClose={() => setModal(null)} onCreate={createWorkspace} /> : null}
+      {/* The `+` offers importing only to an administrator of the instance: an import creates spaces
+          and accounts, so it is an instance-level power, and showing the door to someone who cannot
+          open it is the kind of dead control this interface has been cleaned of. */}
+      {modal === "newWorkspace" ? (
+        <NewWorkspaceDialog
+          onClose={() => setModal(null)}
+          onCreate={createWorkspace}
+          onImport={session?.isInstanceAdmin === true ? openImport : undefined}
+        />
+      ) : null}
       {removing && currentWorkspace ? (
         <RemoveMemberDialog
           spaceName={currentWorkspace.name}

@@ -436,7 +436,19 @@ export function InviteDialog({
 }
 
 /** Create a new workspace. */
-export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => void }) {
+export function NewWorkspaceDialog({
+  onClose,
+  onCreate,
+  onImport,
+}: {
+  onClose: () => void;
+  onCreate: (name: string) => void;
+  /**
+   * Offered only to an administrator of the instance, and absent for everyone else rather than
+   * shown and refused: an import creates spaces and accounts, which is an instance-level power.
+   */
+  onImport?: () => void;
+}) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<TranslationKey | null>(null);
@@ -465,6 +477,31 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
         </>
       }
     >
+      {onImport ? (
+        <button
+          type="button"
+          onClick={onImport}
+          style={{
+            display: "block",
+            width: "100%",
+            textAlign: "left",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            padding: "10px 12px",
+            marginBottom: 16,
+            background: "transparent",
+            cursor: "pointer",
+            font: "inherit",
+          }}
+        >
+          <span style={{ display: "block", fontWeight: 600, fontSize: 13 }}>
+            {t(key("import.screenTitle"))}
+          </span>
+          <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+            {t(key("dialogs.importFromAnotherTool"))}
+          </span>
+        </button>
+      ) : null}
       <Field
         label={t("space.name")}
         hint={t("dialogs.workspaceHint")}

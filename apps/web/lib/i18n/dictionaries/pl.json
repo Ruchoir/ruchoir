@@ -644,7 +644,8 @@
     "createChannel": "Utwórz kanał",
     "createSpace": "Utwórz przestrzeń",
     "customize": "Dostosuj",
-    "noMailNotice": "Link do udostępnienia prowadzi do konta czekającego na potwierdzenie adresu, a ta instancja nie może wysłać żadnego e-maila potwierdzającego. Podaj adres: imienne zaproszenie aktywuje konto od razu."
+    "noMailNotice": "Link do udostępnienia prowadzi do konta czekającego na potwierdzenie adresu, a ta instancja nie może wysłać żadnego e-maila potwierdzającego. Podaj adres: imienne zaproszenie aktywuje konto od razu.",
+    "importFromAnotherTool": "Z Nextcloud, Mattermost lub Slack, razem z rozmowami i plikami."
   },
   "conversation": {
     "searchInConversation": "Szukaj w rozmowie",
@@ -952,5 +953,39 @@
   },
   "rail": {
     "unreadActivity": "{{name}}, nieprzeczytana aktywność"
+  },
+  "import": {
+    "screenTitle": "Przenieś przestrzeń roboczą",
+    "intro": "Przenosi przestrzeń roboczą z innego narzędzia. Nic nie zostaje zapisane, dopóki nie zobaczysz, co by się stało: wskaż archiwum, przejrzyj plan, potem uruchom.",
+    "fileLabel": "Archiwum",
+    "fileHint": "Nazwa pliku umieszczonego w katalogu importu na serwerze.",
+    "passphraseLabel": "Hasło archiwum",
+    "passphraseHint": "To, które wypisał skrypt eksportu. Nigdzie nie jest przechowywane.",
+    "look": "Zobacz, co trafi tutaj",
+    "wouldArrive": "Co trafi tutaj",
+    "spaceCreated": "Utworzona",
+    "spaceFilled": "Uzupełniona",
+    "accounts": "Konta",
+    "accountsMatched": "Już tutaj, rozpoznane po adresie",
+    "accountsInvitable": "Nowe, można zaprosić e-mailem",
+    "accountsWithoutAddress": "Bez adresu: zaproś inaczej",
+    "messages": "Wiadomości",
+    "files": "Pliki",
+    "conversations": "Rozmowy",
+    "leftBehind": "Czego ten eksport nie zabiera",
+    "warnings": "Warto wiedzieć",
+    "start": "Rozpocznij import",
+    "startNote": "Osoby trafiają tu bez hasła i czekają na zaproszenie. Nikt nie dostaje e-maila: wysyłka to osobny krok.",
+    "replaceTitle": "Zastąp całą instancję",
+    "replaceExplain": "Opróżnia instancję przed importem: wszystkie przestrzenie i wszystkie konta poza Twoim. Nieodwracalne bez przywrócenia kopii zapasowej.",
+    "replaceWouldDestroy": "Zostałyby usunięte (przestrzenie, konta, wiadomości)",
+    "replaceNoBackup": "Niemożliwe bez kopii zapasowej młodszej niż 24 godziny. Zrób ją najpierw.",
+    "replaceEnable": "Tak, opróżnij instancję przed importem",
+    "replaceConfirmLabel": "Wpisz adres tej instancji, aby potwierdzić",
+    "replaceConfirmHint": "Dokładnie:",
+    "running": "Import w toku",
+    "finished": "Import zakończony",
+    "cancel": "Zatrzymaj",
+    "nobodyEmailed": "Nikt nie został powiadomiony ani nie dostał e-maila. Wysyłka zaproszeń to osobny krok."
   }
 }

@@ -622,7 +622,8 @@
     "createChannel": "Kanal erstellen",
     "createSpace": "Bereich erstellen",
     "customize": "Anpassen",
-    "noMailNotice": "Ein teilbarer Link führt zu einem Konto, das auf die Bestätigung seiner Adresse wartet, und diese Instanz kann keine Bestätigungsmail senden. Geben Sie eine Adresse an: Eine namentliche Einladung aktiviert das Konto sofort."
+    "noMailNotice": "Ein teilbarer Link führt zu einem Konto, das auf die Bestätigung seiner Adresse wartet, und diese Instanz kann keine Bestätigungsmail senden. Geben Sie eine Adresse an: Eine namentliche Einladung aktiviert das Konto sofort.",
+    "importFromAnotherTool": "Aus Nextcloud, Mattermost oder Slack, mit den Unterhaltungen und den Dateien."
   },
   "conversation": {
     "searchInConversation": "In der Unterhaltung suchen",
@@ -920,5 +921,39 @@
   },
   "rail": {
     "unreadActivity": "{{name}}, ungelesene Aktivität"
+  },
+  "import": {
+    "screenTitle": "Einen Arbeitsbereich übernehmen",
+    "intro": "Übernimmt einen Arbeitsbereich aus einem anderen Werkzeug. Es wird nichts geschrieben, bevor Sie gelesen haben, was passieren würde: Archiv benennen, Plan ansehen, dann starten.",
+    "fileLabel": "Archiv",
+    "fileHint": "Der Name einer Datei im Importverzeichnis des Servers.",
+    "passphraseLabel": "Passphrase",
+    "passphraseHint": "Die vom Exportskript angezeigte. Sie wird nirgends gespeichert.",
+    "look": "Ansehen, was ankäme",
+    "wouldArrive": "Was ankäme",
+    "spaceCreated": "Neu angelegt",
+    "spaceFilled": "Ergänzt",
+    "accounts": "Konten",
+    "accountsMatched": "Schon hier, an der Adresse erkannt",
+    "accountsInvitable": "Neu, per E-Mail einladbar",
+    "accountsWithoutAddress": "Ohne Adresse: anders einladen",
+    "messages": "Nachrichten",
+    "files": "Dateien",
+    "conversations": "Unterhaltungen",
+    "leftBehind": "Was dieser Export zurücklässt",
+    "warnings": "Gut zu wissen",
+    "start": "Import starten",
+    "startNote": "Die Personen kommen ohne Passwort an und warten auf ihre Einladung. Niemand bekommt eine E-Mail: das Versenden ist ein eigener Schritt.",
+    "replaceTitle": "Die gesamte Instanz ersetzen",
+    "replaceExplain": "Leert die Instanz vor dem Import: alle Bereiche und alle Konten außer Ihrem. Nur durch das Einspielen einer Sicherung rückgängig zu machen.",
+    "replaceWouldDestroy": "Würde zerstört (Bereiche, Konten, Nachrichten)",
+    "replaceNoBackup": "Nicht möglich ohne eine Sicherung, die jünger als 24 Stunden ist. Legen Sie zuerst eine an.",
+    "replaceEnable": "Ja, die Instanz vor dem Import leeren",
+    "replaceConfirmLabel": "Tippen Sie zur Bestätigung die Adresse dieser Instanz",
+    "replaceConfirmHint": "Genau so:",
+    "running": "Import läuft",
+    "finished": "Import abgeschlossen",
+    "cancel": "Anhalten",
+    "nobodyEmailed": "Niemand wurde benachrichtigt und niemand angeschrieben. Das Versenden der Einladungen ist ein eigener Schritt."
   }
 }
