@@ -295,8 +295,9 @@ class Converter:
             "A bulk export carries no post identifier, so each message is identified by a digest of its channel, author, time and text. Two identical messages sent in the same millisecond by the same person would collapse into one.",
             "Direct conversations carry no team in Mattermost: each one is placed in a space its participants share, the first alphabetically when they share several.",
             "Only Mattermost notices with an equivalent here cross (joining or leaving a channel or a team). Purpose, header and rename notices are dropped.",
-            "Saved messages (flagged posts) are not carried over.",
-            "Channel notification preferences, favourites and read positions are not carried over.",
+            "Saved messages (flagged posts) are not carried over yet: the export names them and Ruchoir has saved messages, but the archive format has nowhere to put them.",
+            "Favourite channels and read positions are not carried over yet, for the same reason: the data is in the export and the product has both.",
+            "Channel notification preferences are not carried over: what someone chose to be notified about in another product is not worth moving.",
             "Bots are not imported as accounts: their posts arrive attributed to an absent author.",
         ]
         if self.dropped_system:
