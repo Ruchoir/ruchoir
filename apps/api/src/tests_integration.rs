@@ -41,8 +41,8 @@ use ruchoir_migration::{Migrator, MigratorTrait};
 use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
 use crate::entities::{
-    channel_members, channels, conversations, files, import_mappings, space_invitations,
-    space_members, spaces, users,
+    channel_members, channels, conversations, dm_conversations, dm_participants, files,
+    import_mappings, space_invitations, space_members, spaces, users,
 };
 use crate::state::AppState;
 
@@ -3646,9 +3646,26 @@ async fn registering_over_a_waiting_account_without_any_invitation_is_still_a_co
 // run recognises the first one's work instead of doing it again. Resuming and re-importing are the
 // same mechanism, and these tests are how we know it.
 
-use crate::importer::archive::{Index, Manifest, SpaceRecord, UserRecord};
+use crate::importer::archive::{
+    ChannelRecord, Index, Manifest, MemberStateRecord, SpaceRecord, UserRecord,
+};
 use crate::importer::plan::{self, Existing};
-use crate::importer::run::{self, Mapper, KIND_SPACE, KIND_USER};
+use crate::importer::run::{self, Mapper, KIND_CHANNEL, KIND_SPACE, KIND_USER};
+
+fn source_channel(id: &str, space: &str, kind: &str, members: &[&str]) -> ChannelRecord {
+    ChannelRecord {
+        id: id.into(),
+        space: space.into(),
+        kind: kind.into(),
+        name: format!("Salon {id}"),
+        topic: String::new(),
+        visibility: "public".into(),
+        archived: false,
+        members: members.iter().map(|m| (*m).to_string()).collect(),
+        member_state: vec![],
+        created_at: None,
+    }
+}
 
 fn import_index(users: Vec<UserRecord>, spaces: Vec<SpaceRecord>) -> Index {
     Index {
@@ -4003,5 +4020,332 @@ async fn closing_a_job_records_what_it_brought_in() {
             .await
             .expect("count"),
         0
+    );
+}
+
+/// The whole chain up to conversations, which is what every test below needs.
+async fn import_up_to_conversations(
+    app: &TestApp,
+    admin: Uuid,
+    index: &Index,
+) -> (Uuid, Vec<(String, Uuid)>) {
+    let plan = plan::build(index, &Existing::default());
+    let job = run::start_job(&app.db, "mattermost", admin, None)
+        .await
+        .expect("job");
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (_, spaces) = run::import_spaces(&app.db, &mapper, index, admin)
+        .await
+        .expect("spaces");
+    run::import_conversations(&app.db, &mapper, index, &spaces, admin)
+        .await
+        .expect("conversations");
+    (job, spaces)
+}
+
+#[tokio::test]
+async fn a_channel_arrives_with_the_people_who_were_in_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let (one, two) = (unique_ref("alice"), unique_ref("bob"));
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("produit");
+    let index = import_index(
+        vec![
+            source_user(&one, &format!("{one}@example.test")),
+            source_user(&two, &format!("{two}@example.test")),
+        ],
+        vec![source_space(
+            &space_ref,
+            &format!("Espace {}", Uuid::new_v4().simple()),
+        )],
+    );
+    let index = Index {
+        channels: vec![source_channel(
+            &channel_ref,
+            &space_ref,
+            "channel",
+            &[&one, &two],
+        )],
+        ..index
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let space_id = spaces[0].1;
+    let channel_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(space_id))
+        .await
+        .expect("resolve")
+        .expect("channel");
+
+    assert_eq!(
+        channel_members::Entity::find()
+            .filter(channel_members::Column::ChannelId.eq(channel_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        2
+    );
+    // Being in a conversation means being in its space: forgetting this leaves people in rooms of
+    // a workspace they are not part of.
+    for source in [&one, &two] {
+        let user = mapper
+            .resolve(&app.db, KIND_USER, source, None)
+            .await
+            .expect("resolve")
+            .expect("account");
+        assert!(space_members::Entity::find_by_id((space_id, user))
+            .one(&app.db)
+            .await
+            .expect("query")
+            .is_some());
+    }
+
+    // Provenance on the row itself, readable without joining anything.
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("channel");
+    assert_eq!(channel.imported_source.as_deref(), Some("mattermost"));
+    assert_eq!(channel.external_ref.as_deref(), Some(channel_ref.as_str()));
+}
+
+#[tokio::test]
+async fn a_favourite_channel_stays_a_favourite() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("produit");
+    let mut channel = source_channel(&channel_ref, &space_ref, "channel", &[&person]);
+    channel.member_state = vec![MemberStateRecord {
+        user: person.clone(),
+        favorite: true,
+        read_message: None,
+        read_at: None,
+    }];
+    let index = Index {
+        channels: vec![channel],
+        ..import_index(
+            vec![source_user(&person, &format!("{person}@example.test"))],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let channel_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("channel");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("resolve")
+        .expect("account");
+    let membership = channel_members::Entity::find_by_id((channel_id, user))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("membership");
+    assert!(membership.favorite);
+}
+
+#[tokio::test]
+async fn an_archived_conversation_arrives_archived() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("ancien");
+    let mut channel = source_channel(&channel_ref, &space_ref, "channel", &[]);
+    channel.archived = true;
+    let index = Index {
+        channels: vec![channel],
+        ..import_index(
+            vec![],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let channel_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("channel");
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("channel");
+    // Read-only here, which is the closest thing to what it was there.
+    assert_eq!(channel.channel_type, "archived");
+    assert!(channel.archived_at.is_some());
+}
+
+#[tokio::test]
+async fn a_conversation_between_three_people_is_a_group() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let people: Vec<String> = (0..3).map(|i| unique_ref(&format!("p{i}"))).collect();
+    let space_ref = unique_ref("atelier");
+    let direct_ref = unique_ref("direct");
+    let refs: Vec<&str> = people.iter().map(String::as_str).collect();
+    let index = Index {
+        channels: vec![source_channel(&direct_ref, &space_ref, "direct", &refs)],
+        ..import_index(
+            people
+                .iter()
+                .map(|p| source_user(p, &format!("{p}@example.test")))
+                .collect(),
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let dm_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &direct_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("dm");
+    let dm = dm_conversations::Entity::find_by_id(dm_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("dm");
+    assert!(dm.is_group);
+    assert_eq!(
+        dm_participants::Entity::find()
+            .filter(dm_participants::Column::DmId.eq(dm_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        3
+    );
+    // A direct conversation is not a channel: no channel row, no channel membership.
+    assert!(channels::Entity::find_by_id(dm_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .is_none());
+}
+
+#[tokio::test]
+async fn importing_the_conversations_twice_creates_nothing_twice() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("produit");
+    let index = Index {
+        channels: vec![source_channel(
+            &channel_ref,
+            &space_ref,
+            "channel",
+            &[&person],
+        )],
+        ..import_index(
+            vec![source_user(&person, &format!("{person}@example.test"))],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let again = run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice)
+        .await
+        .expect("second run");
+
+    assert_eq!(again.conversations_created, 0);
+    assert_eq!(
+        conversations::Entity::find()
+            .filter(conversations::Column::SpaceId.eq(spaces[0].1))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+}
+
+#[tokio::test]
+async fn a_member_whose_account_was_skipped_is_left_out_rather_than_invented() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("produit");
+    // The conversation names someone the archive never described: the accounts pass cannot have
+    // mapped them, and putting a stranger in the room would be worse than leaving them out.
+    let index = Index {
+        channels: vec![source_channel(
+            &channel_ref,
+            &space_ref,
+            "channel",
+            &[&person, "ghost"],
+        )],
+        ..import_index(
+            vec![source_user(&person, &format!("{person}@example.test"))],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let channel_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("channel");
+    assert_eq!(
+        channel_members::Entity::find()
+            .filter(channel_members::Column::ChannelId.eq(channel_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
     );
 }

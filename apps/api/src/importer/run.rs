@@ -17,13 +17,17 @@ use sea_orm::{
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::entities::{import_jobs, import_mappings, space_members, spaces, users};
+use crate::entities::{
+    channel_members, channels, conversations, dm_conversations, dm_participants, import_jobs,
+    import_mappings, space_members, spaces, users,
+};
 
 use super::archive::Index;
 use super::plan::{AccountOutcome, Plan};
 
 pub const KIND_SPACE: &str = "space";
 pub const KIND_USER: &str = "user";
+pub const KIND_CHANNEL: &str = "channel";
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Written {
@@ -32,6 +36,7 @@ pub struct Written {
     pub spaces_created: usize,
     pub spaces_filled: usize,
     pub memberships: usize,
+    pub conversations_created: usize,
 }
 
 #[derive(Debug)]
@@ -387,4 +392,164 @@ async fn create_space<C: ConnectionTrait>(db: &C, name: &str, owner: Uuid) -> Re
     .await?;
 
     Ok(space_id)
+}
+
+/// Brings the conversations over, with the people in them.
+///
+/// This is the half that makes an import feel like a migration rather than a data dump: someone who
+/// accepts their invitation opens the product and finds the channels they were in, with the people
+/// they were there with. Membership is written now, not when they sign in, so the workspace is
+/// complete before anybody arrives in it.
+///
+/// A conversation is scoped to its space, so its mapping carries one, unlike an account or a space.
+pub async fn import_conversations<C: ConnectionTrait>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    index: &Index,
+    spaces_by_source: &[(String, Uuid)],
+    creator: Uuid,
+) -> Result<Written> {
+    let mut written = Written::default();
+
+    for channel in &index.channels {
+        let Some((_, space_id)) = spaces_by_source.iter().find(|(id, _)| id == &channel.space)
+        else {
+            // The checks refuse an archive whose conversation names a space it does not carry, so
+            // reaching this means the space was skipped on purpose. Skipping its conversations is
+            // the only coherent answer.
+            continue;
+        };
+        let space_id = *space_id;
+
+        if mapper
+            .resolve(db, KIND_CHANNEL, &channel.id, Some(space_id))
+            .await?
+            .is_some()
+        {
+            continue;
+        }
+
+        // Members first, resolved through their mappings: an account the import skipped cannot be
+        // put in a room, and silently inventing one would be worse than leaving them out.
+        let mut members = Vec::new();
+        for source_id in &channel.members {
+            if let Some(user_id) = mapper.resolve(db, KIND_USER, source_id, None).await? {
+                members.push((source_id.clone(), user_id));
+            }
+        }
+
+        let conversation_id = Uuid::new_v4();
+        let now = OffsetDateTime::now_utc();
+        conversations::ActiveModel {
+            id: Set(conversation_id),
+            space_id: Set(space_id),
+            kind: Set(channel.kind.clone()),
+            created_at: Set(now),
+        }
+        .insert(db)
+        .await?;
+
+        if channel.kind == "direct" {
+            dm_conversations::ActiveModel {
+                id: Set(conversation_id),
+                space_id: Set(space_id),
+                is_group: Set(members.len() > 2),
+                created_by: Set(Some(creator)),
+                created_at: Set(now),
+            }
+            .insert(db)
+            .await?;
+        } else {
+            channels::ActiveModel {
+                id: Set(conversation_id),
+                space_id: Set(space_id),
+                name: Set(crate::messaging::slug::slugify(&channel.name)),
+                // An archived conversation arrives archived: it is read-only here, which is the
+                // closest thing to what it was there, and nobody has to tidy it up again.
+                channel_type: Set(if channel.archived {
+                    "archived".to_owned()
+                } else {
+                    channel.visibility.clone()
+                }),
+                topic: Set(if channel.topic.is_empty() {
+                    None
+                } else {
+                    Some(channel.topic.clone())
+                }),
+                created_by: Set(Some(creator)),
+                archived_at: Set(channel.archived.then_some(now)),
+                // Provenance, on the row itself: where this conversation came from, readable
+                // without joining anything.
+                imported_source: Set(Some(mapper.source.to_owned())),
+                external_ref: Set(Some(channel.id.clone())),
+                created_at: Set(now),
+            }
+            .insert(db)
+            .await?;
+        }
+
+        for (source_id, user_id) in &members {
+            // Being in a conversation means being in its space: an import that forgets this leaves
+            // people in rooms of a workspace they are not part of.
+            if space_members::Entity::find_by_id((space_id, *user_id))
+                .one(db)
+                .await?
+                .is_none()
+            {
+                space_members::ActiveModel {
+                    space_id: Set(space_id),
+                    user_id: Set(*user_id),
+                    role: Set("member".to_owned()),
+                    invited_by: Set(None),
+                    joined_at: Set(now),
+                }
+                .insert(db)
+                .await?;
+                written.memberships += 1;
+            }
+
+            let favourite = channel
+                .member_state
+                .iter()
+                .any(|state| &state.user == source_id && state.favorite);
+
+            if channel.kind == "direct" {
+                dm_participants::ActiveModel {
+                    dm_id: Set(conversation_id),
+                    user_id: Set(*user_id),
+                    notification_level: Set("all".to_owned()),
+                    muted: Set(false),
+                    hidden: Set(false),
+                    added_at: Set(now),
+                }
+                .insert(db)
+                .await?;
+            } else {
+                channel_members::ActiveModel {
+                    channel_id: Set(conversation_id),
+                    user_id: Set(*user_id),
+                    role: Set("member".to_owned()),
+                    notification_level: Set("all".to_owned()),
+                    muted: Set(false),
+                    favorite: Set(favourite),
+                    joined_at: Set(now),
+                }
+                .insert(db)
+                .await?;
+            }
+        }
+
+        mapper
+            .record(
+                db,
+                KIND_CHANNEL,
+                &channel.id,
+                Some(space_id),
+                conversation_id,
+            )
+            .await?;
+        written.conversations_created += 1;
+    }
+
+    Ok(written)
 }
