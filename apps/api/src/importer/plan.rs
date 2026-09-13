@@ -1,0 +1,377 @@
+//! What an import would do, decided before it does anything.
+//!
+//! The plan is the screen an administrator approves. It answers three questions and nothing else:
+//! which spaces are created and which are filled, which accounts are recognised and which are not,
+//! and what the producer already said it left behind.
+//!
+//! It is a pure function of the archive and of what the instance already holds. Nothing here reads
+//! or writes the database: the caller passes in what exists, which keeps the decisions testable
+//! without a database and, more importantly, keeps them auditable. An import that writes before it
+//! has shown this is an import nobody agreed to.
+//!
+//! **Accounts are matched on their address, and only on their address.** Matching on a display
+//! name would eventually attribute one person's messages to another, which is not a bug that gets
+//! noticed and not one that can be undone. An account with no address matches nothing, and that is
+//! the ordinary case rather than the exception: a Nextcloud with no mail server has no addresses at
+//! all, six out of six in the fixture we develop against.
+
+use std::collections::HashMap;
+
+use super::archive::Index;
+
+/// What happens to a space the archive carries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpaceOutcome {
+    /// No space of that name here: the import creates it, owned by whoever ran the import.
+    Created,
+    /// A space of that name already exists, and the import adds to it.
+    Filled,
+}
+
+#[derive(Debug, Clone)]
+pub struct SpacePlan {
+    pub source_id: String,
+    pub name: String,
+    pub description: String,
+    pub outcome: SpaceOutcome,
+    pub channels: usize,
+    pub directs: usize,
+}
+
+/// What happens to an account the archive carries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AccountOutcome {
+    /// An account here already has this address: the two are the same person.
+    Matched,
+    /// Nobody here has this address, but there is one: an account can be created and invited.
+    Invited,
+    /// No address at all. Nothing can be matched and no invitation can be sent: this one needs a
+    /// decision from the administrator, and it is the common case on an instance without mail.
+    NeedsDecision,
+}
+
+#[derive(Debug, Clone)]
+pub struct AccountPlan {
+    pub source_id: String,
+    pub display_name: String,
+    pub email: String,
+    pub active: bool,
+    pub outcome: AccountOutcome,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Plan {
+    pub source: String,
+    pub spaces: Vec<SpacePlan>,
+    pub accounts: Vec<AccountPlan>,
+    pub messages: usize,
+    pub files: usize,
+    pub bytes: i64,
+    /// The producer's own words about what it could not take. Carried through unchanged and shown
+    /// before the run: a summary of a loss is another way of hiding it.
+    pub limits: Vec<String>,
+}
+
+impl Plan {
+    pub fn accounts_with(&self, outcome: AccountOutcome) -> usize {
+        self.accounts
+            .iter()
+            .filter(|a| a.outcome == outcome)
+            .count()
+    }
+
+    pub fn spaces_created(&self) -> usize {
+        self.spaces
+            .iter()
+            .filter(|s| s.outcome == SpaceOutcome::Created)
+            .count()
+    }
+
+    /// Whether anyone can be invited by mail at all. An import that recognises nobody and can
+    /// invite nobody still works, but every person needs a link handed to them by other means, and
+    /// the administrator should learn that before starting rather than afterwards.
+    pub fn anyone_reachable_by_mail(&self) -> bool {
+        self.accounts
+            .iter()
+            .any(|a| a.outcome == AccountOutcome::Invited)
+    }
+}
+
+/// What the instance already holds, as far as the plan is concerned.
+#[derive(Debug, Default)]
+pub struct Existing {
+    /// Addresses of the accounts here, lowercased by the caller's query.
+    pub emails: Vec<String>,
+    /// Names of the spaces here.
+    pub space_names: Vec<String>,
+}
+
+pub fn build(index: &Index, existing: &Existing) -> Plan {
+    let source = index
+        .manifest
+        .as_ref()
+        .map(|m| m.source.clone())
+        .unwrap_or_default();
+    let limits = index
+        .manifest
+        .as_ref()
+        .map(|m| m.limits.clone())
+        .unwrap_or_default();
+
+    // Addresses are compared case-insensitively: the same person writes theirs in whichever case
+    // they feel like, and two accounts differing only in case are one person, not two.
+    let known: Vec<String> = existing.emails.iter().map(|e| e.to_lowercase()).collect();
+    let known_spaces: Vec<String> = existing
+        .space_names
+        .iter()
+        .map(|n| n.trim().to_lowercase())
+        .collect();
+
+    let mut conversations: HashMap<&str, (usize, usize)> = HashMap::new();
+    for channel in &index.channels {
+        let entry = conversations
+            .entry(channel.space.as_str())
+            .or_insert((0, 0));
+        if channel.kind == "direct" {
+            entry.1 += 1;
+        } else {
+            entry.0 += 1;
+        }
+    }
+
+    let spaces = index
+        .spaces
+        .iter()
+        .map(|space| {
+            let (channels, directs) = conversations
+                .get(space.id.as_str())
+                .copied()
+                .unwrap_or((0, 0));
+            SpacePlan {
+                source_id: space.id.clone(),
+                name: space.name.clone(),
+                description: space.description.clone(),
+                outcome: if known_spaces.contains(&space.name.trim().to_lowercase()) {
+                    SpaceOutcome::Filled
+                } else {
+                    SpaceOutcome::Created
+                },
+                channels,
+                directs,
+            }
+        })
+        .collect();
+
+    let accounts = index
+        .users
+        .iter()
+        .map(|user| {
+            let email = user.email.trim().to_string();
+            let outcome = if email.is_empty() {
+                AccountOutcome::NeedsDecision
+            } else if known.contains(&email.to_lowercase()) {
+                AccountOutcome::Matched
+            } else {
+                AccountOutcome::Invited
+            };
+            AccountPlan {
+                source_id: user.id.clone(),
+                display_name: user.display_name.clone(),
+                email,
+                active: user.active,
+                outcome,
+            }
+        })
+        .collect();
+
+    Plan {
+        source,
+        spaces,
+        accounts,
+        messages: index.message_count,
+        files: index.files.len(),
+        bytes: index.files.iter().map(|f| f.size).sum(),
+        limits,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::importer::archive::{ChannelRecord, Manifest, SpaceRecord, UserRecord};
+
+    fn index_with(
+        users: Vec<UserRecord>,
+        spaces: Vec<SpaceRecord>,
+        channels: Vec<ChannelRecord>,
+    ) -> Index {
+        Index {
+            manifest: Some(Manifest {
+                format_version: 1,
+                source: "mattermost".into(),
+                source_version: String::new(),
+                producer: "test".into(),
+                created_at: String::new(),
+                counts: Default::default(),
+                checksums: Default::default(),
+                limits: vec!["archived channels do not come out".into()],
+            }),
+            users,
+            spaces,
+            channels,
+            ..Default::default()
+        }
+    }
+
+    fn user(id: &str, email: &str) -> UserRecord {
+        UserRecord {
+            id: id.into(),
+            email: email.into(),
+            display_name: id.into(),
+            active: true,
+        }
+    }
+
+    fn space(id: &str, name: &str) -> SpaceRecord {
+        SpaceRecord {
+            id: id.into(),
+            name: name.into(),
+            description: String::new(),
+            visibility: "public".into(),
+        }
+    }
+
+    fn channel(id: &str, space: &str, kind: &str) -> ChannelRecord {
+        ChannelRecord {
+            id: id.into(),
+            space: space.into(),
+            kind: kind.into(),
+            name: id.into(),
+            topic: String::new(),
+            visibility: "public".into(),
+            archived: false,
+            members: vec![],
+            member_state: vec![],
+            created_at: None,
+        }
+    }
+
+    #[test]
+    fn an_address_we_already_know_is_the_same_person() {
+        let index = index_with(vec![user("alice", "alice@example.org")], vec![], vec![]);
+        let existing = Existing {
+            emails: vec!["alice@example.org".into()],
+            ..Default::default()
+        };
+        assert_eq!(
+            build(&index, &existing).accounts[0].outcome,
+            AccountOutcome::Matched
+        );
+    }
+
+    #[test]
+    fn the_case_of_an_address_does_not_make_a_second_person() {
+        let index = index_with(vec![user("alice", "Alice@Example.ORG")], vec![], vec![]);
+        let existing = Existing {
+            emails: vec!["alice@example.org".into()],
+            ..Default::default()
+        };
+        assert_eq!(
+            build(&index, &existing).accounts[0].outcome,
+            AccountOutcome::Matched
+        );
+    }
+
+    #[test]
+    fn an_unknown_address_can_be_invited() {
+        let index = index_with(vec![user("bob", "bob@example.org")], vec![], vec![]);
+        let plan = build(&index, &Existing::default());
+        assert_eq!(plan.accounts[0].outcome, AccountOutcome::Invited);
+        assert!(plan.anyone_reachable_by_mail());
+    }
+
+    #[test]
+    fn no_address_means_a_decision_rather_than_a_guess() {
+        // The Nextcloud fixture is six accounts out of six in this state. Matching them on their
+        // display name would eventually hand one person's messages to another.
+        let index = index_with(vec![user("carol", "")], vec![], vec![]);
+        let plan = build(&index, &Existing::default());
+        assert_eq!(plan.accounts[0].outcome, AccountOutcome::NeedsDecision);
+        assert!(!plan.anyone_reachable_by_mail());
+    }
+
+    #[test]
+    fn a_blank_address_is_not_an_address() {
+        let index = index_with(vec![user("carol", "   ")], vec![], vec![]);
+        assert_eq!(
+            build(&index, &Existing::default()).accounts[0].outcome,
+            AccountOutcome::NeedsDecision
+        );
+    }
+
+    #[test]
+    fn a_space_we_already_have_is_filled_rather_than_created() {
+        let index = index_with(vec![], vec![space("atelier", "Atelier")], vec![]);
+        let existing = Existing {
+            space_names: vec!["atelier".into()],
+            ..Default::default()
+        };
+        assert_eq!(
+            build(&index, &existing).spaces[0].outcome,
+            SpaceOutcome::Filled
+        );
+    }
+
+    #[test]
+    fn a_space_nobody_has_is_created() {
+        let index = index_with(vec![], vec![space("atelier", "Atelier")], vec![]);
+        let plan = build(&index, &Existing::default());
+        assert_eq!(plan.spaces[0].outcome, SpaceOutcome::Created);
+        assert_eq!(plan.spaces_created(), 1);
+    }
+
+    #[test]
+    fn conversations_are_counted_per_space_and_by_kind() {
+        let index = index_with(
+            vec![],
+            vec![space("atelier", "Atelier"), space("direction", "Direction")],
+            vec![
+                channel("a1", "atelier", "channel"),
+                channel("a2", "atelier", "channel"),
+                channel("a3", "atelier", "direct"),
+                channel("d1", "direction", "channel"),
+            ],
+        );
+        let plan = build(&index, &Existing::default());
+        let atelier = plan
+            .spaces
+            .iter()
+            .find(|s| s.source_id == "atelier")
+            .unwrap();
+        assert_eq!((atelier.channels, atelier.directs), (2, 1));
+        let direction = plan
+            .spaces
+            .iter()
+            .find(|s| s.source_id == "direction")
+            .unwrap();
+        assert_eq!((direction.channels, direction.directs), (1, 0));
+    }
+
+    #[test]
+    fn the_producers_own_words_are_carried_through_unchanged() {
+        // Summarising a declared loss is another way of hiding it.
+        let index = index_with(vec![], vec![], vec![]);
+        assert_eq!(
+            build(&index, &Existing::default()).limits,
+            vec!["archived channels do not come out".to_string()]
+        );
+    }
+
+    #[test]
+    fn an_archive_with_no_manifest_still_produces_a_plan() {
+        // Refusing happens in the checks, with a reason. The plan does not get to panic on the way.
+        let plan = build(&Index::default(), &Existing::default());
+        assert!(plan.source.is_empty());
+        assert!(plan.spaces.is_empty());
+    }
+}

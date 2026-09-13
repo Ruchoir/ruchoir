@@ -6,8 +6,11 @@
 
 pub mod archive;
 pub mod check;
+pub mod plan;
 
 use std::path::Path;
+
+use plan::{AccountOutcome, Existing, Plan};
 
 /// `ruchoir-api import-check <archive> [passphrase]`: reads an archive and says whether it holds
 /// together, without touching the database.
@@ -18,11 +21,12 @@ use std::path::Path;
 pub fn check_command(path: &Path, passphrase: Option<&str>) -> Result<(), String> {
     let (index, report) = check::check(path, passphrase).map_err(|e| e.to_string())?;
 
+    // Nothing to compare against from the command line: on a real instance the same plan is built
+    // against what it already holds, and that is what the screen shows.
+    let plan: Plan = plan::build(&index, &Existing::default());
+
     if let Some(manifest) = &index.manifest {
-        println!(
-            "{} export, produced by {}",
-            manifest.source, manifest.producer
-        );
+        println!("{} export, produced by {}", plan.source, manifest.producer);
         if !manifest.source_version.is_empty() {
             println!("  source:   {}", manifest.source_version);
         }
@@ -32,26 +36,19 @@ pub fn check_command(path: &Path, passphrase: Option<&str>) -> Result<(), String
     }
 
     println!("\nwhat would be imported");
-    for space in &index.spaces {
-        let conversations: Vec<_> = index
-            .channels
-            .iter()
-            .filter(|c| c.space == space.id)
-            .collect();
-        let channels = conversations.iter().filter(|c| c.kind == "channel").count();
-        let directs = conversations.len() - channels;
+    println!(
+        "  {} space(s), all of them new to this instance",
+        plan.spaces_created()
+    );
+    for space in &plan.spaces {
         println!(
-            "\n  {} ({}){}",
-            space.name,
-            space.visibility,
-            if space.description.is_empty() {
-                String::new()
-            } else {
-                format!(" - {}", space.description)
-            }
+            "\n  {} - {} channel(s), {} direct conversation(s)",
+            space.name, space.channels, space.directs
         );
-        println!("    {channels} channel(s), {directs} direct conversation(s)");
-        for conversation in conversations {
+        if !space.description.is_empty() {
+            println!("    {}", first_line(&space.description));
+        }
+        for conversation in index.channels.iter().filter(|c| c.space == space.source_id) {
             let name = if conversation.name.is_empty() {
                 conversation.members.join(", ")
             } else {
@@ -91,39 +88,42 @@ pub fn check_command(path: &Path, passphrase: Option<&str>) -> Result<(), String
 
     // Accounts are the part an administrator has to look at hardest: an address is what the import
     // matches on, and an account without one needs a decision rather than a guess.
-    let with_address = index.users.iter().filter(|u| !u.email.is_empty()).count();
-    let inactive = index.users.iter().filter(|u| !u.active).count();
-    println!("\n  {} account(s)", index.users.len());
-    println!(
-        "    {with_address} with an address, {} without",
-        index.users.len() - with_address
-    );
+    let invited = plan.accounts_with(AccountOutcome::Invited);
+    let undecidable = plan.accounts_with(AccountOutcome::NeedsDecision);
+    let inactive = plan.accounts.iter().filter(|a| !a.active).count();
+    println!("\n  {} account(s)", plan.accounts.len());
+    println!("    {invited} could be invited by mail, {undecidable} have no address at all");
     if inactive > 0 {
         println!("    {inactive} deactivated at the source, and will arrive deactivated");
     }
-    for user in &index.users {
+    if !plan.anyone_reachable_by_mail() && !plan.accounts.is_empty() {
         println!(
-            "      {} <{}>{}",
-            user.display_name,
-            if user.email.is_empty() {
+            "    nobody here can be reached by mail: every person will need a link handed to them"
+        );
+    }
+    for account in &plan.accounts {
+        // The source identifier is shown next to the person: on an instance with no addresses it
+        // is the only thing an administrator has to match someone by hand.
+        println!(
+            "      {:<12} {} <{}>{}",
+            account.source_id,
+            account.display_name,
+            if account.email.is_empty() {
                 "no address"
             } else {
-                &user.email
+                &account.email
             },
-            if user.active { "" } else { " - deactivated" }
+            if account.active { "" } else { " - deactivated" }
         );
     }
 
-    let bytes: i64 = index.files.iter().map(|f| f.size).sum();
-    println!("\n  {} message(s)", index.message_count);
-    println!("  {} file(s), {} in total", index.files.len(), human(bytes));
+    println!("\n  {} message(s)", plan.messages);
+    println!("  {} file(s), {} in total", plan.files, human(plan.bytes));
 
-    if let Some(manifest) = &index.manifest {
-        if !manifest.limits.is_empty() {
-            println!("\nwhat this export leaves behind, in its producer's words");
-            for limit in &manifest.limits {
-                println!("  - {limit}");
-            }
+    if !plan.limits.is_empty() {
+        println!("\nwhat this export leaves behind, in its producer's words");
+        for limit in &plan.limits {
+            println!("  - {limit}");
         }
     }
 
