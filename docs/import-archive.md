@@ -61,6 +61,7 @@ never invent, renumber or prettify identifiers.
 ```json
 // users.jsonl
 {"id":"alice","email":"alice@example.org","display_name":"Alice Martin","active":true,"avatar":"sha256:..."}
+// `avatar` is optional: a source that generates pictures rather than storing them has none to give.
 
 // channels.jsonl
 {"id":"fiddjs6o","kind":"channel","name":"Général","topic":"…","visibility":"public",
@@ -70,7 +71,7 @@ never invent, renumber or prettify identifiers.
 // messages.jsonl
 {"id":"1042","channel":"fiddjs6o","author":"alice","sent_at":"2026-08-29T13:47:11Z",
  "body":"Bonjour **tout le monde**","format":"markdown","thread_root":null,"pinned":false,
- "edited_at":null,"reactions":[{"emoji":"tada","by":["bob"]}],"files":["sha256:..."]}
+ "edited_at":null,"reactions":[{"emoji":"tada","by":["bob"]}],"files":["emma/Documents/note.txt"]}
 
 // files.jsonl
 {"id":"7781","name":"note.txt","size":58,"content_type":"text/plain","hash":"sha256:…",
@@ -80,6 +81,10 @@ never invent, renumber or prettify identifiers.
 Message bodies are Markdown, because that is what the product stores. A producer whose source uses
 something else (Slack's `mrkdwn`, Mattermost's flavour) converts, and says so in `limits` if the
 conversion loses anything.
+
+A message's `files` holds the `id` of each attached file, exactly as `files.jsonl` spells it, not
+the content hash: two accounts can hold the same bytes, and the attachment belongs to one of them.
+The bytes are reached through that record's `hash`.
 
 Mentions are the one thing a producer must not leave in vendor syntax: `<@U123>` means nothing here.
 A mention is written as the source identifier of the person, in the form `@{id}`, and the importer

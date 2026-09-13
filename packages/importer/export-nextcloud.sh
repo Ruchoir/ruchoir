@@ -95,12 +95,16 @@ else
 fi
 
 # One line per row, tabs stripped of their escaping by --raw, and no column headers.
+# `--default-character-set=utf8mb4` is not optional: without it the connection negotiates utf8mb3
+# and every four-byte character comes back as a question mark. That silently destroys emoji, in
+# reactions and in message bodies alike, which on a chat export is real data loss.
 sql() {
   if [ -n "${DOCKER_DB}" ]; then
     docker exec -i "${DOCKER_DB}" "${CLIENT}" --batch --raw --skip-column-names \
+      --default-character-set=utf8mb4 \
       -h localhost -u "${DB_USER}" -p"${DB_PASS}" "${DB_NAME}"
   else
-    "${CLIENT}" --batch --raw --skip-column-names \
+    "${CLIENT}" --batch --raw --skip-column-names --default-character-set=utf8mb4 \
       -h "${DB_HOST}" -u "${DB_USER}" -p"${DB_PASS}" "${DB_NAME}"
   fi
 }
@@ -153,6 +157,8 @@ SELECT JSON_OBJECT(
   'name', COALESCE(NULLIF(r.name, ''), r.token),
   'topic', COALESCE(r.description, ''),
   'visibility', IF(r.type = 3, 'public', 'private'),
+  -- Talk has no archived conversation: `archived` is a per-participant setting on the attendee
+  -- row, so "this conversation is archived" is not a fact the source holds. Declared in limits.
   'archived', FALSE,
   'members', COALESCE((
     SELECT JSON_ARRAYAGG(att.actor_id)
@@ -172,6 +178,8 @@ expect_jsonl "${OUT}/channels.jsonl"
 # Talk stores its chat in oc_comments, keyed by the room's numeric id. `verb` separates what people
 # wrote ('comment') from what the system narrated ('system'): joins, leaves, calls, renames. Those
 # are events, not messages, and importing them as messages would put words in people's mouths.
+# 'object_shared' is kept: it is how a shared file appears in the conversation, and dropping it
+# would lose the file from the thread it belongs to.
 #
 # `parent_id` is a reply, which is the closest thing Talk has to our thread root.
 #
@@ -179,6 +187,13 @@ expect_jsonl "${OUT}/channels.jsonl"
 # kept, with the author spelled `<actor_type>:<id>` so the importer can recognise that no account
 # will ever match it. Filtering them out here would be a silent loss, which is the one thing this
 # chain is not allowed to do.
+#
+# Three things Talk does not keep where you would look for them:
+#   - who reacted is in oc_reactions; oc_comments.reactions only counts them, so the counts are
+#     ignored and the real thing is rebuilt from the rows.
+#   - whether a message is pinned is a `pinned_at` key inside the comment's meta_data JSON.
+#   - a shared file is a share id inside the message JSON, resolved through oc_share and
+#     oc_filecache into the same `<account>/<path>` identifier that files.jsonl carries.
 echo "  messages"
 sql > "${OUT}/messages.jsonl" <<SQL
 SELECT JSON_OBJECT(
@@ -186,18 +201,44 @@ SELECT JSON_OBJECT(
   'channel', r.token,
   'author', IF(c.actor_type = 'users', c.actor_id, CONCAT(c.actor_type, ':', c.actor_id)),
   'sent_at', DATE_FORMAT(c.creation_timestamp, '%Y-%m-%dT%H:%i:%sZ'),
-  'body', COALESCE(c.message, ''),
+  -- A file share carries a JSON envelope, not a sentence: the file is the message.
+  'body', IF(c.verb = 'object_shared', '', COALESCE(c.message, '')),
   'format', 'markdown',
   'thread_root', IF(c.parent_id = 0, NULL, CAST(c.parent_id AS CHAR)),
-  'pinned', FALSE,
+  'pinned', JSON_VALUE(c.meta_data, '\$.pinned_at') IS NOT NULL,
   'edited_at', NULL,
-  'reactions', COALESCE(c.reactions, '{}'),
-  'files', JSON_ARRAY()
+  -- The derived table groups every reaction in one pass and the correlation happens outside it:
+  -- MariaDB does not allow a correlated reference inside a derived table.
+  -- JSON_EXTRACT(..., '\$') parses the text back into a JSON value. MariaDB has no
+  -- CAST(x AS JSON), and without the parse the array would be embedded as a quoted string.
+  'reactions', JSON_EXTRACT(COALESCE((
+    SELECT CONCAT('[', GROUP_CONCAT(JSON_OBJECT('emoji', g.reaction, 'by', g.actors) SEPARATOR ','), ']')
+    FROM (
+      SELECT rx.parent_id,
+             rx.reaction,
+             JSON_ARRAYAGG(
+               IF(rx.actor_type = 'users', rx.actor_id, CONCAT(rx.actor_type, ':', rx.actor_id))
+             ) AS actors
+      FROM ${PREFIX}reactions rx
+      GROUP BY rx.parent_id, rx.reaction
+    ) g
+    WHERE g.parent_id = c.id
+  ), '[]'), '\$'),
+  'files', COALESCE((
+    SELECT JSON_ARRAYAGG(CONCAT(SUBSTRING(st.id, 7), '/', SUBSTRING(fc.path, 7)))
+    FROM ${PREFIX}share sh
+    JOIN ${PREFIX}filecache fc ON fc.fileid = sh.file_source
+    JOIN ${PREFIX}storages st ON st.numeric_id = fc.storage
+    WHERE c.verb = 'object_shared'
+      AND sh.id = JSON_VALUE(c.message, '\$.parameters.share')
+      AND st.id LIKE 'home::%'
+      AND fc.path LIKE 'files/%'
+  ), JSON_ARRAY())
 )
 FROM ${PREFIX}comments c
 JOIN ${PREFIX}talk_rooms r ON r.id = CAST(c.object_id AS UNSIGNED)
 WHERE c.object_type = 'chat'
-  AND c.verb = 'comment'
+  AND c.verb IN ('comment', 'object_shared')
   AND r.type IN (1, 2, 3)
   AND COALESCE(r.object_type, '') NOT IN ('changelog', 'note_to_self', 'sample')
 ORDER BY r.id, c.creation_timestamp, c.id;
@@ -309,6 +350,8 @@ cat > "${OUT}/manifest.json" <<JSON
     "Contacts and calendars are not exported: Ruchoir has nowhere to put them yet.",
     "Call recordings, polls and reminders are not exported.",
     "Message edits are not exported: Nextcloud keeps only the current text.",
+    "No conversation is marked archived: in Talk, archiving is a per-participant setting, not a property of the conversation, so the source holds no such fact.",
+    "Profile pictures are not exported: Nextcloud generates them from initials unless the account uploaded one.",
     "Deleted messages are not exported: Talk keeps a tombstone, not the text.",
     "Messages written by guests or bots are exported with an author of the form guests:<id>, which matches no account: they are imported as coming from an absent author."
   ]
