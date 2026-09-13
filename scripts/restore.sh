@@ -117,5 +117,18 @@ compose up -d valkey >/dev/null
 
 compose start api >/dev/null 2>&1 || compose up -d api >/dev/null
 echo
+# The archive this instance was just restored from is itself a backup that exists, and the instance
+# has no other way to know it: a backup records itself after sealing, so the archive never contains
+# its own row and a restored instance looks like one that was never backed up. That matters for one
+# decision, the replacement guard, which would refuse for a reason nobody could work out. Recorded
+# with the moment the archive was taken, not now, because that is what is true.
+if [ -n "$taken_at" ]; then
+  detail="$(printf '{"archive":"%s","restored":true}' "$(basename "$archive")")"
+  compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$pg_user" -d "$pg_db" \
+    -c "INSERT INTO instance_events (id, kind, occurred_at, actor_id, detail)
+        VALUES (gen_random_uuid(), 'backup_taken', '$taken_at', NULL, '$detail');" >/dev/null 2>&1 \
+    && echo "  recorded the archive this came from in the instance's own log"
+fi
+
 echo "Done. Sessions from the archive are back, so anyone signed in since it was taken is signed out."
 echo "Check the API came up: docker compose logs --tail 30 api"
