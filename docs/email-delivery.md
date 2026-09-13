@@ -60,9 +60,13 @@ RUCHOIR_PUBLIC_BASE_URL=https://ruchoir.your-domain.fr
 Every link in every message is built from it. Left at its development default, the confirmation and
 reset links in real emails point at `localhost` and are useless to whoever receives them.
 
-**Port 587, STARTTLS.** The API opens a plain connection and upgrades it
-(`AsyncSmtpTransport::starttls_relay`), which is what 587 expects. A provider offering only implicit
-TLS on port 465 will not work today; pick 587 where both are offered.
+**Both TLS dialects, and the port picks one.** Port 587 opens in clear and upgrades with STARTTLS;
+port 465 is encrypted from the first byte. Setting `RUCHOIR_SMTP_PORT` is all it takes, as in any
+mail client, and a relay offering only 465 is fine.
+
+Get it wrong and you will not see an error, you will see nothing: speaking STARTTLS to a port
+expecting implicit TLS (or the reverse) does not fall back, it hangs until the connection times
+out. If mail neither arrives nor fails, that is the first thing to check.
 
 European providers, for the same reason every other dependency here is European:
 
