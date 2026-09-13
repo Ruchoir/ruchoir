@@ -63,11 +63,12 @@ fn clean_allowed_roles(
     if roles.is_empty() {
         return Ok(None);
     }
-    if !roles.iter().any(|role| role == actor_role) {
-        return Err(ApiError::BadRequest(
-            "your own role has to be among the ones this channel admits",
-        ));
-    }
+    // Deliberately no check that the author's own role is among them. Reserving a channel to people
+    // you are not one of is a real thing to want (a room for the externals, a room for the people
+    // who run the place), and refusing it was the API deciding what a space's owner is allowed to
+    // want. It is never a door that locks behind everyone either: the space's owner is admitted to
+    // every channel of their space whatever this list says.
+    let _ = actor_role;
     Ok(Some(roles))
 }
 
@@ -271,9 +272,9 @@ pub async fn create_channel(
         session.user_id,
     )
     .await?;
-    // Announced only to the roles the channel admits: a reserved channel that appears in everyone's
-    // sidebar for one frame, and disappears on their next load, has already said what it was for.
-    let audience = admitted_only(&state.db, space_id, channel_id, audience).await?;
+    // Announced only to the people whose own list will hold it: a channel that appears in a sidebar
+    // for one frame and is gone on the next load has already said what it was for.
+    let audience = visible_only(&state.db, space_id, channel_id, audience).await?;
     state
         .hub
         .publish(
@@ -395,7 +396,7 @@ pub async fn update_channel(
         topic: updated.topic.clone(),
     };
     let audience = space_member_ids(&state.db, space_id, session.user_id).await?;
-    let audience = admitted_only(&state.db, space_id, channel_id, audience).await?;
+    let audience = visible_only(&state.db, space_id, channel_id, audience).await?;
     state
         .hub
         .publish(
@@ -584,13 +585,12 @@ pub async fn add_channel_members(
         return Err(ApiError::BadRequest("this channel is archived"));
     }
 
-    let caller_is_member = channel_members::Entity::find_by_id((channel_id, session.user_id))
-        .one(&state.db)
-        .await?
-        .is_some();
-    if !caller_is_member
-        && !is_channel_moderator(&state.db, channel_id, channel.space_id, session.user_id).await?
-    {
+    // Being in a channel is not the same as deciding who else is. Anyone who had walked into a
+    // public channel could put anybody in it, including an external guest putting a colleague into a
+    // room they had themselves been invited to. Adding people is moderation, so it takes the same
+    // rank as every other act of moderation: the channel's own owner or a moderator, or somebody who
+    // administers the space.
+    if !is_channel_moderator(&state.db, channel_id, channel.space_id, session.user_id).await? {
         return Err(ApiError::Forbidden);
     }
 
@@ -639,10 +639,11 @@ pub async fn add_channel_members(
         write_channel_notice(&state, channel_id, Some(*user_id), JOINED_EVENT).await;
     }
 
-    // A private channel is invisible until you are in it, so the people just added have to be told
-    // it exists; for a public one they could already see it, and the sidebar only gains the
-    // membership mark on their next load.
-    if !added.is_empty() && channel.channel_type == "private" {
+    // The people just added have to be told the channel exists. For a private one that is obvious;
+    // for a public one it matters just as much to a guest, who does not see a public channel at all
+    // until somebody puts them in it. Sent to everyone added: a client that already has the channel
+    // merges the frame by id and nothing moves.
+    if !added.is_empty() {
         let summary = ChannelSummaryDto {
             id: channel_id,
             space_id: channel.space_id,
@@ -741,6 +742,38 @@ pub async fn update_channel_member_role(
         user_id,
         role: wanted,
     }))
+}
+
+/// Make the caller a member of a channel they are about to take part in, if they are not one.
+///
+/// Reading a public channel without joining is deliberate; *taking part* in one without joining was
+/// an accident of the same rule. Everything a channel pushes goes to its members, so a message or a
+/// reaction from a non-member went out to everyone except the person who made it.
+///
+/// Returns quietly when they are already in, which is the common case and must stay free of extra
+/// queries in the hot path... one lookup, the same the audience would have done.
+pub(super) async fn join_before_taking_part(
+    state: &AppState,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), ApiError> {
+    if channel_members::Entity::find_by_id((channel_id, user_id))
+        .one(&state.db)
+        .await?
+        .is_some()
+    {
+        return Ok(());
+    }
+    join_row(
+        &state.db,
+        channel_id,
+        user_id,
+        "member",
+        OffsetDateTime::now_utc(),
+    )
+    .await?;
+    write_channel_notice(state, channel_id, Some(user_id), JOINED_EVENT).await;
+    Ok(())
 }
 
 /// `DELETE /api/v1/channels/{channel_id}/members/{user_id}`: take someone out of a channel.
@@ -895,27 +928,39 @@ async fn channel_audience(
     space_member_ids(db, space_id, user_id).await
 }
 
-/// Keep, out of an audience, only the people whose space role the channel admits.
+/// Keep, out of an audience, only the people who would see this channel in their own list.
 ///
-/// A frame about a reserved channel must not reach the people it is reserved from: they would see it
-/// appear in their sidebar and lose it on their next load, which is a worse way of finding out that
-/// a leadership channel exists than never seeing it.
-async fn admitted_only(
+/// Two reasons someone would not, and a frame that ignores either one puts a channel in a sidebar
+/// that the next page load takes away again:
+///
+/// - **the channel is reserved** to roles they do not hold, and being told a leadership channel
+///   exists by watching it flash past is worse than never seeing it;
+/// - **they are a guest**, who reaches only what they were explicitly added to. A guest is told
+///   about a channel when somebody puts them in it, and not before.
+async fn visible_only(
     db: &DatabaseConnection,
     space_id: Uuid,
     channel_id: Uuid,
     audience: Vec<Uuid>,
 ) -> Result<Vec<Uuid>, ApiError> {
-    let Some(allowed) = super::authz::channel_allowed_roles(db, channel_id).await? else {
-        return Ok(audience);
-    };
+    let allowed = super::authz::channel_allowed_roles(db, channel_id).await?;
     let mut kept = Vec::with_capacity(audience.len());
     for user_id in audience {
-        if let Some(role) = super::authz::space_role(db, space_id, user_id).await? {
-            if allowed.contains(&role) {
-                kept.push(user_id);
-            }
+        let Some(role) = super::authz::space_role(db, space_id, user_id).await? else {
+            continue;
+        };
+        if allowed.as_ref().is_some_and(|roles| !roles.contains(&role)) {
+            continue;
         }
+        if role == "guest"
+            && channel_members::Entity::find_by_id((channel_id, user_id))
+                .one(db)
+                .await?
+                .is_none()
+        {
+            continue;
+        }
+        kept.push(user_id);
     }
     Ok(kept)
 }

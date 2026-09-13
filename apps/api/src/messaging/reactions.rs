@@ -66,6 +66,13 @@ pub async fn add_reaction(
     let access =
         authz::ensure_conversation_access(&state.db, message.conversation_id, session.user_id)
             .await?;
+    // Reacting is taking part, like writing, so it joins the channel for the same reason: what a
+    // channel pushes goes to its members, and a reaction from a non-member reached everyone except
+    // the person who made it.
+    if access.kind == authz::ConversationKind::Channel {
+        super::channels::join_before_taking_part(&state, message.conversation_id, session.user_id)
+            .await?;
+    }
 
     let existing =
         message_reactions::Entity::find_by_id((message_id, session.user_id, emoji.clone()))

@@ -437,7 +437,6 @@
     "symbols": "Simboli"
   },
   "channel": {
-    "addPeople": "Aggiungi persone",
     "updated": "Canale aggiornato",
     "name": "Nome del canale",
     "topic": "Argomento",
@@ -450,20 +449,13 @@
     "nothing": "Niente",
     "moderator": "Moderatore",
     "membersLoadFailed": "Non è stato possibile caricare l'elenco dei membri del canale.",
-    "nobodyToAdd": "Nessuno da aggiungere",
     "addFailed": "L'aggiunta non è riuscita. Riprova.",
     "searchPerson": "Cerca una persona",
-    "alreadyIn": "Già nel canale",
-    "added_one": "{{count}} persona aggiunta",
-    "added_other": "{{count}} persone aggiunte",
-    "added_many": "{{count}} persone aggiunte",
     "roleOf": "Ruolo di {{name}}",
     "dmNotifications": "Notifiche della conversazione",
     "channelNotifications": "Notifiche del canale",
     "muteDm": "Silenzia la conversazione",
     "muteChannel": "Silenzia il canale",
-    "add": "Aggiungi",
-    "addCount": "Aggiungi ({{count}})",
     "leaveTitle": "Lasciare #{{name}}?",
     "leaveBody": "Non riceverai più i messaggi di #{{name}}. Potrai rientrare finché resta pubblico.",
     "membersAndAccess": "Membri e accesso ({{count}})",
@@ -485,7 +477,15 @@
     "summaryRolesJoinable": "Solo i ruoli selezionati vedono questo canale e possono entrarci. Gli altri non lo vedono.",
     "summaryRolesInvite": "Questo canale appare solo a chi ci sta dentro, e solo i ruoli selezionati possono esservi aggiunti.",
     "roleLossWarning": "Chi perde il ruolo perde il canale, anche se c'era già.",
-    "yourOwnRole": "· il tuo ruolo, sempre incluso"
+    "yourOwnRole": "· il tuo ruolo, sempre incluso",
+    "ownerAlwaysIncluded": "· sempre incluso",
+    "applyChanges_one": "Applica 1 modifica",
+    "applyChanges_other": "Applica {{count}} modifiche",
+    "willBeAdded": "sarà aggiunto",
+    "willBeRemoved": "sarà rimosso",
+    "membersUpdated": "Membri del canale aggiornati",
+    "applyChanges_many": "Applica {{count}} modifiche",
+    "addPeople": "Membri e accesso"
   },
   "role": {
     "member": "Membro",
@@ -655,7 +655,9 @@
     "typingMany_one": "{{names}} sta scrivendo",
     "typingMany_other": "{{names}} e altri stanno scrivendo",
     "unread": "Non letto",
-    "typingMany_many": "{{names}} e altri stanno scrivendo"
+    "typingMany_many": "{{names}} e altri stanno scrivendo",
+    "notInChannel": "Stai leggendo questo canale senza esserci dentro. Entra per scrivere e riceverne i messaggi.",
+    "askToBeAdded": "Qualcuno del canale può aggiungerti."
   },
   "security": {
     "codesCopied": "Codici copiati",
@@ -751,7 +753,7 @@
     "deleteConfirm": "Elimina definitivamente",
     "deleteConfirmLabel": "Scrivi «{{name}}» per confermare",
     "leaveDesc": "Esci da questo spazio. Continua senza di te, e per rientrare servirà un invito.",
-    "transferTitle": "Affidare lo spazio a {{name}}?",
+    "transferTitle": "Affidare lo spazio?",
     "transferBody": "{{name}} diventa proprietario di {{space}} e potrà farci qualsiasi cosa, compreso eliminarlo.",
     "transferStepDown": "Uno spazio ha un solo proprietario: torni amministratore, e solo il nuovo proprietario potrà restituirti il ruolo.",
     "transferConfirm": "Affida lo spazio",
@@ -761,7 +763,8 @@
     "removeBody": "{{name}} perde l'accesso a {{space}}: i suoi canali, i suoi messaggi e i suoi file. Per rientrare servirà un nuovo invito.",
     "removeKeepsMessages": "Quello che ha scritto resta: una conversazione appartiene a chi l'ha avuta.",
     "ownerOnlyIcon": "Solo il proprietario dello spazio può cambiarla.",
-    "ownerOnlyRename": "Solo il proprietario dello spazio può rinominarlo."
+    "ownerOnlyRename": "Solo il proprietario dello spazio può rinominarlo.",
+    "deleteNameMismatch": "Non è il nome dello spazio."
   },
   "prefs": {
     "title": "Preferenze",
@@ -859,7 +862,8 @@
     "invalidEmail": "Questo indirizzo non sembra valido.",
     "noChannelRights": "Non hai i diritti su questo canale.",
     "nameUnusable": "Questo nome non è utilizzabile.",
-    "noSpaceRights": "Non hai i diritti su questo spazio."
+    "noSpaceRights": "Non hai i diritti su questo spazio.",
+    "nameRequired": "Serve un nome."
   },
   "toast": {
     "noUnread": "Nessuna conversazione da leggere",
@@ -900,9 +904,7 @@
     "welcome": "Benvenuto, {{name}}.",
     "stillReadable": "Puoi continuare a leggerlo, senza notifiche.",
     "spaceLeft": "Spazio abbandonato",
-    "leaveSpaceFailed": "Impossibile uscire da questo spazio",
     "spaceDeleted": "Spazio eliminato",
-    "deleteSpaceFailed": "Impossibile eliminare questo spazio",
     "spaceDeletedElsewhere": "{{name}} è stato eliminato",
     "roleChanged": "Ruolo modificato",
     "roleFailed": "Impossibile modificare il ruolo",

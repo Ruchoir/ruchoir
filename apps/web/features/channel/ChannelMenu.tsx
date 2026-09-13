@@ -35,6 +35,12 @@ export type ChannelMenuProps = {
   onSettings: () => void;
   onNotifications: () => void;
   onAddPeople: () => void;
+  /**
+   * Whether the caller moderates this channel. Deciding who is in it is moderation, so the entry is
+   * not offered to someone the API would refuse: they are in the channel, which is not the same
+   * thing as deciding who else is.
+   */
+  canModerate: boolean;
   onLeave: () => void;
   /** Rejoin a public channel the user had left. */
   onJoin: () => void;
@@ -47,6 +53,7 @@ export function ChannelMenu({
   onSettings,
   onNotifications,
   onAddPeople,
+  canModerate,
   onLeave,
   onJoin,
   member = true,
@@ -63,7 +70,9 @@ export function ChannelMenu({
   const items: Item[] = [
     { icon: "settings", label: t("sidebar.channelSettings"), onClick: onSettings },
     { icon: "inbox", label: t("notif.title"), onClick: onNotifications },
-    { icon: "user-plus", label: t("channel.addPeople"), onClick: onAddPeople },
+    ...(canModerate
+      ? [{ icon: "user-plus", label: t("channel.addPeople"), onClick: onAddPeople }]
+      : []),
     // Leaving a public channel is reversible, so the entry flips to rejoining instead of vanishing.
     member
       ? { icon: "arrow-left", label: t("sidebar.leaveChannel"), onClick: onLeave, danger: true }

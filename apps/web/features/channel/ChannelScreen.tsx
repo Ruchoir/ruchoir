@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
+import { Avatar, Button, Icon, IconButton, Tooltip } from "@/components/ds";
 import { getAvatar, getChannelMembers } from "@/lib/data";
 import { getConversationFiles, getPinnedMessages, listChannelMembers } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
@@ -98,7 +98,8 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    flexWrap: "wrap",
+    gap: 10,
     margin: "0 16px 16px",
     padding: "12px 16px",
     fontSize: 13,
@@ -222,8 +223,16 @@ export type ChannelScreenProps = {
   onUpdateChannel: (patch: Partial<Channel>) => void;
   /** The caller's own space role, for the channel settings' role reservation. */
   myRole: string;
-  /** The caller's own role inside this channel, for its roster controls. */
+  /**
+   * What the caller counts as in this channel before its roster is read: a space owner or
+   * administrator counts as its owner, everyone else as an ordinary member until the roster says
+   * otherwise.
+   */
   myChannelRole: string;
+  /** The caller's own user id, to find their row in the channel's roster. */
+  myUserId: string;
+  /** False for a guest, who moderates nothing here whatever a channel's own roster says. */
+  canModerateChannels: boolean;
   onLeaveChannel: () => void;
   /** Rejoin this channel after leaving it (public channels only). */
   onJoinChannel: () => void;
@@ -302,6 +311,8 @@ export function ChannelScreen({
   onUpdateChannel,
   myRole,
   myChannelRole,
+  myUserId,
+  canModerateChannels,
   onLeaveChannel,
   onJoinChannel,
   notifPref,
@@ -337,23 +348,67 @@ export function ChannelScreen({
    * A direct message has no roster endpoint: its people are the ones it is with, which the sidebar
    * row already names.
    */
-  const [roster, setRoster] = useState<{ channelId: string; names: string[] } | null>(null);
+  const [roster, setRoster] = useState<{ channelId: string; names: string[]; myRole?: string } | null>(
+    null,
+  );
+  /**
+   * How many arrivals and departures this channel's history carries.
+   *
+   * The roster is fetched, so nothing would refresh it when somebody joins or is removed: the panel
+   * kept the list it loaded with until the page was reloaded. Those events *are* already pushed, as
+   * the system notices in the feed, so counting them gives the fetch a reason to run again the
+   * moment one lands.
+   */
+  const membershipMoves = messages.filter(
+    (m) => m.system && ["channel_joined", "channel_left", "channel_removed"].includes(m.system.event),
+  ).length;
   useEffect(() => {
     if (isDm) return;
     let active = true;
     listChannelMembers(channel.id)
-      .then((rows) => active && setRoster({ channelId: channel.id, names: rows.map((m) => m.name) }))
+      .then(
+        (rows) =>
+          active &&
+          setRoster({
+            channelId: channel.id,
+            names: rows.map((m) => m.name),
+            // The caller's own role *in this channel*, which a space administrator outranks anyway.
+            myRole: rows.find((m) => m.userId === myUserId)?.role,
+          }),
+      )
       // A failed roster leaves the panel on the space list rather than on nothing: it is the same
       // approximation the screen has always shown, and it is never the reason to hide the panel.
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, [channel.id, isDm]);
+  }, [channel.id, isDm, membershipMoves, myUserId]);
 
   // Derived, not reset in the effect: a roster still carrying the previous channel's id is simply
   // not this channel's answer yet, which is the same thing as not having one.
   const channelRoster = roster?.channelId === channel.id ? roster.names : null;
+  /**
+   * What the caller counts as in this channel: the higher of what the space says (an owner or
+   * administrator counts as its owner) and what the channel's own roster says, once it has arrived.
+   */
+  const effectiveChannelRole =
+    myChannelRole === "owner"
+      ? "owner"
+      : roster?.channelId === channel.id
+        ? (roster.myRole ?? myChannelRole)
+        : myChannelRole;
+  const canModerate =
+    canModerateChannels && (effectiveChannelRole === "owner" || effectiveChannelRole === "admin");
+  /**
+   * Reading a channel one is not in. True only for a channel: a direct message has no such state,
+   * and an archived channel says its own thing.
+   */
+  const isVisitor = !isDm && !isArchived && channel.member === false;
+  /**
+   * Whether they may walk in by themselves. A guest never can (somebody puts them in a channel), and
+   * the API refuses the rest, so the button is only offered where it would be accepted.
+   */
+  const canJoinHere = canModerateChannels && channel.type === "public";
   const inChannel = (name: string) => channelRoster === null || channelRoster.includes(name);
   const memberList: ChannelMember[] = members
     .filter((m) => isDm || inChannel(m.name))
@@ -575,6 +630,7 @@ export function ChannelScreen({
               onSettings={() => setMenuDialog("settings")}
               onNotifications={() => setMenuDialog("notifications")}
               onAddPeople={() => setMenuDialog("addpeople")}
+              canModerate={canModerate}
               onLeave={() => setMenuDialog("leave")}
               onJoin={onJoinChannel}
               member={channel.member !== false}
@@ -644,6 +700,11 @@ export function ChannelScreen({
                     }
                     authorPresence={presenceByName.get(m.author)}
                     authorAvatar={avatarByName.get(m.author)}
+                    canPin={
+                      canModerateChannels &&
+                      channel.member !== false &&
+                      (!m.pinned || m.pinnedBy === myUserId || canModerate)
+                    }
                     actions={{
                       onReact: (emoji) => actions.react(m.id, emoji),
                       onOpenThread: () => actions.openThread(m.id),
@@ -705,6 +766,23 @@ export function ChannelScreen({
             <Icon name="archive" size={14} />
             {t("conversation.archivedNotice")}
           </p>
+        ) : isVisitor ? (
+          // Reading a public channel without being in it is deliberate, and writing in one joins it.
+          // Saying so beforehand turns a silent side effect into a choice: the composer is replaced
+          // by what is actually true here, and by the button that changes it.
+          <div style={styles.archivedNotice}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Icon name="users" size={14} />
+              {t("conversation.notInChannel")}
+            </span>
+            {canJoinHere ? (
+              <Button size="sm" variant="secondary" iconLeft="user-plus" onClick={onJoinChannel}>
+                {t("sidebar.joinChannel")}
+              </Button>
+            ) : (
+              <span style={{ color: "var(--text-subtle)" }}>{t("conversation.askToBeAdded")}</span>
+            )}
+          </div>
         ) : (
           <Composer
             channelName={isDm ? dm.name : channel.name}
@@ -729,7 +807,7 @@ export function ChannelScreen({
           onUpdate={onUpdateChannel}
           onNotify={onNotify}
           myRole={myRole}
-          myChannelRole={myChannelRole}
+          myChannelRole={canModerate ? effectiveChannelRole : "member"}
         />
       ) : null}
       {menuDialog === "notifications" ? (

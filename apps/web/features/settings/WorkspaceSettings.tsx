@@ -11,7 +11,11 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 type NavKey = "general" | "members";
 
-/** The sections, with the dictionary key of each label. */
+/**
+ * The sections, with the dictionary key of each label. The member list is administration (who is
+ * here, what each may do, who gets shown the door), so it is not drawn for someone the API would
+ * refuse; everyone keeps the general section, which is also where leaving the space lives.
+ */
 const NAV: [NavKey, TranslationKey, IconName][] = [
   ["general", key("space.general"), "settings"],
   ["members", key("conversation.members"), "users"],
@@ -139,6 +143,11 @@ export type WorkspaceSettingsProps = {
    * holds the space; an administrator runs it. The API is the real guard; this hides a dead control.
    */
   canEditIdentity: boolean;
+  /**
+   * Whether the caller administers the space: owner or admin. Gates the member list and the
+   * invitation, both of which the API refuses to anyone else.
+   */
+  canManageMembers: boolean;
   members: {
     /** Needed to address the membership: a role is changed by id, never by display name. */
     userId: string;
@@ -188,6 +197,7 @@ export function WorkspaceSettings({
   spaceId,
   iconUrl,
   canEditIdentity,
+  canManageMembers,
   members,
   myRole,
   onChangeRole,
@@ -203,6 +213,7 @@ export function WorkspaceSettings({
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<NavKey>("general");
+  const sections = NAV.filter(([id]) => id !== "members" || canManageMembers);
   // Read as what it is: a value owned by the browser. Empty for the static export's render, which
   // has no location, so nothing flashes a guessed address before the real one.
   const [memberQuery, setMemberQuery] = useState("");
@@ -307,7 +318,7 @@ export function WorkspaceSettings({
               : st.nav
           }
         >
-          {NAV.map(([v, l, i]) => (
+          {sections.map(([v, l, i]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
               <Icon name={i} size={14} style={{ color: "var(--text-muted)" }} />
               {t(l)}
@@ -411,7 +422,7 @@ export function WorkspaceSettings({
             </>
           ) : null}
 
-          {tab === "members" ? (
+          {tab === "members" && canManageMembers ? (
             <>
               <h2 style={st.h}>{t("conversation.members")}</h2>
               <p style={st.sub}>{memberSummary}</p>
@@ -463,7 +474,9 @@ export function WorkspaceSettings({
                           a select is taller than a line of text: rows that held one and rows that
                           held the other did not have the same height, and the list breathed unevenly
                           down the card. */}
-                      <div style={{ width: 130, height: 28, flex: "none", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                      {/* Wide enough for the longest role name: "Administrateur" was drawn as
+                          "Administrateu" at 130. */}
+                      <div style={{ width: 164, height: 28, flex: "none", display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
                         {/* A bot has no role: nobody promotes a piece of software, and the "Bot" tag
                             next to its name already says what it is. Settable for everyone this
                             caller outranks; a plain reading for the rest, their own row included. */}

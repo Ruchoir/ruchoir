@@ -14,7 +14,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::entities::channel_pins;
+use crate::entities::{channel_members, channel_pins};
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
 
@@ -42,6 +42,33 @@ async fn ensure_channel(
         return Err(ApiError::BadRequest("not a channel"));
     }
     Ok(access)
+}
+
+/// Require what it takes to put a landmark in a channel: be in it, and not be a visitor.
+///
+/// A pin is the one everyday act that changes what *everyone else* sees at the top of a channel, so
+/// it is not granted by reading. Until now it was: anyone who could open a public channel could pin
+/// and unpin in it, an external guest and a space member who had never joined included.
+///
+/// A member pins freely, because a channel where only moderators may pin is a channel where nothing
+/// is ever pinned. What is held back is the other half: [`unpin_message`] only lets someone take
+/// down their own pin, or a moderator take down anyone's.
+async fn ensure_may_pin(
+    state: &AppState,
+    access: &authz::ConversationAccess,
+    user_id: Uuid,
+) -> Result<(), ApiError> {
+    if authz::is_guest(&state.db, access.space_id, user_id).await? {
+        return Err(ApiError::Forbidden);
+    }
+    if channel_members::Entity::find_by_id((access.conversation_id, user_id))
+        .one(&state.db)
+        .await?
+        .is_none()
+    {
+        return Err(ApiError::Forbidden);
+    }
+    Ok(())
 }
 
 /// `GET /api/v1/channels/{channel_id}/pins`: the channel's pinned messages, newest pin first.
@@ -103,6 +130,7 @@ pub async fn pin_message(
     Path((channel_id, message_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     let access = ensure_channel(&state, channel_id, session.user_id).await?;
+    ensure_may_pin(&state, &access, session.user_id).await?;
     let message = load_message(&state.db, message_id).await?;
     if message.conversation_id != channel_id {
         return Err(ApiError::BadRequest("message is not in this channel"));
@@ -161,6 +189,22 @@ pub async fn unpin_message(
     Path((channel_id, message_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     let access = ensure_channel(&state, channel_id, session.user_id).await?;
+    ensure_may_pin(&state, &access, session.user_id).await?;
+
+    // The half that is held back: a pin is a landmark somebody put there on purpose, so taking down
+    // one that is not yours is moderation. Yours is always yours to take down, which is what keeps
+    // pinning a light gesture rather than one you have to ask permission to undo.
+    if let Some(pin) = channel_pins::Entity::find_by_id((channel_id, message_id))
+        .one(&state.db)
+        .await?
+    {
+        if pin.pinned_by != Some(session.user_id)
+            && !authz::is_channel_moderator(&state.db, channel_id, access.space_id, session.user_id)
+                .await?
+        {
+            return Err(ApiError::Forbidden);
+        }
+    }
 
     let result = channel_pins::Entity::delete_by_id((channel_id, message_id))
         .exec(&state.db)

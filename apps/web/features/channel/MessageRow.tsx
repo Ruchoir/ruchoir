@@ -138,6 +138,8 @@ export type MessageRowProps = {
    */
   endsRun?: boolean;
   actions: MessageActions;
+  /** Whether the pin entry belongs in this row's menu. See MessageMenu's own prop. */
+  canPin?: boolean;
 };
 
 const avatarBtn: CSSProperties = {
@@ -169,6 +171,7 @@ export function MessageRow({
   readBy,
   readAudience = 0,
   actions,
+  canPin = true,
 }: MessageRowProps) {
   const { t } = useTranslation();
   const [hover, setHover] = useState(false);
@@ -438,6 +441,7 @@ export function MessageRow({
             onClick={actions.onToggleSave}
           />
           <MessageMenu
+            canPin={canPin}
             pinned={m.pinned}
             own={isOwn}
             sentAt={formatDateTime(m.createdAt)}

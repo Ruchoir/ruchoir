@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { Avatar, Button, Checkbox, Dialog, Field, IconButton, Input, Radio, Select, Switch } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { getAvatar } from "@/lib/data";
-import { addChannelMembers, listChannelMembers, removeChannelMember, setChannelMemberRole } from "@/lib/data/api";
+import {
+  addChannelMembers,
+  listChannelMembers,
+  removeChannelMember,
+  setChannelMemberRole,
+} from "@/lib/data/api";
 import type { Channel, ChannelType } from "@/lib/data";
 import type { Member } from "@/lib/data/api";
 import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
@@ -98,10 +103,18 @@ export function ChannelSettingsDialog({
     }
   };
 
+  const [nameError, setNameError] = useState<TranslationKey | null>(null);
+
   const save = () => {
     const clean = name.trim().replace(/^#/, "");
+    if (!clean) {
+      // It used to fall back to the previous name and report success, which is a save that did not
+      // happen announcing that it did.
+      setNameError(key("error.nameRequired"));
+      return;
+    }
     onUpdate({
-      name: clean || channel.name,
+      name: clean,
       topic: topic.trim(),
       type: archived ? "archived" : type,
       // An empty list and no list say the same thing to the API: this channel admits everyone.
@@ -129,8 +142,17 @@ export function ChannelSettingsDialog({
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <Field label={t("channel.name")} htmlFor="cs-name">
-          <Input id="cs-name" icon="hash" value={name} onChange={(e) => setName(e.target.value)} />
+        <Field label={t("channel.name")} htmlFor="cs-name" error={nameError ? t(nameError) : undefined}>
+          <Input
+            id="cs-name"
+            icon="hash"
+            invalid={!!nameError}
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (nameError) setNameError(null);
+            }}
+          />
         </Field>
         <Field label={t("channel.topic")} optional htmlFor="cs-topic">
           <Input id="cs-topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder={t("channel.topicPlaceholder")} />
@@ -298,17 +320,23 @@ export function AddPeopleDialog({
 }) {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  /** Who is in the channel, as the dialog currently has it: ticked means in, unticked means out. */
+  const [wanted, setWanted] = useState<Set<string> | null>(null);
   const [current, setCurrent] = useState<Set<string> | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<TranslationKey | null>(null);
 
-  // Who is already in. Until it arrives nobody is offered as addable, because adding someone who is
-  // already there is the one outcome this dialog must not appear to produce.
+  // Who is already in. Until it arrives nothing is tickable: a box that starts unticked because the
+  // answer has not arrived is a box that offers to remove somebody by accident.
   useEffect(() => {
     let active = true;
     listChannelMembers(channelId)
-      .then((rows) => active && setCurrent(new Set(rows.map((m) => m.userId))))
+      .then((rows) => {
+        if (!active) return;
+        const ids = new Set(rows.map((m) => m.userId));
+        setCurrent(ids);
+        setWanted(new Set(ids));
+      })
       .catch(() => active && setError(key("channel.membersLoadFailed")));
     return () => {
       active = false;
@@ -316,27 +344,31 @@ export function AddPeopleDialog({
   }, [channelId]);
 
   const rows = people.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
+  const added = [...(wanted ?? [])].filter((id) => !current?.has(id));
+  const removed = [...(current ?? [])].filter((id) => !wanted?.has(id));
+  const changes = added.length + removed.length;
 
   const toggle = (userId: string) =>
-    setSelected((prev) => {
+    setWanted((prev) => {
+      if (!prev) return prev;
       const next = new Set(prev);
       if (next.has(userId)) next.delete(userId);
       else next.add(userId);
       return next;
     });
 
-  const add = async () => {
-    if (selected.size === 0 || busy) return;
+  const save = async () => {
+    if (changes === 0 || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const added = await addChannelMembers(channelId, [...selected]);
+      if (added.length > 0) await addChannelMembers(channelId, added);
+      // Removals one by one: each is its own decision on the server, with its own notice in the
+      // channel, and one refusal must not silently take the others down with it.
+      for (const userId of removed) await removeChannelMember(channelId, userId);
       onNotify({
         tone: "success",
-        title:
-          added.length === 0
-            ? t("channel.nobodyToAdd")
-            : t("channel.added", { count: added.length }),
+        title: t("channel.membersUpdated"),
         description: `#${channelName}`,
       });
       onAdded?.();
@@ -349,7 +381,7 @@ export function AddPeopleDialog({
 
   return (
     <Dialog
-      title={t("channel.addPeople")}
+      title={t("panel.members")}
       closeLabel={t("common.close")}
       subtitle={`#${channelName}`}
       size="sm"
@@ -357,8 +389,8 @@ export function AddPeopleDialog({
       footer={
         <>
           <Button onClick={onClose}>{t("common.cancel")}</Button>
-          <Button variant="primary" iconLeft="user-plus" disabled={busy || selected.size === 0} onClick={() => void add()}>
-            {selected.size > 0 ? t("channel.addCount", { count: selected.size }) : t("channel.add")}
+          <Button variant="primary" disabled={busy || changes === 0} onClick={() => void save()}>
+            {changes > 0 ? t("channel.applyChanges", { count: changes }) : t("common.save")}
           </Button>
         </>
       }
@@ -372,32 +404,38 @@ export function AddPeopleDialog({
         ) : null}
         <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 260, overflow: "auto" }}>
           {rows.map((p) => {
-            const inChannel = current?.has(p.userId) ?? false;
+            const isIn = wanted?.has(p.userId) ?? false;
+            const wasIn = current?.has(p.userId) ?? false;
             return (
               <label
                 key={p.userId}
-                className={inChannel ? undefined : "wc-listrow"}
+                className="wc-listrow"
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 10,
                   padding: "8px 10px",
                   borderRadius: "var(--radius-md)",
-                  cursor: inChannel ? "default" : "pointer",
+                  cursor: "pointer",
                 }}
               >
-                {/* Already in: shown as a fact, not as a box someone could uncheck to remove them. */}
+                {/* The tick is the membership itself: ticking adds, unticking removes. It used to be
+                    a one-way door, so the only way out of a channel was its settings screen. */}
                 <Checkbox
-                  checked={inChannel || selected.has(p.userId)}
-                  disabled={inChannel || current === null}
+                  checked={isIn}
+                  disabled={wanted === null}
                   onChange={() => toggle(p.userId)}
                   aria-label={p.name}
                 />
                 <Avatar name={p.name} src={p.avatarUrl ?? getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
-                <span style={{ flex: 1, fontSize: 13, color: inChannel ? "var(--text-muted)" : "var(--text-strong)" }}>
+                <span style={{ flex: 1, fontSize: 13, color: isIn ? "var(--text-strong)" : "var(--text-muted)" }}>
                   {p.name}
                 </span>
-                {inChannel ? <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("channel.alreadyIn")}</span> : null}
+                {isIn !== wasIn ? (
+                  <span style={{ fontSize: 12, color: "var(--text-accent)" }}>
+                    {isIn ? t("channel.willBeAdded") : t("channel.willBeRemoved")}
+                  </span>
+                ) : null}
               </label>
             );
           })}

@@ -125,6 +125,7 @@ type MessageDto = {
   edited: boolean;
   deleted: boolean;
   pinned: boolean;
+  pinned_by?: string;
   saved: boolean;
   created_at: string;
   edited_at?: string;
@@ -1238,6 +1239,7 @@ function toMessage(dto: MessageDto): ApiMessage {
     replies: dto.reply_count > 0 ? dto.reply_count : undefined,
     imported: dto.imported || undefined,
     pinned: dto.pinned || undefined,
+    pinnedBy: dto.pinned_by,
     edited: dto.edited || undefined,
     deleted: dto.deleted || undefined,
     saved: dto.saved || undefined,

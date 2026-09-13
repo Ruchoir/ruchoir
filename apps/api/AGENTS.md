@@ -80,6 +80,21 @@ context and takes precedence here.
   `spaces.id`, so one row deletion empties the schema, but the stored objects are not in the
   database: the file versions' keys are collected *before* the delete and removed behind it, or a
   deleted space would leave its bytes in the store while the interface reported them gone.
+  **Reading a channel grants reading it, and nothing else.** Everything a channel pushes goes to its
+  members, so *taking part* from outside reached everyone but its own author: writing and reacting
+  therefore join the channel (`join_before_taking_part`), once, with the arrival in its history. A
+  **pin** is the other shape of the same mistake and takes the opposite answer: it changes what
+  everyone sees at the top, so it needs membership and refuses a guest, and taking down a pin that
+  is not yours is moderation. `MessageDto.pinned_by` exists so the client can offer what would be
+  accepted rather than what would be refused.
+  **Adding someone to a channel is moderation**, not a member's errand: being in a channel is not
+  the same as deciding who else is, and anyone who had walked into a public one could put anybody in
+  it, an external guest included. It takes `is_channel_moderator`, like every other act of
+  moderation.
+  **A guest moderates nothing**, whatever a channel's own table says: someone who opened a channel
+  and was later made a guest kept an `owner` row in it, and with it the right to add and remove
+  people in a space they are only visiting. The space role is the outer boundary, and a demotion
+  takes back what the old one opened, here as everywhere else.
   **A channel has its own shorter ladder** (`member` < `admin` < `owner`, no guests: being in a
   channel is already the explicit thing a guest is given). `PATCH`/`DELETE
   /channels/{id}/members/{user_id}` set a role and take someone out, under the rule the space roles
@@ -93,10 +108,15 @@ context and takes precedence here.
   value). It stacks on the channel type rather than replacing it: the type answers "who may walk in",
   the list answers "who may be in it at all". The list is checked even for someone holding a
   membership row, so a demotion takes back the channels the old role opened; it filters the listing,
-  the search, the join, the "add people" call and even the real-time frames, or a reserved channel
-  would appear in the sidebar of the people it is reserved from for exactly one frame. A list that
-  excludes its author is refused (`400`): a room you have shut yourself out of is not a room you
-  meant to make.
+  the search, the join, the "add people" call and even the real-time frames. **Both reasons someone
+  would not see a channel have to filter those frames**, the reservation *and* being a guest: a
+  frame that ignores either one puts a channel in a sidebar that the next page load takes away
+  again, which is how a guest was told about every public channel the moment it was created. A list
+  that excludes its own author is allowed: a room for the externals, or for the people who run the
+  place, is a real thing to want. **The space's `owner` is admitted whatever the list says**
+  (`role_admitted`), and that is the only exception: reserving a channel to the administrators used
+  to take it out of the owner's own sidebar with no way back that did not go through the API. It
+  grants nothing else, a private channel is still entered explicitly, owner included.
   **`guest` is a real restriction, not a label.** For that role every channel behaves like a private
   one: the member reaches a conversation only where they hold an explicit `channel_members` /
   `dm_participants` row, public or not. Everything else follows from that one rule rather than being
@@ -186,6 +206,15 @@ context and takes precedence here.
   absolute `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
   The files router carries a raised request-body limit (`RUCHOIR_UPLOAD_MAX_BYTES`, default 100 MiB).
 - `src/openapi.rs`- OpenAPI document generated from the code with `utoipa`.
+
+**The permission matrix is tested from the refused side.** `tests_integration` walks one test per
+rank (`an_ordinary_member_administers_nothing`,
+`an_external_guest_administers_nothing_and_sees_nothing_extra`) through the same list of acts,
+because the interesting failure is never "does this endpoint work" but "does it refuse the person it
+should". Two-session tests (`two_sessions_see_the_same_membership_change`,
+`a_demoted_member_loses_the_space_in_the_same_breath`, `a_guest_is_not_told_about_a_channel_they_are_not_in`)
+open real sockets and assert what each side receives, which is the only way the "a frame reached
+somebody it should not have" class of defect shows up at all.
 
 The API needs PostgreSQL and Valkey at startup (see `docker-compose.yml`). Migrations live in the
 `ruchoir-migration` crate (`../../migrations`): applied automatically in dev

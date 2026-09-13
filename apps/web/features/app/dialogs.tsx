@@ -10,6 +10,18 @@ import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
 import { key, type Translate, type TranslationKey, useTranslation } from "@/lib/i18n";
 
+/** Why the thing you just asked for did not happen, said where the eye already is. */
+const dialogError: CSSProperties = {
+  margin: "12px 0 0",
+  padding: "8px 10px",
+  borderRadius: "var(--radius-md)",
+  background: "var(--surface-sunken)",
+  border: "1px solid var(--status-danger-fg)",
+  color: "var(--status-danger-fg)",
+  fontSize: 12,
+  lineHeight: 1.5,
+};
+
 const listItem: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -39,10 +51,16 @@ export function NewChannelDialog({
   const [type, setType] = useState<ChannelType>("public");
   const [topic, setTopic] = useState("");
   const [allowedRoles, setAllowedRoles] = useState<string[] | undefined>(undefined);
+  /** Set when a submission was refused, so pressing the button always says something. */
+  const [nameError, setNameError] = useState<TranslationKey | null>(null);
 
   const submit = () => {
     const clean = name.trim().replace(/^#/, "");
-    if (!clean) return;
+    if (!clean) {
+      setNameError(key("error.nameRequired"));
+      return;
+    }
+    setNameError(null);
     onCreate({ name: clean, type, topic: topic.trim(), allowedRoles });
   };
 
@@ -62,14 +80,18 @@ export function NewChannelDialog({
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <Field label={t("channel.name")} htmlFor="ch-name">
+        <Field label={t("channel.name")} htmlFor="ch-name" error={nameError ? t(nameError) : undefined}>
           <Input
             id="ch-name"
             autoFocus
             icon="hash"
+            invalid={!!nameError}
             placeholder={t("dialogs.channelPlaceholder")}
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (nameError) setNameError(null);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
             }}
@@ -417,9 +439,14 @@ export function InviteDialog({
 export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => void }) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
+  const [nameError, setNameError] = useState<TranslationKey | null>(null);
   const submit = () => {
     const clean = name.trim();
-    if (!clean) return;
+    if (!clean) {
+      setNameError(key("error.nameRequired"));
+      return;
+    }
+    setNameError(null);
     onCreate(clean);
   };
 
@@ -438,13 +465,22 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
         </>
       }
     >
-      <Field label={t("space.name")} hint={t("dialogs.workspaceHint")} htmlFor="ws-name">
+      <Field
+        label={t("space.name")}
+        hint={t("dialogs.workspaceHint")}
+        htmlFor="ws-name"
+        error={nameError ? t(nameError) : undefined}
+      >
         <Input
           id="ws-name"
           autoFocus
+          invalid={!!nameError}
           placeholder={t("dialogs.workspacePlaceholder")}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (nameError) setNameError(null);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") submit();
           }}
@@ -461,11 +497,14 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
 export function LeaveSpaceDialog({
   name,
   busy,
+  error,
   onClose,
   onConfirm,
 }: {
   name: string;
   busy: boolean;
+  /** Why it was refused, when it was. Shown here rather than in a toast behind this dialog. */
+  error?: string | null;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -491,6 +530,11 @@ export function LeaveSpaceDialog({
       <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
         {t("space.leaveKeepsMessages")}
       </p>
+      {error ? (
+        <p role="alert" style={dialogError}>
+          {error}
+        </p>
+      ) : null}
     </Dialog>
   );
 }
@@ -502,17 +546,22 @@ export function LeaveSpaceDialog({
 export function DeleteSpaceDialog({
   name,
   busy,
+  error,
   onClose,
   onConfirm,
 }: {
   name: string;
   busy: boolean;
+  error?: string | null;
   onClose: () => void;
   onConfirm: () => void;
 }) {
   const { t } = useTranslation();
   const [typed, setTyped] = useState("");
   const matches = typed.trim() === name.trim();
+  // Only once they have typed something: an empty field is not yet a mistake, and a form that turns
+  // red before anyone has done anything is a form that shouts.
+  const mismatch = typed.trim().length > 0 && !matches;
   return (
     <Dialog
       title={t("space.deleteTitle", { name })}
@@ -534,10 +583,15 @@ export function DeleteSpaceDialog({
       <p style={{ fontSize: 13, color: "var(--status-danger-fg)", margin: "0 0 14px" }}>
         {t("space.deleteFinal")}
       </p>
-      <Field label={t("space.deleteConfirmLabel", { name })} htmlFor="del-space">
+      <Field
+        label={t("space.deleteConfirmLabel", { name })}
+        htmlFor="del-space"
+        error={mismatch ? t("space.deleteNameMismatch") : undefined}
+      >
         <Input
           id="del-space"
           autoFocus
+          invalid={mismatch}
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           onKeyDown={(e) => {
@@ -545,6 +599,11 @@ export function DeleteSpaceDialog({
           }}
         />
       </Field>
+      {error ? (
+        <p role="alert" style={dialogError}>
+          {error}
+        </p>
+      ) : null}
     </Dialog>
   );
 }
@@ -570,7 +629,7 @@ export function TransferOwnershipDialog({
   const { t } = useTranslation();
   return (
     <Dialog
-      title={t("space.transferTitle", { name: memberName })}
+      title={t("space.transferTitle")}
       closeLabel={t("common.close")}
       size="sm"
       onClose={onClose}

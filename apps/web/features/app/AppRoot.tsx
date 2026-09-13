@@ -164,7 +164,9 @@ type Modal =
   | null;
 
 const toastStyle: Record<string, CSSProperties> = {
-  wrap: { position: "fixed", right: 20, bottom: 20, zIndex: 60 },
+  // Above the dialog scrim (90), not below it: a refusal raised *by* a dialog was drawn behind it,
+  // blurred, and the only way to read it was to close the thing that had just failed.
+  wrap: { position: "fixed", right: 20, bottom: 20, zIndex: 100 },
   card: {
     display: "flex",
     flexDirection: "column",
@@ -315,6 +317,8 @@ function AppShell() {
   const [transferTo, setTransferTo] = useState<{ userId: string; name: string } | null>(null);
   /** The member being removed from the space, once confirmed. */
   const [removing, setRemoving] = useState<{ userId: string; name: string } | null>(null);
+  /** Why the space exit was refused, said inside the dialog that asked rather than behind it. */
+  const [exitError, setExitError] = useState<TranslationKey | null>(null);
   const [bootError, setBootError] = useState<TranslationKey | null>(null);
   // Shared by every screen of the authentication flow: the message under the form, and whether a
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
@@ -879,6 +883,9 @@ function AppShell() {
    */
   const dropSpaceRef = useRef<(spaceId: string) => void>(() => {});
 
+  /** Latest "read this space again from scratch", for the same reason as the others. */
+  const reloadSpaceRef = useRef<(spaceId: string) => Promise<void>>(async () => {});
+
   /**
    * Spaces already taken off the rail. A departure arrives twice (the real-time frame and the answer
    * to the call that caused it), and the second arrival must not switch space a second time.
@@ -1032,6 +1039,13 @@ function AppShell() {
         });
       },
       onMemberRoleChanged: (spaceId, userId, role) => {
+        // Their own role in the space on screen: reload it. A role decides which channels, people
+        // and files the server will hand over, so the lists this client is holding were computed
+        // under the old one. Demoting someone to guest left them looking at a sidebar they could no
+        // longer open anything in, until they happened to reload.
+        if (userId === liveRef.current.myId && spaceId === liveRef.current.ws) {
+          void reloadSpaceRef.current(spaceId);
+        }
         // The roster only when it is the space on screen; the caller's own role in *any* space,
         // because that one decides what the rail and the settings offer and is held per space.
         if (spaceId === liveRef.current.ws) {
@@ -2079,6 +2093,8 @@ function AppShell() {
         return { ...m, reactions };
       });
       const request = wasMine ? removeReaction(messageId, emoji) : addReaction(messageId, emoji);
+      // Reacting puts one in the channel too, exactly like writing does.
+      request.then(() => !wasMine && notInChannel(conv) && void markJoined(conv));
       request.catch(() => {
         rollbackMessage(conv, target);
         showToast({ tone: "info", title: t("toast.reactionFailed") });
@@ -2193,6 +2209,29 @@ function AppShell() {
     setWorkspaces((prev) => prev.map((w) => (w.id === ws ? { ...w, name } : w)));
   };
 
+  /** Whether a conversation is a channel this client is only reading. */
+  const notInChannel = (id: string) => channels.find((c) => c.id === id)?.member === false;
+
+  /**
+   * Record that we are now in a channel, and re-read it.
+   *
+   * The arrival notice is published to the channel's audience at the moment we join, when this
+   * client is not yet subscribed to it, so that one frame can never reach us: the notice and the
+   * member count only appeared after a reload. Re-reading the conversation is what closes that gap,
+   * and it is needed wherever joining happens, including the writing that joins by itself.
+   */
+  const markJoined = async (id: string) => {
+    setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, member: true } : c)));
+    const page = await getChannelMessages(id).catch(() => null);
+    if (!page) return;
+    // Merged on ids rather than replaced: a message sent in the same breath may not be in this page
+    // yet, and dropping it would make our own line disappear under us.
+    setMessages((prev) => {
+      const known = new Set(page.messages.map((m) => m.id));
+      return { ...prev, [id]: [...page.messages, ...(prev[id] ?? []).filter((m) => !known.has(m.id))] };
+    });
+  };
+
   const send = (text: string, attachment?: Message["attachment"]) => {
     if (!text.trim() && !attachment) return;
     const conv = channelId;
@@ -2209,14 +2248,17 @@ function AppShell() {
     // success, or removed on failure. An attachment is already stored by this point: the composer
     // uploads on pick, so all that travels here is its id.
     sendMessage(conv, text, attachment?.fileId ? { attachments: [attachment.fileId] } : {})
-      .then((m) =>
+      .then((m) => {
         // Drop the optimistic row and de-dupe the real id, so a realtime echo of our own message that
         // may have already arrived does not leave a duplicate.
         setMessages((prev) => {
           const list = (prev[conv] ?? []).filter((x) => x.id !== tempId && x.id !== m.id);
           return { ...prev, [conv]: [...list, m] };
-        }),
-      )
+        });
+        // Writing in a public channel one is only reading puts the writer in it, server-side. The
+        // client has to learn that from this call, because nothing else will tell it.
+        if (notInChannel(conv)) void markJoined(conv);
+      })
       .catch(() => {
         setMessages((prev) => ({ ...prev, [conv]: (prev[conv] ?? []).filter((x) => x.id !== tempId) }));
         showToast({ tone: "info", title: t("toast.messageNotSent") });
@@ -2274,7 +2316,10 @@ function AppShell() {
           ? prev.map((c) => (c.id === channel.id ? { ...c, ...channel } : c))
           : [...prev, channel],
       );
-      setMessages((prev) => ({ ...prev, [channel.id]: [] }));
+      // Seed the feed only if the real-time frames have not already put something in it: the server
+      // writes the "channel created" notice and pushes it before this call returns, so an
+      // unconditional [] threw it away and the notice only appeared after a reload.
+      setMessages((prev) => (prev[channel.id]?.length ? prev : { ...prev, [channel.id]: [] }));
       setModal(null);
       openChannel(channel.id);
       showToast({ tone: "success", title: t("toast.channelCreated"), description: `#${channel.name}` });
@@ -2362,7 +2407,7 @@ function AppShell() {
   const joinChannel = async (id: string) => {
     try {
       await apiJoinChannel(id);
-      setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, member: true } : c)));
+      await markJoined(id);
       showToast({ tone: "success", title: t("toast.channelJoined") });
     } catch {
       showToast({ tone: "danger", title: t("toast.joinFailed"), description: t("common.tryAgain") });
@@ -2402,6 +2447,22 @@ function AppShell() {
     ["owner", "admin"].includes(currentWorkspace?.role ?? "") ? "owner" : "member";
 
   /**
+   * Whether the caller may moderate channels here at all.
+   *
+   * False for a guest, whatever role they hold *inside* a channel: someone who opened a channel and
+   * was later made a guest kept an owner row in it, and the menu went on offering them the controls
+   * the API had just stopped accepting. The space role is the outer boundary.
+   */
+  const canModerateChannels = currentWorkspace?.role !== "guest";
+  /**
+   * Whether the caller runs the space: the settings screen, its people, its identity. The screen
+   * itself already refuses every control below this rung, and the API refuses the calls behind them,
+   * so what this gates is the entry to it: a door that opens onto nothing actionable reads as a
+   * permission somebody has, which is exactly what it is not.
+   */
+  const canAdministerSpace = ["owner", "admin"].includes(currentWorkspace?.role ?? "");
+
+  /**
    * Take a space off the rail, whether the caller walked out of it or it was deleted under them.
    *
    * Shared by the two handlers below and by the real-time event, which is what makes a second tab
@@ -2427,12 +2488,21 @@ function AppShell() {
     setSwitchingSpace(true);
     await loadSpace(remaining[0]?.id ?? "");
     setSwitchingSpace(false);
+    // Never land on the settings of the next space. They look exactly like the ones just used to
+    // delete a space, on a screen whose danger zone is one press away, and the name at the top is
+    // the only thing that changed.
+    openView("channel");
   };
 
   // Same reason as `notifyRef`: filled here, after the declaration it points at, so the real-time
   // handler drops the space from the list as it stands now and not as it stood at connection time.
   useEffect(() => {
     dropSpaceRef.current = (spaceId: string) => void dropWorkspace(spaceId);
+    reloadSpaceRef.current = async (spaceId: string) => {
+      setSwitchingSpace(true);
+      await loadSpace(spaceId);
+      setSwitchingSpace(false);
+    };
   });
 
   /**
@@ -2527,17 +2597,15 @@ function AppShell() {
   const leaveWorkspace = async (spaceId: string) => {
     const name = workspaces.find((w) => w.id === spaceId)?.name;
     setSpaceBusy(true);
+    setExitError(null);
     try {
       await apiLeaveSpace(spaceId);
     } catch (err) {
       setSpaceBusy(false);
-      // The one refusal worth its own sentence: a last owner is not being denied, they are being
-      // asked to decide what happens to everyone else's work first.
-      showToast({
-        tone: "danger",
-        title: t("toast.leaveSpaceFailed"),
-        description: isApiError(err, 409) ? t("space.leaveLastOwner") : t("common.tryAgain"),
-      });
+      // Said inside the dialog, not behind it: a last owner is not being denied, they are being
+      // asked to decide what happens to everyone else's work first, and that sentence is the whole
+      // point of the refusal.
+      setExitError(isApiError(err, 409) ? key("space.leaveLastOwner") : key("common.tryAgain"));
       return;
     }
     setSpaceBusy(false);
@@ -2554,7 +2622,7 @@ function AppShell() {
       await apiDeleteSpace(spaceId);
     } catch {
       setSpaceBusy(false);
-      showToast({ tone: "danger", title: t("toast.deleteSpaceFailed"), description: t("common.tryAgain") });
+      setExitError(key("common.tryAgain"));
       return;
     }
     setSpaceBusy(false);
@@ -2876,6 +2944,7 @@ function AppShell() {
         // A guest reaches the space only through what they were added to: no space files, no new
         // channel, no invitation. The API refuses all three; this keeps them off the column.
         canBrowseSpace={currentWorkspace?.role !== "guest"}
+        canAdministerSpace={canAdministerSpace}
         onNewMessage={() => setModal("newMessage")}
         onGlobalSearch={() => setModal("search")}
         onLeaveChannel={leaveChannel}
@@ -2955,6 +3024,8 @@ function AppShell() {
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
           myRole={currentWorkspace?.role ?? "member"}
           myChannelRole={myChannelRole(channelId)}
+          canModerateChannels={canModerateChannels}
+          myUserId={session?.id ?? ""}
           onLeaveChannel={() => leaveChannel(channelId)}
           onJoinChannel={() => joinChannel(channelId)}
           notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
@@ -2991,6 +3062,7 @@ function AppShell() {
           // else on this screen (the people, their roles, who is shown the door) stays with the
           // administrators, which is the line the API draws too.
           canEditIdentity={currentWorkspace?.role === "owner"}
+          canManageMembers={["owner", "admin"].includes(currentWorkspace?.role ?? "")}
           onIconChanged={applySpaceIcon}
           onRenamed={applySpaceName}
           // The real records, so the screen shows the role the server holds rather than a mapping
@@ -3101,7 +3173,11 @@ function AppShell() {
         <LeaveSpaceDialog
           name={currentWorkspace.name}
           busy={spaceBusy}
-          onClose={() => setModal(null)}
+          error={exitError ? t(exitError) : null}
+          onClose={() => {
+            setExitError(null);
+            setModal(null);
+          }}
           onConfirm={() => void leaveWorkspace(currentWorkspace.id)}
         />
       ) : null}
@@ -3109,7 +3185,11 @@ function AppShell() {
         <DeleteSpaceDialog
           name={currentWorkspace.name}
           busy={spaceBusy}
-          onClose={() => setModal(null)}
+          error={exitError ? t(exitError) : null}
+          onClose={() => {
+            setExitError(null);
+            setModal(null);
+          }}
           onConfirm={() => void deleteWorkspace(currentWorkspace.id)}
         />
       ) : null}
@@ -3166,7 +3246,7 @@ function AppShell() {
           onUpdate={(patch) => updateChannel(channelSettingsId, patch)}
           onNotify={showToast}
           myRole={currentWorkspace?.role ?? "member"}
-          myChannelRole={myChannelRole(channelSettingsId)}
+          myChannelRole={canModerateChannels ? myChannelRole(channelSettingsId) : "member"}
         />
       ) : null}
 
@@ -3284,6 +3364,7 @@ function AppShell() {
                 onInvite={() => setModal("invite")}
                 onNewChannel={() => setModal("newChannel")}
                 canBrowseSpace={currentWorkspace?.role !== "guest"}
+                canAdministerSpace={canAdministerSpace}
                 onNewMessage={() => setModal("newMessage")}
                 onGlobalSearch={() => setModal("search")}
                 onLeaveChannel={leaveChannel}

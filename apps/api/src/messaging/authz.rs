@@ -13,7 +13,10 @@
 //! channel type answers "who may join without being asked", the role list answers "who may be in it
 //! at all". A leadership channel, or one an external guest never sees, is the second question. The
 //! list is checked even for someone who already holds a membership row, so demoting a person takes
-//! the channel away from them rather than leaving a door they walked through last week.
+//! the channel away from them rather than leaving a door they walked through last week. The one
+//! exception is the space's `owner`, who is admitted to every channel of their space whatever the
+//! list says: a reservation is a rule about a room, never a way to lock somebody out of the space
+//! they hold.
 //!
 //! **A `guest` inherits nothing.** For someone holding that role, every channel behaves like a
 //! private one: they reach a conversation only where they hold an explicit row, public or not. That
@@ -244,11 +247,14 @@ pub async fn effective_channel_rank(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<usize, ApiError> {
-    if matches!(
-        space_role(db, space_id, user_id).await?.as_deref(),
-        Some("owner") | Some("admin")
-    ) {
-        return Ok(channel_role_rank("owner"));
+    match space_role(db, space_id, user_id).await?.as_deref() {
+        Some("owner") | Some("admin") => return Ok(channel_role_rank("owner")),
+        // A guest moderates nothing, whatever the channel's own table says. Someone who opened a
+        // channel and was later made a guest kept an `owner` row in it, and with it the right to
+        // add and remove people in a space they are only visiting: the space role is the outer
+        // boundary, and a demotion takes back what the old one opened.
+        Some("guest") => return Ok(0),
+        _ => {}
     }
     Ok(channel_members::Entity::find_by_id((channel_id, user_id))
         .one(db)
@@ -265,6 +271,11 @@ pub async fn is_channel_moderator(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<bool, ApiError> {
+    // Same reason as in [`effective_channel_rank`]: a guest is in the space to take part, not to
+    // run part of it, and a channel role they held before being demoted does not survive that.
+    if is_guest(db, space_id, user_id).await? {
+        return Ok(false);
+    }
     if let Some(member) = channel_members::Entity::find_by_id((channel_id, user_id))
         .one(db)
         .await?
@@ -424,7 +435,13 @@ pub async fn role_admitted(
     let Some(role) = space_role(db, space_id, user_id).await? else {
         return Ok(false);
     };
-    Ok(allowed.contains(&role))
+    // A space's owner is admitted to every channel in it, named in the list or not. A reservation
+    // says who belongs in a room; it is not a way to take a space away from the person who holds it.
+    // Reserving a channel to the administrators used to make it vanish from the owner's own sidebar,
+    // with no way back that did not go through the API. It stays a real restriction for everybody
+    // else, and it still grants nothing on its own: a private channel is entered explicitly, owner
+    // included.
+    Ok(role == "owner" || allowed.contains(&role))
 }
 
 /// The role a user holds in a space, or `None` when they are not in it.
