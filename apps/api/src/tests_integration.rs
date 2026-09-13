@@ -42,8 +42,8 @@ use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
 use crate::entities::{
     channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
-    files, import_mappings, message_reactions, messages, read_cursors, space_invitations,
-    space_members, spaces, user_saved_messages, users,
+    file_versions, files, import_mappings, message_attachments, message_reactions, messages,
+    read_cursors, space_invitations, space_members, spaces, user_saved_messages, users,
 };
 use crate::state::AppState;
 
@@ -3651,7 +3651,9 @@ use crate::importer::archive::{
     ChannelRecord, Index, Manifest, MemberStateRecord, SpaceRecord, UserRecord,
 };
 use crate::importer::plan::{self, Existing};
-use crate::importer::run::{self, Mapper, KIND_CHANNEL, KIND_MESSAGE, KIND_SPACE, KIND_USER};
+use crate::importer::run::{
+    self, BlobSink, Mapper, KIND_CHANNEL, KIND_FILE, KIND_MESSAGE, KIND_SPACE, KIND_USER,
+};
 
 fn source_channel(id: &str, space: &str, kind: &str, members: &[&str]) -> ChannelRecord {
     ChannelRecord {
@@ -4963,5 +4965,251 @@ async fn a_favourite_alone_leaves_no_reading_position() {
         .expect("u");
 
     assert!(cursor_of(&app, conversation, user).await.is_none());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+// --- Files ---------------------------------------------------------------------------------------
+//
+// The only part of an import that leaves the database, and the only one that can fail for a reason
+// nobody here controls. The ordering it rests on (bytes first, rows after) is only worth anything
+// if the failure is tested, which is what the refusing sink below is for.
+
+/// An object store that keeps what it is given, and can be told to refuse.
+#[derive(Default)]
+struct MemorySink {
+    stored: std::sync::Mutex<Vec<(String, Vec<u8>)>>,
+    refuse: bool,
+}
+
+impl BlobSink for MemorySink {
+    async fn put(&self, key: &str, bytes: &[u8], _content_type: &str) -> Result<(), String> {
+        if self.refuse {
+            return Err("the store is unreachable".to_owned());
+        }
+        self.stored
+            .lock()
+            .expect("lock")
+            .push((key.to_owned(), bytes.to_vec()));
+        Ok(())
+    }
+}
+
+/// An archive carrying one file, attached to one message.
+fn archive_with_a_file(person: &str, space_ref: &str, channel_ref: &str) -> std::path::PathBuf {
+    let content = b"le contenu du fichier";
+    let digest = {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(content);
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    };
+
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[{
+            let mut message = message_row("m1", channel_ref, Some(person), "une pièce jointe");
+            message["files"] = json!(["note.txt"]);
+            message
+        }],
+    );
+
+    std::fs::write(
+        dir.join("files.jsonl"),
+        format!(
+            "{}\n",
+            json!({
+                "id": "note.txt", "name": "note.txt", "path": "note.txt",
+                "size": content.len(), "content_type": "text/plain",
+                "hash": format!("sha256:{digest}"),
+                "uploaded_by": person, "uploaded_at": "2024-03-05T08:00:00Z",
+            })
+        ),
+    )
+    .expect("files.jsonl");
+
+    let blob = dir.join("blobs").join(&digest[..2]);
+    std::fs::create_dir_all(&blob).expect("blobs");
+    std::fs::write(blob.join(&digest), content).expect("blob");
+    dir
+}
+
+#[tokio::test]
+async fn a_file_arrives_with_its_bytes_and_hangs_on_its_message() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_a_file(&person, &space_ref, &channel_ref);
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let sink = MemorySink::default();
+    let written = run::import_files(&app.db, &mapper, &sink, &dir, None, &spaces)
+        .await
+        .expect("files");
+    run::attach_files(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("attach");
+
+    assert_eq!(written.files_created, 1);
+    let file_id = mapper
+        .resolve(&app.db, KIND_FILE, "note.txt", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("file");
+    let file = files::Entity::find_by_id(file_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("file");
+    assert_eq!(file.name, "note.txt");
+    assert_eq!(file.size_bytes, 21);
+    assert_eq!(file.imported_source.as_deref(), Some("mattermost"));
+    // The file points at a version, and the version at the bytes that were actually stored.
+    let version_id = file.current_version_id.expect("a current version");
+    let version = file_versions::Entity::find_by_id(version_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("version");
+    let key = version.storage_key.expect("a storage key");
+    let (stored_key, stored_bytes) = {
+        let stored = sink.stored.lock().expect("lock");
+        assert_eq!(stored.len(), 1);
+        stored[0].clone()
+    };
+    assert_eq!(
+        stored_key, key,
+        "the row points at the object that was written"
+    );
+    assert_eq!(stored_bytes, b"le contenu du fichier");
+
+    let message_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "m1", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("message");
+    let attachment = message_attachments::Entity::find_by_id((message_id, file_id))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("attachment");
+    assert_eq!(attachment.file_version_id, Some(version_id));
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_store_that_refuses_leaves_no_file_that_cannot_be_opened() {
+    // The whole reason the bytes are written before the rows. A row written first would survive the
+    // failure and leave a file that has a name, a size, and nothing behind it.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_a_file(&person, &space_ref, &channel_ref);
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let sink = MemorySink {
+        refuse: true,
+        ..Default::default()
+    };
+
+    let outcome = run::import_files(&app.db, &mapper, &sink, &dir, None, &spaces).await;
+    assert!(
+        outcome.is_err(),
+        "an import that cannot store bytes has to stop"
+    );
+
+    assert_eq!(
+        files::Entity::find()
+            .filter(files::Column::SpaceId.eq(spaces[0].1))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        0,
+        "no file row survives a storage failure"
+    );
+    // And the mapping is absent too, so a later run starts this file over rather than skipping it.
+    assert!(mapper
+        .resolve(&app.db, KIND_FILE, "note.txt", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .is_none());
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn importing_the_files_twice_stores_them_once() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_a_file(&person, &space_ref, &channel_ref);
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let sink = MemorySink::default();
+    let first = run::import_files(&app.db, &mapper, &sink, &dir, None, &spaces)
+        .await
+        .expect("first");
+    run::attach_files(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("attach");
+    let second = run::import_files(&app.db, &mapper, &sink, &dir, None, &spaces)
+        .await
+        .expect("second");
+    run::attach_files(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("attach again");
+
+    assert_eq!(first.files_created, 1);
+    assert_eq!(second.files_created, 0);
+    assert_eq!(
+        sink.stored.lock().expect("lock").len(),
+        1,
+        "the bytes are written once"
+    );
+    assert!(
+        message_attachments::Entity::find()
+            .count(&app.db)
+            .await
+            .expect("count")
+            > 0,
+        "the attachment survives a second run"
+    );
+
     std::fs::remove_dir_all(&dir).ok();
 }

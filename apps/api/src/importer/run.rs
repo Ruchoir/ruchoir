@@ -20,8 +20,8 @@ use uuid::Uuid;
 
 use crate::entities::{
     channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
-    import_jobs, import_mappings, message_reactions, messages, read_cursors, space_members, spaces,
-    user_saved_messages, users,
+    file_versions, files, import_jobs, import_mappings, message_attachments, message_reactions,
+    messages, read_cursors, space_members, spaces, user_saved_messages, users,
 };
 
 use super::archive::Index;
@@ -31,6 +31,7 @@ pub const KIND_SPACE: &str = "space";
 pub const KIND_USER: &str = "user";
 pub const KIND_CHANNEL: &str = "channel";
 pub const KIND_MESSAGE: &str = "message";
+pub const KIND_FILE: &str = "file";
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Written {
@@ -42,11 +43,17 @@ pub struct Written {
     pub conversations_created: usize,
     pub messages_created: usize,
     pub read_positions: usize,
+    pub files_created: usize,
 }
 
 #[derive(Debug)]
 pub enum RunError {
     Db(String),
+    /// The object store refused or is unreachable. Kept apart from a database failure because the
+    /// answer differs: a database error is ours to fix, a storage one is usually the operator's,
+    /// and an import that cannot store bytes must stop rather than write file rows pointing at
+    /// nothing.
+    Storage(String),
     /// The instance cannot tell which row the archive means. Refusing is the only safe answer: the
     /// alternative is pouring someone's history into the wrong place.
     Ambiguous(String),
@@ -56,6 +63,9 @@ impl std::fmt::Display for RunError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             RunError::Db(message) | RunError::Ambiguous(message) => write!(f, "{message}"),
+            RunError::Storage(message) => {
+                write!(f, "the object store could not take the file: {message}")
+            }
         }
     }
 }
@@ -876,4 +886,266 @@ async fn last_message_before<C: ConnectionTrait>(
         .one(db)
         .await?
         .map(|message| message.id))
+}
+
+/// Where an imported file's bytes go.
+///
+/// A seam of four lines, and only the importer has it: the object store is the one thing in an
+/// import that can fail for a reason nobody here controls, and the whole point of the ordering
+/// below is that it be tested, including the failure. A test drives an in-memory sink and one that
+/// refuses; production hands over the real store.
+#[allow(async_fn_in_trait)]
+pub trait BlobSink {
+    async fn put(
+        &self,
+        key: &str,
+        bytes: &[u8],
+        content_type: &str,
+    ) -> std::result::Result<(), String>;
+}
+
+impl BlobSink for crate::storage::S3Store {
+    async fn put(
+        &self,
+        key: &str,
+        bytes: &[u8],
+        content_type: &str,
+    ) -> std::result::Result<(), String> {
+        crate::storage::S3Store::put(self, key, bytes, content_type)
+            .await
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// Brings the files over, bytes and all.
+///
+/// The only part of an import that leaves the database, and the only one that can fail for a reason
+/// nobody here controls. So the order is deliberate: the bytes are stored **first**, and the rows
+/// that point at them are written after. A row written first would survive a storage failure and
+/// leave a file that exists, has a name and a size, and cannot be opened; the other way round, a
+/// failure leaves an orphan object, which costs space and lies to nobody.
+///
+/// A blob is written once even when several accounts held the same file: the archive already
+/// deduplicated by digest, and so does this.
+pub async fn import_files<C: ConnectionTrait, S: BlobSink>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    storage: &S,
+    archive: &std::path::Path,
+    passphrase: Option<&str>,
+    spaces_by_source: &[(String, Uuid)],
+) -> Result<Written> {
+    let mut written = Written::default();
+    let index =
+        super::archive::index(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
+
+    // A file belongs to the space its conversation is in, and to the first space of the archive
+    // when it belongs to no conversation: an account's files are not scoped to a room.
+    let Some((_, default_space)) = spaces_by_source.first() else {
+        return Ok(written);
+    };
+
+    // The bytes, read once and kept by digest. An archive holds them under `blobs/`, already
+    // deduplicated, and only the ones some record actually points at are worth carrying.
+    let wanted: std::collections::HashSet<String> = index
+        .files
+        .iter()
+        .filter_map(|file| file.hash.strip_prefix("sha256:").map(str::to_owned))
+        .collect();
+    let mut bytes_by_digest: std::collections::HashMap<String, Vec<u8>> =
+        std::collections::HashMap::new();
+    super::archive::walk(archive, passphrase, |member| {
+        if let super::archive::Member::Blob { digest, reader } = member {
+            if wanted.contains(&digest) {
+                let mut bytes = Vec::new();
+                std::io::Read::read_to_end(reader, &mut bytes)
+                    .map_err(|e| super::archive::ArchiveError::Io(e.to_string()))?;
+                bytes_by_digest.insert(digest, bytes);
+            }
+        }
+        Ok(())
+    })
+    .map_err(|e| RunError::Db(e.to_string()))?;
+
+    for file in &index.files {
+        let space_id = *default_space;
+        if mapper
+            .resolve(db, KIND_FILE, &file.id, Some(space_id))
+            .await?
+            .is_some()
+        {
+            continue;
+        }
+
+        let Some(digest) = file.hash.strip_prefix("sha256:") else {
+            continue;
+        };
+        let Some(bytes) = bytes_by_digest.get(digest) else {
+            // The checks refuse an archive whose file record points at bytes it does not carry, so
+            // reaching this means the archive changed under us. Stopping is the only safe answer.
+            return Err(RunError::Storage(format!(
+                "{} has no bytes in the archive any more",
+                file.name
+            )));
+        };
+
+        let owner = match &file.uploaded_by {
+            Some(source_id) => mapper.resolve(db, KIND_USER, source_id, None).await?,
+            None => None,
+        };
+        let file_id = Uuid::new_v4();
+        let version_id = Uuid::new_v4();
+        let key = format!("spaces/{space_id}/{file_id}/{version_id}");
+
+        // Bytes first. Everything below only describes what is already there.
+        storage
+            .put(&key, bytes, &file.content_type)
+            .await
+            .map_err(RunError::Storage)?;
+
+        let created_at = file
+            .uploaded_at
+            .as_deref()
+            .map(parse_instant)
+            .unwrap_or_else(OffsetDateTime::now_utc);
+
+        files::ActiveModel {
+            id: Set(file_id),
+            space_id: Set(space_id),
+            owner_id: Set(owner),
+            name: Set(file.name.clone()),
+            kind: Set("file".to_owned()),
+            parent_folder_id: Set(None),
+            conversation_id: Set(None),
+            system_key: Set(None),
+            current_version_id: Set(None),
+            size_bytes: Set(file.size),
+            imported_source: Set(Some(mapper.source.to_owned())),
+            external_ref: Set(Some(file.id.clone())),
+            created_at: Set(created_at),
+            updated_at: Set(created_at),
+            deleted_at: Set(None),
+        }
+        .insert(db)
+        .await?;
+
+        file_versions::ActiveModel {
+            id: Set(version_id),
+            file_id: Set(file_id),
+            version_no: Set(1),
+            size_bytes: Set(file.size),
+            content_hash: Set(hex_to_bytes(digest)),
+            storage_key: Set(Some(key)),
+            thumbnail_key: Set(None),
+            mime_type: Set(file.content_type.clone()),
+            image_width: Set(None),
+            image_height: Set(None),
+            created_by: Set(owner),
+            created_at: Set(created_at),
+        }
+        .insert(db)
+        .await?;
+
+        let mut model: files::ActiveModel = files::Entity::find_by_id(file_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| RunError::Db("the file vanished as it was written".to_owned()))?
+            .into();
+        model.current_version_id = Set(Some(version_id));
+        model.update(db).await?;
+
+        mapper
+            .record(db, KIND_FILE, &file.id, Some(space_id), file_id)
+            .await?;
+        written.files_created += 1;
+    }
+
+    Ok(written)
+}
+
+/// The digest as the database stores it: bytes, not the hex text the archive spells it in.
+fn hex_to_bytes(hex: &str) -> Option<Vec<u8>> {
+    if !hex.len().is_multiple_of(2) {
+        return None;
+    }
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
+        .collect()
+}
+
+/// Hangs the files a message carried onto that message.
+///
+/// Run after both passes: a message can name a file, and a file knows nothing about messages, so
+/// neither pass can do it alone.
+pub async fn attach_files<C: ConnectionTrait>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    archive: &std::path::Path,
+    passphrase: Option<&str>,
+    spaces_by_source: &[(String, Uuid)],
+) -> Result<Written> {
+    let mut written = Written::default();
+    let Some((_, default_space)) = spaces_by_source.first() else {
+        return Ok(written);
+    };
+
+    let mut records = Vec::new();
+    super::archive::walk(archive, passphrase, |member| {
+        if let super::archive::Member::Message(message) = member {
+            if !message.files.is_empty() {
+                records.push(message);
+            }
+        }
+        Ok(())
+    })
+    .map_err(|e| RunError::Db(e.to_string()))?;
+
+    for record in &records {
+        for (position, reference) in record.files.iter().enumerate() {
+            let mut message_id = None;
+            for (_, space_id) in spaces_by_source {
+                if message_id.is_none() {
+                    message_id = mapper
+                        .resolve(db, KIND_MESSAGE, &record.id, Some(*space_id))
+                        .await?;
+                }
+            }
+            let (Some(message_id), Some(file_id)) = (
+                message_id,
+                mapper
+                    .resolve(db, KIND_FILE, reference, Some(*default_space))
+                    .await?,
+            ) else {
+                continue;
+            };
+
+            if message_attachments::Entity::find_by_id((message_id, file_id))
+                .one(db)
+                .await?
+                .is_some()
+            {
+                continue;
+            }
+
+            let version = file_versions::Entity::find()
+                .filter(file_versions::Column::FileId.eq(file_id))
+                .one(db)
+                .await?
+                .map(|version| version.id);
+
+            message_attachments::ActiveModel {
+                message_id: Set(message_id),
+                file_id: Set(file_id),
+                file_version_id: Set(version),
+                position: Set(position as i32),
+                alt_text: Set(None),
+            }
+            .insert(db)
+            .await?;
+            written.files_created += 1;
+        }
+    }
+
+    Ok(written)
 }
