@@ -14,6 +14,7 @@ mod db;
 mod entities;
 mod files;
 mod http;
+mod importer;
 mod messaging;
 mod openapi;
 mod realtime;
@@ -63,6 +64,19 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     // Subcommand dispatch. `ruchoir-api migrate` applies pending migrations and exits: this is
     // the explicit, production-safe path. Regular startup serves the app.
     let subcommand = std::env::args().nth(1);
+
+    // `ruchoir-api import-check <archive> [passphrase]` reads an archive and reports whether it
+    // holds together. Dispatched before the database is touched, because checking an export has
+    // nothing to do with a running instance: an administrator does it on the machine that produced
+    // the file, before uploading gigabytes only to be told no.
+    if subcommand.as_deref() == Some("import-check") {
+        let path = std::env::args()
+            .nth(2)
+            .ok_or("usage: import-check <archive> [passphrase]")?;
+        let passphrase = std::env::args().nth(3);
+        return importer::check_command(std::path::Path::new(&path), passphrase.as_deref())
+            .map_err(|e| e.into());
+    }
 
     let db = db::connect(&config).await?;
     tracing::info!("connected to PostgreSQL");

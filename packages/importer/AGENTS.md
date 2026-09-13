@@ -42,6 +42,16 @@ over an untested feature, which is worse than having no suite.
 `validate-archive.py` is the contract checker. Every producer's test ends by running it over the
 output, so an adapter cannot ship an archive the importer would refuse.
 
+## The other end
+
+`ruchoir-api import-check <archive> [passphrase]` reads an archive and reports what would be
+imported and whether it holds together, without touching the database. It accepts a sealed archive,
+a clear tar, or an unpacked directory, and it is the same contract this package's
+`validate-archive.py` enforces, applied by the code that will do the importing.
+
+Use it after producing an export: it costs nothing and it is the difference between finding a
+problem now and finding it after uploading sixty gigabytes.
+
 ## Principles
 
 - **One archive format, many producers.** Our export scripts and our adapters produce the format in

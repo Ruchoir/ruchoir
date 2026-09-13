@@ -167,7 +167,10 @@ SELECT JSON_OBJECT(
   'id', r.token,
   'space', 'nextcloud',
   'kind', IF(r.type = 1, 'direct', 'channel'),
-  'name', COALESCE(NULLIF(r.name, ''), r.token),
+  -- A one-to-one has no name of its own: Talk stores the participant list in that column, as
+  -- JSON, and copying it through would name the conversation ["bob","carol"] forever. A direct
+  -- conversation is named by who is in it, at the far end, in the reader's own language.
+  'name', IF(r.type = 1, '', COALESCE(NULLIF(r.name, ''), r.token)),
   'topic', COALESCE(r.description, ''),
   'visibility', IF(r.type = 3, 'public', 'private'),
   -- Talk has no archived conversation: `archived` is a per-participant setting on the attendee

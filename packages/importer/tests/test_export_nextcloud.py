@@ -170,6 +170,11 @@ class ExportNextcloudCase(unittest.TestCase):
     def test_a_one_to_one_becomes_a_direct_conversation(self) -> None:
         self.assertEqual(by_id(self.archive, "channels.jsonl")["tokdirect"]["kind"], "direct")
 
+    def test_a_direct_conversation_carries_no_name(self) -> None:
+        # Talk keeps the participant list in the name column of a one-to-one, as JSON. Copying it
+        # through would name the conversation ["alice","bob"] for the rest of its life.
+        self.assertEqual(by_id(self.archive, "channels.jsonl")["tokdirect"]["name"], "")
+
     def test_visibility_follows_the_room_type(self) -> None:
         channels = by_id(self.archive, "channels.jsonl")
         self.assertEqual(channels["tokgeneral"]["visibility"], "public")

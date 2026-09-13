@@ -93,10 +93,11 @@ class Converter:
         self._place_direct_conversations()
 
     def _read_version(self, payload) -> None:
-        if isinstance(payload, dict):
-            self.source_version = str(payload.get("version", "unknown"))
-        else:
-            self.source_version = str(payload)
+        # The export states the version of its own format, not of the Mattermost that produced it,
+        # which the bulk export never says. Labelled for what it is rather than left as a bare
+        # number that reads like a product version.
+        version = payload.get("version", "?") if isinstance(payload, dict) else payload
+        self.source_version = f"bulk export format {version}"
 
     def _read_team(self, team: dict) -> None:
         self.spaces[team["name"]] = {

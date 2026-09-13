@@ -127,6 +127,14 @@ image = { version = "0.25.10", default-features = false, features = [
 # Magic-byte MIME sniffing so the stored content type never trusts the client (community, MIT).
 infer = "0.22.0"
 
+# --- Import (reading an archive produced by our export tooling) ---
+# OpenPGP, to open the sealed archive an administrator hands over. rPGP is pure Rust with no C
+# toolchain to build (unlike Sequoia, which needs Nettle), and its maintainers are the Delta Chat
+# team in Germany: European governance, per the no-US-dependency rule. Arbitrated 2026-09-13.
+pgp = "0.20"
+# Reading the tar inside the archive as a stream. A multi-gigabyte import is never held in memory.
+tar = "0.4"
+
 [profile.release]
 # Lean, fast production binary.
 opt-level = 3
