@@ -46,6 +46,17 @@ function isDefaultPanel(value: unknown): value is DefaultPanel {
   return typeof value === "string" && (DEFAULT_PANELS as string[]).includes(value);
 }
 
+/**
+ * The thread panel's width: what it opens at, and how far the handle may take it.
+ *
+ * Here rather than in the panel because the stored value is validated against these bounds before
+ * the panel exists, and a preference nobody can see the limits of is a preference that outlives
+ * them.
+ */
+export const THREAD_WIDTH_DEFAULT = 420;
+export const THREAD_WIDTH_MIN = 320;
+export const THREAD_WIDTH_MAX = 720;
+
 /** Text size, applied as a proportional zoom on the whole interface. */
 export type TextSize = "s" | "m" | "l" | "xl";
 export const TEXT_SIZES: TextSize[] = ["s", "m", "l", "xl"];
@@ -101,6 +112,14 @@ export type Settings = {
   /** Whether the browser-notification prompt has already been offered, so it is offered once. */
   notifPrompted: boolean;
   /**
+   * How wide the thread panel is, in pixels.
+   *
+   * Dragged with the handle on its edge, and kept: a reader who widened it to follow a long thread
+   * had to widen it again at every single reopening, because the width lived with the component
+   * and died with it.
+   */
+  threadWidth: number;
+  /**
    * The interface language.
    *
    * `null` means "whatever the browser asks for", which is what a fresh account gets: guessing is
@@ -128,6 +147,7 @@ const DEFAULTS: Settings = {
   spaceOrder: [],
   hiddenDms: [],
   notifPrompted: false,
+  threadWidth: THREAD_WIDTH_DEFAULT,
   locale: null,
 };
 
@@ -145,6 +165,12 @@ function initialTheme(): ThemeName {
     if (isTheme(t)) return t;
   }
   return DEFAULTS.theme;
+}
+
+/** Keep a stored width usable: a number inside the handle's own bounds, or the default. */
+function threadWidth(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return THREAD_WIDTH_DEFAULT;
+  return Math.min(THREAD_WIDTH_MAX, Math.max(THREAD_WIDTH_MIN, Math.round(value)));
 }
 
 /** A stored array of ids, keeping only the strings: anything else is somebody's corrupted storage. */
@@ -187,6 +213,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           spaceOrder: stringList(parsed.spaceOrder),
           hiddenDms: stringList(parsed.hiddenDms),
           notifPrompted: parsed.notifPrompted === true,
+          threadWidth: threadWidth(parsed.threadWidth),
         });
       }
     } catch {

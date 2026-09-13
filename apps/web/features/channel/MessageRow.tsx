@@ -140,6 +140,19 @@ export type MessageRowProps = {
   actions: MessageActions;
   /** Whether the pin entry belongs in this row's menu. See MessageMenu's own prop. */
   canPin?: boolean;
+  /**
+   * This row is a reply, drawn inside a thread panel.
+   *
+   * A reply is a message like any other and keeps every action that acts on a message. What it
+   * loses is what only means something in the feed: opening a thread of its own (threads are one
+   * level deep, as everywhere), and marking the conversation unread from a line nobody reads there.
+   */
+  inThread?: boolean;
+  /**
+   * The last people who answered in this message's thread, most recent first: their faces are drawn
+   * next to the reply count, which is how a thread shows who is in it before it is opened.
+   */
+  replyFaces?: { name: string; avatar?: string }[];
 };
 
 const avatarBtn: CSSProperties = {
@@ -172,6 +185,8 @@ export function MessageRow({
   readAudience = 0,
   actions,
   canPin = true,
+  inThread = false,
+  replyFaces,
 }: MessageRowProps) {
   const { t } = useTranslation();
   const [hover, setHover] = useState(false);
@@ -391,7 +406,9 @@ export function MessageRow({
               </div>
             ) : null}
 
-            {m.replies ? (
+            {/* Inside the thread panel the root's own count is already the separator below it, and
+                the button would reopen what is open. */}
+            {m.replies && !inThread ? (
               <button
                 onClick={actions.onOpenThread}
                 style={{
@@ -409,7 +426,20 @@ export function MessageRow({
                   color: "var(--text-link)",
                 }}
               >
-                <Icon name="message-square" size={14} />
+                {/* Who answered, before what was answered: a thread is worth opening because of who
+                    is in it. The icon stands in while the faces are unknown (an old client, a
+                    thread whose replies were all taken back). */}
+                {replyFaces && replyFaces.length > 0 ? (
+                  <span style={{ display: "inline-flex", alignItems: "center" }}>
+                    {replyFaces.map((face, i) => (
+                      <span key={face.name} style={{ marginLeft: i === 0 ? 0 : -6, display: "inline-flex" }}>
+                        <Avatar name={face.name} src={face.avatar} size={20} />
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  <Icon name="message-square" size={14} />
+                )}
                 {t("message.replies", { count: m.replies })}
               </button>
             ) : null}
@@ -431,7 +461,9 @@ export function MessageRow({
       {showActions ? (
         <div style={styles.actions}>
           <ReactionMenu variant="action" onPick={actions.onReact} onOpenChange={setReactOpen} />
-          <IconButton icon="message-square" label={t("message.replyInThread")} size="sm" onClick={actions.onOpenThread} />
+          {inThread ? null : (
+            <IconButton icon="message-square" label={t("message.replyInThread")} size="sm" onClick={actions.onOpenThread} />
+          )}
           {isOwn ? <IconButton icon="square-pen" label={t("message.edit")} size="sm" onClick={actions.onEdit} /> : null}
           <IconButton
             icon="bookmark"
@@ -451,7 +483,7 @@ export function MessageRow({
             onCopyMessage={actions.onCopyMessage}
             onCopyLink={actions.onCopyLink}
             onTogglePin={actions.onTogglePin}
-            onMarkUnread={actions.onMarkUnread}
+            onMarkUnread={inThread ? undefined : actions.onMarkUnread}
             onDelete={actions.onDelete}
             onOpenChange={setMenuOpen}
           />
@@ -469,7 +501,7 @@ export function MessageRow({
                 <span style={{ fontSize: 22, lineHeight: 1 }}>{r.emoji}</span>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
-                    {r.count} {r.count > 1 ? "personnes" : "personne"}
+                    {t("message.reactors", { count: r.count })}
                   </div>
                   <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
                     {r.users && r.users.length > 0 ? r.users.join(", ") : "—"}

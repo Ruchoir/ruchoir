@@ -21,7 +21,7 @@ import {
 import { SearchPanel } from "./SearchPanel";
 import { type ChannelMember, SidePanel } from "./SidePanel";
 import { Composer } from "./Composer";
-import { MessageRow } from "./MessageRow";
+import { MessageRow, type MessageActions } from "./MessageRow";
 import { SystemMessage } from "./SystemMessage";
 import { ThreadPanel } from "./ThreadPanel";
 import { TypingIndicator } from "./TypingIndicator";
@@ -208,6 +208,10 @@ export type ChannelScreenProps = {
   messages: Message[];
   panel: ChannelPanel;
   threadId: string | null;
+  /** The open thread's replies, oldest first. Empty when no thread is open. */
+  threadReplies: Message[];
+  /** Answer in the open thread. */
+  onSendReply: (parentId: string, text: string) => void;
   profileName: string | null;
   profileEditing: boolean;
   unreadMarker: string | null;
@@ -298,6 +302,8 @@ export function ChannelScreen({
   messages,
   panel,
   threadId,
+  threadReplies,
+  onSendReply,
   profileName,
   profileEditing,
   unreadMarker,
@@ -419,6 +425,37 @@ export function ChannelScreen({
   const avatarByName = new Map(members.map((m) => [m.name, m.avatar] as const));
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
   /**
+   * Everything a row can do, for one message. Shared: a reply in the thread panel is acted on
+   * through the very same handlers as a message in the feed, so the two can never drift.
+   */
+  const rowActions = (m: Message): MessageActions => ({
+    onReact: (emoji) => actions.react(m.id, emoji),
+    onOpenThread: () => actions.openThread(m.id),
+    onToggleSave: () => actions.toggleSave(m.id),
+    onEdit: () => actions.edit(m.id),
+    onTogglePin: () => actions.togglePin(m.id),
+    onCopyLink: () => actions.copyLink(m.id),
+    onCopyMessage: () => actions.copyMessage(m.id),
+    onMarkUnread: () => actions.markUnread(m.id),
+    onDelete: () => actions.remove(m.id),
+    onOpenProfile: () => actions.openProfile(m.author),
+    onEditProfile: () => actions.editProfile(m.author),
+    onMessage: () => actions.message(m.author),
+    onOpenMention: (name) => actions.openProfile(name),
+  });
+  /** The faces to draw next to a thread's reply count: the last repliers, with their pictures. */
+  const replyFaces = (m: Message) =>
+    m.replyAuthors?.map((name) => ({ name, avatar: avatarByName.get(name) }));
+  /**
+   * An edit is composed where the message is read: in the thread panel when the message is part of
+   * the open thread, in the channel composer otherwise. Sending the reply's text through the
+   * composer at the bottom of the feed would put an edit under a conversation it is not in.
+   */
+  const editingInThread =
+    editing != null &&
+    threadParent != null &&
+    (editing.id === threadParent.id || threadReplies.some((r) => r.id === editing.id));
+  /**
    * The channel's pins, from the server, with what is on screen as the starting point.
    *
    * The derived list is kept as the first answer so the panel is never empty while the request is
@@ -524,7 +561,18 @@ export function ChannelScreen({
       onNotify={onNotify}
     />
   ) : threadParent ? (
-    <ThreadPanel parent={threadParent} conversationId={channel.id} onClose={onCloseThread} />
+    <ThreadPanel
+      parent={threadParent}
+      replies={threadReplies}
+      rowActions={rowActions}
+      presenceByName={presenceByName}
+      avatarByName={avatarByName}
+      onSendReply={(text) => onSendReply(threadParent.id, text)}
+      editing={editingInThread ? editing : null}
+      onSaveEdit={onSaveEdit}
+      onCancelEdit={onCancelEdit}
+      onClose={onCloseThread}
+    />
   ) : panel === "search" ? (
     <SearchPanel
       messages={messages}
@@ -705,21 +753,8 @@ export function ChannelScreen({
                       channel.member !== false &&
                       (!m.pinned || m.pinnedBy === myUserId || canModerate)
                     }
-                    actions={{
-                      onReact: (emoji) => actions.react(m.id, emoji),
-                      onOpenThread: () => actions.openThread(m.id),
-                      onToggleSave: () => actions.toggleSave(m.id),
-                      onEdit: () => actions.edit(m.id),
-                      onTogglePin: () => actions.togglePin(m.id),
-                      onCopyLink: () => actions.copyLink(m.id),
-                      onCopyMessage: () => actions.copyMessage(m.id),
-                      onMarkUnread: () => actions.markUnread(m.id),
-                      onDelete: () => actions.remove(m.id),
-                      onOpenProfile: () => actions.openProfile(m.author),
-                      onEditProfile: () => actions.editProfile(m.author),
-                      onMessage: () => actions.message(m.author),
-                      onOpenMention: (name) => actions.openProfile(name),
-                    }}
+                    replyFaces={replyFaces(m)}
+                    actions={rowActions(m)}
                   />
                 )}
               </Fragment>
@@ -790,7 +825,7 @@ export function ChannelScreen({
             onUpload={onUploadAttachment}
             onNotify={onNotify}
             onTyping={onTyping}
-            editing={editing}
+            editing={editingInThread ? null : editing}
             onSaveEdit={onSaveEdit}
             onCancelEdit={onCancelEdit}
           />
