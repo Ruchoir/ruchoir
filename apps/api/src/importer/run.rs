@@ -90,6 +90,10 @@ pub async fn start_job<C: ConnectionTrait>(
     source: &str,
     created_by: Uuid,
     space_id: Option<Uuid>,
+    // `options` carries what the administrator decided about the people, as JSON. Kept on the job
+    // rather than in the request that started it, so a run resumed tomorrow makes the same
+    // decisions about the same people.
+    options: &str,
 ) -> Result<Uuid> {
     let job_id = Uuid::new_v4();
     import_jobs::ActiveModel {
@@ -98,7 +102,7 @@ pub async fn start_job<C: ConnectionTrait>(
         created_by: Set(Some(created_by)),
         source: Set(source.to_owned()),
         status: Set("running".to_owned()),
-        options: Set("{}".to_owned()),
+        options: Set(options.to_owned()),
         archive_file_id: Set(None),
         manifest: Set(None),
         channels_total: Set(0),
@@ -294,6 +298,11 @@ pub async fn import_accounts<C: ConnectionTrait>(
     let mut written = Written::default();
 
     for account in &plan.accounts {
+        // Left out on purpose. Their messages still arrive, with no author: this was a decision
+        // about people, and dropping their text as well would be a loss nobody asked for.
+        if account.skipped {
+            continue;
+        }
         if mapper
             .resolve(db, KIND_USER, &account.source_id, None)
             .await?
@@ -328,6 +337,13 @@ pub async fn import_accounts<C: ConnectionTrait>(
         mapper
             .record(db, KIND_USER, &account.source_id, None, user_id)
             .await?;
+        note_every(
+            db,
+            mapper.job_id,
+            Counter::Accounts,
+            written.accounts_created + written.accounts_matched,
+        )
+        .await?;
     }
 
     Ok(written)
@@ -645,7 +661,21 @@ pub async fn import_conversations<C: ConnectionTrait>(
             )
             .await?;
         written.conversations_created += 1;
+        note_every(
+            db,
+            mapper.job_id,
+            Counter::Conversations,
+            written.conversations_created,
+        )
+        .await?;
     }
+    note_done(
+        db,
+        mapper.job_id,
+        Counter::Conversations,
+        written.conversations_created,
+    )
+    .await?;
 
     Ok(written)
 }
@@ -673,18 +703,61 @@ pub async fn cancellation_asked<C: ConnectionTrait>(db: &C, job_id: Uuid) -> Res
 ///
 /// Threads are resolved in a second pass. A reply can appear before its root in the file, and
 /// refusing that would make the import depend on a producer's ordering rather than on the contract.
-/// How often a long pass writes down where it has got to. One small update per this many rows,
-/// which is nothing next to the work between them, and often enough that the bar visibly moves.
-const PROGRESS_EVERY: usize = 200;
+/// Which of a job's counters a pass is filling in as it goes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Counter {
+    Accounts,
+    Conversations,
+    Messages,
+    Files,
+}
 
-/// Writes the running count where the screen can read it.
-async fn note_messages_done<C: ConnectionTrait>(db: &C, job_id: Uuid, done: usize) -> Result<()> {
+impl Counter {
+    /// How often this pass writes down where it is.
+    ///
+    /// Tuned to the pass and not to the database: a hundred messages is nothing next to the work
+    /// between them, while four hundred conversations reported once at the end is a bar that never
+    /// moved at all. The cost is one small update, and a screen that says nothing for four minutes
+    /// costs more.
+    fn step(self) -> usize {
+        match self {
+            Counter::Messages => 100,
+            _ => 5,
+        }
+    }
+}
+
+/// Writes a running count where the screen can read it.
+async fn note_done<C: ConnectionTrait>(
+    db: &C,
+    job_id: Uuid,
+    counter: Counter,
+    done: usize,
+) -> Result<()> {
     let Some(job) = import_jobs::Entity::find_by_id(job_id).one(db).await? else {
         return Ok(());
     };
     let mut model: import_jobs::ActiveModel = job.into();
-    model.messages_done = Set(done as i32);
+    match counter {
+        Counter::Accounts => model.accounts_done = Set(done as i32),
+        Counter::Conversations => model.channels_done = Set(done as i32),
+        Counter::Messages => model.messages_done = Set(done as i32),
+        Counter::Files => model.files_done = Set(done as i32),
+    }
     model.update(db).await?;
+    Ok(())
+}
+
+/// Reports every `step` items, so a caller writes one line rather than three.
+async fn note_every<C: ConnectionTrait>(
+    db: &C,
+    job_id: Uuid,
+    counter: Counter,
+    done: usize,
+) -> Result<()> {
+    if done.is_multiple_of(counter.step()) {
+        note_done(db, job_id, counter, done).await?;
+    }
     Ok(())
 }
 
@@ -836,11 +909,9 @@ pub async fn import_messages<C: ConnectionTrait>(
         // Said out loud while it happens, not once at the end. The messages pass is the long one:
         // on a real migration it runs for many minutes, and a bar that sits at zero throughout is
         // indistinguishable from one that has crashed.
-        if written.messages_created % PROGRESS_EVERY == 0 {
-            note_messages_done(db, mapper.job_id, written.messages_created).await?;
-        }
+        note_every(db, mapper.job_id, Counter::Messages, written.messages_created).await?;
     }
-    note_messages_done(db, mapper.job_id, written.messages_created).await?;
+    note_done(db, mapper.job_id, Counter::Messages, written.messages_created).await?;
 
     attach_threads(db, mapper, &pending, spaces_by_source, &conversation_of).await?;
     Ok(written)
@@ -1186,7 +1257,9 @@ pub async fn import_files<C: ConnectionTrait, S: BlobSink>(
             .record(db, KIND_FILE, &file.id, Some(space_id), file_id)
             .await?;
         written.files_created += 1;
+        note_every(db, mapper.job_id, Counter::Files, written.files_created).await?;
     }
+    note_done(db, mapper.job_id, Counter::Files, written.files_created).await?;
 
     Ok(written)
 }

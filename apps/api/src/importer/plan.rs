@@ -57,6 +57,12 @@ pub struct AccountPlan {
     pub email: String,
     pub active: bool,
     pub outcome: AccountOutcome,
+    /// The administrator asked for this person to be left out.
+    ///
+    /// Left out of the accounts, not out of the archive: their messages still arrive with no
+    /// author, the way a message from somebody the archive never named arrives. Dropping the text
+    /// as well would be a loss nobody asked for; this is a decision about people.
+    pub skipped: bool,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -94,6 +100,55 @@ impl Plan {
         self.accounts
             .iter()
             .any(|a| a.outcome == AccountOutcome::Invited)
+    }
+}
+
+/// What an administrator changed about the people in an archive, after reading the plan and before
+/// the run.
+///
+/// Held apart from the plan because it is not the archive's word: the archive says what its source
+/// held, and this says what somebody decided about it. Carried on the job so a run resumed tomorrow
+/// makes the same decisions as the one that started today.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, utoipa::ToSchema)]
+pub struct PersonChoice {
+    pub source_id: String,
+    /// An address given or corrected by hand. The common case is a person the export carried
+    /// without one, who cannot otherwise be invited.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    /// Leave this person out.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub skip: bool,
+}
+
+/// Applies what the administrator decided.
+///
+/// An address given by hand can change what happens to a person: someone the archive carried
+/// without one could be neither matched nor invited, and with one they are either recognised as an
+/// account already here or invitable. So the outcome is worked out again rather than kept.
+pub fn apply_choices(plan: &mut Plan, choices: &[PersonChoice], existing: &Existing) {
+    for choice in choices {
+        let Some(account) = plan
+            .accounts
+            .iter_mut()
+            .find(|a| a.source_id == choice.source_id)
+        else {
+            // A choice about somebody this archive does not carry. Ignored rather than refused:
+            // the plan and the choices can be minutes apart, and this changes nothing.
+            continue;
+        };
+        account.skipped = choice.skip;
+        if let Some(email) = &choice.email {
+            let email = email.trim();
+            account.email = email.to_owned();
+            account.outcome = if email.is_empty() {
+                AccountOutcome::NeedsDecision
+            } else if existing.emails.contains(&email.to_lowercase()) {
+                AccountOutcome::Matched
+            } else {
+                AccountOutcome::Invited
+            };
+        }
     }
 }
 
@@ -180,6 +235,7 @@ pub fn build(index: &Index, existing: &Existing) -> Plan {
                 email,
                 active: user.active,
                 outcome,
+                skipped: false,
             }
         })
         .collect();
@@ -200,7 +256,7 @@ mod tests {
     use super::*;
     use crate::importer::archive::{ChannelRecord, Manifest, SpaceRecord, UserRecord};
 
-    fn index_with(
+    pub(super) fn index_with(
         users: Vec<UserRecord>,
         spaces: Vec<SpaceRecord>,
         channels: Vec<ChannelRecord>,
@@ -223,7 +279,7 @@ mod tests {
         }
     }
 
-    fn user(id: &str, email: &str) -> UserRecord {
+    pub(super) fn user(id: &str, email: &str) -> UserRecord {
         UserRecord {
             id: id.into(),
             email: email.into(),
@@ -232,7 +288,7 @@ mod tests {
         }
     }
 
-    fn space(id: &str, name: &str) -> SpaceRecord {
+    pub(super) fn space(id: &str, name: &str) -> SpaceRecord {
         SpaceRecord {
             id: id.into(),
             name: name.into(),
@@ -241,7 +297,7 @@ mod tests {
         }
     }
 
-    fn channel(id: &str, space: &str, kind: &str) -> ChannelRecord {
+    pub(super) fn channel(id: &str, space: &str, kind: &str) -> ChannelRecord {
         ChannelRecord {
             id: id.into(),
             space: space.into(),
@@ -375,3 +431,134 @@ mod tests {
         assert!(plan.spaces.is_empty());
     }
 }
+
+#[cfg(test)]
+mod choice_tests {
+    use super::tests::*;
+    use super::*;
+
+    /// The common case, and the one the whole editable list exists for: an export that carried
+    /// somebody without an address, and an administrator who knows it.
+    #[test]
+    fn an_address_given_by_hand_turns_somebody_undecidable_into_somebody_invitable() {
+        let index = index_with(vec![user("alice", "")], vec![], vec![]);
+        let existing = Existing::default();
+        let mut plan = build(&index, &existing);
+        assert_eq!(plan.accounts[0].outcome, AccountOutcome::NeedsDecision);
+
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "alice".into(),
+                email: Some("alice@example.test".into()),
+                skip: false,
+            }],
+            &existing,
+        );
+        assert_eq!(plan.accounts[0].outcome, AccountOutcome::Invited);
+        assert_eq!(plan.accounts[0].email, "alice@example.test");
+    }
+
+    /// An address typed by hand can name somebody who is already here, and that is a match, not a
+    /// second account for the same person.
+    #[test]
+    fn an_address_that_belongs_to_an_account_here_matches_it() {
+        let index = index_with(vec![user("alice", "")], vec![], vec![]);
+        let existing = Existing {
+            emails: vec!["alice@example.test".into()],
+            space_names: vec![],
+        };
+        let mut plan = build(&index, &existing);
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "alice".into(),
+                email: Some("  Alice@Example.test  ".into()),
+                skip: false,
+            }],
+            &existing,
+        );
+        assert_eq!(plan.accounts[0].outcome, AccountOutcome::Matched);
+        assert_eq!(plan.accounts[0].email, "Alice@Example.test");
+    }
+
+    #[test]
+    fn an_address_taken_back_leaves_the_person_undecidable_again() {
+        let index = index_with(vec![user("alice", "alice@example.test")], vec![], vec![]);
+        let existing = Existing::default();
+        let mut plan = build(&index, &existing);
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "alice".into(),
+                email: Some("   ".into()),
+                skip: false,
+            }],
+            &existing,
+        );
+        assert_eq!(plan.accounts[0].outcome, AccountOutcome::NeedsDecision);
+    }
+
+    #[test]
+    fn somebody_left_out_is_marked_rather_than_removed() {
+        // Removed from the list, the count would quietly change and nobody could put them back.
+        let index = index_with(vec![user("alice", "a@example.test")], vec![], vec![]);
+        let existing = Existing::default();
+        let mut plan = build(&index, &existing);
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "alice".into(),
+                email: None,
+                skip: true,
+            }],
+            &existing,
+        );
+        assert_eq!(plan.accounts.len(), 1);
+        assert!(plan.accounts[0].skipped);
+    }
+
+    #[test]
+    fn a_choice_about_somebody_this_archive_does_not_carry_changes_nothing() {
+        // The plan and the choices can be minutes apart, and refusing the whole import over a name
+        // that is no longer there would be a tantrum.
+        let index = index_with(vec![user("alice", "a@example.test")], vec![], vec![]);
+        let existing = Existing::default();
+        let mut plan = build(&index, &existing);
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "nobody".into(),
+                email: Some("x@example.test".into()),
+                skip: true,
+            }],
+            &existing,
+        );
+        assert!(!plan.accounts[0].skipped);
+        assert_eq!(plan.accounts[0].email, "a@example.test");
+    }
+
+    #[test]
+    fn people_nobody_decided_anything_about_are_left_exactly_as_the_archive_spells_them() {
+        let index = index_with(
+            vec![user("alice", "a@example.test"), user("bob", "b@example.test")],
+            vec![],
+            vec![],
+        );
+        let existing = Existing::default();
+        let mut plan = build(&index, &existing);
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "alice".into(),
+                email: None,
+                skip: true,
+            }],
+            &existing,
+        );
+        let bob = plan.accounts.iter().find(|a| a.source_id == "bob").unwrap();
+        assert!(!bob.skipped);
+        assert_eq!(bob.email, "b@example.test");
+    }
+}
+

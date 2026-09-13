@@ -2188,17 +2188,52 @@ export async function planImport(file: string, passphrase?: string): Promise<Imp
  * `replaceInstanceAddress`, when given, empties the instance first: every space and every account
  * except the one asking. The server checks the address, and refuses without a recent backup.
  */
+/** What an administrator changed about one person after reading the plan. */
+export type PersonChoice = {
+  sourceId: string;
+  /** An address given or corrected by hand. Absent means the archive's own. */
+  email?: string;
+  /** Leave this person out. Their messages still arrive, with no author. */
+  skip?: boolean;
+};
+
 export async function startImport(
   file: string,
   passphrase?: string,
   replaceInstanceAddress?: string,
+  people: PersonChoice[] = [],
 ): Promise<ImportJob> {
   const dto = await apiPost<ImportJobDto>("/imports", {
     file,
     passphrase,
     replace_everything: replaceInstanceAddress ? { instance_address: replaceInstanceAddress } : undefined,
+    // Only the ones that changed: everyone else arrives as the archive spells them.
+    people: people.map((p) => ({ source_id: p.sourceId, email: p.email, skip: p.skip })),
   });
   return toImportJob(dto);
+}
+
+/** What happened when the invitations went out. */
+export type InviteOutcome = {
+  sent: number;
+  skipped: { sourceId: string; reason: string }[];
+};
+
+/**
+ * `POST /imports/{id}/invitations`: write to the people this import brought over.
+ *
+ * Separate from the import itself, and never automatic: ten thousand accounts arriving is not ten
+ * thousand emails leaving, and this is the moment somebody says who hears about it.
+ */
+export async function inviteImported(id: string, sourceIds: string[]): Promise<InviteOutcome> {
+  const dto = await apiPost<{ sent: number; skipped: { source_id: string; reason: string }[] }>(
+    `/imports/${id}/invitations`,
+    { source_ids: sourceIds },
+  );
+  return {
+    sent: dto.sent,
+    skipped: dto.skipped.map((s) => ({ sourceId: s.source_id, reason: s.reason })),
+  };
 }
 
 /** `GET /imports`: every import this instance has run, most recent first. */

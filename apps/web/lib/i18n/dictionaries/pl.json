@@ -116,7 +116,8 @@
     "delete": "Usuń",
     "create": "Utwórz",
     "retry": "Spróbuj ponownie",
-    "or": "albo"
+    "or": "albo",
+    "nobodyMatches": "Nikt nie pasuje."
   },
   "mfa": {
     "totpTitle": "Weryfikacja dwuetapowa",
@@ -610,7 +611,6 @@
   "dialogs": {
     "channelPlaceholder": "np. premiera-produktu",
     "writeTo": "Do kogo chcesz napisać?",
-    "nobodyMatches": "Nikt nie pasuje.",
     "accepted": "· przyjęte",
     "revoked": "· cofnięte",
     "expired": "· wygasłe",
@@ -1010,6 +1010,26 @@
     "etaSeconds": "mniej niż minuta",
     "etaUnknown": "szacowanie czasu",
     "rate": "{{count}} na sekundę",
-    "close": "Zamknij ten ekran"
+    "close": "Zamknij ten ekran",
+    "peopleTitle": "Osoby",
+    "peopleIntro": "Popraw adres, nadaj go komuś, kto go nie ma, pomiń kogoś. Na tym etapie nic nie jest wysyłane.",
+    "peopleSearch": "Szukaj osoby",
+    "peopleAll": "Wszystkie",
+    "peopleNoAddress": "Bez adresu",
+    "peopleLeftOut": "Pominięte",
+    "peopleLeaveOut": "Pomiń",
+    "peoplePutBack": "Przywróć",
+    "peopleSkipNote": "Ich wiadomości i tak trafią, bez autora.",
+    "peopleEmailPlaceholder": "adres@przyklad.pl",
+    "peopleShowingSome": "Pokazano {{count}} z {{total}} osób. Zawęź wyszukiwanie, aby zobaczyć resztę.",
+    "invitationsTitle": "Wyślij zaproszenia",
+    "invitationsIntro": "Podczas importu nic nie wyszło. Wybierz, kto dostanie wiadomość: wszyscy, część albo nikt.",
+    "invitationsSelectAll": "Zaznacz wszystko",
+    "invitationsSelectNone": "Odznacz wszystko",
+    "invitationsSend": "Wyślij {{count}} zaproszeń",
+    "invitationsSendOne": "Wyślij jedno zaproszenie",
+    "invitationsNobody": "Nie ma kogo zaprosić: żadne zaimportowane konto nie ma adresu.",
+    "invitationsSent": "Wysłano {{count}} zaproszeń.",
+    "invitationsSkipped": "Niewysłane:"
   }
 }

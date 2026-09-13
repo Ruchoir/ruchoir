@@ -116,7 +116,8 @@
     "delete": "Löschen",
     "create": "Erstellen",
     "retry": "Erneut versuchen",
-    "or": "oder"
+    "or": "oder",
+    "nobodyMatches": "Niemand passt."
   },
   "mfa": {
     "totpTitle": "Bestätigung in zwei Schritten",
@@ -590,7 +591,6 @@
   "dialogs": {
     "channelPlaceholder": "z. B. produkt-launch",
     "writeTo": "Wem möchten Sie schreiben?",
-    "nobodyMatches": "Niemand passt.",
     "accepted": "· angenommen",
     "revoked": "· widerrufen",
     "expired": "· abgelaufen",
@@ -978,6 +978,26 @@
     "etaSeconds": "weniger als eine Minute",
     "etaUnknown": "Dauer wird geschätzt",
     "rate": "{{count}} pro Sekunde",
-    "close": "Diesen Bildschirm schließen"
+    "close": "Diesen Bildschirm schließen",
+    "peopleTitle": "Die Personen",
+    "peopleIntro": "Eine Adresse berichtigen, einer Person ohne Adresse eine geben, jemanden auslassen. In diesem Schritt wird nichts versendet.",
+    "peopleSearch": "Nach einer Person suchen",
+    "peopleAll": "Alle",
+    "peopleNoAddress": "Ohne Adresse",
+    "peopleLeftOut": "Ausgelassen",
+    "peopleLeaveOut": "Auslassen",
+    "peoplePutBack": "Wieder aufnehmen",
+    "peopleSkipNote": "Ihre Nachrichten kommen trotzdem an, ohne Verfasser.",
+    "peopleEmailPlaceholder": "adresse@beispiel.de",
+    "peopleShowingSome": "{{count}} von {{total}} Personen gezeigt. Suche eingrenzen, um die übrigen zu sehen.",
+    "invitationsTitle": "Die Einladungen senden",
+    "invitationsIntro": "Während des Imports ging nichts hinaus. Wählen Sie, wer eine E-Mail bekommt: alle, einige oder niemand.",
+    "invitationsSelectAll": "Alle ankreuzen",
+    "invitationsSelectNone": "Alle abwählen",
+    "invitationsSend": "{{count}} Einladungen senden",
+    "invitationsSendOne": "Eine Einladung senden",
+    "invitationsNobody": "Niemand einzuladen: keines der importierten Konten hat eine Adresse.",
+    "invitationsSent": "{{count}} Einladungen gesendet.",
+    "invitationsSkipped": "Nicht gesendet:"
   }
 }

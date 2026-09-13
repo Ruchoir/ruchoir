@@ -29,6 +29,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/imports/plan", post(preview))
         .route("/api/v1/imports/{id}", get(job))
         .route("/api/v1/imports/{id}/cancel", post(cancel))
+        .route("/api/v1/imports/{id}/invitations", post(invite))
 }
 
 /// An archive an administrator points at, and the passphrase that opens it.
@@ -44,6 +45,12 @@ pub struct ArchiveRequest {
     /// old has been recorded.
     #[serde(default)]
     pub replace_everything: Option<ReplaceRequest>,
+    /// What the administrator changed about the people after reading the plan: an address given to
+    /// somebody the export carried without one, an address corrected, a person left out.
+    ///
+    /// Only the ones that changed. Everyone else arrives as the archive spells them.
+    #[serde(default)]
+    pub people: Vec<super::plan::PersonChoice>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -289,7 +296,10 @@ pub async fn start(
         .map_err(|e| ApiError::BadRequestOwned(e.to_string()))?;
     }
 
-    let job_id = super::run::start_job(&db, &source, admin, None)
+    // Written on to the job, not held in this request: an import resumed tomorrow has to make the
+    // same decisions about the same people as the one that started today.
+    let options = serde_json::json!({ "people": body.people }).to_string();
+    let job_id = super::run::start_job(&db, &source, admin, None, &options)
         .await
         .map_err(|e| ApiError::BadRequestOwned(e.to_string()))?;
 
@@ -481,5 +491,163 @@ async fn ensure_instance_admin(state: &AppState, user_id: Uuid) -> Result<(), Ap
         Ok(())
     } else {
         Err(ApiError::NotFound)
+    }
+}
+
+// --- Invitations -----------------------------------------------------------------------------
+//
+// An import places people. It does not write to any of them: ten thousand accounts arriving is
+// not ten thousand emails leaving, and an administrator who imported a rehearsal at four in the
+// afternoon would otherwise find out by being telephoned. Sending is a separate act, asked for by
+// name, on a list the administrator has read.
+
+/// Who to write to. Source identifiers, as the archive spells them.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct InviteRequest {
+    pub source_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct InviteResponse {
+    /// How many emails the relay accepted.
+    pub sent: usize,
+    /// Who was passed over, and why, in words meant for the administrator.
+    pub skipped: Vec<SkippedInvite>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SkippedInvite {
+    pub source_id: String,
+    pub reason: String,
+}
+
+/// `POST /api/v1/imports/{id}/invitations`: write to the people this import brought over.
+#[utoipa::path(
+    post,
+    path = "/api/v1/imports/{id}/invitations",
+    tag = "import",
+    params(("id" = Uuid, Path, description = "Import job id")),
+    request_body = InviteRequest,
+    responses(
+        (status = 200, description = "What was sent and what was not", body = InviteResponse),
+        (status = 404, description = "Not an administrator of this instance, or no such import")
+    )
+)]
+pub async fn invite(
+    State(state): State<AppState>,
+    session: AuthSession,
+    AxumPath(id): AxumPath<Uuid>,
+    Json(body): Json<InviteRequest>,
+) -> Result<Json<InviteResponse>, ApiError> {
+    ensure_instance_admin(&state, session.user_id).await?;
+    let Some(job) = import_jobs::Entity::find_by_id(id).one(&state.db).await? else {
+        return Err(ApiError::NotFound);
+    };
+
+    // Said once, up front, rather than as a hundred identical failures: an instance with no relay
+    // cannot send anything, and the administrator needs to know that and not a list.
+    if !state.mailer.can_send() {
+        return Err(ApiError::BadRequest(
+            "this instance has no mail relay configured, so no invitation can be sent",
+        ));
+    }
+
+    let mut sent = 0usize;
+    let mut skipped = Vec::new();
+    for source_id in &body.source_ids {
+        match invite_one(&state, &job, source_id, session.user_id).await {
+            Ok(()) => sent += 1,
+            Err(reason) => skipped.push(SkippedInvite {
+                source_id: source_id.clone(),
+                reason,
+            }),
+        }
+    }
+
+    Ok(Json(InviteResponse { sent, skipped }))
+}
+
+/// One invitation, or the reason there is none.
+///
+/// The reasons are returned rather than logged: an administrator looking at "three of two hundred
+/// were not written to" needs to know which three and why, and the answer is usually something
+/// they can fix.
+async fn invite_one(
+    state: &AppState,
+    job: &import_jobs::Model,
+    source_id: &str,
+    inviter: Uuid,
+) -> Result<(), String> {
+    use crate::entities::{space_invitations, space_members};
+    use sea_orm::{ColumnTrait, QueryFilter};
+
+    let mapper = super::run::Mapper::new(job.id, &job.source);
+    let Some(user_id) = mapper
+        .resolve(&state.db, super::run::KIND_USER, source_id, None)
+        .await
+        .map_err(|_| "could not be looked up".to_owned())?
+    else {
+        return Err("was not among the accounts this import created".to_owned());
+    };
+
+    let Some(user) = users::Entity::find_by_id(user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| "could not be looked up".to_owned())?
+    else {
+        return Err("no longer has an account here".to_owned());
+    };
+    if user.email.trim().is_empty() {
+        return Err("has no address".to_owned());
+    }
+
+    // The space they were placed in. An invitation is to a space in this product, and the one they
+    // are already a member of is the one that will mean something when they arrive.
+    let Some(membership) = space_members::Entity::find()
+        .filter(space_members::Column::UserId.eq(user_id))
+        .one(&state.db)
+        .await
+        .map_err(|_| "could not be looked up".to_owned())?
+    else {
+        return Err("was not placed in any space".to_owned());
+    };
+
+    let raw = crate::auth::tokens::generate_token().map_err(|_| "no token".to_owned())?;
+    let now = time::OffsetDateTime::now_utc();
+    space_invitations::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        space_id: Set(membership.space_id),
+        token_hash: Set(crate::auth::tokens::digest(&raw)),
+        email: Set(Some(user.email.clone())),
+        // The role they had where they came from is not carried: an import does not hand out
+        // administration, and a space administrator can raise them afterwards.
+        role: Set("member".to_owned()),
+        created_by: Set(Some(inviter)),
+        max_uses: Set(Some(1)),
+        uses: Set(0),
+        expires_at: Set(Some(now + time::Duration::days(14))),
+        revoked_at: Set(None),
+        created_at: Set(now),
+    }
+    .insert(&state.db)
+    .await
+    .map_err(|_| "the invitation could not be written".to_owned())?;
+
+    let base = state.mailer.base_url.trim_end_matches('/');
+    let url = format!("{base}/invite?token={raw}");
+    if crate::messaging::invitations::send_invitation_email(
+        state,
+        &user.email,
+        membership.space_id,
+        &url,
+        inviter,
+    )
+    .await
+    {
+        Ok(())
+    } else {
+        // The invitation exists and can still be handed over by hand, which is why this is a
+        // reason and not a rollback.
+        Err("the relay refused the message; the invitation is waiting on the space".to_owned())
     }
 }

@@ -177,7 +177,7 @@ export function NewMessageDialog({
             </button>
           ))}
           {rows.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>{t("dialogs.nobodyMatches")}</p>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>{t("common.nobodyMatches")}</p>
           ) : null}
         </div>
       </div>

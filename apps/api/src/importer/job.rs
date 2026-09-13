@@ -72,7 +72,7 @@ pub async fn execute<S: BlobSink>(
     let existing = existing_state(db).await?;
     let plan: Plan = plan::build(&index, &existing);
 
-    let job_id = run::start_job(db, &source, admin, None).await?;
+    let job_id = run::start_job(db, &source, admin, None, "{}").await?;
     run_passes(db, storage, archive, passphrase, admin, job_id, index, plan).await
 }
 
@@ -112,13 +112,26 @@ async fn run_passes<S: BlobSink>(
     admin: Uuid,
     job_id: Uuid,
     index: super::archive::Index,
-    plan: Plan,
+    mut plan: Plan,
 ) -> Result<Outcome, RunError> {
     let source = index
         .manifest
         .as_ref()
         .map(|manifest| manifest.source.clone())
         .unwrap_or_default();
+    // What the administrator decided about the people, read back off the job rather than passed
+    // in: a resumed run has only the job to go on.
+    let choices: Vec<plan::PersonChoice> = import_jobs::Entity::find_by_id(job_id)
+        .one(db)
+        .await?
+        .and_then(|job| serde_json::from_str::<serde_json::Value>(&job.options).ok())
+        .and_then(|options| serde_json::from_value(options.get("people")?.clone()).ok())
+        .unwrap_or_default();
+    if !choices.is_empty() {
+        let existing = existing_state(db).await?;
+        plan::apply_choices(&mut plan, &choices, &existing);
+    }
+
     let mapper = Mapper::new(job_id, &source);
     // Read once, in one query, rather than asked for a row at a time by every pass that follows.
     let known = mapper.preload(db).await?;

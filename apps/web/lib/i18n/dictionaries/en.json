@@ -116,7 +116,8 @@
     "delete": "Delete",
     "create": "Create",
     "retry": "Try again",
-    "or": "or"
+    "or": "or",
+    "nobodyMatches": "Nobody matches."
   },
   "mfa": {
     "totpTitle": "Two-step verification",
@@ -590,7 +591,6 @@
   "dialogs": {
     "channelPlaceholder": "e.g. product-launch",
     "writeTo": "Who do you want to write to?",
-    "nobodyMatches": "Nobody matches.",
     "accepted": "· accepted",
     "revoked": "· revoked",
     "expired": "· expired",
@@ -978,6 +978,26 @@
     "etaSeconds": "less than a minute",
     "etaUnknown": "working out how long",
     "rate": "{{count}} per second",
-    "close": "Close this screen"
+    "close": "Close this screen",
+    "peopleTitle": "The people",
+    "peopleIntro": "Correct an address, give one to somebody who has none, leave somebody out. Nothing is sent at this stage.",
+    "peopleSearch": "Search for a person",
+    "peopleAll": "All",
+    "peopleNoAddress": "Without an address",
+    "peopleLeftOut": "Left out",
+    "peopleLeaveOut": "Leave out",
+    "peoplePutBack": "Put back",
+    "peopleSkipNote": "Their messages still arrive, with no author.",
+    "peopleEmailPlaceholder": "address@example.com",
+    "peopleShowingSome": "Showing {{count}} of {{total}} people. Narrow the search to see the rest.",
+    "invitationsTitle": "Send the invitations",
+    "invitationsIntro": "Nothing went out during the import. Choose who gets an email: everyone, some of them, or nobody.",
+    "invitationsSelectAll": "Tick all",
+    "invitationsSelectNone": "Untick all",
+    "invitationsSend": "Send {{count}} invitations",
+    "invitationsSendOne": "Send one invitation",
+    "invitationsNobody": "Nobody to invite: none of the imported accounts has an address.",
+    "invitationsSent": "{{count}} invitations sent.",
+    "invitationsSkipped": "Not sent:"
   }
 }

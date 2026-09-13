@@ -7,6 +7,9 @@ import {
   getImport,
   type ImportJob,
   type ImportPlan,
+  inviteImported,
+  type InviteOutcome,
+  type PersonChoice,
   planImport,
   startImport,
 } from "@/lib/data/api";
@@ -78,6 +81,7 @@ const st: Record<string, CSSProperties> = {
   figureLabel: { fontSize: 12, color: "var(--text-muted)", marginTop: 2 },
 
   spaceRow: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0" },
+  personRow: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", flexWrap: "wrap" },
   spaceName: { fontSize: 13, fontWeight: 500, color: "var(--text-strong)" },
   spaceSub: { fontSize: 12, color: "var(--text-muted)", marginTop: 2 },
 
@@ -155,6 +159,15 @@ function Steps({ at }: { at: 1 | 2 | 3 }) {
 /** How often a running import is asked where it has got to. */
 const POLL_MS = 2000;
 
+/**
+ * How many people are drawn at once.
+ *
+ * A migration brings hundreds, and every row here carries a text field: drawing them all makes a
+ * page nobody scrolls through and a browser that stutters while typing in it. The search narrows,
+ * and the line underneath says plainly that there are more.
+ */
+const PEOPLE_SHOWN = 60;
+
 export function ImportScreen({
   onClose,
   onNotify,
@@ -177,14 +190,30 @@ export function ImportScreen({
   const [typedAddress, setTypedAddress] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /**
-   * The first reading of this run, kept so the remaining time is worked out from how fast it is
-   * actually going rather than from an average that includes the minute before anything started:
-   * the archive is read, checked, and its accounts and conversations written before a single
-   * message lands, and folding that silence in would promise an hour on a ten minute job.
+   * The first reading of each pass, kept so its remaining time is worked out from how fast that
+   * pass is actually going.
+   *
+   * Per pass and not for the run as a whole: the four do quite different work at quite different
+   * speeds, and an average over all of them would say nothing true about any. Measured from the
+   * pass's own first row rather than from the button, because the archive is read and checked
+   * before anything lands and folding that silence in would promise an hour on a ten minute job.
    */
-  const [pace, setPace] = useState<{ at: number; done: number } | null>(null);
-  /** How long is left, in words. Worked out when a reading arrives, never during a render. */
-  const [eta, setEta] = useState<string | null>(null);
+  /**
+   * What the administrator changed about the people, keyed by the identifier the archive uses.
+   *
+   * Only the ones they touched. Everybody else travels as the export spells them, and sending two
+   * hundred and fifty unchanged rows back would make a decision out of an absence.
+   */
+  const [choices, setChoices] = useState<Record<string, PersonChoice>>({});
+  const [search, setSearch] = useState("");
+  const [only, setOnly] = useState<"all" | "no-address" | "left-out">("all");
+  /** Who gets written to once the import is done. Chosen, never assumed. */
+  const [invitees, setInvitees] = useState<Set<string>>(new Set());
+  const [invited, setInvited] = useState<InviteOutcome | null>(null);
+  const [inviting, setInviting] = useState(false);
+  const [paces, setPaces] = useState<Record<string, { at: number; done: number }>>({});
+  /** How long each pass has left, in words. Worked out when a reading arrives, never in a render. */
+  const [etas, setEtas] = useState<Record<string, string>>({});
 
   const fail = useCallback(
     (error: unknown) => {
@@ -203,31 +232,45 @@ export function ImportScreen({
         .then((next) => {
           setJob(next);
           const now = Date.now();
-          const from = pace ?? (next.messagesDone > 0 ? { at: now, done: next.messagesDone } : null);
-          if (!pace && from) setPace(from);
-          if (!from || next.messagesTotal === 0) return;
-          const elapsed = (now - from.at) / 1000;
-          const written = next.messagesDone - from.done;
-          // Four seconds and one message before saying anything: an estimate drawn from a single
-          // reading is a number invented, and a wrong one is worse than none.
-          if (elapsed <= 4 || written <= 0) {
-            setEta(t(key("import.etaUnknown")));
-            return;
+          const seen: Record<string, { at: number; done: number }> = { ...paces };
+          const words: Record<string, string> = {};
+          for (const [name, done, total] of [
+            ["accounts", next.accountsDone, next.accountsTotal],
+            ["conversations", next.channelsDone, next.channelsTotal],
+            ["messages", next.messagesDone, next.messagesTotal],
+            ["files", next.filesDone, next.filesTotal],
+          ] as const) {
+            // A pass that has not started, or has finished, has nothing to say about itself.
+            if (total === 0 || done === 0 || done >= total) continue;
+            const from = seen[name] ?? { at: now, done };
+            seen[name] = from;
+            const elapsed = (now - from.at) / 1000;
+            const written = done - from.done;
+            // Four seconds and one row before saying anything: an estimate drawn from a single
+            // reading is a number invented, and a wrong one is worse than none.
+            if (elapsed <= 4 || written <= 0) {
+              words[name] = t(key("import.etaUnknown"));
+              continue;
+            }
+            const perSecond = written / elapsed;
+            const left = Math.max(0, total - done) / perSecond;
+            const remaining =
+              left < 60
+                ? t(key("import.etaSeconds"))
+                : t(key("import.etaMinutes"), { count: Math.round(left / 60) });
+            words[name] = `${remaining} · ${t(key("import.rate"), {
+              count: Math.max(1, Math.round(perSecond)),
+            })}`;
           }
-          const perSecond = written / elapsed;
-          const left = Math.max(0, next.messagesTotal - next.messagesDone) / perSecond;
-          const words =
-            left < 60
-              ? t(key("import.etaSeconds"))
-              : t(key("import.etaMinutes"), { count: Math.round(left / 60) });
-          setEta(`${words} · ${t(key("import.rate"), { count: Math.round(perSecond) })}`);
+          setPaces(seen);
+          setEtas(words);
         })
         .catch(fail);
     }, POLL_MS);
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [job, fail, pace, t]);
+  }, [job, fail, paces, t]);
 
   const look = async () => {
     setBusy(true);
@@ -247,7 +290,14 @@ export function ImportScreen({
   const begin = async () => {
     setBusy(true);
     try {
-      setJob(await startImport(file.trim(), passphrase || undefined, replace ? typedAddress : undefined));
+      setJob(
+        await startImport(
+          file.trim(),
+          passphrase || undefined,
+          replace ? typedAddress : undefined,
+          Object.values(choices),
+        ),
+      );
       // The passphrase is not kept a moment longer than the request that used it.
       setPassphrase("");
     } catch (error) {
@@ -272,14 +322,54 @@ export function ImportScreen({
   };
 
   const startOver = () => {
-    setPace(null);
-    setEta(null);
+    setChoices({});
+    setInvitees(new Set());
+    setInvited(null);
+    setPaces({});
+    setEtas({});
     setStopping(false);
     setJob(null);
     setPlan(null);
     setPlanError(null);
     setReplace(false);
     setTypedAddress("");
+  };
+
+  const addressOf = (person: { sourceId: string; email: string }) =>
+    choices[person.sourceId]?.email ?? person.email;
+  const leftOut = (sourceId: string) => choices[sourceId]?.skip === true;
+  const decide = (sourceId: string, patch: Partial<PersonChoice>) =>
+    setChoices((was) => ({ ...was, [sourceId]: { ...was[sourceId], sourceId, ...patch } }));
+
+  const people = plan?.accounts.people ?? [];
+  const needle = search.trim().toLowerCase();
+  const shown = people.filter((person) => {
+    if (only === "no-address" && addressOf(person).trim()) return false;
+    if (only === "left-out" && !leftOut(person.sourceId)) return false;
+    if (!needle) return true;
+    return (
+      person.displayName.toLowerCase().includes(needle) ||
+      addressOf(person).toLowerCase().includes(needle)
+    );
+  });
+
+  /** Who can be written to: an address, and not left out of the import. */
+  const invitable = people.filter(
+    (person) => addressOf(person).trim() !== "" && !leftOut(person.sourceId),
+  );
+  const nameOf = (sourceId: string) =>
+    people.find((person) => person.sourceId === sourceId)?.displayName ?? sourceId;
+
+  const send = async () => {
+    if (!job) return;
+    setInviting(true);
+    try {
+      setInvited(await inviteImported(job.id, [...invitees]));
+    } catch (error) {
+      fail(error);
+    } finally {
+      setInviting(false);
+    }
   };
 
   const running = job?.status === "running" || job?.status === "cancelling";
@@ -446,6 +536,91 @@ export function ImportScreen({
                 ) : null}
               </div>
 
+              {/* The people themselves, because a count is not a list and the decisions that
+                  matter here are about individuals: this person's address is wrong, that one has
+                  none, this one left the company two years ago. */}
+              {people.length > 0 ? (
+                <div style={st.section}>
+                  <h2 style={st.h2}>{t(key("import.peopleTitle"))}</h2>
+                  <p style={{ ...st.note, margin: "0 0 10px" }}>{t(key("import.peopleIntro"))}</p>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
+                    <Input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder={t(key("import.peopleSearch"))}
+                      icon="search"
+                      style={{ maxWidth: 260 }}
+                    />
+                    {/* Written out rather than built from the value: a key assembled at runtime is
+                        a key nobody can find again. */}
+                    <Button size="sm" variant={only === "all" ? "primary" : "secondary"} onClick={() => setOnly("all")}>
+                      {t(key("import.peopleAll"))}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={only === "no-address" ? "primary" : "secondary"}
+                      onClick={() => setOnly("no-address")}
+                    >
+                      {t(key("import.peopleNoAddress"))}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={only === "left-out" ? "primary" : "secondary"}
+                      onClick={() => setOnly("left-out")}
+                    >
+                      {t(key("import.peopleLeftOut"))}
+                    </Button>
+                  </div>
+
+                  <Card padded>
+                    {shown.length === 0 ? (
+                      <p style={{ ...st.note, margin: 0 }}>{t("common.nobodyMatches")}</p>
+                    ) : null}
+                    {shown.slice(0, PEOPLE_SHOWN).map((person, i) => {
+                      const out = leftOut(person.sourceId);
+                      return (
+                        <div
+                          key={person.sourceId}
+                          style={{
+                            ...st.personRow,
+                            borderTop: i > 0 ? "1px solid var(--border-subtle)" : undefined,
+                            opacity: out ? 0.55 : 1,
+                          }}
+                        >
+                          <span style={{ ...st.spaceName, flex: "1 1 160px", minWidth: 0 }}>
+                            {person.displayName}
+                          </span>
+                          <Input
+                            value={addressOf(person)}
+                            onChange={(e) => decide(person.sourceId, { email: e.target.value })}
+                            placeholder={t(key("import.peopleEmailPlaceholder"))}
+                            disabled={out}
+                            autoComplete="off"
+                            style={{ flex: "1 1 220px" }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => decide(person.sourceId, { skip: !out })}
+                          >
+                            {out ? t(key("import.peoplePutBack")) : t(key("import.peopleLeaveOut"))}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    {shown.length > PEOPLE_SHOWN ? (
+                      <p style={{ ...st.note, marginTop: 10 }}>
+                        {t(key("import.peopleShowingSome"), {
+                          count: PEOPLE_SHOWN,
+                          total: shown.length,
+                        })}
+                      </p>
+                    ) : null}
+                  </Card>
+                  <p style={st.note}>{t(key("import.peopleSkipNote"))}</p>
+                </div>
+              ) : null}
+
               {/* In the producer's own words, in full. Summarising a declared loss is another way
                   of hiding it. */}
               <div style={st.section}>
@@ -582,24 +757,133 @@ export function ImportScreen({
                           : t(key("import.failedTitle"))}
                   </Tag>
                 </div>
-                <Progress label={t(key("import.accounts"))} done={job.accountsDone} total={job.accountsTotal} />
+                <Progress
+                  label={t(key("import.accounts"))}
+                  done={job.accountsDone}
+                  total={job.accountsTotal}
+                  aside={running ? etas.accounts : undefined}
+                />
                 <Progress
                   label={t(key("import.conversations"))}
                   done={job.channelsDone}
                   total={job.channelsTotal}
+                  aside={running ? etas.conversations : undefined}
                 />
                 <Progress
                   label={t(key("import.messages"))}
                   done={job.messagesDone}
                   total={job.messagesTotal}
-                  aside={running ? eta : undefined}
+                  aside={running ? etas.messages : undefined}
                 />
-                <Progress label={t(key("import.files"))} done={job.filesDone} total={job.filesTotal} />
+                <Progress
+                  label={t(key("import.files"))}
+                  done={job.filesDone}
+                  total={job.filesTotal}
+                  aside={running ? etas.files : undefined}
+                />
               </Card>
 
               {job.error ? (
                 <div style={{ marginTop: 12 }}>
                   <Callout tone="danger" icon="alert-triangle">{job.error}</Callout>
+                </div>
+              ) : null}
+
+              {/* Once it is done, and only then, the question of who hears about it. Nothing left
+                  during the import: ten thousand accounts arriving is not ten thousand emails
+                  leaving, and somebody has to say who. */}
+              {!running && job.status === "completed" ? (
+                <div style={st.section}>
+                  <h2 style={st.h2}>{t(key("import.invitationsTitle"))}</h2>
+                  <p style={{ ...st.note, margin: "0 0 10px" }}>{t(key("import.invitationsIntro"))}</p>
+                  {/* Said rather than left blank: an administrator who expected to send
+                      invitations and finds nothing here needs to know why. */}
+                  {invitable.length === 0 ? (
+                    <Callout tone="warning" icon="alert-triangle">
+                      {t(key("import.invitationsNobody"))}
+                    </Callout>
+                  ) : (
+                  <Card padded>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                      <Button
+                        size="sm"
+                        onClick={() => setInvitees(new Set(invitable.map((p) => p.sourceId)))}
+                      >
+                        {t(key("import.invitationsSelectAll"))}
+                      </Button>
+                      <Button size="sm" onClick={() => setInvitees(new Set())}>
+                        {t(key("import.invitationsSelectNone"))}
+                      </Button>
+                    </div>
+                    {invitable.slice(0, PEOPLE_SHOWN).map((person, i) => (
+                      <div
+                        key={person.sourceId}
+                        style={{
+                          ...st.personRow,
+                          borderTop: i > 0 ? "1px solid var(--border-subtle)" : undefined,
+                        }}
+                      >
+                        <Checkbox
+                          checked={invitees.has(person.sourceId)}
+                          onChange={(e) =>
+                            setInvitees((was) => {
+                              const next = new Set(was);
+                              if (e.target.checked) next.add(person.sourceId);
+                              else next.delete(person.sourceId);
+                              return next;
+                            })
+                          }
+                          label={person.displayName}
+                        />
+                        <span style={{ ...st.note, margin: 0, marginLeft: "auto" }}>
+                          {addressOf(person)}
+                        </span>
+                      </div>
+                    ))}
+                    {invitable.length > PEOPLE_SHOWN ? (
+                      <p style={{ ...st.note, marginTop: 10 }}>
+                        {t(key("import.peopleShowingSome"), {
+                          count: PEOPLE_SHOWN,
+                          total: invitable.length,
+                        })}
+                      </p>
+                    ) : null}
+                  </Card>
+                  )}
+                  {invitable.length > 0 ? (
+                  <div style={{ marginTop: 12 }}>
+                    <Button
+                      variant="primary"
+                      iconLeft="send"
+                      onClick={send}
+                      loading={inviting}
+                      disabled={invitees.size === 0}
+                    >
+                      {invitees.size === 1
+                        ? t(key("import.invitationsSendOne"))
+                        : t(key("import.invitationsSend"), { count: invitees.size })}
+                    </Button>
+                  </div>
+                  ) : null}
+                  {invited ? (
+                    <div style={{ marginTop: 12 }}>
+                      <Callout tone={invited.skipped.length > 0 ? "warning" : "info"} icon="info">
+                        {t(key("import.invitationsSent"), { count: invited.sent })}
+                        {invited.skipped.length > 0 ? (
+                          <>
+                            <div style={{ marginTop: 6 }}>{t(key("import.invitationsSkipped"))}</div>
+                            <ul style={st.list}>
+                              {invited.skipped.map((one) => (
+                                <li key={one.sourceId}>
+                                  {nameOf(one.sourceId)} : {one.reason}
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        ) : null}
+                      </Callout>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 

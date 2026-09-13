@@ -116,7 +116,8 @@
     "delete": "Supprimer",
     "create": "Créer",
     "retry": "Réessayer",
-    "or": "ou"
+    "or": "ou",
+    "nobodyMatches": "Personne ne correspond."
   },
   "mfa": {
     "totpTitle": "Vérification en deux étapes",
@@ -590,7 +591,6 @@
   "dialogs": {
     "channelPlaceholder": "ex. lancement-produit",
     "writeTo": "À qui souhaitez-vous écrire ?",
-    "nobodyMatches": "Personne ne correspond.",
     "accepted": "· acceptée",
     "revoked": "· révoquée",
     "expired": "· expirée",
@@ -978,6 +978,26 @@
     "etaSeconds": "moins d'une minute",
     "etaUnknown": "estimation en cours",
     "rate": "{{count}} par seconde",
-    "close": "Fermer cet écran"
+    "close": "Fermer cet écran",
+    "peopleTitle": "Les personnes",
+    "peopleIntro": "Corrigez une adresse, donnez-en une à qui n'en a pas, laissez quelqu'un de côté. Rien n'est envoyé à ce stade.",
+    "peopleSearch": "Chercher une personne",
+    "peopleAll": "Toutes",
+    "peopleNoAddress": "Sans adresse",
+    "peopleLeftOut": "Laissées de côté",
+    "peopleLeaveOut": "Laisser de côté",
+    "peoplePutBack": "Remettre",
+    "peopleSkipNote": "Leurs messages arrivent quand même, sans auteur.",
+    "peopleEmailPlaceholder": "adresse@exemple.fr",
+    "peopleShowingSome": "{{count}} personnes affichées sur {{total}}. Affinez la recherche pour voir les autres.",
+    "invitationsTitle": "Envoyer les invitations",
+    "invitationsIntro": "Rien n'est parti pendant l'import. Choisissez qui reçoit un courriel : tout le monde, une partie, ou personne.",
+    "invitationsSelectAll": "Tout cocher",
+    "invitationsSelectNone": "Tout décocher",
+    "invitationsSend": "Envoyer {{count}} invitations",
+    "invitationsSendOne": "Envoyer une invitation",
+    "invitationsNobody": "Personne à inviter : aucun compte importé n'a d'adresse.",
+    "invitationsSent": "{{count}} invitations envoyées.",
+    "invitationsSkipped": "Non envoyées :"
   }
 }

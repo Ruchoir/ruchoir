@@ -3726,7 +3726,7 @@ async fn an_unknown_account_arrives_waiting_for_its_person() {
     let index = import_index(vec![source_user(&unique_ref("alice"), &email)], vec![]);
     let plan = plan::build(&index, &Existing::default());
 
-    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
         .await
         .expect("job");
     let mapper = Mapper::new(job, "mattermost");
@@ -3767,7 +3767,7 @@ async fn an_address_already_here_is_the_same_person_and_is_left_alone() {
         },
     );
 
-    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
         .await
         .expect("job");
     let mapper = Mapper::new(job, "mattermost");
@@ -3806,7 +3806,7 @@ async fn an_account_with_no_address_still_arrives_and_can_be_told_apart() {
     );
     let plan = plan::build(&index, &Existing::default());
 
-    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
         .await
         .expect("job");
     let mapper = Mapper::new(job, "mattermost");
@@ -3843,7 +3843,7 @@ async fn running_the_same_import_twice_creates_nothing_twice() {
     );
     let plan = plan::build(&index, &Existing::default());
 
-    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
         .await
         .expect("job");
     let mapper = Mapper::new(job, "mattermost");
@@ -3905,7 +3905,7 @@ async fn a_created_space_belongs_to_the_administrator_who_imported_it() {
     let name = format!("Reprise {}", Uuid::new_v4().simple());
     let index = import_index(vec![], vec![source_space(&unique_ref("atelier"), &name)]);
 
-    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
         .await
         .expect("job");
     let mapper = Mapper::new(job, "mattermost");
@@ -3950,7 +3950,7 @@ async fn a_space_that_already_carries_the_name_is_filled_rather_than_duplicated(
     existing.update(&app.db).await.expect("rename");
     let index = import_index(vec![], vec![source_space(&unique_ref("atelier"), &name)]);
 
-    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
         .await
         .expect("job");
     let mapper = Mapper::new(job, "mattermost");
@@ -3982,7 +3982,7 @@ async fn closing_a_job_records_what_it_brought_in() {
     );
     let plan = plan::build(&index, &Existing::default());
 
-    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
         .await
         .expect("job");
     let mapper = Mapper::new(job, "mattermost");
@@ -4017,7 +4017,7 @@ async fn import_up_to_conversations(
     index: &Index,
 ) -> (Uuid, Vec<(String, Uuid)>) {
     let plan = plan::build(index, &Existing::default());
-    let job = run::start_job(&app.db, "mattermost", admin, None)
+    let job = run::start_job(&app.db, "mattermost", admin, None, "{}")
         .await
         .expect("job");
     let mapper = Mapper::new(job, "mattermost");
@@ -4274,6 +4274,127 @@ async fn importing_the_conversations_twice_creates_nothing_twice() {
     );
 }
 
+/// An administrator can give an address to somebody the export carried without one.
+///
+/// The common case on a real migration: the source had no address for a person, so nothing could
+/// be matched and no invitation could be sent, and the administrator is the only one who knows who
+/// they are. The account is created with the address they typed.
+#[tokio::test]
+async fn an_address_given_by_hand_reaches_the_account_that_is_created() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let index = import_index(vec![source_user(&person, "")], vec![]);
+
+    let existing = Existing::default();
+    let mut plan = plan::build(&index, &existing);
+    let given = format!("{person}@given-by-hand.test");
+    plan::apply_choices(
+        &mut plan,
+        &[plan::PersonChoice {
+            source_id: person.clone(),
+            email: Some(given.clone()),
+            skip: false,
+        }],
+        &existing,
+    );
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+
+    let user_id = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("resolve")
+        .expect("the account should have been created");
+    let user = crate::entities::users::Entity::find_by_id(user_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("account");
+    assert_eq!(user.email, given);
+}
+
+/// Somebody left out gets no account, and their messages arrive anyway.
+///
+/// The decision is about people, not about text: dropping what they wrote as well would be the
+/// silent loss this whole chain exists to prevent, and the interface already draws a message whose
+/// author is absent.
+#[tokio::test]
+async fn somebody_left_out_gets_no_account_and_their_messages_still_arrive() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = write_archive(
+        &[json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()),
+                 "visibility": "private"})],
+        &[json!({"id": person, "email": format!("{person}@example.test"),
+                 "display_name": "Alice", "active": true})],
+        &[json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]})],
+        &[message_row("m1", &channel_ref, Some(&person), "ce que j'ai écrit reste")],
+    );
+
+    let index = crate::importer::archive::index(&dir, None).expect("index");
+    let existing = Existing::default();
+    let mut plan = plan::build(&index, &existing);
+    plan::apply_choices(
+        &mut plan,
+        &[plan::PersonChoice {
+            source_id: person.clone(),
+            email: None,
+            skip: true,
+        }],
+        &existing,
+    );
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+    run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice)
+        .await
+        .expect("conversations");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    assert!(
+        mapper
+            .resolve(&app.db, KIND_USER, &person, None)
+            .await
+            .expect("resolve")
+            .is_none(),
+        "no account should have been created for somebody left out"
+    );
+
+    let message_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "m1", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("the message should have arrived");
+    let message = crate::entities::messages::Entity::find_by_id(message_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("message");
+    assert_eq!(message.body, "ce que j'ai écrit reste");
+    assert!(message.author_id.is_none(), "it arrives with no author");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
 #[tokio::test]
 async fn a_member_whose_account_was_skipped_is_left_out_rather_than_invented() {
     let Some(app) = boot().await else { return };
@@ -4389,7 +4510,7 @@ async fn import_from_archive(
 ) -> (Uuid, Vec<(String, Uuid)>) {
     let index = crate::importer::archive::index(dir, None).expect("index");
     let plan = plan::build(&index, &Existing::default());
-    let job = run::start_job(&app.db, "mattermost", admin, None)
+    let job = run::start_job(&app.db, "mattermost", admin, None, "{}")
         .await
         .expect("job");
     let mapper = Mapper::new(job, "mattermost");

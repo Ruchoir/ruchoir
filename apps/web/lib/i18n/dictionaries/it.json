@@ -116,7 +116,8 @@
     "delete": "Elimina",
     "create": "Crea",
     "retry": "Riprova",
-    "or": "oppure"
+    "or": "oppure",
+    "nobodyMatches": "Nessuna corrispondenza."
   },
   "mfa": {
     "totpTitle": "Verifica in due passaggi",
@@ -600,7 +601,6 @@
   "dialogs": {
     "channelPlaceholder": "es. lancio-prodotto",
     "writeTo": "A chi vuoi scrivere?",
-    "nobodyMatches": "Nessuna corrispondenza.",
     "accepted": "· accettato",
     "revoked": "· revocato",
     "expired": "· scaduto",
@@ -994,6 +994,26 @@
     "etaSeconds": "meno di un minuto",
     "etaUnknown": "stima in corso",
     "rate": "{{count}} al secondo",
-    "close": "Chiudi questa schermata"
+    "close": "Chiudi questa schermata",
+    "peopleTitle": "Le persone",
+    "peopleIntro": "Correggi un indirizzo, dallo a chi non ne ha, lascia fuori qualcuno. In questa fase non viene inviato nulla.",
+    "peopleSearch": "Cerca una persona",
+    "peopleAll": "Tutte",
+    "peopleNoAddress": "Senza indirizzo",
+    "peopleLeftOut": "Lasciate fuori",
+    "peopleLeaveOut": "Lascia fuori",
+    "peoplePutBack": "Rimetti",
+    "peopleSkipNote": "I loro messaggi arrivano comunque, senza autore.",
+    "peopleEmailPlaceholder": "indirizzo@esempio.it",
+    "peopleShowingSome": "Mostrate {{count}} persone su {{total}}. Restringi la ricerca per vedere le altre.",
+    "invitationsTitle": "Inviare gli inviti",
+    "invitationsIntro": "Durante l'importazione non è partito nulla. Scegli chi riceve un'email: tutti, una parte o nessuno.",
+    "invitationsSelectAll": "Spunta tutto",
+    "invitationsSelectNone": "Togli tutto",
+    "invitationsSend": "Invia {{count}} inviti",
+    "invitationsSendOne": "Invia un invito",
+    "invitationsNobody": "Nessuno da invitare: nessun account importato ha un indirizzo.",
+    "invitationsSent": "{{count}} inviti inviati.",
+    "invitationsSkipped": "Non inviati:"
   }
 }
