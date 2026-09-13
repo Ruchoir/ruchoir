@@ -42,8 +42,8 @@ use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
 use crate::entities::{
     channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
-    files, import_mappings, message_reactions, messages, space_invitations, space_members, spaces,
-    user_saved_messages, users,
+    files, import_mappings, message_reactions, messages, read_cursors, space_invitations,
+    space_members, spaces, user_saved_messages, users,
 };
 use crate::state::AppState;
 
@@ -4744,5 +4744,224 @@ async fn importing_the_messages_twice_writes_them_once() {
         1
     );
 
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+// --- Where everyone had read up to ---------------------------------------------------------------
+
+/// An archive with one channel, two messages and a per-member state, written to disk.
+fn archive_with_positions(
+    person: &str,
+    space_ref: &str,
+    channel_ref: &str,
+    state: Value,
+) -> std::path::PathBuf {
+    let mut channel = json!({
+        "id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+        "visibility": "public", "archived": false, "members": [person],
+    });
+    channel["member_state"] = json!([state]);
+
+    let mut older = message_row("older", channel_ref, Some(person), "le premier");
+    older["sent_at"] = json!("2024-03-05T08:00:00Z");
+    let mut newer = message_row("newer", channel_ref, Some(person), "le dernier");
+    newer["sent_at"] = json!("2024-03-05T09:00:00Z");
+
+    write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[channel],
+        &[older, newer],
+    )
+}
+
+async fn import_everything(
+    app: &TestApp,
+    admin: Uuid,
+    dir: &std::path::Path,
+) -> (Uuid, Vec<(String, Uuid)>) {
+    let (job, spaces) = import_from_archive(app, admin, dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_messages(&app.db, &mapper, dir, None, &spaces)
+        .await
+        .expect("messages");
+    let index = crate::importer::archive::index(dir, None).expect("index");
+    run::import_read_positions(&app.db, &mapper, &index, &spaces)
+        .await
+        .expect("positions");
+    (job, spaces)
+}
+
+async fn cursor_of(app: &TestApp, conversation: Uuid, user: Uuid) -> Option<Uuid> {
+    read_cursors::Entity::find_by_id((conversation, user))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .and_then(|cursor| cursor.last_read_message_id)
+}
+
+#[tokio::test]
+async fn a_position_naming_a_message_lands_on_that_message() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "read_message": "older"}),
+    );
+
+    let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+    let older = mapper
+        .resolve(&app.db, KIND_MESSAGE, "older", Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("m");
+
+    assert_eq!(cursor_of(&app, conversation, user).await, Some(older));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_position_that_only_knows_a_moment_lands_on_the_last_message_before_it() {
+    // Mattermost knows an instant, not a message. The closest true statement is the last message
+    // sent at or before it.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "read_at": "2024-03-05T08:30:00Z"}),
+    );
+
+    let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+    let older = mapper
+        .resolve(&app.db, KIND_MESSAGE, "older", Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("m");
+    let newer = mapper
+        .resolve(&app.db, KIND_MESSAGE, "newer", Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("m");
+
+    let cursor = cursor_of(&app, conversation, user).await;
+    assert_eq!(
+        cursor,
+        Some(older),
+        "the one before the moment, not the one after"
+    );
+    assert_ne!(cursor, Some(newer));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_position_on_a_message_that_did_not_cross_falls_back_rather_than_vanishing() {
+    // Declaring months of history unread because one identifier is missing is worse than being
+    // slightly early.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "read_message": "a-message-left-behind"}),
+    );
+
+    let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+
+    assert!(cursor_of(&app, conversation, user).await.is_some());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_favourite_alone_leaves_no_reading_position() {
+    // Somebody who marked a channel as a favourite and never read it has no position to restore,
+    // and inventing one would mark their history read on their behalf.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "favorite": true}),
+    );
+
+    let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+
+    assert!(cursor_of(&app, conversation, user).await.is_none());
     std::fs::remove_dir_all(&dir).ok();
 }

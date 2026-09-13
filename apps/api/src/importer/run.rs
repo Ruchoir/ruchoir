@@ -13,13 +13,14 @@
 use sea_orm::ActiveValue::{NotSet, Set};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder,
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::entities::{
     channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
-    import_jobs, import_mappings, message_reactions, messages, space_members, spaces,
+    import_jobs, import_mappings, message_reactions, messages, read_cursors, space_members, spaces,
     user_saved_messages, users,
 };
 
@@ -40,6 +41,7 @@ pub struct Written {
     pub memberships: usize,
     pub conversations_created: usize,
     pub messages_created: usize,
+    pub read_positions: usize,
 }
 
 #[derive(Debug)]
@@ -773,4 +775,105 @@ fn parse_instant(value: &str) -> OffsetDateTime {
     )
     .map(|parsed| parsed.assume_utc())
     .unwrap_or_else(|_| OffsetDateTime::now_utc())
+}
+
+/// Puts everyone back where they had read up to.
+///
+/// Small, and the sort of thing a migrating team notices on the first morning: without it every
+/// conversation opens screaming with months of unread history, and the first thing anybody does is
+/// mark everything read, which throws away the one piece of state that made the workspace theirs.
+///
+/// A source spells the position in whichever way it holds it. Nextcloud names the last message
+/// read, which needs no guessing. Mattermost only knows a moment, so the position becomes the last
+/// message sent at or before it: the closest true statement a timestamp allows.
+///
+/// A position naming a message that never crossed is moved back to the nearest one we hold. Marking
+/// a whole conversation unread over one missing identifier would be worse than being slightly
+/// early.
+pub async fn import_read_positions<C: ConnectionTrait>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    index: &Index,
+    spaces_by_source: &[(String, Uuid)],
+) -> Result<Written> {
+    let mut written = Written::default();
+
+    for channel in &index.channels {
+        let Some((_, space_id)) = spaces_by_source.iter().find(|(id, _)| id == &channel.space)
+        else {
+            continue;
+        };
+        let Some(conversation_id) = mapper
+            .resolve(db, KIND_CHANNEL, &channel.id, Some(*space_id))
+            .await?
+        else {
+            continue;
+        };
+
+        for state in &channel.member_state {
+            let Some(user_id) = mapper.resolve(db, KIND_USER, &state.user, None).await? else {
+                continue;
+            };
+
+            let last_read = match (&state.read_message, &state.read_at) {
+                (Some(source_id), _) => {
+                    match mapper
+                        .resolve(db, KIND_MESSAGE, source_id, Some(*space_id))
+                        .await?
+                    {
+                        Some(message_id) => Some(message_id),
+                        // The message did not cross: fall back to the moment it was sent, which we
+                        // do not have either, so to the last message in the conversation. Being
+                        // slightly early beats declaring months of history unread.
+                        None => last_message_before(db, conversation_id, None).await?,
+                    }
+                }
+                (None, Some(moment)) => {
+                    last_message_before(db, conversation_id, Some(parse_instant(moment))).await?
+                }
+                (None, None) => continue,
+            };
+
+            if last_read.is_none() {
+                continue;
+            }
+            if read_cursors::Entity::find_by_id((conversation_id, user_id))
+                .one(db)
+                .await?
+                .is_some()
+            {
+                continue;
+            }
+
+            read_cursors::ActiveModel {
+                conversation_id: Set(conversation_id),
+                user_id: Set(user_id),
+                last_read_message_id: Set(last_read),
+                updated_at: Set(OffsetDateTime::now_utc()),
+            }
+            .insert(db)
+            .await?;
+            written.read_positions += 1;
+        }
+    }
+
+    Ok(written)
+}
+
+/// The last message of a conversation at or before an instant, or simply the last one.
+async fn last_message_before<C: ConnectionTrait>(
+    db: &C,
+    conversation_id: Uuid,
+    moment: Option<OffsetDateTime>,
+) -> Result<Option<Uuid>> {
+    let mut query =
+        messages::Entity::find().filter(messages::Column::ConversationId.eq(conversation_id));
+    if let Some(moment) = moment {
+        query = query.filter(messages::Column::CreatedAt.lte(moment));
+    }
+    Ok(query
+        .order_by_desc(messages::Column::CreatedAt)
+        .one(db)
+        .await?
+        .map(|message| message.id))
 }
