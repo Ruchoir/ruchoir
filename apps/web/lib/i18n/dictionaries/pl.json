@@ -666,7 +666,9 @@
     "typingMany_few": "{{names}} i inni piszą",
     "typingMany_many": "{{names}} i inni piszą",
     "typingMany_other": "{{names}} i inni piszą",
-    "unread": "Nieprzeczytane"
+    "unread": "Nieprzeczytane",
+    "notInChannel": "Czytasz ten kanał, nie będąc w nim. Dołącz, aby pisać i otrzymywać jego wiadomości.",
+    "askToBeAdded": "Ktoś z kanału może cię dodać."
   },
   "security": {
     "codesCopied": "Kody skopiowane",

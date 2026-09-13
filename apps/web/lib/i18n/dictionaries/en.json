@@ -642,7 +642,9 @@
     "readBySome": "Read by {{count}} of {{audience}}",
     "typingMany_one": "{{names}} is typing",
     "typingMany_other": "{{names}} and others are typing",
-    "unread": "Unread"
+    "unread": "Unread",
+    "notInChannel": "You are reading this channel without being in it. Join it to write and to receive its messages.",
+    "askToBeAdded": "Somebody in the channel can add you to it."
   },
   "security": {
     "codesCopied": "Codes copied",

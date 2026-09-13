@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Icon, IconButton, Tooltip } from "@/components/ds";
+import { Avatar, Button, Icon, IconButton, Tooltip } from "@/components/ds";
 import { getAvatar, getChannelMembers } from "@/lib/data";
 import { getConversationFiles, getPinnedMessages, listChannelMembers } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
@@ -98,7 +98,8 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    flexWrap: "wrap",
+    gap: 10,
     margin: "0 16px 16px",
     padding: "12px 16px",
     fontSize: 13,
@@ -398,6 +399,16 @@ export function ChannelScreen({
         : myChannelRole;
   const canModerate =
     canModerateChannels && (effectiveChannelRole === "owner" || effectiveChannelRole === "admin");
+  /**
+   * Reading a channel one is not in. True only for a channel: a direct message has no such state,
+   * and an archived channel says its own thing.
+   */
+  const isVisitor = !isDm && !isArchived && channel.member === false;
+  /**
+   * Whether they may walk in by themselves. A guest never can (somebody puts them in a channel), and
+   * the API refuses the rest, so the button is only offered where it would be accepted.
+   */
+  const canJoinHere = canModerateChannels && channel.type === "public";
   const inChannel = (name: string) => channelRoster === null || channelRoster.includes(name);
   const memberList: ChannelMember[] = members
     .filter((m) => isDm || inChannel(m.name))
@@ -755,6 +766,23 @@ export function ChannelScreen({
             <Icon name="archive" size={14} />
             {t("conversation.archivedNotice")}
           </p>
+        ) : isVisitor ? (
+          // Reading a public channel without being in it is deliberate, and writing in one joins it.
+          // Saying so beforehand turns a silent side effect into a choice: the composer is replaced
+          // by what is actually true here, and by the button that changes it.
+          <div style={styles.archivedNotice}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Icon name="users" size={14} />
+              {t("conversation.notInChannel")}
+            </span>
+            {canJoinHere ? (
+              <Button size="sm" variant="secondary" iconLeft="user-plus" onClick={onJoinChannel}>
+                {t("sidebar.joinChannel")}
+              </Button>
+            ) : (
+              <span style={{ color: "var(--text-subtle)" }}>{t("conversation.askToBeAdded")}</span>
+            )}
+          </div>
         ) : (
           <Composer
             channelName={isDm ? dm.name : channel.name}

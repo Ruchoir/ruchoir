@@ -642,7 +642,9 @@
     "readBySome": "Lu par {{count}} personnes sur {{audience}}",
     "typingMany_one": "{{names}} est en train d'écrire",
     "typingMany_other": "{{names}} et d'autres sont en train d'écrire",
-    "unread": "Non lu"
+    "unread": "Non lu",
+    "notInChannel": "Vous lisez ce canal sans y être. Rejoignez-le pour écrire et en recevoir les messages.",
+    "askToBeAdded": "Quelqu'un du canal peut vous y ajouter."
   },
   "security": {
     "codesCopied": "Codes copiés",

@@ -2093,6 +2093,8 @@ function AppShell() {
         return { ...m, reactions };
       });
       const request = wasMine ? removeReaction(messageId, emoji) : addReaction(messageId, emoji);
+      // Reacting puts one in the channel too, exactly like writing does.
+      request.then(() => !wasMine && notInChannel(conv) && void markJoined(conv));
       request.catch(() => {
         rollbackMessage(conv, target);
         showToast({ tone: "info", title: t("toast.reactionFailed") });
@@ -2207,6 +2209,29 @@ function AppShell() {
     setWorkspaces((prev) => prev.map((w) => (w.id === ws ? { ...w, name } : w)));
   };
 
+  /** Whether a conversation is a channel this client is only reading. */
+  const notInChannel = (id: string) => channels.find((c) => c.id === id)?.member === false;
+
+  /**
+   * Record that we are now in a channel, and re-read it.
+   *
+   * The arrival notice is published to the channel's audience at the moment we join, when this
+   * client is not yet subscribed to it, so that one frame can never reach us: the notice and the
+   * member count only appeared after a reload. Re-reading the conversation is what closes that gap,
+   * and it is needed wherever joining happens, including the writing that joins by itself.
+   */
+  const markJoined = async (id: string) => {
+    setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, member: true } : c)));
+    const page = await getChannelMessages(id).catch(() => null);
+    if (!page) return;
+    // Merged on ids rather than replaced: a message sent in the same breath may not be in this page
+    // yet, and dropping it would make our own line disappear under us.
+    setMessages((prev) => {
+      const known = new Set(page.messages.map((m) => m.id));
+      return { ...prev, [id]: [...page.messages, ...(prev[id] ?? []).filter((m) => !known.has(m.id))] };
+    });
+  };
+
   const send = (text: string, attachment?: Message["attachment"]) => {
     if (!text.trim() && !attachment) return;
     const conv = channelId;
@@ -2223,14 +2248,17 @@ function AppShell() {
     // success, or removed on failure. An attachment is already stored by this point: the composer
     // uploads on pick, so all that travels here is its id.
     sendMessage(conv, text, attachment?.fileId ? { attachments: [attachment.fileId] } : {})
-      .then((m) =>
+      .then((m) => {
         // Drop the optimistic row and de-dupe the real id, so a realtime echo of our own message that
         // may have already arrived does not leave a duplicate.
         setMessages((prev) => {
           const list = (prev[conv] ?? []).filter((x) => x.id !== tempId && x.id !== m.id);
           return { ...prev, [conv]: [...list, m] };
-        }),
-      )
+        });
+        // Writing in a public channel one is only reading puts the writer in it, server-side. The
+        // client has to learn that from this call, because nothing else will tell it.
+        if (notInChannel(conv)) void markJoined(conv);
+      })
       .catch(() => {
         setMessages((prev) => ({ ...prev, [conv]: (prev[conv] ?? []).filter((x) => x.id !== tempId) }));
         showToast({ tone: "info", title: t("toast.messageNotSent") });
@@ -2379,7 +2407,7 @@ function AppShell() {
   const joinChannel = async (id: string) => {
     try {
       await apiJoinChannel(id);
-      setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, member: true } : c)));
+      await markJoined(id);
       showToast({ tone: "success", title: t("toast.channelJoined") });
     } catch {
       showToast({ tone: "danger", title: t("toast.joinFailed"), description: t("common.tryAgain") });

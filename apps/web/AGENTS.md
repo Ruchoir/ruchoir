@@ -45,6 +45,11 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 - Lint: `pnpm --filter @ruchoir/web lint`
 - Responsive audit: `pnpm --filter @ruchoir/web audit:responsive` (run against a live dev server)
 
+Lint gotcha: `react-hooks/purity` reports an error on a line that was already there (typically a
+`Date.now()` inside an event handler) when that handler calls a helper declared **after** it in the
+component body. The compiler cannot see the helper yet and stops treating the handler as an event
+handler. Declare the helper above its callers and the error goes away.
+
 ## Dev deep-link
 
 The app is a state machine (auth stage + view + optional modal), not routes. `lib/dev/deeplink.ts`

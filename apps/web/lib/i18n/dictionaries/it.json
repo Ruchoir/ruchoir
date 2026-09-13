@@ -654,7 +654,9 @@
     "typingMany_one": "{{names}} sta scrivendo",
     "typingMany_other": "{{names}} e altri stanno scrivendo",
     "unread": "Non letto",
-    "typingMany_many": "{{names}} e altri stanno scrivendo"
+    "typingMany_many": "{{names}} e altri stanno scrivendo",
+    "notInChannel": "Stai leggendo questo canale senza esserci dentro. Entra per scrivere e riceverne i messaggi.",
+    "askToBeAdded": "Qualcuno del canale può aggiungerti."
   },
   "security": {
     "codesCopied": "Codici copiati",

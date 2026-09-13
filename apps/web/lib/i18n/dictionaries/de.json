@@ -642,7 +642,9 @@
     "readBySome": "Von {{count}} von {{audience}} gelesen",
     "typingMany_one": "{{names}} schreibt gerade",
     "typingMany_other": "{{names}} und weitere schreiben gerade",
-    "unread": "Ungelesen"
+    "unread": "Ungelesen",
+    "notInChannel": "Sie lesen diesen Kanal, ohne darin zu sein. Treten Sie bei, um zu schreiben und seine Nachrichten zu erhalten.",
+    "askToBeAdded": "Jemand aus dem Kanal kann Sie hinzufügen."
   },
   "security": {
     "codesCopied": "Codes kopiert",
