@@ -34,6 +34,14 @@ pub mod notifications;
 pub mod read_cursors;
 pub mod user_saved_messages;
 
+// Bringing a workspace over from another product. Driven by the import tests against a real
+// database, and not yet by the binary: the caller is the background task that runs a job, which is
+// the next slice. The allowance is narrow and temporary, and goes away with that task.
+#[cfg_attr(not(test), allow(dead_code))]
+pub mod import_jobs;
+#[cfg_attr(not(test), allow(dead_code))]
+pub mod import_mappings;
+
 // Per-user client preferences.
 pub mod user_preferences;
 

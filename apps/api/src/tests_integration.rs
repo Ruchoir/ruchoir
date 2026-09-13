@@ -25,7 +25,8 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    PaginatorTrait, QueryFilter,
 };
 use serde_json::{json, Value};
 use time::OffsetDateTime;
@@ -40,8 +41,8 @@ use ruchoir_migration::{Migrator, MigratorTrait};
 use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
 use crate::entities::{
-    channel_members, channels, conversations, files, space_invitations, space_members, spaces,
-    users,
+    channel_members, channels, conversations, files, import_mappings, space_invitations,
+    space_members, spaces, users,
 };
 use crate::state::AppState;
 
@@ -3637,4 +3638,370 @@ async fn registering_over_a_waiting_account_without_any_invitation_is_still_a_co
 
     let response = register(&app, &email, "Passer-by", None).await;
     assert_eq!(response.status(), 409);
+}
+
+// --- Writing what an import promised -------------------------------------------------------------
+//
+// The rule everything here checks: an entity and its mapping row are written together, so a second
+// run recognises the first one's work instead of doing it again. Resuming and re-importing are the
+// same mechanism, and these tests are how we know it.
+
+use crate::importer::archive::{Index, Manifest, SpaceRecord, UserRecord};
+use crate::importer::plan::{self, Existing};
+use crate::importer::run::{self, Mapper, KIND_SPACE, KIND_USER};
+
+fn import_index(users: Vec<UserRecord>, spaces: Vec<SpaceRecord>) -> Index {
+    Index {
+        manifest: Some(Manifest {
+            format_version: 1,
+            source: "mattermost".into(),
+            source_version: String::new(),
+            producer: "test".into(),
+            created_at: String::new(),
+            counts: Default::default(),
+            checksums: Default::default(),
+            limits: vec![],
+        }),
+        users,
+        spaces,
+        ..Default::default()
+    }
+}
+
+/// Source identifiers have to differ between tests: a mapping is deliberately global, so that a
+/// rehearsal import and the real one a week later recognise each other. Two tests both calling a
+/// space "atelier" would be two runs of the same import, which is exactly what the feature says.
+fn unique_ref(prefix: &str) -> String {
+    format!("{prefix}-{}", Uuid::new_v4().simple())
+}
+
+fn source_user(id: &str, email: &str) -> UserRecord {
+    UserRecord {
+        id: id.into(),
+        email: email.into(),
+        display_name: format!("{id} from elsewhere"),
+        active: true,
+    }
+}
+
+fn source_space(id: &str, name: &str) -> SpaceRecord {
+    SpaceRecord {
+        id: id.into(),
+        name: name.into(),
+        description: String::new(),
+        visibility: "private".into(),
+    }
+}
+
+#[tokio::test]
+async fn an_unknown_account_arrives_waiting_for_its_person() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("newcomer-{}@example.test", Uuid::new_v4().simple());
+    let index = import_index(vec![source_user(&unique_ref("alice"), &email)], vec![]);
+    let plan = plan::build(&index, &Existing::default());
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+        .await
+        .expect("job");
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let written = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+
+    assert_eq!(written.accounts_created, 1);
+    let created = users::Entity::find()
+        .filter(users::Column::Email.eq(email.clone()))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("account");
+    // Waiting, not broken: pending with no password is exactly the shape an invitation claims.
+    assert_eq!(created.status, "pending");
+    assert!(created.password_hash.is_none());
+    assert!(created.display_name.ends_with("from elsewhere"));
+}
+
+#[tokio::test]
+async fn an_address_already_here_is_the_same_person_and_is_left_alone() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let existing_account = users::Entity::find_by_id(fx.bob)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("bob");
+
+    let bob_ref = unique_ref("bob");
+    let index = import_index(vec![source_user(&bob_ref, &existing_account.email)], vec![]);
+    let plan = plan::build(
+        &index,
+        &Existing {
+            emails: vec![existing_account.email.clone()],
+            ..Default::default()
+        },
+    );
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+        .await
+        .expect("job");
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let written = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+
+    assert_eq!(written.accounts_matched, 1);
+    assert_eq!(written.accounts_created, 0);
+    // An import does not get to rename people.
+    let after = users::Entity::find_by_id(fx.bob)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("bob");
+    assert_eq!(after.display_name, existing_account.display_name);
+    assert_eq!(
+        mapper
+            .resolve(&app.db, KIND_USER, &bob_ref, None)
+            .await
+            .expect("resolve"),
+        Some(fx.bob)
+    );
+}
+
+#[tokio::test]
+async fn an_account_with_no_address_still_arrives_and_can_be_told_apart() {
+    // Six out of six in the Nextcloud fixture. They must land, because their messages have to be
+    // attributed to a person, and they must not collide with each other.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let (carol_ref, david_ref) = (unique_ref("carol"), unique_ref("david"));
+    let index = import_index(
+        vec![source_user(&carol_ref, ""), source_user(&david_ref, "")],
+        vec![],
+    );
+    let plan = plan::build(&index, &Existing::default());
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+        .await
+        .expect("job");
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let written = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+
+    assert_eq!(written.accounts_created, 2);
+    let carol = mapper
+        .resolve(&app.db, KIND_USER, &carol_ref, None)
+        .await
+        .expect("resolve");
+    let david = mapper
+        .resolve(&app.db, KIND_USER, &david_ref, None)
+        .await
+        .expect("resolve");
+    assert!(carol.is_some() && david.is_some());
+    assert_ne!(
+        carol, david,
+        "two people without an address are still two people"
+    );
+}
+
+#[tokio::test]
+async fn running_the_same_import_twice_creates_nothing_twice() {
+    // The whole safety property: this is resumption and re-import at once.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("twice-{}@example.test", Uuid::new_v4().simple());
+    let name = format!("Atelier {}", Uuid::new_v4().simple());
+    let index = import_index(
+        vec![source_user(&unique_ref("alice"), &email)],
+        vec![source_space(&unique_ref("atelier"), &name)],
+    );
+    let plan = plan::build(&index, &Existing::default());
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+        .await
+        .expect("job");
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+
+    let first_accounts = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (first_spaces, _) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+    assert_eq!(first_accounts.accounts_created, 1);
+    assert_eq!(first_spaces.spaces_created, 1);
+
+    // Same archive, same job, second run: everything is recognised.
+    let second_accounts = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (second_spaces, _) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+    assert_eq!(second_accounts.accounts_created, 0);
+    assert_eq!(second_spaces.spaces_created, 0);
+    assert_eq!(
+        second_spaces.spaces_filled, 0,
+        "recognised through its mapping, not re-found by name"
+    );
+
+    assert_eq!(
+        users::Entity::find()
+            .filter(users::Column::Email.eq(email))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    assert_eq!(
+        spaces::Entity::find()
+            .filter(spaces::Column::Name.eq(name))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    assert_eq!(
+        import_mappings::Entity::find()
+            .filter(import_mappings::Column::JobId.eq(job))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        2,
+        "one mapping per entity, not one per run"
+    );
+}
+
+#[tokio::test]
+async fn a_created_space_belongs_to_the_administrator_who_imported_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let name = format!("Reprise {}", Uuid::new_v4().simple());
+    let index = import_index(vec![], vec![source_space(&unique_ref("atelier"), &name)]);
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+        .await
+        .expect("job");
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let (written, resolved) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+
+    assert_eq!(written.spaces_created, 1);
+    let (_, space_id) = resolved.first().expect("one space");
+    let membership = space_members::Entity::find_by_id((*space_id, fx.alice))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("membership");
+    assert_eq!(membership.role, "owner");
+
+    // An imported space holds exactly what the archive carried: no starter channel nobody asked for.
+    assert_eq!(
+        conversations::Entity::find()
+            .filter(conversations::Column::SpaceId.eq(*space_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        0
+    );
+}
+
+#[tokio::test]
+async fn a_space_that_already_carries_the_name_is_filled_rather_than_duplicated() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // A name of its own: the seed calls every space "Test Space", and several spaces sharing one
+    // name is precisely the case the importer refuses to guess at.
+    let name = format!("Espace {}", Uuid::new_v4().simple());
+    let mut existing: spaces::ActiveModel = spaces::Entity::find_by_id(fx.space_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("space")
+        .into();
+    existing.name = Set(name.clone());
+    existing.update(&app.db).await.expect("rename");
+    let index = import_index(vec![], vec![source_space(&unique_ref("atelier"), &name)]);
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+        .await
+        .expect("job");
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let (written, resolved) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+
+    assert_eq!(written.spaces_created, 0);
+    assert_eq!(written.spaces_filled, 1);
+    assert_eq!(resolved.first().expect("one space").1, fx.space_id);
+}
+
+#[tokio::test]
+async fn closing_a_job_records_what_it_brought_in() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let index = import_index(
+        vec![
+            source_user(
+                &unique_ref("a"),
+                &format!("a-{}@example.test", Uuid::new_v4().simple()),
+            ),
+            source_user(
+                &unique_ref("b"),
+                &format!("b-{}@example.test", Uuid::new_v4().simple()),
+            ),
+        ],
+        vec![],
+    );
+    let plan = plan::build(&index, &Existing::default());
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None)
+        .await
+        .expect("job");
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    run::finish_job(&app.db, job, "completed")
+        .await
+        .expect("finish");
+
+    let row = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert_eq!(row.status, "completed");
+    // Counted from the mappings, not from memory: a resumed run did part of its work elsewhere.
+    assert_eq!(row.accounts_done, 2);
+    assert!(row.finished_at.is_some());
+    assert_eq!(
+        run::written_so_far(&app.db, job, KIND_SPACE)
+            .await
+            .expect("count"),
+        0
+    );
 }

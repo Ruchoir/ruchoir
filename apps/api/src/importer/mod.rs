@@ -7,6 +7,12 @@
 pub mod archive;
 pub mod check;
 pub mod plan;
+// Reachable from the tests, which drive it against a real database, and not yet from the binary:
+// its caller is the background task that runs a job, which is the next slice. The allowance is
+// narrow and temporary on purpose, and it is the only one in this module: everything else here is
+// called by `import-check`.
+#[cfg_attr(not(test), allow(dead_code))]
+pub mod run;
 
 use std::path::Path;
 

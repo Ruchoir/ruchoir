@@ -93,12 +93,17 @@ impl MigrationTrait for Migration {
                 job_id uuid NOT NULL REFERENCES import_jobs(id) ON DELETE CASCADE,
                 -- Denormalised from the job so the uniqueness below spans every import that space
                 -- ever ran, which is what makes a second archive from the same source cheap.
-                space_id uuid NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+                --
+                -- NULL for what belongs to the instance rather than to a space: an account is one
+                -- person on this instance, not one person per space, and a multi-space archive
+                -- would otherwise map the same account once per space and create it twice.
+                space_id uuid NULL REFERENCES spaces(id) ON DELETE CASCADE,
                 source text NOT NULL
                     CHECK (source IN ('nextcloud', 'mattermost', 'slack', 'teams')),
                 -- 'space' included: an archive can create spaces, and re-running it must find the
-                -- ones it already created instead of making them twice. Such a row points at
-                -- itself, its space_id being the space it created.
+                -- ones it already created instead of making them twice. Spaces and accounts are
+                -- recorded with a NULL space_id, because neither lives inside a space; a
+                -- conversation, a message and a file all do.
                 kind text NOT NULL CHECK (kind IN ('space', 'user', 'channel', 'message', 'file')),
                 -- The identifier as the source spells it, untouched.
                 external_ref text NOT NULL,
@@ -110,10 +115,19 @@ impl MigrationTrait for Migration {
         .await?;
 
         // The constraint resumability rests on: one source identifier means one row here,
-        // whichever import brought it in.
+        // whichever import brought it in. Two indexes rather than one, because NULL never equals
+        // NULL in an index: without the second one, an account could be mapped twice and created
+        // twice, which is the exact failure the mapping exists to prevent.
         db.execute_unprepared(
             "CREATE UNIQUE INDEX import_mappings_identity_idx \
-             ON import_mappings (space_id, source, kind, external_ref);",
+             ON import_mappings (space_id, source, kind, external_ref) \
+             WHERE space_id IS NOT NULL;",
+        )
+        .await?;
+        db.execute_unprepared(
+            "CREATE UNIQUE INDEX import_mappings_instance_identity_idx \
+             ON import_mappings (source, kind, external_ref) \
+             WHERE space_id IS NULL;",
         )
         .await?;
 
