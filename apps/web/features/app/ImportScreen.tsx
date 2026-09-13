@@ -433,7 +433,9 @@ export function ImportScreen({
                     {t(key("import.replaceExplain"))}
                     <div style={{ ...st.row, color: "inherit" }}>
                       <span>{t(key("import.replaceWouldDestroy"))}</span>
-                      <span style={st.rowValue}>
+                      {/* Inherits the callout's colour: a number set in the ordinary ink inside a
+                          red panel reads as though it belonged to some other paragraph. */}
+                      <span style={{ ...st.rowValue, color: "inherit" }}>
                         {dying.spaces} · {dying.accounts} · {dying.messages}
                       </span>
                     </div>
