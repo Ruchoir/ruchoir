@@ -18,6 +18,12 @@ pub struct Config {
     /// `/emoji`. When unset or absent, the client falls back to native OS emoji. The pack is a
     /// deployment choice kept out of the web bundle because it can be large.
     pub emoji_dir: Option<PathBuf>,
+    /// Directory an administrator may import an archive from, for the ones too large to upload.
+    ///
+    /// Unset means the server-side path is closed and only uploads are accepted. Nothing outside
+    /// this directory is ever read: an administrator is trusted with the instance, not handed a
+    /// way to have the API open any file on the machine and report what it found.
+    pub import_dir: Option<PathBuf>,
     /// Optional TLS material. When both are set (and the `tls` feature is built in),
     /// the server serves HTTPS; otherwise it serves plain HTTP (local dev only).
     pub tls_cert: Option<PathBuf>,
@@ -123,6 +129,7 @@ impl Config {
 
         let web_dist = PathBuf::from(env_or("RUCHOIR_WEB_DIST", "./apps/web/out"));
         let emoji_dir = env_opt("RUCHOIR_EMOJI_DIR").map(PathBuf::from);
+        let import_dir = env_opt("RUCHOIR_IMPORT_DIR").map(PathBuf::from);
 
         let tls_cert = env_opt("RUCHOIR_TLS_CERT").map(PathBuf::from);
         let tls_key = env_opt("RUCHOIR_TLS_KEY").map(PathBuf::from);
@@ -253,6 +260,7 @@ impl Config {
             addr: SocketAddr::new(host, port),
             web_dist,
             emoji_dir,
+            import_dir,
             tls_cert,
             tls_key,
             database_url,

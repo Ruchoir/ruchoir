@@ -44,6 +44,9 @@ pub struct Written {
     pub messages_created: usize,
     pub read_positions: usize,
     pub files_created: usize,
+    /// Set when the administrator asked the job to stop and it did, at a boundary, keeping
+    /// everything already written.
+    pub cancelled: bool,
 }
 
 #[derive(Debug)]
@@ -569,6 +572,18 @@ pub async fn import_conversations<C: ConnectionTrait>(
     Ok(written)
 }
 
+/// Whether the administrator has asked this job to stop.
+///
+/// Checked at conversation boundaries rather than per message: a query per message would cost more
+/// than the import, and "stop at the next conversation" is a promise anyone can understand, where
+/// "stop within thirty seconds" is not.
+pub async fn cancellation_asked<C: ConnectionTrait>(db: &C, job_id: Uuid) -> Result<bool> {
+    Ok(import_jobs::Entity::find_by_id(job_id)
+        .one(db)
+        .await?
+        .is_some_and(|job| job.status == "cancelling" || job.status == "cancelled"))
+}
+
 /// Brings the messages over.
 ///
 /// Read straight from the archive rather than from anything held in memory: there can be millions,
@@ -621,7 +636,19 @@ pub async fn import_messages<C: ConnectionTrait>(
     })
     .map_err(|e| RunError::Db(e.to_string()))?;
 
+    let mut current_channel: Option<&str> = None;
     for record in &records {
+        // A cancellation stops here, between two conversations, and keeps everything already
+        // written: an import that undid its own work on the way out would turn a change of mind
+        // into an afternoon lost.
+        if current_channel != Some(record.channel.as_str()) {
+            current_channel = Some(record.channel.as_str());
+            if cancellation_asked(db, mapper.job_id).await? {
+                written.cancelled = true;
+                break;
+            }
+        }
+
         let Some((conversation_id, space_id, kind)) = conversation_of.get(&record.channel) else {
             continue;
         };

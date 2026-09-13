@@ -86,6 +86,11 @@ async fn boot() -> Option<TestApp> {
     config.auto_migrate = false;
     // Short presence TTL so an offline transition is observable quickly in tests.
     config.presence_ttl_secs = 5;
+    // An import directory, so the tests of the server-side path exercise the real guard instead of
+    // the "no directory configured" refusal, which answers the same 400 for a different reason.
+    let import_dir = std::env::temp_dir().join("ruchoir-test-imports");
+    std::fs::create_dir_all(&import_dir).expect("import dir");
+    config.import_dir = Some(import_dir);
 
     let db = crate::db::connect(&config).await.expect("connect db");
     SCHEMA_READY
@@ -5212,4 +5217,409 @@ async fn importing_the_files_twice_stores_them_once() {
     );
 
     std::fs::remove_dir_all(&dir).ok();
+}
+
+// --- Nothing leaks out of an imported space ------------------------------------------------------
+//
+// An import creates spaces, accounts and conversations wholesale, which makes it the easiest place
+// in the product for an isolation defect to arrive unnoticed: nobody watches a space they did not
+// know existed. These tests drive the real HTTP surface rather than the database, because a leak
+// would be in the authorization layer and not in the rows.
+
+/// Imports two spaces, each with a private channel and a direct conversation, and hands back the
+/// identifiers a test needs to try to reach across them.
+struct TwoSpaces {
+    first_space: Uuid,
+    second_space: Uuid,
+    first_private: Uuid,
+    second_private: Uuid,
+    direct: Uuid,
+    /// A member of the first space only.
+    insider: Uuid,
+    /// A member of the second space only.
+    other_side: Uuid,
+    dir: std::path::PathBuf,
+}
+
+async fn import_two_spaces(app: &TestApp, admin: Uuid) -> TwoSpaces {
+    let (one, two) = (unique_ref("insider"), unique_ref("other"));
+    let (space_a, space_b) = (unique_ref("alpha"), unique_ref("beta"));
+    let (private_a, private_b) = (unique_ref("secret-a"), unique_ref("secret-b"));
+    let direct_ref = unique_ref("direct");
+
+    let dir = write_archive(
+        &[
+            json!({"id": space_a, "name": format!("Alpha {}", Uuid::new_v4().simple()), "visibility": "private"}),
+            json!({"id": space_b, "name": format!("Beta {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": one, "email": format!("{one}@example.test"), "display_name": "Insider", "active": true}),
+            json!({"id": two, "email": format!("{two}@example.test"), "display_name": "Other", "active": true}),
+        ],
+        &[
+            json!({"id": private_a, "space": space_a, "kind": "channel", "name": "Cloison A",
+                   "visibility": "private", "archived": false, "members": [one]}),
+            json!({"id": private_b, "space": space_b, "kind": "channel", "name": "Cloison B",
+                   "visibility": "private", "archived": false, "members": [two]}),
+            json!({"id": direct_ref, "space": space_a, "kind": "direct", "name": "",
+                   "visibility": "private", "archived": false, "members": [one, two]}),
+        ],
+        &[
+            message_row(
+                "secret-a",
+                &private_a,
+                Some(&one),
+                "ce qui se dit chez alpha",
+            ),
+            message_row(
+                "secret-b",
+                &private_b,
+                Some(&two),
+                "ce qui se dit chez beta",
+            ),
+            message_row("secret-d", &direct_ref, Some(&one), "entre nous deux"),
+        ],
+    );
+
+    let (job, spaces) = import_from_archive(app, admin, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let resolve_space =
+        |source: &String| spaces.iter().find(|(id, _)| id == source).expect("space").1;
+    TwoSpaces {
+        first_space: resolve_space(&space_a),
+        second_space: resolve_space(&space_b),
+        first_private: mapper
+            .resolve(
+                &app.db,
+                KIND_CHANNEL,
+                &private_a,
+                Some(resolve_space(&space_a)),
+            )
+            .await
+            .expect("r")
+            .expect("private a"),
+        second_private: mapper
+            .resolve(
+                &app.db,
+                KIND_CHANNEL,
+                &private_b,
+                Some(resolve_space(&space_b)),
+            )
+            .await
+            .expect("r")
+            .expect("private b"),
+        direct: mapper
+            .resolve(
+                &app.db,
+                KIND_CHANNEL,
+                &direct_ref,
+                Some(resolve_space(&space_a)),
+            )
+            .await
+            .expect("r")
+            .expect("direct"),
+        insider: mapper
+            .resolve(&app.db, KIND_USER, &one, None)
+            .await
+            .expect("r")
+            .expect("insider"),
+        other_side: mapper
+            .resolve(&app.db, KIND_USER, &two, None)
+            .await
+            .expect("r")
+            .expect("other"),
+        dir,
+    }
+}
+
+#[tokio::test]
+async fn a_stranger_sees_none_of_an_imported_space() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let imported = import_two_spaces(&app, fx.alice).await;
+
+    // Someone who has nothing to do with any of it.
+    let stranger = make_user(&app.db, "stranger").await;
+    let cookie = app.cookie_for(stranger).await;
+
+    let spaces: Value = app
+        .req(reqwest::Method::GET, "/api/v1/me/spaces", &cookie)
+        .send()
+        .await
+        .expect("spaces")
+        .json()
+        .await
+        .expect("json");
+    let listed: Vec<String> = spaces
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|space| space["id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert!(!listed.contains(&imported.first_space.to_string()));
+    assert!(!listed.contains(&imported.second_space.to_string()));
+
+    // Not by asking for the space's channels either.
+    let channels = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", imported.first_space),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("channels");
+    assert!(
+        channels.status() == 404 || channels.status() == 403,
+        "a stranger must not list an imported space's channels, got {}",
+        channels.status()
+    );
+
+    // Nor by naming a conversation directly.
+    for conversation in [imported.first_private, imported.direct] {
+        let messages = app
+            .req(
+                reqwest::Method::GET,
+                &format!("/api/v1/conversations/{conversation}/messages"),
+                &cookie,
+            )
+            .send()
+            .await
+            .expect("messages");
+        assert!(
+            messages.status() == 404 || messages.status() == 403,
+            "a stranger read an imported conversation, got {}",
+            messages.status()
+        );
+    }
+
+    std::fs::remove_dir_all(&imported.dir).ok();
+}
+
+#[tokio::test]
+async fn a_member_of_one_imported_space_cannot_reach_the_other() {
+    // The case a multi-space archive creates and a single-space one never would: two organisations
+    // that were deliberately apart, imported in one go, must stay apart.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let imported = import_two_spaces(&app, fx.alice).await;
+    let cookie = app.cookie_for(imported.insider).await;
+
+    let spaces: Value = app
+        .req(reqwest::Method::GET, "/api/v1/me/spaces", &cookie)
+        .send()
+        .await
+        .expect("spaces")
+        .json()
+        .await
+        .expect("json");
+    let listed: Vec<String> = spaces
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|space| space["id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert!(
+        listed.contains(&imported.first_space.to_string()),
+        "their own space is there"
+    );
+    assert!(
+        !listed.contains(&imported.second_space.to_string()),
+        "the other organisation's space is not"
+    );
+
+    let messages = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", imported.second_private),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("messages");
+    assert!(
+        messages.status() == 404 || messages.status() == 403,
+        "read across two imported spaces, got {}",
+        messages.status()
+    );
+
+    std::fs::remove_dir_all(&imported.dir).ok();
+}
+
+#[tokio::test]
+async fn an_imported_private_channel_stays_private_to_its_members() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let imported = import_two_spaces(&app, fx.alice).await;
+
+    // The other side is already a member of the first space, and not because anybody put them
+    // there: they share a direct conversation that lives in it, and being in a conversation means
+    // being in its space. So the space is shared and the private room is not, which is exactly the
+    // distinction an import must not blur.
+    assert!(
+        space_members::Entity::find_by_id((imported.first_space, imported.other_side))
+            .one(&app.db)
+            .await
+            .expect("query")
+            .is_some(),
+        "the direct conversation put them in the space"
+    );
+    let cookie = app.cookie_for(imported.other_side).await;
+
+    let channels: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", imported.first_space),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    let listed: Vec<String> = channels
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|channel| channel["id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert!(
+        !listed.contains(&imported.first_private.to_string()),
+        "an imported private channel showed up to someone who is not in it"
+    );
+
+    let messages = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", imported.first_private),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("messages");
+    assert!(
+        messages.status() == 404 || messages.status() == 403,
+        "read an imported private channel from outside, got {}",
+        messages.status()
+    );
+
+    std::fs::remove_dir_all(&imported.dir).ok();
+}
+
+#[tokio::test]
+async fn an_imported_direct_conversation_is_between_its_two_people_only() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let imported = import_two_spaces(&app, fx.alice).await;
+
+    // Even the administrator who ran the import, and who owns the space, has no business in it.
+    let cookie = app.cookie_for(fx.alice).await;
+    let messages = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", imported.direct),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("messages");
+    assert!(
+        messages.status() == 404 || messages.status() == 403,
+        "the importing administrator read a direct conversation they imported, got {}",
+        messages.status()
+    );
+
+    std::fs::remove_dir_all(&imported.dir).ok();
+}
+
+#[tokio::test]
+async fn the_import_surface_does_not_exist_for_anyone_but_an_instance_administrator() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let cookie = app.cookie_for(fx.bob).await;
+
+    for (method, path) in [
+        (reqwest::Method::GET, "/api/v1/imports".to_owned()),
+        (reqwest::Method::POST, "/api/v1/imports/plan".to_owned()),
+        (
+            reqwest::Method::GET,
+            format!("/api/v1/imports/{}", Uuid::new_v4()),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/imports/{}/cancel", Uuid::new_v4()),
+        ),
+    ] {
+        let response = app
+            .req(method.clone(), &path, &cookie)
+            .json(&json!({"file": "whatever"}))
+            .send()
+            .await
+            .expect("request");
+        // 404 and not 403: to everyone else this surface does not exist, and a refusal that told
+        // them apart would confirm there is something here to attack.
+        assert_eq!(response.status(), 404, "{method} {path}");
+    }
+}
+
+#[tokio::test]
+async fn an_administrator_cannot_have_the_api_read_a_file_outside_the_import_directory() {
+    // An administrator is trusted with the instance, not handed a way to make the API open any file
+    // on the machine and report what it found.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let mut admin: users::ActiveModel = users::Entity::find_by_id(fx.alice)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("alice")
+        .into();
+    admin.is_instance_admin = Set(true);
+    admin.update(&app.db).await.expect("promote");
+    let cookie = app.cookie_for(fx.alice).await;
+
+    for file in ["../../etc/passwd", "/etc/passwd", ".ssh/id_ed25519", "a/b"] {
+        let response = app
+            .req(reqwest::Method::POST, "/api/v1/imports/plan", &cookie)
+            .json(&json!({"file": file}))
+            .send()
+            .await
+            .expect("request");
+        assert_eq!(response.status(), 400, "{file} should be refused as a path");
+        let body: Value = response.json().await.expect("json");
+        // Refused as a path, not because the directory happens to be unset: those are the same
+        // status for different reasons, and only one of them is the guard doing its job.
+        assert!(
+            body["message"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("not a path"),
+            "{file} was refused for the wrong reason: {body}"
+        );
+    }
+
+    // And a plain name gets past the guard, so the test above is not passing because everything
+    // is refused.
+    let response = app
+        .req(reqwest::Method::POST, "/api/v1/imports/plan", &cookie)
+        .json(&json!({"file": "no-such-archive"}))
+        .send()
+        .await
+        .expect("request");
+    let body: Value = response.json().await.expect("json");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("no archive of that name"),
+        "a plain name should reach the directory, got {body}"
+    );
 }

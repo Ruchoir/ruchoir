@@ -8,6 +8,7 @@ pub mod archive;
 pub mod check;
 pub mod job;
 pub mod plan;
+pub mod routes;
 pub mod run;
 
 use std::path::Path;

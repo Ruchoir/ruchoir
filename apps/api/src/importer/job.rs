@@ -73,6 +73,52 @@ pub async fn execute<S: BlobSink>(
     let plan: Plan = plan::build(&index, &existing);
 
     let job_id = run::start_job(db, &source, admin, None).await?;
+    run_passes(db, storage, archive, passphrase, admin, job_id, index, plan).await
+}
+
+/// The same run, against a job row that already exists.
+///
+/// The HTTP surface creates the row before answering, so the screen has something to watch from the
+/// first frame; the command line lets `execute` create it. Both end up here.
+pub async fn execute_into<S: BlobSink>(
+    db: &DatabaseConnection,
+    storage: Option<&S>,
+    archive: &std::path::Path,
+    passphrase: Option<&str>,
+    admin: Uuid,
+    job_id: Uuid,
+) -> Result<Outcome, RunError> {
+    let (index, report) =
+        super::check::check(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
+    if !report.is_sound() {
+        let reason = format!(
+            "this archive does not hold together: {}",
+            report.errors.join("; ")
+        );
+        finish(db, job_id, "failed", &reason).await?;
+        return Err(RunError::Ambiguous(reason));
+    }
+    let existing = existing_state(db).await?;
+    let plan = plan::build(&index, &existing);
+    run_passes(db, storage, archive, passphrase, admin, job_id, index, plan).await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_passes<S: BlobSink>(
+    db: &DatabaseConnection,
+    storage: Option<&S>,
+    archive: &std::path::Path,
+    passphrase: Option<&str>,
+    admin: Uuid,
+    job_id: Uuid,
+    index: super::archive::Index,
+    plan: Plan,
+) -> Result<Outcome, RunError> {
+    let source = index
+        .manifest
+        .as_ref()
+        .map(|manifest| manifest.source.clone())
+        .unwrap_or_default();
     let mapper = Mapper {
         job_id,
         source: &source,
@@ -112,7 +158,18 @@ pub async fn execute<S: BlobSink>(
 
     let messages = run::import_messages(db, &mapper, archive, passphrase, &resolved).await?;
     written.messages_created = messages.messages_created;
+    written.cancelled = messages.cancelled;
     note_progress(db, job_id, &written).await?;
+
+    if written.cancelled {
+        // Stopped on purpose, and everything written stays. Running the same archive again picks
+        // up where this left off, because that is the same mechanism as resuming.
+        run::finish_job(db, job_id, "cancelled").await?;
+        return Ok(Outcome {
+            written,
+            limits: plan.limits,
+        });
+    }
 
     // Files come last of the data, because they are the only pass that can fail for a reason
     // nobody here controls, and everything before them is already safe on disk.
