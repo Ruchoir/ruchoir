@@ -2756,3 +2756,416 @@ async fn a_guest_is_not_told_about_a_channel_they_are_not_in() {
     let frame = wait_for_type(&mut socket, "channel.created").await;
     assert_eq!(frame["payload"]["id"], channel_id);
 }
+
+// ---------------------------------------------------------------------------
+// Who may do what.
+//
+// One test per rank, each walking the same list of acts, because the interesting
+// failures are not "does this endpoint work" but "does this endpoint refuse the
+// person it should". A screen that hides a button is a courtesy; these are the
+// guard. Written after a test session where an external guest could add people to
+// a channel: nothing on the server had ever said they could not.
+// ---------------------------------------------------------------------------
+
+/// Send a request with no body and return its status.
+async fn status_of(app: &TestApp, method: reqwest::Method, path: &str, cookie: &str) -> u16 {
+    app.req(method, path, cookie)
+        .send()
+        .await
+        .expect("request")
+        .status()
+        .as_u16()
+}
+
+/// Send a request with a JSON body and return its status.
+async fn status_of_json(
+    app: &TestApp,
+    method: reqwest::Method,
+    path: &str,
+    cookie: &str,
+    body: Value,
+) -> u16 {
+    app.req(method, path, cookie)
+        .json(&body)
+        .send()
+        .await
+        .expect("request")
+        .status()
+        .as_u16()
+}
+
+#[tokio::test]
+async fn an_ordinary_member_administers_nothing() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Alice is an ordinary member of the space and a member of the public channel: the most
+    // ordinary position there is, and the one that had the most quietly open doors.
+    let alice = app.cookie_for(fx.alice).await;
+    let space = fx.space_id;
+    let channel = fx.public_channel;
+
+    // The space is not theirs to run.
+    assert_eq!(
+        status_of_json(
+            &app,
+            reqwest::Method::PATCH,
+            &format!("/api/v1/spaces/{space}"),
+            &alice,
+            json!({ "name": "Repris" })
+        )
+        .await,
+        403,
+        "renaming a space is the owner's"
+    );
+    assert_eq!(
+        status_of_json(
+            &app,
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space}/invitations"),
+            &alice,
+            json!({ "role": "member" })
+        )
+        .await,
+        403,
+        "inviting is an administrator's"
+    );
+    assert_eq!(
+        status_of_json(
+            &app,
+            reqwest::Method::PATCH,
+            &format!("/api/v1/spaces/{space}/members/{}", fx.bob),
+            &alice,
+            json!({ "role": "guest" })
+        )
+        .await,
+        403,
+        "roles are an administrator's"
+    );
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{space}/members/{}", fx.bob),
+            &alice
+        )
+        .await,
+        403,
+        "removing someone is an administrator's"
+    );
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{space}"),
+            &alice
+        )
+        .await,
+        403,
+        "deleting a space is the owner's"
+    );
+
+    // Nor is the channel theirs to moderate, even the one they are in.
+    assert_eq!(
+        status_of_json(
+            &app,
+            reqwest::Method::POST,
+            &format!("/api/v1/channels/{channel}/members"),
+            &alice,
+            json!({ "user_ids": [fx.carol] })
+        )
+        .await,
+        403,
+        "being in a channel is not deciding who else is"
+    );
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/channels/{channel}/members/{}", fx.bob),
+            &alice
+        )
+        .await,
+        403
+    );
+    assert_eq!(
+        status_of_json(
+            &app,
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{channel}/members/{}", fx.bob),
+            &alice,
+            json!({ "role": "admin" })
+        )
+        .await,
+        403
+    );
+    assert_eq!(
+        status_of_json(
+            &app,
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{channel}"),
+            &alice,
+            json!({ "name": "repris" })
+        )
+        .await,
+        403,
+        "renaming a channel is its moderators'"
+    );
+
+    // What an ordinary member may do, they still may: read, write, and leave.
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel}/messages"),
+            &alice
+        )
+        .await,
+        200
+    );
+    assert_eq!(
+        status_of_json(
+            &app,
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{channel}/messages"),
+            &alice,
+            json!({ "body": "bonjour" })
+        )
+        .await,
+        201
+    );
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{space}/membership"),
+            &alice
+        )
+        .await,
+        204
+    );
+}
+
+#[tokio::test]
+async fn an_external_guest_administers_nothing_and_sees_nothing_extra() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    make_guest(&app.db, fx.space_id, fx.carol).await;
+    // In one channel, and only that one: the position an external guest is actually in.
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let space = fx.space_id;
+    let channel = fx.public_channel;
+
+    for (method, path, body) in [
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/spaces/{space}/channels"),
+            Some(json!({ "name": "chez-moi", "type": "public" })),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/spaces/{space}/invitations"),
+            Some(json!({ "role": "member" })),
+        ),
+        (
+            reqwest::Method::PATCH,
+            format!("/api/v1/spaces/{space}"),
+            Some(json!({ "name": "Repris" })),
+        ),
+        (
+            reqwest::Method::PATCH,
+            format!("/api/v1/spaces/{space}/members/{}", fx.bob),
+            Some(json!({ "role": "guest" })),
+        ),
+        (
+            reqwest::Method::DELETE,
+            format!("/api/v1/spaces/{space}/members/{}", fx.bob),
+            None,
+        ),
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/channels/{channel}/members"),
+            Some(json!({ "user_ids": [fx.bob] })),
+        ),
+        (
+            reqwest::Method::DELETE,
+            format!("/api/v1/channels/{channel}/members/{}", fx.alice),
+            None,
+        ),
+        (
+            reqwest::Method::PATCH,
+            format!("/api/v1/channels/{channel}"),
+            Some(json!({ "name": "repris" })),
+        ),
+        (
+            reqwest::Method::GET,
+            format!("/api/v1/spaces/{space}/files"),
+            None,
+        ),
+        (
+            reqwest::Method::GET,
+            format!("/api/v1/conversations/{}/messages", fx.private_channel),
+            None,
+        ),
+    ] {
+        let status = match body {
+            Some(json) => status_of_json(&app, method.clone(), &path, &carol, json).await,
+            None => status_of(&app, method.clone(), &path, &carol).await,
+        };
+        assert_eq!(status, 403, "a guest must be refused {method} {path}");
+    }
+
+    // What they were brought in for still works.
+    assert_eq!(
+        status_of_json(
+            &app,
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{channel}/messages"),
+            &carol,
+            json!({ "body": "bonjour" })
+        )
+        .await,
+        201
+    );
+}
+
+#[tokio::test]
+async fn two_sessions_see_the_same_membership_change() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let carol = app.cookie_for(fx.carol).await;
+
+    // Carol writes in a public channel she never joined. She is put in it, so the arrival reaches
+    // the people already there...
+    let mut watching = app.connect_ws(&alice).await;
+    app.req(
+        reqwest::Method::POST,
+        &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+        &carol,
+    )
+    .json(&json!({ "body": "j'arrive" }))
+    .send()
+    .await
+    .expect("send");
+    let notice = wait_for_type(&mut watching, "message.created").await;
+    assert_eq!(notice["payload"]["system_event"], "channel_joined");
+    let written = wait_for_type(&mut watching, "message.created").await;
+    assert_eq!(written["payload"]["body"], "j'arrive");
+
+    // ...and, the point of joining at all, what is said next reaches *her*, which it could not do
+    // when a non-member's message went out to an audience that did not include its author.
+    let mut carols = app.connect_ws(&carol).await;
+    app.req(
+        reqwest::Method::POST,
+        &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+        &alice,
+    )
+    .json(&json!({ "body": "bienvenue" }))
+    .send()
+    .await
+    .expect("send");
+    let heard = wait_for_type(&mut carols, "message.created").await;
+    assert_eq!(heard["payload"]["body"], "bienvenue");
+    // Alice's socket carries her own message too (the client drops its own echo, the socket does
+    // not), so it has to be read before waiting for what comes after it.
+    let echo = wait_for_type(&mut watching, "message.created").await;
+    assert_eq!(echo["payload"]["body"], "bienvenue");
+
+    // And an administrator taking her back out reaches her own session as the notice, on the same
+    // socket, without her having to reload anything.
+    app.req(
+        reqwest::Method::DELETE,
+        &format!(
+            "/api/v1/channels/{}/members/{}",
+            fx.public_channel, fx.carol
+        ),
+        &alice,
+    )
+    .send()
+    .await
+    .expect("remove");
+    let removed = wait_for_type(&mut watching, "message.created").await;
+    assert_eq!(removed["payload"]["system_event"], "channel_removed");
+}
+
+#[tokio::test]
+async fn a_demoted_member_loses_the_space_in_the_same_breath() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let mut bobs = app.connect_ws(&bob).await;
+
+    // A second public channel, which Bob is not in. He reads it anyway, as any member may.
+    let elsewhere = make_channel(&app.db, fx.space_id, "ailleurs", "public").await;
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{elsewhere}/messages"),
+            &bob
+        )
+        .await,
+        200
+    );
+
+    // Demoted to guest: his own session is told, which is what lets the client re-read a space whose
+    // contents the server has just narrowed under him.
+    let changed = status_of_json(
+        &app,
+        reqwest::Method::PATCH,
+        &format!("/api/v1/spaces/{}/members/{}", fx.space_id, fx.bob),
+        &alice,
+        json!({ "role": "guest" }),
+    )
+    .await;
+    assert_eq!(changed, 200);
+    let frame = wait_for_type(&mut bobs, "member.role_changed").await;
+    assert_eq!(frame["payload"]["user_id"], fx.bob.to_string());
+    assert_eq!(frame["payload"]["role"], "guest");
+
+    // And the narrowing is real, not only announced: what he was never put in is gone...
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{elsewhere}/messages"),
+            &bob
+        )
+        .await,
+        403
+    );
+    // ...while the channel somebody did put him in stays his, which is the whole of the rule.
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &bob
+        )
+        .await,
+        200
+    );
+    let channels: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    let names: Vec<&str> = channels
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|c| c["name"].as_str().expect("name"))
+        .collect();
+    assert_eq!(names, vec!["general"]);
+}

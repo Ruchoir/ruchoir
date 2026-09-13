@@ -585,13 +585,12 @@ pub async fn add_channel_members(
         return Err(ApiError::BadRequest("this channel is archived"));
     }
 
-    let caller_is_member = channel_members::Entity::find_by_id((channel_id, session.user_id))
-        .one(&state.db)
-        .await?
-        .is_some();
-    if !caller_is_member
-        && !is_channel_moderator(&state.db, channel_id, channel.space_id, session.user_id).await?
-    {
+    // Being in a channel is not the same as deciding who else is. Anyone who had walked into a
+    // public channel could put anybody in it, including an external guest putting a colleague into a
+    // room they had themselves been invited to. Adding people is moderation, so it takes the same
+    // rank as every other act of moderation: the channel's own owner or a moderator, or somebody who
+    // administers the space.
+    if !is_channel_moderator(&state.db, channel_id, channel.space_id, session.user_id).await? {
         return Err(ApiError::Forbidden);
     }
 

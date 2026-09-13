@@ -2979,6 +2979,7 @@ function AppShell() {
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
           myRole={currentWorkspace?.role ?? "member"}
           myChannelRole={myChannelRole(channelId)}
+          myUserId={session?.id ?? ""}
           onLeaveChannel={() => leaveChannel(channelId)}
           onJoinChannel={() => joinChannel(channelId)}
           notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
@@ -3015,6 +3016,7 @@ function AppShell() {
           // else on this screen (the people, their roles, who is shown the door) stays with the
           // administrators, which is the line the API draws too.
           canEditIdentity={currentWorkspace?.role === "owner"}
+          canManageMembers={["owner", "admin"].includes(currentWorkspace?.role ?? "")}
           onIconChanged={applySpaceIcon}
           onRenamed={applySpaceName}
           // The real records, so the screen shows the role the server holds rather than a mapping

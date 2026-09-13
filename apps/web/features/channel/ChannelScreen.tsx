@@ -222,8 +222,14 @@ export type ChannelScreenProps = {
   onUpdateChannel: (patch: Partial<Channel>) => void;
   /** The caller's own space role, for the channel settings' role reservation. */
   myRole: string;
-  /** The caller's own role inside this channel, for its roster controls. */
+  /**
+   * What the caller counts as in this channel before its roster is read: a space owner or
+   * administrator counts as its owner, everyone else as an ordinary member until the roster says
+   * otherwise.
+   */
   myChannelRole: string;
+  /** The caller's own user id, to find their row in the channel's roster. */
+  myUserId: string;
   onLeaveChannel: () => void;
   /** Rejoin this channel after leaving it (public channels only). */
   onJoinChannel: () => void;
@@ -302,6 +308,7 @@ export function ChannelScreen({
   onUpdateChannel,
   myRole,
   myChannelRole,
+  myUserId,
   onLeaveChannel,
   onJoinChannel,
   notifPref,
@@ -337,7 +344,9 @@ export function ChannelScreen({
    * A direct message has no roster endpoint: its people are the ones it is with, which the sidebar
    * row already names.
    */
-  const [roster, setRoster] = useState<{ channelId: string; names: string[] } | null>(null);
+  const [roster, setRoster] = useState<{ channelId: string; names: string[]; myRole?: string } | null>(
+    null,
+  );
   /**
    * How many arrivals and departures this channel's history carries.
    *
@@ -353,18 +362,38 @@ export function ChannelScreen({
     if (isDm) return;
     let active = true;
     listChannelMembers(channel.id)
-      .then((rows) => active && setRoster({ channelId: channel.id, names: rows.map((m) => m.name) }))
+      .then(
+        (rows) =>
+          active &&
+          setRoster({
+            channelId: channel.id,
+            names: rows.map((m) => m.name),
+            // The caller's own role *in this channel*, which a space administrator outranks anyway.
+            myRole: rows.find((m) => m.userId === myUserId)?.role,
+          }),
+      )
       // A failed roster leaves the panel on the space list rather than on nothing: it is the same
       // approximation the screen has always shown, and it is never the reason to hide the panel.
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, [channel.id, isDm, membershipMoves]);
+  }, [channel.id, isDm, membershipMoves, myUserId]);
 
   // Derived, not reset in the effect: a roster still carrying the previous channel's id is simply
   // not this channel's answer yet, which is the same thing as not having one.
   const channelRoster = roster?.channelId === channel.id ? roster.names : null;
+  /**
+   * What the caller counts as in this channel: the higher of what the space says (an owner or
+   * administrator counts as its owner) and what the channel's own roster says, once it has arrived.
+   */
+  const effectiveChannelRole =
+    myChannelRole === "owner"
+      ? "owner"
+      : roster?.channelId === channel.id
+        ? (roster.myRole ?? myChannelRole)
+        : myChannelRole;
+  const canModerate = effectiveChannelRole === "owner" || effectiveChannelRole === "admin";
   const inChannel = (name: string) => channelRoster === null || channelRoster.includes(name);
   const memberList: ChannelMember[] = members
     .filter((m) => isDm || inChannel(m.name))
@@ -586,6 +615,7 @@ export function ChannelScreen({
               onSettings={() => setMenuDialog("settings")}
               onNotifications={() => setMenuDialog("notifications")}
               onAddPeople={() => setMenuDialog("addpeople")}
+              canModerate={canModerate}
               onLeave={() => setMenuDialog("leave")}
               onJoin={onJoinChannel}
               member={channel.member !== false}
@@ -740,7 +770,7 @@ export function ChannelScreen({
           onUpdate={onUpdateChannel}
           onNotify={onNotify}
           myRole={myRole}
-          myChannelRole={myChannelRole}
+          myChannelRole={effectiveChannelRole}
         />
       ) : null}
       {menuDialog === "notifications" ? (

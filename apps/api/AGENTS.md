@@ -80,6 +80,10 @@ context and takes precedence here.
   `spaces.id`, so one row deletion empties the schema, but the stored objects are not in the
   database: the file versions' keys are collected *before* the delete and removed behind it, or a
   deleted space would leave its bytes in the store while the interface reported them gone.
+  **Adding someone to a channel is moderation**, not a member's errand: being in a channel is not
+  the same as deciding who else is, and anyone who had walked into a public one could put anybody in
+  it, an external guest included. It takes `is_channel_moderator`, like every other act of
+  moderation.
   **A channel has its own shorter ladder** (`member` < `admin` < `owner`, no guests: being in a
   channel is already the explicit thing a guest is given). `PATCH`/`DELETE
   /channels/{id}/members/{user_id}` set a role and take someone out, under the rule the space roles
@@ -188,6 +192,15 @@ context and takes precedence here.
   absolute `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
   The files router carries a raised request-body limit (`RUCHOIR_UPLOAD_MAX_BYTES`, default 100 MiB).
 - `src/openapi.rs`- OpenAPI document generated from the code with `utoipa`.
+
+**The permission matrix is tested from the refused side.** `tests_integration` walks one test per
+rank (`an_ordinary_member_administers_nothing`,
+`an_external_guest_administers_nothing_and_sees_nothing_extra`) through the same list of acts,
+because the interesting failure is never "does this endpoint work" but "does it refuse the person it
+should". Two-session tests (`two_sessions_see_the_same_membership_change`,
+`a_demoted_member_loses_the_space_in_the_same_breath`, `a_guest_is_not_told_about_a_channel_they_are_not_in`)
+open real sockets and assert what each side receives, which is the only way the "a frame reached
+somebody it should not have" class of defect shows up at all.
 
 The API needs PostgreSQL and Valkey at startup (see `docker-compose.yml`). Migrations live in the
 `ruchoir-migration` crate (`../../migrations`): applied automatically in dev
