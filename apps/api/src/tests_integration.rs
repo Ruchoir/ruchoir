@@ -41,8 +41,9 @@ use ruchoir_migration::{Migrator, MigratorTrait};
 use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
 use crate::entities::{
-    channel_members, channels, conversations, dm_conversations, dm_participants, files,
-    import_mappings, space_invitations, space_members, spaces, users,
+    channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
+    files, import_mappings, message_reactions, messages, space_invitations, space_members, spaces,
+    user_saved_messages, users,
 };
 use crate::state::AppState;
 
@@ -3650,7 +3651,7 @@ use crate::importer::archive::{
     ChannelRecord, Index, Manifest, MemberStateRecord, SpaceRecord, UserRecord,
 };
 use crate::importer::plan::{self, Existing};
-use crate::importer::run::{self, Mapper, KIND_CHANNEL, KIND_SPACE, KIND_USER};
+use crate::importer::run::{self, Mapper, KIND_CHANNEL, KIND_MESSAGE, KIND_SPACE, KIND_USER};
 
 fn source_channel(id: &str, space: &str, kind: &str, members: &[&str]) -> ChannelRecord {
     ChannelRecord {
@@ -4348,4 +4349,400 @@ async fn a_member_whose_account_was_skipped_is_left_out_rather_than_invented() {
             .expect("count"),
         1
     );
+}
+
+// --- Messages ------------------------------------------------------------------------------------
+//
+// The messages are read from an archive on disk rather than from anything held in memory, so these
+// tests write a small unpacked one and point the import at it. The reader takes a directory, which
+// is what a producer writes before sealing.
+
+/// Writes a minimal archive and returns its directory. Cleaned up by the caller's temp dir.
+fn write_archive(
+    spaces: &[Value],
+    users: &[Value],
+    channels: &[Value],
+    messages: &[Value],
+) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("ruchoir-import-{}", Uuid::new_v4().simple()));
+    std::fs::create_dir_all(&dir).expect("archive dir");
+
+    let write = |name: &str, rows: &[Value]| {
+        let body: String = rows
+            .iter()
+            .map(|row| format!("{row}\n"))
+            .collect::<Vec<_>>()
+            .concat();
+        std::fs::write(dir.join(name), body).expect("write");
+    };
+    write("spaces.jsonl", spaces);
+    write("users.jsonl", users);
+    write("channels.jsonl", channels);
+    write("messages.jsonl", messages);
+    write("files.jsonl", &[]);
+
+    std::fs::write(
+        dir.join("manifest.json"),
+        json!({
+            "format_version": 1,
+            "source": "mattermost",
+            "producer": "test",
+            "created_at": "2026-09-13T10:00:00Z",
+            "limits": ["nothing in particular"],
+        })
+        .to_string(),
+    )
+    .expect("manifest");
+    dir
+}
+
+fn message_row(id: &str, channel: &str, author: Option<&str>, body: &str) -> Value {
+    json!({
+        "id": id,
+        "channel": channel,
+        "author": author,
+        // Deliberately not today: an import that stamped everything with the time of the import
+        // would otherwise pass, which is exactly what happened when this assertion said "today".
+        "sent_at": "2024-03-05T08:09:10Z",
+        "body": body,
+        "format": "markdown",
+        "thread_root": null,
+        "pinned": false,
+        "edited_at": null,
+        "reactions": [],
+        "saved_by": [],
+        "files": [],
+    })
+}
+
+/// Runs accounts, spaces and conversations from an archive on disk, and hands back what the
+/// messages pass needs.
+async fn import_from_archive(
+    app: &TestApp,
+    admin: Uuid,
+    dir: &std::path::Path,
+) -> (Uuid, Vec<(String, Uuid)>) {
+    let index = crate::importer::archive::index(dir, None).expect("index");
+    let plan = plan::build(&index, &Existing::default());
+    let job = run::start_job(&app.db, "mattermost", admin, None)
+        .await
+        .expect("job");
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, admin)
+        .await
+        .expect("spaces");
+    run::import_conversations(&app.db, &mapper, &index, &spaces, admin)
+        .await
+        .expect("conversations");
+    (job, spaces)
+}
+
+#[tokio::test]
+async fn messages_arrive_with_their_text_author_and_time() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[
+            message_row("m1", &channel_ref, Some(&person), "bonjour"),
+            json!({
+                "id": "m2", "channel": channel_ref, "author": person,
+                "sent_at": "2026-09-13T10:00:30Z", "body": "", "format": "markdown",
+                "system_event": "channel_joined", "thread_root": null, "pinned": false,
+                "edited_at": null, "reactions": [], "saved_by": [], "files": []
+            }),
+        ],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let written = run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+    assert_eq!(written.messages_created, 2);
+
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("conversation");
+    let rows = messages::Entity::find()
+        .filter(messages::Column::ConversationId.eq(conversation))
+        .all(&app.db)
+        .await
+        .expect("messages");
+    assert_eq!(rows.len(), 2);
+
+    let ordinary = rows.iter().find(|m| m.kind == "message").expect("message");
+    assert_eq!(ordinary.body, "bonjour");
+    assert!(ordinary.author_id.is_some());
+    assert_eq!(ordinary.imported_source.as_deref(), Some("mattermost"));
+    // The time the message was sent there, not the time it was imported here.
+    assert!(
+        ordinary.created_at.to_string().starts_with("2024-03-05"),
+        "kept the time it was sent, got {}",
+        ordinary.created_at
+    );
+
+    // A notice carries an event and no sentence: the wording is ours, in the reader's language.
+    let notice = rows.iter().find(|m| m.kind == "system").expect("notice");
+    assert_eq!(notice.system_event.as_deref(), Some("channel_joined"));
+    assert!(notice.body.is_empty());
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_reply_finds_its_root_even_when_it_comes_first_in_the_file() {
+    // Resolved in a second pass on purpose: making the import depend on a producer's ordering
+    // would make it break on a source nobody has written yet.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let mut reply = message_row("reply", &channel_ref, Some(&person), "une réponse");
+    reply["thread_root"] = json!("root");
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[
+            reply,
+            message_row("root", &channel_ref, Some(&person), "la racine"),
+        ],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let root_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "root", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("root");
+    let reply_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "reply", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("reply");
+    let reply_row = messages::Entity::find_by_id(reply_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("reply");
+    assert_eq!(reply_row.parent_message_id, Some(root_id));
+    let root_row = messages::Entity::find_by_id(root_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("root");
+    assert_eq!(root_row.reply_count, 1);
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn what_people_did_with_a_message_comes_with_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let mut message = message_row("m1", &channel_ref, Some(&person), "épinglé");
+    message["pinned"] = json!(true);
+    message["reactions"] = json!([{"emoji": "tada", "by": [person]}]);
+    message["saved_by"] = json!([person]);
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[message],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let message_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "m1", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("message");
+    assert_eq!(
+        message_reactions::Entity::find()
+            .filter(message_reactions::Column::MessageId.eq(message_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    assert_eq!(
+        user_saved_messages::Entity::find()
+            .filter(user_saved_messages::Column::MessageId.eq(message_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    assert_eq!(
+        channel_pins::Entity::find()
+            .filter(channel_pins::Column::MessageId.eq(message_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_message_from_someone_we_could_not_place_keeps_its_text() {
+    // The silent loss this whole chain exists to prevent: a guest, a bot, an account left behind.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": []}),
+        ],
+        &[message_row(
+            "m1",
+            &channel_ref,
+            Some("guests:sample"),
+            "un message d'invité",
+        )],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let message_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "m1", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("message");
+    let row = messages::Entity::find_by_id(message_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("message");
+    assert_eq!(row.body, "un message d'invité");
+    assert!(
+        row.author_id.is_none(),
+        "attributed to an absent author, not dropped"
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn importing_the_messages_twice_writes_them_once() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[message_row(
+            "m1",
+            &channel_ref,
+            Some(&person),
+            "une seule fois",
+        )],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper {
+        job_id: job,
+        source: "mattermost",
+    };
+    let first = run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("first");
+    let second = run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("second");
+
+    assert_eq!(first.messages_created, 1);
+    assert_eq!(second.messages_created, 0);
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("conversation");
+    assert_eq!(
+        messages::Entity::find()
+            .filter(messages::Column::ConversationId.eq(conversation))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
 }

@@ -18,8 +18,9 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::entities::{
-    channel_members, channels, conversations, dm_conversations, dm_participants, import_jobs,
-    import_mappings, space_members, spaces, users,
+    channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
+    import_jobs, import_mappings, message_reactions, messages, space_members, spaces,
+    user_saved_messages, users,
 };
 
 use super::archive::Index;
@@ -28,6 +29,7 @@ use super::plan::{AccountOutcome, Plan};
 pub const KIND_SPACE: &str = "space";
 pub const KIND_USER: &str = "user";
 pub const KIND_CHANNEL: &str = "channel";
+pub const KIND_MESSAGE: &str = "message";
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Written {
@@ -37,6 +39,7 @@ pub struct Written {
     pub spaces_filled: usize,
     pub memberships: usize,
     pub conversations_created: usize,
+    pub messages_created: usize,
 }
 
 #[derive(Debug)]
@@ -552,4 +555,222 @@ pub async fn import_conversations<C: ConnectionTrait>(
     }
 
     Ok(written)
+}
+
+/// Brings the messages over.
+///
+/// Read straight from the archive rather than from anything held in memory: there can be millions,
+/// and only one is ever needed at a time.
+///
+/// **An import is silent.** These rows are written without a notification, an unread count or a
+/// mention alert. Ten thousand imported messages must not wake ten people's phones about
+/// conversations they had months ago somewhere else.
+///
+/// Threads are resolved in a second pass. A reply can appear before its root in the file, and
+/// refusing that would make the import depend on a producer's ordering rather than on the contract.
+pub async fn import_messages<C: ConnectionTrait>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    archive: &std::path::Path,
+    passphrase: Option<&str>,
+    spaces_by_source: &[(String, Uuid)],
+) -> Result<Written> {
+    let mut written = Written::default();
+    let mut pending: Vec<(String, String)> = Vec::new();
+
+    // Collected first: a message needs its conversation, and resolving one per message would be a
+    // query each time for something that changes rarely.
+    let mut conversation_of: std::collections::HashMap<String, (Uuid, Uuid, String)> =
+        std::collections::HashMap::new();
+    let index =
+        super::archive::index(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
+    for channel in &index.channels {
+        let Some((_, space_id)) = spaces_by_source.iter().find(|(id, _)| id == &channel.space)
+        else {
+            continue;
+        };
+        if let Some(conversation) = mapper
+            .resolve(db, KIND_CHANNEL, &channel.id, Some(*space_id))
+            .await?
+        {
+            conversation_of.insert(
+                channel.id.clone(),
+                (conversation, *space_id, channel.kind.clone()),
+            );
+        }
+    }
+
+    let mut records = Vec::new();
+    super::archive::walk(archive, passphrase, |member| {
+        if let super::archive::Member::Message(message) = member {
+            records.push(message);
+        }
+        Ok(())
+    })
+    .map_err(|e| RunError::Db(e.to_string()))?;
+
+    for record in &records {
+        let Some((conversation_id, space_id, kind)) = conversation_of.get(&record.channel) else {
+            continue;
+        };
+        if mapper
+            .resolve(db, KIND_MESSAGE, &record.id, Some(*space_id))
+            .await?
+            .is_some()
+        {
+            continue;
+        }
+
+        let author = match &record.author {
+            Some(source_id) => mapper.resolve(db, KIND_USER, source_id, None).await?,
+            None => None,
+        };
+        let message_id = Uuid::new_v4();
+        let sent_at = parse_instant(&record.sent_at);
+
+        messages::ActiveModel {
+            id: Set(message_id),
+            conversation_id: Set(*conversation_id),
+            // A message whose author matched nothing keeps its text and arrives with no author,
+            // which the interface already renders as an absent person. Dropping it would be the
+            // silent loss this whole chain exists to prevent.
+            author_id: Set(author),
+            kind: Set(if record.system_event.is_some() {
+                "system".to_owned()
+            } else {
+                "message".to_owned()
+            }),
+            body: Set(record.body.clone()),
+            system_event: Set(record.system_event.clone()),
+            // Filled by the second pass, once every root has an identifier here.
+            parent_message_id: Set(None),
+            reply_count: Set(0),
+            imported_source: Set(Some(mapper.source.to_owned())),
+            external_ref: Set(Some(record.id.clone())),
+            created_at: Set(sent_at),
+            edited_at: Set(record.edited_at.as_deref().map(parse_instant)),
+            deleted_at: Set(None),
+        }
+        .insert(db)
+        .await?;
+        mapper
+            .record(db, KIND_MESSAGE, &record.id, Some(*space_id), message_id)
+            .await?;
+        written.messages_created += 1;
+
+        for reaction in &record.reactions {
+            for source_id in &reaction.by {
+                if let Some(user_id) = mapper.resolve(db, KIND_USER, source_id, None).await? {
+                    message_reactions::ActiveModel {
+                        message_id: Set(message_id),
+                        user_id: Set(user_id),
+                        emoji: Set(reaction.emoji.clone()),
+                        created_at: Set(sent_at),
+                    }
+                    .insert(db)
+                    .await?;
+                }
+            }
+        }
+
+        for source_id in &record.saved_by {
+            if let Some(user_id) = mapper.resolve(db, KIND_USER, source_id, None).await? {
+                user_saved_messages::ActiveModel {
+                    user_id: Set(user_id),
+                    message_id: Set(message_id),
+                    saved_at: Set(sent_at),
+                }
+                .insert(db)
+                .await?;
+            }
+        }
+
+        // Only a channel has pins: a direct conversation has no pinned panel to put one in.
+        if record.pinned && kind != "direct" {
+            channel_pins::ActiveModel {
+                channel_id: Set(*conversation_id),
+                message_id: Set(message_id),
+                pinned_by: Set(author),
+                pinned_at: Set(sent_at),
+            }
+            .insert(db)
+            .await?;
+        }
+
+        if let Some(root) = &record.thread_root {
+            pending.push((record.id.clone(), root.clone()));
+        }
+    }
+
+    attach_threads(db, mapper, &pending, spaces_by_source, &conversation_of).await?;
+    Ok(written)
+}
+
+/// The second pass: hangs every reply on its root, now that both exist here.
+async fn attach_threads<C: ConnectionTrait>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    pending: &[(String, String)],
+    _spaces: &[(String, Uuid)],
+    conversation_of: &std::collections::HashMap<String, (Uuid, Uuid, String)>,
+) -> Result<()> {
+    let spaces: Vec<Uuid> = {
+        let mut seen: Vec<Uuid> = conversation_of
+            .values()
+            .map(|(_, space, _)| *space)
+            .collect();
+        seen.sort();
+        seen.dedup();
+        seen
+    };
+
+    for (reply_ref, root_ref) in pending {
+        let mut reply = None;
+        let mut root = None;
+        for space_id in &spaces {
+            if reply.is_none() {
+                reply = mapper
+                    .resolve(db, KIND_MESSAGE, reply_ref, Some(*space_id))
+                    .await?;
+            }
+            if root.is_none() {
+                root = mapper
+                    .resolve(db, KIND_MESSAGE, root_ref, Some(*space_id))
+                    .await?;
+            }
+        }
+        let (Some(reply_id), Some(root_id)) = (reply, root) else {
+            // The checks refuse an archive whose reply names a root it does not carry, so this can
+            // only mean the root was in a conversation left behind. The reply keeps its text and
+            // simply stops being a reply, rather than pointing at nothing.
+            continue;
+        };
+
+        let Some(model) = messages::Entity::find_by_id(reply_id).one(db).await? else {
+            continue;
+        };
+        let mut model: messages::ActiveModel = model.into();
+        model.parent_message_id = Set(Some(root_id));
+        model.update(db).await?;
+
+        // The root carries the count the interface reads, so it is kept in step here rather than
+        // recomputed on every read.
+        if let Some(root_model) = messages::Entity::find_by_id(root_id).one(db).await? {
+            let count = root_model.reply_count + 1;
+            let mut root_model: messages::ActiveModel = root_model.into();
+            root_model.reply_count = Set(count);
+            root_model.update(db).await?;
+        }
+    }
+    Ok(())
+}
+
+/// The archive spells every instant the same way, and the checks refused the archive if it did not.
+fn parse_instant(value: &str) -> OffsetDateTime {
+    time::PrimitiveDateTime::parse(
+        value,
+        time::macros::format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]Z"),
+    )
+    .map(|parsed| parsed.assume_utc())
+    .unwrap_or_else(|_| OffsetDateTime::now_utc())
 }
