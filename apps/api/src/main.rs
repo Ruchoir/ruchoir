@@ -145,6 +145,15 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let valkey = cache::connect(&config).await?;
     tracing::info!("connected to Valkey");
 
+    // An import runs in a task inside this process, so anything still marked as running when we
+    // get here is something no task is behind any more. Said now, before a screen can watch a bar
+    // that would never move again.
+    match importer::run::close_abandoned_jobs(&db).await {
+        Ok(0) => {}
+        Ok(closed) => tracing::warn!(closed, "imports were interrupted by a restart"),
+        Err(error) => tracing::warn!(%error, "could not close interrupted imports"),
+    }
+
     // Real-time hub: opens a dedicated pub/sub subscriber and starts the fan-out loop.
     let hub = realtime::Hub::start(&config, valkey.clone()).await?;
     tracing::info!("real-time hub started");

@@ -268,6 +268,16 @@ pub async fn start(
     Json(body): Json<ArchiveRequest>,
 ) -> Result<(axum::http::StatusCode, Json<JobResponse>), ApiError> {
     ensure_instance_admin(&state, session.user_id).await?;
+    // One at a time. Two would write over each other's progress and race on the same accounts,
+    // and the answer to "why did my import stop counting" would be another import.
+    if super::run::one_is_running(&state.db)
+        .await
+        .map_err(|_| ApiError::Internal)?
+    {
+        return Err(ApiError::Conflict(
+            "an import is already running on this instance",
+        ));
+    }
     let path = resolve(&state, &body.file)?;
 
     let db = state.db.clone();

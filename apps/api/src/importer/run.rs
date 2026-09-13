@@ -1350,3 +1350,47 @@ pub async fn attach_files<C: ConnectionTrait>(
 
     Ok(written)
 }
+
+/// Closes imports that were running when the process stopped.
+///
+/// A run lives in a task inside this process. Restart the server and the task is gone, but the row
+/// still says "running", so the screen watches a bar that will never move again and nothing says
+/// why. Called once at boot, before anything can watch: whatever is still marked as running at
+/// that moment is, by definition, something no task is behind any more.
+///
+/// Nothing written is undone. The correspondences are on disk, so running the same archive again
+/// picks up where this left off, which is what the message says.
+pub async fn close_abandoned_jobs<C: ConnectionTrait>(db: &C) -> Result<usize> {
+    let stale = import_jobs::Entity::find()
+        .filter(import_jobs::Column::Status.is_in(["running", "cancelling"]))
+        .all(db)
+        .await?;
+    let found = stale.len();
+    for job in stale {
+        let mut model: import_jobs::ActiveModel = job.into();
+        model.status = Set("failed".to_owned());
+        model.error = Set(Some(
+            "the server restarted while this import was running. Nothing it had already written \
+             was lost: run the same archive again and it will pick up where it stopped."
+                .to_owned(),
+        ));
+        model.finished_at = Set(Some(OffsetDateTime::now_utc()));
+        model.update(db).await?;
+    }
+    Ok(found)
+}
+
+/// Whether an import is running right now.
+///
+/// Two at once would have them writing over each other's progress and racing on the same accounts.
+/// Checked at the moment of starting, which leaves a window of milliseconds where two requests
+/// could both pass; that is a far smaller problem than the one this closes, and an administrator
+/// starting two imports in the same instant is not a case worth a lock.
+pub async fn one_is_running<C: ConnectionTrait>(db: &C) -> Result<bool> {
+    Ok(import_jobs::Entity::find()
+        .filter(import_jobs::Column::Status.is_in(["running", "cancelling"]))
+        .count(db)
+        .await?
+        > 0)
+}
+

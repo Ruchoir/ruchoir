@@ -5803,6 +5803,71 @@ impl ScratchDb {
     }
 }
 
+/// A restart must not leave an import running for ever.
+///
+/// The run lives in a task inside the process. Restart the server and the task is gone, but the
+/// row still said "running": the screen watched a bar that would never move again, and nothing
+/// said why.
+///
+/// On its own database, like the wipe tests and for the same reason: the sweep closes every
+/// running job it finds, and on the shared one that would be another test's import.
+#[tokio::test]
+async fn a_restart_closes_the_imports_that_were_running() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let job = run::start_job(&scratch.db, "mattermost", admin, None, "{}")
+        .await
+        .expect("job");
+    assert!(run::one_is_running(&scratch.db).await.expect("query"));
+
+    let closed = run::close_abandoned_jobs(&scratch.db).await.expect("close");
+    assert_eq!(closed, 1);
+    assert!(
+        !run::one_is_running(&scratch.db).await.expect("query"),
+        "and a new import is possible again"
+    );
+
+    let after = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&scratch.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert_eq!(after.status, "failed");
+    assert!(
+        after.error.unwrap_or_default().contains("restarted"),
+        "the reason has to say what happened, in words the administrator can act on"
+    );
+    assert!(after.finished_at.is_some());
+    scratch.drop_it().await;
+}
+
+/// Two at once would write over each other's progress and race on the same accounts.
+#[tokio::test]
+async fn one_import_at_a_time() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    assert!(!run::one_is_running(&scratch.db).await.expect("query"));
+    run::start_job(&scratch.db, "mattermost", admin, None, "{}")
+        .await
+        .expect("job");
+    assert!(run::one_is_running(&scratch.db).await.expect("query"));
+
+    // A finished one does not hold the door.
+    run::finish_job(&scratch.db, run::start_job(&scratch.db, "mattermost", admin, None, "{}")
+        .await
+        .expect("second"), "completed")
+        .await
+        .expect("finish");
+    assert!(run::one_is_running(&scratch.db).await.expect("query"));
+    run::close_abandoned_jobs(&scratch.db).await.expect("close");
+    assert!(!run::one_is_running(&scratch.db).await.expect("query"));
+    scratch.drop_it().await;
+}
+
 async fn record_backup(db: &DatabaseConnection, when: OffsetDateTime) {
     crate::entities::instance_events::ActiveModel {
         id: Set(Uuid::new_v4()),
