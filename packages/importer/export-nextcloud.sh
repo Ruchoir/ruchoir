@@ -176,10 +176,13 @@ expect_jsonl "${OUT}/channels.jsonl"
 
 # --- Messages ------------------------------------------------------------------------------------
 # Talk stores its chat in oc_comments, keyed by the room's numeric id. `verb` separates what people
-# wrote ('comment') from what the system narrated ('system'): joins, leaves, calls, renames. Those
-# are events, not messages, and importing them as messages would put words in people's mouths.
-# 'object_shared' is kept: it is how a shared file appears in the conversation, and dropping it
-# would lose the file from the thread it belongs to.
+# wrote ('comment') from what the system narrated ('system').
+#
+# Both are kept, for different reasons. 'object_shared' is how a shared file appears in the
+# conversation, and dropping it would lose the file from the thread it belongs to. A 'system' row
+# is a notice, and Ruchoir has notices of its own, written in the reader's language: an imported
+# conversation that opens with neither its creation nor its arrivals reads as if it had been cut.
+# Only the two events that have an equivalent here cross, as an event name and never as a phrase.
 #
 # `parent_id` is a reply, which is the closest thing Talk has to our thread root.
 #
@@ -199,10 +202,25 @@ sql > "${OUT}/messages.jsonl" <<SQL
 SELECT JSON_OBJECT(
   'id', CAST(c.id AS CHAR),
   'channel', r.token,
-  'author', IF(c.actor_type = 'users', c.actor_id, CONCAT(c.actor_type, ':', c.actor_id)),
+  -- A notice is about someone rather than written by them, so an arrival carries the person who
+  -- arrived, not the person who added them. A conversation's creation is about nobody.
+  'author', CASE
+    WHEN c.verb = 'system' AND JSON_VALUE(c.message, '\$.message') = 'user_added'
+      THEN JSON_VALUE(c.message, '\$.parameters.user')
+    WHEN c.verb = 'system' THEN NULL
+    WHEN c.actor_type = 'users' THEN c.actor_id
+    ELSE CONCAT(c.actor_type, ':', c.actor_id)
+  END,
   'sent_at', DATE_FORMAT(c.creation_timestamp, '%Y-%m-%dT%H:%i:%sZ'),
-  -- A file share carries a JSON envelope, not a sentence: the file is the message.
-  'body', IF(c.verb = 'object_shared', '', COALESCE(c.message, '')),
+  -- A file share and a notice both carry a JSON envelope, not a sentence.
+  'body', IF(c.verb IN ('object_shared', 'system'), '', COALESCE(c.message, '')),
+  -- Set only on a notice, and only for the two Talk events that have an equivalent here. The
+  -- sentence is ours, in the reader's language; the archive carries the event, never a phrase.
+  'system_event', CASE JSON_VALUE(c.message, '\$.message')
+    WHEN 'conversation_created' THEN IF(c.verb = 'system', 'channel_created', NULL)
+    WHEN 'user_added' THEN IF(c.verb = 'system', 'channel_joined', NULL)
+    ELSE NULL
+  END,
   'format', 'markdown',
   'thread_root', IF(c.parent_id = 0, NULL, CAST(c.parent_id AS CHAR)),
   'pinned', JSON_VALUE(c.meta_data, '\$.pinned_at') IS NOT NULL,
@@ -238,7 +256,14 @@ SELECT JSON_OBJECT(
 FROM ${PREFIX}comments c
 JOIN ${PREFIX}talk_rooms r ON r.id = CAST(c.object_id AS UNSIGNED)
 WHERE c.object_type = 'chat'
-  AND c.verb IN ('comment', 'object_shared')
+  AND (
+    c.verb IN ('comment', 'object_shared')
+    -- Talk narrates a dozen kinds of event; only these two have an equivalent here. A moderator
+    -- promotion has no notice of its own, and pinning and deletion are already carried by the
+    -- message itself, so importing them would say the same thing twice. Declared in limits.
+    OR (c.verb = 'system'
+        AND JSON_VALUE(c.message, '\$.message') IN ('conversation_created', 'user_added'))
+  )
   AND r.type IN (1, 2, 3)
   AND COALESCE(r.object_type, '') NOT IN ('changelog', 'note_to_self', 'sample')
 ORDER BY r.id, c.creation_timestamp, c.id;
@@ -343,11 +368,12 @@ cat > "${OUT}/manifest.json" <<JSON
     "files.jsonl": "$(digest "${OUT}/files.jsonl")"
   },
   "limits": [
-    "System messages (joins, leaves, calls, renames) are events rather than messages and are not imported.",
+    "Only two of Talk's notices have an equivalent here and cross as such: a conversation being created, and someone being added. The others (moderator promoted, call started, conversation renamed, lobby and password changes) are dropped, and pinning and deletion are already carried by the message itself.",
     "Nextcloud's own conversations (changelog, note to self, former one-to-one, and the sample conversations Talk installs for each account) are left behind.",
     "Accounts with no address in Nextcloud cannot be matched automatically: they need a manual pass at import time.",
     "A file is imported with its owner and its path, not attached to the message that shared it: Talk records a share, not an attachment.",
-    "Contacts and calendars are not exported: Ruchoir has nowhere to put them yet.",
+    "Contacts are not exported and never will be: an address book is outside what Ruchoir does.",
+    "Calendars and events are not exported yet: they wait for the calendar feature.",
     "File shares between accounts and groups are not exported: every file arrives owned by the account that held it, and who else could reach it is not carried over.",
     "Nextcloud groups are not exported: group membership does not become anything in the imported space.",
     "File versions, the trash, tags and favourites are not exported: only the current content of each file crosses.",

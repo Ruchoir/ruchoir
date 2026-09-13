@@ -73,10 +73,22 @@ never invent, renumber or prettify identifiers.
  "body":"Bonjour **tout le monde**","format":"markdown","thread_root":null,"pinned":false,
  "edited_at":null,"reactions":[{"emoji":"tada","by":["bob"]}],"files":["emma/Documents/note.txt"]}
 
+// a notice, not a sentence: `system_event` names the event and the reader's own language
+// supplies the wording. One of member_joined, member_left, member_removed, channel_joined,
+// channel_left, channel_removed, channel_created. `author` is the person the notice is ABOUT
+// (who arrived), or null when it is about nobody, and `body` is empty.
+{"id":"1041","channel":"fiddjs6o","author":"bob","sent_at":"2026-08-29T13:46:00Z","body":"",
+ "system_event":"channel_joined"}
+
 // files.jsonl
 {"id":"7781","name":"note.txt","size":58,"content_type":"text/plain","hash":"sha256:…",
  "channel":"fiddjs6o","uploaded_by":"emma","uploaded_at":"2026-08-29T14:02:00Z"}
 ```
+
+A producer emits a notice only for an event that has an equivalent here, and never invents a
+sentence: an imported conversation that opens on neither its creation nor its arrivals reads as if
+it had been cut, but a vendor's own phrasing in a Ruchoir thread is worse than no line at all.
+Whatever it cannot map, it drops and declares.
 
 Message bodies are Markdown, because that is what the product stores. A producer whose source uses
 something else (Slack's `mrkdwn`, Mattermost's flavour) converts, and says so in `limits` if the
