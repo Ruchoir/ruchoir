@@ -77,10 +77,29 @@ for _ in $(seq 1 30); do
   compose exec -T postgres pg_isready -U "$pg_user" -d "$pg_db" >/dev/null 2>&1 && break
   sleep 1
 done
-# --clean --if-exists drops what the archive is about to recreate, so a restore onto a live instance
-# lands on the archive's state and not on a merge of two.
-compose exec -T postgres pg_restore -U "$pg_user" -d "$pg_db" --clean --if-exists --no-owner \
-  < "$work/postgres.dump" >/dev/null
+# The schema is emptied first, rather than leaning on pg_restore --clean.
+#
+# --clean only drops what the archive itself contains, and it cannot drop a table that something
+# outside the archive points at. Restore a backup taken before a migration and the newer tables are
+# still there, still referencing `users`: every DROP fails, every COPY then hits rows that were
+# never removed, and pg_restore ends with "errors ignored on restore" and a database that is half
+# one state and half another. That happened, and the script said "Done".
+#
+# Dropping the schema outright is what makes this a restore rather than a merge. The API recreates
+# what a newer version needs when it starts, because migrations run on boot.
+compose exec -T postgres psql -U "$pg_user" -d "$pg_db" -v ON_ERROR_STOP=1 -q -c \
+  "DROP SCHEMA public CASCADE; CREATE SCHEMA public;
+   GRANT ALL ON SCHEMA public TO \"$pg_user\"; GRANT ALL ON SCHEMA public TO public;" >/dev/null
+
+# Not silenced and not ignored: a restore that only partly worked must not be reported as one that
+# worked. There is nothing left to conflict with now, so an error here is a real one.
+if ! compose exec -T postgres pg_restore -U "$pg_user" -d "$pg_db" --no-owner --exit-on-error \
+     < "$work/postgres.dump"; then
+  echo >&2
+  echo "The database was NOT restored: pg_restore stopped on an error, and the schema it was" >&2
+  echo "restoring into is now empty. Fix the cause and run this again with the same archive." >&2
+  exit 1
+fi
 
 echo "  Garage (objects and metadata)"
 compose stop garage >/dev/null 2>&1 || true
