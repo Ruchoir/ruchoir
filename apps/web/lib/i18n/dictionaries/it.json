@@ -967,7 +967,7 @@
     "start": "Avvia l'importazione",
     "replaceTitle": "Sostituire l'intera istanza",
     "replaceExplain": "Svuota l'istanza prima di importare: tutti gli spazi e tutti gli account tranne il tuo. Irreversibile se non ripristinando un backup.",
-    "replaceWouldDestroy": "Verrebbero eliminati — spazi: {{spaces}}, account: {{accounts}}, messaggi: {{messages}}.",
+    "replaceWouldDestroy": "Verrebbero eliminati - spazi: {{spaces}}, account: {{accounts}}, messaggi: {{messages}}.",
     "replaceNoBackup": "Impossibile senza un backup di meno di 24 ore. Falne uno prima.",
     "replaceEnable": "Sì, svuotare l'istanza prima di importare",
     "replaceConfirmLabel": "Digita {{address}} per confermare",

@@ -49,7 +49,7 @@ api "yanis:$P" POST "/ocs/v2.php/apps/spreed/api/v1/reaction/$GEN/$FIRST" -d rea
 api "yanis:$P" POST "/ocs/v2.php/apps/spreed/api/v4/room/$GEN/favorite" >/dev/null
 api "yanis:$P" POST "/ocs/v2.php/apps/spreed/api/v1/chat/$GEN/read" -d lastReadMessage="$SECOND" >/dev/null
 
-printf 'Maquette v3 — refonte 2026\n' > /tmp/e2e-maquette.md
+printf 'Maquette v3 - refonte 2026\n' > /tmp/e2e-maquette.md
 printf 'Compte rendu du 12 mars\n' > /tmp/e2e-cr.txt
 curl -s -u "awa:$P" -T /tmp/e2e-maquette.md "$NC/remote.php/dav/files/awa/maquette.md" -o /dev/null
 curl -s -u "camille:$P" -T /tmp/e2e-cr.txt "$NC/remote.php/dav/files/camille/cr.txt" -o /dev/null

@@ -8,7 +8,7 @@
 //! shows: each fetches its producer, runs it, seals the result if the producer did not, and
 //! delivers the sealed archive back to this instance with a one-time drop token.
 //!
-//! The instance's own base URL is stamped in at request time. Nothing here holds a secret — the
+//! The instance's own base URL is stamped in at request time. Nothing here holds a secret - the
 //! drop token is the administrator's, passed to the command as an argument.
 
 /// The Nextcloud producer, embedded verbatim from `packages/importer`.

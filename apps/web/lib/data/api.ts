@@ -2327,7 +2327,7 @@ export type ImportFile = {
   modified: string | null;
 };
 
-/** `GET /imports/files`: the archives on the server, newest first — a delivery lands in this list. */
+/** `GET /imports/files`: the archives on the server, newest first - a delivery lands in this list. */
 export async function listImportFiles(signal?: AbortSignal): Promise<ImportFile[]> {
   const dtos = await apiGet<{ name: string; bytes: number; modified: string | null }[]>(
     "/imports/files",

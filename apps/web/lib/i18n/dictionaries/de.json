@@ -951,7 +951,7 @@
     "start": "Import starten",
     "replaceTitle": "Die gesamte Instanz ersetzen",
     "replaceExplain": "Leert die Instanz vor dem Import: alle Bereiche und alle Konten außer Ihrem. Nur durch das Einspielen einer Sicherung rückgängig zu machen.",
-    "replaceWouldDestroy": "Würden gelöscht — Bereiche: {{spaces}}, Konten: {{accounts}}, Nachrichten: {{messages}}.",
+    "replaceWouldDestroy": "Würden gelöscht - Bereiche: {{spaces}}, Konten: {{accounts}}, Nachrichten: {{messages}}.",
     "replaceNoBackup": "Nicht möglich ohne eine Sicherung, die jünger als 24 Stunden ist. Legen Sie zuerst eine an.",
     "replaceEnable": "Ja, die Instanz vor dem Import leeren",
     "replaceConfirmLabel": "Geben Sie {{address}} zur Bestätigung ein",

@@ -951,7 +951,7 @@
     "start": "Start the import",
     "replaceTitle": "Replace the whole instance",
     "replaceExplain": "Empties the instance before importing: every space and every account except yours. Irreversible short of restoring a backup.",
-    "replaceWouldDestroy": "Would be deleted — spaces: {{spaces}}, accounts: {{accounts}}, messages: {{messages}}.",
+    "replaceWouldDestroy": "Would be deleted - spaces: {{spaces}}, accounts: {{accounts}}, messages: {{messages}}.",
     "replaceNoBackup": "Not possible without a backup less than 24 hours old. Take one first.",
     "replaceEnable": "Yes, empty the instance before importing",
     "replaceConfirmLabel": "Type {{address}} to confirm",

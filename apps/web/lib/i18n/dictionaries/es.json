@@ -967,7 +967,7 @@
     "start": "Iniciar la importación",
     "replaceTitle": "Reemplazar toda la instancia",
     "replaceExplain": "Vacía la instancia antes de importar: todos los espacios y todas las cuentas, salvo la tuya. Irreversible salvo restaurando una copia de seguridad.",
-    "replaceWouldDestroy": "Se eliminarían — espacios: {{spaces}}, cuentas: {{accounts}}, mensajes: {{messages}}.",
+    "replaceWouldDestroy": "Se eliminarían - espacios: {{spaces}}, cuentas: {{accounts}}, mensajes: {{messages}}.",
     "replaceNoBackup": "No es posible sin una copia de seguridad de menos de 24 horas. Haz una primero.",
     "replaceEnable": "Sí, vaciar la instancia antes de importar",
     "replaceConfirmLabel": "Escribe {{address}} para confirmar",

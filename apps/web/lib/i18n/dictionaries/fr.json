@@ -951,7 +951,7 @@
     "start": "Lancer l'import",
     "replaceTitle": "Remplacer toute l'instance",
     "replaceExplain": "Vide l'instance avant d'importer : tous les espaces et tous les comptes, sauf le vôtre. Irréversible sans restauration de sauvegarde.",
-    "replaceWouldDestroy": "Seraient supprimés — espaces : {{spaces}}, comptes : {{accounts}}, messages : {{messages}}.",
+    "replaceWouldDestroy": "Seraient supprimés - espaces : {{spaces}}, comptes : {{accounts}}, messages : {{messages}}.",
     "replaceNoBackup": "Impossible sans une sauvegarde de moins de 24 heures. Prenez-en une d'abord.",
     "replaceEnable": "Oui, vider l'instance avant d'importer",
     "replaceConfirmLabel": "Tapez {{address}} pour confirmer",

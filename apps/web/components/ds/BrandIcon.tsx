@@ -5,13 +5,13 @@ import type { CSSProperties } from "react";
  *
  * The `Icon` component's sovereignty rule (lucide-only, no CDN) governs the app's *own* glyphs. A
  * provenance mark is a different thing: it has to be Slack's logo, in Slack's colours, or it says
- * nothing. Rendered inline like `Icon` — no runtime network, CSP-safe.
+ * nothing. Rendered inline like `Icon` - no runtime network, CSP-safe.
  *
  * The marks are inlined as static SVG on purpose rather than pulled from a runtime package. A
  * full-colour brand set (Iconify `logos`, kept as a devDependency) carries ~2000 icons, and
  * shipping all of them to every browser to draw three is the cost this avoids. Sources: Slack and
- * Mattermost from Iconify `logos` (`slack-icon`, `mattermost-icon`); Nextcloud — absent from
- * `logos`, and a single-colour mark by brand — from simple-icons, tinted its own #0082C9.
+ * Mattermost from Iconify `logos` (`slack-icon`, `mattermost-icon`); Nextcloud - absent from
+ * `logos`, and a single-colour mark by brand - from simple-icons, tinted its own #0082C9.
  */
 type BrandMark = { viewBox: string; body: string };
 
@@ -58,7 +58,7 @@ export function BrandIcon({ name, size = 16, title, className, style }: BrandIco
       role={title ? "img" : "presentation"}
       aria-label={title}
       aria-hidden={title ? undefined : true}
-      // Static, local, brand-coloured SVG paths — no user input, no network.
+      // Static, local, brand-coloured SVG paths - no user input, no network.
       dangerouslySetInnerHTML={{ __html: mark.body }}
     />
   );

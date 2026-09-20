@@ -983,7 +983,7 @@
     "start": "Rozpocznij import",
     "replaceTitle": "Zastąp całą instancję",
     "replaceExplain": "Opróżnia instancję przed importem: wszystkie przestrzenie i wszystkie konta poza Twoim. Nieodwracalne bez przywrócenia kopii zapasowej.",
-    "replaceWouldDestroy": "Zostałyby usunięte — przestrzenie: {{spaces}}, konta: {{accounts}}, wiadomości: {{messages}}.",
+    "replaceWouldDestroy": "Zostałyby usunięte - przestrzenie: {{spaces}}, konta: {{accounts}}, wiadomości: {{messages}}.",
     "replaceNoBackup": "Niemożliwe bez kopii zapasowej młodszej niż 24 godziny. Zrób ją najpierw.",
     "replaceEnable": "Tak, opróżnij instancję przed importem",
     "replaceConfirmLabel": "Wpisz {{address}}, aby potwierdzić",
