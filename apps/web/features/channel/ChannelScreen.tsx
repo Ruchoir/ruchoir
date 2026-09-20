@@ -664,7 +664,10 @@ export function ChannelScreen({
                   </div>
                   <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6, maxWidth: 560 }}>
                     {isArchived ? t("conversation.archivedNotice") : channel.type === "private" ? t("conversation.privateNotice") : t("conversation.publicNotice")}{" "}
-                    {channel.topic ? `${channel.topic}. ` : ""}
+                    {/* A topic written with its own full stop is left with it: an imported one
+                        carries whatever the source held, and "votre équipe.. L'historique" is what
+                        appending a second one looks like. */}
+                    {channel.topic ? `${channel.topic.replace(/[.!?\s]+$/, "")}. ` : ""}
                     {channel.imported ? t("conversation.importedNotice", { source: channel.imported }) : t("conversation.channelStart")}
                   </p>
                 </>

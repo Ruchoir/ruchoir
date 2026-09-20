@@ -72,7 +72,7 @@ function deliveryCommand(platform: BrandName, drop: DropToken): string {
     case "Mattermost":
       return `curl -fsSL ${base}/tools/import-mattermost.sh | bash -s -- \\\n  --token ${t} -- --export <dossier-export-mmctl>`;
     case "Slack":
-      return `curl -fsSL ${base}/tools/import-slack.sh | bash -s -- \\\n  --token ${t} --dir <dossier-archive>`;
+      return `curl -fsSL ${base}/tools/import-slack.sh | bash -s -- \\\n  --token ${t} -- --export <dossier-export-slack>`;
   }
 }
 

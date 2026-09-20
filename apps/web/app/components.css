@@ -1723,11 +1723,14 @@
 .wc-imp-command code {
   flex: 1;
   min-width: 0;
-  overflow-x: auto;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.6;
-  white-space: pre;
+  /* Wrapped, not scrolled: the line carries a token and a path the reader has to replace, and a
+     command cut off at the edge of its box is one nobody can check before pasting it into a
+     terminal. The break is allowed anywhere because a token has no spaces to break at. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .wc-imp-command .wc-ibtn {
   color: #bdb5aa;
