@@ -36,6 +36,12 @@ pub struct SpacePlan {
     pub outcome: SpaceOutcome,
     pub channels: usize,
     pub directs: usize,
+    /// How many of those channels a space of this name here already has, under the same handle.
+    ///
+    /// They are not created a second time - a name is unique within a space - so the archive's
+    /// history goes into the channel that is already there. Said here because it is a merge, and
+    /// a plan that counted them as new would be promising an import that cannot happen.
+    pub channels_filled: usize,
 }
 
 /// What happens to an account the archive carries.
@@ -159,6 +165,8 @@ pub struct Existing {
     pub emails: Vec<String>,
     /// Names of the spaces here.
     pub space_names: Vec<String>,
+    /// The channels here, as (space name, channel handle). Both sides are what the run matches on.
+    pub channels: Vec<(String, String)>,
 }
 
 pub fn build(index: &Index, existing: &Existing) -> Plan {
@@ -182,6 +190,14 @@ pub fn build(index: &Index, existing: &Existing) -> Plan {
         .map(|n| n.trim().to_lowercase())
         .collect();
 
+    // Handles here, per space name, both folded the way the run folds them.
+    let mut here: HashMap<String, Vec<String>> = HashMap::new();
+    for (space, channel) in &existing.channels {
+        here.entry(space.trim().to_lowercase())
+            .or_default()
+            .push(channel.clone());
+    }
+
     let mut conversations: HashMap<&str, (usize, usize)> = HashMap::new();
     for channel in &index.channels {
         let entry = conversations
@@ -202,17 +218,36 @@ pub fn build(index: &Index, existing: &Existing) -> Plan {
                 .get(space.id.as_str())
                 .copied()
                 .unwrap_or((0, 0));
+            let name_here = space.name.trim().to_lowercase();
+            let filled = known_spaces.contains(&name_here);
+            // Only a space that is filled can meet a channel of its own name. A created one is
+            // empty by construction, whatever else the instance holds.
+            let channels_filled = if filled {
+                let handles = here.get(&name_here);
+                index
+                    .channels
+                    .iter()
+                    .filter(|channel| channel.space == space.id && channel.kind != "direct")
+                    .filter(|channel| {
+                        let handle = crate::messaging::slug::slugify(&channel.name);
+                        handles.is_some_and(|names| names.contains(&handle))
+                    })
+                    .count()
+            } else {
+                0
+            };
             SpacePlan {
                 source_id: space.id.clone(),
                 name: space.name.clone(),
                 description: space.description.clone(),
-                outcome: if known_spaces.contains(&space.name.trim().to_lowercase()) {
+                outcome: if filled {
                     SpaceOutcome::Filled
                 } else {
                     SpaceOutcome::Created
                 },
                 channels,
                 directs,
+                channels_filled,
             }
         })
         .collect();
@@ -378,6 +413,51 @@ mod tests {
         );
     }
 
+    /// A conversation of a space being filled can already be here, and then it is not created a
+    /// second time: it takes the archive's history. The plan says so before the run, because a
+    /// merge nobody was shown is a merge nobody agreed to.
+    #[test]
+    fn a_conversation_that_is_already_here_is_announced_as_taking_the_history() {
+        let index = index_with(
+            vec![],
+            vec![space("atelier", "Atelier")],
+            vec![
+                channel("Général", "atelier", "channel"),
+                channel("Produit", "atelier", "channel"),
+                channel("direct-1", "atelier", "direct"),
+            ],
+        );
+        let existing = Existing {
+            space_names: vec!["Atelier".into()],
+            // The handle, as the run folds it: "Général" is `general` here.
+            channels: vec![("Atelier".into(), "general".into())],
+            ..Default::default()
+        };
+
+        let plan = build(&index, &existing);
+        assert_eq!(plan.spaces[0].outcome, SpaceOutcome::Filled);
+        assert_eq!(plan.spaces[0].channels, 2);
+        assert_eq!(plan.spaces[0].channels_filled, 1);
+    }
+
+    /// A space being created meets nothing: it is empty, whatever the rest of the instance holds.
+    #[test]
+    fn a_conversation_of_a_space_that_is_created_is_never_announced_as_filled() {
+        let index = index_with(
+            vec![],
+            vec![space("atelier", "Atelier")],
+            vec![channel("Général", "atelier", "channel")],
+        );
+        let existing = Existing {
+            channels: vec![("Ailleurs".into(), "general".into())],
+            ..Default::default()
+        };
+
+        let plan = build(&index, &existing);
+        assert_eq!(plan.spaces[0].outcome, SpaceOutcome::Created);
+        assert_eq!(plan.spaces[0].channels_filled, 0);
+    }
+
     #[test]
     fn a_space_nobody_has_is_created() {
         let index = index_with(vec![], vec![space("atelier", "Atelier")], vec![]);
@@ -466,7 +546,7 @@ mod choice_tests {
         let index = index_with(vec![user("alice", "")], vec![], vec![]);
         let existing = Existing {
             emails: vec!["alice@example.test".into()],
-            space_names: vec![],
+            ..Default::default()
         };
         let mut plan = build(&index, &existing);
         apply_choices(

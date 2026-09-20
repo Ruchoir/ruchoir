@@ -30,6 +30,9 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/imports/{id}", get(job))
         .route("/api/v1/imports/{id}/cancel", post(cancel))
         .route("/api/v1/imports/{id}/invitations", post(invite))
+        .route("/api/v1/imports/{id}/people", get(people))
+        // Auto-delivery and the served command-line tools.
+        .merge(super::drops::router())
 }
 
 /// An archive an administrator points at, and the passphrase that opens it.
@@ -96,6 +99,9 @@ pub struct PlannedSpace {
     /// `created` or `filled`.
     pub outcome: String,
     pub channels: usize,
+    /// How many of those channels this space already has here, under the same handle: they take
+    /// the archive's history instead of being created beside it.
+    pub channels_filled: usize,
     pub directs: usize,
 }
 
@@ -132,6 +138,8 @@ pub struct JobResponse {
     pub files_done: i32,
     pub files_total: i32,
     pub error: Option<String>,
+    /// When it ended, for an import the screen finds again rather than one it started itself.
+    pub finished_at: Option<String>,
 }
 
 impl From<import_jobs::Model> for JobResponse {
@@ -149,6 +157,7 @@ impl From<import_jobs::Model> for JobResponse {
             files_done: job.files_done,
             files_total: job.files_total,
             error: job.error,
+            finished_at: job.finished_at.map(crate::messaging::dto::rfc3339),
         }
     }
 }
@@ -215,6 +224,7 @@ pub async fn preview(
                     plan::SpaceOutcome::Filled => "filled".to_owned(),
                 },
                 channels: space.channels,
+                channels_filled: space.channels_filled,
                 directs: space.directs,
             })
             .collect(),
@@ -486,13 +496,14 @@ async fn existing_state(state: &AppState) -> Result<Existing, ApiError> {
     Ok(Existing {
         emails,
         space_names,
+        channels: super::run::existing_channels(&state.db).await?,
     })
 }
 
 /// Confirm the caller administers this instance.
 ///
 /// Answers `404`, not `403`, for the reason given at the top of this file.
-async fn ensure_instance_admin(state: &AppState, user_id: Uuid) -> Result<(), ApiError> {
+pub(super) async fn ensure_instance_admin(state: &AppState, user_id: Uuid) -> Result<(), ApiError> {
     let is_admin = users::Entity::find_by_id(user_id)
         .one(&state.db)
         .await?
@@ -529,6 +540,104 @@ pub struct InviteResponse {
 pub struct SkippedInvite {
     pub source_id: String,
     pub reason: String,
+}
+
+/// One of the accounts an import brought over, as it stands now.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ImportedPerson {
+    pub source_id: String,
+    pub display_name: String,
+    /// Empty when the archive carried none and nobody gave one: they cannot be invited by mail.
+    pub email: String,
+    /// Whether an invitation has already gone to that address.
+    pub invited: bool,
+}
+
+/// `GET /api/v1/imports/{id}/people`: who this import brought over.
+///
+/// The screen knows the people from the plan it read before the run - but only while it stays open.
+/// An administrator who closes it during an hour-long import and comes back has no plan, and no way
+/// to send the invitations, which is the one thing left to do at the end. This answers from the
+/// correspondences instead, and those outlive the screen.
+///
+/// By source rather than by job, like every other lookup of a correspondence: an import resumed in a
+/// second job brought over the people the first one recorded, and they are the same people.
+#[utoipa::path(
+    get,
+    path = "/api/v1/imports/{id}/people",
+    tag = "import",
+    params(("id" = Uuid, Path, description = "Import job id")),
+    responses(
+        (status = 200, description = "The accounts this import brought over", body = Vec<ImportedPerson>),
+        (status = 404, description = "Not an administrator of this instance, or no such import")
+    )
+)]
+pub async fn people(
+    State(state): State<AppState>,
+    session: AuthSession,
+    AxumPath(id): AxumPath<Uuid>,
+) -> Result<Json<Vec<ImportedPerson>>, ApiError> {
+    use crate::entities::{import_mappings, space_invitations};
+    use sea_orm::{ColumnTrait, QueryFilter};
+
+    ensure_instance_admin(&state, session.user_id).await?;
+    let Some(job) = import_jobs::Entity::find_by_id(id).one(&state.db).await? else {
+        return Err(ApiError::NotFound);
+    };
+
+    let correspondences = import_mappings::Entity::find()
+        .filter(import_mappings::Column::Source.eq(job.source))
+        .filter(import_mappings::Column::Kind.eq(super::run::KIND_USER))
+        .all(&state.db)
+        .await?;
+    if correspondences.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+
+    let accounts = users::Entity::find()
+        .filter(users::Column::Id.is_in(correspondences.iter().map(|row| row.internal_id)))
+        .all(&state.db)
+        .await?;
+    let by_id: std::collections::HashMap<Uuid, users::Model> =
+        accounts.into_iter().map(|user| (user.id, user)).collect();
+
+    // One query for the addresses already written to, rather than one per person.
+    let addresses: Vec<String> = by_id
+        .values()
+        .map(|user| user.email.clone())
+        .filter(|email| !super::run::unreachable(email))
+        .collect();
+    let invited: std::collections::HashSet<String> = if addresses.is_empty() {
+        std::collections::HashSet::new()
+    } else {
+        space_invitations::Entity::find()
+            .filter(space_invitations::Column::Email.is_in(addresses))
+            .filter(space_invitations::Column::RevokedAt.is_null())
+            .all(&state.db)
+            .await?
+            .into_iter()
+            .filter_map(|invitation| invitation.email)
+            .collect()
+    };
+
+    let mut out: Vec<ImportedPerson> = correspondences
+        .into_iter()
+        .filter_map(|row| {
+            let user = by_id.get(&row.internal_id)?;
+            // Somebody who arrived without an address reads as having none, which is what they
+            // have: the one they were given cannot receive anything.
+            let reachable = !super::run::unreachable(&user.email);
+            Some(ImportedPerson {
+                source_id: row.external_ref,
+                display_name: user.display_name.clone(),
+                email: if reachable { user.email.clone() } else { String::new() },
+                invited: reachable && invited.contains(&user.email),
+            })
+        })
+        .collect();
+    // Read by a person, so ordered the way a list of people is.
+    out.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+    Ok(Json(out))
 }
 
 /// `POST /api/v1/imports/{id}/invitations`: write to the people this import brought over.
@@ -607,7 +716,9 @@ async fn invite_one(
     else {
         return Err("no longer has an account here".to_owned());
     };
-    if user.email.trim().is_empty() {
+    // Includes the address the import gives somebody who arrived without one: it exists so the
+    // column can be filled, and writing to it would only bounce.
+    if super::run::unreachable(&user.email) {
         return Err("has no address".to_owned());
     }
 

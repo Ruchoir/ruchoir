@@ -12,7 +12,7 @@ repository = "https://github.com/Ruchoir/ruchoir"
 
 # Shared dependency versions. Pin exact minor versions here; keep AGENTS.md in sync.
 [workspace.dependencies]
-tokio = { version = "1.53", features = ["rt-multi-thread", "net", "macros", "signal", "time", "sync"] }
+tokio = { version = "1.53", features = ["rt-multi-thread", "net", "macros", "signal", "time", "sync", "fs"] }
 # `ws` powers the real-time WebSocket transport; SSE is in axum core.
 axum = { version = "0.8", features = ["ws", "multipart"] }
 tower = "0.5"

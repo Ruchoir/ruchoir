@@ -3830,6 +3830,60 @@ async fn an_account_with_no_address_still_arrives_and_can_be_told_apart() {
     );
 }
 
+/// A resumed import shows its progress over everything it went through, not only what it wrote.
+///
+/// Found on the production instance: an import resumed after a failure recognised almost all of the
+/// archive, wrote almost nothing, and its screen stood at zero on every pass until it jumped to
+/// "done" - and said "0 accounts" at the end, the accounts all belonging to the first job.
+#[tokio::test]
+async fn a_resumed_import_counts_what_it_recognised() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("resumed-{}@example.test", Uuid::new_v4().simple());
+    let index = import_index(
+        vec![
+            source_user(&unique_ref("alice"), &email),
+            source_user(&unique_ref("bob"), &format!("b-{email}")),
+        ],
+        vec![source_space(&unique_ref("atelier"), &format!("Atelier {}", Uuid::new_v4().simple()))],
+    );
+    let plan = plan::build(&index, &Existing::default());
+
+    let first = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let written = run::import_accounts(&app.db, &Mapper::new(first, "mattermost"), &plan)
+        .await
+        .expect("accounts");
+    assert_eq!(written.accounts_created, 2);
+    run::finish_job(&app.db, first, "failed").await.expect("finish");
+
+    // The resume is a job of its own, as it is when the screen starts one.
+    let second = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(second, "mattermost");
+    mapper.preload(&app.db).await.expect("preload");
+    let again = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    assert_eq!(again.accounts_created, 0, "nothing written twice");
+    assert_eq!(again.accounts_seen, 2, "and both counted as gone through");
+
+    run::finish_job(&app.db, second, "completed")
+        .await
+        .expect("finish");
+    let row = crate::entities::import_jobs::Entity::find_by_id(second)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert_eq!(
+        row.accounts_done, 2,
+        "what the screen reads, and closing the job must not take it back to zero"
+    );
+}
+
 #[tokio::test]
 async fn running_the_same_import_twice_creates_nothing_twice() {
     // The whole safety property: this is resumption and re-import at once.
@@ -4232,6 +4286,133 @@ async fn a_conversation_between_three_people_is_a_group() {
         .await
         .expect("query")
         .is_none());
+}
+
+/// A channel that is already here takes the archive's history instead of stopping the import.
+///
+/// Found in production: an instance whose first space was called "Atelier", with the `#general`
+/// every space starts with, importing an archive carrying a space of the same name and a channel
+/// of the same name. The space was adopted, as it should be, and then the channel could not be
+/// created - a unique name per space - and the whole import died on a foreign constraint. Two
+/// archives from two products meeting on `#general` is not an edge case, it is Tuesday.
+#[tokio::test]
+async fn a_channel_that_is_already_here_takes_the_history_rather_than_stopping_the_import() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let space_name = format!("Espace {}", Uuid::new_v4().simple());
+    let shared = "Général";
+
+    // First archive: creates the space and the channel.
+    let first_space = unique_ref("atelier");
+    let first_channel = unique_ref("general");
+    let mut channel = source_channel(&first_channel, &first_space, "channel", &[]);
+    channel.name = shared.to_owned();
+    let first = Index {
+        channels: vec![channel],
+        ..import_index(vec![], vec![source_space(&first_space, &space_name)])
+    };
+    let (_, spaces) = import_up_to_conversations(&app, fx.alice, &first).await;
+    let space_id = spaces[0].1;
+
+    // Second archive, another product, same space name and same channel name. Nothing links the
+    // two: different identifiers, different source, so no correspondence can be recognised.
+    let second_space = unique_ref("atelier");
+    let second_channel = unique_ref("general");
+    let mut channel = source_channel(&second_channel, &second_space, "channel", &[]);
+    channel.name = shared.to_owned();
+    let second = Index {
+        channels: vec![channel],
+        ..import_index(vec![], vec![source_space(&second_space, &space_name)])
+    };
+
+    let job = run::start_job(&app.db, "slack", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "slack");
+    let (spaces_written, resolved) = run::import_spaces(&app.db, &mapper, &second, fx.alice)
+        .await
+        .expect("spaces");
+    assert_eq!(spaces_written.spaces_filled, 1, "the space was adopted");
+    assert_eq!(resolved[0].1, space_id);
+
+    let written = run::import_conversations(&app.db, &mapper, &second, &resolved, fx.alice)
+        .await
+        .expect("the import no longer stops on a name that is already here");
+
+    assert_eq!(written.conversations_filled, 1);
+    assert_eq!(written.conversations_created, 0);
+    // One channel, not two under two spellings, and it is the one that was already here.
+    assert_eq!(
+        channels::Entity::find()
+            .filter(channels::Column::SpaceId.eq(space_id))
+            .filter(channels::Column::Name.eq("general"))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    let adopted = mapper
+        .resolve(&app.db, KIND_CHANNEL, &second_channel, Some(space_id))
+        .await
+        .expect("resolve")
+        .expect("the second archive's channel points somewhere");
+    let first_mapper = Mapper::new(job, "mattermost");
+    let before = first_mapper
+        .resolve(&app.db, KIND_CHANNEL, &first_channel, Some(space_id))
+        .await
+        .expect("resolve")
+        .expect("the first archive's channel");
+    assert_eq!(adopted, before, "both archives now point at the same room");
+}
+
+/// Two conversations of one archive whose names come down to the same handle stay two rooms.
+///
+/// The other side of adoption, and the reason it asks rather than just looking the name up:
+/// "Café" and "cafe" are one handle here but two rooms there, and merging them would mix two
+/// histories that nobody could separate again.
+#[tokio::test]
+async fn two_conversations_of_one_archive_that_share_a_handle_stay_two() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let space_ref = unique_ref("atelier");
+    let (one, two) = (unique_ref("cafe"), unique_ref("cafe"));
+    let mut first = source_channel(&one, &space_ref, "channel", &[]);
+    first.name = "Café".to_owned();
+    let mut second = source_channel(&two, &space_ref, "channel", &[]);
+    second.name = "cafe".to_owned();
+    let index = Index {
+        channels: vec![first, second],
+        ..import_index(
+            vec![],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let space_id = spaces[0].1;
+
+    let mut names = Vec::new();
+    for source_id in [&one, &two] {
+        let id = mapper
+            .resolve(&app.db, KIND_CHANNEL, source_id, Some(space_id))
+            .await
+            .expect("resolve")
+            .expect("channel");
+        names.push(
+            channels::Entity::find_by_id(id)
+                .one(&app.db)
+                .await
+                .expect("query")
+                .expect("channel")
+                .name,
+        );
+    }
+    names.sort();
+    assert_eq!(names, vec!["cafe".to_owned(), "cafe-2".to_owned()]);
 }
 
 #[tokio::test]
@@ -5657,6 +5838,122 @@ async fn an_imported_direct_conversation_is_between_its_two_people_only() {
     std::fs::remove_dir_all(&imported.dir).ok();
 }
 
+/// The people an import brought over survive the screen that started it.
+///
+/// An import of any size outlives the screen: the administrator closes it, comes back, and the
+/// plan that named those people is gone. Without this they could no longer send the invitations,
+/// which is the one thing left to do at the end.
+#[tokio::test]
+async fn the_people_an_import_brought_can_be_read_back_from_the_server() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let mut admin: users::ActiveModel = users::Entity::find_by_id(fx.alice)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("alice")
+        .into();
+    admin.is_instance_admin = Set(true);
+    admin.update(&app.db).await.expect("promote");
+    let cookie = app.cookie_for(fx.alice).await;
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    let zoe = make_user(&app.db, "Zoe Imported").await;
+    let adam = make_user(&app.db, "Adam Imported").await;
+    let zoe_ref = unique_ref("zoe");
+    let adam_ref = unique_ref("adam");
+    mapper
+        .record(&app.db, KIND_USER, &zoe_ref, None, zoe)
+        .await
+        .expect("mapping");
+    mapper
+        .record(&app.db, KIND_USER, &adam_ref, None, adam)
+        .await
+        .expect("mapping");
+
+    let response = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/imports/{job}/people"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("people");
+    assert_eq!(response.status(), 200);
+    let body: Value = response.json().await.expect("json");
+    let people = body.as_array().expect("a list");
+    let ours: Vec<&Value> = people
+        .iter()
+        .filter(|person| {
+            let id = person["source_id"].as_str().unwrap_or_default();
+            id == zoe_ref || id == adam_ref
+        })
+        .collect();
+    assert_eq!(ours.len(), 2, "both, and read back by their source identifier");
+    assert_eq!(
+        ours[0]["source_id"].as_str(),
+        Some(adam_ref.as_str()),
+        "ordered the way a list of people is read"
+    );
+    assert!(
+        ours[0]["email"].as_str().unwrap_or_default().contains('@'),
+        "with the address an invitation would go to"
+    );
+    assert_eq!(ours[0]["invited"], json!(false), "nobody has been written to");
+
+    // Somebody the archive carried without an address has one here, because the column demands it,
+    // and it can receive nothing. It must read as an absence, or the screen offers to write to it.
+    let nameless = Uuid::new_v4();
+    users::ActiveModel {
+        id: Set(nameless),
+        email: Set(format!("u404+{}{}", nameless.simple(), run::NO_ADDRESS_DOMAIN)),
+        display_name: Set("Sans Adresse".to_owned()),
+        password_hash: Set(None),
+        status: Set("pending".to_owned()),
+        mfa_enforced: Set(false),
+        is_bot: Set(false),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("user");
+    let nameless_ref = unique_ref("nameless");
+    mapper
+        .record(&app.db, KIND_USER, &nameless_ref, None, nameless)
+        .await
+        .expect("mapping");
+
+    let body: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/imports/{job}/people"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("people")
+        .json()
+        .await
+        .expect("json");
+    let theirs = body
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|person| person["source_id"].as_str() == Some(nameless_ref.as_str()))
+        .expect("the person with no address");
+    assert_eq!(theirs["email"], json!(""), "no address to offer");
+
+    // And the rule the invitation route applies, which cannot be exercised through the route here:
+    // an instance with no mail relay refuses the whole request before looking at anybody.
+    assert!(run::unreachable(&format!("someone{}", run::NO_ADDRESS_DOMAIN)));
+    assert!(run::unreachable("   "));
+    assert!(!run::unreachable("someone@example.org"));
+}
+
 #[tokio::test]
 async fn the_import_surface_does_not_exist_for_anyone_but_an_instance_administrator() {
     let Some(app) = boot().await else { return };
@@ -5673,6 +5970,10 @@ async fn the_import_surface_does_not_exist_for_anyone_but_an_instance_administra
         (
             reqwest::Method::POST,
             format!("/api/v1/imports/{}/cancel", Uuid::new_v4()),
+        ),
+        (
+            reqwest::Method::GET,
+            format!("/api/v1/imports/{}/people", Uuid::new_v4()),
         ),
     ] {
         let response = app
@@ -5865,6 +6166,115 @@ async fn one_import_at_a_time() {
     assert!(run::one_is_running(&scratch.db).await.expect("query"));
     run::close_abandoned_jobs(&scratch.db).await.expect("close");
     assert!(!run::one_is_running(&scratch.db).await.expect("query"));
+    scratch.drop_it().await;
+}
+
+/// A correspondence remembered for a row that has since gone.
+async fn remember(db: &DatabaseConnection, job: Uuid, kind: &str, external: &str, internal: Uuid) {
+    crate::entities::import_mappings::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        job_id: Set(job),
+        space_id: Set(None),
+        source: Set("synthetic".to_owned()),
+        kind: Set(kind.to_owned()),
+        external_ref: Set(external.to_owned()),
+        internal_id: Set(internal),
+        created_at: Set(OffsetDateTime::now_utc()),
+    }
+    .insert(db)
+    .await
+    .expect("mapping");
+}
+
+async fn mappings(db: &DatabaseConnection) -> Vec<crate::entities::import_mappings::Model> {
+    crate::entities::import_mappings::Entity::find()
+        .all(db)
+        .await
+        .expect("query")
+}
+
+/// An import run after the rows it once wrote have gone must not believe they are still here.
+///
+/// Found on the production instance: an archive imported, the instance replaced, the same source
+/// imported again. The second run recognised the first one's spaces from their correspondences,
+/// hung its first conversation off one of them, and failed on the foreign key - on every run.
+#[tokio::test]
+async fn an_import_forgets_the_correspondences_whose_row_is_gone() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let (kept, _) = crate::messaging::spaces::create_owned_space(&scratch.db, "Gardé", admin)
+        .await
+        .expect("space");
+    let job = run::start_job(&scratch.db, "synthetic", admin, None, "{}")
+        .await
+        .expect("job");
+    remember(&scratch.db, job, run::KIND_SPACE, "gardé", kept).await;
+    remember(&scratch.db, job, run::KIND_SPACE, "parti", Uuid::new_v4()).await;
+    remember(&scratch.db, job, run::KIND_USER, "admin", admin).await;
+    remember(&scratch.db, job, run::KIND_USER, "parti", Uuid::new_v4()).await;
+    remember(&scratch.db, job, run::KIND_CHANNEL, "parti", Uuid::new_v4()).await;
+    remember(&scratch.db, job, run::KIND_MESSAGE, "parti", Uuid::new_v4()).await;
+    remember(&scratch.db, job, run::KIND_FILE, "parti", Uuid::new_v4()).await;
+
+    let forgotten = run::forget_vanished(&scratch.db).await.expect("forget");
+    assert_eq!(forgotten, 5, "one of each kind pointed at nothing");
+
+    let mut left: Vec<String> = mappings(&scratch.db)
+        .await
+        .into_iter()
+        .map(|m| format!("{}:{}", m.kind, m.external_ref))
+        .collect();
+    left.sort();
+    assert_eq!(
+        left,
+        vec![format!("{}:gardé", run::KIND_SPACE), format!("{}:admin", run::KIND_USER)],
+        "and what still exists is still recognised, or a re-run would import it twice"
+    );
+    assert_eq!(
+        run::forget_vanished(&scratch.db).await.expect("again"),
+        0,
+        "nothing left to forget the second time"
+    );
+    scratch.drop_it().await;
+}
+
+/// Replacing the instance empties it for the import that follows, and that includes what earlier
+/// imports remembered: kept, it tells that import that everything is already here.
+#[tokio::test]
+async fn a_replacement_forgets_what_earlier_imports_remembered() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+    let (space, _) = crate::messaging::spaces::create_owned_space(&scratch.db, "Ancien", bystander)
+        .await
+        .expect("space");
+    let job = run::start_job(&scratch.db, "synthetic", admin, None, "{}")
+        .await
+        .expect("job");
+    run::finish_job(&scratch.db, job, "completed")
+        .await
+        .expect("finish");
+    remember(&scratch.db, job, run::KIND_SPACE, "ancien", space).await;
+    remember(&scratch.db, job, run::KIND_USER, "bystander", bystander).await;
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org/",
+    )
+    .await
+    .expect("replacement");
+
+    assert!(
+        mappings(&scratch.db).await.is_empty(),
+        "no correspondence may outlive the rows it points at"
+    );
     scratch.drop_it().await;
 }
 

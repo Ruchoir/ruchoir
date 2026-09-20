@@ -6,10 +6,12 @@
 
 pub mod archive;
 pub mod check;
+pub mod drops;
 pub mod job;
 pub mod plan;
 pub mod routes;
 pub mod run;
+pub mod scripts;
 pub mod wipe;
 
 use std::path::Path;
@@ -228,7 +230,10 @@ pub async fn import_command(
         "  {} account(s) created, {} recognised",
         written.accounts_created, written.accounts_matched
     );
-    println!("  {} conversation(s)", written.conversations_created);
+    println!(
+        "  {} conversation(s) created, {} filled",
+        written.conversations_created, written.conversations_filled
+    );
     println!("  {} message(s)", written.messages_created);
     println!("  {} file(s)", written.files_created);
     println!("  {} reading position(s) restored", written.read_positions);

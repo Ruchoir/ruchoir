@@ -29,7 +29,7 @@ use serde::Serialize;
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
-use crate::entities::{instance_events, messages, spaces, users};
+use crate::entities::{import_mappings, instance_events, messages, spaces, users};
 
 use super::run::RunError;
 
@@ -136,6 +136,11 @@ pub async fn replace_instance(
         .filter(users::Column::Id.ne(admin))
         .exec(&txn)
         .await?;
+
+    // And what earlier imports remembered about those rows. Kept, they tell the import that follows
+    // - the whole point of replacing - that its spaces and people are already here, and it hangs
+    // the first conversation off a space that no longer exists.
+    import_mappings::Entity::delete_many().exec(&txn).await?;
 
     txn.commit().await?;
 

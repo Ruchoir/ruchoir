@@ -88,6 +88,28 @@ pub async fn execute_into<S: BlobSink>(
     admin: Uuid,
     job_id: Uuid,
 ) -> Result<Outcome, RunError> {
+    let outcome = run_into(db, storage, archive, passphrase, admin, job_id).await;
+    // Every way this run can end has to reach the job row. A pass that fails on its own terms
+    // closes the row itself, with a sentence worth reading; anything else - a query that errors, a
+    // process that gets as far as here - would otherwise leave the row saying `running` forever,
+    // and the screen watches that row. An import that died at midnight and still shows a spinner in
+    // the morning is the one failure mode an administrator cannot act on.
+    if let Err(error) = &outcome {
+        if let Err(second) = fail_if_still_running(db, job_id, error).await {
+            tracing::error!(%second, %job_id, "the failed import could not be closed either");
+        }
+    }
+    outcome
+}
+
+async fn run_into<S: BlobSink>(
+    db: &DatabaseConnection,
+    storage: Option<&S>,
+    archive: &std::path::Path,
+    passphrase: Option<&str>,
+    admin: Uuid,
+    job_id: Uuid,
+) -> Result<Outcome, RunError> {
     let (index, report) =
         super::check::check(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
     if !report.is_sound() {
@@ -132,6 +154,11 @@ async fn run_passes<S: BlobSink>(
         plan::apply_choices(&mut plan, &choices, &existing);
     }
 
+    let forgotten = run::forget_vanished(db).await?;
+    if forgotten > 0 {
+        tracing::warn!(forgotten, "correspondences pointed at rows that are gone; forgotten");
+    }
+
     let mapper = Mapper::new(job_id, &source);
     // Read once, in one query, rather than asked for a row at a time by every pass that follows.
     let known = mapper.preload(db).await?;
@@ -159,6 +186,7 @@ async fn run_passes<S: BlobSink>(
     let accounts = run::import_accounts(db, &mapper, &plan).await?;
     written.accounts_created = accounts.accounts_created;
     written.accounts_matched = accounts.accounts_matched;
+    written.accounts_seen = accounts.accounts_seen;
     note_progress(db, job_id, &written).await?;
 
     let (spaces, resolved) = run::import_spaces(db, &mapper, &index, admin).await?;
@@ -168,11 +196,14 @@ async fn run_passes<S: BlobSink>(
 
     let conversations = run::import_conversations(db, &mapper, &index, &resolved, admin).await?;
     written.conversations_created = conversations.conversations_created;
+    written.conversations_filled = conversations.conversations_filled;
+    written.conversations_seen = conversations.conversations_seen;
     written.memberships += conversations.memberships;
     note_progress(db, job_id, &written).await?;
 
     let messages = run::import_messages(db, &mapper, archive, passphrase, &resolved).await?;
     written.messages_created = messages.messages_created;
+    written.messages_seen = messages.messages_seen;
     written.cancelled = messages.cancelled;
     note_progress(db, job_id, &written).await?;
 
@@ -210,8 +241,18 @@ async fn run_passes<S: BlobSink>(
                     .to_owned(),
             ));
         };
-        let files = run::import_files(db, &mapper, storage, archive, passphrase, &resolved).await?;
+        let files = run::import_files_from(
+            db,
+            &mapper,
+            storage,
+            archive,
+            passphrase,
+            &resolved,
+            &index.files,
+        )
+        .await?;
         written.files_created = files.files_created;
+        written.files_seen = files.files_seen;
         run::attach_files(db, &mapper, archive, passphrase, &resolved).await?;
         note_progress(db, job_id, &written).await?;
     }
@@ -248,6 +289,7 @@ async fn existing_state(db: &DatabaseConnection) -> Result<Existing, RunError> {
     Ok(Existing {
         emails,
         space_names,
+        channels: run::existing_channels(db).await?,
     })
 }
 
@@ -260,10 +302,45 @@ async fn note_progress(
         return Ok(());
     };
     let mut model: import_jobs::ActiveModel = job.into();
-    model.accounts_done = Set((written.accounts_created + written.accounts_matched) as i32);
-    model.channels_done = Set(written.conversations_created as i32);
-    model.messages_done = Set(written.messages_created as i32);
-    model.files_done = Set(written.files_created as i32);
+    // What each pass went through, not only what it wrote: see `Written`.
+    model.accounts_done = Set(written.accounts_seen as i32);
+    model.channels_done = Set(written.conversations_seen as i32);
+    model.messages_done = Set(written.messages_seen as i32);
+    model.files_done = Set(written.files_seen as i32);
+    model.update(db).await?;
+    Ok(())
+}
+
+/// Closes a job that ended on an error nobody named.
+///
+/// Only when the row is still open: a pass that already wrote `failed` said something specific
+/// about what went wrong, and a generic sentence written over it would be a downgrade. `cancelling`
+/// counts as open, because the run that was asked to stop died before it could.
+///
+/// What the administrator reads is deliberately not the error itself. These come up from the
+/// database and from the object store, and they quote table names, constraints and occasionally a
+/// row: none of that is the administrator's to read, and all of it is in the log, against the same
+/// job id.
+async fn fail_if_still_running(
+    db: &DatabaseConnection,
+    job_id: Uuid,
+    error: &RunError,
+) -> Result<(), RunError> {
+    let Some(job) = import_jobs::Entity::find_by_id(job_id).one(db).await? else {
+        return Ok(());
+    };
+    if job.status != "running" && job.status != "cancelling" {
+        return Ok(());
+    }
+    tracing::error!(%error, %job_id, "the import stopped, and the job is marked failed");
+    let mut model: import_jobs::ActiveModel = job.into();
+    model.status = Set("failed".to_owned());
+    model.error = Set(Some(
+        "this import stopped on an unexpected error and nothing further was written; \
+         running the same archive again resumes it from where it stopped"
+            .to_owned(),
+    ));
+    model.finished_at = Set(Some(time::OffsetDateTime::now_utc()));
     model.update(db).await?;
     Ok(())
 }
@@ -281,6 +358,7 @@ async fn finish(
     model.status = Set(status.to_owned());
     // Written for the administrator who reads it, never an internal message passed through.
     model.error = Set(Some(error.to_owned()));
+    model.finished_at = Set(Some(time::OffsetDateTime::now_utc()));
     model.update(db).await?;
     Ok(())
 }

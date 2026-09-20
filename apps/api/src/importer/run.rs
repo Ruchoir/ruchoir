@@ -13,7 +13,7 @@
 use sea_orm::ActiveValue::{NotSet, Set};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder,
+    QueryOrder, Statement,
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -41,9 +41,20 @@ pub struct Written {
     pub spaces_filled: usize,
     pub memberships: usize,
     pub conversations_created: usize,
+    /// Conversations that were already here under the same name and took the archive's history
+    /// rather than being created beside it.
+    pub conversations_filled: usize,
     pub messages_created: usize,
     pub read_positions: usize,
     pub files_created: usize,
+    /// What each pass went through, whether it wrote it or found it already here. This is what the
+    /// screen shows as progress. Counting only what was created made a resumed run look frozen:
+    /// it walks past thousands of messages an earlier run brought over, and every counter stood at
+    /// zero until the end, then jumped to "done".
+    pub accounts_seen: usize,
+    pub conversations_seen: usize,
+    pub messages_seen: usize,
+    pub files_seen: usize,
     /// Set when the administrator asked the job to stop and it did, at a boundary, keeping
     /// everything already written.
     pub cancelled: bool,
@@ -124,26 +135,65 @@ pub async fn start_job<C: ConnectionTrait>(
     Ok(job_id)
 }
 
-/// Closes a job and records what it brought in.
+/// Forgets the correspondences whose row is no longer here.
 ///
-/// The counters are what the screen reports afterwards, and they are read back from the mappings
-/// rather than trusted from memory: a run that died and was resumed did part of its work in another
-/// process, and only the rows know the total.
+/// A correspondence says "this identifier in the archive is that row here", and a resumed run
+/// believes it: it skips what it recognises and hangs new rows off it. When the row has gone since
+/// (the instance was replaced, a backup was restored, a space was deleted by hand), the belief is
+/// false, and the first conversation hung off a vanished space fails on its foreign key, on every
+/// run, for good. Checked at the start of every run, against the rows themselves, because nothing
+/// in the table can say on its own that what it points at still exists.
+///
+/// The consequence is deliberate: something deleted here after an import comes back if the same
+/// archive is run again. That is what running an archive means - make this instance hold what the
+/// archive holds - and the alternative was an import that could never be run again at all.
+pub async fn forget_vanished<C: ConnectionTrait>(db: &C) -> Result<u64> {
+    let mut forgotten = 0;
+    for (kind, table) in [
+        (KIND_SPACE, "spaces"),
+        (KIND_USER, "users"),
+        (KIND_CHANNEL, "conversations"),
+        (KIND_MESSAGE, "messages"),
+        (KIND_FILE, "files"),
+    ] {
+        // The table name comes from the list above, never from input.
+        let sql = format!(
+            "DELETE FROM import_mappings m WHERE m.kind = $1 \
+             AND NOT EXISTS (SELECT 1 FROM {table} t WHERE t.id = m.internal_id)"
+        );
+        let result = db
+            .execute_raw(Statement::from_sql_and_values(
+                db.get_database_backend(),
+                sql,
+                [kind.into()],
+            ))
+            .await?;
+        forgotten += result.rows_affected();
+    }
+    Ok(forgotten)
+}
+
+/// Closes a job.
+///
+/// The counters are left as the passes wrote them. They used to be read back from this job's own
+/// correspondences, on the grounds that a resumed run did part of its work elsewhere; but every run
+/// walks the whole archive and counts what it went through, found or written, so its counters are
+/// already whole. Reading them back from the job instead said "0 accounts" at the end of every
+/// resumed import, whose accounts all belong to the job that first brought them over.
 pub async fn finish_job<C: ConnectionTrait>(db: &C, job_id: Uuid, status: &str) -> Result<()> {
     let Some(job) = import_jobs::Entity::find_by_id(job_id).one(db).await? else {
         return Err(RunError::Db("the job disappeared while it ran".to_owned()));
     };
 
-    let accounts = written_so_far(db, job_id, KIND_USER).await?;
     let mut model: import_jobs::ActiveModel = job.into();
     model.status = Set(status.to_owned());
-    model.accounts_done = Set(accounts as i32);
     model.finished_at = Set(Some(OffsetDateTime::now_utc()));
     model.update(db).await?;
     Ok(())
 }
 
 /// How many entities of one kind this job has mapped, across every run of it.
+#[cfg(test)]
 pub async fn written_so_far<C: ConnectionTrait>(db: &C, job_id: Uuid, kind: &str) -> Result<u64> {
     Ok(import_mappings::Entity::find()
         .filter(import_mappings::Column::JobId.eq(job_id))
@@ -298,9 +348,11 @@ pub async fn import_accounts<C: ConnectionTrait>(
     let mut written = Written::default();
 
     for account in &plan.accounts {
+        written.accounts_seen += 1;
         // Left out on purpose. Their messages still arrive, with no author: this was a decision
         // about people, and dropping their text as well would be a loss nobody asked for.
         if account.skipped {
+            note_every(db, mapper.job_id, Counter::Accounts, written.accounts_seen).await?;
             continue;
         }
         if mapper
@@ -309,6 +361,7 @@ pub async fn import_accounts<C: ConnectionTrait>(
             .is_some()
         {
             // An earlier run already brought this person over.
+            note_every(db, mapper.job_id, Counter::Accounts, written.accounts_seen).await?;
             continue;
         }
 
@@ -337,16 +390,25 @@ pub async fn import_accounts<C: ConnectionTrait>(
         mapper
             .record(db, KIND_USER, &account.source_id, None, user_id)
             .await?;
-        note_every(
-            db,
-            mapper.job_id,
-            Counter::Accounts,
-            written.accounts_created + written.accounts_matched,
-        )
-        .await?;
+        note_every(db, mapper.job_id, Counter::Accounts, written.accounts_seen).await?;
     }
+    note_done(db, mapper.job_id, Counter::Accounts, written.accounts_seen).await?;
 
     Ok(written)
+}
+
+/// The domain an account with no address is given one under.
+///
+/// The column is unique and not null, so somebody the archive carried without an address still
+/// needs one. `.invalid` is reserved by RFC 2606 precisely for this: it resolves nowhere, so
+/// nothing can be sent to it by accident. Everything that asks "can this person be written to?"
+/// asks [`unreachable`] rather than testing for an empty string.
+pub const NO_ADDRESS_DOMAIN: &str = "@import.invalid";
+
+/// Whether an address can be written to at all.
+pub fn unreachable(email: &str) -> bool {
+    let email = email.trim();
+    email.is_empty() || email.ends_with(NO_ADDRESS_DOMAIN)
 }
 
 async fn create_waiting_account<C: ConnectionTrait>(
@@ -359,7 +421,7 @@ async fn create_waiting_account<C: ConnectionTrait>(
     // one that cannot receive mail and cannot collide, and the plan has already told the
     // administrator that this person needs an address typed in or a link handed over.
     let email = if account.email.is_empty() {
-        format!("{}+{}@import.invalid", account.source_id, user_id.simple())
+        format!("{}+{}{NO_ADDRESS_DOMAIN}", account.source_id, user_id.simple())
     } else {
         account.email.to_lowercase()
     };
@@ -524,6 +586,7 @@ pub async fn import_conversations<C: ConnectionTrait>(
     let mut written = Written::default();
 
     for channel in &index.channels {
+        written.conversations_seen += 1;
         let Some((_, space_id)) = spaces_by_source.iter().find(|(id, _)| id == &channel.space)
         else {
             // The checks refuse an archive whose conversation names a space it does not carry, so
@@ -538,6 +601,8 @@ pub async fn import_conversations<C: ConnectionTrait>(
             .await?
             .is_some()
         {
+            note_every(db, mapper.job_id, Counter::Conversations, written.conversations_seen)
+                .await?;
             continue;
         }
 
@@ -550,18 +615,42 @@ pub async fn import_conversations<C: ConnectionTrait>(
             }
         }
 
-        let conversation_id = Uuid::new_v4();
         let now = OffsetDateTime::now_utc();
-        conversations::ActiveModel {
-            id: Set(conversation_id),
-            space_id: Set(space_id),
-            kind: Set(channel.kind.clone()),
-            created_at: Set(now),
-        }
-        .insert(db)
-        .await?;
 
-        if channel.kind == "direct" {
+        // A channel name is unique within its space, and an import that fills an existing space
+        // walks straight into that: nearly every instance already has a "general", and so does
+        // nearly every archive. Creating it again is impossible, so the history goes into the one
+        // that is already there - the same answer the spaces pass gives to a space of the same
+        // name, for the same reason.
+        let adopted = if channel.kind == "direct" {
+            None
+        } else {
+            adoptable(db, mapper, space_id, &crate::messaging::slug::slugify(&channel.name)).await?
+        };
+
+        // An adopted conversation is written about no further: it belongs to this instance, which
+        // is the only thing that knows what it is for, so its name, its topic and its kind stay as
+        // the people using it left them. Only its history and its members grow.
+        let conversation_id = if let Some(existing) = adopted {
+            written.conversations_filled += 1;
+            existing
+        } else {
+            let conversation_id = Uuid::new_v4();
+            conversations::ActiveModel {
+                id: Set(conversation_id),
+                space_id: Set(space_id),
+                kind: Set(channel.kind.clone()),
+                created_at: Set(now),
+            }
+            .insert(db)
+            .await?;
+            written.conversations_created += 1;
+            conversation_id
+        };
+
+        if adopted.is_some() {
+            // Nothing to insert: the row is already here, and it is not this import's to reshape.
+        } else if channel.kind == "direct" {
             dm_conversations::ActiveModel {
                 id: Set(conversation_id),
                 space_id: Set(space_id),
@@ -575,7 +664,10 @@ pub async fn import_conversations<C: ConnectionTrait>(
             channels::ActiveModel {
                 id: Set(conversation_id),
                 space_id: Set(space_id),
-                name: Set(crate::messaging::slug::slugify(&channel.name)),
+                // Free rather than exact: two conversations of one archive can carry names that
+                // come down to the same one here ("Café" and "cafe"), and they are two rooms, so
+                // they stay two rooms.
+                name: Set(free_name(db, space_id, &crate::messaging::slug::slugify(&channel.name)).await?),
                 // An archived conversation arrives archived: it is read-only here, which is the
                 // closest thing to what it was there, and nobody has to tidy it up again.
                 channel_type: Set(if channel.archived {
@@ -636,7 +728,13 @@ pub async fn import_conversations<C: ConnectionTrait>(
                 }
                 .insert(db)
                 .await?;
-            } else {
+            } else if channel_members::Entity::find_by_id((conversation_id, *user_id))
+                .one(db)
+                .await?
+                .is_none()
+            {
+                // Somebody can already be in a channel this import adopted, and their place in it
+                // is theirs: joined when they joined, with the notification level they chose.
                 channel_members::ActiveModel {
                     channel_id: Set(conversation_id),
                     user_id: Set(*user_id),
@@ -660,12 +758,11 @@ pub async fn import_conversations<C: ConnectionTrait>(
                 conversation_id,
             )
             .await?;
-        written.conversations_created += 1;
         note_every(
             db,
             mapper.job_id,
             Counter::Conversations,
-            written.conversations_created,
+            written.conversations_seen,
         )
         .await?;
     }
@@ -673,11 +770,102 @@ pub async fn import_conversations<C: ConnectionTrait>(
         db,
         mapper.job_id,
         Counter::Conversations,
-        written.conversations_created,
+        written.conversations_seen,
     )
     .await?;
 
     Ok(written)
+}
+
+/// Which channels each space here already has: its space's name, and its own handle.
+///
+/// Read for the plan, so that a space the import fills can say which of its conversations are
+/// already here and will take the archive's history rather than being created. Keyed by name on
+/// both sides because that is what the run itself matches on, and a plan that promised anything
+/// else would be a plan of a different import.
+pub async fn existing_channels<C: ConnectionTrait>(
+    db: &C,
+) -> std::result::Result<Vec<(String, String)>, sea_orm::DbErr> {
+    let names: std::collections::HashMap<Uuid, String> = spaces::Entity::find()
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|space| (space.id, space.name))
+        .collect();
+    Ok(channels::Entity::find()
+        .all(db)
+        .await?
+        .into_iter()
+        .filter_map(|channel| {
+            names
+                .get(&channel.space_id)
+                .map(|space| (space.clone(), channel.name))
+        })
+        .collect())
+}
+
+/// The channel of that name this import may pour its history into, if there is one.
+///
+/// A name is unique within a space, so an archive's "general" landing in a space that already has
+/// one has two possible answers: fail, which is what it did, or put the history where the name
+/// already points. It goes where the name points, which is also what the reader expects: they
+/// opened #general and their old messages are in it.
+///
+/// One exception, and it is the reason this asks rather than just looking the name up: a channel
+/// **this source already claimed** is not free to be claimed again. Two conversations of one
+/// archive can come down to the same name here, and they are two rooms in the source; merging them
+/// would mix two histories that nobody could ever separate again.
+async fn adoptable<C: ConnectionTrait>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    space_id: Uuid,
+    name: &str,
+) -> Result<Option<Uuid>> {
+    let Some(existing) = channels::Entity::find()
+        .filter(channels::Column::SpaceId.eq(space_id))
+        .filter(channels::Column::Name.eq(name.to_owned()))
+        .one(db)
+        .await?
+    else {
+        return Ok(None);
+    };
+
+    let claimed = import_mappings::Entity::find()
+        .filter(import_mappings::Column::Source.eq(mapper.source.to_owned()))
+        .filter(import_mappings::Column::Kind.eq(KIND_CHANNEL))
+        .filter(import_mappings::Column::InternalId.eq(existing.id))
+        .one(db)
+        .await?
+        .is_some();
+
+    Ok((!claimed).then_some(existing.id))
+}
+
+/// A name no channel of this space answers to yet.
+///
+/// Only ever reached for a conversation that cannot be adopted, so the suffix marks a genuine
+/// collision rather than a channel meeting itself.
+async fn free_name<C: ConnectionTrait>(db: &C, space_id: Uuid, base: &str) -> Result<String> {
+    for suffix in 1..=50u32 {
+        let candidate = if suffix == 1 {
+            base.to_owned()
+        } else {
+            format!("{base}-{suffix}")
+        };
+        let taken = channels::Entity::find()
+            .filter(channels::Column::SpaceId.eq(space_id))
+            .filter(channels::Column::Name.eq(candidate.clone()))
+            .one(db)
+            .await?
+            .is_some();
+        if !taken {
+            return Ok(candidate);
+        }
+    }
+    Err(RunError::Ambiguous(format!(
+        "too many channels of this space are already called {base}: the imported one needs another \
+         name"
+    )))
 }
 
 /// Whether the administrator has asked this job to stop.
@@ -722,6 +910,8 @@ impl Counter {
     fn step(self) -> usize {
         match self {
             Counter::Messages => 100,
+            // One file can take seconds to store; five of them were a long silence on screen.
+            Counter::Files => 1,
             _ => 5,
         }
     }
@@ -793,6 +983,23 @@ pub async fn import_messages<C: ConnectionTrait>(
         }
     }
 
+    // What a mention has to become. The archive spells one as `@` and the person's identifier at
+    // the source, which is the only thing a producer can know; the product resolves a mention
+    // against a display name. Translating happens here, once the accounts are in hand, because
+    // nowhere later is the source identifier still readable.
+    let handles: std::collections::HashMap<String, String> = index
+        .users
+        .iter()
+        .filter_map(|user| {
+            let handle: String = user
+                .display_name
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .concat();
+            (!handle.is_empty()).then(|| (user.id.clone(), handle))
+        })
+        .collect();
+
     let mut records = Vec::new();
     super::archive::walk(archive, passphrase, |member| {
         if let super::archive::Member::Message(message) = member {
@@ -815,6 +1022,7 @@ pub async fn import_messages<C: ConnectionTrait>(
             }
         }
 
+        written.messages_seen += 1;
         let Some((conversation_id, space_id, kind)) = conversation_of.get(&record.channel) else {
             continue;
         };
@@ -823,6 +1031,7 @@ pub async fn import_messages<C: ConnectionTrait>(
             .await?
             .is_some()
         {
+            note_every(db, mapper.job_id, Counter::Messages, written.messages_seen).await?;
             continue;
         }
 
@@ -845,7 +1054,7 @@ pub async fn import_messages<C: ConnectionTrait>(
             } else {
                 "message".to_owned()
             }),
-            body: Set(record.body.clone()),
+            body: Set(rewrite_mentions(&record.body, &handles)),
             system_event: Set(record.system_event.clone()),
             // Filled by the second pass, once every root has an identifier here.
             parent_message_id: Set(None),
@@ -909,13 +1118,17 @@ pub async fn import_messages<C: ConnectionTrait>(
         // Said out loud while it happens, not once at the end. The messages pass is the long one:
         // on a real migration it runs for many minutes, and a bar that sits at zero throughout is
         // indistinguishable from one that has crashed.
-        note_every(db, mapper.job_id, Counter::Messages, written.messages_created).await?;
+        note_every(db, mapper.job_id, Counter::Messages, written.messages_seen).await?;
     }
-    note_done(db, mapper.job_id, Counter::Messages, written.messages_created).await?;
+    note_done(db, mapper.job_id, Counter::Messages, written.messages_seen).await?;
 
     attach_threads(db, mapper, &pending, spaces_by_source, &conversation_of).await?;
     Ok(written)
 }
+
+/// How many replies go into one statement: well under PostgreSQL's limit of 65 535 parameters
+/// (two per reply), and large enough that a big workspace is a few dozen statements.
+const THREAD_BATCH: usize = 1000;
 
 /// The second pass: hangs every reply on its root, now that both exist here.
 async fn attach_threads<C: ConnectionTrait>(
@@ -935,6 +1148,8 @@ async fn attach_threads<C: ConnectionTrait>(
         seen
     };
 
+    // Resolved from memory first: the mapper holds every correspondence of this source.
+    let mut pairs: Vec<(Uuid, Uuid)> = Vec::with_capacity(pending.len());
     for (reply_ref, root_ref) in pending {
         let mut reply = None;
         let mut root = None;
@@ -950,28 +1165,59 @@ async fn attach_threads<C: ConnectionTrait>(
                     .await?;
             }
         }
-        let (Some(reply_id), Some(root_id)) = (reply, root) else {
-            // The checks refuse an archive whose reply names a root it does not carry, so this can
-            // only mean the root was in a conversation left behind. The reply keeps its text and
-            // simply stops being a reply, rather than pointing at nothing.
-            continue;
-        };
-
-        let Some(model) = messages::Entity::find_by_id(reply_id).one(db).await? else {
-            continue;
-        };
-        let mut model: messages::ActiveModel = model.into();
-        model.parent_message_id = Set(Some(root_id));
-        model.update(db).await?;
-
-        // The root carries the count the interface reads, so it is kept in step here rather than
-        // recomputed on every read.
-        if let Some(root_model) = messages::Entity::find_by_id(root_id).one(db).await? {
-            let count = root_model.reply_count + 1;
-            let mut root_model: messages::ActiveModel = root_model.into();
-            root_model.reply_count = Set(count);
-            root_model.update(db).await?;
+        // The checks refuse an archive whose reply names a root it does not carry, so a miss can
+        // only mean the root was in a conversation left behind. The reply keeps its text and simply
+        // stops being a reply, rather than pointing at nothing.
+        if let (Some(reply_id), Some(root_id)) = (reply, root) {
+            pairs.push((reply_id, root_id));
         }
+    }
+
+    // Then written in batches. One reply at a time was four round trips each - read the reply,
+    // write it, read the root, write its count - and a workspace has thousands of replies: 5 900
+    // of them took twenty seconds, with the screen already showing the next pass at zero.
+    let backend = db.get_database_backend();
+    for chunk in pairs.chunks(THREAD_BATCH) {
+        let rows: Vec<String> = (0..chunk.len())
+            .map(|i| format!("(${}::uuid, ${}::uuid)", 2 * i + 1, 2 * i + 2))
+            .collect();
+        let values: Vec<sea_orm::Value> = chunk
+            .iter()
+            .flat_map(|(reply, root)| [(*reply).into(), (*root).into()])
+            .collect();
+        db.execute_raw(Statement::from_sql_and_values(
+            backend,
+            format!(
+                "UPDATE messages m SET parent_message_id = v.root \
+                 FROM (VALUES {}) AS v(reply, root) WHERE m.id = v.reply",
+                rows.join(", ")
+            ),
+            values,
+        ))
+        .await?;
+    }
+
+    // The root carries the count the interface reads. Counted rather than incremented: a resumed
+    // run finds some replies already attached, and a count is right whatever came before. Every
+    // reply counts, a withdrawn one too, which is what sending one does elsewhere.
+    let mut roots: Vec<Uuid> = pairs.iter().map(|(_, root)| *root).collect();
+    roots.sort();
+    roots.dedup();
+    for chunk in roots.chunks(THREAD_BATCH) {
+        let slots: Vec<String> = (1..=chunk.len()).map(|i| format!("${i}::uuid")).collect();
+        let values: Vec<sea_orm::Value> = chunk.iter().map(|root| (*root).into()).collect();
+        db.execute_raw(Statement::from_sql_and_values(
+            backend,
+            format!(
+                "UPDATE messages r SET reply_count = c.n \
+                 FROM (SELECT parent_message_id AS id, count(*)::int AS n FROM messages \
+                       WHERE parent_message_id IN ({}) GROUP BY parent_message_id) AS c \
+                 WHERE r.id = c.id",
+                slots.join(", ")
+            ),
+            values,
+        ))
+        .await?;
     }
     Ok(())
 }
@@ -1126,6 +1372,10 @@ impl BlobSink for crate::storage::S3Store {
 ///
 /// A blob is written once even when several accounts held the same file: the archive already
 /// deduplicated by digest, and so does this.
+///
+/// This form reads the file records itself, which only the tests need: they start from an archive
+/// and nothing else. The run already holds the records and goes through [`import_files_from`].
+#[cfg(test)]
 pub async fn import_files<C: ConnectionTrait, S: BlobSink>(
     db: &C,
     mapper: &Mapper<'_>,
@@ -1134,134 +1384,198 @@ pub async fn import_files<C: ConnectionTrait, S: BlobSink>(
     passphrase: Option<&str>,
     spaces_by_source: &[(String, Uuid)],
 ) -> Result<Written> {
-    let mut written = Written::default();
     let index =
         super::archive::index(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
+    import_files_from(db, mapper, storage, archive, passphrase, spaces_by_source, &index.files).await
+}
+
+/// The same pass, for a caller that has already read the file records.
+///
+/// The run has: it read the whole archive to check it before anything was written. Reading it all
+/// again only to learn the same records back, hashing every byte of every file on the way, was
+/// minutes of an import sitting at "0 files" on a real migration.
+///
+/// **The bytes stream.** The archive is read on a thread of its own, and each file it carries is
+/// handed over as it comes, stored, described and counted, before the next one is read. The first
+/// version read every file into memory before writing any: the counter stood at zero for the whole
+/// read and then jumped to the end, and a migration with sixty gigabytes of attachments needed
+/// sixty gigabytes of memory to get there. A small queue sits between the two sides, so reading
+/// keeps a little ahead of storing and no more.
+pub async fn import_files_from<C: ConnectionTrait, S: BlobSink>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    storage: &S,
+    archive: &std::path::Path,
+    passphrase: Option<&str>,
+    spaces_by_source: &[(String, Uuid)],
+    records: &[super::archive::FileRecord],
+) -> Result<Written> {
+    let mut written = Written::default();
 
     // A file belongs to the space its conversation is in, and to the first space of the archive
     // when it belongs to no conversation: an account's files are not scoped to a room.
     let Some((_, default_space)) = spaces_by_source.first() else {
         return Ok(written);
     };
+    let space_id = *default_space;
 
-    // The bytes, read once and kept by digest. An archive holds them under `blobs/`, already
-    // deduplicated, and only the ones some record actually points at are worth carrying.
-    let wanted: std::collections::HashSet<String> = index
-        .files
-        .iter()
-        .filter_map(|file| file.hash.strip_prefix("sha256:").map(str::to_owned))
-        .collect();
-    let mut bytes_by_digest: std::collections::HashMap<String, Vec<u8>> =
+    // What is left to do, by the digest of its bytes. A resumed run does not read again the bytes
+    // of the files it already stored, and two records sharing one blob are served by one read.
+    let mut pending: std::collections::HashMap<String, Vec<&super::archive::FileRecord>> =
         std::collections::HashMap::new();
-    super::archive::walk(archive, passphrase, |member| {
-        if let super::archive::Member::Blob { digest, reader } = member {
-            if wanted.contains(&digest) {
-                let mut bytes = Vec::new();
-                std::io::Read::read_to_end(reader, &mut bytes)
-                    .map_err(|e| super::archive::ArchiveError::Io(e.to_string()))?;
-                bytes_by_digest.insert(digest, bytes);
-            }
-        }
-        Ok(())
-    })
-    .map_err(|e| RunError::Db(e.to_string()))?;
-
-    for file in &index.files {
-        let space_id = *default_space;
+    for file in records {
         if mapper
             .resolve(db, KIND_FILE, &file.id, Some(space_id))
             .await?
             .is_some()
         {
+            written.files_seen += 1;
             continue;
         }
-
         let Some(digest) = file.hash.strip_prefix("sha256:") else {
+            written.files_seen += 1;
             continue;
         };
-        let Some(bytes) = bytes_by_digest.get(digest) else {
-            // The checks refuse an archive whose file record points at bytes it does not carry, so
-            // reaching this means the archive changed under us. Stopping is the only safe answer.
+        pending.entry(digest.to_owned()).or_default().push(file);
+    }
+    // Said before the first byte is read: on a resumed run, most of the files may be here already.
+    note_done(db, mapper.job_id, Counter::Files, written.files_seen).await?;
+
+    if !pending.is_empty() {
+        let wanted: std::collections::HashSet<String> = pending.keys().cloned().collect();
+        let (sender, mut received) = tokio::sync::mpsc::channel::<(String, Vec<u8>)>(4);
+        let path = archive.to_path_buf();
+        let secret = passphrase.map(str::to_owned);
+        let reading = tokio::task::spawn_blocking(move || {
+            super::archive::walk(&path, secret.as_deref(), |member| {
+                if let super::archive::Member::Blob { digest, reader } = member {
+                    if wanted.contains(&digest) {
+                        let mut bytes = Vec::new();
+                        std::io::Read::read_to_end(reader, &mut bytes)
+                            .map_err(|e| super::archive::ArchiveError::Io(e.to_string()))?;
+                        // The other side has stopped, on an error of its own: reading on would
+                        // only decrypt the rest of the archive for nobody.
+                        if sender.blocking_send((digest, bytes)).is_err() {
+                            return Err(super::archive::ArchiveError::Io(
+                                "the import stopped taking files".to_owned(),
+                            ));
+                        }
+                    }
+                }
+                Ok(())
+            })
+        });
+
+        while let Some((digest, bytes)) = received.recv().await {
+            let Some(files) = pending.remove(&digest) else {
+                continue;
+            };
+            for file in files {
+                store_file(db, mapper, storage, space_id, file, &digest, &bytes).await?;
+                written.files_created += 1;
+                written.files_seen += 1;
+                note_every(db, mapper.job_id, Counter::Files, written.files_seen).await?;
+            }
+        }
+
+        reading
+            .await
+            .map_err(|e| RunError::Db(e.to_string()))?
+            .map_err(|e| RunError::Db(e.to_string()))?;
+
+        // The checks refuse an archive whose file record points at bytes it does not carry, so
+        // reaching this means the archive changed under us. Stopping is the only safe answer.
+        if let Some(file) = pending.values().flatten().next() {
             return Err(RunError::Storage(format!(
                 "{} has no bytes in the archive any more",
                 file.name
             )));
-        };
-
-        let owner = match &file.uploaded_by {
-            Some(source_id) => mapper.resolve(db, KIND_USER, source_id, None).await?,
-            None => None,
-        };
-        let file_id = Uuid::new_v4();
-        let version_id = Uuid::new_v4();
-        let key = format!("spaces/{space_id}/{file_id}/{version_id}");
-
-        // Bytes first. Everything below only describes what is already there.
-        storage
-            .put(&key, bytes, &file.content_type)
-            .await
-            .map_err(RunError::Storage)?;
-
-        let created_at = file
-            .uploaded_at
-            .as_deref()
-            .map(parse_instant)
-            .unwrap_or_else(OffsetDateTime::now_utc);
-
-        files::ActiveModel {
-            id: Set(file_id),
-            space_id: Set(space_id),
-            owner_id: Set(owner),
-            name: Set(file.name.clone()),
-            kind: Set("file".to_owned()),
-            parent_folder_id: Set(None),
-            conversation_id: Set(None),
-            system_key: Set(None),
-            current_version_id: Set(None),
-            size_bytes: Set(file.size),
-            imported_source: Set(Some(mapper.source.to_owned())),
-            external_ref: Set(Some(file.id.clone())),
-            created_at: Set(created_at),
-            updated_at: Set(created_at),
-            deleted_at: Set(None),
         }
-        .insert(db)
-        .await?;
-
-        file_versions::ActiveModel {
-            id: Set(version_id),
-            file_id: Set(file_id),
-            version_no: Set(1),
-            size_bytes: Set(file.size),
-            content_hash: Set(hex_to_bytes(digest)),
-            storage_key: Set(Some(key)),
-            thumbnail_key: Set(None),
-            mime_type: Set(file.content_type.clone()),
-            image_width: Set(None),
-            image_height: Set(None),
-            created_by: Set(owner),
-            created_at: Set(created_at),
-        }
-        .insert(db)
-        .await?;
-
-        let mut model: files::ActiveModel = files::Entity::find_by_id(file_id)
-            .one(db)
-            .await?
-            .ok_or_else(|| RunError::Db("the file vanished as it was written".to_owned()))?
-            .into();
-        model.current_version_id = Set(Some(version_id));
-        model.update(db).await?;
-
-        mapper
-            .record(db, KIND_FILE, &file.id, Some(space_id), file_id)
-            .await?;
-        written.files_created += 1;
-        note_every(db, mapper.job_id, Counter::Files, written.files_created).await?;
     }
-    note_done(db, mapper.job_id, Counter::Files, written.files_created).await?;
+    note_done(db, mapper.job_id, Counter::Files, written.files_seen).await?;
 
     Ok(written)
+}
+
+/// One file: its bytes, then the rows that describe them, then the correspondence.
+async fn store_file<C: ConnectionTrait, S: BlobSink>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    storage: &S,
+    space_id: Uuid,
+    file: &super::archive::FileRecord,
+    digest: &str,
+    bytes: &[u8],
+) -> Result<()> {
+    let owner = match &file.uploaded_by {
+        Some(source_id) => mapper.resolve(db, KIND_USER, source_id, None).await?,
+        None => None,
+    };
+    let file_id = Uuid::new_v4();
+    let version_id = Uuid::new_v4();
+    let key = format!("spaces/{space_id}/{file_id}/{version_id}");
+
+    // Bytes first. Everything below only describes what is already there.
+    storage
+        .put(&key, bytes, &file.content_type)
+        .await
+        .map_err(RunError::Storage)?;
+
+    let created_at = file
+        .uploaded_at
+        .as_deref()
+        .map(parse_instant)
+        .unwrap_or_else(OffsetDateTime::now_utc);
+
+    files::ActiveModel {
+        id: Set(file_id),
+        space_id: Set(space_id),
+        owner_id: Set(owner),
+        name: Set(file.name.clone()),
+        kind: Set("file".to_owned()),
+        parent_folder_id: Set(None),
+        conversation_id: Set(None),
+        system_key: Set(None),
+        current_version_id: Set(None),
+        size_bytes: Set(file.size),
+        imported_source: Set(Some(mapper.source.to_owned())),
+        external_ref: Set(Some(file.id.clone())),
+        created_at: Set(created_at),
+        updated_at: Set(created_at),
+        deleted_at: Set(None),
+    }
+    .insert(db)
+    .await?;
+
+    file_versions::ActiveModel {
+        id: Set(version_id),
+        file_id: Set(file_id),
+        version_no: Set(1),
+        size_bytes: Set(file.size),
+        content_hash: Set(hex_to_bytes(digest)),
+        storage_key: Set(Some(key)),
+        thumbnail_key: Set(None),
+        mime_type: Set(file.content_type.clone()),
+        image_width: Set(None),
+        image_height: Set(None),
+        created_by: Set(owner),
+        created_at: Set(created_at),
+    }
+    .insert(db)
+    .await?;
+
+    let mut model: files::ActiveModel = files::Entity::find_by_id(file_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| RunError::Db("the file vanished as it was written".to_owned()))?
+        .into();
+    model.current_version_id = Set(Some(version_id));
+    model.update(db).await?;
+
+    mapper
+        .record(db, KIND_FILE, &file.id, Some(space_id), file_id)
+        .await?;
+    Ok(())
 }
 
 /// The digest as the database stores it: bytes, not the hex text the archive spells it in.
@@ -1394,3 +1708,123 @@ pub async fn one_is_running<C: ConnectionTrait>(db: &C) -> Result<bool> {
         > 0)
 }
 
+
+/// Turns the mentions in a body from what a producer can write into what the product resolves.
+///
+/// `docs/import-archive.md` requires a producer to write a mention as `@` followed by the person's
+/// identifier at the source, rather than leaving `<@U123>` or whatever the vendor used: an
+/// identifier is the one thing every source has and every producer can spell. The product resolves
+/// a mention against a display name, so the crossing happens here, and a mention that arrived as
+/// `@U123` sitting in the text as if somebody had typed it is what this prevents.
+///
+/// Matched longest-first: `@alice` and `@alice2` can both be people, and stopping at the first
+/// identifier that fits would reach the wrong one. A run of text that matches nobody is left
+/// exactly as it was - `@here`, `@canal` and an address are all ordinary text at this stage, and
+/// the product decides what they mean when it reads the message.
+fn rewrite_mentions(body: &str, handles: &std::collections::HashMap<String, String>) -> String {
+    if body.is_empty() || handles.is_empty() {
+        return body.to_owned();
+    }
+    // The scan walks characters rather than bytes: an identifier can be any text the source held,
+    // and slicing a body on a byte boundary inside a name would panic.
+    let chars: Vec<(usize, char)> = body.char_indices().collect();
+    let longest = handles.keys().map(|id| id.chars().count()).max().unwrap_or(0);
+
+    let mut out = String::with_capacity(body.len());
+    let mut index = 0;
+    while index < chars.len() {
+        let (offset, character) = chars[index];
+        if character != '@' {
+            out.push(character);
+            index += 1;
+            continue;
+        }
+        // Only at a word boundary, so that an address never turns into a mention.
+        let boundary = index == 0 || !chars[index - 1].1.is_alphanumeric();
+        let mut matched = None;
+        if boundary {
+            let start = offset + character.len_utf8();
+            for length in (1..=longest.min(chars.len() - index - 1)).rev() {
+                let end = chars
+                    .get(index + 1 + length)
+                    .map(|(at, _)| *at)
+                    .unwrap_or(body.len());
+                if let Some(handle) = handles.get(&body[start..end]) {
+                    matched = Some((handle, length));
+                    break;
+                }
+            }
+        }
+        match matched {
+            Some((handle, length)) => {
+                out.push('@');
+                out.push_str(handle);
+                index += 1 + length;
+            }
+            None => {
+                out.push(character);
+                index += 1;
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod mention_tests {
+    use super::rewrite_mentions;
+
+    fn people() -> std::collections::HashMap<String, String> {
+        [
+            ("demo-camille", "CamilleVilain"),
+            ("demo-yanis", "YanisBerthier"),
+            ("demo-yanis2", "YanisPetit"),
+            ("théo", "ThéoVilain"),
+        ]
+        .into_iter()
+        .map(|(id, handle)| (id.to_owned(), handle.to_owned()))
+        .collect()
+    }
+
+    #[test]
+    fn a_mention_arrives_as_a_name_the_product_can_resolve() {
+        assert_eq!(
+            rewrite_mentions("@demo-camille c'est noté", &people()),
+            "@CamilleVilain c'est noté"
+        );
+    }
+
+    #[test]
+    fn the_longest_identifier_wins_over_one_that_merely_starts_it() {
+        assert_eq!(
+            rewrite_mentions("@demo-yanis2 et @demo-yanis", &people()),
+            "@YanisPetit et @YanisBerthier"
+        );
+    }
+
+    #[test]
+    fn an_address_is_not_a_mention() {
+        assert_eq!(
+            rewrite_mentions("écris à contact@demo-camille", &people()),
+            "écris à contact@demo-camille"
+        );
+    }
+
+    #[test]
+    fn a_handle_nobody_answers_to_is_left_alone() {
+        assert_eq!(
+            rewrite_mentions("@canal on se voit lundi", &people()),
+            "@canal on se voit lundi"
+        );
+    }
+
+    #[test]
+    fn an_identifier_outside_ascii_does_not_split_a_character() {
+        assert_eq!(rewrite_mentions("@théo ça va ?", &people()), "@ThéoVilain ça va ?");
+    }
+
+    #[test]
+    fn a_mention_at_the_very_end_of_a_body_is_still_one() {
+        assert_eq!(rewrite_mentions("merci @demo-yanis", &people()), "merci @YanisBerthier");
+    }
+}
