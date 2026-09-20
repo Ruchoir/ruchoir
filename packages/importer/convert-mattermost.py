@@ -287,9 +287,26 @@ class Converter:
         )
 
     def _read_direct_channel(self, channel: dict) -> None:
-        members = sorted(p["username"] for p in channel.get("participants") or [])
+        # Two spellings in the wild, and which one a customer has depends on their server version.
+        # A recent `mmctl export` writes `participants`, objects carrying each person's own
+        # settings; the bulk format's older `members` is a plain list of usernames, and servers
+        # still write it. Reading only the first turned the other into a conversation with no
+        # participants at all: the converter finished, and the import refused the archive with a
+        # message about an empty direct conversation - on the customer's side of the handover.
+        participants = channel.get("participants") or []
+        if participants:
+            names = [p["username"] for p in participants]
+        else:
+            names = list(channel.get("members") or [])
+        members = sorted(names)
+        if len(members) < 2:
+            raise SystemExit(
+                "a direct conversation in this export names fewer than two people "
+                f"({members or 'none'}): the export is not one this converter can read. "
+                "Send us the line so it can be."
+            )
         key = "direct:" + "+".join(members)
-        for participant in channel.get("participants") or []:
+        for participant in participants:
             self._remember_state(key, participant["username"], participant)
         self.channels[key] = {
             "id": key,

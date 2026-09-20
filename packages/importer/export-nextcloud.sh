@@ -173,7 +173,7 @@ SELECT JSON_OBJECT(
   'name', IF(r.type = 1, '', COALESCE(NULLIF(r.name, ''), r.token)),
   'topic', COALESCE(r.description, ''),
   'visibility', IF(r.type = 3, 'public', 'private'),
-  -- Talk has no archived conversation: `archived` is a per-participant setting on the attendee
+  -- Talk has no archived conversation: "archived" is a per-participant setting on the attendee
   -- row, so "this conversation is archived" is not a fact the source holds. Declared in limits.
   'archived', FALSE,
   'members', COALESCE((
@@ -186,8 +186,8 @@ SELECT JSON_OBJECT(
   -- Talk names the last message read, which is more precise than a moment and needs no guessing
   -- at the other end.
   'member_state', COALESCE((
-    -- JSON_REMOVE drops the key rather than writing `false`: an entry says what someone kept,
-    -- and a list of six `favorite: false` says nothing while looking like it does.
+    -- JSON_REMOVE drops the key rather than writing "false": an entry says what someone kept,
+    -- and a list of six "favorite: false" says nothing while looking like it does.
     SELECT JSON_ARRAYAGG(JSON_REMOVE(
       JSON_OBJECT(
         'user', att.actor_id,
@@ -326,6 +326,19 @@ data_dir, out = sys.argv[1], sys.argv[2]
 skip_prefixes = ("appdata_", "updater-")
 skip_names = {"files_external", "__groupfolders"}
 
+# Who this instance still has. Deleting an account in Nextcloud does not always take its data
+# directory with it, and an installation that has been running for years holds folders belonging
+# to people who left. Their files are still the company's, so they travel; but attributed to a uid
+# no account carries, they made the whole archive fail the contract checker at import time - the
+# export looked fine and only died in front of the customer. An unknown owner is marked absent, the
+# same way a message from somebody the archive never named is.
+accounts = set()
+with open(os.path.join(out, "users.jsonl"), encoding="utf-8") as fh:
+    for line in fh:
+        line = line.strip()
+        if line:
+            accounts.add(json.loads(line)["id"])
+
 def digest(path):
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -361,7 +374,7 @@ with open(os.path.join(out, "files.jsonl"), "w", encoding="utf-8") as sink:
                     "content_type": mimetypes.guess_type(name)[0] or "application/octet-stream",
                     "hash": f"sha256:{h}",
                     "channel": None,
-                    "uploaded_by": account,
+                    "uploaded_by": account if account in accounts else f"absent:{account}",
                     "uploaded_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc)
                         .strftime("%Y-%m-%dT%H:%M:%SZ"),
                 }, ensure_ascii=False) + "\n")

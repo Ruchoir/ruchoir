@@ -267,6 +267,33 @@ class ConverterCase(unittest.TestCase):
         out = self.convert(rows)
         self.assertIn("direct:alice+bob", by_id(out, "channels.jsonl"))
 
+    def test_a_direct_conversation_written_the_old_way_is_read_too(self) -> None:
+        """`mmctl export` writes `participants`; the bulk format's `members` is still written too.
+
+        Reading only the first shape produced a direct conversation with nobody in it, and an
+        archive the importer refuses - a failure the customer meets, not us.
+        """
+        archive = self.convert(
+            [
+                team("atelier"),
+                user("alice"),
+                user("bob"),
+                {"type": "direct_channel", "direct_channel": {"members": ["bob", "alice"]}},
+                {
+                    "type": "direct_post",
+                    "direct_post": {
+                        "channel_members": ["bob", "alice"],
+                        "user": "alice",
+                        "message": "deux minutes ?",
+                        "create_at": MS,
+                    },
+                },
+            ]
+        )
+        conversation = by_id(archive, "channels.jsonl")["direct:alice+bob"]
+        self.assertEqual(conversation["members"], ["alice", "bob"])
+        self.assertEqual(validator.validate(archive).errors, [])
+
     def test_a_direct_conversation_lands_in_a_space_its_participants_share(self) -> None:
         rows = [
             team("atelier"),

@@ -70,6 +70,8 @@ class ExportNextcloudCase(unittest.TestCase):
             "alice": {"Documents/note.txt": b"une note", "Photos/x.png": b"\x89PNG fake"},
             "bob": {"Documents/note.txt": b"une note"},  # same bytes: must be stored once
             "appdata_abc": {"cache/thing": b"internal"},  # must be skipped
+            # Somebody who left: Nextcloud deleted the account and left the directory behind.
+            "ghost": {"Documents/rapport.txt": b"un rapport"},
         }.items():
             for relative, content in files.items():
                 path = data / account / "files" / relative
@@ -97,11 +99,23 @@ class ExportNextcloudCase(unittest.TestCase):
         if result.returncode != 0:
             raise AssertionError(f"the producer failed:\n{result.stdout}\n{result.stderr}")
         cls.output = result.stdout
+        cls.errors = result.stderr
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls._sql(f"DROP DATABASE IF EXISTS `{cls.database}`;", database=None)
         cls.tmp.cleanup()
+
+    def test_the_shell_runs_the_script_rather_than_the_sql_comments(self):
+        """Nothing in these queries is executed as a command on the customer's server.
+
+        The SQL goes to the client through unquoted heredocs, because they interpolate the table
+        prefix. That means the shell reads them too, and it ran two words out of a SQL comment as
+        commands ("archived", "favorite:") on every export - harmless by luck, since neither
+        exists, and one backtick away from not being. A failure here means something inside a
+        query is being expanded before the database ever sees it.
+        """
+        self.assertEqual(self.errors, "", "the producer wrote to stderr")
 
     # -- plumbing --------------------------------------------------------------------------------
     @classmethod
@@ -240,11 +254,31 @@ class ExportNextcloudCase(unittest.TestCase):
         self.assertEqual(shared["files"], ["alice/Documents/note.txt"])
         self.assertEqual(shared["body"], "", "a share carries a file, not a sentence")
 
+    def test_a_file_left_by_a_deleted_account_travels_marked_absent(self) -> None:
+        """Nextcloud can hold a data directory whose account is gone, and often does.
+
+        Attributed to that uid, the file made the whole archive fail the contract checker: the
+        export ran clean and the import refused it, in front of the customer. The file is the
+        company's either way, so it travels, marked absent the way a message from somebody the
+        archive never named is.
+        """
+        ghost = by_id(self.archive, "files.jsonl")["ghost/Documents/rapport.txt"]
+        self.assertEqual(ghost["uploaded_by"], "absent:ghost")
+        self.assertEqual(validator.validate(self.archive).errors, [])
+
     def test_files_are_read_from_the_directory_and_deduplicated(self) -> None:
         files = by_id(self.archive, "files.jsonl")
-        self.assertEqual(sorted(files), ["alice/Documents/note.txt", "alice/Photos/x.png", "bob/Documents/note.txt"])
+        self.assertEqual(
+            sorted(files),
+            [
+                "alice/Documents/note.txt",
+                "alice/Photos/x.png",
+                "bob/Documents/note.txt",
+                "ghost/Documents/rapport.txt",
+            ],
+        )
         blobs = [p for p in (self.archive / "blobs").rglob("*") if p.is_file()]
-        self.assertEqual(len(blobs), 2, "two accounts holding the same bytes store them once")
+        self.assertEqual(len(blobs), 3, "two accounts holding the same bytes store them once")
 
     def test_nextclouds_internal_directories_are_skipped(self) -> None:
         self.assertFalse([f for f in by_id(self.archive, "files.jsonl") if f.startswith("appdata")])
@@ -268,7 +302,7 @@ class ExportNextcloudCase(unittest.TestCase):
         manifest = json.loads((self.archive / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["counts"]["channels"], 3)
         self.assertEqual(manifest["counts"]["users"], 4)
-        self.assertEqual(manifest["counts"]["files"], 3)
+        self.assertEqual(manifest["counts"]["files"], 4)
         self.assertEqual(manifest["source"], "nextcloud")
         self.assertIn("24.0.4", manifest["source_version"])
 
