@@ -50,6 +50,26 @@ CI runs it against a MariaDB service with `RUCHOIR_TEST_REQUIRE_MARIADB=1`, whic
 producer test into a failure. A suite that quietly skips its only end-to-end test reports green
 over an untested feature, which is worse than having no suite.
 
+### The rehearsal against real servers
+
+`packages/importer/e2e/run.sh` stands up a real Nextcloud with Talk and a real Mattermost in
+Docker, fills them through their own APIs, and takes an export from each by the commands the
+import screen tells a customer to run: `export-nextcloud.sh` on the Nextcloud host, `mmctl export
+create` then `convert-mattermost.py` for Mattermost. It leaves two sealed archives and the servers
+up; `run.sh down` puts it all away.
+
+This is not the same question as the suite above. The tests ask whether a producer reads its
+source correctly, against an archive we wrote. The rehearsal asks whether a customer's export
+opens in Ruchoir, and it has answered no three times, on defects no generated archive could show:
+a SQL comment whose backticks made the shell run words as commands on the Nextcloud host, a data
+directory belonging to a deleted account (Nextcloud keeps it; the export named an owner no account
+carried, and the archive failed the contract checker at import time, in front of the customer),
+and a direct conversation written `members` rather than `participants` by older servers, which
+produced a conversation with nobody in it.
+
+It is not part of `unittest discover`: it needs docker, sudo and several minutes. Run it when a
+producer changes, and before promising anyone that an import works.
+
 **The contract has two implementations, and they must agree.** This one runs beside a producer, on
 the customer's machine, so that nobody carries a broken archive across the internet only to be
 refused on arrival. The one inside the API decides whether an archive is actually imported. That

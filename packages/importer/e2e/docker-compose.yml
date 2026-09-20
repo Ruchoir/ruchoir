@@ -1,0 +1,57 @@
+# Real Nextcloud and Mattermost servers, for the end-to-end rehearsal of an import.
+#
+# The producer tests answer "does the script read this database correctly". They cannot answer
+# "does a customer's export open in Ruchoir", because the archive they check is one we wrote. This
+# stack answers that one: real servers, their own export paths, our importer at the other end.
+#
+# Everything here is throwaway. Nothing binds to a port another Ruchoir service uses.
+services:
+  ncdb:
+    image: mariadb:11
+    container_name: e2e-ncdb
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: nextcloud
+      MARIADB_USER: nextcloud
+      MARIADB_PASSWORD: ncpass
+
+  nextcloud:
+    image: nextcloud:30-apache
+    container_name: e2e-nextcloud
+    depends_on: [ncdb]
+    ports: ["8081:80"]
+    environment:
+      MYSQL_HOST: ncdb
+      MYSQL_DATABASE: nextcloud
+      MYSQL_USER: nextcloud
+      MYSQL_PASSWORD: ncpass
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_ADMIN_PASSWORD: AdminAtelier2026!
+      NEXTCLOUD_TRUSTED_DOMAINS: localhost
+    volumes:
+      # Bind-mounted so the producer can walk it the way it walks a real data directory. It is
+      # owned by www-data, so the export runs under sudo, as it would on the customer's host.
+      - ${E2E_DIR:-/tmp/ruchoir-e2e}/nc-data:/var/www/html/data
+
+  mmdb:
+    image: postgres:15-alpine
+    container_name: e2e-mmdb
+    environment:
+      POSTGRES_USER: mmuser
+      POSTGRES_PASSWORD: mmpass
+      POSTGRES_DB: mattermost
+
+  mattermost:
+    image: mattermost/mattermost-team-edition:10.5
+    container_name: e2e-mattermost
+    depends_on: [mmdb]
+    ports: ["8065:8065"]
+    environment:
+      MM_SQLSETTINGS_DRIVERNAME: postgres
+      MM_SQLSETTINGS_DATASOURCE: "postgres://mmuser:mmpass@mmdb:5432/mattermost?sslmode=disable&connect_timeout=10"
+      MM_SERVICESETTINGS_SITEURL: http://localhost:8065
+      # Local mode is how `mmctl export create` runs without a login.
+      MM_SERVICESETTINGS_ENABLELOCALMODE: "true"
+      MM_FILESETTINGS_DRIVERNAME: local
+      MM_TEAMSETTINGS_ENABLEOPENSERVER: "true"
