@@ -23,6 +23,12 @@ them, not before: an entity nothing calls is dead weight, and the compiler says 
   `synthetic` rather than a borrowed product name, because the source is written into every mapping
   a run records. Deterministic: the same seed gives the same bytes, so a failure at 120 000 messages
   can be reproduced instead of described.
+- `make-demo-archive.py` : writes a small archive carrying one of everything the format allows -
+  a thread, a pinned message, an edit, a reaction, a saved message, a favourite, a reading position,
+  an attachment of each kind, every notice, an archived conversation, a deactivated account, an
+  account with no address, an absent author and a mention. Its sibling above answers "does this
+  survive a real migration"; this one answers "does every feature actually arrive", and it is what
+  to import when a screen has to be looked at rather than a counter.
 - `export-nextcloud.sh` : runs on the Nextcloud host, reads the database and the data directory,
   writes a sealed Ruchoir archive. Nextcloud Talk has no export of its own, which is why we ship
   one. Read-only: it never writes to the source instance. Sealing is OpenPGP symmetric through
