@@ -53,6 +53,7 @@ pub fn router() -> Router<AppState> {
             "/tools/convert-mattermost.py",
             get(script_convert_mattermost),
         )
+        .route("/tools/convert-slack.py", get(script_convert_slack))
         .route("/tools/import-nextcloud.sh", get(script_import_nextcloud))
         .route("/tools/import-mattermost.sh", get(script_import_mattermost))
         .route("/tools/import-slack.sh", get(script_import_slack))
@@ -247,6 +248,13 @@ async fn script_convert_mattermost() -> impl IntoResponse {
     (
         [(header::CONTENT_TYPE, "text/x-python; charset=utf-8")],
         scripts::CONVERT_MATTERMOST_PY.to_owned(),
+    )
+}
+
+async fn script_convert_slack() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/x-python; charset=utf-8")],
+        scripts::CONVERT_SLACK_PY.to_owned(),
     )
 }
 

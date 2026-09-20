@@ -1742,6 +1742,25 @@ fn rewrite_mentions(body: &str, handles: &std::collections::HashMap<String, Stri
         // Only at a word boundary, so that an address never turns into a mention.
         let boundary = index == 0 || !chars[index - 1].1.is_alphanumeric();
         let mut matched = None;
+        // The braced form the contract spells out, `@{id}`, which is the one a producer reads in
+        // `docs/import-archive.md` and the only one that is unambiguous when an identifier holds
+        // punctuation. A producer wrote it, the importer only knew the bare form, and the mention
+        // arrived on screen as `@{U0C40N926SC}` in front of the person it was meant to name.
+        if boundary && chars.get(index + 1).map(|(_, c)| *c) == Some('{') {
+            let open = chars[index + 1].0 + '{'.len_utf8();
+            if let Some(close) = chars[index + 2..]
+                .iter()
+                .position(|(_, c)| *c == '}')
+                .map(|at| index + 2 + at)
+            {
+                if let Some(handle) = handles.get(&body[open..chars[close].0]) {
+                    out.push('@');
+                    out.push_str(handle);
+                    index = close + 1;
+                    continue;
+                }
+            }
+        }
         if boundary {
             let start = offset + character.len_utf8();
             for length in (1..=longest.min(chars.len() - index - 1)).rev() {
@@ -1784,6 +1803,30 @@ mod mention_tests {
         .into_iter()
         .map(|(id, handle)| (id.to_owned(), handle.to_owned()))
         .collect()
+    }
+
+    /// The form `docs/import-archive.md` spells out. The Slack adapter wrote it, as the contract
+    /// says to, and the mention reached the screen as `@{U0C40N926SC}`: the importer knew only the
+    /// bare form its two earlier producers happened to use.
+    #[test]
+    fn the_braced_form_the_contract_documents_resolves_too() {
+        assert_eq!(
+            rewrite_mentions("@{demo-camille} c'est noté", &people()),
+            "@CamilleVilain c'est noté"
+        );
+        assert_eq!(
+            rewrite_mentions("@{demo-yanis} et @demo-camille", &people()),
+            "@YanisBerthier et @CamilleVilain"
+        );
+    }
+
+    /// Braces around somebody this archive never carried stay exactly as they were: a producer
+    /// naming a stranger is not a reason to invent one, and half-rewriting it would leave a
+    /// mention pointing nowhere.
+    #[test]
+    fn a_braced_mention_of_nobody_is_left_alone() {
+        assert_eq!(rewrite_mentions("@{U999} hello", &people()), "@{U999} hello");
+        assert_eq!(rewrite_mentions("@{demo-camille", &people()), "@{demo-camille");
     }
 
     #[test]

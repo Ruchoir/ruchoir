@@ -19,6 +19,9 @@ pub const EXPORT_NEXTCLOUD_SH: &str =
 pub const CONVERT_MATTERMOST_PY: &str =
     include_str!("../../../../packages/importer/convert-mattermost.py");
 
+/// The Slack converter, embedded verbatim from `packages/importer`.
+pub const CONVERT_SLACK_PY: &str = include_str!("../../../../packages/importer/convert-slack.py");
+
 const BASE_PLACEHOLDER: &str = "__RUCHOIR_BASE__";
 
 /// Stamp the instance's base URL into an orchestrator before serving it.
@@ -104,35 +107,48 @@ echo "OK - delivered. Enter this passphrase in the import screen; the archive is
 shred -u "$PF" 2>/dev/null || rm -f "$PF"
 "#;
 
-/// Slack: no converter ships yet, so this orchestrator seals and delivers an archive directory the
-/// administrator already produced. When the Slack adapter lands, it fetches and runs like the
-/// Mattermost one. Until then it is honest about what it does.
+/// Slack: the converter downloads the attachments, because a Slack export carries links to its
+/// files rather than the files. The export signs its own links, so the ordinary run asks for
+/// nothing; when they have expired the converter stops and prints how to make a token, and this
+/// script passes that exit code through rather than sealing an archive with no files in it.
 pub const IMPORT_SLACK_SH: &str = r#"#!/usr/bin/env bash
-# Deliver a Slack import archive to Ruchoir. The Slack adapter (workspace-export ZIP -> archive) is
-# not shipped yet, so this seals and uploads an archive directory you have already produced.
+# Convert a Slack workspace export and deliver it to Ruchoir in one command. Runs on the Ruchoir
+# host, on the ZIP an owner downloaded from Slack (Settings -> Import/Export Data -> Export).
 set -euo pipefail
 BASE="__RUCHOIR_BASE__"
 TOKEN=""
-DIR=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --token) TOKEN="${2:-}"; shift 2 ;;
-    --dir) DIR="${2:-}"; shift 2 ;;
+    --) shift; break ;;
     -h|--help)
-      echo "Usage: curl -fsSL $BASE/tools/import-slack.sh | bash -s -- --token <token> --dir <archive dir>"
+      echo "Usage: curl -fsSL $BASE/tools/import-slack.sh | bash -s -- \\"
+      echo "         --token <token> -- --export <unpacked Slack export dir>"
+      echo
+      echo "Converter options after --: --space-name <name>, --no-files, --token-file <path>."
       exit 0 ;;
-    *) echo "unknown argument: $1" >&2; exit 2 ;;
+    *) echo "unexpected argument before --: $1 (put converter options after --)" >&2; exit 2 ;;
   esac
 done
 [ -n "$TOKEN" ] || { echo "missing --token: generate one in the import screen" >&2; exit 2; }
-[ -n "$DIR" ] && [ -d "$DIR" ] || { echo "missing or unreadable --dir (a Ruchoir archive directory)" >&2; exit 2; }
 command -v curl >/dev/null || { echo "this needs curl" >&2; exit 1; }
 command -v gpg >/dev/null || { echo "this needs gpg to seal the archive" >&2; exit 1; }
+command -v python3 >/dev/null || { echo "this needs python3" >&2; exit 1; }
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+echo "-> fetching the Slack converter from $BASE"
+curl -fsSL "$BASE/tools/convert-slack.py" -o "$WORK/convert-slack.py"
+echo "-> converting (the attachments are downloaded from Slack, this is the slow part)"
+# Exit code 3 means the export's own file links have expired; the converter has just printed how
+# to carry on, so this stops here rather than sealing an archive missing its files.
+set +e
+python3 "$WORK/convert-slack.py" --out "$WORK/archive" "$@"
+STATUS=$?
+set -e
+[ "$STATUS" -eq 0 ] || exit "$STATUS"
 echo "-> sealing"
 PF="$(mktemp)"; chmod 600 "$PF"
 head -c 256 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-40 > "$PF"
-tar -C "$(dirname "$DIR")" -cf - "$(basename "$DIR")" | gpg --batch --yes --quiet --symmetric \
+tar -C "$WORK" -cf - archive | gpg --batch --yes --quiet --symmetric \
   --cipher-algo AES256 --digest-algo SHA512 --s2k-mode 3 --s2k-count 65011712 \
   --passphrase-file "$PF" --output "$WORK/archive.tar.gpg"
 echo "-> delivering the sealed archive to $BASE"

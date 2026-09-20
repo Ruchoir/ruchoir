@@ -158,8 +158,13 @@ the content hash: two accounts can hold the same bytes, and the attachment belon
 The bytes are reached through that record's `hash`.
 
 Mentions are the one thing a producer must not leave in vendor syntax: `<@U123>` means nothing here.
-A mention is written as the source identifier of the person, in the form `@{id}`, and the importer
-resolves it to a real account once the accounts are mapped.
+A mention is written as the source identifier of the person, in braces: `@{U123}`. The importer
+resolves it to a real account once the accounts are mapped, and leaves it exactly as it found it
+when it names nobody the archive carried.
+
+The braces are not decoration. An identifier can hold a dot, a dash or a space, and `@camille.roux`
+followed by a full stop has no unambiguous end without them. A bare `@id` is still resolved, for the
+producers written before this was settled, but a new one writes the braces.
 
 ## Encryption
 

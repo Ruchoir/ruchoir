@@ -7,9 +7,9 @@ This is the product's signature feature. See the root `AGENTS.md` for project-wi
 ## Status
 
 In progress. The archive format is written down (`docs/import-archive.md`), the job and mapping
-tables exist (`import_jobs`, `import_mappings`), and two producers are here and verified against
-real instances: Nextcloud and Mattermost. The importer that consumes an archive is not written yet,
-and neither are the Slack and Teams adapters. The SeaORM entities land with the code that reads
+tables exist (`import_jobs`, `import_mappings`), and three producers are here: Nextcloud and
+Mattermost, verified against real servers, and Slack, written against a real workspace export. The
+Teams adapter is not written yet. The SeaORM entities land with the code that reads
 them, not before: an entity nothing calls is dead weight, and the compiler says so.
 
 ## Contents
@@ -29,6 +29,14 @@ them, not before: an entity nothing calls is dead weight, and the compiler says 
   account with no address, an absent author and a mention. Its sibling above answers "does this
   survive a real migration"; this one answers "does every feature actually arrive", and it is what
   to import when a screen has to be looked at rather than a counter.
+- `convert-slack.py` : reads a Slack workspace export (the ZIP an owner downloads from Settings ->
+  Import/Export Data -> Export) and writes the archive. The only producer that reaches the network:
+  a Slack export carries links to its files rather than the files, and the export signs those links
+  itself, so the ordinary conversion downloads them without asking the customer for anything. That
+  signature dies with the export (Slack deletes one ten days after download), and only then does
+  the converter stop and print how to make a `files:read` token for `--token-file`. Reaching
+  files.slack.com is a one-off migration step a customer asked for, not a runtime dependency, and
+  this script is the only thing in the product that does it.
 - `export-nextcloud.sh` : runs on the Nextcloud host, reads the database and the data directory,
   writes a sealed Ruchoir archive. Nextcloud Talk has no export of its own, which is why we ship
   one. Read-only: it never writes to the source instance. Sealing is OpenPGP symmetric through
@@ -69,6 +77,13 @@ produced a conversation with nobody in it.
 
 It is not part of `unittest discover`: it needs docker, sudo and several minutes. Run it when a
 producer changes, and before promising anyone that an import works.
+
+**Slack cannot join it**, because there is no Slack to run: the only real export comes from a real
+workspace. `convert-slack.py` was written against one (export format 2, September 2026) and its
+fixtures are shaped like what that export actually held, down to the escaping inside a code
+snippet. The export itself is deliberately absent from the repository: it holds somebody's real
+messages and files. When Slack changes its format, the way to find out is another real export, not
+a reading of the documentation.
 
 **The contract has two implementations, and they must agree.** This one runs beside a producer, on
 the customer's machine, so that nobody carries a broken archive across the internet only to be
