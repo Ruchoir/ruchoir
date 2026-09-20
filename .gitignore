@@ -9,6 +9,9 @@
 # (The handoff directory keeps its original on-disk name; do not rename this pattern.)
 /fixtures/
 /workchat-design-system/
+# Archives waiting to be imported by a local instance, and the ones written by the generators in
+# packages/importer. Megabytes of sealed binary that any checkout can rebuild from the scripts.
+/imports/
 
 # Secrets and environment.
 .env
