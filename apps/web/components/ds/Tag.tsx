@@ -1,4 +1,5 @@
 import type { MouseEventHandler, ReactNode } from "react";
+import { BrandIcon, type BrandName } from "./BrandIcon";
 import { Icon, type IconName } from "./Icon";
 
 export type TagTone = "neutral" | "accent" | "success" | "warning" | "danger" | "info";
@@ -6,6 +7,11 @@ export type TagTone = "neutral" | "accent" | "success" | "warning" | "danger" | 
 export type TagProps = {
   tone?: TagTone;
   icon?: IconName;
+  /**
+   * A product logo in the leading slot, for a provenance tag ("imported from Slack"). Takes the
+   * place of `icon`: a source is named by its own mark, not by a generic one alongside it.
+   */
+  brand?: BrandName;
   mono?: boolean;
   onRemove?: MouseEventHandler<HTMLButtonElement>;
   /** Accessible name of the remove button; passed in, like every other string this library shows. */
@@ -24,6 +30,7 @@ export type TagProps = {
 export function Tag({
   tone = "neutral",
   icon,
+  brand,
   mono,
   onRemove,
   removeLabel,
@@ -32,7 +39,7 @@ export function Tag({
 }: TagProps) {
   return (
     <span className={`wc-tag wc-tag--${tone}${mono ? " wc-tag--mono" : ""} ${className}`}>
-      {icon ? <Icon name={icon} size={12} /> : null}
+      {brand ? <BrandIcon name={brand} size={12} /> : icon ? <Icon name={icon} size={12} /> : null}
       {children}
       {onRemove ? (
         <button className="wc-tag__x" aria-label={removeLabel} onClick={onRemove}>

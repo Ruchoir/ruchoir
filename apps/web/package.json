@@ -28,6 +28,7 @@
     "react-i18next": "^17.0.13"
   },
   "devDependencies": {
+    "@iconify-json/logos": "^1.2.14",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.4.0",
     "@types/react": "^19.2.18",

@@ -1,9 +1,9 @@
 "use client";
 
 import { type CSSProperties, useRef, useState } from "react";
-import { Avatar, Card, Dialog, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
+import { Avatar, brandFor, Card, Dialog, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
 import { getCurrentUser, getMentionNames, getPresence } from "@/lib/data";
-import type { Message } from "@/lib/data";
+import type { ImportSource, Message } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
 import { UserProfileCard } from "../app/UserProfileCard";
@@ -140,6 +140,12 @@ export type MessageRowProps = {
   actions: MessageActions;
   /** Whether the pin entry belongs in this row's menu. See MessageMenu's own prop. */
   canPin?: boolean;
+  /**
+   * The product this conversation was imported from, for the provenance badge. A message carries
+   * only that it was imported, not from where: the source belongs to the channel, and every
+   * imported message in it came the same way.
+   */
+  importedFrom?: ImportSource;
 };
 
 const avatarBtn: CSSProperties = {
@@ -172,6 +178,7 @@ export function MessageRow({
   readAudience = 0,
   actions,
   canPin = true,
+  importedFrom,
 }: MessageRowProps) {
   const { t } = useTranslation();
   const [hover, setHover] = useState(false);
@@ -269,7 +276,16 @@ export function MessageRow({
             {m.author}
           </button>
           <span style={styles.time}>{formatStamp(m.createdAt)}</span>
-          {!deleted && m.imported ? <Tag icon="import">{t("common.imported")}</Tag> : null}
+          {!deleted && m.imported ? (
+            (() => {
+              const brand = brandFor(importedFrom);
+              return (
+                <Tag brand={brand ?? undefined} icon={brand ? undefined : "import"}>
+                  {t("common.imported")}
+                </Tag>
+              );
+            })()
+          ) : null}
           {!deleted && m.pinned ? (
             <Tag icon="pin" tone="accent">
               {t("message.pinnedTag")}

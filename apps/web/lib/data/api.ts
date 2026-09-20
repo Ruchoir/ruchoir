@@ -2055,7 +2055,14 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
 /** What an import would do, from `POST /imports/plan`. Nothing is written to produce it. */
 export type ImportPlan = {
   source: string;
-  spaces: { name: string; outcome: "created" | "filled"; channels: number; directs: number }[];
+  spaces: {
+    name: string;
+    outcome: "created" | "filled";
+    channels: number;
+    /** Channels of this space that are already here: they take the history rather than be created. */
+    channelsFilled: number;
+    directs: number;
+  }[];
   accounts: {
     total: number;
     matched: number;
@@ -2093,6 +2100,8 @@ export type ImportJob = {
   filesDone: number;
   filesTotal: number;
   error: string | null;
+  /** When it ended, RFC 3339, or null while it runs. */
+  finishedAt: string | null;
 };
 
 type ImportJobDto = {
@@ -2108,6 +2117,7 @@ type ImportJobDto = {
   files_done: number;
   files_total: number;
   error: string | null;
+  finished_at: string | null;
 };
 
 function toImportJob(dto: ImportJobDto): ImportJob {
@@ -2124,6 +2134,7 @@ function toImportJob(dto: ImportJobDto): ImportJob {
     filesDone: dto.files_done,
     filesTotal: dto.files_total,
     error: dto.error,
+    finishedAt: dto.finished_at,
   };
 }
 
@@ -2131,7 +2142,13 @@ function toImportJob(dto: ImportJobDto): ImportJob {
 export async function planImport(file: string, passphrase?: string): Promise<ImportPlan> {
   const dto = await apiPost<{
     source: string;
-    spaces: ImportPlan["spaces"];
+    spaces: {
+      name: string;
+      outcome: "created" | "filled";
+      channels: number;
+      channels_filled: number;
+      directs: number;
+    }[];
     accounts: {
       total: number;
       matched: number;
@@ -2154,7 +2171,13 @@ export async function planImport(file: string, passphrase?: string): Promise<Imp
   }>("/imports/plan", { file, passphrase });
   return {
     source: dto.source,
-    spaces: dto.spaces,
+    spaces: dto.spaces.map((space) => ({
+      name: space.name,
+      outcome: space.outcome,
+      channels: space.channels,
+      channelsFilled: space.channels_filled,
+      directs: space.directs,
+    })),
     accounts: {
       total: dto.accounts.total,
       matched: dto.accounts.matched,
@@ -2247,8 +2270,69 @@ export async function getImport(id: string, signal?: AbortSignal): Promise<Impor
   return toImportJob(await apiGet<ImportJobDto>(`/imports/${id}`, signal));
 }
 
+/** Somebody an import brought over, read back from the server rather than from a plan. */
+export type ImportedPerson = {
+  sourceId: string;
+  displayName: string;
+  /** Empty when nobody ever gave them one: they cannot be invited by mail. */
+  email: string;
+  /** Whether an invitation has already gone to that address. */
+  invited: boolean;
+};
+
+/**
+ * `GET /imports/{id}/people`: who an import brought over.
+ *
+ * What the plan said, but from the server and after the fact, so the invitations can still be sent
+ * by a screen that was closed while the import ran and knows nothing of that plan.
+ */
+export async function listImportedPeople(id: string, signal?: AbortSignal): Promise<ImportedPerson[]> {
+  const dtos = await apiGet<
+    { source_id: string; display_name: string; email: string; invited: boolean }[]
+  >(`/imports/${id}/people`, signal);
+  return dtos.map((dto) => ({
+    sourceId: dto.source_id,
+    displayName: dto.display_name,
+    email: dto.email,
+    invited: dto.invited,
+  }));
+}
+
 /** `POST /imports/{id}/cancel`: it stops at the next conversation and keeps what it wrote. */
 export async function cancelImport(id: string): Promise<ImportJob> {
   return toImportJob(await apiPost<ImportJobDto>(`/imports/${id}/cancel`, {}));
+}
+
+/** A one-time credential a delivery command carries, with the instance address it delivers to. */
+export type DropToken = {
+  token: string;
+  baseUrl: string;
+  expiresInSecs: number;
+};
+
+/** `POST /imports/drop-tokens`: mint a one-time token for an auto-delivery command. */
+export async function issueDropToken(): Promise<DropToken> {
+  const dto = await apiPost<{ token: string; base_url: string; expires_in_secs: number }>(
+    "/imports/drop-tokens",
+    {},
+  );
+  return { token: dto.token, baseUrl: dto.base_url, expiresInSecs: dto.expires_in_secs };
+}
+
+/** An archive sitting in the server's import directory. */
+export type ImportFile = {
+  name: string;
+  bytes: number;
+  /** Last modified, RFC 3339, or null when the filesystem would not say. */
+  modified: string | null;
+};
+
+/** `GET /imports/files`: the archives on the server, newest first — a delivery lands in this list. */
+export async function listImportFiles(signal?: AbortSignal): Promise<ImportFile[]> {
+  const dtos = await apiGet<{ name: string; bytes: number; modified: string | null }[]>(
+    "/imports/files",
+    signal,
+  );
+  return dtos.map((dto) => ({ name: dto.name, bytes: dto.bytes, modified: dto.modified }));
 }
 

@@ -690,6 +690,7 @@ export function ChannelScreen({
                 ) : (
                   <MessageRow
                     m={m}
+                    importedFrom={channel.imported}
                     readBy={readBy[m.id]}
                     readAudience={readAudience}
                     grouped={followsSameAuthor(messages[index - 1], m) && m.id !== unreadMarker}
