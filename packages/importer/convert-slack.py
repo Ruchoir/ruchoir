@@ -34,6 +34,7 @@ import re
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -163,6 +164,10 @@ EMOJI = {
 DOWNLOAD_TIMEOUT = 120
 DOWNLOAD_TRIES = 5
 
+# Where the API lives. Named so a test can point the whole conversation at a local server and check
+# what actually goes over the wire, rather than checking a stand-in for it.
+SLACK_API = "https://slack.com/api"
+
 # Exit code for the one failure a person can act on: the export's own links no longer open. Told
 # apart from every other failure so the orchestrator around this script can show the way out rather
 # than a stack trace.
@@ -188,6 +193,33 @@ To use this export as it is, give the converter a token of your own instead:
 
   5. Run this command again with --token-file ~/slack-token. Files already fetched are kept.
   6. Delete the token and the app once the migration is done.
+"""
+
+
+# Shown when private conversations are asked for without a token, or when Slack refuses the ones
+# that were asked for. Separate from TOKEN_HELP because it is a different decision with different
+# scopes: one recovers files an export already named, this one reads rooms the export never had.
+PRIVATE_HELP = """
+Private channels are not in a Slack export at all, whatever this converter does with it. They can
+be read from Slack directly instead, as the person whose token you give: only the private channels
+that person is a member of, and nothing else.
+
+  1. Go to https://api.slack.com/apps and select "Create New App", then "From scratch".
+     Name it anything (it is never published) and pick the workspace being migrated.
+  2. Open "OAuth & Permissions", scroll to "User Token Scopes", and add three:
+       groups:read     the list of private channels this person is in
+       groups:history  the messages in them
+       files:read      the files shared in them
+  3. Select "Install to Workspace" at the top of that page and confirm.
+  4. Copy the "User OAuth Token" (it starts with xoxp-) into a file, readable only by you:
+
+       umask 077; printf 'xoxp-...' > ~/slack-token
+
+  5. Run this command again with --token-file ~/slack-token --with-private.
+  6. Delete the token and the app once the migration is done.
+
+Direct messages are not read this way: they need their own scopes and a decision about whose
+conversations a migration may carry, which is not one a converter should take on its own.
 """
 
 
@@ -289,6 +321,10 @@ class Converter:
         self.missing_files: list[str] = []
         self.unknown_emoji: set[str] = set()
         self.dropped_subtypes: set[str] = set()
+        # How many private channels were read from Slack rather than from the export, so the
+        # manifest does not go on claiming there are none.
+        self.private_fetched = 0
+        self.token: str | None = None
 
     # -- reading ---------------------------------------------------------------------------------
     def read(self) -> None:
@@ -576,6 +612,123 @@ class Converter:
                 time.sleep(2**attempt)
         raise RuntimeError(str(last))
 
+    # -- private conversations, read from Slack rather than from the export ----------------------
+    def fetch_private(self, token: str) -> None:
+        """Adds the private channels this token's owner is in, and their messages.
+
+        A Slack export carries public channels only, and no option changes that. Asked for
+        explicitly, this reads the rest through the API: the rooms that person belongs to, which is
+        the most a token can honestly reach.
+        """
+        rooms = self._api_pages("conversations.list", {"types": "private_channel"}, "channels")
+        for room in rooms:
+            identifier = room["id"]
+            if any(c["id"] == identifier for c in self.channels):
+                continue
+            self.channel_names[identifier] = room.get("name") or identifier
+            members = self._api_pages(
+                "conversations.members", {"channel": identifier}, "members"
+            )
+            self.channels.append(
+                {
+                    "id": identifier,
+                    "space": "slack",
+                    "kind": "channel",
+                    "name": room.get("name") or identifier,
+                    "topic": (room.get("topic") or {}).get("value")
+                    or (room.get("purpose") or {}).get("value")
+                    or "",
+                    "visibility": "private",
+                    "archived": bool(room.get("is_archived")),
+                    "members": [m for m in members if m not in self.bots],
+                    "member_state": [],
+                    "created_at": iso(room.get("created")),
+                }
+            )
+            if room.get("created"):
+                creator = room.get("creator")
+                self.messages.append(
+                    {
+                        "id": f"{identifier}/created",
+                        "channel": identifier,
+                        "author": creator if creator and creator not in self.bots else None,
+                        "sent_at": iso(room["created"]),
+                        "body": "",
+                        "system_event": "channel_created",
+                    }
+                )
+            self._fetch_history(self.channels[-1])
+            self.private_fetched += 1
+
+    def _fetch_history(self, channel: dict) -> None:
+        """Every message of one private channel, replies included.
+
+        `conversations.history` returns thread roots only, with a reply count; the replies live
+        behind `conversations.replies`. Reading only the first would import a conversation with its
+        answers missing, which reads as a workspace somebody deleted half of.
+        """
+        messages = self._api_pages(
+            "conversations.history", {"channel": channel["id"]}, "messages"
+        )
+        for raw in messages:
+            self._read_message(channel, raw)
+            if raw.get("reply_count"):
+                replies = self._api_pages(
+                    "conversations.replies",
+                    {"channel": channel["id"], "ts": raw["ts"]},
+                    "messages",
+                )
+                for reply in replies:
+                    if reply.get("ts") != raw.get("ts"):
+                        self._read_message(channel, reply)
+
+    def _api_pages(self, method: str, params: dict, field: str) -> list:
+        """One Slack method, followed to its last page.
+
+        Slack answers 200 with `ok: false` for its own refusals, so the body is what says whether
+        this worked. A missing scope is not a transport failure and no retry fixes it: it stops the
+        conversion with the scope it wanted, rather than importing a workspace with holes in it.
+        """
+        out: list = []
+        cursor = ""
+        while True:
+            query = dict(params)
+            query["limit"] = "200"
+            if cursor:
+                query["cursor"] = cursor
+            payload = self._api(method, query)
+            out.extend(payload.get(field) or [])
+            cursor = ((payload.get("response_metadata") or {}).get("next_cursor") or "").strip()
+            if not cursor:
+                return out
+
+    def _api(self, method: str, query: dict) -> dict:
+        url = f"{SLACK_API}/{method}?" + urllib.parse.urlencode(query)
+        for attempt in range(DOWNLOAD_TRIES):
+            request = urllib.request.Request(url)
+            request.add_header("Authorization", f"Bearer {self.token}")
+            try:
+                with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT) as response:
+                    payload = json.loads(response.read())
+            except urllib.error.HTTPError as error:
+                if error.code == 429:
+                    # Slack says how long to wait, and waiting is the whole remedy.
+                    time.sleep(int(error.headers.get("Retry-After", "5")))
+                    continue
+                raise
+            if payload.get("ok"):
+                return payload
+            reason = payload.get("error", "unknown")
+            if reason == "ratelimited":
+                time.sleep(2**attempt)
+                continue
+            raise SystemExit(
+                f"Slack refused {method}: {reason}\n{PRIVATE_HELP}"
+                if reason in ("missing_scope", "not_allowed_token_type", "invalid_auth")
+                else f"Slack refused {method}: {reason}"
+            )
+        raise SystemExit(f"Slack kept rate-limiting {method}; try again later")
+
     # -- writing ---------------------------------------------------------------------------------
     def write(self, fetched: bool) -> None:
         self.out.mkdir(parents=True, exist_ok=True)
@@ -622,11 +775,20 @@ class Converter:
         A summary of a loss is another way of hiding it, so each of these names one thing and says
         what happens to it.
         """
-        if not (self.export / "groups.json").exists() and not (self.export / "dms.json").exists():
+        has_private = (self.export / "groups.json").exists() or (self.export / "dms.json").exists()
+        if self.private_fetched:
+            self.limits.append(
+                f"{self.private_fetched} private channel(s) were read from Slack directly rather "
+                "than from the export, which carries none: only the ones the token's owner belongs "
+                "to could be reached, and any other private channel is still absent. Direct "
+                "messages are absent either way."
+            )
+        elif not has_private:
             self.limits.append(
                 "A standard Slack export carries public channels only: private channels and direct "
-                "messages are absent from it, and nothing in this archive replaces them. They need "
-                "a compliance export, which Slack approves per request."
+                "messages are absent from it, and nothing in this archive replaces them. They can "
+                "be read from Slack with --with-private, or come from a compliance export, which "
+                "Slack approves per request."
             )
         self.limits.append(
             "Slack does not export its edit and delete logs: a message crosses with its current "
@@ -691,6 +853,12 @@ def main() -> None:
         help="do not download the attachments (they are declared as missing in the manifest)",
     )
     parser.add_argument(
+        "--with-private",
+        action="store_true",
+        help="also read the private channels the token's owner belongs to, from Slack itself: an "
+        "export carries none. Needs --token-file, with groups:read and groups:history.",
+    )
+    parser.add_argument(
         "--token-file",
         type=Path,
         help="file holding a Slack user token with files:read. Only needed once the export's own "
@@ -703,8 +871,15 @@ def main() -> None:
     if args.token_file:
         token = args.token_file.read_text(encoding="utf-8").strip()
 
+    if args.with_private and not token:
+        sys.exit(f"--with-private needs a token.\n{PRIVATE_HELP}")
+
     converter = Converter(args.export, args.out, args.space_name)
+    converter.token = token
     converter.read()
+    if args.with_private:
+        print("reading the private channels this token can see")
+        converter.fetch_private(token)
     if args.no_files:
         converter.files.clear()
     else:

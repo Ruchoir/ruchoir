@@ -125,7 +125,8 @@ while [ $# -gt 0 ]; do
       echo "Usage: curl -fsSL $BASE/tools/import-slack.sh | bash -s -- \\"
       echo "         --token <token> -- --export <unpacked Slack export dir>"
       echo
-      echo "Converter options after --: --space-name <name>, --no-files, --token-file <path>."
+      echo "Converter options after --: --space-name <name>, --no-files, --with-private,"
+      echo "--token-file <path>."
       exit 0 ;;
     *) echo "unexpected argument before --: $1 (put converter options after --)" >&2; exit 2 ;;
   esac

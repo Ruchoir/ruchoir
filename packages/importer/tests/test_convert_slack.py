@@ -281,10 +281,199 @@ class ConverterCase(unittest.TestCase):
         (self.root / "archive").mkdir(parents=True, exist_ok=True)
         instance._download = refuse  # noqa: SLF001
         # The way out is printed for a person to read; the suite does not need to read it.
-        with contextlib.redirect_stderr(io.StringIO()) as said, self.assertRaises(SystemExit) as stop:
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+            io.StringIO()
+        ) as said, self.assertRaises(SystemExit) as stop:
             instance.fetch_files(None)
         self.assertIn("files:read", said.getvalue(), "the way out is spelled, not hinted at")
         self.assertEqual(stop.exception.code, converter.EXPIRED)
+
+    # -- private channels, read from Slack rather than from the export --------------------------
+    def slack(self, answers: dict):
+        """Stands in for the Slack API: one canned answer per method."""
+        def call(method, query):
+            payload = answers.get(method)
+            if payload is None:
+                raise AssertionError(f"unexpected call to {method}")
+            return payload(query) if callable(payload) else payload
+
+        return call
+
+    def test_a_private_channel_is_read_from_slack_with_its_messages(self) -> None:
+        """An export carries no private channel, whatever it is asked for. With a token, the ones
+        its owner belongs to can be read from Slack itself, which is the reported gap: a `Test2`
+        that exists in the workspace and in no export of it."""
+        export = self.root / "export"
+        export.mkdir(parents=True, exist_ok=True)
+        (export / "users.json").write_text(
+            json.dumps([user("U1", "alice"), user("U2", "bob")]), encoding="utf-8"
+        )
+        (export / "channels.json").write_text(json.dumps([]), encoding="utf-8")
+
+        instance = converter.Converter(export, self.root / "archive", "Slack")
+        instance.token = "xoxp-test"
+        instance.read()
+        instance._api = self.slack(  # noqa: SLF001 - standing in for Slack
+            {
+                "conversations.list": {
+                    "ok": True,
+                    "channels": [
+                        {
+                            "id": "G1",
+                            "name": "test2",
+                            "created": 1789900000,
+                            "creator": "U1",
+                            "is_archived": False,
+                            "topic": {"value": "le salon fermé"},
+                        }
+                    ],
+                },
+                "conversations.members": {"ok": True, "members": ["U1", "U2"]},
+                "conversations.history": {
+                    "ok": True,
+                    "messages": [
+                        {"type": "message", "user": "U1", "text": "une question", "ts": TS, "reply_count": 1}
+                    ],
+                },
+                "conversations.replies": {
+                    "ok": True,
+                    "messages": [
+                        {"type": "message", "user": "U1", "text": "une question", "ts": TS},
+                        {
+                            "type": "message",
+                            "user": "U2",
+                            "text": "une réponse",
+                            "ts": "1789922690.000200",
+                            "thread_ts": TS,
+                        },
+                    ],
+                },
+            }
+        )
+        instance.fetch_private("xoxp-test")
+        instance.files.clear()
+        instance.write(fetched=False)
+        out = self.root / "archive"
+
+        room = by_id(out, "channels.jsonl")["G1"]
+        self.assertEqual(room["visibility"], "private")
+        self.assertEqual(room["name"], "test2")
+        self.assertEqual(room["members"], ["U1", "U2"])
+        self.assertEqual(room["topic"], "le salon fermé")
+        bodies = {m["body"]: m for m in read_jsonl(out, "messages.jsonl") if m["body"]}
+        self.assertIn("une question", bodies)
+        # The replies live behind another call: reading only the history would import a
+        # conversation with its answers missing.
+        self.assertEqual(bodies["une réponse"]["thread_root"], f"G1/{TS}")
+        limits = " ".join(json.loads((out / "manifest.json").read_text())["limits"])
+        self.assertIn("read from Slack directly", limits)
+        self.assertNotIn("public channels only", limits)
+        self.assertEqual(validator.validate(out).errors, [])
+
+    def test_every_page_is_followed(self) -> None:
+        """Slack answers 200 rooms at a time. Stopping at the first page would import a workspace
+        that looks complete and is not."""
+        export = self.root / "export"
+        export.mkdir(parents=True, exist_ok=True)
+        (export / "users.json").write_text(json.dumps([user("U1", "alice")]), encoding="utf-8")
+        (export / "channels.json").write_text(json.dumps([]), encoding="utf-8")
+        instance = converter.Converter(export, self.root / "archive", "Slack")
+        instance.token = "xoxp-test"
+        instance.read()
+
+        def rooms(query):
+            if not query.get("cursor"):
+                return {
+                    "ok": True,
+                    "channels": [{"id": "G1", "name": "un", "created": 1789900000, "creator": "U1"}],
+                    "response_metadata": {"next_cursor": "page2"},
+                }
+            return {
+                "ok": True,
+                "channels": [{"id": "G2", "name": "deux", "created": 1789900000, "creator": "U1"}],
+            }
+
+        instance._api = self.slack(  # noqa: SLF001
+            {
+                "conversations.list": rooms,
+                "conversations.members": {"ok": True, "members": ["U1"]},
+                "conversations.history": {"ok": True, "messages": []},
+            }
+        )
+        instance.fetch_private("xoxp-test")
+        self.assertEqual(sorted(c["id"] for c in instance.channels), ["G1", "G2"])
+
+    def test_what_actually_goes_over_the_wire(self) -> None:
+        """The other private-channel tests stand in for Slack; this one does not.
+
+        A real workspace could not be reached from a test suite, so the HTTP itself is checked
+        against a server on localhost: the path, the query, the bearer token, and a cursor followed
+        to the next page. Everything above this test assumes those are right.
+        """
+        import http.server
+        import threading
+
+        seen: list[tuple[str, str]] = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802 - the name the stdlib requires
+                seen.append((self.path, self.headers.get("Authorization", "")))
+                first = "cursor=" not in self.path
+                body = json.dumps(
+                    {
+                        "ok": True,
+                        "channels": [{"id": "G1" if first else "G2", "name": "x"}],
+                        "response_metadata": {"next_cursor": "page2" if first else ""},
+                    }
+                ).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):  # noqa: D102 - silence the stdlib's stderr logging
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            instance = converter.Converter(self.root / "export", self.root / "archive", "Slack")
+            instance.token = "xoxp-secret"
+            original = converter.SLACK_API
+            converter.SLACK_API = f"http://127.0.0.1:{server.server_port}"
+            try:
+                rooms = instance._api_pages("conversations.list", {"types": "private_channel"}, "channels")  # noqa: SLF001
+            finally:
+                converter.SLACK_API = original
+        finally:
+            server.shutdown()
+
+        self.assertEqual([r["id"] for r in rooms], ["G1", "G2"], "the second page is followed")
+        self.assertIn("/conversations.list?types=private_channel&limit=200", seen[0][0])
+        self.assertIn("cursor=page2", seen[1][0])
+        self.assertEqual(seen[0][1], "Bearer xoxp-secret")
+
+    def test_a_missing_scope_stops_the_conversion_and_names_it(self) -> None:
+        """Slack answers 200 with ok:false for its own refusals. A token short of a scope would
+        otherwise produce an archive quietly missing every private channel."""
+        export = self.root / "export"
+        export.mkdir(parents=True, exist_ok=True)
+        (export / "users.json").write_text(json.dumps([user("U1", "alice")]), encoding="utf-8")
+        (export / "channels.json").write_text(json.dumps([]), encoding="utf-8")
+        instance = converter.Converter(export, self.root / "archive", "Slack")
+        instance.token = "xoxp-test"
+        instance.read()
+
+        def refuse(url, timeout=None):
+            raise AssertionError("no request should be needed for this test")
+
+        instance._api = lambda method, query: (_ for _ in ()).throw(  # noqa: SLF001
+            SystemExit("Slack refused conversations.list: missing_scope\n" + converter.PRIVATE_HELP)
+        )
+        with self.assertRaises(SystemExit) as stop:
+            instance.fetch_private("xoxp-test")
+        self.assertIn("groups:history", str(stop.exception))
 
     # -- what the archive says about itself ------------------------------------------------------
     def test_a_standard_export_declares_the_private_half_it_does_not_carry(self) -> None:

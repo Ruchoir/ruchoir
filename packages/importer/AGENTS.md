@@ -30,7 +30,11 @@ them, not before: an entity nothing calls is dead weight, and the compiler says 
   survive a real migration"; this one answers "does every feature actually arrive", and it is what
   to import when a screen has to be looked at rather than a counter.
 - `convert-slack.py` : reads a Slack workspace export (the ZIP an owner downloads from Settings ->
-  Import/Export Data -> Export) and writes the archive. The only producer that reaches the network:
+  Import/Export Data -> Export) and writes the archive. A standard export carries public channels
+  only, and no option changes that; `--with-private` reads the private channels a token's owner
+  belongs to from the API instead, which is the only way to reach them short of a compliance
+  export. Direct messages stay out: they need their own scopes and a decision about whose
+  conversations a migration may carry. The only producer that reaches the network:
   a Slack export carries links to its files rather than the files, and the export signs those links
   itself, so the ordinary conversion downloads them without asking the customer for anything. That
   signature dies with the export (Slack deletes one ten days after download), and only then does
@@ -84,6 +88,11 @@ fixtures are shaped like what that export actually held, down to the escaping in
 snippet. The export itself is deliberately absent from the repository: it holds somebody's real
 messages and files. When Slack changes its format, the way to find out is another real export, not
 a reading of the documentation.
+
+The API half (`--with-private`) has no real workspace behind its tests either: the calls are stood
+in for, except one test that runs a server on localhost and checks what actually goes over the wire
+(path, query, bearer token, cursor). The first real private channel it reads will be somebody's,
+and that is worth knowing before promising it.
 
 **The contract has two implementations, and they must agree.** This one runs beside a producer, on
 the customer's machine, so that nobody carries a broken archive across the internet only to be
