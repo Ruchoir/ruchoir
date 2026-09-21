@@ -216,13 +216,16 @@ function renderTextBlock(
       );
     } else if (runKind === "ol") {
       blocks.push(
-        <ol key={key} style={{ margin: "2px 0", paddingLeft: 22 }}>
+        // The marker is set here because the CSS reset takes it off every list in the product:
+        // without it an imported (or typed) list arrives as lines that start with a space, which
+        // is how "1." and "2." disappeared from a migrated message.
+        <ol key={key} style={{ margin: "2px 0", paddingLeft: 22, listStyleType: "decimal" }}>
           {items}
         </ol>,
       );
     } else {
       blocks.push(
-        <ul key={key} style={{ margin: "2px 0", paddingLeft: 20 }}>
+        <ul key={key} style={{ margin: "2px 0", paddingLeft: 20, listStyleType: "disc" }}>
           {items}
         </ul>,
       );

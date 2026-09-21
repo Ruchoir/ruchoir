@@ -987,15 +987,20 @@ pub async fn import_messages<C: ConnectionTrait>(
     // the source, which is the only thing a producer can know; the product resolves a mention
     // against a display name. Translating happens here, once the accounts are in hand, because
     // nowhere later is the source identifier still readable.
+    //
+    // The display name as its owner writes it, spaces included: `@` followed by a whole display
+    // name is what the composer writes, what `resolve_mentions` looks for first, and what the
+    // reader recognises. Squeezing the spaces out produced `@ThéoVilain` under a message from
+    // somebody whose name is Théo Vilain, which is nobody's name.
     let handles: std::collections::HashMap<String, String> = index
         .users
         .iter()
         .filter_map(|user| {
-            let handle: String = user
+            let handle = user
                 .display_name
                 .split_whitespace()
                 .collect::<Vec<_>>()
-                .concat();
+                .join(" ");
             (!handle.is_empty()).then(|| (user.id.clone(), handle))
         })
         .collect();
@@ -1795,14 +1800,25 @@ mod mention_tests {
 
     fn people() -> std::collections::HashMap<String, String> {
         [
-            ("demo-camille", "CamilleVilain"),
-            ("demo-yanis", "YanisBerthier"),
-            ("demo-yanis2", "YanisPetit"),
-            ("théo", "ThéoVilain"),
+            ("demo-camille", "Camille Vilain"),
+            ("demo-yanis", "Yanis Berthier"),
+            ("demo-yanis2", "Yanis Petit"),
+            ("théo", "Théo Vilain"),
         ]
         .into_iter()
         .map(|(id, handle)| (id.to_owned(), handle.to_owned()))
         .collect()
+    }
+
+    /// Reported from a migrated Slack workspace: the mention read `@ThéoVilain` under a message
+    /// that named Théo Vilain. A whole display name, spaces and all, is how the product addresses
+    /// somebody, and squeezing it into one word names nobody.
+    #[test]
+    fn a_display_name_keeps_the_space_its_owner_writes() {
+        assert_eq!(
+            rewrite_mentions("@{théo} tu peux relire ?", &people()),
+            "@Théo Vilain tu peux relire ?"
+        );
     }
 
     /// The form `docs/import-archive.md` spells out. The Slack adapter wrote it, as the contract
@@ -1812,11 +1828,11 @@ mod mention_tests {
     fn the_braced_form_the_contract_documents_resolves_too() {
         assert_eq!(
             rewrite_mentions("@{demo-camille} c'est noté", &people()),
-            "@CamilleVilain c'est noté"
+            "@Camille Vilain c'est noté"
         );
         assert_eq!(
             rewrite_mentions("@{demo-yanis} et @demo-camille", &people()),
-            "@YanisBerthier et @CamilleVilain"
+            "@Yanis Berthier et @Camille Vilain"
         );
     }
 
@@ -1833,7 +1849,7 @@ mod mention_tests {
     fn a_mention_arrives_as_a_name_the_product_can_resolve() {
         assert_eq!(
             rewrite_mentions("@demo-camille c'est noté", &people()),
-            "@CamilleVilain c'est noté"
+            "@Camille Vilain c'est noté"
         );
     }
 
@@ -1841,7 +1857,7 @@ mod mention_tests {
     fn the_longest_identifier_wins_over_one_that_merely_starts_it() {
         assert_eq!(
             rewrite_mentions("@demo-yanis2 et @demo-yanis", &people()),
-            "@YanisPetit et @YanisBerthier"
+            "@Yanis Petit et @Yanis Berthier"
         );
     }
 
@@ -1863,11 +1879,11 @@ mod mention_tests {
 
     #[test]
     fn an_identifier_outside_ascii_does_not_split_a_character() {
-        assert_eq!(rewrite_mentions("@théo ça va ?", &people()), "@ThéoVilain ça va ?");
+        assert_eq!(rewrite_mentions("@théo ça va ?", &people()), "@Théo Vilain ça va ?");
     }
 
     #[test]
     fn a_mention_at_the_very_end_of_a_body_is_still_one() {
-        assert_eq!(rewrite_mentions("merci @demo-yanis", &people()), "merci @YanisBerthier");
+        assert_eq!(rewrite_mentions("merci @demo-yanis", &people()), "merci @Yanis Berthier");
     }
 }
