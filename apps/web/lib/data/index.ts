@@ -60,6 +60,9 @@ const NO_MEMBERS: MemberRecord[] = [];
 
 let liveMembers: MemberRecord[] = NO_MEMBERS;
 
+/** One empty array, so a render with nothing published gets the same snapshot every time. */
+const NO_ROOMS: string[] = [];
+
 const directoryListeners = new Set<() => void>();
 
 /**
@@ -90,6 +93,31 @@ export function subscribeToDirectory(onChange: () => void): () => void {
  */
 export function getChannelMembers(): MemberRecord[] {
   return liveMembers;
+}
+
+/**
+ * The channels of the space on screen, by name, for `#room` autocomplete and rendering.
+ *
+ * Published beside the roster and for the same reason: the composer and the message renderer read
+ * it synchronously, and a name from the space being left must not survive into the next one.
+ */
+let liveRooms: string[] = NO_ROOMS;
+
+export function setSpaceRooms(rooms: string[]): void {
+  // Replaced only when it actually changes, so a subscriber does not loop on a fresh array.
+  if (rooms.length === liveRooms.length && rooms.every((r, i) => r === liveRooms[i])) return;
+  liveRooms = rooms;
+  for (const listener of directoryListeners) listener();
+}
+
+/** The channels a `#name` can point at. Empty where nothing has been published yet. */
+export function getSpaceRooms(): string[] {
+  return liveRooms;
+}
+
+/** The snapshot for a render with no browser behind it: no rooms, rather than stale ones. */
+export function getNoRooms(): string[] {
+  return NO_ROOMS;
 }
 
 /** The snapshot for a render with no browser behind it: nobody, rather than someone stale. */

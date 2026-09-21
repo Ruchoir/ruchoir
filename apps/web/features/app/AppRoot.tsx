@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getPresence, setChannelMembers, setCurrentUser, setUserPresence } from "@/lib/data";
+import { getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
 import {
   acceptInvitation,
   addReaction,
@@ -1388,6 +1388,12 @@ function AppShell() {
       if (presence[m.userId]) setUserPresence(m.name, presence[m.userId]);
     }
   }, [memberRecords, members, presence]);
+
+  // The rooms a `#name` can point at: the channels of this space, which is what the composer
+  // offers and what the renderer turns into a link.
+  useEffect(() => {
+    setSpaceRooms(channels.map((c) => c.name));
+  }, [channels]);
   const people = memberRecords;
 
   /**
@@ -2143,6 +2149,12 @@ function AppShell() {
       setThread(null);
     },
     message: (name: string) => openDmByName(name),
+    // A `#room` written in a message opens that room. Only the channels of this space can be
+    // named, which is also all the composer offers, so an unknown name simply is not a link.
+    openRoom: (name: string) => {
+      const room = channels.find((c) => c.name === name);
+      if (room) openChannel(room.id);
+    },
     toggleSave: (messageId: string) => {
       const conv = channelId;
       const target = (messages[conv] ?? []).find((x) => x.id === messageId);

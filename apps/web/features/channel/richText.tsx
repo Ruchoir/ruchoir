@@ -43,7 +43,8 @@ function emojiSizeFor(count: number): number {
 
 /**
  * Rich-text renderer for message bodies: **bold**, _italic_, ~~struck through~~, `code`, fenced
- * ``` code blocks (highlighted by CodeBlock), http(s) links, "- " and "1." lists, "> " quotes, and
+ * ``` code blocks (highlighted by CodeBlock), http(s) links, "- " and "1." lists, "> " quotes,
+ * "## " headings (two hashes and up: one is a channel), and
  * @mentions. Inline formatting builds React nodes; code highlighting happens in CodeBlock.
  *
  * It deliberately **reads more than the composer writes**. A message brought over from another
@@ -61,6 +62,9 @@ function matchMention(text: string, from: number, names: string[]): string | nul
   return best;
 }
 
+/** The rooms a `#name` can point at, and what to do when a reader follows one. */
+export type Rooms = { names: string[]; onOpen?: (name: string) => void };
+
 function renderInline(
   text: string,
   names: string[],
@@ -68,6 +72,7 @@ function renderInline(
   emojiSize = EMOJI_SIZE,
   onMention?: (name: string) => void,
   meName?: string,
+  rooms?: Rooms,
 ): ReactNode[] {
   const nodes: ReactNode[] = [];
   let buf = "";
@@ -105,7 +110,7 @@ function renderInline(
       const end = text.indexOf("**", i + 2);
       if (end > i + 1) {
         flush();
-        nodes.push(<strong key={`${keyBase}-b${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-b${k}`, emojiSize, onMention, meName)}</strong>);
+        nodes.push(<strong key={`${keyBase}-b${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-b${k}`, emojiSize, onMention, meName, rooms)}</strong>);
         i = end + 2;
         continue;
       }
@@ -114,7 +119,7 @@ function renderInline(
       const end = text.indexOf("~~", i + 2);
       if (end > i + 1) {
         flush();
-        nodes.push(<s key={`${keyBase}-s${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-s${k}`, emojiSize, onMention, meName)}</s>);
+        nodes.push(<s key={`${keyBase}-s${k++}`}>{renderInline(text.slice(i + 2, end), names, `${keyBase}-s${k}`, emojiSize, onMention, meName, rooms)}</s>);
         i = end + 2;
         continue;
       }
@@ -165,6 +170,34 @@ function renderInline(
         continue;
       }
     }
+    // A room, pointed at the way a person is: `#produit` is the handle everyone reads on screen,
+    // and a reader following it should land in the room rather than copy the word into a search.
+    if (text[i] === "#" && rooms) {
+      const room = matchMention(text, i + 1, rooms.names);
+      if (room) {
+        flush();
+        const rkey = `${keyBase}-r${k++}`;
+        nodes.push(
+          rooms.onOpen ? (
+            <button
+              key={rkey}
+              type="button"
+              className="wc-mention wc-mention--room"
+              onClick={() => rooms.onOpen?.(room)}
+              style={{ border: 0, padding: "0 3px", font: "inherit", cursor: "pointer" }}
+            >
+              #{room}
+            </button>
+          ) : (
+            <span key={rkey} className="wc-mention wc-mention--room">
+              #{room}
+            </span>
+          ),
+        );
+        i = i + 1 + room.length;
+        continue;
+      }
+    }
     if (text.startsWith("http", i)) {
       const m = /^https?:\/\/[^\s]+/.exec(text.slice(i));
       if (m) {
@@ -194,6 +227,7 @@ function renderTextBlock(
   emojiSize = EMOJI_SIZE,
   onMention?: (name: string) => void,
   meName?: string,
+  rooms?: Rooms,
 ): ReactNode[] {
   const lines = text.split("\n");
   const blocks: ReactNode[] = [];
@@ -243,9 +277,32 @@ function renderTextBlock(
 
   lines.forEach((line, idx) => {
     const inline = (from: string) =>
-      renderInline(from, names, `${keyBase}ln${idx}`, emojiSize, onMention, meName);
+      renderInline(from, names, `${keyBase}ln${idx}`, emojiSize, onMention, meName, rooms);
     const numbered = /^(\d{1,9})[.)] /.exec(line);
-    if (line.startsWith("- ") || line.startsWith("* ")) {
+    // Two hashes and up are a heading; one is not. A single `#` opens a channel, here and in the
+    // composer, and a line beginning "#produit" is a reader pointing at a room, not a title.
+    const heading = /^(#{2,6}) +(\S.*)$/.exec(line);
+    if (heading) {
+      closeRun();
+      const level = Math.min(heading[1].length, 6);
+      const size = [0, 0, 19, 17, 15, 14, 14][level];
+      blocks.push(
+        <div
+          key={`${keyBase}-h${idx}`}
+          role="heading"
+          aria-level={level}
+          style={{
+            margin: idx === 0 ? "0 0 2px" : "8px 0 2px",
+            fontSize: size,
+            fontWeight: 600,
+            lineHeight: 1.3,
+            color: "var(--text-strong)",
+          }}
+        >
+          {inline(heading[2])}
+        </div>,
+      );
+    } else if (line.startsWith("- ") || line.startsWith("* ")) {
       openRun("ul").push(<li key={`${keyBase}-li${idx}`}>{inline(line.slice(2))}</li>);
     } else if (numbered) {
       openRun("ol").push(<li key={`${keyBase}-oi${idx}`}>{inline(line.slice(numbered[0].length))}</li>);
@@ -276,6 +333,7 @@ export function renderRichText(
   editable = false,
   onMention?: (name: string) => void,
   meName?: string,
+  rooms?: Rooms,
 ): ReactNode {
   // Split on ``` fences: odd segments are fenced code blocks.
   const segments = text.split("```");
@@ -297,7 +355,9 @@ export function renderRichText(
       code = code.replace(/\n$/, "");
       out.push(<CodeBlock key={`pre${i}`} code={code} declaredLang={lang} editable={editable} />);
     } else if (seg) {
-      out.push(...renderTextBlock(replaceShortcodes(seg), names, `s${i}`, emojiSize, onMention, meName));
+      out.push(
+        ...renderTextBlock(replaceShortcodes(seg), names, `s${i}`, emojiSize, onMention, meName, rooms),
+      );
     }
   });
   return out;

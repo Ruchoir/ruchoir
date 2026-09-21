@@ -130,6 +130,7 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
             std::path::Path::new(&path),
             &admin,
             passphrase.as_deref(),
+            config.thumbnail_max_px,
         )
         .await
         .map_err(|e| e.into());

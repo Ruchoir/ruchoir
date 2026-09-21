@@ -294,6 +294,8 @@ pub async fn start(
     let storage = state.storage.clone();
     let admin = session.user_id;
     let passphrase = body.passphrase.clone();
+    // An imported image gets the thumbnail an uploaded one gets, at the size this instance chose.
+    let thumbnail_max_px = state.config.thumbnail_max_px;
 
     // The job row has to exist before the response, or the screen has nothing to watch.
     let (index, _) = super::check::check(&path, passphrase.as_deref()).map_err(|e| readable(&e))?;
@@ -332,6 +334,7 @@ pub async fn start(
             passphrase.as_deref(),
             admin,
             job_id,
+            thumbnail_max_px,
         )
         .await;
         if let Err(error) = outcome {

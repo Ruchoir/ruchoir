@@ -27,6 +27,18 @@ use crate::entities::{
 use super::archive::Index;
 use super::plan::{AccountOutcome, Plan};
 
+/// Where a run puts bytes, and how it makes an image previewable.
+///
+/// The two travel together because they answer one question: what happens to a file. Passing them
+/// side by side down four call levels was one argument too many on functions that already carry
+/// the database, the archive and its passphrase.
+pub struct Blobs<'a, S: BlobSink> {
+    pub store: &'a S,
+    /// The longest side of a generated thumbnail, as the instance configures it for its uploads:
+    /// an imported image and an uploaded one are the same kind of thing.
+    pub thumbnail_max_px: u32,
+}
+
 pub const KIND_SPACE: &str = "space";
 pub const KIND_USER: &str = "user";
 pub const KIND_CHANNEL: &str = "channel";
@@ -1384,14 +1396,23 @@ impl BlobSink for crate::storage::S3Store {
 pub async fn import_files<C: ConnectionTrait, S: BlobSink>(
     db: &C,
     mapper: &Mapper<'_>,
-    storage: &S,
+    blobs: &Blobs<'_, S>,
     archive: &std::path::Path,
     passphrase: Option<&str>,
     spaces_by_source: &[(String, Uuid)],
 ) -> Result<Written> {
     let index =
         super::archive::index(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
-    import_files_from(db, mapper, storage, archive, passphrase, spaces_by_source, &index.files).await
+    import_files_from(
+        db,
+        mapper,
+        blobs,
+        archive,
+        passphrase,
+        spaces_by_source,
+        &index.files,
+    )
+    .await
 }
 
 /// The same pass, for a caller that has already read the file records.
@@ -1409,7 +1430,7 @@ pub async fn import_files<C: ConnectionTrait, S: BlobSink>(
 pub async fn import_files_from<C: ConnectionTrait, S: BlobSink>(
     db: &C,
     mapper: &Mapper<'_>,
-    storage: &S,
+    blobs: &Blobs<'_, S>,
     archive: &std::path::Path,
     passphrase: Option<&str>,
     spaces_by_source: &[(String, Uuid)],
@@ -1476,7 +1497,7 @@ pub async fn import_files_from<C: ConnectionTrait, S: BlobSink>(
                 continue;
             };
             for file in files {
-                store_file(db, mapper, storage, space_id, file, &digest, &bytes).await?;
+                store_file(db, mapper, blobs, space_id, file, &digest, &bytes).await?;
                 written.files_created += 1;
                 written.files_seen += 1;
                 note_every(db, mapper.job_id, Counter::Files, written.files_seen).await?;
@@ -1506,7 +1527,7 @@ pub async fn import_files_from<C: ConnectionTrait, S: BlobSink>(
 async fn store_file<C: ConnectionTrait, S: BlobSink>(
     db: &C,
     mapper: &Mapper<'_>,
-    storage: &S,
+    blobs: &Blobs<'_, S>,
     space_id: Uuid,
     file: &super::archive::FileRecord,
     digest: &str,
@@ -1521,10 +1542,37 @@ async fn store_file<C: ConnectionTrait, S: BlobSink>(
     let key = format!("spaces/{space_id}/{file_id}/{version_id}");
 
     // Bytes first. Everything below only describes what is already there.
-    storage
+    blobs
+        .store
         .put(&key, bytes, &file.content_type)
         .await
         .map_err(RunError::Storage)?;
+
+    // An image arrives with its dimensions and a thumbnail, exactly as an upload does. Without
+    // them the product has no way to know it is lookable at: a photograph imported from a
+    // conversation came out as a grey file card with a download button, next to the same
+    // photograph uploaded here, which shows. A decode failure is not fatal - the bytes are stored
+    // either way, and a file nobody can preview is still a file somebody can open.
+    let (image_width, image_height, thumbnail_key) = if crate::files::mime::is_image(&file.content_type)
+    {
+        match crate::files::thumbnail::make_thumbnail(bytes, blobs.thumbnail_max_px) {
+            Ok(info) => {
+                let key = format!("{key}/thumb");
+                blobs
+                    .store
+                    .put(&key, &info.thumbnail, crate::files::thumbnail::THUMBNAIL_MIME)
+                    .await
+                    .map_err(RunError::Storage)?;
+                (Some(info.width as i32), Some(info.height as i32), Some(key))
+            }
+            Err(error) => {
+                tracing::warn!(%error, name = %file.name, "no thumbnail for this imported image");
+                (None, None, None)
+            }
+        }
+    } else {
+        (None, None, None)
+    };
 
     let created_at = file
         .uploaded_at
@@ -1537,7 +1585,10 @@ async fn store_file<C: ConnectionTrait, S: BlobSink>(
         space_id: Set(space_id),
         owner_id: Set(owner),
         name: Set(file.name.clone()),
-        kind: Set("file".to_owned()),
+        // What kind of thing this is, from its media type, exactly as an upload decides it: the
+        // product shows an image inline and a document as a card, and an imported photograph filed
+        // as a plain "file" came out as a card next to the same photograph uploaded here.
+        kind: Set(crate::files::mime::kind_for_mime(&file.content_type).to_owned()),
         parent_folder_id: Set(None),
         conversation_id: Set(None),
         system_key: Set(None),
@@ -1559,10 +1610,10 @@ async fn store_file<C: ConnectionTrait, S: BlobSink>(
         size_bytes: Set(file.size),
         content_hash: Set(hex_to_bytes(digest)),
         storage_key: Set(Some(key)),
-        thumbnail_key: Set(None),
+        thumbnail_key: Set(thumbnail_key),
         mime_type: Set(file.content_type.clone()),
-        image_width: Set(None),
-        image_height: Set(None),
+        image_width: Set(image_width),
+        image_height: Set(image_height),
         created_by: Set(owner),
         created_at: Set(created_at),
     }

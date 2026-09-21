@@ -2,7 +2,7 @@
 
 import { type CSSProperties, useRef, useState } from "react";
 import { Avatar, brandFor, Card, Dialog, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
-import { getCurrentUser, getMentionNames, getPresence } from "@/lib/data";
+import { getCurrentUser, getMentionNames, getPresence, getSpaceRooms } from "@/lib/data";
 import type { ImportSource, Message } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
@@ -32,6 +32,8 @@ export type MessageActions = {
   onMessage: () => void;
   /** Open the profile of a user @-mentioned in the body. */
   onOpenMention: (name: string) => void;
+  /** Follow a `#room` written in a message, to the channel it names. */
+  onOpenRoom?: (name: string) => void;
 };
 
 const styles: Record<string, CSSProperties> = {
@@ -318,7 +320,10 @@ export function MessageRow({
           <>
             {m.body ? (
               <div style={styles.body}>
-                {renderRichText(m.body, getMentionNames(), isOwn, actions.onOpenMention, me)}
+                {renderRichText(m.body, getMentionNames(), isOwn, actions.onOpenMention, me, {
+                  names: getSpaceRooms(),
+                  onOpen: actions.onOpenRoom,
+                })}
                 {m.edited ? <span style={styles.edited}>{t("message.editedTag")}</span> : null}
               </div>
             ) : null}

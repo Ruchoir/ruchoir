@@ -3660,6 +3660,20 @@ use crate::importer::run::{
     self, BlobSink, Mapper, KIND_CHANNEL, KIND_FILE, KIND_MESSAGE, KIND_SPACE, KIND_USER,
 };
 
+/// The thumbnail size the tests import at: the same default an instance ships with, since what is
+/// being checked is that an imported image is treated like an uploaded one, not what size it ends
+/// up.
+const THUMBNAIL_MAX_PX: u32 = 512;
+
+/// Where an import puts bytes in a test: in memory, with the instance's own thumbnail size, since
+/// what is being checked is that an imported image is treated like an uploaded one.
+fn blobs(sink: &MemorySink) -> run::Blobs<'_, MemorySink> {
+    run::Blobs {
+        store: sink,
+        thumbnail_max_px: THUMBNAIL_MAX_PX,
+    }
+}
+
 fn source_channel(id: &str, space: &str, kind: &str, members: &[&str]) -> ChannelRecord {
     ChannelRecord {
         id: id.into(),
@@ -5153,6 +5167,7 @@ async fn an_import_that_was_stopped_still_leaves_the_reading_positions() {
         None,
         fx.alice,
         job,
+        THUMBNAIL_MAX_PX,
     )
     .await
     .expect("the run leaves cleanly");
@@ -5361,6 +5376,113 @@ fn archive_with_a_file(person: &str, space_ref: &str, channel_ref: &str) -> std:
     dir
 }
 
+/// An imported image is previewable, like an uploaded one.
+///
+/// Reported from a migrated Slack workspace: a photograph that shows inline when uploaded here
+/// arrived from the import as a grey file card with a download button. The product decides an
+/// attachment is lookable at from its dimensions and its thumbnail, and the import wrote neither.
+#[tokio::test]
+async fn an_imported_image_arrives_with_its_dimensions_and_a_thumbnail() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+
+    let picture = {
+        let mut out = std::io::Cursor::new(Vec::new());
+        image::RgbImage::from_pixel(6, 4, image::Rgb([198, 93, 69]))
+            .write_to(&mut out, image::ImageFormat::Png)
+            .expect("encode");
+        out.into_inner()
+    };
+    let dir = archive_with_a_blob(&person, &space_ref, &channel_ref, &picture, "image/png", "photo.png");
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let sink = MemorySink::default();
+    run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces)
+        .await
+        .expect("files");
+
+    let file = files::Entity::find()
+        .filter(files::Column::Name.eq("photo.png"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("the image arrived");
+    let version = file_versions::Entity::find_by_id(file.current_version_id.expect("a version"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("the version");
+
+    assert_eq!(version.image_width, Some(6));
+    assert_eq!(version.image_height, Some(4));
+    assert!(version.thumbnail_key.is_some(), "no thumbnail, no preview");
+    // The kind the product reads to decide an attachment is lookable at, as an upload sets it.
+    assert_eq!(file.kind, "image");
+    // The bytes and the thumbnail, two objects rather than one.
+    assert_eq!(sink.stored.lock().expect("lock").len(), 2);
+}
+
+/// The same archive as [`archive_with_a_file`], for bytes of any kind.
+fn archive_with_a_blob(
+    person: &str,
+    space_ref: &str,
+    channel_ref: &str,
+    content: &[u8],
+    content_type: &str,
+    name: &str,
+) -> std::path::PathBuf {
+    let digest = {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(content);
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    };
+
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[{
+            let mut message = message_row("m1", channel_ref, Some(person), "une pièce jointe");
+            message["files"] = json!([name]);
+            message
+        }],
+    );
+
+    std::fs::write(
+        dir.join("files.jsonl"),
+        format!(
+            "{}\n",
+            json!({
+                "id": name, "name": name, "path": name,
+                "size": content.len(), "content_type": content_type,
+                "hash": format!("sha256:{digest}"),
+                "uploaded_by": person, "uploaded_at": "2024-03-05T08:00:00Z",
+            })
+        ),
+    )
+    .expect("files.jsonl");
+
+    let blob = dir.join("blobs").join(&digest[..2]);
+    std::fs::create_dir_all(&blob).expect("blobs");
+    std::fs::write(blob.join(&digest), content).expect("blob");
+    dir
+}
+
 #[tokio::test]
 async fn a_file_arrives_with_its_bytes_and_hangs_on_its_message() {
     let Some(app) = boot().await else { return };
@@ -5376,7 +5498,7 @@ async fn a_file_arrives_with_its_bytes_and_hangs_on_its_message() {
         .expect("messages");
 
     let sink = MemorySink::default();
-    let written = run::import_files(&app.db, &mapper, &sink, &dir, None, &spaces)
+    let written = run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces)
         .await
         .expect("files");
     run::attach_files(&app.db, &mapper, &dir, None, &spaces)
@@ -5448,7 +5570,7 @@ async fn a_store_that_refuses_leaves_no_file_that_cannot_be_opened() {
         ..Default::default()
     };
 
-    let outcome = run::import_files(&app.db, &mapper, &sink, &dir, None, &spaces).await;
+    let outcome = run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces).await;
     assert!(
         outcome.is_err(),
         "an import that cannot store bytes has to stop"
@@ -5488,13 +5610,13 @@ async fn importing_the_files_twice_stores_them_once() {
         .expect("messages");
 
     let sink = MemorySink::default();
-    let first = run::import_files(&app.db, &mapper, &sink, &dir, None, &spaces)
+    let first = run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces)
         .await
         .expect("first");
     run::attach_files(&app.db, &mapper, &dir, None, &spaces)
         .await
         .expect("attach");
-    let second = run::import_files(&app.db, &mapper, &sink, &dir, None, &spaces)
+    let second = run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces)
         .await
         .expect("second");
     run::attach_files(&app.db, &mapper, &dir, None, &spaces)

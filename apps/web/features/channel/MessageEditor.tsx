@@ -1,8 +1,14 @@
 "use client";
 
 import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Avatar, Popover } from "@/components/ds";
-import { getChannelMembers, getServerDirectory, subscribeToDirectory } from "@/lib/data";
+import { Avatar, Icon, Popover } from "@/components/ds";
+import {
+  getChannelMembers,
+  getNoRooms,
+  getServerDirectory,
+  getSpaceRooms,
+  subscribeToDirectory,
+} from "@/lib/data";
 import { searchShortcodes } from "@/lib/shortcodes";
 import { Emoji } from "../app/Emoji";
 import { useEmojiManifest } from "../app/emojiManifest";
@@ -22,7 +28,8 @@ type Member = ReturnType<typeof getChannelMembers>[number];
 type Hit =
   | { kind: "mention"; name: string; member: Member }
   | { kind: "broadcast"; name: string; hint: TranslationKey }
-  | { kind: "emoji"; name: string; emoji: string };
+  | { kind: "emoji"; name: string; emoji: string }
+  | { kind: "room"; name: string };
 
 /**
  * The two handles that address a room rather than a person.
@@ -38,7 +45,7 @@ const BROADCASTS: { name: string; hint: TranslationKey }[] = [
   { name: "ici", hint: key("composer.broadcastHere") },
 ];
 
-type Trigger = { kind: "mention" | "emoji"; query: string; start: number };
+type Trigger = { kind: "mention" | "emoji" | "room"; query: string; start: number };
 
 /** Imperative surface so a surrounding toolbar can act on the editor without owning its DOM. */
 export type MessageEditorHandle = {
@@ -139,6 +146,9 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
   // when the composer first mounted, so after a space switch it went on offering the previous
   // space's people, with no way to notice from here.
   const members = useSyncExternalStore(subscribeToDirectory, getChannelMembers, getServerDirectory);
+  // The channels of this space, published beside the roster: `#` names a room the way `@` names a
+  // person, and offering a room from the space being left would be the same leak.
+  const rooms = useSyncExternalStore(subscribeToDirectory, getSpaceRooms, getNoRooms);
 
   const hits = useMemo<Hit[]>(() => {
     if (!trigger) return [];
@@ -155,8 +165,15 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
         .map((m): Hit => ({ kind: "mention", name: m.name, member: m }));
       return [...broadcasts, ...people];
     }
+    if (trigger.kind === "room") {
+      const q = trigger.query.toLowerCase();
+      return rooms
+        .filter((name) => name.toLowerCase().includes(q))
+        .slice(0, 6)
+        .map((name): Hit => ({ kind: "room", name }));
+    }
     return searchShortcodes(trigger.query).map((r): Hit => ({ kind: "emoji", name: r.name, emoji: r.emoji }));
-  }, [trigger, members]);
+  }, [trigger, members, rooms]);
 
   const acOpen = trigger != null && hits.length > 0;
   const activeIdx = Math.min(active, Math.max(0, hits.length - 1));
@@ -167,6 +184,14 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     const mention = /(?:^|\s)@([\p{L}\p{N}_'-]*)$/u.exec(before);
     if (mention) {
       setTrigger({ kind: "mention", query: mention[1], start: caret - mention[1].length - 1 });
+      setActive(0);
+      return;
+    }
+    // One hash only: `##` and beyond are a heading, and suggesting rooms under a title would put a
+    // menu in front of somebody writing one.
+    const room = /(?:^|\s)#([\p{L}\p{N}_-]*)$/u.exec(before);
+    if (room && !before.endsWith("##")) {
+      setTrigger({ kind: "room", query: room[1], start: caret - room[1].length - 1 });
       setActive(0);
       return;
     }
@@ -220,7 +245,9 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     if (!ed || !trigger) return;
     const { caret } = editorState(ed);
     const len = caret - trigger.start;
-    if (hit.kind === "mention" || hit.kind === "broadcast") {
+    if (hit.kind === "room") {
+      replaceTokenBeforeCaret(len, document.createTextNode(`#${hit.name} `));
+    } else if (hit.kind === "mention" || hit.kind === "broadcast") {
       // The display name, whole. The server resolves it as written, so what is typed, what is shown
       // and who is notified are the same thing.
       replaceTokenBeforeCaret(len, document.createTextNode(`@${hit.name} `));
@@ -415,6 +442,11 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
                     kind={hit.member.bot ? "bot" : "person"}
                     shape={hit.member.bot ? "round" : "square"}
                   />
+                  {hit.name}
+                </>
+              ) : hit.kind === "room" ? (
+                <>
+                  <Icon name="hash" size={16} style={{ color: "var(--text-muted)" }} />
                   {hit.name}
                 </>
               ) : (

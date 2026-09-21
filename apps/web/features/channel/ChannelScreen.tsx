@@ -197,6 +197,8 @@ export type MessageActionHandlers = {
   openProfile: (name: string) => void;
   editProfile: (name: string) => void;
   message: (name: string) => void;
+  /** Open the channel a `#room` in a message names. */
+  openRoom: (name: string) => void;
 };
 
 type MenuDialog = "settings" | "notifications" | "addpeople" | "leave" | null;
@@ -723,6 +725,7 @@ export function ChannelScreen({
                       onEditProfile: () => actions.editProfile(m.author),
                       onMessage: () => actions.message(m.author),
                       onOpenMention: (name) => actions.openProfile(name),
+                      onOpenRoom: (name) => actions.openRoom(name),
                     }}
                   />
                 )}

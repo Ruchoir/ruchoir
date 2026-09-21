@@ -36,6 +36,7 @@ pub async fn execute<S: BlobSink>(
     archive: &std::path::Path,
     passphrase: Option<&str>,
     admin: Uuid,
+    thumbnail_max_px: u32,
 ) -> Result<Outcome, RunError> {
     let (index, report) =
         super::check::check(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
@@ -73,7 +74,18 @@ pub async fn execute<S: BlobSink>(
     let plan: Plan = plan::build(&index, &existing);
 
     let job_id = run::start_job(db, &source, admin, None, "{}").await?;
-    run_passes(db, storage, archive, passphrase, admin, job_id, index, plan).await
+    run_passes(
+        db,
+        storage,
+        archive,
+        passphrase,
+        admin,
+        job_id,
+        index,
+        plan,
+        thumbnail_max_px,
+    )
+    .await
 }
 
 /// The same run, against a job row that already exists.
@@ -87,8 +99,18 @@ pub async fn execute_into<S: BlobSink>(
     passphrase: Option<&str>,
     admin: Uuid,
     job_id: Uuid,
+    thumbnail_max_px: u32,
 ) -> Result<Outcome, RunError> {
-    let outcome = run_into(db, storage, archive, passphrase, admin, job_id).await;
+    let outcome = run_into(
+        db,
+        storage,
+        archive,
+        passphrase,
+        admin,
+        job_id,
+        thumbnail_max_px,
+    )
+    .await;
     // Every way this run can end has to reach the job row. A pass that fails on its own terms
     // closes the row itself, with a sentence worth reading; anything else - a query that errors, a
     // process that gets as far as here - would otherwise leave the row saying `running` forever,
@@ -109,6 +131,7 @@ async fn run_into<S: BlobSink>(
     passphrase: Option<&str>,
     admin: Uuid,
     job_id: Uuid,
+    thumbnail_max_px: u32,
 ) -> Result<Outcome, RunError> {
     let (index, report) =
         super::check::check(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
@@ -122,7 +145,18 @@ async fn run_into<S: BlobSink>(
     }
     let existing = existing_state(db).await?;
     let plan = plan::build(&index, &existing);
-    run_passes(db, storage, archive, passphrase, admin, job_id, index, plan).await
+    run_passes(
+        db,
+        storage,
+        archive,
+        passphrase,
+        admin,
+        job_id,
+        index,
+        plan,
+        thumbnail_max_px,
+    )
+    .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -135,6 +169,7 @@ async fn run_passes<S: BlobSink>(
     job_id: Uuid,
     index: super::archive::Index,
     mut plan: Plan,
+    thumbnail_max_px: u32,
 ) -> Result<Outcome, RunError> {
     let source = index
         .manifest
@@ -241,10 +276,14 @@ async fn run_passes<S: BlobSink>(
                     .to_owned(),
             ));
         };
+        let blobs = run::Blobs {
+            store: storage,
+            thumbnail_max_px,
+        };
         let files = run::import_files_from(
             db,
             &mapper,
-            storage,
+            &blobs,
             archive,
             passphrase,
             &resolved,

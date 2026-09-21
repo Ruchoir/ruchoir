@@ -198,6 +198,7 @@ pub async fn import_command(
     archive: &Path,
     admin_email: &str,
     passphrase: Option<&str>,
+    thumbnail_max_px: u32,
 ) -> Result<(), String> {
     use crate::entities::users;
     use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -216,7 +217,7 @@ pub async fn import_command(
     }
 
     println!("importing {} as {}", archive.display(), admin.display_name);
-    let outcome = job::execute(db, storage, archive, passphrase, admin.id)
+    let outcome = job::execute(db, storage, archive, passphrase, admin.id, thumbnail_max_px)
         .await
         .map_err(|e| e.to_string())?;
 

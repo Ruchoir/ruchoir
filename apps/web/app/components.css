@@ -672,6 +672,12 @@
   padding: 0 3px;
   font-weight: var(--weight-medium);
 }
+/* A room, not a person: the same pill shape, in the neutral ink, because pointing at a channel is
+   not addressing somebody and should not read like a call for attention. */
+.wc-mention--room {
+  color: var(--text-strong);
+  background: var(--surface-sunken);
+}
 /* A mention of the current user: a stronger, filled pill so it stands out in the feed. */
 .wc-mention--me {
   color: #fff;
