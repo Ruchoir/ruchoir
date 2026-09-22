@@ -1,6 +1,6 @@
 import emojiRegex from "emoji-regex";
 import type { ReactNode } from "react";
-import { Tooltip } from "@/components/ds";
+import { Checkbox, Tooltip } from "@/components/ds";
 import { Emoji } from "../app/Emoji";
 import { replaceShortcodes, shortcodeOf } from "@/lib/shortcodes";
 import { CodeBlock } from "./CodeBlock";
@@ -43,8 +43,8 @@ function emojiSizeFor(count: number): number {
 
 /**
  * Rich-text renderer for message bodies: **bold**, _italic_, ~~struck through~~, `code`, fenced
- * ``` code blocks (highlighted by CodeBlock), http(s) links, "- " and "1." lists, "> " quotes,
- * "## " headings (two hashes and up: one is a channel), and
+ * ``` code blocks (highlighted by CodeBlock), http(s) links, "- " and "1." lists, "- [ ] " and
+ * "- [x] " checklists, "> " quotes, "## " headings (two hashes and up: one is a channel), and
  * @mentions. Inline formatting builds React nodes; code highlighting happens in CodeBlock.
  *
  * It deliberately **reads more than the composer writes**. A message brought over from another
@@ -64,6 +64,15 @@ function matchMention(text: string, from: number, names: string[]): string | nul
 
 /** The rooms a `#name` can point at, and what to do when a reader follows one. */
 export type Rooms = { names: string[]; onOpen?: (name: string) => void };
+
+/**
+ * Tick or untick the checklist item written on line `line` of the body (0-based, counted over the
+ * whole message, fenced code included so the number survives a block in the middle).
+ *
+ * Passed only where the reader may change the message: the API accepts an edit from its author and
+ * from nobody else, so everywhere else the boxes are drawn read-only rather than failing on click.
+ */
+export type TaskToggle = (line: number, done: boolean) => void;
 
 function renderInline(
   text: string,
@@ -228,12 +237,15 @@ function renderTextBlock(
   onMention?: (name: string) => void,
   meName?: string,
   rooms?: Rooms,
+  onToggleTask?: TaskToggle,
+  /** Line number this block starts on within the whole body, so a tick can name its line. */
+  lineBase = 0,
 ): ReactNode[] {
   const lines = text.split("\n");
   const blocks: ReactNode[] = [];
-  /** The run of lines being gathered: bullets, numbered items, or quoted lines. */
+  /** The run of lines being gathered: bullets, numbered items, checklist items, or quoted lines. */
   let run: ReactNode[] | null = null;
-  let runKind: "ul" | "ol" | "quote" | null = null;
+  let runKind: "ul" | "ol" | "task" | "quote" | null = null;
   let bi = 0;
 
   // Consecutive lines of the same kind are one block: three quoted lines are one quotation with
@@ -247,6 +259,13 @@ function renderTextBlock(
         <blockquote key={key} className="wc-quote">
           {items}
         </blockquote>,
+      );
+    } else if (runKind === "task") {
+      // No marker and no indent: the boxes are the marker, and they line up with the text above.
+      blocks.push(
+        <ul key={key} className="wc-tasks">
+          {items}
+        </ul>,
       );
     } else if (runKind === "ol") {
       blocks.push(
@@ -268,7 +287,7 @@ function renderTextBlock(
     runKind = null;
   };
 
-  const openRun = (kind: "ul" | "ol" | "quote") => {
+  const openRun = (kind: "ul" | "ol" | "task" | "quote") => {
     if (runKind !== kind) closeRun();
     runKind = kind;
     run ??= [];
@@ -279,6 +298,9 @@ function renderTextBlock(
     const inline = (from: string) =>
       renderInline(from, names, `${keyBase}ln${idx}`, emojiSize, onMention, meName, rooms);
     const numbered = /^(\d{1,9})[.)] /.exec(line);
+    // A checklist item, before the bullet test that would otherwise swallow it and leave "[ ]" as
+    // the first two characters of the text.
+    const task = /^[-*] \[([ xX])\] ?(.*)$/.exec(line);
     // Two hashes and up are a heading; one is not. A single `#` opens a channel, here and in the
     // composer, and a line beginning "#produit" is a reader pointing at a room, not a title.
     const heading = /^(#{2,6}) +(\S.*)$/.exec(line);
@@ -301,6 +323,24 @@ function renderTextBlock(
         >
           {inline(heading[2])}
         </div>,
+      );
+    } else if (task) {
+      const done = task[1] !== " ";
+      const at = lineBase + idx;
+      // The design system's checkbox, not a bare input: the product already decided what a box
+      // looks like ticked, focused and read-only, and the browser's own is neither themed nor the
+      // same shape twice. Its label carries the item's text, so the sentence is part of the target.
+      openRun("task").push(
+        <li key={`${keyBase}-tk${idx}`}>
+          <Checkbox
+            checked={done}
+            // Read-only on a message that is not the reader's: the API takes an edit from the
+            // author alone, so an inviting box here would only ever answer with a refusal.
+            disabled={!onToggleTask}
+            onChange={() => onToggleTask?.(at, !done)}
+            label={<span className={done ? "wc-task-done" : undefined}>{inline(task[2])}</span>}
+          />
+        </li>,
       );
     } else if (line.startsWith("- ") || line.startsWith("* ")) {
       openRun("ul").push(<li key={`${keyBase}-li${idx}`}>{inline(line.slice(2))}</li>);
@@ -334,9 +374,14 @@ export function renderRichText(
   onMention?: (name: string) => void,
   meName?: string,
   rooms?: Rooms,
+  onToggleTask?: TaskToggle,
 ): ReactNode {
   // Split on ``` fences: odd segments are fenced code blocks.
   const segments = text.split("```");
+  // Lines are counted over the whole body, across the fences, because a tick names the line it
+  // wants changed and the caller looks it up in the text as it was sent. The delimiters carry no
+  // newline of their own, so summing each segment's is enough.
+  let lineBase = 0;
   // Emoji-only messages (no fenced code) render larger; the size tapers with the emoji count.
   const emojiSize = segments.length > 1 ? EMOJI_SIZE : emojiSizeFor(jumboEmojiCount(replaceShortcodes(text)));
   const out: ReactNode[] = [];
@@ -356,9 +401,20 @@ export function renderRichText(
       out.push(<CodeBlock key={`pre${i}`} code={code} declaredLang={lang} editable={editable} />);
     } else if (seg) {
       out.push(
-        ...renderTextBlock(replaceShortcodes(seg), names, `s${i}`, emojiSize, onMention, meName, rooms),
+        ...renderTextBlock(
+          replaceShortcodes(seg),
+          names,
+          `s${i}`,
+          emojiSize,
+          onMention,
+          meName,
+          rooms,
+          onToggleTask,
+          lineBase,
+        ),
       );
     }
+    lineBase += seg.split("\n").length - 1;
   });
   return out;
 }

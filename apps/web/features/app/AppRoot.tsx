@@ -2275,6 +2275,36 @@ function AppShell() {
       const target = conversationMessages.find((x) => x.id === messageId);
       if (target) setEditing({ id: messageId, body: target.body });
     },
+    /**
+     * Tick or untick one checklist line, in place.
+     *
+     * A checklist is text, so this is an edit of the body: the same call the composer makes, under
+     * the same author-only rule. It does not go through the composer, because opening a message for
+     * editing to change one character is exactly what a box you can click is there to avoid, and it
+     * says nothing on success: the box itself is the answer.
+     */
+    toggleTask: (messageId: string, line: number, done: boolean) => {
+      const conv = channelId;
+      const target = (messages[conv] ?? []).find((x) => x.id === messageId);
+      if (!target) return;
+      const lines = target.body.split("\n");
+      const before = lines[line];
+      if (before === undefined) return;
+      const after = before.replace(/^([-*] )\[[ xX]\]/, `$1[${done ? "x" : " "}]`);
+      // The line is not the item it was when the row was drawn (an edit landed in between): leave
+      // the body exactly as it is rather than ticking whatever moved into its place.
+      if (after === before) return;
+      lines[line] = after;
+      const body = lines.join("\n");
+      updateMessage(conv, messageId, (m) => ({ ...m, body, edited: true }));
+      if (isPendingId(messageId)) return;
+      editMessage(messageId, body)
+        .then((m) => updateMessage(conv, messageId, () => m))
+        .catch(() => {
+          rollbackMessage(conv, target);
+          showToast({ tone: "info", title: t("toast.editNotSaved") });
+        });
+    },
     togglePin: (messageId: string) => {
       const conv = channelId;
       const target = (messages[conv] ?? []).find((x) => x.id === messageId);

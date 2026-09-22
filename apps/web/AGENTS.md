@@ -382,7 +382,19 @@ usage with the design-system oxlint config.
   Styles by subject: person=cameo, bot=gaze, workspace=blobs. Person/bot backgrounds are lively
   pastels chosen for face contrast and **never terracotta/red** (single brand accent rule).
 - **Message text** is rendered by `features/channel/richText.tsx` (bold, italic, inline + fenced
-  code, links, "- " lists, @mentions), building React nodes. The only `dangerouslySetInnerHTML` is
+  code, links, "- " and "1." lists, "- [ ] " checklists, "> " quotes, "## " headings, @mentions and
+  #channels), building React nodes. A heading starts at two hashes, never one: a single `#` names a
+  channel here and in the composer.
+- **A checklist in a sent message is ticked in place.** The boxes are the DS `Checkbox`, never a bare
+  input (the browser's own is unthemed and a different shape per platform), and the item's text is
+  the label, so the sentence is part of the target. Ticking one is an **edit of the body**: it flips
+  that line's `[ ]` to `[x]` and goes through `editMessage`, which is why it is offered on your own
+  messages only, the API taking an edit from the author alone (`PATCH /messages/{id}` answers 403 to
+  anyone else). Elsewhere the box is `disabled`, which the shared rule already draws as "ticked but
+  not yours" without dimming the text around it. `renderRichText` takes a `TaskToggle` receiving the
+  **line number within the whole body**, counted across the ``` fences (`lineBase`), so a code block
+  in the middle does not shift what a click changes; the handler re-reads that line and does nothing
+  when it is no longer the item that was drawn. The only `dangerouslySetInnerHTML` is
   highlight.js output for fenced code blocks (`highlight.js`, BSD-3, local, language auto-detect) and
   is safe because highlight.js escapes the code. The composer emits this same lightweight markdown.
   Render message bodies in a `<div>`, never a `<p>` (fenced code / lists produce `<pre>`/`<ul>`,
@@ -398,11 +410,24 @@ usage with the design-system oxlint config.
   `contentEditable=false` span carrying `data-emoji` (built by `features/channel/composerEditor.ts`,
   static sprite). `onSend` receives the **serialised plain text** (emotes back to their Unicode glyph,
   `<br>`/blocks to `\n`), so the message pipeline and `richText` rendering are unchanged. The
-  surrounding toolbar (bold/italic/code/list, emoji picker, send) drives the editor through a ref
-  handle (`MessageEditorHandle`: `submit`/`insertEmoji`/`insertText`/`wrapSelection`/`prefixLines`/
-  `codeFormat`/`isEmpty`/`clear`). `isEmpty`/`clear` let the `Composer` send an attachment-only
+  surrounding toolbar drives the editor through a ref handle (`MessageEditorHandle`:
+  `submit`/`insertEmoji`/`insertText`/`insertTrigger`/`wrapSelection`/`prefixLines`/`numberLines`/
+  `codeFormat`/`blockCode`/`isEmpty`/`clear`). Every block tool opens its own line when the caret is
+  mid-sentence, because a marker only reads as one at the start of a line; `numberLines` continues
+  from the item above instead of writing "1." every time; `blockCode` inserts the fences as a single
+  text node (the editor is `white-space: pre-wrap`) so the caret can land between them. `isEmpty`/`clear` let the `Composer` send an attachment-only
   message (empty body) and reset after. Paste is coerced to plain text; caret/offsets are mapped by
   serialising the range from the editor start to the selection focus (`editorState`).
+- **The composer toolbar groups its variants, and folds below 640px.** Eight of its fourteen buttons
+  were variants on three ideas (three heading levels, three list kinds, two ways to write code), and a
+  row that long reads as a wall rather than a set of choices. Each of those is now one button opening
+  a small menu (`FamilyMenu` + `FAMILIES` in `Composer.tsx`), leaving bold, italic and quote one click
+  away: eleven controls instead of fourteen. Below the breakpoint even that is too wide, so the whole
+  lot collapses into one "Mise en forme" menu (`FORMAT_SECTIONS`). Both shapes are composed from the
+  same `BlockTool` constants, so a tool added to a family appears in both places or in neither, and
+  each tool acts on the editor it is handed rather than closing over the ref (the React compiler
+  refuses a ref read during render). The breakpoint is the toolbar's own, not the shell's 960px: the
+  row still fits on a tablet.
 - **Screens & shell state.** `features/app/AppRoot.tsx` is the client spine: it lifts the seed
   collections (workspaces, channels, DMs, files, and a full per-conversation message map) into
   `useState` so the UI can mutate them, gates the app behind an `authStage` state machine
@@ -473,13 +498,17 @@ usage with the design-system oxlint config.
   suits popovers, side panels and search dropdowns. Do not hand-roll empty placeholders; reuse this so
   they stay consistent.
 - **Composer autocomplete** (inside `MessageEditor`): one keyboard-navigable suggestion popup serves
-  both triggers, `@mention` (members) and `:shortcode:` (emoji, via `searchShortcodes` in
+  three triggers, `@mention` (members), `#channel` (the rooms of the open space) and `:shortcode:`
+  (emoji, via `searchShortcodes` in
   `lib/shortcodes.ts`, backed by node-emoji `search`, prefix matches ranked first). A single `trigger`
   state (`kind`/`query`/`start`) plus an `active` index drives it; the editor is an ARIA `combobox`
   (`aria-activedescendant` on the options, ids namespaced per instance via `useId`). Keys: Up/Down
   move, Enter/Tab accept, Esc dismisses; hover syncs `active`, and option `onMouseDown` is prevented so
   the editor keeps focus. Picking a mention inserts `@name `, a shortcode inserts an emote chip. The
   shortcode trigger fires from the first character after the colon and only at a token start
-  (`(?:^|\s):`), so times like `10:30` do not trigger it. The `Popover` (`components/ds/Popover.tsx`)
+  (`(?:^|\s):`), so times like `10:30` do not trigger it. The toolbar's `@` and `#` buttons go through
+  `insertTrigger`, which types the space the trigger needs when the caret is against a word: they went
+  through `insertText` and opened nothing whenever the caret was not already at a token start, which
+  is most of the time. The `Popover` (`components/ds/Popover.tsx`)
   measures before paint on every open render (and via a `ResizeObserver` for async resizes), so a
   shrinking/growing list stays anchored to the input with no stale-gap or flash.
