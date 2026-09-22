@@ -11,10 +11,10 @@ pub(crate) mod download;
 pub(crate) mod dto;
 mod error;
 pub(crate) mod images;
-mod mime;
+pub(crate) mod mime;
 mod routes;
 pub(crate) mod shares;
-mod thumbnail;
+pub(crate) mod thumbnail;
 pub(crate) mod tree;
 pub(crate) mod uploads;
 

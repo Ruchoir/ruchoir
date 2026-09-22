@@ -9,6 +9,9 @@
 # (The handoff directory keeps its original on-disk name; do not rename this pattern.)
 /fixtures/
 /workchat-design-system/
+# Archives waiting to be imported by a local instance, and the ones written by the generators in
+# packages/importer. Megabytes of sealed binary that any checkout can rebuild from the scripts.
+/imports/
 
 # Secrets and environment.
 .env
@@ -21,6 +24,10 @@
 /.next/
 /dist/
 /apps/web/out/
+# Python bytecode (the import tooling ships scripts, not a package).
+__pycache__/
+*.pyc
+
 # TypeScript incremental build cache.
 *.tsbuildinfo
 # Generated self-hosted emoji pack (built from the Fluent Emoji repos by scripts/prepare-emoji.mjs).

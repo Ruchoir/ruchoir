@@ -40,6 +40,10 @@ COPY rust-toolchain.toml Cargo.toml ./
 COPY Cargo.lock* ./
 COPY apps/api ./apps/api
 COPY migrations ./migrations
+# The import screen serves these producers from the instance's own domain, so the API embeds them
+# at build (`include_str!` in `importer::scripts`). They live outside the crate, so the context has
+# to carry them.
+COPY packages/importer ./packages/importer
 # Cache the cargo registry/git and the target dir. The binary is copied out of the cached
 # target within the same layer (cache mounts are not part of the image filesystem).
 RUN --mount=type=cache,target=/usr/local/cargo/registry \

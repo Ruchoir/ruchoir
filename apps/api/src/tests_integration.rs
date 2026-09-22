@@ -25,7 +25,8 @@ use std::time::Duration;
 use futures_util::StreamExt;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection,
+    EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, Statement,
 };
 use serde_json::{json, Value};
 use time::OffsetDateTime;
@@ -40,7 +41,9 @@ use ruchoir_migration::{Migrator, MigratorTrait};
 use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
 use crate::entities::{
-    channel_members, channels, conversations, files, space_members, spaces, users,
+    channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
+    file_versions, files, import_mappings, message_attachments, message_reactions, messages,
+    read_cursors, space_invitations, space_members, spaces, user_saved_messages, users,
 };
 use crate::state::AppState;
 
@@ -83,6 +86,11 @@ async fn boot() -> Option<TestApp> {
     config.auto_migrate = false;
     // Short presence TTL so an offline transition is observable quickly in tests.
     config.presence_ttl_secs = 5;
+    // An import directory, so the tests of the server-side path exercise the real guard instead of
+    // the "no directory configured" refusal, which answers the same 400 for a different reason.
+    let import_dir = std::env::temp_dir().join("ruchoir-test-imports");
+    std::fs::create_dir_all(&import_dir).expect("import dir");
+    config.import_dir = Some(import_dir);
 
     let db = crate::db::connect(&config).await.expect("connect db");
     SCHEMA_READY
@@ -3444,4 +3452,3214 @@ async fn reacting_joins_the_channel_like_writing_does() {
             .expect("membership")
             .is_some()
     );
+}
+
+// --- Claiming an account an import placed here ---------------------------------------------------
+//
+// An import creates accounts, puts them in their spaces and channels, and leaves them waiting: the
+// history is here before the person is. Registering with the invitation addressed to them has to
+// take over that account rather than collide with it, and must refuse every other shape, because
+// what it hands over is an account with someone else's conversations already in it.
+
+/// An account exactly as an import leaves one: placed, complete, never used.
+async fn make_waiting_account(db: &DatabaseConnection, email: &str) -> Uuid {
+    let id = Uuid::new_v4();
+    users::ActiveModel {
+        id: Set(id),
+        email: Set(email.to_owned()),
+        display_name: Set("Imported Name".to_owned()),
+        password_hash: Set(None),
+        status: Set("pending".to_owned()),
+        mfa_enforced: Set(false),
+        is_bot: Set(false),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("waiting account");
+    id
+}
+
+/// An invitation row, addressed or not, returning the raw token.
+async fn make_invitation(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    created_by: Uuid,
+    email: Option<&str>,
+) -> String {
+    let token = crate::auth::tokens::generate_token().expect("token");
+    space_invitations::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        space_id: Set(space_id),
+        token_hash: Set(crate::auth::tokens::digest(&token)),
+        email: Set(email.map(str::to_owned)),
+        role: Set("member".to_owned()),
+        created_by: Set(Some(created_by)),
+        max_uses: Set(None),
+        uses: Set(0),
+        expires_at: Set(None),
+        revoked_at: Set(None),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("invitation");
+    token
+}
+
+async fn register(
+    app: &TestApp,
+    email: &str,
+    name: &str,
+    token: Option<&str>,
+) -> reqwest::Response {
+    let mut body = json!({
+        "email": email,
+        "display_name": name,
+        "password": "un-mot-de-passe-bien-assez-long-42",
+    });
+    if let Some(token) = token {
+        body["invitation_token"] = json!(token);
+    }
+    app.http
+        .post(format!("{}/api/v1/auth/register", app.base))
+        .json(&body)
+        .send()
+        .await
+        .expect("register")
+}
+
+#[tokio::test]
+async fn an_invitation_claims_the_account_the_import_left_waiting() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    let waiting = make_waiting_account(&app.db, &email).await;
+    let token = make_invitation(&app.db, fx.space_id, fx.alice, Some(&email)).await;
+
+    let response = register(&app, &email, "Their Own Name", Some(&token)).await;
+
+    // 200, not 201: nothing was created. The account and its history were already here.
+    assert_eq!(response.status(), 200);
+    let body: Value = response.json().await.expect("json");
+    assert_eq!(
+        body["id"],
+        waiting.to_string(),
+        "the same account, not a second one"
+    );
+
+    let account = users::Entity::find_by_id(waiting)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("account");
+    assert_eq!(account.status, "active");
+    assert!(account.password_hash.is_some());
+    // They are the person: the name they type wins over the one the source carried.
+    assert_eq!(account.display_name, "Their Own Name");
+}
+
+#[tokio::test]
+async fn a_shareable_link_cannot_claim_somebody_elses_account() {
+    // The whole safety of this rests on the invitation being addressed. A link invitation carries
+    // no address, so anyone holding one could otherwise type any address and take the account.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    make_waiting_account(&app.db, &email).await;
+    let token = make_invitation(&app.db, fx.space_id, fx.alice, None).await;
+
+    let response = register(&app, &email, "Intruder", Some(&token)).await;
+    assert_eq!(response.status(), 409);
+}
+
+#[tokio::test]
+async fn an_invitation_addressed_to_someone_else_cannot_claim_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    make_waiting_account(&app.db, &email).await;
+    let token = make_invitation(
+        &app.db,
+        fx.space_id,
+        fx.alice,
+        Some("elsewhere@example.test"),
+    )
+    .await;
+
+    let response = register(&app, &email, "Intruder", Some(&token)).await;
+    assert_eq!(response.status(), 409);
+}
+
+#[tokio::test]
+async fn a_revoked_invitation_claims_nothing() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    make_waiting_account(&app.db, &email).await;
+    let token = make_invitation(&app.db, fx.space_id, fx.alice, Some(&email)).await;
+    space_invitations::Entity::update_many()
+        .col_expr(
+            space_invitations::Column::RevokedAt,
+            sea_orm::sea_query::Expr::value(Some(OffsetDateTime::now_utc())),
+        )
+        .filter(space_invitations::Column::TokenHash.eq(crate::auth::tokens::digest(&token)))
+        .exec(&app.db)
+        .await
+        .expect("revoke");
+
+    let response = register(&app, &email, "Too Late", Some(&token)).await;
+    assert_eq!(response.status(), 409);
+}
+
+#[tokio::test]
+async fn an_account_someone_already_uses_is_never_claimed() {
+    // A password means a person set it. Even a correctly addressed invitation must not hand that
+    // account to whoever holds the token.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("inuse-{}@example.test", Uuid::new_v4().simple());
+    let account = make_waiting_account(&app.db, &email).await;
+    let mut model: users::ActiveModel = users::Entity::find_by_id(account)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("account")
+        .into();
+    model.password_hash = Set(Some("already-set".to_owned()));
+    model.status = Set("active".to_owned());
+    model.update(&app.db).await.expect("update");
+
+    let token = make_invitation(&app.db, fx.space_id, fx.alice, Some(&email)).await;
+    let response = register(&app, &email, "Intruder", Some(&token)).await;
+    assert_eq!(response.status(), 409);
+}
+
+#[tokio::test]
+async fn registering_over_a_waiting_account_without_any_invitation_is_still_a_conflict() {
+    let Some(app) = boot().await else { return };
+    let _fx = seed(&app.db).await;
+    let email = format!("waiting-{}@example.test", Uuid::new_v4().simple());
+    make_waiting_account(&app.db, &email).await;
+
+    let response = register(&app, &email, "Passer-by", None).await;
+    assert_eq!(response.status(), 409);
+}
+
+// --- Writing what an import promised -------------------------------------------------------------
+//
+// The rule everything here checks: an entity and its mapping row are written together, so a second
+// run recognises the first one's work instead of doing it again. Resuming and re-importing are the
+// same mechanism, and these tests are how we know it.
+
+use crate::importer::archive::{
+    ChannelRecord, Index, Manifest, MemberStateRecord, SpaceRecord, UserRecord,
+};
+use crate::importer::plan::{self, Existing};
+use crate::importer::run::{
+    self, BlobSink, Mapper, KIND_CHANNEL, KIND_FILE, KIND_MESSAGE, KIND_SPACE, KIND_USER,
+};
+
+/// The thumbnail size the tests import at: the same default an instance ships with, since what is
+/// being checked is that an imported image is treated like an uploaded one, not what size it ends
+/// up.
+const THUMBNAIL_MAX_PX: u32 = 512;
+
+/// Where an import puts bytes in a test: in memory, with the instance's own thumbnail size, since
+/// what is being checked is that an imported image is treated like an uploaded one.
+fn blobs(sink: &MemorySink) -> run::Blobs<'_, MemorySink> {
+    run::Blobs {
+        store: sink,
+        thumbnail_max_px: THUMBNAIL_MAX_PX,
+    }
+}
+
+fn source_channel(id: &str, space: &str, kind: &str, members: &[&str]) -> ChannelRecord {
+    ChannelRecord {
+        id: id.into(),
+        space: space.into(),
+        kind: kind.into(),
+        name: format!("Salon {id}"),
+        topic: String::new(),
+        visibility: "public".into(),
+        archived: false,
+        members: members.iter().map(|m| (*m).to_string()).collect(),
+        member_state: vec![],
+        created_at: None,
+    }
+}
+
+fn import_index(users: Vec<UserRecord>, spaces: Vec<SpaceRecord>) -> Index {
+    Index {
+        manifest: Some(Manifest {
+            format_version: 1,
+            source: "mattermost".into(),
+            source_version: String::new(),
+            producer: "test".into(),
+            created_at: String::new(),
+            counts: Default::default(),
+            checksums: Default::default(),
+            limits: vec![],
+        }),
+        users,
+        spaces,
+        ..Default::default()
+    }
+}
+
+/// Source identifiers have to differ between tests: a mapping is deliberately global, so that a
+/// rehearsal import and the real one a week later recognise each other. Two tests both calling a
+/// space "atelier" would be two runs of the same import, which is exactly what the feature says.
+fn unique_ref(prefix: &str) -> String {
+    format!("{prefix}-{}", Uuid::new_v4().simple())
+}
+
+fn source_user(id: &str, email: &str) -> UserRecord {
+    UserRecord {
+        id: id.into(),
+        email: email.into(),
+        display_name: format!("{id} from elsewhere"),
+        active: true,
+    }
+}
+
+fn source_space(id: &str, name: &str) -> SpaceRecord {
+    SpaceRecord {
+        id: id.into(),
+        name: name.into(),
+        description: String::new(),
+        visibility: "private".into(),
+    }
+}
+
+#[tokio::test]
+async fn an_unknown_account_arrives_waiting_for_its_person() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("newcomer-{}@example.test", Uuid::new_v4().simple());
+    let index = import_index(vec![source_user(&unique_ref("alice"), &email)], vec![]);
+    let plan = plan::build(&index, &Existing::default());
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    let written = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+
+    assert_eq!(written.accounts_created, 1);
+    let created = users::Entity::find()
+        .filter(users::Column::Email.eq(email.clone()))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("account");
+    // Waiting, not broken: pending with no password is exactly the shape an invitation claims.
+    assert_eq!(created.status, "pending");
+    assert!(created.password_hash.is_none());
+    assert!(created.display_name.ends_with("from elsewhere"));
+}
+
+#[tokio::test]
+async fn an_address_already_here_is_the_same_person_and_is_left_alone() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let existing_account = users::Entity::find_by_id(fx.bob)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("bob");
+
+    let bob_ref = unique_ref("bob");
+    let index = import_index(vec![source_user(&bob_ref, &existing_account.email)], vec![]);
+    let plan = plan::build(
+        &index,
+        &Existing {
+            emails: vec![existing_account.email.clone()],
+            ..Default::default()
+        },
+    );
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    let written = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+
+    assert_eq!(written.accounts_matched, 1);
+    assert_eq!(written.accounts_created, 0);
+    // An import does not get to rename people.
+    let after = users::Entity::find_by_id(fx.bob)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("bob");
+    assert_eq!(after.display_name, existing_account.display_name);
+    assert_eq!(
+        mapper
+            .resolve(&app.db, KIND_USER, &bob_ref, None)
+            .await
+            .expect("resolve"),
+        Some(fx.bob)
+    );
+}
+
+#[tokio::test]
+async fn an_account_with_no_address_still_arrives_and_can_be_told_apart() {
+    // Six out of six in the Nextcloud fixture. They must land, because their messages have to be
+    // attributed to a person, and they must not collide with each other.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let (carol_ref, david_ref) = (unique_ref("carol"), unique_ref("david"));
+    let index = import_index(
+        vec![source_user(&carol_ref, ""), source_user(&david_ref, "")],
+        vec![],
+    );
+    let plan = plan::build(&index, &Existing::default());
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    let written = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+
+    assert_eq!(written.accounts_created, 2);
+    let carol = mapper
+        .resolve(&app.db, KIND_USER, &carol_ref, None)
+        .await
+        .expect("resolve");
+    let david = mapper
+        .resolve(&app.db, KIND_USER, &david_ref, None)
+        .await
+        .expect("resolve");
+    assert!(carol.is_some() && david.is_some());
+    assert_ne!(
+        carol, david,
+        "two people without an address are still two people"
+    );
+}
+
+/// A resumed import shows its progress over everything it went through, not only what it wrote.
+///
+/// Found on the production instance: an import resumed after a failure recognised almost all of the
+/// archive, wrote almost nothing, and its screen stood at zero on every pass until it jumped to
+/// "done" - and said "0 accounts" at the end, the accounts all belonging to the first job.
+#[tokio::test]
+async fn a_resumed_import_counts_what_it_recognised() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("resumed-{}@example.test", Uuid::new_v4().simple());
+    let index = import_index(
+        vec![
+            source_user(&unique_ref("alice"), &email),
+            source_user(&unique_ref("bob"), &format!("b-{email}")),
+        ],
+        vec![source_space(
+            &unique_ref("atelier"),
+            &format!("Atelier {}", Uuid::new_v4().simple()),
+        )],
+    );
+    let plan = plan::build(&index, &Existing::default());
+
+    let first = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let written = run::import_accounts(&app.db, &Mapper::new(first, "mattermost"), &plan)
+        .await
+        .expect("accounts");
+    assert_eq!(written.accounts_created, 2);
+    run::finish_job(&app.db, first, "failed")
+        .await
+        .expect("finish");
+
+    // The resume is a job of its own, as it is when the screen starts one.
+    let second = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(second, "mattermost");
+    mapper.preload(&app.db).await.expect("preload");
+    let again = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    assert_eq!(again.accounts_created, 0, "nothing written twice");
+    assert_eq!(again.accounts_seen, 2, "and both counted as gone through");
+
+    run::finish_job(&app.db, second, "completed")
+        .await
+        .expect("finish");
+    let row = crate::entities::import_jobs::Entity::find_by_id(second)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert_eq!(
+        row.accounts_done, 2,
+        "what the screen reads, and closing the job must not take it back to zero"
+    );
+}
+
+#[tokio::test]
+async fn running_the_same_import_twice_creates_nothing_twice() {
+    // The whole safety property: this is resumption and re-import at once.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let email = format!("twice-{}@example.test", Uuid::new_v4().simple());
+    let name = format!("Atelier {}", Uuid::new_v4().simple());
+    let index = import_index(
+        vec![source_user(&unique_ref("alice"), &email)],
+        vec![source_space(&unique_ref("atelier"), &name)],
+    );
+    let plan = plan::build(&index, &Existing::default());
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+
+    let first_accounts = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (first_spaces, _) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+    assert_eq!(first_accounts.accounts_created, 1);
+    assert_eq!(first_spaces.spaces_created, 1);
+
+    // Same archive, same job, second run: everything is recognised.
+    let second_accounts = run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (second_spaces, _) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+    assert_eq!(second_accounts.accounts_created, 0);
+    assert_eq!(second_spaces.spaces_created, 0);
+    assert_eq!(
+        second_spaces.spaces_filled, 0,
+        "recognised through its mapping, not re-found by name"
+    );
+
+    assert_eq!(
+        users::Entity::find()
+            .filter(users::Column::Email.eq(email))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    assert_eq!(
+        spaces::Entity::find()
+            .filter(spaces::Column::Name.eq(name))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    assert_eq!(
+        import_mappings::Entity::find()
+            .filter(import_mappings::Column::JobId.eq(job))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        2,
+        "one mapping per entity, not one per run"
+    );
+}
+
+#[tokio::test]
+async fn a_created_space_belongs_to_the_administrator_who_imported_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let name = format!("Reprise {}", Uuid::new_v4().simple());
+    let index = import_index(vec![], vec![source_space(&unique_ref("atelier"), &name)]);
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    let (written, resolved) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+
+    assert_eq!(written.spaces_created, 1);
+    let (_, space_id) = resolved.first().expect("one space");
+    let membership = space_members::Entity::find_by_id((*space_id, fx.alice))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("membership");
+    assert_eq!(membership.role, "owner");
+
+    // An imported space holds exactly what the archive carried: no starter channel nobody asked for.
+    assert_eq!(
+        conversations::Entity::find()
+            .filter(conversations::Column::SpaceId.eq(*space_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        0
+    );
+}
+
+#[tokio::test]
+async fn a_space_that_already_carries_the_name_is_filled_rather_than_duplicated() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // A name of its own: the seed calls every space "Test Space", and several spaces sharing one
+    // name is precisely the case the importer refuses to guess at.
+    let name = format!("Espace {}", Uuid::new_v4().simple());
+    let mut existing: spaces::ActiveModel = spaces::Entity::find_by_id(fx.space_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("space")
+        .into();
+    existing.name = Set(name.clone());
+    existing.update(&app.db).await.expect("rename");
+    let index = import_index(vec![], vec![source_space(&unique_ref("atelier"), &name)]);
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    let (written, resolved) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+
+    assert_eq!(written.spaces_created, 0);
+    assert_eq!(written.spaces_filled, 1);
+    assert_eq!(resolved.first().expect("one space").1, fx.space_id);
+}
+
+#[tokio::test]
+async fn closing_a_job_records_what_it_brought_in() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let index = import_index(
+        vec![
+            source_user(
+                &unique_ref("a"),
+                &format!("a-{}@example.test", Uuid::new_v4().simple()),
+            ),
+            source_user(
+                &unique_ref("b"),
+                &format!("b-{}@example.test", Uuid::new_v4().simple()),
+            ),
+        ],
+        vec![],
+    );
+    let plan = plan::build(&index, &Existing::default());
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    run::finish_job(&app.db, job, "completed")
+        .await
+        .expect("finish");
+
+    let row = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert_eq!(row.status, "completed");
+    // Counted from the mappings, not from memory: a resumed run did part of its work elsewhere.
+    assert_eq!(row.accounts_done, 2);
+    assert!(row.finished_at.is_some());
+    assert_eq!(
+        run::written_so_far(&app.db, job, KIND_SPACE)
+            .await
+            .expect("count"),
+        0
+    );
+}
+
+/// The whole chain up to conversations, which is what every test below needs.
+async fn import_up_to_conversations(
+    app: &TestApp,
+    admin: Uuid,
+    index: &Index,
+) -> (Uuid, Vec<(String, Uuid)>) {
+    let plan = plan::build(index, &Existing::default());
+    let job = run::start_job(&app.db, "mattermost", admin, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (_, spaces) = run::import_spaces(&app.db, &mapper, index, admin)
+        .await
+        .expect("spaces");
+    run::import_conversations(&app.db, &mapper, index, &spaces, admin)
+        .await
+        .expect("conversations");
+    (job, spaces)
+}
+
+#[tokio::test]
+async fn a_channel_arrives_with_the_people_who_were_in_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let (one, two) = (unique_ref("alice"), unique_ref("bob"));
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("produit");
+    let index = import_index(
+        vec![
+            source_user(&one, &format!("{one}@example.test")),
+            source_user(&two, &format!("{two}@example.test")),
+        ],
+        vec![source_space(
+            &space_ref,
+            &format!("Espace {}", Uuid::new_v4().simple()),
+        )],
+    );
+    let index = Index {
+        channels: vec![source_channel(
+            &channel_ref,
+            &space_ref,
+            "channel",
+            &[&one, &two],
+        )],
+        ..index
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let space_id = spaces[0].1;
+    let channel_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(space_id))
+        .await
+        .expect("resolve")
+        .expect("channel");
+
+    assert_eq!(
+        channel_members::Entity::find()
+            .filter(channel_members::Column::ChannelId.eq(channel_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        2
+    );
+    // Being in a conversation means being in its space: forgetting this leaves people in rooms of
+    // a workspace they are not part of.
+    for source in [&one, &two] {
+        let user = mapper
+            .resolve(&app.db, KIND_USER, source, None)
+            .await
+            .expect("resolve")
+            .expect("account");
+        assert!(space_members::Entity::find_by_id((space_id, user))
+            .one(&app.db)
+            .await
+            .expect("query")
+            .is_some());
+    }
+
+    // Provenance on the row itself, readable without joining anything.
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("channel");
+    assert_eq!(channel.imported_source.as_deref(), Some("mattermost"));
+    assert_eq!(channel.external_ref.as_deref(), Some(channel_ref.as_str()));
+}
+
+#[tokio::test]
+async fn a_favourite_channel_stays_a_favourite() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("produit");
+    let mut channel = source_channel(&channel_ref, &space_ref, "channel", &[&person]);
+    channel.member_state = vec![MemberStateRecord {
+        user: person.clone(),
+        favorite: true,
+        read_message: None,
+        read_at: None,
+    }];
+    let index = Index {
+        channels: vec![channel],
+        ..import_index(
+            vec![source_user(&person, &format!("{person}@example.test"))],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let channel_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("channel");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("resolve")
+        .expect("account");
+    let membership = channel_members::Entity::find_by_id((channel_id, user))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("membership");
+    assert!(membership.favorite);
+}
+
+#[tokio::test]
+async fn an_archived_conversation_arrives_archived() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("ancien");
+    let mut channel = source_channel(&channel_ref, &space_ref, "channel", &[]);
+    channel.archived = true;
+    let index = Index {
+        channels: vec![channel],
+        ..import_index(
+            vec![],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let channel_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("channel");
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("channel");
+    // Read-only here, which is the closest thing to what it was there.
+    assert_eq!(channel.channel_type, "archived");
+    assert!(channel.archived_at.is_some());
+}
+
+#[tokio::test]
+async fn a_conversation_between_three_people_is_a_group() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let people: Vec<String> = (0..3).map(|i| unique_ref(&format!("p{i}"))).collect();
+    let space_ref = unique_ref("atelier");
+    let direct_ref = unique_ref("direct");
+    let refs: Vec<&str> = people.iter().map(String::as_str).collect();
+    let index = Index {
+        channels: vec![source_channel(&direct_ref, &space_ref, "direct", &refs)],
+        ..import_index(
+            people
+                .iter()
+                .map(|p| source_user(p, &format!("{p}@example.test")))
+                .collect(),
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let dm_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &direct_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("dm");
+    let dm = dm_conversations::Entity::find_by_id(dm_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("dm");
+    assert!(dm.is_group);
+    assert_eq!(
+        dm_participants::Entity::find()
+            .filter(dm_participants::Column::DmId.eq(dm_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        3
+    );
+    // A direct conversation is not a channel: no channel row, no channel membership.
+    assert!(channels::Entity::find_by_id(dm_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .is_none());
+}
+
+/// A channel that is already here takes the archive's history instead of stopping the import.
+///
+/// Found in production: an instance whose first space was called "Atelier", with the `#general`
+/// every space starts with, importing an archive carrying a space of the same name and a channel
+/// of the same name. The space was adopted, as it should be, and then the channel could not be
+/// created - a unique name per space - and the whole import died on a foreign constraint. Two
+/// archives from two products meeting on `#general` is not an edge case, it is Tuesday.
+#[tokio::test]
+async fn a_channel_that_is_already_here_takes_the_history_rather_than_stopping_the_import() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let space_name = format!("Espace {}", Uuid::new_v4().simple());
+    let shared = "Général";
+
+    // First archive: creates the space and the channel.
+    let first_space = unique_ref("atelier");
+    let first_channel = unique_ref("general");
+    let mut channel = source_channel(&first_channel, &first_space, "channel", &[]);
+    channel.name = shared.to_owned();
+    let first = Index {
+        channels: vec![channel],
+        ..import_index(vec![], vec![source_space(&first_space, &space_name)])
+    };
+    let (_, spaces) = import_up_to_conversations(&app, fx.alice, &first).await;
+    let space_id = spaces[0].1;
+
+    // Second archive, another product, same space name and same channel name. Nothing links the
+    // two: different identifiers, different source, so no correspondence can be recognised.
+    let second_space = unique_ref("atelier");
+    let second_channel = unique_ref("general");
+    let mut channel = source_channel(&second_channel, &second_space, "channel", &[]);
+    channel.name = shared.to_owned();
+    let second = Index {
+        channels: vec![channel],
+        ..import_index(vec![], vec![source_space(&second_space, &space_name)])
+    };
+
+    let job = run::start_job(&app.db, "slack", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "slack");
+    let (spaces_written, resolved) = run::import_spaces(&app.db, &mapper, &second, fx.alice)
+        .await
+        .expect("spaces");
+    assert_eq!(spaces_written.spaces_filled, 1, "the space was adopted");
+    assert_eq!(resolved[0].1, space_id);
+
+    let written = run::import_conversations(&app.db, &mapper, &second, &resolved, fx.alice)
+        .await
+        .expect("the import no longer stops on a name that is already here");
+
+    assert_eq!(written.conversations_filled, 1);
+    assert_eq!(written.conversations_created, 0);
+    // One channel, not two under two spellings, and it is the one that was already here.
+    assert_eq!(
+        channels::Entity::find()
+            .filter(channels::Column::SpaceId.eq(space_id))
+            .filter(channels::Column::Name.eq("general"))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    let adopted = mapper
+        .resolve(&app.db, KIND_CHANNEL, &second_channel, Some(space_id))
+        .await
+        .expect("resolve")
+        .expect("the second archive's channel points somewhere");
+    let first_mapper = Mapper::new(job, "mattermost");
+    let before = first_mapper
+        .resolve(&app.db, KIND_CHANNEL, &first_channel, Some(space_id))
+        .await
+        .expect("resolve")
+        .expect("the first archive's channel");
+    assert_eq!(adopted, before, "both archives now point at the same room");
+}
+
+/// Two conversations of one archive whose names come down to the same handle stay two rooms.
+///
+/// The other side of adoption, and the reason it asks rather than just looking the name up:
+/// "Café" and "cafe" are one handle here but two rooms there, and merging them would mix two
+/// histories that nobody could separate again.
+#[tokio::test]
+async fn two_conversations_of_one_archive_that_share_a_handle_stay_two() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let space_ref = unique_ref("atelier");
+    let (one, two) = (unique_ref("cafe"), unique_ref("cafe"));
+    let mut first = source_channel(&one, &space_ref, "channel", &[]);
+    first.name = "Café".to_owned();
+    let mut second = source_channel(&two, &space_ref, "channel", &[]);
+    second.name = "cafe".to_owned();
+    let index = Index {
+        channels: vec![first, second],
+        ..import_index(
+            vec![],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let space_id = spaces[0].1;
+
+    let mut names = Vec::new();
+    for source_id in [&one, &two] {
+        let id = mapper
+            .resolve(&app.db, KIND_CHANNEL, source_id, Some(space_id))
+            .await
+            .expect("resolve")
+            .expect("channel");
+        names.push(
+            channels::Entity::find_by_id(id)
+                .one(&app.db)
+                .await
+                .expect("query")
+                .expect("channel")
+                .name,
+        );
+    }
+    names.sort();
+    assert_eq!(names, vec!["cafe".to_owned(), "cafe-2".to_owned()]);
+}
+
+#[tokio::test]
+async fn importing_the_conversations_twice_creates_nothing_twice() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("produit");
+    let index = Index {
+        channels: vec![source_channel(
+            &channel_ref,
+            &space_ref,
+            "channel",
+            &[&person],
+        )],
+        ..import_index(
+            vec![source_user(&person, &format!("{person}@example.test"))],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let again = run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice)
+        .await
+        .expect("second run");
+
+    assert_eq!(again.conversations_created, 0);
+    assert_eq!(
+        conversations::Entity::find()
+            .filter(conversations::Column::SpaceId.eq(spaces[0].1))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+}
+
+/// An administrator can give an address to somebody the export carried without one.
+///
+/// The common case on a real migration: the source had no address for a person, so nothing could
+/// be matched and no invitation could be sent, and the administrator is the only one who knows who
+/// they are. The account is created with the address they typed.
+#[tokio::test]
+async fn an_address_given_by_hand_reaches_the_account_that_is_created() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let index = import_index(vec![source_user(&person, "")], vec![]);
+
+    let existing = Existing::default();
+    let mut plan = plan::build(&index, &existing);
+    let given = format!("{person}@given-by-hand.test");
+    plan::apply_choices(
+        &mut plan,
+        &[plan::PersonChoice {
+            source_id: person.clone(),
+            email: Some(given.clone()),
+            skip: false,
+        }],
+        &existing,
+    );
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+
+    let user_id = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("resolve")
+        .expect("the account should have been created");
+    let user = crate::entities::users::Entity::find_by_id(user_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("account");
+    assert_eq!(user.email, given);
+}
+
+/// Somebody left out gets no account, and their messages arrive anyway.
+///
+/// The decision is about people, not about text: dropping what they wrote as well would be the
+/// silent loss this whole chain exists to prevent, and the interface already draws a message whose
+/// author is absent.
+#[tokio::test]
+async fn somebody_left_out_gets_no_account_and_their_messages_still_arrive() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()),
+                 "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"),
+                 "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[message_row(
+            "m1",
+            &channel_ref,
+            Some(&person),
+            "ce que j'ai écrit reste",
+        )],
+    );
+
+    let index = crate::importer::archive::index(&dir, None).expect("index");
+    let existing = Existing::default();
+    let mut plan = plan::build(&index, &existing);
+    plan::apply_choices(
+        &mut plan,
+        &[plan::PersonChoice {
+            source_id: person.clone(),
+            email: None,
+            skip: true,
+        }],
+        &existing,
+    );
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, fx.alice)
+        .await
+        .expect("spaces");
+    run::import_conversations(&app.db, &mapper, &index, &spaces, fx.alice)
+        .await
+        .expect("conversations");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    assert!(
+        mapper
+            .resolve(&app.db, KIND_USER, &person, None)
+            .await
+            .expect("resolve")
+            .is_none(),
+        "no account should have been created for somebody left out"
+    );
+
+    let message_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "m1", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("the message should have arrived");
+    let message = crate::entities::messages::Entity::find_by_id(message_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("message");
+    assert_eq!(message.body, "ce que j'ai écrit reste");
+    assert!(message.author_id.is_none(), "it arrives with no author");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_member_whose_account_was_skipped_is_left_out_rather_than_invented() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let space_ref = unique_ref("atelier");
+    let channel_ref = unique_ref("produit");
+    // The conversation names someone the archive never described: the accounts pass cannot have
+    // mapped them, and putting a stranger in the room would be worse than leaving them out.
+    let index = Index {
+        channels: vec![source_channel(
+            &channel_ref,
+            &space_ref,
+            "channel",
+            &[&person, "ghost"],
+        )],
+        ..import_index(
+            vec![source_user(&person, &format!("{person}@example.test"))],
+            vec![source_space(
+                &space_ref,
+                &format!("Espace {}", Uuid::new_v4().simple()),
+            )],
+        )
+    };
+
+    let (job, spaces) = import_up_to_conversations(&app, fx.alice, &index).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let channel_id = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("channel");
+    assert_eq!(
+        channel_members::Entity::find()
+            .filter(channel_members::Column::ChannelId.eq(channel_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+}
+
+// --- Messages ------------------------------------------------------------------------------------
+//
+// The messages are read from an archive on disk rather than from anything held in memory, so these
+// tests write a small unpacked one and point the import at it. The reader takes a directory, which
+// is what a producer writes before sealing.
+
+/// Writes a minimal archive and returns its directory. Cleaned up by the caller's temp dir.
+fn write_archive(
+    spaces: &[Value],
+    users: &[Value],
+    channels: &[Value],
+    messages: &[Value],
+) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("ruchoir-import-{}", Uuid::new_v4().simple()));
+    std::fs::create_dir_all(&dir).expect("archive dir");
+
+    let write = |name: &str, rows: &[Value]| {
+        let body: String = rows
+            .iter()
+            .map(|row| format!("{row}\n"))
+            .collect::<Vec<_>>()
+            .concat();
+        std::fs::write(dir.join(name), body).expect("write");
+    };
+    write("spaces.jsonl", spaces);
+    write("users.jsonl", users);
+    write("channels.jsonl", channels);
+    write("messages.jsonl", messages);
+    write("files.jsonl", &[]);
+
+    std::fs::write(
+        dir.join("manifest.json"),
+        json!({
+            "format_version": 1,
+            "source": "mattermost",
+            "producer": "test",
+            "created_at": "2026-09-13T10:00:00Z",
+            "limits": ["nothing in particular"],
+        })
+        .to_string(),
+    )
+    .expect("manifest");
+    dir
+}
+
+fn message_row(id: &str, channel: &str, author: Option<&str>, body: &str) -> Value {
+    json!({
+        "id": id,
+        "channel": channel,
+        "author": author,
+        // Deliberately not today: an import that stamped everything with the time of the import
+        // would otherwise pass, which is exactly what happened when this assertion said "today".
+        "sent_at": "2024-03-05T08:09:10Z",
+        "body": body,
+        "format": "markdown",
+        "thread_root": null,
+        "pinned": false,
+        "edited_at": null,
+        "reactions": [],
+        "saved_by": [],
+        "files": [],
+    })
+}
+
+/// Runs accounts, spaces and conversations from an archive on disk, and hands back what the
+/// messages pass needs.
+async fn import_from_archive(
+    app: &TestApp,
+    admin: Uuid,
+    dir: &std::path::Path,
+) -> (Uuid, Vec<(String, Uuid)>) {
+    let index = crate::importer::archive::index(dir, None).expect("index");
+    let plan = plan::build(&index, &Existing::default());
+    let job = run::start_job(&app.db, "mattermost", admin, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_accounts(&app.db, &mapper, &plan)
+        .await
+        .expect("accounts");
+    let (_, spaces) = run::import_spaces(&app.db, &mapper, &index, admin)
+        .await
+        .expect("spaces");
+    run::import_conversations(&app.db, &mapper, &index, &spaces, admin)
+        .await
+        .expect("conversations");
+    (job, spaces)
+}
+
+#[tokio::test]
+async fn messages_arrive_with_their_text_author_and_time() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[
+            message_row("m1", &channel_ref, Some(&person), "bonjour"),
+            json!({
+                "id": "m2", "channel": channel_ref, "author": person,
+                "sent_at": "2026-09-13T10:00:30Z", "body": "", "format": "markdown",
+                "system_event": "channel_joined", "thread_root": null, "pinned": false,
+                "edited_at": null, "reactions": [], "saved_by": [], "files": []
+            }),
+        ],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let written = run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+    assert_eq!(written.messages_created, 2);
+
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("conversation");
+    let rows = messages::Entity::find()
+        .filter(messages::Column::ConversationId.eq(conversation))
+        .all(&app.db)
+        .await
+        .expect("messages");
+    assert_eq!(rows.len(), 2);
+
+    let ordinary = rows.iter().find(|m| m.kind == "message").expect("message");
+    assert_eq!(ordinary.body, "bonjour");
+    assert!(ordinary.author_id.is_some());
+    assert_eq!(ordinary.imported_source.as_deref(), Some("mattermost"));
+    // The time the message was sent there, not the time it was imported here.
+    assert!(
+        ordinary.created_at.to_string().starts_with("2024-03-05"),
+        "kept the time it was sent, got {}",
+        ordinary.created_at
+    );
+
+    // A notice carries an event and no sentence: the wording is ours, in the reader's language.
+    let notice = rows.iter().find(|m| m.kind == "system").expect("notice");
+    assert_eq!(notice.system_event.as_deref(), Some("channel_joined"));
+    assert!(notice.body.is_empty());
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_reply_finds_its_root_even_when_it_comes_first_in_the_file() {
+    // Resolved in a second pass on purpose: making the import depend on a producer's ordering
+    // would make it break on a source nobody has written yet.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let mut reply = message_row("reply", &channel_ref, Some(&person), "une réponse");
+    reply["thread_root"] = json!("root");
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[
+            reply,
+            message_row("root", &channel_ref, Some(&person), "la racine"),
+        ],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let root_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "root", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("root");
+    let reply_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "reply", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("reply");
+    let reply_row = messages::Entity::find_by_id(reply_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("reply");
+    assert_eq!(reply_row.parent_message_id, Some(root_id));
+    let root_row = messages::Entity::find_by_id(root_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("root");
+    assert_eq!(root_row.reply_count, 1);
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn what_people_did_with_a_message_comes_with_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let mut message = message_row("m1", &channel_ref, Some(&person), "épinglé");
+    message["pinned"] = json!(true);
+    message["reactions"] = json!([{"emoji": "tada", "by": [person]}]);
+    message["saved_by"] = json!([person]);
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[message],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let message_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "m1", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("message");
+    assert_eq!(
+        message_reactions::Entity::find()
+            .filter(message_reactions::Column::MessageId.eq(message_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    assert_eq!(
+        user_saved_messages::Entity::find()
+            .filter(user_saved_messages::Column::MessageId.eq(message_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+    assert_eq!(
+        channel_pins::Entity::find()
+            .filter(channel_pins::Column::MessageId.eq(message_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_message_from_someone_we_could_not_place_keeps_its_text() {
+    // The silent loss this whole chain exists to prevent: a guest, a bot, an account left behind.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": []}),
+        ],
+        &[message_row(
+            "m1",
+            &channel_ref,
+            Some("guests:sample"),
+            "un message d'invité",
+        )],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let message_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "m1", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("message");
+    let row = messages::Entity::find_by_id(message_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("message");
+    assert_eq!(row.body, "un message d'invité");
+    assert!(
+        row.author_id.is_none(),
+        "attributed to an absent author, not dropped"
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn importing_the_messages_twice_writes_them_once() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[message_row(
+            "m1",
+            &channel_ref,
+            Some(&person),
+            "une seule fois",
+        )],
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let first = run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("first");
+    let second = run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("second");
+
+    assert_eq!(first.messages_created, 1);
+    assert_eq!(second.messages_created, 0);
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("conversation");
+    assert_eq!(
+        messages::Entity::find()
+            .filter(messages::Column::ConversationId.eq(conversation))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        1
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+// --- Where everyone had read up to ---------------------------------------------------------------
+
+/// An archive with one channel, two messages and a per-member state, written to disk.
+fn archive_with_positions(
+    person: &str,
+    space_ref: &str,
+    channel_ref: &str,
+    state: Value,
+) -> std::path::PathBuf {
+    let mut channel = json!({
+        "id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+        "visibility": "public", "archived": false, "members": [person],
+    });
+    channel["member_state"] = json!([state]);
+
+    let mut older = message_row("older", channel_ref, Some(person), "le premier");
+    older["sent_at"] = json!("2024-03-05T08:00:00Z");
+    let mut newer = message_row("newer", channel_ref, Some(person), "le dernier");
+    newer["sent_at"] = json!("2024-03-05T09:00:00Z");
+
+    write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[channel],
+        &[older, newer],
+    )
+}
+
+async fn import_everything(
+    app: &TestApp,
+    admin: Uuid,
+    dir: &std::path::Path,
+) -> (Uuid, Vec<(String, Uuid)>) {
+    let (job, spaces) = import_from_archive(app, admin, dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, dir, None, &spaces)
+        .await
+        .expect("messages");
+    let index = crate::importer::archive::index(dir, None).expect("index");
+    run::import_read_positions(&app.db, &mapper, &index, &spaces)
+        .await
+        .expect("positions");
+    (job, spaces)
+}
+
+async fn cursor_of(app: &TestApp, conversation: Uuid, user: Uuid) -> Option<Uuid> {
+    read_cursors::Entity::find_by_id((conversation, user))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .and_then(|cursor| cursor.last_read_message_id)
+}
+
+#[tokio::test]
+async fn a_position_naming_a_message_lands_on_that_message() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "read_message": "older"}),
+    );
+
+    let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+    let older = mapper
+        .resolve(&app.db, KIND_MESSAGE, "older", Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("m");
+
+    assert_eq!(cursor_of(&app, conversation, user).await, Some(older));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// Stopping an import must not hand somebody a workspace where everything is unread.
+///
+/// The reading positions are the last pass, so a run that stopped left every conversation it had
+/// already imported showing as never read: thousands of unread messages in conversations the
+/// person had finished with years ago somewhere else. Whoever stopped the import kept what was
+/// written, which was the promise, and lost the one thing that made it usable.
+#[tokio::test]
+async fn an_import_that_was_stopped_still_leaves_the_reading_positions() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "read_message": "older"}),
+    );
+
+    // A first run brought the messages over. This is the ordinary shape of the failure: an import
+    // stops after its messages and before its positions.
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+    let older = mapper
+        .resolve(&app.db, KIND_MESSAGE, "older", Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("m");
+    assert_eq!(
+        cursor_of(&app, conversation, user).await,
+        None,
+        "nothing should have read anything yet"
+    );
+
+    // Somebody presses stop, and the run is asked to leave.
+    let model = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    let mut model: crate::entities::import_jobs::ActiveModel = model.into();
+    model.status = sea_orm::ActiveValue::Set("cancelling".to_owned());
+    model.update(&app.db).await.expect("ask to stop");
+
+    crate::importer::job::execute_into(
+        &app.db,
+        Some(&MemorySink::default()),
+        &dir,
+        None,
+        fx.alice,
+        job,
+        THUMBNAIL_MAX_PX,
+    )
+    .await
+    .expect("the run leaves cleanly");
+
+    let after = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert_eq!(after.status, "cancelled");
+    assert_eq!(
+        cursor_of(&app, conversation, user).await,
+        Some(older),
+        "what was imported before the stop should be as read as it was in the other product"
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_position_that_only_knows_a_moment_lands_on_the_last_message_before_it() {
+    // Mattermost knows an instant, not a message. The closest true statement is the last message
+    // sent at or before it.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "read_at": "2024-03-05T08:30:00Z"}),
+    );
+
+    let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+    let older = mapper
+        .resolve(&app.db, KIND_MESSAGE, "older", Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("m");
+    let newer = mapper
+        .resolve(&app.db, KIND_MESSAGE, "newer", Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("m");
+
+    let cursor = cursor_of(&app, conversation, user).await;
+    assert_eq!(
+        cursor,
+        Some(older),
+        "the one before the moment, not the one after"
+    );
+    assert_ne!(cursor, Some(newer));
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_position_on_a_message_that_did_not_cross_falls_back_rather_than_vanishing() {
+    // Declaring months of history unread because one identifier is missing is worse than being
+    // slightly early.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "read_message": "a-message-left-behind"}),
+    );
+
+    let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+
+    assert!(cursor_of(&app, conversation, user).await.is_some());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_favourite_alone_leaves_no_reading_position() {
+    // Somebody who marked a channel as a favourite and never read it has no position to restore,
+    // and inventing one would mark their history read on their behalf.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_positions(
+        &person,
+        &space_ref,
+        &channel_ref,
+        json!({"user": person, "favorite": true}),
+    );
+
+    let (job, spaces) = import_everything(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let conversation = mapper
+        .resolve(&app.db, KIND_CHANNEL, &channel_ref, Some(spaces[0].1))
+        .await
+        .expect("r")
+        .expect("c");
+    let user = mapper
+        .resolve(&app.db, KIND_USER, &person, None)
+        .await
+        .expect("r")
+        .expect("u");
+
+    assert!(cursor_of(&app, conversation, user).await.is_none());
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+// --- Files ---------------------------------------------------------------------------------------
+//
+// The only part of an import that leaves the database, and the only one that can fail for a reason
+// nobody here controls. The ordering it rests on (bytes first, rows after) is only worth anything
+// if the failure is tested, which is what the refusing sink below is for.
+
+/// An object store that keeps what it is given, and can be told to refuse.
+#[derive(Default)]
+struct MemorySink {
+    stored: std::sync::Mutex<Vec<(String, Vec<u8>)>>,
+    refuse: bool,
+}
+
+impl BlobSink for MemorySink {
+    async fn put(&self, key: &str, bytes: &[u8], _content_type: &str) -> Result<(), String> {
+        if self.refuse {
+            return Err("the store is unreachable".to_owned());
+        }
+        self.stored
+            .lock()
+            .expect("lock")
+            .push((key.to_owned(), bytes.to_vec()));
+        Ok(())
+    }
+}
+
+/// An archive carrying one file, attached to one message.
+fn archive_with_a_file(person: &str, space_ref: &str, channel_ref: &str) -> std::path::PathBuf {
+    let content = b"le contenu du fichier";
+    let digest = {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(content);
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    };
+
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[{
+            let mut message = message_row("m1", channel_ref, Some(person), "une pièce jointe");
+            message["files"] = json!(["note.txt"]);
+            message
+        }],
+    );
+
+    std::fs::write(
+        dir.join("files.jsonl"),
+        format!(
+            "{}\n",
+            json!({
+                "id": "note.txt", "name": "note.txt", "path": "note.txt",
+                "size": content.len(), "content_type": "text/plain",
+                "hash": format!("sha256:{digest}"),
+                "uploaded_by": person, "uploaded_at": "2024-03-05T08:00:00Z",
+            })
+        ),
+    )
+    .expect("files.jsonl");
+
+    let blob = dir.join("blobs").join(&digest[..2]);
+    std::fs::create_dir_all(&blob).expect("blobs");
+    std::fs::write(blob.join(&digest), content).expect("blob");
+    dir
+}
+
+/// An imported image is previewable, like an uploaded one.
+///
+/// Reported from a migrated Slack workspace: a photograph that shows inline when uploaded here
+/// arrived from the import as a grey file card with a download button. The product decides an
+/// attachment is lookable at from its dimensions and its thumbnail, and the import wrote neither.
+#[tokio::test]
+async fn an_imported_image_arrives_with_its_dimensions_and_a_thumbnail() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+
+    let picture = {
+        let mut out = std::io::Cursor::new(Vec::new());
+        image::RgbImage::from_pixel(6, 4, image::Rgb([198, 93, 69]))
+            .write_to(&mut out, image::ImageFormat::Png)
+            .expect("encode");
+        out.into_inner()
+    };
+    let dir = archive_with_a_blob(
+        &person,
+        &space_ref,
+        &channel_ref,
+        &picture,
+        "image/png",
+        "photo.png",
+    );
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let sink = MemorySink::default();
+    run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces)
+        .await
+        .expect("files");
+
+    let file = files::Entity::find()
+        .filter(files::Column::Name.eq("photo.png"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("the image arrived");
+    let version = file_versions::Entity::find_by_id(file.current_version_id.expect("a version"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("the version");
+
+    assert_eq!(version.image_width, Some(6));
+    assert_eq!(version.image_height, Some(4));
+    assert!(version.thumbnail_key.is_some(), "no thumbnail, no preview");
+    // The kind the product reads to decide an attachment is lookable at, as an upload sets it.
+    assert_eq!(file.kind, "image");
+    // The bytes and the thumbnail, two objects rather than one.
+    assert_eq!(sink.stored.lock().expect("lock").len(), 2);
+}
+
+/// The same archive as [`archive_with_a_file`], for bytes of any kind.
+fn archive_with_a_blob(
+    person: &str,
+    space_ref: &str,
+    channel_ref: &str,
+    content: &[u8],
+    content_type: &str,
+    name: &str,
+) -> std::path::PathBuf {
+    let digest = {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(content);
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>()
+    };
+
+    let dir = write_archive(
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"), "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[{
+            let mut message = message_row("m1", channel_ref, Some(person), "une pièce jointe");
+            message["files"] = json!([name]);
+            message
+        }],
+    );
+
+    std::fs::write(
+        dir.join("files.jsonl"),
+        format!(
+            "{}\n",
+            json!({
+                "id": name, "name": name, "path": name,
+                "size": content.len(), "content_type": content_type,
+                "hash": format!("sha256:{digest}"),
+                "uploaded_by": person, "uploaded_at": "2024-03-05T08:00:00Z",
+            })
+        ),
+    )
+    .expect("files.jsonl");
+
+    let blob = dir.join("blobs").join(&digest[..2]);
+    std::fs::create_dir_all(&blob).expect("blobs");
+    std::fs::write(blob.join(&digest), content).expect("blob");
+    dir
+}
+
+#[tokio::test]
+async fn a_file_arrives_with_its_bytes_and_hangs_on_its_message() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_a_file(&person, &space_ref, &channel_ref);
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let sink = MemorySink::default();
+    let written = run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces)
+        .await
+        .expect("files");
+    run::attach_files(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("attach");
+
+    assert_eq!(written.files_created, 1);
+    let file_id = mapper
+        .resolve(&app.db, KIND_FILE, "note.txt", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("file");
+    let file = files::Entity::find_by_id(file_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("file");
+    assert_eq!(file.name, "note.txt");
+    assert_eq!(file.size_bytes, 21);
+    assert_eq!(file.imported_source.as_deref(), Some("mattermost"));
+    // The file points at a version, and the version at the bytes that were actually stored.
+    let version_id = file.current_version_id.expect("a current version");
+    let version = file_versions::Entity::find_by_id(version_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("version");
+    let key = version.storage_key.expect("a storage key");
+    let (stored_key, stored_bytes) = {
+        let stored = sink.stored.lock().expect("lock");
+        assert_eq!(stored.len(), 1);
+        stored[0].clone()
+    };
+    assert_eq!(
+        stored_key, key,
+        "the row points at the object that was written"
+    );
+    assert_eq!(stored_bytes, b"le contenu du fichier");
+
+    let message_id = mapper
+        .resolve(&app.db, KIND_MESSAGE, "m1", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .expect("message");
+    let attachment = message_attachments::Entity::find_by_id((message_id, file_id))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("attachment");
+    assert_eq!(attachment.file_version_id, Some(version_id));
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn a_store_that_refuses_leaves_no_file_that_cannot_be_opened() {
+    // The whole reason the bytes are written before the rows. A row written first would survive the
+    // failure and leave a file that has a name, a size, and nothing behind it.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_a_file(&person, &space_ref, &channel_ref);
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    let sink = MemorySink {
+        refuse: true,
+        ..Default::default()
+    };
+
+    let outcome = run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces).await;
+    assert!(
+        outcome.is_err(),
+        "an import that cannot store bytes has to stop"
+    );
+
+    assert_eq!(
+        files::Entity::find()
+            .filter(files::Column::SpaceId.eq(spaces[0].1))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        0,
+        "no file row survives a storage failure"
+    );
+    // And the mapping is absent too, so a later run starts this file over rather than skipping it.
+    assert!(mapper
+        .resolve(&app.db, KIND_FILE, "note.txt", Some(spaces[0].1))
+        .await
+        .expect("resolve")
+        .is_none());
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[tokio::test]
+async fn importing_the_files_twice_stores_them_once() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let person = unique_ref("alice");
+    let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
+    let dir = archive_with_a_file(&person, &space_ref, &channel_ref);
+
+    let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let sink = MemorySink::default();
+    let first = run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces)
+        .await
+        .expect("first");
+    run::attach_files(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("attach");
+    let second = run::import_files(&app.db, &mapper, &blobs(&sink), &dir, None, &spaces)
+        .await
+        .expect("second");
+    run::attach_files(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("attach again");
+
+    assert_eq!(first.files_created, 1);
+    assert_eq!(second.files_created, 0);
+    assert_eq!(
+        sink.stored.lock().expect("lock").len(),
+        1,
+        "the bytes are written once"
+    );
+    assert!(
+        message_attachments::Entity::find()
+            .count(&app.db)
+            .await
+            .expect("count")
+            > 0,
+        "the attachment survives a second run"
+    );
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+// --- Nothing leaks out of an imported space ------------------------------------------------------
+//
+// An import creates spaces, accounts and conversations wholesale, which makes it the easiest place
+// in the product for an isolation defect to arrive unnoticed: nobody watches a space they did not
+// know existed. These tests drive the real HTTP surface rather than the database, because a leak
+// would be in the authorization layer and not in the rows.
+
+/// Imports two spaces, each with a private channel and a direct conversation, and hands back the
+/// identifiers a test needs to try to reach across them.
+struct TwoSpaces {
+    first_space: Uuid,
+    second_space: Uuid,
+    first_private: Uuid,
+    second_private: Uuid,
+    direct: Uuid,
+    /// A member of the first space only.
+    insider: Uuid,
+    /// A member of the second space only.
+    other_side: Uuid,
+    dir: std::path::PathBuf,
+}
+
+async fn import_two_spaces(app: &TestApp, admin: Uuid) -> TwoSpaces {
+    let (one, two) = (unique_ref("insider"), unique_ref("other"));
+    let (space_a, space_b) = (unique_ref("alpha"), unique_ref("beta"));
+    let (private_a, private_b) = (unique_ref("secret-a"), unique_ref("secret-b"));
+    let direct_ref = unique_ref("direct");
+
+    let dir = write_archive(
+        &[
+            json!({"id": space_a, "name": format!("Alpha {}", Uuid::new_v4().simple()), "visibility": "private"}),
+            json!({"id": space_b, "name": format!("Beta {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": one, "email": format!("{one}@example.test"), "display_name": "Insider", "active": true}),
+            json!({"id": two, "email": format!("{two}@example.test"), "display_name": "Other", "active": true}),
+        ],
+        &[
+            json!({"id": private_a, "space": space_a, "kind": "channel", "name": "Cloison A",
+                   "visibility": "private", "archived": false, "members": [one]}),
+            json!({"id": private_b, "space": space_b, "kind": "channel", "name": "Cloison B",
+                   "visibility": "private", "archived": false, "members": [two]}),
+            json!({"id": direct_ref, "space": space_a, "kind": "direct", "name": "",
+                   "visibility": "private", "archived": false, "members": [one, two]}),
+        ],
+        &[
+            message_row(
+                "secret-a",
+                &private_a,
+                Some(&one),
+                "ce qui se dit chez alpha",
+            ),
+            message_row(
+                "secret-b",
+                &private_b,
+                Some(&two),
+                "ce qui se dit chez beta",
+            ),
+            message_row("secret-d", &direct_ref, Some(&one), "entre nous deux"),
+        ],
+    );
+
+    let (job, spaces) = import_from_archive(app, admin, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let resolve_space =
+        |source: &String| spaces.iter().find(|(id, _)| id == source).expect("space").1;
+    TwoSpaces {
+        first_space: resolve_space(&space_a),
+        second_space: resolve_space(&space_b),
+        first_private: mapper
+            .resolve(
+                &app.db,
+                KIND_CHANNEL,
+                &private_a,
+                Some(resolve_space(&space_a)),
+            )
+            .await
+            .expect("r")
+            .expect("private a"),
+        second_private: mapper
+            .resolve(
+                &app.db,
+                KIND_CHANNEL,
+                &private_b,
+                Some(resolve_space(&space_b)),
+            )
+            .await
+            .expect("r")
+            .expect("private b"),
+        direct: mapper
+            .resolve(
+                &app.db,
+                KIND_CHANNEL,
+                &direct_ref,
+                Some(resolve_space(&space_a)),
+            )
+            .await
+            .expect("r")
+            .expect("direct"),
+        insider: mapper
+            .resolve(&app.db, KIND_USER, &one, None)
+            .await
+            .expect("r")
+            .expect("insider"),
+        other_side: mapper
+            .resolve(&app.db, KIND_USER, &two, None)
+            .await
+            .expect("r")
+            .expect("other"),
+        dir,
+    }
+}
+
+#[tokio::test]
+async fn a_stranger_sees_none_of_an_imported_space() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let imported = import_two_spaces(&app, fx.alice).await;
+
+    // Someone who has nothing to do with any of it.
+    let stranger = make_user(&app.db, "stranger").await;
+    let cookie = app.cookie_for(stranger).await;
+
+    let spaces: Value = app
+        .req(reqwest::Method::GET, "/api/v1/me/spaces", &cookie)
+        .send()
+        .await
+        .expect("spaces")
+        .json()
+        .await
+        .expect("json");
+    let listed: Vec<String> = spaces
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|space| space["id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert!(!listed.contains(&imported.first_space.to_string()));
+    assert!(!listed.contains(&imported.second_space.to_string()));
+
+    // Not by asking for the space's channels either.
+    let channels = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", imported.first_space),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("channels");
+    assert!(
+        channels.status() == 404 || channels.status() == 403,
+        "a stranger must not list an imported space's channels, got {}",
+        channels.status()
+    );
+
+    // Nor by naming a conversation directly.
+    for conversation in [imported.first_private, imported.direct] {
+        let messages = app
+            .req(
+                reqwest::Method::GET,
+                &format!("/api/v1/conversations/{conversation}/messages"),
+                &cookie,
+            )
+            .send()
+            .await
+            .expect("messages");
+        assert!(
+            messages.status() == 404 || messages.status() == 403,
+            "a stranger read an imported conversation, got {}",
+            messages.status()
+        );
+    }
+
+    std::fs::remove_dir_all(&imported.dir).ok();
+}
+
+#[tokio::test]
+async fn a_member_of_one_imported_space_cannot_reach_the_other() {
+    // The case a multi-space archive creates and a single-space one never would: two organisations
+    // that were deliberately apart, imported in one go, must stay apart.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let imported = import_two_spaces(&app, fx.alice).await;
+    let cookie = app.cookie_for(imported.insider).await;
+
+    let spaces: Value = app
+        .req(reqwest::Method::GET, "/api/v1/me/spaces", &cookie)
+        .send()
+        .await
+        .expect("spaces")
+        .json()
+        .await
+        .expect("json");
+    let listed: Vec<String> = spaces
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|space| space["id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert!(
+        listed.contains(&imported.first_space.to_string()),
+        "their own space is there"
+    );
+    assert!(
+        !listed.contains(&imported.second_space.to_string()),
+        "the other organisation's space is not"
+    );
+
+    let messages = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", imported.second_private),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("messages");
+    assert!(
+        messages.status() == 404 || messages.status() == 403,
+        "read across two imported spaces, got {}",
+        messages.status()
+    );
+
+    std::fs::remove_dir_all(&imported.dir).ok();
+}
+
+#[tokio::test]
+async fn an_imported_private_channel_stays_private_to_its_members() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let imported = import_two_spaces(&app, fx.alice).await;
+
+    // The other side is already a member of the first space, and not because anybody put them
+    // there: they share a direct conversation that lives in it, and being in a conversation means
+    // being in its space. So the space is shared and the private room is not, which is exactly the
+    // distinction an import must not blur.
+    assert!(
+        space_members::Entity::find_by_id((imported.first_space, imported.other_side))
+            .one(&app.db)
+            .await
+            .expect("query")
+            .is_some(),
+        "the direct conversation put them in the space"
+    );
+    let cookie = app.cookie_for(imported.other_side).await;
+
+    let channels: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", imported.first_space),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    let listed: Vec<String> = channels
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|channel| channel["id"].as_str().unwrap_or_default().to_owned())
+        .collect();
+    assert!(
+        !listed.contains(&imported.first_private.to_string()),
+        "an imported private channel showed up to someone who is not in it"
+    );
+
+    let messages = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", imported.first_private),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("messages");
+    assert!(
+        messages.status() == 404 || messages.status() == 403,
+        "read an imported private channel from outside, got {}",
+        messages.status()
+    );
+
+    std::fs::remove_dir_all(&imported.dir).ok();
+}
+
+#[tokio::test]
+async fn an_imported_direct_conversation_is_between_its_two_people_only() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let imported = import_two_spaces(&app, fx.alice).await;
+
+    // Even the administrator who ran the import, and who owns the space, has no business in it.
+    let cookie = app.cookie_for(fx.alice).await;
+    let messages = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{}/messages", imported.direct),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("messages");
+    assert!(
+        messages.status() == 404 || messages.status() == 403,
+        "the importing administrator read a direct conversation they imported, got {}",
+        messages.status()
+    );
+
+    std::fs::remove_dir_all(&imported.dir).ok();
+}
+
+/// The people an import brought over survive the screen that started it.
+///
+/// An import of any size outlives the screen: the administrator closes it, comes back, and the
+/// plan that named those people is gone. Without this they could no longer send the invitations,
+/// which is the one thing left to do at the end.
+#[tokio::test]
+async fn the_people_an_import_brought_can_be_read_back_from_the_server() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let mut admin: users::ActiveModel = users::Entity::find_by_id(fx.alice)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("alice")
+        .into();
+    admin.is_instance_admin = Set(true);
+    admin.update(&app.db).await.expect("promote");
+    let cookie = app.cookie_for(fx.alice).await;
+
+    let job = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(job, "mattermost");
+    let zoe = make_user(&app.db, "Zoe Imported").await;
+    let adam = make_user(&app.db, "Adam Imported").await;
+    let zoe_ref = unique_ref("zoe");
+    let adam_ref = unique_ref("adam");
+    mapper
+        .record(&app.db, KIND_USER, &zoe_ref, None, zoe)
+        .await
+        .expect("mapping");
+    mapper
+        .record(&app.db, KIND_USER, &adam_ref, None, adam)
+        .await
+        .expect("mapping");
+
+    let response = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/imports/{job}/people"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("people");
+    assert_eq!(response.status(), 200);
+    let body: Value = response.json().await.expect("json");
+    let people = body.as_array().expect("a list");
+    let ours: Vec<&Value> = people
+        .iter()
+        .filter(|person| {
+            let id = person["source_id"].as_str().unwrap_or_default();
+            id == zoe_ref || id == adam_ref
+        })
+        .collect();
+    assert_eq!(
+        ours.len(),
+        2,
+        "both, and read back by their source identifier"
+    );
+    assert_eq!(
+        ours[0]["source_id"].as_str(),
+        Some(adam_ref.as_str()),
+        "ordered the way a list of people is read"
+    );
+    assert!(
+        ours[0]["email"].as_str().unwrap_or_default().contains('@'),
+        "with the address an invitation would go to"
+    );
+    assert_eq!(
+        ours[0]["invited"],
+        json!(false),
+        "nobody has been written to"
+    );
+
+    // Somebody the archive carried without an address has one here, because the column demands it,
+    // and it can receive nothing. It must read as an absence, or the screen offers to write to it.
+    let nameless = Uuid::new_v4();
+    users::ActiveModel {
+        id: Set(nameless),
+        email: Set(format!(
+            "u404+{}{}",
+            nameless.simple(),
+            run::NO_ADDRESS_DOMAIN
+        )),
+        display_name: Set("Sans Adresse".to_owned()),
+        password_hash: Set(None),
+        status: Set("pending".to_owned()),
+        mfa_enforced: Set(false),
+        is_bot: Set(false),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("user");
+    let nameless_ref = unique_ref("nameless");
+    mapper
+        .record(&app.db, KIND_USER, &nameless_ref, None, nameless)
+        .await
+        .expect("mapping");
+
+    let body: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/imports/{job}/people"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("people")
+        .json()
+        .await
+        .expect("json");
+    let theirs = body
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|person| person["source_id"].as_str() == Some(nameless_ref.as_str()))
+        .expect("the person with no address");
+    assert_eq!(theirs["email"], json!(""), "no address to offer");
+
+    // And the rule the invitation route applies, which cannot be exercised through the route here:
+    // an instance with no mail relay refuses the whole request before looking at anybody.
+    assert!(run::unreachable(&format!(
+        "someone{}",
+        run::NO_ADDRESS_DOMAIN
+    )));
+    assert!(run::unreachable("   "));
+    assert!(!run::unreachable("someone@example.org"));
+}
+
+#[tokio::test]
+async fn the_import_surface_does_not_exist_for_anyone_but_an_instance_administrator() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let cookie = app.cookie_for(fx.bob).await;
+
+    for (method, path) in [
+        (reqwest::Method::GET, "/api/v1/imports".to_owned()),
+        (reqwest::Method::POST, "/api/v1/imports/plan".to_owned()),
+        (
+            reqwest::Method::GET,
+            format!("/api/v1/imports/{}", Uuid::new_v4()),
+        ),
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/imports/{}/cancel", Uuid::new_v4()),
+        ),
+        (
+            reqwest::Method::GET,
+            format!("/api/v1/imports/{}/people", Uuid::new_v4()),
+        ),
+    ] {
+        let response = app
+            .req(method.clone(), &path, &cookie)
+            .json(&json!({"file": "whatever"}))
+            .send()
+            .await
+            .expect("request");
+        // 404 and not 403: to everyone else this surface does not exist, and a refusal that told
+        // them apart would confirm there is something here to attack.
+        assert_eq!(response.status(), 404, "{method} {path}");
+    }
+}
+
+#[tokio::test]
+async fn an_administrator_cannot_have_the_api_read_a_file_outside_the_import_directory() {
+    // An administrator is trusted with the instance, not handed a way to make the API open any file
+    // on the machine and report what it found.
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let mut admin: users::ActiveModel = users::Entity::find_by_id(fx.alice)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("alice")
+        .into();
+    admin.is_instance_admin = Set(true);
+    admin.update(&app.db).await.expect("promote");
+    let cookie = app.cookie_for(fx.alice).await;
+
+    for file in ["../../etc/passwd", "/etc/passwd", ".ssh/id_ed25519", "a/b"] {
+        let response = app
+            .req(reqwest::Method::POST, "/api/v1/imports/plan", &cookie)
+            .json(&json!({"file": file}))
+            .send()
+            .await
+            .expect("request");
+        assert_eq!(response.status(), 400, "{file} should be refused as a path");
+        let body: Value = response.json().await.expect("json");
+        // Refused as a path, not because the directory happens to be unset: those are the same
+        // status for different reasons, and only one of them is the guard doing its job.
+        assert!(
+            body["message"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("not a path"),
+            "{file} was refused for the wrong reason: {body}"
+        );
+    }
+
+    // And a plain name gets past the guard, so the test above is not passing because everything
+    // is refused.
+    let response = app
+        .req(reqwest::Method::POST, "/api/v1/imports/plan", &cookie)
+        .json(&json!({"file": "no-such-archive"}))
+        .send()
+        .await
+        .expect("request");
+    let body: Value = response.json().await.expect("json");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("no archive of that name"),
+        "a plain name should reach the directory, got {body}"
+    );
+}
+
+// --- Replacing the instance ----------------------------------------------------------------------
+//
+// The most destructive thing the product can do, so it is tested on a database of its own: every
+// other test in this binary runs in parallel against the shared one, and a wipe would take their
+// data with it. The guards themselves refuse before touching anything, so those are checked on the
+// shared database; only the deletion gets its own.
+
+use crate::importer::wipe;
+
+/// A database created for one test, migrated, and dropped afterwards.
+struct ScratchDb {
+    db: DatabaseConnection,
+    name: String,
+    admin_url: String,
+}
+
+impl ScratchDb {
+    async fn create() -> Option<Self> {
+        let base = std::env::var("RUCHOIR_TEST_DATABASE_URL").ok()?;
+        let name = format!("ruchoir_wipe_{}", Uuid::new_v4().simple());
+        let (prefix, _) = base.rsplit_once('/')?;
+        let admin_url = format!("{prefix}/postgres");
+
+        let admin = sea_orm::Database::connect(&admin_url).await.ok()?;
+        admin
+            .execute_raw(Statement::from_string(
+                DatabaseBackend::Postgres,
+                format!("CREATE DATABASE \"{name}\""),
+            ))
+            .await
+            .ok()?;
+        drop(admin);
+
+        let db = sea_orm::Database::connect(&format!("{prefix}/{name}"))
+            .await
+            .ok()?;
+        Migrator::up(&db, None).await.ok()?;
+        Some(Self {
+            db,
+            name,
+            admin_url,
+        })
+    }
+
+    async fn drop_it(self) {
+        let Self {
+            db,
+            name,
+            admin_url,
+        } = self;
+        drop(db);
+        if let Ok(admin) = sea_orm::Database::connect(&admin_url).await {
+            let _ = admin
+                .execute_raw(Statement::from_string(
+                    DatabaseBackend::Postgres,
+                    format!("DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)"),
+                ))
+                .await;
+        }
+    }
+}
+
+/// A restart must not leave an import running for ever.
+///
+/// The run lives in a task inside the process. Restart the server and the task is gone, but the
+/// row still said "running": the screen watched a bar that would never move again, and nothing
+/// said why.
+///
+/// On its own database, like the wipe tests and for the same reason: the sweep closes every
+/// running job it finds, and on the shared one that would be another test's import.
+#[tokio::test]
+async fn a_restart_closes_the_imports_that_were_running() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let job = run::start_job(&scratch.db, "mattermost", admin, None, "{}")
+        .await
+        .expect("job");
+    assert!(run::one_is_running(&scratch.db).await.expect("query"));
+
+    let closed = run::close_abandoned_jobs(&scratch.db).await.expect("close");
+    assert_eq!(closed, 1);
+    assert!(
+        !run::one_is_running(&scratch.db).await.expect("query"),
+        "and a new import is possible again"
+    );
+
+    let after = crate::entities::import_jobs::Entity::find_by_id(job)
+        .one(&scratch.db)
+        .await
+        .expect("query")
+        .expect("job");
+    assert_eq!(after.status, "failed");
+    assert!(
+        after.error.unwrap_or_default().contains("restarted"),
+        "the reason has to say what happened, in words the administrator can act on"
+    );
+    assert!(after.finished_at.is_some());
+    scratch.drop_it().await;
+}
+
+/// Two at once would write over each other's progress and race on the same accounts.
+#[tokio::test]
+async fn one_import_at_a_time() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    assert!(!run::one_is_running(&scratch.db).await.expect("query"));
+    run::start_job(&scratch.db, "mattermost", admin, None, "{}")
+        .await
+        .expect("job");
+    assert!(run::one_is_running(&scratch.db).await.expect("query"));
+
+    // A finished one does not hold the door.
+    run::finish_job(
+        &scratch.db,
+        run::start_job(&scratch.db, "mattermost", admin, None, "{}")
+            .await
+            .expect("second"),
+        "completed",
+    )
+    .await
+    .expect("finish");
+    assert!(run::one_is_running(&scratch.db).await.expect("query"));
+    run::close_abandoned_jobs(&scratch.db).await.expect("close");
+    assert!(!run::one_is_running(&scratch.db).await.expect("query"));
+    scratch.drop_it().await;
+}
+
+/// A correspondence remembered for a row that has since gone.
+async fn remember(db: &DatabaseConnection, job: Uuid, kind: &str, external: &str, internal: Uuid) {
+    crate::entities::import_mappings::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        job_id: Set(job),
+        space_id: Set(None),
+        source: Set("synthetic".to_owned()),
+        kind: Set(kind.to_owned()),
+        external_ref: Set(external.to_owned()),
+        internal_id: Set(internal),
+        created_at: Set(OffsetDateTime::now_utc()),
+    }
+    .insert(db)
+    .await
+    .expect("mapping");
+}
+
+async fn mappings(db: &DatabaseConnection) -> Vec<crate::entities::import_mappings::Model> {
+    crate::entities::import_mappings::Entity::find()
+        .all(db)
+        .await
+        .expect("query")
+}
+
+/// An import run after the rows it once wrote have gone must not believe they are still here.
+///
+/// Found on the production instance: an archive imported, the instance replaced, the same source
+/// imported again. The second run recognised the first one's spaces from their correspondences,
+/// hung its first conversation off one of them, and failed on the foreign key - on every run.
+#[tokio::test]
+async fn an_import_forgets_the_correspondences_whose_row_is_gone() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let (kept, _) = crate::messaging::spaces::create_owned_space(&scratch.db, "Gardé", admin)
+        .await
+        .expect("space");
+    let job = run::start_job(&scratch.db, "synthetic", admin, None, "{}")
+        .await
+        .expect("job");
+    remember(&scratch.db, job, run::KIND_SPACE, "gardé", kept).await;
+    remember(&scratch.db, job, run::KIND_SPACE, "parti", Uuid::new_v4()).await;
+    remember(&scratch.db, job, run::KIND_USER, "admin", admin).await;
+    remember(&scratch.db, job, run::KIND_USER, "parti", Uuid::new_v4()).await;
+    remember(&scratch.db, job, run::KIND_CHANNEL, "parti", Uuid::new_v4()).await;
+    remember(&scratch.db, job, run::KIND_MESSAGE, "parti", Uuid::new_v4()).await;
+    remember(&scratch.db, job, run::KIND_FILE, "parti", Uuid::new_v4()).await;
+
+    let forgotten = run::forget_vanished(&scratch.db).await.expect("forget");
+    assert_eq!(forgotten, 5, "one of each kind pointed at nothing");
+
+    let mut left: Vec<String> = mappings(&scratch.db)
+        .await
+        .into_iter()
+        .map(|m| format!("{}:{}", m.kind, m.external_ref))
+        .collect();
+    left.sort();
+    assert_eq!(
+        left,
+        vec![
+            format!("{}:gardé", run::KIND_SPACE),
+            format!("{}:admin", run::KIND_USER)
+        ],
+        "and what still exists is still recognised, or a re-run would import it twice"
+    );
+    assert_eq!(
+        run::forget_vanished(&scratch.db).await.expect("again"),
+        0,
+        "nothing left to forget the second time"
+    );
+    scratch.drop_it().await;
+}
+
+/// Replacing the instance empties it for the import that follows, and that includes what earlier
+/// imports remembered: kept, it tells that import that everything is already here.
+#[tokio::test]
+async fn a_replacement_forgets_what_earlier_imports_remembered() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+    let (space, _) = crate::messaging::spaces::create_owned_space(&scratch.db, "Ancien", bystander)
+        .await
+        .expect("space");
+    let job = run::start_job(&scratch.db, "synthetic", admin, None, "{}")
+        .await
+        .expect("job");
+    run::finish_job(&scratch.db, job, "completed")
+        .await
+        .expect("finish");
+    remember(&scratch.db, job, run::KIND_SPACE, "ancien", space).await;
+    remember(&scratch.db, job, run::KIND_USER, "bystander", bystander).await;
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org/",
+    )
+    .await
+    .expect("replacement");
+
+    assert!(
+        mappings(&scratch.db).await.is_empty(),
+        "no correspondence may outlive the rows it points at"
+    );
+    scratch.drop_it().await;
+}
+
+async fn record_backup(db: &DatabaseConnection, when: OffsetDateTime) {
+    crate::entities::instance_events::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        kind: Set("backup_taken".to_owned()),
+        occurred_at: Set(when),
+        actor_id: Set(None),
+        detail: Set("{}".to_owned()),
+    }
+    .insert(db)
+    .await
+    .expect("backup event");
+}
+
+async fn make_admin(db: &DatabaseConnection) -> Uuid {
+    let id = make_user(db, "wipe-admin").await;
+    let mut model: users::ActiveModel = users::Entity::find_by_id(id)
+        .one(db)
+        .await
+        .expect("query")
+        .expect("user")
+        .into();
+    model.is_instance_admin = Set(true);
+    model.update(db).await.expect("promote");
+    id
+}
+
+#[tokio::test]
+async fn a_replacement_keeps_the_account_that_ordered_it_and_its_rights() {
+    // The invariant the whole file rests on. Without it the administrator loses their session
+    // mid-run and can neither resume, cancel, nor read what happened.
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+    let (space, _) = crate::messaging::spaces::create_owned_space(&scratch.db, "Ancien", bystander)
+        .await
+        .expect("space");
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    let destroyed = wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org/",
+    )
+    .await
+    .expect("replacement");
+
+    assert!(destroyed.spaces >= 1);
+    assert!(destroyed.space_names.iter().any(|name| name == "Ancien"));
+
+    let survivor = users::Entity::find_by_id(admin)
+        .one(&scratch.db)
+        .await
+        .expect("query")
+        .expect("the administrator survives");
+    assert!(
+        survivor.is_instance_admin,
+        "and keeps the rights that let them do it"
+    );
+    assert!(
+        users::Entity::find_by_id(bystander)
+            .one(&scratch.db)
+            .await
+            .expect("query")
+            .is_none(),
+        "everyone else is gone"
+    );
+    assert!(
+        spaces::Entity::find_by_id(space)
+            .one(&scratch.db)
+            .await
+            .expect("query")
+            .is_none(),
+        "and so is every space"
+    );
+
+    scratch.drop_it().await;
+}
+
+#[tokio::test]
+async fn a_replacement_leaves_a_record_of_itself_that_it_cannot_erase() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    make_user(&scratch.db, "bystander").await;
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org",
+    )
+    .await
+    .expect("replacement");
+
+    let record = crate::entities::instance_events::Entity::find()
+        .filter(crate::entities::instance_events::Column::Kind.eq("instance_replaced"))
+        .one(&scratch.db)
+        .await
+        .expect("query")
+        .expect("the only account of it left");
+    assert_eq!(record.actor_id, Some(admin));
+    // What was destroyed, in the record, because everything that could have said so is gone.
+    assert!(record.detail.contains("accounts"), "got {}", record.detail);
+
+    scratch.drop_it().await;
+}
+
+#[tokio::test]
+async fn a_replacement_without_the_address_typed_exactly_destroys_nothing() {
+    // On a database of its own, like every test in this section, and for a reason learned the hard
+    // way: a guard test that gets one case wrong does not fail, it wipes the database every other
+    // test is using. Destructive code is never pointed at shared state, not even to watch it refuse.
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+    record_backup(&scratch.db, OffsetDateTime::now_utc()).await;
+
+    for typed in [
+        "",
+        "ruchoir",
+        "RUCHOIR.EXAMPLE.ORG",
+        "https://ruchoir.example.org",
+        "ruchoir.example.org.evil.test",
+    ] {
+        let outcome =
+            wipe::replace_instance(&scratch.db, admin, typed, "https://ruchoir.example.org").await;
+        assert!(outcome.is_err(), "{typed:?} should not be accepted");
+    }
+
+    assert!(
+        users::Entity::find_by_id(bystander)
+            .one(&scratch.db)
+            .await
+            .expect("query")
+            .is_some(),
+        "a refused replacement touches nothing"
+    );
+
+    scratch.drop_it().await;
+}
+
+#[tokio::test]
+async fn a_replacement_without_a_recent_backup_is_refused() {
+    // The only guard that makes this reversible. Without it the operation is simply destruction,
+    // and a guard that trusted a checkbox would be decoration.
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    let admin = make_admin(&scratch.db).await;
+    let bystander = make_user(&scratch.db, "bystander").await;
+
+    let outcome = wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org",
+    )
+    .await;
+    assert!(
+        outcome.is_err(),
+        "no backup has ever been recorded, so no replacement"
+    );
+
+    // One from last week, which is not a backup of what is here now.
+    record_backup(
+        &scratch.db,
+        OffsetDateTime::now_utc() - time::Duration::days(7),
+    )
+    .await;
+    let outcome = wipe::replace_instance(
+        &scratch.db,
+        admin,
+        "ruchoir.example.org",
+        "https://ruchoir.example.org",
+    )
+    .await;
+    assert!(outcome.is_err(), "a week-old backup is not a recent one");
+
+    assert!(
+        users::Entity::find_by_id(bystander)
+            .one(&scratch.db)
+            .await
+            .expect("query")
+            .is_some(),
+        "a refused replacement touches nothing"
+    );
+
+    scratch.drop_it().await;
+}
+
+#[tokio::test]
+async fn what_a_replacement_would_destroy_is_counted_before_anything_happens() {
+    let Some(scratch) = ScratchDb::create().await else {
+        return;
+    };
+    make_admin(&scratch.db).await;
+    let someone = make_user(&scratch.db, "someone").await;
+    crate::messaging::spaces::create_owned_space(&scratch.db, "Comptabilité", someone)
+        .await
+        .expect("space");
+
+    let dying = wipe::what_would_be_destroyed(&scratch.db)
+        .await
+        .expect("count");
+    assert_eq!(dying.spaces, 1);
+    assert_eq!(dying.accounts, 2);
+    // Names, not only a number: one does not destroy a number.
+    assert_eq!(dying.space_names, vec!["Comptabilité".to_string()]);
+
+    scratch.drop_it().await;
 }

@@ -1,15 +1,16 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useRef, useState } from "react";
-import { Avatar, Badge, Icon, IconButton, Input, Popover, Tag } from "@/components/ds";
+import { Avatar, Badge, Icon, IconButton, Input, Popover, Tag, type TagTone } from "@/components/ds";
 import type { Channel, DirectMessage, Workspace } from "@/lib/data";
 import { MenuPopover } from "./MenuPopover";
 import { NotificationCenter } from "./NotificationCenter";
 import type { AppNotification, ChannelNotifPref } from "./notifications";
+import type { ImportTicker } from "./importRun";
 import type { AppView, Toast } from "./types";
 import { Wordmark } from "./Wordmark";
 import { getAvatar } from "@/lib/data";
-import { useTranslation } from "@/lib/i18n";
+import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
   side: {
@@ -122,6 +123,19 @@ const menuItemStyle: CSSProperties = {
   fontSize: 13,
   textAlign: "left",
   cursor: "pointer",
+};
+
+/** How a finished import reads in the sidebar: its own word, in its own colour. */
+const ENDED_TONE: Record<string, TagTone> = {
+  running: "accent",
+  completed: "success",
+  failed: "danger",
+  cancelled: "warning",
+};
+const ENDED_LABEL: Record<string, TranslationKey> = {
+  completed: key("import.done"),
+  failed: key("import.interrupted"),
+  cancelled: key("import.stopped"),
 };
 
 type SideItemProps = {
@@ -269,6 +283,21 @@ export type SidebarProps = {
    * it was a door that opened onto somebody else's job.
    */
   canAdministerSpace: boolean;
+  /**
+   * Whether the caller administers the instance, which is a different and larger thing: bringing a
+   * workspace over creates spaces and accounts, so the entry is offered here only to them and is
+   * absent, not disabled, for everyone else. The routes behind it answer 404 to anybody else.
+   */
+  canImport: boolean;
+  /**
+   * The import going on right now, when there is one.
+   *
+   * An import outlives the screen that started it, so while it runs its state belongs somewhere
+   * always in sight. Null when nothing is happening, which is nearly always.
+   */
+  importRun?: ImportTicker | null;
+  /** Open the screen that brings a workspace over from another product. */
+  onImport: () => void;
   onNewMessage: () => void;
   /** Pin or unpin a channel in the caller's own sidebar. */
   onToggleFavorite: (id: string) => void;
@@ -315,6 +344,9 @@ export function Sidebar({
   onNewChannel,
   canBrowseSpace,
   canAdministerSpace,
+  canImport,
+  importRun,
+  onImport,
   onNewMessage,
   onToggleFavorite,
   onGlobalSearch,
@@ -589,15 +621,44 @@ export function Sidebar({
           </>
         ) : null}
 
-        {showFooter && canAdministerSpace ? (
+        {showFooter && (canAdministerSpace || canImport) ? (
           <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
-            {/*
-              The import entry is deliberately absent: no importer exists yet, so offering it
-              promises a migration the product cannot perform. The dialog behind it is kept intact
-              and this line comes back with the first real importer, listing only the sources that
-              are actually supported by then.
-            */}
-            <SideItem icon="settings" label={t("sidebar.spaceSettings")} active={view === "settings"} onClick={() => onView("settings")} />
+            {canAdministerSpace ? (
+              <SideItem icon="settings" label={t("sidebar.spaceSettings")} active={view === "settings"} onClick={() => onView("settings")} />
+            ) : null}
+            {/* Last, and below the rule: it is done once, by one person, and then never again. */}
+            {canImport ? (
+              <>
+                <SideItem
+                  icon="import"
+                  label={t(key("import.screenTitle"))}
+                  active={view === "import"}
+                  onClick={onImport}
+                  tag={
+                    importRun ? (
+                      <Tag tone={ENDED_TONE[importRun.running ? "running" : importRun.job.status] ?? "warning"}>
+                        {!importRun.running
+                          ? t(ENDED_LABEL[importRun.job.status] ?? key("import.stopped"))
+                          : importRun.share === null
+                            ? t(key("import.reading"))
+                            : t(key("import.percent"), { value: importRun.share })}
+                      </Tag>
+                    ) : undefined
+                  }
+                />
+                {/* The bar is the same one the import screen shows, thinned down: the same shape for
+                    the same thing, so the entry reads as that run rather than as a second reading of
+                    it. The tag above already says it in words, which is what a reader hears. */}
+                {importRun?.running ? (
+                  <div
+                    className={`wc-imp-bar wc-imp-bar--thin${importRun.share === null ? " wc-imp-bar--waiting" : ""}`}
+                    aria-hidden
+                  >
+                    <span style={{ width: `${importRun.share ?? 0}%` }} />
+                  </div>
+                ) : null}
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>

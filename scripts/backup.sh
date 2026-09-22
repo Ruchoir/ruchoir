@@ -127,6 +127,23 @@ trap 'rm -rf "$work"' EXIT
 size="$(du -h "$archive" | cut -f1)"
 echo "wrote $archive ($size)"
 
+# Record it where the API can see it. The API cannot look at this directory, and one decision
+# depends on knowing a backup exists: an import can wipe the instance before refilling it, and it
+# refuses to do so without a recent one. Written only now, after the archive and its checksum are
+# on disk, so a failed backup never leaves a row claiming otherwise.
+bytes="$(stat -c %s "$archive")"
+detail="$(printf '{"archive":"%s","bytes":%s}' "$(basename "$archive")" "$bytes")"
+if compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$pg_user" -d "$pg_db" \
+    -c "INSERT INTO instance_events (id, kind, occurred_at, actor_id, detail)
+        VALUES (gen_random_uuid(), 'backup_taken', now(), NULL, '$detail');" >/dev/null 2>&1; then
+  say "recorded the backup in the instance's own log"
+else
+  # Not fatal: the backup itself is on disk, which is what matters. But say so, because a
+  # replacement will refuse to run without this row and the reason would otherwise be a mystery.
+  echo "warning: the backup was written but could not be recorded in the database;" >&2
+  echo "         an instance replacement will refuse to run until a recorded backup exists" >&2
+fi
+
 if [ "$keep" -gt 0 ]; then
   # Oldest first, keep the newest `keep`. Names sort chronologically because the stamp is ISO basic.
   mapfile -t old < <(ls -1 "$backup_dir"/ruchoir-*.tar.gz.enc 2>/dev/null | head -n "-$keep")

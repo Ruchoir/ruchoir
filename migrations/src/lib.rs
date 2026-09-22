@@ -23,6 +23,9 @@ mod m20260912_000001_instance_admin;
 mod m20260912_000002_instance_settings;
 mod m20260912_000003_user_locale;
 mod m20260912_000004_channel_role_access;
+mod m20260913_000001_import_jobs;
+mod m20260913_000002_instance_events;
+mod m20260913_000003_generated_source;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -48,6 +51,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260912_000002_instance_settings::Migration),
             Box::new(m20260912_000003_user_locale::Migration),
             Box::new(m20260912_000004_channel_role_access::Migration),
+            Box::new(m20260913_000001_import_jobs::Migration),
+            Box::new(m20260913_000002_instance_events::Migration),
+            Box::new(m20260913_000003_generated_source::Migration),
         ]
     }
 }

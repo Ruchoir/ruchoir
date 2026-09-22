@@ -14,6 +14,7 @@ mod db;
 mod entities;
 mod files;
 mod http;
+mod importer;
 mod messaging;
 mod openapi;
 mod realtime;
@@ -64,6 +65,19 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     // the explicit, production-safe path. Regular startup serves the app.
     let subcommand = std::env::args().nth(1);
 
+    // `ruchoir-api import-check <archive> [passphrase]` reads an archive and reports whether it
+    // holds together. Dispatched before the database is touched, because checking an export has
+    // nothing to do with a running instance: an administrator does it on the machine that produced
+    // the file, before uploading gigabytes only to be told no.
+    if subcommand.as_deref() == Some("import-check") {
+        let path = std::env::args()
+            .nth(2)
+            .ok_or("usage: import-check <archive> [passphrase]")?;
+        let passphrase = std::env::args().nth(3);
+        return importer::check_command(std::path::Path::new(&path), passphrase.as_deref())
+            .map_err(|e| e.into());
+    }
+
     let db = db::connect(&config).await?;
     tracing::info!("connected to PostgreSQL");
 
@@ -92,6 +106,36 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    // `ruchoir-api import <archive> <administrator address> [passphrase]` runs a whole import from
+    // a file already on the server: the path for an archive too large to upload, on a machine the
+    // administrator already has a shell on. Migrations first, so a fresh instance can be filled in
+    // two commands.
+    if subcommand.as_deref() == Some("import") {
+        let path = std::env::args()
+            .nth(2)
+            .ok_or("usage: import <archive> <administrator address> [passphrase]")?;
+        let admin = std::env::args()
+            .nth(3)
+            .ok_or("usage: import <archive> <administrator address> [passphrase]")?;
+        let passphrase = std::env::args().nth(4);
+        Migrator::up(&db, None).await?;
+        let storage = if config.s3_enabled() {
+            storage::S3Store::from_config(&config).ok()
+        } else {
+            None
+        };
+        return importer::import_command(
+            &db,
+            storage.as_ref(),
+            std::path::Path::new(&path),
+            &admin,
+            passphrase.as_deref(),
+            config.thumbnail_max_px,
+        )
+        .await
+        .map_err(|e| e.into());
+    }
+
     // In development the API applies pending migrations on boot for convenience. Production sets
     // RUCHOIR_AUTO_MIGRATE=false and runs the `migrate` subcommand explicitly before deploying.
     if config.auto_migrate {
@@ -101,6 +145,15 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     let valkey = cache::connect(&config).await?;
     tracing::info!("connected to Valkey");
+
+    // An import runs in a task inside this process, so anything still marked as running when we
+    // get here is something no task is behind any more. Said now, before a screen can watch a bar
+    // that would never move again.
+    match importer::run::close_abandoned_jobs(&db).await {
+        Ok(0) => {}
+        Ok(closed) => tracing::warn!(closed, "imports were interrupted by a restart"),
+        Err(error) => tracing::warn!(%error, "could not close interrupted imports"),
+    }
 
     // Real-time hub: opens a dedicated pub/sub subscriber and starts the fan-out loop.
     let hub = realtime::Hub::start(&config, valkey.clone()).await?;

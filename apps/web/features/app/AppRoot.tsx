@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getPresence, setChannelMembers, setCurrentUser, setUserPresence } from "@/lib/data";
+import { getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
 import {
   acceptInvitation,
   addReaction,
@@ -89,6 +89,8 @@ import { LoginScreen } from "@/features/auth/LoginScreen";
 import { SignupScreen, type SignupValues } from "@/features/auth/SignupScreen";
 import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
 import { ForgotPasswordScreen } from "@/features/auth/ForgotPasswordScreen";
+import { ImportScreen } from "./ImportScreen";
+import { useRunningImport } from "./importRun";
 import { InstanceAdminScreen } from "./InstanceAdmin";
 import { NotificationPrompt } from "./NotificationPrompt";
 import { initialLocale, key, type TranslationKey, useTranslation } from "@/lib/i18n";
@@ -336,6 +338,16 @@ function AppShell() {
   // boot below, so nothing renders against an empty name.
   const [session, setSession] = useState<SessionUser | null>(null);
   const currentUser = session?.name ?? "";
+  // An import runs in the server and outlives the screen that started it. Watched from up here so
+  // that the sidebar can show it whatever the caller is doing, and only for the administrators who
+  // are allowed to ask.
+  const {
+    run: importRun,
+    clear: clearImportRun,
+    refresh: refreshImportRun,
+  } = useRunningImport(session?.isInstanceAdmin === true);
+  /** Whether the import screen was opened to see a finished run rather than to start one. */
+  const [importDetail, setImportDetail] = useState(false);
   // Boot lifecycle: `booting` covers the initial session check and data load; `bootError` holds a
   // fatal load failure (the API being unreachable), distinct from a 401 which sends us to the login.
   const [booting, setBooting] = useState(true);
@@ -1446,6 +1458,12 @@ function AppShell() {
       if (presence[m.userId]) setUserPresence(m.name, presence[m.userId]);
     }
   }, [memberRecords, members, presence]);
+
+  // The rooms a `#name` can point at: the channels of this space, which is what the composer
+  // offers and what the renderer turns into a link.
+  useEffect(() => {
+    setSpaceRooms(channels.map((c) => c.name));
+  }, [channels]);
   const people = memberRecords;
 
   /**
@@ -2004,6 +2022,22 @@ function AppShell() {
     setRailOpen(false);
   };
 
+  /**
+   * Bringing a workspace over from another product. Full-screen like the administration screen, and
+   * for the same reason: it is about the instance, never about the space underneath.
+   */
+  const openImport = () => {
+    setModal(null);
+    // Opening the screen is how the end of a run is acknowledged: the sidebar stops announcing it.
+    // Opened from a run that has ended, it opens on that run, since that is what was clicked.
+    setImportDetail(importRun !== null && !importRun.running);
+    clearImportRun();
+    if (view !== "import") setPrevView(view);
+    setView("import");
+    setMobileContent(true);
+    setRailOpen(false);
+  };
+
   const openPreferences = (tab: PrefTab = "appearance") => {
     setModal(null);
     setPrefsTab(tab);
@@ -2216,6 +2250,12 @@ function AppShell() {
       setThread(null);
     },
     message: (name: string) => openDmByName(name),
+    // A `#room` written in a message opens that room. Only the channels of this space can be
+    // named, which is also all the composer offers, so an unknown name simply is not a link.
+    openRoom: (name: string) => {
+      const room = channels.find((c) => c.name === name);
+      if (room) openChannel(room.id);
+    },
     toggleSave: (messageId: string) => {
       const conv = channelId;
       const target = (messages[conv] ?? []).find((x) => x.id === messageId);
@@ -3004,7 +3044,11 @@ function AppShell() {
   }
 
   const wsName = workspaces.find((w) => w.id === ws)?.name ?? "espace";
-  const contentTitle = view === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (VIEW_TITLES[view] ? t(VIEW_TITLES[view]) : wsName);
+  // The import is a modal now, not a full screen, so the app has to stay drawn behind it rather than
+  // going blank. The content pane and its title fall back to whatever view the import was opened
+  // over. Prefs and instance admin still replace the screen, so they are not folded in here.
+  const contentView = view === "import" ? prevView : view;
+  const contentTitle = contentView === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (VIEW_TITLES[contentView] ? t(VIEW_TITLES[contentView]) : wsName);
   const mobileTabs = [
     { id: "channels", label: t("tabs.channels"), icon: "hash" },
     { id: "messages", label: t("tabs.messages"), icon: "message-square" },
@@ -3077,6 +3121,9 @@ function AppShell() {
         // channel, no invitation. The API refuses all three; this keeps them off the column.
         canBrowseSpace={currentWorkspace?.role !== "guest"}
         canAdministerSpace={canAdministerSpace}
+        canImport={session?.isInstanceAdmin === true}
+        importRun={importRun}
+        onImport={openImport}
         onNewMessage={() => setModal("newMessage")}
         onGlobalSearch={() => setModal("search")}
         onLeaveChannel={leaveChannel}
@@ -3115,7 +3162,7 @@ function AppShell() {
       {/* No conversation at all: a space just created, the last one left, or a guest nobody has added
           to anything yet. The screen used to draw a channel that did not exist, named from a
           fallback string, with a composer that would have failed on send. */}
-      {view === "channel" && !channelId ? (
+      {contentView === "channel" && !channelId ? (
         <EmptyState
           icon="message-square"
           // A heading and not a line of text: this *is* the view's title while there is nothing to
@@ -3129,7 +3176,7 @@ function AppShell() {
           }
         />
       ) : null}
-      {view === "channel" && channelId ? (
+      {contentView === "channel" && channelId ? (
         <ChannelScreen
           editing={editing}
           onSaveEdit={saveEdit}
@@ -3174,7 +3221,7 @@ function AppShell() {
           actions={messageActions}
         />
       ) : null}
-      {view === "files" ? (
+      {contentView === "files" ? (
         <FilesScreen
           spaceId={ws}
           workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
@@ -3183,7 +3230,7 @@ function AppShell() {
           onNotify={showToast}
         />
       ) : null}
-      {view === "settings" ? (
+      {contentView === "settings" ? (
         <WorkspaceSettings
           // Keyed by the space: the screen holds the name being edited in its own state, seeded once
           // from the space it was opened on. Without this, switching space left the previous name in
@@ -3222,9 +3269,9 @@ function AppShell() {
           onLeave={() => setModal("leaveSpace")}
         />
       ) : null}
-      {view === "threads" ? <ActivityView kind="threads" items={threads} onOpen={openMessage} /> : null}
-      {view === "mentions" ? <ActivityView kind="mentions" items={mentions} onOpen={openMessage} /> : null}
-      {view === "saved" ? <ActivityView kind="saved" items={saved} onOpen={openMessage} /> : null}
+      {contentView === "threads" ? <ActivityView kind="threads" items={threads} onOpen={openMessage} /> : null}
+      {contentView === "mentions" ? <ActivityView kind="mentions" items={mentions} onOpen={openMessage} /> : null}
+      {contentView === "saved" ? <ActivityView kind="saved" items={saved} onOpen={openMessage} /> : null}
     </main>
   );
 
@@ -3249,6 +3296,33 @@ function AppShell() {
       {view === "instance-admin" && session?.isInstanceAdmin ? (
         <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
           <InstanceAdminScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
+        </div>
+      ) : null}
+      {/* A large modal, not a page: it floats over the space it came from on a dimmed scrim, so the
+          import reads as something opened rather than somewhere navigated to. The screen keeps its
+          own top bar and scrolls inside this shell. Clicking the scrim closes it, like any dialog;
+          the run continues regardless, which is what the close button already promised. */}
+      {view === "import" && session?.isInstanceAdmin ? (
+        <div
+          className="wc-dlg__scrim"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setView(prevView);
+          }}
+        >
+          <div className="wc-dlg wc-dlg--xl" role="dialog" aria-modal="true" aria-labelledby="import-title">
+            <ImportScreen
+              openLast={importDetail}
+              onClose={() => {
+                setView(prevView);
+                // An import started here is running by the time the screen closes; the sidebar
+                // should say so now rather than at the end of its idle minute.
+                refreshImportRun();
+              }}
+              onNotify={showToast}
+              compact={compact}
+              instanceAddress={typeof window === "undefined" ? "" : window.location.host}
+            />
+          </div>
         </div>
       ) : null}
       {modal === "newChannel" ? (
@@ -3284,7 +3358,16 @@ function AppShell() {
           }}
         />
       ) : null}
-      {modal === "newWorkspace" ? <NewWorkspaceDialog onClose={() => setModal(null)} onCreate={createWorkspace} /> : null}
+      {/* The `+` offers importing only to an administrator of the instance: an import creates spaces
+          and accounts, so it is an instance-level power, and showing the door to someone who cannot
+          open it is the kind of dead control this interface has been cleaned of. */}
+      {modal === "newWorkspace" ? (
+        <NewWorkspaceDialog
+          onClose={() => setModal(null)}
+          onCreate={createWorkspace}
+          onImport={session?.isInstanceAdmin === true ? openImport : undefined}
+        />
+      ) : null}
       {removing && currentWorkspace ? (
         <RemoveMemberDialog
           spaceName={currentWorkspace.name}
@@ -3499,6 +3582,9 @@ function AppShell() {
                 onNewChannel={() => setModal("newChannel")}
                 canBrowseSpace={currentWorkspace?.role !== "guest"}
                 canAdministerSpace={canAdministerSpace}
+                canImport={session?.isInstanceAdmin === true}
+                importRun={importRun}
+                onImport={openImport}
                 onNewMessage={() => setModal("newMessage")}
                 onGlobalSearch={() => setModal("search")}
                 onLeaveChannel={leaveChannel}

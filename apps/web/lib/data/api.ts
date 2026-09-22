@@ -2050,3 +2050,293 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
     },
   };
 }
+
+// --- Bringing a workspace over from another product ----------------------------------------------
+//
+// Only an instance administrator sees any of this: every route below answers 404 to everyone else,
+// so a client that shows the screen to the wrong person shows them a screen full of errors.
+
+/** What an import would do, from `POST /imports/plan`. Nothing is written to produce it. */
+export type ImportPlan = {
+  source: string;
+  spaces: {
+    name: string;
+    outcome: "created" | "filled";
+    channels: number;
+    /** Channels of this space that are already here: they take the history rather than be created. */
+    channelsFilled: number;
+    directs: number;
+  }[];
+  accounts: {
+    total: number;
+    matched: number;
+    invitable: number;
+    withoutAddress: number;
+    people: { sourceId: string; displayName: string; email: string; outcome: string }[];
+  };
+  messages: number;
+  files: number;
+  /** The producer's own words about what it left behind. Shown in full, never summarised. */
+  limits: string[];
+  warnings: string[];
+  /** What replacing the instance would destroy, so both halves of the choice are visible at once. */
+  replacingWouldDestroy: {
+    spaces: number;
+    accounts: number;
+    messages: number;
+    spaceNames: string[];
+    lastBackup: string | null;
+    replacementAllowed: boolean;
+  };
+};
+
+/** An import, running or finished, from `GET /imports`. */
+export type ImportJob = {
+  id: string;
+  source: string;
+  status: "pending" | "analyzing" | "ready" | "running" | "cancelling" | "cancelled" | "completed" | "failed";
+  accountsDone: number;
+  accountsTotal: number;
+  channelsDone: number;
+  channelsTotal: number;
+  messagesDone: number;
+  messagesTotal: number;
+  filesDone: number;
+  filesTotal: number;
+  error: string | null;
+  /** When it ended, RFC 3339, or null while it runs. */
+  finishedAt: string | null;
+};
+
+type ImportJobDto = {
+  id: string;
+  source: string;
+  status: ImportJob["status"];
+  accounts_done: number;
+  accounts_total: number;
+  channels_done: number;
+  channels_total: number;
+  messages_done: number;
+  messages_total: number;
+  files_done: number;
+  files_total: number;
+  error: string | null;
+  finished_at: string | null;
+};
+
+function toImportJob(dto: ImportJobDto): ImportJob {
+  return {
+    id: dto.id,
+    source: dto.source,
+    status: dto.status,
+    accountsDone: dto.accounts_done,
+    accountsTotal: dto.accounts_total,
+    channelsDone: dto.channels_done,
+    channelsTotal: dto.channels_total,
+    messagesDone: dto.messages_done,
+    messagesTotal: dto.messages_total,
+    filesDone: dto.files_done,
+    filesTotal: dto.files_total,
+    error: dto.error,
+    finishedAt: dto.finished_at,
+  };
+}
+
+/** `POST /imports/plan`: what this archive would do. Writes nothing. */
+export async function planImport(file: string, passphrase?: string): Promise<ImportPlan> {
+  const dto = await apiPost<{
+    source: string;
+    spaces: {
+      name: string;
+      outcome: "created" | "filled";
+      channels: number;
+      channels_filled: number;
+      directs: number;
+    }[];
+    accounts: {
+      total: number;
+      matched: number;
+      invitable: number;
+      without_address: number;
+      people: { source_id: string; display_name: string; email: string; outcome: string }[];
+    };
+    messages: number;
+    files: number;
+    limits: string[];
+    warnings: string[];
+    replacing_would_destroy: {
+      spaces: number;
+      accounts: number;
+      messages: number;
+      space_names: string[];
+      last_backup: string | null;
+      replacement_allowed: boolean;
+    };
+  }>("/imports/plan", { file, passphrase });
+  return {
+    source: dto.source,
+    spaces: dto.spaces.map((space) => ({
+      name: space.name,
+      outcome: space.outcome,
+      channels: space.channels,
+      channelsFilled: space.channels_filled,
+      directs: space.directs,
+    })),
+    accounts: {
+      total: dto.accounts.total,
+      matched: dto.accounts.matched,
+      invitable: dto.accounts.invitable,
+      withoutAddress: dto.accounts.without_address,
+      people: dto.accounts.people.map((person) => ({
+        sourceId: person.source_id,
+        displayName: person.display_name,
+        email: person.email,
+        outcome: person.outcome,
+      })),
+    },
+    messages: dto.messages,
+    files: dto.files,
+    limits: dto.limits,
+    warnings: dto.warnings,
+    replacingWouldDestroy: {
+      spaces: dto.replacing_would_destroy.spaces,
+      accounts: dto.replacing_would_destroy.accounts,
+      messages: dto.replacing_would_destroy.messages,
+      spaceNames: dto.replacing_would_destroy.space_names,
+      lastBackup: dto.replacing_would_destroy.last_backup,
+      replacementAllowed: dto.replacing_would_destroy.replacement_allowed,
+    },
+  };
+}
+
+/**
+ * `POST /imports`: start it.
+ *
+ * `replaceInstanceAddress`, when given, empties the instance first: every space and every account
+ * except the one asking. The server checks the address, and refuses without a recent backup.
+ */
+/** What an administrator changed about one person after reading the plan. */
+export type PersonChoice = {
+  sourceId: string;
+  /** An address given or corrected by hand. Absent means the archive's own. */
+  email?: string;
+  /** Leave this person out. Their messages still arrive, with no author. */
+  skip?: boolean;
+};
+
+export async function startImport(
+  file: string,
+  passphrase?: string,
+  replaceInstanceAddress?: string,
+  people: PersonChoice[] = [],
+): Promise<ImportJob> {
+  const dto = await apiPost<ImportJobDto>("/imports", {
+    file,
+    passphrase,
+    replace_everything: replaceInstanceAddress ? { instance_address: replaceInstanceAddress } : undefined,
+    // Only the ones that changed: everyone else arrives as the archive spells them.
+    people: people.map((p) => ({ source_id: p.sourceId, email: p.email, skip: p.skip })),
+  });
+  return toImportJob(dto);
+}
+
+/** What happened when the invitations went out. */
+export type InviteOutcome = {
+  sent: number;
+  skipped: { sourceId: string; reason: string }[];
+};
+
+/**
+ * `POST /imports/{id}/invitations`: write to the people this import brought over.
+ *
+ * Separate from the import itself, and never automatic: ten thousand accounts arriving is not ten
+ * thousand emails leaving, and this is the moment somebody says who hears about it.
+ */
+export async function inviteImported(id: string, sourceIds: string[]): Promise<InviteOutcome> {
+  const dto = await apiPost<{ sent: number; skipped: { source_id: string; reason: string }[] }>(
+    `/imports/${id}/invitations`,
+    { source_ids: sourceIds },
+  );
+  return {
+    sent: dto.sent,
+    skipped: dto.skipped.map((s) => ({ sourceId: s.source_id, reason: s.reason })),
+  };
+}
+
+/** `GET /imports`: every import this instance has run, most recent first. */
+export async function listImports(signal?: AbortSignal): Promise<ImportJob[]> {
+  const dtos = await apiGet<ImportJobDto[]>("/imports", signal);
+  return dtos.map(toImportJob);
+}
+
+/** `GET /imports/{id}`: where one has got to. */
+export async function getImport(id: string, signal?: AbortSignal): Promise<ImportJob> {
+  return toImportJob(await apiGet<ImportJobDto>(`/imports/${id}`, signal));
+}
+
+/** Somebody an import brought over, read back from the server rather than from a plan. */
+export type ImportedPerson = {
+  sourceId: string;
+  displayName: string;
+  /** Empty when nobody ever gave them one: they cannot be invited by mail. */
+  email: string;
+  /** Whether an invitation has already gone to that address. */
+  invited: boolean;
+};
+
+/**
+ * `GET /imports/{id}/people`: who an import brought over.
+ *
+ * What the plan said, but from the server and after the fact, so the invitations can still be sent
+ * by a screen that was closed while the import ran and knows nothing of that plan.
+ */
+export async function listImportedPeople(id: string, signal?: AbortSignal): Promise<ImportedPerson[]> {
+  const dtos = await apiGet<
+    { source_id: string; display_name: string; email: string; invited: boolean }[]
+  >(`/imports/${id}/people`, signal);
+  return dtos.map((dto) => ({
+    sourceId: dto.source_id,
+    displayName: dto.display_name,
+    email: dto.email,
+    invited: dto.invited,
+  }));
+}
+
+/** `POST /imports/{id}/cancel`: it stops at the next conversation and keeps what it wrote. */
+export async function cancelImport(id: string): Promise<ImportJob> {
+  return toImportJob(await apiPost<ImportJobDto>(`/imports/${id}/cancel`, {}));
+}
+
+/** A one-time credential a delivery command carries, with the instance address it delivers to. */
+export type DropToken = {
+  token: string;
+  baseUrl: string;
+  expiresInSecs: number;
+};
+
+/** `POST /imports/drop-tokens`: mint a one-time token for an auto-delivery command. */
+export async function issueDropToken(): Promise<DropToken> {
+  const dto = await apiPost<{ token: string; base_url: string; expires_in_secs: number }>(
+    "/imports/drop-tokens",
+    {},
+  );
+  return { token: dto.token, baseUrl: dto.base_url, expiresInSecs: dto.expires_in_secs };
+}
+
+/** An archive sitting in the server's import directory. */
+export type ImportFile = {
+  name: string;
+  bytes: number;
+  /** Last modified, RFC 3339, or null when the filesystem would not say. */
+  modified: string | null;
+};
+
+/** `GET /imports/files`: the archives on the server, newest first - a delivery lands in this list. */
+export async function listImportFiles(signal?: AbortSignal): Promise<ImportFile[]> {
+  const dtos = await apiGet<{ name: string; bytes: number; modified: string | null }[]>(
+    "/imports/files",
+    signal,
+  );
+  return dtos.map((dto) => ({ name: dto.name, bytes: dto.bytes, modified: dto.modified }));
+}
+

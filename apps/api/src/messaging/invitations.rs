@@ -542,7 +542,7 @@ fn validate_email(address: &str) -> Result<&str, ApiError> {
 
 /// Send the invitation email. Returns whether it went out; a relay failure is logged and reported,
 /// never fatal, because the administrator can still hand over the link from the response.
-async fn send_invitation_email(
+pub(crate) async fn send_invitation_email(
     state: &AppState,
     address: &str,
     space_id: Uuid,

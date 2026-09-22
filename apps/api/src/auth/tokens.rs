@@ -18,6 +18,10 @@ use super::error::AuthError;
 pub enum TokenPurpose {
     VerifyEmail,
     PasswordReset,
+    /// A one-time credential the import screen hands to an export command, so a script running on
+    /// the source host can deliver its sealed archive straight into this instance's import
+    /// directory. Short-lived and single-use: it authorises exactly one upload and nothing else.
+    ImportDrop,
 }
 
 impl TokenPurpose {
@@ -25,6 +29,7 @@ impl TokenPurpose {
         match self {
             TokenPurpose::VerifyEmail => "verify_token:",
             TokenPurpose::PasswordReset => "reset_token:",
+            TokenPurpose::ImportDrop => "import_drop_token:",
         }
     }
 }

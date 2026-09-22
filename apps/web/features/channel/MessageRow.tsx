@@ -1,9 +1,9 @@
 "use client";
 
 import { type CSSProperties, useRef, useState } from "react";
-import { Avatar, Card, Dialog, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
-import { getCurrentUser, getMentionNames, getPresence } from "@/lib/data";
-import type { Message } from "@/lib/data";
+import { Avatar, brandFor, Card, Dialog, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
+import { getCurrentUser, getMentionNames, getPresence, getSpaceRooms } from "@/lib/data";
+import type { ImportSource, Message } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
 import { UserProfileCard } from "../app/UserProfileCard";
@@ -32,6 +32,8 @@ export type MessageActions = {
   onMessage: () => void;
   /** Open the profile of a user @-mentioned in the body. */
   onOpenMention: (name: string) => void;
+  /** Follow a `#room` written in a message, to the channel it names. */
+  onOpenRoom?: (name: string) => void;
 };
 
 const styles: Record<string, CSSProperties> = {
@@ -141,6 +143,12 @@ export type MessageRowProps = {
   /** Whether the pin entry belongs in this row's menu. See MessageMenu's own prop. */
   canPin?: boolean;
   /**
+   * The product this conversation was imported from, for the provenance badge. A message carries
+   * only that it was imported, not from where: the source belongs to the channel, and every
+   * imported message in it came the same way.
+   */
+  importedFrom?: ImportSource;
+  /**
    * This row is a reply, drawn inside a thread panel.
    *
    * A reply is a message like any other and keeps every action that acts on a message. What it
@@ -185,6 +193,7 @@ export function MessageRow({
   readAudience = 0,
   actions,
   canPin = true,
+  importedFrom,
   inThread = false,
   replyFaces,
 }: MessageRowProps) {
@@ -284,7 +293,16 @@ export function MessageRow({
             {m.author}
           </button>
           <span style={styles.time}>{formatStamp(m.createdAt)}</span>
-          {!deleted && m.imported ? <Tag icon="import">{t("common.imported")}</Tag> : null}
+          {!deleted && m.imported ? (
+            (() => {
+              const brand = brandFor(importedFrom);
+              return (
+                <Tag brand={brand ?? undefined} icon={brand ? undefined : "import"}>
+                  {t("common.imported")}
+                </Tag>
+              );
+            })()
+          ) : null}
           {!deleted && m.pinned ? (
             <Tag icon="pin" tone="accent">
               {t("message.pinnedTag")}
@@ -317,7 +335,10 @@ export function MessageRow({
           <>
             {m.body ? (
               <div style={styles.body}>
-                {renderRichText(m.body, getMentionNames(), isOwn, actions.onOpenMention, me)}
+                {renderRichText(m.body, getMentionNames(), isOwn, actions.onOpenMention, me, {
+                  names: getSpaceRooms(),
+                  onOpen: actions.onOpenRoom,
+                })}
                 {m.edited ? <span style={styles.edited}>{t("message.editedTag")}</span> : null}
               </div>
             ) : null}

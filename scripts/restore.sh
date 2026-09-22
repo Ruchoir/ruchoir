@@ -77,10 +77,29 @@ for _ in $(seq 1 30); do
   compose exec -T postgres pg_isready -U "$pg_user" -d "$pg_db" >/dev/null 2>&1 && break
   sleep 1
 done
-# --clean --if-exists drops what the archive is about to recreate, so a restore onto a live instance
-# lands on the archive's state and not on a merge of two.
-compose exec -T postgres pg_restore -U "$pg_user" -d "$pg_db" --clean --if-exists --no-owner \
-  < "$work/postgres.dump" >/dev/null
+# The schema is emptied first, rather than leaning on pg_restore --clean.
+#
+# --clean only drops what the archive itself contains, and it cannot drop a table that something
+# outside the archive points at. Restore a backup taken before a migration and the newer tables are
+# still there, still referencing `users`: every DROP fails, every COPY then hits rows that were
+# never removed, and pg_restore ends with "errors ignored on restore" and a database that is half
+# one state and half another. That happened, and the script said "Done".
+#
+# Dropping the schema outright is what makes this a restore rather than a merge. The API recreates
+# what a newer version needs when it starts, because migrations run on boot.
+compose exec -T postgres psql -U "$pg_user" -d "$pg_db" -v ON_ERROR_STOP=1 -q -c \
+  "DROP SCHEMA public CASCADE; CREATE SCHEMA public;
+   GRANT ALL ON SCHEMA public TO \"$pg_user\"; GRANT ALL ON SCHEMA public TO public;" >/dev/null
+
+# Not silenced and not ignored: a restore that only partly worked must not be reported as one that
+# worked. There is nothing left to conflict with now, so an error here is a real one.
+if ! compose exec -T postgres pg_restore -U "$pg_user" -d "$pg_db" --no-owner --exit-on-error \
+     < "$work/postgres.dump"; then
+  echo >&2
+  echo "The database was NOT restored: pg_restore stopped on an error, and the schema it was" >&2
+  echo "restoring into is now empty. Fix the cause and run this again with the same archive." >&2
+  exit 1
+fi
 
 echo "  Garage (objects and metadata)"
 compose stop garage >/dev/null 2>&1 || true
@@ -97,6 +116,34 @@ docker run --rm -v "ruchoir_valkey-data:/dst" -v "$work:/in:ro" alpine:3 \
 compose up -d valkey >/dev/null
 
 compose start api >/dev/null 2>&1 || compose up -d api >/dev/null
+
+# Waited for, not assumed: the API applies pending migrations as it boots, and the log written just
+# below lives in a table a newer version may only just have created.
+for _ in $(seq 1 60); do
+  compose exec -T postgres psql -U "$pg_user" -d "$pg_db" -tAc \
+    "SELECT to_regclass('public.instance_events')" 2>/dev/null | grep -q instance_events && break
+  sleep 1
+done
 echo
+# The archive this instance was just restored from is itself a backup that exists, and the instance
+# has no other way to know it: a backup records itself after sealing, so the archive never contains
+# its own row and a restored instance looks like one that was never backed up. That matters for one
+# decision, the replacement guard, which would refuse for a reason nobody could work out. Recorded
+# with the moment the archive was taken, not now, because that is what is true.
+if [ -n "$taken_at" ]; then
+  detail="$(printf '{"archive":"%s","restored":true}' "$(basename "$archive")")"
+  if compose exec -T postgres psql -v ON_ERROR_STOP=1 -U "$pg_user" -d "$pg_db" \
+      -c "INSERT INTO instance_events (id, kind, occurred_at, actor_id, detail)
+          VALUES (gen_random_uuid(), 'backup_taken', '$taken_at', NULL, '$detail');" >/dev/null 2>&1
+  then
+    echo "  recorded the archive this came from in the instance's own log"
+  else
+    # Said rather than swallowed: without this row an instance replacement refuses to run, and the
+    # reason would otherwise be a mystery to whoever meets it.
+    echo "  note: could not record this archive in the instance's log;" >&2
+    echo "        an instance replacement will refuse until a backup is taken" >&2
+  fi
+fi
+
 echo "Done. Sessions from the archive are back, so anyone signed in since it was taken is signed out."
 echo "Check the API came up: docker compose logs --tail 30 api"

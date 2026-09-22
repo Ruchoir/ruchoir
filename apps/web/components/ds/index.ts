@@ -6,6 +6,8 @@ export { Avatar } from "./Avatar";
 export type { AvatarProps, Presence } from "./Avatar";
 export { Badge } from "./Badge";
 export type { BadgeProps, BadgeTone } from "./Badge";
+export { BrandIcon, brandFor } from "./BrandIcon";
+export type { BrandIconProps, BrandName } from "./BrandIcon";
 export { Button } from "./Button";
 export type { ButtonProps, ButtonSize, ButtonVariant } from "./Button";
 export { Card } from "./Card";

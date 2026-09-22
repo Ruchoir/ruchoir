@@ -210,6 +210,7 @@ pub fn router(state: AppState) -> Router {
         // Instance administration: guarded per request by the instance-admin flag, and invisible
         // (a flat 404) to everyone else.
         .merge(crate::admin::router())
+        .merge(crate::importer::routes::router())
         .merge(crate::realtime::routes::router())
         // The files surface (tree, upload/versions, download/preview/thumbnail, shares). Its upload
         // routes carry a raised request-body limit sized from the configured cap plus a small

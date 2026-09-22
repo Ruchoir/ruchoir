@@ -220,7 +220,10 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
 }
 
 /// The first free slug in the `base`, `base-2`, `base-3` ... series.
-async fn unique_slug<C: ConnectionTrait>(db: &C, base: &str) -> Result<String, ApiError> {
+pub(crate) async fn unique_slug<C: ConnectionTrait>(
+    db: &C,
+    base: &str,
+) -> Result<String, ApiError> {
     for suffix in 1..=50u32 {
         let candidate = if suffix == 1 {
             base.to_owned()
@@ -247,7 +250,7 @@ async fn unique_slug<C: ConnectionTrait>(db: &C, base: &str) -> Result<String, A
 ///
 /// Never deleted, including when the space moves off it: the whole point is that an address already
 /// shared keeps arriving.
-async fn remember_slug<C: ConnectionTrait>(
+pub(crate) async fn remember_slug<C: ConnectionTrait>(
     db: &C,
     space_id: Uuid,
     slug: &str,

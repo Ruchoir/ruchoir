@@ -10,6 +10,38 @@ import { useSettings } from "./settings";
 import { getAvatar } from "@/lib/data";
 import { key, type Translate, type TranslationKey, useTranslation } from "@/lib/i18n";
 
+/** The other road offered inside a dialog: a rule, a word, and a card you can press. */
+const sep: Record<string, CSSProperties> = {
+  row: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
+  line: { flex: 1, height: 1, background: "var(--border-default)" },
+  word: {
+    fontSize: 11,
+    letterSpacing: "var(--tracking-caps)",
+    textTransform: "uppercase",
+    color: "var(--text-subtle)",
+  },
+  card: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    width: "100%",
+    textAlign: "left",
+    padding: "12px 14px",
+    border: "1px solid var(--border-subtle)",
+    borderRadius: "var(--radius-md)",
+    background: "var(--surface-canvas)",
+    cursor: "pointer",
+    font: "inherit",
+  },
+  cardTitle: {
+    display: "block",
+    fontSize: 13,
+    fontWeight: "var(--weight-medium)" as CSSProperties["fontWeight"],
+    color: "var(--text-strong)",
+  },
+  cardHint: { display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 2 },
+};
+
 /** Why the thing you just asked for did not happen, said where the eye already is. */
 const dialogError: CSSProperties = {
   margin: "12px 0 0",
@@ -145,7 +177,7 @@ export function NewMessageDialog({
             </button>
           ))}
           {rows.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>{t("dialogs.nobodyMatches")}</p>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>{t("common.nobodyMatches")}</p>
           ) : null}
         </div>
       </div>
@@ -436,7 +468,19 @@ export function InviteDialog({
 }
 
 /** Create a new workspace. */
-export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => void }) {
+export function NewWorkspaceDialog({
+  onClose,
+  onCreate,
+  onImport,
+}: {
+  onClose: () => void;
+  onCreate: (name: string) => void;
+  /**
+   * Offered only to an administrator of the instance, and absent for everyone else rather than
+   * shown and refused: an import creates spaces and accounts, which is an instance-level power.
+   */
+  onImport?: () => void;
+}) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<TranslationKey | null>(null);
@@ -486,6 +530,25 @@ export function NewWorkspaceDialog({ onClose, onCreate }: { onClose: () => void;
           }}
         />
       </Field>
+      {/* Under the name, never above it: creating a space is what this dialog is for, and an
+          import is the other road to the same place. The separator says so in one word. */}
+      {onImport ? (
+        <>
+          <div style={sep.row}>
+            <span style={sep.line} />
+            <span style={sep.word}>{t("common.or")}</span>
+            <span style={sep.line} />
+          </div>
+          <button type="button" onClick={onImport} style={sep.card} className="wc-choice">
+            <Icon name="import" size={18} style={{ color: "var(--accent-fg, var(--terracotta-600))" }} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={sep.cardTitle}>{t(key("import.screenTitle"))}</span>
+              <span style={sep.cardHint}>{t(key("dialogs.importFromAnotherTool"))}</span>
+            </span>
+            <Icon name="chevron-right" size={16} style={{ color: "var(--text-subtle)" }} />
+          </button>
+        </>
+      ) : null}
     </Dialog>
   );
 }

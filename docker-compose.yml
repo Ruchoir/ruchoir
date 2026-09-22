@@ -90,6 +90,16 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       RUCHOIR_UPLOAD_MAX_BYTES: ${RUCHOIR_UPLOAD_MAX_BYTES:-104857600}
       RUCHOIR_THUMBNAIL_MAX_PX: ${RUCHOIR_THUMBNAIL_MAX_PX:-512}
+      # Where the importer looks for archives, fixed inside the container. The host directory that
+      # lands there is RUCHOIR_IMPORT_HOST_DIR, below: this path is what the API sees, and the two
+      # are deliberately separate so that renaming a directory on the host cannot change what an
+      # administrator types into the screen.
+      RUCHOIR_IMPORT_DIR: /srv/ruchoir/imports
+    volumes:
+      # Archives land here two ways: dropped by scp or a share, or delivered by the one-time upload
+      # an export command carries (see the import screen). Read-write, because that delivery writes
+      # the archive here; the importer itself still only ever reads what it finds.
+      - ${RUCHOIR_IMPORT_HOST_DIR:-./imports}:/srv/ruchoir/imports:rw
     ports:
       # Host port is configurable (default 8080) to avoid clashes with other local projects.
       # Only the published host port changes; the container still listens on 8080.

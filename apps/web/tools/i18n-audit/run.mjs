@@ -303,6 +303,16 @@ function findHardCoded(source, path) {
  * Each entry is that claim, made once, in writing.
  */
 const ALLOWED_DUPLICATES = new Set([
+  // The import screen counts accounts, conversations, messages and files. The same four words label
+  // a navigation entry, a switcher heading, a mobile tab and a search filter elsewhere, and they
+  // are the same words by coincidence rather than by meaning: renaming a tab must not silently
+  // reword a migration report that an administrator reads once, under pressure, before destroying
+  // or filling an instance.
+  "import.accounts",
+  "import.conversations",
+  "import.messages",
+  "import.files",
+
   // "Enregistrer" is two different verbs in French: saving a form, and setting a message aside for
   // later. English happens to collapse them too, but German ("Speichern" / "Merken") and Polish do
   // not, so merging the keys would force one language to say the wrong thing.

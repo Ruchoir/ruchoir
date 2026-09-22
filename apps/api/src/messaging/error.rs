@@ -20,6 +20,11 @@ pub enum ApiError {
     Forbidden,
     /// The request is malformed or violates a simple rule. The static reason is safe to expose.
     BadRequest(&'static str),
+    /// The same, when the reason cannot be a fixed sentence. An archive says why it does not hold
+    /// together (which file, which line, which checksum), and passing that through is the whole
+    /// difference between an administrator fixing their export and guessing at it. Only ever built
+    /// from text this side wrote, never from anything a caller sent.
+    BadRequestOwned(String),
     /// The request is well formed and allowed, but the current state refuses it. Distinct from
     /// [`ApiError::BadRequest`] because nothing about the request needs fixing: a last owner asking
     /// to leave their space has sent a perfectly good request, and has to change the space (hand
@@ -32,22 +37,25 @@ pub enum ApiError {
 }
 
 #[derive(Serialize)]
-struct ErrorBody {
+struct ErrorBody<'a> {
     error: &'static str,
-    message: &'static str,
+    message: &'a str,
 }
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let (status, error, message) = match self {
+        let (status, error, message) = match &self {
             ApiError::NotFound => (StatusCode::NOT_FOUND, "not_found", "Resource not found."),
             ApiError::Forbidden => (
                 StatusCode::FORBIDDEN,
                 "forbidden",
                 "You do not have access to this resource.",
             ),
-            ApiError::BadRequest(message) => (StatusCode::BAD_REQUEST, "bad_request", message),
-            ApiError::Conflict(message) => (StatusCode::CONFLICT, "conflict", message),
+            ApiError::BadRequest(message) => (StatusCode::BAD_REQUEST, "bad_request", *message),
+            ApiError::BadRequestOwned(ref message) => {
+                (StatusCode::BAD_REQUEST, "bad_request", message.as_str())
+            }
+            ApiError::Conflict(message) => (StatusCode::CONFLICT, "conflict", *message),
             ApiError::Unauthorized => (
                 StatusCode::UNAUTHORIZED,
                 "unauthorized",

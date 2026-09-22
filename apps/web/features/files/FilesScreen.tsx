@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
+import { Avatar, brandFor, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import {
   createFolder as apiCreateFolder,
@@ -598,7 +598,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                   <Avatar name={f.by} src={getAvatar(f.by)} size={18} />
                   {f.kind === "folder" ? null : formatBytes(f.sizeBytes)}
                 </div>
-                {f.imported ? <Tag icon="import">{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : null}
+                {f.imported ? <Tag brand={brandFor(f.source) ?? undefined} icon={brandFor(f.source) ? undefined : "import"}>{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : null}
               </Card>
             ))}
           </div>
@@ -728,7 +728,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
         footer={
           preview ? (
             <>
-              {preview.imported ? <Tag icon="import">{preview.source !== "Ruchoir" ? preview.source : t("common.imported")}</Tag> : null}
+              {preview.imported ? <Tag brand={brandFor(preview.source) ?? undefined} icon={brandFor(preview.source) ? undefined : "import"}>{preview.source !== "Ruchoir" ? preview.source : t("common.imported")}</Tag> : null}
               {preview.version ? (
                 <Tag mono tone="info">
                   {preview.version}
@@ -864,7 +864,7 @@ function FileRow({
       </td>
       <td style={{ ...styles.td, color: "var(--text-muted)", fontSize: 12 }}>{formatStamp(f.updatedAt)}</td>
       <td style={styles.td}>
-        {f.imported ? <Tag icon="import">{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>-</span>}
+        {f.imported ? <Tag brand={brandFor(f.source) ?? undefined} icon={brandFor(f.source) ? undefined : "import"}>{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>-</span>}
       </td>
       <td style={styles.td}>
         <span style={{ ...styles.checkCell, opacity: hover ? 1 : 0, transition: "opacity var(--duration-fast) var(--ease-out)" }}>

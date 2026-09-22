@@ -197,6 +197,8 @@ export type MessageActionHandlers = {
   openProfile: (name: string) => void;
   editProfile: (name: string) => void;
   message: (name: string) => void;
+  /** Open the channel a `#room` in a message names. */
+  openRoom: (name: string) => void;
 };
 
 type MenuDialog = "settings" | "notifications" | "addpeople" | "leave" | null;
@@ -442,6 +444,7 @@ export function ChannelScreen({
     onEditProfile: () => actions.editProfile(m.author),
     onMessage: () => actions.message(m.author),
     onOpenMention: (name) => actions.openProfile(name),
+    onOpenRoom: (name) => actions.openRoom(name),
   });
   /** The faces to draw next to a thread's reply count: the last repliers, with their pictures. */
   const replyFaces = (m: Message) =>
@@ -712,7 +715,10 @@ export function ChannelScreen({
                   </div>
                   <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6, maxWidth: 560 }}>
                     {isArchived ? t("conversation.archivedNotice") : channel.type === "private" ? t("conversation.privateNotice") : t("conversation.publicNotice")}{" "}
-                    {channel.topic ? `${channel.topic}. ` : ""}
+                    {/* A topic written with its own full stop is left with it: an imported one
+                        carries whatever the source held, and "votre équipe.. L'historique" is what
+                        appending a second one looks like. */}
+                    {channel.topic ? `${channel.topic.replace(/[.!?\s]+$/, "")}. ` : ""}
                     {channel.imported ? t("conversation.importedNotice", { source: channel.imported }) : t("conversation.channelStart")}
                   </p>
                 </>
@@ -738,6 +744,7 @@ export function ChannelScreen({
                 ) : (
                   <MessageRow
                     m={m}
+                    importedFrom={channel.imported}
                     readBy={readBy[m.id]}
                     readAudience={readAudience}
                     grouped={followsSameAuthor(messages[index - 1], m) && m.id !== unreadMarker}

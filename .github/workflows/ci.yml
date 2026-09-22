@@ -185,6 +185,56 @@ jobs:
           path: apps/web/tools/responsive-audit/report/
           if-no-files-found: ignore
 
+  importer:
+    name: Import chain (producers and archive contract)
+    runs-on: ubuntu-latest
+    # The import is the product's signature feature, and its risky half is SQL against a real
+    # database. Every defect the Nextcloud producer has had was invisible until a database
+    # answered: a client speaking utf8mb3 and destroying every emoji, a CAST MariaDB does not
+    # support, a filter that silently dropped guests. So the producer runs here for real.
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: ruchoir
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install a MariaDB client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mariadb-client
+      - name: Check the scripts parse
+        run: |
+          bash -n packages/importer/export-nextcloud.sh
+          python3 -m py_compile packages/importer/convert-mattermost.py \
+            packages/importer/convert-slack.py packages/importer/validate-archive.py
+      - name: Set up Rust
+        run: rustup show
+      - name: Build the API, for the checker inside it
+        # The contract has two implementations and they have twice reached opposite verdicts on the
+        # same archive, each time letting a broken export through the checker beside the producer.
+        # The cross-check needs the real one, so it is built here rather than skipped.
+        run: cargo build -p ruchoir-api
+      - name: Test the import chain
+        # The two REQUIRE flags make a skipped test a failure: a suite that quietly skips its only
+        # end-to-end test, or the only thing keeping the two checkers honest, reports green over an
+        # untested feature.
+        env:
+          RUCHOIR_TEST_MARIADB: host=127.0.0.1,port=3306,user=root,password=ruchoir
+          RUCHOIR_TEST_REQUIRE_MARIADB: '1'
+          RUCHOIR_TEST_REQUIRE_RUST_CHECKER: '1'
+        working-directory: packages/importer/tests
+        run: python3 -m unittest discover --verbose
+
   audit:
     name: Security audit (informational)
     runs-on: ubuntu-latest
@@ -210,9 +260,17 @@ jobs:
         # reachable from untrusted callers. The fix landed in quick-xml >= 0.41, but rust-s3 and
         # aws-creds both cap it at ^0.38, so it cannot be updated in range. Remove these ignores once
         # the S3 client moves to quick-xml >= 0.41.
+        #
+        # RUSTSEC-2023-0071 (rsa 0.9 Marvin Attack, key recovery through a timing sidechannel):
+        # transitive only, via pgp (rPGP), which opens the sealed import archive. The vulnerable
+        # path is RSA private-key operations, and the tree performs none: the single PGP call is
+        # `Message::decrypt_with_password` in `apps/api/src/importer/archive.rs`, symmetric
+        # passphrase decryption, because an archive is sealed with a passphrase rather than a key.
+        # There is no fixed release on the rsa 0.9 line. Remove this ignore once rsa ships a
+        # constant-time fix, or once rPGP no longer pulls it in.
         run: |
           cargo install cargo-audit --locked
-          cargo audit --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195
+          cargo audit --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195 --ignore RUSTSEC-2023-0071
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
