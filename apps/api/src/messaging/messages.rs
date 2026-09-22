@@ -15,8 +15,8 @@ use axum::http::StatusCode;
 use axum::Json;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
-    QueryOrder, QuerySelect, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
 };
 use serde::Deserialize;
 use time::OffsetDateTime;
@@ -36,6 +36,10 @@ use super::dto::{rfc3339, MessageDto, MessagePage, ReactionDto, SendMessageReque
 use super::error::ApiError;
 use super::mentions;
 use super::notifications;
+
+/// How many faces a thread shows next to its reply count. Slack-sized: enough to recognize who is
+/// in a conversation, few enough to stay one line at any panel width.
+const MAX_REPLY_FACES: usize = 3;
 
 /// Default and maximum page sizes for message history.
 const DEFAULT_LIMIT: u64 = 50;
@@ -331,12 +335,7 @@ pub async fn send_message(
 
     // Bump the denormalized reply counter on the parent.
     if let Some(parent_id) = body.parent_message_id {
-        if let Some(parent) = messages::Entity::find_by_id(parent_id).one(&txn).await? {
-            let count = parent.reply_count + 1;
-            let mut active = parent.into_active_model();
-            active.reply_count = Set(count);
-            active.update(&txn).await?;
-        }
+        adjust_reply_count(&txn, parent_id, 1).await?;
     }
     txn.commit().await?;
 
@@ -496,6 +495,11 @@ pub async fn delete_message(
 
     let conversation_id = message.conversation_id;
     let audience = authz::conversation_audience(&state.db, &access).await?;
+    // A reply that is taken back stops counting: the root advertises "3 replies" and a reader who
+    // opens the thread has to find three of them. Deleting twice must not count twice, hence the
+    // check on what the row already was.
+    let parent_id = message.parent_message_id;
+    let was_deleted = message.deleted_at.is_some();
 
     let txn = state.db.begin().await?;
     let mut active = message.into_active_model();
@@ -507,6 +511,11 @@ pub async fn delete_message(
         .filter(message_mentions::Column::MessageId.eq(message_id))
         .exec(&txn)
         .await?;
+    if let Some(parent_id) = parent_id {
+        if !was_deleted {
+            adjust_reply_count(&txn, parent_id, -1).await?;
+        }
+    }
     txn.commit().await?;
 
     let dto = hydrate_messages(
@@ -527,6 +536,26 @@ pub async fn delete_message(
         .await;
 
     Ok(Json(dto))
+}
+
+/// Move a thread root's denormalized reply counter by `delta`, never below zero.
+///
+/// The counter is what the feed draws ("3 replies") without reading the thread, so it is kept in
+/// the same transaction as the reply that moved it. A root that vanished under us is not an error:
+/// there is simply no counter left to keep.
+async fn adjust_reply_count(
+    txn: &DatabaseTransaction,
+    parent_id: Uuid,
+    delta: i32,
+) -> Result<(), ApiError> {
+    let Some(parent) = messages::Entity::find_by_id(parent_id).one(txn).await? else {
+        return Ok(());
+    };
+    let count = (parent.reply_count + delta).max(0);
+    let mut active = parent.into_active_model();
+    active.reply_count = Set(count);
+    active.update(txn).await?;
+    Ok(())
 }
 
 /// Load a message by id or fail with `404`.
@@ -625,8 +654,46 @@ pub async fn hydrate_messages(
         .await
         .map_err(|_| ApiError::Internal)?;
 
-    // Author display names.
-    let author_ids: Vec<Uuid> = rows.iter().filter_map(|m| m.author_id).collect();
+    // Who has answered in each thread, most recent first, capped: the feed draws their faces next to
+    // the reply count without opening the thread. Only roots that have replies are asked about, and
+    // only the authors are read back, so a long thread costs no more than a short one.
+    let thread_ids: Vec<Uuid> = rows
+        .iter()
+        .filter(|m| m.reply_count > 0)
+        .map(|m| m.id)
+        .collect();
+    let mut repliers: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+    if !thread_ids.is_empty() {
+        let reply_rows: Vec<(Option<Uuid>, Option<Uuid>)> = messages::Entity::find()
+            .select_only()
+            .column(messages::Column::ParentMessageId)
+            .column(messages::Column::AuthorId)
+            .filter(messages::Column::ParentMessageId.is_in(thread_ids))
+            .filter(messages::Column::DeletedAt.is_null())
+            .order_by_desc(messages::Column::CreatedAt)
+            .order_by_desc(messages::Column::Id)
+            .into_tuple()
+            .all(db)
+            .await?;
+        for (parent_id, author_id) in reply_rows {
+            let (Some(parent_id), Some(author_id)) = (parent_id, author_id) else {
+                continue;
+            };
+            let faces = repliers.entry(parent_id).or_default();
+            // One face per person: a thread where somebody answered themselves three times has one
+            // participant, and saying so three times says nothing.
+            if faces.len() < MAX_REPLY_FACES && !faces.contains(&author_id) {
+                faces.push(author_id);
+            }
+        }
+    }
+
+    // Author display names, the repliers' included.
+    let author_ids: Vec<Uuid> = rows
+        .iter()
+        .filter_map(|m| m.author_id)
+        .chain(repliers.values().flatten().copied())
+        .collect();
     let mut names: HashMap<Uuid, String> = HashMap::new();
     if !author_ids.is_empty() {
         for user in users::Entity::find()
@@ -660,6 +727,12 @@ pub async fn hydrate_messages(
             body: m.body,
             system_event: m.system_event,
             parent_message_id: m.parent_message_id,
+            reply_authors: repliers
+                .remove(&m.id)
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|id| names.get(&id).cloned())
+                .collect(),
             reply_count: m.reply_count,
         })
         .collect();

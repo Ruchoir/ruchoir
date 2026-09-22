@@ -50,7 +50,11 @@ export type MessageMenuProps = {
    * author or a moderator once it is pinned.
    */
   canPin?: boolean;
-  onMarkUnread: () => void;
+  /**
+   * Mark the conversation unread from here. Absent inside a thread panel: "unread from this point"
+   * is a position in the feed, and a reply has none.
+   */
+  onMarkUnread?: () => void;
   onDelete: () => void;
   /** Notified when the menu opens/closes, so a hover-gated container can stay mounted. */
   onOpenChange?: (open: boolean) => void;
@@ -93,7 +97,9 @@ export function MessageMenu({
     ...(own ? [{ icon: "square-pen", label: t("message.editMessage"), onClick: onEdit }] : []),
     { icon: "copy", label: t("message.copyMessage"), onClick: onCopyMessage },
     { icon: "paperclip", label: t("message.copyLink"), onClick: onCopyLink },
-    { icon: "inbox", label: t("message.markUnread"), onClick: onMarkUnread },
+    ...(onMarkUnread
+      ? [{ icon: "inbox", label: t("message.markUnread"), onClick: onMarkUnread }]
+      : []),
     ...(canPin
       ? [{ icon: "pin", label: pinned ? t("message.unpin") : t("message.pin"), onClick: onTogglePin }]
       : []),

@@ -146,7 +146,13 @@ context and takes precedence here.
   native-Postgres full-text over messages and file names (a generated `tsvector` with a French
   accent-folding config, plus `pg_trgm` trigram indexes for partial/fuzzy matches), scoped by
   membership. `notifications` is a persisted per-user inbox (mentions, DMs, thread replies) written
-  inside the send transaction and pushed over the hub. Every mutation authorizes server-side,
+  inside the send transaction and pushed over the hub. A thread root carries a denormalized
+  `reply_count`, moved in the same transaction as the reply that changed it (`adjust_reply_count`):
+  posting adds one, deleting takes one back, and deleting an already-deleted row takes nothing, so
+  the number the feed shows without reading the thread stays the number of replies there are. It
+  also carries `reply_authors`, the last few people who answered (distinct, most recent first,
+  capped at `MAX_REPLY_FACES`), so a feed can draw their faces next to that number without one
+  request per message on screen. Every mutation authorizes server-side,
   commits, then hands the resulting event to `realtime` for fan-out.
 - `src/realtime/`  - real-time transport and presence: `event` (the versioned push envelope + the
   fan-out wire type, including `channel.created` / `channel.updated`, whose payload is deliberately

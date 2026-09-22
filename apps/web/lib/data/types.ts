@@ -245,7 +245,21 @@ export type Message = {
   link?: LinkPreview;
   image?: InlineImage;
   reactions?: Reaction[];
+  /**
+   * The root message this one answers, when it is a thread reply.
+   *
+   * A reply never belongs in the feed: the history endpoint leaves them out, and the live stream
+   * carries them like any other message, so this is what tells the two apart on arrival.
+   */
+  parentId?: string;
   replies?: number;
+  /**
+   * The last few people who answered in this message's thread, most recent first.
+   *
+   * Names, because that is what a row has to draw a face from (the roster holds the pictures, keyed
+   * by name). Capped by the API; a client that shows fewer shows the first of them.
+   */
+  replyAuthors?: string[];
   imported?: boolean;
   pinned?: boolean;
   /** Who pinned it, when it is pinned: only they (or a moderator) may take it down. */
