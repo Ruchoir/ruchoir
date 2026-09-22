@@ -260,9 +260,17 @@ jobs:
         # reachable from untrusted callers. The fix landed in quick-xml >= 0.41, but rust-s3 and
         # aws-creds both cap it at ^0.38, so it cannot be updated in range. Remove these ignores once
         # the S3 client moves to quick-xml >= 0.41.
+        #
+        # RUSTSEC-2023-0071 (rsa 0.9 Marvin Attack, key recovery through a timing sidechannel):
+        # transitive only, via pgp (rPGP), which opens the sealed import archive. The vulnerable
+        # path is RSA private-key operations, and the tree performs none: the single PGP call is
+        # `Message::decrypt_with_password` in `apps/api/src/importer/archive.rs`, symmetric
+        # passphrase decryption, because an archive is sealed with a passphrase rather than a key.
+        # There is no fixed release on the rsa 0.9 line. Remove this ignore once rsa ships a
+        # constant-time fix, or once rPGP no longer pulls it in.
         run: |
           cargo install cargo-audit --locked
-          cargo audit --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195
+          cargo audit --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195 --ignore RUSTSEC-2023-0071
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
