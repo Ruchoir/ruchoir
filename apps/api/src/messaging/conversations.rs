@@ -77,6 +77,7 @@ pub async fn list_my_spaces(
             members,
             unread: unread_by_space.get(&space.id).copied().unwrap_or(0),
             mentions: mentions_by_space.get(&space.id).copied().unwrap_or(0),
+            default_channel_id: space.default_channel_id,
             icon_url: space
                 .icon_key
                 .as_deref()
@@ -205,11 +206,9 @@ pub async fn list_channels(
         let allowed_roles = super::authz::channel_allowed_roles(&state.db, channel.id)
             .await?
             .map(|roles| roles.into_iter().collect());
-        let is_default = channel.name == super::spaces::DEFAULT_CHANNEL;
         out.push(ChannelDto {
             id: channel.id,
             name: channel.name,
-            is_default,
             channel_type: channel.channel_type,
             topic: channel.topic,
             imported: channel.imported_source,

@@ -32,6 +32,8 @@ export type Workspace = {
   slug: string;
   /** Same-origin URL of the uploaded icon; absent means the generated mark. */
   iconUrl?: string;
+  /** The public channel every newly invited person joins. */
+  defaultChannelId?: string;
   /**
    * Unread messages in the conversations the caller has joined here. Drives the rail's discreet
    * activity dot, never a number: one busy channel would make every space show a meaningless figure.
@@ -95,8 +97,6 @@ export type ChannelType = "public" | "private" | "archived";
 export type Channel = {
   id: string;
   name: string;
-  /** Whether this is the space's one channel created at space creation. */
-  isDefault: boolean;
   fav: boolean;
   unread: number;
   type: ChannelType;

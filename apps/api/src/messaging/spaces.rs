@@ -35,15 +35,16 @@ use crate::entities::{
 use crate::state::AppState;
 
 use super::dto::{
-    CreateSpaceRequest, MemberRoleChangedDto, SpaceDto, SpaceRefDto, SpaceRemovedDto,
-    SpaceUpdatedDto, UpdateMemberRoleRequest, UpdateSpaceRequest,
+    CreateSpaceRequest, MemberRoleChangedDto, SetDefaultChannelRequest, SpaceDto, SpaceRefDto,
+    SpaceRemovedDto, SpaceUpdatedDto, UpdateMemberRoleRequest, UpdateSpaceRequest,
 };
 use super::error::ApiError;
 use super::slug::{slugify, MAX_HANDLE_LEN};
 use crate::realtime::event::RealtimeEnvelope;
 
-/// The channel every new space starts with. Named like any other channel handle.
-pub(crate) const DEFAULT_CHANNEL: &str = "general";
+/// The channel every new space starts with. Its id, not this conventional handle, remains the
+/// default when it is renamed.
+const INITIAL_CHANNEL: &str = "general";
 
 /// The `system_event` discriminator written into the channel when someone leaves the space. The
 /// counterpart of the invitation path's arrival notice, and like it, the client turns it into a
@@ -82,6 +83,7 @@ pub async fn broadcast_space_change(state: &AppState, space: &spaces::Model, act
             .icon_key
             .as_deref()
             .map(|key| crate::files::icon_url(space.id, key)),
+        default_channel_id: space.default_channel_id,
     };
     state
         .hub
@@ -118,6 +120,10 @@ pub async fn create_space(
     let txn = state.db.begin().await?;
     let (space_id, slug) = create_owned_space(&txn, name, session.user_id).await?;
     txn.commit().await?;
+    let default_channel_id = spaces::Entity::find_by_id(space_id)
+        .one(&state.db)
+        .await?
+        .and_then(|space| space.default_channel_id);
 
     Ok((
         StatusCode::CREATED,
@@ -133,6 +139,7 @@ pub async fn create_space(
             mentions: 0,
             // Brand new, so nothing has been uploaded for it yet.
             icon_url: None,
+            default_channel_id,
         }),
     ))
 }
@@ -160,6 +167,7 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
         slug: Set(slug.clone()),
         created_by: Set(Some(owner)),
         icon_key: Set(None),
+        default_channel_id: Set(None),
         created_at: Set(now),
         updated_at: Set(now),
     }
@@ -193,7 +201,7 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
     channels::ActiveModel {
         id: Set(channel_id),
         space_id: Set(space_id),
-        name: Set(DEFAULT_CHANNEL.to_owned()),
+        name: Set(INITIAL_CHANNEL.to_owned()),
         channel_type: Set("public".to_owned()),
         topic: Set(None),
         created_by: Set(Some(owner)),
@@ -204,6 +212,14 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
     }
     .insert(txn)
     .await?;
+    let mut space = spaces::Entity::find_by_id(space_id)
+        .one(txn)
+        .await?
+        .ok_or(ApiError::Internal)?
+        .into_active_model();
+    space.default_channel_id = Set(Some(channel_id));
+    space.updated_at = Set(now);
+    space.update(txn).await?;
     channel_members::ActiveModel {
         channel_id: Set(channel_id),
         user_id: Set(owner),
@@ -329,7 +345,97 @@ pub async fn update_space(
             .icon_key
             .as_deref()
             .map(|key| crate::files::icon_url(updated.id, key)),
+        default_channel_id: updated.default_channel_id,
     }))
+}
+
+/// `PUT /api/v1/spaces/{space_id}/default-channel`: choose where newly invited people arrive.
+#[utoipa::path(
+    put,
+    path = "/api/v1/spaces/{space_id}/default-channel",
+    tag = "messaging",
+    params(("space_id" = Uuid, Path, description = "Space id")),
+    request_body = SetDefaultChannelRequest,
+    responses(
+        (status = 200, description = "The space's updated shared settings", body = SpaceUpdatedDto),
+        (status = 400, description = "The channel is not an eligible default channel"),
+        (status = 403, description = "Not a space administrator")
+    )
+)]
+pub async fn set_default_channel(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(space_id): Path<Uuid>,
+    Json(body): Json<SetDefaultChannelRequest>,
+) -> Result<Json<SpaceUpdatedDto>, ApiError> {
+    super::authz::ensure_space_admin(&state.db, space_id, session.user_id).await?;
+    let space = spaces::Entity::find_by_id(space_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    ensure_default_channel(&state.db, &space, body.channel_id).await?;
+
+    let mut active = space.into_active_model();
+    active.default_channel_id = Set(Some(body.channel_id));
+    active.updated_at = Set(OffsetDateTime::now_utc());
+    let updated = active.update(&state.db).await?;
+    broadcast_space_change(&state, &updated, session.user_id).await;
+    Ok(Json(space_updated_dto(&updated)))
+}
+
+fn space_updated_dto(space: &spaces::Model) -> SpaceUpdatedDto {
+    SpaceUpdatedDto {
+        id: space.id,
+        name: space.name.clone(),
+        slug: space.slug.clone(),
+        icon_url: space
+            .icon_key
+            .as_deref()
+            .map(|key| crate::files::icon_url(space.id, key)),
+        default_channel_id: space.default_channel_id,
+    }
+}
+
+/// Check that the selected channel is a stable arrival point for every invitation role.
+async fn ensure_default_channel<C: ConnectionTrait>(
+    db: &C,
+    space: &spaces::Model,
+    channel_id: Uuid,
+) -> Result<(), ApiError> {
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(db)
+        .await?
+        .ok_or(ApiError::BadRequest(
+            "the channel does not belong to this space",
+        ))?;
+    if channel.space_id != space.id
+        || channel.channel_type != "public"
+        || channel.archived_at.is_some()
+        || super::authz::channel_allowed_roles(db, channel_id)
+            .await?
+            .is_some()
+    {
+        return Err(ApiError::BadRequest(
+            "a default channel must be public, active and open to every role",
+        ));
+    }
+    Ok(())
+}
+
+/// The configured arrival channel, checked again before it is used for an invitation.
+pub(crate) async fn default_channel<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+) -> Result<Uuid, ApiError> {
+    let space = spaces::Entity::find_by_id(space_id)
+        .one(db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    let channel_id = space
+        .default_channel_id
+        .ok_or(ApiError::Conflict("this space has no default channel"))?;
+    ensure_default_channel(db, &space, channel_id).await?;
+    Ok(channel_id)
 }
 
 /// `GET /api/v1/spaces/by-slug/{slug}`: which space an address names, current or retired.
@@ -552,7 +658,7 @@ pub async fn leave_space(
 /// leave rows granting access to private channels of a space the person is no longer in, the kind of
 /// leftover that only surfaces the day somebody is invited back.
 ///
-/// The notice is written where the arrival notice is, the space's oldest public channel. A push
+/// The notice is written where the arrival notice is, the space's default channel. A push
 /// scrolls away, the history stays, and a member list that silently loses a row leaves the people
 /// who stayed with no idea when it happened. Like the arrival, the row holds the *event* and never a
 /// sentence: the words belong to whoever is reading.
@@ -580,9 +686,7 @@ async fn withdraw_membership<C: ConnectionTrait>(
         .exec(txn)
         .await?;
 
-    let Some(channel) = super::invitations::first_public_channel(txn, space_id).await? else {
-        return Ok(None);
-    };
+    let channel = default_channel(txn, space_id).await?;
     Ok(Some(
         messages::ActiveModel {
             id: Set(Uuid::new_v4()),

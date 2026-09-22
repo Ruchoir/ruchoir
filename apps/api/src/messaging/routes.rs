@@ -56,6 +56,10 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/me/spaces", get(conversations::list_my_spaces))
         .route("/api/v1/spaces", post(spaces::create_space))
         .route(
+            "/api/v1/spaces/{space_id}/default-channel",
+            put(spaces::set_default_channel),
+        )
+        .route(
             "/api/v1/spaces/{space_id}",
             patch(spaces::update_space).delete(spaces::delete_space),
         )

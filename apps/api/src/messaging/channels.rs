@@ -25,7 +25,7 @@ use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
 use crate::entities::{
-    channel_members, channel_role_access, channels, conversations, messages, users,
+    channel_members, channel_role_access, channels, conversations, messages, spaces, users,
 };
 use crate::state::AppState;
 use sea_orm::DatabaseConnection;
@@ -261,7 +261,6 @@ pub async fn create_channel(
         id: channel_id,
         space_id,
         name: name.clone(),
-        is_default: name == super::spaces::DEFAULT_CHANNEL,
         channel_type: channel_type.to_owned(),
         topic: topic.clone(),
     };
@@ -286,14 +285,11 @@ pub async fn create_channel(
     // The channel's own history says it was created, the way every seeded channel already did and
     // no real one ever did.
     write_channel_notice(&state, channel_id, None, CREATED_EVENT).await;
-    let is_default = name == super::spaces::DEFAULT_CHANNEL;
-
     Ok((
         StatusCode::CREATED,
         Json(ChannelDto {
             id: channel_id,
             name,
-            is_default,
             channel_type: channel_type.to_owned(),
             topic,
             imported: None,
@@ -335,6 +331,21 @@ pub async fn update_channel(
     }
 
     let space_id = channel.space_id;
+    let space = spaces::Entity::find_by_id(space_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    let is_default = space.default_channel_id == Some(channel_id);
+    if is_default
+        && body
+            .channel_type
+            .as_deref()
+            .is_some_and(|channel_type| channel_type != "public")
+    {
+        return Err(ApiError::Conflict(
+            "choose another default channel before changing this channel's visibility",
+        ));
+    }
     let imported = channel.imported_source.clone();
     let mut active = channel.clone().into_active_model();
 
@@ -383,6 +394,11 @@ pub async fn update_channel(
             .await?
             .ok_or(ApiError::Forbidden)?;
         let roles = clean_allowed_roles(roles, &actor_role)?;
+        if is_default && !roles.is_empty() {
+            return Err(ApiError::Conflict(
+                "choose another default channel before restricting this channel",
+            ));
+        }
         set_allowed_roles(&state.db, channel_id, roles).await?;
     }
 
@@ -395,7 +411,6 @@ pub async fn update_channel(
         id: updated.id,
         space_id,
         name: updated.name.clone(),
-        is_default: updated.name == super::spaces::DEFAULT_CHANNEL,
         channel_type: updated.channel_type.clone(),
         topic: updated.topic.clone(),
     };
@@ -412,11 +427,9 @@ pub async fn update_channel(
     let membership = channel_members::Entity::find_by_id((channel_id, session.user_id))
         .one(&state.db)
         .await?;
-    let is_default = updated.name == super::spaces::DEFAULT_CHANNEL;
     Ok(Json(ChannelDto {
         id: updated.id,
         name: updated.name,
-        is_default,
         channel_type: updated.channel_type,
         topic: updated.topic,
         imported,
@@ -654,7 +667,6 @@ pub async fn add_channel_members(
             id: channel_id,
             space_id: channel.space_id,
             name: channel.name.clone(),
-            is_default: channel.name == super::spaces::DEFAULT_CHANNEL,
             channel_type: channel.channel_type.clone(),
             topic: channel.topic.clone(),
         };

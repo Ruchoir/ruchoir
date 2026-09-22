@@ -70,12 +70,12 @@ type SpaceDto = {
   unread: number;
   mentions: number;
   icon_url?: string;
+  default_channel_id?: string;
 };
 
 type ChannelDto = {
   id: string;
   name: string;
-  is_default: boolean;
   type: string;
   topic?: string;
   imported?: string;
@@ -569,6 +569,7 @@ function toWorkspace(dto: SpaceDto): Workspace {
     unread: dto.unread ?? 0,
     mentions: dto.mentions ?? 0,
     iconUrl: dto.icon_url,
+    defaultChannelId: dto.default_channel_id,
   };
 }
 
@@ -582,7 +583,6 @@ function toChannel(dto: ChannelDto): Channel {
   return {
     id: dto.id,
     name: dto.name,
-    isDefault: dto.is_default,
     fav: dto.favorite,
     unread: dto.unread,
     type: (["public", "private", "archived"].includes(dto.type) ? dto.type : "public") as ChannelType,
@@ -609,11 +609,20 @@ export async function createSpace(name: string): Promise<Workspace> {
  * breaking the links people already hold.
  */
 export async function renameSpace(spaceId: string, name: string): Promise<SpaceIdentity> {
-  const dto = await apiPatch<{ id: string; name: string; slug: string; icon_url: string | null }>(
+  const dto = await apiPatch<{ id: string; name: string; slug: string; icon_url: string | null; default_channel_id?: string }>(
     `/spaces/${spaceId}`,
     { name },
   );
-  return { id: dto.id, name: dto.name, slug: dto.slug, iconUrl: dto.icon_url ?? undefined };
+  return { id: dto.id, name: dto.name, slug: dto.slug, iconUrl: dto.icon_url ?? undefined, defaultChannelId: dto.default_channel_id };
+}
+
+/** Choose the public channel every newly invited person joins. Space administrators may change it. */
+export async function setDefaultChannel(spaceId: string, channelId: string): Promise<SpaceIdentity> {
+  const dto = await apiPut<{ id: string; name: string; slug: string; icon_url: string | null; default_channel_id?: string }>(
+    `/spaces/${spaceId}/default-channel`,
+    { channel_id: channelId },
+  );
+  return { id: dto.id, name: dto.name, slug: dto.slug, iconUrl: dto.icon_url ?? undefined, defaultChannelId: dto.default_channel_id };
 }
 
 /**
@@ -1711,7 +1720,6 @@ export type RealtimeChannel = {
   id: string;
   spaceId: string;
   name: string;
-  isDefault: boolean;
   type: ChannelType;
   topic?: string;
 };
@@ -1732,7 +1740,7 @@ export type MemberIdentity = Omit<Member, "role">;
  * A space's shared identity after a change, pushed live. Carries no counters and no role: those are
  * per-caller and are never broadcast, so a recipient keeps the ones it already holds.
  */
-export type SpaceIdentity = { id: string; name: string; slug: string; iconUrl?: string };
+export type SpaceIdentity = { id: string; name: string; slug: string; iconUrl?: string; defaultChannelId?: string };
 
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
@@ -1868,7 +1876,6 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
           id: String(payload.id),
           spaceId: String(payload.space_id),
           name: String(payload.name),
-          isDefault: payload.is_default === true,
           type: (["public", "private", "archived"].includes(String(payload.type))
             ? String(payload.type)
             : "public") as ChannelType,
@@ -1915,6 +1922,7 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
           name: String(payload.name),
           slug: String(payload.slug),
           iconUrl: (payload.icon_url as string | null) ?? undefined,
+          defaultChannelId: (payload.default_channel_id as string | null) ?? undefined,
         });
         break;
       }

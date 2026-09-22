@@ -98,12 +98,12 @@ function item(on: boolean): CSSProperties {
   };
 }
 
-/** Icon for a channel row, using the server-provided default marker. */
-function channelIcon(channel: Channel, favouriteSection: boolean): IconName {
+/** Icon for a channel row, using the space's persisted default channel. */
+function channelIcon(channel: Channel, favouriteSection: boolean, defaultChannelId?: string): IconName {
   if (favouriteSection) return "bookmark";
   if (channel.type === "archived") return "archive";
   if (channel.type === "private") return "lock";
-  if (channel.isDefault) return "house";
+  if (channel.id === defaultChannelId) return "house";
   return "hash";
 }
 
@@ -310,6 +310,8 @@ export type SidebarProps = {
   onNewMessage: () => void;
   /** Pin or unpin a channel in the caller's own sidebar. */
   onToggleFavorite: (id: string) => void;
+  /** Make an eligible public channel the arrival point for new members. */
+  onSetDefaultChannel: (id: string) => void;
   onGlobalSearch: () => void;
   onLeaveChannel: (id: string) => void;
   /** Rejoin a public channel the user had left (the menu offers one or the other, never both). */
@@ -358,6 +360,7 @@ export function Sidebar({
   onImport,
   onNewMessage,
   onToggleFavorite,
+  onSetDefaultChannel,
   onGlobalSearch,
   onLeaveChannel,
   onJoinChannel,
@@ -387,6 +390,12 @@ export function Sidebar({
     { icon: "check-check", label: t("sidebar.markRead"), onClick: () => onMarkRead(channel.id) },
     { icon: "bell", label: t("notif.title"), onClick: () => onChannelNotifications(channel.id) },
     { icon: "settings", label: t("sidebar.channelSettings"), onClick: () => onChannelSettings(channel.id) },
+    ...(canAdministerSpace
+      && channel.id !== workspace?.defaultChannelId
+      && channel.type === "public"
+      && !channel.allowedRoles?.length
+      ? [{ icon: "house", label: t("sidebar.setDefaultChannel"), onClick: () => onSetDefaultChannel(channel.id) }]
+      : []),
     // A public channel stays readable after leaving it, so the entry flips to rejoining rather than
     // disappearing: leaving is not a one-way door.
     channel.member === false
@@ -549,7 +558,7 @@ export function Sidebar({
                   menuItems={channelMenu(c)}
                 >
                   <Icon
-                    name={channelIcon(c, true)}
+                    name={channelIcon(c, true, workspace?.defaultChannelId)}
                     size={13}
                     title={c.type === "private" ? t("sidebar.privateChannel") : undefined}
                     style={{ color: "var(--text-muted)" }}
@@ -597,7 +606,7 @@ export function Sidebar({
                   menuItems={channelMenu(c)}
                 >
                   <Icon
-                    name={channelIcon(c, false)}
+                    name={channelIcon(c, false, workspace?.defaultChannelId)}
                     size={13}
                     title={c.type === "archived" ? t("sidebar.archivedChannel") : c.type === "private" ? t("sidebar.privateChannel") : undefined}
                     style={{ color: "var(--text-muted)" }}

@@ -26,6 +26,7 @@ mod m20260912_000004_channel_role_access;
 mod m20260913_000001_import_jobs;
 mod m20260913_000002_instance_events;
 mod m20260913_000003_generated_source;
+mod m20260922_000001_default_space_channel;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -54,6 +55,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260913_000001_import_jobs::Migration),
             Box::new(m20260913_000002_instance_events::Migration),
             Box::new(m20260913_000003_generated_source::Migration),
+            Box::new(m20260922_000001_default_space_channel::Migration),
         ]
     }
 }

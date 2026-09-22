@@ -4,7 +4,8 @@ import { type CSSProperties, type ReactNode, useRef, useState, useSyncExternalSt
 import { Avatar, Button, Card, Field, Icon, IconButton, type IconName, Input, Select, Tag } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Toast } from "../app/types";
-import { clearSpaceIcon, renameSpace, setSpaceIcon } from "@/lib/data/api";
+import { clearSpaceIcon, renameSpace, setDefaultChannel, setSpaceIcon } from "@/lib/data/api";
+import type { Channel } from "@/lib/data";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
@@ -148,6 +149,9 @@ export type WorkspaceSettingsProps = {
    * invitation, both of which the API refuses to anyone else.
    */
   canManageMembers: boolean;
+  /** Channels in this space, used to select the arrival channel. */
+  channels: Channel[];
+  defaultChannelId?: string;
   members: {
     /** Needed to address the membership: a role is changed by id, never by display name. */
     userId: string;
@@ -174,6 +178,8 @@ export type WorkspaceSettingsProps = {
   onIconChanged: (url?: string) => void;
   /** The space was renamed. Same reason as `onIconChanged`: the rail reads the space list. */
   onRenamed: (name: string) => void;
+  /** Keep the rail and sidebar aligned with a changed arrival channel. */
+  onDefaultChannelChanged: (channelId: string) => void;
   onNotify: (toast: Toast) => void;
   /**
    * Whether the caller owns the space, which is the only role allowed to delete it. The API is the
@@ -198,6 +204,8 @@ export function WorkspaceSettings({
   iconUrl,
   canEditIdentity,
   canManageMembers,
+  channels,
+  defaultChannelId,
   members,
   myRole,
   onChangeRole,
@@ -205,6 +213,7 @@ export function WorkspaceSettings({
   onInvite,
   onIconChanged,
   onRenamed,
+  onDefaultChannelChanged,
   onNotify,
   canDelete,
   onDelete,
@@ -246,7 +255,24 @@ export function WorkspaceSettings({
   /** The name being edited. Seeded from the space and only sent when the button is pressed. */
   const [name, setName] = useState(workspaceName);
   const [nameBusy, setNameBusy] = useState(false);
+  const [defaultChannelBusy, setDefaultChannelBusy] = useState(false);
   const nameDirty = name.trim() !== "" && name.trim() !== workspaceName;
+  const defaultChannelOptions = channels
+    .filter((channel) => channel.type === "public" && !channel.allowedRoles?.length)
+    .map((channel) => ({ value: channel.id, label: `#${channel.name}` }));
+
+  const changeDefaultChannel = async (channelId: string) => {
+    setDefaultChannelBusy(true);
+    try {
+      const space = await setDefaultChannel(spaceId, channelId);
+      onDefaultChannelChanged(space.defaultChannelId ?? channelId);
+      onNotify({ tone: "success", title: t("space.defaultChannelUpdated") });
+    } catch {
+      onNotify({ tone: "danger", title: t("space.defaultChannelFailed"), description: t("space.retry") });
+    } finally {
+      setDefaultChannelBusy(false);
+    }
+  };
 
   const onIconPicked = (fileList: FileList | null) => {
     const file = fileList?.[0];
@@ -400,6 +426,19 @@ export function WorkspaceSettings({
                       was invented, and therefore wrong everywhere. */}
                   <Input id="wu" value={serverAddress} readOnly disabled />
                 </Field>
+                {canManageMembers && defaultChannelId ? (
+                  <SettingRow title={t("space.defaultChannel")} desc={t("space.defaultChannelDesc")}>
+                    <div style={{ width: 220 }}>
+                      <Select
+                        aria-label={t("space.defaultChannel")}
+                        value={defaultChannelId}
+                        disabled={defaultChannelBusy}
+                        onChange={(event) => void changeDefaultChannel(event.target.value)}
+                        options={defaultChannelOptions}
+                      />
+                    </div>
+                  </SettingRow>
+                ) : null}
               </div>
               {/* The two exits. Leaving is also in the space menu, which the compact shell does not
                   draw, so this is where it is reachable on a phone. Deleting is only here: the menu

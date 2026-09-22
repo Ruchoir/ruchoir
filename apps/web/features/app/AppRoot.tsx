@@ -51,6 +51,7 @@ import {
   setMessagePinned,
   setMessageSaved,
   setChannelFavorite,
+  setDefaultChannel as apiSetDefaultChannel,
   setMemberRole as apiSetMemberRole,
   setMyPresence as apiSetMyPresence,
   setReadCursor,
@@ -1029,7 +1030,6 @@ function AppShell() {
                 {
                   id: channel.id,
                   name: channel.name,
-                  isDefault: channel.isDefault,
                   type: channel.type,
                   topic: channel.topic,
                   fav: false,
@@ -1061,7 +1061,7 @@ function AppShell() {
         }
         setChannels((prev) =>
           prev.map((c) =>
-            c.id === channel.id ? { ...c, name: channel.name, isDefault: channel.isDefault, type: channel.type, topic: channel.topic } : c,
+            c.id === channel.id ? { ...c, name: channel.name, type: channel.type, topic: channel.topic } : c,
           ),
         );
       },
@@ -1156,11 +1156,13 @@ function AppShell() {
         });
       },
       onSpaceUpdated: (space) => {
-        // Name and mark only: the counters and the caller's role are not in the event, precisely
+        // Shared settings only: the counters and the caller's role are not in the event, precisely
         // because they differ per recipient, so whatever this client holds for them stands.
         setWorkspaces((prev) =>
           prev.map((w) =>
-            w.id === space.id ? { ...w, name: space.name, slug: space.slug, iconUrl: space.iconUrl } : w,
+            w.id === space.id
+              ? { ...w, name: space.name, slug: space.slug, iconUrl: space.iconUrl, defaultChannelId: space.defaultChannelId }
+              : w,
           ),
         );
       },
@@ -2549,6 +2551,22 @@ function AppShell() {
     });
   };
 
+  /** Choose the public arrival channel from the channel menu. */
+  const setDefaultChannel = async (id: string) => {
+    if (!ws) return;
+    try {
+      const space = await apiSetDefaultChannel(ws, id);
+      setWorkspaces((prev) =>
+        prev.map((workspace) =>
+          workspace.id === ws ? { ...workspace, defaultChannelId: space.defaultChannelId ?? id } : workspace,
+        ),
+      );
+      showToast({ tone: "success", title: t("space.defaultChannelUpdated") });
+    } catch {
+      showToast({ tone: "danger", title: t("space.defaultChannelFailed"), description: t("common.tryAgain") });
+    }
+  };
+
   /** Save a channel's settings (name, topic, visibility, archived) against the API. */
   const updateChannel = async (id: string, patch: Partial<Channel>) => {
     const before = channels.find((c) => c.id === id);
@@ -3163,6 +3181,7 @@ function AppShell() {
         onChannelNotifications={setChannelNotifId}
         onMarkRead={markConversationRead}
         onToggleFavorite={toggleFavorite}
+        onSetDefaultChannel={(id) => void setDefaultChannel(id)}
         onOpenNotification={openNotification}
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
@@ -3275,8 +3294,13 @@ function AppShell() {
           // administrators, which is the line the API draws too.
           canEditIdentity={currentWorkspace?.role === "owner"}
           canManageMembers={["owner", "admin"].includes(currentWorkspace?.role ?? "")}
+          channels={channels}
+          defaultChannelId={currentWorkspace?.defaultChannelId}
           onIconChanged={applySpaceIcon}
           onRenamed={applySpaceName}
+          onDefaultChannelChanged={(defaultChannelId) =>
+            setWorkspaces((prev) => prev.map((workspace) => (workspace.id === ws ? { ...workspace, defaultChannelId } : workspace)))
+          }
           // The real records, so the screen shows the role the server holds rather than a mapping
           // by display name, and can say how many guests and bots there are instead of asserting it.
           members={members.map((m) => ({
@@ -3624,6 +3648,7 @@ function AppShell() {
                 onChannelNotifications={setChannelNotifId}
                 onMarkRead={markConversationRead}
                 onToggleFavorite={toggleFavorite}
+                onSetDefaultChannel={(id) => void setDefaultChannel(id)}
                 onOpenNotification={openNotification}
                 onToggleNotifRead={setNotifRead}
                 onMarkAllNotifsRead={markAllNotifsRead}
