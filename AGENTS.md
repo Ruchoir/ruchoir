@@ -149,6 +149,30 @@ instance in front of real people. Quick reference:
 - Full stack: `docker compose up --build`.
 - Optional dev TLS: `scripts/dev-tls.sh`, then `cargo run -p ruchoir-api --features tls`.
 
+### Putting the dev server in front of real data
+
+`next dev` alone is a shell: it answers no `/api/v1/...`, so no space, no roster, no message. To try a
+screen against a running instance, put the dev server behind the reverse proxy that already
+terminates TLS for that instance, rather than exposing its port:
+
+- **Root to the dev server, `/api/` to the API.** One `server` block, two `location`s: `/` proxies to
+  `127.0.0.1:<dev port>` and `/api/` to the API. Both carry the `Upgrade`/`Connection` headers and
+  `proxy_buffering off`: realtime is a WebSocket and SSE, and so is hot reload.
+- **TLS is not optional, and the cookie is why.** The session cookie is `__Host-` prefixed
+  (`apps/api/src/auth/cookie.rs`), which browsers only accept over HTTPS. Over plain `http://host:port`
+  the login call succeeds and the cookie is silently dropped, so the app returns to the login screen
+  with nothing in the console to explain it. Serve the dev front over the proxy's certificate.
+- **Next refuses its own chunks from a hostname it does not know.** The dev server answers 403 on
+  `/_next/*` when the request carries an `Origin` it was not started for (browsers send one on module
+  chunks). Have the proxy present the dev server its own origin, `proxy_set_header Host localhost:<dev
+  port>` **and** `proxy_set_header Origin http://localhost:<dev port>`, passing the real name as
+  `X-Forwarded-Host`. That keeps a deployment's hostname out of `next.config.mjs`, where
+  `allowedDevOrigins` would otherwise have to carry it.
+- **Passkeys will be refused on a second hostname.** `RUCHOIR_WEBAUTHN_RP_ID` names one host, and
+  WebAuthn rejects any other, so a dev front served under a different name is password login only. The
+  session does not carry over from the published host either: `__Host-` means no `Domain`, so it is
+  scoped to the host that issued it.
+
 ## Build, test & lint
 
 - **Rust:** `cargo fmt --all --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
