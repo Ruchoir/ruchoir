@@ -120,6 +120,8 @@ pub struct SpaceDto {
 pub struct ChannelDto {
     pub id: Uuid,
     pub name: String,
+    /// Whether this is the space's one channel created at space creation.
+    pub is_default: bool,
     /// `public`, `private` or `archived`.
     #[serde(rename = "type")]
     pub channel_type: String,
@@ -150,6 +152,8 @@ pub struct ChannelSummaryDto {
     pub id: Uuid,
     pub space_id: Uuid,
     pub name: String,
+    /// Whether this is the space's one channel created at space creation.
+    pub is_default: bool,
     /// `public`, `private` or `archived`.
     #[serde(rename = "type")]
     pub channel_type: String,

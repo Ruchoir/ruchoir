@@ -75,6 +75,7 @@ type SpaceDto = {
 type ChannelDto = {
   id: string;
   name: string;
+  is_default: boolean;
   type: string;
   topic?: string;
   imported?: string;
@@ -581,6 +582,7 @@ function toChannel(dto: ChannelDto): Channel {
   return {
     id: dto.id,
     name: dto.name,
+    isDefault: dto.is_default,
     fav: dto.favorite,
     unread: dto.unread,
     type: (["public", "private", "archived"].includes(dto.type) ? dto.type : "public") as ChannelType,
@@ -1709,6 +1711,7 @@ export type RealtimeChannel = {
   id: string;
   spaceId: string;
   name: string;
+  isDefault: boolean;
   type: ChannelType;
   topic?: string;
 };
@@ -1865,6 +1868,7 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
           id: String(payload.id),
           spaceId: String(payload.space_id),
           name: String(payload.name),
+          isDefault: payload.is_default === true,
           type: (["public", "private", "archived"].includes(String(payload.type))
             ? String(payload.type)
             : "public") as ChannelType,

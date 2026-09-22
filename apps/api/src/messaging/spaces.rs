@@ -43,7 +43,7 @@ use super::slug::{slugify, MAX_HANDLE_LEN};
 use crate::realtime::event::RealtimeEnvelope;
 
 /// The channel every new space starts with. Named like any other channel handle.
-const DEFAULT_CHANNEL: &str = "general";
+pub(crate) const DEFAULT_CHANNEL: &str = "general";
 
 /// The `system_event` discriminator written into the channel when someone leaves the space. The
 /// counterpart of the invitation path's arrival notice, and like it, the client turns it into a

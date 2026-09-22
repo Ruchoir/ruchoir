@@ -1029,6 +1029,7 @@ function AppShell() {
                 {
                   id: channel.id,
                   name: channel.name,
+                  isDefault: channel.isDefault,
                   type: channel.type,
                   topic: channel.topic,
                   fav: false,
@@ -1060,7 +1061,7 @@ function AppShell() {
         }
         setChannels((prev) =>
           prev.map((c) =>
-            c.id === channel.id ? { ...c, name: channel.name, type: channel.type, topic: channel.topic } : c,
+            c.id === channel.id ? { ...c, name: channel.name, isDefault: channel.isDefault, type: channel.type, topic: channel.topic } : c,
           ),
         );
       },

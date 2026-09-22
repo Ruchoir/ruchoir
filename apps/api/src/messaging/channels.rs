@@ -261,6 +261,7 @@ pub async fn create_channel(
         id: channel_id,
         space_id,
         name: name.clone(),
+        is_default: name == super::spaces::DEFAULT_CHANNEL,
         channel_type: channel_type.to_owned(),
         topic: topic.clone(),
     };
@@ -285,12 +286,14 @@ pub async fn create_channel(
     // The channel's own history says it was created, the way every seeded channel already did and
     // no real one ever did.
     write_channel_notice(&state, channel_id, None, CREATED_EVENT).await;
+    let is_default = name == super::spaces::DEFAULT_CHANNEL;
 
     Ok((
         StatusCode::CREATED,
         Json(ChannelDto {
             id: channel_id,
             name,
+            is_default,
             channel_type: channel_type.to_owned(),
             topic,
             imported: None,
@@ -392,6 +395,7 @@ pub async fn update_channel(
         id: updated.id,
         space_id,
         name: updated.name.clone(),
+        is_default: updated.name == super::spaces::DEFAULT_CHANNEL,
         channel_type: updated.channel_type.clone(),
         topic: updated.topic.clone(),
     };
@@ -408,9 +412,11 @@ pub async fn update_channel(
     let membership = channel_members::Entity::find_by_id((channel_id, session.user_id))
         .one(&state.db)
         .await?;
+    let is_default = updated.name == super::spaces::DEFAULT_CHANNEL;
     Ok(Json(ChannelDto {
         id: updated.id,
         name: updated.name,
+        is_default,
         channel_type: updated.channel_type,
         topic: updated.topic,
         imported,
@@ -648,6 +654,7 @@ pub async fn add_channel_members(
             id: channel_id,
             space_id: channel.space_id,
             name: channel.name.clone(),
+            is_default: channel.name == super::spaces::DEFAULT_CHANNEL,
             channel_type: channel.channel_type.clone(),
             topic: channel.topic.clone(),
         };

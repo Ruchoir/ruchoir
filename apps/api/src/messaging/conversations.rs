@@ -205,9 +205,11 @@ pub async fn list_channels(
         let allowed_roles = super::authz::channel_allowed_roles(&state.db, channel.id)
             .await?
             .map(|roles| roles.into_iter().collect());
+        let is_default = channel.name == super::spaces::DEFAULT_CHANNEL;
         out.push(ChannelDto {
             id: channel.id,
             name: channel.name,
+            is_default,
             channel_type: channel.channel_type,
             topic: channel.topic,
             imported: channel.imported_source,

@@ -98,12 +98,12 @@ function item(on: boolean): CSSProperties {
   };
 }
 
-/** Icon for a channel row. The default room is identified by the stable `general` handle. */
+/** Icon for a channel row, using the server-provided default marker. */
 function channelIcon(channel: Channel, favouriteSection: boolean): IconName {
   if (favouriteSection) return "bookmark";
   if (channel.type === "archived") return "archive";
   if (channel.type === "private") return "lock";
-  if (channel.name === "general") return "house";
+  if (channel.isDefault) return "house";
   return "hash";
 }
 

@@ -95,6 +95,8 @@ export type ChannelType = "public" | "private" | "archived";
 export type Channel = {
   id: string;
   name: string;
+  /** Whether this is the space's one channel created at space creation. */
+  isDefault: boolean;
   fav: boolean;
   unread: number;
   type: ChannelType;
