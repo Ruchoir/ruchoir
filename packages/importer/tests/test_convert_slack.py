@@ -448,6 +448,9 @@ class ConverterCase(unittest.TestCase):
                 converter.SLACK_API = original
         finally:
             server.shutdown()
+            # Closed, not just stopped: a listening socket left open warns its way through the
+            # rest of the suite.
+            server.server_close()
 
         self.assertEqual([r["id"] for r in rooms], ["G1", "G2"], "the second page is followed")
         self.assertIn("/conversations.list?types=private_channel&limit=200", seen[0][0])

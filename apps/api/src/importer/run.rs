@@ -262,10 +262,7 @@ impl<'a> Mapper<'a> {
             .await?;
         let mut seen = self.seen.lock().expect("mapper cache");
         for row in rows {
-            seen.insert(
-                (row.kind, row.space_id, row.external_ref),
-                row.internal_id,
-            );
+            seen.insert((row.kind, row.space_id, row.external_ref), row.internal_id);
         }
         self.complete
             .store(true, std::sync::atomic::Ordering::Release);
@@ -333,13 +330,10 @@ impl<'a> Mapper<'a> {
         .await?;
         // In step with the table, or the next pass would ask for something it just wrote and be
         // told it does not exist.
-        self.seen
-            .lock()
-            .expect("mapper cache")
-            .insert(
-                (kind.to_owned(), space_id, external_ref.to_owned()),
-                internal_id,
-            );
+        self.seen.lock().expect("mapper cache").insert(
+            (kind.to_owned(), space_id, external_ref.to_owned()),
+            internal_id,
+        );
         Ok(())
     }
 }
@@ -433,7 +427,11 @@ async fn create_waiting_account<C: ConnectionTrait>(
     // one that cannot receive mail and cannot collide, and the plan has already told the
     // administrator that this person needs an address typed in or a link handed over.
     let email = if account.email.is_empty() {
-        format!("{}+{}{NO_ADDRESS_DOMAIN}", account.source_id, user_id.simple())
+        format!(
+            "{}+{}{NO_ADDRESS_DOMAIN}",
+            account.source_id,
+            user_id.simple()
+        )
     } else {
         account.email.to_lowercase()
     };
@@ -613,8 +611,13 @@ pub async fn import_conversations<C: ConnectionTrait>(
             .await?
             .is_some()
         {
-            note_every(db, mapper.job_id, Counter::Conversations, written.conversations_seen)
-                .await?;
+            note_every(
+                db,
+                mapper.job_id,
+                Counter::Conversations,
+                written.conversations_seen,
+            )
+            .await?;
             continue;
         }
 
@@ -637,7 +640,13 @@ pub async fn import_conversations<C: ConnectionTrait>(
         let adopted = if channel.kind == "direct" {
             None
         } else {
-            adoptable(db, mapper, space_id, &crate::messaging::slug::slugify(&channel.name)).await?
+            adoptable(
+                db,
+                mapper,
+                space_id,
+                &crate::messaging::slug::slugify(&channel.name),
+            )
+            .await?
         };
 
         // An adopted conversation is written about no further: it belongs to this instance, which
@@ -679,7 +688,12 @@ pub async fn import_conversations<C: ConnectionTrait>(
                 // Free rather than exact: two conversations of one archive can carry names that
                 // come down to the same one here ("Café" and "cafe"), and they are two rooms, so
                 // they stay two rooms.
-                name: Set(free_name(db, space_id, &crate::messaging::slug::slugify(&channel.name)).await?),
+                name: Set(free_name(
+                    db,
+                    space_id,
+                    &crate::messaging::slug::slugify(&channel.name),
+                )
+                .await?),
                 // An archived conversation arrives archived: it is read-only here, which is the
                 // closest thing to what it was there, and nobody has to tidy it up again.
                 channel_type: Set(if channel.archived {
@@ -1553,14 +1567,19 @@ async fn store_file<C: ConnectionTrait, S: BlobSink>(
     // conversation came out as a grey file card with a download button, next to the same
     // photograph uploaded here, which shows. A decode failure is not fatal - the bytes are stored
     // either way, and a file nobody can preview is still a file somebody can open.
-    let (image_width, image_height, thumbnail_key) = if crate::files::mime::is_image(&file.content_type)
-    {
+    let (image_width, image_height, thumbnail_key) = if crate::files::mime::is_image(
+        &file.content_type,
+    ) {
         match crate::files::thumbnail::make_thumbnail(bytes, blobs.thumbnail_max_px) {
             Ok(info) => {
                 let key = format!("{key}/thumb");
                 blobs
                     .store
-                    .put(&key, &info.thumbnail, crate::files::thumbnail::THUMBNAIL_MIME)
+                    .put(
+                        &key,
+                        &info.thumbnail,
+                        crate::files::thumbnail::THUMBNAIL_MIME,
+                    )
                     .await
                     .map_err(RunError::Storage)?;
                 (Some(info.width as i32), Some(info.height as i32), Some(key))
@@ -1764,7 +1783,6 @@ pub async fn one_is_running<C: ConnectionTrait>(db: &C) -> Result<bool> {
         > 0)
 }
 
-
 /// Turns the mentions in a body from what a producer can write into what the product resolves.
 ///
 /// `docs/import-archive.md` requires a producer to write a mention as `@` followed by the person's
@@ -1784,7 +1802,11 @@ fn rewrite_mentions(body: &str, handles: &std::collections::HashMap<String, Stri
     // The scan walks characters rather than bytes: an identifier can be any text the source held,
     // and slicing a body on a byte boundary inside a name would panic.
     let chars: Vec<(usize, char)> = body.char_indices().collect();
-    let longest = handles.keys().map(|id| id.chars().count()).max().unwrap_or(0);
+    let longest = handles
+        .keys()
+        .map(|id| id.chars().count())
+        .max()
+        .unwrap_or(0);
 
     let mut out = String::with_capacity(body.len());
     let mut index = 0;
@@ -1892,8 +1914,14 @@ mod mention_tests {
     /// mention pointing nowhere.
     #[test]
     fn a_braced_mention_of_nobody_is_left_alone() {
-        assert_eq!(rewrite_mentions("@{U999} hello", &people()), "@{U999} hello");
-        assert_eq!(rewrite_mentions("@{demo-camille", &people()), "@{demo-camille");
+        assert_eq!(
+            rewrite_mentions("@{U999} hello", &people()),
+            "@{U999} hello"
+        );
+        assert_eq!(
+            rewrite_mentions("@{demo-camille", &people()),
+            "@{demo-camille"
+        );
     }
 
     #[test]
@@ -1930,11 +1958,17 @@ mod mention_tests {
 
     #[test]
     fn an_identifier_outside_ascii_does_not_split_a_character() {
-        assert_eq!(rewrite_mentions("@théo ça va ?", &people()), "@Théo Vilain ça va ?");
+        assert_eq!(
+            rewrite_mentions("@théo ça va ?", &people()),
+            "@Théo Vilain ça va ?"
+        );
     }
 
     #[test]
     fn a_mention_at_the_very_end_of_a_body_is_still_one() {
-        assert_eq!(rewrite_mentions("merci @demo-yanis", &people()), "merci @Yanis Berthier");
+        assert_eq!(
+            rewrite_mentions("merci @demo-yanis", &people()),
+            "merci @Yanis Berthier"
+        );
     }
 }

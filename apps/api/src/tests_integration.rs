@@ -3859,7 +3859,10 @@ async fn a_resumed_import_counts_what_it_recognised() {
             source_user(&unique_ref("alice"), &email),
             source_user(&unique_ref("bob"), &format!("b-{email}")),
         ],
-        vec![source_space(&unique_ref("atelier"), &format!("Atelier {}", Uuid::new_v4().simple()))],
+        vec![source_space(
+            &unique_ref("atelier"),
+            &format!("Atelier {}", Uuid::new_v4().simple()),
+        )],
     );
     let plan = plan::build(&index, &Existing::default());
 
@@ -3870,7 +3873,9 @@ async fn a_resumed_import_counts_what_it_recognised() {
         .await
         .expect("accounts");
     assert_eq!(written.accounts_created, 2);
-    run::finish_job(&app.db, first, "failed").await.expect("finish");
+    run::finish_job(&app.db, first, "failed")
+        .await
+        .expect("finish");
 
     // The resume is a job of its own, as it is when the screen starts one.
     let second = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
@@ -4527,13 +4532,24 @@ async fn somebody_left_out_gets_no_account_and_their_messages_still_arrive() {
     let person = unique_ref("alice");
     let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
     let dir = write_archive(
-        &[json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()),
-                 "visibility": "private"})],
-        &[json!({"id": person, "email": format!("{person}@example.test"),
-                 "display_name": "Alice", "active": true})],
-        &[json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
-                 "visibility": "public", "archived": false, "members": [person]})],
-        &[message_row("m1", &channel_ref, Some(&person), "ce que j'ai écrit reste")],
+        &[
+            json!({"id": space_ref, "name": format!("Espace {}", Uuid::new_v4().simple()),
+                 "visibility": "private"}),
+        ],
+        &[
+            json!({"id": person, "email": format!("{person}@example.test"),
+                 "display_name": "Alice", "active": true}),
+        ],
+        &[
+            json!({"id": channel_ref, "space": space_ref, "kind": "channel", "name": "Produit",
+                 "visibility": "public", "archived": false, "members": [person]}),
+        ],
+        &[message_row(
+            "m1",
+            &channel_ref,
+            Some(&person),
+            "ce que j'ai écrit reste",
+        )],
     );
 
     let index = crate::importer::archive::index(&dir, None).expect("index");
@@ -5395,7 +5411,14 @@ async fn an_imported_image_arrives_with_its_dimensions_and_a_thumbnail() {
             .expect("encode");
         out.into_inner()
     };
-    let dir = archive_with_a_blob(&person, &space_ref, &channel_ref, &picture, "image/png", "photo.png");
+    let dir = archive_with_a_blob(
+        &person,
+        &space_ref,
+        &channel_ref,
+        &picture,
+        "image/png",
+        "photo.png",
+    );
 
     let (job, spaces) = import_from_archive(&app, fx.alice, &dir).await;
     let mapper = Mapper::new(job, "mattermost");
@@ -6015,7 +6038,11 @@ async fn the_people_an_import_brought_can_be_read_back_from_the_server() {
             id == zoe_ref || id == adam_ref
         })
         .collect();
-    assert_eq!(ours.len(), 2, "both, and read back by their source identifier");
+    assert_eq!(
+        ours.len(),
+        2,
+        "both, and read back by their source identifier"
+    );
     assert_eq!(
         ours[0]["source_id"].as_str(),
         Some(adam_ref.as_str()),
@@ -6025,14 +6052,22 @@ async fn the_people_an_import_brought_can_be_read_back_from_the_server() {
         ours[0]["email"].as_str().unwrap_or_default().contains('@'),
         "with the address an invitation would go to"
     );
-    assert_eq!(ours[0]["invited"], json!(false), "nobody has been written to");
+    assert_eq!(
+        ours[0]["invited"],
+        json!(false),
+        "nobody has been written to"
+    );
 
     // Somebody the archive carried without an address has one here, because the column demands it,
     // and it can receive nothing. It must read as an absence, or the screen offers to write to it.
     let nameless = Uuid::new_v4();
     users::ActiveModel {
         id: Set(nameless),
-        email: Set(format!("u404+{}{}", nameless.simple(), run::NO_ADDRESS_DOMAIN)),
+        email: Set(format!(
+            "u404+{}{}",
+            nameless.simple(),
+            run::NO_ADDRESS_DOMAIN
+        )),
         display_name: Set("Sans Adresse".to_owned()),
         password_hash: Set(None),
         status: Set("pending".to_owned()),
@@ -6071,7 +6106,10 @@ async fn the_people_an_import_brought_can_be_read_back_from_the_server() {
 
     // And the rule the invitation route applies, which cannot be exercised through the route here:
     // an instance with no mail relay refuses the whole request before looking at anybody.
-    assert!(run::unreachable(&format!("someone{}", run::NO_ADDRESS_DOMAIN)));
+    assert!(run::unreachable(&format!(
+        "someone{}",
+        run::NO_ADDRESS_DOMAIN
+    )));
     assert!(run::unreachable("   "));
     assert!(!run::unreachable("someone@example.org"));
 }
@@ -6280,11 +6318,15 @@ async fn one_import_at_a_time() {
     assert!(run::one_is_running(&scratch.db).await.expect("query"));
 
     // A finished one does not hold the door.
-    run::finish_job(&scratch.db, run::start_job(&scratch.db, "mattermost", admin, None, "{}")
-        .await
-        .expect("second"), "completed")
-        .await
-        .expect("finish");
+    run::finish_job(
+        &scratch.db,
+        run::start_job(&scratch.db, "mattermost", admin, None, "{}")
+            .await
+            .expect("second"),
+        "completed",
+    )
+    .await
+    .expect("finish");
     assert!(run::one_is_running(&scratch.db).await.expect("query"));
     run::close_abandoned_jobs(&scratch.db).await.expect("close");
     assert!(!run::one_is_running(&scratch.db).await.expect("query"));
@@ -6351,7 +6393,10 @@ async fn an_import_forgets_the_correspondences_whose_row_is_gone() {
     left.sort();
     assert_eq!(
         left,
-        vec![format!("{}:gardé", run::KIND_SPACE), format!("{}:admin", run::KIND_USER)],
+        vec![
+            format!("{}:gardé", run::KIND_SPACE),
+            format!("{}:admin", run::KIND_USER)
+        ],
         "and what still exists is still recognised, or a re-run would import it twice"
     );
     assert_eq!(

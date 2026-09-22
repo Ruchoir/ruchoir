@@ -621,7 +621,10 @@ mod choice_tests {
     #[test]
     fn people_nobody_decided_anything_about_are_left_exactly_as_the_archive_spells_them() {
         let index = index_with(
-            vec![user("alice", "a@example.test"), user("bob", "b@example.test")],
+            vec![
+                user("alice", "a@example.test"),
+                user("bob", "b@example.test"),
+            ],
             vec![],
             vec![],
         );
@@ -641,4 +644,3 @@ mod choice_tests {
         assert_eq!(bob.email, "b@example.test");
     }
 }
-

@@ -685,7 +685,10 @@ mod report_tests {
         // past the point where telling them apart stopped being worth the memory.
         let lines = report.errors();
         assert_eq!(lines.len(), FAMILIES_SHOWN + 2);
-        assert!(lines[FAMILIES_SHOWN].contains("400 other kinds"), "{lines:?}");
+        assert!(
+            lines[FAMILIES_SHOWN].contains("400 other kinds"),
+            "{lines:?}"
+        );
         assert!(
             lines.last().unwrap().contains("too varied to tell apart"),
             "{:?}",
@@ -702,7 +705,10 @@ mod report_tests {
         }
         let lines = report.errors();
         assert_eq!(lines.len(), FAMILIES_SHOWN + 1);
-        assert!(lines.last().unwrap().contains("50 other kinds"), "{lines:?}");
+        assert!(
+            lines.last().unwrap().contains("50 other kinds"),
+            "{lines:?}"
+        );
     }
 
     #[test]

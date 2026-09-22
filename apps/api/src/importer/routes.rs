@@ -633,7 +633,11 @@ pub async fn people(
             Some(ImportedPerson {
                 source_id: row.external_ref,
                 display_name: user.display_name.clone(),
-                email: if reachable { user.email.clone() } else { String::new() },
+                email: if reachable {
+                    user.email.clone()
+                } else {
+                    String::new()
+                },
                 invited: reachable && invited.contains(&user.email),
             })
         })

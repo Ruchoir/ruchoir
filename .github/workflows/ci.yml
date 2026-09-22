@@ -215,7 +215,8 @@ jobs:
       - name: Check the scripts parse
         run: |
           bash -n packages/importer/export-nextcloud.sh
-          python3 -m py_compile packages/importer/convert-mattermost.py packages/importer/validate-archive.py
+          python3 -m py_compile packages/importer/convert-mattermost.py \
+            packages/importer/convert-slack.py packages/importer/validate-archive.py
       - name: Set up Rust
         run: rustup show
       - name: Build the API, for the checker inside it

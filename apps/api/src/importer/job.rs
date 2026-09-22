@@ -191,14 +191,20 @@ async fn run_passes<S: BlobSink>(
 
     let forgotten = run::forget_vanished(db).await?;
     if forgotten > 0 {
-        tracing::warn!(forgotten, "correspondences pointed at rows that are gone; forgotten");
+        tracing::warn!(
+            forgotten,
+            "correspondences pointed at rows that are gone; forgotten"
+        );
     }
 
     let mapper = Mapper::new(job_id, &source);
     // Read once, in one query, rather than asked for a row at a time by every pass that follows.
     let known = mapper.preload(db).await?;
     if known > 0 {
-        tracing::info!(known, "resuming: correspondences from an earlier run are already here");
+        tracing::info!(
+            known,
+            "resuming: correspondences from an earlier run are already here"
+        );
     }
 
     let mut totals = import_jobs::Entity::find_by_id(job_id)
