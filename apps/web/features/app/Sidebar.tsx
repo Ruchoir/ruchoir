@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useRef, useState } from "react";
-import { Avatar, Badge, Icon, IconButton, Input, Popover, Tag, type TagTone } from "@/components/ds";
+import { Avatar, Badge, Icon, IconButton, Input, Popover, Tag, type IconName, type TagTone } from "@/components/ds";
 import type { Channel, DirectMessage, Workspace } from "@/lib/data";
 import { MenuPopover } from "./MenuPopover";
 import { NotificationCenter } from "./NotificationCenter";
@@ -96,6 +96,15 @@ function item(on: boolean): CSSProperties {
     // surface has low contrast against the canvas.
     boxShadow: on ? "inset 3px 0 0 0 var(--border-accent)" : undefined,
   };
+}
+
+/** Icon for a channel row. The default room is identified by the stable `general` handle. */
+function channelIcon(channel: Channel, favouriteSection: boolean): IconName {
+  if (favouriteSection) return "bookmark";
+  if (channel.type === "archived") return "archive";
+  if (channel.type === "private") return "lock";
+  if (channel.name === "general") return "house";
+  return "hash";
 }
 
 export type SideMenuItem = { icon: string; label: string; onClick: () => void; danger?: boolean };
@@ -540,7 +549,7 @@ export function Sidebar({
                   menuItems={channelMenu(c)}
                 >
                   <Icon
-                    name={c.type === "private" ? "lock" : "hash"}
+                    name={channelIcon(c, true)}
                     size={13}
                     title={c.type === "private" ? t("sidebar.privateChannel") : undefined}
                     style={{ color: "var(--text-muted)" }}
@@ -588,7 +597,7 @@ export function Sidebar({
                   menuItems={channelMenu(c)}
                 >
                   <Icon
-                    name={c.type === "archived" ? "archive" : c.type === "private" ? "lock" : "hash"}
+                    name={channelIcon(c, false)}
                     size={13}
                     title={c.type === "archived" ? t("sidebar.archivedChannel") : c.type === "private" ? t("sidebar.privateChannel") : undefined}
                     style={{ color: "var(--text-muted)" }}
