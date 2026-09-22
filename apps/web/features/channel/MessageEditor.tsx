@@ -17,6 +17,7 @@ import {
   editorState,
   emojiNode,
   insertBlockAtSelection,
+  insertLineBreakAtSelection,
   insertNodeAtSelection,
   insertTextAtSelection,
   replaceTokenBeforeCaret,
@@ -461,7 +462,8 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     }
     if (e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
-      insertTextAtSelection("\n");
+      const ed = edRef.current;
+      if (ed) insertLineBreakAtSelection(ed);
       sync();
     }
   };
