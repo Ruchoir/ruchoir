@@ -665,6 +665,44 @@
   color: var(--text-muted);
   white-space: pre-wrap;
 }
+/*
+ * A checklist inside a message. The boxes are the design system's (`.wc-cb`), so a checklist item
+ * is ticked, focused and read-only exactly like every other box in the product, and never the
+ * browser's own, which is unthemed and a different shape on every platform. No marker on the list:
+ * the boxes are the marker.
+ *
+ * On your own message the boxes are live and ticking one edits the body; on anyone else's they are
+ * disabled, because the API takes an edit from the author alone.
+ */
+.wc-tasks {
+  margin: 2px 0;
+  padding-left: 0;
+  list-style: none;
+}
+/*
+ * The item's text is message text, not a form label: it keeps the body's size and colour even where
+ * the box is read-only. Only the box is unavailable, and it says so on its own (the shared rule
+ * keeps a disabled tick in the accent colour at reduced opacity); dimming the sentence with it
+ * would make a colleague's checklist harder to read than their other lines.
+ */
+.wc-tasks .wc-cb {
+  align-items: flex-start;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+.wc-tasks .wc-cb--disabled {
+  color: inherit;
+  cursor: default;
+}
+/* Centred on the first line of the item, which is taller here than in a form. */
+.wc-tasks .wc-cb__box {
+  margin-top: 3px;
+}
+.wc-task-done {
+  color: var(--text-subtle);
+  text-decoration: line-through;
+}
 .wc-mention {
   color: var(--terracotta-800);
   background: var(--terracotta-50);

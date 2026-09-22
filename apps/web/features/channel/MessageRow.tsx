@@ -34,6 +34,8 @@ export type MessageActions = {
   onOpenMention: (name: string) => void;
   /** Follow a `#room` written in a message, to the channel it names. */
   onOpenRoom?: (name: string) => void;
+  /** Tick or untick the checklist item on this line of the body. Author-only, like any edit. */
+  onToggleTask: (line: number, done: boolean) => void;
 };
 
 const styles: Record<string, CSSProperties> = {
@@ -335,10 +337,18 @@ export function MessageRow({
           <>
             {m.body ? (
               <div style={styles.body}>
-                {renderRichText(m.body, getMentionNames(), isOwn, actions.onOpenMention, me, {
-                  names: getSpaceRooms(),
-                  onOpen: actions.onOpenRoom,
-                })}
+                {renderRichText(
+                  m.body,
+                  getMentionNames(),
+                  isOwn,
+                  actions.onOpenMention,
+                  me,
+                  { names: getSpaceRooms(), onOpen: actions.onOpenRoom },
+                  // Only your own checklist is yours to tick: the API refuses an edit from anyone
+                  // but the author, and a box that answers a click with a toast is worse than one
+                  // that says up front it is not yours.
+                  isOwn ? actions.onToggleTask : undefined,
+                )}
                 {m.edited ? <span style={styles.edited}>{t("message.editedTag")}</span> : null}
               </div>
             ) : null}

@@ -199,6 +199,8 @@ export type MessageActionHandlers = {
   message: (name: string) => void;
   /** Open the channel a `#room` in a message names. */
   openRoom: (name: string) => void;
+  /** Tick or untick one checklist line of a message, without opening it for editing. */
+  toggleTask: (messageId: string, line: number, done: boolean) => void;
 };
 
 type MenuDialog = "settings" | "notifications" | "addpeople" | "leave" | null;
@@ -445,6 +447,7 @@ export function ChannelScreen({
     onMessage: () => actions.message(m.author),
     onOpenMention: (name) => actions.openProfile(name),
     onOpenRoom: (name) => actions.openRoom(name),
+    onToggleTask: (line, done) => actions.toggleTask(m.id, line, done),
   });
   /** The faces to draw next to a thread's reply count: the last repliers, with their pictures. */
   const replyFaces = (m: Message) =>
