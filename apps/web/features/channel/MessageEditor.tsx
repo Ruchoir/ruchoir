@@ -16,6 +16,7 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import {
   editorState,
   emojiNode,
+  insertBlockAtSelection,
   insertNodeAtSelection,
   insertTextAtSelection,
   replaceTokenBeforeCaret,
@@ -54,9 +55,22 @@ export type MessageEditorHandle = {
   submit: () => void;
   insertEmoji: (glyph: string) => void;
   insertText: (text: string) => void;
+  /**
+   * Type a trigger character (`@` or `#`) and open its suggestion list.
+   *
+   * Not `insertText`: the triggers only fire at the start of a token, so the same character typed
+   * against the end of a word is a literal one. The toolbar buttons went through `insertText` and
+   * were silent whenever the caret sat after a letter, which is most of the time.
+   */
+  insertTrigger: (char: "@" | "#") => void;
   wrapSelection: (before: string, after?: string) => void;
+  /** Prefix the selected lines, or open a fresh line carrying `prefix`. */
   prefixLines: (prefix: string) => void;
+  /** Number the selected lines "1. ", "2. ", and so on. */
+  numberLines: () => void;
   codeFormat: () => void;
+  /** Open a fenced code block around the selection, caret inside it when there is none. */
+  blockCode: () => void;
   /** Whether the editor currently has no text (used to allow attachment-only sends). */
   isEmpty: () => boolean;
   /** Clear the editor without sending. */
@@ -289,12 +303,57 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     sync();
   };
 
-  const prefixLines = (prefix: string) => {
+  /**
+   * What the editor looks like where the caret is: whether a line is already open there, and the
+   * break to type first when it is not.
+   *
+   * Every block tool needs this. A quotation, a heading or a list item is only read as one when its
+   * marker opens the line, so pressing "Citation" halfway through a sentence has to start a line
+   * rather than drop "> " between two words, which is what it used to do.
+   */
+  const lineBreakBefore = (): string => {
+    const ed = edRef.current;
+    if (!ed) return "";
+    const { text, caret } = editorState(ed);
+    return caret === 0 || text[caret - 1] === "\n" ? "" : "\n";
+  };
+
+  /** Give every selected line the prefix `prefixFor` returns for its index, or open one line with it. */
+  const applyLinePrefix = (prefixFor: (index: number) => string) => {
     ensureCaret();
     const selected = window.getSelection()?.toString() ?? "";
-    const replaced = (selected || "").split("\n").map((l) => prefix + l).join("\n");
-    insertTextAtSelection(replaced || prefix);
+    if (selected) {
+      insertTextAtSelection(selected.split("\n").map((line, i) => prefixFor(i) + line).join("\n"));
+    } else {
+      insertTextAtSelection(lineBreakBefore() + prefixFor(0));
+    }
     sync();
+  };
+
+  const prefixLines = (prefix: string) => applyLinePrefix(() => prefix);
+
+  /**
+   * Number the selected lines, or open the next item of the list already being written.
+   *
+   * The numbers are written out rather than left to the renderer, because the message travels as
+   * text: someone reading it in a mail notification, or in a client that renders nothing, still
+   * gets a list that counts. Which is also why the button continues from the line above instead of
+   * starting at 1 every time: pressing it four times used to write "1." four times.
+   */
+  const numberLines = () => {
+    ensureCaret();
+    const ed = edRef.current;
+    let first = 1;
+    if (ed && !window.getSelection()?.toString()) {
+      const { text, caret } = editorState(ed);
+      const lines = text.slice(0, caret).split("\n");
+      // The line the caret is on, or the one above it when that line is empty (the tool would open
+      // a line of its own there anyway).
+      const previous = lines[lines.length - 1] || lines[lines.length - 2] || "";
+      const numbered = /^(\d{1,9})[.)] /.exec(previous);
+      if (numbered) first = Number(numbered[1]) + 1;
+    }
+    applyLinePrefix((i) => `${first + i}. `);
   };
 
   const codeFormat = () => {
@@ -308,14 +367,38 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     }
   };
 
+  const blockCode = () => {
+    ensureCaret();
+    const selected = window.getSelection()?.toString() ?? "";
+    // With nothing selected the fences are empty, so the caret goes on the line between them
+    // (four characters from the end: the newline and the three closing backticks).
+    insertBlockAtSelection(`${lineBreakBefore()}\`\`\`\n${selected}\n\`\`\``, selected ? 0 : 4);
+    sync();
+  };
+
+  const insertTrigger = (char: "@" | "#") => {
+    ensureCaret();
+    const ed = edRef.current;
+    if (!ed) return;
+    const { text, caret } = editorState(ed);
+    // The trigger is only a trigger at the start of a token, so it takes a space with it when the
+    // caret is against a word. One space, never two: the character before is checked, not assumed.
+    const lead = caret === 0 || /\s/.test(text[caret - 1]) ? "" : " ";
+    insertTextAtSelection(lead + char);
+    sync();
+  };
+
   useImperativeHandle(ref, () => ({
     focus: () => edRef.current?.focus(),
     submit,
     insertEmoji,
     insertText,
+    insertTrigger,
     wrapSelection,
     prefixLines,
+    numberLines,
     codeFormat,
+    blockCode,
     isEmpty: () => {
       const ed = edRef.current;
       return !ed || serialize(ed).trim() === "";

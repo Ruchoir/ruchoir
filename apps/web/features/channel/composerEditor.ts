@@ -106,6 +106,29 @@ export function insertTextAtSelection(str: string): void {
   }
 }
 
+/**
+ * Insert `str` at the selection as a single text node, caret `fromEnd` characters before its end.
+ *
+ * The editor is `white-space: pre-wrap`, so newlines inside one text node render as line breaks
+ * exactly like the `<br>`s `insertTextAtSelection` builds, and `serialize` reads them back the same
+ * way. Keeping the run in one node is what makes the caret placement possible: a fenced code block
+ * opens with the caret on the empty line between its fences, ready to be typed into, which three
+ * nodes and a `<br>` cannot express as an offset.
+ */
+export function insertBlockAtSelection(str: string, fromEnd = 0): void {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const node = document.createTextNode(str);
+  range.insertNode(node);
+  const caret = document.createRange();
+  caret.setStart(node, Math.max(0, str.length - fromEnd));
+  caret.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(caret);
+}
+
 /** Insert a DOM node at the selection (optionally with a trailing space), caret after it. */
 export function insertNodeAtSelection(node: Node, trailingSpace = false): void {
   const sel = window.getSelection();
