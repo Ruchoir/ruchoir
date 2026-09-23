@@ -113,9 +113,16 @@ export function ImportScreen({
   instanceAddress,
   openLast = false,
   compact = false,
+  onFinished,
 }: {
   onClose: () => void;
   onNotify?: (t: Toast) => void;
+  /**
+   * A run watched from this screen has stopped writing (completed, cancelled or failed). The shell
+   * re-reads the account's spaces then: an import creates spaces, and the rail used to keep the list
+   * it booted with until the page was reloaded.
+   */
+  onFinished?: () => void;
   /** The address this instance answers on, which is what a replacement asks to be typed back. */
   instanceAddress: string;
   /**
@@ -347,6 +354,16 @@ export function ImportScreen({
       clearInterval(id);
     };
   }, [stage, typingName]);
+
+  // The first reading of a job that has stopped, once per job: even a cancelled or failed run may
+  // already have created its space.
+  const finishedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!job || !["completed", "cancelled", "failed"].includes(job.status)) return;
+    if (finishedRef.current === job.id) return;
+    finishedRef.current = job.id;
+    onFinished?.();
+  }, [job, onFinished]);
 
   // Once it is done, who it brought: the list the invitations are chosen from.
   useEffect(() => {

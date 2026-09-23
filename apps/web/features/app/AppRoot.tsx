@@ -142,6 +142,7 @@ import { Sidebar } from "./Sidebar";
 import type { AppView, ChannelPanel, Toast } from "./types";
 import { WorkspaceRail } from "./WorkspaceRail";
 import { readDeepLink } from "@/lib/dev/deeplink";
+import { lastChannelOf, rememberChannel } from "@/lib/lastChannel";
 import { useCompact } from "./useCompact";
 import { MobileTopBar } from "./MobileTopBar";
 import { BottomTabs } from "./BottomTabs";
@@ -545,6 +546,19 @@ function AppShell() {
     [],
   );
 
+  /**
+   * Re-read the spaces when an import stops, even one watched only from the sidebar: an import
+   * creates spaces, and the rail used to keep the list it booted with until the page was reloaded.
+   */
+  const importEndedRef = useRef<string | null>(null);
+  const importRunId = importRun?.job.id;
+  const importRunning = importRun?.running;
+  useEffect(() => {
+    if (!importRunId || importRunning !== false || importEndedRef.current === importRunId) return;
+    importEndedRef.current = importRunId;
+    void reloadSpaceCounters();
+  }, [importRunId, importRunning, reloadSpaceCounters]);
+
   const refreshSpaceCounters = useCallback(() => {
     clearTimeout(countersTimer.current);
     countersTimer.current = setTimeout(() => void reloadSpaceCounters(), 1500);
@@ -568,7 +582,7 @@ function AppShell() {
    * Used both at boot and when the workspace rail switches space, so a switch shows the space it
    * says it does rather than the previous one's conversations.
    */
-  const loadSpace = useCallback(async (activeWs: string, preferChannelName?: string) => {
+  const loadSpace = useCallback(async (activeWs: string, preferChannelName?: string, defaultChannelId?: string) => {
     setWs(activeWs);
     // Which space the in-flight waves belong to. A switch started while another is loading must not
     // have the slower one's results land on top of it.
@@ -610,11 +624,22 @@ function AppShell() {
     // Overlay each 1:1 DM's counterpart presence onto its sidebar row.
     setDms(dmList.map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
 
-    // Land on the channel the address named, else the first of the space (or its first DM). A named
-    // channel that no longer exists falls through to the default rather than failing: a link shared
-    // before a rename should still open the right space.
-    const preferred = preferChannelName ? chans.find((c) => c.name === preferChannelName) : undefined;
-    const opening = preferred?.id ?? chans[0]?.id ?? dmList[0]?.id ?? "";
+    // Land on the channel the address named, else the conversation last open in this space, else its
+    // main public channel (the one newcomers join), else the first of the space (or its first DM).
+    // Anything named or remembered that no longer exists, or is no longer reachable, falls through to
+    // the next rather than failing: a link shared before a rename should still open the right space.
+    const exists = (id: string | undefined) =>
+      id !== undefined && (chans.some((c) => c.id === id) || dmList.some((d) => d.id === id));
+    const preferred = preferChannelName ? chans.find((c) => c.name === preferChannelName)?.id : undefined;
+    const remembered = lastChannelOf(activeWs);
+    const opening =
+      preferred ??
+      (exists(remembered) ? remembered : undefined) ??
+      (exists(defaultChannelId) ? defaultChannelId : undefined) ??
+      chans.find((c) => c.type === "public")?.id ??
+      chans[0]?.id ??
+      dmList[0]?.id ??
+      "";
     setChannelId(opening);
 
     // Second wave: only the conversation actually being opened. The space is usable from here, so
@@ -715,7 +740,8 @@ function AppShell() {
       const resolved = await resolveSpaceSlug(target.spaceSlug);
       wanted = resolved ? spaces.find((s) => s.id === resolved.id) : undefined;
     }
-    await loadSpace((wanted ?? spaces[0])?.id ?? "", wanted ? target?.channelName : undefined);
+    const landing = wanted ?? spaces[0];
+    await loadSpace(landing?.id ?? "", wanted ? target?.channelName : undefined, landing?.defaultChannelId);
     return spaces;
   }, [loadSpace]);
 
@@ -2056,6 +2082,8 @@ function AppShell() {
   const openChannel = (id: string) => {
     setView("channel");
     setChannelId(id);
+    // So coming back to this space opens this conversation rather than the first of the list.
+    rememberChannel(ws, id);
     // Right panel is app-level state, so reset it per conversation, to whichever panel the
     // preferences name. The compact shell opens with none (there the panel is a full-screen overlay
     // that would hide the conversation), and a panel closed by hand stays closed.
@@ -2713,7 +2741,7 @@ function AppShell() {
     // there is none left. `loadSpace("")` clears every screen rather than leaving the last space's
     // channels under a rail that no longer offers it.
     setSwitchingSpace(true);
-    await loadSpace(remaining[0]?.id ?? "");
+    await loadSpace(remaining[0]?.id ?? "", undefined, remaining[0]?.defaultChannelId);
     setSwitchingSpace(false);
     // Never land on the settings of the next space. They look exactly like the ones just used to
     // delete a space, on a screen whose danger zone is one press away, and the name at the top is
@@ -2727,7 +2755,11 @@ function AppShell() {
     dropSpaceRef.current = (spaceId: string) => void dropWorkspace(spaceId);
     reloadSpaceRef.current = async (spaceId: string) => {
       setSwitchingSpace(true);
-      await loadSpace(spaceId);
+      await loadSpace(
+        spaceId,
+        undefined,
+        liveRef.current.spaces.find((w) => w.id === spaceId)?.defaultChannelId,
+      );
       setSwitchingSpace(false);
     };
   });
@@ -2866,8 +2898,17 @@ function AppShell() {
     // reached the rail. Re-read the counters on the way out, or its tile would keep the figure it
     // had when the app booted.
     void reloadSpaceCounters();
+    // A space-level screen (its settings, its files, the threads or mentions views) belongs to the
+    // space being left: arriving in another one lands in a conversation, never on the previous
+    // space's screen redrawn with someone else's name at the top.
+    setView("channel");
+    setThread(null);
+    setProfile(null);
+    setProfileEdit(false);
+    setUnreadMarker(null);
+    setFocusMessageId(null);
     try {
-      await loadSpace(id);
+      await loadSpace(id, undefined, workspaces.find((w) => w.id === id)?.defaultChannelId);
     } catch {
       showToast({ tone: "danger", title: t("toast.spaceUnreachable"), description: t("common.tryAgain") });
     } finally {
@@ -3382,6 +3423,7 @@ function AppShell() {
               onNotify={showToast}
               compact={compact}
               instanceAddress={typeof window === "undefined" ? "" : window.location.host}
+              onFinished={reloadSpaceCounters}
             />
           </div>
         </div>

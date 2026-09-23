@@ -358,7 +358,7 @@ export function ChannelScreen({
    * A direct message has no roster endpoint: its people are the ones it is with, which the sidebar
    * row already names.
    */
-  const [roster, setRoster] = useState<{ channelId: string; names: string[]; myRole?: string } | null>(
+  const [roster, setRoster] = useState<{ channelId: string; userIds: string[]; myRole?: string } | null>(
     null,
   );
   /**
@@ -381,7 +381,7 @@ export function ChannelScreen({
           active &&
           setRoster({
             channelId: channel.id,
-            names: rows.map((m) => m.name),
+            userIds: rows.map((m) => m.userId),
             // The caller's own role *in this channel*, which a space administrator outranks anyway.
             myRole: rows.find((m) => m.userId === myUserId)?.role,
           }),
@@ -396,7 +396,7 @@ export function ChannelScreen({
 
   // Derived, not reset in the effect: a roster still carrying the previous channel's id is simply
   // not this channel's answer yet, which is the same thing as not having one.
-  const channelRoster = roster?.channelId === channel.id ? roster.names : null;
+  const channelRoster = roster?.channelId === channel.id ? roster.userIds : null;
   /**
    * What the caller counts as in this channel: the higher of what the space says (an owner or
    * administrator counts as its owner) and what the channel's own roster says, once it has arrived.
@@ -419,10 +419,13 @@ export function ChannelScreen({
    * the API refuses the rest, so the button is only offered where it would be accepted.
    */
   const canJoinHere = canModerateChannels && channel.type === "public";
-  const inChannel = (name: string) => channelRoster === null || channelRoster.includes(name);
+  // By account id, never by display name: an imported workspace routinely brings a namesake of
+  // someone already here (often the importer themselves), and a list keyed on the name handed React
+  // two rows with the same key, which it then duplicated on every presence update.
+  const inChannel = (userId: string) => channelRoster === null || channelRoster.includes(userId);
   const memberList: ChannelMember[] = members
-    .filter((m) => isDm || inChannel(m.name))
-    .map((m) => ({ id: m.name, name: m.name, presence: m.presence, bot: m.bot, avatar: m.avatar }));
+    .filter((m) => isDm || inChannel(m.userId))
+    .map((m) => ({ id: m.userId, name: m.name, presence: m.presence, bot: m.bot, avatar: m.avatar }));
   const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
   // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one
   // place that holds the picture. Absent means the locally generated avatar, which is the default.
