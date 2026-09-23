@@ -18,7 +18,9 @@ impl MigrationTrait for Migration {
         // safe for those installations.
         manager
             .get_connection()
-            .execute_unprepared("ALTER TABLE spaces ADD COLUMN IF NOT EXISTS default_channel_id uuid;")
+            .execute_unprepared(
+                "ALTER TABLE spaces ADD COLUMN IF NOT EXISTS default_channel_id uuid;",
+            )
             .await?;
         manager
             .get_connection()
