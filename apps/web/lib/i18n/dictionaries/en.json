@@ -245,6 +245,9 @@
     "noMatch": "Nothing matches “{{query}}”."
   },
   "sidebar": {
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "reorderFailed": "The channel order could not be saved.",
     "muted": "Notifications muted",
     "markRead": "Mark as read",
     "channelSettings": "Channel settings",

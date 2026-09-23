@@ -764,6 +764,7 @@ pub async fn import_conversations<C: ConnectionTrait>(
                 // without joining anything.
                 imported_source: Set(Some(mapper.source.to_owned())),
                 external_ref: Set(Some(channel.id.clone())),
+                position: Set(None),
                 created_at: Set(now),
             }
             .insert(db)

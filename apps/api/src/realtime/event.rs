@@ -114,6 +114,14 @@ impl RealtimeEnvelope {
         Self::conversation("channel.updated", conversation_id, payload)
     }
 
+    /// A space's channels were put in a new order by its administrators.
+    ///
+    /// Space-scoped and carrying only the space: the recipient re-reads the channels it may see,
+    /// rather than being handed an order that would name private channels it is not in.
+    pub fn channels_reordered(payload: impl Serialize) -> Self {
+        Self::global("channels.reordered", payload)
+    }
+
     /// Someone is typing in a conversation (ephemeral, never stored).
     pub fn typing(conversation_id: Uuid, payload: impl Serialize) -> Self {
         Self::conversation("typing", conversation_id, payload)

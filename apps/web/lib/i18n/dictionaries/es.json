@@ -245,6 +245,9 @@
     "noMatch": "Nada coincide con «{{query}}»."
   },
   "sidebar": {
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "reorderFailed": "No se pudo guardar el orden de los canales.",
     "muted": "Notificaciones silenciadas",
     "markRead": "Marcar como leído",
     "channelSettings": "Ajustes del canal",

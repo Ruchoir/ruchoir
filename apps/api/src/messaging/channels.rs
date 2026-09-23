@@ -305,6 +305,7 @@ pub async fn create_channel(
         archived_at: Set(None),
         imported_source: Set(None),
         external_ref: Set(None),
+        position: Set(None),
         created_at: Set(now),
     }
     .insert(&txn)
@@ -1095,3 +1096,119 @@ async fn name_is_taken<C: ConnectionTrait>(
     Ok(query.one(db).await?.is_some())
 }
 
+/// A space's channels in the space's own order: placed ones by `position`, then the rest by
+/// creation. The one ordering every list of channels is read in.
+pub(super) async fn in_space_order<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+) -> Result<Vec<channels::Model>, ApiError> {
+    use sea_orm::{Order, QueryOrder};
+    Ok(channels::Entity::find()
+        .filter(channels::Column::SpaceId.eq(space_id))
+        .order_by_with_nulls(
+            channels::Column::Position,
+            Order::Asc,
+            sea_orm::sea_query::NullOrdering::Last,
+        )
+        .order_by_asc(channels::Column::CreatedAt)
+        .order_by_asc(channels::Column::Id)
+        .all(db)
+        .await?)
+}
+
+/// `PUT /api/v1/spaces/{space_id}/channel-order`: put the space's channels in a new order.
+///
+/// The space's administrators arrange it, and everybody in the space sees the same order. The
+/// caller names the channels they can see, all of them, first to last. Those they cannot see (a
+/// private channel they are not in) keep their place: the named channels are laid into the slots
+/// the named channels already held, so an arrangement never moves what its author could not see.
+#[utoipa::path(
+    put,
+    path = "/api/v1/spaces/{space_id}/channel-order",
+    tag = "messaging",
+    params(("space_id" = Uuid, Path, description = "Space id")),
+    request_body = super::dto::ChannelOrderRequest,
+    responses(
+        (status = 204, description = "The channels are in the new order"),
+        (status = 403, description = "Not a space administrator"),
+        (status = 409, description = "The list named is not the caller's list of channels: it changed \
+                                      since it was loaded")
+    )
+)]
+pub async fn set_channel_order(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(space_id): Path<Uuid>,
+    Json(body): Json<super::dto::ChannelOrderRequest>,
+) -> Result<StatusCode, ApiError> {
+    super::authz::ensure_space_admin(&state.db, space_id, session.user_id).await?;
+
+    let all = in_space_order(&state.db, space_id).await?;
+    // What the caller sees, with the rule the channel list applies to them.
+    let mut visible = std::collections::HashSet::new();
+    for channel in &all {
+        if channel.channel_type == "private"
+            && channel_members::Entity::find_by_id((channel.id, session.user_id))
+                .one(&state.db)
+                .await?
+                .is_none()
+        {
+            continue;
+        }
+        if !super::authz::role_admitted(&state.db, channel.id, space_id, session.user_id).await? {
+            continue;
+        }
+        visible.insert(channel.id);
+    }
+    // Exactly the caller's list, each once. Anything else is a list that changed under them (a
+    // channel created or removed since they loaded it), and guessing where it goes would be wrong.
+    let named: std::collections::HashSet<Uuid> = body.channel_ids.iter().copied().collect();
+    if named.len() != body.channel_ids.len() || named != visible {
+        return Err(ApiError::Conflict(
+            "the channels named are not this space's list as you can see it: reload it",
+        ));
+    }
+
+    let mut order: Vec<Uuid> = all.iter().map(|channel| channel.id).collect();
+    let slots: Vec<usize> = order
+        .iter()
+        .enumerate()
+        .filter(|(_, id)| visible.contains(id))
+        .map(|(slot, _)| slot)
+        .collect();
+    for (slot, id) in slots.into_iter().zip(body.channel_ids.iter()) {
+        order[slot] = *id;
+    }
+
+    // Every channel gets a position, so the order no longer depends on creation times at all.
+    let txn = state.db.begin().await?;
+    for (position, id) in order.iter().enumerate() {
+        let current = all
+            .iter()
+            .find(|channel| channel.id == *id)
+            .and_then(|channel| channel.position);
+        let position = i32::try_from(position).unwrap_or(i32::MAX);
+        if current == Some(position) {
+            continue;
+        }
+        channels::ActiveModel {
+            id: Set(*id),
+            position: Set(Some(position)),
+            ..Default::default()
+        }
+        .update(&txn)
+        .await?;
+    }
+    txn.commit().await?;
+
+    // Everybody in the space re-reads the list they may see, the caller's other tabs included.
+    let audience = space_member_ids(&state.db, space_id, session.user_id).await?;
+    state
+        .hub
+        .publish(
+            audience,
+            RealtimeEnvelope::channels_reordered(&super::dto::ChannelsReorderedDto { space_id }),
+        )
+        .await;
+    Ok(StatusCode::NO_CONTENT)
+}

@@ -616,6 +616,14 @@ export async function renameSpace(spaceId: string, name: string): Promise<SpaceI
   return { id: dto.id, name: dto.name, slug: dto.slug, iconUrl: dto.icon_url ?? undefined, defaultChannelId: dto.default_channel_id };
 }
 
+/**
+ * `PUT /spaces/{id}/channel-order`: the space's channels, first to last, as the caller sees them.
+ * Administrators only. A 409 means the list changed since it was loaded: re-read it.
+ */
+export async function setChannelOrder(spaceId: string, channelIds: string[]): Promise<void> {
+  await apiPut<void>(`/spaces/${spaceId}/channel-order`, { channel_ids: channelIds });
+}
+
 /** Choose the public channel every newly invited person joins. Space administrators may change it. */
 export async function setDefaultChannel(spaceId: string, channelId: string): Promise<SpaceIdentity> {
   const dto = await apiPut<{ id: string; name: string; slug: string; icon_url: string | null; default_channel_id?: string }>(
@@ -1794,6 +1802,8 @@ export type RealtimeHandlers = {
   onMemberUpdated?: (member: MemberIdentity) => void;
   /** A space the user belongs to was renamed, or had its icon replaced or removed. */
   onSpaceUpdated?: (space: SpaceIdentity) => void;
+  /** A space's administrators put its channels in a new order: re-read that space's list. */
+  onChannelsReordered?: (spaceId: string) => void;
   /**
    * A space stopped being the user's. The reason is what the sentence is drawn from: `left` (from
    * here or another tab, so they already know), `deleted` (its owner ended it), `removed` (somebody
@@ -1831,6 +1841,7 @@ const REALTIME_EVENTS = [
   "member.updated",
   "space.updated",
   "space.removed",
+  "channels.reordered",
   "presence",
   "notification.created",
   "typing",
@@ -1944,6 +1955,9 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         );
         break;
       }
+      case "channels.reordered":
+        handlers.onChannelsReordered?.(String(payload.space_id));
+        break;
       case "space.updated": {
         handlers.onSpaceUpdated?.({
           id: String(payload.id),

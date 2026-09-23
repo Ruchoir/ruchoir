@@ -51,6 +51,7 @@ import {
   setMessagePinned,
   setMessageSaved,
   setChannelFavorite,
+  setChannelOrder as apiSetChannelOrder,
   setDefaultChannel as apiSetDefaultChannel,
   setMemberRole as apiSetMemberRole,
   setMyPresence as apiSetMyPresence,
@@ -1180,6 +1181,18 @@ function AppShell() {
           }
           return touched ? next : prev;
         });
+      },
+      onChannelsReordered: (spaceId) => {
+        // Only the space on screen: the others are read in their new order when next opened. The
+        // list is re-read rather than reordered here, because the event names no channel.
+        if (spaceId !== liveRef.current.ws) return;
+        void getChannels(spaceId)
+          .then((fresh) => {
+            if (liveRef.current.ws === spaceId) setChannels(fresh);
+          })
+          .catch(() => {
+            // The order simply stays as it was until the next load.
+          });
       },
       onSpaceUpdated: (space) => {
         // Shared settings only: the counters and the caller's role are not in the event, precisely
@@ -2585,6 +2598,27 @@ function AppShell() {
     });
   };
 
+  /**
+   * Put the space's channels in a new order, for everybody in it (administrators only).
+   *
+   * Optimistic, since a row that springs back while the server answers reads as a drag that failed.
+   * A refusal puts the list back as the server holds it: most often it is a 409, a list that changed
+   * under the caller, and the server's list is the one worth showing then.
+   */
+  const reorderChannels = async (orderedIds: string[]) => {
+    if (!ws) return;
+    const spaceId = ws;
+    const rank = new Map(orderedIds.map((id, index) => [id, index]));
+    setChannels((prev) => [...prev].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)));
+    try {
+      await apiSetChannelOrder(spaceId, orderedIds);
+    } catch {
+      showToast({ tone: "danger", title: t("sidebar.reorderFailed"), description: t("common.tryAgain") });
+      const fresh = await getChannels(spaceId).catch(() => null);
+      if (fresh && liveRef.current.ws === spaceId) setChannels(fresh);
+    }
+  };
+
   /** Choose the public arrival channel from the channel menu. */
   const setDefaultChannel = async (id: string) => {
     if (!ws) return;
@@ -3229,6 +3263,7 @@ function AppShell() {
         onMarkRead={markConversationRead}
         onToggleFavorite={toggleFavorite}
         onSetDefaultChannel={(id) => void setDefaultChannel(id)}
+        onReorderChannels={canAdministerSpace ? (ids) => void reorderChannels(ids) : undefined}
         onOpenNotification={openNotification}
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
@@ -3697,6 +3732,7 @@ function AppShell() {
                 onMarkRead={markConversationRead}
                 onToggleFavorite={toggleFavorite}
                 onSetDefaultChannel={(id) => void setDefaultChannel(id)}
+                onReorderChannels={canAdministerSpace ? (ids) => void reorderChannels(ids) : undefined}
                 onOpenNotification={openNotification}
                 onToggleNotifRead={setNotifRead}
                 onMarkAllNotifsRead={markAllNotifsRead}

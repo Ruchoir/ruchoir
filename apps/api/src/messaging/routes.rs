@@ -60,6 +60,10 @@ pub fn router() -> Router<AppState> {
             put(spaces::set_default_channel),
         )
         .route(
+            "/api/v1/spaces/{space_id}/channel-order",
+            put(channels::set_channel_order),
+        )
+        .route(
             "/api/v1/spaces/{space_id}",
             patch(spaces::update_space).delete(spaces::delete_space),
         )

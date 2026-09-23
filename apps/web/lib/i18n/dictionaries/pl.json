@@ -245,6 +245,9 @@
     "noMatch": "Nic nie pasuje do „{{query}}”."
   },
   "sidebar": {
+    "moveUp": "Przesuń w górę",
+    "moveDown": "Przesuń w dół",
+    "reorderFailed": "Nie udało się zapisać kolejności kanałów.",
     "muted": "Powiadomienia wyciszone",
     "markRead": "Oznacz jako przeczytane",
     "channelSettings": "Ustawienia kanału",

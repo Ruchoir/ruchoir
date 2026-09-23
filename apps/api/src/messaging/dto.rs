@@ -519,6 +519,22 @@ pub struct UpdateSpaceRequest {
     pub name: String,
 }
 
+/// The order a space's administrators give its channels: the ones they can see, first to last.
+///
+/// Channels the caller cannot see (someone else's private channel) are not theirs to name and keep
+/// their place among the others.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ChannelOrderRequest {
+    pub channel_ids: Vec<Uuid>,
+}
+
+/// Sent to a space's members when its channels were reordered. Carries only the space: each
+/// client re-reads the list it may see, so no private channel is named to someone outside it.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelsReorderedDto {
+    pub space_id: Uuid,
+}
+
 /// The channel administrators select for every newly invited person.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct SetDefaultChannelRequest {

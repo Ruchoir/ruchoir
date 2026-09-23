@@ -21,6 +21,9 @@ pub struct Model {
     pub archived_at: Option<TimeDateTimeWithTimeZone>,
     pub imported_source: Option<String>,
     pub external_ref: Option<String>,
+    /// The space's own order for its channels, set by its administrators. `None` until the channel
+    /// has been placed: it then comes after the placed ones, by creation.
+    pub position: Option<i32>,
     pub created_at: TimeDateTimeWithTimeZone,
 }
 

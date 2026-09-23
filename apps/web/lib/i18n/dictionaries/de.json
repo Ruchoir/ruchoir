@@ -245,6 +245,9 @@
     "noMatch": "Nichts passt zu „{{query}}“."
   },
   "sidebar": {
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten",
+    "reorderFailed": "Die Reihenfolge der Kanäle konnte nicht gespeichert werden.",
     "muted": "Benachrichtigungen stummgeschaltet",
     "markRead": "Als gelesen markieren",
     "channelSettings": "Kanaleinstellungen",

@@ -28,6 +28,7 @@ mod m20260913_000002_instance_events;
 mod m20260913_000003_generated_source;
 mod m20260922_000001_default_space_channel;
 mod m20260923_000001_import_mapping_owner;
+mod m20260923_000002_channel_position;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -58,6 +59,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260913_000003_generated_source::Migration),
             Box::new(m20260922_000001_default_space_channel::Migration),
             Box::new(m20260923_000001_import_mapping_owner::Migration),
+            Box::new(m20260923_000002_channel_position::Migration),
         ]
     }
 }

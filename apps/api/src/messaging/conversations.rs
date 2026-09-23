@@ -179,10 +179,9 @@ pub async fn list_channels(
 ) -> Result<Json<Vec<ChannelDto>>, ApiError> {
     ensure_space_member(&state.db, space_id, session.user_id).await?;
 
-    let all = channels::Entity::find()
-        .filter(channels::Column::SpaceId.eq(space_id))
-        .all(&state.db)
-        .await?;
+    // In the space's own order (see `channels.position`), placed channels first, then the rest by
+    // creation, so a new channel arrives at the end rather than wherever the table puts it.
+    let all = super::channels::in_space_order(&state.db, space_id).await?;
     // A guest is offered nothing they were not added to, so for them every channel is listed the
     // way a private one is. Same test as the one that would refuse them the conversation itself.
     let explicit_only = super::authz::is_guest(&state.db, space_id, session.user_id).await?;

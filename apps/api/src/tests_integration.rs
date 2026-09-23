@@ -6962,3 +6962,106 @@ async fn a_changed_channel_says_so_in_its_own_history() {
     );
 }
 
+#[tokio::test]
+async fn a_space_administrator_orders_the_channels_for_everyone() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    for name in ["zeta", "alpha"] {
+        let created = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/spaces/{}/channels", fx.space_id),
+                &alice,
+            )
+            .json(&json!({ "name": name, "type": "public" }))
+            .send()
+            .await
+            .expect("create channel");
+        assert_eq!(created.status(), 201);
+    }
+
+    let names = |list: &Value| -> Vec<String> {
+        list.as_array()
+            .expect("array")
+            .iter()
+            .map(|c| c["name"].as_str().unwrap_or_default().to_owned())
+            .collect()
+    };
+    let list_for = |cookie: String| {
+        let app = &app;
+        async move {
+            app.req(
+                reqwest::Method::GET,
+                &format!("/api/v1/spaces/{}/channels", fx.space_id),
+                &cookie,
+            )
+            .send()
+            .await
+            .expect("list")
+            .json::<Value>()
+            .await
+            .expect("json")
+        }
+    };
+
+    // Before any arrangement: by creation, so a new channel lands at the end.
+    let before = list_for(alice.clone()).await;
+    assert_eq!(names(&before), vec!["general", "secret", "zeta", "alpha"]);
+
+    let reversed: Vec<Value> = before
+        .as_array()
+        .expect("array")
+        .iter()
+        .rev()
+        .map(|c| c["id"].clone())
+        .collect();
+    let ordered = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/spaces/{}/channel-order", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "channel_ids": reversed }))
+        .send()
+        .await
+        .expect("order");
+    assert_eq!(ordered.status(), 204);
+    assert_eq!(
+        names(&list_for(alice.clone()).await),
+        vec!["alpha", "zeta", "secret", "general"]
+    );
+    // The same order for everybody, in what each of them can see.
+    assert_eq!(
+        names(&list_for(bob.clone()).await),
+        vec!["alpha", "zeta", "general"]
+    );
+
+    // Only an administrator arranges the space.
+    let refused = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/spaces/{}/channel-order", fx.space_id),
+            &bob,
+        )
+        .json(&json!({ "channel_ids": [] }))
+        .send()
+        .await
+        .expect("order");
+    assert_eq!(refused.status(), 403);
+
+    // A list that is not the caller's current one is refused rather than guessed at.
+    let stale = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/spaces/{}/channel-order", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "channel_ids": [fx.public_channel] }))
+        .send()
+        .await
+        .expect("order");
+    assert_eq!(stale.status(), 409);
+}
