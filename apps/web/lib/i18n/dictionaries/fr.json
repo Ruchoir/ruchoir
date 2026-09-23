@@ -937,7 +937,15 @@
     "channelLeft": "{{who}} a quitté le canal.",
     "channelCreated": "Le canal a été créé.",
     "memberRemoved": "{{who}} a été retiré de l'espace.",
-    "channelRemoved": "{{who}} a été retiré du canal."
+    "channelRemoved": "{{who}} a été retiré du canal.",
+    "channelRenamed": "{{who}} a renommé le canal en #{{detail}}.",
+    "channelTopicChanged": "{{who}} a changé le sujet du canal : {{detail}}",
+    "channelTopicCleared": "{{who}} a retiré le sujet du canal.",
+    "channelMadePrivate": "{{who}} a rendu le canal privé.",
+    "channelMadePublic": "{{who}} a rendu le canal public.",
+    "channelArchived": "{{who}} a archivé le canal.",
+    "channelUnarchived": "{{who}} a désarchivé le canal.",
+    "channelAccessChanged": "{{who}} a changé qui peut accéder au canal."
   },
   "rail": {
     "unreadActivity": "{{name}}, activité non lue"

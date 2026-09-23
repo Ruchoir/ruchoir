@@ -937,7 +937,15 @@
     "channelLeft": "{{who}} left the channel.",
     "channelCreated": "The channel was created.",
     "memberRemoved": "{{who}} was removed from the space.",
-    "channelRemoved": "{{who}} was removed from the channel."
+    "channelRemoved": "{{who}} was removed from the channel.",
+    "channelRenamed": "{{who}} renamed the channel to #{{detail}}.",
+    "channelTopicChanged": "{{who}} changed the channel topic: {{detail}}",
+    "channelTopicCleared": "{{who}} cleared the channel topic.",
+    "channelMadePrivate": "{{who}} made the channel private.",
+    "channelMadePublic": "{{who}} made the channel public.",
+    "channelArchived": "{{who}} archived the channel.",
+    "channelUnarchived": "{{who}} unarchived the channel.",
+    "channelAccessChanged": "{{who}} changed who can access the channel."
   },
   "rail": {
     "unreadActivity": "{{name}}, unread activity"

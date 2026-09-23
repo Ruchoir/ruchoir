@@ -6845,3 +6845,120 @@ async fn what_a_replacement_would_destroy_is_counted_before_anything_happens() {
 
     scratch.drop_it().await;
 }
+
+#[tokio::test]
+async fn a_changed_channel_says_so_in_its_own_history() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+
+    let channel: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": "chantier", "type": "public" }))
+        .send()
+        .await
+        .expect("create channel")
+        .json()
+        .await
+        .expect("json");
+    let channel_id = channel["id"].as_str().expect("id").to_owned();
+
+    for change in [
+        json!({ "name": "atelier", "topic": "Le planning de la semaine" }),
+        // Saying the same thing again is not a change, and leaves no line.
+        json!({ "name": "atelier" }),
+        json!({ "topic": "" }),
+        json!({ "type": "private" }),
+        json!({ "type": "archived" }),
+        json!({ "type": "private" }),
+    ] {
+        let response = app
+            .req(
+                reqwest::Method::PATCH,
+                &format!("/api/v1/channels/{channel_id}"),
+                &alice,
+            )
+            .json(&change)
+            .send()
+            .await
+            .expect("update");
+        assert_eq!(response.status(), 200, "{change}");
+    }
+
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    let mut notices: Vec<(String, String, String)> = page["messages"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .filter(|m| m["kind"] == "system")
+        .map(|m| {
+            (
+                m["created_at"].as_str().unwrap_or_default().to_owned(),
+                m["system_event"].as_str().unwrap_or_default().to_owned(),
+                m["body"].as_str().unwrap_or_default().to_owned(),
+            )
+        })
+        .collect();
+    notices.sort();
+    let said: Vec<(&str, &str)> = notices
+        .iter()
+        .map(|(_, event, body)| (event.as_str(), body.as_str()))
+        .filter(|(event, _)| *event != "channel_created")
+        .collect();
+    assert_eq!(
+        said,
+        vec![
+            ("channel_renamed", "atelier"),
+            ("channel_topic_changed", "Le planning de la semaine"),
+            ("channel_topic_cleared", ""),
+            ("channel_made_private", ""),
+            ("channel_archived", ""),
+            ("channel_unarchived", ""),
+        ]
+    );
+    // Said by whoever made the change.
+    assert!(page["messages"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .filter(|m| m["system_event"] == "channel_renamed")
+        .all(|m| m["author_id"] == json!(fx.alice.to_string())));
+
+    // And never found by search: a notice is history, not something anybody wrote.
+    let found: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!(
+                "/api/v1/search?q=planning&type=messages&space_id={}",
+                fx.space_id
+            ),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("search")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(
+        found["messages"].as_array().map(Vec::len).unwrap_or(0),
+        0,
+        "{found}"
+    );
+}
+

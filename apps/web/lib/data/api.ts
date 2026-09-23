@@ -1241,9 +1241,11 @@ function toMessage(dto: MessageDto): ApiMessage {
     authorId: dto.author_id ?? undefined,
     createdAt: dto.created_at,
     body: dto.body,
+    // A known event is rendered from its sentence, with the body as its one detail when it has one.
+    // A system message with a body and no known event is older free text, shown as written.
     system:
-      dto.kind === "system" && !dto.body && isSystemEvent(dto.system_event)
-        ? { event: dto.system_event, actor: dto.author_name ?? "" }
+      dto.kind === "system" && isSystemEvent(dto.system_event)
+        ? { event: dto.system_event, actor: dto.author_name ?? "", detail: dto.body || undefined }
         : undefined,
     systemIcon: dto.kind === "system" ? iconForSystemEvent(dto.system_event) : undefined,
     attachment,
@@ -1359,6 +1361,18 @@ function iconForSystemEvent(event?: string): string {
     case "channel_left":
     case "channel_removed":
       return "user-minus";
+    case "channel_renamed":
+    case "channel_topic_changed":
+    case "channel_topic_cleared":
+      return "square-pen";
+    case "channel_made_private":
+    case "channel_access_changed":
+      return "lock";
+    case "channel_made_public":
+      return "hash";
+    case "channel_archived":
+    case "channel_unarchived":
+      return "archive";
     default:
       return "info";
   }
@@ -1372,6 +1386,14 @@ const SYSTEM_EVENTS: SystemEvent[] = [
   "channel_left",
   "channel_removed",
   "channel_created",
+  "channel_renamed",
+  "channel_topic_changed",
+  "channel_topic_cleared",
+  "channel_made_private",
+  "channel_made_public",
+  "channel_archived",
+  "channel_unarchived",
+  "channel_access_changed",
 ];
 
 /** Whether the API reported an event this client knows a sentence for. */

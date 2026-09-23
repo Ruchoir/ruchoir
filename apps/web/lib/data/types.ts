@@ -240,7 +240,8 @@ export type Message = {
    * The event and the person it is about, rather than a sentence: "Alice a rejoint l'espace" is one
    * language's way of saying it, and the row is drawn long after the fetch that produced it.
    */
-  system?: { event: SystemEvent; actor: string };
+  /** `detail` is the one fact some sentences need (a channel's new name, its new topic). */
+  system?: { event: SystemEvent; actor: string; detail?: string };
   /** Icon for a system message. */
   systemIcon?: string;
   attachment?: MessageAttachment;
@@ -284,7 +285,15 @@ export type SystemEvent =
   | "channel_joined"
   | "channel_left"
   | "channel_removed"
-  | "channel_created";
+  | "channel_created"
+  | "channel_renamed"
+  | "channel_topic_changed"
+  | "channel_topic_cleared"
+  | "channel_made_private"
+  | "channel_made_public"
+  | "channel_archived"
+  | "channel_unarchived"
+  | "channel_access_changed";
 
 export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "image" | "folder";
 

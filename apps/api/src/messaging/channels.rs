@@ -109,6 +109,50 @@ const LEFT_EVENT: &str = "channel_left";
 /// was taken out of it is a small lie, told in the record the people who stayed will read.
 const REMOVED_EVENT: &str = "channel_removed";
 
+/// Written when a channel is changed, so the change is in the history of the people who read it
+/// rather than only in a sidebar that redraws. Each names who made the change (the notice's author).
+/// A rename carries the new name, and a new topic the topic, in the notice's body: the one detail
+/// the sentence cannot be written without. Everything else is said by the event alone.
+const RENAMED_EVENT: &str = "channel_renamed";
+const TOPIC_CHANGED_EVENT: &str = "channel_topic_changed";
+const TOPIC_CLEARED_EVENT: &str = "channel_topic_cleared";
+const MADE_PRIVATE_EVENT: &str = "channel_made_private";
+const MADE_PUBLIC_EVENT: &str = "channel_made_public";
+const ARCHIVED_EVENT: &str = "channel_archived";
+const UNARCHIVED_EVENT: &str = "channel_unarchived";
+const ACCESS_CHANGED_EVENT: &str = "channel_access_changed";
+
+/// The notices a change to a channel calls for, in the order they are written: what it is called
+/// first, then what it is about, then who may see it.
+fn change_notices<'a>(
+    before: &'a channels::Model,
+    after: &'a channels::Model,
+    access_changed: bool,
+) -> Vec<(&'static str, Option<&'a str>)> {
+    let mut notices = Vec::new();
+    if after.name != before.name {
+        notices.push((RENAMED_EVENT, Some(after.name.as_str())));
+    }
+    if after.topic != before.topic {
+        match after.topic.as_deref() {
+            Some(topic) => notices.push((TOPIC_CHANGED_EVENT, Some(topic))),
+            None => notices.push((TOPIC_CLEARED_EVENT, None)),
+        }
+    }
+    match (before.channel_type.as_str(), after.channel_type.as_str()) {
+        (old, new) if old == new => {}
+        (_, "archived") => notices.push((ARCHIVED_EVENT, None)),
+        ("archived", _) => notices.push((UNARCHIVED_EVENT, None)),
+        (_, "private") => notices.push((MADE_PRIVATE_EVENT, None)),
+        (_, "public") => notices.push((MADE_PUBLIC_EVENT, None)),
+        _ => {}
+    }
+    if access_changed {
+        notices.push((ACCESS_CHANGED_EVENT, None));
+    }
+    notices
+}
+
 /// Write a system notice into a channel and push it to the people in it.
 ///
 /// `subject` is the person the notice is about, which is what lets the client name them without a
@@ -122,11 +166,25 @@ async fn write_channel_notice(
     subject: Option<Uuid>,
     event: &str,
 ) {
+    write_channel_notice_with(state, channel_id, subject, event, None).await;
+}
+
+/// [`write_channel_notice`], with the one detail some sentences need (a new name, a new topic) in
+/// the notice's body. System notices are left out of search and unread counts, so the body is read
+/// only by the renderer.
+async fn write_channel_notice_with(
+    state: &AppState,
+    channel_id: Uuid,
+    subject: Option<Uuid>,
+    event: &str,
+    detail: Option<&str>,
+) {
     let notice = messages::ActiveModel {
         id: Set(Uuid::new_v4()),
         conversation_id: Set(channel_id),
         author_id: Set(subject),
         kind: Set("system".to_owned()),
+        body: Set(detail.unwrap_or_default().to_owned()),
         system_event: Set(Some(event.to_owned())),
         created_at: Set(OffsetDateTime::now_utc()),
         ..Default::default()
@@ -387,6 +445,7 @@ pub async fn update_channel(
         }
     }
 
+    let mut access_changed = false;
     if let Some(roles) = body.allowed_roles {
         // Changed by whoever may change the channel, under the same guard as its name, and with the
         // same refusal: you cannot reserve a channel to roles that do not include your own.
@@ -399,6 +458,15 @@ pub async fn update_channel(
                 "choose another default channel before restricting this channel",
             ));
         }
+        // "Nobody restricted" is spelled both as no list and as an empty one.
+        let before = super::authz::channel_allowed_roles(&state.db, channel_id)
+            .await?
+            .filter(|roles| !roles.is_empty());
+        let after: Option<std::collections::BTreeSet<String>> = roles
+            .as_ref()
+            .map(|roles| roles.iter().cloned().collect())
+            .filter(|roles: &std::collections::BTreeSet<String>| !roles.is_empty());
+        access_changed = before != after;
         set_allowed_roles(&state.db, channel_id, roles).await?;
     }
 
@@ -423,6 +491,10 @@ pub async fn update_channel(
             RealtimeEnvelope::channel_updated(channel_id, &summary),
         )
         .await;
+    // Then the change goes into the channel's own history, said by whoever made it.
+    for (event, detail) in change_notices(&channel, &updated, access_changed) {
+        write_channel_notice_with(&state, channel_id, Some(session.user_id), event, detail).await;
+    }
 
     let membership = channel_members::Entity::find_by_id((channel_id, session.user_id))
         .one(&state.db)
@@ -1022,3 +1094,4 @@ async fn name_is_taken<C: ConnectionTrait>(
     }
     Ok(query.one(db).await?.is_some())
 }
+
