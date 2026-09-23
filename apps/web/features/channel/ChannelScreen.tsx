@@ -419,6 +419,28 @@ export function ChannelScreen({
    * the API refuses the rest, so the button is only offered where it would be accepted.
    */
   const canJoinHere = canModerateChannels && channel.type === "public";
+  /**
+   * What a reader outside the channel gets in place of a composer, in the feed and in a thread alike.
+   *
+   * Reading a public channel without being in it is deliberate; taking part in it (writing, replying
+   * in a thread, reacting) is for its members, and the API refuses it from anyone else. So the
+   * composer is replaced by what is true here, and by the button that changes it.
+   */
+  const visitorNotice = (
+    <div style={styles.archivedNotice}>
+      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Icon name="users" size={14} />
+        {t("conversation.notInChannel")}
+      </span>
+      {canJoinHere ? (
+        <Button size="sm" variant="secondary" iconLeft="user-plus" onClick={onJoinChannel}>
+          {t("sidebar.joinChannel")}
+        </Button>
+      ) : (
+        <span style={{ color: "var(--text-subtle)" }}>{t("conversation.askToBeAdded")}</span>
+      )}
+    </div>
+  );
   // By account id, never by display name: an imported workspace routinely brings a namesake of
   // someone already here (often the importer themselves), and a list keyed on the name handed React
   // two rows with the same key, which it then duplicated on every presence update.
@@ -598,6 +620,7 @@ export function ChannelScreen({
       onUpload={onUploadAttachment}
       onNotify={onNotify}
       onClose={onCloseThread}
+      readOnlyNotice={isVisitor ? visitorNotice : undefined}
     />
   ) : panel === "search" ? (
     <SearchPanel
@@ -785,6 +808,7 @@ export function ChannelScreen({
                     }
                     replyFaces={replyFaces(m)}
                     actions={rowActions(m)}
+                    readOnly={isVisitor}
                   />
                 )}
               </Fragment>
@@ -832,22 +856,7 @@ export function ChannelScreen({
             {t("conversation.archivedNotice")}
           </p>
         ) : isVisitor ? (
-          // Reading a public channel without being in it is deliberate, and writing in one joins it.
-          // Saying so beforehand turns a silent side effect into a choice: the composer is replaced
-          // by what is actually true here, and by the button that changes it.
-          <div style={styles.archivedNotice}>
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="users" size={14} />
-              {t("conversation.notInChannel")}
-            </span>
-            {canJoinHere ? (
-              <Button size="sm" variant="secondary" iconLeft="user-plus" onClick={onJoinChannel}>
-                {t("sidebar.joinChannel")}
-              </Button>
-            ) : (
-              <span style={{ color: "var(--text-subtle)" }}>{t("conversation.askToBeAdded")}</span>
-            )}
-          </div>
+          visitorNotice
         ) : (
           <Composer
             channelName={isDm ? dm.name : channel.name}

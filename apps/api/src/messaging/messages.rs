@@ -199,13 +199,9 @@ pub async fn send_message(
         reply_target = parent.author_id;
     }
 
-    // Writing in a channel is joining it. A public channel is readable without joining, which is
-    // deliberate, but *posting* into one you are not in left the message with an audience that did
-    // not include its own author: no real-time echo, no unread count, and a reply arriving to
-    // nobody. Joining first also puts the arrival in the channel's history, where the people already
-    // there can see who turned up.
+    // Writing in a channel, a thread reply included, is for its members. Reading it is not.
     if access.kind == authz::ConversationKind::Channel {
-        super::channels::join_before_taking_part(&state, conversation_id, session.user_id).await?;
+        super::channels::ensure_taking_part(&state, conversation_id, session.user_id).await?;
     }
 
     let audience = authz::conversation_audience(&state.db, &access).await?;
@@ -778,3 +774,4 @@ pub async fn hydrate_messages(
 
     Ok(dtos)
 }
+

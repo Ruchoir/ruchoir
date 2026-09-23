@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Icon, IconButton, Popover } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Message, MessageAttachment } from "@/lib/data";
@@ -102,6 +102,11 @@ export type ThreadPanelProps = {
   onUpload: (file: File) => Promise<MessageAttachment>;
   onNotify: (toast: Toast) => void;
   onClose: () => void;
+  /**
+   * The reader is not in the channel: the thread is theirs to read and not to answer. Drawn in place
+   * of the composer (the same notice and join button the feed shows), and every row is read-only.
+   */
+  readOnlyNotice?: ReactNode;
 };
 
 /**
@@ -125,6 +130,7 @@ export function ThreadPanel({
   onUpload,
   onNotify,
   onClose,
+  readOnlyNotice,
 }: ThreadPanelProps) {
   const { t } = useTranslation();
   const settings = useSettings();
@@ -252,6 +258,7 @@ export function ThreadPanel({
       authorPresence={presenceByName.get(m.author)}
       authorAvatar={avatarByName.get(m.author)}
       actions={rowActions(m)}
+      readOnly={!!readOnlyNotice}
     />
   );
 
@@ -273,74 +280,78 @@ export function ThreadPanel({
         </div>
         {replies.map(row)}
       </div>
-      <div style={styles.composer}>
-        <div className="wc-message-composer" style={styles.composerBox}>
-          {editing ? (
-            <div style={styles.editingBanner}>
-              <Icon name="square-pen" size={14} style={{ color: "var(--text-accent)" }} />
-              <span style={{ fontWeight: 600, color: "var(--text-accent)" }}>{t("composer.editing")}</span>
-              <span style={{ color: "var(--text-subtle)" }}>{t("composer.escToCancel")}</span>
-              <div style={{ flex: 1 }} />
-              <IconButton icon="x" label={t("composer.cancelEdit")} size="sm" onClick={cancelEdit} />
-            </div>
-          ) : null}
-          <div
-            onKeyDown={(e) => {
-              if (editing && e.key === "Escape") {
-                e.stopPropagation();
-                cancelEdit();
-              }
-            }}
-          >
-            <MessageEditor
-              ref={editorRef}
-              placeholder={editing ? t("message.editMessage") : t("thread.replyPlaceholder")}
-              onSend={submit}
-              onPasteFiles={(files) => void addFiles(files)}
-            />
-          </div>
-          {editing && editPending.length > 0 ? (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-              {editPending.map((attachment, index) => (
-                <div key={`${attachment.name}-${index}`} style={styles.chip}>
-                  <Icon name={attachment.kind} size={16} />
-                  <span>{attachment.name}</span>
-                  <span style={{ color: "var(--text-subtle)" }}>{attachment.fileId ? formatBytes(attachment.sizeBytes) : t("composer.uploading")}</span>
-                  <IconButton icon="x" label={t("composer.removeAttachment")} size="sm" disabled={!attachment.fileId} onClick={() => {
-                    if (attachment.fileId) void deleteFile(attachment.fileId).catch(() => {});
-                    setEditPending((current) => current.filter((_, currentIndex) => currentIndex !== index));
-                  }} />
-                </div>
-              ))}
-            </div>
-          ) : null}
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, marginTop: 4 }}>
+      {readOnlyNotice ? (
+        <div style={styles.composer}>{readOnlyNotice}</div>
+      ) : (
+        <div style={styles.composer}>
+          <div className="wc-message-composer" style={styles.composerBox}>
             {editing ? (
-              <>
-                <IconButton icon="paperclip" label={t("composer.attach")} size="sm" onClick={() => fileRef.current?.click()} />
-                <input ref={fileRef} type="file" multiple style={{ display: "none" }} onChange={(event) => void addFiles(Array.from(event.target.files ?? []))} />
-              </>
+              <div style={styles.editingBanner}>
+                <Icon name="square-pen" size={14} style={{ color: "var(--text-accent)" }} />
+                <span style={{ fontWeight: 600, color: "var(--text-accent)" }}>{t("composer.editing")}</span>
+                <span style={{ color: "var(--text-subtle)" }}>{t("composer.escToCancel")}</span>
+                <div style={{ flex: 1 }} />
+                <IconButton icon="x" label={t("composer.cancelEdit")} size="sm" onClick={cancelEdit} />
+              </div>
             ) : null}
-            <IconButton
-              ref={emojiRef}
-              icon="smile"
-              label={t("composer.emoji")}
-              size="sm"
-              aria-expanded={emojiOpen}
-              onClick={() => setEmojiOpen((o) => !o)}
-            />
-            <Popover anchorRef={emojiRef} open={emojiOpen} onClose={() => setEmojiOpen(false)} placement="top" align="start">
-              <EmojiPicker
-                onPick={(emoji) => {
-                  editorRef.current?.insertEmoji(emoji);
-                  setEmojiOpen(false);
-                }}
+            <div
+              onKeyDown={(e) => {
+                if (editing && e.key === "Escape") {
+                  e.stopPropagation();
+                  cancelEdit();
+                }
+              }}
+            >
+              <MessageEditor
+                ref={editorRef}
+                placeholder={editing ? t("message.editMessage") : t("thread.replyPlaceholder")}
+                onSend={submit}
+                onPasteFiles={(files) => void addFiles(files)}
               />
-            </Popover>
-            <IconButton icon="send" label={t("composer.send")} variant="accent" size="sm" disabled={uploading} onClick={clickSend} />
+            </div>
+            {editing && editPending.length > 0 ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                {editPending.map((attachment, index) => (
+                  <div key={`${attachment.name}-${index}`} style={styles.chip}>
+                    <Icon name={attachment.kind} size={16} />
+                    <span>{attachment.name}</span>
+                    <span style={{ color: "var(--text-subtle)" }}>{attachment.fileId ? formatBytes(attachment.sizeBytes) : t("composer.uploading")}</span>
+                    <IconButton icon="x" label={t("composer.removeAttachment")} size="sm" disabled={!attachment.fileId} onClick={() => {
+                      if (attachment.fileId) void deleteFile(attachment.fileId).catch(() => {});
+                      setEditPending((current) => current.filter((_, currentIndex) => currentIndex !== index));
+                    }} />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, marginTop: 4 }}>
+              {editing ? (
+                <>
+                  <IconButton icon="paperclip" label={t("composer.attach")} size="sm" onClick={() => fileRef.current?.click()} />
+                  <input ref={fileRef} type="file" multiple style={{ display: "none" }} onChange={(event) => void addFiles(Array.from(event.target.files ?? []))} />
+                </>
+              ) : null}
+              <IconButton
+                ref={emojiRef}
+                icon="smile"
+                label={t("composer.emoji")}
+                size="sm"
+                aria-expanded={emojiOpen}
+                onClick={() => setEmojiOpen((o) => !o)}
+              />
+              <Popover anchorRef={emojiRef} open={emojiOpen} onClose={() => setEmojiOpen(false)} placement="top" align="start">
+                <EmojiPicker
+                  onPick={(emoji) => {
+                    editorRef.current?.insertEmoji(emoji);
+                    setEmojiOpen(false);
+                  }}
+                />
+              </Popover>
+              <IconButton icon="send" label={t("composer.send")} variant="accent" size="sm" disabled={uploading} onClick={clickSend} />
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

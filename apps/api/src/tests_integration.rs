@@ -2822,64 +2822,88 @@ async fn a_channel_owner_names_moderators_and_a_moderator_names_nobody() {
 }
 
 #[tokio::test]
-async fn writing_in_a_channel_joins_it() {
+async fn a_channel_one_has_not_joined_is_read_only() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
-    // Carol is in the space and in no channel: she may read the public one without joining, which
-    // is deliberate, and she used to be able to write in it without joining, which was not.
+    // Carol is in the space and in no channel: she may read the public one without joining, and
+    // that is all she may do there until she joins it.
+    let alice = app.cookie_for(fx.alice).await;
     let carol = app.cookie_for(fx.carol).await;
-    assert!(
-        channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
-            .one(&app.db)
-            .await
-            .expect("membership")
-            .is_none()
-    );
-
-    let sent = app
+    let sent: Value = app
         .req(
             reqwest::Method::POST,
             &format!("/api/v1/conversations/{}/messages", fx.public_channel),
-            &carol,
+            &alice,
         )
-        .json(&json!({ "body": "bonjour" }))
+        .json(&json!({ "body": "le plan" }))
         .send()
         .await
-        .expect("send");
-    assert_eq!(sent.status(), 201);
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    let message_id = sent["id"].as_str().expect("id").to_owned();
+    let post = format!("/api/v1/conversations/{}/messages", fx.public_channel);
+    let react = format!("/api/v1/messages/{message_id}/reactions/%F0%9F%91%8D");
 
-    // She is in it now, so the message's audience includes its own author: without this she wrote
-    // to everyone except herself, with no echo, no unread count and no reply reaching her.
+    // Reading: the history and the thread.
+    assert_eq!(
+        status_of(&app, reqwest::Method::GET, &post, &carol).await,
+        200
+    );
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/messages/{message_id}/replies"),
+            &carol
+        )
+        .await,
+        200
+    );
+
+    // Taking part: refused, and without joining her on the way.
+    for body in [
+        json!({ "body": "bonjour" }),
+        json!({ "body": "dans le fil", "parent_message_id": message_id }),
+    ] {
+        let refused = app
+            .req(reqwest::Method::POST, &post, &carol)
+            .json(&body)
+            .send()
+            .await
+            .expect("send");
+        assert_eq!(refused.status(), 403, "{body}");
+    }
+    assert_eq!(
+        status_of(&app, reqwest::Method::PUT, &react, &carol).await,
+        403
+    );
+    assert_eq!(
+        status_of(&app, reqwest::Method::DELETE, &react, &carol).await,
+        403
+    );
     assert!(
         channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
             .one(&app.db)
             .await
             .expect("membership")
-            .is_some()
+            .is_none(),
+        "refusing her must not join her"
     );
-    // And the channel says who turned up, once.
-    let page: Value = app
-        .req(
-            reqwest::Method::GET,
-            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
-            &carol,
-        )
+
+    // Once she has joined, all of it is hers.
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let written = app
+        .req(reqwest::Method::POST, &post, &carol)
+        .json(&json!({ "body": "dans le fil", "parent_message_id": message_id }))
         .send()
         .await
-        .expect("history")
-        .json()
-        .await
-        .expect("json");
+        .expect("send");
+    assert_eq!(written.status(), 201);
     assert_eq!(
-        page["messages"]
-            .as_array()
-            .expect("array")
-            .iter()
-            .filter(
-                |m| m["system_event"] == "channel_joined" && m["author_id"] == fx.carol.to_string()
-            )
-            .count(),
-        1
+        status_of(&app, reqwest::Method::PUT, &react, &carol).await,
+        204
     );
 }
 
@@ -3204,9 +3228,21 @@ async fn two_sessions_see_the_same_membership_change() {
     let alice = app.cookie_for(fx.alice).await;
     let carol = app.cookie_for(fx.carol).await;
 
-    // Carol writes in a public channel she never joined. She is put in it, so the arrival reaches
-    // the people already there...
+    // Carol joins a public channel she was only reading. The arrival reaches the people already
+    // there...
     let mut watching = app.connect_ws(&alice).await;
+    let joined = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/channels/{}/membership", fx.public_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("join");
+    assert_eq!(joined.status(), 204);
+    let notice = wait_for_type(&mut watching, "message.created").await;
+    assert_eq!(notice["payload"]["system_event"], "channel_joined");
     app.req(
         reqwest::Method::POST,
         &format!("/api/v1/conversations/{}/messages", fx.public_channel),
@@ -3216,13 +3252,10 @@ async fn two_sessions_see_the_same_membership_change() {
     .send()
     .await
     .expect("send");
-    let notice = wait_for_type(&mut watching, "message.created").await;
-    assert_eq!(notice["payload"]["system_event"], "channel_joined");
     let written = wait_for_type(&mut watching, "message.created").await;
     assert_eq!(written["payload"]["body"], "j'arrive");
 
-    // ...and, the point of joining at all, what is said next reaches *her*, which it could not do
-    // when a non-member's message went out to an audience that did not include its author.
+    // ...and, the point of joining at all, what is said next reaches *her*.
     let mut carols = app.connect_ws(&carol).await;
     app.req(
         reqwest::Method::POST,
@@ -3479,49 +3512,6 @@ async fn a_pin_is_a_landmark_not_a_reading_right() {
     assert_eq!(
         status_of(&app, reqwest::Method::PUT, &pin, &carol).await,
         403
-    );
-}
-
-#[tokio::test]
-async fn reacting_joins_the_channel_like_writing_does() {
-    let Some(app) = boot().await else { return };
-    let fx = seed(&app.db).await;
-    let alice = app.cookie_for(fx.alice).await;
-    let carol = app.cookie_for(fx.carol).await;
-
-    let sent: Value = app
-        .req(
-            reqwest::Method::POST,
-            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
-            &alice,
-        )
-        .json(&json!({ "body": "le plan" }))
-        .send()
-        .await
-        .expect("send")
-        .json()
-        .await
-        .expect("json");
-    let message_id = sent["id"].as_str().expect("id").to_owned();
-
-    assert_eq!(
-        status_of(
-            &app,
-            reqwest::Method::PUT,
-            &format!("/api/v1/messages/{message_id}/reactions/%F0%9F%91%8D"),
-            &carol
-        )
-        .await,
-        204
-    );
-    // Same reason as writing: what a channel pushes goes to its members, so a reaction from someone
-    // outside reached everyone but its own author.
-    assert!(
-        channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
-            .one(&app.db)
-            .await
-            .expect("membership")
-            .is_some()
     );
 }
 
@@ -7065,3 +7055,4 @@ async fn a_space_administrator_orders_the_channels_for_everyone() {
         .expect("order");
     assert_eq!(stale.status(), 409);
 }
+

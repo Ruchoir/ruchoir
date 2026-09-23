@@ -31,7 +31,8 @@ export function ReactionPill({
   /** Display names of the reactors, shown in the hover tooltip. */
   users?: string[];
   style: CSSProperties;
-  onClick: () => void;
+  /** Absent where the reader may not react: the pill still says who reacted, and does nothing. */
+  onClick?: () => void;
 }) {
   const { t } = useTranslation();
   const [playing, setPlaying] = useState(false);
@@ -91,8 +92,9 @@ export function ReactionPill({
         ref={buttonRef}
         type="button"
         className="wc-react"
-        style={style}
+        style={onClick ? style : { ...style, cursor: "default" }}
         onClick={onClick}
+        aria-disabled={onClick ? undefined : true}
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
         aria-pressed={mine}

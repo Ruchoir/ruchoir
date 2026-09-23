@@ -240,6 +240,12 @@ export type MessageRowProps = {
    * next to the reply count, which is how a thread shows who is in it before it is opened.
    */
   replyFaces?: { name: string; avatar?: string }[];
+  /**
+   * The reader is not in this channel: they may read it, its threads included, and nothing else. No
+   * actions, no reactions of their own, no checklist to tick. The API refuses all of it from someone
+   * outside the channel, so none of it is offered.
+   */
+  readOnly?: boolean;
 };
 
 const avatarBtn: CSSProperties = {
@@ -275,6 +281,7 @@ export function MessageRow({
   importedFrom,
   inThread = false,
   replyFaces,
+  readOnly = false,
 }: MessageRowProps) {
   const { t } = useTranslation();
   // API rows carry the complete arrays. The singular fields remain compatibility aliases for old
@@ -299,7 +306,7 @@ export function MessageRow({
     m.kind !== "system" &&
     !!me &&
     (m.body.includes(`@${me}`) || (firstName.length > 1 && m.body.includes(`@${firstName}`)));
-  const showActions = (hover || reactOpen || menuOpen) && !deleted;
+  const showActions = (hover || reactOpen || menuOpen) && !deleted && !readOnly;
 
   /**
    * What the gutter of a continued message shows: the hour, and only the hour.
@@ -428,7 +435,7 @@ export function MessageRow({
                   // Only your own checklist is yours to tick: the API refuses an edit from anyone
                   // but the author, and a box that answers a click with a toast is worse than one
                   // that says up front it is not yours.
-                  isOwn ? actions.onToggleTask : undefined,
+                  isOwn && !readOnly ? actions.onToggleTask : undefined,
                 )}
                 {m.edited ? <span style={styles.edited}>{t("message.editedTag")}</span> : null}
               </div>
@@ -453,10 +460,10 @@ export function MessageRow({
                     mine={r.mine}
                     users={r.users}
                     style={reactionPill(r.mine)}
-                    onClick={() => actions.onReact(r.emoji)}
+                    onClick={readOnly ? undefined : () => actions.onReact(r.emoji)}
                   />
                 ))}
-                <ReactionMenu variant="pill" onPick={actions.onReact} />
+                {readOnly ? null : <ReactionMenu variant="pill" onPick={actions.onReact} />}
               </div>
             ) : null}
 

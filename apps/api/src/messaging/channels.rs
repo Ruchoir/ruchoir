@@ -836,36 +836,25 @@ pub async fn update_channel_member_role(
     }))
 }
 
-/// Make the caller a member of a channel they are about to take part in, if they are not one.
+/// Require the caller to be in a channel before taking part in it.
 ///
-/// Reading a public channel without joining is deliberate; *taking part* in one without joining was
-/// an accident of the same rule. Everything a channel pushes goes to its members, so a message or a
-/// reaction from a non-member went out to everyone except the person who made it.
-///
-/// Returns quietly when they are already in, which is the common case and must stay free of extra
-/// queries in the hot path... one lookup, the same the audience would have done.
-pub(super) async fn join_before_taking_part(
+/// A public channel is readable by anybody in the space without joining, and that stays deliberate.
+/// Taking part (writing, replying in a thread, reacting) is for its members: a reader who wants to
+/// take part joins first, which the interface offers in place of the composer. This used to join the
+/// caller silently instead, so reading a channel one had not joined still let one write and react in
+/// it from a thread or a reaction pill.
+pub(super) async fn ensure_taking_part(
     state: &AppState,
     channel_id: Uuid,
     user_id: Uuid,
 ) -> Result<(), ApiError> {
-    if channel_members::Entity::find_by_id((channel_id, user_id))
+    match channel_members::Entity::find_by_id((channel_id, user_id))
         .one(&state.db)
         .await?
-        .is_some()
     {
-        return Ok(());
+        Some(_) => Ok(()),
+        None => Err(ApiError::Forbidden),
     }
-    join_row(
-        &state.db,
-        channel_id,
-        user_id,
-        "member",
-        OffsetDateTime::now_utc(),
-    )
-    .await?;
-    write_channel_notice(state, channel_id, Some(user_id), JOINED_EVENT).await;
-    Ok(())
 }
 
 /// `DELETE /api/v1/channels/{channel_id}/members/{user_id}`: take someone out of a channel.
