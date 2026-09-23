@@ -91,6 +91,19 @@ pub struct MessagePage {
     pub next_before: Option<Uuid>,
 }
 
+/// What changed in a space's conversations since a moment, for a client catching up.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ChangesDto {
+    /// The server's clock when the answer was computed: pass it as the next `since`. Taken before
+    /// the query, so a change made while it ran is sent again rather than skipped.
+    pub now: String,
+    /// The messages created, edited, deleted (as tombstones) or reacted to since then, replies
+    /// included, oldest first.
+    pub messages: Vec<MessageDto>,
+    /// Too much changed, or too long ago, to be sent as a list: reload the space instead.
+    pub truncated: bool,
+}
+
 /// A space the caller belongs to: the workspace-switcher entry and the bootstrap the SPA needs to
 /// discover its channels (which are queried per space).
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -517,6 +530,22 @@ pub struct UpdateSpaceRequest {
     /// New display name. The slug is re-derived from it, and the one it replaces keeps resolving to
     /// the same space, so the addresses people already hold keep arriving.
     pub name: String,
+}
+
+/// The order a space's administrators give its channels: the ones they can see, first to last.
+///
+/// Channels the caller cannot see (someone else's private channel) are not theirs to name and keep
+/// their place among the others.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ChannelOrderRequest {
+    pub channel_ids: Vec<Uuid>,
+}
+
+/// Sent to a space's members when its channels were reordered. Carries only the space: each
+/// client re-reads the list it may see, so no private channel is named to someone outside it.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelsReorderedDto {
+    pub space_id: Uuid,
 }
 
 /// The channel administrators select for every newly invited person.

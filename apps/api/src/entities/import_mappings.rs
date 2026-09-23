@@ -24,6 +24,10 @@ pub struct Model {
     /// The identifier as the source spells it, untouched.
     pub external_ref: String,
     pub internal_id: Uuid,
+    /// Whose namespace this correspondence lives in: `None` for an import run by an administrator
+    /// of the instance, the importer otherwise. Two people importing from the same product never
+    /// recognise each other's rows.
+    pub owner_id: Option<Uuid>,
     pub created_at: TimeDateTimeWithTimeZone,
 }
 

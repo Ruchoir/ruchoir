@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useMemo, useState } from "react";
-import { Avatar, EmptyState, Icon, IconButton, Input } from "@/components/ds";
+import { Avatar, EmptyState, FileIcon, Icon, IconButton, Input } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import type { Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
@@ -39,6 +39,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "12px 16px 4px",
   },
   row: {
+    transition: "background-color var(--duration-fast) var(--ease-out)",
     display: "flex",
     alignItems: "flex-start",
     gap: 10,
@@ -136,7 +137,11 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                     onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
-                    <Icon name={f.kind} size={18} style={{ color: "var(--text-muted)", marginTop: 1 }} />
+                    {f.kind === "folder" ? (
+                      <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)", marginTop: 1 }} />
+                    ) : (
+                      <FileIcon name={f.name} size={22} />
+                    )}
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {f.name}

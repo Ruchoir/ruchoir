@@ -96,6 +96,7 @@
     "resentNeutral": "Jeśli ten adres odpowiada kontu oczekującemu na potwierdzenie, nowy link został właśnie wysłany."
   },
   "common": {
+    "loading": "Wczytywanie…",
     "backToLogin": "Powrót do logowania",
     "checkInbox": "Sprawdź swoją skrzynkę",
     "sending": "Wysyłanie…",
@@ -245,6 +246,9 @@
     "noMatch": "Nic nie pasuje do „{{query}}”."
   },
   "sidebar": {
+    "moveUp": "Przesuń w górę",
+    "moveDown": "Przesuń w dół",
+    "reorderFailed": "Nie udało się zapisać kolejności kanałów.",
     "muted": "Powiadomienia wyciszone",
     "markRead": "Oznacz jako przeczytane",
     "channelSettings": "Ustawienia kanału",
@@ -433,7 +437,6 @@
     "prompt": "Pisz, aby przeszukać ten kanał.",
     "noResult": "Brak wyników",
     "noMessageOrFile": "Brak wiadomości i plików dla „{{query}}”.",
-    "searching": "Szukanie…",
     "querying": "Odpytywanie serwera.",
     "messagesCount_one": "Wiadomości ({{count}})",
     "messagesCount_few": "Wiadomości ({{count}})",
@@ -578,7 +581,6 @@
     "count_few": "{{count}} elementy",
     "count_many": "{{count}} elementów",
     "count_other": "{{count}} elementów",
-    "loadingShort": "Wczytywanie…",
     "emptyFolder": "Pusty folder",
     "noFile": "Brak plików",
     "folderEmptyText": "Ten folder nie zawiera jeszcze żadnego pliku.",
@@ -971,7 +973,15 @@
     "channelLeft": "{{who}} opuścił(a) kanał.",
     "channelCreated": "Kanał został utworzony.",
     "memberRemoved": "{{who}} został usunięty z przestrzeni.",
-    "channelRemoved": "{{who}} został usunięty z kanału."
+    "channelRemoved": "{{who}} został usunięty z kanału.",
+    "channelRenamed": "{{who}} zmienił(a) nazwę kanału na #{{detail}}.",
+    "channelTopicChanged": "{{who}} zmienił(a) temat kanału: {{detail}}",
+    "channelTopicCleared": "{{who}} usunął(-ęła) temat kanału.",
+    "channelMadePrivate": "{{who}} ustawił(a) kanał jako prywatny.",
+    "channelMadePublic": "{{who}} ustawił(a) kanał jako publiczny.",
+    "channelArchived": "{{who}} zarchiwizował(a) kanał.",
+    "channelUnarchived": "{{who}} przywrócił(a) kanał z archiwum.",
+    "channelAccessChanged": "{{who}} zmienił(a), kto ma dostęp do kanału."
   },
   "rail": {
     "unreadActivity": "{{name}}, nieprzeczytana aktywność"
@@ -1045,6 +1055,8 @@
     "analyse": "Przeanalizuj archiwum",
     "analysing": "Odczyt archiwum…",
     "checkAllAddressed": "Każdy ma adres",
+    "scopedTitle": "Import osobisty",
+    "scopedText": "Przestrzenie zostaną utworzone dla Ciebie i będziesz ich właścicielem. Aby chronić konta innych osób, importowane osoby trafią bez adresu e-mail: zaproś je później z poziomu przestrzeni.",
     "checkComplete": "Uzupełnij",
     "checkNoAddress_one": "{{count}} osoba bez adresu",
     "checkNoAddress_few": "{{count}} osoby bez adresu",

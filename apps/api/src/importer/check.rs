@@ -17,8 +17,9 @@ use std::path::Path;
 
 use super::archive::{self, ArchiveError, Index, Member};
 
-/// The seven notices the product knows how to say, each with a sentence in every language. An
-/// archive carrying anything else is naming an event we cannot render.
+/// The notices an archive may carry, each with a sentence in every language. The product says a
+/// few more (a channel renamed, archived, made private...), but those carry a detail the archive
+/// format has no field for, so an archive naming one is naming something we cannot render.
 const SYSTEM_EVENTS: &[&str] = &[
     "member_joined",
     "member_left",

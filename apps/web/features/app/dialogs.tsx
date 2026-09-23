@@ -475,10 +475,7 @@ export function NewWorkspaceDialog({
 }: {
   onClose: () => void;
   onCreate: (name: string) => void;
-  /**
-   * Offered only to an administrator of the instance, and absent for everyone else rather than
-   * shown and refused: an import creates spaces and accounts, which is an instance-level power.
-   */
+  /** Bring a workspace over from another product instead of starting an empty one. */
   onImport?: () => void;
 }) {
   const { t } = useTranslation();

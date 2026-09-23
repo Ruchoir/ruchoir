@@ -109,6 +109,50 @@ const LEFT_EVENT: &str = "channel_left";
 /// was taken out of it is a small lie, told in the record the people who stayed will read.
 const REMOVED_EVENT: &str = "channel_removed";
 
+/// Written when a channel is changed, so the change is in the history of the people who read it
+/// rather than only in a sidebar that redraws. Each names who made the change (the notice's author).
+/// A rename carries the new name, and a new topic the topic, in the notice's body: the one detail
+/// the sentence cannot be written without. Everything else is said by the event alone.
+const RENAMED_EVENT: &str = "channel_renamed";
+const TOPIC_CHANGED_EVENT: &str = "channel_topic_changed";
+const TOPIC_CLEARED_EVENT: &str = "channel_topic_cleared";
+const MADE_PRIVATE_EVENT: &str = "channel_made_private";
+const MADE_PUBLIC_EVENT: &str = "channel_made_public";
+const ARCHIVED_EVENT: &str = "channel_archived";
+const UNARCHIVED_EVENT: &str = "channel_unarchived";
+const ACCESS_CHANGED_EVENT: &str = "channel_access_changed";
+
+/// The notices a change to a channel calls for, in the order they are written: what it is called
+/// first, then what it is about, then who may see it.
+fn change_notices<'a>(
+    before: &'a channels::Model,
+    after: &'a channels::Model,
+    access_changed: bool,
+) -> Vec<(&'static str, Option<&'a str>)> {
+    let mut notices = Vec::new();
+    if after.name != before.name {
+        notices.push((RENAMED_EVENT, Some(after.name.as_str())));
+    }
+    if after.topic != before.topic {
+        match after.topic.as_deref() {
+            Some(topic) => notices.push((TOPIC_CHANGED_EVENT, Some(topic))),
+            None => notices.push((TOPIC_CLEARED_EVENT, None)),
+        }
+    }
+    match (before.channel_type.as_str(), after.channel_type.as_str()) {
+        (old, new) if old == new => {}
+        (_, "archived") => notices.push((ARCHIVED_EVENT, None)),
+        ("archived", _) => notices.push((UNARCHIVED_EVENT, None)),
+        (_, "private") => notices.push((MADE_PRIVATE_EVENT, None)),
+        (_, "public") => notices.push((MADE_PUBLIC_EVENT, None)),
+        _ => {}
+    }
+    if access_changed {
+        notices.push((ACCESS_CHANGED_EVENT, None));
+    }
+    notices
+}
+
 /// Write a system notice into a channel and push it to the people in it.
 ///
 /// `subject` is the person the notice is about, which is what lets the client name them without a
@@ -122,11 +166,25 @@ async fn write_channel_notice(
     subject: Option<Uuid>,
     event: &str,
 ) {
+    write_channel_notice_with(state, channel_id, subject, event, None).await;
+}
+
+/// [`write_channel_notice`], with the one detail some sentences need (a new name, a new topic) in
+/// the notice's body. System notices are left out of search and unread counts, so the body is read
+/// only by the renderer.
+async fn write_channel_notice_with(
+    state: &AppState,
+    channel_id: Uuid,
+    subject: Option<Uuid>,
+    event: &str,
+    detail: Option<&str>,
+) {
     let notice = messages::ActiveModel {
         id: Set(Uuid::new_v4()),
         conversation_id: Set(channel_id),
         author_id: Set(subject),
         kind: Set("system".to_owned()),
+        body: Set(detail.unwrap_or_default().to_owned()),
         system_event: Set(Some(event.to_owned())),
         created_at: Set(OffsetDateTime::now_utc()),
         ..Default::default()
@@ -247,6 +305,7 @@ pub async fn create_channel(
         archived_at: Set(None),
         imported_source: Set(None),
         external_ref: Set(None),
+        position: Set(None),
         created_at: Set(now),
     }
     .insert(&txn)
@@ -387,6 +446,7 @@ pub async fn update_channel(
         }
     }
 
+    let mut access_changed = false;
     if let Some(roles) = body.allowed_roles {
         // Changed by whoever may change the channel, under the same guard as its name, and with the
         // same refusal: you cannot reserve a channel to roles that do not include your own.
@@ -399,6 +459,15 @@ pub async fn update_channel(
                 "choose another default channel before restricting this channel",
             ));
         }
+        // "Nobody restricted" is spelled both as no list and as an empty one.
+        let before = super::authz::channel_allowed_roles(&state.db, channel_id)
+            .await?
+            .filter(|roles| !roles.is_empty());
+        let after: Option<std::collections::BTreeSet<String>> = roles
+            .as_ref()
+            .map(|roles| roles.iter().cloned().collect())
+            .filter(|roles: &std::collections::BTreeSet<String>| !roles.is_empty());
+        access_changed = before != after;
         set_allowed_roles(&state.db, channel_id, roles).await?;
     }
 
@@ -423,6 +492,10 @@ pub async fn update_channel(
             RealtimeEnvelope::channel_updated(channel_id, &summary),
         )
         .await;
+    // Then the change goes into the channel's own history, said by whoever made it.
+    for (event, detail) in change_notices(&channel, &updated, access_changed) {
+        write_channel_notice_with(&state, channel_id, Some(session.user_id), event, detail).await;
+    }
 
     let membership = channel_members::Entity::find_by_id((channel_id, session.user_id))
         .one(&state.db)
@@ -763,36 +836,25 @@ pub async fn update_channel_member_role(
     }))
 }
 
-/// Make the caller a member of a channel they are about to take part in, if they are not one.
+/// Require the caller to be in a channel before taking part in it.
 ///
-/// Reading a public channel without joining is deliberate; *taking part* in one without joining was
-/// an accident of the same rule. Everything a channel pushes goes to its members, so a message or a
-/// reaction from a non-member went out to everyone except the person who made it.
-///
-/// Returns quietly when they are already in, which is the common case and must stay free of extra
-/// queries in the hot path... one lookup, the same the audience would have done.
-pub(super) async fn join_before_taking_part(
+/// A public channel is readable by anybody in the space without joining, and that stays deliberate.
+/// Taking part (writing, replying in a thread, reacting) is for its members: a reader who wants to
+/// take part joins first, which the interface offers in place of the composer. This used to join the
+/// caller silently instead, so reading a channel one had not joined still let one write and react in
+/// it from a thread or a reaction pill.
+pub(super) async fn ensure_taking_part(
     state: &AppState,
     channel_id: Uuid,
     user_id: Uuid,
 ) -> Result<(), ApiError> {
-    if channel_members::Entity::find_by_id((channel_id, user_id))
+    match channel_members::Entity::find_by_id((channel_id, user_id))
         .one(&state.db)
         .await?
-        .is_some()
     {
-        return Ok(());
+        Some(_) => Ok(()),
+        None => Err(ApiError::Forbidden),
     }
-    join_row(
-        &state.db,
-        channel_id,
-        user_id,
-        "member",
-        OffsetDateTime::now_utc(),
-    )
-    .await?;
-    write_channel_notice(state, channel_id, Some(user_id), JOINED_EVENT).await;
-    Ok(())
 }
 
 /// `DELETE /api/v1/channels/{channel_id}/members/{user_id}`: take someone out of a channel.
@@ -1021,4 +1083,121 @@ async fn name_is_taken<C: ConnectionTrait>(
         query = query.filter(channels::Column::Id.ne(id));
     }
     Ok(query.one(db).await?.is_some())
+}
+
+/// A space's channels in the space's own order: placed ones by `position`, then the rest by
+/// creation. The one ordering every list of channels is read in.
+pub(super) async fn in_space_order<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+) -> Result<Vec<channels::Model>, ApiError> {
+    use sea_orm::{Order, QueryOrder};
+    Ok(channels::Entity::find()
+        .filter(channels::Column::SpaceId.eq(space_id))
+        .order_by_with_nulls(
+            channels::Column::Position,
+            Order::Asc,
+            sea_orm::sea_query::NullOrdering::Last,
+        )
+        .order_by_asc(channels::Column::CreatedAt)
+        .order_by_asc(channels::Column::Id)
+        .all(db)
+        .await?)
+}
+
+/// `PUT /api/v1/spaces/{space_id}/channel-order`: put the space's channels in a new order.
+///
+/// The space's administrators arrange it, and everybody in the space sees the same order. The
+/// caller names the channels they can see, all of them, first to last. Those they cannot see (a
+/// private channel they are not in) keep their place: the named channels are laid into the slots
+/// the named channels already held, so an arrangement never moves what its author could not see.
+#[utoipa::path(
+    put,
+    path = "/api/v1/spaces/{space_id}/channel-order",
+    tag = "messaging",
+    params(("space_id" = Uuid, Path, description = "Space id")),
+    request_body = super::dto::ChannelOrderRequest,
+    responses(
+        (status = 204, description = "The channels are in the new order"),
+        (status = 403, description = "Not a space administrator"),
+        (status = 409, description = "The list named is not the caller's list of channels: it changed \
+                                      since it was loaded")
+    )
+)]
+pub async fn set_channel_order(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(space_id): Path<Uuid>,
+    Json(body): Json<super::dto::ChannelOrderRequest>,
+) -> Result<StatusCode, ApiError> {
+    super::authz::ensure_space_admin(&state.db, space_id, session.user_id).await?;
+
+    let all = in_space_order(&state.db, space_id).await?;
+    // What the caller sees, with the rule the channel list applies to them.
+    let mut visible = std::collections::HashSet::new();
+    for channel in &all {
+        if channel.channel_type == "private"
+            && channel_members::Entity::find_by_id((channel.id, session.user_id))
+                .one(&state.db)
+                .await?
+                .is_none()
+        {
+            continue;
+        }
+        if !super::authz::role_admitted(&state.db, channel.id, space_id, session.user_id).await? {
+            continue;
+        }
+        visible.insert(channel.id);
+    }
+    // Exactly the caller's list, each once. Anything else is a list that changed under them (a
+    // channel created or removed since they loaded it), and guessing where it goes would be wrong.
+    let named: std::collections::HashSet<Uuid> = body.channel_ids.iter().copied().collect();
+    if named.len() != body.channel_ids.len() || named != visible {
+        return Err(ApiError::Conflict(
+            "the channels named are not this space's list as you can see it: reload it",
+        ));
+    }
+
+    let mut order: Vec<Uuid> = all.iter().map(|channel| channel.id).collect();
+    let slots: Vec<usize> = order
+        .iter()
+        .enumerate()
+        .filter(|(_, id)| visible.contains(id))
+        .map(|(slot, _)| slot)
+        .collect();
+    for (slot, id) in slots.into_iter().zip(body.channel_ids.iter()) {
+        order[slot] = *id;
+    }
+
+    // Every channel gets a position, so the order no longer depends on creation times at all.
+    let txn = state.db.begin().await?;
+    for (position, id) in order.iter().enumerate() {
+        let current = all
+            .iter()
+            .find(|channel| channel.id == *id)
+            .and_then(|channel| channel.position);
+        let position = i32::try_from(position).unwrap_or(i32::MAX);
+        if current == Some(position) {
+            continue;
+        }
+        channels::ActiveModel {
+            id: Set(*id),
+            position: Set(Some(position)),
+            ..Default::default()
+        }
+        .update(&txn)
+        .await?;
+    }
+    txn.commit().await?;
+
+    // Everybody in the space re-reads the list they may see, the caller's other tabs included.
+    let audience = space_member_ids(&state.db, space_id, session.user_id).await?;
+    state
+        .hub
+        .publish(
+            audience,
+            RealtimeEnvelope::channels_reordered(&super::dto::ChannelsReorderedDto { space_id }),
+        )
+        .await;
+    Ok(StatusCode::NO_CONTENT)
 }

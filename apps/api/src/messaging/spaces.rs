@@ -208,6 +208,7 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
         archived_at: Set(None),
         imported_source: Set(None),
         external_ref: Set(None),
+        position: Set(None),
         created_at: Set(now),
     }
     .insert(txn)

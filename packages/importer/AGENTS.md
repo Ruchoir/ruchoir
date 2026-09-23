@@ -115,6 +115,24 @@ import owns every space it creates.
 
 Running it twice is how a failed import is resumed: every pass recognises what it already wrote.
 
+### Who may import (decided 2026-09-23)
+
+The command line is for administrators of the instance. The import screen is open to anyone signed
+in, and everybody who does not administer the instance is **scoped** (`Existing::scoped` in
+`apps/api/src/importer/plan.rs`):
+
+- They see and import only the archives their own delivery commands dropped (a delivered archive is
+  named `drop-<owner>-<id>.tar.gpg`), and only their own jobs.
+- Their import only ever **creates** spaces, owned by them. It never fills a space by name.
+- It reaches no other account. Their own address is matched; every other address in the archive is
+  withheld, so those people arrive with an `@import.invalid` address. Matching would pour messages
+  into a stranger's account, and a waiting account holding a real address locks that person out of
+  registering (only an invitation can claim it).
+- Their correspondences live in their own namespace (`import_mappings.owner_id`), so an archive that
+  spells the same source identifiers as somebody else's import never resolves to that import's rows.
+- Emptying the instance first (`replace_everything`) and writing invitations to the imported people
+  stay with the administrators.
+
 ## The other end
 
 `ruchoir-api import-check <archive> [passphrase]` reads an archive and reports what would be

@@ -75,11 +75,16 @@ export function formatStamp(at: Date | string | number, locale: Locale = current
 const BYTE_UNITS = ["byte", "kilobyte", "megabyte", "gigabyte", "terabyte"] as const;
 
 /**
- * A byte count in the reader's language: "3,4 Mo", "3.4 MB", "3,4 MB".
+ * A byte count in the reader's language: "78 octets", "3,4 Mo", "3.4 MB", "3,4 MB".
  *
  * `Intl.NumberFormat` carries both halves of what changes between languages: the unit's name and
  * the decimal separator. Writing "Ko" and swapping the point for a comma by hand got French right
  * and every other language wrong.
+ *
+ * Bytes themselves are spelled out ("78 octets", "78 bytes", "1 bajt"): the short form is a bare
+ * letter in several languages ("78 o", "78 B") that reads as a typo, and English's short form does
+ * not even agree in number ("2 byte"). The larger units stay short, where the abbreviation is what
+ * everybody reads.
  */
 export function formatBytes(bytes: number, locale: Locale = currentLocale()): string {
   let value = Math.max(0, bytes);
@@ -92,7 +97,7 @@ export function formatBytes(bytes: number, locale: Locale = currentLocale()): st
   return new Intl.NumberFormat(locale, {
     style: "unit",
     unit: BYTE_UNITS[unit],
-    unitDisplay: "short",
+    unitDisplay: unit === 0 ? "long" : "short",
     maximumFractionDigits: decimals,
   }).format(value);
 }

@@ -406,7 +406,8 @@ export async function register(
  * or not the address has an account, so the response never reveals who is registered.
  */
 export async function requestEmailVerification(email: string): Promise<void> {
-  await apiPost<void>("/auth/verify-email/request", { email });
+  // In the language of this page: whoever reads it is who will read the message.
+  await apiPost<void>("/auth/verify-email/request", { email, locale: currentLocale() });
 }
 
 /** `POST /auth/verify-email/confirm`: activate the account behind an emailed token (single use). */
@@ -416,7 +417,7 @@ export async function confirmEmailVerification(token: string): Promise<void> {
 
 /** `POST /auth/password-reset/request`: email a reset link. Always resolves (no account enumeration). */
 export async function requestPasswordReset(email: string): Promise<void> {
-  await apiPost<void>("/auth/password-reset/request", { email });
+  await apiPost<void>("/auth/password-reset/request", { email, locale: currentLocale() });
 }
 
 /**
@@ -614,6 +615,14 @@ export async function renameSpace(spaceId: string, name: string): Promise<SpaceI
     { name },
   );
   return { id: dto.id, name: dto.name, slug: dto.slug, iconUrl: dto.icon_url ?? undefined, defaultChannelId: dto.default_channel_id };
+}
+
+/**
+ * `PUT /spaces/{id}/channel-order`: the space's channels, first to last, as the caller sees them.
+ * Administrators only. A 409 means the list changed since it was loaded: re-read it.
+ */
+export async function setChannelOrder(spaceId: string, channelIds: string[]): Promise<void> {
+  await apiPut<void>(`/spaces/${spaceId}/channel-order`, { channel_ids: channelIds });
 }
 
 /** Choose the public channel every newly invited person joins. Space administrators may change it. */
@@ -1129,6 +1138,34 @@ export async function getChannelMessages(
   return { messages: page.messages.map(toMessage), nextBefore: page.next_before };
 }
 
+/** What changed in a space since a cursor: see `getChanges`. */
+export type SpaceChanges = {
+  /** The next cursor. */
+  now: string;
+  /** Changed messages with the conversation each belongs to, oldest first. */
+  changes: { conversationId: string; message: ApiMessage }[];
+  /** Too much, or too long ago: reload the space rather than apply a list. */
+  truncated: boolean;
+};
+
+/**
+ * `GET /spaces/{id}/changes`: messages created, edited, deleted (tombstones) or reacted to since
+ * `since`, in every conversation of the space the caller can see, thread replies included. Without
+ * `since`, only the cursor, which is how a client starts counting.
+ */
+export async function getChanges(spaceId: string, since?: string, signal?: AbortSignal): Promise<SpaceChanges> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : "";
+  const dto = await apiGet<{ now: string; messages: MessageDto[]; truncated: boolean }>(
+    `/spaces/${spaceId}/changes${query}`,
+    signal,
+  );
+  return {
+    now: dto.now,
+    changes: dto.messages.map((m) => ({ conversationId: m.conversation_id, message: toMessage(m) })),
+    truncated: dto.truncated,
+  };
+}
+
 /** `POST /conversations/{id}/messages`: post a message (optionally a threaded reply). */
 export async function sendMessage(
   conversationId: string,
@@ -1241,9 +1278,11 @@ function toMessage(dto: MessageDto): ApiMessage {
     authorId: dto.author_id ?? undefined,
     createdAt: dto.created_at,
     body: dto.body,
+    // A known event is rendered from its sentence, with the body as its one detail when it has one.
+    // A system message with a body and no known event is older free text, shown as written.
     system:
-      dto.kind === "system" && !dto.body && isSystemEvent(dto.system_event)
-        ? { event: dto.system_event, actor: dto.author_name ?? "" }
+      dto.kind === "system" && isSystemEvent(dto.system_event)
+        ? { event: dto.system_event, actor: dto.author_name ?? "", detail: dto.body || undefined }
         : undefined,
     systemIcon: dto.kind === "system" ? iconForSystemEvent(dto.system_event) : undefined,
     attachment,
@@ -1359,6 +1398,18 @@ function iconForSystemEvent(event?: string): string {
     case "channel_left":
     case "channel_removed":
       return "user-minus";
+    case "channel_renamed":
+    case "channel_topic_changed":
+    case "channel_topic_cleared":
+      return "square-pen";
+    case "channel_made_private":
+    case "channel_access_changed":
+      return "lock";
+    case "channel_made_public":
+      return "hash";
+    case "channel_archived":
+    case "channel_unarchived":
+      return "archive";
     default:
       return "info";
   }
@@ -1372,6 +1423,14 @@ const SYSTEM_EVENTS: SystemEvent[] = [
   "channel_left",
   "channel_removed",
   "channel_created",
+  "channel_renamed",
+  "channel_topic_changed",
+  "channel_topic_cleared",
+  "channel_made_private",
+  "channel_made_public",
+  "channel_archived",
+  "channel_unarchived",
+  "channel_access_changed",
 ];
 
 /** Whether the API reported an event this client knows a sentence for. */
@@ -1750,6 +1809,11 @@ export type SpaceIdentity = { id: string; name: string; slug: string; iconUrl?: 
 
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
+  /**
+   * The connection came back after being lost. Whatever was pushed in between is gone for good (the
+   * transport does not replay), so the caller re-reads what it has on screen.
+   */
+  onReconnect?: () => void;
   onMessageCreated?: (conversationId: string, message: ApiMessage) => void;
   onMessageUpdated?: (conversationId: string, message: ApiMessage) => void;
   onMessageDeleted?: (conversationId: string, message: ApiMessage) => void;
@@ -1772,6 +1836,8 @@ export type RealtimeHandlers = {
   onMemberUpdated?: (member: MemberIdentity) => void;
   /** A space the user belongs to was renamed, or had its icon replaced or removed. */
   onSpaceUpdated?: (space: SpaceIdentity) => void;
+  /** A space's administrators put its channels in a new order: re-read that space's list. */
+  onChannelsReordered?: (spaceId: string) => void;
   /**
    * A space stopped being the user's. The reason is what the sentence is drawn from: `left` (from
    * here or another tab, so they already know), `deleted` (its owner ended it), `removed` (somebody
@@ -1809,6 +1875,7 @@ const REALTIME_EVENTS = [
   "member.updated",
   "space.updated",
   "space.removed",
+  "channels.reordered",
   "presence",
   "notification.created",
   "typing",
@@ -1841,6 +1908,12 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
   let events: EventSource | null = null;
   let closed = false;
   let reconnectDelay = 1000;
+  /** Whether a connection has been up before, which makes the next one a reconnection. */
+  let everOpened = false;
+  const opened = () => {
+    if (everOpened) handlers.onReconnect?.();
+    everOpened = true;
+  };
   let failedAttempts = 0;
   let pingTimer: ReturnType<typeof setInterval> | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1922,6 +1995,9 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         );
         break;
       }
+      case "channels.reordered":
+        handlers.onChannelsReordered?.(String(payload.space_id));
+        break;
       case "space.updated": {
         handlers.onSpaceUpdated?.({
           id: String(payload.id),
@@ -1985,6 +2061,7 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
     ws.onopen = () => {
       reconnectDelay = 1000;
       failedAttempts = 0;
+      opened();
       pingTimer = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
       }, 25000);
@@ -2027,6 +2104,8 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       scheduleReconnect();
       return;
     }
+    // `EventSource` reopens on its own after a drop, and says so with `open` each time.
+    events.addEventListener("open", opened);
     for (const name of REALTIME_EVENTS) {
       events.addEventListener(name, (event) => {
         try {

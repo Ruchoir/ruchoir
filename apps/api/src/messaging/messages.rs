@@ -199,13 +199,9 @@ pub async fn send_message(
         reply_target = parent.author_id;
     }
 
-    // Writing in a channel is joining it. A public channel is readable without joining, which is
-    // deliberate, but *posting* into one you are not in left the message with an audience that did
-    // not include its own author: no real-time echo, no unread count, and a reply arriving to
-    // nobody. Joining first also puts the arrival in the channel's history, where the people already
-    // there can see who turned up.
+    // Writing in a channel, a thread reply included, is for its members. Reading it is not.
     if access.kind == authz::ConversationKind::Channel {
-        super::channels::join_before_taking_part(&state, conversation_id, session.user_id).await?;
+        super::channels::ensure_taking_part(&state, conversation_id, session.user_id).await?;
     }
 
     let audience = authz::conversation_audience(&state.db, &access).await?;
@@ -777,4 +773,95 @@ pub async fn hydrate_messages(
         .collect();
 
     Ok(dtos)
+}
+
+/// How many changes a catch-up sends as a list before telling the client to reload instead.
+const MAX_CHANGES: u64 = 500;
+
+/// How far back a catch-up reaches. Beyond it, reloading the space is cheaper and simpler than
+/// replaying everything that happened.
+const MAX_CATCH_UP: time::Duration = time::Duration::hours(24);
+
+#[derive(Debug, Deserialize)]
+pub struct ChangesQuery {
+    /// RFC 3339, as returned in `now` by the previous call. Absent: only the cursor is returned.
+    pub since: Option<String>,
+}
+
+/// `GET /api/v1/spaces/{space_id}/changes?since=`: what changed in the caller's conversations of a
+/// space since a moment.
+///
+/// Real-time pushes are not replayed. A background tab is throttled or frozen by the browser and its
+/// connection is often dropped; everything pushed meanwhile is lost, in every conversation, not only
+/// the one on screen. This is what the client asks when it comes back: one request, whatever the
+/// number of conversations, covering new messages, edits, deletions (tombstones) and new reactions,
+/// thread replies included. A reaction taken back leaves no dated trace, so it is not here: the
+/// client re-reads a conversation's latest page when it next opens it.
+#[utoipa::path(
+    get,
+    path = "/api/v1/spaces/{space_id}/changes",
+    tag = "messaging",
+    params(
+        ("space_id" = Uuid, Path, description = "Space id"),
+        ("since" = Option<String>, Query, description = "RFC 3339 cursor from the previous call")
+    ),
+    responses(
+        (status = 200, description = "What changed since then", body = super::dto::ChangesDto),
+        (status = 400, description = "`since` is not an RFC 3339 instant"),
+        (status = 403, description = "Not a member of the space")
+    )
+)]
+pub async fn list_changes(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(space_id): Path<Uuid>,
+    Query(query): Query<ChangesQuery>,
+) -> Result<Json<super::dto::ChangesDto>, ApiError> {
+    authz::ensure_space_member(&state.db, space_id, session.user_id).await?;
+    let now = OffsetDateTime::now_utc();
+    let answer = |messages, truncated| {
+        Json(super::dto::ChangesDto {
+            now: rfc3339(now),
+            messages,
+            truncated,
+        })
+    };
+    let Some(since) = query.since else {
+        return Ok(answer(Vec::new(), false));
+    };
+    let since = OffsetDateTime::parse(&since, &time::format_description::well_known::Rfc3339)
+        .map_err(|_| ApiError::BadRequest("since is not an RFC 3339 instant"))?;
+    if now - since > MAX_CATCH_UP {
+        return Ok(answer(Vec::new(), true));
+    }
+
+    let conversations =
+        authz::accessible_conversation_ids(&state.db, space_id, session.user_id).await?;
+    if conversations.is_empty() {
+        return Ok(answer(Vec::new(), false));
+    }
+    let reacted = sea_orm::sea_query::Query::select()
+        .column(message_reactions::Column::MessageId)
+        .from(message_reactions::Entity)
+        .and_where(message_reactions::Column::CreatedAt.gt(since))
+        .to_owned();
+    let rows = messages::Entity::find()
+        .filter(messages::Column::ConversationId.is_in(conversations))
+        .filter(
+            sea_orm::Condition::any()
+                .add(messages::Column::CreatedAt.gt(since))
+                .add(messages::Column::EditedAt.gt(since))
+                .add(messages::Column::DeletedAt.gt(since))
+                .add(messages::Column::Id.in_subquery(reacted)),
+        )
+        .order_by_asc(messages::Column::CreatedAt)
+        .order_by_asc(messages::Column::Id)
+        .limit(MAX_CHANGES + 1)
+        .all(&state.db)
+        .await?;
+    if rows.len() as u64 > MAX_CHANGES {
+        return Ok(answer(Vec::new(), true));
+    }
+    let messages = hydrate_messages(&state.db, session.user_id, rows).await?;
+    Ok(answer(messages, false))
 }

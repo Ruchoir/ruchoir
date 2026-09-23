@@ -66,11 +66,9 @@ pub async fn add_reaction(
     let access =
         authz::ensure_conversation_access(&state.db, message.conversation_id, session.user_id)
             .await?;
-    // Reacting is taking part, like writing, so it joins the channel for the same reason: what a
-    // channel pushes goes to its members, and a reaction from a non-member reached everyone except
-    // the person who made it.
+    // Reacting is taking part, like writing: for the channel's members only.
     if access.kind == authz::ConversationKind::Channel {
-        super::channels::join_before_taking_part(&state, message.conversation_id, session.user_id)
+        super::channels::ensure_taking_part(&state, message.conversation_id, session.user_id)
             .await?;
     }
 
@@ -134,6 +132,10 @@ pub async fn remove_reaction(
     let access =
         authz::ensure_conversation_access(&state.db, message.conversation_id, session.user_id)
             .await?;
+    if access.kind == authz::ConversationKind::Channel {
+        super::channels::ensure_taking_part(&state, message.conversation_id, session.user_id)
+            .await?;
+    }
 
     let result = message_reactions::Entity::delete_many()
         .filter(message_reactions::Column::MessageId.eq(message_id))

@@ -1,7 +1,7 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useRef, useState } from "react";
-import { Avatar, Badge, Icon, IconButton, Input, Popover, Tag, type IconName, type TagTone } from "@/components/ds";
+import { type CSSProperties, type DragEvent, type ReactNode, useRef, useState } from "react";
+import { Avatar, Badge, Icon, IconButton, Input, Popover, Skeleton, SkeletonGroup, Tag, type IconName, type TagTone } from "@/components/ds";
 import type { Channel, DirectMessage, Workspace } from "@/lib/data";
 import { MenuPopover } from "./MenuPopover";
 import { NotificationCenter } from "./NotificationCenter";
@@ -95,6 +95,7 @@ function item(on: boolean): CSSProperties {
     // A shape cue on top of the colour so the active channel is legible even where the pale selected
     // surface has low contrast against the canvas.
     boxShadow: on ? "inset 3px 0 0 0 var(--border-accent)" : undefined,
+    transition: "background-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)",
   };
 }
 
@@ -120,6 +121,7 @@ const menuStyle: CSSProperties = {
 
 const menuItemStyle: CSSProperties = {
   display: "flex",
+  transition: "background-color var(--duration-fast) var(--ease-out)",
   alignItems: "center",
   gap: 8,
   width: "100%",
@@ -159,9 +161,31 @@ type SideItemProps = {
   onClick?: () => void;
   children?: ReactNode;
   menuItems?: SideMenuItem[];
+  /** Present when the row can be moved: dragged, or moved with alt and the arrow keys. */
+  reorder?: RowReorder;
 };
 
-function SideItem({ icon, label, active, unread, muted, notifMuted, tag, onClick, children, menuItems }: SideItemProps) {
+/** What a movable row needs from the list that owns the order. */
+type RowReorder = {
+  /** The row being dragged is this one: drawn faded. */
+  dragging: boolean;
+  /** Where a drop would land, relative to this row, drawn as a line on that edge. */
+  dropLine: "before" | "after" | null;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDragOver: (where: "before" | "after") => void;
+  onDrop: (where: "before" | "after") => void;
+  /** Alt with an arrow key: one step up (-1) or down (1). */
+  onStep: (step: -1 | 1) => void;
+};
+
+/** Which half of a row the pointer is over, which says whether a drop goes above or below it. */
+function halfOf(e: DragEvent<HTMLElement>): "before" | "after" {
+  const box = e.currentTarget.getBoundingClientRect();
+  return e.clientY < box.top + box.height / 2 ? "before" : "after";
+}
+
+function SideItem({ icon, label, active, unread, muted, notifMuted, tag, onClick, children, menuItems, reorder }: SideItemProps) {
   const { t } = useTranslation();
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -184,11 +208,45 @@ function SideItem({ icon, label, active, unread, muted, notifMuted, tag, onClick
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onClick?.();
+        } else if (reorder && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+          // Moving is a keyboard gesture too, as it is for the spaces in the rail.
+          e.preventDefault();
+          reorder.onStep(e.key === "ArrowUp" ? -1 : 1);
         }
       }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={{ ...item(!!active), background: bg }}
+      draggable={!!reorder}
+      onDragStart={reorder ? () => reorder.onDragStart() : undefined}
+      onDragEnd={reorder ? () => reorder.onDragEnd() : undefined}
+      onDragOver={
+        reorder
+          ? (e) => {
+              e.preventDefault();
+              reorder.onDragOver(halfOf(e));
+            }
+          : undefined
+      }
+      onDrop={
+        reorder
+          ? (e) => {
+              e.preventDefault();
+              reorder.onDrop(halfOf(e));
+            }
+          : undefined
+      }
+      style={{
+        ...item(!!active),
+        background: bg,
+        opacity: reorder?.dragging ? 0.4 : undefined,
+        // Where it would land, drawn on the row being hovered, as the rail does for spaces.
+        boxShadow:
+          reorder?.dropLine === "before"
+            ? "inset 0 2px 0 0 var(--terracotta-500)"
+            : reorder?.dropLine === "after"
+              ? "inset 0 -2px 0 0 var(--terracotta-500)"
+              : undefined,
+      }}
     >
       {children ?? <Icon name={icon ?? "hash"} size={14} style={{ color: muted ? "var(--text-subtle)" : "var(--text-muted)" }} />}
       <span
@@ -293,9 +351,8 @@ export type SidebarProps = {
    */
   canAdministerSpace: boolean;
   /**
-   * Whether the caller administers the instance, which is a different and larger thing: bringing a
-   * workspace over creates spaces and accounts, so the entry is offered here only to them and is
-   * absent, not disabled, for everyone else. The routes behind it answer 404 to anybody else.
+   * Whether bringing a workspace over is offered. Anyone signed in may: an import by somebody who
+   * does not administer the instance only creates spaces of their own (the server scopes it).
    */
   canImport: boolean;
   /**
@@ -312,6 +369,11 @@ export type SidebarProps = {
   onToggleFavorite: (id: string) => void;
   /** Make an eligible public channel the arrival point for new members. */
   onSetDefaultChannel: (id: string) => void;
+  /**
+   * Put the space's channels in a new order, the same for everybody in it. Given only to the space's
+   * administrators: without it the rows do not move.
+   */
+  onReorderChannels?: (orderedIds: string[]) => void;
   onGlobalSearch: () => void;
   onLeaveChannel: (id: string) => void;
   /** Rejoin a public channel the user had left (the menu offers one or the other, never both). */
@@ -328,6 +390,11 @@ export type SidebarProps = {
    * space: it used to be "sign out", which ended the whole session from a menu about one space.
    */
   onLeaveSpace: () => void;
+  /**
+   * A space is being entered: its channels and conversations are not known yet, so placeholders
+   * stand for them rather than the lists of the space being left.
+   */
+  loading?: boolean;
   /** Compact (mobile) mode: full width, no wordmark/header/search (the mobile top bar owns those). */
   compact?: boolean;
   /** Render only one section, for the compact bottom-tab panels. Omit for the full desktop column. */
@@ -335,6 +402,18 @@ export type SidebarProps = {
   /** Dev/audit only: open the notification center on mount so the popover can be probed under zoom. */
   openNotifications?: boolean;
 };
+
+/** Placeholder rows at the size of sidebar rows, while a space's lists load. */
+function SideSkeleton({ widths, round = false, label }: { widths: number[]; round?: boolean; label?: string }) {
+  const rows = widths.map((width, i) => (
+    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, height: 32, padding: "0 8px" }}>
+      <Skeleton circle={round} width={round ? 20 : 14} height={round ? 20 : 14} />
+      <Skeleton width={`${width * 100}%`} height={10} />
+    </div>
+  ));
+  // Announced once for the whole column: the second group is only drawn.
+  return label ? <SkeletonGroup label={label}>{rows}</SkeletonGroup> : <div className="wc-skel-group">{rows}</div>;
+}
 
 /** Channel/DM navigation column for the active workspace. */
 export function Sidebar({
@@ -361,6 +440,7 @@ export function Sidebar({
   onNewMessage,
   onToggleFavorite,
   onSetDefaultChannel,
+  onReorderChannels,
   onGlobalSearch,
   onLeaveChannel,
   onJoinChannel,
@@ -372,6 +452,7 @@ export function Sidebar({
   onMarkAllNotifsRead,
   onOpenNotifPrefs,
   onLeaveSpace,
+  loading = false,
   compact = false,
   only,
   openNotifications = false,
@@ -381,6 +462,51 @@ export function Sidebar({
   const showChannels = !only || only === "channels";
   const showMessages = !only || only === "messages";
   const showFooter = !only || only === "channels";
+  /**
+   * The space's order with `id` moved next to `target`. The order is one list for the whole space;
+   * the favourites and the rest are two views of it, so a move is made in the whole list.
+   */
+  const moved = (id: string, target: string, where: "before" | "after"): string[] | null => {
+    if (id === target) return null;
+    const ids = channels.map((c) => c.id).filter((x) => x !== id);
+    const at = ids.indexOf(target);
+    if (at === -1) return null;
+    ids.splice(where === "before" ? at : at + 1, 0, id);
+    return ids.join() === channels.map((c) => c.id).join() ? null : ids;
+  };
+  /** One step within the section the channel is shown in, which is the neighbour the reader sees. */
+  const stepped = (channel: Channel, step: -1 | 1): string[] | null => {
+    const section = channels.filter((c) => c.fav === channel.fav);
+    const neighbour = section[section.findIndex((c) => c.id === channel.id) + step];
+    return neighbour ? moved(channel.id, neighbour.id, step === -1 ? "before" : "after") : null;
+  };
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<{ id: string; where: "before" | "after" } | null>(null);
+  const reorderFor = (channel: Channel): RowReorder | undefined =>
+    onReorderChannels
+      ? {
+          dragging: dragging === channel.id,
+          dropLine: dragging && dragging !== channel.id && dropAt?.id === channel.id ? dropAt.where : null,
+          onDragStart: () => setDragging(channel.id),
+          onDragEnd: () => {
+            setDragging(null);
+            setDropAt(null);
+          },
+          onDragOver: (where) => {
+            if (dragging && (dropAt?.id !== channel.id || dropAt.where !== where)) setDropAt({ id: channel.id, where });
+          },
+          onDrop: (where) => {
+            const next = dragging ? moved(dragging, channel.id, where) : null;
+            setDragging(null);
+            setDropAt(null);
+            if (next) onReorderChannels(next);
+          },
+          onStep: (step) => {
+            const next = stepped(channel, step);
+            if (next) onReorderChannels(next);
+          },
+        }
+      : undefined;
   const channelMenu = (channel: Channel): SideMenuItem[] => [
     {
       icon: channel.fav ? "star-off" : "star",
@@ -395,6 +521,13 @@ export function Sidebar({
       && channel.type === "public"
       && !channel.allowedRoles?.length
       ? [{ icon: "house", label: t("sidebar.setDefaultChannel"), onClick: () => onSetDefaultChannel(channel.id) }]
+      : []),
+    // The pointer-free way to arrange the space, and the only one on a touch screen.
+    ...(onReorderChannels && stepped(channel, -1)
+      ? [{ icon: "arrow-up", label: t("sidebar.moveUp"), onClick: () => onReorderChannels(stepped(channel, -1) ?? []) }]
+      : []),
+    ...(onReorderChannels && stepped(channel, 1)
+      ? [{ icon: "arrow-down", label: t("sidebar.moveDown"), onClick: () => onReorderChannels(stepped(channel, 1) ?? []) }]
       : []),
     // A public channel stays readable after leaving it, so the entry flips to rejoining rather than
     // disappearing: leaving is not a one-way door.
@@ -535,7 +668,12 @@ export function Sidebar({
           </>
         ) : null}
 
-        {showChannels ? (
+        {showChannels && loading ? (
+          <>
+            <div style={styles.sect}>{t("tabs.channels")}</div>
+            <SideSkeleton widths={[0.55, 0.4, 0.62, 0.35, 0.48]} label={t("common.loading")} />
+          </>
+        ) : showChannels ? (
           <>
             <div style={styles.sect}>{t("sidebar.favourites")}</div>
             {channels.every((c) => !c.fav) ? (
@@ -556,6 +694,7 @@ export function Sidebar({
                   active={view === "channel" && channel === c.id}
                   onClick={() => onChannel(c.id)}
                   menuItems={channelMenu(c)}
+                  reorder={reorderFor(c)}
                 >
                   <Icon
                     name={channelIcon(c, true, workspace?.defaultChannelId)}
@@ -604,6 +743,7 @@ export function Sidebar({
                   active={view === "channel" && channel === c.id}
                   onClick={() => onChannel(c.id)}
                   menuItems={channelMenu(c)}
+                  reorder={reorderFor(c)}
                 >
                   <Icon
                     name={channelIcon(c, false, workspace?.defaultChannelId)}
@@ -616,7 +756,12 @@ export function Sidebar({
           </>
         ) : null}
 
-        {showMessages ? (
+        {showMessages && loading ? (
+          <>
+            <div style={styles.sect}>{t("sidebar.directMessages")}</div>
+            <SideSkeleton widths={[0.5, 0.42, 0.58]} round />
+          </>
+        ) : showMessages ? (
           <>
             <div style={styles.sect}>{t("sidebar.directMessages")}</div>
             {directMessages.length === 0 ? (

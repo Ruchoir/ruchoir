@@ -59,6 +59,15 @@ pub fn router() -> Router<AppState> {
             "/api/v1/spaces/{space_id}/default-channel",
             put(spaces::set_default_channel),
         )
+        // Catching up after the real-time connection was lost (a background tab, a network drop).
+        .route(
+            "/api/v1/spaces/{space_id}/changes",
+            get(messages::list_changes),
+        )
+        .route(
+            "/api/v1/spaces/{space_id}/channel-order",
+            put(channels::set_channel_order),
+        )
         .route(
             "/api/v1/spaces/{space_id}",
             patch(spaces::update_space).delete(spaces::delete_space),

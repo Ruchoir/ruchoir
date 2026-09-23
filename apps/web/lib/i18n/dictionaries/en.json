@@ -96,6 +96,7 @@
     "resentNeutral": "If that address matches an account awaiting confirmation, a new link has just been sent."
   },
   "common": {
+    "loading": "Loading…",
     "backToLogin": "Back to sign-in",
     "checkInbox": "Check your inbox",
     "sending": "Sending…",
@@ -245,6 +246,9 @@
     "noMatch": "Nothing matches “{{query}}”."
   },
   "sidebar": {
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "reorderFailed": "The channel order could not be saved.",
     "muted": "Notifications muted",
     "markRead": "Mark as read",
     "channelSettings": "Channel settings",
@@ -427,7 +431,6 @@
     "prompt": "Type to search this channel.",
     "noResult": "No result",
     "noMessageOrFile": "No message or file for “{{query}}”.",
-    "searching": "Searching…",
     "querying": "Asking the server.",
     "messagesCount_one": "Messages ({{count}})",
     "messagesCount_other": "Messages ({{count}})",
@@ -562,7 +565,6 @@
     "noPreviewText": "Download the file to open it.",
     "count_one": "{{count}} item",
     "count_other": "{{count}} items",
-    "loadingShort": "Loading…",
     "emptyFolder": "Empty folder",
     "noFile": "No file",
     "folderEmptyText": "This folder holds no file yet.",
@@ -937,7 +939,15 @@
     "channelLeft": "{{who}} left the channel.",
     "channelCreated": "The channel was created.",
     "memberRemoved": "{{who}} was removed from the space.",
-    "channelRemoved": "{{who}} was removed from the channel."
+    "channelRemoved": "{{who}} was removed from the channel.",
+    "channelRenamed": "{{who}} renamed the channel to #{{detail}}.",
+    "channelTopicChanged": "{{who}} changed the channel topic: {{detail}}",
+    "channelTopicCleared": "{{who}} cleared the channel topic.",
+    "channelMadePrivate": "{{who}} made the channel private.",
+    "channelMadePublic": "{{who}} made the channel public.",
+    "channelArchived": "{{who}} archived the channel.",
+    "channelUnarchived": "{{who}} unarchived the channel.",
+    "channelAccessChanged": "{{who}} changed who can access the channel."
   },
   "rail": {
     "unreadActivity": "{{name}}, unread activity"
@@ -1011,6 +1021,8 @@
     "analyse": "Analyse the archive",
     "analysing": "Reading the archive…",
     "checkAllAddressed": "Everyone has an address",
+    "scopedTitle": "Personal import",
+    "scopedText": "The spaces are created for you, and you own them. To protect other people's accounts, imported people arrive without an email address: invite them afterwards from the space.",
     "checkComplete": "Complete",
     "checkNoAddress_one": "{{count}} person without an address",
     "checkNoAddress_other": "{{count}} people without an address",

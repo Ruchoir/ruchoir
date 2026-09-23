@@ -153,6 +153,30 @@ Then prove it end to end rather than assuming:
 and is the quickest way to see the whole picture. It is a third-party service: what you send it, it
 sees, so send it a test message and not a real one.
 
+### Reading the messages in development
+
+A development instance has no relay and should not need one: without `RUCHOIR_SMTP_HOST` the API
+writes each message to its log. To see them as a person would, as rendered messages in an inbox,
+point the API at a local mail catcher (Mailpit, MailHog and the like) with TLS turned off:
+
+```sh
+RUCHOIR_SMTP_HOST=mailpit      # a Compose service name, or localhost
+RUCHOIR_SMTP_PORT=1025
+RUCHOIR_SMTP_TLS=none
+```
+
+To review every message at once, `ruchoir-api mail-preview <address>` sends the three messages the
+server writes, in all six languages, with sample content, through that same relay:
+
+```sh
+docker compose exec api ruchoir-api mail-preview preview@example.test
+```
+
+`RUCHOIR_SMTP_TLS` is `auto` by default (implicit TLS on 465, STARTTLS elsewhere). `none` exists only
+for this: the API refuses to start with it unless the relay is this machine or an internal name with
+no dot in it, so it cannot be used to send real mail in clear across a network. A mail catcher is a
+development tool, never part of a deployment, and none is shipped with the stack.
+
 ## What the product does about all this
 
 `GET /api/v1/instance` reports `email_delivery` without authentication, so the interface knows

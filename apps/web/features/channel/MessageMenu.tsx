@@ -15,6 +15,7 @@ const menu: CSSProperties = {
 
 const itemStyle: CSSProperties = {
   display: "flex",
+  transition: "background-color var(--duration-fast) var(--ease-out)",
   alignItems: "center",
   gap: 8,
   width: "100%",

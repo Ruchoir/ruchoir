@@ -2822,64 +2822,88 @@ async fn a_channel_owner_names_moderators_and_a_moderator_names_nobody() {
 }
 
 #[tokio::test]
-async fn writing_in_a_channel_joins_it() {
+async fn a_channel_one_has_not_joined_is_read_only() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
-    // Carol is in the space and in no channel: she may read the public one without joining, which
-    // is deliberate, and she used to be able to write in it without joining, which was not.
+    // Carol is in the space and in no channel: she may read the public one without joining, and
+    // that is all she may do there until she joins it.
+    let alice = app.cookie_for(fx.alice).await;
     let carol = app.cookie_for(fx.carol).await;
-    assert!(
-        channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
-            .one(&app.db)
-            .await
-            .expect("membership")
-            .is_none()
-    );
-
-    let sent = app
+    let sent: Value = app
         .req(
             reqwest::Method::POST,
             &format!("/api/v1/conversations/{}/messages", fx.public_channel),
-            &carol,
+            &alice,
         )
-        .json(&json!({ "body": "bonjour" }))
+        .json(&json!({ "body": "le plan" }))
         .send()
         .await
-        .expect("send");
-    assert_eq!(sent.status(), 201);
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    let message_id = sent["id"].as_str().expect("id").to_owned();
+    let post = format!("/api/v1/conversations/{}/messages", fx.public_channel);
+    let react = format!("/api/v1/messages/{message_id}/reactions/%F0%9F%91%8D");
 
-    // She is in it now, so the message's audience includes its own author: without this she wrote
-    // to everyone except herself, with no echo, no unread count and no reply reaching her.
+    // Reading: the history and the thread.
+    assert_eq!(
+        status_of(&app, reqwest::Method::GET, &post, &carol).await,
+        200
+    );
+    assert_eq!(
+        status_of(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/messages/{message_id}/replies"),
+            &carol
+        )
+        .await,
+        200
+    );
+
+    // Taking part: refused, and without joining her on the way.
+    for body in [
+        json!({ "body": "bonjour" }),
+        json!({ "body": "dans le fil", "parent_message_id": message_id }),
+    ] {
+        let refused = app
+            .req(reqwest::Method::POST, &post, &carol)
+            .json(&body)
+            .send()
+            .await
+            .expect("send");
+        assert_eq!(refused.status(), 403, "{body}");
+    }
+    assert_eq!(
+        status_of(&app, reqwest::Method::PUT, &react, &carol).await,
+        403
+    );
+    assert_eq!(
+        status_of(&app, reqwest::Method::DELETE, &react, &carol).await,
+        403
+    );
     assert!(
         channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
             .one(&app.db)
             .await
             .expect("membership")
-            .is_some()
+            .is_none(),
+        "refusing her must not join her"
     );
-    // And the channel says who turned up, once.
-    let page: Value = app
-        .req(
-            reqwest::Method::GET,
-            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
-            &carol,
-        )
+
+    // Once she has joined, all of it is hers.
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let written = app
+        .req(reqwest::Method::POST, &post, &carol)
+        .json(&json!({ "body": "dans le fil", "parent_message_id": message_id }))
         .send()
         .await
-        .expect("history")
-        .json()
-        .await
-        .expect("json");
+        .expect("send");
+    assert_eq!(written.status(), 201);
     assert_eq!(
-        page["messages"]
-            .as_array()
-            .expect("array")
-            .iter()
-            .filter(
-                |m| m["system_event"] == "channel_joined" && m["author_id"] == fx.carol.to_string()
-            )
-            .count(),
-        1
+        status_of(&app, reqwest::Method::PUT, &react, &carol).await,
+        204
     );
 }
 
@@ -3204,9 +3228,21 @@ async fn two_sessions_see_the_same_membership_change() {
     let alice = app.cookie_for(fx.alice).await;
     let carol = app.cookie_for(fx.carol).await;
 
-    // Carol writes in a public channel she never joined. She is put in it, so the arrival reaches
-    // the people already there...
+    // Carol joins a public channel she was only reading. The arrival reaches the people already
+    // there...
     let mut watching = app.connect_ws(&alice).await;
+    let joined = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/channels/{}/membership", fx.public_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("join");
+    assert_eq!(joined.status(), 204);
+    let notice = wait_for_type(&mut watching, "message.created").await;
+    assert_eq!(notice["payload"]["system_event"], "channel_joined");
     app.req(
         reqwest::Method::POST,
         &format!("/api/v1/conversations/{}/messages", fx.public_channel),
@@ -3216,13 +3252,10 @@ async fn two_sessions_see_the_same_membership_change() {
     .send()
     .await
     .expect("send");
-    let notice = wait_for_type(&mut watching, "message.created").await;
-    assert_eq!(notice["payload"]["system_event"], "channel_joined");
     let written = wait_for_type(&mut watching, "message.created").await;
     assert_eq!(written["payload"]["body"], "j'arrive");
 
-    // ...and, the point of joining at all, what is said next reaches *her*, which it could not do
-    // when a non-member's message went out to an audience that did not include its author.
+    // ...and, the point of joining at all, what is said next reaches *her*.
     let mut carols = app.connect_ws(&carol).await;
     app.req(
         reqwest::Method::POST,
@@ -3479,49 +3512,6 @@ async fn a_pin_is_a_landmark_not_a_reading_right() {
     assert_eq!(
         status_of(&app, reqwest::Method::PUT, &pin, &carol).await,
         403
-    );
-}
-
-#[tokio::test]
-async fn reacting_joins_the_channel_like_writing_does() {
-    let Some(app) = boot().await else { return };
-    let fx = seed(&app.db).await;
-    let alice = app.cookie_for(fx.alice).await;
-    let carol = app.cookie_for(fx.carol).await;
-
-    let sent: Value = app
-        .req(
-            reqwest::Method::POST,
-            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
-            &alice,
-        )
-        .json(&json!({ "body": "le plan" }))
-        .send()
-        .await
-        .expect("send")
-        .json()
-        .await
-        .expect("json");
-    let message_id = sent["id"].as_str().expect("id").to_owned();
-
-    assert_eq!(
-        status_of(
-            &app,
-            reqwest::Method::PUT,
-            &format!("/api/v1/messages/{message_id}/reactions/%F0%9F%91%8D"),
-            &carol
-        )
-        .await,
-        204
-    );
-    // Same reason as writing: what a channel pushes goes to its members, so a reaction from someone
-    // outside reached everyone but its own author.
-    assert!(
-        channel_members::Entity::find_by_id((fx.public_channel, fx.carol))
-            .one(&app.db)
-            .await
-            .expect("membership")
-            .is_some()
     );
 }
 
@@ -5199,6 +5189,16 @@ async fn a_position_naming_a_message_lands_on_that_message() {
 async fn an_import_that_was_stopped_still_leaves_the_reading_positions() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
+    // The run below is resumed in the instance's own namespace, which is an administrator's import:
+    // somebody else's would keep separate correspondences and not find the first run's work.
+    let mut admin: users::ActiveModel = users::Entity::find_by_id(fx.alice)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("alice")
+        .into();
+    admin.is_instance_admin = Set(true);
+    admin.update(&app.db).await.expect("promote");
     let person = unique_ref("alice");
     let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
     let dir = archive_with_positions(
@@ -6186,37 +6186,137 @@ async fn the_people_an_import_brought_can_be_read_back_from_the_server() {
 }
 
 #[tokio::test]
-async fn the_import_surface_does_not_exist_for_anyone_but_an_instance_administrator() {
+async fn somebody_who_does_not_administer_the_instance_sees_only_their_own_imports() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
+    // An import somebody else ran: bob must not be able to find it, watch it, stop it or read who
+    // it brought.
+    let theirs = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mine = run::start_job(&app.db, "mattermost", fx.bob, None, "{}")
+        .await
+        .expect("job");
     let cookie = app.cookie_for(fx.bob).await;
 
+    let listed: Value = app
+        .req(reqwest::Method::GET, "/api/v1/imports", &cookie)
+        .send()
+        .await
+        .expect("list")
+        .json()
+        .await
+        .expect("json");
+    let ids: Vec<&str> = listed
+        .as_array()
+        .expect("a list")
+        .iter()
+        .filter_map(|job| job["id"].as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![mine.to_string().as_str()],
+        "only their own import"
+    );
+
     for (method, path) in [
-        (reqwest::Method::GET, "/api/v1/imports".to_owned()),
-        (reqwest::Method::POST, "/api/v1/imports/plan".to_owned()),
-        (
-            reqwest::Method::GET,
-            format!("/api/v1/imports/{}", Uuid::new_v4()),
-        ),
+        (reqwest::Method::GET, format!("/api/v1/imports/{theirs}")),
         (
             reqwest::Method::POST,
-            format!("/api/v1/imports/{}/cancel", Uuid::new_v4()),
+            format!("/api/v1/imports/{theirs}/cancel"),
         ),
         (
             reqwest::Method::GET,
-            format!("/api/v1/imports/{}/people", Uuid::new_v4()),
+            format!("/api/v1/imports/{theirs}/people"),
+        ),
+        // Writing to the people an import brought stays with the administrators, even for one's own.
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/imports/{mine}/invitations"),
         ),
     ] {
         let response = app
             .req(method.clone(), &path, &cookie)
-            .json(&json!({"file": "whatever"}))
+            .json(&json!({"source_ids": []}))
             .send()
             .await
             .expect("request");
-        // 404 and not 403: to everyone else this surface does not exist, and a refusal that told
-        // them apart would confirm there is something here to attack.
+        // 404 and not 403: a refusal that told them apart would confirm there is something there.
         assert_eq!(response.status(), 404, "{method} {path}");
     }
+
+    let own = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/imports/{mine}"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("own job");
+    assert_eq!(own.status(), 200, "their own import is theirs to watch");
+
+    // Emptying the instance is refused before the archive is even looked at.
+    let replace = app
+        .req(reqwest::Method::POST, "/api/v1/imports", &cookie)
+        .json(&json!({
+            "file": "whatever",
+            "replace_everything": {"instance_address": "localhost"}
+        }))
+        .send()
+        .await
+        .expect("start");
+    assert_eq!(replace.status(), 404);
+}
+
+#[tokio::test]
+async fn a_scoped_import_never_writes_into_a_space_it_did_not_create() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let name = format!("Atelier {}", Uuid::new_v4().simple());
+    let index = import_index(
+        vec![source_user(&unique_ref("alice"), "")],
+        vec![source_space(&unique_ref("atelier"), &name)],
+    );
+
+    // An administrator's import creates the space and records the correspondence.
+    let first = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let (_, theirs) =
+        run::import_spaces(&app.db, &Mapper::new(first, "mattermost"), &index, fx.alice)
+            .await
+            .expect("spaces");
+
+    // The same archive, run by somebody else without administration: neither the correspondence
+    // nor the name may lead it into that space.
+    let second = run::start_job(&app.db, "mattermost", fx.bob, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(second, "mattermost").scoped_to(Some(fx.bob));
+    mapper.preload(&app.db).await.expect("preload");
+    let (written, mine) = run::import_spaces(&app.db, &mapper, &index, fx.bob)
+        .await
+        .expect("spaces");
+    assert_eq!(written.spaces_created, 1);
+    assert_eq!(written.spaces_filled, 0);
+    assert_ne!(
+        mine[0].1, theirs[0].1,
+        "a space of its own, not the other one"
+    );
+    let membership = space_members::Entity::find_by_id((mine[0].1, fx.bob))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("bob is in the space he imported");
+    assert_eq!(membership.role, "owner");
+
+    // Run again, it finds its own space through its own correspondence.
+    let (again, resolved) = run::import_spaces(&app.db, &mapper, &index, fx.bob)
+        .await
+        .expect("spaces");
+    assert_eq!(again.spaces_created, 0);
+    assert_eq!(resolved[0].1, mine[0].1);
 }
 
 #[tokio::test]
@@ -6414,6 +6514,7 @@ async fn remember(db: &DatabaseConnection, job: Uuid, kind: &str, external: &str
         kind: Set(kind.to_owned()),
         external_ref: Set(external.to_owned()),
         internal_id: Set(internal),
+        owner_id: Set(None),
         created_at: Set(OffsetDateTime::now_utc()),
     }
     .insert(db)
@@ -6733,4 +6834,319 @@ async fn what_a_replacement_would_destroy_is_counted_before_anything_happens() {
     assert_eq!(dying.space_names, vec!["Comptabilité".to_string()]);
 
     scratch.drop_it().await;
+}
+
+#[tokio::test]
+async fn a_changed_channel_says_so_in_its_own_history() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+
+    let channel: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": "chantier", "type": "public" }))
+        .send()
+        .await
+        .expect("create channel")
+        .json()
+        .await
+        .expect("json");
+    let channel_id = channel["id"].as_str().expect("id").to_owned();
+
+    for change in [
+        json!({ "name": "atelier", "topic": "Le planning de la semaine" }),
+        // Saying the same thing again is not a change, and leaves no line.
+        json!({ "name": "atelier" }),
+        json!({ "topic": "" }),
+        json!({ "type": "private" }),
+        json!({ "type": "archived" }),
+        json!({ "type": "private" }),
+    ] {
+        let response = app
+            .req(
+                reqwest::Method::PATCH,
+                &format!("/api/v1/channels/{channel_id}"),
+                &alice,
+            )
+            .json(&change)
+            .send()
+            .await
+            .expect("update");
+        assert_eq!(response.status(), 200, "{change}");
+    }
+
+    let page: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    let mut notices: Vec<(String, String, String)> = page["messages"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .filter(|m| m["kind"] == "system")
+        .map(|m| {
+            (
+                m["created_at"].as_str().unwrap_or_default().to_owned(),
+                m["system_event"].as_str().unwrap_or_default().to_owned(),
+                m["body"].as_str().unwrap_or_default().to_owned(),
+            )
+        })
+        .collect();
+    notices.sort();
+    let said: Vec<(&str, &str)> = notices
+        .iter()
+        .map(|(_, event, body)| (event.as_str(), body.as_str()))
+        .filter(|(event, _)| *event != "channel_created")
+        .collect();
+    assert_eq!(
+        said,
+        vec![
+            ("channel_renamed", "atelier"),
+            ("channel_topic_changed", "Le planning de la semaine"),
+            ("channel_topic_cleared", ""),
+            ("channel_made_private", ""),
+            ("channel_archived", ""),
+            ("channel_unarchived", ""),
+        ]
+    );
+    // Said by whoever made the change.
+    assert!(page["messages"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .filter(|m| m["system_event"] == "channel_renamed")
+        .all(|m| m["author_id"] == json!(fx.alice.to_string())));
+
+    // And never found by search: a notice is history, not something anybody wrote.
+    let found: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!(
+                "/api/v1/search?q=planning&type=messages&space_id={}",
+                fx.space_id
+            ),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("search")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(
+        found["messages"].as_array().map(Vec::len).unwrap_or(0),
+        0,
+        "{found}"
+    );
+}
+
+#[tokio::test]
+async fn a_space_administrator_orders_the_channels_for_everyone() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    for name in ["zeta", "alpha"] {
+        let created = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/spaces/{}/channels", fx.space_id),
+                &alice,
+            )
+            .json(&json!({ "name": name, "type": "public" }))
+            .send()
+            .await
+            .expect("create channel");
+        assert_eq!(created.status(), 201);
+    }
+
+    let names = |list: &Value| -> Vec<String> {
+        list.as_array()
+            .expect("array")
+            .iter()
+            .map(|c| c["name"].as_str().unwrap_or_default().to_owned())
+            .collect()
+    };
+    let list_for = |cookie: String| {
+        let app = &app;
+        async move {
+            app.req(
+                reqwest::Method::GET,
+                &format!("/api/v1/spaces/{}/channels", fx.space_id),
+                &cookie,
+            )
+            .send()
+            .await
+            .expect("list")
+            .json::<Value>()
+            .await
+            .expect("json")
+        }
+    };
+
+    // Before any arrangement: by creation, so a new channel lands at the end.
+    let before = list_for(alice.clone()).await;
+    assert_eq!(names(&before), vec!["general", "secret", "zeta", "alpha"]);
+
+    let reversed: Vec<Value> = before
+        .as_array()
+        .expect("array")
+        .iter()
+        .rev()
+        .map(|c| c["id"].clone())
+        .collect();
+    let ordered = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/spaces/{}/channel-order", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "channel_ids": reversed }))
+        .send()
+        .await
+        .expect("order");
+    assert_eq!(ordered.status(), 204);
+    assert_eq!(
+        names(&list_for(alice.clone()).await),
+        vec!["alpha", "zeta", "secret", "general"]
+    );
+    // The same order for everybody, in what each of them can see.
+    assert_eq!(
+        names(&list_for(bob.clone()).await),
+        vec!["alpha", "zeta", "general"]
+    );
+
+    // Only an administrator arranges the space.
+    let refused = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/spaces/{}/channel-order", fx.space_id),
+            &bob,
+        )
+        .json(&json!({ "channel_ids": [] }))
+        .send()
+        .await
+        .expect("order");
+    assert_eq!(refused.status(), 403);
+
+    // A list that is not the caller's current one is refused rather than guessed at.
+    let stale = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/spaces/{}/channel-order", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "channel_ids": [fx.public_channel] }))
+        .send()
+        .await
+        .expect("order");
+    assert_eq!(stale.status(), 409);
+}
+
+#[tokio::test]
+async fn a_client_catches_up_on_what_it_missed_in_every_conversation() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let changes = |cookie: String, since: Option<String>| {
+        let app = &app;
+        async move {
+            let path = match since {
+                Some(since) => format!(
+                    "/api/v1/spaces/{}/changes?since={}",
+                    fx.space_id,
+                    since.replace('+', "%2B")
+                ),
+                None => format!("/api/v1/spaces/{}/changes", fx.space_id),
+            };
+            let response = app
+                .req(reqwest::Method::GET, &path, &cookie)
+                .send()
+                .await
+                .expect("changes");
+            assert_eq!(response.status(), 200);
+            response.json::<Value>().await.expect("json")
+        }
+    };
+    let post = |body: Value, channel: Uuid| {
+        let app = &app;
+        let alice = alice.clone();
+        async move {
+            app.req(
+                reqwest::Method::POST,
+                &format!("/api/v1/conversations/{channel}/messages"),
+                &alice,
+            )
+            .json(&body)
+            .send()
+            .await
+            .expect("send")
+            .json::<Value>()
+            .await
+            .expect("json")
+        }
+    };
+
+    let before = post(json!({ "body": "avant" }), fx.public_channel).await;
+    let before_id = before["id"].as_str().expect("id").to_owned();
+
+    // Bob's cursor: nothing yet, only the moment.
+    let start = changes(bob.clone(), None).await;
+    assert_eq!(start["messages"].as_array().map(Vec::len), Some(0));
+    let cursor = start["now"].as_str().expect("now").to_owned();
+
+    // While he is away: a new message, a reply in a thread, a deletion, and a message in a private
+    // channel he is not in.
+    let after = post(json!({ "body": "pendant" }), fx.public_channel).await;
+    post(
+        json!({ "body": "dans le fil", "parent_message_id": before_id }),
+        fx.public_channel,
+    )
+    .await;
+    post(json!({ "body": "secret" }), fx.private_channel).await;
+    let deleted = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/messages/{before_id}"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("delete");
+    assert_eq!(deleted.status(), 200);
+
+    let caught = changes(bob.clone(), Some(cursor)).await;
+    assert_eq!(caught["truncated"], false);
+    let rows = caught["messages"].as_array().expect("array");
+    let bodies: Vec<&str> = rows.iter().filter_map(|m| m["body"].as_str()).collect();
+    assert!(bodies.contains(&"pendant"), "{caught}");
+    assert!(bodies.contains(&"dans le fil"), "{caught}");
+    assert!(
+        !bodies.contains(&"secret"),
+        "a private channel he is not in"
+    );
+    let tombstone = rows
+        .iter()
+        .find(|m| m["id"] == json!(before_id))
+        .expect("the deleted message is sent back, as a tombstone");
+    assert_eq!(tombstone["deleted"], true);
+    assert!(rows.iter().any(|m| m["id"] == after["id"]));
+
+    // Too long ago to be worth a list: reload instead.
+    let stale = changes(bob.clone(), Some("2020-01-01T00:00:00Z".to_owned())).await;
+    assert_eq!(stale["truncated"], true);
 }

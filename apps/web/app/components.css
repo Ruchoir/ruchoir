@@ -234,6 +234,7 @@
 
 /* Badge */
 .wc-badge {
+  animation: wc-badge-bump var(--duration-base) var(--ease-entrance);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2476,4 +2477,116 @@
   .wc-imp-platform:hover {
     transform: none;
   }
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Loading and arrival. Placeholders at the size of what is coming, and a short rise for what just
+   arrived. Both stay subtle: they say "this is happening", they are not a show.
+   --------------------------------------------------------------------------------------------- */
+
+/* Read by a screen reader, not drawn. */
+.wc-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.wc-skel {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--surface-active);
+}
+.wc-skel--circle {
+  border-radius: var(--radius-full);
+}
+.wc-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--surface-hover), transparent);
+  animation: wc-skel-sheen 1.6s var(--ease-in-out) infinite;
+}
+@keyframes wc-skel-sheen {
+  to {
+    transform: translateX(100%);
+  }
+}
+/* Held back a moment: a load that answers quickly never flashes a placeholder. */
+.wc-skel-group {
+  animation: wc-fade-in var(--duration-base) var(--ease-out) 150ms both;
+}
+
+/* Something that just arrived (a message received or sent while watching): a short rise. */
+.wc-enter {
+  animation: wc-enter var(--duration-base) var(--ease-entrance);
+}
+@keyframes wc-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-skel::after {
+    animation: none;
+  }
+  .wc-skel-group,
+  .wc-enter,
+  .wc-fade-in {
+    animation: none;
+  }
+}
+
+/* A badge appearing, or its number changing (it is keyed on the number): a short bump. */
+@keyframes wc-badge-bump {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wc-badge {
+    animation: none;
+  }
+}
+
+/* File icons (FileIcon): a page tinted with its format's colour. The ink is lifted in the dark themes,
+   where the deeper colours (code, applications, books) would otherwise sink into the background. */
+.wc-fi {
+  --fi-ink: var(--fi-c);
+  --fi-tint: 11%;
+}
+[data-theme="ruchui-dark"] .wc-fi,
+[data-theme="dark"] .wc-fi {
+  --fi-ink: color-mix(in srgb, var(--fi-c) 68%, white);
+  --fi-tint: 16%;
+}
+.wc-fi__page {
+  fill: color-mix(in srgb, var(--fi-c) var(--fi-tint), transparent);
+  stroke: color-mix(in srgb, var(--fi-c) 34%, transparent);
+}
+.wc-fi__fold {
+  fill: color-mix(in srgb, var(--fi-c) 18%, transparent);
+  stroke: color-mix(in srgb, var(--fi-c) 34%, transparent);
+}
+.wc-fi__chip {
+  fill: var(--fi-c);
+}
+.wc-fi__glyph {
+  color: var(--fi-ink);
 }

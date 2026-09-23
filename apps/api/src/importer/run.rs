@@ -239,6 +239,12 @@ pub struct Mapper<'a> {
     /// preload would be told, silently and wrongly, that nothing had ever been imported, and would
     /// import all of it a second time.
     complete: std::sync::atomic::AtomicBool,
+    /// Set for an import run by somebody who does not administer the instance: the correspondences
+    /// it reads and writes are that person's own (`import_mappings.owner_id`).
+    ///
+    /// Without it, an archive spelling the same source identifiers as an earlier import (anybody's)
+    /// would resolve to that import's spaces and conversations, and write into them.
+    owner: Option<Uuid>,
 }
 
 impl<'a> Mapper<'a> {
@@ -248,6 +254,29 @@ impl<'a> Mapper<'a> {
             source,
             seen: std::sync::Mutex::new(std::collections::HashMap::new()),
             complete: std::sync::atomic::AtomicBool::new(false),
+            owner: None,
+        }
+    }
+
+    /// Recognise only what `owner`'s own imports wrote. `None` keeps the whole instance in view,
+    /// which is what an administrator's import does.
+    pub fn scoped_to(mut self, owner: Option<Uuid>) -> Self {
+        self.owner = owner;
+        self
+    }
+
+    /// Whose imports this mapper is limited to, if anyone's.
+    pub fn owner(&self) -> Option<Uuid> {
+        self.owner
+    }
+
+    /// The mappings this mapper may see: this source's, in this mapper's namespace.
+    fn visible(&self) -> sea_orm::Select<import_mappings::Entity> {
+        let query =
+            import_mappings::Entity::find().filter(import_mappings::Column::Source.eq(self.source));
+        match self.owner {
+            None => query.filter(import_mappings::Column::OwnerId.is_null()),
+            Some(owner) => query.filter(import_mappings::Column::OwnerId.eq(owner)),
         }
     }
 
@@ -256,10 +285,7 @@ impl<'a> Mapper<'a> {
     /// Filtered by source and not by job, deliberately: a second archive cut from the same source
     /// is the ordinary case, and what makes it cheap is finding the first run's work.
     pub async fn preload<C: ConnectionTrait>(&self, db: &C) -> Result<usize> {
-        let rows = import_mappings::Entity::find()
-            .filter(import_mappings::Column::Source.eq(self.source))
-            .all(db)
-            .await?;
+        let rows = self.visible().all(db).await?;
         let mut seen = self.seen.lock().expect("mapper cache");
         for row in rows {
             seen.insert((row.kind, row.space_id, row.external_ref), row.internal_id);
@@ -291,8 +317,8 @@ impl<'a> Mapper<'a> {
             }
         }
 
-        let mut query = import_mappings::Entity::find()
-            .filter(import_mappings::Column::Source.eq(self.source))
+        let mut query = self
+            .visible()
             .filter(import_mappings::Column::Kind.eq(kind))
             .filter(import_mappings::Column::ExternalRef.eq(external_ref));
         query = match space_id {
@@ -324,6 +350,7 @@ impl<'a> Mapper<'a> {
             kind: Set(kind.to_owned()),
             external_ref: Set(external_ref.to_owned()),
             internal_id: Set(internal_id),
+            owner_id: Set(self.owner),
             created_at: NotSet,
         }
         .insert(db)
@@ -483,7 +510,31 @@ pub async fn import_spaces<C: ConnectionTrait>(
 
     for space in &index.spaces {
         if let Some(existing) = mapper.resolve(db, KIND_SPACE, &space.id, None).await? {
+            // A scoped import resumes only into a space its importer still runs: having created it
+            // once is not a standing right to write into it after being demoted or removed.
+            if let Some(importer) = mapper.owner() {
+                let runs_it = space_members::Entity::find_by_id((existing, importer))
+                    .one(db)
+                    .await?
+                    .is_some_and(|member| matches!(member.role.as_str(), "owner" | "admin"));
+                if !runs_it {
+                    return Err(RunError::Ambiguous(format!(
+                        "an earlier import brought {} over, and you no longer administer that space",
+                        space.name
+                    )));
+                }
+            }
             resolved.push((space.id.clone(), existing));
+            continue;
+        }
+
+        // A scoped import never adopts a space it did not create: the name is somebody else's.
+        if mapper.owner().is_some() {
+            let id = create_space(db, &space.name, owner).await?;
+            written.spaces_created += 1;
+            written.memberships += 1;
+            mapper.record(db, KIND_SPACE, &space.id, None, id).await?;
+            resolved.push((space.id.clone(), id));
             continue;
         }
 
@@ -713,6 +764,7 @@ pub async fn import_conversations<C: ConnectionTrait>(
                 // without joining anything.
                 imported_source: Set(Some(mapper.source.to_owned())),
                 external_ref: Set(Some(channel.id.clone())),
+                position: Set(None),
                 created_at: Set(now),
             }
             .insert(db)

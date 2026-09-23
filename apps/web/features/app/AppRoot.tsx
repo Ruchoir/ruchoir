@@ -15,6 +15,7 @@ import {
   deleteMessage,
   deleteSpace as apiDeleteSpace,
   editMessage,
+  getChanges,
   getChannelMessages,
   getChannels,
   getDirectMessages,
@@ -51,6 +52,7 @@ import {
   setMessagePinned,
   setMessageSaved,
   setChannelFavorite,
+  setChannelOrder as apiSetChannelOrder,
   setDefaultChannel as apiSetDefaultChannel,
   setMemberRole as apiSetMemberRole,
   setMyPresence as apiSetMyPresence,
@@ -142,6 +144,7 @@ import { Sidebar } from "./Sidebar";
 import type { AppView, ChannelPanel, Toast } from "./types";
 import { WorkspaceRail } from "./WorkspaceRail";
 import { readDeepLink } from "@/lib/dev/deeplink";
+import { lastChannelOf, rememberChannel } from "@/lib/lastChannel";
 import { useCompact } from "./useCompact";
 import { MobileTopBar } from "./MobileTopBar";
 import { BottomTabs } from "./BottomTabs";
@@ -244,6 +247,61 @@ function replaceMessage(map: MessageMap, conv: string, m: Message): MessageMap {
   return { ...map, [conv]: list.map((x) => (x.id === m.id ? m : x)) };
 }
 
+/**
+ * Fold what a catch-up returned into the messages held: edits and tombstones replace, new messages
+ * are added, and a thread root's counter follows the replies that arrived or were taken back.
+ * A deletion of something never held is ignored: there is nothing on screen to take down.
+ */
+function applyChanges(map: MessageMap, changes: { conversationId: string; message: Message }[]): MessageMap {
+  let next = map;
+  for (const { conversationId: conv, message: m } of changes) {
+    const held = next[conv]?.find((x) => x.id === m.id);
+    if (held) {
+      next = replaceMessage(next, conv, m);
+      if (m.parentId && m.deleted && !held.deleted) next = adjustReplyCount(next, conv, m.parentId, -1);
+    } else if (!m.deleted) {
+      next = upsertMessage(next, conv, { ...m, fresh: true });
+      if (m.parentId) next = adjustReplyCount(next, conv, m.parentId, 1, m.author);
+    }
+  }
+  return next;
+}
+
+/** A notification from the API, as the inbox holds it, labelled from the lists this client has. */
+function toAppNotification(
+  n: ApiNotification,
+  chans: Channel[],
+  dmList: DirectMessage[],
+  read: boolean,
+): AppNotification {
+  // The loaded lists first, because they carry what this client knows about the conversation;
+  // the server's own names otherwise, which is the only thing that can name a conversation in a
+  // space this client has never opened. The identifier is no longer a possible answer.
+  const channel = chans.find((x) => x.id === n.conversationId);
+  const dm = channel ? undefined : dmList.find((x) => x.id === n.conversationId);
+  const { label, isDm } = channel
+    ? { label: `#${channel.name}`, isDm: false }
+    : dm
+      ? { label: dm.name, isDm: true }
+      : n.channelName
+        ? { label: `#${n.channelName}`, isDm: false }
+        : { label: "", isDm: true };
+  return {
+    id: n.id,
+    kind: n.kind as NotifKind,
+    channelId: n.conversationId,
+    spaceId: n.spaceId,
+    label,
+    spaceName: n.spaceName,
+    isDm,
+    actor: n.actor,
+    messageId: n.messageId,
+    preview: n.preview,
+    createdAt: n.createdAt,
+    read,
+  };
+}
+
 /** Apply another user's reaction delta to a message's buckets (our own deltas are already optimistic). */
 function applyReactionDelta(map: MessageMap, conv: string, r: RealtimeReaction): MessageMap {
   const list = map[conv] ?? [];
@@ -340,13 +398,13 @@ function AppShell() {
   const [session, setSession] = useState<SessionUser | null>(null);
   const currentUser = session?.name ?? "";
   // An import runs in the server and outlives the screen that started it. Watched from up here so
-  // that the sidebar can show it whatever the caller is doing, and only for the administrators who
-  // are allowed to ask.
+  // that the sidebar can show it whatever the caller is doing. Anyone signed in may import; the
+  // server answers each caller with their own imports only.
   const {
     run: importRun,
     clear: clearImportRun,
     refresh: refreshImportRun,
-  } = useRunningImport(session?.isInstanceAdmin === true);
+  } = useRunningImport(session !== null);
   /** Whether the import screen was opened to see a finished run rather than to start one. */
   const [importDetail, setImportDetail] = useState(false);
   // Boot lifecycle: `booting` covers the initial session check and data load; `bootError` holds a
@@ -442,6 +500,8 @@ function AppShell() {
   // auto-opening its default panel. Reset when they open a panel again.
   const [panelDismissed, setPanelDismissed] = useState(false);
   const [thread, setThread] = useState<string | null>(null);
+  /** The thread whose replies are being fetched, so its panel can draw placeholders meanwhile. */
+  const [threadLoading, setThreadLoading] = useState<string | null>(null);
   const [profile, setProfile] = useState<string | null>(null);
   const [profileEdit, setProfileEdit] = useState(false);
   const [unreadMarker, setUnreadMarker] = useState<string | null>(null);
@@ -545,6 +605,19 @@ function AppShell() {
     [],
   );
 
+  /**
+   * Re-read the spaces when an import stops, even one watched only from the sidebar: an import
+   * creates spaces, and the rail used to keep the list it booted with until the page was reloaded.
+   */
+  const importEndedRef = useRef<string | null>(null);
+  const importRunId = importRun?.job.id;
+  const importRunning = importRun?.running;
+  useEffect(() => {
+    if (!importRunId || importRunning !== false || importEndedRef.current === importRunId) return;
+    importEndedRef.current = importRunId;
+    void reloadSpaceCounters();
+  }, [importRunId, importRunning, reloadSpaceCounters]);
+
   const refreshSpaceCounters = useCallback(() => {
     clearTimeout(countersTimer.current);
     countersTimer.current = setTimeout(() => void reloadSpaceCounters(), 1500);
@@ -568,7 +641,7 @@ function AppShell() {
    * Used both at boot and when the workspace rail switches space, so a switch shows the space it
    * says it does rather than the previous one's conversations.
    */
-  const loadSpace = useCallback(async (activeWs: string, preferChannelName?: string) => {
+  const loadSpace = useCallback(async (activeWs: string, preferChannelName?: string, defaultChannelId?: string) => {
     setWs(activeWs);
     // Which space the in-flight waves belong to. A switch started while another is loading must not
     // have the slower one's results land on top of it.
@@ -596,25 +669,41 @@ function AppShell() {
     // row resolves its author, its avatar and its mentions against them; the space files are not,
     // because nothing displays them until the files panel or the files screen is opened. Putting
     // them in the same batch made the whole space wait on a request nobody was looking at.
-    const [chans, dmList, memberList, presenceMap] = await Promise.all([
+    const [chans, dmList, memberList, presenceMap, cursor] = await Promise.all([
       getChannels(activeWs),
       getDirectMessages(activeWs),
       getSpaceMembers(activeWs).catch(() => [] as Member[]),
       getSpacePresence(activeWs).catch(() => ({}) as Record<string, Presence>),
+      // Where catching up starts from: taken before any message is read, so nothing that happens
+      // while the space loads can fall between the pages and the first catch-up.
+      getChanges(activeWs).catch(() => null),
     ]);
     // A second switch started while this one was in flight: its results own the screen now.
     if (loadingSpaceRef.current !== activeWs) return;
+    syncCursorRef.current = cursor ? { space: activeWs, since: cursor.now } : null;
+    staleRef.current.clear();
     setChannels(chans);
     setMembers(memberList);
     setPresence(presenceMap);
     // Overlay each 1:1 DM's counterpart presence onto its sidebar row.
     setDms(dmList.map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
 
-    // Land on the channel the address named, else the first of the space (or its first DM). A named
-    // channel that no longer exists falls through to the default rather than failing: a link shared
-    // before a rename should still open the right space.
-    const preferred = preferChannelName ? chans.find((c) => c.name === preferChannelName) : undefined;
-    const opening = preferred?.id ?? chans[0]?.id ?? dmList[0]?.id ?? "";
+    // Land on the channel the address named, else the conversation last open in this space, else its
+    // main public channel (the one newcomers join), else the first of the space (or its first DM).
+    // Anything named or remembered that no longer exists, or is no longer reachable, falls through to
+    // the next rather than failing: a link shared before a rename should still open the right space.
+    const exists = (id: string | undefined) =>
+      id !== undefined && (chans.some((c) => c.id === id) || dmList.some((d) => d.id === id));
+    const preferred = preferChannelName ? chans.find((c) => c.name === preferChannelName)?.id : undefined;
+    const remembered = lastChannelOf(activeWs);
+    const opening =
+      preferred ??
+      (exists(remembered) ? remembered : undefined) ??
+      (exists(defaultChannelId) ? defaultChannelId : undefined) ??
+      chans.find((c) => c.type === "public")?.id ??
+      chans[0]?.id ??
+      dmList[0]?.id ??
+      "";
     setChannelId(opening);
 
     // Second wave: only the conversation actually being opened. The space is usable from here, so
@@ -653,39 +742,13 @@ function AppShell() {
         return next;
       });
       setSpaceFiles(folder.entries);
-      // The loaded lists first, because they carry what this client knows about the conversation;
-      // the server's own names otherwise, which is the only thing that can name a conversation in a
-      // space this client has never opened. The identifier is no longer a possible answer.
-      const labelOf = (n: { conversationId: string; channelName?: string }): { label: string; isDm: boolean } => {
-        const c = chans.find((x) => x.id === n.conversationId);
-        if (c) return { label: `#${c.name}`, isDm: false };
-        const d = dmList.find((x) => x.id === n.conversationId);
-        if (d) return { label: d.name, isDm: true };
-        return n.channelName ? { label: `#${n.channelName}`, isDm: false } : { label: "", isDm: true };
-      };
       // The inbox lands here, well after the conversation was opened and marked read: at that
       // point it held none of these rows, so a mention pointing at the very channel being read
       // stayed unread on the server and kept the space's badge lit. Anything addressed to the
       // conversation on screen is read by definition, so it is filed as such now, once.
       const openedHere = feed.notifications.filter((n) => n.conversationId === opening && !n.read);
       setNotifs(
-        feed.notifications.map((n) => {
-          const { label, isDm } = labelOf(n);
-          return {
-            id: n.id,
-            kind: n.kind as NotifKind,
-            channelId: n.conversationId,
-            spaceId: n.spaceId,
-            label,
-            spaceName: n.spaceName,
-            isDm,
-            actor: n.actor,
-            messageId: n.messageId,
-            preview: n.preview,
-            createdAt: n.createdAt,
-            read: n.read || n.conversationId === opening,
-          };
-        }),
+        feed.notifications.map((n) => toAppNotification(n, chans, dmList, n.read || n.conversationId === opening)),
       );
       if (openedHere.length > 0) {
         for (const n of openedHere) void markNotificationRead(n.id).catch(() => {});
@@ -715,7 +778,8 @@ function AppShell() {
       const resolved = await resolveSpaceSlug(target.spaceSlug);
       wanted = resolved ? spaces.find((s) => s.id === resolved.id) : undefined;
     }
-    await loadSpace((wanted ?? spaces[0])?.id ?? "", wanted ? target?.channelName : undefined);
+    const landing = wanted ?? spaces[0];
+    await loadSpace(landing?.id ?? "", wanted ? target?.channelName : undefined, landing?.defaultChannelId);
     return spaces;
   }, [loadSpace]);
 
@@ -934,6 +998,17 @@ function AppShell() {
 
   /** Latest "read this space again from scratch", for the same reason as the others. */
   const reloadSpaceRef = useRef<(spaceId: string) => Promise<void>>(async () => {});
+  /** Re-read what is on screen after pushes may have been missed; filled below, see `resync`. */
+  const resyncRef = useRef<() => void>(() => {});
+  /** Where the next catch-up of the space on screen starts from (see `getChanges`). */
+  const syncCursorRef = useRef<{ space: string; since: string } | null>(null);
+  /**
+   * Conversations whose latest page is re-read when next opened. A catch-up brings what changed,
+   * except a reaction taken back, which leaves no dated trace; re-reading on opening covers it.
+   */
+  const staleRef = useRef(new Set<string>());
+  /** `loadThread`, reachable from the resync above its declaration. */
+  const loadThreadRef = useRef<(conv: string, parentId: string) => void>(() => {});
 
   /**
    * Spaces already taken off the rail. A departure arrives twice (the real-time frame and the answer
@@ -950,6 +1025,7 @@ function AppShell() {
   useEffect(() => {
     if (!session) return;
     const conn = connectRealtime({
+      onReconnect: () => resyncRef.current(),
       onMessageCreated: (conv, m) => {
         const { channelId: active, myId } = liveRef.current;
         // Our own message is already shown optimistically and reconciled by the POST response; skip
@@ -957,7 +1033,7 @@ function AppShell() {
         if (m.authorId && m.authorId === myId) return;
         const parentId = m.parentId;
         setMessages((prev) => {
-          const next = upsertMessage(prev, conv, m);
+          const next = upsertMessage(prev, conv, { ...m, fresh: true });
           // A reply is held with the rest of the conversation, and kept out of the feed when the
           // feed is drawn. What the feed does show of it is its root's counter and faces.
           return parentId ? adjustReplyCount(next, conv, parentId, 1, m.author) : next;
@@ -1154,6 +1230,18 @@ function AppShell() {
           }
           return touched ? next : prev;
         });
+      },
+      onChannelsReordered: (spaceId) => {
+        // Only the space on screen: the others are read in their new order when next opened. The
+        // list is re-read rather than reordered here, because the event names no channel.
+        if (spaceId !== liveRef.current.ws) return;
+        void getChannels(spaceId)
+          .then((fresh) => {
+            if (liveRef.current.ws === spaceId) setChannels(fresh);
+          })
+          .catch(() => {
+            // The order simply stays as it was until the next load.
+          });
       },
       onSpaceUpdated: (space) => {
         // Shared settings only: the counters and the caller's role are not in the event, precisely
@@ -1682,15 +1770,102 @@ function AppShell() {
   });
 
   /**
+   * Re-read what is on screen: the open conversation (and its open thread), the sidebar's lists and
+   * the rail's counters.
+   *
+   * Pushes are not replayed. A tab in the background is throttled or frozen by the browser, and its
+   * connection is often dropped and reopened; everything sent in between was lost, so coming back
+   * showed the conversation as it was when the tab was left. Merged by id, so nothing already on
+   * screen is doubled, older history loaded by scrolling is kept, and messages still being sent stay.
+   */
+  const lastResync = useRef(0);
+  useEffect(() => {
+    resyncRef.current = () => {
+      const space = ws;
+      const conv = channelId;
+      if (!space) return;
+      lastResync.current = Date.now();
+      if (conv) {
+        void getChannelMessages(conv)
+          .then((page) => {
+            if (liveRef.current.ws !== space) return;
+            setMessages((prev) => page.messages.reduce((map, m) => upsertMessage(map, conv, m), prev));
+            // Being on the conversation is reading it, as when it is opened.
+            if (document.visibilityState === "visible" && liveRef.current.view === "channel" && liveRef.current.channelId === conv) {
+              markReadRef.current(conv, page.messages);
+            }
+          })
+          .catch(() => {
+            // The next push or the next return tries again.
+          });
+        if (thread) loadThreadRef.current(conv, thread);
+      }
+      // Everything else of the space, in one request: new messages, edits, deletions and replies in
+      // every conversation, not only the one on screen.
+      const cursor = syncCursorRef.current;
+      if (cursor && cursor.space === space) {
+        void getChanges(space, cursor.since)
+          .then((result) => {
+            if (liveRef.current.ws !== space) return;
+            if (result.truncated) {
+              // Away too long, or too much happened: a list would be slower than starting over.
+              void reloadSpaceRef.current(space);
+              return;
+            }
+            syncCursorRef.current = { space, since: result.now };
+            if (result.changes.length > 0) setMessages((prev) => applyChanges(prev, result.changes));
+            for (const c of [...liveRef.current.channels, ...liveRef.current.dms]) {
+              if (c.id !== conv) staleRef.current.add(c.id);
+            }
+          })
+          .catch(() => {
+            // The cursor stays where it was, so the next attempt covers this gap as well.
+          });
+      }
+      // The inbox, for the notifications pushed while away.
+      void getNotifications()
+        .then((feed) => {
+          if (liveRef.current.ws !== space) return;
+          const { channels: chs, dms: dmList } = liveRef.current;
+          setNotifs((prev) => {
+            const held = new Map(prev.map((n) => [n.id, n]));
+            const merged = feed.notifications.map((n) => {
+              const mine = held.get(n.id);
+              held.delete(n.id);
+              return mine ? { ...mine, read: mine.read || n.read } : toAppNotification(n, chs, dmList, n.read);
+            });
+            return [...merged, ...held.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+          });
+        })
+        .catch(() => {});
+      void getChannels(space)
+        .then((fresh) => {
+          if (liveRef.current.ws === space) setChannels(fresh);
+        })
+        .catch(() => {});
+      void getDirectMessages(space)
+        .then((fresh) => {
+          if (liveRef.current.ws !== space) return;
+          setDms(fresh.map((d) => (d.userId && presence[d.userId] ? { ...d, presence: presence[d.userId] } : d)));
+        })
+        .catch(() => {});
+      void reloadSpaceCounters();
+    };
+  });
+
+  /**
    * Coming back to the window catches up on whatever arrived while it was elsewhere.
    *
    * Messages that land while the app is in the background are deliberately left unread, since
    * nobody read them. Returning is what reads them, and without this the conversation on screen
-   * stayed unread until it was opened again.
+   * stayed unread until it was opened again. Returning to the tab also re-reads the screen (see
+   * `resync`), at most every few seconds: switching back and forth is not worth a request each time.
    */
   useEffect(() => {
     const catchUp = () => {
-      if (document.visibilityState !== "visible" || view !== "channel" || !channelId) return;
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastResync.current > 5000) resyncRef.current();
+      if (view !== "channel" || !channelId) return;
       markConversationRead(channelId);
     };
     window.addEventListener("focus", catchUp);
@@ -2056,6 +2231,15 @@ function AppShell() {
   const openChannel = (id: string) => {
     setView("channel");
     setChannelId(id);
+    // Missed while away and not caught up by the catch-up itself (a reaction taken back): the latest
+    // page is re-read once, merged into what is held.
+    if (staleRef.current.delete(id)) {
+      void getChannelMessages(id)
+        .then((page) => setMessages((prev) => page.messages.reduce((map, m) => upsertMessage(map, id, m), prev)))
+        .catch(() => staleRef.current.add(id));
+    }
+    // So coming back to this space opens this conversation rather than the first of the list.
+    rememberChannel(ws, id);
     // Right panel is app-level state, so reset it per conversation, to whichever panel the
     // preferences name. The compact shell opens with none (there the panel is a full-screen overlay
     // that would hide the conversation), and a panel closed by hand stays closed.
@@ -2137,14 +2321,20 @@ function AppShell() {
    * that happened to arrive live. Merged by id, so what is already there is refreshed, not doubled.
    */
   const loadThread = (conv: string, parentId: string) => {
+    setThreadLoading(parentId);
     void getReplies(parentId)
       .then((rows) =>
         setMessages((prev) => rows.reduce((map, m) => upsertMessage(map, conv, m), prev)),
       )
       .catch(() => {
         showToast({ tone: "info", title: t("toast.threadNotLoaded") });
-      });
+      })
+      .finally(() => setThreadLoading((current) => (current === parentId ? null : current)));
   };
+
+  useEffect(() => {
+    loadThreadRef.current = loadThread;
+  });
 
   const openMessage = (targetChannel: string, messageId: string) => {
     setModal(null);
@@ -2412,6 +2602,7 @@ function AppShell() {
     const tempId = `tmp-${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
+      fresh: true,
       author: currentUser,
       createdAt: new Date().toISOString(),
       body: text,
@@ -2450,6 +2641,7 @@ function AppShell() {
     const tempId = `tmp-${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
+      fresh: true,
       author: currentUser,
       authorId: session?.id,
       createdAt: new Date().toISOString(),
@@ -2555,6 +2747,27 @@ function AppShell() {
       setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, fav: before.fav } : c)));
       showToast({ tone: "info", title: t("toast.favouriteNotSaved") });
     });
+  };
+
+  /**
+   * Put the space's channels in a new order, for everybody in it (administrators only).
+   *
+   * Optimistic, since a row that springs back while the server answers reads as a drag that failed.
+   * A refusal puts the list back as the server holds it: most often it is a 409, a list that changed
+   * under the caller, and the server's list is the one worth showing then.
+   */
+  const reorderChannels = async (orderedIds: string[]) => {
+    if (!ws) return;
+    const spaceId = ws;
+    const rank = new Map(orderedIds.map((id, index) => [id, index]));
+    setChannels((prev) => [...prev].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)));
+    try {
+      await apiSetChannelOrder(spaceId, orderedIds);
+    } catch {
+      showToast({ tone: "danger", title: t("sidebar.reorderFailed"), description: t("common.tryAgain") });
+      const fresh = await getChannels(spaceId).catch(() => null);
+      if (fresh && liveRef.current.ws === spaceId) setChannels(fresh);
+    }
   };
 
   /** Choose the public arrival channel from the channel menu. */
@@ -2713,7 +2926,7 @@ function AppShell() {
     // there is none left. `loadSpace("")` clears every screen rather than leaving the last space's
     // channels under a rail that no longer offers it.
     setSwitchingSpace(true);
-    await loadSpace(remaining[0]?.id ?? "");
+    await loadSpace(remaining[0]?.id ?? "", undefined, remaining[0]?.defaultChannelId);
     setSwitchingSpace(false);
     // Never land on the settings of the next space. They look exactly like the ones just used to
     // delete a space, on a screen whose danger zone is one press away, and the name at the top is
@@ -2727,7 +2940,11 @@ function AppShell() {
     dropSpaceRef.current = (spaceId: string) => void dropWorkspace(spaceId);
     reloadSpaceRef.current = async (spaceId: string) => {
       setSwitchingSpace(true);
-      await loadSpace(spaceId);
+      await loadSpace(
+        spaceId,
+        undefined,
+        liveRef.current.spaces.find((w) => w.id === spaceId)?.defaultChannelId,
+      );
       setSwitchingSpace(false);
     };
   });
@@ -2866,8 +3083,17 @@ function AppShell() {
     // reached the rail. Re-read the counters on the way out, or its tile would keep the figure it
     // had when the app booted.
     void reloadSpaceCounters();
+    // A space-level screen (its settings, its files, the threads or mentions views) belongs to the
+    // space being left: arriving in another one lands in a conversation, never on the previous
+    // space's screen redrawn with someone else's name at the top.
+    setView("channel");
+    setThread(null);
+    setProfile(null);
+    setProfileEdit(false);
+    setUnreadMarker(null);
+    setFocusMessageId(null);
     try {
-      await loadSpace(id);
+      await loadSpace(id, undefined, workspaces.find((w) => w.id === id)?.defaultChannelId);
     } catch {
       showToast({ tone: "danger", title: t("toast.spaceUnreachable"), description: t("common.tryAgain") });
     } finally {
@@ -3176,7 +3402,7 @@ function AppShell() {
         // channel, no invitation. The API refuses all three; this keeps them off the column.
         canBrowseSpace={currentWorkspace?.role !== "guest"}
         canAdministerSpace={canAdministerSpace}
-        canImport={session?.isInstanceAdmin === true}
+        canImport={session !== null}
         importRun={importRun}
         onImport={openImport}
         onNewMessage={() => setModal("newMessage")}
@@ -3188,11 +3414,13 @@ function AppShell() {
         onMarkRead={markConversationRead}
         onToggleFavorite={toggleFavorite}
         onSetDefaultChannel={(id) => void setDefaultChannel(id)}
+        onReorderChannels={canAdministerSpace ? (ids) => void reorderChannels(ids) : undefined}
         onOpenNotification={openNotification}
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
         onOpenNotifPrefs={() => openPreferences("notifications")}
         onLeaveSpace={() => setModal("leaveSpace")}
+        loading={switchingSpace}
         openNotifications={deepLinkPop === "notifications"}
       />
   );
@@ -3242,9 +3470,13 @@ function AppShell() {
           channel={chan}
           dm={dm}
           messages={feed}
+          // Only inside a space: the offline dev deep link opens a channel with no space and no
+          // history on purpose, and the audits photograph its empty state, not a placeholder.
+          loading={!!ws && !!channelId && messages[channelId] === undefined}
           panel={panel}
           threadId={thread}
           threadReplies={threadReplies}
+          threadLoading={thread !== null && threadLoading === thread}
           onSendReply={sendReply}
           profileName={profile}
           profileEditing={profileEdit}
@@ -3363,7 +3595,7 @@ function AppShell() {
           import reads as something opened rather than somewhere navigated to. The screen keeps its
           own top bar and scrolls inside this shell. Clicking the scrim closes it, like any dialog;
           the run continues regardless, which is what the close button already promised. */}
-      {view === "import" && session?.isInstanceAdmin ? (
+      {view === "import" && session ? (
         <div
           className="wc-dlg__scrim"
           onClick={(e) => {
@@ -3382,6 +3614,8 @@ function AppShell() {
               onNotify={showToast}
               compact={compact}
               instanceAddress={typeof window === "undefined" ? "" : window.location.host}
+              onFinished={reloadSpaceCounters}
+              instanceAdmin={session.isInstanceAdmin === true}
             />
           </div>
         </div>
@@ -3419,14 +3653,13 @@ function AppShell() {
           }}
         />
       ) : null}
-      {/* The `+` offers importing only to an administrator of the instance: an import creates spaces
-          and accounts, so it is an instance-level power, and showing the door to someone who cannot
-          open it is the kind of dead control this interface has been cleaned of. */}
+      {/* The `+` offers importing to everyone: anybody may bring a workspace over into spaces of their
+          own. Emptying the instance first stays with its administrators, inside the import screen. */}
       {modal === "newWorkspace" ? (
         <NewWorkspaceDialog
           onClose={() => setModal(null)}
           onCreate={createWorkspace}
-          onImport={session?.isInstanceAdmin === true ? openImport : undefined}
+          onImport={openImport}
         />
       ) : null}
       {removing && currentWorkspace ? (
@@ -3643,7 +3876,7 @@ function AppShell() {
                 onNewChannel={() => setModal("newChannel")}
                 canBrowseSpace={currentWorkspace?.role !== "guest"}
                 canAdministerSpace={canAdministerSpace}
-                canImport={session?.isInstanceAdmin === true}
+                canImport={session !== null}
                 importRun={importRun}
                 onImport={openImport}
                 onNewMessage={() => setModal("newMessage")}
@@ -3655,11 +3888,13 @@ function AppShell() {
                 onMarkRead={markConversationRead}
                 onToggleFavorite={toggleFavorite}
                 onSetDefaultChannel={(id) => void setDefaultChannel(id)}
+                onReorderChannels={canAdministerSpace ? (ids) => void reorderChannels(ids) : undefined}
                 onOpenNotification={openNotification}
                 onToggleNotifRead={setNotifRead}
                 onMarkAllNotifsRead={markAllNotifsRead}
                 onOpenNotifPrefs={() => openPreferences("notifications")}
                 onLeaveSpace={() => setModal("leaveSpace")}
+                loading={switchingSpace}
                 />
               </main>
             )}

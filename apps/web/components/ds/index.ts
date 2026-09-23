@@ -21,6 +21,8 @@ export type { DrawerProps } from "./Drawer";
 export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps, EmptyStateSize } from "./EmptyState";
 export { Field } from "./Field";
+export { FileIcon } from "./FileIcon";
+export type { FileIconProps } from "./FileIcon";
 export type { FieldProps } from "./Field";
 export { Flag, regionForLocale } from "./Flag";
 export { Icon } from "./Icon";
@@ -30,6 +32,8 @@ export type { IconButtonProps, IconButtonSize, IconButtonVariant } from "./IconB
 export { IconLink } from "./IconLink";
 export type { IconLinkProps } from "./IconLink";
 export { Popover } from "./Popover";
+export { Skeleton, SkeletonGroup } from "./Skeleton";
+export type { SkeletonProps } from "./Skeleton";
 export type { PopoverProps } from "./Popover";
 export { Input } from "./Input";
 export type { InputProps, InputSize } from "./Input";

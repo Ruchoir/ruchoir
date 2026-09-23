@@ -71,6 +71,10 @@ pub struct Config {
     pub smtp_password: Option<String>,
     /// `From` mailbox for outgoing email, e.g. `Ruchoir <no-reply@example.org>`.
     pub smtp_from: String,
+    /// Talk to the relay without TLS (`RUCHOIR_SMTP_TLS=none`). For a mail catcher in development
+    /// only: refused at startup unless the relay is this machine or an internal, single-label name
+    /// (a Compose service), so it can never be pointed at a relay across a network.
+    pub smtp_plaintext: bool,
     /// Public base URL used to build verification / reset links in emails.
     pub public_base_url: String,
     /// Lifetime, in seconds, of an email-verification token.
@@ -200,6 +204,20 @@ impl Config {
         let smtp_username = env_opt("RUCHOIR_SMTP_USERNAME");
         let smtp_password = env_opt("RUCHOIR_SMTP_PASSWORD");
         let smtp_from = env_or("RUCHOIR_SMTP_FROM", "Ruchoir <no-reply@localhost>");
+        let smtp_plaintext = match env_or("RUCHOIR_SMTP_TLS", "auto").as_str() {
+            "auto" => false,
+            "none" => true,
+            _ => return Err(ConfigError::Invalid("RUCHOIR_SMTP_TLS")),
+        };
+        if smtp_plaintext
+            && !smtp_host
+                .as_deref()
+                .is_some_and(crate::auth::mailer::is_local_relay)
+        {
+            return Err(ConfigError::Invalid(
+                "RUCHOIR_SMTP_TLS (none is only for a relay on this machine or an internal name)",
+            ));
+        }
         let public_base_url = env_or("RUCHOIR_PUBLIC_BASE_URL", "http://localhost:8080");
         let email_verification_ttl_secs: i64 =
             env_or("RUCHOIR_EMAIL_VERIFICATION_TTL_SECS", "86400")
@@ -284,6 +302,7 @@ impl Config {
             smtp_username,
             smtp_password,
             smtp_from,
+            smtp_plaintext,
             public_base_url,
             email_verification_ttl_secs,
             password_reset_ttl_secs,

@@ -25,7 +25,7 @@ use crate::auth::tokens::{self, TokenPurpose};
 use crate::messaging::error::ApiError;
 use crate::state::AppState;
 
-use super::routes::ensure_instance_admin;
+use super::routes::is_instance_admin;
 use super::scripts;
 
 /// How long a drop token is worth. Long enough to run an export of a real workspace, short enough
@@ -74,7 +74,8 @@ async fn issue_drop_token(
     State(state): State<AppState>,
     session: AuthSession,
 ) -> Result<Json<DropTokenResponse>, ApiError> {
-    ensure_instance_admin(&state, session.user_id).await?;
+    // Anyone signed in may deliver an archive: the token carries who asked, and what it delivers is
+    // named after them, so it is theirs alone to import (see `delivered_by`).
     if state.config.import_dir.is_none() {
         return Err(ApiError::BadRequest(
             "this instance accepts no delivered archive: set the import directory first",
@@ -108,15 +109,39 @@ struct ArchiveFile {
     modified: Option<String>,
 }
 
+/// The name a delivered archive is given: it carries who delivered it.
+fn drop_name(owner: Uuid) -> String {
+    format!(
+        "drop-{}-{}.tar.gpg",
+        owner.simple(),
+        Uuid::new_v4().simple()
+    )
+}
+
+/// Whether `name` is an archive `owner` delivered.
+///
+/// The import directory is shared by the whole instance. An administrator sees all of it, archives
+/// copied in by hand included; anybody else sees, and may import, only what their own delivery
+/// commands dropped there. The owner is read off the name rather than kept elsewhere because the
+/// name is generated here and never chosen by the uploader.
+pub(super) fn delivered_by(name: &str, owner: Uuid) -> bool {
+    name.starts_with(&format!("drop-{}-", owner.simple()))
+}
+
 /// `GET /api/v1/imports/files`: the archives sitting in the import directory, newest first.
 ///
 /// This is what lets the screen offer a choice instead of a text field, and what it polls to notice
-/// an archive a delivery command has just dropped.
+/// an archive a delivery command has just dropped. Everything for an administrator of the instance,
+/// one's own deliveries for anybody else.
 async fn list_files(
     State(state): State<AppState>,
     session: AuthSession,
 ) -> Result<Json<Vec<ArchiveFile>>, ApiError> {
-    ensure_instance_admin(&state, session.user_id).await?;
+    let only = if is_instance_admin(&state, session.user_id).await? {
+        None
+    } else {
+        Some(session.user_id)
+    };
     let mut out: Vec<ArchiveFile> = Vec::new();
     let Some(dir) = state.config.import_dir.clone() else {
         return Ok(Json(out));
@@ -128,6 +153,9 @@ async fn list_files(
         let name = entry.file_name().to_string_lossy().to_string();
         // A dotfile is machinery, not an archive: a half-written upload or an editor's leftover.
         if name.starts_with('.') {
+            continue;
+        }
+        if only.is_some_and(|owner| !delivered_by(&name, owner)) {
             continue;
         }
         let Ok(meta) = entry.metadata().await else {
@@ -176,12 +204,12 @@ async fn drop_archive(
     if token.is_empty() {
         return Err(ApiError::NotFound);
     }
-    let admin = tokens::consume(&state.valkey, TokenPurpose::ImportDrop, &token)
+    let Some(owner) = tokens::consume(&state.valkey, TokenPurpose::ImportDrop, &token)
         .await
-        .map_err(|_| ApiError::Internal)?;
-    if admin.is_none() {
+        .map_err(|_| ApiError::Internal)?
+    else {
         return Err(ApiError::NotFound);
-    }
+    };
 
     let Some(dir) = state.config.import_dir.clone() else {
         return Err(ApiError::BadRequest(
@@ -191,7 +219,7 @@ async fn drop_archive(
     tokio::fs::create_dir_all(&dir)
         .await
         .map_err(|_| ApiError::Internal)?;
-    let name = format!("drop-{}.tar.gpg", Uuid::new_v4().simple());
+    let name = drop_name(owner);
     let path = dir.join(&name);
 
     let mut file = tokio::fs::File::create(&path)
@@ -277,4 +305,25 @@ async fn script_import_slack(State(state): State<AppState>) -> impl IntoResponse
         scripts::IMPORT_SLACK_SH,
         &state.config.public_base_url,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_delivery_belongs_to_whoever_asked_for_its_token_and_nobody_else() {
+        let alice = Uuid::new_v4();
+        let bob = Uuid::new_v4();
+        let name = drop_name(alice);
+        assert!(delivered_by(&name, alice));
+        assert!(!delivered_by(&name, bob));
+        // An archive copied in by hand, or delivered before deliveries carried their owner, is
+        // nobody's in particular: only an administrator sees it.
+        assert!(!delivered_by(
+            &format!("drop-{}.tar.gpg", Uuid::new_v4().simple()),
+            alice
+        ));
+        assert!(!delivered_by("export.tar.gpg", alice));
+    }
 }

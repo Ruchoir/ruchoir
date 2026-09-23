@@ -130,6 +130,7 @@ async fn search_messages(
     let sql = format!(
         "SELECT id FROM messages \
          WHERE deleted_at IS NULL \
+           AND kind <> 'system' \
            AND conversation_id IN ({id_list}) \
            AND (search_vector @@ websearch_to_tsquery('fr_unaccent', $1) \
                 OR ruchoir_unaccent(body) ILIKE '%' || ruchoir_unaccent($1) || '%') \

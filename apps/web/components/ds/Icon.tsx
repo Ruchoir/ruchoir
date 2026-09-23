@@ -1,7 +1,9 @@
 import {
   Archive,
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   AtSign,
   Bell,
   BellOff,
@@ -95,8 +97,10 @@ import type { CSSProperties } from "react";
  */
 const ICONS: Record<string, LucideIcon> = {
   archive: Archive,
+  "arrow-down": ArrowDown,
   "arrow-left": ArrowLeft,
   "arrow-right": ArrowRight,
+  "arrow-up": ArrowUp,
   "at-sign": AtSign,
   bell: Bell,
   "bell-off": BellOff,

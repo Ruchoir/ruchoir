@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Avatar, Dialog, EmptyState, Icon } from "@/components/ds";
+import { Avatar, Dialog, EmptyState, FileIcon, Icon, Skeleton, SkeletonGroup } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { type FileHit, search, type SearchMessage } from "@/lib/data/api";
 import { getAvatar } from "@/lib/data";
@@ -178,12 +178,24 @@ export function GlobalSearchDialog({
             icon="search"
             description={t("gsearch.prompt")}
           />
+        ) : total === 0 && loading ? (
+          <SkeletonGroup label={t("search.querying")} style={{ padding: "6px 12px" }}>
+            {[0.7, 0.5, 0.6].map((width, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
+                <Skeleton circle width={24} height={24} />
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Skeleton width={`${width * 60}%`} height={10} />
+                  <Skeleton width={`${width * 100}%`} height={10} />
+                </div>
+              </div>
+            ))}
+          </SkeletonGroup>
         ) : total === 0 ? (
           <EmptyState
             size="compact"
             icon="search"
-            title={loading ? t("search.searching") : t("search.noResult")}
-            description={loading ? t("search.querying") : t("switcher.noMatch", { query })}
+            title={t("search.noResult")}
+            description={t("switcher.noMatch", { query })}
           />
         ) : (
           <>
@@ -237,7 +249,11 @@ export function GlobalSearchDialog({
                     onMouseMove={() => setActive(fileStart + i)}
                     onClick={onOpenFile}
                   >
-                    <Icon name={f.kind === "folder" ? "folder" : "file"} size={18} style={{ color: "var(--text-muted)", marginTop: 1 }} />
+                    {f.kind === "folder" ? (
+                      <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)", marginTop: 1 }} />
+                    ) : (
+                      <FileIcon name={f.name} size={22} />
+                    )}
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)" }}>{f.name}</span>
                     </span>

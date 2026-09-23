@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { Avatar, brandFor, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
+import { Avatar, brandFor, Button, Card, Checkbox, Dialog, EmptyState, Field, FileIcon, Icon, IconButton, Input, Skeleton, SkeletonGroup, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import {
   createFolder as apiCreateFolder,
@@ -583,12 +583,10 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                   {f.thumbnailUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by our own API
                     <img src={f.thumbnailUrl} alt="" loading="lazy" style={styles.previewImage} />
+                  ) : f.kind === "folder" ? (
+                    <Icon name="folder" size={26} style={{ color: "var(--terracotta-500)" }} />
                   ) : (
-                    <Icon
-                      name={f.kind}
-                      size={26}
-                      style={{ color: f.kind === "folder" ? "var(--terracotta-500)" : "var(--text-muted)" }}
-                    />
+                    <FileIcon name={f.name} size={44} />
                   )}
                 </div>
                 <div title={f.name} style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
@@ -609,21 +607,31 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
           </div>
         )}
 
-        {rows.length === 0 ? (
+        {rows.length === 0 && loading ? (
+          // Rows at the size of rows: the list lands where the placeholders were.
+          <SkeletonGroup label={t("files.loading")} style={{ padding: "4px 0" }}>
+            {[0.62, 0.45, 0.7, 0.38, 0.55].map((width, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px" }}>
+                <Skeleton width={20} height={20} />
+                <Skeleton width={`${width * 100}%`} height={12} />
+                <div style={{ flex: 1 }} />
+                <Skeleton width={64} height={10} />
+              </div>
+            ))}
+          </SkeletonGroup>
+        ) : rows.length === 0 ? (
           <EmptyState
-            icon={loading ? "loader" : q ? "search" : currentFolderName ? "folder-open" : "folder"}
-            title={loading ? t("files.loadingShort") : q ? t("search.noResult") : currentFolderName ? t("files.emptyFolder") : t("files.noFile")}
+            icon={q ? "search" : currentFolderName ? "folder-open" : "folder"}
+            title={q ? t("search.noResult") : currentFolderName ? t("files.emptyFolder") : t("files.noFile")}
             description={
-              loading
-                ? t("files.loading")
-                : q
-                  ? t("files.noFileMatch", { query: q })
-                  : currentFolderName
-                    ? t("files.folderEmptyText")
-                    : t("files.emptyText")
+              q
+                ? t("files.noFileMatch", { query: q })
+                : currentFolderName
+                  ? t("files.folderEmptyText")
+                  : t("files.emptyText")
             }
             action={
-              !q && !loading ? (
+              !q ? (
                 <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()}>
                   {t("files.upload")}
                 </Button>
@@ -804,7 +812,11 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
               />
             ) : (
               <>
-                <Icon name={isImage(preview.name) ? "image" : preview.kind === "folder" ? "folder" : preview.kind} size={52} style={{ color: "var(--text-subtle)" }} />
+                {preview.kind === "folder" ? (
+                  <Icon name="folder" size={52} style={{ color: "var(--terracotta-500)" }} />
+                ) : (
+                  <FileIcon name={preview.name} size={72} />
+                )}
                 <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("files.noPreview")}</div>
                 <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("files.noPreviewText")}</div>
               </>
@@ -854,7 +866,11 @@ function FileRow({
           onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
           style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, cursor: "pointer" }}
         >
-          <Icon name={f.kind} size={17} style={{ flex: "none", color: isFolder ? "var(--terracotta-500)" : "var(--text-muted)" }} />
+          {isFolder ? (
+            <Icon name="folder" size={17} style={{ flex: "none", color: "var(--terracotta-500)" }} />
+          ) : (
+            <FileIcon name={f.name} size={22} />
+          )}
           <span style={{ fontWeight: 500, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {f.name}
           </span>
