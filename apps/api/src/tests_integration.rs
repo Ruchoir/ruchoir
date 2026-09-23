@@ -251,6 +251,14 @@ async fn seed(db: &DatabaseConnection) -> Fixture {
     }
 
     let public_channel = make_channel(db, space_id, "general", "public").await;
+    spaces::ActiveModel {
+        id: Set(space_id),
+        default_channel_id: Set(Some(public_channel)),
+        ..Default::default()
+    }
+    .update(db)
+    .await
+    .expect("default channel");
     // Alice and Bob join the public channel (so they are pushed); Carol does not.
     for user in [alice, bob] {
         add_channel_member(db, public_channel, user).await;
