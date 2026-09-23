@@ -193,8 +193,8 @@ export type ComposerProps = {
    * text appearing in the composer by itself would otherwise be unexplained.
    */
   editing?: { id: string; body: string } | null;
-  /** Save the edit with this text. */
-  onSaveEdit?: (text: string) => void;
+  /** Save the edit with this text and any files newly added to it. */
+  onSaveEdit?: (text: string, attachments?: MessageAttachment[]) => void;
   /** Leave the edit without saving. */
   onCancelEdit?: () => void;
 };
@@ -214,6 +214,7 @@ export function Composer({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [formatOpen, setFormatOpen] = useState(false);
   const [pending, setPending] = useState<MessageAttachment[]>([]);
+  const [editPending, setEditPending] = useState<MessageAttachment[]>([]);
   const [draggingFiles, setDraggingFiles] = useState(false);
   /** True from the moment a file is picked until it is stored (or refused). */
   const [uploading, setUploading] = useState(false);
@@ -245,7 +246,8 @@ export function Composer({
 
   const sendWith = (text: string) => {
     if (editing) {
-      onSaveEdit?.(text);
+      onSaveEdit?.(text, editPending.length ? editPending : undefined);
+      setEditPending([]);
       return;
     }
     // A file still on its way has no id to attach, so the message waits rather than losing it.
@@ -257,9 +259,9 @@ export function Composer({
   const clickSend = () => {
     const ed = editorRef.current;
     if (!ed || uploading) return;
-    if (pending.length > 0 && ed.isEmpty()) {
-      onSend("", pending);
-      setPending([]);
+    const activePending = editing ? editPending : pending;
+    if (activePending.length > 0 && ed.isEmpty()) {
+      sendWith("");
       ed.clear();
       ed.focus();
       return;
@@ -280,18 +282,25 @@ export function Composer({
     if (attachment?.fileId) void deleteFile(attachment.fileId).catch(() => {});
   };
 
+  const cancelEdit = () => {
+    editPending.forEach(discardStored);
+    setEditPending([]);
+    onCancelEdit?.();
+  };
+
   const addFiles = async (files: File[]) => {
-    if (files.length === 0 || editing) return;
+    if (files.length === 0) return;
     if (fileRef.current) fileRef.current.value = "";
+    const setActivePending = editing ? setEditPending : setPending;
     setUploading(true);
     for (const file of files) {
       const provisional: MessageAttachment = { name: file.name, sizeBytes: file.size, kind: iconForType(file.type) };
-      setPending((current) => [...current, provisional]);
+      setActivePending((current) => [...current, provisional]);
       try {
         const stored = await onUpload(file);
-        setPending((current) => current.map((attachment) => (attachment === provisional ? stored : attachment)));
+        setActivePending((current) => current.map((attachment) => (attachment === provisional ? stored : attachment)));
       } catch {
-        setPending((current) => current.filter((attachment) => attachment !== provisional));
+        setActivePending((current) => current.filter((attachment) => attachment !== provisional));
         onNotify({ tone: "danger", title: t("composer.uploadFailed"), description: t("composer.uploadFailedName", { name: file.name }) });
       }
     }
@@ -337,7 +346,7 @@ export function Composer({
         onKeyDown={(e) => {
           if (editing && e.key === "Escape") {
             e.stopPropagation();
-            onCancelEdit?.();
+            cancelEdit();
           }
         }}
       >
@@ -347,19 +356,19 @@ export function Composer({
             <span style={{ fontWeight: 600, color: "var(--text-accent)" }}>{t("composer.editing")}</span>
             <span style={{ color: "var(--text-subtle)" }}>{t("composer.escToCancel")}</span>
             <div style={{ flex: 1 }} />
-            <IconButton icon="x" label={t("composer.cancelEdit")} size="sm" onClick={() => onCancelEdit?.()} />
+            <IconButton icon="x" label={t("composer.cancelEdit")} size="sm" onClick={cancelEdit} />
           </div>
         ) : null}
-        {pending.length > 0 && !editing ? (
+        {(editing ? editPending : pending).length > 0 ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-            {pending.map((attachment, index) => (
+            {(editing ? editPending : pending).map((attachment, index) => (
               <div key={`${attachment.name}-${index}`} style={styles.chip}>
                 <Icon name={attachment.kind} size={16} style={{ color: "var(--text-muted)" }} />
                 <span style={{ fontWeight: 500, color: "var(--text-strong)" }}>{attachment.name}</span>
                 <span style={{ color: "var(--text-subtle)" }}>{attachment.fileId ? formatBytes(attachment.sizeBytes) : t("composer.uploading")}</span>
                 <IconButton icon="x" label={t("composer.removeAttachment")} size="sm" disabled={!attachment.fileId} onClick={() => {
                   discardStored(attachment);
-                  setPending((current) => current.filter((_, currentIndex) => currentIndex !== index));
+                  (editing ? setEditPending : setPending)((current) => current.filter((_, currentIndex) => currentIndex !== index));
                 }} />
               </div>
             ))}

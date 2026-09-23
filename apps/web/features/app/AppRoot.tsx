@@ -2471,23 +2471,28 @@ function AppShell() {
       });
   };
 
-  const saveEdit = (text: string) => {
+  const saveEdit = (text: string, attachments?: MessageAttachment[]) => {
     if (!editing) return;
     const conv = channelId;
     const { id } = editing;
     const body = text.trim();
-    // An edit emptied out is a deletion asked for by another route: refused here rather than
-    // silently blanking the message, since the menu already has one that says what it does.
-    if (!body) {
+    const target = (messages[conv] ?? []).find((x) => x.id === id);
+    // An edit with neither text nor a file is a deletion asked for by another route: refuse it
+    // rather than silently blanking the message, since the menu already says what deletion does.
+    if (!body && !target?.attachments?.length && !target?.attachment && !target?.image && !attachments?.length) {
       showToast({ tone: "info", title: t("toast.cannotEmpty"), description: t("toast.deleteInstead") });
       return;
     }
-    const target = (messages[conv] ?? []).find((x) => x.id === id);
-    updateMessage(conv, id, (m) => ({ ...m, body, edited: true }));
+    updateMessage(conv, id, (m) => ({
+      ...m,
+      body,
+      edited: true,
+      attachments: [...(m.attachments ?? (m.attachment ? [m.attachment] : [])), ...(attachments ?? [])],
+    }));
     setEditing(null);
     showToast({ tone: "success", title: t("toast.messageEdited") });
     if (isPendingId(id)) return;
-    editMessage(id, body)
+    editMessage(id, body, attachments?.flatMap((attachment) => attachment.fileId ? [attachment.fileId] : []) ?? [])
       .then((m) => updateMessage(conv, id, () => m))
       .catch(() => {
         if (target) rollbackMessage(conv, target);

@@ -261,7 +261,7 @@ export type ChannelScreenProps = {
   readAudience: number;
   /** The message being edited, which the composer picks up instead of a dialog. */
   editing?: { id: string; body: string } | null;
-  onSaveEdit?: (text: string) => void;
+  onSaveEdit?: (text: string, attachments?: MessageAttachment[]) => void;
   onCancelEdit?: () => void;
   /** The space's files, for the in-channel file panel and search. */
   files: SpaceFile[];
@@ -592,6 +592,8 @@ export function ChannelScreen({
       editing={editingInThread ? editing : null}
       onSaveEdit={onSaveEdit}
       onCancelEdit={onCancelEdit}
+      onUpload={onUploadAttachment}
+      onNotify={onNotify}
       onClose={onCloseThread}
     />
   ) : panel === "search" ? (

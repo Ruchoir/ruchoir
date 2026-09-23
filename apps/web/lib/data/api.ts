@@ -1143,9 +1143,9 @@ export async function sendMessage(
   return toMessage(dto);
 }
 
-/** `PATCH /messages/{id}`: edit a message's body. */
-export async function editMessage(messageId: string, body: string): Promise<ApiMessage> {
-  return toMessage(await apiPatch<MessageDto>(`/messages/${messageId}`, { body }));
+/** `PATCH /messages/{id}`: edit a message's body and optionally add uploaded files. */
+export async function editMessage(messageId: string, body: string, attachments: string[] = []): Promise<ApiMessage> {
+  return toMessage(await apiPatch<MessageDto>(`/messages/${messageId}`, { body, attachments }));
 }
 
 /** `DELETE /messages/{id}`: soft-delete a message, returning its tombstone. */
