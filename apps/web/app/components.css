@@ -2564,3 +2564,29 @@
     animation: none;
   }
 }
+
+/* File icons (FileIcon): a page tinted with its format's colour. The ink is lifted in the dark themes,
+   where the deeper colours (code, applications, books) would otherwise sink into the background. */
+.wc-fi {
+  --fi-ink: var(--fi-c);
+  --fi-tint: 11%;
+}
+[data-theme="ruchui-dark"] .wc-fi,
+[data-theme="dark"] .wc-fi {
+  --fi-ink: color-mix(in srgb, var(--fi-c) 68%, white);
+  --fi-tint: 16%;
+}
+.wc-fi__page {
+  fill: color-mix(in srgb, var(--fi-c) var(--fi-tint), transparent);
+  stroke: color-mix(in srgb, var(--fi-c) 34%, transparent);
+}
+.wc-fi__fold {
+  fill: color-mix(in srgb, var(--fi-c) 18%, transparent);
+  stroke: color-mix(in srgb, var(--fi-c) 34%, transparent);
+}
+.wc-fi__chip {
+  fill: var(--fi-c);
+}
+.wc-fi__glyph {
+  color: var(--fi-ink);
+}

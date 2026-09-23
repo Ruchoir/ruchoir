@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useRef, useState } from "react";
-import { Avatar, brandFor, Card, Dialog, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
+import { Avatar, brandFor, Card, Dialog, FileIcon, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
 import { getCurrentUser, getMentionNames, getPresence, getSpaceRooms } from "@/lib/data";
 import type { ImportSource, Message, MessageAttachment } from "@/lib/data";
 import type { Presence } from "@/components/ds";
@@ -138,7 +138,7 @@ function AttachmentCard({ attachment }: { attachment: MessageAttachment }) {
           variant="interactive"
           style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, overflow: "hidden", padding: "8px 10px" }}
         >
-          <Icon name={attachment.kind} size={18} style={{ flex: "none", color: "var(--text-muted)" }} />
+          <FileIcon name={attachment.name} size={32} />
           <span style={{ flex: "1 1 0", minWidth: 0, overflow: "hidden" }}>
             <span style={styles.attachmentName} title={attachment.name}>
               {attachment.name}

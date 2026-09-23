@@ -21,6 +21,8 @@ export type { DrawerProps } from "./Drawer";
 export { EmptyState } from "./EmptyState";
 export type { EmptyStateProps, EmptyStateSize } from "./EmptyState";
 export { Field } from "./Field";
+export { FileIcon } from "./FileIcon";
+export type { FileIconProps } from "./FileIcon";
 export type { FieldProps } from "./Field";
 export { Flag, regionForLocale } from "./Flag";
 export { Icon } from "./Icon";

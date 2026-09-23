@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useEffect, useRef } from "react";
-import { Avatar, EmptyState, Icon, IconButton, Skeleton, SkeletonGroup, Tag } from "@/components/ds";
+import { Avatar, EmptyState, FileIcon, Icon, IconButton, Skeleton, SkeletonGroup, Tag } from "@/components/ds";
 import { getAvatar, getPresence } from "@/lib/data";
 import type { DirectMessage, Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
@@ -108,7 +108,11 @@ export function SidePanel({ kind, files, members, membersLoading = false, pinned
         {kind === "files"
           ? files.map((fl) => (
               <div key={fl.id ?? `${fl.name}:${fl.updatedAt}`} data-file={fl.name} style={styles.row}>
-                <Icon name={fl.kind} size={18} style={{ color: "var(--text-muted)" }} />
+                {fl.kind === "folder" ? (
+                  <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)" }} />
+                ) : (
+                  <FileIcon name={fl.name} size={22} />
+                )}
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 14, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {fl.name}

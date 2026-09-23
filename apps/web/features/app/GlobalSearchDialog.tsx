@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Avatar, Dialog, EmptyState, Icon, Skeleton, SkeletonGroup } from "@/components/ds";
+import { Avatar, Dialog, EmptyState, FileIcon, Icon, Skeleton, SkeletonGroup } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import { type FileHit, search, type SearchMessage } from "@/lib/data/api";
 import { getAvatar } from "@/lib/data";
@@ -249,7 +249,11 @@ export function GlobalSearchDialog({
                     onMouseMove={() => setActive(fileStart + i)}
                     onClick={onOpenFile}
                   >
-                    <Icon name={f.kind === "folder" ? "folder" : "file"} size={18} style={{ color: "var(--text-muted)", marginTop: 1 }} />
+                    {f.kind === "folder" ? (
+                      <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)", marginTop: 1 }} />
+                    ) : (
+                      <FileIcon name={f.name} size={22} />
+                    )}
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)" }}>{f.name}</span>
                     </span>

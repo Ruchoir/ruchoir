@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { Icon, IconButton, Popover, Skeleton, SkeletonGroup } from "@/components/ds";
+import { FileIcon, Icon, IconButton, Popover, Skeleton, SkeletonGroup } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Message, MessageAttachment } from "@/lib/data";
 import { deleteFile } from "@/lib/data/api";
@@ -330,7 +330,7 @@ export function ThreadPanel({
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
                 {editPending.map((attachment, index) => (
                   <div key={`${attachment.name}-${index}`} style={styles.chip}>
-                    <Icon name={attachment.kind} size={16} />
+                    <FileIcon name={attachment.name} size={18} />
                     <span>{attachment.name}</span>
                     <span style={{ color: "var(--text-subtle)" }}>{attachment.fileId ? formatBytes(attachment.sizeBytes) : t("composer.uploading")}</span>
                     <IconButton icon="x" label={t("composer.removeAttachment")} size="sm" disabled={!attachment.fileId} onClick={() => {

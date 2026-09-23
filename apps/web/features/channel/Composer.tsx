@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { Icon, IconButton, type IconName, Popover } from "@/components/ds";
+import { FileIcon, Icon, IconButton, type IconName, Popover } from "@/components/ds";
 import type { MessageAttachment } from "@/lib/data";
 import { deleteFile } from "@/lib/data/api";
 import { MenuPopover, type MenuItem } from "../app/MenuPopover";
@@ -370,7 +370,7 @@ export function Composer({
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
             {(editing ? editPending : pending).map((attachment, index) => (
               <div key={`${attachment.name}-${index}`} style={styles.chip}>
-                <Icon name={attachment.kind} size={16} style={{ color: "var(--text-muted)" }} />
+                <FileIcon name={attachment.name} size={18} />
                 <span style={{ fontWeight: 500, color: "var(--text-strong)" }}>{attachment.name}</span>
                 <span style={{ color: "var(--text-subtle)" }}>{attachment.fileId ? formatBytes(attachment.sizeBytes) : t("composer.uploading")}</span>
                 <IconButton icon="x" label={t("composer.removeAttachment")} size="sm" disabled={!attachment.fileId} onClick={() => {
