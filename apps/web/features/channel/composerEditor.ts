@@ -88,6 +88,30 @@ export function editorState(root: HTMLElement): { text: string; caret: number } 
   return { text, caret: serialize(holder).length };
 }
 
+/**
+ * Markdown block prefix to carry onto the next line at `caret`.
+ *
+ * Only structures whose meaning spans several lines continue here. Headings deliberately do not:
+ * a heading labels the text that follows it, while a list, checklist or quotation is commonly
+ * written one line at a time. A completed checklist item always opens an unchecked item next.
+ */
+export function continuedLinePrefix(text: string, caret: number): string {
+  const lineStart = text.lastIndexOf("\n", Math.max(0, caret - 1)) + 1;
+  const line = text.slice(lineStart, caret);
+
+  const task = /^(\s*[-*] \[)[ xX](\] )/.exec(line);
+  if (task) return `${task[1]} ${task[2]}`;
+
+  const ordered = /^(\s*)(\d{1,9})([.)] )/.exec(line);
+  if (ordered) return `${ordered[1]}${Number(ordered[2]) + 1}${ordered[3]}`;
+
+  const bullet = /^(\s*[-*] )/.exec(line);
+  if (bullet) return bullet[1];
+
+  const quote = /^(\s*(?:> ?)+)/.exec(line);
+  return quote?.[1] ?? "";
+}
+
 /** Insert `str` at the current selection, mapping newlines to `<br>`, then place the caret after it. */
 export function insertTextAtSelection(str: string): void {
   const sel = window.getSelection();

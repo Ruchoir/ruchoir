@@ -14,6 +14,7 @@ import { Emoji } from "../app/Emoji";
 import { useEmojiManifest } from "../app/emojiManifest";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import {
+  continuedLinePrefix,
   editorState,
   emojiNode,
   insertBlockAtSelection,
@@ -480,7 +481,12 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
     if (e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
       const ed = edRef.current;
-      if (ed) insertLineBreakAtSelection(ed);
+      if (ed) {
+        const { text, caret } = editorState(ed);
+        const prefix = continuedLinePrefix(text, caret);
+        insertLineBreakAtSelection(ed);
+        if (prefix) insertTextAtSelection(prefix);
+      }
       sync();
     }
   };
