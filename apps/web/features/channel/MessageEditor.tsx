@@ -128,6 +128,8 @@ const optionStyle: CSSProperties = {
 export type MessageEditorProps = {
   placeholder: string;
   onSend: (text: string) => void;
+  /** Files pasted from the clipboard are attachments, not editor content. */
+  onPasteFiles?: (files: File[]) => void;
   ariaLabel?: string;
   ref?: Ref<MessageEditorHandle>;
 };
@@ -138,7 +140,7 @@ export type MessageEditorProps = {
  * owns the DOM); `onSend` receives the serialised plain text (emotes as their Unicode glyph), so the
  * message pipeline is unchanged. The surrounding toolbar drives formatting through the ref handle.
  */
-export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEditorProps) {
+export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, ref }: MessageEditorProps) {
   const { t } = useTranslation();
   const edRef = useRef<HTMLDivElement>(null);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
@@ -484,6 +486,12 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
   };
 
   const onPaste = (e: ClipboardEvent<HTMLDivElement>) => {
+    const files = Array.from(e.clipboardData.files);
+    if (files.length > 0) {
+      e.preventDefault();
+      onPasteFiles?.(files);
+      return;
+    }
     e.preventDefault();
     insertTextAtSelection(e.clipboardData.getData("text/plain"));
     sync();

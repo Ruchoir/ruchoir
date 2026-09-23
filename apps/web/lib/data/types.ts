@@ -244,8 +244,12 @@ export type Message = {
   /** Icon for a system message. */
   systemIcon?: string;
   attachment?: MessageAttachment;
+  /** Every non-image attachment, in upload order. */
+  attachments?: MessageAttachment[];
   link?: LinkPreview;
   image?: InlineImage;
+  /** Every image attachment, in upload order. */
+  images?: InlineImage[];
   reactions?: Reaction[];
   /**
    * The root message this one answers, when it is a thread reply.

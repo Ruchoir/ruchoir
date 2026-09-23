@@ -2406,8 +2406,8 @@ function AppShell() {
     });
   };
 
-  const send = (text: string, attachment?: Message["attachment"]) => {
-    if (!text.trim() && !attachment) return;
+  const send = (text: string, attachments?: Message["attachments"]) => {
+    if (!text.trim() && !attachments?.length) return;
     const conv = channelId;
     const tempId = `tmp-${Date.now()}`;
     const optimistic: Message = {
@@ -2415,13 +2415,14 @@ function AppShell() {
       author: currentUser,
       createdAt: new Date().toISOString(),
       body: text,
-      attachment,
+      attachments,
+      attachment: attachments?.[0],
     };
     setMessages((prev) => ({ ...prev, [conv]: [...(prev[conv] ?? []), optimistic] }));
     // The optimistic row is replaced by the server row (real id, timestamp, hydrated attachment) on
     // success, or removed on failure. An attachment is already stored by this point: the composer
     // uploads on pick, so all that travels here is its id.
-    sendMessage(conv, text, attachment?.fileId ? { attachments: [attachment.fileId] } : {})
+    sendMessage(conv, text, { attachments: attachments?.flatMap((attachment) => attachment.fileId ? [attachment.fileId] : []) })
       .then((m) => {
         // Drop the optimistic row and de-dupe the real id, so a realtime echo of our own message that
         // may have already arrived does not leave a duplicate.
