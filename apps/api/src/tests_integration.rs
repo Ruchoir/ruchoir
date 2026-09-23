@@ -7056,3 +7056,97 @@ async fn a_space_administrator_orders_the_channels_for_everyone() {
     assert_eq!(stale.status(), 409);
 }
 
+#[tokio::test]
+async fn a_client_catches_up_on_what_it_missed_in_every_conversation() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let changes = |cookie: String, since: Option<String>| {
+        let app = &app;
+        async move {
+            let path = match since {
+                Some(since) => format!(
+                    "/api/v1/spaces/{}/changes?since={}",
+                    fx.space_id,
+                    since.replace('+', "%2B")
+                ),
+                None => format!("/api/v1/spaces/{}/changes", fx.space_id),
+            };
+            let response = app
+                .req(reqwest::Method::GET, &path, &cookie)
+                .send()
+                .await
+                .expect("changes");
+            assert_eq!(response.status(), 200);
+            response.json::<Value>().await.expect("json")
+        }
+    };
+    let post = |body: Value, channel: Uuid| {
+        let app = &app;
+        let alice = alice.clone();
+        async move {
+            app.req(
+                reqwest::Method::POST,
+                &format!("/api/v1/conversations/{channel}/messages"),
+                &alice,
+            )
+            .json(&body)
+            .send()
+            .await
+            .expect("send")
+            .json::<Value>()
+            .await
+            .expect("json")
+        }
+    };
+
+    let before = post(json!({ "body": "avant" }), fx.public_channel).await;
+    let before_id = before["id"].as_str().expect("id").to_owned();
+
+    // Bob's cursor: nothing yet, only the moment.
+    let start = changes(bob.clone(), None).await;
+    assert_eq!(start["messages"].as_array().map(Vec::len), Some(0));
+    let cursor = start["now"].as_str().expect("now").to_owned();
+
+    // While he is away: a new message, a reply in a thread, a deletion, and a message in a private
+    // channel he is not in.
+    let after = post(json!({ "body": "pendant" }), fx.public_channel).await;
+    post(
+        json!({ "body": "dans le fil", "parent_message_id": before_id }),
+        fx.public_channel,
+    )
+    .await;
+    post(json!({ "body": "secret" }), fx.private_channel).await;
+    let deleted = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/messages/{before_id}"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("delete");
+    assert_eq!(deleted.status(), 200);
+
+    let caught = changes(bob.clone(), Some(cursor)).await;
+    assert_eq!(caught["truncated"], false);
+    let rows = caught["messages"].as_array().expect("array");
+    let bodies: Vec<&str> = rows.iter().filter_map(|m| m["body"].as_str()).collect();
+    assert!(bodies.contains(&"pendant"), "{caught}");
+    assert!(bodies.contains(&"dans le fil"), "{caught}");
+    assert!(
+        !bodies.contains(&"secret"),
+        "a private channel he is not in"
+    );
+    let tombstone = rows
+        .iter()
+        .find(|m| m["id"] == json!(before_id))
+        .expect("the deleted message is sent back, as a tombstone");
+    assert_eq!(tombstone["deleted"], true);
+    assert!(rows.iter().any(|m| m["id"] == after["id"]));
+
+    // Too long ago to be worth a list: reload instead.
+    let stale = changes(bob.clone(), Some("2020-01-01T00:00:00Z".to_owned())).await;
+    assert_eq!(stale["truncated"], true);
+}

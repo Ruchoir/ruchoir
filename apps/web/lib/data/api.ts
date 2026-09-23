@@ -1137,6 +1137,34 @@ export async function getChannelMessages(
   return { messages: page.messages.map(toMessage), nextBefore: page.next_before };
 }
 
+/** What changed in a space since a cursor: see `getChanges`. */
+export type SpaceChanges = {
+  /** The next cursor. */
+  now: string;
+  /** Changed messages with the conversation each belongs to, oldest first. */
+  changes: { conversationId: string; message: ApiMessage }[];
+  /** Too much, or too long ago: reload the space rather than apply a list. */
+  truncated: boolean;
+};
+
+/**
+ * `GET /spaces/{id}/changes`: messages created, edited, deleted (tombstones) or reacted to since
+ * `since`, in every conversation of the space the caller can see, thread replies included. Without
+ * `since`, only the cursor, which is how a client starts counting.
+ */
+export async function getChanges(spaceId: string, since?: string, signal?: AbortSignal): Promise<SpaceChanges> {
+  const query = since ? `?since=${encodeURIComponent(since)}` : "";
+  const dto = await apiGet<{ now: string; messages: MessageDto[]; truncated: boolean }>(
+    `/spaces/${spaceId}/changes${query}`,
+    signal,
+  );
+  return {
+    now: dto.now,
+    changes: dto.messages.map((m) => ({ conversationId: m.conversation_id, message: toMessage(m) })),
+    truncated: dto.truncated,
+  };
+}
+
 /** `POST /conversations/{id}/messages`: post a message (optionally a threaded reply). */
 export async function sendMessage(
   conversationId: string,
@@ -1780,6 +1808,11 @@ export type SpaceIdentity = { id: string; name: string; slug: string; iconUrl?: 
 
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
+  /**
+   * The connection came back after being lost. Whatever was pushed in between is gone for good (the
+   * transport does not replay), so the caller re-reads what it has on screen.
+   */
+  onReconnect?: () => void;
   onMessageCreated?: (conversationId: string, message: ApiMessage) => void;
   onMessageUpdated?: (conversationId: string, message: ApiMessage) => void;
   onMessageDeleted?: (conversationId: string, message: ApiMessage) => void;
@@ -1874,6 +1907,12 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
   let events: EventSource | null = null;
   let closed = false;
   let reconnectDelay = 1000;
+  /** Whether a connection has been up before, which makes the next one a reconnection. */
+  let everOpened = false;
+  const opened = () => {
+    if (everOpened) handlers.onReconnect?.();
+    everOpened = true;
+  };
   let failedAttempts = 0;
   let pingTimer: ReturnType<typeof setInterval> | undefined;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -2021,6 +2060,7 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
     ws.onopen = () => {
       reconnectDelay = 1000;
       failedAttempts = 0;
+      opened();
       pingTimer = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
       }, 25000);
@@ -2063,6 +2103,8 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       scheduleReconnect();
       return;
     }
+    // `EventSource` reopens on its own after a drop, and says so with `open` each time.
+    events.addEventListener("open", opened);
     for (const name of REALTIME_EVENTS) {
       events.addEventListener(name, (event) => {
         try {

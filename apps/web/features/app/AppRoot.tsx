@@ -15,6 +15,7 @@ import {
   deleteMessage,
   deleteSpace as apiDeleteSpace,
   editMessage,
+  getChanges,
   getChannelMessages,
   getChannels,
   getDirectMessages,
@@ -244,6 +245,61 @@ function replaceMessage(map: MessageMap, conv: string, m: Message): MessageMap {
   const list = map[conv] ?? [];
   if (!list.some((x) => x.id === m.id)) return map;
   return { ...map, [conv]: list.map((x) => (x.id === m.id ? m : x)) };
+}
+
+/**
+ * Fold what a catch-up returned into the messages held: edits and tombstones replace, new messages
+ * are added, and a thread root's counter follows the replies that arrived or were taken back.
+ * A deletion of something never held is ignored: there is nothing on screen to take down.
+ */
+function applyChanges(map: MessageMap, changes: { conversationId: string; message: Message }[]): MessageMap {
+  let next = map;
+  for (const { conversationId: conv, message: m } of changes) {
+    const held = next[conv]?.find((x) => x.id === m.id);
+    if (held) {
+      next = replaceMessage(next, conv, m);
+      if (m.parentId && m.deleted && !held.deleted) next = adjustReplyCount(next, conv, m.parentId, -1);
+    } else if (!m.deleted) {
+      next = upsertMessage(next, conv, m);
+      if (m.parentId) next = adjustReplyCount(next, conv, m.parentId, 1, m.author);
+    }
+  }
+  return next;
+}
+
+/** A notification from the API, as the inbox holds it, labelled from the lists this client has. */
+function toAppNotification(
+  n: ApiNotification,
+  chans: Channel[],
+  dmList: DirectMessage[],
+  read: boolean,
+): AppNotification {
+  // The loaded lists first, because they carry what this client knows about the conversation;
+  // the server's own names otherwise, which is the only thing that can name a conversation in a
+  // space this client has never opened. The identifier is no longer a possible answer.
+  const channel = chans.find((x) => x.id === n.conversationId);
+  const dm = channel ? undefined : dmList.find((x) => x.id === n.conversationId);
+  const { label, isDm } = channel
+    ? { label: `#${channel.name}`, isDm: false }
+    : dm
+      ? { label: dm.name, isDm: true }
+      : n.channelName
+        ? { label: `#${n.channelName}`, isDm: false }
+        : { label: "", isDm: true };
+  return {
+    id: n.id,
+    kind: n.kind as NotifKind,
+    channelId: n.conversationId,
+    spaceId: n.spaceId,
+    label,
+    spaceName: n.spaceName,
+    isDm,
+    actor: n.actor,
+    messageId: n.messageId,
+    preview: n.preview,
+    createdAt: n.createdAt,
+    read,
+  };
 }
 
 /** Apply another user's reaction delta to a message's buckets (our own deltas are already optimistic). */
@@ -611,14 +667,19 @@ function AppShell() {
     // row resolves its author, its avatar and its mentions against them; the space files are not,
     // because nothing displays them until the files panel or the files screen is opened. Putting
     // them in the same batch made the whole space wait on a request nobody was looking at.
-    const [chans, dmList, memberList, presenceMap] = await Promise.all([
+    const [chans, dmList, memberList, presenceMap, cursor] = await Promise.all([
       getChannels(activeWs),
       getDirectMessages(activeWs),
       getSpaceMembers(activeWs).catch(() => [] as Member[]),
       getSpacePresence(activeWs).catch(() => ({}) as Record<string, Presence>),
+      // Where catching up starts from: taken before any message is read, so nothing that happens
+      // while the space loads can fall between the pages and the first catch-up.
+      getChanges(activeWs).catch(() => null),
     ]);
     // A second switch started while this one was in flight: its results own the screen now.
     if (loadingSpaceRef.current !== activeWs) return;
+    syncCursorRef.current = cursor ? { space: activeWs, since: cursor.now } : null;
+    staleRef.current.clear();
     setChannels(chans);
     setMembers(memberList);
     setPresence(presenceMap);
@@ -679,39 +740,13 @@ function AppShell() {
         return next;
       });
       setSpaceFiles(folder.entries);
-      // The loaded lists first, because they carry what this client knows about the conversation;
-      // the server's own names otherwise, which is the only thing that can name a conversation in a
-      // space this client has never opened. The identifier is no longer a possible answer.
-      const labelOf = (n: { conversationId: string; channelName?: string }): { label: string; isDm: boolean } => {
-        const c = chans.find((x) => x.id === n.conversationId);
-        if (c) return { label: `#${c.name}`, isDm: false };
-        const d = dmList.find((x) => x.id === n.conversationId);
-        if (d) return { label: d.name, isDm: true };
-        return n.channelName ? { label: `#${n.channelName}`, isDm: false } : { label: "", isDm: true };
-      };
       // The inbox lands here, well after the conversation was opened and marked read: at that
       // point it held none of these rows, so a mention pointing at the very channel being read
       // stayed unread on the server and kept the space's badge lit. Anything addressed to the
       // conversation on screen is read by definition, so it is filed as such now, once.
       const openedHere = feed.notifications.filter((n) => n.conversationId === opening && !n.read);
       setNotifs(
-        feed.notifications.map((n) => {
-          const { label, isDm } = labelOf(n);
-          return {
-            id: n.id,
-            kind: n.kind as NotifKind,
-            channelId: n.conversationId,
-            spaceId: n.spaceId,
-            label,
-            spaceName: n.spaceName,
-            isDm,
-            actor: n.actor,
-            messageId: n.messageId,
-            preview: n.preview,
-            createdAt: n.createdAt,
-            read: n.read || n.conversationId === opening,
-          };
-        }),
+        feed.notifications.map((n) => toAppNotification(n, chans, dmList, n.read || n.conversationId === opening)),
       );
       if (openedHere.length > 0) {
         for (const n of openedHere) void markNotificationRead(n.id).catch(() => {});
@@ -961,6 +996,17 @@ function AppShell() {
 
   /** Latest "read this space again from scratch", for the same reason as the others. */
   const reloadSpaceRef = useRef<(spaceId: string) => Promise<void>>(async () => {});
+  /** Re-read what is on screen after pushes may have been missed; filled below, see `resync`. */
+  const resyncRef = useRef<() => void>(() => {});
+  /** Where the next catch-up of the space on screen starts from (see `getChanges`). */
+  const syncCursorRef = useRef<{ space: string; since: string } | null>(null);
+  /**
+   * Conversations whose latest page is re-read when next opened. A catch-up brings what changed,
+   * except a reaction taken back, which leaves no dated trace; re-reading on opening covers it.
+   */
+  const staleRef = useRef(new Set<string>());
+  /** `loadThread`, reachable from the resync above its declaration. */
+  const loadThreadRef = useRef<(conv: string, parentId: string) => void>(() => {});
 
   /**
    * Spaces already taken off the rail. A departure arrives twice (the real-time frame and the answer
@@ -977,6 +1023,7 @@ function AppShell() {
   useEffect(() => {
     if (!session) return;
     const conn = connectRealtime({
+      onReconnect: () => resyncRef.current(),
       onMessageCreated: (conv, m) => {
         const { channelId: active, myId } = liveRef.current;
         // Our own message is already shown optimistically and reconciled by the POST response; skip
@@ -1721,15 +1768,102 @@ function AppShell() {
   });
 
   /**
+   * Re-read what is on screen: the open conversation (and its open thread), the sidebar's lists and
+   * the rail's counters.
+   *
+   * Pushes are not replayed. A tab in the background is throttled or frozen by the browser, and its
+   * connection is often dropped and reopened; everything sent in between was lost, so coming back
+   * showed the conversation as it was when the tab was left. Merged by id, so nothing already on
+   * screen is doubled, older history loaded by scrolling is kept, and messages still being sent stay.
+   */
+  const lastResync = useRef(0);
+  useEffect(() => {
+    resyncRef.current = () => {
+      const space = ws;
+      const conv = channelId;
+      if (!space) return;
+      lastResync.current = Date.now();
+      if (conv) {
+        void getChannelMessages(conv)
+          .then((page) => {
+            if (liveRef.current.ws !== space) return;
+            setMessages((prev) => page.messages.reduce((map, m) => upsertMessage(map, conv, m), prev));
+            // Being on the conversation is reading it, as when it is opened.
+            if (document.visibilityState === "visible" && liveRef.current.view === "channel" && liveRef.current.channelId === conv) {
+              markReadRef.current(conv, page.messages);
+            }
+          })
+          .catch(() => {
+            // The next push or the next return tries again.
+          });
+        if (thread) loadThreadRef.current(conv, thread);
+      }
+      // Everything else of the space, in one request: new messages, edits, deletions and replies in
+      // every conversation, not only the one on screen.
+      const cursor = syncCursorRef.current;
+      if (cursor && cursor.space === space) {
+        void getChanges(space, cursor.since)
+          .then((result) => {
+            if (liveRef.current.ws !== space) return;
+            if (result.truncated) {
+              // Away too long, or too much happened: a list would be slower than starting over.
+              void reloadSpaceRef.current(space);
+              return;
+            }
+            syncCursorRef.current = { space, since: result.now };
+            if (result.changes.length > 0) setMessages((prev) => applyChanges(prev, result.changes));
+            for (const c of [...liveRef.current.channels, ...liveRef.current.dms]) {
+              if (c.id !== conv) staleRef.current.add(c.id);
+            }
+          })
+          .catch(() => {
+            // The cursor stays where it was, so the next attempt covers this gap as well.
+          });
+      }
+      // The inbox, for the notifications pushed while away.
+      void getNotifications()
+        .then((feed) => {
+          if (liveRef.current.ws !== space) return;
+          const { channels: chs, dms: dmList } = liveRef.current;
+          setNotifs((prev) => {
+            const held = new Map(prev.map((n) => [n.id, n]));
+            const merged = feed.notifications.map((n) => {
+              const mine = held.get(n.id);
+              held.delete(n.id);
+              return mine ? { ...mine, read: mine.read || n.read } : toAppNotification(n, chs, dmList, n.read);
+            });
+            return [...merged, ...held.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+          });
+        })
+        .catch(() => {});
+      void getChannels(space)
+        .then((fresh) => {
+          if (liveRef.current.ws === space) setChannels(fresh);
+        })
+        .catch(() => {});
+      void getDirectMessages(space)
+        .then((fresh) => {
+          if (liveRef.current.ws !== space) return;
+          setDms(fresh.map((d) => (d.userId && presence[d.userId] ? { ...d, presence: presence[d.userId] } : d)));
+        })
+        .catch(() => {});
+      void reloadSpaceCounters();
+    };
+  });
+
+  /**
    * Coming back to the window catches up on whatever arrived while it was elsewhere.
    *
    * Messages that land while the app is in the background are deliberately left unread, since
    * nobody read them. Returning is what reads them, and without this the conversation on screen
-   * stayed unread until it was opened again.
+   * stayed unread until it was opened again. Returning to the tab also re-reads the screen (see
+   * `resync`), at most every few seconds: switching back and forth is not worth a request each time.
    */
   useEffect(() => {
     const catchUp = () => {
-      if (document.visibilityState !== "visible" || view !== "channel" || !channelId) return;
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastResync.current > 5000) resyncRef.current();
+      if (view !== "channel" || !channelId) return;
       markConversationRead(channelId);
     };
     window.addEventListener("focus", catchUp);
@@ -2095,6 +2229,13 @@ function AppShell() {
   const openChannel = (id: string) => {
     setView("channel");
     setChannelId(id);
+    // Missed while away and not caught up by the catch-up itself (a reaction taken back): the latest
+    // page is re-read once, merged into what is held.
+    if (staleRef.current.delete(id)) {
+      void getChannelMessages(id)
+        .then((page) => setMessages((prev) => page.messages.reduce((map, m) => upsertMessage(map, id, m), prev)))
+        .catch(() => staleRef.current.add(id));
+    }
     // So coming back to this space opens this conversation rather than the first of the list.
     rememberChannel(ws, id);
     // Right panel is app-level state, so reset it per conversation, to whichever panel the
@@ -2186,6 +2327,10 @@ function AppShell() {
         showToast({ tone: "info", title: t("toast.threadNotLoaded") });
       });
   };
+
+  useEffect(() => {
+    loadThreadRef.current = loadThread;
+  });
 
   const openMessage = (targetChannel: string, messageId: string) => {
     setModal(null);

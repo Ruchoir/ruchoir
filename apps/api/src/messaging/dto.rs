@@ -91,6 +91,19 @@ pub struct MessagePage {
     pub next_before: Option<Uuid>,
 }
 
+/// What changed in a space's conversations since a moment, for a client catching up.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ChangesDto {
+    /// The server's clock when the answer was computed: pass it as the next `since`. Taken before
+    /// the query, so a change made while it ran is sent again rather than skipped.
+    pub now: String,
+    /// The messages created, edited, deleted (as tombstones) or reacted to since then, replies
+    /// included, oldest first.
+    pub messages: Vec<MessageDto>,
+    /// Too much changed, or too long ago, to be sent as a list: reload the space instead.
+    pub truncated: bool,
+}
+
 /// A space the caller belongs to: the workspace-switcher entry and the bootstrap the SPA needs to
 /// discover its channels (which are queried per space).
 #[derive(Debug, Clone, Serialize, ToSchema)]
