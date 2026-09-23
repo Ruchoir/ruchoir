@@ -61,10 +61,14 @@ pub struct LoginRequest {
     pub password: String,
 }
 
-/// A request that carries only an email address (verification resend, reset request).
+/// A request that carries an email address (verification resend, reset request).
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct EmailRequest {
     pub email: String,
+    /// The language of the page the request came from: the message is written in it, since whoever
+    /// reads that page is who will read the message. Absent, the account's own language is used.
+    #[serde(default)]
+    pub locale: Option<String>,
 }
 
 /// Confirm an email-verification token.
@@ -356,7 +360,7 @@ pub async fn register(
     .map_err(|_| AuthError::Internal)?;
 
     if !invited {
-        send_verification_email(&state, user_id, &email).await?;
+        send_verification_email(&state, user_id, &email, None).await?;
     }
 
     Ok((StatusCode::CREATED, Json(model.into())))
@@ -600,7 +604,7 @@ pub async fn verify_email_request(
         .map_err(|_| AuthError::Internal)?
     {
         if user.status == "pending" {
-            send_verification_email(&state, user.id, &email).await?;
+            send_verification_email(&state, user.id, &email, body.locale.as_deref()).await?;
         }
     }
     Ok(StatusCode::NO_CONTENT)
@@ -662,7 +666,7 @@ pub async fn password_reset_request(
     {
         // Only password accounts can reset a password.
         if user.password_hash.is_some() {
-            send_reset_email(&state, user.id, &email).await?;
+            send_reset_email(&state, user.id, &email, body.locale.as_deref()).await?;
         }
     }
     Ok(StatusCode::NO_CONTENT)
@@ -1481,11 +1485,13 @@ fn qr_to_svg(qr: &qrcodegen::QrCode, border: i32) -> String {
     svg
 }
 
-/// Issue and send an email-verification link for a user.
+/// Issue and send an email-verification link for a user, in the page's language when the request
+/// named one (see [`EmailRequest::locale`]).
 async fn send_verification_email(
     state: &AppState,
     user_id: Uuid,
     email: &str,
+    page_locale: Option<&str>,
 ) -> Result<(), AuthError> {
     let token = tokens::issue(
         &state.valkey,
@@ -1497,23 +1503,26 @@ async fn send_verification_email(
     let base = state.mailer.base_url.trim_end_matches('/');
     let link = format!("{base}/verify-email?token={token}");
     let hours = state.config.email_verification_ttl_secs / 3600;
-    let message = mail_text::verification(account_locale(state, user_id).await, &link, hours);
-    state
-        .mailer
-        .send(email, &message.subject, message.body)
-        .await
-        .map_err(|error| {
-            // The relay says exactly what is wrong (bad credentials, an unverified sender domain,
-            // a refused recipient) and swallowing it leaves an administrator with a bare 500 and
-            // no way to tell those apart. It goes to the log, never to the caller: the answer to
-            // an unauthenticated request must not reveal whether an address exists here.
-            tracing::error!(%error, "sending the verification email failed");
-            AuthError::Internal
-        })
+    let locale = message_locale(state, user_id, page_locale).await;
+    let message = mail_text::verification(locale, &link, hours, &state.mailer.instance_name());
+    state.mailer.send(email, &message).await.map_err(|error| {
+        // The relay says exactly what is wrong (bad credentials, an unverified sender domain,
+        // a refused recipient) and swallowing it leaves an administrator with a bare 500 and
+        // no way to tell those apart. It goes to the log, never to the caller: the answer to
+        // an unauthenticated request must not reveal whether an address exists here.
+        tracing::error!(%error, "sending the verification email failed");
+        AuthError::Internal
+    })
 }
 
-/// Issue and send a password-reset link for a user.
-async fn send_reset_email(state: &AppState, user_id: Uuid, email: &str) -> Result<(), AuthError> {
+/// Issue and send a password-reset link for a user, in the page's language when the request named
+/// one (see [`EmailRequest::locale`]).
+async fn send_reset_email(
+    state: &AppState,
+    user_id: Uuid,
+    email: &str,
+    page_locale: Option<&str>,
+) -> Result<(), AuthError> {
     let token = tokens::issue(
         &state.valkey,
         TokenPurpose::PasswordReset,
@@ -1524,15 +1533,25 @@ async fn send_reset_email(state: &AppState, user_id: Uuid, email: &str) -> Resul
     let base = state.mailer.base_url.trim_end_matches('/');
     let link = format!("{base}/reset-password?token={token}");
     let minutes = state.config.password_reset_ttl_secs / 60;
-    let message = mail_text::password_reset(account_locale(state, user_id).await, &link, minutes);
-    state
-        .mailer
-        .send(email, &message.subject, message.body)
-        .await
-        .map_err(|error| {
-            tracing::error!(%error, "sending the password-reset email failed");
-            AuthError::Internal
-        })
+    let locale = message_locale(state, user_id, page_locale).await;
+    let message = mail_text::password_reset(locale, &link, minutes, &state.mailer.instance_name());
+    state.mailer.send(email, &message).await.map_err(|error| {
+        tracing::error!(%error, "sending the password-reset email failed");
+        AuthError::Internal
+    })
+}
+
+/// The language to write a message in: the page's, when the request came from one, else the
+/// account's.
+async fn message_locale(
+    state: &AppState,
+    user_id: Uuid,
+    page_locale: Option<&str>,
+) -> mail_text::Locale {
+    match page_locale.map(str::trim).filter(|tag| !tag.is_empty()) {
+        Some(tag) => mail_text::Locale::parse(Some(tag)),
+        None => account_locale(state, user_id).await,
+    }
 }
 
 /// The language an account reads in, falling back to the source language.

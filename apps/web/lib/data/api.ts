@@ -406,7 +406,8 @@ export async function register(
  * or not the address has an account, so the response never reveals who is registered.
  */
 export async function requestEmailVerification(email: string): Promise<void> {
-  await apiPost<void>("/auth/verify-email/request", { email });
+  // In the language of this page: whoever reads it is who will read the message.
+  await apiPost<void>("/auth/verify-email/request", { email, locale: currentLocale() });
 }
 
 /** `POST /auth/verify-email/confirm`: activate the account behind an emailed token (single use). */
@@ -416,7 +417,7 @@ export async function confirmEmailVerification(token: string): Promise<void> {
 
 /** `POST /auth/password-reset/request`: email a reset link. Always resolves (no account enumeration). */
 export async function requestPasswordReset(email: string): Promise<void> {
-  await apiPost<void>("/auth/password-reset/request", { email });
+  await apiPost<void>("/auth/password-reset/request", { email, locale: currentLocale() });
 }
 
 /**

@@ -14,7 +14,8 @@
 //! fallback is the ONLY place a token-bearing link is logged, and only when SMTP is unconfigured;
 //! production always sets SMTP_HOST and therefore sends.
 
-use lettre::message::Mailbox;
+use lettre::message::header::ContentType;
+use lettre::message::{Attachment, Mailbox, MultiPart, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
@@ -117,9 +118,21 @@ impl Mailer {
         self.transport.is_some()
     }
 
-    /// Send a plain-text email. In dev (no relay) the message is logged instead.
-    pub async fn send(&self, to: &str, subject: &str, body: String) -> Result<(), String> {
+    /// This instance as a reader recognises it (`chat.example.org`), for the line at the foot of a
+    /// message saying where it came from.
+    pub fn instance_name(&self) -> String {
+        let url = self.base_url.trim_end_matches('/');
+        url.split_once("://")
+            .map_or(url, |(_, rest)| rest)
+            .to_owned()
+    }
+
+    /// Send an email: its HTML, with the Ruchoir mark embedded, and its plain-text alternative. In
+    /// dev (no relay) the plain text is logged instead.
+    pub async fn send(&self, to: &str, email: &super::mail_text::Email) -> Result<(), String> {
+        let subject = &email.subject;
         let Some(transport) = &self.transport else {
+            let body = &email.text;
             tracing::info!(%to, %subject, "email not sent (no SMTP relay configured); body follows for dev:\n{body}");
             return Ok(());
         };
@@ -128,14 +141,27 @@ impl Mailer {
             .parse()
             .map_err(|e| format!("invalid From: {e}"))?;
         let to: Mailbox = to.parse().map_err(|e| format!("invalid To: {e}"))?;
-        let email = Message::builder()
+        // multipart/alternative: plain text first, the richer part last, as the standard orders them.
+        // The HTML travels with its logo in a multipart/related, so it is shown without fetching.
+        let logo = Attachment::new_inline(super::mail_text::LOGO_CID.to_owned()).body(
+            super::mail_text::LOGO_PNG.to_vec(),
+            ContentType::parse("image/png").map_err(|e| format!("content type: {e}"))?,
+        );
+        let body = MultiPart::alternative()
+            .singlepart(SinglePart::plain(email.text.clone()))
+            .multipart(
+                MultiPart::related()
+                    .singlepart(SinglePart::html(email.html.clone()))
+                    .singlepart(logo),
+            );
+        let message = Message::builder()
             .from(from)
             .to(to)
-            .subject(subject)
-            .body(body)
+            .subject(subject.as_str())
+            .multipart(body)
             .map_err(|e| format!("could not build email: {e}"))?;
         transport
-            .send(email)
+            .send(message)
             .await
             .map_err(|e| format!("could not send email: {e}"))?;
         Ok(())

@@ -78,6 +78,19 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
             .map_err(|e| e.into());
     }
 
+    // `ruchoir-api mail-preview <address>` sends every message the server writes, in every
+    // language, with sample content, through the configured relay: how their design and wording are
+    // reviewed without registering, resetting and inviting eighteen times. Pointed at a mail catcher
+    // in development; it touches no database.
+    if subcommand.as_deref() == Some("mail-preview") {
+        let to = std::env::args()
+            .nth(2)
+            .ok_or("usage: mail-preview <address>")?;
+        return auth::mail_text::send_previews(&config, &to)
+            .await
+            .map_err(|e| e.into());
+    }
+
     let db = db::connect(&config).await?;
     tracing::info!("connected to PostgreSQL");
 

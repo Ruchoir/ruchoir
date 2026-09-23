@@ -113,6 +113,10 @@ the other five until they carry it.
   confirmation must not arrive in a language its reader did not ask for.
 - Server-side text (three emails) lives in `apps/api/src/auth/mail_text.rs`, in the same six
   languages, with no translation crate: three messages do not justify a dependency and a loader.
+  Each is written once as content and drawn twice from it, as table-based HTML in Ruchoir's colours
+  (inline styles, the mark embedded by `Content-ID` from `apps/api/assets/mail-mark.png`, never a
+  remote image) and as a plain-text alternative. `ruchoir-api mail-preview <address>` sends all of
+  them in every language through the configured relay, which is how their design is reviewed.
 
 **One sentence, one key.** The same text under two keys costs six files' worth of bytes and, worse,
 lets two copies of the same sentence drift apart until the interface says it two ways. Point both

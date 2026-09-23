@@ -165,6 +165,13 @@ RUCHOIR_SMTP_PORT=1025
 RUCHOIR_SMTP_TLS=none
 ```
 
+To review every message at once, `ruchoir-api mail-preview <address>` sends the three messages the
+server writes, in all six languages, with sample content, through that same relay:
+
+```sh
+docker compose exec api ruchoir-api mail-preview preview@example.test
+```
+
 `RUCHOIR_SMTP_TLS` is `auto` by default (implicit TLS on 465, STARTTLS elsewhere). `none` exists only
 for this: the API refuses to start with it unless the relay is this machine or an internal name with
 no dot in it, so it cannot be used to send real mail in clear across a network. A mail catcher is a

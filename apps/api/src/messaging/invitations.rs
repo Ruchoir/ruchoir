@@ -536,13 +536,32 @@ pub(crate) async fn send_invitation_email(
         Ok(Some(space)) => space.name,
         _ => "Ruchoir".to_owned(),
     };
-    let locale = crate::auth::routes::account_locale(state, inviter).await;
-    let message = crate::auth::mail_text::invitation(locale, &space_name, url);
-    match state
-        .mailer
-        .send(address, &message.subject, message.body)
+    // The invited person's own language when they already have an account here; otherwise the
+    // language of whoever invited them (see `mail_text` for why).
+    let recipient = users::Entity::find()
+        .filter(users::Column::Email.eq(address.trim().to_lowercase()))
+        .one(&state.db)
         .await
-    {
+        .ok()
+        .flatten();
+    let locale = match recipient.as_ref().and_then(|user| user.locale.as_deref()) {
+        Some(tag) => crate::auth::mail_text::Locale::parse(Some(tag)),
+        None => crate::auth::routes::account_locale(state, inviter).await,
+    };
+    let inviter_name = users::Entity::find_by_id(inviter)
+        .one(&state.db)
+        .await
+        .ok()
+        .flatten()
+        .map(|user| user.display_name);
+    let message = crate::auth::mail_text::invitation(
+        locale,
+        &space_name,
+        inviter_name.as_deref(),
+        url,
+        &state.mailer.instance_name(),
+    );
+    match state.mailer.send(address, &message).await {
         Ok(()) => true,
         Err(error) => {
             // The address is not secret to the administrator who typed it, but the link is: never
