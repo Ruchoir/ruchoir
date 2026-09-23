@@ -4,6 +4,11 @@
 //! decides, because that is what it means everywhere else in the world and because picking wrong
 //! does not fail fast, it hangs.
 //!
+//! One exception, for development: `RUCHOIR_SMTP_TLS=none` talks to a mail catcher (Mailpit and the
+//! like) in clear, since those do not speak TLS out of the box. Configuration refuses it unless the
+//! relay is this machine or an internal single-label name ([`is_local_relay`]), so it cannot carry
+//! mail across a network.
+//!
 //! When no SMTP relay is configured (`RUCHOIR_SMTP_HOST` unset), the mailer logs the message for
 //! local development instead of sending it, so the flows are testable without a relay. That dev
 //! fallback is the ONLY place a token-bearing link is logged, and only when SMTP is unconfigured;
@@ -29,7 +34,20 @@ fn build_transport(
     host: &str,
     port: u16,
     credentials: Option<(String, String)>,
+    plaintext: bool,
 ) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
+    if plaintext {
+        tracing::warn!(
+            host,
+            port,
+            "SMTP without TLS (RUCHOIR_SMTP_TLS=none): for a local mail catcher only"
+        );
+        return Ok(
+            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(host)
+                .port(port)
+                .build(),
+        );
+    }
     let relay = if port == IMPLICIT_TLS_PORT {
         AsyncSmtpTransport::<Tokio1Executor>::relay(host)
     } else {
@@ -42,6 +60,20 @@ fn build_transport(
         builder = builder.credentials(Credentials::new(user, password));
     }
     Ok(builder.build())
+}
+
+/// Whether a relay may be spoken to without TLS: this machine, or an internal single-label name
+/// such as a Compose service (`mailpit`). Anything with a dot in it is somewhere on a network, and a
+/// message crossing one in clear is exactly what the rest of this module exists to prevent.
+pub fn is_local_relay(host: &str) -> bool {
+    let host = host.trim().trim_start_matches('[').trim_end_matches(']');
+    if host.is_empty() {
+        return false;
+    }
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        return ip.is_loopback();
+    }
+    host.eq_ignore_ascii_case("localhost") || !host.contains('.')
 }
 
 /// Sends email, or logs it in local dev when no relay is configured.
@@ -64,6 +96,7 @@ impl Mailer {
                     .smtp_username
                     .clone()
                     .zip(config.smtp_password.clone()),
+                config.smtp_plaintext,
             )?),
             _ => None,
         };
@@ -117,12 +150,12 @@ mod tests {
     fn a_relay_on_465_is_built_with_implicit_tls() {
         // Both dialects have to build: the relay a customer already pays for decides the port,
         // and until this existed a 465-only relay simply hung.
-        assert!(build_transport("smtp.example.org", 465, None).is_ok());
+        assert!(build_transport("smtp.example.org", 465, None, false).is_ok());
     }
 
     #[test]
     fn a_relay_on_587_is_built_with_starttls() {
-        assert!(build_transport("smtp.example.org", 587, None).is_ok());
+        assert!(build_transport("smtp.example.org", 587, None, false).is_ok());
     }
 
     #[test]
@@ -131,7 +164,25 @@ mod tests {
             "smtp.example.org",
             587,
             Some(("user".into(), "secret".into())),
+            false,
         );
         assert!(with.is_ok());
+    }
+
+    #[test]
+    fn a_relay_in_clear_is_only_ever_this_machine_or_an_internal_name() {
+        for local in ["mailpit", "localhost", "127.0.0.1", "::1", "[::1]"] {
+            assert!(is_local_relay(local), "{local} should be allowed");
+        }
+        for remote in [
+            "smtp.example.org",
+            "mailpit.lan",
+            "192.168.1.20",
+            "10.0.0.5",
+            "",
+        ] {
+            assert!(!is_local_relay(remote), "{remote} must not be");
+        }
+        assert!(build_transport("mailpit", 1025, None, true).is_ok());
     }
 }
