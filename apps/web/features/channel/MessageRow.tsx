@@ -77,6 +77,15 @@ const styles: Record<string, CSSProperties> = {
     overflowWrap: "anywhere",
   },
   edited: { marginLeft: 6, fontSize: 12, color: "var(--text-subtle)" },
+  attachmentName: {
+    display: "block",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: 14,
+    fontWeight: 500,
+    color: "var(--text-strong)",
+  },
   actions: {
     position: "absolute",
     top: -14,
@@ -386,7 +395,7 @@ export function MessageRow({
                 >
                   <Icon name={m.attachment.kind} size={18} style={{ color: "var(--text-muted)" }} />
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 14, fontWeight: 500, color: "var(--text-strong)" }}>
+                    <span style={styles.attachmentName} title={m.attachment.name}>
                       {m.attachment.name}
                     </span>
                     <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
