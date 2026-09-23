@@ -13,18 +13,17 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // A prior application could have completed the DDL and then failed while backfilling.
+        // PostgreSQL commits that `ALTER TABLE` before the following statement, so make retries
+        // safe for those installations.
         manager
-            .alter_table(
-                Table::alter()
-                    .table(Spaces::Table)
-                    .add_column(ColumnDef::new(Spaces::DefaultChannelId).uuid().null())
-                    .to_owned(),
-            )
+            .get_connection()
+            .execute_unprepared("ALTER TABLE spaces ADD COLUMN IF NOT EXISTS default_channel_id uuid;")
             .await?;
         manager
             .get_connection()
             .execute_unprepared(
-                "UPDATE spaces\n                 SET default_channel_id = selected.id\n                 FROM LATERAL (\n                   SELECT id\n                   FROM channels\n                   WHERE channels.space_id = spaces.id\n                     AND channels.channel_type = 'public'\n                   ORDER BY channels.created_at, channels.id\n                   LIMIT 1\n                 ) AS selected\n                 WHERE spaces.default_channel_id IS NULL;",
+                "UPDATE spaces\n                 SET default_channel_id = (\n                   SELECT id\n                   FROM channels\n                   WHERE channels.space_id = spaces.id\n                     AND channels.type = 'public'\n                   ORDER BY channels.created_at, channels.id\n                   LIMIT 1\n                 )\n                 WHERE spaces.default_channel_id IS NULL\n                   AND EXISTS (\n                     SELECT 1\n                     FROM channels\n                     WHERE channels.space_id = spaces.id\n                       AND channels.type = 'public'\n                   );",
             )
             .await?;
         Ok(())

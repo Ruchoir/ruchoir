@@ -394,7 +394,7 @@ pub async fn update_channel(
             .await?
             .ok_or(ApiError::Forbidden)?;
         let roles = clean_allowed_roles(roles, &actor_role)?;
-        if is_default && !roles.is_empty() {
+        if is_default && roles.as_ref().is_some_and(|roles| !roles.is_empty()) {
             return Err(ApiError::Conflict(
                 "choose another default channel before restricting this channel",
             ));

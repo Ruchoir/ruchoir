@@ -32,7 +32,7 @@ use uuid::Uuid;
 use crate::auth::extract::AuthSession;
 use crate::auth::tokens;
 use crate::entities::{
-    channel_members, channels, messages, space_invitations, space_members, spaces, users,
+    channel_members, messages, space_invitations, space_members, spaces, users,
 };
 use crate::state::AppState;
 

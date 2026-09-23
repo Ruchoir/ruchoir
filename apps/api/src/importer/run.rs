@@ -553,6 +553,7 @@ async fn create_space<C: ConnectionTrait>(db: &C, name: &str, owner: Uuid) -> Re
         slug: Set(slug.clone()),
         created_by: Set(Some(owner)),
         icon_key: Set(None),
+        default_channel_id: Set(None),
         created_at: Set(now),
         updated_at: Set(now),
     }
