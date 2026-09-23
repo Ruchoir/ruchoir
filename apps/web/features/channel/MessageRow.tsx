@@ -3,7 +3,7 @@
 import { type CSSProperties, useRef, useState } from "react";
 import { Avatar, brandFor, Card, Dialog, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
 import { getCurrentUser, getMentionNames, getPresence, getSpaceRooms } from "@/lib/data";
-import type { ImportSource, Message } from "@/lib/data";
+import type { ImportSource, Message, MessageAttachment } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
 import { UserProfileCard } from "../app/UserProfileCard";
@@ -79,6 +79,8 @@ const styles: Record<string, CSSProperties> = {
   edited: { marginLeft: 6, fontSize: 12, color: "var(--text-subtle)" },
   attachmentName: {
     display: "block",
+    minWidth: 0,
+    maxWidth: "100%",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -105,6 +107,72 @@ const styles: Record<string, CSSProperties> = {
     pointerEvents: "none",
   },
 };
+
+/** One stored document in a message, kept to one line however long its original name is. */
+function AttachmentCard({ attachment }: { attachment: MessageAttachment }) {
+  const { t } = useTranslation();
+
+  return (
+    <div style={{ marginTop: 8, width: 360, maxWidth: "100%", minWidth: 0 }}>
+      {attachment.deleted ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            minWidth: 0,
+            padding: "8px 10px",
+            borderRadius: "var(--radius-md)",
+            border: "1px dashed var(--border-default)",
+            color: "var(--text-subtle)",
+            fontSize: 13,
+          }}
+        >
+          <Icon name="trash-2" size={14} style={{ flex: "none" }} />
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {t("message.fileDeleted", { name: attachment.name })}
+          </span>
+        </div>
+      ) : (
+        <Card
+          variant="interactive"
+          style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, overflow: "hidden", padding: "8px 10px" }}
+        >
+          <Icon name={attachment.kind} size={18} style={{ flex: "none", color: "var(--text-muted)" }} />
+          <span style={{ flex: "1 1 0", minWidth: 0, overflow: "hidden" }}>
+            <span style={styles.attachmentName} title={attachment.name}>
+              {attachment.name}
+            </span>
+            <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+              {formatBytes(attachment.sizeBytes)}
+            </span>
+          </span>
+          {attachment.url ? (
+            <span style={{ display: "inline-flex", flex: "none" }}>
+              <IconLink
+                icon="external-link"
+                label={t("message.openInNewTab", { name: attachment.name })}
+                size="sm"
+                href={attachment.previewUrl ?? attachment.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              />
+              <IconLink
+                icon="download"
+                label={t("message.downloadNamed", { name: attachment.name })}
+                size="sm"
+                href={attachment.url}
+                download={attachment.name}
+              />
+            </span>
+          ) : (
+            <IconButton icon="download" label={t("message.download")} size="sm" disabled />
+          )}
+        </Card>
+      )}
+    </div>
+  );
+}
 
 function reactionPill(mine?: boolean): CSSProperties {
   return {
@@ -209,6 +277,10 @@ export function MessageRow({
   replyFaces,
 }: MessageRowProps) {
   const { t } = useTranslation();
+  // API rows carry the complete arrays. The singular fields remain compatibility aliases for old
+  // fixture rows and compact callers, and must not hide the rest of a multi-file message.
+  const images = m.images ?? (m.image ? [m.image] : []);
+  const attachments = m.attachments ?? (m.attachment ? [m.attachment] : []);
   const [hover, setHover] = useState(false);
   const [reactOpen, setReactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -363,71 +435,13 @@ export function MessageRow({
             ) : null}
 
             {m.link ? <LinkPreviewCard link={m.link} /> : null}
-            {m.image ? <InlineImage image={m.image} /> : null}
+            {images.map((image, index) => (
+              <InlineImage key={image.fileId ?? `${image.alt}-${index}`} image={image} />
+            ))}
 
-            {m.attachment?.deleted ? (
-              // The file is gone from the space. The message keeps the trace, quietly and without
-              // controls: it explains a conversation that refers to something no longer there.
-              <div style={{ marginTop: 8, maxWidth: 360 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "8px 10px",
-                    borderRadius: "var(--radius-md)",
-                    border: "1px dashed var(--border-default)",
-                    color: "var(--text-subtle)",
-                    fontSize: 13,
-                  }}
-                >
-                  <Icon name="trash-2" size={14} />
-                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {t("message.fileDeleted", { name: m.attachment.name })}
-                  </span>
-                </div>
-              </div>
-            ) : m.attachment ? (
-              <div style={{ marginTop: 8, maxWidth: 360 }}>
-                <Card
-                  variant="interactive"
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px" }}
-                >
-                  <Icon name={m.attachment.kind} size={18} style={{ color: "var(--text-muted)" }} />
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={styles.attachmentName} title={m.attachment.name}>
-                      {m.attachment.name}
-                    </span>
-                    <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
-                      {formatBytes(m.attachment.sizeBytes)}
-                    </span>
-                  </span>
-                  {m.attachment.url ? (
-                    <>
-                      {/* The original bytes, inline: full quality, and the browser's own viewer. */}
-                      <IconLink
-                        icon="external-link"
-                        label={t("message.openInNewTab", { name: m.attachment.name })}
-                        size="sm"
-                        href={m.attachment.previewUrl ?? m.attachment.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      />
-                      <IconLink
-                        icon="download"
-                        label={t("message.downloadNamed", { name: m.attachment.name })}
-                        size="sm"
-                        href={m.attachment.url}
-                        download={m.attachment.name}
-                      />
-                    </>
-                  ) : (
-                    // Still uploading: nothing to fetch yet.
-                    <IconButton icon="download" label={t("message.download")} size="sm" disabled />
-                  )}
-                </Card>
-              </div>
-            ) : null}
+            {attachments.map((attachment, index) => (
+              <AttachmentCard key={attachment.fileId ?? `${attachment.name}-${index}`} attachment={attachment} />
+            ))}
 
             {m.reactions && m.reactions.length > 0 ? (
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>

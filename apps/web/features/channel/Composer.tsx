@@ -214,8 +214,9 @@ export function Composer({
   const [pending, setPending] = useState<MessageAttachment[]>([]);
   const [editPending, setEditPending] = useState<MessageAttachment[]>([]);
   const [draggingFiles, setDraggingFiles] = useState(false);
-  /** True from the moment a file is picked until it is stored (or refused). */
+  /** True while at least one independently started group of files is still being stored. */
   const [uploading, setUploading] = useState(false);
+  const activeUploads = useRef(0);
   const editorRef = useRef<MessageEditorHandle>(null);
   const emojiRef = useRef<HTMLButtonElement>(null);
   const formatRef = useRef<HTMLButtonElement>(null);
@@ -242,21 +243,23 @@ export function Composer({
     else ed.clear();
   }, [editingId, editing?.body]);
 
-  const sendWith = (text: string) => {
+  const sendWith = (text: string): boolean => {
+    // Pasting can start a second upload while files selected just before it are still moving. The
+    // ref is synchronous, so Enter cannot slip through before React paints the disabled button.
+    if (activeUploads.current > 0) return false;
     if (editing) {
       onSaveEdit?.(text, editPending.length ? editPending : undefined);
       setEditPending([]);
-      return;
+      return true;
     }
-    // A file still on its way has no id to attach, so the message waits rather than losing it.
-    if (uploading) return;
     onSend(text, pending.length ? pending : undefined);
     setPending([]);
+    return true;
   };
 
   const clickSend = () => {
     const ed = editorRef.current;
-    if (!ed || uploading) return;
+    if (!ed || activeUploads.current > 0) return;
     const activePending = editing ? editPending : pending;
     if (activePending.length > 0 && ed.isEmpty()) {
       sendWith("");
@@ -290,19 +293,24 @@ export function Composer({
     if (files.length === 0) return;
     if (fileRef.current) fileRef.current.value = "";
     const setActivePending = editing ? setEditPending : setPending;
+    activeUploads.current += 1;
     setUploading(true);
-    for (const file of files) {
-      const provisional: MessageAttachment = { name: file.name, sizeBytes: file.size, kind: iconForType(file.type) };
-      setActivePending((current) => [...current, provisional]);
-      try {
-        const stored = await onUpload(file);
-        setActivePending((current) => current.map((attachment) => (attachment === provisional ? stored : attachment)));
-      } catch {
-        setActivePending((current) => current.filter((attachment) => attachment !== provisional));
-        onNotify({ tone: "danger", title: t("composer.uploadFailed"), description: t("composer.uploadFailedName", { name: file.name }) });
+    try {
+      for (const file of files) {
+        const provisional: MessageAttachment = { name: file.name, sizeBytes: file.size, kind: iconForType(file.type) };
+        setActivePending((current) => [...current, provisional]);
+        try {
+          const stored = await onUpload(file);
+          setActivePending((current) => current.map((attachment) => (attachment === provisional ? stored : attachment)));
+        } catch {
+          setActivePending((current) => current.filter((attachment) => attachment !== provisional));
+          onNotify({ tone: "danger", title: t("composer.uploadFailed"), description: t("composer.uploadFailedName", { name: file.name }) });
+        }
       }
+    } finally {
+      activeUploads.current -= 1;
+      setUploading(activeUploads.current > 0);
     }
-    setUploading(false);
   };
 
   /** Run a tool on the editor. The table holds what each one does; the ref is read here, on click. */

@@ -143,6 +143,7 @@ export function ThreadPanel({
   const fileRef = useRef<HTMLInputElement>(null);
   const [editPending, setEditPending] = useState<MessageAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const activeUploads = useRef(0);
 
   // Tombstones stay on screen (a thread reads as it happened) but are not replies any more, so this
   // count says the same thing as the one the feed draws under the root message.
@@ -184,13 +185,15 @@ export function ThreadPanel({
     [width, settings],
   );
 
-  const submit = (text: string) => {
+  const submit = (text: string): boolean => {
+    if (activeUploads.current > 0) return false;
     if (editing) {
       onSaveEdit?.(text, editPending.length ? editPending : undefined);
       setEditPending([]);
-      return;
+      return true;
     }
     onSendReply(text);
+    return true;
   };
 
   const discardEditFiles = () => {
@@ -208,24 +211,29 @@ export function ThreadPanel({
   const addFiles = async (files: File[]) => {
     if (!editing || files.length === 0) return;
     if (fileRef.current) fileRef.current.value = "";
+    activeUploads.current += 1;
     setUploading(true);
-    for (const file of files) {
-      const provisional: MessageAttachment = { name: file.name, sizeBytes: file.size, kind: file.type.startsWith("image") ? "image" : "file" };
-      setEditPending((current) => [...current, provisional]);
-      try {
-        const stored = await onUpload(file);
-        setEditPending((current) => current.map((attachment) => attachment === provisional ? stored : attachment));
-      } catch {
-        setEditPending((current) => current.filter((attachment) => attachment !== provisional));
-        onNotify({ tone: "danger", title: t("composer.uploadFailed"), description: t("composer.uploadFailedName", { name: file.name }) });
+    try {
+      for (const file of files) {
+        const provisional: MessageAttachment = { name: file.name, sizeBytes: file.size, kind: file.type.startsWith("image") ? "image" : "file" };
+        setEditPending((current) => [...current, provisional]);
+        try {
+          const stored = await onUpload(file);
+          setEditPending((current) => current.map((attachment) => attachment === provisional ? stored : attachment));
+        } catch {
+          setEditPending((current) => current.filter((attachment) => attachment !== provisional));
+          onNotify({ tone: "danger", title: t("composer.uploadFailed"), description: t("composer.uploadFailedName", { name: file.name }) });
+        }
       }
+    } finally {
+      activeUploads.current -= 1;
+      setUploading(activeUploads.current > 0);
     }
-    setUploading(false);
   };
 
   const clickSend = () => {
     const editor = editorRef.current;
-    if (!editor || uploading) return;
+    if (!editor || activeUploads.current > 0) return;
     if (editing && editPending.length > 0 && editor.isEmpty()) {
       submit("");
       editor.clear();

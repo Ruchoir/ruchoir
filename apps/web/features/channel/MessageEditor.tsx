@@ -128,7 +128,8 @@ const optionStyle: CSSProperties = {
 
 export type MessageEditorProps = {
   placeholder: string;
-  onSend: (text: string) => void;
+  /** Return `false` to keep the editor intact when the surrounding composer cannot send yet. */
+  onSend: (text: string) => boolean | void;
   /** Files pasted from the clipboard are attachments, not editor content. */
   onPasteFiles?: (files: File[]) => void;
   ariaLabel?: string;
@@ -266,7 +267,7 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
     const ed = edRef.current;
     if (!ed) return;
     const text = serialize(ed).replace(/\s+$/, "");
-    if (text.trim()) onSend(text);
+    if (text.trim() && onSend(text) === false) return;
     ed.innerHTML = "";
     setTrigger(null);
     setEmpty(true);

@@ -173,14 +173,15 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                     <span style={{ display: "block", fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)", marginTop: 2, textWrap: "pretty" }}>
                       {messageSummary(m) ?? t("activity.attachment")}
                     </span>
-                    {m.image?.src ? (
+                    {(m.images ?? (m.image ? [m.image] : [])).map((image, index) => image.src ? (
                       // A pinned photograph is pinned for what it shows. The row is already
                       // multi-line and carries attachment rows, so there is space for the thing
                       // itself rather than a word describing it.
                       // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by the API
                       <img
-                        src={m.image.src}
-                        alt={m.image.alt}
+                        key={image.fileId ?? `${image.alt}-${index}`}
+                        src={image.src}
+                        alt={image.alt}
                         style={{
                           display: "block",
                           marginTop: 6,
@@ -190,7 +191,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                           border: "1px solid var(--border-subtle)",
                         }}
                       />
-                    ) : null}
+                    ) : null)}
                     {m.link ? (
                       <a
                         href={m.link.url}
@@ -205,18 +206,22 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
                         {m.link.domain}
                       </a>
                     ) : null}
-                    {m.attachment ? (
+                    {(m.attachments ?? (m.attachment ? [m.attachment] : [])).map((attachment, index) => (
                       <button
+                        key={attachment.fileId ?? `${attachment.name}-${index}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onNotify({ tone: "info", title: t("panel.downloading"), description: m.attachment?.name });
+                          onNotify({ tone: "info", title: t("panel.downloading"), description: attachment.name });
                         }}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, border: 0, background: "none", padding: 0, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-link)" }}
+                        title={attachment.name}
+                        style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", minWidth: 0, marginTop: 6, border: 0, background: "none", padding: 0, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-link)" }}
                       >
-                        <Icon name="download" size={14} />
-                        {m.attachment.name}
+                        <Icon name="download" size={14} style={{ flex: "none" }} />
+                        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {attachment.name}
+                        </span>
                       </button>
-                    ) : null}
+                    ))}
                   </span>
                 </div>
               ))
