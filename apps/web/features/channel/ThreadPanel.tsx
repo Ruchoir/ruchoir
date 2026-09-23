@@ -3,13 +3,16 @@
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Icon, IconButton, Popover } from "@/components/ds";
 import type { Presence } from "@/components/ds";
-import type { Message } from "@/lib/data";
+import type { Message, MessageAttachment } from "@/lib/data";
+import { deleteFile } from "@/lib/data/api";
+import { formatBytes } from "@/lib/i18n/format";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 import { MessageRow, type MessageActions } from "./MessageRow";
 import { useStickToBottom } from "./useStickToBottom";
 import { THREAD_WIDTH_MAX, THREAD_WIDTH_MIN, useSettings } from "../app/settings";
 import { useTranslation } from "@/lib/i18n";
+import type { Toast } from "../app/types";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
@@ -56,7 +59,6 @@ const styles: Record<string, CSSProperties> = {
     padding: 12,
   },
   composerBox: {
-    border: "1px solid var(--border-default)",
     borderRadius: "var(--radius-lg)",
     background: "var(--surface-canvas)",
     padding: "8px 10px",
@@ -68,6 +70,15 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: 6,
     fontSize: 12,
     color: "var(--text-muted)",
+  },
+  chip: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    border: "1px solid var(--border-subtle)",
+    borderRadius: "var(--radius-md)",
+    padding: "4px 6px",
+    fontSize: 12,
   },
 };
 
@@ -85,8 +96,11 @@ export type ThreadPanelProps = {
   onSendReply: (text: string) => void;
   /** Set while one of *these* messages is being edited: the thread composer takes the edit. */
   editing?: { id: string; body: string } | null;
-  onSaveEdit?: (text: string) => void;
+  onSaveEdit?: (text: string, attachments?: MessageAttachment[]) => void;
   onCancelEdit?: () => void;
+  /** Store a file selected while editing a reply. */
+  onUpload: (file: File) => Promise<MessageAttachment>;
+  onNotify: (toast: Toast) => void;
   onClose: () => void;
 };
 
@@ -108,6 +122,8 @@ export function ThreadPanel({
   editing,
   onSaveEdit,
   onCancelEdit,
+  onUpload,
+  onNotify,
   onClose,
 }: ThreadPanelProps) {
   const { t } = useTranslation();
@@ -124,6 +140,10 @@ export function ThreadPanel({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const editorRef = useRef<MessageEditorHandle>(null);
   const emojiRef = useRef<HTMLButtonElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [editPending, setEditPending] = useState<MessageAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const activeUploads = useRef(0);
 
   // Tombstones stay on screen (a thread reads as it happened) but are not replies any more, so this
   // count says the same thing as the one the feed draws under the root message.
@@ -165,12 +185,62 @@ export function ThreadPanel({
     [width, settings],
   );
 
-  const submit = (text: string) => {
+  const submit = (text: string): boolean => {
+    if (activeUploads.current > 0) return false;
     if (editing) {
-      onSaveEdit?.(text);
-      return;
+      onSaveEdit?.(text, editPending.length ? editPending : undefined);
+      setEditPending([]);
+      return true;
     }
     onSendReply(text);
+    return true;
+  };
+
+  const discardEditFiles = () => {
+    for (const attachment of editPending) {
+      if (attachment.fileId) void deleteFile(attachment.fileId).catch(() => {});
+    }
+    setEditPending([]);
+  };
+
+  const cancelEdit = () => {
+    discardEditFiles();
+    onCancelEdit?.();
+  };
+
+  const addFiles = async (files: File[]) => {
+    if (!editing || files.length === 0) return;
+    if (fileRef.current) fileRef.current.value = "";
+    activeUploads.current += 1;
+    setUploading(true);
+    try {
+      for (const file of files) {
+        const provisional: MessageAttachment = { name: file.name, sizeBytes: file.size, kind: file.type.startsWith("image") ? "image" : "file" };
+        setEditPending((current) => [...current, provisional]);
+        try {
+          const stored = await onUpload(file);
+          setEditPending((current) => current.map((attachment) => attachment === provisional ? stored : attachment));
+        } catch {
+          setEditPending((current) => current.filter((attachment) => attachment !== provisional));
+          onNotify({ tone: "danger", title: t("composer.uploadFailed"), description: t("composer.uploadFailedName", { name: file.name }) });
+        }
+      }
+    } finally {
+      activeUploads.current -= 1;
+      setUploading(activeUploads.current > 0);
+    }
+  };
+
+  const clickSend = () => {
+    const editor = editorRef.current;
+    if (!editor || activeUploads.current > 0) return;
+    if (editing && editPending.length > 0 && editor.isEmpty()) {
+      submit("");
+      editor.clear();
+      editor.focus();
+      return;
+    }
+    editor.submit();
   };
 
   const row = (m: Message) => (
@@ -204,21 +274,21 @@ export function ThreadPanel({
         {replies.map(row)}
       </div>
       <div style={styles.composer}>
-        <div style={styles.composerBox}>
+        <div className="wc-message-composer" style={styles.composerBox}>
           {editing ? (
             <div style={styles.editingBanner}>
               <Icon name="square-pen" size={14} style={{ color: "var(--text-accent)" }} />
               <span style={{ fontWeight: 600, color: "var(--text-accent)" }}>{t("composer.editing")}</span>
               <span style={{ color: "var(--text-subtle)" }}>{t("composer.escToCancel")}</span>
               <div style={{ flex: 1 }} />
-              <IconButton icon="x" label={t("composer.cancelEdit")} size="sm" onClick={() => onCancelEdit?.()} />
+              <IconButton icon="x" label={t("composer.cancelEdit")} size="sm" onClick={cancelEdit} />
             </div>
           ) : null}
           <div
             onKeyDown={(e) => {
               if (editing && e.key === "Escape") {
                 e.stopPropagation();
-                onCancelEdit?.();
+                cancelEdit();
               }
             }}
           >
@@ -226,9 +296,31 @@ export function ThreadPanel({
               ref={editorRef}
               placeholder={editing ? t("message.editMessage") : t("thread.replyPlaceholder")}
               onSend={submit}
+              onPasteFiles={(files) => void addFiles(files)}
             />
           </div>
+          {editing && editPending.length > 0 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+              {editPending.map((attachment, index) => (
+                <div key={`${attachment.name}-${index}`} style={styles.chip}>
+                  <Icon name={attachment.kind} size={16} />
+                  <span>{attachment.name}</span>
+                  <span style={{ color: "var(--text-subtle)" }}>{attachment.fileId ? formatBytes(attachment.sizeBytes) : t("composer.uploading")}</span>
+                  <IconButton icon="x" label={t("composer.removeAttachment")} size="sm" disabled={!attachment.fileId} onClick={() => {
+                    if (attachment.fileId) void deleteFile(attachment.fileId).catch(() => {});
+                    setEditPending((current) => current.filter((_, currentIndex) => currentIndex !== index));
+                  }} />
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, marginTop: 4 }}>
+            {editing ? (
+              <>
+                <IconButton icon="paperclip" label={t("composer.attach")} size="sm" onClick={() => fileRef.current?.click()} />
+                <input ref={fileRef} type="file" multiple style={{ display: "none" }} onChange={(event) => void addFiles(Array.from(event.target.files ?? []))} />
+              </>
+            ) : null}
             <IconButton
               ref={emojiRef}
               icon="smile"
@@ -245,7 +337,7 @@ export function ThreadPanel({
                 }}
               />
             </Popover>
-            <IconButton icon="send" label={t("composer.send")} variant="accent" size="sm" onClick={() => editorRef.current?.submit()} />
+            <IconButton icon="send" label={t("composer.send")} variant="accent" size="sm" disabled={uploading} onClick={clickSend} />
           </div>
         </div>
       </div>

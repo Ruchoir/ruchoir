@@ -14,6 +14,7 @@ import { Emoji } from "../app/Emoji";
 import { useEmojiManifest } from "../app/emojiManifest";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import {
+  continuedLinePrefix,
   editorState,
   emojiNode,
   insertBlockAtSelection,
@@ -127,7 +128,8 @@ const optionStyle: CSSProperties = {
 
 export type MessageEditorProps = {
   placeholder: string;
-  onSend: (text: string) => void;
+  /** Return `false` to keep the editor intact when the surrounding composer cannot send yet. */
+  onSend: (text: string) => boolean | void;
   /** Files pasted from the clipboard are attachments, not editor content. */
   onPasteFiles?: (files: File[]) => void;
   ariaLabel?: string;
@@ -265,7 +267,7 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
     const ed = edRef.current;
     if (!ed) return;
     const text = serialize(ed).replace(/\s+$/, "");
-    if (text.trim()) onSend(text);
+    if (text.trim() && onSend(text) === false) return;
     ed.innerHTML = "";
     setTrigger(null);
     setEmpty(true);
@@ -480,7 +482,12 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
     if (e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
       const ed = edRef.current;
-      if (ed) insertLineBreakAtSelection(ed);
+      if (ed) {
+        const { text, caret } = editorState(ed);
+        const prefix = continuedLinePrefix(text, caret);
+        insertLineBreakAtSelection(ed);
+        if (prefix) insertTextAtSelection(prefix);
+      }
       sync();
     }
   };

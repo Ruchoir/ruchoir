@@ -485,6 +485,69 @@ async fn only_the_author_can_edit() {
 }
 
 #[tokio::test]
+async fn editing_a_message_can_add_an_attachment() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+
+    let created: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &alice,
+        )
+        .json(&json!({ "body": "the plan" }))
+        .send()
+        .await
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    let message_id = created["id"].as_str().expect("id");
+
+    let file_id = Uuid::new_v4();
+    files::ActiveModel {
+        id: Set(file_id),
+        space_id: Set(fx.space_id),
+        owner_id: Set(Some(fx.alice)),
+        name: Set("plan.pdf".to_owned()),
+        kind: Set("file".to_owned()),
+        size_bytes: Set(12),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("file");
+
+    let edited = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/messages/{message_id}"),
+            &alice,
+        )
+        .json(&json!({ "body": "the updated plan", "attachments": [file_id] }))
+        .send()
+        .await
+        .expect("patch");
+    assert_eq!(edited.status(), 200);
+    let edited: Value = edited.json().await.expect("json");
+    assert_eq!(edited["body"], "the updated plan");
+    assert_eq!(edited["attachments"][0]["file_id"], file_id.to_string());
+
+    let link = message_attachments::Entity::find_by_id((
+        Uuid::parse_str(message_id).expect("message id"),
+        file_id,
+    ))
+    .one(&app.db)
+    .await
+    .expect("attachment query");
+    assert!(
+        link.is_some(),
+        "the added file is linked to the edited message"
+    );
+}
+
+#[tokio::test]
 async fn reactions_toggle_idempotently() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;

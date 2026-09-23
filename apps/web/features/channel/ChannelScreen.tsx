@@ -261,7 +261,7 @@ export type ChannelScreenProps = {
   readAudience: number;
   /** The message being edited, which the composer picks up instead of a dialog. */
   editing?: { id: string; body: string } | null;
-  onSaveEdit?: (text: string) => void;
+  onSaveEdit?: (text: string, attachments?: MessageAttachment[]) => void;
   onCancelEdit?: () => void;
   /** The space's files, for the in-channel file panel and search. */
   files: SpaceFile[];
@@ -483,6 +483,21 @@ export function ChannelScreen({
    * the previous one's files while the request is in flight.
    */
   const [conversationFiles, setConversationFiles] = useState<{ channelId: string; rows: SpaceFile[] } | null>(null);
+  // A message is inserted optimistically before the API has linked its uploaded files. Keying the
+  // reload on the message count therefore races the send: the early request returns the old list,
+  // and replacing the temporary row with the persisted row does not change that count. Track the
+  // persisted attachment identities instead, so the acknowledgement and live messages carrying a
+  // file trigger a fresh read while ordinary messages do not.
+  const persistedFilesRevision = messages
+    .filter((message) => !message.id.startsWith("tmp-"))
+    .flatMap((message) => [
+      ...(message.attachments ?? (message.attachment ? [message.attachment] : [])),
+      ...(message.images ?? (message.image ? [{ fileId: message.image.fileId }] : [])),
+    ])
+    .map((attachment) => `${attachment.fileId ?? ""}:${"deleted" in attachment && attachment.deleted ? "deleted" : "present"}`)
+    .filter((identity) => !identity.startsWith(":"))
+    .sort()
+    .join("|");
   useEffect(() => {
     if (panel !== "files") return;
     let active = true;
@@ -496,7 +511,7 @@ export function ChannelScreen({
     return () => {
       active = false;
     };
-  }, [panel, channel.id, messages.length]);
+  }, [panel, channel.id, persistedFilesRevision]);
   const panelFiles = conversationFiles?.channelId === channel.id ? conversationFiles.rows : [];
 
   useEffect(() => {
@@ -577,6 +592,8 @@ export function ChannelScreen({
       editing={editingInThread ? editing : null}
       onSaveEdit={onSaveEdit}
       onCancelEdit={onCancelEdit}
+      onUpload={onUploadAttachment}
+      onNotify={onNotify}
       onClose={onCloseThread}
     />
   ) : panel === "search" ? (

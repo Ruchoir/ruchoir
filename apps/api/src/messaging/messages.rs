@@ -403,8 +403,13 @@ pub async fn edit_message(
     }
 
     let text = body.body.trim();
-    if text.is_empty() {
-        return Err(ApiError::BadRequest("message body is empty"));
+    let existing_attachments = message_attachments::Entity::find()
+        .filter(message_attachments::Column::MessageId.eq(message_id))
+        .order_by_asc(message_attachments::Column::Position)
+        .all(&state.db)
+        .await?;
+    if text.is_empty() && existing_attachments.is_empty() && body.attachments.is_empty() {
+        return Err(ApiError::BadRequest("a message needs text or a file"));
     }
     if text.chars().count() > MAX_BODY_CHARS {
         return Err(ApiError::BadRequest("message body is too long"));
@@ -435,6 +440,40 @@ pub async fn edit_message(
         }
         .insert(&txn)
         .await?;
+    }
+
+    // Editing adds newly uploaded files without disturbing the files already shared on the
+    // message. Repeated ids are ignored, both within this request and against existing links.
+    let mut seen: HashSet<Uuid> = existing_attachments
+        .iter()
+        .map(|attachment| attachment.file_id)
+        .collect();
+    let mut position = existing_attachments
+        .iter()
+        .map(|attachment| attachment.position)
+        .max()
+        .map_or(0, |last| last + 1);
+    for file_id in &body.attachments {
+        if !seen.insert(*file_id) {
+            continue;
+        }
+        let file = files::Entity::find_by_id(*file_id)
+            .one(&txn)
+            .await?
+            .ok_or(ApiError::BadRequest("attachment not found"))?;
+        if file.space_id != access.space_id || file.deleted_at.is_some() || file.kind == "folder" {
+            return Err(ApiError::BadRequest("invalid attachment"));
+        }
+        message_attachments::ActiveModel {
+            message_id: Set(message_id),
+            file_id: Set(*file_id),
+            file_version_id: Set(file.current_version_id),
+            position: Set(position),
+            ..Default::default()
+        }
+        .insert(&txn)
+        .await?;
+        position += 1;
     }
     txn.commit().await?;
 

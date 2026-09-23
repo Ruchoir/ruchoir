@@ -456,7 +456,15 @@ usage with the design-system oxlint config.
 - **The composer uploads on pick, not on send.** A picked file is stored straight away through
   `POST /conversations/{id}/attachments` and the message then carries only its id, so a slow upload
   never blocks the message and a refused one is reported while there is still something to do about
-  it. Sending is disabled while an upload is in flight, because there would be no id to attach.
+  it. Sending is disabled while any upload is in flight, because there would be no id to attach.
+  File picking, dropping and clipboard paste can overlap, so this is tracked as a count rather than
+  a boolean: the first group to finish must not re-enable sending while another is still moving.
+  The editor also refuses Enter during that interval and keeps its text intact.
+- **A message renders every attachment array entry.** `Message.attachment` and `Message.image` are
+  first-item compatibility aliases only; full message rows and pinned-message panels read
+  `attachments` and `images`, falling back to the aliases for old fixture rows. File cards constrain
+  every flex child and ellipsize the original name on one line, so a long name never pushes its
+  actions away.
 - **A picked avatar or space icon goes through `ImageCropDialog` before it is uploaded**, because
   both are only ever shown as squares and leaving that to CSS means nobody chose the framing. The
   server centre-crops anyway, as the guarantee; the dialog is what decides *which* square.

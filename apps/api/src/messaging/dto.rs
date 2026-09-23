@@ -454,6 +454,9 @@ pub struct SendMessageRequest {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct EditMessageRequest {
     pub body: String,
+    /// Ids of already-uploaded files to add to the message. Existing attachments are preserved.
+    #[serde(default)]
+    pub attachments: Vec<Uuid>,
 }
 
 /// A bookmarked message, with where it was said.

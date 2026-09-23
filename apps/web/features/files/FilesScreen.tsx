@@ -594,9 +594,14 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                 <div title={f.name} style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
                   {truncateMiddle(f.name)}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 12, color: "var(--text-muted)" }}>
                   <Avatar name={f.by} src={getAvatar(f.by)} size={18} />
-                  {f.kind === "folder" ? null : formatBytes(f.sizeBytes)}
+                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by}</span>
+                  {f.kind === "folder" ? null : (
+                    <span style={{ flex: "none" }}>
+                      · {formatBytes(f.sizeBytes)}
+                    </span>
+                  )}
                 </div>
                 {f.imported ? <Tag brand={brandFor(f.source) ?? undefined} icon={brandFor(f.source) ? undefined : "import"}>{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : null}
               </Card>
