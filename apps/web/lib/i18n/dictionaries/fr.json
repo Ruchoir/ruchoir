@@ -96,6 +96,7 @@
     "resentNeutral": "Si cette adresse correspond à un compte en attente, un nouveau lien vient d'être envoyé."
   },
   "common": {
+    "loading": "Chargement…",
     "backToLogin": "Revenir à la connexion",
     "checkInbox": "Vérifiez votre boîte mail",
     "sending": "Envoi…",
@@ -430,7 +431,6 @@
     "prompt": "Tapez pour rechercher dans ce canal.",
     "noResult": "Aucun résultat",
     "noMessageOrFile": "Aucun message ou fichier pour « {{query}} ».",
-    "searching": "Recherche…",
     "querying": "Interrogation du serveur.",
     "messagesCount_one": "Messages ({{count}})",
     "messagesCount_other": "Messages ({{count}})",
@@ -565,7 +565,6 @@
     "noPreviewText": "Téléchargez le fichier pour l'ouvrir.",
     "count_one": "{{count}} élément",
     "count_other": "{{count}} éléments",
-    "loadingShort": "Chargement…",
     "emptyFolder": "Dossier vide",
     "noFile": "Aucun fichier",
     "folderEmptyText": "Ce dossier ne contient aucun fichier pour l'instant.",

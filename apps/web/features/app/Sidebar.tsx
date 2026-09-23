@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type DragEvent, type ReactNode, useRef, useState } from "react";
-import { Avatar, Badge, Icon, IconButton, Input, Popover, Tag, type IconName, type TagTone } from "@/components/ds";
+import { Avatar, Badge, Icon, IconButton, Input, Popover, Skeleton, SkeletonGroup, Tag, type IconName, type TagTone } from "@/components/ds";
 import type { Channel, DirectMessage, Workspace } from "@/lib/data";
 import { MenuPopover } from "./MenuPopover";
 import { NotificationCenter } from "./NotificationCenter";
@@ -95,6 +95,7 @@ function item(on: boolean): CSSProperties {
     // A shape cue on top of the colour so the active channel is legible even where the pale selected
     // surface has low contrast against the canvas.
     boxShadow: on ? "inset 3px 0 0 0 var(--border-accent)" : undefined,
+    transition: "background-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)",
   };
 }
 
@@ -120,6 +121,7 @@ const menuStyle: CSSProperties = {
 
 const menuItemStyle: CSSProperties = {
   display: "flex",
+  transition: "background-color var(--duration-fast) var(--ease-out)",
   alignItems: "center",
   gap: 8,
   width: "100%",
@@ -388,6 +390,11 @@ export type SidebarProps = {
    * space: it used to be "sign out", which ended the whole session from a menu about one space.
    */
   onLeaveSpace: () => void;
+  /**
+   * A space is being entered: its channels and conversations are not known yet, so placeholders
+   * stand for them rather than the lists of the space being left.
+   */
+  loading?: boolean;
   /** Compact (mobile) mode: full width, no wordmark/header/search (the mobile top bar owns those). */
   compact?: boolean;
   /** Render only one section, for the compact bottom-tab panels. Omit for the full desktop column. */
@@ -395,6 +402,18 @@ export type SidebarProps = {
   /** Dev/audit only: open the notification center on mount so the popover can be probed under zoom. */
   openNotifications?: boolean;
 };
+
+/** Placeholder rows at the size of sidebar rows, while a space's lists load. */
+function SideSkeleton({ widths, round = false, label }: { widths: number[]; round?: boolean; label?: string }) {
+  const rows = widths.map((width, i) => (
+    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, height: 32, padding: "0 8px" }}>
+      <Skeleton circle={round} width={round ? 20 : 14} height={round ? 20 : 14} />
+      <Skeleton width={`${width * 100}%`} height={10} />
+    </div>
+  ));
+  // Announced once for the whole column: the second group is only drawn.
+  return label ? <SkeletonGroup label={label}>{rows}</SkeletonGroup> : <div className="wc-skel-group">{rows}</div>;
+}
 
 /** Channel/DM navigation column for the active workspace. */
 export function Sidebar({
@@ -433,6 +452,7 @@ export function Sidebar({
   onMarkAllNotifsRead,
   onOpenNotifPrefs,
   onLeaveSpace,
+  loading = false,
   compact = false,
   only,
   openNotifications = false,
@@ -648,7 +668,12 @@ export function Sidebar({
           </>
         ) : null}
 
-        {showChannels ? (
+        {showChannels && loading ? (
+          <>
+            <div style={styles.sect}>{t("tabs.channels")}</div>
+            <SideSkeleton widths={[0.55, 0.4, 0.62, 0.35, 0.48]} label={t("common.loading")} />
+          </>
+        ) : showChannels ? (
           <>
             <div style={styles.sect}>{t("sidebar.favourites")}</div>
             {channels.every((c) => !c.fav) ? (
@@ -731,7 +756,12 @@ export function Sidebar({
           </>
         ) : null}
 
-        {showMessages ? (
+        {showMessages && loading ? (
+          <>
+            <div style={styles.sect}>{t("sidebar.directMessages")}</div>
+            <SideSkeleton widths={[0.5, 0.42, 0.58]} round />
+          </>
+        ) : showMessages ? (
           <>
             <div style={styles.sect}>{t("sidebar.directMessages")}</div>
             {directMessages.length === 0 ? (

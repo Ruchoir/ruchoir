@@ -96,6 +96,7 @@
     "resentNeutral": "Se questo indirizzo corrisponde a un account in attesa, un nuovo link è appena stato inviato."
   },
   "common": {
+    "loading": "Caricamento…",
     "backToLogin": "Torna all'accesso",
     "checkInbox": "Controlla la tua posta",
     "sending": "Invio…",
@@ -433,7 +434,6 @@
     "prompt": "Digita per cercare in questo canale.",
     "noResult": "Nessun risultato",
     "noMessageOrFile": "Nessun messaggio o file per «{{query}}».",
-    "searching": "Ricerca…",
     "querying": "Interrogazione del server.",
     "messagesCount_one": "Messaggi ({{count}})",
     "messagesCount_other": "Messaggi ({{count}})",
@@ -572,7 +572,6 @@
     "noPreviewText": "Scarica il file per aprirlo.",
     "count_one": "{{count}} elemento",
     "count_other": "{{count}} elementi",
-    "loadingShort": "Caricamento…",
     "emptyFolder": "Cartella vuota",
     "noFile": "Nessun file",
     "folderEmptyText": "Questa cartella non contiene ancora alcun file.",

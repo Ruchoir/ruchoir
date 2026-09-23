@@ -335,6 +335,7 @@ export function MessageRow({
   return (
     <div
       data-mid={m.id}
+      className={m.fresh ? "wc-enter" : undefined}
       style={{
         ...styles.msg,
         // The two halves of the gap are decided separately, because they answer different questions.

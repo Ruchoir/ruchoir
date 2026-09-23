@@ -30,6 +30,8 @@ export type { IconButtonProps, IconButtonSize, IconButtonVariant } from "./IconB
 export { IconLink } from "./IconLink";
 export type { IconLinkProps } from "./IconLink";
 export { Popover } from "./Popover";
+export { Skeleton, SkeletonGroup } from "./Skeleton";
+export type { SkeletonProps } from "./Skeleton";
 export type { PopoverProps } from "./Popover";
 export { Input } from "./Input";
 export type { InputProps, InputSize } from "./Input";

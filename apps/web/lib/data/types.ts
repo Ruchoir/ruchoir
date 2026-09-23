@@ -220,6 +220,11 @@ export type MessageKind = "message" | "system";
 export type Message = {
   /** Stable message id. A UUID string from the API (was a numeric id under the mock seam). */
   id: string;
+  /**
+   * Arrived while the conversation was being watched (received live, caught up, or just sent), as
+   * opposed to loaded with the history: drawn with a short entrance so it is noticed.
+   */
+  fresh?: boolean;
   /** "system" for join/leave and similar notices; defaults to a normal message. */
   kind?: MessageKind;
   author: string;

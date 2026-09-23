@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, Fragment, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Icon, IconButton, Tooltip } from "@/components/ds";
+import { Avatar, Button, Icon, IconButton, Skeleton, SkeletonGroup, Tooltip } from "@/components/ds";
 import { getAvatar, getChannelMembers } from "@/lib/data";
 import { getConversationFiles, getPinnedMessages, listChannelMembers } from "@/lib/data/api";
 import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } from "@/lib/data";
@@ -210,8 +210,16 @@ export type ChannelScreenProps = {
   /** Set when the open conversation is a direct message rather than a channel. */
   dm?: DirectMessage | null;
   messages: Message[];
+  /**
+   * The conversation's history has not arrived yet (a space being entered, a conversation of it not
+   * loaded so far). The feed draws placeholders instead of its introduction, which would otherwise
+   * announce an empty conversation that is not.
+   */
+  loading?: boolean;
   panel: ChannelPanel;
   threadId: string | null;
+  /** The open thread's replies are being fetched. */
+  threadLoading?: boolean;
   /** The open thread's replies, oldest first. Empty when no thread is open. */
   threadReplies: Message[];
   /** Answer in the open thread. */
@@ -306,6 +314,7 @@ export function ChannelScreen({
   messages,
   panel,
   threadId,
+  threadLoading = false,
   threadReplies,
   onSendReply,
   profileName,
@@ -342,6 +351,7 @@ export function ChannelScreen({
   onTyping,
   compact = false,
   actions,
+  loading = false,
 }: ChannelScreenProps) {
   const { t } = useTranslation();
   const isDm = !!dm;
@@ -358,7 +368,8 @@ export function ChannelScreen({
    * A direct message has no roster endpoint: its people are the ones it is with, which the sidebar
    * row already names.
    */
-  const [roster, setRoster] = useState<{ channelId: string; userIds: string[]; myRole?: string } | null>(
+  // `userIds` is null when the roster could not be fetched: the panel then falls back to the space.
+  const [roster, setRoster] = useState<{ channelId: string; userIds: string[] | null; myRole?: string } | null>(
     null,
   );
   /**
@@ -388,7 +399,7 @@ export function ChannelScreen({
       )
       // A failed roster leaves the panel on the space list rather than on nothing: it is the same
       // approximation the screen has always shown, and it is never the reason to hide the panel.
-      .catch(() => {});
+      .catch(() => active && setRoster({ channelId: channel.id, userIds: null }));
     return () => {
       active = false;
     };
@@ -621,6 +632,7 @@ export function ChannelScreen({
       onNotify={onNotify}
       onClose={onCloseThread}
       readOnlyNotice={isVisitor ? visitorNotice : undefined}
+      loadingReplies={threadLoading}
     />
   ) : panel === "search" ? (
     <SearchPanel
@@ -635,6 +647,8 @@ export function ChannelScreen({
       kind={panel}
       files={panelFiles}
       members={memberList}
+      // The channel's own roster has not arrived: the space's list would be the wrong people.
+      membersLoading={!isDm && roster?.channelId !== channel.id}
       pinned={pinned}
       highlightFile={highlightFile}
       onClose={() => onPanel(null)}
@@ -737,82 +751,107 @@ export function ChannelScreen({
         </div>
         <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div style={{ ...styles.feed, paddingBottom: typing.length > 0 ? 60 : 8 }} ref={feedRef}>
-          <div style={styles.inner}>
-            <div style={{ padding: "4px 0 14px" }}>
-              {isDm ? (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <Avatar name={dm.name} src={getAvatar(dm.name)} size={44} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
-                    <div>
-                      <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
-                        {dm.name}
-                      </div>
-                      {dmProfile?.role ? <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{dmProfile.role}</div> : null}
+          {/* Keyed on the conversation: switching fades the new one in instead of swapping it. */}
+          <div style={styles.inner} key={isDm ? dm.id : channel.id} className="wc-fade-in">
+            {loading ? (
+              <SkeletonGroup label={t("common.loading")} style={{ padding: "8px 0" }}>
+                {[
+                  [0.5, 0.8],
+                  [0.35],
+                  [0.6, 0.9, 0.4],
+                  [0.45],
+                  [0.7, 0.55],
+                ].map((lines, i) => (
+                  <div key={i} style={{ display: "flex", gap: 14, padding: "10px 0" }}>
+                    <Skeleton circle width={36} height={36} />
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, paddingTop: 2 }}>
+                      <Skeleton width={120} height={11} />
+                      {lines.map((width, j) => (
+                        <Skeleton key={j} width={`${width * 100}%`} height={11} />
+                      ))}
                     </div>
                   </div>
-                  <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 10, maxWidth: 560 }}>
-                    {t("conversation.dmStart", { name: dm.name.split(" ")[0] })}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
-                    #{channel.name}
-                  </div>
-                  <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6, maxWidth: 560 }}>
-                    {isArchived ? t("conversation.archivedNotice") : channel.type === "private" ? t("conversation.privateNotice") : t("conversation.publicNotice")}{" "}
-                    {/* A topic written with its own full stop is left with it: an imported one
-                        carries whatever the source held, and "votre équipe.. L'historique" is what
-                        appending a second one looks like. */}
-                    {channel.topic ? `${channel.topic.replace(/[.!?\s]+$/, "")}. ` : ""}
-                    {channel.imported ? t("conversation.importedNotice", { source: channel.imported }) : t("conversation.channelStart")}
-                  </p>
-                </>
-              )}
-            </div>
-            {msgCount > 0 ? (
-              <div style={styles.day}>
-                <span style={styles.dayLine} />
-                <span style={styles.dayLbl}>{t("conversation.today")}</span>
-                <span style={styles.dayLine} />
-              </div>
-            ) : null}
-            {messages.map((m, index) => (
-              <Fragment key={m.id}>
-                {m.id === unreadMarker ? (
-                  <div style={styles.unread}>
-                    <span style={styles.unreadLine} />
-                    <span style={styles.unreadLabel}>{t("notif.unread")}</span>
+                ))}
+              </SkeletonGroup>
+            ) : (
+              <>
+                <div style={{ padding: "4px 0 14px" }}>
+                  {isDm ? (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <Avatar name={dm.name} src={getAvatar(dm.name)} size={44} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
+                        <div>
+                          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+                            {dm.name}
+                          </div>
+                          {dmProfile?.role ? <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{dmProfile.role}</div> : null}
+                        </div>
+                      </div>
+                      <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 10, maxWidth: 560 }}>
+                        {t("conversation.dmStart", { name: dm.name.split(" ")[0] })}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+                        #{channel.name}
+                      </div>
+                      <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6, maxWidth: 560 }}>
+                        {isArchived ? t("conversation.archivedNotice") : channel.type === "private" ? t("conversation.privateNotice") : t("conversation.publicNotice")}{" "}
+                        {/* A topic written with its own full stop is left with it: an imported one
+                            carries whatever the source held, and "votre équipe.. L'historique" is what
+                            appending a second one looks like. */}
+                        {channel.topic ? `${channel.topic.replace(/[.!?\s]+$/, "")}. ` : ""}
+                        {channel.imported ? t("conversation.importedNotice", { source: channel.imported }) : t("conversation.channelStart")}
+                      </p>
+                    </>
+                  )}
+                </div>
+                {msgCount > 0 ? (
+                  <div style={styles.day}>
+                    <span style={styles.dayLine} />
+                    <span style={styles.dayLbl}>{t("conversation.today")}</span>
+                    <span style={styles.dayLine} />
                   </div>
                 ) : null}
-                {m.kind === "system" ? (
-                  <SystemMessage m={m} />
-                ) : (
-                  <MessageRow
-                    m={m}
-                    importedFrom={channel.imported}
-                    readBy={readBy[m.id]}
-                    readAudience={readAudience}
-                    grouped={followsSameAuthor(messages[index - 1], m) && m.id !== unreadMarker}
-                    endsRun={
-                      !messages[index + 1] ||
-                      messages[index + 1].id === unreadMarker ||
-                      !followsSameAuthor(m, messages[index + 1])
-                    }
-                    authorPresence={presenceByName.get(m.author)}
-                    authorAvatar={avatarByName.get(m.author)}
-                    canPin={
-                      canModerateChannels &&
-                      channel.member !== false &&
-                      (!m.pinned || m.pinnedBy === myUserId || canModerate)
-                    }
-                    replyFaces={replyFaces(m)}
-                    actions={rowActions(m)}
-                    readOnly={isVisitor}
-                  />
-                )}
-              </Fragment>
-            ))}
+                {messages.map((m, index) => (
+                  <Fragment key={m.id}>
+                    {m.id === unreadMarker ? (
+                      <div style={styles.unread}>
+                        <span style={styles.unreadLine} />
+                        <span style={styles.unreadLabel}>{t("notif.unread")}</span>
+                      </div>
+                    ) : null}
+                    {m.kind === "system" ? (
+                      <SystemMessage m={m} />
+                    ) : (
+                      <MessageRow
+                        m={m}
+                        importedFrom={channel.imported}
+                        readBy={readBy[m.id]}
+                        readAudience={readAudience}
+                        grouped={followsSameAuthor(messages[index - 1], m) && m.id !== unreadMarker}
+                        endsRun={
+                          !messages[index + 1] ||
+                          messages[index + 1].id === unreadMarker ||
+                          !followsSameAuthor(m, messages[index + 1])
+                        }
+                        authorPresence={presenceByName.get(m.author)}
+                        authorAvatar={avatarByName.get(m.author)}
+                        canPin={
+                          canModerateChannels &&
+                          channel.member !== false &&
+                          (!m.pinned || m.pinnedBy === myUserId || canModerate)
+                        }
+                        replyFaces={replyFaces(m)}
+                        actions={rowActions(m)}
+                        readOnly={isVisitor}
+                      />
+                    )}
+                  </Fragment>
+                ))}
+              </>
+            )}
           </div>
         </div>
           {!following && msgCount > 0 ? (

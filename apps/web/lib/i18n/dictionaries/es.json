@@ -96,6 +96,7 @@
     "resentNeutral": "Si esa dirección corresponde a una cuenta pendiente, acabamos de enviar un nuevo enlace."
   },
   "common": {
+    "loading": "Cargando…",
     "backToLogin": "Volver al inicio de sesión",
     "checkInbox": "Revisa tu correo",
     "sending": "Enviando…",
@@ -433,7 +434,6 @@
     "prompt": "Escribe para buscar en este canal.",
     "noResult": "Ningún resultado",
     "noMessageOrFile": "Ningún mensaje o archivo para «{{query}}».",
-    "searching": "Buscando…",
     "querying": "Consultando el servidor.",
     "messagesCount_one": "Mensajes ({{count}})",
     "messagesCount_other": "Mensajes ({{count}})",
@@ -572,7 +572,6 @@
     "noPreviewText": "Descarga el archivo para abrirlo.",
     "count_one": "{{count}} elemento",
     "count_other": "{{count}} elementos",
-    "loadingShort": "Cargando…",
     "emptyFolder": "Carpeta vacía",
     "noFile": "Ningún archivo",
     "folderEmptyText": "Esta carpeta aún no contiene ningún archivo.",

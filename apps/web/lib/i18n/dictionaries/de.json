@@ -96,6 +96,7 @@
     "resentNeutral": "Falls diese Adresse zu einem wartenden Konto gehört, wurde soeben ein neuer Link gesendet."
   },
   "common": {
+    "loading": "Wird geladen…",
     "backToLogin": "Zurück zur Anmeldung",
     "checkInbox": "Sehen Sie in Ihrem Postfach nach",
     "sending": "Wird gesendet…",
@@ -430,7 +431,6 @@
     "prompt": "Tippen Sie, um diesen Kanal zu durchsuchen.",
     "noResult": "Kein Ergebnis",
     "noMessageOrFile": "Keine Nachricht und keine Datei für „{{query}}“.",
-    "searching": "Wird gesucht…",
     "querying": "Der Server wird abgefragt.",
     "messagesCount_one": "Nachrichten ({{count}})",
     "messagesCount_other": "Nachrichten ({{count}})",
@@ -565,7 +565,6 @@
     "noPreviewText": "Laden Sie die Datei herunter, um sie zu öffnen.",
     "count_one": "{{count}} Element",
     "count_other": "{{count}} Elemente",
-    "loadingShort": "Wird geladen…",
     "emptyFolder": "Leerer Ordner",
     "noFile": "Keine Datei",
     "folderEmptyText": "Dieser Ordner enthält noch keine Datei.",

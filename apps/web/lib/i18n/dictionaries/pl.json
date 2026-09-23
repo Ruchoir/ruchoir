@@ -96,6 +96,7 @@
     "resentNeutral": "Jeśli ten adres odpowiada kontu oczekującemu na potwierdzenie, nowy link został właśnie wysłany."
   },
   "common": {
+    "loading": "Wczytywanie…",
     "backToLogin": "Powrót do logowania",
     "checkInbox": "Sprawdź swoją skrzynkę",
     "sending": "Wysyłanie…",
@@ -436,7 +437,6 @@
     "prompt": "Pisz, aby przeszukać ten kanał.",
     "noResult": "Brak wyników",
     "noMessageOrFile": "Brak wiadomości i plików dla „{{query}}”.",
-    "searching": "Szukanie…",
     "querying": "Odpytywanie serwera.",
     "messagesCount_one": "Wiadomości ({{count}})",
     "messagesCount_few": "Wiadomości ({{count}})",
@@ -581,7 +581,6 @@
     "count_few": "{{count}} elementy",
     "count_many": "{{count}} elementów",
     "count_other": "{{count}} elementów",
-    "loadingShort": "Wczytywanie…",
     "emptyFolder": "Pusty folder",
     "noFile": "Brak plików",
     "folderEmptyText": "Ten folder nie zawiera jeszcze żadnego pliku.",

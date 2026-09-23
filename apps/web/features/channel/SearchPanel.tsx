@@ -39,6 +39,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "12px 16px 4px",
   },
   row: {
+    transition: "background-color var(--duration-fast) var(--ease-out)",
     display: "flex",
     alignItems: "flex-start",
     gap: 10,

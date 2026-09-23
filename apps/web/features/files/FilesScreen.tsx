@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
-import { Avatar, brandFor, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Tabs, Tag } from "@/components/ds";
+import { Avatar, brandFor, Button, Card, Checkbox, Dialog, EmptyState, Field, Icon, IconButton, Input, Skeleton, SkeletonGroup, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import {
   createFolder as apiCreateFolder,
@@ -609,21 +609,31 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
           </div>
         )}
 
-        {rows.length === 0 ? (
+        {rows.length === 0 && loading ? (
+          // Rows at the size of rows: the list lands where the placeholders were.
+          <SkeletonGroup label={t("files.loading")} style={{ padding: "4px 0" }}>
+            {[0.62, 0.45, 0.7, 0.38, 0.55].map((width, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px" }}>
+                <Skeleton width={20} height={20} />
+                <Skeleton width={`${width * 100}%`} height={12} />
+                <div style={{ flex: 1 }} />
+                <Skeleton width={64} height={10} />
+              </div>
+            ))}
+          </SkeletonGroup>
+        ) : rows.length === 0 ? (
           <EmptyState
-            icon={loading ? "loader" : q ? "search" : currentFolderName ? "folder-open" : "folder"}
-            title={loading ? t("files.loadingShort") : q ? t("search.noResult") : currentFolderName ? t("files.emptyFolder") : t("files.noFile")}
+            icon={q ? "search" : currentFolderName ? "folder-open" : "folder"}
+            title={q ? t("search.noResult") : currentFolderName ? t("files.emptyFolder") : t("files.noFile")}
             description={
-              loading
-                ? t("files.loading")
-                : q
-                  ? t("files.noFileMatch", { query: q })
-                  : currentFolderName
-                    ? t("files.folderEmptyText")
-                    : t("files.emptyText")
+              q
+                ? t("files.noFileMatch", { query: q })
+                : currentFolderName
+                  ? t("files.folderEmptyText")
+                  : t("files.emptyText")
             }
             action={
-              !q && !loading ? (
+              !q ? (
                 <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()}>
                   {t("files.upload")}
                 </Button>

@@ -260,7 +260,7 @@ function applyChanges(map: MessageMap, changes: { conversationId: string; messag
       next = replaceMessage(next, conv, m);
       if (m.parentId && m.deleted && !held.deleted) next = adjustReplyCount(next, conv, m.parentId, -1);
     } else if (!m.deleted) {
-      next = upsertMessage(next, conv, m);
+      next = upsertMessage(next, conv, { ...m, fresh: true });
       if (m.parentId) next = adjustReplyCount(next, conv, m.parentId, 1, m.author);
     }
   }
@@ -500,6 +500,8 @@ function AppShell() {
   // auto-opening its default panel. Reset when they open a panel again.
   const [panelDismissed, setPanelDismissed] = useState(false);
   const [thread, setThread] = useState<string | null>(null);
+  /** The thread whose replies are being fetched, so its panel can draw placeholders meanwhile. */
+  const [threadLoading, setThreadLoading] = useState<string | null>(null);
   const [profile, setProfile] = useState<string | null>(null);
   const [profileEdit, setProfileEdit] = useState(false);
   const [unreadMarker, setUnreadMarker] = useState<string | null>(null);
@@ -1031,7 +1033,7 @@ function AppShell() {
         if (m.authorId && m.authorId === myId) return;
         const parentId = m.parentId;
         setMessages((prev) => {
-          const next = upsertMessage(prev, conv, m);
+          const next = upsertMessage(prev, conv, { ...m, fresh: true });
           // A reply is held with the rest of the conversation, and kept out of the feed when the
           // feed is drawn. What the feed does show of it is its root's counter and faces.
           return parentId ? adjustReplyCount(next, conv, parentId, 1, m.author) : next;
@@ -2319,13 +2321,15 @@ function AppShell() {
    * that happened to arrive live. Merged by id, so what is already there is refreshed, not doubled.
    */
   const loadThread = (conv: string, parentId: string) => {
+    setThreadLoading(parentId);
     void getReplies(parentId)
       .then((rows) =>
         setMessages((prev) => rows.reduce((map, m) => upsertMessage(map, conv, m), prev)),
       )
       .catch(() => {
         showToast({ tone: "info", title: t("toast.threadNotLoaded") });
-      });
+      })
+      .finally(() => setThreadLoading((current) => (current === parentId ? null : current)));
   };
 
   useEffect(() => {
@@ -2598,6 +2602,7 @@ function AppShell() {
     const tempId = `tmp-${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
+      fresh: true,
       author: currentUser,
       createdAt: new Date().toISOString(),
       body: text,
@@ -2636,6 +2641,7 @@ function AppShell() {
     const tempId = `tmp-${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
+      fresh: true,
       author: currentUser,
       authorId: session?.id,
       createdAt: new Date().toISOString(),
@@ -3414,6 +3420,7 @@ function AppShell() {
         onMarkAllNotifsRead={markAllNotifsRead}
         onOpenNotifPrefs={() => openPreferences("notifications")}
         onLeaveSpace={() => setModal("leaveSpace")}
+        loading={switchingSpace}
         openNotifications={deepLinkPop === "notifications"}
       />
   );
@@ -3463,9 +3470,13 @@ function AppShell() {
           channel={chan}
           dm={dm}
           messages={feed}
+          // Only inside a space: the offline dev deep link opens a channel with no space and no
+          // history on purpose, and the audits photograph its empty state, not a placeholder.
+          loading={!!ws && !!channelId && messages[channelId] === undefined}
           panel={panel}
           threadId={thread}
           threadReplies={threadReplies}
+          threadLoading={thread !== null && threadLoading === thread}
           onSendReply={sendReply}
           profileName={profile}
           profileEditing={profileEdit}
@@ -3883,6 +3894,7 @@ function AppShell() {
                 onMarkAllNotifsRead={markAllNotifsRead}
                 onOpenNotifPrefs={() => openPreferences("notifications")}
                 onLeaveSpace={() => setModal("leaveSpace")}
+                loading={switchingSpace}
                 />
               </main>
             )}

@@ -96,6 +96,7 @@
     "resentNeutral": "If that address matches an account awaiting confirmation, a new link has just been sent."
   },
   "common": {
+    "loading": "Loading…",
     "backToLogin": "Back to sign-in",
     "checkInbox": "Check your inbox",
     "sending": "Sending…",
@@ -430,7 +431,6 @@
     "prompt": "Type to search this channel.",
     "noResult": "No result",
     "noMessageOrFile": "No message or file for “{{query}}”.",
-    "searching": "Searching…",
     "querying": "Asking the server.",
     "messagesCount_one": "Messages ({{count}})",
     "messagesCount_other": "Messages ({{count}})",
@@ -565,7 +565,6 @@
     "noPreviewText": "Download the file to open it.",
     "count_one": "{{count}} item",
     "count_other": "{{count}} items",
-    "loadingShort": "Loading…",
     "emptyFolder": "Empty folder",
     "noFile": "No file",
     "folderEmptyText": "This folder holds no file yet.",

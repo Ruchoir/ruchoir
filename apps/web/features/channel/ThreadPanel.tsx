@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { Icon, IconButton, Popover } from "@/components/ds";
+import { Icon, IconButton, Popover, Skeleton, SkeletonGroup } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Message, MessageAttachment } from "@/lib/data";
 import { deleteFile } from "@/lib/data/api";
@@ -107,6 +107,8 @@ export type ThreadPanelProps = {
    * of the composer (the same notice and join button the feed shows), and every row is read-only.
    */
   readOnlyNotice?: ReactNode;
+  /** The replies are being fetched: placeholders stand where they will be, when some are expected. */
+  loadingReplies?: boolean;
 };
 
 /**
@@ -131,6 +133,7 @@ export function ThreadPanel({
   onNotify,
   onClose,
   readOnlyNotice,
+  loadingReplies = false,
 }: ThreadPanelProps) {
   const { t } = useTranslation();
   const settings = useSettings();
@@ -278,7 +281,21 @@ export function ThreadPanel({
           {t("message.replies", { count: liveReplies })}
           <span style={styles.countLine} />
         </div>
-        {replies.map(row)}
+        {loadingReplies && replies.length === 0 && (parent.replies ?? 0) > 0 ? (
+          <SkeletonGroup label={t("common.loading")}>
+            {Array.from({ length: Math.min(parent.replies ?? 0, 3) }, (_, i) => (
+              <div key={i} style={{ display: "flex", gap: 12, padding: "8px 0" }}>
+                <Skeleton circle width={32} height={32} />
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, paddingTop: 2 }}>
+                  <Skeleton width={100} height={10} />
+                  <Skeleton width={`${[80, 55, 70][i]}%`} height={10} />
+                </div>
+              </div>
+            ))}
+          </SkeletonGroup>
+        ) : (
+          replies.map(row)
+        )}
       </div>
       {readOnlyNotice ? (
         <div style={styles.composer}>{readOnlyNotice}</div>
