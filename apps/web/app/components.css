@@ -504,6 +504,15 @@
   border-color: var(--terracotta-500);
   box-shadow: 0 0 0 3px var(--terracotta-100);
 }
+
+/* Message composers stay quiet at rest and regain the regular control edge while in use. */
+.wc-message-composer {
+  border: var(--border-width) solid var(--border-subtle);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.wc-message-composer:focus-within {
+  border-color: var(--border-default);
+}
 .wc-inp--invalid {
   border-color: var(--crimson-500);
 }

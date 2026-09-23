@@ -59,7 +59,6 @@ const styles: Record<string, CSSProperties> = {
     padding: 12,
   },
   composerBox: {
-    border: "1px solid var(--border-default)",
     borderRadius: "var(--radius-lg)",
     background: "var(--surface-canvas)",
     padding: "8px 10px",
@@ -267,7 +266,7 @@ export function ThreadPanel({
         {replies.map(row)}
       </div>
       <div style={styles.composer}>
-        <div style={styles.composerBox}>
+        <div className="wc-message-composer" style={styles.composerBox}>
           {editing ? (
             <div style={styles.editingBanner}>
               <Icon name="square-pen" size={14} style={{ color: "var(--text-accent)" }} />

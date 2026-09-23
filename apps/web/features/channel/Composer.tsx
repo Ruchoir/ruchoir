@@ -17,11 +17,9 @@ const styles: Record<string, CSSProperties> = {
   composer: {
     maxWidth: "var(--channel-measure)",
     margin: "0 auto",
-    border: "1px solid var(--border-default)",
     borderRadius: "var(--radius-lg)",
     background: "var(--surface-canvas)",
     padding: "10px 12px 8px",
-    transition: "border-color var(--duration-fast) var(--ease-out)",
   },
   editingBanner: {
     display: "flex",
@@ -322,6 +320,7 @@ export function Composer({
   return (
     <div style={styles.wrap}>
       <div
+        className="wc-message-composer"
         style={{
           ...styles.composer,
           ...(editing ? { borderColor: "var(--border-accent)" } : draggingFiles ? { borderColor: "var(--border-accent)", background: "var(--surface-selected)" } : {}),
