@@ -113,6 +113,7 @@ export function ImportScreen({
   instanceAddress,
   openLast = false,
   compact = false,
+  instanceAdmin = false,
   onFinished,
 }: {
   onClose: () => void;
@@ -135,6 +136,12 @@ export function ImportScreen({
   openLast?: boolean;
   /** A narrow screen: the surface goes edge to edge, so its inner padding tightens to match. */
   compact?: boolean;
+  /**
+   * The caller administers the instance. Anybody else imports into spaces of their own only, and
+   * the server withholds every address but theirs, so the screen offers neither emptying the
+   * instance, nor addresses to fill in, nor invitations to send.
+   */
+  instanceAdmin?: boolean;
 }) {
   const { t } = useTranslation();
   const [stage, setStage] = useState<Stage>("source");
@@ -952,7 +959,11 @@ export function ImportScreen({
       </div>
 
       <div className="wc-imp-card">
-        {people.length > 0 ? (
+        {!instanceAdmin ? (
+          // In place of the missing-address warning, which would ask for something the server will
+          // not accept from this caller.
+          <Check tone="info" icon="info" title={t(key("import.scopedTitle"))} text={t(key("import.scopedText"))} />
+        ) : people.length > 0 ? (
           noAddress.length > 0 ? (
             <Check
               tone="warning"
@@ -1068,8 +1079,9 @@ export function ImportScreen({
         </div>
       </div>
 
-      {/* The destructive door: folded away, closed by default, and never a default. */}
-      {dying ? (
+      {/* The destructive door: folded away, closed by default, and never a default. For the
+          administrators of the instance only: nobody else can empty it, so nobody else sees it. */}
+      {dying && instanceAdmin ? (
         <div className="wc-imp-advanced">
           <button
             type="button"
@@ -1238,56 +1250,59 @@ export function ImportScreen({
           {/* Once it is done, and only then, the question of who hears about it. Nothing left during
               the import: ten thousand accounts arriving is not ten thousand emails leaving, and
               somebody has to say who. */}
-          <div className="wc-imp-card">
-            {invited ? (
-              <Check
-                tone="success"
-                icon="check"
-                title={t(key("import.invitationsSent"), { count: invited.sent })}
-                text={unaddressed > 0 ? t(key("import.invitationsNoAddress"), { count: unaddressed }) : undefined}
-              >
-                {invited.skipped.length > 0 ? (
-                  <>
-                    <div className="wc-imp-check__text" style={{ marginTop: 6 }}>
-                      {t(key("import.invitationsSkipped"))}
-                    </div>
-                    <ul>
-                      {invited.skipped.map((one) => (
-                        <li key={one.sourceId}>
-                          {nameOf(one.sourceId)} : {one.reason}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : null}
-              </Check>
-            ) : brought === null ? (
-              <Check tone="info" icon="info" title={t(key("import.invitationsLoading"))} />
-            ) : toInvite.length === 0 ? (
-              <Check tone="info" icon="info" title={t(key("import.invitationsNobody"))} />
-            ) : (
-              <Check
-                tone="accent"
-                icon="send"
-                title={t(key("import.inviteTitle"))}
-                text={t(key("import.inviteLead"), { count: toInvite.length })}
-              >
-                <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    loading={inviting}
-                    onClick={() => void send(toInvite.map((p) => p.sourceId))}
-                  >
-                    {t(key("import.inviteAll"), { count: toInvite.length })}
-                  </Button>
-                  <Button size="sm" onClick={openInvitePanel} disabled={inviting}>
-                    {t(key("import.inviteChoose"))}
-                  </Button>
-                </div>
-              </Check>
-            )}
-          </div>
+          {/* The administrators' alone: a personal import brought nobody with an address. */}
+          {instanceAdmin ? (
+            <div className="wc-imp-card">
+              {invited ? (
+                <Check
+                  tone="success"
+                  icon="check"
+                  title={t(key("import.invitationsSent"), { count: invited.sent })}
+                  text={unaddressed > 0 ? t(key("import.invitationsNoAddress"), { count: unaddressed }) : undefined}
+                >
+                  {invited.skipped.length > 0 ? (
+                    <>
+                      <div className="wc-imp-check__text" style={{ marginTop: 6 }}>
+                        {t(key("import.invitationsSkipped"))}
+                      </div>
+                      <ul>
+                        {invited.skipped.map((one) => (
+                          <li key={one.sourceId}>
+                            {nameOf(one.sourceId)} : {one.reason}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </Check>
+              ) : brought === null ? (
+                <Check tone="info" icon="info" title={t(key("import.invitationsLoading"))} />
+              ) : toInvite.length === 0 ? (
+                <Check tone="info" icon="info" title={t(key("import.invitationsNobody"))} />
+              ) : (
+                <Check
+                  tone="accent"
+                  icon="send"
+                  title={t(key("import.inviteTitle"))}
+                  text={t(key("import.inviteLead"), { count: toInvite.length })}
+                >
+                  <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      loading={inviting}
+                      onClick={() => void send(toInvite.map((p) => p.sourceId))}
+                    >
+                      {t(key("import.inviteAll"), { count: toInvite.length })}
+                    </Button>
+                    <Button size="sm" onClick={openInvitePanel} disabled={inviting}>
+                      {t(key("import.inviteChoose"))}
+                    </Button>
+                  </div>
+                </Check>
+              )}
+            </div>
+          ) : null}
         </>
       ) : (
         <>
@@ -1350,7 +1365,7 @@ export function ImportScreen({
     }
     // A missing address is asked for on the spot; an existing one is text until somebody wants to
     // change it. Forty-eight open fields is a form, and nobody reads a form.
-    const asking = !out && (editing === person.sourceId || !address.trim());
+    const asking = instanceAdmin && !out && (editing === person.sourceId || !address.trim());
     return (
       <div key={person.sourceId} className={`wc-imp-person${out ? " wc-imp-person--out" : ""}`}>
         <Avatar name={person.displayName} size={32} />
@@ -1386,7 +1401,7 @@ export function ImportScreen({
           </Button>
         ) : (
           <>
-            {address.trim() && !asking ? (
+            {instanceAdmin && address.trim() && !asking ? (
               <IconButton
                 icon="square-pen"
                 size="sm"

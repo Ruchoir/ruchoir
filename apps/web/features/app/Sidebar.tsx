@@ -293,9 +293,8 @@ export type SidebarProps = {
    */
   canAdministerSpace: boolean;
   /**
-   * Whether the caller administers the instance, which is a different and larger thing: bringing a
-   * workspace over creates spaces and accounts, so the entry is offered here only to them and is
-   * absent, not disabled, for everyone else. The routes behind it answer 404 to anybody else.
+   * Whether bringing a workspace over is offered. Anyone signed in may: an import by somebody who
+   * does not administer the instance only creates spaces of their own (the server scopes it).
    */
   canImport: boolean;
   /**

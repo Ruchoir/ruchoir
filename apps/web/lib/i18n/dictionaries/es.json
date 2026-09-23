@@ -1028,6 +1028,8 @@
     "analyse": "Analizar el archivo",
     "analysing": "Leyendo el archivo…",
     "checkAllAddressed": "Todo el mundo tiene dirección",
+    "scopedTitle": "Importación personal",
+    "scopedText": "Los espacios se crean para ti y eres su propietario. Para proteger las cuentas de los demás, las personas importadas llegan sin dirección de correo: invítalas después desde el espacio.",
     "checkComplete": "Completar",
     "checkNoAddress_one": "{{count}} persona sin dirección",
     "checkNoAddress_many": "{{count}} personas sin dirección",

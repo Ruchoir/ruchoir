@@ -70,7 +70,7 @@ pub async fn execute<S: BlobSink>(
         )));
     }
 
-    let existing = existing_state(db).await?;
+    let existing = existing_for(db, admin).await?;
     let plan: Plan = plan::build(&index, &existing);
 
     let job_id = run::start_job(db, &source, admin, None, "{}").await?;
@@ -143,7 +143,7 @@ async fn run_into<S: BlobSink>(
         finish(db, job_id, "failed", &reason).await?;
         return Err(RunError::Ambiguous(reason));
     }
-    let existing = existing_state(db).await?;
+    let existing = existing_for(db, admin).await?;
     let plan = plan::build(&index, &existing);
     run_passes(
         db,
@@ -184,8 +184,8 @@ async fn run_passes<S: BlobSink>(
         .and_then(|job| serde_json::from_str::<serde_json::Value>(&job.options).ok())
         .and_then(|options| serde_json::from_value(options.get("people")?.clone()).ok())
         .unwrap_or_default();
+    let existing = existing_for(db, admin).await?;
     if !choices.is_empty() {
-        let existing = existing_state(db).await?;
         plan::apply_choices(&mut plan, &choices, &existing);
     }
 
@@ -197,7 +197,8 @@ async fn run_passes<S: BlobSink>(
         );
     }
 
-    let mapper = Mapper::new(job_id, &source);
+    // Somebody who does not administer the instance resumes only their own imports.
+    let mapper = Mapper::new(job_id, &source).scoped_to(existing.scoped.then_some(admin));
     // Read once, in one query, rather than asked for a row at a time by every pass that follows.
     let known = mapper.preload(db).await?;
     if known > 0 {
@@ -315,9 +316,26 @@ async fn run_passes<S: BlobSink>(
     })
 }
 
-/// What the instance already holds, as far as the plan is concerned.
-async fn existing_state(db: &DatabaseConnection) -> Result<Existing, RunError> {
+/// What the instance already holds, as far as an import run by `importer` is concerned.
+///
+/// An administrator of the instance sees all of it. Anybody else sees only their own address and no
+/// space at all: see [`Existing::scoped`] for why. Shared by the plan screen and the run, so the two
+/// can never disagree about what an import will touch.
+pub async fn existing_for(db: &DatabaseConnection, importer: Uuid) -> Result<Existing, RunError> {
     use crate::entities::{spaces, users};
+
+    let Some(me) = users::Entity::find_by_id(importer).one(db).await? else {
+        return Err(RunError::Db(
+            "the person running this import has no account".to_owned(),
+        ));
+    };
+    if !me.is_instance_admin {
+        return Ok(Existing {
+            emails: vec![me.email],
+            scoped: true,
+            ..Default::default()
+        });
+    }
 
     let emails = users::Entity::find()
         .all(db)
@@ -335,6 +353,7 @@ async fn existing_state(db: &DatabaseConnection) -> Result<Existing, RunError> {
         emails,
         space_names,
         channels: run::existing_channels(db).await?,
+        scoped: false,
     })
 }
 

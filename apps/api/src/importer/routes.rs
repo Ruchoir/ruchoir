@@ -1,11 +1,16 @@
-//! The import surface, for administrators of the instance.
+//! The import surface.
 //!
-//! Four things an administrator does: look at what an archive would do, start it, watch it, and
-//! stop it. Nothing here writes until the second of those, which is the whole point of the first.
+//! Four things an importer does: look at what an archive would do, start it, watch it, and stop it.
+//! Nothing here writes until the second of those, which is the whole point of the first.
 //!
-//! Every route answers `404` to anyone who does not administer the instance, never `403`: to
-//! everyone else this surface does not exist, and a refusal that distinguishes "forbidden" from
-//! "no such route" would confirm there is something here to attack.
+//! **Anyone signed in may import, but only an administrator of the instance sees the instance.**
+//! Everybody else is *scoped*: they see and run only their own archives and their own imports, an
+//! import of theirs only ever creates spaces (it never fills one by name), and it reaches no other
+//! account (see [`super::plan::Existing::scoped`]). Two things stay with the administrators alone:
+//! emptying the instance before an import, and writing invitations to the people it brought.
+//!
+//! What a caller may not see answers `404`, never `403`: a refusal that distinguishes "forbidden"
+//! from "no such thing" would confirm there is something there to find.
 
 use axum::extract::{Path as AxumPath, State};
 use axum::routing::{get, post};
@@ -21,7 +26,7 @@ use crate::entities::{import_jobs, users};
 use crate::messaging::error::ApiError;
 use crate::state::AppState;
 
-use super::plan::{self, AccountOutcome, Existing};
+use super::plan::{self, AccountOutcome};
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -171,7 +176,7 @@ impl From<import_jobs::Model> for JobResponse {
     responses(
         (status = 200, description = "What the import would do", body = PlanResponse),
         (status = 400, description = "The archive does not hold together"),
-        (status = 404, description = "Not an administrator of this instance")
+        (status = 404, description = "No archive of that name for this caller")
     )
 )]
 pub async fn preview(
@@ -179,8 +184,8 @@ pub async fn preview(
     session: AuthSession,
     Json(body): Json<ArchiveRequest>,
 ) -> Result<Json<PlanResponse>, ApiError> {
-    ensure_instance_admin(&state, session.user_id).await?;
-    let path = resolve(&state, &body.file)?;
+    let admin = is_instance_admin(&state, session.user_id).await?;
+    let path = resolve(&state, &body.file, (!admin).then_some(session.user_id))?;
 
     let (index, report) =
         super::check::check(&path, body.passphrase.as_deref()).map_err(|e| readable(&e))?;
@@ -191,29 +196,46 @@ pub async fn preview(
         )));
     }
 
-    let existing = existing_state(&state).await?;
+    let existing = super::job::existing_for(&state.db, session.user_id)
+        .await
+        .map_err(|_| ApiError::Internal)?;
     let plan = plan::build(&index, &existing);
 
-    let dying = super::wipe::what_would_be_destroyed(&state.db)
-        .await
-        .map_err(|_| ApiError::Internal)?;
-    let backup = super::wipe::last_backup(&state.db)
-        .await
-        .map_err(|_| ApiError::Internal)?;
-    let recent = backup.as_ref().is_some_and(|event| {
-        event.occurred_at > time::OffsetDateTime::now_utc() - super::wipe::BACKUP_MUST_BE_NEWER_THAN
-    });
-
-    Ok(Json(PlanResponse {
-        source: plan.source.clone(),
-        replacing_would_destroy: WhatDiesResponse {
+    // What emptying the instance would destroy is the instance's business: counted for its
+    // administrators, and nothing at all for anybody else, who could not ask for it anyway.
+    let replacing_would_destroy = if admin {
+        let dying = super::wipe::what_would_be_destroyed(&state.db)
+            .await
+            .map_err(|_| ApiError::Internal)?;
+        let backup = super::wipe::last_backup(&state.db)
+            .await
+            .map_err(|_| ApiError::Internal)?;
+        let recent = backup.as_ref().is_some_and(|event| {
+            event.occurred_at
+                > time::OffsetDateTime::now_utc() - super::wipe::BACKUP_MUST_BE_NEWER_THAN
+        });
+        WhatDiesResponse {
             spaces: dying.spaces,
             accounts: dying.accounts,
             messages: dying.messages,
             space_names: dying.space_names,
             last_backup: backup.map(|event| event.occurred_at.to_string()),
             replacement_allowed: recent,
-        },
+        }
+    } else {
+        WhatDiesResponse {
+            spaces: 0,
+            accounts: 0,
+            messages: 0,
+            space_names: Vec::new(),
+            last_backup: None,
+            replacement_allowed: false,
+        }
+    };
+
+    Ok(Json(PlanResponse {
+        source: plan.source.clone(),
+        replacing_would_destroy,
         spaces: plan
             .spaces
             .iter()
@@ -268,7 +290,8 @@ pub async fn preview(
     responses(
         (status = 202, description = "The import has started", body = JobResponse),
         (status = 400, description = "The archive does not hold together"),
-        (status = 404, description = "Not an administrator of this instance"),
+        (status = 404, description = "No archive of that name for this caller, or a replacement \
+                                        asked for by somebody who does not administer the instance"),
         (status = 409, description = "An import is already running")
     )
 )]
@@ -277,7 +300,12 @@ pub async fn start(
     session: AuthSession,
     Json(body): Json<ArchiveRequest>,
 ) -> Result<(axum::http::StatusCode, Json<JobResponse>), ApiError> {
-    ensure_instance_admin(&state, session.user_id).await?;
+    let is_admin = is_instance_admin(&state, session.user_id).await?;
+    // Emptying the instance is the administrators' alone. Refused before anything else is looked
+    // at, and as a door that is not there.
+    if body.replace_everything.is_some() && !is_admin {
+        return Err(ApiError::NotFound);
+    }
     // One at a time. Two would write over each other's progress and race on the same accounts,
     // and the answer to "why did my import stop counting" would be another import.
     if super::run::one_is_running(&state.db)
@@ -288,7 +316,7 @@ pub async fn start(
             "an import is already running on this instance",
         ));
     }
-    let path = resolve(&state, &body.file)?;
+    let path = resolve(&state, &body.file, (!is_admin).then_some(session.user_id))?;
 
     let db = state.db.clone();
     let storage = state.storage.clone();
@@ -320,7 +348,13 @@ pub async fn start(
 
     // Written on to the job, not held in this request: an import resumed tomorrow has to make the
     // same decisions about the same people as the one that started today.
-    let options = serde_json::json!({ "people": body.people }).to_string();
+    //
+    // `owner` is the namespace of the correspondences it writes, read back by `people`.
+    let options = serde_json::json!({
+        "people": body.people,
+        "owner": (!is_admin).then_some(session.user_id),
+    })
+    .to_string();
     let job_id = super::run::start_job(&db, &source, admin, None, &options)
         .await
         .map_err(|e| ApiError::BadRequestOwned(e.to_string()))?;
@@ -355,19 +389,21 @@ pub async fn start(
     path = "/api/v1/imports",
     tag = "import",
     responses(
-        (status = 200, description = "The imports", body = Vec<JobResponse>),
-        (status = 404, description = "Not an administrator of this instance")
+        (status = 200, description = "The imports this caller may see", body = Vec<JobResponse>)
     )
 )]
 pub async fn list_jobs(
     State(state): State<AppState>,
     session: AuthSession,
 ) -> Result<Json<Vec<JobResponse>>, ApiError> {
-    ensure_instance_admin(&state, session.user_id).await?;
-    let jobs = import_jobs::Entity::find()
-        .order_by_desc(import_jobs::Column::CreatedAt)
-        .all(&state.db)
-        .await?;
+    use sea_orm::{ColumnTrait, QueryFilter};
+
+    let mut query = import_jobs::Entity::find().order_by_desc(import_jobs::Column::CreatedAt);
+    // Every import for an administrator of the instance, one's own for anybody else.
+    if !is_instance_admin(&state, session.user_id).await? {
+        query = query.filter(import_jobs::Column::CreatedBy.eq(session.user_id));
+    }
+    let jobs = query.all(&state.db).await?;
     Ok(Json(jobs.into_iter().map(JobResponse::from).collect()))
 }
 
@@ -378,7 +414,7 @@ pub async fn list_jobs(
     tag = "import",
     responses(
         (status = 200, description = "The import", body = JobResponse),
-        (status = 404, description = "No such import, or not an administrator")
+        (status = 404, description = "No such import this caller may see")
     )
 )]
 pub async fn job(
@@ -386,11 +422,7 @@ pub async fn job(
     session: AuthSession,
     AxumPath(id): AxumPath<Uuid>,
 ) -> Result<Json<JobResponse>, ApiError> {
-    ensure_instance_admin(&state, session.user_id).await?;
-    let job = import_jobs::Entity::find_by_id(id)
-        .one(&state.db)
-        .await?
-        .ok_or(ApiError::NotFound)?;
+    let job = visible_job(&state, id, session.user_id).await?;
     Ok(Json(job.into()))
 }
 
@@ -404,7 +436,7 @@ pub async fn job(
     tag = "import",
     responses(
         (status = 200, description = "It will stop at the next conversation", body = JobResponse),
-        (status = 404, description = "No such import, or not an administrator"),
+        (status = 404, description = "No such import this caller may see"),
         (status = 409, description = "That import is not running")
     )
 )]
@@ -413,11 +445,7 @@ pub async fn cancel(
     session: AuthSession,
     AxumPath(id): AxumPath<Uuid>,
 ) -> Result<Json<JobResponse>, ApiError> {
-    ensure_instance_admin(&state, session.user_id).await?;
-    let job = import_jobs::Entity::find_by_id(id)
-        .one(&state.db)
-        .await?
-        .ok_or(ApiError::NotFound)?;
+    let job = visible_job(&state, id, session.user_id).await?;
     if job.status != "running" {
         return Err(ApiError::Conflict("that import is not running"));
     }
@@ -456,7 +484,15 @@ fn readable(error: &super::archive::ArchiveError) -> ApiError {
 /// A name, never a path: an administrator is trusted with the instance, not handed a way to make
 /// the API open any file on the machine and report what it found. The directory has to be
 /// configured for this door to exist at all.
-fn resolve(state: &AppState, file: &str) -> Result<std::path::PathBuf, ApiError> {
+///
+/// With an `owner`, only an archive that person delivered is accepted (see
+/// [`super::drops::delivered_by`]): the directory is shared, and somebody else's archive is
+/// somebody else's company. Anything else reads as absent.
+fn resolve(
+    state: &AppState,
+    file: &str,
+    owner: Option<Uuid>,
+) -> Result<std::path::PathBuf, ApiError> {
     let Some(directory) = &state.config.import_dir else {
         return Err(ApiError::BadRequest(
             "this instance accepts no archive from the server: set the import directory first",
@@ -472,6 +508,11 @@ fn resolve(state: &AppState, file: &str) -> Result<std::path::PathBuf, ApiError>
             "give the name of a file in the import directory, not a path",
         ));
     }
+    if owner.is_some_and(|owner| !super::drops::delivered_by(file, owner)) {
+        return Err(ApiError::BadRequest(
+            "no archive of that name is in the import directory",
+        ));
+    }
     let path = directory.join(file);
     if !path.exists() {
         return Err(ApiError::BadRequest(
@@ -481,41 +522,40 @@ fn resolve(state: &AppState, file: &str) -> Result<std::path::PathBuf, ApiError>
     Ok(path)
 }
 
-async fn existing_state(state: &AppState) -> Result<Existing, ApiError> {
-    use crate::entities::spaces;
-
-    let emails = users::Entity::find()
-        .all(&state.db)
+/// Whether the caller administers this instance, which decides whether they are scoped.
+pub(super) async fn is_instance_admin(state: &AppState, user_id: Uuid) -> Result<bool, ApiError> {
+    Ok(users::Entity::find_by_id(user_id)
+        .one(&state.db)
         .await?
-        .into_iter()
-        .map(|user| user.email)
-        .collect();
-    let space_names = spaces::Entity::find()
-        .all(&state.db)
-        .await?
-        .into_iter()
-        .map(|space| space.name)
-        .collect();
-    Ok(Existing {
-        emails,
-        space_names,
-        channels: super::run::existing_channels(&state.db).await?,
-    })
+        .is_some_and(|user| user.is_instance_admin))
 }
 
 /// Confirm the caller administers this instance.
 ///
 /// Answers `404`, not `403`, for the reason given at the top of this file.
 pub(super) async fn ensure_instance_admin(state: &AppState, user_id: Uuid) -> Result<(), ApiError> {
-    let is_admin = users::Entity::find_by_id(user_id)
-        .one(&state.db)
-        .await?
-        .is_some_and(|user| user.is_instance_admin);
-    if is_admin {
+    if is_instance_admin(state, user_id).await? {
         Ok(())
     } else {
         Err(ApiError::NotFound)
     }
+}
+
+/// An import the caller may see: any of them for an administrator of the instance, their own for
+/// anybody else. Somebody else's reads as absent.
+async fn visible_job(
+    state: &AppState,
+    id: Uuid,
+    user_id: Uuid,
+) -> Result<import_jobs::Model, ApiError> {
+    let job = import_jobs::Entity::find_by_id(id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    if job.created_by != Some(user_id) && !is_instance_admin(state, user_id).await? {
+        return Err(ApiError::NotFound);
+    }
+    Ok(job)
 }
 
 // --- Invitations -----------------------------------------------------------------------------
@@ -572,7 +612,7 @@ pub struct ImportedPerson {
     params(("id" = Uuid, Path, description = "Import job id")),
     responses(
         (status = 200, description = "The accounts this import brought over", body = Vec<ImportedPerson>),
-        (status = 404, description = "Not an administrator of this instance, or no such import")
+        (status = 404, description = "No such import this caller may see")
     )
 )]
 pub async fn people(
@@ -583,16 +623,23 @@ pub async fn people(
     use crate::entities::{import_mappings, space_invitations};
     use sea_orm::{ColumnTrait, QueryFilter};
 
-    ensure_instance_admin(&state, session.user_id).await?;
-    let Some(job) = import_jobs::Entity::find_by_id(id).one(&state.db).await? else {
-        return Err(ApiError::NotFound);
-    };
+    let job = visible_job(&state, id, session.user_id).await?;
 
-    let correspondences = import_mappings::Entity::find()
+    // In the namespace this import wrote to (see `import_mappings.owner_id`), which `start` wrote
+    // on to the job: an administrator's import and somebody else's from the same product are
+    // different people, even under the same source identifiers. A job with no owner there is an
+    // administrator's, which every import before anyone else could import was.
+    let owner: Option<Uuid> = serde_json::from_str::<serde_json::Value>(&job.options)
+        .ok()
+        .and_then(|options| serde_json::from_value(options.get("owner")?.clone()).ok());
+    let mut correspondences = import_mappings::Entity::find()
         .filter(import_mappings::Column::Source.eq(job.source))
-        .filter(import_mappings::Column::Kind.eq(super::run::KIND_USER))
-        .all(&state.db)
-        .await?;
+        .filter(import_mappings::Column::Kind.eq(super::run::KIND_USER));
+    correspondences = match owner {
+        None => correspondences.filter(import_mappings::Column::OwnerId.is_null()),
+        Some(owner) => correspondences.filter(import_mappings::Column::OwnerId.eq(owner)),
+    };
+    let correspondences = correspondences.all(&state.db).await?;
     if correspondences.is_empty() {
         return Ok(Json(Vec::new()));
     }
@@ -659,6 +706,9 @@ pub async fn people(
         (status = 404, description = "Not an administrator of this instance, or no such import")
     )
 )]
+// Administrators only, still: a scoped import withholds every address but the importer's own
+// (see `Existing::scoped`), so it has nobody to write to, and a space owner invites through the
+// space like anybody else.
 pub async fn invite(
     State(state): State<AppState>,
     session: AuthSession,

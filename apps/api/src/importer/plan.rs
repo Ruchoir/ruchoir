@@ -145,16 +145,33 @@ pub fn apply_choices(plan: &mut Plan, choices: &[PersonChoice], existing: &Exist
         };
         account.skipped = choice.skip;
         if let Some(email) = &choice.email {
-            let email = email.trim();
-            account.email = email.to_owned();
-            account.outcome = if email.is_empty() {
-                AccountOutcome::NeedsDecision
-            } else if existing.emails.contains(&email.to_lowercase()) {
-                AccountOutcome::Matched
-            } else {
-                AccountOutcome::Invited
-            };
+            (account.email, account.outcome) = account_outcome(email, existing);
         }
+    }
+}
+
+/// What an address decides about a person, and the address they keep.
+///
+/// Compared case-insensitively: the same person writes theirs in whichever case they feel like, and
+/// two accounts differing only in case are one person, not two.
+///
+/// In a [scoped](Existing::scoped) import, an address that is not the importer's own is withheld:
+/// the person arrives with none, as if the export had carried none. See [`Existing::scoped`].
+fn account_outcome(email: &str, existing: &Existing) -> (String, AccountOutcome) {
+    let email = email.trim();
+    let folded = email.to_lowercase();
+    let known = existing
+        .emails
+        .iter()
+        .any(|known| known.to_lowercase() == folded);
+    if email.is_empty() {
+        (String::new(), AccountOutcome::NeedsDecision)
+    } else if known {
+        (email.to_owned(), AccountOutcome::Matched)
+    } else if existing.scoped {
+        (String::new(), AccountOutcome::NeedsDecision)
+    } else {
+        (email.to_owned(), AccountOutcome::Invited)
     }
 }
 
@@ -167,6 +184,15 @@ pub struct Existing {
     pub space_names: Vec<String>,
     /// The channels here, as (space name, channel handle). Both sides are what the run matches on.
     pub channels: Vec<(String, String)>,
+    /// The person importing does not administer the instance.
+    ///
+    /// Anyone may bring a workspace over, but only into spaces of their own and without reaching
+    /// anybody else's account. So a scoped import is shown only the importer's own address and no
+    /// existing space at all (`emails` and `space_names` are filled that way by the caller), and every
+    /// other address in the archive is withheld: matching it would pour messages into a stranger's
+    /// account, and creating a waiting account under it would lock that stranger out of registering
+    /// (an address held by a waiting account can only be claimed through an invitation).
+    pub scoped: bool,
 }
 
 pub fn build(index: &Index, existing: &Existing) -> Plan {
@@ -181,9 +207,6 @@ pub fn build(index: &Index, existing: &Existing) -> Plan {
         .map(|m| m.limits.clone())
         .unwrap_or_default();
 
-    // Addresses are compared case-insensitively: the same person writes theirs in whichever case
-    // they feel like, and two accounts differing only in case are one person, not two.
-    let known: Vec<String> = existing.emails.iter().map(|e| e.to_lowercase()).collect();
     let known_spaces: Vec<String> = existing
         .space_names
         .iter()
@@ -256,14 +279,7 @@ pub fn build(index: &Index, existing: &Existing) -> Plan {
         .users
         .iter()
         .map(|user| {
-            let email = user.email.trim().to_string();
-            let outcome = if email.is_empty() {
-                AccountOutcome::NeedsDecision
-            } else if known.contains(&email.to_lowercase()) {
-                AccountOutcome::Matched
-            } else {
-                AccountOutcome::Invited
-            };
+            let (email, outcome) = account_outcome(&user.email, existing);
             AccountPlan {
                 source_id: user.id.clone(),
                 display_name: user.display_name.clone(),
@@ -642,5 +658,68 @@ mod choice_tests {
         let bob = plan.accounts.iter().find(|a| a.source_id == "bob").unwrap();
         assert!(!bob.skipped);
         assert_eq!(bob.email, "b@example.test");
+    }
+
+    #[test]
+    fn a_scoped_import_matches_only_the_importer_and_withholds_every_other_address() {
+        let index = index_with(
+            vec![
+                user("me", "Me@Example.org"),
+                user("colleague", "colleague@example.org"),
+                user("stranger", "already.here@example.org"),
+            ],
+            vec![],
+            vec![],
+        );
+        // What a scoped caller passes: its own address only, and no space at all.
+        let existing = Existing {
+            emails: vec!["me@example.org".into()],
+            scoped: true,
+            ..Default::default()
+        };
+        let plan = build(&index, &existing);
+        assert_eq!(plan.accounts[0].outcome, AccountOutcome::Matched);
+        for account in &plan.accounts[1..] {
+            assert_eq!(account.outcome, AccountOutcome::NeedsDecision);
+            assert!(
+                account.email.is_empty(),
+                "{} kept an address",
+                account.source_id
+            );
+        }
+    }
+
+    #[test]
+    fn a_scoped_import_cannot_hand_somebody_an_address_by_choice() {
+        let index = index_with(vec![user("a", "")], vec![], vec![]);
+        let existing = Existing {
+            emails: vec!["me@example.org".into()],
+            scoped: true,
+            ..Default::default()
+        };
+        let mut plan = build(&index, &existing);
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "a".into(),
+                email: Some("victim@example.org".into()),
+                skip: false,
+            }],
+            &existing,
+        );
+        assert_eq!(plan.accounts[0].outcome, AccountOutcome::NeedsDecision);
+        assert!(plan.accounts[0].email.is_empty());
+
+        // Their own address is the one that still works: it is how an importer says "that is me".
+        apply_choices(
+            &mut plan,
+            &[PersonChoice {
+                source_id: "a".into(),
+                email: Some("me@example.org".into()),
+                skip: false,
+            }],
+            &existing,
+        );
+        assert_eq!(plan.accounts[0].outcome, AccountOutcome::Matched);
     }
 }

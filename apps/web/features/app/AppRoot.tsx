@@ -341,13 +341,13 @@ function AppShell() {
   const [session, setSession] = useState<SessionUser | null>(null);
   const currentUser = session?.name ?? "";
   // An import runs in the server and outlives the screen that started it. Watched from up here so
-  // that the sidebar can show it whatever the caller is doing, and only for the administrators who
-  // are allowed to ask.
+  // that the sidebar can show it whatever the caller is doing. Anyone signed in may import; the
+  // server answers each caller with their own imports only.
   const {
     run: importRun,
     clear: clearImportRun,
     refresh: refreshImportRun,
-  } = useRunningImport(session?.isInstanceAdmin === true);
+  } = useRunningImport(session !== null);
   /** Whether the import screen was opened to see a finished run rather than to start one. */
   const [importDetail, setImportDetail] = useState(false);
   // Boot lifecycle: `booting` covers the initial session check and data load; `bootError` holds a
@@ -3217,7 +3217,7 @@ function AppShell() {
         // channel, no invitation. The API refuses all three; this keeps them off the column.
         canBrowseSpace={currentWorkspace?.role !== "guest"}
         canAdministerSpace={canAdministerSpace}
-        canImport={session?.isInstanceAdmin === true}
+        canImport={session !== null}
         importRun={importRun}
         onImport={openImport}
         onNewMessage={() => setModal("newMessage")}
@@ -3404,7 +3404,7 @@ function AppShell() {
           import reads as something opened rather than somewhere navigated to. The screen keeps its
           own top bar and scrolls inside this shell. Clicking the scrim closes it, like any dialog;
           the run continues regardless, which is what the close button already promised. */}
-      {view === "import" && session?.isInstanceAdmin ? (
+      {view === "import" && session ? (
         <div
           className="wc-dlg__scrim"
           onClick={(e) => {
@@ -3424,6 +3424,7 @@ function AppShell() {
               compact={compact}
               instanceAddress={typeof window === "undefined" ? "" : window.location.host}
               onFinished={reloadSpaceCounters}
+              instanceAdmin={session.isInstanceAdmin === true}
             />
           </div>
         </div>
@@ -3461,14 +3462,13 @@ function AppShell() {
           }}
         />
       ) : null}
-      {/* The `+` offers importing only to an administrator of the instance: an import creates spaces
-          and accounts, so it is an instance-level power, and showing the door to someone who cannot
-          open it is the kind of dead control this interface has been cleaned of. */}
+      {/* The `+` offers importing to everyone: anybody may bring a workspace over into spaces of their
+          own. Emptying the instance first stays with its administrators, inside the import screen. */}
       {modal === "newWorkspace" ? (
         <NewWorkspaceDialog
           onClose={() => setModal(null)}
           onCreate={createWorkspace}
-          onImport={session?.isInstanceAdmin === true ? openImport : undefined}
+          onImport={openImport}
         />
       ) : null}
       {removing && currentWorkspace ? (
@@ -3685,7 +3685,7 @@ function AppShell() {
                 onNewChannel={() => setModal("newChannel")}
                 canBrowseSpace={currentWorkspace?.role !== "guest"}
                 canAdministerSpace={canAdministerSpace}
-                canImport={session?.isInstanceAdmin === true}
+                canImport={session !== null}
                 importRun={importRun}
                 onImport={openImport}
                 onNewMessage={() => setModal("newMessage")}

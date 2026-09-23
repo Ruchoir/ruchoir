@@ -1011,6 +1011,8 @@
     "analyse": "Analyse the archive",
     "analysing": "Reading the archive…",
     "checkAllAddressed": "Everyone has an address",
+    "scopedTitle": "Personal import",
+    "scopedText": "The spaces are created for you, and you own them. To protect other people's accounts, imported people arrive without an email address: invite them afterwards from the space.",
     "checkComplete": "Complete",
     "checkNoAddress_one": "{{count}} person without an address",
     "checkNoAddress_other": "{{count}} people without an address",

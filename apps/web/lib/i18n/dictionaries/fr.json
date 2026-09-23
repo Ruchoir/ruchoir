@@ -1011,6 +1011,8 @@
     "analyse": "Analyser l'archive",
     "analysing": "Lecture de l'archive…",
     "checkAllAddressed": "Tout le monde a une adresse",
+    "scopedTitle": "Import personnel",
+    "scopedText": "Les espaces sont créés pour vous et vous en êtes propriétaire. Pour protéger les comptes des autres, les personnes importées arrivent sans adresse de courriel : invitez-les ensuite depuis l'espace.",
     "checkComplete": "Compléter",
     "checkNoAddress_one": "{{count}} personne sans adresse",
     "checkNoAddress_other": "{{count}} personnes sans adresse",

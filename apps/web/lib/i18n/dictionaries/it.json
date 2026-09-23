@@ -1028,6 +1028,8 @@
     "analyse": "Analizza l'archivio",
     "analysing": "Lettura dell'archivio…",
     "checkAllAddressed": "Tutti hanno un indirizzo",
+    "scopedTitle": "Importazione personale",
+    "scopedText": "Gli spazi vengono creati per te e ne sei il proprietario. Per proteggere gli account altrui, le persone importate arrivano senza indirizzo email: invitale in seguito dallo spazio.",
     "checkComplete": "Completa",
     "checkNoAddress_one": "{{count}} persona senza indirizzo",
     "checkNoAddress_many": "{{count}} persone senza indirizzo",

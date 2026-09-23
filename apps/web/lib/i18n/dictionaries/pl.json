@@ -1045,6 +1045,8 @@
     "analyse": "Przeanalizuj archiwum",
     "analysing": "Odczyt archiwum…",
     "checkAllAddressed": "Każdy ma adres",
+    "scopedTitle": "Import osobisty",
+    "scopedText": "Przestrzenie zostaną utworzone dla Ciebie i będziesz ich właścicielem. Aby chronić konta innych osób, importowane osoby trafią bez adresu e-mail: zaproś je później z poziomu przestrzeni.",
     "checkComplete": "Uzupełnij",
     "checkNoAddress_one": "{{count}} osoba bez adresu",
     "checkNoAddress_few": "{{count}} osoby bez adresu",

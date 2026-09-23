@@ -1011,6 +1011,8 @@
     "analyse": "Archiv analysieren",
     "analysing": "Archiv wird gelesen …",
     "checkAllAddressed": "Alle haben eine Adresse",
+    "scopedTitle": "Persönlicher Import",
+    "scopedText": "Die Bereiche werden für Sie angelegt und gehören Ihnen. Zum Schutz fremder Konten kommen importierte Personen ohne E-Mail-Adresse an: Laden Sie sie anschließend aus dem Bereich ein.",
     "checkComplete": "Ergänzen",
     "checkNoAddress_one": "{{count}} Person ohne Adresse",
     "checkNoAddress_other": "{{count}} Personen ohne Adresse",

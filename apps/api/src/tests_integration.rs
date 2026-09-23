@@ -5199,6 +5199,16 @@ async fn a_position_naming_a_message_lands_on_that_message() {
 async fn an_import_that_was_stopped_still_leaves_the_reading_positions() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
+    // The run below is resumed in the instance's own namespace, which is an administrator's import:
+    // somebody else's would keep separate correspondences and not find the first run's work.
+    let mut admin: users::ActiveModel = users::Entity::find_by_id(fx.alice)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("alice")
+        .into();
+    admin.is_instance_admin = Set(true);
+    admin.update(&app.db).await.expect("promote");
     let person = unique_ref("alice");
     let (space_ref, channel_ref) = (unique_ref("atelier"), unique_ref("produit"));
     let dir = archive_with_positions(
@@ -6186,37 +6196,137 @@ async fn the_people_an_import_brought_can_be_read_back_from_the_server() {
 }
 
 #[tokio::test]
-async fn the_import_surface_does_not_exist_for_anyone_but_an_instance_administrator() {
+async fn somebody_who_does_not_administer_the_instance_sees_only_their_own_imports() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
+    // An import somebody else ran: bob must not be able to find it, watch it, stop it or read who
+    // it brought.
+    let theirs = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let mine = run::start_job(&app.db, "mattermost", fx.bob, None, "{}")
+        .await
+        .expect("job");
     let cookie = app.cookie_for(fx.bob).await;
 
+    let listed: Value = app
+        .req(reqwest::Method::GET, "/api/v1/imports", &cookie)
+        .send()
+        .await
+        .expect("list")
+        .json()
+        .await
+        .expect("json");
+    let ids: Vec<&str> = listed
+        .as_array()
+        .expect("a list")
+        .iter()
+        .filter_map(|job| job["id"].as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![mine.to_string().as_str()],
+        "only their own import"
+    );
+
     for (method, path) in [
-        (reqwest::Method::GET, "/api/v1/imports".to_owned()),
-        (reqwest::Method::POST, "/api/v1/imports/plan".to_owned()),
-        (
-            reqwest::Method::GET,
-            format!("/api/v1/imports/{}", Uuid::new_v4()),
-        ),
+        (reqwest::Method::GET, format!("/api/v1/imports/{theirs}")),
         (
             reqwest::Method::POST,
-            format!("/api/v1/imports/{}/cancel", Uuid::new_v4()),
+            format!("/api/v1/imports/{theirs}/cancel"),
         ),
         (
             reqwest::Method::GET,
-            format!("/api/v1/imports/{}/people", Uuid::new_v4()),
+            format!("/api/v1/imports/{theirs}/people"),
+        ),
+        // Writing to the people an import brought stays with the administrators, even for one's own.
+        (
+            reqwest::Method::POST,
+            format!("/api/v1/imports/{mine}/invitations"),
         ),
     ] {
         let response = app
             .req(method.clone(), &path, &cookie)
-            .json(&json!({"file": "whatever"}))
+            .json(&json!({"source_ids": []}))
             .send()
             .await
             .expect("request");
-        // 404 and not 403: to everyone else this surface does not exist, and a refusal that told
-        // them apart would confirm there is something here to attack.
+        // 404 and not 403: a refusal that told them apart would confirm there is something there.
         assert_eq!(response.status(), 404, "{method} {path}");
     }
+
+    let own = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/imports/{mine}"),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("own job");
+    assert_eq!(own.status(), 200, "their own import is theirs to watch");
+
+    // Emptying the instance is refused before the archive is even looked at.
+    let replace = app
+        .req(reqwest::Method::POST, "/api/v1/imports", &cookie)
+        .json(&json!({
+            "file": "whatever",
+            "replace_everything": {"instance_address": "localhost"}
+        }))
+        .send()
+        .await
+        .expect("start");
+    assert_eq!(replace.status(), 404);
+}
+
+#[tokio::test]
+async fn a_scoped_import_never_writes_into_a_space_it_did_not_create() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let name = format!("Atelier {}", Uuid::new_v4().simple());
+    let index = import_index(
+        vec![source_user(&unique_ref("alice"), "")],
+        vec![source_space(&unique_ref("atelier"), &name)],
+    );
+
+    // An administrator's import creates the space and records the correspondence.
+    let first = run::start_job(&app.db, "mattermost", fx.alice, None, "{}")
+        .await
+        .expect("job");
+    let (_, theirs) =
+        run::import_spaces(&app.db, &Mapper::new(first, "mattermost"), &index, fx.alice)
+            .await
+            .expect("spaces");
+
+    // The same archive, run by somebody else without administration: neither the correspondence
+    // nor the name may lead it into that space.
+    let second = run::start_job(&app.db, "mattermost", fx.bob, None, "{}")
+        .await
+        .expect("job");
+    let mapper = Mapper::new(second, "mattermost").scoped_to(Some(fx.bob));
+    mapper.preload(&app.db).await.expect("preload");
+    let (written, mine) = run::import_spaces(&app.db, &mapper, &index, fx.bob)
+        .await
+        .expect("spaces");
+    assert_eq!(written.spaces_created, 1);
+    assert_eq!(written.spaces_filled, 0);
+    assert_ne!(
+        mine[0].1, theirs[0].1,
+        "a space of its own, not the other one"
+    );
+    let membership = space_members::Entity::find_by_id((mine[0].1, fx.bob))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("bob is in the space he imported");
+    assert_eq!(membership.role, "owner");
+
+    // Run again, it finds its own space through its own correspondence.
+    let (again, resolved) = run::import_spaces(&app.db, &mapper, &index, fx.bob)
+        .await
+        .expect("spaces");
+    assert_eq!(again.spaces_created, 0);
+    assert_eq!(resolved[0].1, mine[0].1);
 }
 
 #[tokio::test]
@@ -6414,6 +6524,7 @@ async fn remember(db: &DatabaseConnection, job: Uuid, kind: &str, external: &str
         kind: Set(kind.to_owned()),
         external_ref: Set(external.to_owned()),
         internal_id: Set(internal),
+        owner_id: Set(None),
         created_at: Set(OffsetDateTime::now_utc()),
     }
     .insert(db)
