@@ -103,7 +103,7 @@ export function SidePanel({ kind, files, members, pinned, highlightFile, onClose
       <div style={{ flex: 1, overflow: "auto" }} ref={scrollRef}>
         {kind === "files"
           ? files.map((fl) => (
-              <div key={fl.name} data-file={fl.name} style={styles.row}>
+              <div key={fl.id ?? `${fl.name}:${fl.updatedAt}`} data-file={fl.name} style={styles.row}>
                 <Icon name={fl.kind} size={18} style={{ color: "var(--text-muted)" }} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 14, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
