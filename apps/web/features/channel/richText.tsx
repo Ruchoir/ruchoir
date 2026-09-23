@@ -213,7 +213,12 @@ function renderInline(
         flush();
         const url = m[0];
         nodes.push(
-          <a key={`${keyBase}-l${k++}`} href={url} onClick={(e) => e.preventDefault()}>
+          <a
+            key={`${keyBase}-l${k++}`}
+            className="wc-message-link"
+            href={url}
+            onClick={(e) => e.preventDefault()}
+          >
             {url}
           </a>,
         );

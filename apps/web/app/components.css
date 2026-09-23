@@ -136,6 +136,15 @@
 .wc-btn--link:hover {
   color: var(--text-link-hover);
 }
+.wc-message-link {
+  color: var(--text-link);
+  text-decoration: none;
+}
+.wc-message-link:hover {
+  color: var(--text-link-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 .wc-btn:disabled {
   cursor: not-allowed;
   background: var(--surface-disabled);
