@@ -219,7 +219,7 @@ export type ChannelScreenProps = {
   profileName: string | null;
   profileEditing: boolean;
   unreadMarker: string | null;
-  onSend: (text: string, attachment?: MessageAttachment) => void;
+  onSend: (text: string, attachments?: MessageAttachment[]) => void;
   /** Store a picked file for the open conversation and resolve to the attachment to carry. */
   onUploadAttachment: (file: File) => Promise<MessageAttachment>;
   /** The signed-in user changed their own avatar, so the roster the rows read has to follow. */

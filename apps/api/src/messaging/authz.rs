@@ -30,7 +30,7 @@
 
 use std::collections::{BTreeSet, HashSet};
 
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 use super::error::ApiError;
@@ -406,8 +406,8 @@ pub async fn space_member_ids(
 /// `None` and "every role listed" are the same thing to a reader, and deliberately not the same
 /// thing in the table: a channel with no restriction was never given one, and gains nothing if the
 /// set of roles changes later.
-pub async fn channel_allowed_roles(
-    db: &DatabaseConnection,
+pub async fn channel_allowed_roles<C: ConnectionTrait>(
+    db: &C,
     channel_id: Uuid,
 ) -> Result<Option<BTreeSet<String>>, ApiError> {
     let rows = channel_role_access::Entity::find()

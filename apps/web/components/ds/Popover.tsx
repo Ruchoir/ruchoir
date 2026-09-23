@@ -20,6 +20,8 @@ type Coords = { top: number; left: number };
 export type PopoverProps<T extends HTMLElement = HTMLElement> = {
   /** The element the popover is anchored to. */
   anchorRef: RefObject<T | null>;
+  /** Optional virtual anchor, for a caret or another point inside the anchor element. */
+  getAnchorRect?: () => DOMRect | null;
   open: boolean;
   onClose: () => void;
   /** Preferred side; the popover flips/shifts to stay in the viewport. */
@@ -39,6 +41,7 @@ const GAP = 6;
  */
 export function Popover<T extends HTMLElement = HTMLElement>({
   anchorRef,
+  getAnchorRect,
   open,
   onClose,
   placement = "top",
@@ -49,7 +52,7 @@ export function Popover<T extends HTMLElement = HTMLElement>({
   const [pos, setPos] = useState<Coords | null>(null);
 
   const compute = useCallback(() => {
-    const anchorRect = anchorRef.current?.getBoundingClientRect();
+    const anchorRect = getAnchorRect?.() ?? anchorRef.current?.getBoundingClientRect();
     const content = contentRef.current?.getBoundingClientRect();
     if (!anchorRect) return;
     // Convert measured (visual) rects and the viewport to unzoomed layout space so the fixed top/left
@@ -77,7 +80,7 @@ export function Popover<T extends HTMLElement = HTMLElement>({
     // Keep the same reference when unchanged: the layout effect runs every render, and a fresh object
     // each time would re-render endlessly.
     setPos((prev) => (prev && prev.top === top && prev.left === left ? prev : { top, left }));
-  }, [anchorRef, placement, align]);
+  }, [anchorRef, getAnchorRect, placement, align]);
 
   // Measure before paint on every render while open, so a list that grows or shrinks stays anchored
   // to the input with no stale-position flash frame.

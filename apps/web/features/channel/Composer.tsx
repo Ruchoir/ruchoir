@@ -173,7 +173,7 @@ function iconForType(type: string): string {
 
 export type ComposerProps = {
   channelName: string;
-  onSend: (text: string, attachment?: MessageAttachment) => void;
+  onSend: (text: string, attachments?: MessageAttachment[]) => void;
   /**
    * Store a picked file and resolve to the attachment the message will carry.
    *
@@ -213,7 +213,8 @@ export function Composer({
   const { t } = useTranslation();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [formatOpen, setFormatOpen] = useState(false);
-  const [pending, setPending] = useState<MessageAttachment | null>(null);
+  const [pending, setPending] = useState<MessageAttachment[]>([]);
+  const [draggingFiles, setDraggingFiles] = useState(false);
   /** True from the moment a file is picked until it is stored (or refused). */
   const [uploading, setUploading] = useState(false);
   const editorRef = useRef<MessageEditorHandle>(null);
@@ -249,16 +250,16 @@ export function Composer({
     }
     // A file still on its way has no id to attach, so the message waits rather than losing it.
     if (uploading) return;
-    onSend(text, pending ?? undefined);
-    setPending(null);
+    onSend(text, pending.length ? pending : undefined);
+    setPending([]);
   };
 
   const clickSend = () => {
     const ed = editorRef.current;
     if (!ed || uploading) return;
-    if (pending && ed.isEmpty()) {
+    if (pending.length > 0 && ed.isEmpty()) {
       onSend("", pending);
-      setPending(null);
+      setPending([]);
       ed.clear();
       ed.focus();
       return;
@@ -279,27 +280,22 @@ export function Composer({
     if (attachment?.fileId) void deleteFile(attachment.fileId).catch(() => {});
   };
 
-  const onFilePicked = async (fileList: FileList | null) => {
-    const file = fileList?.[0];
-    if (!file) return;
+  const addFiles = async (files: File[]) => {
+    if (files.length === 0 || editing) return;
     if (fileRef.current) fileRef.current.value = "";
-    // A second pick replaces the first, which then has nothing left to belong to.
-    discardStored(pending);
-    // Show it immediately, with what the browser knows, then replace it with the stored file.
-    setPending({ name: file.name, sizeBytes: file.size, kind: iconForType(file.type) });
     setUploading(true);
-    try {
-      setPending(await onUpload(file));
-    } catch {
-      setPending(null);
-      onNotify({
-        tone: "danger",
-        title: t("composer.uploadFailed"),
-        description: t("composer.uploadFailedName", { name: file.name }),
-      });
-    } finally {
-      setUploading(false);
+    for (const file of files) {
+      const provisional: MessageAttachment = { name: file.name, sizeBytes: file.size, kind: iconForType(file.type) };
+      setPending((current) => [...current, provisional]);
+      try {
+        const stored = await onUpload(file);
+        setPending((current) => current.map((attachment) => (attachment === provisional ? stored : attachment)));
+      } catch {
+        setPending((current) => current.filter((attachment) => attachment !== provisional));
+        onNotify({ tone: "danger", title: t("composer.uploadFailed"), description: t("composer.uploadFailedName", { name: file.name }) });
+      }
     }
+    setUploading(false);
   };
 
   /** Run a tool on the editor. The table holds what each one does; the ref is read here, on click. */
@@ -319,7 +315,21 @@ export function Composer({
       <div
         style={{
           ...styles.composer,
-          ...(editing ? { borderColor: "var(--border-accent)" } : {}),
+          ...(editing ? { borderColor: "var(--border-accent)" } : draggingFiles ? { borderColor: "var(--border-accent)", background: "var(--surface-selected)" } : {}),
+        }}
+        onDragEnter={(event) => {
+          if (event.dataTransfer.types.includes("Files")) setDraggingFiles(true);
+        }}
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes("Files")) event.preventDefault();
+        }}
+        onDragLeave={(event) => {
+          if (event.currentTarget === event.target) setDraggingFiles(false);
+        }}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDraggingFiles(false);
+          void addFiles(Array.from(event.dataTransfer.files));
         }}
         onInput={signalTyping}
         // Escape leaves an edit, which is the shortcut people reach for first. Caught here rather
@@ -340,27 +350,26 @@ export function Composer({
             <IconButton icon="x" label={t("composer.cancelEdit")} size="sm" onClick={() => onCancelEdit?.()} />
           </div>
         ) : null}
-        {pending && !editing ? (
-          <div style={styles.chip}>
-            <Icon name={pending.kind} size={16} style={{ color: "var(--text-muted)" }} />
-            <span style={{ fontWeight: 500, color: "var(--text-strong)" }}>{pending.name}</span>
-            <span style={{ color: "var(--text-subtle)" }}>{uploading ? t("composer.uploading") : formatBytes(pending.sizeBytes)}</span>
-            <IconButton
-              icon="x"
-              label={t("composer.removeAttachment")}
-              size="sm"
-              disabled={uploading}
-              onClick={() => {
-                discardStored(pending);
-                setPending(null);
-              }}
-            />
+        {pending.length > 0 && !editing ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+            {pending.map((attachment, index) => (
+              <div key={`${attachment.name}-${index}`} style={styles.chip}>
+                <Icon name={attachment.kind} size={16} style={{ color: "var(--text-muted)" }} />
+                <span style={{ fontWeight: 500, color: "var(--text-strong)" }}>{attachment.name}</span>
+                <span style={{ color: "var(--text-subtle)" }}>{attachment.fileId ? formatBytes(attachment.sizeBytes) : t("composer.uploading")}</span>
+                <IconButton icon="x" label={t("composer.removeAttachment")} size="sm" disabled={!attachment.fileId} onClick={() => {
+                  discardStored(attachment);
+                  setPending((current) => current.filter((_, currentIndex) => currentIndex !== index));
+                }} />
+              </div>
+            ))}
           </div>
         ) : null}
         <MessageEditor
           ref={editorRef}
           placeholder={editing ? t("message.editMessage") : t("composer.writeIn", { name: channelName })}
           onSend={sendWith}
+          onPasteFiles={(files) => void addFiles(files)}
         />
         <div style={styles.tools}>
           <IconButton icon="bold" label={t("composer.bold")} size="sm" onClick={() => editorRef.current?.wrapSelection("**")} />
@@ -405,8 +414,9 @@ export function Composer({
           <input
             ref={fileRef}
             type="file"
+            multiple
             style={{ display: "none" }}
-            onChange={(e) => void onFilePicked(e.target.files)}
+            onChange={(e) => void addFiles(Array.from(e.target.files ?? []))}
           />
           <IconButton icon="at-sign" label={t("composer.mention")} size="sm" onClick={() => editorRef.current?.insertTrigger("@")} />
           {/* Beside the `@` because it is the same gesture on a different subject: the editor's own

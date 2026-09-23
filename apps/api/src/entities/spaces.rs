@@ -17,6 +17,9 @@ pub struct Model {
     /// Object-store key of the uploaded icon, or `None` to fall back to the generated mark. Never a
     /// remote URL.
     pub icon_key: Option<String>,
+    /// The public, unrestricted channel every newly invited person joins. `None` is only possible
+    /// while a new space is being created inside its transaction or on a legacy malformed row.
+    pub default_channel_id: Option<Uuid>,
     pub created_at: TimeDateTimeWithTimeZone,
     pub updated_at: TimeDateTimeWithTimeZone,
 }

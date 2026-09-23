@@ -51,6 +51,7 @@ import {
   setMessagePinned,
   setMessageSaved,
   setChannelFavorite,
+  setDefaultChannel as apiSetDefaultChannel,
   setMemberRole as apiSetMemberRole,
   setMyPresence as apiSetMyPresence,
   setReadCursor,
@@ -1155,11 +1156,13 @@ function AppShell() {
         });
       },
       onSpaceUpdated: (space) => {
-        // Name and mark only: the counters and the caller's role are not in the event, precisely
+        // Shared settings only: the counters and the caller's role are not in the event, precisely
         // because they differ per recipient, so whatever this client holds for them stands.
         setWorkspaces((prev) =>
           prev.map((w) =>
-            w.id === space.id ? { ...w, name: space.name, slug: space.slug, iconUrl: space.iconUrl } : w,
+            w.id === space.id
+              ? { ...w, name: space.name, slug: space.slug, iconUrl: space.iconUrl, defaultChannelId: space.defaultChannelId }
+              : w,
           ),
         );
       },
@@ -2403,8 +2406,8 @@ function AppShell() {
     });
   };
 
-  const send = (text: string, attachment?: Message["attachment"]) => {
-    if (!text.trim() && !attachment) return;
+  const send = (text: string, attachments?: Message["attachments"]) => {
+    if (!text.trim() && !attachments?.length) return;
     const conv = channelId;
     const tempId = `tmp-${Date.now()}`;
     const optimistic: Message = {
@@ -2412,13 +2415,14 @@ function AppShell() {
       author: currentUser,
       createdAt: new Date().toISOString(),
       body: text,
-      attachment,
+      attachments,
+      attachment: attachments?.[0],
     };
     setMessages((prev) => ({ ...prev, [conv]: [...(prev[conv] ?? []), optimistic] }));
     // The optimistic row is replaced by the server row (real id, timestamp, hydrated attachment) on
     // success, or removed on failure. An attachment is already stored by this point: the composer
     // uploads on pick, so all that travels here is its id.
-    sendMessage(conv, text, attachment?.fileId ? { attachments: [attachment.fileId] } : {})
+    sendMessage(conv, text, { attachments: attachments?.flatMap((attachment) => attachment.fileId ? [attachment.fileId] : []) })
       .then((m) => {
         // Drop the optimistic row and de-dupe the real id, so a realtime echo of our own message that
         // may have already arrived does not leave a duplicate.
@@ -2546,6 +2550,22 @@ function AppShell() {
       setChannels((prev) => prev.map((c) => (c.id === id ? { ...c, fav: before.fav } : c)));
       showToast({ tone: "info", title: t("toast.favouriteNotSaved") });
     });
+  };
+
+  /** Choose the public arrival channel from the channel menu. */
+  const setDefaultChannel = async (id: string) => {
+    if (!ws) return;
+    try {
+      const space = await apiSetDefaultChannel(ws, id);
+      setWorkspaces((prev) =>
+        prev.map((workspace) =>
+          workspace.id === ws ? { ...workspace, defaultChannelId: space.defaultChannelId ?? id } : workspace,
+        ),
+      );
+      showToast({ tone: "success", title: t("space.defaultChannelUpdated") });
+    } catch {
+      showToast({ tone: "danger", title: t("space.defaultChannelFailed"), description: t("common.tryAgain") });
+    }
   };
 
   /** Save a channel's settings (name, topic, visibility, archived) against the API. */
@@ -3162,6 +3182,7 @@ function AppShell() {
         onChannelNotifications={setChannelNotifId}
         onMarkRead={markConversationRead}
         onToggleFavorite={toggleFavorite}
+        onSetDefaultChannel={(id) => void setDefaultChannel(id)}
         onOpenNotification={openNotification}
         onToggleNotifRead={setNotifRead}
         onMarkAllNotifsRead={markAllNotifsRead}
@@ -3274,8 +3295,13 @@ function AppShell() {
           // administrators, which is the line the API draws too.
           canEditIdentity={currentWorkspace?.role === "owner"}
           canManageMembers={["owner", "admin"].includes(currentWorkspace?.role ?? "")}
+          channels={channels}
+          defaultChannelId={currentWorkspace?.defaultChannelId}
           onIconChanged={applySpaceIcon}
           onRenamed={applySpaceName}
+          onDefaultChannelChanged={(defaultChannelId) =>
+            setWorkspaces((prev) => prev.map((workspace) => (workspace.id === ws ? { ...workspace, defaultChannelId } : workspace)))
+          }
           // The real records, so the screen shows the role the server holds rather than a mapping
           // by display name, and can say how many guests and bots there are instead of asserting it.
           members={members.map((m) => ({
@@ -3623,6 +3649,7 @@ function AppShell() {
                 onChannelNotifications={setChannelNotifId}
                 onMarkRead={markConversationRead}
                 onToggleFavorite={toggleFavorite}
+                onSetDefaultChannel={(id) => void setDefaultChannel(id)}
                 onOpenNotification={openNotification}
                 onToggleNotifRead={setNotifRead}
                 onMarkAllNotifsRead={markAllNotifsRead}

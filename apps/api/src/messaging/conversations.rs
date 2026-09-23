@@ -77,6 +77,7 @@ pub async fn list_my_spaces(
             members,
             unread: unread_by_space.get(&space.id).copied().unwrap_or(0),
             mentions: mentions_by_space.get(&space.id).copied().unwrap_or(0),
+            default_channel_id: space.default_channel_id,
             icon_url: space
                 .icon_key
                 .as_deref()

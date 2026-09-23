@@ -1,6 +1,6 @@
 "use client";
 
-import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, useCallback, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Avatar, Icon, Popover } from "@/components/ds";
 import {
   getChannelMembers,
@@ -17,6 +17,7 @@ import {
   editorState,
   emojiNode,
   insertBlockAtSelection,
+  insertLineBreakAtSelection,
   insertNodeAtSelection,
   insertTextAtSelection,
   replaceTokenBeforeCaret,
@@ -127,6 +128,8 @@ const optionStyle: CSSProperties = {
 export type MessageEditorProps = {
   placeholder: string;
   onSend: (text: string) => void;
+  /** Files pasted from the clipboard are attachments, not editor content. */
+  onPasteFiles?: (files: File[]) => void;
   ariaLabel?: string;
   ref?: Ref<MessageEditorHandle>;
 };
@@ -137,7 +140,7 @@ export type MessageEditorProps = {
  * owns the DOM); `onSend` receives the serialised plain text (emotes as their Unicode glyph), so the
  * message pipeline is unchanged. The surrounding toolbar drives formatting through the ref handle.
  */
-export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEditorProps) {
+export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, ref }: MessageEditorProps) {
   const { t } = useTranslation();
   const edRef = useRef<HTMLDivElement>(null);
   const [trigger, setTrigger] = useState<Trigger | null>(null);
@@ -191,6 +194,21 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
 
   const acOpen = trigger != null && hits.length > 0;
   const activeIdx = Math.min(active, Math.max(0, hits.length - 1));
+
+  /** Anchor autocomplete to the insertion point instead of the editor's leading edge. */
+  const getCaretRect = useCallback(() => {
+    const ed = edRef.current;
+    const selection = window.getSelection();
+    if (!ed || !selection || selection.rangeCount === 0) return null;
+    const range = selection.getRangeAt(0);
+    if (!range.collapsed || !ed.contains(range.startContainer)) return null;
+
+    const rect = range.getBoundingClientRect();
+    // A collapsed range has no width, but its height and position describe the current text line.
+    // Some engines return an entirely empty rectangle at unsupported boundary positions; falling
+    // back to the editor there is safer than flashing the menu at the viewport origin.
+    return rect.height || rect.top || rect.left ? rect : null;
+  }, []);
 
   /** Fire `@partial` or `:partial` detection from the text before the caret. */
   const detect = (text: string, caret: number) => {
@@ -461,12 +479,19 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
     }
     if (e.key === "Enter" && e.shiftKey) {
       e.preventDefault();
-      insertTextAtSelection("\n");
+      const ed = edRef.current;
+      if (ed) insertLineBreakAtSelection(ed);
       sync();
     }
   };
 
   const onPaste = (e: ClipboardEvent<HTMLDivElement>) => {
+    const files = Array.from(e.clipboardData.files);
+    if (files.length > 0) {
+      e.preventDefault();
+      onPasteFiles?.(files);
+      return;
+    }
     e.preventDefault();
     insertTextAtSelection(e.clipboardData.getData("text/plain"));
     sync();
@@ -491,7 +516,7 @@ export function MessageEditor({ placeholder, onSend, ariaLabel, ref }: MessageEd
         onKeyDown={onKeyDown}
         onPaste={onPaste}
       />
-      <Popover anchorRef={edRef} open={acOpen} onClose={() => setTrigger(null)} placement="top" align="start">
+      <Popover anchorRef={edRef} getAnchorRect={getCaretRect} open={acOpen} onClose={() => setTrigger(null)} placement="top" align="start">
         <div id={listId} style={menuStyle} role="listbox" aria-label={trigger?.kind === "emoji" ? t("prefs.emojis") : t("conversation.members")}>
           {hits.map((hit, idx) => (
             <button

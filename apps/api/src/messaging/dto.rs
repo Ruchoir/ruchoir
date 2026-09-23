@@ -110,6 +110,9 @@ pub struct SpaceDto {
     /// Unread notifications in this space (mention, thread reply, direct message): the things
     /// addressed to the caller personally, and the only counter the rail shows as a number.
     pub mentions: i64,
+    /// The public channel every newly invited person joins.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_channel_id: Option<Uuid>,
     /// Same-origin URL of the uploaded icon; absent means the generated mark.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_url: Option<String>,
@@ -263,6 +266,7 @@ pub struct SpaceUpdatedDto {
     pub name: String,
     pub slug: String,
     pub icon_url: Option<String>,
+    pub default_channel_id: Option<Uuid>,
 }
 
 /// A member's identity after a profile change, pushed in real time.
@@ -510,6 +514,12 @@ pub struct UpdateSpaceRequest {
     /// New display name. The slug is re-derived from it, and the one it replaces keeps resolving to
     /// the same space, so the addresses people already hold keep arriving.
     pub name: String,
+}
+
+/// The channel administrators select for every newly invited person.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SetDefaultChannelRequest {
+    pub channel_id: Uuid,
 }
 
 /// An outstanding invitation into a space, as listed to an administrator.

@@ -31,9 +31,7 @@ use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
 use crate::auth::tokens;
-use crate::entities::{
-    channel_members, channels, messages, space_invitations, space_members, spaces, users,
-};
+use crate::entities::{channel_members, messages, space_invitations, space_members, spaces, users};
 use crate::state::AppState;
 
 use super::authz::{ensure_space_admin, space_member_ids};
@@ -342,41 +340,39 @@ pub async fn accept_invitation(
             active.uses = Set(record.uses + 1);
             active.update(&txn).await?;
 
-            // A member who has joined no channel receives no real-time message, so the space would
-            // look dead until they clicked into one. Joining the space's first public channel (the
-            // `general` every space is born with) makes it live immediately.
-            if let Some(channel) = first_public_channel(&txn, record.space_id).await? {
-                channel_members::ActiveModel {
-                    channel_id: Set(channel),
-                    user_id: Set(session.user_id),
-                    role: Set("member".to_owned()),
-                    notification_level: Set("all".to_owned()),
-                    muted: Set(false),
-                    favorite: Set(false),
-                    joined_at: Set(now),
+            // Joining the configured default channel makes a new space membership immediately
+            // live, regardless of which public channel happened to be created first.
+            let channel = super::spaces::default_channel(&txn, record.space_id).await?;
+            channel_members::ActiveModel {
+                channel_id: Set(channel),
+                user_id: Set(session.user_id),
+                role: Set("member".to_owned()),
+                notification_level: Set("all".to_owned()),
+                muted: Set(false),
+                favorite: Set(false),
+                joined_at: Set(now),
+            }
+            .insert(&txn)
+            .await?;
+
+            // A durable trace of the arrival, next to the ephemeral push: a notice scrolls away,
+            // the history does not. The row carries the *event*, never a sentence: user-facing
+            // copy belongs to the client here, exactly as it does for the API's error codes.
+            // `author_id` is the person the notice is about, which is what lets the client name
+            // them without a second lookup.
+            notice = Some(
+                messages::ActiveModel {
+                    id: Set(Uuid::new_v4()),
+                    conversation_id: Set(channel),
+                    author_id: Set(Some(session.user_id)),
+                    kind: Set("system".to_owned()),
+                    system_event: Set(Some(JOINED_EVENT.to_owned())),
+                    created_at: Set(now),
+                    ..Default::default()
                 }
                 .insert(&txn)
-                .await?;
-
-                // A durable trace of the arrival, next to the ephemeral push: a notice scrolls away,
-                // the history does not. The row carries the *event*, never a sentence: user-facing
-                // copy belongs to the client here, exactly as it does for the API's error codes.
-                // `author_id` is the person the notice is about, which is what lets the client name
-                // them without a second lookup.
-                notice = Some(
-                    messages::ActiveModel {
-                        id: Set(Uuid::new_v4()),
-                        conversation_id: Set(channel),
-                        author_id: Set(Some(session.user_id)),
-                        kind: Set("system".to_owned()),
-                        system_event: Set(Some(JOINED_EVENT.to_owned())),
-                        created_at: Set(now),
-                        ..Default::default()
-                    }
-                    .insert(&txn)
-                    .await?,
-                );
-            }
+                .await?,
+            );
             txn.commit().await?;
             record.role.clone()
         }
@@ -467,6 +463,7 @@ pub async fn accept_invitation(
             .icon_key
             .as_deref()
             .map(|key| crate::files::icon_url(space.id, key)),
+        default_channel_id: space.default_channel_id,
     }))
 }
 
@@ -500,20 +497,6 @@ fn is_usable(record: &space_invitations::Model, now: OffsetDateTime) -> bool {
     record.revoked_at.is_none()
         && record.expires_at.is_none_or(|expiry| expiry > now)
         && record.max_uses.is_none_or(|max| record.uses < max)
-}
-
-/// The space's oldest public, non-archived channel: the one a new member is joined to.
-pub(super) async fn first_public_channel<C: sea_orm::ConnectionTrait>(
-    db: &C,
-    space_id: Uuid,
-) -> Result<Option<Uuid>, ApiError> {
-    Ok(channels::Entity::find()
-        .filter(channels::Column::SpaceId.eq(space_id))
-        .filter(channels::Column::ChannelType.eq("public"))
-        .order_by_asc(channels::Column::CreatedAt)
-        .one(db)
-        .await?
-        .map(|channel| channel.id))
 }
 
 /// The display name of an account, or `None` when it is gone (`created_by` is provenance only).

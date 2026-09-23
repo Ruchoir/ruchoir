@@ -51,7 +51,9 @@ context and takes precedence here.
   `invitations` is how anyone but a space's creator gets in: an invitation is a durable, listable and
   revocable row (unlike the fire-and-forget Valkey tokens of the auth core) holding only the SHA-256
   digest of its token, addressed to one email or open as a shareable link, and accepting one joins the
-  space plus its oldest public channel so the arrival is live at once, publishes `member.joined`
+  space plus its configured default channel so the arrival is live at once. A default channel is
+  one public, active, unrestricted channel per space, chosen and changed by its administrators,
+  publishes `member.joined`
   to the space and writes a `member_joined` system message into that channel in the same transaction
   (only on a real arrival: an existing member re-opening their link announces nothing). A system row
   stores the *event* and an empty body, never a sentence: user-facing copy belongs to the client,

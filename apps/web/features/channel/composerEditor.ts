@@ -4,6 +4,7 @@ import { emojiCode } from "@/lib/emojiCode";
 import type { EmojiManifest } from "../app/emojiManifest";
 
 const EMOJI_PX = 20;
+const TRAILING_BREAK_ATTRIBUTE = "data-composer-trailing-break";
 
 /**
  * DOM helpers for the contenteditable composer. The editor is uncontrolled (the browser owns the
@@ -49,6 +50,9 @@ export function serialize(root: Node): string {
       }
       if (child.nodeType !== Node.ELEMENT_NODE) return;
       const el = child as HTMLElement;
+      // A contenteditable needs a second terminal break to render the caret on the new line. It is
+      // layout scaffolding, not another line in the message.
+      if (el.hasAttribute(TRAILING_BREAK_ATTRIBUTE)) return;
       if (el.dataset.emoji) {
         out += el.dataset.emoji;
         return;
@@ -124,6 +128,39 @@ export function insertBlockAtSelection(str: string, fromEnd = 0): void {
   range.insertNode(node);
   const caret = document.createRange();
   caret.setStart(node, Math.max(0, str.length - fromEnd));
+  caret.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(caret);
+}
+
+/** Insert a soft line break and keep the caret visible when that break ends the editor. */
+export function insertLineBreakAtSelection(root: HTMLElement): void {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const range = sel.getRangeAt(0);
+  if (!root.contains(range.commonAncestorContainer)) return;
+
+  // Chromium renders a caret after a lone terminal <br> at the beginning of the preceding line.
+  // A second, non-serialised <br> gives that caret a real visual line to occupy.
+  const tail = document.createRange();
+  tail.selectNodeContents(root);
+  tail.setStart(range.endContainer, range.endOffset);
+  const holder = document.createElement("div");
+  holder.appendChild(tail.cloneContents());
+  const atEnd = serialize(holder) === "";
+
+  range.deleteContents();
+  const lineBreak = document.createElement("br");
+  range.insertNode(lineBreak);
+
+  if (atEnd && !root.querySelector(`[${TRAILING_BREAK_ATTRIBUTE}]`)) {
+    const trailingBreak = document.createElement("br");
+    trailingBreak.setAttribute(TRAILING_BREAK_ATTRIBUTE, "");
+    lineBreak.parentNode?.insertBefore(trailingBreak, lineBreak.nextSibling);
+  }
+
+  const caret = document.createRange();
+  caret.setStartAfter(lineBreak);
   caret.collapse(true);
   sel.removeAllRanges();
   sel.addRange(caret);

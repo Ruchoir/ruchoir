@@ -70,6 +70,7 @@ type SpaceDto = {
   unread: number;
   mentions: number;
   icon_url?: string;
+  default_channel_id?: string;
 };
 
 type ChannelDto = {
@@ -568,6 +569,7 @@ function toWorkspace(dto: SpaceDto): Workspace {
     unread: dto.unread ?? 0,
     mentions: dto.mentions ?? 0,
     iconUrl: dto.icon_url,
+    defaultChannelId: dto.default_channel_id,
   };
 }
 
@@ -607,11 +609,20 @@ export async function createSpace(name: string): Promise<Workspace> {
  * breaking the links people already hold.
  */
 export async function renameSpace(spaceId: string, name: string): Promise<SpaceIdentity> {
-  const dto = await apiPatch<{ id: string; name: string; slug: string; icon_url: string | null }>(
+  const dto = await apiPatch<{ id: string; name: string; slug: string; icon_url: string | null; default_channel_id?: string }>(
     `/spaces/${spaceId}`,
     { name },
   );
-  return { id: dto.id, name: dto.name, slug: dto.slug, iconUrl: dto.icon_url ?? undefined };
+  return { id: dto.id, name: dto.name, slug: dto.slug, iconUrl: dto.icon_url ?? undefined, defaultChannelId: dto.default_channel_id };
+}
+
+/** Choose the public channel every newly invited person joins. Space administrators may change it. */
+export async function setDefaultChannel(spaceId: string, channelId: string): Promise<SpaceIdentity> {
+  const dto = await apiPut<{ id: string; name: string; slug: string; icon_url: string | null; default_channel_id?: string }>(
+    `/spaces/${spaceId}/default-channel`,
+    { channel_id: channelId },
+  );
+  return { id: dto.id, name: dto.name, slug: dto.slug, iconUrl: dto.icon_url ?? undefined, defaultChannelId: dto.default_channel_id };
 }
 
 /**
@@ -1222,7 +1233,7 @@ export async function setMessagePinned(channelId: string, messageId: string, pin
 // --- Mapping helpers ---
 
 function toMessage(dto: MessageDto): ApiMessage {
-  const { attachment, image } = splitAttachments(dto.attachments);
+  const { attachment, attachments, image, images } = splitAttachments(dto.attachments);
   return {
     id: dto.id,
     kind: (dto.kind === "system" ? "system" : "message") as MessageKind,
@@ -1236,7 +1247,9 @@ function toMessage(dto: MessageDto): ApiMessage {
         : undefined,
     systemIcon: dto.kind === "system" ? iconForSystemEvent(dto.system_event) : undefined,
     attachment,
+    attachments,
     image,
+    images,
     reactions: dto.reactions.length > 0 ? dto.reactions.map(toReaction) : undefined,
     parentId: dto.parent_message_id,
     replies: dto.reply_count > 0 ? dto.reply_count : undefined,
@@ -1255,33 +1268,32 @@ function toReaction(dto: ReactionDto): Reaction {
 }
 
 /**
- * Fold an attachment list into the UI's single `attachment` + single inline `image`. The first
- * image-kind attachment with intrinsic dimensions becomes the inline image; the first non-image
- * becomes the file attachment. This matches what the exploration renders; richer multi-attachment
- * layout is a later concern.
+ * Keep attachment order while retaining the first-item aliases used by compact legacy views.
  */
 function splitAttachments(attachments: AttachmentDto[]): {
   attachment?: MessageAttachment;
+  attachments?: MessageAttachment[];
   image?: InlineImage;
+  images?: InlineImage[];
 } {
-  let attachment: MessageAttachment | undefined;
-  let image: InlineImage | undefined;
+  const attachmentsOut: MessageAttachment[] = [];
+  const imagesOut: InlineImage[] = [];
   for (const a of attachments) {
     // A file removed from the space keeps its place in the message, without a link: every URL to
     // its bytes answers 404, and an image whose source 404s is a broken frame rather than an
     // absence. What the message carried is still worth saying; what it carried is simply gone.
     if (a.deleted) {
-      attachment ??= {
+      attachmentsOut.push({
         fileId: a.file_id,
         name: a.name,
         sizeBytes: a.size_bytes,
         kind: attachmentIcon(a.kind),
         deleted: true,
-      };
+      });
       continue;
     }
-    if (!image && a.kind === "image" && a.image_width && a.image_height) {
-      image = {
+    if (a.kind === "image" && a.image_width && a.image_height) {
+      imagesOut.push({
         fileId: a.file_id,
         alt: a.alt_text ?? a.name,
         width: a.image_width,
@@ -1290,19 +1302,24 @@ function splitAttachments(attachments: AttachmentDto[]): {
         // `preview` is the original bytes, so opening it in a tab shows full quality.
         src: `/api/v1/files/${a.file_id}/preview`,
         downloadUrl: `/api/v1/files/${a.file_id}/download`,
-      };
-    } else if (!attachment) {
-      attachment = {
+      });
+    } else {
+      attachmentsOut.push({
         fileId: a.file_id,
         name: a.name,
         sizeBytes: a.size_bytes,
         kind: attachmentIcon(a.kind),
         url: `/api/v1/files/${a.file_id}/download`,
         previewUrl: `/api/v1/files/${a.file_id}/preview`,
-      };
+      });
     }
   }
-  return { attachment, image };
+  return {
+    attachment: attachmentsOut[0],
+    attachments: attachmentsOut.length ? attachmentsOut : undefined,
+    image: imagesOut[0],
+    images: imagesOut.length ? imagesOut : undefined,
+  };
 }
 
 /** Map an API import-source string (free text, e.g. "slack") to the front's capitalized enum. */
@@ -1729,7 +1746,7 @@ export type MemberIdentity = Omit<Member, "role">;
  * A space's shared identity after a change, pushed live. Carries no counters and no role: those are
  * per-caller and are never broadcast, so a recipient keeps the ones it already holds.
  */
-export type SpaceIdentity = { id: string; name: string; slug: string; iconUrl?: string };
+export type SpaceIdentity = { id: string; name: string; slug: string; iconUrl?: string; defaultChannelId?: string };
 
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
@@ -1911,6 +1928,7 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
           name: String(payload.name),
           slug: String(payload.slug),
           iconUrl: (payload.icon_url as string | null) ?? undefined,
+          defaultChannelId: (payload.default_channel_id as string | null) ?? undefined,
         });
         break;
       }
