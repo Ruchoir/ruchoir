@@ -43,7 +43,8 @@ use crate::config::Config;
 use crate::entities::{
     channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
     file_versions, files, import_mappings, message_attachments, message_reactions, messages,
-    read_cursors, space_invitations, space_members, spaces, user_saved_messages, users,
+    notifications, push_subscriptions, read_cursors, space_invitations, space_members, spaces,
+    user_saved_messages, users,
 };
 use crate::state::AppState;
 
@@ -59,6 +60,9 @@ struct TestApp {
     config: Config,
     valkey: fred::prelude::Pool,
     http: reqwest::Client,
+    /// The state the server runs with, for what is driven by a background task rather than a
+    /// request (the email sweep).
+    state: AppState,
 }
 
 /// Boot the app or return `None` when the test infrastructure is not configured.
@@ -131,7 +135,7 @@ async fn boot() -> Option<TestApp> {
         .await
         .expect("bind");
     let addr = listener.local_addr().expect("addr");
-    let app = crate::http::router(state);
+    let app = crate::http::router(state.clone());
     tokio::spawn(async move {
         axum::serve(
             listener,
@@ -148,6 +152,7 @@ async fn boot() -> Option<TestApp> {
         config,
         valkey,
         http: reqwest::Client::new(),
+        state,
     })
 }
 
@@ -7149,4 +7154,360 @@ async fn a_client_catches_up_on_what_it_missed_in_every_conversation() {
     // Too long ago to be worth a list: reload instead.
     let stale = changes(bob.clone(), Some("2020-01-01T00:00:00Z".to_owned())).await;
     assert_eq!(stale["truncated"], true);
+}
+
+/// Bob names Alice in the public channel, and the notification it creates is returned.
+async fn mention_alice(app: &TestApp, fx: &Fixture) -> notifications::Model {
+    let bob = app.cookie_for(fx.bob).await;
+    let sent = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &bob,
+        )
+        .json(&json!({ "body": "@alice le devis est prêt" }))
+        .send()
+        .await
+        .expect("send");
+    assert_eq!(sent.status(), 201);
+    notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.alice))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("Alice was notified")
+}
+
+#[tokio::test]
+async fn notification_preferences_are_kept_by_the_server() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let path = "/api/v1/me/notification-preferences";
+
+    // Nothing saved yet: the defaults, email fallback included.
+    let fresh: Value = app
+        .req(reqwest::Method::GET, path, &alice)
+        .send()
+        .await
+        .expect("get")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(fresh["enabled"], true);
+    assert_eq!(fresh["email"], true);
+
+    let mut changed = fresh.clone();
+    changed["quiet_hours"] = json!(true);
+    changed["quiet_from"] = json!("22:30");
+    changed["utc_offset_minutes"] = json!(120);
+    changed["email"] = json!(false);
+    let saved = app
+        .req(reqwest::Method::PUT, path, &alice)
+        .json(&changed)
+        .send()
+        .await
+        .expect("put");
+    assert_eq!(saved.status(), 200);
+    let read_back: Value = app
+        .req(reqwest::Method::GET, path, &alice)
+        .send()
+        .await
+        .expect("get")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(read_back, changed, "what was saved is what is read");
+
+    let mut nonsense = changed.clone();
+    nonsense["quiet_to"] = json!("8h");
+    let refused = app
+        .req(reqwest::Method::PUT, path, &alice)
+        .json(&nonsense)
+        .send()
+        .await
+        .expect("put");
+    assert_eq!(refused.status(), 400);
+
+    // A channel's own setting lives on the membership, and the channel list reports it back.
+    let channel_pref = format!(
+        "/api/v1/conversations/{}/notification-preference",
+        fx.public_channel
+    );
+    let set = app
+        .req(reqwest::Method::PUT, &channel_pref, &alice)
+        .json(&json!({ "level": "mentions", "muted": false }))
+        .send()
+        .await
+        .expect("put");
+    assert_eq!(set.status(), 204);
+    let channels: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    let general = channels
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|c| c["id"] == fx.public_channel.to_string())
+        .expect("general is listed");
+    assert_eq!(general["notify_level"], "mentions");
+    assert_eq!(general["muted"], false);
+
+    // Carol never joined it, so there is no membership to hold her setting.
+    let carol = app.cookie_for(fx.carol).await;
+    let not_hers = app
+        .req(reqwest::Method::PUT, &channel_pref, &carol)
+        .json(&json!({ "level": "none", "muted": true }))
+        .send()
+        .await
+        .expect("put");
+    assert_eq!(not_hers.status(), 403);
+    let unknown_level = app
+        .req(reqwest::Method::PUT, &channel_pref, &alice)
+        .json(&json!({ "level": "sometimes", "muted": false }))
+        .send()
+        .await
+        .expect("put");
+    assert_eq!(unknown_level.status(), 400);
+}
+
+#[tokio::test]
+async fn a_push_subscription_can_only_name_a_known_push_service() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let path = "/api/v1/push/subscription";
+    let keys = json!({ "p256dh": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", "auth": "tBHItJI5svbpez7KI4CCXg" });
+
+    // The server's own network, dressed up as a subscription, is refused before it is stored.
+    for endpoint in [
+        "https://127.0.0.1/hook",
+        "http://fcm.googleapis.com/fcm/send/x",
+    ] {
+        let refused = app
+            .req(reqwest::Method::PUT, path, &alice)
+            .json(&json!({ "endpoint": endpoint, "keys": keys }))
+            .send()
+            .await
+            .expect("put");
+        assert_eq!(refused.status(), 400, "{endpoint}");
+    }
+
+    let endpoint = format!(
+        "https://fcm.googleapis.com/fcm/send/test-{}",
+        Uuid::new_v4().simple()
+    );
+    let stored = app
+        .req(reqwest::Method::PUT, path, &alice)
+        .json(&json!({ "endpoint": endpoint, "keys": keys }))
+        .send()
+        .await
+        .expect("put");
+    assert_eq!(stored.status(), 204);
+
+    // The same browser, now signed in as Bob, belongs to Bob alone.
+    let handed_over = app
+        .req(reqwest::Method::PUT, path, &bob)
+        .json(&json!({ "endpoint": endpoint, "keys": keys }))
+        .send()
+        .await
+        .expect("put");
+    assert_eq!(handed_over.status(), 204);
+    let rows = push_subscriptions::Entity::find()
+        .filter(push_subscriptions::Column::Endpoint.eq(endpoint.clone()))
+        .all(&app.db)
+        .await
+        .expect("query");
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].user_id, fx.bob);
+
+    // Alice cannot forget Bob's subscription; Bob can.
+    for (cookie, remaining) in [(&alice, 1), (&bob, 0)] {
+        let forgotten = app
+            .req(reqwest::Method::DELETE, path, cookie)
+            .json(&json!({ "endpoint": endpoint }))
+            .send()
+            .await
+            .expect("delete");
+        assert_eq!(forgotten.status(), 204);
+        let count = push_subscriptions::Entity::find()
+            .filter(push_subscriptions::Column::Endpoint.eq(endpoint.clone()))
+            .count(&app.db)
+            .await
+            .expect("count");
+        assert_eq!(count, remaining);
+    }
+
+    // The instance's public key is generated on first use and stable afterwards.
+    let config = |cookie: String| {
+        let request = app.req(reqwest::Method::GET, "/api/v1/push/config", &cookie);
+        async move {
+            request
+                .send()
+                .await
+                .expect("config")
+                .json::<Value>()
+                .await
+                .expect("json")
+        }
+    };
+    let first = config(alice.clone()).await;
+    let second = config(bob.clone()).await;
+    assert_eq!(first["available"], true);
+    let key = first["public_key"].as_str().expect("a key");
+    assert_eq!(key.len(), 87, "an uncompressed P-256 point, base64url");
+    assert_eq!(second["public_key"], first["public_key"]);
+}
+
+#[tokio::test]
+async fn the_woken_worker_is_shown_only_what_is_unread_and_wanted() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let before = OffsetDateTime::now_utc() - time::Duration::seconds(5);
+    let since = before
+        .format(&time::format_description::well_known::Rfc3339)
+        .expect("format");
+    let notification = mention_alice(&app, &fx).await;
+
+    let pending = |cookie: String| {
+        let request = app.req(
+            reqwest::Method::GET,
+            &format!("/api/v1/push/pending?since={since}"),
+            &cookie,
+        );
+        async move {
+            request
+                .send()
+                .await
+                .expect("pending")
+                .json::<Value>()
+                .await
+                .expect("json")
+        }
+    };
+
+    let shown = pending(alice.clone()).await;
+    let items = shown["items"].as_array().expect("items");
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["id"], notification.id.to_string());
+    let title = items[0]["title"].as_str().expect("title");
+    let body = items[0]["body"].as_str().expect("body");
+    assert!(title.contains("#general"), "{title}");
+    assert!(body.contains("bob") && body.contains("devis"), "{body}");
+    assert_eq!(shown["silent"], true, "no sound unless asked for");
+
+    // Muting the channel is obeyed by the worker too.
+    let muted = app
+        .req(
+            reqwest::Method::PUT,
+            &format!(
+                "/api/v1/conversations/{}/notification-preference",
+                fx.public_channel
+            ),
+            &alice,
+        )
+        .json(&json!({ "level": "all", "muted": true }))
+        .send()
+        .await
+        .expect("mute");
+    assert_eq!(muted.status(), 204);
+    assert_eq!(
+        pending(alice.clone()).await["items"]
+            .as_array()
+            .expect("items")
+            .len(),
+        0
+    );
+
+    // Bob was not named: nothing for him.
+    let bob = app.cookie_for(fx.bob).await;
+    assert_eq!(
+        pending(bob).await["items"].as_array().expect("items").len(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn the_email_fallback_waits_then_decides_once() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let notification = mention_alice(&app, &fx).await;
+    let handled = |id: Uuid| {
+        let db = app.db.clone();
+        async move {
+            notifications::Entity::find_by_id(id)
+                .one(&db)
+                .await
+                .expect("query")
+                .expect("row")
+                .email_handled_at
+        }
+    };
+
+    // Fresh: the fallback leaves it alone, there is still time to read it in the app.
+    crate::notify::email::sweep(&app.state, OffsetDateTime::now_utc())
+        .await
+        .expect("sweep");
+    assert!(handled(notification.id).await.is_none());
+
+    // A while later and still unread, Alice is emailed about it, once.
+    let later = OffsetDateTime::now_utc()
+        + time::Duration::seconds(app.config.notify_email_delay_secs + 60);
+    crate::notify::email::sweep(&app.state, later)
+        .await
+        .expect("sweep");
+    let decided = handled(notification.id).await.expect("decided");
+    crate::notify::email::sweep(&app.state, later + time::Duration::seconds(60))
+        .await
+        .expect("sweep");
+    assert_eq!(
+        handled(notification.id).await,
+        Some(decided),
+        "a decided row is never decided again"
+    );
+
+    // During her quiet hours, a second one waits for the window to close instead.
+    let alice = app.cookie_for(fx.alice).await;
+    // A two-hour window around the moment the sweep will run, whatever time the test runs at.
+    let quiet = json!({
+        "enabled": true, "sound": false, "channel_mentions": true,
+        "quiet_hours": true,
+        "quiet_from": format!("{:02}:00", later.hour()),
+        "quiet_to": format!("{:02}:00", (later.hour() + 2) % 24),
+        "utc_offset_minutes": 0, "email": true
+    });
+    let saved = app
+        .req(
+            reqwest::Method::PUT,
+            "/api/v1/me/notification-preferences",
+            &alice,
+        )
+        .json(&quiet)
+        .send()
+        .await
+        .expect("prefs");
+    assert_eq!(saved.status(), 200);
+    notifications::Entity::delete_by_id(notification.id)
+        .exec(&app.db)
+        .await
+        .expect("clear");
+    let second = mention_alice(&app, &fx).await;
+    crate::notify::email::sweep(&app.state, later)
+        .await
+        .expect("sweep");
+    assert!(
+        handled(second.id).await.is_none(),
+        "held back, not dropped, during quiet hours"
+    );
 }

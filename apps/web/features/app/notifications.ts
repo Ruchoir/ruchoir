@@ -79,6 +79,11 @@ export type NotifPrefs = {
   quietFrom: string;
   /** Quiet-hours end, "HH:MM" (24h). */
   quietTo: string;
+  /**
+   * Email what is still unread after a while, when no Ruchoir page is open. The server acts on it
+   * (see `apps/api/src/notify/email.rs`); the app itself has nothing to do with it.
+   */
+  email: boolean;
 };
 
 export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
@@ -88,7 +93,13 @@ export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
   quietHours: false,
   quietFrom: "21:00",
   quietTo: "08:00",
+  email: true,
 };
+
+/** Whether two sets of global preferences say the same thing, field by field. */
+export function sameNotifPrefs(a: NotifPrefs, b: NotifPrefs): boolean {
+  return (Object.keys(DEFAULT_NOTIF_PREFS) as (keyof NotifPrefs)[]).every((k) => a[k] === b[k]);
+}
 
 /** Human summary of the quiet-hours window, e.g. "21 h 00 - 8 h 00" (French, no leading zero on hours). */
 export function quietHoursLabel(prefs: NotifPrefs): string {

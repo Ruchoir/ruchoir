@@ -51,7 +51,11 @@
     "settingsSaveFailed": "Non è stato possibile salvare questa impostazione.",
     "adminsShown": "Amministratori visibili",
     "adminsHidden": "Amministratori nascosti",
-    "instanceAdminBadge": "Amministratore dell'istanza"
+    "instanceAdminBadge": "Amministratore dell'istanza",
+    "webPush": "Notifiche push",
+    "webPushDescription": "Avvisa i membri sui loro dispositivi quando Ruchoir è chiuso. Ognuno lo attiva per il proprio browser. Il segnale passa dal servizio di notifiche del produttore del browser (Google, Apple, Mozilla, Microsoft) senza alcun contenuto: né autore, né conversazione, né testo. Se disattivato, gli abbonamenti esistenti vengono dimenticati.",
+    "webPushOn": "Notifiche push attivate",
+    "webPushOff": "Notifiche push disattivate"
   },
   "notifPrompt": {
     "title": "Essere avvisato fuori dalla scheda",
@@ -855,7 +859,20 @@
     "notShownDesc": "Il browser l'ha accettata, ma il sistema non l'ha mostrata. Verifica che le notifiche siano consentite per il tuo browser nelle impostazioni di sistema e che non sia attiva alcuna modalità di concentrazione o «Non disturbare».",
     "quietHoursActive": "Notifiche sospese dalle {{window}}.",
     "fontSampleLetters": "Ag",
-    "fontSampleText": "Pranzo d'acqua fa volti sghembi."
+    "fontSampleText": "Pranzo d'acqua fa volti sghembi.",
+    "pushTitle": "Notifiche su questo dispositivo",
+    "pushOffDesc": "Ricevi menzioni e messaggi diretti su questo dispositivo anche quando Ruchoir è chiuso o installato come app.",
+    "pushOnDesc": "Attive su questo dispositivo, anche con Ruchoir chiuso. Il test invia una vera notifica dal server, lungo lo stesso percorso di un messaggio.",
+    "pushNeedsInstall": "Su iPhone e iPad, aggiungi prima Ruchoir alla schermata Home (Condividi, poi «Aggiungi alla schermata Home») e aprilo da lì: Safari offre le notifiche solo all'app installata.",
+    "pushUnsupported": "Questo browser non può ricevere notifiche mentre Ruchoir è chiuso.",
+    "pushUnavailable": "L'amministratore di questa istanza ha disattivato le notifiche push.",
+    "pushFailed": "Non è stato possibile attivare le notifiche push su questo dispositivo.",
+    "pushTestSent": "Notifica di prova inviata",
+    "pushTestSentDesc": "Dovrebbe apparire entro pochi secondi. Non arriva nulla? Controlla nelle impostazioni di sistema che le notifiche siano consentite per il browser o l'app e che non sia attiva la modalità «Non disturbare».",
+    "pushTestRefused": "Il servizio di notifiche del browser ha rifiutato la prova. Disattiva e riattiva le notifiche su questo dispositivo.",
+    "pushTestWait": "È appena stata inviata una prova. Attendi qualche secondo.",
+    "emailCatchUp": "Riepilogo via e-mail",
+    "emailCatchUpDesc": "Se menzioni o messaggi diretti restano non letti per un quarto d'ora mentre Ruchoir non è aperto da nessuna parte, ricevi un riepilogo via e-mail."
   },
   "error": {
     "sessionExpired": "La tua sessione è scaduta. Accedi di nuovo.",

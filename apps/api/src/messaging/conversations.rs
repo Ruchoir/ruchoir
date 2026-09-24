@@ -212,6 +212,10 @@ pub async fn list_channels(
             topic: channel.topic,
             imported: channel.imported_source,
             favorite,
+            notify_level: membership
+                .as_ref()
+                .map_or_else(|| "all".to_owned(), |m| m.notification_level.clone()),
+            muted: membership.as_ref().is_some_and(|m| m.muted),
             member: membership.is_some(),
             unread,
             allowed_roles,
@@ -331,6 +335,8 @@ pub async fn list_dms(
             user_id,
             bot,
             unread,
+            notify_level: participation.notification_level.clone(),
+            muted: participation.muted,
         });
     }
     Ok(Json(out))

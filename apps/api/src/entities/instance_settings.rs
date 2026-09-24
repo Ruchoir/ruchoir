@@ -18,6 +18,20 @@ pub struct Model {
     /// "ask an administrator", which needs them to be identifiable. Turned off, the badge is shown
     /// only to administrators themselves, who still need to find each other.
     pub show_instance_admins: bool,
+    /// Whether the instance sends Web Push at all.
+    ///
+    /// On by default, and still opt-in per person and per browser. It exists because a push goes
+    /// through the push service of the reader's browser vendor, which the instance does not choose
+    /// (see ADR 0001): an administrator who will not accept that turns it off here, and the
+    /// interface stops offering it.
+    pub web_push_enabled: bool,
+    /// The public half of the VAPID key pair (RFC 8292), as the browser's `applicationServerKey`
+    /// expects it: the uncompressed P-256 point, base64url without padding. Generated on first use.
+    pub vapid_public_key: Option<String>,
+    /// The private half, a 32-byte P-256 scalar encrypted with the instance's secret key.
+    pub vapid_private_key: Option<Vec<u8>>,
+    /// The AES-GCM nonce of `vapid_private_key`.
+    pub vapid_private_nonce: Option<Vec<u8>>,
     pub updated_at: TimeDateTimeWithTimeZone,
 }
 

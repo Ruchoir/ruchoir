@@ -119,7 +119,19 @@ pub struct Config {
     pub upload_max_bytes: u64,
     /// Longest edge, in pixels, of a generated image thumbnail (aspect ratio preserved).
     pub thumbnail_max_px: u32,
+    /// Hosts a Web Push subscription may point at (each also covers its subdomains). The API only
+    /// ever sends a push to one of these, so a subscription cannot turn it into a way to reach
+    /// arbitrary URLs. The default is the push services of the major browsers.
+    pub push_allowed_hosts: Vec<String>,
+    /// How long, in seconds, an unread notification waits before the email fallback considers it.
+    /// `0` turns the fallback off.
+    pub notify_email_delay_secs: i64,
 }
+
+/// The push services of the major browsers: Chrome, Edge (and other Chromium browsers) through
+/// Google's, Firefox through Mozilla's, Safari through Apple's, legacy Edge through Microsoft's.
+pub const DEFAULT_PUSH_HOSTS: &str =
+    "fcm.googleapis.com,push.services.mozilla.com,push.apple.com,notify.windows.com";
 
 impl Config {
     /// Build the configuration from the process environment, applying defaults.
@@ -274,6 +286,17 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_THUMBNAIL_MAX_PX"))?;
 
+        // Notification delivery past the open page. See `crate::notify`.
+        let push_allowed_hosts: Vec<String> =
+            env_or("RUCHOIR_PUSH_ALLOWED_HOSTS", DEFAULT_PUSH_HOSTS)
+                .split(',')
+                .map(|host| host.trim().to_ascii_lowercase())
+                .filter(|host| !host.is_empty())
+                .collect();
+        let notify_email_delay_secs: i64 = env_or("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS", "900")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS"))?;
+
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
@@ -322,6 +345,8 @@ impl Config {
             s3_secret_key,
             upload_max_bytes,
             thumbnail_max_px,
+            push_allowed_hosts,
+            notify_email_delay_secs,
         })
     }
 

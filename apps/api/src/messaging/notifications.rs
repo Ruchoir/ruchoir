@@ -107,6 +107,7 @@ pub async fn create_for_message(
             actor_id: Set(Some(actor_id)),
             created_at: Set(now),
             read_at: Set(None),
+            email_handled_at: Set(None),
         }
         .insert(txn)
         .await?;

@@ -6,6 +6,7 @@ import {
   issuePasswordResetLink,
   searchAccounts,
   updateInstanceSettings,
+  type InstanceSettings,
   type AdminUser,
 } from "@/lib/data/api";
 import type { Toast } from "./types";
@@ -218,14 +219,14 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
 /**
  * Instance settings.
  *
- * One setting today, and it is a real trade-off rather than a preference: showing who administers
- * the instance is what makes "ask an administrator" actionable for someone locked out, and it also
- * designates a person to anyone who can open the app. An instance of a dozen colleagues wants it on;
- * one that would rather not point at anyone turns it off, and administrators still see each other.
+ * Two settings, each a real trade-off rather than a preference. Showing who administers the instance
+ * is what makes "ask an administrator" actionable for someone locked out, and it also designates a
+ * person to anyone who can open the app. Web Push reaches people with the app closed, through a push
+ * service the instance does not choose.
  */
 function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
   const { t } = useTranslation();
-  const [showAdmins, setShowAdmins] = useState<boolean | null>(null);
+  const [settings, setSettings] = useState<InstanceSettings | null>(null);
   const [busy, setBusy] = useState(false);
   // The dictionary key of the failure, not its sentence: the text is looked up where it is drawn,
   // so an effect never has to capture `t` and re-run every time the language changes.
@@ -234,29 +235,27 @@ function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }
   useEffect(() => {
     let active = true;
     getInstanceSettings()
-      .then((settings) => active && setShowAdmins(settings.showInstanceAdmins))
+      .then((loaded) => active && setSettings(loaded))
       .catch(() => active && setError(key("admin.settingsLoadFailed")));
     return () => {
       active = false;
     };
   }, []);
 
-  const toggle = async (next: boolean) => {
-    if (busy) return;
+  const toggle = async (patch: Partial<InstanceSettings>, done: (saved: InstanceSettings) => TranslationKey) => {
+    if (busy || !settings) return;
+    const before = settings;
     setBusy(true);
     setError(null);
     // Moved at once, because a switch that waits for the network reads as broken; the answer is what
     // is kept, so a refusal puts it back where it was rather than where the click left it.
-    setShowAdmins(next);
+    setSettings({ ...settings, ...patch });
     try {
-      const saved = await updateInstanceSettings({ showInstanceAdmins: next });
-      setShowAdmins(saved.showInstanceAdmins);
-      onNotify?.({
-        tone: "success",
-        title: saved.showInstanceAdmins ? t("admin.adminsShown") : t("admin.adminsHidden"),
-      });
+      const saved = await updateInstanceSettings(patch);
+      setSettings(saved);
+      onNotify?.({ tone: "success", title: t(done(saved)) });
     } catch {
-      setShowAdmins(!next);
+      setSettings(before);
       setError(key("admin.settingsSaveFailed"));
     } finally {
       setBusy(false);
@@ -273,10 +272,36 @@ function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }
           <div style={{ ...st.meta, maxWidth: 460, lineHeight: 1.5 }}>{t("admin.showAdminsDescription")}</div>
         </div>
         <Switch
-          checked={showAdmins ?? true}
-          disabled={busy || showAdmins === null}
-          onChange={(e) => void toggle(e.target.checked)}
+          checked={settings?.showInstanceAdmins ?? true}
+          disabled={busy || settings === null}
+          onChange={(e) =>
+            void toggle({ showInstanceAdmins: e.target.checked }, (saved) =>
+              saved.showInstanceAdmins ? key("admin.adminsShown") : key("admin.adminsHidden"),
+            )
+          }
           aria-label={t("admin.showAdmins")}
+        />
+      </div>
+
+      {/*
+        Web Push goes through the push service of each reader's browser vendor, which the instance
+        does not choose (ADR 0001). On by default and opt-in per browser; an instance that will not
+        accept that turns it off here, and every subscription is forgotten with it.
+      */}
+      <div style={st.row}>
+        <div style={st.main}>
+          <div style={st.name}>{t("admin.webPush")}</div>
+          <div style={{ ...st.meta, maxWidth: 460, lineHeight: 1.5 }}>{t("admin.webPushDescription")}</div>
+        </div>
+        <Switch
+          checked={settings?.webPushEnabled ?? true}
+          disabled={busy || settings === null}
+          onChange={(e) =>
+            void toggle({ webPushEnabled: e.target.checked }, (saved) =>
+              saved.webPushEnabled ? key("admin.webPushOn") : key("admin.webPushOff"),
+            )
+          }
+          aria-label={t("admin.webPush")}
         />
       </div>
 

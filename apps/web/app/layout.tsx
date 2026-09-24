@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   // every reader, so this sentence cannot follow a language. English, like the rest of the repository.
   description: "Sovereign, open-core workspace: real-time team messaging and file sharing.",
   applicationName: "Ruchoir",
+  // Installable app: the manifest names it and its icons (`public/icons/`, drawn by
+  // `scripts/build-pwa-icons.mjs`), and iOS reads its own tags to run it full screen once it is on the
+  // home screen, which is also the only way Safari there offers push notifications.
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Ruchoir", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

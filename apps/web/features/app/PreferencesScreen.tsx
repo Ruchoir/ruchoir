@@ -4,7 +4,8 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Button, Field, Icon, type IconName, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
-import { updateMyProfile } from "@/lib/data/api";
+import { sendTestPush, updateMyProfile } from "@/lib/data/api";
+import { isApiError } from "@/lib/data/http";
 import { initialLocale, key, literal, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { LanguagePicker } from "./LanguagePicker";
 import { Emoji } from "./Emoji";
@@ -17,6 +18,15 @@ import {
   showDesktopNotification,
   subscribeToNotificationPermission,
 } from "./desktopNotifications";
+import {
+  disablePush,
+  enablePush,
+  pushActive,
+  pushSupport,
+  serverPushActive,
+  subscribeToPushState,
+  type PushSupport,
+} from "./webPush";
 import {
   useSettings,
   type DefaultPanel,
@@ -227,6 +237,86 @@ function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNot
         <Button size="sm" onClick={test}>
           {t("prefs.test")}
         </Button>
+      ) : null}
+    </Row>
+  );
+}
+
+const noSubscription = () => () => {};
+
+/**
+ * Web Push for this device: the notifications that still arrive with every Ruchoir tab closed, or
+ * with the app installed and not running.
+ *
+ * Per browser, so it is set here rather than with the account's settings, and it says plainly what
+ * this browser can do: on iPhone and iPad, Safari only offers it to the app once it is on the home
+ * screen, and asking anyway would only fail.
+ *
+ * The test sends a real push from the server, through the browser vendor's push service, to the
+ * service worker, which is the path taken when the app is closed or installed. Drawing a
+ * notification from the page would only prove that the page can draw one.
+ */
+function DevicePushRow({ onNotify }: { onNotify?: (t: Toast) => void }) {
+  const { t } = useTranslation();
+  const support = useSyncExternalStore<PushSupport>(noSubscription, pushSupport, () => "unsupported");
+  const active = useSyncExternalStore(subscribeToPushState, pushActive, serverPushActive);
+  const [busy, setBusy] = useState(false);
+
+  const enable = async () => {
+    setBusy(true);
+    const outcome = await enablePush();
+    setBusy(false);
+    if (outcome === "enabled") onNotify?.({ tone: "success", title: t("notifPrompt.enabled") });
+    else if (outcome === "denied") onNotify?.({ tone: "warning", title: t("prefs.notifDenied") });
+    else if (outcome === "unavailable") onNotify?.({ tone: "warning", title: t("prefs.pushUnavailable") });
+    else onNotify?.({ tone: "danger", title: t("prefs.pushFailed") });
+  };
+
+  const test = async () => {
+    setBusy(true);
+    try {
+      const result = await sendTestPush();
+      onNotify?.(
+        result.delivered > 0
+          ? { tone: "success", title: t("prefs.pushTestSent"), description: t("prefs.pushTestSentDesc") }
+          : { tone: "warning", title: t("prefs.pushTestRefused") },
+      );
+    } catch (err) {
+      onNotify?.(
+        isApiError(err, 409)
+          ? { tone: "warning", title: t("prefs.pushTestWait") }
+          : { tone: "danger", title: t("prefs.pushFailed") },
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const desc =
+    support === "needs-install"
+      ? t("prefs.pushNeedsInstall")
+      : support === "unsupported"
+        ? t("prefs.pushUnsupported")
+        : active
+          ? t("prefs.pushOnDesc")
+          : t("prefs.pushOffDesc");
+
+  return (
+    <Row title={t("prefs.pushTitle")} desc={desc}>
+      {support === "available" && !active ? (
+        <Button size="sm" variant="primary" disabled={busy} onClick={() => void enable()}>
+          {t("notifPrompt.allow")}
+        </Button>
+      ) : null}
+      {support === "available" && active ? (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Button size="sm" disabled={busy} onClick={() => void test()}>
+            {t("prefs.test")}
+          </Button>
+          <Button size="sm" disabled={busy} onClick={() => void disablePush()}>
+            {t("security.turnOff")}
+          </Button>
+        </div>
       ) : null}
     </Row>
   );
@@ -700,6 +790,7 @@ export function PreferencesScreen({
               <>
                 <h2 style={st.h}>{t("notif.title")}</h2>
                 <p style={st.sub}>{t("prefs.notifSub")}</p>
+                <DevicePushRow onNotify={onNotify} />
                 <BrowserNotificationRow soundOn={s.notif.sound} onNotify={onNotify} />
                 <Row title={t("prefs.enableNotif")} desc={t("prefs.enableNotifDesc")}>
                   <Switch checked={s.notif.enabled} onChange={(e) => s.set("notif", { ...s.notif, enabled: e.target.checked })} aria-label={t("prefs.enableNotif")} />
@@ -730,6 +821,9 @@ export function PreferencesScreen({
                     </Field>
                   </div>
                 ) : null}
+                <Row title={t("prefs.emailCatchUp")} desc={t("prefs.emailCatchUpDesc")}>
+                  <Switch checked={s.notif.email ?? true} onChange={(e) => s.set("notif", { ...s.notif, email: e.target.checked })} aria-label={t("prefs.emailCatchUp")} />
+                </Row>
               </>
             ) : null}
 

@@ -16,6 +16,7 @@ mod files;
 mod http;
 mod importer;
 mod messaging;
+mod notify;
 mod openapi;
 mod realtime;
 mod seed;
@@ -258,6 +259,9 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         storage,
         config: Arc::new(config),
     };
+
+    // The unread-notification email fallback: a sweep a minute, in the background.
+    notify::email::spawn(state.clone());
 
     tracing::info!(
         addr = %state.config.addr,

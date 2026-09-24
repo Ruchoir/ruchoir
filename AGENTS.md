@@ -24,6 +24,10 @@ Web interface only for now. The core is open source under **AGPLv3**.
    prefer a European or neutral community alternative over any package governed by a US/non-EU
    entity when functionally equivalent (e.g. use the community `rust-s3`, not `aws-sdk-s3`).
    Before adding any new dependency, check and document its origin/governance; when in doubt, ask.
+   **One documented exception:** Web Push necessarily goes through the push service of the
+   reader's browser vendor (Google, Apple, Mozilla). It is opt-in per browser, can be turned off
+   for the whole instance, and carries no content at all: see `docs/adr/0001-web-push.md` before
+   touching it, and do not widen it (no payload, no other runtime service on the same grounds).
 3. **English only** for everything in the repo: code, identifiers, comments, docs, commits,
    branches, issues, PRs.
 4. **Document thoroughly**, following current industry best practices (module docs, docstrings,
@@ -86,6 +90,8 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | rust-s3 (S3 client, no TLS backend) | 0.37.2 | `Cargo.toml` |
 | image (thumbnails) | 0.25.10 | `Cargo.toml` |
 | infer (MIME sniffing) | 0.22.0 | `Cargo.toml` |
+| p256 (VAPID signing, `ecdsa` only) | 0.14.0 | `Cargo.toml` |
+| ureq (push-service client, rustls + `ring`) | 3.4.2 | `Cargo.toml` |
 | Node (build only) | 24 (LTS) | `.nvmrc` |
 | pnpm | 11.24.0 | root `package.json` (`packageManager`) |
 | Next.js / React | 16.3.3 / 19.2 | `apps/web/package.json` |
@@ -198,6 +204,11 @@ terminates TLS for that instance, rather than exposing its port:
 - **Storage:** all file operations go through the S3 abstraction; the backend (Garage by default)
   is interchangeable and never hard-coded.
 - **Fonts:** self-host IBM Plex Sans/Mono (OFL) via local `@font-face`. Never depend on Google Fonts.
+- **Notifications past the open page** (`apps/api/src/notify/`): the inbox is written in the send
+  transaction and pushed over the hub to open pages; for everyone else there is payload-free Web
+  Push to subscribed browsers (ADR 0001) and an unread digest by email through the instance's own
+  relay. The preferences they obey are held server-side, and the server rule (`notify::prefs::allows`)
+  mirrors the inbox rule (`passesPref` in the web client): change one, change the other.
 
 ## Design system
 

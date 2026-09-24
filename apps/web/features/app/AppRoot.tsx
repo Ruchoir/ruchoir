@@ -21,6 +21,7 @@ import {
   getDirectMessages,
   getFolder,
   getInvitations,
+  getNotificationPreferences,
   getNotifications,
   getReadCursors,
   getReplies,
@@ -48,6 +49,8 @@ import {
   getInstanceCapabilities,
   resolveSpaceSlug,
   revokeInvitation,
+  saveConversationNotify,
+  saveNotificationPreferences,
   sendMessage,
   setMessagePinned,
   setMessageSaved,
@@ -125,6 +128,9 @@ import {
   type AppNotification,
   type ChannelNotifPref,
   DEFAULT_CHANNEL_PREF,
+  DEFAULT_NOTIF_PREFS,
+  type NotifPrefs,
+  sameNotifPrefs,
   isMention,
   type NotifKind,
   notifSummary,
@@ -138,6 +144,17 @@ import {
   requestNotificationPermission,
   showDesktopNotification,
 } from "./desktopNotifications";
+import {
+  disablePush,
+  enablePush,
+  onPushOpen,
+  pushActive,
+  pushSupport,
+  registerServiceWorker,
+  syncPush,
+  takePushLink,
+  type PushTarget,
+} from "./webPush";
 import { PreferencesScreen, type PrefTab } from "./PreferencesScreen";
 import { SettingsProvider, useSettings } from "./settings";
 import { Sidebar } from "./Sidebar";
@@ -480,6 +497,9 @@ function AppShell() {
   // Per-conversation notification preferences, keyed by channel/DM id. Absent = defaults (all, unmuted).
   const [channelPrefs, setChannelPrefs] = useState<Record<string, ChannelNotifPref>>({});
   const [channelNotifId, setChannelNotifId] = useState<string | null>(null);
+  // A notification clicked in the system tray, waiting for its space and conversation to be loaded
+  // before it can be opened (see the effect that consumes it).
+  const [pendingOpen, setPendingOpen] = useState<PushTarget | null>(null);
 
   const [ws, setWs] = useState("");
   const [view, setView] = useState<AppView>("channel");
@@ -685,6 +705,13 @@ function AppShell() {
     setChannels(chans);
     setMembers(memberList);
     setPresence(presenceMap);
+    // Each conversation's notification setting comes with it from the server, which is where it is
+    // kept (and obeyed, for pushes and emails).
+    setChannelPrefs((prev) => {
+      const next = { ...prev };
+      for (const c of [...chans, ...dmList]) if (c.notify) next[c.id] = c.notify;
+      return next;
+    });
     // Overlay each 1:1 DM's counterpart presence onto its sidebar row.
     setDms(dmList.map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
 
@@ -1722,8 +1749,21 @@ function AppShell() {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
     void markAllNotificationsRead().catch(() => {});
   };
-  const saveChannelPref = (id: string, pref: ChannelNotifPref) =>
+  const saveChannelPref = (id: string, pref: ChannelNotifPref) => {
+    const before = channelPrefs[id];
     setChannelPrefs((prev) => ({ ...prev, [id]: pref }));
+    // Kept by the server, because the server is what reaches a closed browser or a mailbox: a
+    // channel muted here has to be muted there too.
+    void saveConversationNotify(id, pref).catch(() => {
+      setChannelPrefs((prev) => {
+        const next = { ...prev };
+        if (before) next[id] = before;
+        else delete next[id];
+        return next;
+      });
+      showToast({ tone: "danger", title: t("admin.settingsSaveFailed") });
+    });
+  };
 
   /** Mark a whole conversation read: clears its unread badge and any pending notifications from it. */
   const markConversationRead = (id: string, loaded?: Message[]) => {
@@ -2147,6 +2187,9 @@ function AppShell() {
 
   /** End the session server-side, then drop the loaded state and return to the login screen. */
   const handleLogout = async () => {
+    // This browser stops receiving pushes for the account leaving it. Before the session ends, since
+    // forgetting the subscription on the server is an authenticated call.
+    await disablePush().catch(() => {});
     try {
       await apiLogout();
     } catch {
@@ -2381,6 +2424,9 @@ function AppShell() {
     alertRef.current = (n) => {
       if (!passesPref(n, channelPrefs[n.channelId], settings.notif)) return;
       if (inQuietHours(settings.notif)) return;
+      // With Web Push on in this browser, the service worker draws the system notification (and it
+      // does so whether or not this tab is open). Drawing it here too would show it twice.
+      if (appIsAway() && pushActive()) return;
       if (settings.notif.sound) playNotificationSound();
       const where = n.spaceId === liveRef.current.ws ? n.label : `${n.label} · ${n.spaceName}`;
       const who = n.isDm && !n.label ? n.actor : `${n.actor} dans ${where}`;
@@ -3102,6 +3148,108 @@ function AppShell() {
     }
   };
 
+  /**
+   * Open a notification clicked in the system tray, once the app holds what it points at.
+   *
+   * The click can come from any space, and even before the app has loaded (a window opened by the
+   * service worker), so it waits in `pendingOpen`: first the space is switched to, then, once its
+   * conversations are in, the notification is opened like one clicked in the inbox.
+   */
+  const pushOpenRef = useRef<() => void>(() => {});
+  const lastSentNotifRef = useRef("");
+  useEffect(() => {
+    pushOpenRef.current = () => {
+      const target = pendingOpen;
+      if (!target || authStage !== "app" || switchingSpace) return;
+      if (target.spaceId && target.spaceId !== ws && workspaces.some((w) => w.id === target.spaceId)) {
+        void switchWorkspace(target.spaceId);
+        return;
+      }
+      const here = channels.some((c) => c.id === target.conversationId) || dms.some((d) => d.id === target.conversationId);
+      if (!here) return;
+      setPendingOpen(null);
+      if (target.id) openNotification(target.conversationId, target.messageId, target.id);
+      else openChannel(target.conversationId);
+    };
+  });
+  useEffect(() => {
+    pushOpenRef.current();
+  }, [pendingOpen, authStage, switchingSpace, ws, channels, dms]);
+
+  // The service worker, registered on every load: it is what draws a push, and part of what makes
+  // the app installable. It intercepts no request.
+  useEffect(() => {
+    registerServiceWorker();
+    return onPushOpen((target) => setPendingOpen(target));
+  }, []);
+
+  /**
+   * Once per signed-in session: bring the notification settings and this browser's push
+   * subscription in line with the server, and pick up a notification the window was opened for.
+   *
+   * The settings used to live only in this browser. The server now acts on them (a push, an email),
+   * so it holds them; what this browser still has from before is sent up once, the first time the
+   * server has nothing of its own, rather than being replaced by the defaults.
+   */
+  const notifSyncRef = useRef<{ session: string; synced: boolean }>({ session: "", synced: false });
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  });
+  useEffect(() => {
+    const sessionId = session?.id ?? "";
+    if (authStage !== "app" || !sessionId || notifSyncRef.current.session === sessionId) return;
+    notifSyncRef.current = { session: sessionId, synced: false };
+    const link = takePushLink();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read once from the address at sign-in
+    if (link) setPendingOpen(link);
+    void syncPush();
+    const offset = -new Date().getTimezoneOffset();
+    void getNotificationPreferences()
+      .then((server) => {
+        if (notifSyncRef.current.session !== sessionId) return;
+        const local = settingsRef.current.notif;
+        const serverIsBlank = sameNotifPrefs(server, DEFAULT_NOTIF_PREFS);
+        const merged: NotifPrefs = serverIsBlank
+          ? local
+          : {
+              enabled: server.enabled,
+              sound: server.sound,
+              channelMentions: server.channelMentions,
+              quietHours: server.quietHours,
+              quietFrom: server.quietFrom,
+              quietTo: server.quietTo,
+              email: server.email,
+            };
+        lastSentNotifRef.current = JSON.stringify(merged);
+        settingsRef.current.set("notif", merged);
+        notifSyncRef.current.synced = true;
+        if (serverIsBlank || server.utcOffsetMinutes !== offset) {
+          void saveNotificationPreferences({ ...merged, utcOffsetMinutes: offset }).catch(() => {});
+        }
+      })
+      .catch(() => {
+        // Unreachable for now: the local settings stand, and the next change is sent up anyway.
+        notifSyncRef.current.synced = true;
+      });
+  }, [authStage, session]);
+
+  // Every later change of the notification settings goes to the server, which acts on them. A
+  // short pause first, so dragging through the quiet-hours fields sends the result, not each step.
+  useEffect(() => {
+    if (!notifSyncRef.current.synced) return;
+    const prefs = settings.notif;
+    const serialised = JSON.stringify(prefs);
+    if (serialised === lastSentNotifRef.current) return;
+    const timer = window.setTimeout(() => {
+      lastSentNotifRef.current = serialised;
+      void saveNotificationPreferences({ ...prefs, utcOffsetMinutes: -new Date().getTimezoneOffset() }).catch(() =>
+        notifyRef.current?.({ tone: "danger", title: tRef.current("admin.settingsSaveFailed") }),
+      );
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [settings.notif]);
+
   // Global keyboard shortcuts, using the user's (customizable) bindings. Suspended whenever a modal,
   // dialog, the preferences overlay or the login flow is up, so their own key handling wins.
   const shortcutsEnabled =
@@ -3787,6 +3935,14 @@ function AppShell() {
           compact={compact}
           onAllow={() => {
             settings.set("notifPrompted", true);
+            // Web Push where the browser offers it, so the notifications also reach a closed tab;
+            // the page's own notifications otherwise.
+            if (pushSupport() === "available") {
+              void enablePush().then((outcome) => {
+                if (outcome === "enabled") showToast({ tone: "success", title: t("notifPrompt.enabled") });
+              });
+              return;
+            }
             void requestNotificationPermission().then((outcome) => {
               if (outcome === "granted") showToast({ tone: "success", title: t("notifPrompt.enabled") });
             });

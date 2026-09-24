@@ -51,7 +51,11 @@
     "settingsSaveFailed": "That setting could not be saved.",
     "adminsShown": "Administrators visible",
     "adminsHidden": "Administrators hidden",
-    "instanceAdminBadge": "Instance administrator"
+    "instanceAdminBadge": "Instance administrator",
+    "webPush": "Push notifications",
+    "webPushDescription": "Tells members on their devices when Ruchoir is closed. Each person turns it on for their browser. The signal goes through the browser vendor's notification service (Google, Apple, Mozilla, Microsoft) with no content at all: no author, no conversation, no text. Turned off, existing subscriptions are forgotten.",
+    "webPushOn": "Push notifications on",
+    "webPushOff": "Push notifications off"
   },
   "notifPrompt": {
     "title": "Be told while you are elsewhere",
@@ -838,7 +842,20 @@
     "notShownDesc": "The browser accepted it, but the system did not show it. Check that notifications are allowed for your browser in the system settings, and that no focus or do-not-disturb mode is on.",
     "quietHoursActive": "Notifications held from {{window}}.",
     "fontSampleLetters": "Ag",
-    "fontSampleText": "The quick brown fox jumps over the lazy dog."
+    "fontSampleText": "The quick brown fox jumps over the lazy dog.",
+    "pushTitle": "Notifications on this device",
+    "pushOffDesc": "Get your mentions and direct messages on this device even when Ruchoir is closed, or installed as an app.",
+    "pushOnDesc": "On for this device, even with Ruchoir closed. The test sends a real notification from the server, along the same path as a message.",
+    "pushNeedsInstall": "On iPhone and iPad, first add Ruchoir to the home screen (Share, then “Add to Home Screen”) and open it from there: Safari only offers notifications to the installed app.",
+    "pushUnsupported": "This browser cannot receive notifications while Ruchoir is closed.",
+    "pushUnavailable": "The administrator of this instance has turned push notifications off.",
+    "pushFailed": "Push notifications could not be turned on for this device.",
+    "pushTestSent": "Test notification sent",
+    "pushTestSentDesc": "It should appear within a few seconds. Nothing? Check that notifications are allowed for the browser or app in the system settings, and that no “Do not disturb” mode is on.",
+    "pushTestRefused": "The browser's notification service refused the test. Turn notifications off and on again for this device.",
+    "pushTestWait": "A test was just sent. Wait a few seconds.",
+    "emailCatchUp": "Email catch-up",
+    "emailCatchUpDesc": "If mentions or direct messages stay unread for a quarter of an hour while Ruchoir is not open anywhere, get a summary by email."
   },
   "error": {
     "sessionExpired": "Your session has expired. Sign in again.",

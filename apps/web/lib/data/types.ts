@@ -114,7 +114,17 @@ export type Channel = {
    * a channel is unrestricted until somebody draws the line.
    */
   allowedRoles?: string[];
+  /** How much this channel notifies the signed-in user, as stored on their membership. */
+  notify?: ConversationNotify;
 };
+
+/**
+ * One conversation's notification setting for the signed-in user, as the server holds it.
+ *
+ * Mirrors `ChannelNotifPref` in `features/app/notifications.ts`, which is what the screens read;
+ * declared here because the data seam does not import from the features.
+ */
+export type ConversationNotify = { level: "all" | "mentions" | "none"; muted: boolean };
 
 export type DirectMessage = {
   id: string;
@@ -124,6 +134,8 @@ export type DirectMessage = {
   bot?: boolean;
   /** The counterpart's user id for a 1:1 DM (for presence overlay); absent for a group. */
   userId?: string;
+  /** How much this conversation notifies the signed-in user. */
+  notify?: ConversationNotify;
 };
 
 export type Profile = {

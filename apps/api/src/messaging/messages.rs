@@ -352,7 +352,9 @@ pub async fn send_message(
         )
         .await;
 
-    // Push each notification to its recipient (user-scoped, one audience per row).
+    // Push each notification to its recipient (user-scoped, one audience per row), and announce it
+    // to the browsers that asked for Web Push, in the background.
+    crate::notify::push::dispatch(&state, &notif_rows);
     if !notif_rows.is_empty() {
         let targets: Vec<Uuid> = notif_rows.iter().map(|row| row.user_id).collect();
         let notif_dtos = notifications::hydrate(&state.db, notif_rows).await?;

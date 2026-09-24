@@ -135,6 +135,17 @@ pgp = "0.20"
 # Reading the tar inside the archive as a stream. A multi-gigabyte import is never held in memory.
 tar = "0.4"
 
+# --- Notifications past the open page (see docs/adr/0001-web-push.md) ---
+# P-256 ECDSA (RustCrypto, community) signs the VAPID token that identifies this instance to a
+# browser's push service (RFC 8292). Only the signing half is needed: pushes carry no payload, so
+# no ECDH or content encryption is pulled in.
+p256 = { version = "0.14.0", default-features = false, features = ["ecdsa", "std"] }
+# Blocking HTTP client for the one outbound call the API makes, to a push service (ureq, maintained
+# in Sweden by Martin Algesten, MIT/Apache-2.0). Default features are replaced so TLS is rustls with
+# the `ring` provider and bundled roots (never aws-lc-rs), and nothing else (no gzip) is pulled.
+# Called from `spawn_blocking`, which is cheaper to vet than a second async stack.
+ureq = { version = "3.4.2", default-features = false, features = ["rustls"] }
+
 [profile.release]
 # Lean, fast production binary.
 opt-level = 3

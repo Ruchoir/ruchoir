@@ -255,6 +255,24 @@ and unread state. Mutations still go through REST; the
 socket only receives, plus sends typing/ping. The composer emits a throttled typing signal via
 `rtRef.current.sendTyping`.
 
+**Notifications with the app closed (installable PWA + Web Push, ADR 0001).** `public/manifest.webmanifest`
+and `public/icons/` (plus `app/apple-icon.png`, drawn by `scripts/build-pwa-icons.mjs`) make the
+app installable; `public/sw.js` is a plain, unbundled service worker registered on every load. It
+caches nothing and intercepts no request (a worker serving stale bundles would hide deployments). A
+push carries no payload: the worker wakes, calls `GET /api/v1/push/pending` with the session cookie,
+and draws what comes back (already worded in the account's language and filtered by its
+preferences); a click focuses an open window and posts it `ruchoir:open-notification`, or opens
+`/?open=space.conversation.message.notification`, which `AppRoot` resolves through `pendingOpen`
+(switch space first, then open like an inbox click). `features/app/webPush.ts` owns the
+subscription: opt-in from the preferences or the one-time prompt, re-synced once per session, and
+forgotten on logout. **While push is active in a browser, the page draws no system notification of
+its own when away** (`alertRef`), or every message would show twice. The notification preferences
+are **server-side** now (the server obeys them for pushes and emails): the global ones are read at
+sign-in and every change is sent back (with the device's UTC offset, which is how the server reads
+quiet hours), and each conversation's arrives with `ChannelDto` / `DirectMessageDto` and is saved
+with `PUT /conversations/{id}/notification-preference`. The preferences' push test goes through the
+server (`POST /push/test`), so it proves the path a closed or installed app depends on.
+
 **A thread reply is held with its conversation, and kept out of the feed.** Replies live in the
 same `messages[conversationId]` list as everything else, which is what lets a reply be reacted to,
 saved, edited or deleted through the very same handlers as a message in the channel (they all look

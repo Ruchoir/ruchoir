@@ -51,7 +51,11 @@
     "settingsSaveFailed": "Diese Einstellung konnte nicht gespeichert werden.",
     "adminsShown": "Administratoren sichtbar",
     "adminsHidden": "Administratoren verborgen",
-    "instanceAdminBadge": "Administrator der Instanz"
+    "instanceAdminBadge": "Administrator der Instanz",
+    "webPush": "Push-Benachrichtigungen",
+    "webPushDescription": "Benachrichtigt Mitglieder auf ihren Geräten, wenn Ruchoir geschlossen ist. Jede Person aktiviert es für ihren Browser. Das Signal läuft über den Benachrichtigungsdienst des Browserherstellers (Google, Apple, Mozilla, Microsoft), ganz ohne Inhalt: kein Absender, keine Unterhaltung, kein Text. Deaktiviert, werden bestehende Abonnements verworfen.",
+    "webPushOn": "Push-Benachrichtigungen aktiviert",
+    "webPushOff": "Push-Benachrichtigungen deaktiviert"
   },
   "notifPrompt": {
     "title": "Bescheid wissen, auch außerhalb des Tabs",
@@ -838,7 +842,20 @@
     "notShownDesc": "Der Browser hat sie angenommen, das System hat sie aber nicht angezeigt. Prüfen Sie in den Systemeinstellungen, ob Benachrichtigungen für Ihren Browser erlaubt sind und kein Fokus- oder Nicht-stören-Modus aktiv ist.",
     "quietHoursActive": "Benachrichtigungen ausgesetzt von {{window}}.",
     "fontSampleLetters": "Ag",
-    "fontSampleText": "Franz jagt im komplett verwahrlosten Taxi quer durch Bayern."
+    "fontSampleText": "Franz jagt im komplett verwahrlosten Taxi quer durch Bayern.",
+    "pushTitle": "Benachrichtigungen auf diesem Gerät",
+    "pushOffDesc": "Erhalten Sie Erwähnungen und Direktnachrichten auf diesem Gerät, auch wenn Ruchoir geschlossen oder als App installiert ist.",
+    "pushOnDesc": "Auf diesem Gerät aktiv, auch wenn Ruchoir geschlossen ist. Der Test sendet eine echte Benachrichtigung vom Server, auf demselben Weg wie eine Nachricht.",
+    "pushNeedsInstall": "Fügen Sie Ruchoir auf iPhone und iPad zuerst zum Home-Bildschirm hinzu (Teilen, dann „Zum Home-Bildschirm“) und öffnen Sie es von dort: Safari bietet Benachrichtigungen nur der installierten App an.",
+    "pushUnsupported": "Dieser Browser kann keine Benachrichtigungen empfangen, solange Ruchoir geschlossen ist.",
+    "pushUnavailable": "Die Administration dieser Instanz hat Push-Benachrichtigungen deaktiviert.",
+    "pushFailed": "Push-Benachrichtigungen konnten auf diesem Gerät nicht aktiviert werden.",
+    "pushTestSent": "Testbenachrichtigung gesendet",
+    "pushTestSentDesc": "Sie sollte in wenigen Sekunden erscheinen. Nichts? Prüfen Sie in den Systemeinstellungen, ob Benachrichtigungen für den Browser oder die App erlaubt sind und kein „Nicht stören“-Modus aktiv ist.",
+    "pushTestRefused": "Der Benachrichtigungsdienst des Browsers hat den Test abgelehnt. Schalten Sie die Benachrichtigungen auf diesem Gerät aus und wieder ein.",
+    "pushTestWait": "Gerade wurde ein Test gesendet. Warten Sie einige Sekunden.",
+    "emailCatchUp": "E-Mail-Zusammenfassung",
+    "emailCatchUpDesc": "Bleiben Erwähnungen oder Direktnachrichten eine Viertelstunde ungelesen, während Ruchoir nirgends geöffnet ist, erhalten Sie eine Zusammenfassung per E-Mail."
   },
   "error": {
     "sessionExpired": "Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.",
