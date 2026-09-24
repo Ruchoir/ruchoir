@@ -213,6 +213,17 @@ context and takes precedence here.
   asset path fails loudly instead of receiving HTML. The `messaging`, `realtime` and `files` routers use
   absolute `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
   The files router carries a raised request-body limit (`RUCHOIR_UPLOAD_MAX_BYTES`, default 100 MiB).
+- `src/notify/`   - reaching someone with no Ruchoir page open (ADR 0001). `prefs`: the notification
+  preferences, held server-side (`user_preferences.notifications` for the person, the
+  `channel_members` / `dm_participants` row for each conversation) and one rule, `allows`, shared by
+  every channel below. `vapid` + `push`: payload-free Web Push; the instance's VAPID key pair is made
+  on first use and kept encrypted in `instance_settings`, endpoints are only ever called when their
+  host is in `RUCHOIR_PUSH_ALLOWED_HOSTS` (anti-SSRF), and the service worker learns what to draw
+  from `GET /push/pending`. `POST /push/test` sends a real push through the whole chain.
+  `email`: a sweep a minute that emails one digest per person for what is still unread after
+  `RUCHOIR_NOTIFY_EMAIL_DELAY_SECS`, skipping anyone connected, holding back in quiet hours and
+  "do not disturb", and deciding each row once (`notifications.email_handled_at`, rows locked with
+  `SKIP LOCKED`). A push is sent from `send_message` after the commit, in a background task.
 - `src/openapi.rs`- OpenAPI document generated from the code with `utoipa`.
 
 **The permission matrix is tested from the refused side.** `tests_integration` walks one test per

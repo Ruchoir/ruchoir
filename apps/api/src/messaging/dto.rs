@@ -145,6 +145,11 @@ pub struct ChannelDto {
     pub imported: Option<String>,
     /// Per-user sidebar favourite.
     pub favorite: bool,
+    /// How much this channel notifies the caller: `all`, `mentions` or `none`. `all` when they
+    /// have not joined it.
+    pub notify_level: String,
+    /// Whether the caller has muted this channel.
+    pub muted: bool,
     /// Whether the caller has joined this channel. A public channel is readable either way, but only
     /// members are pushed to in real time, so the client offers "join" or "leave" accordingly.
     pub member: bool,
@@ -187,6 +192,10 @@ pub struct DirectMessageDto {
     /// Whether the sole counterpart is a bot account.
     pub bot: bool,
     pub unread: i64,
+    /// How much this conversation notifies the caller: `all`, `mentions` or `none`.
+    pub notify_level: String,
+    /// Whether the caller has muted this conversation.
+    pub muted: bool,
 }
 
 /// A user's effective presence as seen by others.

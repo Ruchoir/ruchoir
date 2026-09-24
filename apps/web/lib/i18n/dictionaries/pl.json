@@ -51,7 +51,11 @@
     "settingsSaveFailed": "Nie udało się zapisać tego ustawienia.",
     "adminsShown": "Administratorzy widoczni",
     "adminsHidden": "Administratorzy ukryci",
-    "instanceAdminBadge": "Administrator instancji"
+    "instanceAdminBadge": "Administrator instancji",
+    "webPush": "Powiadomienia push",
+    "webPushDescription": "Powiadamia członków na ich urządzeniach, gdy Ruchoir jest zamknięty. Każdy włącza je dla swojej przeglądarki. Sygnał przechodzi przez usługę powiadomień producenta przeglądarki (Google, Apple, Mozilla, Microsoft) bez żadnej treści: bez autora, rozmowy ani tekstu. Po wyłączeniu istniejące subskrypcje zostają zapomniane.",
+    "webPushOn": "Powiadomienia push włączone",
+    "webPushOff": "Powiadomienia push wyłączone"
   },
   "notifPrompt": {
     "title": "Wiedzieć, będąc gdzie indziej",
@@ -872,7 +876,20 @@
     "notShownDesc": "Przeglądarka je przyjęła, ale system go nie pokazał. Sprawdź w ustawieniach systemu, czy powiadomienia są dozwolone dla Twojej przeglądarki i czy nie jest włączony tryb skupienia lub „Nie przeszkadzać”.",
     "quietHoursActive": "Powiadomienia wstrzymane od {{window}}.",
     "fontSampleLetters": "Ąg",
-    "fontSampleText": "Pchnąć w tę łódź jeża lub ośm skrzyń fig."
+    "fontSampleText": "Pchnąć w tę łódź jeża lub ośm skrzyń fig.",
+    "pushTitle": "Powiadomienia na tym urządzeniu",
+    "pushOffDesc": "Otrzymuj wzmianki i wiadomości bezpośrednie na tym urządzeniu, nawet gdy Ruchoir jest zamknięty lub zainstalowany jako aplikacja.",
+    "pushOnDesc": "Włączone na tym urządzeniu, nawet gdy Ruchoir jest zamknięty. Test wysyła prawdziwe powiadomienie z serwera, tą samą drogą co wiadomość.",
+    "pushNeedsInstall": "Na iPhonie i iPadzie najpierw dodaj Ruchoir do ekranu początkowego (Udostępnij, a potem „Do ekranu początkowego”) i otwórz go stamtąd: Safari oferuje powiadomienia tylko zainstalowanej aplikacji.",
+    "pushUnsupported": "Ta przeglądarka nie może odbierać powiadomień, gdy Ruchoir jest zamknięty.",
+    "pushUnavailable": "Administrator tej instancji wyłączył powiadomienia push.",
+    "pushFailed": "Nie udało się włączyć powiadomień push na tym urządzeniu.",
+    "pushTestSent": "Wysłano powiadomienie testowe",
+    "pushTestSentDesc": "Powinno pojawić się w ciągu kilku sekund. Nic nie widać? Sprawdź w ustawieniach systemu, czy powiadomienia są dozwolone dla przeglądarki lub aplikacji i czy tryb „Nie przeszkadzać” jest wyłączony.",
+    "pushTestRefused": "Usługa powiadomień przeglądarki odrzuciła test. Wyłącz i ponownie włącz powiadomienia na tym urządzeniu.",
+    "pushTestWait": "Test został właśnie wysłany. Odczekaj kilka sekund.",
+    "emailCatchUp": "Podsumowanie e-mailem",
+    "emailCatchUpDesc": "Jeśli wzmianki lub wiadomości bezpośrednie pozostają nieprzeczytane przez kwadrans, a Ruchoir nie jest nigdzie otwarty, otrzymasz ich podsumowanie e-mailem."
   },
   "error": {
     "sessionExpired": "Twoja sesja wygasła. Zaloguj się ponownie.",

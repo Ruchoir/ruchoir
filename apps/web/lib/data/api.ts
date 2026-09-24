@@ -13,7 +13,7 @@
  * `ApiMessage` is the front `Message` with that string id.
  */
 import type { Presence } from "@/components/ds";
-import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut } from "./http";
+import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut, apiRequest } from "./http";
 import { currentLocale } from "@/lib/i18n/current";
 import {
   createPasskeyCredential,
@@ -24,6 +24,7 @@ import {
 import type {
   Channel,
   ChannelType,
+  ConversationNotify,
   CreatedInvitation,
   DirectMessage,
   ImportSource,
@@ -80,6 +81,8 @@ type ChannelDto = {
   topic?: string;
   imported?: string;
   favorite: boolean;
+  notify_level?: string;
+  muted?: boolean;
   member: boolean;
   unread: number;
   allowed_roles?: string[];
@@ -92,6 +95,8 @@ type DirectMessageDto = {
   user_id?: string;
   bot: boolean;
   unread: number;
+  notify_level?: string;
+  muted?: boolean;
 };
 
 type PresenceDto = { user_id: string; presence: string };
@@ -502,20 +507,31 @@ export async function issuePasswordResetLink(userId: string): Promise<{ url: str
 export type InstanceSettings = {
   /** Whether the interface tells everyone who administers the instance. */
   showInstanceAdmins: boolean;
+  /**
+   * Whether the instance sends Web Push. Pushes go through the push service of each reader's
+   * browser vendor, which the instance does not choose (ADR 0001), so an administrator may refuse it.
+   */
+  webPushEnabled: boolean;
 };
+
+type InstanceSettingsDto = { show_instance_admins: boolean; web_push_enabled: boolean };
+
+function toInstanceSettings(dto: InstanceSettingsDto): InstanceSettings {
+  return { showInstanceAdmins: dto.show_instance_admins, webPushEnabled: dto.web_push_enabled };
+}
 
 /** `GET /admin/settings`: the instance's settings. Instance administrators only. */
 export async function getInstanceSettings(signal?: AbortSignal): Promise<InstanceSettings> {
-  const dto = await apiGet<{ show_instance_admins: boolean }>("/admin/settings", signal);
-  return { showInstanceAdmins: dto.show_instance_admins };
+  return toInstanceSettings(await apiGet<InstanceSettingsDto>("/admin/settings", signal));
 }
 
 /** `PATCH /admin/settings`: change them. Fields left out are left alone. */
 export async function updateInstanceSettings(patch: Partial<InstanceSettings>): Promise<InstanceSettings> {
-  const dto = await apiPatch<{ show_instance_admins: boolean }>("/admin/settings", {
+  const dto = await apiPatch<InstanceSettingsDto>("/admin/settings", {
     show_instance_admins: patch.showInstanceAdmins,
+    web_push_enabled: patch.webPushEnabled,
   });
-  return { showInstanceAdmins: dto.show_instance_admins };
+  return toInstanceSettings(dto);
 }
 
 // --- Second factor at sign-in ---
@@ -591,6 +607,15 @@ function toChannel(dto: ChannelDto): Channel {
     imported: toImportSource(dto.imported),
     member: dto.member,
     allowedRoles: dto.allowed_roles,
+    notify: toConversationNotify(dto.notify_level, dto.muted),
+  };
+}
+
+/** A conversation's notification setting from the wire, with the defaults for anything unknown. */
+function toConversationNotify(level: string | undefined, muted: boolean | undefined): ConversationNotify {
+  return {
+    level: level === "mentions" || level === "none" ? level : "all",
+    muted: muted === true,
   };
 }
 
@@ -931,6 +956,7 @@ function toDirectMessage(dto: DirectMessageDto): DirectMessage {
     unread: dto.unread,
     bot: dto.bot || undefined,
     userId: dto.user_id,
+    notify: toConversationNotify(dto.notify_level, dto.muted),
   };
 }
 
@@ -1570,6 +1596,107 @@ export async function markNotificationRead(id: string): Promise<void> {
 /** `PUT /notifications/read`: mark every notification read. */
 export async function markAllNotificationsRead(): Promise<void> {
   await apiPut<void>("/notifications/read");
+}
+
+// --- Notification delivery (preferences, Web Push) ---
+
+/**
+ * The signed-in user's notification settings, as the server keeps them.
+ *
+ * Held server-side because the server acts on them: a push to a closed browser and the unread
+ * digest by email both have to obey a muted channel or quiet hours set on another device.
+ */
+export type NotificationPreferences = {
+  enabled: boolean;
+  sound: boolean;
+  channelMentions: boolean;
+  quietHours: boolean;
+  quietFrom: string;
+  quietTo: string;
+  /** Offset of this device's clock from UTC, in minutes: how the server reads the quiet hours. */
+  utcOffsetMinutes: number;
+  /** Email what is still unread after a while, when no Ruchoir page is open. */
+  email: boolean;
+};
+
+type NotificationPreferencesDto = {
+  enabled: boolean;
+  sound: boolean;
+  channel_mentions: boolean;
+  quiet_hours: boolean;
+  quiet_from: string;
+  quiet_to: string;
+  utc_offset_minutes: number;
+  email: boolean;
+};
+
+function toNotificationPreferences(dto: NotificationPreferencesDto): NotificationPreferences {
+  return {
+    enabled: dto.enabled,
+    sound: dto.sound,
+    channelMentions: dto.channel_mentions,
+    quietHours: dto.quiet_hours,
+    quietFrom: dto.quiet_from,
+    quietTo: dto.quiet_to,
+    utcOffsetMinutes: dto.utc_offset_minutes,
+    email: dto.email,
+  };
+}
+
+/** `GET /me/notification-preferences`. */
+export async function getNotificationPreferences(signal?: AbortSignal): Promise<NotificationPreferences> {
+  return toNotificationPreferences(
+    await apiGet<NotificationPreferencesDto>("/me/notification-preferences", signal),
+  );
+}
+
+/** `PUT /me/notification-preferences`: replace them whole. */
+export async function saveNotificationPreferences(prefs: NotificationPreferences): Promise<void> {
+  await apiPut<void>("/me/notification-preferences", {
+    enabled: prefs.enabled,
+    sound: prefs.sound,
+    channel_mentions: prefs.channelMentions,
+    quiet_hours: prefs.quietHours,
+    quiet_from: prefs.quietFrom,
+    quiet_to: prefs.quietTo,
+    utc_offset_minutes: prefs.utcOffsetMinutes,
+    email: prefs.email,
+  });
+}
+
+/** `PUT /conversations/{id}/notification-preference`: how much one channel or DM notifies the caller. */
+export async function saveConversationNotify(conversationId: string, notify: ConversationNotify): Promise<void> {
+  await apiPut<void>(`/conversations/${conversationId}/notification-preference`, notify);
+}
+
+/** Whether the instance sends Web Push, and the key a browser subscribes against. */
+export type PushConfig = { available: boolean; publicKey?: string };
+
+/** `GET /push/config`. */
+export async function getPushConfig(signal?: AbortSignal): Promise<PushConfig> {
+  const dto = await apiGet<{ available: boolean; public_key?: string }>("/push/config", signal);
+  return { available: dto.available, publicKey: dto.public_key };
+}
+
+/** `PUT /push/subscription`: this browser's subscription, as `PushSubscription.toJSON()` gives it. */
+export async function savePushSubscription(subscription: PushSubscriptionJSON): Promise<void> {
+  await apiPut<void>("/push/subscription", {
+    endpoint: subscription.endpoint,
+    keys: { p256dh: subscription.keys?.p256dh ?? "", auth: subscription.keys?.auth ?? "" },
+  });
+}
+
+/**
+ * `POST /push/test`: a real push to each of the caller's subscribed browsers, through the whole
+ * chain (server, push service, service worker), so it proves what matters when the app is closed.
+ */
+export async function sendTestPush(): Promise<{ subscriptions: number; delivered: number }> {
+  return apiPost<{ subscriptions: number; delivered: number }>("/push/test");
+}
+
+/** `DELETE /push/subscription`: forget this browser's subscription. */
+export async function forgetPushSubscription(endpoint: string): Promise<void> {
+  await apiRequest<void>("DELETE", "/push/subscription", { json: { endpoint } });
 }
 
 // --- Search ---

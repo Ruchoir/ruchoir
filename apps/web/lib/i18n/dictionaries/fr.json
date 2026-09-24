@@ -51,7 +51,11 @@
     "settingsSaveFailed": "Ce réglage n'a pas pu être enregistré.",
     "adminsShown": "Administrateurs visibles",
     "adminsHidden": "Administrateurs masqués",
-    "instanceAdminBadge": "Administrateur de l'instance"
+    "instanceAdminBadge": "Administrateur de l'instance",
+    "webPush": "Notifications push",
+    "webPushDescription": "Prévient les membres sur leurs appareils quand Ruchoir est fermé. Chacun l'active pour son navigateur. Le signal transite par le service de notifications de l'éditeur du navigateur (Google, Apple, Mozilla, Microsoft), sans aucun contenu : ni auteur, ni conversation, ni texte. Désactivé, les abonnements existants sont oubliés.",
+    "webPushOn": "Notifications push activées",
+    "webPushOff": "Notifications push désactivées"
   },
   "notifPrompt": {
     "title": "Être prévenu hors de l'onglet",
@@ -838,7 +842,20 @@
     "notShownDesc": "Le navigateur l'a acceptée, mais le système ne l'a pas montrée. Vérifiez les notifications autorisées pour votre navigateur dans les réglages du système, et qu'aucun mode de concentration ou « Ne pas déranger » n'est actif.",
     "quietHoursActive": "Notifications suspendues de {{window}}.",
     "fontSampleLetters": "Ag",
-    "fontSampleText": "Portez ce vieux whisky au juge blond qui fume."
+    "fontSampleText": "Portez ce vieux whisky au juge blond qui fume.",
+    "pushTitle": "Notifications sur cet appareil",
+    "pushOffDesc": "Recevez vos mentions et messages directs sur cet appareil même quand Ruchoir est fermé, ou installé comme application.",
+    "pushOnDesc": "Actives sur cet appareil, même Ruchoir fermé. Le test envoie une vraie notification depuis le serveur, par le même chemin qu'un message.",
+    "pushNeedsInstall": "Sur iPhone et iPad, ajoutez d'abord Ruchoir à l'écran d'accueil (Partager, puis « Sur l'écran d'accueil ») et ouvrez-le depuis là : Safari ne propose les notifications qu'à l'application installée.",
+    "pushUnsupported": "Ce navigateur ne peut pas recevoir de notifications quand Ruchoir est fermé.",
+    "pushUnavailable": "L'administrateur de cette instance a désactivé les notifications push.",
+    "pushFailed": "Les notifications push n'ont pas pu être activées sur cet appareil.",
+    "pushTestSent": "Notification de test envoyée",
+    "pushTestSentDesc": "Elle doit apparaître dans quelques secondes. Rien ne vient ? Vérifiez les notifications autorisées pour le navigateur ou l'application dans les réglages du système, et qu'aucun mode « Ne pas déranger » n'est actif.",
+    "pushTestRefused": "Le service de notifications du navigateur a refusé le test. Désactivez puis réactivez les notifications sur cet appareil.",
+    "pushTestWait": "Un test vient d'être envoyé. Patientez quelques secondes.",
+    "emailCatchUp": "Rattrapage par e-mail",
+    "emailCatchUpDesc": "Si des mentions ou des messages directs restent non lus un quart d'heure alors que Ruchoir n'est ouvert nulle part, recevez-en un récapitulatif par e-mail."
   },
   "error": {
     "sessionExpired": "Votre session a expiré. Connectez-vous à nouveau.",

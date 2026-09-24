@@ -41,6 +41,9 @@ pub mod import_mappings;
 // Per-user client preferences.
 pub mod user_preferences;
 
+// Browsers that asked to be told about notifications while no Ruchoir page is open.
+pub mod push_subscriptions;
+
 // What happened to the instance itself: backups taken, replacements run.
 pub mod instance_events;
 

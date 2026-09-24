@@ -181,7 +181,7 @@ pub fn router(state: AppState) -> Router {
     let csp = "default-src 'self'; base-uri 'self'; object-src 'none'; \
                frame-ancestors 'none'; img-src 'self' data: blob:; font-src 'self'; \
                style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; \
-               connect-src 'self'";
+               connect-src 'self'; worker-src 'self'; manifest-src 'self'";
 
     // Coarse per-IP rate limit on the auth surface: a backstop above the per-account lockout.
     // `SmartIpKeyExtractor` reads a forwarded client IP behind a proxy and falls back to the
@@ -212,6 +212,8 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::admin::router())
         .merge(crate::importer::routes::router())
         .merge(crate::realtime::routes::router())
+        // Notification delivery past the open page: preferences, Web Push, the email fallback.
+        .merge(crate::notify::router())
         // The files surface (tree, upload/versions, download/preview/thumbnail, shares). Its upload
         // routes carry a raised request-body limit sized from the configured cap plus a small
         // multipart overhead; the byte responses are proxied through the API so the object store is

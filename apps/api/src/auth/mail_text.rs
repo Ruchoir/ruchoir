@@ -1,8 +1,8 @@
-//! The three emails the server sends, in the six languages the product speaks, as a designed
-//! HTML message with a plain-text alternative.
+//! The emails the server sends, in the six languages the product speaks, as a designed HTML message
+//! with a plain-text alternative, plus the few words a push notification needs.
 //!
 //! Kept in Rust rather than pulled from the web bundle's dictionaries: the API must be able to send
-//! a password reset with no web build present, and these are three messages, not an interface. A
+//! a password reset with no web build present, and these are four messages, not an interface. A
 //! translation crate would add a dependency, a file format and a loader for less text than this
 //! module holds.
 //!
@@ -19,6 +19,8 @@
 //!   here, and the language of whoever issued it otherwise: nothing is known about a newcomer, and
 //!   the person inviting them has just typed their address and presumably shares a working
 //!   language with them.
+//! - **The unread digest** (and a push notification's text) use the account's own language: nobody
+//!   asked for them from a page, they are addressed to the account.
 
 use std::fmt;
 
@@ -94,6 +96,17 @@ struct Content {
     link: String,
     /// Expiry and "not you?": small, under the button.
     note: String,
+    /// A list drawn between the paragraph and the button. Empty for every message but the digest.
+    items: Vec<DigestItem>,
+}
+
+/// One line of the unread digest: what happened, and the first words of the message.
+#[derive(Debug, Clone)]
+pub struct DigestItem {
+    /// "Camille vous a mentionné · #général".
+    pub headline: String,
+    /// A one-line excerpt of the message. May be empty (an attachment alone).
+    pub excerpt: String,
 }
 
 /// What every message says the same way, per language.
@@ -150,6 +163,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             button: "Confirmer mon adresse".to_owned(),
             link,
             note: format!("Ce lien expire dans {hours} heures. Si vous n'avez pas créé de compte Ruchoir, ignorez ce message : aucun compte ne sera activé."),
+            items: Vec::new(),
         },
         Locale::En => Content {
             subject: "Confirm your Ruchoir email".to_owned(),
@@ -159,6 +173,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             button: "Confirm my address".to_owned(),
             link,
             note: format!("This link expires in {hours} hours. If you did not create a Ruchoir account, ignore this message: no account will be activated."),
+            items: Vec::new(),
         },
         Locale::Es => Content {
             subject: "Confirma tu dirección de Ruchoir".to_owned(),
@@ -168,6 +183,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             button: "Confirmar mi dirección".to_owned(),
             link,
             note: format!("Este enlace caduca en {hours} horas. Si no has creado ninguna cuenta de Ruchoir, ignora este mensaje: no se activará ninguna cuenta."),
+            items: Vec::new(),
         },
         Locale::De => Content {
             subject: "Bestätigen Sie Ihre Ruchoir-Adresse".to_owned(),
@@ -177,6 +193,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             button: "Adresse bestätigen".to_owned(),
             link,
             note: format!("Dieser Link läuft in {hours} Stunden ab. Falls Sie kein Ruchoir-Konto erstellt haben, ignorieren Sie diese Nachricht: Es wird kein Konto aktiviert."),
+            items: Vec::new(),
         },
         Locale::It => Content {
             subject: "Conferma il tuo indirizzo Ruchoir".to_owned(),
@@ -186,6 +203,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             button: "Conferma il mio indirizzo".to_owned(),
             link,
             note: format!("Questo link scade tra {hours} ore. Se non hai creato un account Ruchoir, ignora questo messaggio: nessun account verrà attivato."),
+            items: Vec::new(),
         },
         Locale::Pl => Content {
             subject: "Potwierdź swój adres w Ruchoirze".to_owned(),
@@ -195,6 +213,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             button: "Potwierdź adres".to_owned(),
             link,
             note: format!("Link wygasa za {hours} godz. Jeśli nie zakładałeś konta w Ruchoirze, zignoruj tę wiadomość: żadne konto nie zostanie aktywowane."),
+            items: Vec::new(),
         },
     };
     render(locale, &content, instance)
@@ -212,6 +231,7 @@ pub fn password_reset(locale: Locale, link: &str, minutes: i64, instance: &str) 
             button: "Choisir un nouveau mot de passe".to_owned(),
             link,
             note: format!("Ce lien expire dans {minutes} minutes et ne sert qu'une fois. Si vous n'êtes pas à l'origine de cette demande, ignorez ce message : votre mot de passe reste inchangé."),
+            items: Vec::new(),
         },
         Locale::En => Content {
             subject: "Reset your Ruchoir password".to_owned(),
@@ -221,6 +241,7 @@ pub fn password_reset(locale: Locale, link: &str, minutes: i64, instance: &str) 
             button: "Choose a new password".to_owned(),
             link,
             note: format!("This link expires in {minutes} minutes and works once. If you did not request this, ignore this message: your password stays as it is."),
+            items: Vec::new(),
         },
         Locale::Es => Content {
             subject: "Restablece tu contraseña de Ruchoir".to_owned(),
@@ -230,6 +251,7 @@ pub fn password_reset(locale: Locale, link: &str, minutes: i64, instance: &str) 
             button: "Elegir una nueva contraseña".to_owned(),
             link,
             note: format!("Este enlace caduca en {minutes} minutos y solo sirve una vez. Si no has sido tú, ignora este mensaje: tu contraseña no cambia."),
+            items: Vec::new(),
         },
         Locale::De => Content {
             subject: "Setzen Sie Ihr Ruchoir-Passwort zurück".to_owned(),
@@ -239,6 +261,7 @@ pub fn password_reset(locale: Locale, link: &str, minutes: i64, instance: &str) 
             button: "Neues Passwort festlegen".to_owned(),
             link,
             note: format!("Dieser Link läuft in {minutes} Minuten ab und funktioniert nur einmal. Falls die Anfrage nicht von Ihnen stammt, ignorieren Sie diese Nachricht: Ihr Passwort bleibt unverändert."),
+            items: Vec::new(),
         },
         Locale::It => Content {
             subject: "Reimposta la tua password Ruchoir".to_owned(),
@@ -248,6 +271,7 @@ pub fn password_reset(locale: Locale, link: &str, minutes: i64, instance: &str) 
             button: "Scegli una nuova password".to_owned(),
             link,
             note: format!("Questo link scade tra {minutes} minuti e funziona una sola volta. Se non sei stato tu, ignora questo messaggio: la tua password resta invariata."),
+            items: Vec::new(),
         },
         Locale::Pl => Content {
             subject: "Zresetuj hasło do Ruchoira".to_owned(),
@@ -257,6 +281,7 @@ pub fn password_reset(locale: Locale, link: &str, minutes: i64, instance: &str) 
             button: "Ustaw nowe hasło".to_owned(),
             link,
             note: format!("Link wygasa za {minutes} min i działa tylko raz. Jeśli to nie Ty, zignoruj tę wiadomość: Twoje hasło pozostanie bez zmian."),
+            items: Vec::new(),
         },
     };
     render(locale, &content, instance)
@@ -283,6 +308,7 @@ pub fn invitation(
             button: "Accepter l'invitation".to_owned(),
             link,
             note: "Si vous ne vous attendiez pas à cette invitation, ignorez ce message.".to_owned(),
+            items: Vec::new(),
         },
         Locale::En => Content {
             subject: format!("Join {space} on Ruchoir"),
@@ -295,6 +321,7 @@ pub fn invitation(
             button: "Accept the invitation".to_owned(),
             link,
             note: "If you were not expecting this invitation, ignore this message.".to_owned(),
+            items: Vec::new(),
         },
         Locale::Es => Content {
             subject: format!("Únete a {space} en Ruchoir"),
@@ -307,6 +334,7 @@ pub fn invitation(
             button: "Aceptar la invitación".to_owned(),
             link,
             note: "Si no esperabas esta invitación, ignora este mensaje.".to_owned(),
+            items: Vec::new(),
         },
         Locale::De => Content {
             subject: format!("Treten Sie {space} auf Ruchoir bei"),
@@ -319,6 +347,7 @@ pub fn invitation(
             button: "Einladung annehmen".to_owned(),
             link,
             note: "Falls Sie diese Einladung nicht erwartet haben, ignorieren Sie diese Nachricht.".to_owned(),
+            items: Vec::new(),
         },
         Locale::It => Content {
             subject: format!("Unisciti a {space} su Ruchoir"),
@@ -331,6 +360,7 @@ pub fn invitation(
             button: "Accetta l'invito".to_owned(),
             link,
             note: "Se non ti aspettavi questo invito, ignora questo messaggio.".to_owned(),
+            items: Vec::new(),
         },
         Locale::Pl => Content {
             subject: format!("Dołącz do {space} w Ruchoirze"),
@@ -343,8 +373,187 @@ pub fn invitation(
             button: "Przyjmij zaproszenie".to_owned(),
             link,
             note: "Jeśli nie spodziewałeś się tego zaproszenia, zignoruj tę wiadomość.".to_owned(),
+            items: Vec::new(),
         },
     };
+    render(locale, &content, instance)
+}
+
+/// What happened, as a short verb phrase after the actor's name, per notification kind. The same
+/// words as the web inbox (`notif.mentioned`, `notif.broadcast`, ...), so a push, an email and the
+/// app describe one event the same way.
+pub fn notification_verb(locale: Locale, kind: &str) -> &'static str {
+    match (locale, kind) {
+        (Locale::Fr, "mention") => "vous a mentionné",
+        (Locale::Fr, "broadcast") => "a mentionné tout le canal",
+        (Locale::Fr, "reply") => "a répondu dans un fil",
+        (Locale::Fr, _) => "vous a envoyé un message",
+        (Locale::En, "mention") => "mentioned you",
+        (Locale::En, "broadcast") => "mentioned the whole channel",
+        (Locale::En, "reply") => "replied in a thread",
+        (Locale::En, _) => "sent you a message",
+        (Locale::Es, "mention") => "te ha mencionado",
+        (Locale::Es, "broadcast") => "ha mencionado a todo el canal",
+        (Locale::Es, "reply") => "ha respondido en un hilo",
+        (Locale::Es, _) => "te ha enviado un mensaje",
+        (Locale::De, "mention") => "hat Sie erwähnt",
+        (Locale::De, "broadcast") => "hat den ganzen Kanal erwähnt",
+        (Locale::De, "reply") => "hat in einem Thread geantwortet",
+        (Locale::De, _) => "hat Ihnen eine Nachricht geschickt",
+        (Locale::It, "mention") => "ti ha menzionato",
+        (Locale::It, "broadcast") => "ha menzionato tutto il canale",
+        (Locale::It, "reply") => "ha risposto in una discussione",
+        (Locale::It, _) => "ti ha inviato un messaggio",
+        (Locale::Pl, "mention") => "wspomniał o Tobie",
+        (Locale::Pl, "broadcast") => "wspomniał o całym kanale",
+        (Locale::Pl, "reply") => "odpowiedział w wątku",
+        (Locale::Pl, _) => "wysłał Ci wiadomość",
+    }
+}
+
+/// The body of the test push sent from the preferences.
+pub fn push_test_body(locale: Locale) -> &'static str {
+    match locale {
+        Locale::Fr => "Les notifications arrivent bien sur cet appareil, même Ruchoir fermé.",
+        Locale::En => "Notifications reach this device, even with Ruchoir closed.",
+        Locale::Es => "Las notificaciones llegan a este dispositivo, incluso con Ruchoir cerrado.",
+        Locale::De => {
+            "Benachrichtigungen erreichen dieses Gerät, auch wenn Ruchoir geschlossen ist."
+        }
+        Locale::It => "Le notifiche arrivano su questo dispositivo, anche con Ruchoir chiuso.",
+        Locale::Pl => "Powiadomienia docierają na to urządzenie, nawet gdy Ruchoir jest zamknięty.",
+    }
+}
+
+/// Who did something when their account is gone: the notification outlives its actor.
+pub fn someone(locale: Locale) -> &'static str {
+    match locale {
+        Locale::Fr => "Quelqu'un",
+        Locale::En => "Someone",
+        Locale::Es => "Alguien",
+        Locale::De => "Jemand",
+        Locale::It => "Qualcuno",
+        Locale::Pl => "Ktoś",
+    }
+}
+
+/// The unread digest: what is still waiting for someone who has not had Ruchoir open.
+///
+/// `items` is what the message lists (the caller caps it) and `total` how many are unread in all, so
+/// a long backlog is summarised rather than pasted in full.
+pub fn unread_digest(
+    locale: Locale,
+    items: Vec<DigestItem>,
+    total: usize,
+    link: &str,
+    instance: &str,
+) -> Email {
+    let link = link.to_owned();
+    let more = total.saturating_sub(items.len());
+    let preheader = items
+        .first()
+        .map(|item| item.headline.clone())
+        .unwrap_or_default();
+    let mut content = match locale {
+        Locale::Fr => Content {
+            subject: if total == 1 {
+                "Une notification non lue sur Ruchoir".to_owned()
+            } else {
+                format!("{total} notifications non lues sur Ruchoir")
+            },
+            preheader,
+            heading: "Pendant votre absence".to_owned(),
+            paragraph: "Voici ce qui vous attend sur Ruchoir et que vous n'avez pas encore lu.".to_owned(),
+            button: "Ouvrir Ruchoir".to_owned(),
+            link,
+            note: "Vous recevez cet e-mail parce que ces notifications sont restées non lues alors que Ruchoir n'était ouvert nulle part. Pour ne plus en recevoir, désactivez « Rattrapage par e-mail » dans Préférences > Notifications.".to_owned(),
+            items,
+        },
+        Locale::En => Content {
+            subject: if total == 1 {
+                "One unread notification on Ruchoir".to_owned()
+            } else {
+                format!("{total} unread notifications on Ruchoir")
+            },
+            preheader,
+            heading: "While you were away".to_owned(),
+            paragraph: "Here is what is waiting for you on Ruchoir and that you have not read yet.".to_owned(),
+            button: "Open Ruchoir".to_owned(),
+            link,
+            note: "You are receiving this email because these notifications stayed unread while Ruchoir was not open anywhere. To stop them, turn off \u{201c}Email catch-up\u{201d} in Preferences > Notifications.".to_owned(),
+            items,
+        },
+        Locale::Es => Content {
+            subject: if total == 1 {
+                "Una notificación sin leer en Ruchoir".to_owned()
+            } else {
+                format!("{total} notificaciones sin leer en Ruchoir")
+            },
+            preheader,
+            heading: "Mientras no estabas".to_owned(),
+            paragraph: "Esto es lo que te espera en Ruchoir y que aún no has leído.".to_owned(),
+            button: "Abrir Ruchoir".to_owned(),
+            link,
+            note: "Recibes este correo porque estas notificaciones quedaron sin leer mientras Ruchoir no estaba abierto en ningún sitio. Para dejar de recibirlos, desactiva «Resumen por correo» en Preferencias > Notificaciones.".to_owned(),
+            items,
+        },
+        Locale::De => Content {
+            subject: if total == 1 {
+                "Eine ungelesene Benachrichtigung in Ruchoir".to_owned()
+            } else {
+                format!("{total} ungelesene Benachrichtigungen in Ruchoir")
+            },
+            preheader,
+            heading: "Während Sie weg waren".to_owned(),
+            paragraph: "Das wartet in Ruchoir auf Sie und ist noch ungelesen.".to_owned(),
+            button: "Ruchoir öffnen".to_owned(),
+            link,
+            note: "Sie erhalten diese E-Mail, weil diese Benachrichtigungen ungelesen geblieben sind, während Ruchoir nirgends geöffnet war. Um keine mehr zu erhalten, deaktivieren Sie \u{201e}E-Mail-Zusammenfassung\u{201c} unter Einstellungen > Benachrichtigungen.".to_owned(),
+            items,
+        },
+        Locale::It => Content {
+            subject: if total == 1 {
+                "Una notifica non letta su Ruchoir".to_owned()
+            } else {
+                format!("{total} notifiche non lette su Ruchoir")
+            },
+            preheader,
+            heading: "Mentre eri via".to_owned(),
+            paragraph: "Ecco cosa ti aspetta su Ruchoir e non hai ancora letto.".to_owned(),
+            button: "Apri Ruchoir".to_owned(),
+            link,
+            note: "Ricevi questa e-mail perché queste notifiche sono rimaste non lette mentre Ruchoir non era aperto da nessuna parte. Per non riceverne più, disattiva «Riepilogo via e-mail» in Preferenze > Notifiche.".to_owned(),
+            items,
+        },
+        Locale::Pl => Content {
+            subject: if total == 1 {
+                "Jedno nieprzeczytane powiadomienie w Ruchoirze".to_owned()
+            } else {
+                format!("Nieprzeczytane powiadomienia w Ruchoirze: {total}")
+            },
+            preheader,
+            heading: "Podczas Twojej nieobecności".to_owned(),
+            paragraph: "Oto nieprzeczytane wiadomości, które czekają na Ciebie w Ruchoirze.".to_owned(),
+            button: "Otwórz Ruchoir".to_owned(),
+            link,
+            note: "Otrzymujesz tę wiadomość, ponieważ te powiadomienia pozostały nieprzeczytane, gdy Ruchoir nie był nigdzie otwarty. Aby ich nie otrzymywać, wyłącz opcję „Podsumowanie e-mailem” w Preferencje > Powiadomienia.".to_owned(),
+            items,
+        },
+    };
+    if more > 0 {
+        let tail = match locale {
+            Locale::Fr => format!("Et {more} de plus."),
+            Locale::En => format!("And {more} more."),
+            Locale::Es => format!("Y {more} más."),
+            Locale::De => format!("Und {more} weitere."),
+            Locale::It => format!("E altre {more}."),
+            Locale::Pl => format!("I jeszcze {more}."),
+        };
+        content.items.push(DigestItem {
+            headline: tail,
+            excerpt: String::new(),
+        });
+    }
     render(locale, &content, instance)
 }
 
@@ -378,10 +587,26 @@ const FONT: &str = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe U
 /// Draw a message twice, as HTML and as plain text, from the same content.
 fn render(locale: Locale, content: &Content, instance: &str) -> Email {
     let common = common(locale);
+    let items_text: String = content
+        .items
+        .iter()
+        .map(|item| {
+            if item.excerpt.is_empty() {
+                format!("- {}\n", item.headline)
+            } else {
+                format!("- {}\n  {}\n", item.headline, item.excerpt)
+            }
+        })
+        .collect();
+    let paragraph_text = if items_text.is_empty() {
+        content.paragraph.clone()
+    } else {
+        format!("{}\n\n{}", content.paragraph, items_text.trim_end())
+    };
     let text = format!(
         "{heading}\n\n{paragraph}\n\n{button} :\n{link}\n\n{note}\n\n-- \nRuchoir. {tagline}\n{sent_by} {instance}",
         heading = content.heading,
-        paragraph = content.paragraph,
+        paragraph = paragraph_text,
         button = content.button,
         link = content.link,
         note = content.note,
@@ -400,6 +625,38 @@ fn render(locale: Locale, content: &Content, instance: &str) -> Email {
 
     let lang = locale.as_str();
     let link = esc(&content.link);
+    // The digest's lines: one bordered block, each entry a headline over its excerpt.
+    let items_html = if content.items.is_empty() {
+        String::new()
+    } else {
+        let rows: String = content
+            .items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| {
+                let rule = if index == 0 {
+                    String::new()
+                } else {
+                    format!("border-top:1px solid {BORDER};")
+                };
+                let excerpt = if item.excerpt.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        r#"<br><span style="font-weight:400;color:{BODY};">{}</span>"#,
+                        esc(&item.excerpt)
+                    )
+                };
+                format!(
+                    r#"<tr><td style="{rule}padding:12px 16px;font-family:{FONT};font-size:14px;line-height:1.5;font-weight:600;color:{INK};">{headline}{excerpt}</td></tr>"#,
+                    headline = esc(&item.headline),
+                )
+            })
+            .collect();
+        format!(
+            r#"<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px 0;border:1px solid {BORDER};border-left:3px solid {TERRACOTTA};border-radius:8px;background:{CREAM};">{rows}</table>"#
+        )
+    };
     let html = format!(
         r#"<!DOCTYPE html>
 <html lang="{lang}">
@@ -432,6 +689,7 @@ fn render(locale: Locale, content: &Content, instance: &str) -> Email {
 <tr><td class="rc-card" style="background:{CARD};border:1px solid {BORDER};border-top:4px solid {TERRACOTTA};border-radius:12px;padding:36px 36px 32px 36px;">
 <h1 class="rc-title" style="margin:0 0 14px 0;font-family:{FONT};font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.01em;color:{INK};">{heading}</h1>
 <p style="margin:0 0 28px 0;font-family:{FONT};font-size:15px;line-height:1.6;color:{BODY};">{paragraph}</p>
+{items_html}
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="rc-button-table"><tr>
 <td align="center" bgcolor="{TERRACOTTA}" class="rc-button" style="border-radius:8px;">
 <a href="{link}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:{FONT};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">{button}</a>
@@ -510,6 +768,25 @@ pub async fn send_previews(config: &crate::config::Config, to: &str) -> Result<(
                 &format!("{base}/invite?token=preview"),
                 &instance,
             ),
+            unread_digest(
+                locale,
+                vec![
+                    DigestItem {
+                        headline: format!(
+                            "Camille Roussel {} · #général",
+                            notification_verb(locale, "mention")
+                        ),
+                        excerpt: "@Théo tu peux relire la maquette avant demain ?".to_owned(),
+                    },
+                    DigestItem {
+                        headline: format!("Léa Martin {}", notification_verb(locale, "dm")),
+                        excerpt: "Le devis est parti, je te tiens au courant.".to_owned(),
+                    },
+                ],
+                5,
+                &format!("{base}/"),
+                &instance,
+            ),
         ] {
             mailer.send(to, &email).await?;
             sent += 1;
@@ -570,6 +847,50 @@ mod tests {
             assert!(invite.subject.contains("SPACE"));
             assert!(invite.text.contains("Camille"));
         }
+    }
+
+    #[test]
+    fn the_digest_lists_what_is_waiting_and_counts_the_rest() {
+        for locale in ALL {
+            let email = unread_digest(
+                locale,
+                vec![DigestItem {
+                    headline: "HEADLINE".to_owned(),
+                    excerpt: "EXCERPT".to_owned(),
+                }],
+                4,
+                "https://x.test/",
+                "x.test",
+            );
+            for body in [&email.text, &email.html] {
+                assert!(body.contains("HEADLINE"), "{locale}");
+                assert!(body.contains("EXCERPT"), "{locale}");
+                assert!(
+                    body.contains('3'),
+                    "{locale}: the three not listed are counted"
+                );
+            }
+            assert!(email.subject.contains('4'), "{locale}");
+        }
+        let one = unread_digest(Locale::Fr, Vec::new(), 1, "L", "x.test");
+        assert!(!one.subject.contains('1'));
+    }
+
+    #[test]
+    fn a_digest_line_is_never_markup() {
+        let email = unread_digest(
+            Locale::En,
+            vec![DigestItem {
+                headline: "<b>Eve</b>".to_owned(),
+                excerpt: "<img src=x onerror=alert(1)>".to_owned(),
+            }],
+            1,
+            "L",
+            "x.test",
+        );
+        assert!(!email.html.contains("<img src=x"));
+        assert!(email.html.contains("&lt;img src=x"));
+        assert!(email.html.contains("&lt;b&gt;Eve&lt;/b&gt;"));
     }
 
     #[test]

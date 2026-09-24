@@ -353,6 +353,8 @@ pub async fn create_channel(
             topic,
             imported: None,
             favorite: false,
+            notify_level: "all".to_owned(),
+            muted: false,
             member: true,
             unread: 0,
             allowed_roles,
@@ -507,6 +509,10 @@ pub async fn update_channel(
         topic: updated.topic,
         imported,
         favorite: membership.as_ref().is_some_and(|m| m.favorite),
+        notify_level: membership
+            .as_ref()
+            .map_or_else(|| "all".to_owned(), |m| m.notification_level.clone()),
+        muted: membership.as_ref().is_some_and(|m| m.muted),
         member: membership.is_some(),
         unread: unread_count(&state.db, channel_id, session.user_id).await?,
         allowed_roles: super::authz::channel_allowed_roles(&state.db, channel_id)

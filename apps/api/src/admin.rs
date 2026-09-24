@@ -72,6 +72,17 @@ pub struct UserSearchQuery {
 pub struct InstanceSettingsDto {
     /// Whether the interface tells everyone who administers the instance.
     pub show_instance_admins: bool,
+    /// Whether the instance sends Web Push (see ADR 0001). Each person still opts in per browser.
+    pub web_push_enabled: bool,
+}
+
+impl From<&instance_settings::Model> for InstanceSettingsDto {
+    fn from(settings: &instance_settings::Model) -> Self {
+        Self {
+            show_instance_admins: settings.show_instance_admins,
+            web_push_enabled: settings.web_push_enabled,
+        }
+    }
 }
 
 /// A change to the instance's settings. Every field is optional: what is absent is left alone.
@@ -79,6 +90,8 @@ pub struct InstanceSettingsDto {
 pub struct InstanceSettingsPatch {
     #[serde(default)]
     pub show_instance_admins: Option<bool>,
+    #[serde(default)]
+    pub web_push_enabled: Option<bool>,
 }
 
 /// A reset link, returned once and never retrievable again.
@@ -253,6 +266,10 @@ pub async fn instance_settings(
         .unwrap_or(instance_settings::Model {
             id: true,
             show_instance_admins: true,
+            web_push_enabled: true,
+            vapid_public_key: None,
+            vapid_private_key: None,
+            vapid_private_nonce: None,
             updated_at: OffsetDateTime::now_utc(),
         }))
 }
@@ -273,9 +290,7 @@ pub async fn read_settings(
 ) -> Result<Json<InstanceSettingsDto>, ApiError> {
     ensure_instance_admin(&state, session.user_id).await?;
     let settings = instance_settings(&state.db).await?;
-    Ok(Json(InstanceSettingsDto {
-        show_instance_admins: settings.show_instance_admins,
-    }))
+    Ok(Json(InstanceSettingsDto::from(&settings)))
 }
 
 /// `PATCH /api/v1/admin/settings`: change what the instance is set to.
@@ -297,24 +312,35 @@ pub async fn update_settings(
     ensure_instance_admin(&state, session.user_id).await?;
 
     let current = instance_settings(&state.db).await?;
-    let Some(show) = body.show_instance_admins else {
+    if body.show_instance_admins.is_none() && body.web_push_enabled.is_none() {
         // Nothing asked for, nothing written: a no-op patch must not bump `updated_at`.
-        return Ok(Json(InstanceSettingsDto {
-            show_instance_admins: current.show_instance_admins,
-        }));
-    };
+        return Ok(Json(InstanceSettingsDto::from(&current)));
+    }
 
     let mut active = current.into_active_model();
-    active.show_instance_admins = Set(show);
+    if let Some(show) = body.show_instance_admins {
+        active.show_instance_admins = Set(show);
+    }
+    if let Some(push) = body.web_push_enabled {
+        active.web_push_enabled = Set(push);
+    }
     active.updated_at = Set(OffsetDateTime::now_utc());
     let saved = active.update(&state.db).await?;
+
+    // Turning Web Push off also forgets every browser that had subscribed: the point of the switch
+    // is that nothing more reaches a vendor's push service, and a subscription kept "for later"
+    // would be an address at one of them waiting to be used.
+    if body.web_push_enabled == Some(false) {
+        if let Err(error) = crate::notify::push::forget_all_subscriptions(&state.db).await {
+            tracing::warn!(%error, "could not drop push subscriptions after disabling Web Push");
+        }
+    }
 
     tracing::info!(
         actor = %session.user_id,
         show_instance_admins = saved.show_instance_admins,
+        web_push_enabled = saved.web_push_enabled,
         "instance settings changed"
     );
-    Ok(Json(InstanceSettingsDto {
-        show_instance_admins: saved.show_instance_admins,
-    }))
+    Ok(Json(InstanceSettingsDto::from(&saved)))
 }

@@ -51,7 +51,11 @@
     "settingsSaveFailed": "No se ha podido guardar este ajuste.",
     "adminsShown": "Administradores visibles",
     "adminsHidden": "Administradores ocultos",
-    "instanceAdminBadge": "Administrador de la instancia"
+    "instanceAdminBadge": "Administrador de la instancia",
+    "webPush": "Notificaciones push",
+    "webPushDescription": "Avisa a los miembros en sus dispositivos cuando Ruchoir está cerrado. Cada persona lo activa en su navegador. La señal pasa por el servicio de notificaciones del fabricante del navegador (Google, Apple, Mozilla, Microsoft) sin ningún contenido: ni autor, ni conversación, ni texto. Si se desactiva, se olvidan las suscripciones existentes.",
+    "webPushOn": "Notificaciones push activadas",
+    "webPushOff": "Notificaciones push desactivadas"
   },
   "notifPrompt": {
     "title": "Enterarte cuando estás en otra parte",
@@ -855,7 +859,20 @@
     "notShownDesc": "El navegador la aceptó, pero el sistema no la mostró. Comprueba que las notificaciones estén permitidas para tu navegador en los ajustes del sistema y que no haya ningún modo de concentración o «No molestar» activo.",
     "quietHoursActive": "Notificaciones suspendidas de {{window}}.",
     "fontSampleLetters": "Ag",
-    "fontSampleText": "El veloz murciélago hindú comía feliz cardillo y kiwi."
+    "fontSampleText": "El veloz murciélago hindú comía feliz cardillo y kiwi.",
+    "pushTitle": "Notificaciones en este dispositivo",
+    "pushOffDesc": "Recibe tus menciones y mensajes directos en este dispositivo aunque Ruchoir esté cerrado o instalado como aplicación.",
+    "pushOnDesc": "Activadas en este dispositivo, incluso con Ruchoir cerrado. La prueba envía una notificación real desde el servidor, por el mismo camino que un mensaje.",
+    "pushNeedsInstall": "En iPhone y iPad, primero añade Ruchoir a la pantalla de inicio (Compartir y luego «Añadir a pantalla de inicio») y ábrelo desde ahí: Safari solo ofrece notificaciones a la aplicación instalada.",
+    "pushUnsupported": "Este navegador no puede recibir notificaciones mientras Ruchoir está cerrado.",
+    "pushUnavailable": "El administrador de esta instancia ha desactivado las notificaciones push.",
+    "pushFailed": "No se han podido activar las notificaciones push en este dispositivo.",
+    "pushTestSent": "Notificación de prueba enviada",
+    "pushTestSentDesc": "Debería aparecer en unos segundos. ¿No llega nada? Comprueba que las notificaciones están permitidas para el navegador o la aplicación en los ajustes del sistema y que no hay ningún modo «No molestar» activo.",
+    "pushTestRefused": "El servicio de notificaciones del navegador ha rechazado la prueba. Desactiva y vuelve a activar las notificaciones en este dispositivo.",
+    "pushTestWait": "Se acaba de enviar una prueba. Espera unos segundos.",
+    "emailCatchUp": "Resumen por correo",
+    "emailCatchUpDesc": "Si hay menciones o mensajes directos sin leer durante un cuarto de hora mientras Ruchoir no está abierto en ningún sitio, recibe un resumen por correo."
   },
   "error": {
     "sessionExpired": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
