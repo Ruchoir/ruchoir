@@ -219,7 +219,8 @@ context and takes precedence here.
   message is pushed again as `message.updated`. **Every fetch is fenced against request forgery**:
   the name is resolved by `PublicOnlyResolver` (plugged into `ureq` as its resolver, so the check and
   the connection use the same answer, redirects included), which keeps public addresses only; ports
-  80/443, three redirects, five seconds, 512 KiB, HTML only; and the instance's own host and parent
+  80/443, three redirects, five seconds, HTML only and only up to the end of its `<head>` (2 MiB
+  at most: a YouTube video page's head runs past 700 KB); and the instance's own host and parent
   domain are never read (`RUCHOIR_UNFURL_DENY_HOSTS` adds more), because services published next to
   it behind an address filter would otherwise be readable through it. Kept: title, description,
   the site's colour (`theme-color` as plain hex, else the dominant vivid colour of its image) and a
