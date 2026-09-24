@@ -160,7 +160,10 @@ never assume a choice took effect: `setMyPresence` returns what the server decid
 **Sticking a feed to its bottom follows the reader's position, not the item count.** Use
 `features/channel/useStickToBottom.ts`. A count-only effect both moves a reader who scrolled up and
 misses every late reflow (an image loading, an edit, a reaction wrapping, padding changing), because
-it runs during the commit rather than after layout.
+it runs during the commit rather than after layout. The feed's inner column is keyed on the
+conversation, so the hook observes children as they are added, not only those present at mount:
+watching the first one alone left a detached node observed after the first channel switch, and
+every later conversation opened on its first message.
 
 `AppRoot` boots against the API: it checks the session (`GET /auth/session`), and on success loads
 the first space's channels, DMs, presence, per-conversation feeds and the notification feed before

@@ -63,9 +63,29 @@ export function useStickToBottom<T extends HTMLElement>(resetKey: string) {
     observer.observe(el);
     for (const child of Array.from(el.children)) observer.observe(child);
 
+    // The content is not a fixed element: the feed keys its inner column on the conversation, so
+    // opening another channel (or another space) replaces it. Observing only the children present
+    // at mount left the observer watching a detached node, and nothing followed the new
+    // conversation any more: it opened on its first message once its history arrived, and a
+    // reaction on the last message stayed half off screen. Every child that is added gets
+    // observed too, and a replacement that lands while following goes straight to the end.
+    const children = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of Array.from(record.addedNodes)) {
+          if (node instanceof Element) observer.observe(node);
+        }
+        for (const node of Array.from(record.removedNodes)) {
+          if (node instanceof Element) observer.unobserve(node);
+        }
+      }
+      if (followingRef.current) el.scrollTop = el.scrollHeight;
+    });
+    children.observe(el, { childList: true });
+
     el.addEventListener("scroll", measure, { passive: true });
     return () => {
       observer.disconnect();
+      children.disconnect();
       el.removeEventListener("scroll", measure);
     };
   }, []);
