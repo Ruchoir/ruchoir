@@ -361,7 +361,7 @@ pub async fn create_channel(
             topic,
             imported: None,
             favorite: false,
-            notify_level: "all".to_owned(),
+            notify_level: "default".to_owned(),
             muted: false,
             member: true,
             unread: 0,
@@ -519,7 +519,7 @@ pub async fn update_channel(
         favorite: membership.as_ref().is_some_and(|m| m.favorite),
         notify_level: membership
             .as_ref()
-            .map_or_else(|| "all".to_owned(), |m| m.notification_level.clone()),
+            .map_or_else(|| "default".to_owned(), |m| m.notification_level.clone()),
         muted: membership.as_ref().is_some_and(|m| m.muted),
         member: membership.is_some(),
         unread: unread_count(&state.db, channel_id, session.user_id).await?,
@@ -1205,7 +1205,7 @@ async fn join_row<C: ConnectionTrait>(
         channel_id: Set(channel_id),
         user_id: Set(user_id),
         role: Set(role.to_owned()),
-        notification_level: Set("all".to_owned()),
+        notification_level: Set("default".to_owned()),
         muted: Set(false),
         favorite: Set(false),
         joined_at: Set(now),

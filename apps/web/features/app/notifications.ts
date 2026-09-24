@@ -17,9 +17,10 @@ import { key, type Translate, type TranslationKey } from "@/lib/i18n";
  * `mention` is someone typing your name. `broadcast` is `@canal` or `@ici`, which reaches you as
  * one of the room rather than as yourself: a weaker claim on your attention, and the one people
  * most often want to turn off, which is why it is a kind of its own rather than a mention like any
- * other.
+ * other. `message` is any other message, for someone who asked to hear about every one of them in
+ * that conversation (its level, its space's, or their own default).
  */
-export type NotifKind = "mention" | "broadcast" | "reply" | "dm";
+export type NotifKind = "mention" | "broadcast" | "reply" | "dm" | "message";
 
 /** Whether a kind belongs under the Mentions badge: named directly, or addressed with the room. */
 export function isMention(kind: NotifKind): boolean {
@@ -55,15 +56,26 @@ export type AppNotification = {
   read: boolean;
 };
 
-/** How much a channel notifies. `all` is the default when a channel has no explicit preference. */
-export type NotifLevel = "all" | "mentions" | "none";
+/**
+ * How much a conversation notifies. `default` follows its space's level, and the space's `default`
+ * follows the person's own preferences. `all` is every message, `mentions` only what names or
+ * addresses the person, `none` nothing.
+ */
+export type NotifLevel = "default" | "all" | "mentions" | "none";
 
 export type ChannelNotifPref = {
   level: NotifLevel;
   muted: boolean;
 };
 
-export const DEFAULT_CHANNEL_PREF: ChannelNotifPref = { level: "all", muted: false };
+export const DEFAULT_CHANNEL_PREF: ChannelNotifPref = { level: "default", muted: false };
+
+/** The level in force for a conversation: its own, else its space's, else `default` (one's own). */
+export function effectiveLevel(pref: ChannelNotifPref | undefined, spaceLevel?: NotifLevel): NotifLevel {
+  const own = pref?.level ?? "default";
+  if (own !== "default") return own;
+  return spaceLevel ?? "default";
+}
 
 /** Global notification preferences, persisted with the rest of the settings. */
 export type NotifPrefs = {
@@ -71,8 +83,15 @@ export type NotifPrefs = {
   enabled: boolean;
   /** Play a sound on a new notification. */
   sound: boolean;
-  /** Also notify on @channel / @here, not only direct @mentions. */
+  /**
+   * Which kinds reach the person in the app and by push. `channelMentions` is `@canal` / `@ici`;
+   * `messages` is every other message, where nothing nearer (the conversation, the space) decides.
+   */
+  mentions: boolean;
   channelMentions: boolean;
+  replies: boolean;
+  directMessages: boolean;
+  messages: boolean;
   /** Suppress notifications during the configured quiet hours. */
   quietHours: boolean;
   /** Quiet-hours start, "HH:MM" (24h). May be later than `quietTo` for an overnight window. */
@@ -84,16 +103,31 @@ export type NotifPrefs = {
    * (see `apps/api/src/notify/email.rs`); the app itself has nothing to do with it.
    */
   email: boolean;
+  /** The same kinds, by email. `@canal` and every message are off by default there. */
+  emailMentions: boolean;
+  emailBroadcasts: boolean;
+  emailReplies: boolean;
+  emailDirectMessages: boolean;
+  emailMessages: boolean;
 };
 
 export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
   enabled: true,
   sound: false,
+  mentions: true,
   channelMentions: true,
+  replies: true,
+  directMessages: true,
+  messages: false,
   quietHours: false,
   quietFrom: "21:00",
   quietTo: "08:00",
   email: true,
+  emailMentions: true,
+  emailBroadcasts: false,
+  emailReplies: true,
+  emailDirectMessages: true,
+  emailMessages: false,
 };
 
 /** Whether two sets of global preferences say the same thing, field by field. */
@@ -118,6 +152,7 @@ const KIND_VERB: Record<NotifKind, TranslationKey> = {
   broadcast: key("notif.broadcast"),
   reply: key("notif.replied"),
   dm: key("notif.dm"),
+  message: key("notif.wrote"),
 };
 
 /**
@@ -130,17 +165,29 @@ export function notifSummary(n: AppNotification, t: Translate): string {
   return `${n.actor} ${t(KIND_VERB[n.kind])}`;
 }
 
-/** Whether a notification should be shown given the channel and global preferences. */
+/**
+ * Whether a notification should be shown, given the conversation's, the space's and the person's
+ * own preferences. The same rule as `allows` in `apps/api/src/notify/prefs.rs` (for the app and
+ * push): the two must agree, or the phone and the app disagree about what was worth saying.
+ */
 export function passesPref(
   n: AppNotification,
   channelPref: ChannelNotifPref | undefined,
   prefs: NotifPrefs,
+  spaceLevel?: NotifLevel,
 ): boolean {
   if (!prefs.enabled) return false;
-  // The one preference that is about the message rather than the channel it came from.
-  if (n.kind === "broadcast" && !prefs.channelMentions) return false;
-  const pref = channelPref ?? DEFAULT_CHANNEL_PREF;
-  if (pref.muted || pref.level === "none") return false;
-  if (pref.level === "mentions") return isMention(n.kind) || n.kind === "dm";
+  if (channelPref?.muted) return false;
+  const level = effectiveLevel(channelPref, spaceLevel);
+  if (level === "none") return false;
+  if (n.kind === "message") return level === "all" || (level === "default" && prefs.messages);
+  const wanted: Record<Exclude<NotifKind, "message">, boolean> = {
+    mention: prefs.mentions ?? true,
+    broadcast: prefs.channelMentions ?? true,
+    reply: prefs.replies ?? true,
+    dm: prefs.directMessages ?? true,
+  };
+  if (!wanted[n.kind]) return false;
+  if (level === "mentions") return isMention(n.kind) || n.kind === "dm";
   return true;
 }

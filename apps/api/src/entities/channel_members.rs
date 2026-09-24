@@ -13,7 +13,8 @@ pub struct Model {
     pub user_id: Uuid,
     /// One of `owner`, `admin`, `member` (enforced by a CHECK constraint).
     pub role: String,
-    /// One of `all`, `mentions`, `none` (enforced by a CHECK constraint).
+    /// One of `default` (inherit from the space), `all` (every message), `mentions`, `none`
+    /// (enforced by a CHECK constraint).
     pub notification_level: String,
     pub muted: bool,
     /// Per-user sidebar favourite (the mock's `fav` flag).

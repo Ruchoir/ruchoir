@@ -55,6 +55,7 @@ pub async fn list_my_spaces(
     // afford them for every conversation of every space on every boot.
     let unread_by_space = unread_messages_by_space(&state.db, session.user_id).await?;
     let mentions_by_space = unread_notifications_by_space(&state.db, session.user_id).await?;
+    let notify_levels = crate::notify::prefs::space_levels(&state.db, session.user_id).await?;
 
     let mut out = Vec::with_capacity(memberships.len());
     for membership in memberships {
@@ -82,6 +83,10 @@ pub async fn list_my_spaces(
                 .icon_key
                 .as_deref()
                 .map(|key| crate::files::icon_url(space.id, key)),
+            notify_level: notify_levels
+                .get(&space.id)
+                .cloned()
+                .unwrap_or_else(|| "default".to_owned()),
         });
     }
     out.sort_by_key(|space| space.name.to_lowercase());
@@ -132,7 +137,7 @@ async fn unread_notifications_by_space(
     let sql = "SELECT c.space_id AS space_id, COUNT(n.id) AS unread \
                  FROM notifications n \
                  JOIN conversations c ON c.id = n.conversation_id \
-                WHERE n.user_id = $1 AND n.read_at IS NULL \
+                WHERE n.user_id = $1 AND n.read_at IS NULL AND n.kind <> 'message' \
                 GROUP BY c.space_id";
     count_by_space(db, sql, user_id, "unread").await
 }
@@ -214,7 +219,7 @@ pub async fn list_channels(
             favorite,
             notify_level: membership
                 .as_ref()
-                .map_or_else(|| "all".to_owned(), |m| m.notification_level.clone()),
+                .map_or_else(|| "default".to_owned(), |m| m.notification_level.clone()),
             muted: membership.as_ref().is_some_and(|m| m.muted),
             member: membership.is_some(),
             unread,

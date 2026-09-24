@@ -14,6 +14,8 @@ const KIND_ICON: Record<NotifKind, string> = {
   broadcast: "users",
   reply: "message-square",
   dm: "mail",
+  // Any other message, for someone who asked to hear about every one: the channel's own mark.
+  message: "hash",
 };
 
 const styles: Record<string, CSSProperties> = {

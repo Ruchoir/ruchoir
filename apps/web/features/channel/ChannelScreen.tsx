@@ -8,7 +8,7 @@ import type { Channel, DirectMessage, Message, MessageAttachment, SpaceFile } fr
 import type { Presence } from "@/components/ds";
 import { useProfile } from "../app/useProfile";
 import { useMountAnimation } from "../app/useMountAnimation";
-import type { ChannelNotifPref } from "../app/notifications";
+import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import { ProfilePanel } from "./ProfilePanel";
 import type { ChannelPanel, Toast } from "../app/types";
 import { ChannelMenu } from "./ChannelMenu";
@@ -255,6 +255,12 @@ export type ChannelScreenProps = {
   /** Current notification preference for this conversation, and a persist callback. */
   notifPref: ChannelNotifPref;
   onSaveNotifPref: (pref: ChannelNotifPref) => void;
+  /** What this conversation's `default` level currently resolves to (its space's, or one's own). */
+  notifInherited: NotifLevel;
+  /** Delete this channel; absent for anyone but the space's owner and administrators. */
+  onDeleteChannel?: () => void;
+  /** It is the space's default channel, which cannot be deleted while it is. */
+  isDefaultChannel?: boolean;
   /** When set, the feed scrolls to and flashes this message after it renders. */
   focusMessageId?: string | null;
   /** Presence of the DM counterpart (from the live presence map); ignored for channels. */
@@ -335,6 +341,9 @@ export function ChannelScreen({
   onLeaveChannel,
   onJoinChannel,
   notifPref,
+  notifInherited,
+  onDeleteChannel,
+  isDefaultChannel,
   onSaveNotifPref,
   focusMessageId,
   members,
@@ -925,12 +934,15 @@ export function ChannelScreen({
           onNotify={onNotify}
           myRole={myRole}
           myChannelRole={canModerate ? effectiveChannelRole : "member"}
+          onDelete={onDeleteChannel}
+          isDefault={isDefaultChannel}
         />
       ) : null}
       {menuDialog === "notifications" ? (
         <ChannelNotificationsDialog
           channelName={isDm ? dm!.name : channel.name}
           isDm={isDm}
+          inherited={notifInherited}
           value={notifPref}
           onClose={() => setMenuDialog(null)}
           onSave={onSaveNotifPref}

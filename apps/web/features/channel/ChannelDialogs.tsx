@@ -342,10 +342,19 @@ export function DeleteChannelDialog({
   );
 }
 
-/** Per-channel notification preferences. Controlled: the current preference is persisted in AppRoot. */
+/**
+ * How much a conversation, or a whole space, notifies the caller. Controlled: the preference is
+ * persisted by AppRoot.
+ *
+ * Four levels, the first one deferring to the level above: a conversation follows its space, a
+ * space follows the person's own preferences. What that currently means is said under it, so
+ * "default" is never a blind choice.
+ */
 export function ChannelNotificationsDialog({
   channelName,
   isDm = false,
+  isSpace = false,
+  inherited,
   value,
   onClose,
   onSave,
@@ -353,6 +362,10 @@ export function ChannelNotificationsDialog({
 }: {
   channelName: string;
   isDm?: boolean;
+  /** It is a whole space being set, not one conversation: no mute, and a different default. */
+  isSpace?: boolean;
+  /** What `default` currently resolves to, to be said under it. */
+  inherited: NotifLevel;
   value: ChannelNotifPref;
   onClose: () => void;
   onSave: (pref: ChannelNotifPref) => void;
@@ -361,17 +374,25 @@ export function ChannelNotificationsDialog({
   const { t } = useTranslation();
   const [level, setLevel] = useState<NotifLevel>(value.level);
   const [muted, setMuted] = useState(value.muted);
-  const label = isDm ? channelName : `#${channelName}`;
+  const label = isSpace || isDm ? channelName : `#${channelName}`;
+  const meaning: Record<NotifLevel, TranslationKey> = {
+    default: key("notif.levelMentionsHint"),
+    all: key("notif.levelAllHint"),
+    mentions: key("notif.levelMentionsHint"),
+    none: key("notif.levelNoneHint"),
+  };
+  // `default` at the top means "one's own preferences", which say "every message" or not.
+  const inheritedHint = inherited === "all" ? meaning.all : inherited === "none" ? meaning.none : meaning.mentions;
 
   const save = () => {
-    onSave({ level, muted });
+    onSave({ level, muted: isSpace ? false : muted });
     onNotify({ tone: "success", title: t("channel.notifUpdated"), description: label });
     onClose();
   };
 
   return (
     <Dialog
-      title={isDm ? t("channel.dmNotifications") : t("channel.channelNotifications")}
+      title={isSpace ? t("notif.spaceNotifications") : isDm ? t("channel.dmNotifications") : t("channel.channelNotifications")}
       subtitle={label}
       size="sm"
       onClose={onClose}
@@ -385,11 +406,40 @@ export function ChannelNotificationsDialog({
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <Radio name="notif" checked={level === "all"} onChange={() => setLevel("all")} label={t("channel.allMessages")} />
-        <Radio name="notif" checked={level === "mentions"} onChange={() => setLevel("mentions")} label={t("channel.mentionsOnly")} description={t("channel.mentionsOnlyHint")} />
-        <Radio name="notif" checked={level === "none"} onChange={() => setLevel("none")} label={t("channel.nothing")} />
-        <div style={{ height: 1, background: "var(--border-subtle)", margin: "6px 0" }} />
-        <Switch checked={muted} onChange={() => setMuted((m) => !m)} label={isDm ? t("channel.muteDm") : t("channel.muteChannel")} reverse />
+        <Radio
+          name="notif"
+          checked={level === "default"}
+          onChange={() => setLevel("default")}
+          label={isSpace ? t("notif.levelDefaultSpace") : t("notif.levelDefaultConversation")}
+          description={t(inheritedHint)}
+        />
+        <Radio
+          name="notif"
+          checked={level === "all"}
+          onChange={() => setLevel("all")}
+          label={t("channel.allMessages")}
+          description={t("notif.levelAllHint")}
+        />
+        <Radio
+          name="notif"
+          checked={level === "mentions"}
+          onChange={() => setLevel("mentions")}
+          label={t("channel.mentionsOnly")}
+          description={t("notif.levelMentionsHint")}
+        />
+        <Radio
+          name="notif"
+          checked={level === "none"}
+          onChange={() => setLevel("none")}
+          label={t("channel.nothing")}
+          description={t("notif.levelNoneHint")}
+        />
+        {isSpace ? null : (
+          <>
+            <div style={{ height: 1, background: "var(--border-subtle)", margin: "6px 0" }} />
+            <Switch checked={muted} onChange={() => setMuted((m) => !m)} label={isDm ? t("channel.muteDm") : t("channel.muteChannel")} reverse />
+          </>
+        )}
       </div>
     </Dialog>
   );

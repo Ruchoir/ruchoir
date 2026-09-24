@@ -25,6 +25,7 @@ import type {
   Channel,
   ChannelType,
   ConversationNotify,
+  NotifyLevel,
   CreatedInvitation,
   DirectMessage,
   ImportSource,
@@ -72,6 +73,7 @@ type SpaceDto = {
   mentions: number;
   icon_url?: string;
   default_channel_id?: string;
+  notify_level?: string;
 };
 
 type ChannelDto = {
@@ -598,7 +600,18 @@ function toWorkspace(dto: SpaceDto): Workspace {
     mentions: dto.mentions ?? 0,
     iconUrl: dto.icon_url,
     defaultChannelId: dto.default_channel_id,
+    notifyLevel: toNotifyLevel(dto.notify_level),
   };
+}
+
+/** A level from the wire; anything unknown reads as `default`, which is the quiet answer. */
+function toNotifyLevel(level: string | undefined): NotifyLevel {
+  return level === "all" || level === "mentions" || level === "none" ? level : "default";
+}
+
+/** `PUT /spaces/{id}/notification-preference`: how much a whole space notifies the caller. */
+export async function saveSpaceNotify(spaceId: string, level: NotifyLevel): Promise<void> {
+  await apiPut<void>(`/spaces/${spaceId}/notification-preference`, { level });
 }
 
 /** `GET /me/spaces`: the workspaces the caller belongs to. The SPA's entry point. */
@@ -624,10 +637,7 @@ function toChannel(dto: ChannelDto): Channel {
 
 /** A conversation's notification setting from the wire, with the defaults for anything unknown. */
 function toConversationNotify(level: string | undefined, muted: boolean | undefined): ConversationNotify {
-  return {
-    level: level === "mentions" || level === "none" ? level : "all",
-    muted: muted === true,
-  };
+  return { level: toNotifyLevel(level), muted: muted === true };
 }
 
 /**
@@ -1544,7 +1554,7 @@ type NotificationPageDto = {
  */
 export type ApiNotification = {
   id: string;
-  kind: "mention" | "broadcast" | "reply" | "dm";
+  kind: "mention" | "broadcast" | "reply" | "dm" | "message";
   conversationId: string;
   /** The space it happened in, so the inbox can be shown for the space on screen. */
   spaceId: string;
@@ -1567,7 +1577,11 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
   // `broadcast` belongs here: left out, an `@canal` arrived as an ordinary mention and the
   // preference that turns those off could never have been obeyed.
   const kind =
-    dto.kind === "mention" || dto.kind === "broadcast" || dto.kind === "reply" || dto.kind === "dm"
+    dto.kind === "mention" ||
+    dto.kind === "broadcast" ||
+    dto.kind === "reply" ||
+    dto.kind === "dm" ||
+    dto.kind === "message"
       ? dto.kind
       : "mention";
   return {
@@ -1641,59 +1655,61 @@ export async function markAllNotificationsRead(): Promise<void> {
 export type NotificationPreferences = {
   enabled: boolean;
   sound: boolean;
+  /** Which kinds reach the person in the app and by push. */
+  mentions: boolean;
   channelMentions: boolean;
+  replies: boolean;
+  directMessages: boolean;
+  messages: boolean;
   quietHours: boolean;
   quietFrom: string;
   quietTo: string;
   /** Offset of this device's clock from UTC, in minutes: how the server reads the quiet hours. */
   utcOffsetMinutes: number;
-  /** Email what is still unread after a while, when no Ruchoir page is open. */
+  /** Email what is still unread after a while, when no Ruchoir page is open, and which kinds. */
   email: boolean;
+  emailMentions: boolean;
+  emailBroadcasts: boolean;
+  emailReplies: boolean;
+  emailDirectMessages: boolean;
+  emailMessages: boolean;
 };
 
-type NotificationPreferencesDto = {
-  enabled: boolean;
-  sound: boolean;
-  channel_mentions: boolean;
-  quiet_hours: boolean;
-  quiet_from: string;
-  quiet_to: string;
-  utc_offset_minutes: number;
-  email: boolean;
-};
-
-function toNotificationPreferences(dto: NotificationPreferencesDto): NotificationPreferences {
-  return {
-    enabled: dto.enabled,
-    sound: dto.sound,
-    channelMentions: dto.channel_mentions,
-    quietHours: dto.quiet_hours,
-    quietFrom: dto.quiet_from,
-    quietTo: dto.quiet_to,
-    utcOffsetMinutes: dto.utc_offset_minutes,
-    email: dto.email,
-  };
-}
+/** Each field and its name on the wire, so the two directions of the mapping cannot drift. */
+const NOTIFICATION_FIELDS: [keyof NotificationPreferences, string][] = [
+  ["enabled", "enabled"],
+  ["sound", "sound"],
+  ["mentions", "mentions"],
+  ["channelMentions", "channel_mentions"],
+  ["replies", "replies"],
+  ["directMessages", "direct_messages"],
+  ["messages", "messages"],
+  ["quietHours", "quiet_hours"],
+  ["quietFrom", "quiet_from"],
+  ["quietTo", "quiet_to"],
+  ["utcOffsetMinutes", "utc_offset_minutes"],
+  ["email", "email"],
+  ["emailMentions", "email_mentions"],
+  ["emailBroadcasts", "email_broadcasts"],
+  ["emailReplies", "email_replies"],
+  ["emailDirectMessages", "email_direct_messages"],
+  ["emailMessages", "email_messages"],
+];
 
 /** `GET /me/notification-preferences`. */
 export async function getNotificationPreferences(signal?: AbortSignal): Promise<NotificationPreferences> {
-  return toNotificationPreferences(
-    await apiGet<NotificationPreferencesDto>("/me/notification-preferences", signal),
-  );
+  const dto = await apiGet<Record<string, unknown>>("/me/notification-preferences", signal);
+  return Object.fromEntries(
+    NOTIFICATION_FIELDS.map(([field, wire]) => [field, dto[wire]]),
+  ) as NotificationPreferences;
 }
 
 /** `PUT /me/notification-preferences`: replace them whole. */
 export async function saveNotificationPreferences(prefs: NotificationPreferences): Promise<void> {
-  await apiPut<void>("/me/notification-preferences", {
-    enabled: prefs.enabled,
-    sound: prefs.sound,
-    channel_mentions: prefs.channelMentions,
-    quiet_hours: prefs.quietHours,
-    quiet_from: prefs.quietFrom,
-    quiet_to: prefs.quietTo,
-    utc_offset_minutes: prefs.utcOffsetMinutes,
-    email: prefs.email,
-  });
+  await apiPut<void>(
+    "/me/notification-preferences",
+    Object.fromEntries(NOTIFICATION_FIELDS.map(([field, wire]) => [wire, prefs[field]])),
+  );
 }
 
 /** `PUT /conversations/{id}/notification-preference`: how much one channel or DM notifies the caller. */

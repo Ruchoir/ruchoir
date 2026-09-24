@@ -52,6 +52,7 @@ import {
   revokeInvitation,
   saveConversationNotify,
   saveNotificationPreferences,
+  saveSpaceNotify,
   sendMessage,
   setMessagePinned,
   setMessageSaved,
@@ -135,6 +136,8 @@ import {
   type ChannelNotifPref,
   DEFAULT_CHANNEL_PREF,
   DEFAULT_NOTIF_PREFS,
+  effectiveLevel,
+  type NotifLevel,
   type NotifPrefs,
   sameNotifPrefs,
   isMention,
@@ -506,6 +509,8 @@ function AppShell() {
   // A notification clicked in the system tray, waiting for its space and conversation to be loaded
   // before it can be opened (see the effect that consumes it).
   const [pendingOpen, setPendingOpen] = useState<PushTarget | null>(null);
+  // The notification level of the space on screen, being set.
+  const [spaceNotifOpen, setSpaceNotifOpen] = useState(false);
   // A link to another site, held until the warning about leaving Ruchoir is answered.
   const [externalLink, setExternalLink] = useState<string | null>(null);
   // The channel whose deletion is being confirmed, and how that is going.
@@ -1707,6 +1712,9 @@ function AppShell() {
   const mentions = collectMentions(messages, channels, dms, currentUser);
   const threads = collectThreads(messages, channels, dms);
 
+  // The notification level of the space on screen (declared here: the workspace record is read
+  // further down, after this point is needed).
+  const wsNotifyLevel = workspaces.find((w) => w.id === ws)?.notifyLevel;
   // Notifications the user should actually see, after applying the per-channel and global preferences.
   const visibleNotifs = useMemo(
     // Scoped to the space on screen. The inbox is fetched for the whole account (a notification is
@@ -1715,9 +1723,11 @@ function AppShell() {
     // this space does not contain.
     () =>
       notifs.filter(
-        (n) => n.spaceId === ws && passesPref(n, channelPrefs[n.channelId], settings.notif),
+        (n) =>
+          n.spaceId === ws &&
+          passesPref(n, channelPrefs[n.channelId], settings.notif, wsNotifyLevel),
       ),
-    [notifs, ws, channelPrefs, settings.notif],
+    [notifs, ws, channelPrefs, settings.notif, wsNotifyLevel],
   );
   const notifUnread = visibleNotifs.filter((n) => !n.read).length;
   /**
@@ -1778,6 +1788,23 @@ function AppShell() {
   const markAllNotifsRead = () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
     void markAllNotificationsRead().catch(() => {});
+  };
+  /**
+   * What a conversation left on `default` currently gets: the space's level, else one's own
+   * preferences (which say "every message" or not). Said under "default" in the level dialogs.
+   */
+  const spaceLevel = effectiveLevel(undefined, wsNotifyLevel);
+  const inheritedLevel: NotifLevel =
+    spaceLevel === "default" ? (settings.notif.messages ? "all" : "mentions") : spaceLevel;
+
+  /** Set how much a whole space notifies: kept by the server, which obeys it for push and email. */
+  const saveSpaceLevel = (spaceId: string, level: NotifLevel) => {
+    const before = workspaces.find((w) => w.id === spaceId)?.notifyLevel ?? "default";
+    setWorkspaces((prev) => prev.map((w) => (w.id === spaceId ? { ...w, notifyLevel: level } : w)));
+    void saveSpaceNotify(spaceId, level).catch(() => {
+      setWorkspaces((prev) => prev.map((w) => (w.id === spaceId ? { ...w, notifyLevel: before } : w)));
+      showToast({ tone: "danger", title: t("admin.settingsSaveFailed") });
+    });
   };
   const saveChannelPref = (id: string, pref: ChannelNotifPref) => {
     const before = channelPrefs[id];
@@ -2452,7 +2479,8 @@ function AppShell() {
    */
   useEffect(() => {
     alertRef.current = (n) => {
-      if (!passesPref(n, channelPrefs[n.channelId], settings.notif)) return;
+      const spaceLevel = liveRef.current.spaces.find((w) => w.id === n.spaceId)?.notifyLevel;
+      if (!passesPref(n, channelPrefs[n.channelId], settings.notif, spaceLevel)) return;
       if (inQuietHours(settings.notif)) return;
       // With Web Push on in this browser, the service worker draws the system notification (and it
       // does so whether or not this tab is open). Drawing it here too would show it twice.
@@ -3322,17 +3350,12 @@ function AppShell() {
         if (notifSyncRef.current.session !== sessionId) return;
         const local = settingsRef.current.notif;
         const serverIsBlank = sameNotifPrefs(server, DEFAULT_NOTIF_PREFS);
+        // Every field the app keeps, taken from the server (which has the offset on top).
         const merged: NotifPrefs = serverIsBlank
-          ? local
-          : {
-              enabled: server.enabled,
-              sound: server.sound,
-              channelMentions: server.channelMentions,
-              quietHours: server.quietHours,
-              quietFrom: server.quietFrom,
-              quietTo: server.quietTo,
-              email: server.email,
-            };
+          ? { ...DEFAULT_NOTIF_PREFS, ...local }
+          : (Object.fromEntries(
+              (Object.keys(DEFAULT_NOTIF_PREFS) as (keyof NotifPrefs)[]).map((field) => [field, server[field]]),
+            ) as NotifPrefs);
         lastSentNotifRef.current = JSON.stringify(merged);
         settingsRef.current.set("notif", merged);
         notifSyncRef.current.synced = true;
@@ -3681,6 +3704,7 @@ function AppShell() {
         onMarkAllNotifsRead={markAllNotifsRead}
         onOpenNotifPrefs={() => openPreferences("notifications")}
         onLeaveSpace={() => setModal("leaveSpace")}
+        onSpaceNotifications={() => setSpaceNotifOpen(true)}
         loading={switchingSpace}
         openNotifications={deepLinkPop === "notifications"}
       />
@@ -3760,6 +3784,18 @@ function AppShell() {
           onJoinChannel={() => joinChannel(channelId)}
           notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
           onSaveNotifPref={(pref) => saveChannelPref(channelId, pref)}
+          notifInherited={inheritedLevel}
+          isDefaultChannel={currentWorkspace?.defaultChannelId === channelId}
+          onDeleteChannel={
+            canAdministerSpace
+              ? () => {
+                  const target = channels.find((c) => c.id === channelId);
+                  if (!target) return;
+                  setDeleteChannelError(null);
+                  setDeletingChannel({ id: target.id, name: target.name });
+                }
+              : undefined
+          }
           members={memberRecords}
           files={spaceFiles}
           dmPresence={dm?.presence}
@@ -4043,6 +4079,18 @@ function AppShell() {
         />
       ) : null}
 
+      {spaceNotifOpen && currentWorkspace ? (
+        <ChannelNotificationsDialog
+          channelName={currentWorkspace.name}
+          isSpace
+          inherited={settings.notif.messages ? "all" : "mentions"}
+          value={{ level: currentWorkspace.notifyLevel, muted: false }}
+          onClose={() => setSpaceNotifOpen(false)}
+          onSave={(pref) => saveSpaceLevel(currentWorkspace.id, pref.level)}
+          onNotify={showToast}
+        />
+      ) : null}
+
       {channelNotifId ? (
         <ChannelNotificationsDialog
           channelName={
@@ -4051,6 +4099,7 @@ function AppShell() {
             channelNotifId
           }
           isDm={!channels.some((c) => c.id === channelNotifId) && dms.some((d) => d.id === channelNotifId)}
+          inherited={inheritedLevel}
           value={channelPrefs[channelNotifId] ?? DEFAULT_CHANNEL_PREF}
           onClose={() => setChannelNotifId(null)}
           onSave={(pref) => saveChannelPref(channelNotifId, pref)}
@@ -4197,6 +4246,7 @@ function AppShell() {
                 onMarkAllNotifsRead={markAllNotifsRead}
                 onOpenNotifPrefs={() => openPreferences("notifications")}
                 onLeaveSpace={() => setModal("leaveSpace")}
+                onSpaceNotifications={() => setSpaceNotifOpen(true)}
                 loading={switchingSpace}
                 />
               </main>

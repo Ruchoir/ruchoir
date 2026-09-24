@@ -39,6 +39,7 @@ pub mod import_jobs;
 pub mod import_mappings;
 
 // Per-user client preferences.
+pub mod space_notification_prefs;
 pub mod user_preferences;
 
 // Browsers that asked to be told about notifications while no Ruchoir page is open.

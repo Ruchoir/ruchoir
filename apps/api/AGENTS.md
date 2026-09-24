@@ -230,9 +230,14 @@ context and takes precedence here.
   store with the last preview that shows it; every failed fetch is logged as a warning with why.
   `RUCHOIR_UNFURL_ENABLED=false` turns it off.
 - `src/notify/`   - reaching someone with no Ruchoir page open (ADR 0001). `prefs`: the notification
-  preferences, held server-side (`user_preferences.notifications` for the person, the
-  `channel_members` / `dm_participants` row for each conversation) and one rule, `allows`, shared by
-  every channel below. `vapid` + `push` + `ece`: content-free Web Push (a constant marker, RFC 8291-encrypted, and no
+  preferences, held server-side, in three layers where **the nearest one that says something wins**:
+  the conversation's level (`channel_members` / `dm_participants`: `default`, `all`, `mentions`,
+  `none`, plus a mute), the space's (`space_notification_prefs`, no row = default), and the person's
+  own (`user_preferences.notifications`: which kinds reach them in the app and push, which by email,
+  and whether "every message" is their default). One rule, `allows(kind, prefs, scope, delivery)`,
+  is shared by every channel below and mirrored by `passesPref` in the web client. A level of `all`
+  creates a notification of kind `message` for every root message of a channel (thread replies
+  aside), in `send_message`; it is activity, so the rail's `mentions` counter leaves it out. `vapid` + `push` + `ece`: content-free Web Push (a constant marker, RFC 8291-encrypted, and no
   `Topic` header, which Apple refuses with `400 BadWebPushTopic`); the instance's VAPID key pair is made
   on first use and kept encrypted in `instance_settings`, endpoints are only ever called when their
   host is in `RUCHOIR_PUSH_ALLOWED_HOSTS` (anti-SSRF), and the service worker learns what to draw

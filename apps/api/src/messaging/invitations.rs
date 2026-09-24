@@ -347,7 +347,7 @@ pub async fn accept_invitation(
                 channel_id: Set(channel),
                 user_id: Set(session.user_id),
                 role: Set("member".to_owned()),
-                notification_level: Set("all".to_owned()),
+                notification_level: Set("default".to_owned()),
                 muted: Set(false),
                 favorite: Set(false),
                 joined_at: Set(now),
@@ -464,6 +464,8 @@ pub async fn accept_invitation(
             .as_deref()
             .map(|key| crate::files::icon_url(space.id, key)),
         default_channel_id: space.default_channel_id,
+        // Just joined: nothing has been set for this space yet.
+        notify_level: "default".to_owned(),
     }))
 }
 

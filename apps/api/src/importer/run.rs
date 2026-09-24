@@ -800,7 +800,7 @@ pub async fn import_conversations<C: ConnectionTrait>(
                 dm_participants::ActiveModel {
                     dm_id: Set(conversation_id),
                     user_id: Set(*user_id),
-                    notification_level: Set("all".to_owned()),
+                    notification_level: Set("default".to_owned()),
                     muted: Set(false),
                     hidden: Set(false),
                     added_at: Set(now),
@@ -818,7 +818,7 @@ pub async fn import_conversations<C: ConnectionTrait>(
                     channel_id: Set(conversation_id),
                     user_id: Set(*user_id),
                     role: Set("member".to_owned()),
-                    notification_level: Set("all".to_owned()),
+                    notification_level: Set("default".to_owned()),
                     muted: Set(false),
                     favorite: Set(favourite),
                     joined_at: Set(now),

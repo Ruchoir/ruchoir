@@ -7605,3 +7605,109 @@ async fn deleting_a_channel_takes_its_history_and_is_for_administrators_only() {
     // Deleting it again finds nothing to delete.
     assert_eq!(delete(alice, doomed).await, 403);
 }
+
+#[tokio::test]
+async fn every_message_is_notified_to_whoever_asked_for_it_and_nobody_else() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let say = |cookie: String, body: &'static str| {
+        let request = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+                &cookie,
+            )
+            .json(&json!({ "body": body }));
+        async move {
+            let sent = request.send().await.expect("send");
+            assert_eq!(sent.status(), 201);
+        }
+    };
+    let kinds_for = |user: Uuid| {
+        let db = app.db.clone();
+        async move {
+            notifications::Entity::find()
+                .filter(notifications::Column::UserId.eq(user))
+                .all(&db)
+                .await
+                .expect("query")
+                .into_iter()
+                .map(|n| n.kind)
+                .collect::<Vec<_>>()
+        }
+    };
+
+    // By default a message that names nobody notifies nobody.
+    say(alice.clone(), "bonjour à tous").await;
+    assert!(kinds_for(fx.bob).await.is_empty());
+
+    // Bob asks for everything in this space: the next plain message reaches him, as `message`.
+    let set_space = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/spaces/{}/notification-preference", fx.space_id),
+            &bob,
+        )
+        .json(&json!({ "level": "all" }))
+        .send()
+        .await
+        .expect("space pref");
+    assert_eq!(set_space.status(), 204);
+    say(alice.clone(), "le point de 14 h est décalé").await;
+    assert_eq!(kinds_for(fx.bob).await, vec!["message".to_owned()]);
+    // Carol is in the space but not in the channel: nothing, whatever she might have asked.
+    assert!(kinds_for(fx.carol).await.is_empty());
+    // It is activity, not something addressed to Bob: the rail's number stays at zero.
+    let row = space_row(&app, &bob, fx.space_id).await;
+    assert_eq!(row["mentions"], 0);
+    assert_eq!(row["notify_level"], "all");
+
+    // The channel's own level wins over the space's.
+    let set_channel = app
+        .req(
+            reqwest::Method::PUT,
+            &format!(
+                "/api/v1/conversations/{}/notification-preference",
+                fx.public_channel
+            ),
+            &bob,
+        )
+        .json(&json!({ "level": "mentions", "muted": false }))
+        .send()
+        .await
+        .expect("channel pref");
+    assert_eq!(set_channel.status(), 204);
+    say(alice.clone(), "encore un message sans nom").await;
+    assert_eq!(kinds_for(fx.bob).await.len(), 1, "no new one");
+
+    // Back to `default` on both: the space level goes away, and so do the extra notifications.
+    for (path, body) in [
+        (
+            format!("/api/v1/spaces/{}/notification-preference", fx.space_id),
+            json!({ "level": "default" }),
+        ),
+        (
+            format!(
+                "/api/v1/conversations/{}/notification-preference",
+                fx.public_channel
+            ),
+            json!({ "level": "default", "muted": false }),
+        ),
+    ] {
+        let reset = app
+            .req(reqwest::Method::PUT, &path, &bob)
+            .json(&body)
+            .send()
+            .await
+            .expect("reset");
+        assert_eq!(reset.status(), 204);
+    }
+    say(alice, "et un dernier").await;
+    assert_eq!(kinds_for(fx.bob).await.len(), 1);
+    assert_eq!(
+        space_row(&app, &bob, fx.space_id).await["notify_level"],
+        "default"
+    );
+}
