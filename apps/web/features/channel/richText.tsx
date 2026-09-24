@@ -79,7 +79,7 @@ function renderInline(
   names: string[],
   keyBase: string,
   emojiSize = EMOJI_SIZE,
-  onMention?: (name: string) => void,
+  onMention?: MentionHandler,
   meName?: string,
   rooms?: Rooms,
 ): ReactNode[] {
@@ -164,7 +164,7 @@ function renderInline(
               key={mkey}
               type="button"
               className={cls}
-              onClick={() => onMention(name)}
+              onClick={(e) => onMention(name, e.currentTarget)}
               style={{ border: 0, padding: "0 3px", font: "inherit", cursor: "pointer" }}
             >
               @{name}
@@ -239,7 +239,7 @@ function renderTextBlock(
   names: string[],
   keyBase: string,
   emojiSize = EMOJI_SIZE,
-  onMention?: (name: string) => void,
+  onMention?: MentionHandler,
   meName?: string,
   rooms?: Rooms,
   onToggleTask?: TaskToggle,
@@ -372,11 +372,17 @@ function renderTextBlock(
   return blocks;
 }
 
+/**
+ * What a click on an `@mention` receives: the name, and the element that was clicked, which is what
+ * a profile card is anchored to.
+ */
+export type MentionHandler = (name: string, anchor: HTMLElement) => void;
+
 export function renderRichText(
   text: string,
   names: string[],
   editable = false,
-  onMention?: (name: string) => void,
+  onMention?: MentionHandler,
   meName?: string,
   rooms?: Rooms,
   onToggleTask?: TaskToggle,

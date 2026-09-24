@@ -165,6 +165,11 @@ conversation, so the hook observes children as they are added, not only those pr
 watching the first one alone left a detached node observed after the first channel switch, and
 every later conversation opened on its first message.
 
+**A mention opens a card, not the panel.** Clicking an `@name` in a message hangs the same
+`UserProfileCard` as the author's avatar under the mention (`MentionHandler` receives the clicked
+element); the full profile in the right panel is the card's next step, so a glance at who someone is
+no longer closes an open thread.
+
 `AppRoot` boots against the API: it checks the session (`GET /auth/session`), and on success loads
 the first space's channels, DMs, presence, per-conversation feeds and the notification feed before
 showing the app; a 401 lands on the real login (`POST /auth/login`), and an unreachable API shows a

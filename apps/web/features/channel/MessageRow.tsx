@@ -1,12 +1,13 @@
 "use client";
 
-import { type CSSProperties, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Avatar, brandFor, Card, Dialog, FileIcon, Icon, IconButton, IconLink, Popover, Tag, Tooltip } from "@/components/ds";
 import { getCurrentUser, getMentionNames, getPresence, getSpaceRooms } from "@/lib/data";
 import type { ImportSource, Message, MessageAttachment } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
 import { UserProfileCard } from "../app/UserProfileCard";
+import { prefetchProfile } from "../app/useProfile";
 import { renderRichText } from "./richText";
 import { InlineImage } from "./InlineImage";
 import { LinkPreviewCard } from "./LinkPreviewCard";
@@ -30,8 +31,14 @@ export type MessageActions = {
   onOpenProfile: () => void;
   onEditProfile: () => void;
   onMessage: () => void;
-  /** Open the profile of a user @-mentioned in the body. */
+  /** Open the full profile of a user @-mentioned in the body, from the card a mention opens. */
   onOpenMention: (name: string) => void;
+  /** Write to a user @-mentioned in the body, from the card a mention opens. */
+  onMessageMention: (name: string) => void;
+  /** Edit one's own profile, from the card opened on a mention of oneself. */
+  onEditMentionProfile: (name: string) => void;
+  /** The user id behind a mentioned name, so its card can load the real profile. */
+  mentionUserId: (name: string) => string | undefined;
   /** Follow a `#room` written in a message, to the channel it names. */
   onOpenRoom?: (name: string) => void;
   /** Tick or untick the checklist item on this line of the body. Author-only, like any edit. */
@@ -295,6 +302,30 @@ export function MessageRow({
   const [profileOpen, setProfileOpen] = useState(false);
   const [reactionsOpen, setReactionsOpen] = useState(false);
   const avatarRef = useRef<HTMLButtonElement>(null);
+  // A mention opens the same card as the author's avatar, hung under the mention itself. Clicking
+  // one used to replace the right panel with the full profile, which is a lot to lose (a thread, the
+  // members) for a glance at who someone is; the card offers the full profile as its next step.
+  // The clicked element is held in state (the body is drawn by a render helper, which may not touch
+  // a ref) and mirrored into a ref for the popover's outside-click test, which runs on events only.
+  const [mentionOpen, setMentionOpen] = useState<{ name: string; anchor: HTMLElement } | null>(null);
+  const mention = mentionOpen?.name ?? null;
+  const mentionRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    mentionRef.current = mentionOpen?.anchor ?? null;
+  }, [mentionOpen]);
+  // The card opens once its profile is in hand, so it is placed at its final size rather than
+  // growing (and jumping) after it appears. A failed read still opens it, on the name alone.
+  const openMention = (name: string, anchor: HTMLElement) => {
+    if (mentionOpen?.anchor === anchor) {
+      setMentionOpen(null);
+      return;
+    }
+    const userId = actions.mentionUserId(name);
+    const open = () => setMentionOpen({ name, anchor });
+    if (!userId) open();
+    else prefetchProfile(userId).then(open, open);
+  };
+  const setMention = (next: null) => setMentionOpen(next);
   const deleted = m.deleted;
   const me = getCurrentUser().name;
   const isOwn = m.author === me;
@@ -366,7 +397,14 @@ export function MessageRow({
           {hover ? gutterTime : ""}
         </span>
       ) : (
-        <button ref={avatarRef} style={avatarBtn} onClick={() => setProfileOpen((o) => !o)} aria-label={t("profile.of", { name: m.author })}>
+        <button
+          ref={avatarRef}
+          style={avatarBtn}
+          // Read ahead on hover, so the card opens at its final size (see `prefetchProfile`).
+          onMouseEnter={() => {
+            if (m.authorId) prefetchProfile(m.authorId).catch(() => {});
+          }}
+          onClick={() => setProfileOpen((o) => !o)} aria-label={t("profile.of", { name: m.author })}>
           <Avatar
             name={m.author}
             src={authorAvatar}
@@ -377,6 +415,34 @@ export function MessageRow({
       )}
       <Popover anchorRef={avatarRef} open={profileOpen} onClose={() => setProfileOpen(false)} placement="bottom" align="start">
         <UserProfileCard name={m.author} userId={m.authorId} presence={authorPresence} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={messageFromCard} />
+      </Popover>
+      <Popover
+        anchorRef={mentionRef}
+        getAnchorRect={() => mentionOpen?.anchor.getBoundingClientRect() ?? null}
+        open={mention !== null}
+        onClose={() => setMention(null)}
+        placement="bottom"
+        align="start"
+      >
+        {mention !== null ? (
+          <UserProfileCard
+            name={mention}
+            userId={actions.mentionUserId(mention)}
+            presence={getPresence(mention)}
+            onViewFull={() => {
+              setMention(null);
+              actions.onOpenMention(mention);
+            }}
+            onEditProfile={() => {
+              setMention(null);
+              actions.onEditMentionProfile(mention);
+            }}
+            onMessage={() => {
+              setMention(null);
+              actions.onMessageMention(mention);
+            }}
+          />
+        ) : null}
       </Popover>
       <div style={{ flex: 1, minWidth: 0 }}>
         {grouped ? null : (
@@ -431,7 +497,7 @@ export function MessageRow({
                   m.body,
                   getMentionNames(),
                   isOwn,
-                  actions.onOpenMention,
+                  openMention,
                   me,
                   { names: getSpaceRooms(), onOpen: actions.onOpenRoom },
                   // Only your own checklist is yours to tick: the API refuses an edit from anyone
