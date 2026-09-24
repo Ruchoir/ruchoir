@@ -41,6 +41,8 @@ export function ChannelSettingsDialog({
   onNotify,
   myRole,
   myChannelRole,
+  onDelete,
+  isDefault = false,
 }: {
   channel: Channel;
   onClose: () => void;
@@ -54,6 +56,13 @@ export function ChannelSettingsDialog({
    * message in it is already at the top of it.
    */
   myChannelRole: string;
+  /**
+   * Ask to delete the channel. Absent for anyone but the space's owner and administrators, who are
+   * the only ones the API lets erase a history everybody wrote into.
+   */
+  onDelete?: () => void;
+  /** It is the space's default channel, which cannot be deleted while it is. */
+  isDefault?: boolean;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState(channel.name);
@@ -235,7 +244,100 @@ export function ChannelSettingsDialog({
         </Field>
 
         <Switch checked={archived} onChange={() => setArchived((a) => !a)} label={t("channel.archive")} reverse />
+
+        {onDelete ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 14px",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "var(--radius-md)",
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t("channel.delete")}</div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                {/* Said rather than drawn disabled: a greyed button reads "unavailable", this one is
+                    one step away, and the step is named. */}
+                {isDefault ? t("channel.deleteDefault") : t("channel.deleteDesc")}
+              </div>
+            </div>
+            {isDefault ? null : (
+              <Button variant="danger" size="sm" onClick={onDelete}>
+                {t("channel.deleteAction")}
+              </Button>
+            )}
+          </div>
+        ) : null}
       </div>
+    </Dialog>
+  );
+}
+
+/**
+ * Confirm deleting a channel by typing its name, the way deleting a space is confirmed: what goes is
+ * everyone's history, and a click on the wrong row must not be enough to lose it.
+ */
+export function DeleteChannelDialog({
+  name,
+  busy,
+  error,
+  onClose,
+  onConfirm,
+}: {
+  name: string;
+  busy: boolean;
+  error?: string | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const { t } = useTranslation();
+  const [typed, setTyped] = useState("");
+  const matches = typed.trim().replace(/^#/, "") === name;
+  const mismatch = typed.trim().length > 0 && !matches;
+  return (
+    <Dialog
+      title={t("channel.deleteTitle", { name })}
+      closeLabel={t("common.close")}
+      size="sm"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="danger" disabled={!matches || busy} onClick={onConfirm}>
+            {busy ? t("common.sending") : t("space.deleteConfirm")}
+          </Button>
+        </>
+      }
+    >
+      <p style={{ fontSize: 13, color: "var(--text-body)", margin: "0 0 6px" }}>{t("channel.deleteBody")}</p>
+      <p style={{ fontSize: 13, color: "var(--status-danger-fg)", margin: "0 0 14px" }}>{t("space.deleteFinal")}</p>
+      <Field
+        label={t("space.deleteConfirmLabel", { name })}
+        htmlFor="del-channel"
+        error={mismatch ? t("channel.deleteNameMismatch") : undefined}
+      >
+        <Input
+          id="del-channel"
+          icon="hash"
+          autoFocus
+          invalid={mismatch}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && matches && !busy) onConfirm();
+          }}
+        />
+      </Field>
+      {error ? (
+        <p role="alert" style={{ fontSize: 12, color: "var(--text-danger, var(--terracotta-700))", margin: "10px 0 0" }}>
+          {error}
+        </p>
+      ) : null}
     </Dialog>
   );
 }

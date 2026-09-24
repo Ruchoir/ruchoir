@@ -516,7 +516,16 @@
     "membersUpdated": "Zaktualizowano członków kanału",
     "applyChanges_few": "Zastosuj {{count}} zmiany",
     "applyChanges_many": "Zastosuj zmian: {{count}}",
-    "addPeople": "Członkowie i dostęp"
+    "addPeople": "Członkowie i dostęp",
+    "delete": "Usuń kanał",
+    "deleteDesc": "Usuwa kanał, jego wiadomości, wątki i przesłane do niego pliki, dla wszystkich.",
+    "deleteDefault": "To domyślny kanał przestrzeni: przed usunięciem wybierz inny w ustawieniach przestrzeni.",
+    "deleteAction": "Usuń…",
+    "deleteTitle": "Usunąć #{{name}}?",
+    "deleteBody": "Wiadomości, wątki, reakcje i pliki przesłane do tego kanału zostaną usunięte dla wszystkich członków. Pliki przestrzeni, które były tylko załączone, zostają w przestrzeni.",
+    "deleteNameMismatch": "To nie jest nazwa kanału.",
+    "deleted": "Kanał usunięty",
+    "deletedElsewhere": "Kanał #{{name}} został usunięty."
   },
   "role": {
     "member": "Członek",
@@ -973,7 +982,8 @@
     "nowOwner": "Teraz należy do osoby {{name}}.",
     "memberRemoved": "Członek usunięty",
     "removeFailed": "Nie udało się usunąć tego członka",
-    "removedFromSpace": "Zostałeś usunięty z przestrzeni {{name}}"
+    "removedFromSpace": "Zostałeś usunięty z przestrzeni {{name}}",
+    "channelDeleteFailed": "Nie udało się usunąć kanału."
   },
   "boot": {
     "loading": "Wczytywanie",

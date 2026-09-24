@@ -504,7 +504,16 @@
     "willBeAdded": "will be added",
     "willBeRemoved": "will be removed",
     "membersUpdated": "Channel membership updated",
-    "addPeople": "Members and access"
+    "addPeople": "Members and access",
+    "delete": "Delete the channel",
+    "deleteDesc": "Erases the channel, its messages, threads and the files uploaded into it, for everyone.",
+    "deleteDefault": "This is the space's default channel: choose another one in the space settings before deleting it.",
+    "deleteAction": "Delete…",
+    "deleteTitle": "Delete #{{name}}?",
+    "deleteBody": "The messages, threads, reactions and files uploaded in this channel will be erased for all its members. Space files that were only attached stay in the space.",
+    "deleteNameMismatch": "That is not the channel's name.",
+    "deleted": "Channel deleted",
+    "deletedElsewhere": "The channel #{{name}} was deleted."
   },
   "role": {
     "member": "Member",
@@ -939,7 +948,8 @@
     "nowOwner": "{{name}} owns it now.",
     "memberRemoved": "Member removed",
     "removeFailed": "Could not remove this member",
-    "removedFromSpace": "You have been removed from {{name}}"
+    "removedFromSpace": "You have been removed from {{name}}",
+    "channelDeleteFailed": "The channel could not be deleted."
   },
   "boot": {
     "loading": "Loading",

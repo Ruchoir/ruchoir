@@ -7511,3 +7511,97 @@ async fn the_email_fallback_waits_then_decides_once() {
         "held back, not dropped, during quiet hours"
     );
 }
+
+#[tokio::test]
+async fn deleting_a_channel_takes_its_history_and_is_for_administrators_only() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let doomed = make_channel(&app.db, fx.space_id, "projet", "public").await;
+    for user in [fx.alice, fx.bob] {
+        add_channel_member(&app.db, doomed, user).await;
+    }
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let carol = app.cookie_for(fx.carol).await;
+
+    // Something to lose: a message, and the notification it creates for Alice.
+    let sent = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{doomed}/messages"),
+            &bob,
+        )
+        .json(&json!({ "body": "@alice le compte rendu est prêt" }))
+        .send()
+        .await
+        .expect("send");
+    assert_eq!(sent.status(), 201);
+    let message_id: Uuid = sent.json::<Value>().await.expect("json")["id"]
+        .as_str()
+        .and_then(|id| id.parse().ok())
+        .expect("message id");
+
+    let delete = |cookie: String, channel: Uuid| {
+        let request = app.req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/channels/{channel}"),
+            &cookie,
+        );
+        async move { request.send().await.expect("delete").status() }
+    };
+
+    // A plain member may not, not even one who is in the channel.
+    assert_eq!(delete(bob.clone(), doomed).await, 403);
+    assert_eq!(delete(carol.clone(), doomed).await, 403);
+
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    // The space's default channel is where every newcomer lands: another one has to be chosen first.
+    assert_eq!(delete(alice.clone(), fx.public_channel).await, 409);
+
+    // Bob is watching when it goes, and is told.
+    let mut bob_ws = app.connect_ws(&bob).await;
+    assert_eq!(delete(alice.clone(), doomed).await, 204);
+    let event = wait_for_type(&mut bob_ws, "channel.deleted").await;
+    assert_eq!(event["payload"]["channel_id"], doomed.to_string());
+    assert_eq!(event["payload"]["space_id"], fx.space_id.to_string());
+
+    // Gone, with what was said in it.
+    assert!(channels::Entity::find_by_id(doomed)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .is_none());
+    assert!(messages::Entity::find_by_id(message_id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .is_none());
+    assert_eq!(
+        notifications::Entity::find()
+            .filter(notifications::Column::MessageId.eq(message_id))
+            .count(&app.db)
+            .await
+            .expect("count"),
+        0
+    );
+    // And no longer listed.
+    let listed: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    assert!(!listed
+        .as_array()
+        .expect("array")
+        .iter()
+        .any(|c| c["id"] == doomed.to_string()));
+    // Deleting it again finds nothing to delete.
+    assert_eq!(delete(alice, doomed).await, 403);
+}

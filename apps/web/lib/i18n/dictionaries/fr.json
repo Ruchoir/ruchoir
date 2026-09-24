@@ -504,7 +504,16 @@
     "willBeAdded": "sera ajouté",
     "willBeRemoved": "sera retiré",
     "membersUpdated": "Membres du canal mis à jour",
-    "addPeople": "Membres et accès"
+    "addPeople": "Membres et accès",
+    "delete": "Supprimer le canal",
+    "deleteDesc": "Efface le canal, ses messages, ses fils et les fichiers déposés dedans, pour tout le monde.",
+    "deleteDefault": "C'est le canal par défaut de l'espace : choisissez-en un autre dans les réglages de l'espace avant de le supprimer.",
+    "deleteAction": "Supprimer…",
+    "deleteTitle": "Supprimer #{{name}} ?",
+    "deleteBody": "Les messages, les fils, les réactions et les fichiers déposés dans ce canal seront effacés pour tous ses membres. Les fichiers de l'espace simplement joints restent dans l'espace.",
+    "deleteNameMismatch": "Ce n'est pas le nom du canal.",
+    "deleted": "Canal supprimé",
+    "deletedElsewhere": "Le canal #{{name}} a été supprimé."
   },
   "role": {
     "member": "Membre",
@@ -939,7 +948,8 @@
     "nowOwner": "{{name}} en est désormais propriétaire.",
     "memberRemoved": "Membre retiré",
     "removeFailed": "Membre non retiré",
-    "removedFromSpace": "Vous avez été retiré de {{name}}"
+    "removedFromSpace": "Vous avez été retiré de {{name}}",
+    "channelDeleteFailed": "Le canal n'a pas pu être supprimé."
   },
   "boot": {
     "loading": "Chargement",

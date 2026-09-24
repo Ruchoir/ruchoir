@@ -504,7 +504,16 @@
     "willBeAdded": "wird hinzugefügt",
     "willBeRemoved": "wird entfernt",
     "membersUpdated": "Kanalmitglieder aktualisiert",
-    "addPeople": "Mitglieder und Zugang"
+    "addPeople": "Mitglieder und Zugang",
+    "delete": "Kanal löschen",
+    "deleteDesc": "Löscht den Kanal, seine Nachrichten, Threads und die darin hochgeladenen Dateien, für alle.",
+    "deleteDefault": "Dies ist der Standardkanal des Bereichs: Wählen Sie in den Bereichseinstellungen einen anderen, bevor Sie ihn löschen.",
+    "deleteAction": "Löschen…",
+    "deleteTitle": "#{{name}} löschen?",
+    "deleteBody": "Nachrichten, Threads, Reaktionen und in diesem Kanal hochgeladene Dateien werden für alle Mitglieder gelöscht. Dateien des Bereichs, die nur angehängt waren, bleiben im Bereich.",
+    "deleteNameMismatch": "Das ist nicht der Name des Kanals.",
+    "deleted": "Kanal gelöscht",
+    "deletedElsewhere": "Der Kanal #{{name}} wurde gelöscht."
   },
   "role": {
     "member": "Mitglied",
@@ -939,7 +948,8 @@
     "nowOwner": "{{name}} gehört er jetzt.",
     "memberRemoved": "Mitglied entfernt",
     "removeFailed": "Mitglied konnte nicht entfernt werden",
-    "removedFromSpace": "Sie wurden aus {{name}} entfernt"
+    "removedFromSpace": "Sie wurden aus {{name}} entfernt",
+    "channelDeleteFailed": "Der Kanal konnte nicht gelöscht werden."
   },
   "boot": {
     "loading": "Wird geladen",

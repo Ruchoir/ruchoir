@@ -156,6 +156,13 @@ impl RealtimeEnvelope {
         Self::global("member.role_changed", payload)
     }
 
+    /// A channel was deleted, with everything in it. Global rather than conversation-scoped: the
+    /// conversation no longer exists to scope it, and the client drops the channel from its space
+    /// the way it drops a space on `space.removed`. Delivered to everyone who could see it listed.
+    pub fn channel_deleted(payload: impl Serialize) -> Self {
+        Self::global("channel.deleted", payload)
+    }
+
     /// A space is no longer the recipient's: they left it, or it was deleted under them.
     ///
     /// One event for both because the client does the same thing with either: drop the space from

@@ -931,6 +931,14 @@ export async function setChannelFavorite(channelId: string, favorite: boolean): 
 }
 
 /**
+ * `DELETE /channels/{id}`: delete a channel and everything said in it, for everyone. Space owners
+ * and administrators only; a `409` means it is the space's default channel.
+ */
+export async function deleteChannel(channelId: string): Promise<void> {
+  await apiDelete<void>(`/channels/${channelId}`);
+}
+
+/**
  * `PATCH /channels/{id}`: rename a channel, set its topic, or change its visibility. Archiving is
  * `type: "archived"`, which makes the channel read-only without deleting anything.
  */
@@ -1996,6 +2004,8 @@ export type RealtimeHandlers = {
    * took them out of it, which they have to be told or a space vanishes from under them).
    */
   onSpaceRemoved?: (spaceId: string, reason: "left" | "deleted" | "removed") => void;
+  /** A channel was deleted, with its history: it leaves the sidebar and the open conversation. */
+  onChannelDeleted?: (spaceId: string, channelId: string) => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
   onTyping?: (conversationId: string, userId: string) => void;
@@ -2021,6 +2031,7 @@ const REALTIME_EVENTS = [
   "reaction.removed",
   "channel.created",
   "channel.updated",
+  "channel.deleted",
   "member.joined",
   "member.left",
   "member.role_changed",
@@ -2131,6 +2142,9 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       }
       case "member.left":
         handlers.onMemberLeft?.(String(payload.space_id), String(payload.user_id));
+        break;
+      case "channel.deleted":
+        handlers.onChannelDeleted?.(String(payload.space_id), String(payload.channel_id));
         break;
       case "member.role_changed":
         handlers.onMemberRoleChanged?.(

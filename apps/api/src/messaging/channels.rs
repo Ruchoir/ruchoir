@@ -1,4 +1,4 @@
-//! Channel lifecycle: create, update (including archiving), join and leave.
+//! Channel lifecycle: create, update (including archiving), delete, join and leave.
 //!
 //! Reading a channel is governed by [`super::authz`]; this module covers the writes that change the
 //! channel itself or the caller's membership of it. The rules mirror the read model:
@@ -11,6 +11,11 @@
 //!
 //! Archiving is a state on the channel (`type = archived`), not a deletion: the history stays
 //! readable to the space and the conversation simply stops accepting messages.
+//!
+//! Deleting is the other thing, and a heavier one: the channel, its whole history, its threads,
+//! reactions, notifications and the files uploaded into it (when it is private) are gone, for every
+//! member, with no way back. So it belongs to the space's owner and administrators, not to a channel
+//! moderator, who may archive (which can be undone) but not erase what everyone else wrote.
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
@@ -25,12 +30,15 @@ use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
 use crate::entities::{
-    channel_members, channel_role_access, channels, conversations, messages, spaces, users,
+    channel_members, channel_role_access, channels, conversations, file_versions, files,
+    message_link_previews, messages, spaces, users,
 };
 use crate::state::AppState;
 use sea_orm::DatabaseConnection;
 
-use super::authz::{ensure_space_member, is_channel_moderator, space_member_ids};
+use super::authz::{
+    ensure_space_admin, ensure_space_member, is_channel_moderator, space_member_ids,
+};
 use super::conversations::unread_count;
 use super::dto::{
     AddChannelMembersRequest, AddedMembersDto, ChannelDto, ChannelMemberRoleDto, ChannelSummaryDto,
@@ -519,6 +527,139 @@ pub async fn update_channel(
             .await?
             .map(|roles| roles.into_iter().collect()),
     }))
+}
+
+/// What a `channel.deleted` frame carries: which channel is gone, and from which space.
+#[derive(Debug, serde::Serialize)]
+struct DeletedChannel {
+    channel_id: Uuid,
+    space_id: Uuid,
+}
+
+/// `DELETE /api/v1/channels/{channel_id}`: delete a channel and everything said in it.
+///
+/// For the space's owner and administrators only (see the module notes). The space's default
+/// channel cannot go while it is the default: everyone invited lands in it, so another has to be
+/// chosen first. Files of the space that were only attached in the channel stay in the space; files
+/// uploaded privately into it, which live nowhere else, go with it, bytes included.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/channels/{channel_id}",
+    tag = "messaging",
+    params(("channel_id" = Uuid, Path, description = "Channel id")),
+    responses(
+        (status = 204, description = "Channel deleted"),
+        (status = 403, description = "Not an owner or administrator of the space"),
+        (status = 409, description = "It is the space's default channel")
+    )
+)]
+pub async fn delete_channel(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(channel_id): Path<Uuid>,
+) -> Result<StatusCode, ApiError> {
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    let space_id = channel.space_id;
+    ensure_space_admin(&state.db, space_id, session.user_id).await?;
+    let space = spaces::Entity::find_by_id(space_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    if space.default_channel_id == Some(channel_id) {
+        return Err(ApiError::Conflict(
+            "choose another default channel before deleting this one",
+        ));
+    }
+
+    // Who has to see it leave, computed while the channel still exists to be computed from.
+    let audience = channel_audience(
+        &state.db,
+        space_id,
+        channel_id,
+        &channel.channel_type,
+        session.user_id,
+    )
+    .await?;
+    let audience = visible_only(&state.db, space_id, channel_id, audience).await?;
+
+    // The bytes that only this channel's rows name: files uploaded into it, and the thumbnails of
+    // its link previews. Collected before the rows go, since afterwards nothing names them.
+    let private_files: Vec<Uuid> = files::Entity::find()
+        .filter(files::Column::ConversationId.eq(channel_id))
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|file| file.id)
+        .collect();
+    let mut file_keys = Vec::new();
+    if !private_files.is_empty() {
+        for version in file_versions::Entity::find()
+            .filter(file_versions::Column::FileId.is_in(private_files))
+            .all(&state.db)
+            .await?
+        {
+            file_keys.extend(version.storage_key);
+            file_keys.extend(version.thumbnail_key);
+        }
+    }
+    let message_ids: Vec<Uuid> = messages::Entity::find()
+        .filter(messages::Column::ConversationId.eq(channel_id))
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|message| message.id)
+        .collect();
+    let preview_keys: Vec<String> = if message_ids.is_empty() {
+        Vec::new()
+    } else {
+        message_link_previews::Entity::find()
+            .filter(message_link_previews::Column::MessageId.is_in(message_ids))
+            .all(&state.db)
+            .await?
+            .into_iter()
+            .filter_map(|preview| preview.image_key)
+            .collect()
+    };
+
+    // One row, and the database takes the rest with it: the channel, its members and role list,
+    // messages, threads, reactions, mentions, pins, read cursors, notifications, link previews,
+    // the channel's own files and their shares.
+    conversations::Entity::delete_by_id(channel_id)
+        .exec(&state.db)
+        .await?;
+
+    if let Some(storage) = state.storage.as_ref() {
+        for key in file_keys {
+            if let Err(error) = storage.delete(&key).await {
+                tracing::warn!(%error, "could not delete an object of a deleted channel");
+            }
+        }
+    }
+    // A thumbnail is shared by every preview of the same image, in any channel: it goes only if
+    // nothing else still shows it.
+    super::unfurl::forget_images(&state, preview_keys).await;
+
+    tracing::info!(
+        actor = %session.user_id,
+        channel = %channel_id,
+        space = %space_id,
+        name = %channel.name,
+        "channel deleted"
+    );
+    state
+        .hub
+        .publish(
+            audience,
+            RealtimeEnvelope::channel_deleted(&DeletedChannel {
+                channel_id,
+                space_id,
+            }),
+        )
+        .await;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// `PUT /api/v1/channels/{channel_id}/membership`: join a public channel. Idempotent.

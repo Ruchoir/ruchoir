@@ -104,6 +104,7 @@ use utoipa::OpenApi;
         crate::messaging::invitations::accept_invitation,
         crate::messaging::channels::create_channel,
         crate::messaging::channels::update_channel,
+        crate::messaging::channels::delete_channel,
         crate::messaging::channels::join_channel,
         crate::messaging::channels::add_channel_members,
         crate::messaging::channels::update_channel_member_role,

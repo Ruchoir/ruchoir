@@ -510,7 +510,16 @@
     "willBeRemoved": "sarà rimosso",
     "membersUpdated": "Membri del canale aggiornati",
     "applyChanges_many": "Applica {{count}} modifiche",
-    "addPeople": "Membri e accesso"
+    "addPeople": "Membri e accesso",
+    "delete": "Elimina il canale",
+    "deleteDesc": "Cancella il canale, i suoi messaggi, le discussioni e i file caricati al suo interno, per tutti.",
+    "deleteDefault": "È il canale predefinito dello spazio: scegline un altro nelle impostazioni dello spazio prima di eliminarlo.",
+    "deleteAction": "Elimina…",
+    "deleteTitle": "Eliminare #{{name}}?",
+    "deleteBody": "Messaggi, discussioni, reazioni e file caricati in questo canale verranno cancellati per tutti i membri. I file dello spazio solo allegati restano nello spazio.",
+    "deleteNameMismatch": "Non è il nome del canale.",
+    "deleted": "Canale eliminato",
+    "deletedElsewhere": "Il canale #{{name}} è stato eliminato."
   },
   "role": {
     "member": "Membro",
@@ -956,7 +965,8 @@
     "nowOwner": "Ora è {{name}} a possederlo.",
     "memberRemoved": "Membro rimosso",
     "removeFailed": "Impossibile rimuovere questo membro",
-    "removedFromSpace": "Sei stato rimosso da {{name}}"
+    "removedFromSpace": "Sei stato rimosso da {{name}}",
+    "channelDeleteFailed": "Impossibile eliminare il canale."
   },
   "boot": {
     "loading": "Caricamento",

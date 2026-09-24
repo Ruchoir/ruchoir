@@ -12,6 +12,7 @@ import {
   createDm,
   createInvitation,
   createSpace,
+  deleteChannel as apiDeleteChannel,
   deleteMessage,
   deleteSpace as apiDeleteSpace,
   editMessage,
@@ -90,7 +91,11 @@ import type { Presence } from "@/components/ds";
 import type { SavedMessage } from "@/lib/data/api";
 import type { PresenceChoice } from "@/lib/data";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
-import { ChannelNotificationsDialog, ChannelSettingsDialog } from "@/features/channel/ChannelDialogs";
+import {
+  ChannelNotificationsDialog,
+  ChannelSettingsDialog,
+  DeleteChannelDialog,
+} from "@/features/channel/ChannelDialogs";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { SignupScreen, type SignupValues } from "@/features/auth/SignupScreen";
 import { OnboardingFlow } from "@/features/auth/OnboardingFlow";
@@ -503,6 +508,17 @@ function AppShell() {
   const [pendingOpen, setPendingOpen] = useState<PushTarget | null>(null);
   // A link to another site, held until the warning about leaving Ruchoir is answered.
   const [externalLink, setExternalLink] = useState<string | null>(null);
+  // The channel whose deletion is being confirmed, and how that is going.
+  const [deletingChannel, setDeletingChannel] = useState<{ id: string; name: string } | null>(null);
+  const [deleteChannelBusy, setDeleteChannelBusy] = useState(false);
+  const [deleteChannelError, setDeleteChannelError] = useState<string | null>(null);
+  /**
+   * Take a deleted channel out of everything that shows it: the sidebar, its loaded history, its
+   * notifications, and the screen when it was the one open (which then lands on the space's default
+   * channel, else the first one left). Through a ref because the realtime handlers, wired once, call
+   * it too.
+   */
+  const dropChannelRef = useRef<(channelId: string) => void>(() => {});
 
   const [ws, setWs] = useState("");
   const [view, setView] = useState<AppView>("channel");
@@ -1192,6 +1208,17 @@ function AppShell() {
         // lands on its own.
         if (spaceId !== liveRef.current.ws) return;
         setMembers((prev) => prev.filter((m) => m.userId !== userId));
+      },
+      onChannelDeleted: (spaceId, channelId) => {
+        const { ws: activeWs, channels: current, channelId: openId } = liveRef.current;
+        if (spaceId !== activeWs) return;
+        const row = current.find((c) => c.id === channelId);
+        dropChannelRef.current(channelId);
+        // Said only to someone who was in it: a channel that disappears from under the reader needs
+        // a sentence, one that leaves a sidebar nobody was looking at does not.
+        if (row && openId === channelId) {
+          notifyRef.current?.({ tone: "info", title: tRef.current("channel.deletedElsewhere", { name: row.name }) });
+        }
       },
       onSpaceRemoved: (spaceId, reason) => {
         // This account left the space in another tab, or its owner deleted it, or somebody took
@@ -3179,6 +3206,53 @@ function AppShell() {
     pushOpenRef.current();
   }, [pendingOpen, authStage, switchingSpace, ws, channels, dms]);
 
+  useEffect(() => {
+    dropChannelRef.current = (channelId: string) => {
+      const { channels: current, channelId: openId, ws: activeWs, spaces } = liveRef.current;
+      setChannels((prev) => prev.filter((c) => c.id !== channelId));
+      setMessages((prev) => {
+        if (!(channelId in prev)) return prev;
+        const next = { ...prev };
+        delete next[channelId];
+        return next;
+      });
+      setNotifs((prev) => prev.filter((n) => n.channelId !== channelId));
+      setChannelPrefs((prev) => {
+        if (!(channelId in prev)) return prev;
+        const next = { ...prev };
+        delete next[channelId];
+        return next;
+      });
+      if (openId === channelId) {
+        const defaultId = spaces.find((w) => w.id === activeWs)?.defaultChannelId;
+        const fallback =
+          current.find((c) => c.id === defaultId && c.id !== channelId) ?? current.find((c) => c.id !== channelId);
+        setView("channel");
+        setThread(null);
+        setChannelId(fallback?.id ?? "");
+      }
+    };
+  });
+
+  const confirmDeleteChannel = async () => {
+    if (!deletingChannel) return;
+    setDeleteChannelBusy(true);
+    setDeleteChannelError(null);
+    try {
+      await apiDeleteChannel(deletingChannel.id);
+      dropChannelRef.current(deletingChannel.id);
+      showToast({ tone: "success", title: t("channel.deleted"), description: `#${deletingChannel.name}` });
+      setDeletingChannel(null);
+      setChannelSettingsId(null);
+    } catch (err) {
+      setDeleteChannelError(
+        isApiError(err, 409) ? t("channel.deleteDefault") : t("toast.channelDeleteFailed"),
+      );
+    } finally {
+      setDeleteChannelBusy(false);
+    }
+  };
+
   /**
    * Warn before any link leaves Ruchoir, wherever it is drawn (message text, a preview card, a
    * panel, a profile). One listener on the document, in the capture phase so it runs before the
@@ -3945,6 +4019,27 @@ function AppShell() {
           onNotify={showToast}
           myRole={currentWorkspace?.role ?? "member"}
           myChannelRole={canModerateChannels ? myChannelRole(channelSettingsId) : "member"}
+          isDefault={currentWorkspace?.defaultChannelId === channelSettingsId}
+          onDelete={
+            canAdministerSpace
+              ? () => {
+                  const target = channels.find((c) => c.id === channelSettingsId);
+                  if (!target) return;
+                  setDeleteChannelError(null);
+                  setDeletingChannel({ id: target.id, name: target.name });
+                }
+              : undefined
+          }
+        />
+      ) : null}
+
+      {deletingChannel ? (
+        <DeleteChannelDialog
+          name={deletingChannel.name}
+          busy={deleteChannelBusy}
+          error={deleteChannelError}
+          onClose={() => setDeletingChannel(null)}
+          onConfirm={() => void confirmDeleteChannel()}
         />
       ) : null}
 
