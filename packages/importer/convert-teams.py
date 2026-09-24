@@ -950,12 +950,23 @@ class Converter:
         if not drive_id:
             return None
         if drive_id not in self.drives.values():
-            try:
-                drive = self.graph.get(f"/drives/{drive_id}", {"$select": "id,webUrl"})
-                if drive.get("webUrl"):
-                    self.drives[_plain_url(drive["webUrl"])] = drive_id
-            except (NotFound, Refused):
-                pass
+            self.remember_library(f"/drives/{drive_id}/root", drive_id)
+        return drive_id
+
+    def remember_library(self, root: str, drive_id: str | None = None) -> str | None:
+        """Learns a document library's address from its root folder, so a link into it resolves.
+
+        Through the root folder and not the library itself: Graph documents reading a drive
+        (`/drives/{id}`, `/users/{id}/drive`) as closed to an application, while a drive's items,
+        root included, are open to `Files.Read.All`. A root folder's address is its library's.
+        """
+        try:
+            item = self.graph.get(root, {"$select": "id,webUrl,parentReference"})
+        except (NotFound, Refused):
+            return None
+        drive_id = drive_id or (item.get("parentReference") or {}).get("driveId")
+        if item.get("webUrl") and drive_id:
+            self.drives[_plain_url(item["webUrl"])] = drive_id
         return drive_id
 
     # messages -----------------------------------------------------------------------------------
@@ -1200,13 +1211,8 @@ class Converter:
             # A file from somebody's own OneDrive, most often the sender's.
             if attempt == 0 and sender and sender not in self.personal_drives and "/personal/" in plain:
                 self.personal_drives.add(sender)
-                try:
-                    drive = self.graph.get(f"/users/{sender}/drive", {"$select": "id,webUrl"})
-                    if drive.get("webUrl"):
-                        self.drives[_plain_url(drive["webUrl"])] = drive["id"]
-                        continue
-                except (NotFound, Refused):
-                    pass
+                if self.remember_library(f"/users/{sender}/drive/root"):
+                    continue
             break
         encoded = "u!" + base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
         try:

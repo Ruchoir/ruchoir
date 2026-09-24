@@ -49,6 +49,7 @@ PLAN = b"le plan, version 2"
 BUDGET = b"le budget de la direction"
 SPEC = b"%PDF-1.7 la specification"
 README = b"lisez-moi"
+NOTES = b"les notes de Bob"
 
 
 def token_for(tenant: str) -> str:
@@ -250,11 +251,25 @@ def atelier(fake: FakeGraph) -> None:
         fake.routes[f"/teams/{TEAM}/channels/{channel}/filesFolder"] = {
             "id": f"folder-{channel}", "name": "x", "parentReference": {"driveId": drive},
         }
-    fake.routes["/drives/drive-team"] = {
-        "id": "drive-team", "webUrl": "https://atelier.sharepoint.com/sites/Atelier/Shared%20Documents"}
-    fake.routes["/drives/drive-direction"] = {
-        "id": "drive-direction",
-        "webUrl": "https://atelier.sharepoint.com/sites/Atelier-Direction/Shared%20Documents"}
+    # A library is known by its root folder: Graph documents the drive itself as closed to an
+    # application, so the drive's own address answers what the real one would.
+    fake.routes["/drives/drive-team/root"] = {
+        "id": "root-team", "webUrl": "https://atelier.sharepoint.com/sites/Atelier/Shared%20Documents",
+        "parentReference": {"driveId": "drive-team"}}
+    fake.routes["/drives/drive-direction/root"] = {
+        "id": "root-direction",
+        "webUrl": "https://atelier.sharepoint.com/sites/Atelier-Direction/Shared%20Documents",
+        "parentReference": {"driveId": "drive-direction"}}
+    for closed in ("/drives/drive-team", "/drives/drive-direction", f"/users/{BOB}/drive"):
+        fake.refuse[closed] = (403, "Application permissions are not supported for this call.")
+    # Bob's own OneDrive, where a file he attached from his computer lives.
+    fake.routes[f"/users/{BOB}/drive/root"] = {
+        "id": "root-bob", "webUrl": "https://atelier-my.sharepoint.com/personal/bob_atelier_example/Documents",
+        "parentReference": {"driveId": "drive-bob"}}
+    fake.routes["/drives/drive-bob/root:/Microsoft Teams Chat Files/notes.txt"] = {
+        "id": "item-notes", "name": "notes.txt", "size": len(NOTES), "file": {"mimeType": "text/plain"},
+        "createdBy": {"user": {"id": BOB}}, "createdDateTime": "2026-03-04T09:30:00Z"}
+    fake.redirected["/drives/drive-bob/items/item-notes/content"] = NOTES
     plan = {"id": "item-plan", "name": "Plan v2.docx", "size": len(PLAN),
             "file": {"mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
             "createdBy": {"user": {"id": ALICE, "displayName": "Alice Martin"}},
@@ -357,6 +372,10 @@ def atelier(fake: FakeGraph) -> None:
         post("200", sender(BOB, "Bob Martin"),
              '<codeblock class="language-Python"><code>print(&quot;bonjour&quot;)<br>x = 1 * 2</code></codeblock>',
              at="2026-03-04T09:00:00Z"),
+        post("201", sender(BOB, "Bob Martin"), '<attachment id="n"></attachment><p>Mes notes</p>',
+             at="2026-03-04T10:00:00Z",
+             attachments=[{"id": "n", "contentType": "reference", "name": "notes.txt",
+                           "contentUrl": "https://atelier-my.sharepoint.com/personal/bob_atelier_example/Documents/Microsoft%20Teams%20Chat%20Files/notes.txt"}]),
     ]])
     fake.paged(f"/teams/{TEAM}/channels/{DIRECTION}/messages", [[
         post("300", sender(ALICE, "Alice Martin"), '<attachment id="b"></attachment><p>Le budget</p>',
@@ -533,6 +552,20 @@ class Tenant(unittest.TestCase):
         self.assertNotIn("folder", plan)
         self.assertEqual(self.messages(archive)[f"{GENERAL}/130"]["files"], ["drive:drive-team/item-plan"])
         self.assertEqual(self.messages(archive)[f"{GENERAL}/130"]["body"], "Le plan")
+
+    def test_a_file_from_somebodys_onedrive_is_found_through_their_drive(self) -> None:
+        archive = self.convert()
+        self.assertEqual(self.messages(archive)[f"{PRODUIT}/201"]["files"], ["drive:drive-bob/item-notes"])
+        record = by_id(archive, "files.jsonl")["drive:drive-bob/item-notes"]
+        self.assertEqual((record["channel"], record["size"]), (PRODUIT, len(NOTES)))
+
+    def test_libraries_are_found_without_reading_a_drive(self) -> None:
+        """Graph documents reading a drive as closed to an application: nothing may depend on it."""
+        self.convert()
+        asked = {r["path"] for r in self.fake.requests}
+        for closed in ("/drives/drive-team", "/drives/drive-direction", f"/users/{BOB}/drive"):
+            self.assertNotIn(closed, asked)
+        self.assertEqual(self.converter.missing_files, [])
 
     def test_a_file_posted_in_a_private_channel_belongs_to_that_channel(self) -> None:
         files = by_id(self.convert(), "files.jsonl")
