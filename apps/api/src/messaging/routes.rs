@@ -116,7 +116,7 @@ pub fn router() -> Router<AppState> {
         // Channel lifecycle: settings and archiving, then the caller's own membership.
         .route(
             "/api/v1/channels/{channel_id}",
-            patch(channels::update_channel),
+            patch(channels::update_channel).delete(channels::delete_channel),
         )
         .route(
             "/api/v1/channels/{channel_id}/favorite",

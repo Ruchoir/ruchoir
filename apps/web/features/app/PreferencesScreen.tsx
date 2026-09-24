@@ -2,14 +2,14 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Button, Field, Icon, type IconName, Input, Select, Switch } from "@/components/ds";
+import { Button, Checkbox, Field, Icon, type IconName, Input, Select, Switch } from "@/components/ds";
 import { AccountSecuritySection } from "./AccountSecurity";
 import { sendTestPush, updateMyProfile } from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
 import { initialLocale, key, literal, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { LanguagePicker } from "./LanguagePicker";
 import { Emoji } from "./Emoji";
-import { DEFAULT_NOTIF_PREFS, quietHoursLabel } from "./notifications";
+import { DEFAULT_NOTIF_PREFS, type NotifPrefs, quietHoursLabel } from "./notifications";
 import {
   notificationPermission,
   playNotificationSound,
@@ -239,6 +239,107 @@ function BrowserNotificationRow({ soundOn, onNotify }: { soundOn: boolean; onNot
         </Button>
       ) : null}
     </Row>
+  );
+}
+
+/** The kinds in the table, with the two switches each one has. */
+const KINDS: {
+  label: TranslationKey;
+  desc: TranslationKey;
+  app: keyof NotifPrefs;
+  email: keyof NotifPrefs;
+}[] = [
+  { label: key("notif.kindMentions"), desc: key("notif.kindMentionsDesc"), app: "mentions", email: "emailMentions" },
+  { label: key("notif.kindBroadcasts"), desc: key("notif.kindBroadcastsDesc"), app: "channelMentions", email: "emailBroadcasts" },
+  { label: key("notif.kindReplies"), desc: key("notif.kindRepliesDesc"), app: "replies", email: "emailReplies" },
+  { label: key("sidebar.directMessages"), desc: key("notif.kindDmsDesc"), app: "directMessages", email: "emailDirectMessages" },
+  { label: key("notif.kindMessages"), desc: key("notif.kindMessagesDesc"), app: "messages", email: "emailMessages" },
+];
+
+/**
+ * What reaches the person, and how: one row per kind of notification, one column for the app and
+ * push, one for the email catch-up (whose master switch heads its column).
+ *
+ * These are the defaults: a space, a channel or a conversation can say more or less from its own
+ * menu, and the nearest one wins. "Every message" is off here, so a busy space does not ring for
+ * each line unless someone asked for it there or everywhere.
+ */
+function NotificationKinds() {
+  const { t } = useTranslation();
+  const s = useSettings();
+  const notif = { ...DEFAULT_NOTIF_PREFS, ...s.notif };
+  const set = (field: keyof NotifPrefs, value: boolean) => s.set("notif", { ...notif, [field]: value });
+  const cell: CSSProperties = { width: 96, flex: "none", display: "flex", justifyContent: "center" };
+
+  return (
+    <div style={{ padding: "16px 0 4px" }}>
+      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t("notif.whatTitle")}</div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 560 }}>{t("notif.whatSub")}</div>
+      <div
+        role="table"
+        aria-label={t("notif.whatTitle")}
+        style={{ marginTop: 12, border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", overflow: "hidden" }}
+      >
+        <div
+          role="row"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 12px",
+            background: "var(--surface-sunken)",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+            color: "var(--text-subtle)",
+          }}
+        >
+          <span role="columnheader" style={{ flex: 1 }} />
+          <span role="columnheader" style={{ ...cell, textAlign: "center" }}>
+            {t("notif.columnApp")}
+          </span>
+          <span role="columnheader" style={{ ...cell, flexDirection: "column", alignItems: "center", gap: 4 }}>
+            {t("notif.columnEmail")}
+            <Switch
+              checked={notif.email}
+              onChange={(e) => set("email", e.target.checked)}
+              aria-label={t("prefs.emailCatchUp")}
+            />
+          </span>
+        </div>
+        {KINDS.map((kind) => (
+          <div
+            key={kind.app}
+            role="row"
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border-subtle)" }}
+          >
+            <span role="rowheader" style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)" }}>{t(kind.label)}</span>
+              <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>{t(kind.desc)}</span>
+            </span>
+            <span role="cell" style={cell}>
+              <Checkbox
+                checked={Boolean(notif[kind.app])}
+                onChange={(e) => set(kind.app, e.target.checked)}
+                aria-label={`${t(kind.label)}, ${t("notif.columnApp")}`}
+              />
+            </span>
+            <span role="cell" style={{ ...cell, opacity: notif.email ? 1 : 0.4 }}>
+              <Checkbox
+                checked={Boolean(notif[kind.email])}
+                disabled={!notif.email}
+                onChange={(e) => set(kind.email, e.target.checked)}
+                aria-label={`${t(kind.label)}, ${t("notif.columnEmail")}`}
+              />
+            </span>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8, maxWidth: 560 }}>
+        {notif.email ? t("prefs.emailCatchUpDesc") : t("notif.emailOff")}
+      </div>
+    </div>
   );
 }
 
@@ -798,9 +899,7 @@ export function PreferencesScreen({
                 <Row title={t("prefs.notifSound")} desc={t("prefs.notifSoundDesc")}>
                   <Switch checked={s.notif.sound} onChange={(e) => s.set("notif", { ...s.notif, sound: e.target.checked })} aria-label={t("prefs.notifSound")} />
                 </Row>
-                <Row title={t("prefs.channelMentions")} desc={t("prefs.channelMentionsDesc")}>
-                  <Switch checked={s.notif.channelMentions} onChange={(e) => s.set("notif", { ...s.notif, channelMentions: e.target.checked })} aria-label={t("prefs.channelMentions")} />
-                </Row>
+                <NotificationKinds />
                 <Row
                   title={t("prefs.quietHours")}
                   desc={
@@ -821,9 +920,7 @@ export function PreferencesScreen({
                     </Field>
                   </div>
                 ) : null}
-                <Row title={t("prefs.emailCatchUp")} desc={t("prefs.emailCatchUpDesc")}>
-                  <Switch checked={s.notif.email ?? true} onChange={(e) => s.set("notif", { ...s.notif, email: e.target.checked })} aria-label={t("prefs.emailCatchUp")} />
-                </Row>
+
               </>
             ) : null}
 

@@ -390,6 +390,8 @@ export type SidebarProps = {
    * space: it used to be "sign out", which ended the whole session from a menu about one space.
    */
   onLeaveSpace: () => void;
+  /** Open the space's own notification level. */
+  onSpaceNotifications: () => void;
   /**
    * A space is being entered: its channels and conversations are not known yet, so placeholders
    * stand for them rather than the lists of the space being left.
@@ -452,6 +454,7 @@ export function Sidebar({
   onMarkAllNotifsRead,
   onOpenNotifPrefs,
   onLeaveSpace,
+  onSpaceNotifications,
   loading = false,
   compact = false,
   only,
@@ -606,6 +609,7 @@ export function Sidebar({
                 ...(canBrowseSpace
                   ? [{ icon: "hard-drive", label: t("sidebar.spaceFiles"), onClick: () => onView("files") }]
                   : []),
+                { icon: "bell", label: t("notif.spaceNotifications"), onClick: onSpaceNotifications },
                 { type: "separator" },
                 { icon: "log-out", label: t("space.leave"), danger: true, onClick: onLeaveSpace },
               ]}

@@ -11,7 +11,8 @@ pub struct Model {
     pub dm_id: Uuid,
     #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: Uuid,
-    /// One of `all`, `mentions`, `none` (enforced by a CHECK constraint).
+    /// One of `default` (inherit from the space), `all` (every message), `mentions`, `none`
+    /// (enforced by a CHECK constraint).
     pub notification_level: String,
     pub muted: bool,
     /// Per-participant "hide this conversation" flag.

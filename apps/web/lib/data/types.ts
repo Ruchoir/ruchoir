@@ -44,6 +44,8 @@ export type Workspace = {
    * caller personally, and the only counter shown as a number.
    */
   mentions: number;
+  /** How much this space notifies the caller, for its conversations left on `default`. */
+  notifyLevel: NotifyLevel;
 };
 
 /**
@@ -124,7 +126,10 @@ export type Channel = {
  * Mirrors `ChannelNotifPref` in `features/app/notifications.ts`, which is what the screens read;
  * declared here because the data seam does not import from the features.
  */
-export type ConversationNotify = { level: "all" | "mentions" | "none"; muted: boolean };
+export type ConversationNotify = { level: NotifyLevel; muted: boolean };
+
+/** `default` defers to the level above (conversation, then space, then one's own preferences). */
+export type NotifyLevel = "default" | "all" | "mentions" | "none";
 
 export type DirectMessage = {
   id: string;

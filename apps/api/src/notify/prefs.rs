@@ -5,13 +5,19 @@
 //! stops being enough the moment the server itself reaches out (a push to a closed browser, an email).
 //! A channel muted on one device has to be muted for the server, or the phone rings for it anyway.
 //!
-//! Two layers, read together by [`allows`]:
+//! Three layers, read together by [`allows`], the nearest one that says something winning:
 //!
+//! - **Each conversation's level** ([`ConversationPref`]), on the membership row that already
+//!   carried the columns (`channel_members`, `dm_participants`): `default`, `all` (every message),
+//!   `mentions` or `none`, plus a mute.
+//! - **Each space's level** (`space_notification_prefs`), for the conversations left on `default`.
 //! - **The person's own settings** ([`NotificationPrefs`]), one JSON document in
-//!   `user_preferences.notifications`: the master switch, `@channel`, quiet hours, the email
-//!   fallback.
-//! - **Each conversation's setting** ([`ConversationPref`]), on the membership row that already
-//!   carried the columns: `channel_members` for a channel, `dm_participants` for a direct message.
+//!   `user_preferences.notifications`: the master switch, which kinds reach them in the app and
+//!   which by email (mentions, `@channel`, replies, direct messages, every message), quiet hours.
+//!
+//! A level decides how much a conversation says; the kinds decide through which door. `all` adds a
+//! notification for every message (kind `message`), `mentions` keeps only what names or addresses
+//! the person, `none` silences it.
 //!
 //! Quiet hours are kept as the local wall-clock times the person typed, plus the offset of their
 //! clock from UTC, which the client refreshes on every load. That follows a change of time zone or of
@@ -33,7 +39,9 @@ use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::entities::{channel_members, dm_participants, user_preferences};
+use crate::entities::{
+    channel_members, conversations, dm_participants, space_notification_prefs, user_preferences,
+};
 use crate::messaging::error::ApiError;
 use crate::state::AppState;
 
@@ -51,8 +59,15 @@ pub struct NotificationPrefs {
     pub enabled: bool,
     /// Play a sound with a notification.
     pub sound: bool,
-    /// Also notify on `@channel` and `@here`, not only when named.
+    /// What is signalled in the app and by push, per kind. `channel_mentions` is `@channel` and
+    /// `@here` (its name predates the others and is kept so stored documents still read).
+    pub mentions: bool,
     pub channel_mentions: bool,
+    pub replies: bool,
+    pub direct_messages: bool,
+    /// A notification for every message, not only the ones addressed to the person: the default
+    /// for conversations left on `default` in spaces left on `default`. Off by default.
+    pub messages: bool,
     /// Hold notifications back during the window below.
     pub quiet_hours: bool,
     /// Start of the quiet window, `HH:MM`, in the person's local time. May be later than
@@ -62,8 +77,23 @@ pub struct NotificationPrefs {
     pub quiet_to: String,
     /// Offset of the person's clock from UTC, in minutes (`+120` in Paris in summer).
     pub utc_offset_minutes: i32,
-    /// Email what is still unread after a while, when no Ruchoir page is open.
+    /// Email what is still unread after a while, when no Ruchoir page is open: the master switch
+    /// of the email fallback, then the same four kinds as above. `@channel` is off by default by
+    /// email: being one of a whole room is rarely worth a message in someone's inbox.
     pub email: bool,
+    pub email_mentions: bool,
+    pub email_broadcasts: bool,
+    pub email_replies: bool,
+    pub email_direct_messages: bool,
+    pub email_messages: bool,
+}
+
+/// Where a notification would go: the app and push, or the email digest. Each person chooses, per
+/// kind, for each of the two.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Delivery {
+    App,
+    Email,
 }
 
 impl Default for NotificationPrefs {
@@ -71,12 +101,21 @@ impl Default for NotificationPrefs {
         Self {
             enabled: true,
             sound: false,
+            mentions: true,
             channel_mentions: true,
+            replies: true,
+            direct_messages: true,
+            messages: false,
             quiet_hours: false,
             quiet_from: "21:00".to_owned(),
             quiet_to: "08:00".to_owned(),
             utc_offset_minutes: 0,
             email: true,
+            email_mentions: true,
+            email_broadcasts: false,
+            email_replies: true,
+            email_direct_messages: true,
+            email_messages: false,
         }
     }
 }
@@ -130,7 +169,7 @@ impl NotificationPrefs {
 /// How much one conversation notifies one person.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ConversationPref {
-    /// `all`, `mentions` or `none`.
+    /// `default` (the space's level), `all` (every message), `mentions` or `none`.
     pub level: String,
     pub muted: bool,
 }
@@ -138,14 +177,33 @@ pub struct ConversationPref {
 impl Default for ConversationPref {
     fn default() -> Self {
         Self {
-            level: "all".to_owned(),
+            level: "default".to_owned(),
             muted: false,
         }
     }
 }
 
-/// Whether a notification of `kind` should reach someone, given their settings and the
-/// conversation's. Mirrors `passesPref` in `apps/web/features/app/notifications.ts`, which applies
+/// Everything above the person's own settings that bears on one conversation: its level, and the
+/// level of the space it is in.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Scope {
+    pub conversation: ConversationPref,
+    /// The space's level (`all`, `mentions`, `none`), when the person set one.
+    pub space_level: Option<String>,
+}
+
+impl Scope {
+    /// The level in force: the conversation's, else the space's, else `default` (the person's own).
+    pub fn level(&self) -> &str {
+        match self.conversation.level.as_str() {
+            "default" => self.space_level.as_deref().unwrap_or("default"),
+            level => level,
+        }
+    }
+}
+
+/// Whether a notification of `kind` should reach someone by `delivery`, given their settings and
+/// the conversation's. Mirrors `passesPref` in `apps/web/features/app/notifications.ts`, which applies
 /// the same rule to the inbox on screen: the two must agree, or the phone and the app disagree about
 /// what was worth saying.
 ///
@@ -154,23 +212,61 @@ impl Default for ConversationPref {
 pub fn allows(
     kind: &str,
     prefs: &NotificationPrefs,
-    conversation: Option<&ConversationPref>,
+    scope: Option<&Scope>,
+    delivery: Delivery,
 ) -> bool {
     if !prefs.enabled {
         return false;
     }
-    if kind == "broadcast" && !prefs.channel_mentions {
+    let fallback = Scope::default();
+    let scope = scope.unwrap_or(&fallback);
+    if scope.conversation.muted {
         return false;
     }
-    let default = ConversationPref::default();
-    let conversation = conversation.unwrap_or(&default);
-    if conversation.muted || conversation.level == "none" {
+    let level = scope.level();
+    if level == "none" {
         return false;
     }
-    if conversation.level == "mentions" {
+    if kind == "message" {
+        if !wants_every_message(prefs, scope) {
+            return false;
+        }
+        return match delivery {
+            Delivery::App => true,
+            Delivery::Email => prefs.email_messages,
+        };
+    }
+    let wanted = match (delivery, kind) {
+        (Delivery::App, "mention") => prefs.mentions,
+        (Delivery::App, "broadcast") => prefs.channel_mentions,
+        (Delivery::App, "reply") => prefs.replies,
+        (Delivery::App, "dm") => prefs.direct_messages,
+        (Delivery::Email, "mention") => prefs.email_mentions,
+        (Delivery::Email, "broadcast") => prefs.email_broadcasts,
+        (Delivery::Email, "reply") => prefs.email_replies,
+        (Delivery::Email, "dm") => prefs.email_direct_messages,
+        _ => false,
+    };
+    if !wanted {
+        return false;
+    }
+    if level == "mentions" {
         return matches!(kind, "mention" | "broadcast" | "dm");
     }
     true
+}
+
+/// Whether someone wants a notification for every message of a conversation: its level (or its
+/// space's) says `all`, or nothing says anything and their own default does.
+pub fn wants_every_message(prefs: &NotificationPrefs, scope: &Scope) -> bool {
+    if !prefs.enabled || scope.conversation.muted {
+        return false;
+    }
+    match scope.level() {
+        "all" => true,
+        "default" => prefs.messages,
+        _ => false,
+    }
 }
 
 /// Whether someone may be interrupted right now: outside their quiet hours and not in "do not
@@ -198,17 +294,34 @@ pub async fn load<C: ConnectionTrait>(
         .unwrap_or_default())
 }
 
-/// The caller's settings for a set of conversations, keyed by conversation id. A conversation absent
-/// from the map has no membership row for this person and notifies with the defaults.
-pub async fn conversation_prefs<C: ConnectionTrait>(
+/// One person's [`Scope`] for a set of conversations, keyed by conversation id. A conversation
+/// absent from the map has no membership row for them and takes the defaults.
+pub async fn scopes<C: ConnectionTrait>(
     db: &C,
     user_id: Uuid,
     conversation_ids: &[Uuid],
-) -> Result<HashMap<Uuid, ConversationPref>, ApiError> {
+) -> Result<HashMap<Uuid, Scope>, ApiError> {
     let mut out = HashMap::new();
     if conversation_ids.is_empty() {
         return Ok(out);
     }
+    let space_of: HashMap<Uuid, Uuid> = conversations::Entity::find()
+        .filter(conversations::Column::Id.is_in(conversation_ids.to_vec()))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|c| (c.id, c.space_id))
+        .collect();
+    let space_ids: Vec<Uuid> = space_of.values().copied().collect();
+    let space_levels: HashMap<Uuid, String> = space_notification_prefs::Entity::find()
+        .filter(space_notification_prefs::Column::UserId.eq(user_id))
+        .filter(space_notification_prefs::Column::SpaceId.is_in(space_ids))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|row| (row.space_id, row.level))
+        .collect();
+    let mut conversation: HashMap<Uuid, ConversationPref> = HashMap::new();
     // A conversation is a channel or a direct message, never both, and the two share its id.
     for row in channel_members::Entity::find()
         .filter(channel_members::Column::UserId.eq(user_id))
@@ -216,7 +329,7 @@ pub async fn conversation_prefs<C: ConnectionTrait>(
         .all(db)
         .await?
     {
-        out.insert(
+        conversation.insert(
             row.channel_id,
             ConversationPref {
                 level: row.notification_level,
@@ -230,7 +343,7 @@ pub async fn conversation_prefs<C: ConnectionTrait>(
         .all(db)
         .await?
     {
-        out.insert(
+        conversation.insert(
             row.dm_id,
             ConversationPref {
                 level: row.notification_level,
@@ -238,7 +351,80 @@ pub async fn conversation_prefs<C: ConnectionTrait>(
             },
         );
     }
+    for id in conversation_ids {
+        out.insert(
+            *id,
+            Scope {
+                conversation: conversation.remove(id).unwrap_or_default(),
+                space_level: space_of
+                    .get(id)
+                    .and_then(|space| space_levels.get(space).cloned()),
+            },
+        );
+    }
     Ok(out)
+}
+
+/// Among `candidates` (members of a channel, the author and anyone already notified left out), the
+/// ones who asked for a notification for every message of it. A handful of queries whatever the
+/// number of candidates.
+pub async fn every_message_recipients<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    channel_id: Uuid,
+    candidates: &[Uuid],
+) -> Result<Vec<Uuid>, ApiError> {
+    if candidates.is_empty() {
+        return Ok(Vec::new());
+    }
+    let prefs: HashMap<Uuid, NotificationPrefs> = user_preferences::Entity::find()
+        .filter(user_preferences::Column::UserId.is_in(candidates.to_vec()))
+        .all(db)
+        .await?
+        .into_iter()
+        .filter_map(|row| {
+            let prefs = row
+                .notifications
+                .and_then(|json| serde_json::from_str(&json).ok())?;
+            Some((row.user_id, prefs))
+        })
+        .collect();
+    let levels: HashMap<Uuid, ConversationPref> = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .filter(channel_members::Column::UserId.is_in(candidates.to_vec()))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|row| {
+            (
+                row.user_id,
+                ConversationPref {
+                    level: row.notification_level,
+                    muted: row.muted,
+                },
+            )
+        })
+        .collect();
+    let space_levels: HashMap<Uuid, String> = space_notification_prefs::Entity::find()
+        .filter(space_notification_prefs::Column::SpaceId.eq(space_id))
+        .filter(space_notification_prefs::Column::UserId.is_in(candidates.to_vec()))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|row| (row.user_id, row.level))
+        .collect();
+    let default_prefs = NotificationPrefs::default();
+    Ok(candidates
+        .iter()
+        .copied()
+        .filter(|user| {
+            let scope = Scope {
+                conversation: levels.get(user).cloned().unwrap_or_default(),
+                space_level: space_levels.get(user).cloned(),
+            };
+            wants_every_message(prefs.get(user).unwrap_or(&default_prefs), &scope)
+        })
+        .collect())
 }
 
 /// `GET /api/v1/me/notification-preferences`: the caller's own notification settings.
@@ -316,8 +502,10 @@ pub async fn put_conversation_preference(
     Path(conversation_id): Path<Uuid>,
     Json(body): Json<ConversationPref>,
 ) -> Result<StatusCode, ApiError> {
-    if !matches!(body.level.as_str(), "all" | "mentions" | "none") {
-        return Err(ApiError::BadRequest("level must be all, mentions or none"));
+    if !matches!(body.level.as_str(), "default" | "all" | "mentions" | "none") {
+        return Err(ApiError::BadRequest(
+            "level must be default, all, mentions or none",
+        ));
     }
     if let Some(row) = channel_members::Entity::find_by_id((conversation_id, session.user_id))
         .one(&state.db)
@@ -342,9 +530,97 @@ pub async fn put_conversation_preference(
     Err(ApiError::Forbidden)
 }
 
+/// How much a whole space notifies the caller.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct SpacePref {
+    /// `default` (the caller's own settings), `all`, `mentions` or `none`.
+    pub level: String,
+}
+
+/// `PUT /api/v1/spaces/{space_id}/notification-preference`: how much a space notifies the caller,
+/// for its conversations left on `default`. `default` removes the space's own level.
+#[utoipa::path(
+    put,
+    path = "/api/v1/spaces/{space_id}/notification-preference",
+    tag = "notifications",
+    params(("space_id" = Uuid, Path, description = "Space id")),
+    request_body = SpacePref,
+    responses(
+        (status = 204, description = "Preference saved"),
+        (status = 400, description = "Unknown level"),
+        (status = 403, description = "Not a member of the space")
+    )
+)]
+pub async fn put_space_preference(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(space_id): Path<Uuid>,
+    Json(body): Json<SpacePref>,
+) -> Result<StatusCode, ApiError> {
+    crate::messaging::authz::ensure_space_member(&state.db, space_id, session.user_id).await?;
+    match body.level.as_str() {
+        "default" => {
+            space_notification_prefs::Entity::delete_by_id((session.user_id, space_id))
+                .exec(&state.db)
+                .await?;
+        }
+        "all" | "mentions" | "none" => {
+            space_notification_prefs::Entity::insert(space_notification_prefs::ActiveModel {
+                user_id: Set(session.user_id),
+                space_id: Set(space_id),
+                level: Set(body.level),
+                updated_at: Set(OffsetDateTime::now_utc()),
+            })
+            .on_conflict(
+                OnConflict::columns([
+                    space_notification_prefs::Column::UserId,
+                    space_notification_prefs::Column::SpaceId,
+                ])
+                .update_columns([
+                    space_notification_prefs::Column::Level,
+                    space_notification_prefs::Column::UpdatedAt,
+                ])
+                .to_owned(),
+            )
+            .exec(&state.db)
+            .await?;
+        }
+        _ => {
+            return Err(ApiError::BadRequest(
+                "level must be default, all, mentions or none",
+            ))
+        }
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// The caller's level for each space that has one, keyed by space id.
+pub async fn space_levels(
+    db: &sea_orm::DatabaseConnection,
+    user_id: Uuid,
+) -> Result<HashMap<Uuid, String>, ApiError> {
+    Ok(space_notification_prefs::Entity::find()
+        .filter(space_notification_prefs::Column::UserId.eq(user_id))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|row| (row.space_id, row.level))
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn scope(level: &str, muted: bool) -> Scope {
+        Scope {
+            conversation: ConversationPref {
+                level: level.to_owned(),
+                muted,
+            },
+            space_level: None,
+        }
+    }
 
     /// A moment at `h:m` UTC. The date is irrelevant to a daily window.
     fn utc(h: i64, m: i64) -> OffsetDateTime {
@@ -392,33 +668,122 @@ mod tests {
     #[test]
     fn the_server_rule_matches_the_inbox_rule() {
         let prefs = NotificationPrefs::default();
-        let mentions_only = ConversationPref {
-            level: "mentions".to_owned(),
-            muted: false,
-        };
-        assert!(allows("reply", &prefs, None));
-        assert!(!allows("reply", &prefs, Some(&mentions_only)));
-        assert!(allows("mention", &prefs, Some(&mentions_only)));
-        assert!(allows("dm", &prefs, Some(&mentions_only)));
+        let mentions_only = scope("mentions", false);
+        assert!(allows("reply", &prefs, None, Delivery::App));
+        assert!(!allows(
+            "reply",
+            &prefs,
+            Some(&mentions_only),
+            Delivery::App
+        ));
+        assert!(allows(
+            "mention",
+            &prefs,
+            Some(&mentions_only),
+            Delivery::App
+        ));
+        assert!(allows("dm", &prefs, Some(&mentions_only), Delivery::App));
 
-        let muted = ConversationPref {
-            level: "all".to_owned(),
-            muted: true,
-        };
-        assert!(!allows("mention", &prefs, Some(&muted)));
+        let muted = scope("all", true);
+        assert!(!allows("mention", &prefs, Some(&muted), Delivery::App));
 
         let no_broadcasts = NotificationPrefs {
             channel_mentions: false,
             ..NotificationPrefs::default()
         };
-        assert!(!allows("broadcast", &no_broadcasts, None));
-        assert!(allows("mention", &no_broadcasts, None));
+        assert!(!allows("broadcast", &no_broadcasts, None, Delivery::App));
+        assert!(allows("mention", &no_broadcasts, None, Delivery::App));
 
         let off = NotificationPrefs {
             enabled: false,
             ..NotificationPrefs::default()
         };
-        assert!(!allows("dm", &off, None));
+        assert!(!allows("dm", &off, None, Delivery::App));
+    }
+
+    #[test]
+    fn each_kind_is_chosen_separately_for_the_app_and_for_email() {
+        let prefs = NotificationPrefs {
+            replies: false,
+            email_direct_messages: false,
+            ..NotificationPrefs::default()
+        };
+        assert!(!allows("reply", &prefs, None, Delivery::App));
+        assert!(allows("reply", &prefs, None, Delivery::Email));
+        assert!(allows("dm", &prefs, None, Delivery::App));
+        assert!(!allows("dm", &prefs, None, Delivery::Email));
+        // `@channel` reaches the app by default, but not the inbox.
+        let defaults = NotificationPrefs::default();
+        assert!(allows("broadcast", &defaults, None, Delivery::App));
+        assert!(!allows("broadcast", &defaults, None, Delivery::Email));
+        // A muted conversation is muted everywhere, whatever the kind says.
+        let muted = scope("all", true);
+        assert!(!allows("dm", &defaults, Some(&muted), Delivery::Email));
+    }
+
+    #[test]
+    fn the_nearest_level_wins_and_every_message_is_opt_in() {
+        let prefs = NotificationPrefs::default();
+        // Nothing set anywhere: addressed messages only.
+        assert!(!allows("message", &prefs, None, Delivery::App));
+        assert!(allows("mention", &prefs, None, Delivery::App));
+        // The space asks for everything: every message of its channels left on `default`.
+        let loud_space = Scope {
+            conversation: ConversationPref::default(),
+            space_level: Some("all".to_owned()),
+        };
+        assert!(allows("message", &prefs, Some(&loud_space), Delivery::App));
+        assert!(!allows(
+            "message",
+            &prefs,
+            Some(&loud_space),
+            Delivery::Email
+        ));
+        // A channel of that space set to mentions overrides it.
+        let quiet_channel = Scope {
+            conversation: ConversationPref {
+                level: "mentions".to_owned(),
+                muted: false,
+            },
+            space_level: Some("all".to_owned()),
+        };
+        assert!(!allows(
+            "message",
+            &prefs,
+            Some(&quiet_channel),
+            Delivery::App
+        ));
+        assert!(allows(
+            "mention",
+            &prefs,
+            Some(&quiet_channel),
+            Delivery::App
+        ));
+        // A silenced space silences its channels on `default`, mentions included.
+        let silent_space = Scope {
+            conversation: ConversationPref::default(),
+            space_level: Some("none".to_owned()),
+        };
+        assert!(!allows(
+            "mention",
+            &prefs,
+            Some(&silent_space),
+            Delivery::App
+        ));
+        // The person's own default can ask for every message everywhere, and by email too.
+        let chatty = NotificationPrefs {
+            messages: true,
+            email_messages: true,
+            ..NotificationPrefs::default()
+        };
+        assert!(allows("message", &chatty, None, Delivery::App));
+        assert!(allows("message", &chatty, None, Delivery::Email));
+        assert!(!allows(
+            "message",
+            &chatty,
+            Some(&silent_space),
+            Delivery::App
+        ));
     }
 
     #[test]

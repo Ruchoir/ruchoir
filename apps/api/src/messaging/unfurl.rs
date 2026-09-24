@@ -645,6 +645,16 @@ async fn store_image(
     Some(((key, width as i32, height as i32), accent))
 }
 
+/// [`forget_image`] for every thumbnail a deletion released (a channel's, a space's).
+pub async fn forget_images(state: &AppState, keys: Vec<String>) {
+    let mut keys = keys;
+    keys.sort();
+    keys.dedup();
+    for key in keys {
+        forget_image(state, &key).await;
+    }
+}
+
 /// Remove a thumbnail from the object store once no preview points at it any more.
 ///
 /// Thumbnails are shared between the previews of the same image (the key comes from the image's

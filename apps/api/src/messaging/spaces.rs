@@ -140,6 +140,7 @@ pub async fn create_space(
             // Brand new, so nothing has been uploaded for it yet.
             icon_url: None,
             default_channel_id,
+            notify_level: "default".to_owned(),
         }),
     ))
 }
@@ -225,7 +226,7 @@ pub(crate) async fn create_owned_space<C: ConnectionTrait>(
         channel_id: Set(channel_id),
         user_id: Set(owner),
         role: Set("owner".to_owned()),
-        notification_level: Set("all".to_owned()),
+        notification_level: Set("default".to_owned()),
         muted: Set(false),
         favorite: Set(false),
         joined_at: Set(now),

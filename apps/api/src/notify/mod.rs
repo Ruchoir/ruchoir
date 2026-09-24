@@ -34,6 +34,10 @@ pub fn router() -> Router<AppState> {
             "/api/v1/conversations/{conversation_id}/notification-preference",
             put(prefs::put_conversation_preference),
         )
+        .route(
+            "/api/v1/spaces/{space_id}/notification-preference",
+            put(prefs::put_space_preference),
+        )
         .route("/api/v1/push/config", get(push::config))
         .route(
             "/api/v1/push/subscription",

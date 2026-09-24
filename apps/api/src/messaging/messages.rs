@@ -251,13 +251,34 @@ pub async fn send_message(
     } else {
         Vec::new()
     };
-    let recipients = notifications::compute_recipients(
+    let mut recipients = notifications::compute_recipients(
         session.user_id,
         &mention_ids,
         &broadcast_ids,
         &dm_recipients,
         reply_target,
     );
+    // Everyone else in a channel who asked to hear about every message (its level, its space's, or
+    // their own default says so) gets one too, of the quietest kind. A direct message needs none:
+    // every message there is already addressed to its participants. Nor does a thread reply: a
+    // thread is a side conversation, and its root's author is told through the `reply` kind.
+    if access.kind == ConversationKind::Channel && body.parent_message_id.is_none() {
+        let others: Vec<Uuid> = audience
+            .iter()
+            .copied()
+            .filter(|user| *user != session.user_id && !recipients.iter().any(|(r, _)| r == user))
+            .collect();
+        for user in crate::notify::prefs::every_message_recipients(
+            &state.db,
+            access.space_id,
+            conversation_id,
+            &others,
+        )
+        .await?
+        {
+            recipients.push((user, "message"));
+        }
+    }
 
     let message_id = Uuid::new_v4();
     let now = OffsetDateTime::now_utc();

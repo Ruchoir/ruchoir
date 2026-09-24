@@ -153,8 +153,7 @@ pub async fn sweep(state: &AppState, now: OffsetDateTime) -> Result<usize, ApiEr
         }
 
         let conversation_ids: Vec<Uuid> = rows.iter().map(|row| row.conversation_id).collect();
-        let conversation_prefs =
-            prefs::conversation_prefs(&txn, user_id, &conversation_ids).await?;
+        let conversation_prefs = prefs::scopes(&txn, user_id, &conversation_ids).await?;
         let wanted: Vec<notifications::Model> = rows
             .into_iter()
             .filter(|row| {
@@ -162,6 +161,7 @@ pub async fn sweep(state: &AppState, now: OffsetDateTime) -> Result<usize, ApiEr
                     &row.kind,
                     &user_prefs,
                     conversation_prefs.get(&row.conversation_id),
+                    prefs::Delivery::Email,
                 )
             })
             .collect();

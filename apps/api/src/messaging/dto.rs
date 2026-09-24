@@ -125,7 +125,9 @@ pub struct SpaceDto {
     /// turn every space into a large figure that stops carrying information.
     pub unread: i64,
     /// Unread notifications in this space (mention, thread reply, direct message): the things
-    /// addressed to the caller personally, and the only counter the rail shows as a number.
+    /// addressed to the caller personally, and the only counter the rail shows as a number. A
+    /// notification for "every message" is not one of them: it says there is activity, which
+    /// `unread` already does.
     pub mentions: i64,
     /// The public channel every newly invited person joins.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -133,6 +135,9 @@ pub struct SpaceDto {
     /// Same-origin URL of the uploaded icon; absent means the generated mark.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_url: Option<String>,
+    /// How much this space notifies the caller: `default` (their own settings), `all`, `mentions`
+    /// or `none`.
+    pub notify_level: String,
 }
 
 /// A link preview, as the server read it from the page.
@@ -172,8 +177,8 @@ pub struct ChannelDto {
     pub imported: Option<String>,
     /// Per-user sidebar favourite.
     pub favorite: bool,
-    /// How much this channel notifies the caller: `all`, `mentions` or `none`. `all` when they
-    /// have not joined it.
+    /// How much this channel notifies the caller: `default` (the space's setting), `all` (every
+    /// message), `mentions` or `none`. `default` when they have not joined it.
     pub notify_level: String,
     /// Whether the caller has muted this channel.
     pub muted: bool,
@@ -219,7 +224,7 @@ pub struct DirectMessageDto {
     /// Whether the sole counterpart is a bot account.
     pub bot: bool,
     pub unread: i64,
-    /// How much this conversation notifies the caller: `all`, `mentions` or `none`.
+    /// How much this conversation notifies the caller: `default`, `all`, `mentions` or `none`.
     pub notify_level: String,
     /// Whether the caller has muted this conversation.
     pub muted: bool,

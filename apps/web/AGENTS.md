@@ -273,7 +273,10 @@ preferences); a click focuses an open window and posts it `ruchoir:open-notifica
 (switch space first, then open like an inbox click). `features/app/webPush.ts` owns the
 subscription: opt-in from the preferences or the one-time prompt, re-synced once per session, and
 forgotten on logout. **While push is active in a browser, the page draws no system notification of
-its own when away** (`alertRef`), or every message would show twice. The notification preferences
+its own when away** (`alertRef`), or every message would show twice. Levels inherit: a conversation on `default` follows its space (`Workspace.notifyLevel`, set from the
+space menu), a space on `default` follows the person's own preferences (the kinds table in
+Preferences > Notifications). `effectiveLevel` resolves it and `passesPref` applies it; both mirror the
+server. The notification preferences
 are **server-side** now (the server obeys them for pushes and emails): the global ones are read at
 sign-in and every change is sent back (with the device's UTC offset, which is how the server reads
 quiet hours), and each conversation's arrives with `ChannelDto` / `DirectMessageDto` and is saved

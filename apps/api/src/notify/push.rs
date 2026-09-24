@@ -366,8 +366,7 @@ pub async fn pending(
 
     let user_prefs = prefs::load(&state.db, session.user_id).await?;
     let conversation_ids: Vec<Uuid> = rows.iter().map(|row| row.conversation_id).collect();
-    let conversation_prefs =
-        prefs::conversation_prefs(&state.db, session.user_id, &conversation_ids).await?;
+    let conversation_prefs = prefs::scopes(&state.db, session.user_id, &conversation_ids).await?;
     let shown: Vec<notifications::Model> = rows
         .into_iter()
         .filter(|row| {
@@ -375,6 +374,7 @@ pub async fn pending(
                 &row.kind,
                 &user_prefs,
                 conversation_prefs.get(&row.conversation_id),
+                prefs::Delivery::App,
             )
         })
         .take(PENDING_LIMIT)
@@ -468,8 +468,7 @@ async fn deliver(state: &AppState, rows: Vec<notifications::Model>) -> Result<()
             continue;
         }
         let conversation_ids: Vec<Uuid> = rows.iter().map(|row| row.conversation_id).collect();
-        let conversation_prefs =
-            prefs::conversation_prefs(&state.db, user_id, &conversation_ids).await?;
+        let conversation_prefs = prefs::scopes(&state.db, user_id, &conversation_ids).await?;
         let allowed: Vec<&notifications::Model> = rows
             .iter()
             .filter(|row| {
@@ -477,6 +476,7 @@ async fn deliver(state: &AppState, rows: Vec<notifications::Model>) -> Result<()
                     &row.kind,
                     &user_prefs,
                     conversation_prefs.get(&row.conversation_id),
+                    prefs::Delivery::App,
                 )
             })
             .collect();
