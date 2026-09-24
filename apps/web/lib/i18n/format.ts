@@ -71,6 +71,27 @@ export function formatStamp(at: Date | string | number, locale: Locale = current
   return formatShortDate(date, locale);
 }
 
+/**
+ * When something happened, relative to today, for the middle of a sentence: "aujourd'hui, 10:12",
+ * "hier, 17:45", then a short date. Lower case, unlike `formatStamp`, which heads a line.
+ */
+export function formatRelativeStamp(at: Date | string | number, locale: Locale = currentLocale()): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  const days = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (sameDay(date, now)) return `${days.format(0, "day")}, ${formatTime(date, locale)}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameDay(date, yesterday)) return `${days.format(-1, "day")}, ${formatTime(date, locale)}`;
+  return formatShortDate(date, locale);
+}
+
+/** Whether two instants fall on the same calendar day, where the reader is. */
+export function isSameDay(a: Date | string | number, b: Date | string | number): boolean {
+  return sameDay(new Date(a), new Date(b));
+}
+
 /** Decimal units, as storage is sold and as every file manager counts it. */
 const BYTE_UNITS = ["byte", "kilobyte", "megabyte", "gigabyte", "terabyte"] as const;
 

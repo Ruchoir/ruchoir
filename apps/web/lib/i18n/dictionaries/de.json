@@ -358,6 +358,8 @@
     "savedTag": "Gemerkt",
     "deleted": "Nachricht gelöscht",
     "editedTag": "(bearbeitet)",
+    "editedTagWhen": "(bearbeitet {{when}})",
+    "editedAt": "Bearbeitet am {{at}}",
     "fileDeleted": "Datei gelöscht · {{name}}",
     "openInNewTab": "{{name}} in einem neuen Tab öffnen",
     "downloadNamed": "{{name}} herunterladen",

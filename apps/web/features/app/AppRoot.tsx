@@ -2489,7 +2489,7 @@ function AppShell() {
       if (after === before) return;
       lines[line] = after;
       const body = lines.join("\n");
-      updateMessage(conv, messageId, (m) => ({ ...m, body, edited: true }));
+      updateMessage(conv, messageId, (m) => ({ ...m, body, edited: true, editedAt: new Date().toISOString() }));
       if (isPendingId(messageId)) return;
       editMessage(messageId, body)
         .then((m) => updateMessage(conv, messageId, () => m))
@@ -2679,6 +2679,7 @@ function AppShell() {
       ...m,
       body,
       edited: true,
+      editedAt: new Date().toISOString(),
       attachments: [...(m.attachments ?? (m.attachment ? [m.attachment] : [])), ...(attachments ?? [])],
     }));
     setEditing(null);

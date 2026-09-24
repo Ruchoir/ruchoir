@@ -361,6 +361,8 @@
     "savedTag": "Salvato",
     "deleted": "Messaggio eliminato",
     "editedTag": "(modificato)",
+    "editedTagWhen": "(modificato {{when}})",
+    "editedAt": "Modificato il {{at}}",
     "fileDeleted": "File eliminato · {{name}}",
     "openInNewTab": "Apri {{name}} in una nuova scheda",
     "downloadNamed": "Scarica {{name}}",

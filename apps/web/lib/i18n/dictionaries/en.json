@@ -358,6 +358,8 @@
     "savedTag": "Saved",
     "deleted": "Message deleted",
     "editedTag": "(edited)",
+    "editedTagWhen": "(edited {{when}})",
+    "editedAt": "Edited {{at}}",
     "fileDeleted": "File deleted · {{name}}",
     "openInNewTab": "Open {{name}} in a new tab",
     "downloadNamed": "Download {{name}}",

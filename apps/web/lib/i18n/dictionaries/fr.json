@@ -358,6 +358,8 @@
     "savedTag": "Enregistré",
     "deleted": "Message supprimé",
     "editedTag": "(modifié)",
+    "editedTagWhen": "(modifié {{when}})",
+    "editedAt": "Modifié le {{at}}",
     "fileDeleted": "Fichier supprimé · {{name}}",
     "openInNewTab": "Ouvrir {{name}} dans un nouvel onglet",
     "downloadNamed": "Télécharger {{name}}",
