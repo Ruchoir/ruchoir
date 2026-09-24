@@ -19,8 +19,9 @@
 //! - **Not this instance's own domain** ([`crate::config::Config::unfurl_deny_hosts`]): services
 //!   published next to it behind an address filter (a mail catcher, an admin page) would let this
 //!   server read what the filter keeps from everyone else.
-//! - **Only HTML, only the start of it**: 512 KiB read at most, five seconds in all. Kept: the
-//!   title, the description, the site's `theme-color`, and its preview image (`og:image`).
+//! - **Only HTML, only its head**: read up to the end of `<head>`, 2 MiB at most, five seconds in
+//!   all. Kept: the title, the description, the site's `theme-color`, and its preview image
+//!   (`og:image`).
 //!
 //! The preview image goes through the same fence (the same resolver, the same deny list), must
 //! announce itself as an image, is read up to 5 MiB, decoded and re-encoded as a JPEG thumbnail
@@ -55,8 +56,34 @@ use crate::state::AppState;
 
 use super::authz;
 
-/// How much of a page is read. The `<head>` is nearly always well within it.
-const MAX_BYTES: u64 = 512 * 1024;
+/// How much of a page may be read looking for the end of its `<head>`. Reading stops there, so this
+/// is only reached by a page whose head is huge: a YouTube video page puts its title and preview
+/// tags after 700 KB of inline scripts, which a 512 KiB cap cut off.
+const MAX_BYTES: usize = 2 * 1024 * 1024;
+
+/// Read a page up to the end of its `<head>` (everything the preview needs), or [`MAX_BYTES`].
+fn read_head(reader: &mut impl Read) -> std::io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let mut chunk = [0u8; 64 * 1024];
+    loop {
+        let read = reader.read(&mut chunk)?;
+        if read == 0 {
+            break;
+        }
+        // Look for the closing tag in what just arrived, plus a few bytes before it in case the
+        // tag straddles two chunks.
+        let from = bytes.len().saturating_sub(6);
+        bytes.extend_from_slice(&chunk[..read]);
+        let found = bytes[from..]
+            .windows(7)
+            .any(|w| w.eq_ignore_ascii_case(b"</head>"));
+        if found || bytes.len() >= MAX_BYTES {
+            break;
+        }
+    }
+    bytes.truncate(MAX_BYTES);
+    Ok(bytes)
+}
 
 /// How long a stored preview is reused for the same URL before the page is read again.
 const REUSE_FOR: time::Duration = time::Duration::hours(24);
@@ -487,13 +514,7 @@ fn fetch(url: &str, user_agent: &str) -> Result<PageSummary, String> {
     }
     // Relative references resolve against where the page ended up, after any redirect.
     let page = response.get_uri().clone();
-    let mut bytes = Vec::new();
-    response
-        .body_mut()
-        .as_reader()
-        .take(MAX_BYTES)
-        .read_to_end(&mut bytes)
-        .map_err(|e| e.to_string())?;
+    let bytes = read_head(&mut response.body_mut().as_reader()).map_err(|e| e.to_string())?;
     let mut summary = summarise(&String::from_utf8_lossy(&bytes));
     summary.image = summary.image.and_then(|image| resolve(&page, &image));
     if summary.title.is_none() && summary.description.is_none() {
@@ -997,6 +1018,8 @@ mod tests {
         }
         for url in [
             "https://www.youtube.com/",
+            // A video page: its head runs past 700 KB of inline scripts before the tags.
+            "https://www.youtube.com/watch?v=FAtWNmjkFXw",
             "https://github.com/rust-lang/rust",
         ] {
             let summary = fetch(url, "Mozilla/5.0 (compatible; RuchoirLinkPreview/1.0)").unwrap();
@@ -1007,6 +1030,10 @@ mod tests {
                 "  image {image}: {:?}",
                 thumbnail.as_ref().map(|(b, w, h)| (b.len(), w, h))
             );
+            // A site that rate-limits repeated runs of this test is not a failure of the code.
+            if thumbnail.as_ref().is_err_and(|e| e == "status 429") {
+                continue;
+            }
             assert!(thumbnail.is_ok(), "{image}");
         }
     }
@@ -1080,6 +1107,24 @@ mod tests {
                 "{reference}"
             );
         }
+    }
+
+    #[test]
+    fn reading_stops_at_the_end_of_the_head_even_far_into_the_page() {
+        // A head as long as a YouTube video page's, then a body that must not be read.
+        let mut page = b"<html><HEAD><script>".to_vec();
+        page.extend(std::iter::repeat_n(b'x', 720 * 1024));
+        page.extend_from_slice(b"</script><title>Found</title></HeAd><body>");
+        page.extend(std::iter::repeat_n(b'y', 3 * 1024 * 1024));
+        let head = read_head(&mut page.as_slice()).unwrap();
+        assert!(head.len() < 800 * 1024, "stopped at the head, not the cap");
+        assert_eq!(
+            summarise(&String::from_utf8_lossy(&head)).title.as_deref(),
+            Some("Found")
+        );
+        // A page with no end to its head stops at the cap.
+        let endless = vec![b'z'; 5 * 1024 * 1024];
+        assert_eq!(read_head(&mut endless.as_slice()).unwrap().len(), MAX_BYTES);
     }
 
     #[test]
