@@ -833,6 +833,13 @@ export function PreferencesScreen({
               <>
                 <h2 style={st.h}>{t("prefs.security")}</h2>
                 <p style={st.sub}>{t("prefs.securitySub")}</p>
+                <Row title={t("prefs.linkWarning")} desc={t("prefs.linkWarningDesc")}>
+                  <Switch
+                    checked={s.externalLinkWarning}
+                    onChange={(e) => s.set("externalLinkWarning", e.target.checked)}
+                    aria-label={t("prefs.linkWarning")}
+                  />
+                </Row>
                 <AccountSecuritySection onNotify={onNotify} onSignedOut={onSignedOut} />
               </>
             ) : null}

@@ -702,6 +702,13 @@ pub async fn hydrate_messages(
                 (
                     row.message_id,
                     super::dto::LinkPreviewDto {
+                        image_url: row
+                            .image_key
+                            .as_ref()
+                            .map(|_| format!("/api/v1/link-previews/{}/image", row.id)),
+                        image_width: row.image_width,
+                        image_height: row.image_height,
+                        color: row.color,
                         url: row.url,
                         domain: row.domain,
                         title: row.title,

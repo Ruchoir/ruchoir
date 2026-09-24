@@ -40,6 +40,11 @@ pub fn router() -> Router<AppState> {
             "/api/v1/conversations/{conversation_id}/read",
             get(read::get_read_cursors).put(read::set_read_cursor),
         )
+        // A link preview's thumbnail, served here rather than by the site (see `unfurl`).
+        .route(
+            "/api/v1/link-previews/{preview_id}/image",
+            get(super::unfurl::preview_image),
+        )
         // Pins.
         .route("/api/v1/channels/{channel_id}/pins", get(pins::list_pins))
         .route(

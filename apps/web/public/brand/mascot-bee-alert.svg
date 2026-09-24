@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 1200" width="1300" height="1200">
+  <!-- The Ruchoir bee, alarmed: shown when a link is about to leave the app. -->
+  <defs>
+    <clipPath id="body-clip">
+      <path d="M255,690 C330,600 420,540 580,480 C680,435 800,420 900,460 C1000,510 1045,620 1030,720 C1015,830 930,915 820,955 C720,995 640,1030 500,1030 C380,1030 270,1000 225,920 C190,850 205,760 255,690 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Back wing -->
+  <path d="M272,375 C245,300 280,213 405,213 C530,213 600,320 602,470" fill="#F8F4EF" stroke="#231212" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Sting -->
+  <path d="M208,822 L132,902 Q116,921 142,921 L234,918 Z" fill="#231212" stroke="#231212" stroke-width="6" stroke-linejoin="round"/>
+
+  <!-- Antennae -->
+  <g fill="none" stroke="#231212" stroke-width="30" stroke-linecap="round">
+    <path d="M688,450 C698,385 728,335 772,302"/>
+    <path d="M858,465 C880,412 918,372 968,348"/>
+  </g>
+  <circle cx="795" cy="283" r="50" fill="#231212"/>
+  <circle cx="992" cy="348" r="52" fill="#231212"/>
+
+  <!-- Body (dark base) -->
+  <path d="M255,690 C330,600 420,540 580,480 C680,435 800,420 900,460 C1000,510 1045,620 1030,720 C1015,830 930,915 820,955 C720,995 640,1030 500,1030 C380,1030 270,1000 225,920 C190,850 205,760 255,690 Z" fill="#231212"/>
+  <ellipse cx="775" cy="685" rx="266" ry="251" transform="rotate(25 775 685)" fill="#231212"/>
+
+  <!-- Yellow stripes -->
+  <g clip-path="url(#body-clip)" fill="#FBBF1A">
+    <path d="M258,688 C240,780 255,890 330,975 C360,1005 385,1020 402,1034 L100,1100 L100,640 Z"/>
+    <path d="M355,560 C320,700 340,840 420,925 C470,980 530,1020 580,1045 L725,1035 C640,985 560,930 505,860 C445,780 415,660 440,500 Z"/>
+  </g>
+
+  <!-- Head -->
+  <ellipse cx="775" cy="685" rx="240" ry="225" transform="rotate(25 775 685)" fill="#FBBF1A"/>
+
+  <!-- Eyes -->
+  <ellipse cx="798" cy="672" rx="38" ry="57" fill="#231212"/>
+  <ellipse cx="935" cy="660" rx="34" ry="55" fill="#231212"/>
+
+  <!-- Front wing -->
+  <path d="M445,540 C395,440 320,385 225,382 C130,380 75,440 75,505 C78,590 175,660 270,670 Z" fill="#F8F4EF" stroke="#231212" stroke-width="44" stroke-linejoin="round"/>
+
+  <!-- Alarm strokes -->
+  <g fill="#F4522A" stroke="#F4522A" stroke-width="14" stroke-linejoin="round">
+    <polygon points="1110,328 1174,352 1080,522 1056,510"/>
+    <polygon points="1228,460 1262,512 1110,584 1102,568"/>
+    <polygon points="1104,636 1242,634 1224,698 1100,656"/>
+  </g>
+</svg>

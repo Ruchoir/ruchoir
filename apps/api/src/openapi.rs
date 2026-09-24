@@ -83,6 +83,7 @@ use utoipa::OpenApi;
         crate::notify::push::unsubscribe,
         crate::notify::push::pending,
         crate::notify::push::test,
+        crate::messaging::unfurl::preview_image,
         crate::messaging::conversations::list_channels,
         crate::messaging::conversations::list_dms,
         crate::messaging::conversations::list_members,

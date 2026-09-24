@@ -255,6 +255,13 @@ and unread state. Mutations still go through REST; the
 socket only receives, plus sends typing/ping. The composer emits a throttled typing signal via
 `rtRef.current.sendTyping`.
 
+**Links leave through a warning.** One capture-phase `click`/`auxclick` listener in `AppRoot`
+catches every link to another origin, wherever it is drawn, and shows `ExternalLinkDialog` (the
+host on its own line, a flag for punycode look-alikes, a few safety tips, the alarmed bee
+`public/brand/mascot-bee-alert.svg`). "Do not show again" and Preferences > Security both write
+`settings.externalLinkWarning`. Link previews (`LinkPreviewCard`) come from the server with the
+site's colour and a same-origin thumbnail; the browser never loads anything from the site.
+
 **Notifications with the app closed (installable PWA + Web Push, ADR 0001).** `public/manifest.webmanifest`
 and `public/icons/` (plus `app/apple-icon.png`, drawn by `scripts/build-pwa-icons.mjs`) make the
 app installable; `public/sw.js` is a plain, unbundled service worker registered on every load. It

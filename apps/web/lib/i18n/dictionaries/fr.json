@@ -854,7 +854,9 @@
     "pushTestRefused": "Le service de notifications du navigateur a refusé le test. Désactivez puis réactivez les notifications sur cet appareil.",
     "pushTestWait": "Un test vient d'être envoyé. Patientez quelques secondes.",
     "emailCatchUp": "Rattrapage par e-mail",
-    "emailCatchUpDesc": "Si des mentions ou des messages directs restent non lus un quart d'heure alors que Ruchoir n'est ouvert nulle part, recevez-en un récapitulatif par e-mail."
+    "emailCatchUpDesc": "Si des mentions ou des messages directs restent non lus un quart d'heure alors que Ruchoir n'est ouvert nulle part, recevez-en un récapitulatif par e-mail.",
+    "linkWarning": "Avertir avant d'ouvrir un lien externe",
+    "linkWarningDesc": "Affiche le site de destination et quelques conseils de sécurité avant de quitter Ruchoir par un lien."
   },
   "error": {
     "sessionExpired": "Votre session a expiré. Connectez-vous à nouveau.",
@@ -1132,5 +1134,17 @@
     "interrupted": "Interrompu",
     "spaceChannelsFilled_one": "{{count}} canal est déjà ici : il recevra l'historique de l'archive.",
     "spaceChannelsFilled_other": "{{count}} canaux sont déjà ici : ils recevront l'historique de l'archive."
+  },
+  "externalLink": {
+    "title": "Attention, vous quittez Ruchoir",
+    "lead": "Ce lien vous emmène hors de Ruchoir, vers :",
+    "open": "Ouvrir le lien",
+    "lookAlike": "Cette adresse utilise des caractères d'un autre alphabet (« xn-- ») : c'est ainsi qu'un site se fait passer pour un autre dont le nom lui ressemble. Ne l'ouvrez que si vous l'attendiez.",
+    "tipAddress": "Vérifiez l'adresse, lettre par lettre.",
+    "tipPassword": "Ne donnez jamais votre mot de passe Ruchoir.",
+    "tipFiles": "Prudence avec les téléchargements et les paiements.",
+    "tipDoubt": "Un doute ? Demandez à l'expéditeur.",
+    "dontShowAgain": "Ne plus afficher cet avertissement",
+    "beforeOpening": "Avant d'ouvrir"
   }
 }

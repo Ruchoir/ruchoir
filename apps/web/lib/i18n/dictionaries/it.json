@@ -871,7 +871,9 @@
     "pushTestRefused": "Il servizio di notifiche del browser ha rifiutato la prova. Disattiva e riattiva le notifiche su questo dispositivo.",
     "pushTestWait": "È appena stata inviata una prova. Attendi qualche secondo.",
     "emailCatchUp": "Riepilogo via e-mail",
-    "emailCatchUpDesc": "Se menzioni o messaggi diretti restano non letti per un quarto d'ora mentre Ruchoir non è aperto da nessuna parte, ricevi un riepilogo via e-mail."
+    "emailCatchUpDesc": "Se menzioni o messaggi diretti restano non letti per un quarto d'ora mentre Ruchoir non è aperto da nessuna parte, ricevi un riepilogo via e-mail.",
+    "linkWarning": "Avvisa prima di aprire un link esterno",
+    "linkWarningDesc": "Mostra il sito di destinazione e alcuni consigli di sicurezza prima che un link ti porti fuori da Ruchoir."
   },
   "error": {
     "sessionExpired": "La tua sessione è scaduta. Accedi di nuovo.",
@@ -1163,5 +1165,17 @@
     "spaceChannelsFilled_one": "{{count}} canale è già qui: riceverà la cronologia dell'archivio.",
     "spaceChannelsFilled_many": "{{count}} canali sono già qui: riceveranno la cronologia dell'archivio.",
     "spaceChannelsFilled_other": "{{count}} canali sono già qui: riceveranno la cronologia dell'archivio."
+  },
+  "externalLink": {
+    "title": "Attenzione, stai lasciando Ruchoir",
+    "lead": "Questo link ti porta fuori da Ruchoir, verso:",
+    "open": "Apri il link",
+    "lookAlike": "Questo indirizzo usa caratteri di un altro alfabeto («xn--»): è così che un sito si spaccia per un altro dal nome simile. Aprilo solo se te lo aspettavi.",
+    "tipAddress": "Controlla l'indirizzo, lettera per lettera.",
+    "tipPassword": "Non dare mai la tua password di Ruchoir.",
+    "tipFiles": "Attenzione a download e pagamenti.",
+    "tipDoubt": "Dubbi? Chiedi a chi l'ha inviato.",
+    "dontShowAgain": "Non mostrare più questo avviso",
+    "beforeOpening": "Prima di aprirlo"
   }
 }

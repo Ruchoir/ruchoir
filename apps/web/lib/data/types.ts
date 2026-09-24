@@ -205,6 +205,13 @@ export type LinkPreview = {
   /** Absent when the page gave a description but no title: the card then leads with the domain. */
   title?: string;
   description?: string;
+  /** The site's colour, `#rrggbb`: its `theme-color`, or the dominant colour of its image. */
+  color?: string;
+  /** Same-origin thumbnail of the site's preview image, served by the API. */
+  imageUrl?: string;
+  /** The original image's size, for the aspect ratio. */
+  imageWidth?: number;
+  imageHeight?: number;
 };
 
 /**

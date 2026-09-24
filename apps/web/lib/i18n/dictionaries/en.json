@@ -854,7 +854,9 @@
     "pushTestRefused": "The browser's notification service refused the test. Turn notifications off and on again for this device.",
     "pushTestWait": "A test was just sent. Wait a few seconds.",
     "emailCatchUp": "Email catch-up",
-    "emailCatchUpDesc": "If mentions or direct messages stay unread for a quarter of an hour while Ruchoir is not open anywhere, get a summary by email."
+    "emailCatchUpDesc": "If mentions or direct messages stay unread for a quarter of an hour while Ruchoir is not open anywhere, get a summary by email.",
+    "linkWarning": "Warn before opening an external link",
+    "linkWarningDesc": "Shows the destination site and a few safety tips before a link takes you out of Ruchoir."
   },
   "error": {
     "sessionExpired": "Your session has expired. Sign in again.",
@@ -1132,5 +1134,17 @@
     "interrupted": "Interrupted",
     "spaceChannelsFilled_one": "{{count}} channel is already here: it will take the archive's history.",
     "spaceChannelsFilled_other": "{{count}} channels are already here: they will take the archive's history."
+  },
+  "externalLink": {
+    "title": "Careful, you are leaving Ruchoir",
+    "lead": "This link takes you out of Ruchoir, to:",
+    "open": "Open the link",
+    "lookAlike": "This address uses characters from another alphabet (“xn--”): that is how a site passes itself off as another with a similar name. Only open it if you were expecting it.",
+    "tipAddress": "Check the address, letter by letter.",
+    "tipPassword": "Never give out your Ruchoir password.",
+    "tipFiles": "Be careful with downloads and payments.",
+    "tipDoubt": "In doubt? Ask whoever sent it.",
+    "dontShowAgain": "Do not show this warning again",
+    "beforeOpening": "Before you open it"
   }
 }

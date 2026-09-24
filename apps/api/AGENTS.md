@@ -221,8 +221,12 @@ context and takes precedence here.
   the connection use the same answer, redirects included), which keeps public addresses only; ports
   80/443, three redirects, five seconds, 512 KiB, HTML only; and the instance's own host and parent
   domain are never read (`RUCHOIR_UNFURL_DENY_HOSTS` adds more), because services published next to
-  it behind an address filter would otherwise be readable through it. Title and description only,
-  no image. `RUCHOIR_UNFURL_ENABLED=false` turns it off.
+  it behind an address filter would otherwise be readable through it. Kept: title, description,
+  the site's colour (`theme-color` as plain hex, else the dominant vivid colour of its image) and a
+  JPEG thumbnail of its `og:image`, fetched through the same fence, re-encoded (never stored as
+  received), kept in the object store under `link-previews/<sha256 of the image URL>.jpg` and served
+  by `GET /link-previews/{id}/image` to members of the conversation only.
+  `RUCHOIR_UNFURL_ENABLED=false` turns it off.
 - `src/notify/`   - reaching someone with no Ruchoir page open (ADR 0001). `prefs`: the notification
   preferences, held server-side (`user_preferences.notifications` for the person, the
   `channel_members` / `dm_participants` row for each conversation) and one rule, `allows`, shared by

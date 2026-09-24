@@ -19,22 +19,31 @@
 //! - **Not this instance's own domain** ([`crate::config::Config::unfurl_deny_hosts`]): services
 //!   published next to it behind an address filter (a mail catcher, an admin page) would let this
 //!   server read what the filter keeps from everyone else.
-//! - **Only HTML, only the start of it**: 512 KiB read at most, five seconds in all, and only the
-//!   title and description are kept. No image is fetched.
+//! - **Only HTML, only the start of it**: 512 KiB read at most, five seconds in all. Kept: the
+//!   title, the description, the site's `theme-color`, and its preview image (`og:image`).
+//!
+//! The preview image goes through the same fence (the same resolver, the same deny list), must
+//! announce itself as an image, is read up to 5 MiB, decoded and re-encoded as a JPEG thumbnail
+//! (never stored as received), and kept in the object store under a name derived from its URL. It
+//! is served from this instance by [`preview_image`], to members of the conversation only.
 
 use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use axum::http::Uri;
+use axum::extract::{Path, State};
+use axum::http::{header, HeaderValue, Uri};
+use axum::response::{IntoResponse, Response};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
 use ureq::unversioned::resolver::{DefaultResolver, ResolvedSocketAddrs, Resolver};
 use ureq::unversioned::transport::{DefaultConnector, NextTimeout};
 use uuid::Uuid;
 
+use crate::auth::extract::AuthSession;
 use crate::entities::{message_link_previews, messages};
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
@@ -46,6 +55,10 @@ const MAX_BYTES: u64 = 512 * 1024;
 
 /// How long a stored preview is reused for the same URL before the page is read again.
 const REUSE_FOR: time::Duration = time::Duration::hours(24);
+
+/// How much of a preview image is read, and the longest edge of the thumbnail kept of it.
+const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
+const THUMBNAIL_PX: u32 = 480;
 
 const MAX_TITLE: usize = 200;
 const MAX_DESCRIPTION: usize = 300;
@@ -240,6 +253,50 @@ fn fetchable_host(url: &str, deny: &[String]) -> Option<String> {
 pub struct PageSummary {
     pub title: Option<String>,
     pub description: Option<String>,
+    /// The site's colour, as `#rrggbb`.
+    pub color: Option<String>,
+    /// The preview image's address, absolute once [`fetch`] has resolved it against the page.
+    pub image: Option<String>,
+}
+
+/// A `theme-color` as `#rrggbb`, or `None` for anything but a plain hex colour (a name, `rgb()`,
+/// a variable): the value ends up in a style attribute, so only what cannot be anything else is kept.
+fn hex_color(raw: &str) -> Option<String> {
+    let hex = raw.trim().strip_prefix('#')?;
+    if !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
+    let full = match hex.len() {
+        3 => hex.chars().flat_map(|c| [c, c]).collect::<String>(),
+        6 => hex.to_owned(),
+        _ => return None,
+    };
+    Some(format!("#{}", full.to_ascii_lowercase()))
+}
+
+/// Resolve a reference found in a page against the page's own address: absolute, scheme-relative
+/// (`//cdn.example/x.png`), root-relative (`/x.png`) or relative (`img/x.png`). Only `http(s)`.
+fn resolve(base: &Uri, reference: &str) -> Option<String> {
+    let reference = decode_entities(reference.trim());
+    if reference.starts_with("https://") || reference.starts_with("http://") {
+        return Some(reference);
+    }
+    let scheme = base.scheme_str()?;
+    let authority = base.authority()?;
+    if let Some(rest) = reference.strip_prefix("//") {
+        return Some(format!("{scheme}://{rest}"));
+    }
+    if reference.contains(':') && !reference.starts_with('/') {
+        // `data:`, `javascript:` and every other scheme: never.
+        return None;
+    }
+    if reference.starts_with('/') {
+        return Some(format!("{scheme}://{authority}{reference}"));
+    }
+    let path = base.path();
+    let dir = &path[..path.rfind('/').map_or(0, |i| i + 1)];
+    let dir = if dir.is_empty() { "/" } else { dir };
+    Some(format!("{scheme}://{authority}{dir}{reference}"))
 }
 
 /// Decode the handful of HTML entities a title or a description actually contains.
@@ -344,6 +401,8 @@ pub fn summarise(html: &str) -> PageSummary {
     let mut og_title = None;
     let mut og_description = None;
     let mut description = None;
+    let mut color = None;
+    let mut image = None;
     let mut from = 0;
     while let Some(found) = lower[from..].find("<meta") {
         let start = from + found;
@@ -366,6 +425,17 @@ pub fn summarise(html: &str) -> PageSummary {
                 og_description = Some(content)
             }
             Some("description") if description.is_none() => description = Some(content),
+            // The first one: sites list a light and a dark variant, in that order more often than not.
+            Some("theme-color") if color.is_none() => color = hex_color(&content),
+            Some("og:image")
+            | Some("og:image:url")
+            | Some("og:image:secure_url")
+            | Some("twitter:image")
+            | Some("twitter:image:src")
+                if image.is_none() =>
+            {
+                image = Some(content)
+            }
             _ => {}
         }
     }
@@ -380,11 +450,14 @@ pub fn summarise(html: &str) -> PageSummary {
         description: og_description
             .or(description)
             .and_then(|d| clean(&d, MAX_DESCRIPTION)),
+        color,
+        image,
     }
 }
 
 /// Fetch a page and summarise it. `None` for anything that is not a readable HTML page.
 fn fetch(url: &str, user_agent: &str) -> Option<PageSummary> {
+    use ureq::ResponseExt;
     let mut response = agent()
         .get(url)
         .header("User-Agent", user_agent)
@@ -405,6 +478,8 @@ fn fetch(url: &str, user_agent: &str) -> Option<PageSummary> {
     if !is_html {
         return None;
     }
+    // Relative references resolve against where the page ended up, after any redirect.
+    let page = response.get_uri().clone();
     let mut bytes = Vec::new();
     response
         .body_mut()
@@ -412,9 +487,110 @@ fn fetch(url: &str, user_agent: &str) -> Option<PageSummary> {
         .take(MAX_BYTES)
         .read_to_end(&mut bytes)
         .ok()?;
-    let summary = summarise(&String::from_utf8_lossy(&bytes));
+    let mut summary = summarise(&String::from_utf8_lossy(&bytes));
+    summary.image = summary.image.and_then(|image| resolve(&page, &image));
     (summary.title.is_some() || summary.description.is_some()).then_some(summary)
 }
+
+/// Fetch a preview image and reduce it to a JPEG thumbnail: `(thumbnail, width, height)`, the size
+/// being the original's. `None` for anything that is not a decodable image of reasonable size.
+fn fetch_image(url: &str, user_agent: &str) -> Option<(Vec<u8>, u32, u32)> {
+    let mut response = agent()
+        .get(url)
+        .header("User-Agent", user_agent)
+        .header("Accept", "image/*")
+        .call()
+        .ok()?;
+    let is_image = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.to_ascii_lowercase().starts_with("image/"));
+    if !response.status().is_success() || !is_image {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    response
+        .body_mut()
+        .as_reader()
+        .take(MAX_IMAGE_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if bytes.len() as u64 > MAX_IMAGE_BYTES {
+        return None;
+    }
+    let info = crate::files::thumbnail::make_thumbnail(&bytes, THUMBNAIL_PX).ok()?;
+    Some((info.thumbnail, info.width, info.height))
+}
+
+/// Whether a colour would vanish on a light card: every channel near white.
+fn is_near_white(hex: &str) -> bool {
+    let channel = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).unwrap_or(0);
+    hex.len() == 7 && (1..7).step_by(2).all(|i| channel(i) >= 0xe6)
+}
+
+/// The dominant vivid colour of an image, as `#rrggbb`: the average of its saturated, mid-light
+/// pixels, when there are enough of them to be the image's colour rather than a detail. The site's
+/// own colour when it declares none (or a white one): YouTube's red, from its preview image.
+fn accent_from_image(jpeg: &[u8]) -> Option<String> {
+    let image = image::load_from_memory(jpeg).ok()?.to_rgb8();
+    let (mut r, mut g, mut b, mut vivid, mut total) = (0u64, 0u64, 0u64, 0u64, 0u64);
+    for pixel in image.pixels().step_by(3) {
+        let [pr, pg, pb] = pixel.0;
+        total += 1;
+        let max = pr.max(pg).max(pb);
+        let min = pr.min(pg).min(pb);
+        // Chroma above a quarter of the range, and neither near black nor near white.
+        if max - min > 64 && max > 60 && min < 220 {
+            vivid += 1;
+            r += u64::from(pr);
+            g += u64::from(pg);
+            b += u64::from(pb);
+        }
+    }
+    // At least 3% of the picture, or it is a logo's detail rather than the image's colour.
+    if vivid == 0 || vivid * 100 < total * 3 {
+        return None;
+    }
+    Some(format!(
+        "#{:02x}{:02x}{:02x}",
+        r / vivid,
+        g / vivid,
+        b / vivid
+    ))
+}
+
+/// The thumbnail's object-store key: one per image address, so the same image shared again is
+/// stored once.
+fn image_key(image_url: &str) -> String {
+    let digest = Sha256::digest(image_url.as_bytes());
+    let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+    format!("link-previews/{hex}.jpg")
+}
+
+/// The thumbnail of a page's preview image, stored and ready: `(key, width, height)`.
+async fn store_image(
+    state: &AppState,
+    image_url: String,
+    user_agent: String,
+) -> Option<(StoredImage, Option<String>)> {
+    let storage = state.storage.clone()?;
+    fetchable_host(&image_url, &state.config.unfurl_deny_hosts)?;
+    let key = image_key(&image_url);
+    let (thumbnail, width, height, accent) = tokio::task::spawn_blocking(move || {
+        let (thumbnail, width, height) = fetch_image(&image_url, &user_agent)?;
+        let accent = accent_from_image(&thumbnail);
+        Some((thumbnail, width, height, accent))
+    })
+    .await
+    .ok()
+    .flatten()?;
+    storage.put(&key, &thumbnail, "image/jpeg").await.ok()?;
+    Some(((key, width as i32, height as i32), accent))
+}
+
+/// A stored thumbnail: its key, and the original image's width and height.
+type StoredImage = (String, i32, i32);
 
 /// Bring a message's preview in line with its body, in the background: fetch one for its first
 /// link, replace one whose link was edited away, drop one whose link is gone. Pushes the message
@@ -469,24 +645,53 @@ async fn run(state: &AppState, message_id: Uuid) -> Result<(), super::error::Api
             .order_by_desc(message_link_previews::Column::FetchedAt)
             .one(&state.db)
             .await?;
-        let summary = match recent {
-            Some(row) => Some(PageSummary {
-                title: row.title,
-                description: row.description,
-            }),
+        let user_agent = format!(
+            "Mozilla/5.0 (compatible; RuchoirLinkPreview/1.0; +{})",
+            state.config.public_base_url.trim_end_matches('/')
+        );
+        // What the card shows: the text, the colour, and the stored thumbnail with its size.
+        type Look = (PageSummary, Option<StoredImage>);
+        let look: Option<Look> = match recent {
+            Some(row) => {
+                let image = match (row.image_key, row.image_width, row.image_height) {
+                    (Some(key), Some(width), Some(height)) => Some((key, width, height)),
+                    _ => None,
+                };
+                Some((
+                    PageSummary {
+                        title: row.title,
+                        description: row.description,
+                        color: row.color,
+                        image: None,
+                    },
+                    image,
+                ))
+            }
             None => {
-                let user_agent = format!(
-                    "Mozilla/5.0 (compatible; RuchoirLinkPreview/1.0; +{})",
-                    state.config.public_base_url.trim_end_matches('/')
-                );
                 let target = url.clone();
-                tokio::task::spawn_blocking(move || fetch(&target, &user_agent))
+                let agent_name = user_agent.clone();
+                let summary = tokio::task::spawn_blocking(move || fetch(&target, &agent_name))
                     .await
                     .ok()
-                    .flatten()
+                    .flatten();
+                match summary {
+                    Some(mut summary) => {
+                        let stored = match summary.image.clone() {
+                            Some(image_url) => store_image(state, image_url, user_agent).await,
+                            None => None,
+                        };
+                        // A white site colour disappears on the card; the image's own colour
+                        // stands in for it, as it does when the page declares none.
+                        if summary.color.as_deref().is_none_or(is_near_white) {
+                            summary.color = stored.as_ref().and_then(|(_, accent)| accent.clone());
+                        }
+                        Some((summary, stored.map(|(image, _)| image)))
+                    }
+                    None => None,
+                }
             }
         };
-        if let Some(summary) = summary {
+        if let Some((summary, image)) = look {
             let domain = fetchable_host(&url, &[]).unwrap_or_default();
             let domain = domain.strip_prefix("www.").unwrap_or(&domain).to_owned();
             message_link_previews::ActiveModel {
@@ -497,6 +702,10 @@ async fn run(state: &AppState, message_id: Uuid) -> Result<(), super::error::Api
                 title: Set(summary.title),
                 description: Set(summary.description),
                 image_file_id: Set(None),
+                color: Set(summary.color),
+                image_key: Set(image.as_ref().map(|(key, _, _)| key.clone())),
+                image_width: Set(image.as_ref().map(|(_, width, _)| *width)),
+                image_height: Set(image.as_ref().map(|(_, _, height)| *height)),
                 fetched_at: Set(now),
                 expires_at: Set(None),
             }
@@ -510,6 +719,53 @@ async fn run(state: &AppState, message_id: Uuid) -> Result<(), super::error::Api
         publish(state, message).await?;
     }
     Ok(())
+}
+
+/// `GET /api/v1/link-previews/{preview_id}/image`: a preview's thumbnail, for members of the
+/// conversation the link was shared in. Served by this instance: the reader's browser never
+/// contacts the site.
+#[utoipa::path(
+    get,
+    path = "/api/v1/link-previews/{preview_id}/image",
+    tag = "messaging",
+    params(("preview_id" = Uuid, Path, description = "Link preview id")),
+    responses(
+        (status = 200, description = "JPEG thumbnail", content_type = "image/jpeg"),
+        (status = 404, description = "No such preview, no image, or not a member of its conversation")
+    )
+)]
+pub async fn preview_image(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(preview_id): Path<Uuid>,
+) -> Result<Response, super::error::ApiError> {
+    use super::error::ApiError;
+    let preview = message_link_previews::Entity::find_by_id(preview_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    let key = preview.image_key.ok_or(ApiError::NotFound)?;
+    let message = messages::Entity::find_by_id(preview.message_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+    // A 404 either way: whether a preview exists is none of a non-member's business.
+    authz::ensure_conversation_access(&state.db, message.conversation_id, session.user_id)
+        .await
+        .map_err(|_| ApiError::NotFound)?;
+    let storage = state.storage.as_ref().ok_or(ApiError::NotFound)?;
+    let bytes = storage.get(&key).await.map_err(|_| ApiError::NotFound)?;
+    Ok((
+        [
+            (header::CONTENT_TYPE, HeaderValue::from_static("image/jpeg")),
+            (
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("private, max-age=86400"),
+            ),
+        ],
+        bytes,
+    )
+        .into_response())
 }
 
 /// Push the message again, as its author sees it, the way an edit is pushed.
@@ -676,6 +932,91 @@ mod tests {
             let summary = fetch(url, "Mozilla/5.0 (compatible; RuchoirLinkPreview/1.0)");
             println!("{url}: {summary:?}");
             assert!(summary.is_some_and(|s| s.title.is_some()), "{url}");
+        }
+        for url in [
+            "https://www.youtube.com/",
+            "https://github.com/rust-lang/rust",
+        ] {
+            let summary = fetch(url, "Mozilla/5.0 (compatible; RuchoirLinkPreview/1.0)").unwrap();
+            println!("{url}: {summary:?}");
+            let image = summary.image.expect("an og:image");
+            let thumbnail = fetch_image(&image, "Mozilla/5.0 (compatible; RuchoirLinkPreview/1.0)");
+            println!(
+                "  image {image}: {:?}",
+                thumbnail.as_ref().map(|(b, w, h)| (b.len(), w, h))
+            );
+            assert!(thumbnail.is_some(), "{image}");
+        }
+    }
+
+    #[test]
+    fn the_sites_colour_and_image_are_read() {
+        let summary = summarise(
+            r##"<head><title>T</title>
+            <meta name="theme-color" content="#F03" media="(prefers-color-scheme: light)">
+            <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+            <meta property="og:image" content="/img/card.png?a=1&amp;b=2"></head>"##,
+        );
+        assert_eq!(summary.color.as_deref(), Some("#ff0033"));
+        assert_eq!(summary.image.as_deref(), Some("/img/card.png?a=1&amp;b=2"));
+        for unsafe_color in ["red", "rgb(1,2,3)", "#12345", "#12\"; x", "var(--c)"] {
+            assert_eq!(hex_color(unsafe_color), None, "{unsafe_color}");
+        }
+    }
+
+    #[test]
+    fn the_colour_comes_from_the_image_when_the_site_gives_a_usable_one_of_none() {
+        use image::{ImageFormat, Rgb, RgbImage};
+        let encode = |img: RgbImage| {
+            let mut out = Vec::new();
+            img.write_to(&mut std::io::Cursor::new(&mut out), ImageFormat::Jpeg)
+                .unwrap();
+            out
+        };
+        // A red logo on white: the red, not the white and not a pink average of the two.
+        let mut logo = RgbImage::from_pixel(60, 60, Rgb([255, 255, 255]));
+        for x in 20..40 {
+            for y in 20..40 {
+                logo.put_pixel(x, y, Rgb([230, 20, 20]));
+            }
+        }
+        let accent = accent_from_image(&encode(logo)).unwrap();
+        let red = u8::from_str_radix(&accent[1..3], 16).unwrap();
+        let green = u8::from_str_radix(&accent[3..5], 16).unwrap();
+        assert!(red > 180 && green < 70, "{accent}");
+        // Nothing vivid in a grey picture.
+        assert_eq!(
+            accent_from_image(&encode(RgbImage::from_pixel(40, 40, Rgb([128, 128, 128])))),
+            None
+        );
+        assert!(is_near_white("#ffffff"));
+        assert!(is_near_white("#f0f0f0"));
+        assert!(!is_near_white("#1e2327"));
+    }
+
+    #[test]
+    fn image_references_resolve_against_the_page() {
+        let page: Uri = "https://example.org/blog/post.html".parse().unwrap();
+        for (reference, expected) in [
+            (
+                "https://cdn.example/a.png",
+                Some("https://cdn.example/a.png"),
+            ),
+            ("//cdn.example/a.png", Some("https://cdn.example/a.png")),
+            ("/a.png", Some("https://example.org/a.png")),
+            ("img/a.png", Some("https://example.org/blog/img/a.png")),
+            (
+                "/x.png?a=1&amp;b=2",
+                Some("https://example.org/x.png?a=1&b=2"),
+            ),
+            ("data:image/png;base64,AAAA", None),
+            ("javascript:alert(1)", None),
+        ] {
+            assert_eq!(
+                resolve(&page, reference).as_deref(),
+                expected,
+                "{reference}"
+            );
         }
     }
 
