@@ -127,6 +127,8 @@ type MessageDto = {
   system_event?: string;
   parent_message_id?: string;
   reply_count: number;
+  /** The server's preview of the first link, once it has read the page. */
+  link?: { url: string; domain: string; title?: string; description?: string };
   /** Display names of the last repliers, most recent first. Absent when the thread is empty. */
   reply_authors?: string[];
   imported: boolean;
@@ -1326,6 +1328,9 @@ function toMessage(dto: MessageDto): ApiMessage {
     editedAt: dto.edited_at,
     deleted: dto.deleted || undefined,
     saved: dto.saved || undefined,
+    link: dto.link
+      ? { url: dto.link.url, domain: dto.link.domain, title: dto.link.title, description: dto.link.description }
+      : undefined,
   };
 }
 

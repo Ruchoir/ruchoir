@@ -194,17 +194,17 @@ export type MessageAttachment = {
 };
 
 /**
- * A link unfurl (preview). Data-model implication: these fields must be fetched server-side and
- * stored (a message -> link_preview relation), not resolved in the browser, so the client
- * stays sovereign and cannot be used to probe arbitrary URLs on a viewer's behalf.
+ * A link preview, read from the page by the server (`apps/api/src/messaging/unfurl.rs`) and stored
+ * with the message, never fetched by the browser: a reader's browser must not contact an address
+ * because someone else wrote it, and the CSP would refuse it anyway. It arrives with the message,
+ * or a moment later as a `message.updated` frame once the server has read the page.
  */
 export type LinkPreview = {
   url: string;
   domain: string;
-  title: string;
+  /** Absent when the page gave a description but no title: the card then leads with the domain. */
+  title?: string;
   description?: string;
-  /** Whether the unfurl carried a thumbnail (rendered as a placeholder in this exploration). */
-  hasImage?: boolean;
 };
 
 /**

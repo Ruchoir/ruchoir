@@ -213,6 +213,16 @@ context and takes precedence here.
   asset path fails loudly instead of receiving HTML. The `messaging`, `realtime` and `files` routers use
   absolute `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
   The files router carries a raised request-body limit (`RUCHOIR_UPLOAD_MAX_BYTES`, default 100 MiB).
+- `src/messaging/unfurl.rs` - link previews, read by this server only (never a third-party service,
+  never the readers' browsers). A message's first link outside code is fetched in the background
+  after a send or an edit, stored in `message_link_previews`, returned as `MessageDto.link`, and the
+  message is pushed again as `message.updated`. **Every fetch is fenced against request forgery**:
+  the name is resolved by `PublicOnlyResolver` (plugged into `ureq` as its resolver, so the check and
+  the connection use the same answer, redirects included), which keeps public addresses only; ports
+  80/443, three redirects, five seconds, 512 KiB, HTML only; and the instance's own host and parent
+  domain are never read (`RUCHOIR_UNFURL_DENY_HOSTS` adds more), because services published next to
+  it behind an address filter would otherwise be readable through it. Title and description only,
+  no image. `RUCHOIR_UNFURL_ENABLED=false` turns it off.
 - `src/notify/`   - reaching someone with no Ruchoir page open (ADR 0001). `prefs`: the notification
   preferences, held server-side (`user_preferences.notifications` for the person, the
   `channel_members` / `dm_participants` row for each conversation) and one rule, `allows`, shared by

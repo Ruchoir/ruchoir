@@ -87,11 +87,18 @@ export function Tooltip({ label, shortcut, side = "top", children, className = "
       setPos(place(side, anchor, (b?.width ?? 80) / z, (b?.height ?? 24) / z, window.innerWidth / z, window.innerHeight / z));
     };
     compute();
+    // Leaving the tab or the window closes it: nothing is hovered any more, and the focus the
+    // browser hands back on return must not reopen it (see `onFocus`).
+    const close = () => setOpen(false);
     window.addEventListener("scroll", compute, true);
     window.addEventListener("resize", compute);
+    window.addEventListener("blur", close);
+    document.addEventListener("visibilitychange", close);
     return () => {
       window.removeEventListener("scroll", compute, true);
       window.removeEventListener("resize", compute);
+      window.removeEventListener("blur", close);
+      document.removeEventListener("visibilitychange", close);
       // Reset in cleanup (a callback, not a synchronous effect-body setState) so the next open recomputes.
       setPos(null);
     };
@@ -104,7 +111,12 @@ export function Tooltip({ label, shortcut, side = "top", children, className = "
       style={{ display: "inline-flex" }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
+      // Only a keyboard focus opens it. A click also focuses the control, and coming back to the tab
+      // hands that focus back to it: opening on any focus left the tooltip of the last clicked control
+      // (the current space, typically) standing with the pointer nowhere near it.
+      onFocus={(e) => {
+        if (e.target instanceof Element && e.target.matches(":focus-visible")) setOpen(true);
+      }}
       onBlur={() => setOpen(false)}
     >
       {children}

@@ -14,6 +14,28 @@ const EMOJI_SIZE = 19;
  * When a message is nothing but emoji (and whitespace), render them larger (Slack/Discord "jumbo").
  * Returns the emoji count for such a message, or 0 when any other character is present.
  */
+
+/**
+ * Leave out the sentence punctuation that follows a link ("voir https://example.org."), keeping a
+ * closing bracket the link opened itself (`https://fr.wikipedia.org/wiki/Rust_(langage)`). The
+ * server applies the same rule when it picks the link to preview (`messaging/unfurl.rs`).
+ */
+function trimTrailing(url: string): string {
+  let end = url.length;
+  while (end > 0) {
+    const last = url[end - 1];
+    const head = url.slice(0, end);
+    const count = (c: string) => head.split(c).length - 1;
+    const drop =
+      ".,;:!?\"'>*_".includes(last) ||
+      (last === ")" && count("(") < count(")")) ||
+      (last === "]" && count("[") < count("]"));
+    if (!drop) break;
+    end -= 1;
+  }
+  return url.slice(0, end);
+}
+
 function jumboEmojiCount(text: string): number {
   let i = 0;
   let count = 0;
@@ -209,15 +231,19 @@ function renderInline(
     }
     if (text.startsWith("http", i)) {
       const m = /^https?:\/\/[^\s]+/.exec(text.slice(i));
-      if (m) {
+      const url = m ? trimTrailing(m[0]) : "";
+      if (url.length > "https://".length) {
         flush();
-        const url = m[0];
+        // A real link, in a new tab, with no referrer and no handle on this window. It used to be
+        // drawn with its click cancelled, a leftover of the mock-up, so a link did nothing at all.
         nodes.push(
           <a
             key={`${keyBase}-l${k++}`}
             className="wc-message-link"
             href={url}
-            onClick={(e) => e.preventDefault()}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            onClick={(e) => e.stopPropagation()}
           >
             {url}
           </a>,

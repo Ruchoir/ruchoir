@@ -2,14 +2,21 @@ import { Icon } from "@/components/ds";
 import type { LinkPreview } from "@/lib/data";
 
 /**
- * Link unfurl card. In this exploration the thumbnail is a placeholder: real unfurls are
- * fetched and stored server-side (see LinkPreview in lib/data/types), never in the browser.
+ * The preview of a message's first link: the site, the page's title and the start of its
+ * description, as the server read them (see `LinkPreview`). No image: the server fetches none, and
+ * the browser fetches nothing from the site at all.
+ *
+ * A real link, opened in a new tab, with no referrer and no handle on this window: the page on the
+ * other end learns nothing about where it was clicked from.
  */
 export function LinkPreviewCard({ link }: { link: LinkPreview }) {
   return (
     <a
       href={link.url}
-      onClick={(e) => e.preventDefault()}
+      target="_blank"
+      rel="noopener noreferrer nofollow"
+      // The row underneath reacts to clicks (focus, thread); the link is the only thing clicked.
+      onClick={(e) => e.stopPropagation()}
       style={{
         display: "flex",
         alignItems: "stretch",
@@ -24,10 +31,7 @@ export function LinkPreviewCard({ link }: { link: LinkPreview }) {
         cursor: "pointer",
       }}
     >
-      <span
-        aria-hidden
-        style={{ width: 4, flex: "none", background: "var(--border-strong)" }}
-      />
+      <span aria-hidden style={{ width: 4, flex: "none", background: "var(--border-strong)" }} />
       <span style={{ flex: 1, minWidth: 0, padding: "10px 12px" }}>
         <span
           style={{
@@ -42,20 +46,22 @@ export function LinkPreviewCard({ link }: { link: LinkPreview }) {
           <Icon name="globe" size={12} />
           {link.domain}
         </span>
-        <span
-          style={{
-            display: "block",
-            marginTop: 3,
-            fontSize: 14,
-            fontWeight: 600,
-            color: "var(--text-strong)",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {link.title}
-        </span>
+        {link.title ? (
+          <span
+            style={{
+              display: "block",
+              marginTop: 3,
+              fontSize: 14,
+              fontWeight: 600,
+              color: "var(--text-strong)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {link.title}
+          </span>
+        ) : null}
         {link.description ? (
           <span
             style={{
@@ -73,23 +79,6 @@ export function LinkPreviewCard({ link }: { link: LinkPreview }) {
           </span>
         ) : null}
       </span>
-      {link.hasImage ? (
-        <span
-          aria-hidden
-          style={{
-            width: 96,
-            flex: "none",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "var(--surface-sunken)",
-            borderLeft: "1px solid var(--border-subtle)",
-            color: "var(--grey-300)",
-          }}
-        >
-          <Icon name="image" size={22} />
-        </span>
-      ) : null}
     </a>
   );
 }

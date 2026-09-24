@@ -126,6 +126,33 @@ pub struct Config {
     /// How long, in seconds, an unread notification waits before the email fallback considers it.
     /// `0` turns the fallback off.
     pub notify_email_delay_secs: i64,
+    /// Whether the server reads the first link of a message to show a preview.
+    pub unfurl_enabled: bool,
+    /// Hosts whose links are never read for a preview (each also covers its subdomains). By default
+    /// this instance's own host and its parent domain: services published next to the instance behind
+    /// an address filter would otherwise be readable by this server on anyone's behalf.
+    pub unfurl_deny_hosts: Vec<String>,
+}
+
+/// This instance's host and, when it has one, its parent domain (`ruchoir.example.org` gives
+/// `ruchoir.example.org` and `example.org`, never a bare `org`).
+fn own_domains(public_base_url: &str) -> Vec<String> {
+    let host = public_base_url
+        .split_once("://")
+        .map_or(public_base_url, |(_, rest)| rest)
+        .split(['/', ':'])
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if host.is_empty() || host.parse::<IpAddr>().is_ok() {
+        return Vec::new();
+    }
+    let mut out = vec![host.clone()];
+    let labels: Vec<&str> = host.split('.').collect();
+    if labels.len() >= 3 {
+        out.push(labels[1..].join("."));
+    }
+    out
 }
 
 /// The push services of the major browsers: Chrome, Edge (and other Chromium browsers) through
@@ -296,6 +323,16 @@ impl Config {
         let notify_email_delay_secs: i64 = env_or("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS", "900")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS"))?;
+        let unfurl_enabled: bool = env_or("RUCHOIR_UNFURL_ENABLED", "true")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_UNFURL_ENABLED"))?;
+        let mut unfurl_deny_hosts = own_domains(&public_base_url);
+        unfurl_deny_hosts.extend(
+            env_or("RUCHOIR_UNFURL_DENY_HOSTS", "")
+                .split(',')
+                .map(|host| host.trim().trim_start_matches('.').to_ascii_lowercase())
+                .filter(|host| !host.is_empty()),
+        );
 
         Ok(Self {
             addr: SocketAddr::new(host, port),
@@ -347,6 +384,8 @@ impl Config {
             thumbnail_max_px,
             push_allowed_hosts,
             notify_email_delay_secs,
+            unfurl_enabled,
+            unfurl_deny_hosts,
         })
     }
 

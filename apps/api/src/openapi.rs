@@ -175,6 +175,7 @@ use utoipa::OpenApi;
         crate::auth::routes::OidcProviders,
         crate::messaging::dto::ReactionDto,
         crate::messaging::dto::MessageDto,
+        crate::messaging::dto::LinkPreviewDto,
         crate::messaging::dto::MessagePage,
         crate::messaging::dto::ChangesDto,
         crate::messaging::dto::SpaceDto,
