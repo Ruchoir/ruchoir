@@ -1,7 +1,8 @@
 //! Web Push: telling a browser with no Ruchoir page open that something is waiting.
 //!
-//! **Nothing about the message leaves the instance.** A push carries no payload at all: it only
-//! wakes the service worker (`apps/web/public/sw.js`), which then asks this API what to show
+//! **Nothing about the message leaves the instance.** A push carries only a constant marker,
+//! encrypted for the subscription ([`super::ece`]), and serves to wake
+//! the service worker (`apps/web/public/sw.js`), which then asks this API what to show
 //! ([`pending`]) over the same authenticated, same-origin connection the app uses. The push service
 //! of the browser's vendor, which the instance does not choose (see ADR 0001), learns that one of its
 //! subscribers received something at a given time, and nothing else: not who wrote, not where, not a
@@ -543,6 +544,14 @@ async fn send_one(
         forget(state, subscription.id).await;
         return false;
     };
+    // Keys that cannot be encrypted for were never a working subscription.
+    let Some(body) =
+        super::ece::encrypt(super::ece::WAKE, &subscription.p256dh, &subscription.auth)
+    else {
+        tracing::warn!(subscription = %subscription.id, "unusable push subscription keys; dropped");
+        forget(state, subscription.id).await;
+        return false;
+    };
     let authorization = keys.authorization(&audience, &subject(state), now);
     let endpoint = subscription.endpoint.clone();
     let result = tokio::task::spawn_blocking(move || {
@@ -551,21 +560,42 @@ async fn send_one(
             .header("Authorization", &authorization)
             .header("TTL", &PUSH_TTL_SECS.to_string())
             .header("Urgency", urgency)
-            // One topic per subscription: pushes still queued for an offline device collapse into
-            // one, and the worker draws everything unread when it finally wakes.
-            .header("Topic", "ruchoir-inbox")
-            .send_empty()
-            .map(|response| response.status().as_u16())
+            // No `Topic` header. It would collapse pushes queued for an offline device into one, but
+            // Apple refuses the push outright with a topic (`400 BadWebPushTopic`), and nothing is
+            // lost without it: the worker draws everything unread whenever it wakes.
+            .header("Content-Encoding", "aes128gcm")
+            .header("Content-Type", "application/octet-stream")
+            .send(&body[..])
+            .map(|mut response| {
+                let status = response.status().as_u16();
+                // The push services say why they refuse in the body (`{"reason": ...}` at Apple,
+                // a sentence elsewhere): kept, short, for the log.
+                let reason = if (200..300).contains(&status) {
+                    String::new()
+                } else {
+                    response
+                        .body_mut()
+                        .read_to_string()
+                        .unwrap_or_default()
+                        .chars()
+                        .take(300)
+                        .collect()
+                };
+                (status, reason)
+            })
     })
     .await;
 
     let outcome = match result {
-        Ok(Ok(200..=299)) => Outcome::Delivered,
+        Ok(Ok((200..=299, _))) => Outcome::Delivered,
         // 404/410: expired or unsubscribed. 401/403: the push service no longer accepts our key for
         // it. Either way it will never work again.
-        Ok(Ok(401 | 403 | 404 | 410)) => Outcome::Gone,
-        Ok(Ok(status)) => {
-            tracing::warn!(status, subscription = %subscription.id, "push service refused a push");
+        Ok(Ok((status @ (401 | 403 | 404 | 410), reason))) => {
+            tracing::info!(status, %reason, subscription = %subscription.id, "push subscription gone; dropped");
+            Outcome::Gone
+        }
+        Ok(Ok((status, reason))) => {
+            tracing::warn!(status, %reason, subscription = %subscription.id, "push service refused a push");
             Outcome::Failed
         }
         Ok(Err(error)) => {

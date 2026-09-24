@@ -5,12 +5,14 @@
 //! that point, for the person with no page open:
 //!
 //! - [`prefs`]: the notification preferences, held server-side so the server can obey them.
-//! - [`push`] and [`vapid`]: Web Push, payload-free, to browsers that subscribed (ADR 0001).
+//! - [`push`], [`vapid`] and [`ece`]: Web Push to browsers that subscribed (ADR 0001), carrying a
+//!   constant encrypted marker and never any content.
 //! - [`email`]: the digest of what is still unread after a while, through the instance's own relay.
 //!
 //! All three read the same rule ([`prefs::allows`]) so the app, the phone and the mailbox agree on
 //! what was worth saying.
 
+pub mod ece;
 pub mod email;
 pub mod prefs;
 pub mod push;

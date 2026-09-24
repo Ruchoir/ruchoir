@@ -3,8 +3,8 @@
 //! `endpoint` is the URL the browser's push service handed out for this subscription, and it is
 //! unique: the same browser subscribing again (or another account signing in on it) updates the row
 //! rather than adding a second one, so nobody is notified twice or on someone else's behalf.
-//! `p256dh` and `auth` are the subscription's encryption keys. Pushes carry no payload today, so
-//! they are kept for completeness rather than used. Rows go with the account.
+//! `p256dh` and `auth` are the subscription's encryption keys, which every push's constant marker is
+//! encrypted with (see `crate::notify::ece`). Rows go with the account.
 
 use sea_orm::entity::prelude::*;
 

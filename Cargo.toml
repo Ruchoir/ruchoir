@@ -136,10 +136,10 @@ pgp = "0.20"
 tar = "0.4"
 
 # --- Notifications past the open page (see docs/adr/0001-web-push.md) ---
-# P-256 ECDSA (RustCrypto, community) signs the VAPID token that identifies this instance to a
-# browser's push service (RFC 8292). Only the signing half is needed: pushes carry no payload, so
-# no ECDH or content encryption is pulled in.
-p256 = { version = "0.14.0", default-features = false, features = ["ecdsa", "std"] }
+# P-256 (RustCrypto, community): ECDSA signs the VAPID token that identifies this instance to a
+# browser's push service (RFC 8292), and ECDH encrypts each push's constant marker for the browser
+# (RFC 8291, with the `aes-gcm` and `hmac` crates already in the tree).
+p256 = { version = "0.14.0", default-features = false, features = ["ecdsa", "ecdh", "std"] }
 # Blocking HTTP client for the one outbound call the API makes, to a push service (ureq, maintained
 # in Sweden by Martin Algesten, MIT/Apache-2.0). Default features are replaced so TLS is rustls with
 # the `ring` provider and bundled roots (never aws-lc-rs), and nothing else (no gzip) is pulled.

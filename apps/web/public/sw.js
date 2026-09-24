@@ -6,8 +6,9 @@
  *
  * What it does, and nothing else:
  *
- * - **On a push, it asks the API what to show.** Pushes carry no payload (see ADR 0001 and
- *   `apps/api/src/notify/push.rs`): the vendor's push service only ever relays "something happened".
+ * - **On a push, it asks the API what to show.** A push carries only a constant marker (see ADR 0001
+ *   and `apps/api/src/notify/push.rs`), ignored here: the vendor's push service only ever relays
+ *   "something happened".
  *   The worker then calls `GET /api/v1/push/pending` with the session cookie, like the app does, and
  *   draws what comes back, in the account's language, already filtered by its preferences.
  * - **On a click, it brings the app forward** on the conversation the notification is about: an open

@@ -23,11 +23,14 @@ That collides with golden rule 2 ("no US or non-European hosted services at runt
 
 Web Push is adopted as a **documented, bounded exception** to golden rule 2:
 
-1. **No content ever leaves the instance.** Pushes carry no payload. They only wake the service
-   worker (`apps/web/public/sw.js`), which asks the instance what to show
+1. **No content ever leaves the instance.** A push carries a constant marker, encrypted for the
+   subscription (RFC 8291); it is the same for every push and says nothing. (Pushes were first
+   sent with no body at all; the marker is the form every push service handles.) No `Topic` header
+   is sent: Apple refuses a push that carries one (`400 BadWebPushTopic`). The marker's only use is
+   to wake the service worker (`apps/web/public/sw.js`), which asks the instance what to show
    (`GET /api/v1/push/pending`) over the same authenticated, same-origin connection the app uses.
    The vendor learns that one of its subscribers received something at a given time: not who wrote,
-   not where, not a word of it. No payload also means no content encryption to get right.
+   not where, not a word of it.
 2. **Opt-in, per person and per browser.** Nothing subscribes on load; a person turns it on from
    the preferences (or the one-time prompt after sign-in), for the browser they are using.
 3. **An administrator can refuse it for the whole instance** (`instance_settings.web_push_enabled`,
@@ -47,7 +50,8 @@ Web Push is adopted as a **documented, bounded exception** to golden rule 2:
 - The instance has a VAPID key pair (RFC 8292), generated on first use and stored encrypted with
   `RUCHOIR_SECRET_ENCRYPTION_KEY`. Changing that key regenerates the pair and drops every
   subscription; browsers subscribe again on their next visit.
-- One new outbound HTTPS call from the API (to a push service), made with `ureq` over rustls/`ring`.
+- One new outbound HTTPS call from the API (to a push service), made with `ureq` over rustls/`ring`,
+  and the RFC 8291 content encryption for the marker (`apps/api/src/notify/ece.rs`).
 - iPhone and iPad only offer Web Push to the app once it is added to the home screen, so the web
   client is now an installable PWA (manifest, icons, service worker) and says so on those devices.
 
@@ -55,7 +59,8 @@ Web Push is adopted as a **documented, bounded exception** to golden rule 2:
 
 - **Email only.** Fully sovereign, but a digest a quarter of an hour later is not a message
   notification. Kept as the fallback, not as the answer.
-- **Pushes with an encrypted payload** (RFC 8291). Also unreadable by the vendor, but it hands over
-  the ciphertext's size and needs content encryption server-side, for no gain over fetching.
+- **Pushes carrying the notification itself**, encrypted (RFC 8291). Unreadable by the vendor too,
+  but the ciphertext's size and timing follow the content. A constant marker plus a fetch leaks
+  nothing about the message, so the encryption is used for the marker only.
 - **Native apps with UnifiedPush.** Sovereign on Android with a self-hosted distributor, not
   available to a web app and not on iOS. To reconsider if native apps are ever built.
