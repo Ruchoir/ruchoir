@@ -277,6 +277,12 @@ export type Message = {
   /** Who pinned it, when it is pinned: only they (or a moderator) may take it down. */
   pinnedBy?: string;
   edited?: boolean;
+  /**
+   * When it was last edited (RFC 3339), when it was. A message edited long after it was sent says
+   * so beside the tag: "(modifié)" alone under yesterday's message does not tell the reader that its
+   * text changed this morning.
+   */
+  editedAt?: string;
   deleted?: boolean;
   /** Whether the current user saved (bookmarked) this message. */
   saved?: boolean;

@@ -463,6 +463,7 @@ export function ChannelScreen({
   // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one
   // place that holds the picture. Absent means the locally generated avatar, which is the default.
   const avatarByName = new Map(members.map((m) => [m.name, m.avatar] as const));
+  const userIdByName = new Map(members.map((m) => [m.name, m.userId] as const));
   const threadParent = threadId != null ? messages.find((m) => m.id === threadId) : undefined;
   /**
    * Everything a row can do, for one message. Shared: a reply in the thread panel is acted on
@@ -482,6 +483,9 @@ export function ChannelScreen({
     onEditProfile: () => actions.editProfile(m.author),
     onMessage: () => actions.message(m.author),
     onOpenMention: (name) => actions.openProfile(name),
+    onMessageMention: (name) => actions.message(name),
+    onEditMentionProfile: (name) => actions.editProfile(name),
+    mentionUserId: (name) => userIdByName.get(name),
     onOpenRoom: (name) => actions.openRoom(name),
     onToggleTask: (line, done) => actions.toggleTask(m.id, line, done),
   });

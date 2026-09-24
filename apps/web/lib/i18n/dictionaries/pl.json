@@ -364,6 +364,8 @@
     "savedTag": "Zapisana",
     "deleted": "Wiadomość usunięta",
     "editedTag": "(edytowano)",
+    "editedTagWhen": "(edytowano {{when}})",
+    "editedAt": "Edytowano {{at}}",
     "fileDeleted": "Plik usunięty · {{name}}",
     "openInNewTab": "Otwórz {{name}} w nowej karcie",
     "downloadNamed": "Pobierz {{name}}",

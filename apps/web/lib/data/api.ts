@@ -1297,6 +1297,7 @@ function toMessage(dto: MessageDto): ApiMessage {
     pinned: dto.pinned || undefined,
     pinnedBy: dto.pinned_by,
     edited: dto.edited || undefined,
+    editedAt: dto.edited_at,
     deleted: dto.deleted || undefined,
     saved: dto.saved || undefined,
   };

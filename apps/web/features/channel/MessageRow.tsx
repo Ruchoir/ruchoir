@@ -1,12 +1,13 @@
 "use client";
 
-import { type CSSProperties, useRef, useState } from "react";
-import { Avatar, brandFor, Card, Dialog, FileIcon, Icon, IconButton, IconLink, Popover, Tag } from "@/components/ds";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { Avatar, brandFor, Card, Dialog, FileIcon, Icon, IconButton, IconLink, Popover, Tag, Tooltip } from "@/components/ds";
 import { getCurrentUser, getMentionNames, getPresence, getSpaceRooms } from "@/lib/data";
 import type { ImportSource, Message, MessageAttachment } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
 import { UserProfileCard } from "../app/UserProfileCard";
+import { prefetchProfile } from "../app/useProfile";
 import { renderRichText } from "./richText";
 import { InlineImage } from "./InlineImage";
 import { LinkPreviewCard } from "./LinkPreviewCard";
@@ -14,7 +15,7 @@ import { MessageMenu } from "./MessageMenu";
 import { ReactionMenu } from "./ReactionMenu";
 import { ReadReceipt } from "./ReadReceipt";
 import { useTranslation } from "@/lib/i18n";
-import { formatBytes, formatDateTime, formatStamp, formatTime } from "@/lib/i18n/format";
+import { formatBytes, formatDateTime, formatRelativeStamp, formatStamp, formatTime, isSameDay } from "@/lib/i18n/format";
 
 /** Everything a message row can do. Grouped to keep the prop surface readable. */
 export type MessageActions = {
@@ -30,8 +31,14 @@ export type MessageActions = {
   onOpenProfile: () => void;
   onEditProfile: () => void;
   onMessage: () => void;
-  /** Open the profile of a user @-mentioned in the body. */
+  /** Open the full profile of a user @-mentioned in the body, from the card a mention opens. */
   onOpenMention: (name: string) => void;
+  /** Write to a user @-mentioned in the body, from the card a mention opens. */
+  onMessageMention: (name: string) => void;
+  /** Edit one's own profile, from the card opened on a mention of oneself. */
+  onEditMentionProfile: (name: string) => void;
+  /** The user id behind a mentioned name, so its card can load the real profile. */
+  mentionUserId: (name: string) => string | undefined;
   /** Follow a `#room` written in a message, to the channel it names. */
   onOpenRoom?: (name: string) => void;
   /** Tick or untick the checklist item on this line of the body. Author-only, like any edit. */
@@ -76,7 +83,8 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
   },
-  edited: { marginLeft: 6, fontSize: 12, color: "var(--text-subtle)" },
+  edited: { fontSize: 12, color: "var(--text-subtle)" },
+  editedLine: { display: "block", marginTop: 2 },
   attachmentName: {
     display: "block",
     minWidth: 0,
@@ -294,6 +302,30 @@ export function MessageRow({
   const [profileOpen, setProfileOpen] = useState(false);
   const [reactionsOpen, setReactionsOpen] = useState(false);
   const avatarRef = useRef<HTMLButtonElement>(null);
+  // A mention opens the same card as the author's avatar, hung under the mention itself. Clicking
+  // one used to replace the right panel with the full profile, which is a lot to lose (a thread, the
+  // members) for a glance at who someone is; the card offers the full profile as its next step.
+  // The clicked element is held in state (the body is drawn by a render helper, which may not touch
+  // a ref) and mirrored into a ref for the popover's outside-click test, which runs on events only.
+  const [mentionOpen, setMentionOpen] = useState<{ name: string; anchor: HTMLElement } | null>(null);
+  const mention = mentionOpen?.name ?? null;
+  const mentionRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    mentionRef.current = mentionOpen?.anchor ?? null;
+  }, [mentionOpen]);
+  // The card opens once its profile is in hand, so it is placed at its final size rather than
+  // growing (and jumping) after it appears. A failed read still opens it, on the name alone.
+  const openMention = (name: string, anchor: HTMLElement) => {
+    if (mentionOpen?.anchor === anchor) {
+      setMentionOpen(null);
+      return;
+    }
+    const userId = actions.mentionUserId(name);
+    const open = () => setMentionOpen({ name, anchor });
+    if (!userId) open();
+    else prefetchProfile(userId).then(open, open);
+  };
+  const setMention = (next: null) => setMentionOpen(next);
   const deleted = m.deleted;
   const me = getCurrentUser().name;
   const isOwn = m.author === me;
@@ -365,7 +397,14 @@ export function MessageRow({
           {hover ? gutterTime : ""}
         </span>
       ) : (
-        <button ref={avatarRef} style={avatarBtn} onClick={() => setProfileOpen((o) => !o)} aria-label={t("profile.of", { name: m.author })}>
+        <button
+          ref={avatarRef}
+          style={avatarBtn}
+          // Read ahead on hover, so the card opens at its final size (see `prefetchProfile`).
+          onMouseEnter={() => {
+            if (m.authorId) prefetchProfile(m.authorId).catch(() => {});
+          }}
+          onClick={() => setProfileOpen((o) => !o)} aria-label={t("profile.of", { name: m.author })}>
           <Avatar
             name={m.author}
             src={authorAvatar}
@@ -376,6 +415,34 @@ export function MessageRow({
       )}
       <Popover anchorRef={avatarRef} open={profileOpen} onClose={() => setProfileOpen(false)} placement="bottom" align="start">
         <UserProfileCard name={m.author} userId={m.authorId} presence={authorPresence} onViewFull={openProfileFromCard} onEditProfile={editProfileFromCard} onMessage={messageFromCard} />
+      </Popover>
+      <Popover
+        anchorRef={mentionRef}
+        getAnchorRect={() => mentionOpen?.anchor.getBoundingClientRect() ?? null}
+        open={mention !== null}
+        onClose={() => setMention(null)}
+        placement="bottom"
+        align="start"
+      >
+        {mention !== null ? (
+          <UserProfileCard
+            name={mention}
+            userId={actions.mentionUserId(mention)}
+            presence={getPresence(mention)}
+            onViewFull={() => {
+              setMention(null);
+              actions.onOpenMention(mention);
+            }}
+            onEditProfile={() => {
+              setMention(null);
+              actions.onEditMentionProfile(mention);
+            }}
+            onMessage={() => {
+              setMention(null);
+              actions.onMessageMention(mention);
+            }}
+          />
+        ) : null}
       </Popover>
       <div style={{ flex: 1, minWidth: 0 }}>
         {grouped ? null : (
@@ -430,7 +497,7 @@ export function MessageRow({
                   m.body,
                   getMentionNames(),
                   isOwn,
-                  actions.onOpenMention,
+                  openMention,
                   me,
                   { names: getSpaceRooms(), onOpen: actions.onOpenRoom },
                   // Only your own checklist is yours to tick: the API refuses an edit from anyone
@@ -438,7 +505,7 @@ export function MessageRow({
                   // that says up front it is not yours.
                   isOwn && !readOnly ? actions.onToggleTask : undefined,
                 )}
-                {m.edited ? <span style={styles.edited}>{t("message.editedTag")}</span> : null}
+                {m.edited ? <EditedTag createdAt={m.createdAt} editedAt={m.editedAt} /> : null}
               </div>
             ) : null}
 
@@ -575,5 +642,36 @@ export function MessageRow({
         </Dialog>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The "(modifié)" beside an edited body.
+ *
+ * An edit made the day the message was sent needs no date: the header above already says which day
+ * it is. One made on a later day does, or yesterday's message reads as yesterday's text when it
+ * changed this morning, so the tag carries when ("(modifié aujourd'hui, 10:12)"). Either way the
+ * exact moment is on hover. Rows that predate `editedAt` (an optimistic row, an old payload) keep
+ * the bare tag.
+ */
+function EditedTag({ createdAt, editedAt }: { createdAt: string; editedAt?: string }) {
+  const { t } = useTranslation();
+  if (!editedAt) {
+    return (
+      <span style={styles.editedLine}>
+        <span style={styles.edited}>{t("message.editedTag")}</span>
+      </span>
+    );
+  }
+  const label = isSameDay(createdAt, editedAt)
+    ? t("message.editedTag")
+    : t("message.editedTagWhen", { when: formatRelativeStamp(editedAt) });
+  return (
+    // Its own line under the body: after a long last line, inline, it read as part of the text.
+    <span style={styles.editedLine}>
+      <Tooltip label={t("message.editedAt", { at: formatDateTime(editedAt) })}>
+        <span style={styles.edited}>{label}</span>
+      </Tooltip>
+    </span>
   );
 }
