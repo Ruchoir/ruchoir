@@ -577,6 +577,9 @@ pub async fn delete_message(
         )
         .await;
 
+    // A deleted message keeps no preview, and its thumbnail goes when nothing else shows it.
+    super::unfurl::refresh(&state, message_id);
+
     Ok(Json(dto))
 }
 

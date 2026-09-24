@@ -225,7 +225,8 @@ context and takes precedence here.
   the site's colour (`theme-color` as plain hex, else the dominant vivid colour of its image) and a
   JPEG thumbnail of its `og:image`, fetched through the same fence, re-encoded (never stored as
   received), kept in the object store under `link-previews/<sha256 of the image URL>.jpg` and served
-  by `GET /link-previews/{id}/image` to members of the conversation only.
+  by `GET /link-previews/{id}/image` to members of the conversation only. A thumbnail (about 13 KB) is removed from the
+  store with the last preview that shows it; every failed fetch is logged as a warning with why.
   `RUCHOIR_UNFURL_ENABLED=false` turns it off.
 - `src/notify/`   - reaching someone with no Ruchoir page open (ADR 0001). `prefs`: the notification
   preferences, held server-side (`user_preferences.notifications` for the person, the

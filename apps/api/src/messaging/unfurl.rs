@@ -26,6 +26,11 @@
 //! announce itself as an image, is read up to 5 MiB, decoded and re-encoded as a JPEG thumbnail
 //! (never stored as received), and kept in the object store under a name derived from its URL. It
 //! is served from this instance by [`preview_image`], to members of the conversation only.
+//!
+//! A thumbnail is about 13 KB, and one image shared many times is stored once. It is removed from the
+//! store when the last preview showing it goes (the link edited away, the message deleted), so the
+//! store stays the size of what is on screen. Every failure (a page that is not HTML, an address
+//! refused, a timeout) is logged as a warning with its reason.
 
 use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr};
@@ -455,28 +460,30 @@ pub fn summarise(html: &str) -> PageSummary {
     }
 }
 
-/// Fetch a page and summarise it. `None` for anything that is not a readable HTML page.
-fn fetch(url: &str, user_agent: &str) -> Option<PageSummary> {
+/// Fetch a page and summarise it, or say why it could not be: the reason goes to the log, so a
+/// link without a preview can be explained without guessing.
+fn fetch(url: &str, user_agent: &str) -> Result<PageSummary, String> {
     use ureq::ResponseExt;
     let mut response = agent()
         .get(url)
         .header("User-Agent", user_agent)
         .header("Accept", "text/html,application/xhtml+xml")
         .call()
-        .ok()?;
+        .map_err(|e| match e {
+            ureq::Error::HostNotFound => "not a public address, or no such host".to_owned(),
+            other => other.to_string(),
+        })?;
     if !response.status().is_success() {
-        return None;
+        return Err(format!("status {}", response.status().as_u16()));
     }
-    let is_html = response
+    let content_type = response
         .headers()
         .get("content-type")
         .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| {
-            let v = v.to_ascii_lowercase();
-            v.contains("text/html") || v.contains("application/xhtml")
-        });
-    if !is_html {
-        return None;
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !(content_type.contains("text/html") || content_type.contains("application/xhtml")) {
+        return Err(format!("not an HTML page ({content_type})"));
     }
     // Relative references resolve against where the page ended up, after any redirect.
     let page = response.get_uri().clone();
@@ -486,28 +493,39 @@ fn fetch(url: &str, user_agent: &str) -> Option<PageSummary> {
         .as_reader()
         .take(MAX_BYTES)
         .read_to_end(&mut bytes)
-        .ok()?;
+        .map_err(|e| e.to_string())?;
     let mut summary = summarise(&String::from_utf8_lossy(&bytes));
     summary.image = summary.image.and_then(|image| resolve(&page, &image));
-    (summary.title.is_some() || summary.description.is_some()).then_some(summary)
+    if summary.title.is_none() && summary.description.is_none() {
+        return Err("no title or description in the page".to_owned());
+    }
+    Ok(summary)
 }
 
 /// Fetch a preview image and reduce it to a JPEG thumbnail: `(thumbnail, width, height)`, the size
-/// being the original's. `None` for anything that is not a decodable image of reasonable size.
-fn fetch_image(url: &str, user_agent: &str) -> Option<(Vec<u8>, u32, u32)> {
+/// being the original's. An error, with its reason, for anything but a decodable image of
+/// reasonable size.
+fn fetch_image(url: &str, user_agent: &str) -> Result<(Vec<u8>, u32, u32), String> {
     let mut response = agent()
         .get(url)
         .header("User-Agent", user_agent)
         .header("Accept", "image/*")
         .call()
-        .ok()?;
-    let is_image = response
+        .map_err(|e| match e {
+            ureq::Error::HostNotFound => "not a public address, or no such host".to_owned(),
+            other => other.to_string(),
+        })?;
+    if !response.status().is_success() {
+        return Err(format!("status {}", response.status().as_u16()));
+    }
+    let content_type = response
         .headers()
         .get("content-type")
         .and_then(|v| v.to_str().ok())
-        .is_some_and(|v| v.to_ascii_lowercase().starts_with("image/"));
-    if !response.status().is_success() || !is_image {
-        return None;
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if !content_type.starts_with("image/") {
+        return Err(format!("not an image ({content_type})"));
     }
     let mut bytes = Vec::new();
     response
@@ -515,12 +533,13 @@ fn fetch_image(url: &str, user_agent: &str) -> Option<(Vec<u8>, u32, u32)> {
         .as_reader()
         .take(MAX_IMAGE_BYTES + 1)
         .read_to_end(&mut bytes)
-        .ok()?;
+        .map_err(|e| e.to_string())?;
     if bytes.len() as u64 > MAX_IMAGE_BYTES {
-        return None;
+        return Err("larger than 5 MiB".to_owned());
     }
-    let info = crate::files::thumbnail::make_thumbnail(&bytes, THUMBNAIL_PX).ok()?;
-    Some((info.thumbnail, info.width, info.height))
+    let info = crate::files::thumbnail::make_thumbnail(&bytes, THUMBNAIL_PX)
+        .map_err(|e| format!("not a decodable image: {e}"))?;
+    Ok((info.thumbnail, info.width, info.height))
 }
 
 /// Whether a colour would vanish on a light card: every channel near white.
@@ -569,24 +588,61 @@ fn image_key(image_url: &str) -> String {
 }
 
 /// The thumbnail of a page's preview image, stored and ready: `(key, width, height)`.
+///
+/// Without it the card is drawn without an image, and the reason is logged.
 async fn store_image(
     state: &AppState,
     image_url: String,
     user_agent: String,
 ) -> Option<(StoredImage, Option<String>)> {
     let storage = state.storage.clone()?;
-    fetchable_host(&image_url, &state.config.unfurl_deny_hosts)?;
+    if fetchable_host(&image_url, &state.config.unfurl_deny_hosts).is_none() {
+        tracing::warn!(image = %image_url, "link preview image not fetched: address refused");
+        return None;
+    }
     let key = image_key(&image_url);
-    let (thumbnail, width, height, accent) = tokio::task::spawn_blocking(move || {
-        let (thumbnail, width, height) = fetch_image(&image_url, &user_agent)?;
+    let target = image_url.clone();
+    let fetched = tokio::task::spawn_blocking(move || {
+        let (thumbnail, width, height) = fetch_image(&target, &user_agent)?;
         let accent = accent_from_image(&thumbnail);
-        Some((thumbnail, width, height, accent))
+        Ok::<_, String>((thumbnail, width, height, accent))
     })
     .await
-    .ok()
-    .flatten()?;
-    storage.put(&key, &thumbnail, "image/jpeg").await.ok()?;
+    .map_err(|e| e.to_string())
+    .and_then(|result| result);
+    let (thumbnail, width, height, accent) = match fetched {
+        Ok(fetched) => fetched,
+        Err(reason) => {
+            tracing::warn!(image = %image_url, %reason, "link preview image not fetched");
+            return None;
+        }
+    };
+    if let Err(error) = storage.put(&key, &thumbnail, "image/jpeg").await {
+        tracing::warn!(%error, "link preview image not stored");
+        return None;
+    }
     Some(((key, width as i32, height as i32), accent))
+}
+
+/// Remove a thumbnail from the object store once no preview points at it any more.
+///
+/// Thumbnails are shared between the previews of the same image (the key comes from the image's
+/// address), so one is removed only with its last user. About 13 KB each: this keeps the store the
+/// size of what is actually shown, instead of growing with every link ever edited away or deleted.
+async fn forget_image(state: &AppState, key: &str) {
+    let still_used = message_link_previews::Entity::find()
+        .filter(message_link_previews::Column::ImageKey.eq(key))
+        .one(&state.db)
+        .await;
+    match (still_used, state.storage.as_ref()) {
+        (Ok(None), Some(storage)) => {
+            if let Err(error) = storage.delete(key).await {
+                tracing::warn!(%error, %key, "link preview image not removed");
+            }
+        }
+        (Err(error), _) => tracing::warn!(%error, "link preview image left in place"),
+        _ => {}
+    }
 }
 
 /// A stored thumbnail: its key, and the original image's width and height.
@@ -602,7 +658,7 @@ pub fn refresh(state: &AppState, message_id: Uuid) {
     let state = state.clone();
     tokio::spawn(async move {
         if let Err(error) = run(&state, message_id).await {
-            tracing::debug!(?error, %message_id, "link preview not updated");
+            tracing::warn!(?error, %message_id, "link preview not updated");
         }
     });
 }
@@ -633,6 +689,9 @@ async fn run(state: &AppState, message_id: Uuid) -> Result<(), super::error::Api
         message_link_previews::Entity::delete_by_id(old.id)
             .exec(&state.db)
             .await?;
+        if let Some(key) = old.image_key.as_deref() {
+            forget_image(state, key).await;
+        }
         changed = true;
     }
 
@@ -672,10 +731,10 @@ async fn run(state: &AppState, message_id: Uuid) -> Result<(), super::error::Api
                 let agent_name = user_agent.clone();
                 let summary = tokio::task::spawn_blocking(move || fetch(&target, &agent_name))
                     .await
-                    .ok()
-                    .flatten();
+                    .map_err(|e| e.to_string())
+                    .and_then(|result| result);
                 match summary {
-                    Some(mut summary) => {
+                    Ok(mut summary) => {
                         let stored = match summary.image.clone() {
                             Some(image_url) => store_image(state, image_url, user_agent).await,
                             None => None,
@@ -687,7 +746,10 @@ async fn run(state: &AppState, message_id: Uuid) -> Result<(), super::error::Api
                         }
                         Some((summary, stored.map(|(image, _)| image)))
                     }
-                    None => None,
+                    Err(reason) => {
+                        tracing::warn!(%url, %reason, "no link preview");
+                        None
+                    }
                 }
             }
         };
@@ -931,7 +993,7 @@ mod tests {
         ] {
             let summary = fetch(url, "Mozilla/5.0 (compatible; RuchoirLinkPreview/1.0)");
             println!("{url}: {summary:?}");
-            assert!(summary.is_some_and(|s| s.title.is_some()), "{url}");
+            assert!(summary.is_ok_and(|s| s.title.is_some()), "{url}");
         }
         for url in [
             "https://www.youtube.com/",
@@ -945,7 +1007,7 @@ mod tests {
                 "  image {image}: {:?}",
                 thumbnail.as_ref().map(|(b, w, h)| (b.len(), w, h))
             );
-            assert!(thumbnail.is_some(), "{image}");
+            assert!(thumbnail.is_ok(), "{image}");
         }
     }
 
