@@ -1457,6 +1457,11 @@ impl BlobSink for crate::storage::S3Store {
 /// A blob is written once even when several accounts held the same file: the archive already
 /// deduplicated by digest, and so does this.
 ///
+/// **Each file lands where the same file sent here would** (see [`Place`]). The first version put
+/// every file of every archive at the root of the first space, where anybody in that space could
+/// read it: an attachment from a private channel or a direct conversation came out of the import
+/// published to the whole space, and a second workspace's files landed in the first one.
+///
 /// This form reads the file records itself, which only the tests need: they start from an archive
 /// and nothing else. The run already holds the records and goes through [`import_files_from`].
 #[cfg(test)]
@@ -1477,9 +1482,240 @@ pub async fn import_files<C: ConnectionTrait, S: BlobSink>(
         archive,
         passphrase,
         spaces_by_source,
-        &index.files,
+        &index,
     )
     .await
+}
+
+/// Where one imported file lands, decided the way an upload decides it.
+///
+/// Decided before the bytes are read, and made real (a folder found or created) only once they are
+/// stored: the order the whole pass keeps, so that a store refusing leaves no row behind, not even
+/// an empty folder.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Place {
+    /// The folder the product keeps a public channel's attachments in: the space already reads
+    /// that channel's history, so it reads what was sent there too.
+    Attachments { space: Uuid },
+    /// A folder of the space's files, by its names from the root; none, for the root itself.
+    Tree { space: Uuid, folder: Vec<String> },
+    /// Readable by one conversation's people only, and kept out of the space's files: what a file
+    /// sent in a private channel or a direct conversation is here.
+    Conversation { space: Uuid, conversation: Uuid },
+}
+
+impl Place {
+    fn space(&self) -> Uuid {
+        match self {
+            Place::Attachments { space }
+            | Place::Tree { space, .. }
+            | Place::Conversation { space, .. } => *space,
+        }
+    }
+}
+
+/// Decides the [`Place`] of each file, remembering what it already worked out: a conversation's
+/// audience is looked up once however many files were sent in it, and a folder is found or made
+/// once however many files it holds.
+struct Placer<'a> {
+    index: &'a Index,
+    spaces_by_source: &'a [(String, Uuid)],
+    channels: std::collections::HashMap<&'a str, &'a super::archive::ChannelRecord>,
+    conversations: std::collections::HashMap<String, Option<Place>>,
+    folders: std::collections::HashMap<(Uuid, Option<Uuid>, String), Uuid>,
+}
+
+impl<'a> Placer<'a> {
+    fn new(index: &'a Index, spaces_by_source: &'a [(String, Uuid)]) -> Self {
+        Self {
+            index,
+            spaces_by_source,
+            channels: index.channels.iter().map(|c| (c.id.as_str(), c)).collect(),
+            conversations: std::collections::HashMap::new(),
+            folders: std::collections::HashMap::new(),
+        }
+    }
+
+    fn space(&self, source_id: &str) -> Option<Uuid> {
+        self.spaces_by_source
+            .iter()
+            .find(|(id, _)| id == source_id)
+            .map(|(_, space)| *space)
+    }
+
+    /// Where `file` goes, or `None` when there is nowhere it may safely go: the conversation it was
+    /// sent in, or the space it belongs to, did not cross. Leaving it behind is the only answer
+    /// that cannot show it to the wrong people.
+    async fn place<C: ConnectionTrait>(
+        &mut self,
+        db: &C,
+        mapper: &Mapper<'_>,
+        file: &super::archive::FileRecord,
+    ) -> Result<Option<Place>> {
+        let sent_in = file
+            .channel
+            .as_deref()
+            .or_else(|| self.index.attached_in.get(&file.id).map(String::as_str));
+        if let Some(conversation) = sent_in {
+            if let Some(known) = self.conversations.get(conversation) {
+                return Ok(known.clone());
+            }
+            let place = self.conversation_place(db, mapper, conversation).await?;
+            self.conversations
+                .insert(conversation.to_owned(), place.clone());
+            return Ok(place);
+        }
+
+        // Nobody sent it anywhere: it is a space's file, like an account's documents or a shared
+        // library, and lands in the space tree where the archive says.
+        let space = match &file.space {
+            Some(source_id) => self.space(source_id),
+            None => self.spaces_by_source.first().map(|(_, space)| *space),
+        };
+        let Some(space) = space else {
+            return Ok(None);
+        };
+        let folder = file
+            .folder
+            .as_deref()
+            .and_then(super::check::folder_names)
+            .map(|names| names.into_iter().map(str::to_owned).collect())
+            .unwrap_or_default();
+        Ok(Some(Place::Tree { space, folder }))
+    }
+
+    /// The folder `place` puts a file in, found or made now that the file's bytes are stored, and
+    /// the conversation it is restricted to, if any.
+    async fn settle<C: ConnectionTrait>(
+        &mut self,
+        db: &C,
+        place: &Place,
+    ) -> Result<(Option<Uuid>, Option<Uuid>)> {
+        match place {
+            Place::Attachments { space } => Ok((
+                Some(crate::files::uploads::attachments_folder(db, *space, None).await?),
+                None,
+            )),
+            Place::Tree { folder, .. } if folder.is_empty() => Ok((None, None)),
+            Place::Tree { space, folder } => {
+                Ok((Some(self.folder(db, *space, folder).await?), None))
+            }
+            Place::Conversation { conversation, .. } => Ok((None, Some(*conversation))),
+        }
+    }
+
+    /// The place of a file sent in `conversation`: the space's attachments folder for a public
+    /// channel, whose history the whole space already reads, and the conversation's own people for
+    /// anything else.
+    async fn conversation_place<C: ConnectionTrait>(
+        &self,
+        db: &C,
+        mapper: &Mapper<'_>,
+        conversation: &str,
+    ) -> Result<Option<Place>> {
+        let Some(record) = self.channels.get(conversation) else {
+            return Ok(None);
+        };
+        let Some(space) = self.space(&record.space) else {
+            return Ok(None);
+        };
+        let Some(conversation_id) = mapper
+            .resolve(db, KIND_CHANNEL, conversation, Some(space))
+            .await?
+        else {
+            return Ok(None);
+        };
+
+        let public = record.kind == "channel"
+            && match channels::Entity::find_by_id(conversation_id)
+                .one(db)
+                .await?
+            {
+                // A channel this instance already had and the import filled: its own type is the
+                // truth, since the people using it may have made it private.
+                Some(row) if row.channel_type == "public" => true,
+                Some(row) if row.channel_type == "private" => false,
+                // Archived here, which says nothing about who could read it there: the archive's
+                // word decides.
+                _ => record.visibility == "public",
+            };
+
+        if public {
+            Ok(Some(Place::Attachments { space }))
+        } else {
+            Ok(Some(Place::Conversation {
+                space,
+                conversation: conversation_id,
+            }))
+        }
+    }
+
+    /// The folder at `names` in `space`, outermost first, found or made one level at a time.
+    ///
+    /// A folder already there under the same name is taken rather than doubled, the way an import
+    /// fills a channel of the same name: a second run finds the folders the first one made, and a
+    /// space that already had a "Projets" gets the archive's projects inside it rather than a
+    /// second "Projets" beside it.
+    async fn folder<C: ConnectionTrait>(
+        &mut self,
+        db: &C,
+        space: Uuid,
+        names: &[String],
+    ) -> Result<Uuid> {
+        let mut parent: Option<Uuid> = None;
+        for name in names {
+            let key = (space, parent, name.clone());
+            if let Some(known) = self.folders.get(&key) {
+                parent = Some(*known);
+                continue;
+            }
+            let mut query = files::Entity::find()
+                .filter(files::Column::SpaceId.eq(space))
+                .filter(files::Column::Kind.eq("folder"))
+                .filter(files::Column::Name.eq(name.as_str()))
+                .filter(files::Column::ConversationId.is_null())
+                .filter(files::Column::SystemKey.is_null())
+                .filter(files::Column::DeletedAt.is_null());
+            query = match parent {
+                Some(id) => query.filter(files::Column::ParentFolderId.eq(id)),
+                None => query.filter(files::Column::ParentFolderId.is_null()),
+            };
+            let id = match query.one(db).await? {
+                Some(existing) => existing.id,
+                None => {
+                    let id = Uuid::new_v4();
+                    let now = OffsetDateTime::now_utc();
+                    files::ActiveModel {
+                        id: Set(id),
+                        space_id: Set(space),
+                        owner_id: Set(None),
+                        name: Set(name.clone()),
+                        kind: Set("folder".to_owned()),
+                        parent_folder_id: Set(parent),
+                        size_bytes: Set(0),
+                        imported_source: Set(Some(self.source().to_owned())),
+                        created_at: Set(now),
+                        updated_at: Set(now),
+                        ..Default::default()
+                    }
+                    .insert(db)
+                    .await?;
+                    id
+                }
+            };
+            self.folders.insert(key, id);
+            parent = Some(id);
+        }
+        parent.ok_or_else(|| RunError::Db("a folder with no name".to_owned()))
+    }
+
+    fn source(&self) -> &str {
+        self.index
+            .manifest
+            .as_ref()
+            .map(|manifest| manifest.source.as_str())
+            .unwrap_or_default()
+    }
 }
 
 /// The same pass, for a caller that has already read the file records.
@@ -1501,24 +1737,17 @@ pub async fn import_files_from<C: ConnectionTrait, S: BlobSink>(
     archive: &std::path::Path,
     passphrase: Option<&str>,
     spaces_by_source: &[(String, Uuid)],
-    records: &[super::archive::FileRecord],
+    index: &Index,
 ) -> Result<Written> {
     let mut written = Written::default();
-
-    // A file belongs to the space its conversation is in, and to the first space of the archive
-    // when it belongs to no conversation: an account's files are not scoped to a room.
-    let Some((_, default_space)) = spaces_by_source.first() else {
-        return Ok(written);
-    };
-    let space_id = *default_space;
+    let mut placer = Placer::new(index, spaces_by_source);
 
     // What is left to do, by the digest of its bytes. A resumed run does not read again the bytes
     // of the files it already stored, and two records sharing one blob are served by one read.
-    let mut pending: std::collections::HashMap<String, Vec<&super::archive::FileRecord>> =
+    let mut pending: std::collections::HashMap<String, Vec<(&super::archive::FileRecord, Place)>> =
         std::collections::HashMap::new();
-    for file in records {
-        if mapper
-            .resolve(db, KIND_FILE, &file.id, Some(space_id))
+    for file in &index.files {
+        if find_file(db, mapper, &file.id, spaces_by_source)
             .await?
             .is_some()
         {
@@ -1529,7 +1758,15 @@ pub async fn import_files_from<C: ConnectionTrait, S: BlobSink>(
             written.files_seen += 1;
             continue;
         };
-        pending.entry(digest.to_owned()).or_default().push(file);
+        let Some(place) = placer.place(db, mapper, file).await? else {
+            // Its conversation or its space stayed behind, so the file does too.
+            written.files_seen += 1;
+            continue;
+        };
+        pending
+            .entry(digest.to_owned())
+            .or_default()
+            .push((file, place));
     }
     // Said before the first byte is read: on a resumed run, most of the files may be here already.
     note_done(db, mapper.job_id, Counter::Files, written.files_seen).await?;
@@ -1563,8 +1800,18 @@ pub async fn import_files_from<C: ConnectionTrait, S: BlobSink>(
             let Some(files) = pending.remove(&digest) else {
                 continue;
             };
-            for file in files {
-                store_file(db, mapper, blobs, space_id, file, &digest, &bytes).await?;
+            for (file, place) in files {
+                store_file(
+                    db,
+                    mapper,
+                    blobs,
+                    &mut placer,
+                    &place,
+                    file,
+                    &digest,
+                    &bytes,
+                )
+                .await?;
                 written.files_created += 1;
                 written.files_seen += 1;
                 note_every(db, mapper.job_id, Counter::Files, written.files_seen).await?;
@@ -1578,7 +1825,7 @@ pub async fn import_files_from<C: ConnectionTrait, S: BlobSink>(
 
         // The checks refuse an archive whose file record points at bytes it does not carry, so
         // reaching this means the archive changed under us. Stopping is the only safe answer.
-        if let Some(file) = pending.values().flatten().next() {
+        if let Some((file, _)) = pending.values().flatten().next() {
             return Err(RunError::Storage(format!(
                 "{} has no bytes in the archive any more",
                 file.name
@@ -1590,16 +1837,41 @@ pub async fn import_files_from<C: ConnectionTrait, S: BlobSink>(
     Ok(written)
 }
 
+/// The file an earlier run wrote for this source identifier, in whichever space it went to.
+///
+/// A file is recorded under the space it lands in, and an archive can carry several. Runs before
+/// files were placed recorded every file under the first space, which is one of the spaces asked
+/// here, so resuming one of those does not store its files a second time.
+async fn find_file<C: ConnectionTrait>(
+    db: &C,
+    mapper: &Mapper<'_>,
+    source_id: &str,
+    spaces_by_source: &[(String, Uuid)],
+) -> Result<Option<Uuid>> {
+    for (_, space) in spaces_by_source {
+        if let Some(found) = mapper
+            .resolve(db, KIND_FILE, source_id, Some(*space))
+            .await?
+        {
+            return Ok(Some(found));
+        }
+    }
+    Ok(None)
+}
+
 /// One file: its bytes, then the rows that describe them, then the correspondence.
+#[allow(clippy::too_many_arguments)]
 async fn store_file<C: ConnectionTrait, S: BlobSink>(
     db: &C,
     mapper: &Mapper<'_>,
     blobs: &Blobs<'_, S>,
-    space_id: Uuid,
+    placer: &mut Placer<'_>,
+    place: &Place,
     file: &super::archive::FileRecord,
     digest: &str,
     bytes: &[u8],
 ) -> Result<()> {
+    let space_id = place.space();
     let owner = match &file.uploaded_by {
         Some(source_id) => mapper.resolve(db, KIND_USER, source_id, None).await?,
         None => None,
@@ -1651,6 +1923,7 @@ async fn store_file<C: ConnectionTrait, S: BlobSink>(
         .as_deref()
         .map(parse_instant)
         .unwrap_or_else(OffsetDateTime::now_utc);
+    let (parent_folder_id, conversation_id) = placer.settle(db, place).await?;
 
     files::ActiveModel {
         id: Set(file_id),
@@ -1661,8 +1934,9 @@ async fn store_file<C: ConnectionTrait, S: BlobSink>(
         // product shows an image inline and a document as a card, and an imported photograph filed
         // as a plain "file" came out as a card next to the same photograph uploaded here.
         kind: Set(crate::files::mime::kind_for_mime(&file.content_type).to_owned()),
-        parent_folder_id: Set(None),
-        conversation_id: Set(None),
+        parent_folder_id: Set(parent_folder_id),
+        // Who may read it, in one column, exactly as an upload decides it.
+        conversation_id: Set(conversation_id),
         system_key: Set(None),
         current_version_id: Set(None),
         size_bytes: Set(file.size),
@@ -1729,9 +2003,6 @@ pub async fn attach_files<C: ConnectionTrait>(
     spaces_by_source: &[(String, Uuid)],
 ) -> Result<Written> {
     let mut written = Written::default();
-    let Some((_, default_space)) = spaces_by_source.first() else {
-        return Ok(written);
-    };
 
     let mut records = Vec::new();
     super::archive::walk(archive, passphrase, |member| {
@@ -1756,9 +2027,7 @@ pub async fn attach_files<C: ConnectionTrait>(
             }
             let (Some(message_id), Some(file_id)) = (
                 message_id,
-                mapper
-                    .resolve(db, KIND_FILE, reference, Some(*default_space))
-                    .await?,
+                find_file(db, mapper, reference, spaces_by_source).await?,
             ) else {
                 continue;
             };

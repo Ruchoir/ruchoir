@@ -140,6 +140,7 @@ def validate(archive: Path) -> Report:
     _check_channels(channels, spaces, users, report)
     _check_messages(messages, channels, users, files, report)
     _check_files(archive, files, messages, report)
+    _check_file_places(files, spaces, channels, messages, report)
     _check_member_state(channels, messages, report)
 
     return report
@@ -335,6 +336,45 @@ def _check_files(archive, files, messages, report) -> None:
         for blob in blobs_dir.rglob("*"):
             if blob.is_file() and blob.name not in referenced_blobs:
                 report.error(f"blobs/{blob.parent.name}/{blob.name} is in the archive and nothing points at it")
+
+
+def folder_names(path) -> list[str] | None:
+    """The folder names in a `folder`, outermost first, or None when one could not be a folder."""
+    if not isinstance(path, str):
+        return None
+    names = [name.strip() for name in path.split("/")]
+    if any(name in ("", ".", "..") for name in names):
+        return None
+    return names
+
+
+def _check_file_places(files, spaces, channels, messages, report) -> None:
+    """Where each file lands, which decides who can read it.
+
+    A file sent in a conversation goes where the same file sent there would, and one sent in a
+    private conversation is its people's alone. A file placed wrongly is either lost or shown to
+    people who were never meant to see it, so every way of naming its place is checked.
+    """
+    sent_in: set[str] = set()
+    for message in messages.values():
+        sent_in.update(message.get("files") or [])
+
+    for identifier, entry in files.items():
+        channel = entry.get("channel")
+        space = entry.get("space")
+        if channel is not None:
+            if channel not in channels:
+                report.error(f"file {identifier}: sent in conversation {channel!r}, which is not in channels.jsonl")
+            elif space is not None and channels[channel].get("space") != space:
+                report.error(f"file {identifier}: its space is not the space of the conversation it was sent in")
+        if space is not None and space not in spaces:
+            report.error(f"file {identifier}: space {space!r} is not in spaces.jsonl")
+        folder = entry.get("folder")
+        if folder is not None:
+            if channel is not None or identifier in sent_in:
+                report.error(f"file {identifier}: sent in a conversation, so it has no folder of its own")
+            if folder_names(folder) is None:
+                report.error(f"file {identifier}: folder {folder!r} is not a list of folder names joined by /")
 
 
 def _check_member_state(channels, messages, report) -> None:

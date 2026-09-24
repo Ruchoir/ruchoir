@@ -13,7 +13,7 @@
 //! small tables; the run makes another over the messages. Opening twice is cheaper, and far
 //! simpler, than holding the whole thing.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
@@ -205,6 +205,19 @@ pub struct FileRecord {
     pub uploaded_by: Option<String>,
     #[serde(default)]
     pub uploaded_at: Option<String>,
+    /// The conversation the file was sent in, when the producer says so. When it does not, the
+    /// conversation of the first message carrying the file stands in (see [`Index::attached_in`]).
+    /// Either way, it decides who may read the file.
+    #[serde(default)]
+    pub channel: Option<String>,
+    /// The space a file belonging to no conversation lives in. Absent, it is the first space of the
+    /// archive, which is the only one a single-workspace source has.
+    #[serde(default)]
+    pub space: Option<String>,
+    /// Where in that space's files it sits, as folder names joined by `/`. Only for a file belonging
+    /// to no conversation: one sent in a conversation goes where the same file sent here would.
+    #[serde(default)]
+    pub folder: Option<String>,
 }
 
 fn yes() -> bool {
@@ -223,6 +236,13 @@ pub struct Index {
     pub channels: Vec<ChannelRecord>,
     pub files: Vec<FileRecord>,
     pub message_count: usize,
+    /// For each file a message carries, the conversation of the first message carrying it.
+    ///
+    /// Collected while the messages go past on their way to being counted, because the file pass
+    /// needs it before any message is read again: a file sent in a private conversation is readable
+    /// by that conversation's people only, and several producers leave `channel` off the file
+    /// record, so the message is the only place that says where it was sent.
+    pub attached_in: HashMap<String, String>,
     /// The digest of each JSONL member as it was actually read, so the manifest's claim about
     /// itself can be checked. Small files, so hashing them at analysis costs nothing; the blobs
     /// are verified during the run instead, when their bytes are being read anyway.
@@ -300,7 +320,15 @@ pub fn index(path: &Path, passphrase: Option<&str>) -> Result<Index> {
             Member::User(u) => index.users.push(u),
             Member::Channel(c) => index.channels.push(c),
             Member::File(f) => index.files.push(f),
-            Member::Message(_) => index.message_count += 1,
+            Member::Message(message) => {
+                index.message_count += 1;
+                for file in message.files {
+                    index
+                        .attached_in
+                        .entry(file)
+                        .or_insert_with(|| message.channel.clone());
+                }
+            }
             Member::Blob { digest, reader } => {
                 // Hashing costs nothing extra: the bytes have to be read through anyway to reach
                 // the next member, and a blob whose content does not match its name is a file

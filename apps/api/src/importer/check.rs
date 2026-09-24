@@ -215,7 +215,7 @@ pub fn check(path: &Path, passphrase: Option<&str>) -> Result<(Index, Report), A
     check_manifest(&index, &mut report);
     check_spaces(&index, &mut report);
     check_channels(&index, &spaces, &users, &mut report);
-    check_files(&index, &mut report);
+    check_files(&index, &spaces, &channels, &mut report);
 
     // The messages are streamed rather than collected: there can be millions, and the checks that
     // need to look at every one of them still only need one at a time.
@@ -374,10 +374,16 @@ fn check_channels(
     }
 }
 
-fn check_files(index: &Index, report: &mut Report) {
+fn check_files(
+    index: &Index,
+    spaces: &HashSet<&str>,
+    channels: &HashMap<&str, &archive::ChannelRecord>,
+    report: &mut Report,
+) {
     let users: HashSet<&str> = index.users.iter().map(|u| u.id.as_str()).collect();
     let mut referenced: HashSet<String> = HashSet::new();
     for file in &index.files {
+        check_file_place(file, index, spaces, channels, report);
         if file.name.trim().is_empty() {
             report.error(format!(
                 "file {}: no name, so nothing could be created",
@@ -446,6 +452,76 @@ fn check_files(index: &Index, report: &mut Report) {
             ));
         }
     }
+}
+
+/// Where a file will land, which decides who can read it.
+///
+/// A file sent in a conversation goes where the same file sent here would, and one sent in a
+/// private conversation is that conversation's people's alone. Every way of naming that place is
+/// checked, because a file placed wrongly is either lost or published to people who were never
+/// meant to see it.
+fn check_file_place(
+    file: &archive::FileRecord,
+    index: &Index,
+    spaces: &HashSet<&str>,
+    channels: &HashMap<&str, &archive::ChannelRecord>,
+    report: &mut Report,
+) {
+    if let Some(channel) = &file.channel {
+        match channels.get(channel.as_str()) {
+            None => report.error(format!(
+                "file {}: sent in conversation {channel}, which is not in this archive",
+                file.id
+            )),
+            Some(record) => {
+                if let Some(space) = &file.space {
+                    if space != &record.space {
+                        report.error(format!(
+                            "file {}: its space is not the space of the conversation it was sent in",
+                            file.id
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    if let Some(space) = &file.space {
+        if !spaces.contains(space.as_str()) {
+            report.error(format!(
+                "file {}: space {space} is not in this archive",
+                file.id
+            ));
+        }
+    }
+    if let Some(folder) = &file.folder {
+        if file.channel.is_some() || index.attached_in.contains_key(&file.id) {
+            report.error(format!(
+                "file {}: sent in a conversation, so it has no folder of its own",
+                file.id
+            ));
+        }
+        if folder_names(folder).is_none() {
+            // An empty name, `.` or `..`: a folder nobody could open, or one climbing out of the
+            // space's files.
+            report.error(format!(
+                "file {}: folder {folder:?} is not a list of folder names joined by /",
+                file.id
+            ));
+        }
+    }
+}
+
+/// The names of the folders in `path`, outermost first, or `None` when one of them is not a name a
+/// folder can carry.
+pub fn folder_names(path: &str) -> Option<Vec<&str>> {
+    let names: Vec<&str> = path.split('/').map(str::trim).collect();
+    if names
+        .iter()
+        .any(|name| name.is_empty() || *name == "." || *name == "..")
+    {
+        return None;
+    }
+    Some(names)
 }
 
 fn check_message(
