@@ -27,7 +27,8 @@ Web interface only for now. The core is open source under **AGPLv3**.
    **One documented exception:** Web Push necessarily goes through the push service of the
    reader's browser vendor (Google, Apple, Mozilla). It is opt-in per browser, can be turned off
    for the whole instance, and carries no content at all: see `docs/adr/0001-web-push.md` before
-   touching it, and do not widen it (no payload, no other runtime service on the same grounds).
+   touching it, and do not widen it (no content in a push, only the constant encrypted marker; no
+   other runtime service on the same grounds).
 3. **English only** for everything in the repo: code, identifiers, comments, docs, commits,
    branches, issues, PRs.
 4. **Document thoroughly**, following current industry best practices (module docs, docstrings,
@@ -205,7 +206,7 @@ terminates TLS for that instance, rather than exposing its port:
   is interchangeable and never hard-coded.
 - **Fonts:** self-host IBM Plex Sans/Mono (OFL) via local `@font-face`. Never depend on Google Fonts.
 - **Notifications past the open page** (`apps/api/src/notify/`): the inbox is written in the send
-  transaction and pushed over the hub to open pages; for everyone else there is payload-free Web
+  transaction and pushed over the hub to open pages; for everyone else there is content-free Web
   Push to subscribed browsers (ADR 0001) and an unread digest by email through the instance's own
   relay. The preferences they obey are held server-side, and the server rule (`notify::prefs::allows`)
   mirrors the inbox rule (`passesPref` in the web client): change one, change the other.

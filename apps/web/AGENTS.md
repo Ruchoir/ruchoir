@@ -259,7 +259,7 @@ socket only receives, plus sends typing/ping. The composer emits a throttled typ
 and `public/icons/` (plus `app/apple-icon.png`, drawn by `scripts/build-pwa-icons.mjs`) make the
 app installable; `public/sw.js` is a plain, unbundled service worker registered on every load. It
 caches nothing and intercepts no request (a worker serving stale bundles would hide deployments). A
-push carries no payload: the worker wakes, calls `GET /api/v1/push/pending` with the session cookie,
+push carries no content (a constant encrypted marker, ignored): the worker wakes, calls `GET /api/v1/push/pending` with the session cookie,
 and draws what comes back (already worded in the account's language and filtered by its
 preferences); a click focuses an open window and posts it `ruchoir:open-notification`, or opens
 `/?open=space.conversation.message.notification`, which `AppRoot` resolves through `pendingOpen`
