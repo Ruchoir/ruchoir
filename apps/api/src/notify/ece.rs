@@ -1,10 +1,12 @@
 //! Message encryption for Web Push (RFC 8291, `aes128gcm` content coding from RFC 8188).
 //!
 //! Ruchoir's pushes say nothing: the service worker fetches what to draw from the API. They were
-//! first sent with no body at all, which RFC 8030 allows and Chrome and Firefox accept, but Apple's
-//! push service refuses (`400`). So each push now carries a body, and a body must be encrypted for
-//! the subscription. What is encrypted is a fixed marker ([`WAKE`]), the same for every push: the
-//! vendor still learns nothing beyond "something happened", which is what ADR 0001 promises.
+//! first sent with no body at all, which RFC 8030 allows. While chasing Apple's refusals, each push
+//! was given a body instead, the form every push service handles (a body must be encrypted for the
+//! subscription). The refusal itself turned out to be the `Topic` header (see `push.rs`), but the
+//! body stays: it costs nothing and removes one way for a service to treat our pushes differently.
+//! What is encrypted is a fixed marker ([`WAKE`]), the same for every push: the vendor still learns
+//! nothing beyond "something happened", which is what ADR 0001 promises.
 //!
 //! The derivation, for one message:
 //!

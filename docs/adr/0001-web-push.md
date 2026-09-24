@@ -24,9 +24,10 @@ That collides with golden rule 2 ("no US or non-European hosted services at runt
 Web Push is adopted as a **documented, bounded exception** to golden rule 2:
 
 1. **No content ever leaves the instance.** A push carries a constant marker, encrypted for the
-   subscription (RFC 8291); it is the same for every push and says nothing. Pushes were first sent
-   with no body at all, which Apple's push service refuses with a `400`, hence the marker. Its only
-   use is to wake the service worker (`apps/web/public/sw.js`), which asks the instance what to show
+   subscription (RFC 8291); it is the same for every push and says nothing. (Pushes were first
+   sent with no body at all; the marker is the form every push service handles.) No `Topic` header
+   is sent: Apple refuses a push that carries one (`400 BadWebPushTopic`). The marker's only use is
+   to wake the service worker (`apps/web/public/sw.js`), which asks the instance what to show
    (`GET /api/v1/push/pending`) over the same authenticated, same-origin connection the app uses.
    The vendor learns that one of its subscribers received something at a given time: not who wrote,
    not where, not a word of it.

@@ -1,7 +1,7 @@
 //! Web Push: telling a browser with no Ruchoir page open that something is waiting.
 //!
 //! **Nothing about the message leaves the instance.** A push carries only a constant marker,
-//! encrypted for the subscription ([`super::ece`]; Apple refuses an empty push), and serves to wake
+//! encrypted for the subscription ([`super::ece`]), and serves to wake
 //! the service worker (`apps/web/public/sw.js`), which then asks this API what to show
 //! ([`pending`]) over the same authenticated, same-origin connection the app uses. The push service
 //! of the browser's vendor, which the instance does not choose (see ADR 0001), learns that one of its
@@ -560,9 +560,9 @@ async fn send_one(
             .header("Authorization", &authorization)
             .header("TTL", &PUSH_TTL_SECS.to_string())
             .header("Urgency", urgency)
-            // One topic per subscription: pushes still queued for an offline device collapse into
-            // one, and the worker draws everything unread when it finally wakes.
-            .header("Topic", "ruchoir-inbox")
+            // No `Topic` header. It would collapse pushes queued for an offline device into one, but
+            // Apple refuses the push outright with a topic (`400 BadWebPushTopic`), and nothing is
+            // lost without it: the worker draws everything unread whenever it wakes.
             .header("Content-Encoding", "aes128gcm")
             .header("Content-Type", "application/octet-stream")
             .send(&body[..])

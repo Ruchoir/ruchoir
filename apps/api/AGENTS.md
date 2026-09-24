@@ -216,8 +216,8 @@ context and takes precedence here.
 - `src/notify/`   - reaching someone with no Ruchoir page open (ADR 0001). `prefs`: the notification
   preferences, held server-side (`user_preferences.notifications` for the person, the
   `channel_members` / `dm_participants` row for each conversation) and one rule, `allows`, shared by
-  every channel below. `vapid` + `push` + `ece`: content-free Web Push (a constant marker, RFC 8291-encrypted, because
-  Apple refuses an empty push); the instance's VAPID key pair is made
+  every channel below. `vapid` + `push` + `ece`: content-free Web Push (a constant marker, RFC 8291-encrypted, and no
+  `Topic` header, which Apple refuses with `400 BadWebPushTopic`); the instance's VAPID key pair is made
   on first use and kept encrypted in `instance_settings`, endpoints are only ever called when their
   host is in `RUCHOIR_PUSH_ALLOWED_HOSTS` (anti-SSRF), and the service worker learns what to draw
   from `GET /push/pending`. `POST /push/test` sends a real push through the whole chain.
