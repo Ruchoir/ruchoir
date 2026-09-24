@@ -119,6 +119,7 @@ import {
   RemoveMemberDialog,
   TransferOwnershipDialog,
 } from "./dialogs";
+import { ExternalLinkDialog } from "./ExternalLinkDialog";
 import { GettingStarted } from "./GettingStarted";
 import { GlobalSearchDialog } from "./GlobalSearchDialog";
 import { QuickSwitcher } from "./QuickSwitcher";
@@ -500,6 +501,8 @@ function AppShell() {
   // A notification clicked in the system tray, waiting for its space and conversation to be loaded
   // before it can be opened (see the effect that consumes it).
   const [pendingOpen, setPendingOpen] = useState<PushTarget | null>(null);
+  // A link to another site, held until the warning about leaving Ruchoir is answered.
+  const [externalLink, setExternalLink] = useState<string | null>(null);
 
   const [ws, setWs] = useState("");
   const [view, setView] = useState<AppView>("channel");
@@ -3176,6 +3179,41 @@ function AppShell() {
     pushOpenRef.current();
   }, [pendingOpen, authStage, switchingSpace, ws, channels, dms]);
 
+  /**
+   * Warn before any link leaves Ruchoir, wherever it is drawn (message text, a preview card, a
+   * panel, a profile). One listener on the document, in the capture phase so it runs before the
+   * link's own handlers, rather than a wrapper every link component has to remember to use.
+   * A link to this instance itself, or anything but http(s), goes through untouched.
+   */
+  const linkWarningRef = useRef(settings.externalLinkWarning);
+  useEffect(() => {
+    linkWarningRef.current = settings.externalLinkWarning;
+  });
+  useEffect(() => {
+    const intercept = (e: MouseEvent) => {
+      if (!linkWarningRef.current || e.defaultPrevented || e.button > 1) return;
+      const anchor = e.target instanceof Element ? e.target.closest("a[href]") : null;
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      let target: URL;
+      try {
+        target = new URL(anchor.href, window.location.href);
+      } catch {
+        return;
+      }
+      if (!["http:", "https:"].includes(target.protocol) || target.origin === window.location.origin) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setExternalLink(target.href);
+    };
+    document.addEventListener("click", intercept, true);
+    // The middle button opens a tab too, and says so with `auxclick` rather than `click`.
+    document.addEventListener("auxclick", intercept, true);
+    return () => {
+      document.removeEventListener("click", intercept, true);
+      document.removeEventListener("auxclick", intercept, true);
+    };
+  }, []);
+
   // The service worker, registered on every load: it is what draws a push, and part of what makes
   // the app installable. It intercepts no request.
   useEffect(() => {
@@ -3948,6 +3986,19 @@ function AppShell() {
             });
           }}
           onDismiss={() => settings.set("notifPrompted", true)}
+        />
+      ) : null}
+
+      {externalLink ? (
+        <ExternalLinkDialog
+          url={externalLink}
+          onCancel={() => setExternalLink(null)}
+          onOpen={(stopWarning) => {
+            // No referrer and no handle on this window, like the link itself.
+            window.open(externalLink, "_blank", "noopener,noreferrer");
+            if (stopWarning) settings.set("externalLinkWarning", false);
+            setExternalLink(null);
+          }}
         />
       ) : null}
 

@@ -31,4 +31,5 @@ pub mod saved;
 pub mod search;
 pub mod slug;
 pub mod spaces;
+pub mod unfurl;
 pub mod users;

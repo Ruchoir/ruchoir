@@ -108,10 +108,17 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "var(--radius-md)",
     boxShadow: "var(--shadow-popover)",
   },
+  // Inside the reserve left under the last message of a run (18px, see the row's padding), and on
+  // the hovered row's own colour with a fade on its left: at 6px from the bottom it sat on the last
+  // line of text and read as glued to it, and wherever it still meets text (a message in the middle
+  // of a run has no reserve) it now covers the line's end cleanly instead of touching it.
   receipt: {
     position: "absolute",
-    right: 12,
-    bottom: 6,
+    right: 8,
+    bottom: 1,
+    padding: "1px 6px 1px 18px",
+    borderRadius: "var(--radius-sm)",
+    background: "linear-gradient(to right, transparent, var(--surface-hover) 14px)",
     pointerEvents: "none",
   },
 };

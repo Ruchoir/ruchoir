@@ -433,7 +433,6 @@
     "noPinned": "Brak przypiętych wiadomości",
     "noPinnedText": "Przypnij wiadomość z jej menu, aby znaleźć ją tutaj.",
     "downloading": "Pobieranie",
-    "openingLink": "Otwieranie linku",
     "openFolder": "Otwórz folder",
     "openingFolder": "Otwieranie folderu"
   },
@@ -889,7 +888,9 @@
     "pushTestRefused": "Usługa powiadomień przeglądarki odrzuciła test. Wyłącz i ponownie włącz powiadomienia na tym urządzeniu.",
     "pushTestWait": "Test został właśnie wysłany. Odczekaj kilka sekund.",
     "emailCatchUp": "Podsumowanie e-mailem",
-    "emailCatchUpDesc": "Jeśli wzmianki lub wiadomości bezpośrednie pozostają nieprzeczytane przez kwadrans, a Ruchoir nie jest nigdzie otwarty, otrzymasz ich podsumowanie e-mailem."
+    "emailCatchUpDesc": "Jeśli wzmianki lub wiadomości bezpośrednie pozostają nieprzeczytane przez kwadrans, a Ruchoir nie jest nigdzie otwarty, otrzymasz ich podsumowanie e-mailem.",
+    "linkWarning": "Ostrzegaj przed otwarciem linku zewnętrznego",
+    "linkWarningDesc": "Pokazuje witrynę docelową i kilka porad bezpieczeństwa, zanim link wyprowadzi Cię z Ruchoira."
   },
   "error": {
     "sessionExpired": "Twoja sesja wygasła. Zaloguj się ponownie.",
@@ -1195,5 +1196,17 @@
     "spaceChannelsFilled_few": "{{count}} kanały są już tutaj: przejmą historię z archiwum.",
     "spaceChannelsFilled_many": "{{count}} kanałów jest już tutaj: przejmą historię z archiwum.",
     "spaceChannelsFilled_other": "{{count}} kanału jest już tutaj: przejmie historię z archiwum."
+  },
+  "externalLink": {
+    "title": "Uwaga, opuszczasz Ruchoir",
+    "lead": "Ten link prowadzi poza Ruchoir, do:",
+    "open": "Otwórz link",
+    "lookAlike": "Ten adres używa znaków z innego alfabetu („xn--”): tak witryna podszywa się pod inną o podobnej nazwie. Otwórz go tylko, jeśli się go spodziewałeś.",
+    "tipAddress": "Sprawdź adres litera po literze.",
+    "tipPassword": "Nigdy nie podawaj hasła do Ruchoira.",
+    "tipFiles": "Uważaj na pobierane pliki i płatności.",
+    "tipDoubt": "Masz wątpliwości? Zapytaj nadawcę.",
+    "dontShowAgain": "Nie pokazuj więcej tego ostrzeżenia",
+    "beforeOpening": "Zanim otworzysz"
   }
 }

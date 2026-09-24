@@ -24,8 +24,8 @@ use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
 use crate::entities::{
-    channel_pins, files, message_attachments, message_mentions, message_reactions, messages,
-    user_saved_messages, users,
+    channel_pins, files, message_attachments, message_link_previews, message_mentions,
+    message_reactions, messages, user_saved_messages, users,
 };
 use crate::realtime::event::RealtimeEnvelope;
 use crate::realtime::presence;
@@ -352,6 +352,9 @@ pub async fn send_message(
         )
         .await;
 
+    // Its first link is read in the background and the message pushed again with the preview.
+    super::unfurl::refresh(&state, message_id);
+
     // Push each notification to its recipient (user-scoped, one audience per row), and announce it
     // to the browsers that asked for Web Push, in the background.
     crate::notify::push::dispatch(&state, &notif_rows);
@@ -491,6 +494,8 @@ pub async fn edit_message(
             RealtimeEnvelope::message_updated(conversation_id, dto.clone()),
         )
         .await;
+    // An edit may have changed, added or removed the link.
+    super::unfurl::refresh(&state, message_id);
 
     Ok(Json(dto))
 }
@@ -571,6 +576,9 @@ pub async fn delete_message(
             RealtimeEnvelope::message_deleted(conversation_id, dto.clone()),
         )
         .await;
+
+    // A deleted message keeps no preview, and its thumbnail goes when nothing else shows it.
+    super::unfurl::refresh(&state, message_id);
 
     Ok(Json(dto))
 }
@@ -686,6 +694,33 @@ pub async fn hydrate_messages(
         .map(|s| s.message_id)
         .collect();
 
+    // Link previews, one per message at most (see `unfurl`).
+    let mut links: HashMap<Uuid, super::dto::LinkPreviewDto> =
+        message_link_previews::Entity::find()
+            .filter(message_link_previews::Column::MessageId.is_in(ids.clone()))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|row| {
+                (
+                    row.message_id,
+                    super::dto::LinkPreviewDto {
+                        image_url: row
+                            .image_key
+                            .as_ref()
+                            .map(|_| format!("/api/v1/link-previews/{}/image", row.id)),
+                        image_width: row.image_width,
+                        image_height: row.image_height,
+                        color: row.color,
+                        url: row.url,
+                        domain: row.domain,
+                        title: row.title,
+                        description: row.description,
+                    },
+                )
+            })
+            .collect();
+
     // Attachments, grouped by message (batch-loaded through the files module).
     let mut attachments = crate::files::attachments_for_messages(db, &ids)
         .await
@@ -771,6 +806,12 @@ pub async fn hydrate_messages(
                 .filter_map(|id| names.get(&id).cloned())
                 .collect(),
             reply_count: m.reply_count,
+            // A deleted message keeps nothing of what it said, its link included.
+            link: if m.deleted_at.is_some() {
+                None
+            } else {
+                links.remove(&m.id)
+            },
         })
         .collect();
 

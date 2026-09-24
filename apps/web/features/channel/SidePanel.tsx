@@ -213,11 +213,9 @@ export function SidePanel({ kind, files, members, membersLoading = false, pinned
                     {m.link ? (
                       <a
                         href={m.link.url}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          onNotify({ tone: "info", title: t("panel.openingLink"), description: m.link?.domain });
-                        }}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        onClick={(e) => e.stopPropagation()}
                         style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 12, color: "var(--text-link)" }}
                       >
                         <Icon name="globe" size={13} />

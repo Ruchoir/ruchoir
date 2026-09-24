@@ -112,6 +112,11 @@ export type Settings = {
   /** Whether the browser-notification prompt has already been offered, so it is offered once. */
   notifPrompted: boolean;
   /**
+   * Whether to warn before a link opens a page outside Ruchoir (see `ExternalLinkDialog`). On by
+   * default; turned off from the warning itself or in Preferences > Security.
+   */
+  externalLinkWarning: boolean;
+  /**
    * How wide the thread panel is, in pixels.
    *
    * Dragged with the handle on its edge, and kept: a reader who widened it to follow a long thread
@@ -147,6 +152,7 @@ const DEFAULTS: Settings = {
   spaceOrder: [],
   hiddenDms: [],
   notifPrompted: false,
+  externalLinkWarning: true,
   threadWidth: THREAD_WIDTH_DEFAULT,
   locale: null,
 };
@@ -213,6 +219,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           spaceOrder: stringList(parsed.spaceOrder),
           hiddenDms: stringList(parsed.hiddenDms),
           notifPrompted: parsed.notifPrompted === true,
+          externalLinkWarning: parsed.externalLinkWarning !== false,
           threadWidth: threadWidth(parsed.threadWidth),
         });
       }

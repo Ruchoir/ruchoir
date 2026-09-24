@@ -49,6 +49,10 @@ pub struct MessageDto {
     pub parent_message_id: Option<Uuid>,
     /// Number of replies in this message's thread.
     pub reply_count: i32,
+    /// The preview of the message's first link, read by the server (see `messaging::unfurl`).
+    /// Absent until it has been fetched, and for a message without a readable link.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub link: Option<LinkPreviewDto>,
     /// Display names of the last few people who answered in this thread, most recent first.
     ///
     /// Denormalized on purpose: a feed draws a face next to "3 replies" without opening the thread,
@@ -129,6 +133,29 @@ pub struct SpaceDto {
     /// Same-origin URL of the uploaded icon; absent means the generated mark.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_url: Option<String>,
+}
+
+/// A link preview, as the server read it from the page.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct LinkPreviewDto {
+    pub url: String,
+    /// The host, without a leading `www.`.
+    pub domain: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// The site's colour (`theme-color`), as `#rrggbb`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    /// Same-origin address of the thumbnail of the site's preview image.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_url: Option<String>,
+    /// The original image's size, for the aspect ratio to reserve.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_width: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_height: Option<i32>,
 }
 
 /// A channel in a space's sidebar list.

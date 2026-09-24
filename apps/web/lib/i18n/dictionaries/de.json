@@ -427,7 +427,6 @@
     "noPinned": "Keine angeheftete Nachricht",
     "noPinnedText": "Heften Sie eine Nachricht über ihr Menü an, um sie hier wiederzufinden.",
     "downloading": "Wird heruntergeladen",
-    "openingLink": "Link wird geöffnet",
     "openFolder": "Ordner öffnen",
     "openingFolder": "Ordner wird geöffnet"
   },
@@ -855,7 +854,9 @@
     "pushTestRefused": "Der Benachrichtigungsdienst des Browsers hat den Test abgelehnt. Schalten Sie die Benachrichtigungen auf diesem Gerät aus und wieder ein.",
     "pushTestWait": "Gerade wurde ein Test gesendet. Warten Sie einige Sekunden.",
     "emailCatchUp": "E-Mail-Zusammenfassung",
-    "emailCatchUpDesc": "Bleiben Erwähnungen oder Direktnachrichten eine Viertelstunde ungelesen, während Ruchoir nirgends geöffnet ist, erhalten Sie eine Zusammenfassung per E-Mail."
+    "emailCatchUpDesc": "Bleiben Erwähnungen oder Direktnachrichten eine Viertelstunde ungelesen, während Ruchoir nirgends geöffnet ist, erhalten Sie eine Zusammenfassung per E-Mail.",
+    "linkWarning": "Vor dem Öffnen externer Links warnen",
+    "linkWarningDesc": "Zeigt die Zielwebsite und einige Sicherheitshinweise, bevor ein Link Sie aus Ruchoir herausführt."
   },
   "error": {
     "sessionExpired": "Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.",
@@ -1133,5 +1134,17 @@
     "interrupted": "Abgebrochen",
     "spaceChannelsFilled_one": "{{count}} Kanal ist bereits hier: Er übernimmt den Verlauf aus dem Archiv.",
     "spaceChannelsFilled_other": "{{count}} Kanäle sind bereits hier: Sie übernehmen den Verlauf aus dem Archiv."
+  },
+  "externalLink": {
+    "title": "Achtung, Sie verlassen Ruchoir",
+    "lead": "Dieser Link führt Sie aus Ruchoir hinaus, zu:",
+    "open": "Link öffnen",
+    "lookAlike": "Diese Adresse verwendet Zeichen aus einem anderen Alphabet („xn--“): So gibt sich eine Website als eine andere mit ähnlichem Namen aus. Öffnen Sie sie nur, wenn Sie sie erwartet haben.",
+    "tipAddress": "Prüfen Sie die Adresse Buchstabe für Buchstabe.",
+    "tipPassword": "Geben Sie Ihr Ruchoir-Passwort nie preis.",
+    "tipFiles": "Vorsicht bei Downloads und Zahlungen.",
+    "tipDoubt": "Im Zweifel? Fragen Sie den Absender.",
+    "dontShowAgain": "Diese Warnung nicht mehr anzeigen",
+    "beforeOpening": "Bevor Sie ihn öffnen"
   }
 }
