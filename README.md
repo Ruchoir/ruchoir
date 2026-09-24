@@ -3,7 +3,8 @@
 <p align="center">
   A sovereign, open-core team workspace: real-time messaging and file sharing in one place.<br />
   A European alternative to Slack, Mattermost and Nextcloud, with a zero-loss import that migrates
-  an existing Nextcloud or Mattermost instance in under two minutes.
+  an existing Nextcloud or Mattermost instance in under two minutes. Slack and Teams workspaces come
+  over too.
 </p>
 
 ## Why
@@ -20,7 +21,8 @@
   presence, full-text search.
 - Files: uploads, folders, previews, message attachments, S3-compatible object storage.
 - Accounts: authentication, roles, workspace and member management.
-- Import: Nextcloud and Mattermost, via an official encrypted export.
+- Import: Nextcloud and Mattermost via an official encrypted export, Slack from its workspace export,
+  Teams through Microsoft Graph.
 
 ## Tech stack
 
@@ -52,7 +54,7 @@ docker compose up
 ```
 apps/api/                Rust backend (axum/tokio)
 apps/web/                Next.js frontend
-packages/importer/       Nextcloud/Mattermost import tooling
+packages/importer/       Import tooling (Nextcloud, Mattermost, Slack, Teams)
 packages/design-system/  Shared React components and design tokens
 migrations/              Versioned SQL migrations
 docs/                    Technical documentation

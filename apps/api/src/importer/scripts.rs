@@ -22,6 +22,9 @@ pub const CONVERT_MATTERMOST_PY: &str =
 /// The Slack converter, embedded verbatim from `packages/importer`.
 pub const CONVERT_SLACK_PY: &str = include_str!("../../../../packages/importer/convert-slack.py");
 
+/// The Teams reader, embedded verbatim from `packages/importer`.
+pub const CONVERT_TEAMS_PY: &str = include_str!("../../../../packages/importer/convert-teams.py");
+
 const BASE_PLACEHOLDER: &str = "__RUCHOIR_BASE__";
 
 /// Stamp the instance's base URL into an orchestrator before serving it.
@@ -162,3 +165,123 @@ echo
 echo "OK - delivered. Enter this passphrase in the import screen; the archive is now listed there."
 shred -u "$PF" 2>/dev/null || rm -f "$PF"
 "#;
+
+/// Teams: there is no export to hand over, so the reader talks to Microsoft Graph itself, with an
+/// application the organisation registered for the migration. A large tenant is hours of reading,
+/// so the reader keeps what it has read in a cache that outlives this script: a run that stops
+/// resumes when the same command is given again. The cache holds the conversations in clear, so it
+/// is its owner's alone and it is removed once the archive has been delivered.
+pub const IMPORT_TEAMS_SH: &str = r#"#!/usr/bin/env bash
+# Read a Microsoft Teams organisation and deliver it to Ruchoir in one command. Runs on any machine
+# with python3, gpg and curl (the Ruchoir host is the usual one), against Microsoft Graph, with an
+# application the organisation registered for the migration (--help-app says how).
+set -euo pipefail
+BASE="__RUCHOIR_BASE__"
+TOKEN=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --token) TOKEN="${2:-}"; shift 2 ;;
+    --) shift; break ;;
+    -h|--help)
+      echo "Usage: curl -fsSL $BASE/tools/import-teams.sh | bash -s -- \\"
+      echo "         --token <token> -- --tenant <tenant id> --client-id <application id> --secret-file <file>"
+      echo
+      echo "Reader options after --: --team <name> (repeatable), --no-libraries, --no-files, --fresh,"
+      echo "--list (the teams the application can read), --help-app (how to register the application)."
+      exit 0 ;;
+    *) echo "unexpected argument before --: $1 (put reader options after --)" >&2; exit 2 ;;
+  esac
+done
+command -v curl >/dev/null || { echo "this needs curl" >&2; exit 1; }
+command -v python3 >/dev/null || { echo "this needs python3" >&2; exit 1; }
+umask 077
+WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+echo "-> fetching the Teams reader from $BASE"
+curl -fsSL "$BASE/tools/convert-teams.py" -o "$WORK/convert-teams.py"
+
+# Listing the teams, or reading how to register the application, delivers nothing.
+TENANT=""
+PREVIOUS=""
+for arg in "$@"; do
+  case "$arg" in
+    --list|--help-app|-h|--help) python3 "$WORK/convert-teams.py" "$@"; exit 0 ;;
+  esac
+  if [ "$PREVIOUS" = "--tenant" ]; then TENANT="$arg"; fi
+  PREVIOUS="$arg"
+done
+[ -n "$TOKEN" ] || { echo "missing --token: generate one in the import screen" >&2; exit 2; }
+command -v gpg >/dev/null || { echo "this needs gpg to seal the archive" >&2; exit 1; }
+[ -n "$TENANT" ] || { echo "missing --tenant after --: the Directory (tenant) ID, see --help-app" >&2; exit 2; }
+
+# One cache per organisation, kept between runs so an interrupted read resumes where it stopped.
+KEY="$(python3 -c 'import hashlib, sys; print(hashlib.sha256(sys.argv[1].encode()).hexdigest()[:12])' "$TENANT")"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/ruchoir-teams-$KEY"
+mkdir -p "$CACHE"
+echo "-> reading Teams (the long part: stop it and give the same command again to resume)"
+set +e
+python3 "$WORK/convert-teams.py" --out "$WORK/archive" --cache "$CACHE" "$@"
+STATUS=$?
+set -e
+if [ "$STATUS" -ne 0 ]; then
+  echo >&2
+  echo "What was read so far is kept in $CACHE, and the same command picks up from there." >&2
+  echo "If you give up instead, delete that directory: it holds the conversations in clear." >&2
+  exit "$STATUS"
+fi
+echo "-> sealing"
+PF="$(mktemp)"; chmod 600 "$PF"
+head -c 256 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9' | cut -c1-40 > "$PF"
+tar -C "$WORK" -cf - archive | gpg --batch --yes --quiet --symmetric \
+  --cipher-algo AES256 --digest-algo SHA512 --s2k-mode 3 --s2k-count 65011712 \
+  --passphrase-file "$PF" --output "$WORK/archive.tar.gpg"
+echo "-> delivering the sealed archive to $BASE"
+curl -fsSL --retry 3 -H "X-Drop-Token: $TOKEN" --upload-file "$WORK/archive.tar.gpg" "$BASE/api/v1/imports/drop"
+# Delivered: what was read is in the sealed archive now, and nowhere else in clear.
+rm -rf "$CACHE"
+echo
+echo "  Passphrase (write it down now, it is stored nowhere):"
+echo
+echo "      $(cat "$PF")"
+echo
+echo "OK - delivered. Enter this passphrase in the import screen; the archive is now listed there."
+echo "Then delete the client secret file, and the application registration in Entra ID."
+shred -u "$PF" 2>/dev/null || rm -f "$PF"
+"#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every delivery script is one bash accepts, once the instance's address is stamped in. They
+    /// are strings inside Rust, where no editor and no linter ever reads them as shell, and the
+    /// first to notice a missing `fi` would otherwise be an administrator in the middle of a
+    /// migration.
+    #[test]
+    fn every_delivery_script_parses_as_bash() {
+        for (name, template) in [
+            ("import-nextcloud.sh", IMPORT_NEXTCLOUD_SH),
+            ("import-mattermost.sh", IMPORT_MATTERMOST_SH),
+            ("import-slack.sh", IMPORT_SLACK_SH),
+            ("import-teams.sh", IMPORT_TEAMS_SH),
+        ] {
+            let script = render(template, "https://ruchoir.example/");
+            assert!(
+                !script.contains(BASE_PLACEHOLDER),
+                "{name} still carries the placeholder"
+            );
+            assert!(
+                script.contains("BASE=\"https://ruchoir.example\""),
+                "{name}"
+            );
+            let parsed = std::process::Command::new("bash")
+                .args(["-n", "-c", &script])
+                .output()
+                .expect("bash is there to parse with");
+            assert!(
+                parsed.status.success(),
+                "{name} is not valid bash: {}",
+                String::from_utf8_lossy(&parsed.stderr)
+            );
+        }
+    }
+}

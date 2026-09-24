@@ -1437,6 +1437,7 @@ function toImportSource(source?: string): ImportSource | undefined {
     nextcloud: "Nextcloud",
     slack: "Slack",
     mattermost: "Mattermost",
+    teams: "Teams",
     ruchoir: "Ruchoir",
   };
   return known[source.toLowerCase()];

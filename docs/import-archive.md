@@ -234,7 +234,14 @@ send an administrator down completely different roads.
 | Nextcloud | `packages/importer/export-nextcloud.sh`, shipped for administrators | On the Nextcloud host |
 | Mattermost | Adapter over the bulk export (JSONL + attachments) | On the Ruchoir host |
 | Slack | Adapter over the workspace export ZIP | On the Ruchoir host |
-| Teams | Adapter over Microsoft Graph | On the Ruchoir host, against the tenant |
+| Teams | `convert-teams.py`, a reader over Microsoft Graph | On the Ruchoir host, against the tenant |
 
 Nextcloud is the odd one out because Talk has no export at all: the script is the only way its
 conversations come out, so we write and support it ourselves.
+
+Teams has no export a customer can download either, but it has an API: the reader asks Microsoft
+Graph, with an application the organisation registers in its own Entra ID and allows to read and
+nothing else (`convert-teams.py --help-app` prints the steps and the seven permissions). Each team
+becomes a space, each channel a conversation, and each team's document library lands in its space's
+files through `space` and `folder`. Chats stay in Teams, by decision: an application that reads
+channels does not need to read everybody's private conversations too.

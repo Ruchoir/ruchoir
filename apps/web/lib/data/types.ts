@@ -5,7 +5,7 @@
  */
 import type { Presence } from "@/components/ds";
 
-export type ImportSource = "Nextcloud" | "Slack" | "Mattermost" | "Ruchoir";
+export type ImportSource = "Nextcloud" | "Slack" | "Mattermost" | "Teams" | "Ruchoir";
 
 /**
  * What a user chooses about their own availability, which is not the same thing as the dot other
