@@ -38,7 +38,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "12px 10px 12px 16px",
     borderBottom: "1px solid var(--border-subtle)",
   },
-  title: { fontSize: 18, fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
+  title: { fontSize: "var(--text-lg)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   filters: { padding: "8px 12px", borderBottom: "1px solid var(--border-subtle)" },
   scroll: { flex: 1, overflow: "auto", padding: 6 },
   row: {
@@ -125,7 +125,7 @@ export function NotificationCenter({
                 background: "none",
                 cursor: "pointer",
                 fontFamily: "var(--font-sans)",
-                fontSize: 12,
+                fontSize: "var(--text-2xs)",
                 color: "var(--text-muted)",
                 padding: "4px 8px",
               }}
@@ -268,7 +268,7 @@ function NotifRow({
 
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 2 }}>
-          <span style={{ fontSize: 13, fontWeight: notif.read ? 500 : 600, color: "var(--text-strong)", minWidth: 0 }}>
+          <span style={{ fontSize: "var(--text-xs)", fontWeight: notif.read ? 500 : 600, color: "var(--text-strong)", minWidth: 0 }}>
             {notifSummary(notif, t)}
           </span>
         </span>
@@ -278,13 +278,13 @@ function NotifRow({
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
             overflow: "hidden",
-            fontSize: 13,
+            fontSize: "var(--text-xs)",
             color: "var(--text-body)",
           }}
         >
           {notif.preview}
         </span>
-        <span style={{ display: "block", marginTop: 3, fontSize: 11, color: "var(--text-muted)" }}>
+        <span style={{ display: "block", marginTop: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
           {notif.label} · {formatStamp(notif.createdAt)}
         </span>
       </span>

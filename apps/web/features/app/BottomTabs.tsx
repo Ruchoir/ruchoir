@@ -42,7 +42,7 @@ function tabStyle(active: boolean): CSSProperties {
     cursor: "pointer",
     color: active ? "var(--ink)" : "var(--text-muted)",
     fontFamily: "var(--font-sans)",
-    fontSize: 11,
+    fontSize: "var(--text-2xs)",
     fontWeight: active ? 600 : 500,
   };
 }

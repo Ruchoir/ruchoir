@@ -43,7 +43,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "0 20px",
     margin: 0, // rendered as an <h1>
     borderBottom: "1.5px solid var(--border-subtle)",
-    fontSize: 18,
+    fontSize: "var(--text-lg)",
     fontWeight: 700,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
@@ -84,7 +84,7 @@ export function ActivityView({ kind, items, onOpen, onBack }: ActivityViewProps)
         <Icon name={meta.icon} size={15} style={{ color: "var(--text-muted)" }} />
         {t(meta.title)}
         {items.length > 0 ? (
-          <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)" }}>· {items.length}</span>
+          <span style={{ fontSize: "var(--text-xs)", fontWeight: 400, color: "var(--text-muted)" }}>· {items.length}</span>
         ) : null}
       </h1>
       </BackHeading>
@@ -107,8 +107,8 @@ export function ActivityView({ kind, items, onOpen, onBack }: ActivityViewProps)
                 <Avatar name={it.message.author} src={getAvatar(it.message.author)} size={30} presence={getPresence(it.message.author)} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{it.message.author}</span>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                    <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{it.message.author}</span>
+                    <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
                       {it.label} · {formatStamp(it.message.createdAt)}
                     </span>
                     {kind === "saved" ? <Icon name="bookmark" size={13} style={{ color: "var(--ink)" }} /> : null}
@@ -119,7 +119,7 @@ export function ActivityView({ kind, items, onOpen, onBack }: ActivityViewProps)
                       WebkitLineClamp: 2,
                       WebkitBoxOrient: "vertical",
                       overflow: "hidden",
-                      fontSize: 14,
+                      fontSize: "var(--text-sm)",
                       color: "var(--text-body)",
                     }}
                   >

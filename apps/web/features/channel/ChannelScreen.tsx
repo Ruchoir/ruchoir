@@ -140,7 +140,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 10,
     margin: "0 16px 16px",
     padding: "12px 16px",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     color: "var(--text-body)",
     background: "var(--surface-card)",
     border: "1.5px dashed var(--border-strong)",
@@ -164,7 +164,7 @@ const styles: Record<string, CSSProperties> = {
     minWidth: 0,
     flexShrink: 0,
     margin: 0, // rendered as an <h1>: drop the UA heading margin
-    fontSize: 18,
+    fontSize: "var(--text-lg)",
     fontWeight: 700,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
@@ -178,7 +178,7 @@ const styles: Record<string, CSSProperties> = {
     overflow: "hidden",
     whiteSpace: "nowrap",
     textOverflow: "ellipsis",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     color: "var(--text-muted)",
   },
   feed: { flex: 1, overflow: "auto", padding: "20px 0 8px" },
@@ -195,7 +195,7 @@ const styles: Record<string, CSSProperties> = {
     border: "2px solid var(--ink)",
     background: "var(--ink)",
     color: "var(--on-ink)",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     fontWeight: 600,
     cursor: "pointer",
   },
@@ -214,7 +214,7 @@ const styles: Record<string, CSSProperties> = {
   // The day reads as a tag, in the monospace face of every label.
   dayLbl: {
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
     padding: "3px 10px",
@@ -227,7 +227,7 @@ const styles: Record<string, CSSProperties> = {
   unreadLine: { flex: 1, height: 2, background: "var(--alarm)" },
   unreadLabel: {
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 600,
     color: "var(--on-pastel)",
     background: "var(--peach)",
@@ -975,13 +975,13 @@ export function ChannelScreen({
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <Avatar name={dm.name} src={getAvatar(dm.name)} size={44} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
                         <div>
-                          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.1, color: "var(--text-strong)" }}>
+                          <div style={{ fontSize: "var(--text-2xl)", fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.1, color: "var(--text-strong)" }}>
                             {dm.name}
                           </div>
-                          {dmProfile?.role ? <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{dmProfile.role}</div> : null}
+                          {dmProfile?.role ? <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{dmProfile.role}</div> : null}
                         </div>
                       </div>
-                      <p style={{ fontSize: 15, color: "var(--text-body)", marginTop: 10, maxWidth: 560 }}>
+                      <p style={{ fontSize: "var(--text-md)", color: "var(--text-body)", marginTop: 10, maxWidth: 560 }}>
                         {t("conversation.dmStart", { name: dm.name.split(" ")[0] })}
                       </p>
                     </>
@@ -990,7 +990,7 @@ export function ChannelScreen({
                       <div style={{ fontSize: "clamp(28px, 3.4vw, 40px)", fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.05, color: "var(--text-strong)", overflowWrap: "anywhere" }}>
                         #{channel.name}
                       </div>
-                      <p style={{ fontSize: 15, color: "var(--text-body)", marginTop: 10, maxWidth: 560 }}>
+                      <p style={{ fontSize: "var(--text-md)", color: "var(--text-body)", marginTop: 10, maxWidth: 560 }}>
                         {isArchived ? t("conversation.archivedNotice") : channel.type === "private" ? t("conversation.privateNotice") : t("conversation.publicNotice")}{" "}
                         {/* A topic written with its own full stop is left with it: an imported one
                             carries whatever the source held, and "votre équipe.. L'historique" is what

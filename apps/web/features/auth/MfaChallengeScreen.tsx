@@ -12,7 +12,7 @@ const styles: Record<string, CSSProperties> = {
   switchLabel: {
     fontFamily: "var(--font-mono)",
     fontWeight: 500,
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-muted)",
   },
 };

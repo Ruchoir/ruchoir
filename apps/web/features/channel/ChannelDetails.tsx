@@ -42,7 +42,7 @@ const actionStyle: CSSProperties = {
   borderRadius: "var(--radius-md)",
   background: "var(--surface-card)",
   font: "inherit",
-  fontSize: 13,
+  fontSize: "var(--text-xs)",
   fontWeight: 600,
   color: "var(--text-strong)",
   cursor: "pointer",
@@ -89,11 +89,11 @@ export function ChannelDetails({
     <div style={{ width: "var(--panel-width)", flex: "none", display: "flex", flexDirection: "column", minHeight: 0, background: "var(--surface-canvas)" }}>
       <PanelHead title={t("channel.details")} closeLabel={t("panel.close")} onClose={onClose} />
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 32px" }}>
-        <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 6, fontSize: 28, fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.1, color: "var(--text-strong)", overflowWrap: "anywhere" }}>
+        <h2 style={{ margin: 0, display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-2xl)", fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.1, color: "var(--text-strong)", overflowWrap: "anywhere" }}>
           <Icon name={channel.type === "private" ? "lock" : "hash"} size={24} style={{ flex: "none", color: "var(--text-muted)" }} />
           {channel.name}
         </h2>
-        {channel.topic ? <p style={{ margin: "8px 0 0", fontSize: 15, color: "var(--text-body)" }}>{channel.topic}</p> : null}
+        {channel.topic ? <p style={{ margin: "8px 0 0", fontSize: "var(--text-md)", color: "var(--text-body)" }}>{channel.topic}</p> : null}
 
         <div style={{ display: "flex", gap: 10, margin: "20px 0" }}>
           <Action icon="search" label={t("common.search")} onClick={() => onOpenPanel("search")} />
@@ -114,7 +114,7 @@ export function ChannelDetails({
                     </span>
                   ))}
                 </span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)" }}>{members.length}</span>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{members.length}</span>
               </span>
             }
             onClick={() => onOpenPanel("members")}

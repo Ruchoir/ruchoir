@@ -13,7 +13,7 @@ const styles: Record<string, CSSProperties> = {
   dividerLabel: {
     fontFamily: "var(--font-mono)",
     fontWeight: 500,
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-muted)",
   },
 };
@@ -124,7 +124,7 @@ export function LoginScreen({
         <div style={styles.optionRow}>
           <a
             href="#"
-            style={{ fontSize: 13 }}
+            style={{ fontSize: "var(--text-xs)" }}
             onClick={(e) => {
               e.preventDefault();
               onForgotPassword();

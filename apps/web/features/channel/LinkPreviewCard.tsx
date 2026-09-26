@@ -80,7 +80,7 @@ export function LinkPreviewCard({ link }: { link: LinkPreview }) {
               display: "inline-flex",
               alignItems: "center",
               gap: 5,
-              fontSize: 12,
+              fontSize: "var(--text-2xs)",
               fontFamily: "var(--font-mono)",
               color: "var(--text-muted)",
             }}
@@ -93,7 +93,7 @@ export function LinkPreviewCard({ link }: { link: LinkPreview }) {
               style={{
                 display: "block",
                 marginTop: 3,
-                fontSize: 14,
+                fontSize: "var(--text-sm)",
                 fontWeight: 600,
                 color: "var(--text-strong)",
                 overflow: "hidden",
@@ -112,7 +112,7 @@ export function LinkPreviewCard({ link }: { link: LinkPreview }) {
                 WebkitBoxOrient: "vertical",
                 overflow: "hidden",
                 marginTop: 3,
-                fontSize: 13,
+                fontSize: "var(--text-xs)",
                 lineHeight: "var(--leading-snug)",
                 color: "var(--text-muted)",
               }}

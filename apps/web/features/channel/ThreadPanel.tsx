@@ -43,14 +43,14 @@ const styles: Record<string, CSSProperties> = {
     padding: "0 8px 0 16px",
     borderBottom: "1.5px solid var(--border-subtle)",
   },
-  title: { fontSize: 16, fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
+  title: { fontSize: "var(--text-base)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   scroll: { flex: 1, overflow: "auto", padding: "12px 16px" },
   count: {
     display: "flex",
     alignItems: "center",
     gap: 8,
     margin: "12px 0",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-subtle)",
   },
   countLine: { flex: 1, height: 1, background: "var(--border-subtle)" },
@@ -69,7 +69,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     gap: 6,
     marginBottom: 6,
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-muted)",
   },
   chip: {
@@ -79,7 +79,7 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid var(--border-subtle)",
     borderRadius: "var(--radius-md)",
     padding: "4px 6px",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
   },
 };
 

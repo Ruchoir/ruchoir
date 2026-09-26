@@ -28,12 +28,12 @@ const styles: Record<string, CSSProperties> = {
     padding: "0 8px 0 16px",
     borderBottom: "1.5px solid var(--border-subtle)",
   },
-  title: { fontSize: 16, fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
+  title: { fontSize: "var(--text-base)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   search: { padding: 12, borderBottom: "1px solid var(--border-subtle)" },
   scroll: { flex: 1, overflow: "auto" },
   label: {
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
     padding: "12px 16px 4px",
@@ -111,11 +111,11 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                   >
                     <Avatar name={m.author} src={getAvatar(m.author)} size={26} presence={getPresence(m.author)} />
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
+                      <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>
                         {m.author}
                         <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                       </span>
-                      <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 13, color: "var(--text-body)" }}>
+                      <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
                         {messageSummary(m) ?? t("activity.attachment")}
                       </span>
                     </span>
@@ -140,10 +140,10 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                       <FileIcon name={f.name} size={22} />
                     )}
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ display: "block", fontSize: "var(--text-xs)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {f.name}
                       </span>
-                      <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                      <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
                         {f.kind === "folder" ? "" : `${formatBytes(f.sizeBytes)} · `}
                         {formatStamp(f.updatedAt)}
                       </span>

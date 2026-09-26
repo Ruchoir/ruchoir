@@ -1,5 +1,6 @@
 import type { AnchorHTMLAttributes, CSSProperties } from "react";
 import { Icon, type IconName } from "./Icon";
+import { Tooltip } from "./Tooltip";
 import type { IconButtonSize, IconButtonVariant } from "./IconButton";
 
 export type IconLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
@@ -21,14 +22,15 @@ export function IconLink({ icon, label, size = "md", variant = "ghost", classNam
   const glyph = size === "lg" ? 20 : size === "sm" ? 14 : 16;
   const inline: CSSProperties = { display: "inline-flex", textDecoration: "none", ...style };
   return (
+    <Tooltip label={label}>
     <a
       aria-label={label}
-      title={label}
       className={`wc-ibtn wc-ibtn--${size} wc-ibtn--${variant} ${className}`}
       style={inline}
       {...rest}
     >
       <Icon name={icon} size={glyph} />
     </a>
+    </Tooltip>
   );
 }

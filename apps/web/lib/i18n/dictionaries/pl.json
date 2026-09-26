@@ -176,6 +176,8 @@
   "shell": {
     "mainNav": "Nawigacja główna",
     "workspaces": "Przestrzenie robocze",
+    "arrangeSpaces": "Zmień kolejność",
+    "dragToMove": "Przeciągnij, aby przenieść {{name}}",
     "newMessage": "Nowa wiadomość",
     "newSpace": "Nowa przestrzeń",
     "myProfile": "Mój profil",

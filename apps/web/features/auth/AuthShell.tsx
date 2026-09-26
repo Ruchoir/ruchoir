@@ -18,12 +18,12 @@ const styles: Record<string, CSSProperties> = {
   brand: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8 },
   mark: { width: 48, height: 48, display: "block" },
   wordmark: {
-    fontSize: 24,
+    fontSize: "var(--text-2xl)",
     fontWeight: 600,
     letterSpacing: "-0.03em",
     color: "var(--text-strong)",
   },
-  tagline: { fontSize: 13, color: "var(--text-muted)" },
+  tagline: { fontSize: "var(--text-xs)", color: "var(--text-muted)" },
   card: {
     width: "min(400px, 100%)",
     background: "var(--surface-raised)",
@@ -32,7 +32,7 @@ const styles: Record<string, CSSProperties> = {
     boxShadow: "var(--shadow-dialog)",
     padding: "28px 28px 24px",
   },
-  footer: { fontSize: 12, color: "var(--text-subtle)", textAlign: "center" },
+  footer: { fontSize: "var(--text-2xs)", color: "var(--text-subtle)", textAlign: "center" },
 };
 
 /** Shared centered layout for the sign-in and sign-up screens: wordmark, a card, and a footer note. */

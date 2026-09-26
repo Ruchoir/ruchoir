@@ -7,9 +7,9 @@ import { authStyles } from "./authStyles";
 import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
-  body: { fontSize: 14, color: "var(--text-muted)", maxWidth: 340 },
+  body: { fontSize: "var(--text-sm)", color: "var(--text-muted)", maxWidth: 340 },
   notice: {
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     lineHeight: 1.5,
     color: "var(--text-muted)",
     padding: "10px 12px",

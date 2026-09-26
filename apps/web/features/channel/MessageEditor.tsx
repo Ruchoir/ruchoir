@@ -108,7 +108,7 @@ const broadcastMark: CSSProperties = {
   background: "var(--surface-selected)",
   color: "var(--text-accent)",
   fontWeight: 600,
-  fontSize: 12,
+  fontSize: "var(--text-2xs)",
 };
 
 const optionStyle: CSSProperties = {
@@ -122,7 +122,7 @@ const optionStyle: CSSProperties = {
   cursor: "pointer",
   textAlign: "left",
   fontFamily: "var(--font-sans)",
-  fontSize: 13,
+  fontSize: "var(--text-xs)",
   color: "var(--text-body)",
 };
 
@@ -544,7 +544,7 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
                   </span>
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: "block" }}>{hit.name}</span>
-                    <span style={{ display: "block", fontSize: 11, color: "var(--text-subtle)" }}>{t(hit.hint)}</span>
+                    <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t(hit.hint)}</span>
                   </span>
                 </>
               ) : hit.kind === "mention" ? (

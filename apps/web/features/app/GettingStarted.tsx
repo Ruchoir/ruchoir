@@ -47,8 +47,8 @@ const st: Record<string, CSSProperties> = {
     background: "transparent",
     textAlign: "left",
   },
-  title: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
-  count: { fontSize: 12, fontWeight: 500, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
+  title: { flex: 1, minWidth: 0, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" },
+  count: { fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
   bar: { height: 3, background: "var(--grey-200)" },
   barFill: { height: "100%", background: "var(--ink)", transition: "width var(--duration-base) var(--ease-out)" },
   list: { display: "flex", flexDirection: "column", padding: "6px 8px 10px" },
@@ -155,14 +155,14 @@ export function GettingStarted({ done, onRun, onDismiss, compact = false }: Gett
                       <span
                         style={{
                           display: "block",
-                          fontSize: 13,
+                          fontSize: "var(--text-xs)",
                           fontWeight: 500,
                           color: isDone ? "var(--text-muted)" : "var(--text-strong)",
                         }}
                       >
                         {t(s.label)}
                       </span>
-                      <span style={{ display: "block", fontSize: 12, color: "var(--text-subtle)", marginTop: 1 }}>{t(s.desc)}</span>
+                      <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-subtle)", marginTop: 1 }}>{t(s.desc)}</span>
                     </span>
                     <Icon name="chevron-right" size={15} style={{ color: "var(--text-subtle)", flex: "none" }} />
                   </button>

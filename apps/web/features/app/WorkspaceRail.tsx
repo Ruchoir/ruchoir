@@ -1,4 +1,5 @@
 import { type CSSProperties, useRef, useState } from "react";
+import { useDragReorder } from "./useDragReorder";
 import { Avatar, Badge, IconButton, Tooltip } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { PresenceChoice } from "@/lib/data";
@@ -106,9 +107,6 @@ export function WorkspaceRail({
   const { t } = useTranslation();
   const [userMenu, setUserMenu] = useState(false);
   const userRef = useRef<HTMLButtonElement>(null);
-  /** The space being dragged, and the slot it is hovering, so the rail can show where it would land. */
-  const [dragging, setDragging] = useState<string | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   const move = (spaceId: string, toIndex: number) => {
     const from = workspaces.findIndex((w) => w.id === spaceId);
@@ -116,6 +114,8 @@ export function WorkspaceRail({
     if (from === -1 || from === to) return;
     onReorder?.(spaceId, to);
   };
+  // Pressed and moved, a space follows the pointer and the others make room for it.
+  const reorder = useDragReorder({ count: workspaces.length, onMove: (from, to) => move(workspaces[from].id, to) });
 
   return (
     <div style={rail}>
@@ -132,32 +132,8 @@ export function WorkspaceRail({
               ? t("rail.unreadActivity", { name: w.name })
               : w.name;
         return (
-          <Tooltip key={w.id} label={label} side="right">
-            <span
-              style={{
-                ...wsSlot,
-                opacity: dragging === w.id ? 0.4 : 1,
-                // Where it would land, drawn on the slot being hovered rather than as a moving
-                // placeholder: the rail is one column of squares, and a line above the target says
-                // the same thing with nothing jumping around.
-                boxShadow:
-                  dropIndex === index && dragging && dragging !== w.id
-                    ? "inset 0 3px 0 0 var(--ink)"
-                    : undefined,
-              }}
-              onDragOver={(e) => {
-                if (!onReorder || !dragging) return;
-                e.preventDefault();
-                setDropIndex(index);
-              }}
-              onDrop={(e) => {
-                if (!onReorder || !dragging) return;
-                e.preventDefault();
-                move(dragging, index);
-                setDragging(null);
-                setDropIndex(null);
-              }}
-            >
+          <Tooltip key={w.id} label={label} side="right" disabled={reorder.dragging}>
+            <span ref={reorder.itemRef(index)} style={{ ...wsSlot, ...reorder.itemStyle(index) }}>
               <button
                 // The ring, the offset shadow of the open space and the tilt under the pointer are
                 // drawn by the class (components.css), which can say :hover.
@@ -166,17 +142,11 @@ export function WorkspaceRail({
                 aria-current={w.id === active ? "true" : undefined}
                 onClick={() => onSelect(w.id)}
                 aria-label={label}
-                // Reordering is a mouse gesture *and* a keyboard one: alt with the arrow keys moves
+                // Reordering is a pointer gesture *and* a keyboard one: alt with the arrow keys moves
                 // the focused space, so the arrangement is not a feature reserved to pointers.
-                draggable={!!onReorder}
-                onDragStart={() => {
-                  setDragging(w.id);
-                  setDropIndex(index);
-                }}
-                onDragEnd={() => {
-                  setDragging(null);
-                  setDropIndex(null);
-                }}
+                onPointerDown={onReorder ? reorder.onPointerDown(index) : undefined}
+                // The icon is an image, which the browser would otherwise drag out as a file.
+                onDragStart={(e) => e.preventDefault()}
                 onKeyDown={(e) => {
                   if (!onReorder || !e.altKey) return;
                   if (e.key === "ArrowUp") {

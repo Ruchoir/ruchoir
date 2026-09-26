@@ -101,7 +101,7 @@ const st: Record<string, CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: 16,
+    fontSize: "var(--text-base)",
     fontWeight: 600,
     color: "var(--text-muted)",
   },
@@ -127,10 +127,10 @@ const st: Record<string, CSSProperties> = {
     color: "var(--text-strong)",
     marginBottom: 10,
   },
-  sub: { fontSize: 15, color: "var(--text-body)", marginBottom: 8 },
+  sub: { fontSize: "var(--text-md)", color: "var(--text-body)", marginBottom: 8 },
   sect: {
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
     margin: "32px 0 10px",
@@ -151,7 +151,7 @@ function navItem(on: boolean, compact = false): CSSProperties {
     background: on ? "var(--acc)" : compact ? "var(--surface-sunken)" : "transparent",
     color: on ? "var(--on-pastel)" : "var(--text-body)",
     fontFamily: "var(--font-sans)",
-    fontSize: 14,
+    fontSize: "var(--text-sm)",
     fontWeight: on ? 600 : 400,
     cursor: "pointer",
     textAlign: "left",
@@ -175,8 +175,8 @@ function Row({ title, desc, children }: { title: ReactNode; desc?: ReactNode; ch
   return (
     <div style={rowStyle}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{title}</div>
-        {desc ? <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{desc}</div> : null}
+        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{title}</div>
+        {desc ? <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{desc}</div> : null}
       </div>
       {children}
     </div>
@@ -288,8 +288,8 @@ function NotificationKinds() {
 
   return (
     <div style={{ padding: "16px 0 4px" }}>
-      <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t("notif.whatTitle")}</div>
-      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 560 }}>{t("notif.whatSub")}</div>
+      <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{t("notif.whatTitle")}</div>
+      <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2, maxWidth: 560 }}>{t("notif.whatSub")}</div>
       <div
         role="table"
         aria-label={t("notif.whatTitle")}
@@ -304,7 +304,7 @@ function NotificationKinds() {
             gap: 8,
             padding: "8px 12px",
             background: "var(--surface-sunken)",
-            fontSize: 12,
+            fontSize: "var(--text-2xs)",
             fontWeight: 500,
             color: "var(--text-muted)",
           }}
@@ -329,8 +329,8 @@ function NotificationKinds() {
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border-subtle)" }}
           >
             <span role="rowheader" style={{ flex: 1, minWidth: 0 }}>
-              <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)" }}>{t(kind.label)}</span>
-              <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 1 }}>{t(kind.desc)}</span>
+              <span style={{ display: "block", fontSize: "var(--text-xs)", color: "var(--text-strong)" }}>{t(kind.label)}</span>
+              <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 1 }}>{t(kind.desc)}</span>
             </span>
             <span role="cell" style={cell}>
               <Checkbox
@@ -350,7 +350,7 @@ function NotificationKinds() {
           </div>
         ))}
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8, maxWidth: 560 }}>
+      <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 8, maxWidth: 560 }}>
         {notif.email ? t("prefs.emailCatchUpDesc") : t("notif.emailOff")}
       </div>
     </div>
@@ -477,12 +477,12 @@ function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: Font
             </span>
             <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(f.label)}</span>
-                {selected ? <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{t("prefs.active")}</span> : null}
+                <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{t(f.label)}</span>
+                {selected ? <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t("prefs.active")}</span> : null}
               </span>
-              <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(f.desc)}</span>
+              <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t(f.desc)}</span>
               {/* Sample rendered in the target font so the choice previews before it is applied. */}
-              <span style={{ fontFamily: f.stack, fontSize: 13, color: "var(--text-body)" }}>
+              <span style={{ fontFamily: f.stack, fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
                 {t("prefs.fontSampleText")}
               </span>
             </span>
@@ -531,7 +531,7 @@ function TextSizePicker({ value, onChange }: { value: TextSize; onChange: (t: Te
             }}
           >
             <span aria-hidden style={{ fontSize: o.sample, fontWeight: 600, lineHeight: 1, color: "var(--text-strong)" }}>A</span>
-            <span style={{ fontSize: 12, color: selected ? "var(--text-accent)" : "var(--text-muted)" }}>{t(o.label)}</span>
+            <span style={{ fontSize: "var(--text-2xs)", color: selected ? "var(--text-accent)" : "var(--text-muted)" }}>{t(o.label)}</span>
           </button>
         );
       })}
@@ -597,7 +597,7 @@ function ModePicker({ value, onChange }: { value: ThemeMode; onChange: (m: Theme
           </button>
         ))}
       </div>
-      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
+      <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 8 }}>
         {t(value === "auto" ? MODE_HINT.auto : MODE_HINT.fixed)}
       </div>
     </div>
@@ -606,7 +606,7 @@ function ModePicker({ value, onChange }: { value: ThemeMode; onChange: (m: Theme
 
 const kbdStyle: CSSProperties = {
   fontFamily: "var(--font-mono)",
-  fontSize: 12,
+  fontSize: "var(--text-2xs)",
   color: "var(--text-strong)",
   background: "var(--surface-card)",
   // A key cap: the outline of a control, thicker at the bottom.
@@ -642,10 +642,10 @@ function ShortcutRow({
   return (
     <div style={rowStyle}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(def.label)}</div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{t(def.hint)}</div>
+        <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{t(def.label)}</div>
+        <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{t(def.hint)}</div>
         {conflict ? (
-          <div style={{ fontSize: 12, color: "var(--status-danger-fg)", marginTop: 4 }}>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--status-danger-fg)", marginTop: 4 }}>
             {t("shortcut.conflict", { label: t(conflict) })}
           </div>
         ) : null}
@@ -665,7 +665,7 @@ function ShortcutRow({
         ) : chord ? (
           <kbd style={kbdStyle}>{formatChord(chord, mac, t)}</kbd>
         ) : (
-          <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("dialogs.unassigned")}</span>
+          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t("dialogs.unassigned")}</span>
         )}
         <Button size="sm" variant="secondary" onClick={onStart} aria-label={t("shortcut.editShortcut", { label: t(def.label) })}>
           {capturing ? t("common.cancel") : t("message.edit")}
@@ -852,10 +852,10 @@ export function PreferencesScreen({
                   column of a Row it fought the sentence explaining it for the same inches.
                 */}
                 <div style={{ marginBottom: 4 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>
+                  <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>
                     {t("language.title")}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 10px", maxWidth: 520 }}>
+                  <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", margin: "2px 0 10px", maxWidth: 520 }}>
                     {t("language.description")}
                   </div>
                   <LanguagePicker

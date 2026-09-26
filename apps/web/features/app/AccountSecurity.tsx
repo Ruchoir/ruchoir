@@ -40,9 +40,9 @@ function Row({ title, desc, children }: { title: ReactNode; desc?: ReactNode; ch
   return (
     <div style={row}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{title}</div>
+        <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{title}</div>
         {desc ? (
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 520 }}>{desc}</div>
+          <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2, maxWidth: 520 }}>{desc}</div>
         ) : null}
       </div>
       {children}
@@ -60,7 +60,7 @@ function RecoveryCodes({ codes, onNotify }: { codes: string[]; onNotify?: (t: To
   const { t } = useTranslation();
   return (
     <>
-      <p style={{ fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
         {t("security.recoveryKeep")}
       </p>
       <div
@@ -73,7 +73,7 @@ function RecoveryCodes({ codes, onNotify }: { codes: string[]; onNotify?: (t: To
           borderRadius: "var(--radius-md)",
           background: "var(--surface-sunken)",
           fontFamily: "var(--font-mono)",
-          fontSize: 13,
+          fontSize: "var(--text-xs)",
           color: "var(--text-strong)",
         }}
       >
@@ -353,14 +353,14 @@ export function AccountSecuritySection({
                 padding: "8px 10px",
                 borderRadius: "var(--radius-sm)",
                 background: "var(--surface-sunken)",
-                fontSize: 13,
+                fontSize: "var(--text-xs)",
               }}
             >
               <Icon name="key-round" size={14} style={{ color: "var(--text-muted)" }} />
               <span style={{ flex: 1, minWidth: 0, color: "var(--text-strong)" }}>
                 {key.label ?? t("mfa.passkeyLabel")}
               </span>
-              <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>
+              <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
                 {key.lastUsedAt
                   ? t("security.usedOn", { date: new Date(key.lastUsedAt).toLocaleDateString(i18n.language) })
                   : t("security.addedOn", { date: new Date(key.createdAt).toLocaleDateString(i18n.language) })}
@@ -406,12 +406,12 @@ export function AccountSecuritySection({
               style={{ display: "flex", justifyContent: "center", padding: 8 }}
               dangerouslySetInnerHTML={{ __html: enrolment.qrSvg }}
             />
-            <p style={{ fontSize: 12, color: "var(--text-muted)", wordBreak: "break-all", margin: "8px 0 16px" }}>
+            <p style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", wordBreak: "break-all", margin: "8px 0 16px" }}>
               {t("security.cannotScan", { url: enrolment.otpauthUrl })}
             </p>
           </>
         ) : (
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("crop.preparing")}</p>
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("crop.preparing")}</p>
         )}
         <Field label={t("security.sixDigits")} htmlFor="totp-code" error={error ?? undefined}>
           <Input
@@ -443,7 +443,7 @@ export function AccountSecuritySection({
           </>
         }
       >
-        <p style={{ fontSize: 13, color: "var(--text-body)", marginBottom: 14 }}>
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", marginBottom: 14 }}>
           {t("security.passwordOnlyWarning")}
         </p>
         <Field label={t("security.yourPassword")} htmlFor="disable-pw" error={error ?? undefined}>
@@ -488,7 +488,7 @@ export function AccountSecuritySection({
           </>
         }
       >
-        <p style={{ fontSize: 13, color: "var(--text-body)", marginBottom: 14 }}>
+        <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", marginBottom: 14 }}>
           {t("security.allSessionsClosed")}
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -1,4 +1,4 @@
-import { Icon } from "@/components/ds";
+import { Icon, Tooltip } from "@/components/ds";
 import { useTranslation } from "@/lib/i18n";
 
 /**
@@ -38,21 +38,21 @@ export function ReadReceipt({ names, audience }: { names?: string[]; audience: n
     return t("conversation.readBySome", { count: readers.length, audience });
   })();
 
-  return (
+  const receipt = (
     <span
       style={{
         display: "inline-flex",
         alignItems: "center",
         gap: 4,
-        fontSize: 11,
+        fontSize: "var(--text-2xs)",
         color: readers.length === 0 ? "var(--text-subtle)" : "var(--text-muted)",
       }}
-      // The names in full, for the cases where only a number is drawn.
-      title={readers.length > 2 ? readers.join(", ") : undefined}
     >
       {/* One tick for sent, two for read: the same distinction the label makes, at a glance. */}
       <Icon name={readers.length === 0 ? "check" : "check-check"} size={12} />
       {label}
     </span>
   );
+  // The names in full, for the cases where only a number is drawn.
+  return readers.length > 2 ? <Tooltip label={readers.join(", ")}>{receipt}</Tooltip> : receipt;
 }

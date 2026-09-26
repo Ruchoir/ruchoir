@@ -12,6 +12,8 @@ export type TooltipProps = {
   side?: TooltipSide;
   children: ReactNode;
   className?: string;
+  /** Held closed, while what the control opened (a menu, a picker) is on screen in its place. */
+  disabled?: boolean;
 };
 
 type Coords = { top: number; left: number };
@@ -61,7 +63,7 @@ const bubble: CSSProperties = {
   color: "var(--text-inverse)",
   // Set like every label: the monospace face, in sentence case.
   fontFamily: "var(--font-mono)",
-  fontSize: 12,
+  fontSize: "var(--text-2xs)",
   fontWeight: 500,
   lineHeight: 1.3,
   padding: "5px var(--space-2)",
@@ -70,7 +72,7 @@ const bubble: CSSProperties = {
 };
 
 /** Dark hover tooltip, portaled and viewport-aware (flips/clamps so it never overflows). */
-export function Tooltip({ label, shortcut, side = "top", children, className = "" }: TooltipProps) {
+export function Tooltip({ label, shortcut, side = "top", children, className = "", disabled = false }: TooltipProps) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -122,7 +124,7 @@ export function Tooltip({ label, shortcut, side = "top", children, className = "
       onBlur={() => setOpen(false)}
     >
       {children}
-      {open && typeof document !== "undefined"
+      {open && !disabled && typeof document !== "undefined"
         ? createPortal(
             <div
               ref={bubbleRef}

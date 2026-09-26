@@ -9,7 +9,7 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 const styles: Record<string, CSSProperties> = {
   nameRow: { display: "flex", gap: 10 },
   rules: { display: "flex", flexDirection: "column", gap: 4, marginTop: 2 },
-  rule: { display: "flex", alignItems: "center", gap: 6, fontSize: 12 },
+  rule: { display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-2xs)" },
 };
 
 /**
@@ -126,7 +126,7 @@ export function SignupScreen({ onSubmit, onBackToLogin, error, pending = false }
         <Checkbox
           checked={agreed}
           onChange={() => setAgreed((a) => !a)}
-          label={<span style={{ fontSize: 13 }}>{t("signup.terms")}</span>}
+          label={<span style={{ fontSize: "var(--text-xs)" }}>{t("signup.terms")}</span>}
         />
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={!canSubmit}>
           {pending ? t("common.creating") : t("signup.submit")}

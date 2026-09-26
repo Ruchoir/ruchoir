@@ -21,7 +21,7 @@ const row: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: 8,
-  fontSize: 13,
+  fontSize: "var(--text-xs)",
   color: "var(--text-muted)",
 };
 
@@ -48,15 +48,15 @@ export function UserProfileCard({ name, userId, presence, onViewFull, onEditProf
       <div style={{ height: 56, background: "var(--acc)", borderBottom: "2px solid var(--ink)" }} />
       <div style={{ padding: "0 16px 14px", marginTop: -22 }}>
         <Avatar name={p.name} src={p.avatarUrl} size={56} presence={dot} kind={p.bot ? "bot" : "person"} />
-        <div style={{ marginTop: 8, fontSize: 19, fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+        <div style={{ marginTop: 8, fontSize: "var(--text-lg)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
           {p.name}
           {p.pronouns ? (
-            <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-subtle)", marginLeft: 6 }}>
+            <span style={{ fontSize: "var(--text-xs)", fontWeight: 400, color: "var(--text-subtle)", marginLeft: 6 }}>
               ({p.pronouns})
             </span>
           ) : null}
         </div>
-        <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 1 }}>{p.role}</div>
+        <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 1 }}>{p.role}</div>
         {/* Who to ask when an account has to be handed back: without this the recovery instructions
             name a person nobody can pick out. */}
         {p.instanceAdmin ? (

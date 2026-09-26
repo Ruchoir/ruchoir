@@ -28,7 +28,7 @@ const titleStyle: CSSProperties = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
-  fontSize: 16,
+  fontSize: "var(--text-base)",
   fontWeight: 700,
   letterSpacing: "var(--tracking-tight)",
   color: "var(--text-strong)",

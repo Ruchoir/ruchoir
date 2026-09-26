@@ -29,7 +29,7 @@ const styles: Record<string, CSSProperties> = {
     marginBottom: 8,
     paddingBottom: 8,
     borderBottom: "1px solid var(--border-subtle)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
   },
   tools: { display: "flex", alignItems: "center", gap: 2, marginTop: 6 },
   divider: { width: 1, height: 18, background: "var(--border-subtle)", margin: "0 6px" },
@@ -37,7 +37,7 @@ const styles: Record<string, CSSProperties> = {
     maxWidth: "var(--channel-measure)",
     margin: "6px auto 0",
     fontFamily: "var(--font-mono)",
-    fontSize: 11.5,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-muted)",
   },
   chip: {
@@ -49,7 +49,7 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid var(--border-subtle)",
     borderRadius: "var(--radius-md)",
     background: "var(--surface-sunken)",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     color: "var(--text-body)",
   },
 };
@@ -225,10 +225,12 @@ export function Composer({
   const fileRef = useRef<HTMLInputElement>(null);
   const lastTyping = useRef(0);
   const compact = useCompact(TOOLBAR_BREAKPOINT);
-  // A phone: one line at rest (the text, emoji, a file, send), the formatting tools once writing.
-  const phone = useLayout() === "phone";
+  const layout = useLayout();
   // "Enter to send" is about a keyboard: on a touch screen it is a sentence about something absent.
   const touch = useTouch();
+  // A touch screen, a phone or a tablet: one line (the text, a file, send), no formatting toolbar.
+  // Its buttons are sized for a finger, and a tablet's keyboard covers the same half of the screen.
+  const phone = layout === "phone" || touch;
 
   // Fire a typing signal at most every 2s while composing; input events bubble up from the editor.
   const signalTyping = () => {

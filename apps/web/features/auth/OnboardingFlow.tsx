@@ -21,12 +21,12 @@ const styles: Record<string, CSSProperties> = {
   segOn: { background: "var(--ink)" },
   step: {
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
   },
-  heading: { margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
-  sub: { fontSize: 14, color: "var(--text-muted)", marginTop: 6 },
+  heading: { margin: 0, fontSize: "var(--text-2xl)", fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
+  sub: { fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: 6 },
   card: {
     background: "var(--surface-raised)",
     border: "2px solid var(--ink)",
@@ -39,7 +39,7 @@ const styles: Record<string, CSSProperties> = {
   },
   nav: { display: "flex", alignItems: "center", justifyContent: "space-between" },
   error: {
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     color: "var(--status-danger-fg)",
     background: "var(--status-danger-bg)",
     border: "1.5px solid var(--status-danger-border)",
@@ -96,7 +96,7 @@ export function OnboardingFlow({
               <Icon name="check" size={26} style={{ color: "var(--status-success-fg)" }} />
             </span>
             <h1 style={styles.heading}>{firstName ? t("onboarding.readyNamed", { name: firstName }) : t("onboarding.ready")}</h1>
-            <p style={{ fontSize: 14, color: "var(--text-muted)", maxWidth: 340 }}>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", maxWidth: 340 }}>
               <Trans
                 i18nKey={invited > 0 ? "onboarding.readyBodyInvited" : "onboarding.readyBody"}
                 values={{ name, count: invited }}

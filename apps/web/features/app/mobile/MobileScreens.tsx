@@ -10,7 +10,7 @@
  */
 
 import type { CSSProperties, ReactNode } from "react";
-import { Avatar, Badge, EmptyState, Icon, type IconName, type Presence } from "@/components/ds";
+import { Avatar, Badge, EmptyState, Icon, type IconName, type Presence, Skeleton, SkeletonGroup } from "@/components/ds";
 import type { DirectMessage, Workspace } from "@/lib/data";
 import { getAvatar } from "@/lib/data";
 import { useTranslation } from "@/lib/i18n";
@@ -25,7 +25,7 @@ const headerTitle: CSSProperties = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
-  fontSize: 24,
+  fontSize: "var(--text-2xl)",
   fontWeight: 700,
   letterSpacing: "var(--tracking-display)",
   color: "var(--text-strong)",
@@ -130,6 +130,8 @@ export function ComposeFab({ onClick }: { onClick: () => void }) {
 
 export type MobileMessagesProps = {
   dms: DirectMessage[];
+  /** A space is loading: its conversations are not known yet, which is not the same as none. */
+  loading?: boolean;
   onOpen: (id: string) => void;
   onNew: () => void;
 };
@@ -139,8 +141,23 @@ export type MobileMessagesProps = {
  * first. What the sidebar lists by name, this lists by activity, because on a phone the question is
  * "who wrote to me", not "where is Léa".
  */
-export function MobileMessages({ dms, onOpen, onNew }: MobileMessagesProps) {
+export function MobileMessages({ dms, loading = false, onOpen, onNew }: MobileMessagesProps) {
   const { t } = useTranslation();
+  if (loading) {
+    return (
+      <SkeletonGroup label={t("common.loading")}>
+        {[0.55, 0.4, 0.62, 0.48].map((w) => (
+          <div key={w} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px" }}>
+            <Skeleton circle width={40} height={40} />
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+              <Skeleton width={`${w * 100}%`} height={12} />
+              <Skeleton width={`${w * 140}%`} height={10} />
+            </div>
+          </div>
+        ))}
+      </SkeletonGroup>
+    );
+  }
   const sorted = [...dms].sort((a, b) => (b.lastMessage?.at ?? "").localeCompare(a.lastMessage?.at ?? ""));
   if (sorted.length === 0) {
     return (

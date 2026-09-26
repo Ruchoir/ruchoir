@@ -45,7 +45,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     gap: 6,
     margin: 0, // rendered as the page <h1> (breadcrumb heading)
-    fontSize: 18,
+    fontSize: "var(--text-lg)",
     fontWeight: 700,
     color: "var(--text-strong)",
     letterSpacing: "var(--tracking-tight)",
@@ -68,7 +68,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: "var(--font-mono)",
     height: 34,
     textAlign: "left",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
     padding: "0 12px",
@@ -81,7 +81,7 @@ const styles: Record<string, CSSProperties> = {
     height: 44,
     padding: "0 12px",
     borderBottom: "1px solid var(--border-subtle)",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     color: "var(--text-body)",
     verticalAlign: "middle",
     overflow: "hidden",
@@ -461,8 +461,8 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
               {t("common.back")}
             </Button>
             <Icon name="folder" size={18} style={{ color: "var(--ink)" }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{currentFolderName}</span>
-            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>· {t("files.count", { count: rows.length })}</span>
+            <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{currentFolderName}</span>
+            <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>· {t("files.count", { count: rows.length })}</span>
           </div>
         ) : null}
         <div style={{ ...styles.bar, flexWrap: compact ? "wrap" : "nowrap" }}>
@@ -480,7 +480,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
             ]}
           />
           <div style={{ flex: 1 }} />
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
             {t("files.count", { count: rows.length })}
             {totalBytes > 0 ? ` · ${formatBytes(totalBytes)}` : ""}
           </span>
@@ -497,7 +497,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
           // this has to stay visible and actionable while the folders are being browsed.
           <div style={styles.selectionBar}>
             <Icon name="folder-open" size={15} style={{ color: "var(--text-accent)" }} />
-            <span style={{ fontSize: 13, color: "var(--text-strong)" }}>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-strong)" }}>
               <strong>{t("files.count", { count: moving.length })}</strong> {t("files.chooseDestination")}
             </span>
             <div style={{ flex: 1 }} />
@@ -511,7 +511,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
         ) : selectedEntries.length > 0 ? (
           // The checkboxes had built a selection nothing could act on. This is what they are for.
           <div style={styles.selectionBar}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
+            <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>
               {t("files.selectedCount", { count: selectedEntries.length })}
             </span>
             <div style={{ flex: 1 }} />
@@ -598,10 +598,10 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
                     <FileIcon name={f.name} size={44} />
                   )}
                 </div>
-                <div title={f.name} style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
+                <div title={f.name} style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
                   {truncateMiddle(f.name)}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 12, color: "var(--text-muted)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
                   <Avatar name={f.by} src={getAvatar(f.by)} size={18} />
                   <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by}</span>
                   {f.kind === "folder" ? null : (
@@ -721,7 +721,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
           </>
         }
       >
-        <p style={{ fontSize: 14, color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
           {pendingDelete.length === 1 ? (
             <>
               {t("files.deleteOneBody", { name: pendingDelete[0].name })}
@@ -826,8 +826,8 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
                 ) : (
                   <FileIcon name={preview.name} size={72} />
                 )}
-                <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("files.noPreview")}</div>
-                <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("files.noPreviewText")}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("files.noPreview")}</div>
+                <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t("files.noPreviewText")}</div>
               </>
             )}
           </div>
@@ -892,9 +892,9 @@ function FileRow({
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by.split(" ")[0]}</span>
         </span>
       </td>
-      <td style={{ ...styles.td, color: "var(--text-muted)", fontSize: 12 }}>{formatStamp(f.updatedAt)}</td>
+      <td style={{ ...styles.td, color: "var(--text-muted)", fontSize: "var(--text-2xs)" }}>{formatStamp(f.updatedAt)}</td>
       <td style={styles.td}>
-        {f.imported ? <Tag brand={brandFor(f.source) ?? undefined} icon={brandFor(f.source) ? undefined : "import"}>{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>-</span>}
+        {f.imported ? <Tag brand={brandFor(f.source) ?? undefined} icon={brandFor(f.source) ? undefined : "import"}>{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>-</span>}
       </td>
       <td style={styles.td}>
         <span style={{ ...styles.checkCell, opacity: hover ? 1 : 0, transition: "opacity var(--duration-fast) var(--ease-out)" }}>

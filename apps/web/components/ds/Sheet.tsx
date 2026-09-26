@@ -76,7 +76,8 @@ export function Sheet({ open = true, label, heading = false, onClose, children, 
       startAt = e.timeStamp;
       dy = 0;
       dragging = false;
-      armed = panel.scrollTop <= 0;
+      // A row's own drag handle (a space being moved) is not the sheet being pulled down.
+      armed = panel.scrollTop <= 0 && !(e.target instanceof Element && e.target.closest("[data-sheet-nodrag]"));
     };
     const onMove = (e: TouchEvent) => {
       if (!armed) return;

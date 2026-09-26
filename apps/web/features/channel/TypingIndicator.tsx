@@ -28,7 +28,7 @@ export function TypingIndicator({ names }: { names: string[] }) {
         gap: 8,
         minHeight: 20,
         fontFamily: "var(--font-mono)",
-        fontSize: 12,
+        fontSize: "var(--text-2xs)",
         color: "var(--text-muted)",
       }}
     >

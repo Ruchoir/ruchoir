@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Icon, IconButton, Popover } from "@/components/ds";
+import { Icon, IconButton, Popover, Tooltip } from "@/components/ds";
 import { EmojiPicker } from "./EmojiPicker";
 import { useTranslation } from "@/lib/i18n";
 
@@ -31,35 +31,39 @@ export function ReactionMenu({ onPick, variant = "action", onOpenChange }: React
   return (
     <>
       {variant === "pill" ? (
-        <button
-          ref={anchorRef}
-          type="button"
-          aria-label={t("message.addReaction")}
-          aria-expanded={open}
-          onClick={() => set(!open)}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            height: 26,
-            padding: "0 9px",
-            border: "1px solid var(--border-default)",
-            background: open ? "var(--surface-active)" : "var(--surface-canvas)",
-            borderRadius: "var(--radius-full)",
-            color: "var(--text-subtle)",
-            cursor: "pointer",
-          }}
-        >
-          <Icon name="smile-plus" size={14} />
-        </button>
+        <Tooltip label={t("message.addReaction")} disabled={open}>
+          <button
+            ref={anchorRef}
+            type="button"
+            aria-label={t("message.addReaction")}
+            aria-expanded={open}
+            onClick={() => set(!open)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              height: 26,
+              padding: "0 9px",
+              border: "1px solid var(--border-default)",
+              background: open ? "var(--surface-active)" : "var(--surface-canvas)",
+              borderRadius: "var(--radius-full)",
+              color: "var(--text-subtle)",
+              cursor: "pointer",
+            }}
+          >
+            <Icon name="smile-plus" size={14} />
+          </button>
+        </Tooltip>
       ) : (
-        <IconButton
-          ref={anchorRef}
-          icon="smile-plus"
-          label={t("message.react")}
-          size="sm"
-          aria-expanded={open}
-          onClick={() => set(!open)}
-        />
+        <Tooltip label={t("message.react")} disabled={open}>
+          <IconButton
+            ref={anchorRef}
+            icon="smile-plus"
+            label={t("message.react")}
+            size="sm"
+            aria-expanded={open}
+            onClick={() => set(!open)}
+          />
+        </Tooltip>
       )}
 
       <Popover anchorRef={anchorRef} open={open} onClose={() => set(false)} placement="top" align="start">

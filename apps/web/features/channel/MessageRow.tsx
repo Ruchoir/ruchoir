@@ -66,7 +66,7 @@ const styles: Record<string, CSSProperties> = {
     paddingTop: 3,
     textAlign: "right",
     fontFamily: "var(--font-mono)",
-    fontSize: 11,
+    fontSize: "var(--text-2xs)",
     lineHeight: "var(--leading-normal)",
     color: "var(--text-subtle)",
     fontVariantNumeric: "tabular-nums",
@@ -77,17 +77,17 @@ const styles: Record<string, CSSProperties> = {
     // row's left padding on the rare wide glyph rather than be cut.
     whiteSpace: "nowrap",
   },
-  name: { fontSize: 15, fontWeight: 700, color: "var(--text-strong)" },
-  time: { fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
+  name: { fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-strong)" },
+  time: { fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
   body: {
-    fontSize: 16,
+    fontSize: "var(--text-base)",
     lineHeight: "var(--leading-normal)",
     color: "var(--text-body)",
     marginTop: 1,
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
   },
-  edited: { fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-subtle)" },
+  edited: { fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" },
   editedLine: { display: "block", marginTop: 2 },
   attachmentName: {
     display: "block",
@@ -96,7 +96,7 @@ const styles: Record<string, CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: 14,
+    fontSize: "var(--text-sm)",
     fontWeight: 500,
     color: "var(--text-strong)",
   },
@@ -144,7 +144,7 @@ function AttachmentCard({ attachment }: { attachment: MessageAttachment }) {
             borderRadius: "var(--radius-md)",
             border: "1.5px dashed var(--border-strong)",
             color: "var(--text-subtle)",
-            fontSize: 13,
+            fontSize: "var(--text-xs)",
           }}
         >
           <Icon name="trash-2" size={14} style={{ flex: "none" }} />
@@ -162,7 +162,7 @@ function AttachmentCard({ attachment }: { attachment: MessageAttachment }) {
             <span style={styles.attachmentName} title={attachment.name}>
               {attachment.name}
             </span>
-            <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+            <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
               {formatBytes(attachment.sizeBytes)}
             </span>
           </span>
@@ -205,7 +205,7 @@ function reactionPill(mine?: boolean): CSSProperties {
     background: mine ? "var(--acc)" : "var(--surface-card)",
     borderRadius: "var(--radius-full)",
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 600,
     color: mine ? "var(--on-pastel)" : "var(--text-body)",
     cursor: "pointer",
@@ -285,7 +285,7 @@ const nameBtn: CSSProperties = {
   padding: 0,
   cursor: "pointer",
   fontFamily: "var(--font-sans)",
-  fontSize: 14,
+  fontSize: "var(--text-sm)",
   fontWeight: 600,
   color: "var(--text-strong)",
 };
@@ -532,7 +532,7 @@ export function MessageRow({
               display: "flex",
               alignItems: "center",
               gap: 6,
-              fontSize: 14,
+              fontSize: "var(--text-sm)",
               fontStyle: "italic",
               color: "var(--text-subtle)",
               marginTop: 1,
@@ -602,7 +602,7 @@ export function MessageRow({
                   padding: 0,
                   cursor: "pointer",
                   fontFamily: "var(--font-sans)",
-                  fontSize: 13,
+                  fontSize: "var(--text-xs)",
                   fontWeight: 600,
                   color: "var(--text-link)",
                 }}
@@ -627,7 +627,7 @@ export function MessageRow({
                 </span>
                 {/* How fresh the thread is, which is what decides whether it is worth opening now. */}
                 {m.lastReplyAt ? (
-                  <span style={{ fontWeight: 400, fontSize: 12, color: "var(--text-muted)" }}>
+                  <span style={{ fontWeight: 400, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
                     {t("message.lastReply", { when: formatRelativeStamp(m.lastReplyAt) })}
                   </span>
                 ) : null}
@@ -724,12 +724,12 @@ export function MessageRow({
                 key={r.emoji}
                 style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 2px", borderBottom: "1px solid var(--border-subtle)" }}
               >
-                <span style={{ fontSize: 22, lineHeight: 1 }}>{r.emoji}</span>
+                <span style={{ fontSize: "var(--text-xl)", lineHeight: 1 }}>{r.emoji}</span>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
+                  <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>
                     {t("message.reactors", { count: r.count })}
                   </div>
-                  <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                  <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                     {r.users && r.users.length > 0 ? r.users.join(", ") : "—"}
                   </div>
                 </div>

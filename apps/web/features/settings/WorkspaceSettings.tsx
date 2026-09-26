@@ -33,7 +33,7 @@ const st: Record<string, CSSProperties> = {
     padding: "0 20px",
     margin: 0, // rendered as an <h1>
     borderBottom: "1.5px solid var(--border-subtle)",
-    fontSize: 18,
+    fontSize: "var(--text-lg)",
     fontWeight: 700,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
@@ -56,10 +56,10 @@ const st: Record<string, CSSProperties> = {
     color: "var(--text-strong)",
     marginBottom: 10,
   },
-  sub: { fontSize: 15, color: "var(--text-body)", marginBottom: 20 },
+  sub: { fontSize: "var(--text-md)", color: "var(--text-body)", marginBottom: 20 },
   sect: {
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
     margin: "24px 0 10px",
@@ -74,8 +74,8 @@ const st: Record<string, CSSProperties> = {
     padding: "12px 0",
     borderBottom: "1px solid var(--border-subtle)",
   },
-  rowT: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
-  rowD: { fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 420 },
+  rowT: { fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" },
+  rowD: { fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2, maxWidth: 420 },
 };
 
 function navItem(on: boolean, compact = false): CSSProperties {
@@ -92,7 +92,7 @@ function navItem(on: boolean, compact = false): CSSProperties {
     background: on ? "var(--acc)" : compact ? "var(--surface-sunken)" : "transparent",
     color: on ? "var(--on-pastel)" : "var(--text-body)",
     fontFamily: "var(--font-sans)",
-    fontSize: 14,
+    fontSize: "var(--text-sm)",
     fontWeight: on ? 600 : 400,
     cursor: "pointer",
     textAlign: "left",
@@ -397,7 +397,7 @@ export function WorkspaceSettings({
                         ) : null}
                       </>
                     ) : (
-                      <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                      <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                         {t("space.ownerOnlyIcon")}
                       </span>
                     )}
@@ -520,10 +520,10 @@ export function WorkspaceSettings({
                           role rather than as a kind of account. */}
                       <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
+                          <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
                           {/* Their job title when they have set one. The address used to be shown here,
                               invented from the first name and a domain nobody owns. */}
-                          {m.title ? <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{m.title}</div> : null}
+                          {m.title ? <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{m.title}</div> : null}
                         </span>
                         {m.bot ? <Tag>{t("sidebar.bot")}</Tag> : null}
                         {guest ? <Tag tone="warning">{t("space.external")}</Tag> : null}
@@ -553,7 +553,7 @@ export function WorkspaceSettings({
                             }))}
                           />
                         ) : (
-                          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(role)}</span>
+                          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t(role)}</span>
                         )}
                       </div>
                       {/* Removing sits next to the role and not in it: a role is what someone may do

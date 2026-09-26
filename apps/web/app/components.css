@@ -135,31 +135,28 @@
   background: var(--action-danger-bg-hover);
   box-shadow: var(--shadow-popover);
 }
-/* A link is underlined in the theme's accent, thick, as on the site; the pointer darkens the line. */
+/* A link is told by its colour at rest, and underlined in the theme's accent, thick, as on the site,
+   only under the pointer (or the keyboard's focus). */
+.wc-btn--link,
+.wc-message-link {
+  color: var(--text-link);
+  text-decoration: none;
+  text-decoration-color: var(--acc);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
 .wc-btn--link {
   background: transparent;
-  color: var(--text-link);
   height: auto;
   padding: 0;
   border: 0;
-  text-decoration: underline;
-  text-decoration-color: var(--acc);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
 }
-.wc-btn--link:hover {
+.wc-btn--link:hover,
+.wc-btn--link:focus-visible,
+.wc-message-link:hover,
+.wc-message-link:focus-visible {
   color: var(--text-link-hover);
-  text-decoration-color: var(--ink);
-}
-.wc-message-link {
-  color: var(--text-link);
-  text-decoration: underline;
-  text-decoration-color: var(--acc);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-.wc-message-link:hover {
-  text-decoration-color: var(--ink);
+  text-decoration-line: underline;
 }
 .wc-btn:disabled {
   cursor: not-allowed;
@@ -203,6 +200,23 @@
 .wc-ibtn--lg {
   width: 40px;
   height: 40px;
+}
+/* A finger's target is 44px whatever the glyph's box: on a touch screen every icon button reaches
+   past its drawn edge with an invisible square, so the layouts stay as dense as they are drawn
+   (a panel's close, the composer's tools, a row's actions) and a thumb still lands on them. */
+@media (hover: none) and (pointer: coarse) {
+  .wc-ibtn {
+    position: relative;
+  }
+  .wc-ibtn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
 }
 /* Hover only where there is a pointer that hovers: a touch screen keeps :hover stuck on whatever was
    last under the finger, which lit a tool that the reflowing composer had slid under the tap. */
@@ -548,9 +562,14 @@
 
 /* A message composer is the one control drawn in full ink: it is what the screen is for. While in
    use it takes an offset shadow in the theme's pastel. */
+/* The composer at rest has a hairline in the light grey, and takes the ink and its offset shadow
+   only while written in: an idle channel has no heavy frame at its foot. The thick border stays,
+   transparent and outside the painted box, so nothing moves when the focus arrives. */
 .wc-message-composer {
-  border: var(--border-width-strong) solid var(--ink);
+  border: var(--border-width-strong) solid transparent;
   background: var(--surface-card);
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px var(--line-strong);
   transition: box-shadow 150ms var(--ease-out);
 }
 .wc-message-composer:focus-within {
@@ -2986,6 +3005,26 @@
 .wc-sheet__group > .wc-sheet__item + .wc-sheet__item {
   border-top: 1px solid var(--border-subtle);
 }
+/* A space being arranged: not a button, and a grip at its end that a finger drags without the list
+   scrolling under it. */
+.wc-sheet__item--arrange {
+  cursor: default;
+  gap: 8px;
+  background: var(--surface-raised);
+}
+.wc-sheet__grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  flex: none;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
 .wc-sheet__item {
   display: flex;
   align-items: center;

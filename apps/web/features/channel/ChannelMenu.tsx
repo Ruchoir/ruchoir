@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useRef, useState } from "react";
-import { Icon, IconButton, Popover } from "@/components/ds";
+import { Icon, IconButton, Popover, Tooltip } from "@/components/ds";
 import { useTranslation } from "@/lib/i18n";
 
 const menu: CSSProperties = {
@@ -25,7 +25,7 @@ const itemStyle: CSSProperties = {
   background: "transparent",
   color: "var(--text-body)",
   fontFamily: "var(--font-sans)",
-  fontSize: 13,
+  fontSize: "var(--text-xs)",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -82,14 +82,16 @@ export function ChannelMenu({
 
   return (
     <>
-      <IconButton
-        ref={anchorRef}
-        className="wc-ibtn--bare"
-        icon="more-horizontal"
-        label={t("message.more")}
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      />
+      <Tooltip label={t("message.more")} disabled={open}>
+        <IconButton
+          ref={anchorRef}
+          className="wc-ibtn--bare"
+          icon="more-horizontal"
+          label={t("message.more")}
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        />
+      </Tooltip>
       <Popover anchorRef={anchorRef} open={open} onClose={() => setOpen(false)} placement="bottom" align="end">
         <div style={menu} role="menu">
           {items.map((it) => (

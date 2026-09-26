@@ -18,7 +18,7 @@ const sep: Record<string, CSSProperties> = {
   word: {
     fontFamily: "var(--font-mono)",
     fontWeight: 500,
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-muted)",
   },
   card: {
@@ -36,11 +36,11 @@ const sep: Record<string, CSSProperties> = {
   },
   cardTitle: {
     display: "block",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     fontWeight: "var(--weight-medium)" as CSSProperties["fontWeight"],
     color: "var(--text-strong)",
   },
-  cardHint: { display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 2 },
+  cardHint: { display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2 },
 };
 
 /** Why the thing you just asked for did not happen, said where the eye already is. */
@@ -51,7 +51,7 @@ const dialogError: CSSProperties = {
   background: "var(--surface-sunken)",
   border: "1px solid var(--status-danger-fg)",
   color: "var(--status-danger-fg)",
-  fontSize: 12,
+  fontSize: "var(--text-2xs)",
   lineHeight: 1.5,
 };
 
@@ -174,11 +174,11 @@ export function NewMessageDialog({
               onClick={() => onSelect(p.name)}
             >
               <Avatar name={p.name} src={getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
-              <span style={{ fontSize: 13, color: "var(--text-strong)" }}>{p.name}</span>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-strong)" }}>{p.name}</span>
             </button>
           ))}
           {rows.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>{t("common.nobodyMatches")}</p>
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", padding: "8px 10px" }}>{t("common.nobodyMatches")}</p>
           ) : null}
         </div>
       </div>
@@ -199,7 +199,7 @@ const INVITE_ROLES = [
 const inviteStyles: Record<string, CSSProperties> = {
   body: { display: "flex", flexDirection: "column", gap: 16 },
   section: { display: "flex", flexDirection: "column", gap: 8 },
-  sectionTitle: { fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 500, color: "var(--text-muted)" },
+  sectionTitle: { fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)" },
   link: {
     display: "flex",
     alignItems: "center",
@@ -213,7 +213,7 @@ const inviteStyles: Record<string, CSSProperties> = {
     flex: 1,
     minWidth: 0,
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-default)",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -225,13 +225,13 @@ const inviteStyles: Record<string, CSSProperties> = {
     gap: 10,
     padding: "8px 0",
     borderTop: "1px solid var(--border-subtle)",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
   },
   rowMain: { flex: 1, minWidth: 0 },
-  rowMeta: { fontSize: 12, color: "var(--text-muted)" },
-  empty: { fontSize: 13, color: "var(--text-muted)" },
+  rowMeta: { fontSize: "var(--text-2xs)", color: "var(--text-muted)" },
+  empty: { fontSize: "var(--text-xs)", color: "var(--text-muted)" },
   notice: {
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     lineHeight: 1.5,
     color: "var(--text-muted)",
     padding: "8px 10px",
@@ -589,8 +589,8 @@ export function LeaveSpaceDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)", margin: 0 }}>{t("space.leaveBody")}</p>
-      <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", margin: 0 }}>{t("space.leaveBody")}</p>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "10px 0 0" }}>
         {t("space.leaveKeepsMessages")}
       </p>
       {error ? (
@@ -642,8 +642,8 @@ export function DeleteSpaceDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)", margin: "0 0 6px" }}>{t("space.deleteBody")}</p>
-      <p style={{ fontSize: 13, color: "var(--status-danger-fg)", margin: "0 0 14px" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", margin: "0 0 6px" }}>{t("space.deleteBody")}</p>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--status-danger-fg)", margin: "0 0 14px" }}>
         {t("space.deleteFinal")}
       </p>
       <Field
@@ -707,10 +707,10 @@ export function TransferOwnershipDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)", margin: 0 }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", margin: 0 }}>
         {t("space.transferBody", { name: memberName, space: spaceName })}
       </p>
-      <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "10px 0 0" }}>
         {t("space.transferStepDown")}
       </p>
     </Dialog>
@@ -752,10 +752,10 @@ export function RemoveMemberDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)", margin: 0 }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", margin: 0 }}>
         {t("space.removeBody", { name: memberName, space: spaceName })}
       </p>
-      <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "10px 0 0" }}>
         {t("space.removeKeepsMessages")}
       </p>
     </Dialog>
@@ -792,7 +792,7 @@ export function HelpDialog({
             className="wc-listrow"
           >
             <Icon name="file-text" size={16} style={{ color: "var(--text-muted)" }} />
-            <span style={{ flex: 1, fontSize: 13 }}>{t("dialogs.gettingStartedGuide")}</span>
+            <span style={{ flex: 1, fontSize: "var(--text-xs)" }}>{t("dialogs.gettingStartedGuide")}</span>
             <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
           </button>
         </div>
@@ -809,7 +809,7 @@ export function HelpDialog({
         <span
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: 12,
+            fontSize: "var(--text-2xs)",
             fontWeight: 500,
             color: "var(--text-muted)",
           }}
@@ -827,12 +827,12 @@ export function HelpDialog({
           const keys = formatChord(shortcuts[c.id], mac, t);
           return (
             <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "6px 2px" }}>
-              <span style={{ fontSize: 13, color: "var(--text-body)" }}>{t(c.label)}</span>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-body)" }}>{t(c.label)}</span>
               {keys ? (
                 <kbd
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 12,
+                    fontSize: "var(--text-2xs)",
                     color: "var(--text-strong)",
                     background: "var(--surface-card)",
                     // A key cap: the outline of a control, thicker at the bottom.
@@ -846,7 +846,7 @@ export function HelpDialog({
                   {keys}
                 </kbd>
               ) : (
-                <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("dialogs.unassigned")}</span>
+                <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t("dialogs.unassigned")}</span>
               )}
             </div>
           );

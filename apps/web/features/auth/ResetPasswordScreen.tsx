@@ -7,7 +7,7 @@ import { authStyles } from "./authStyles";
 import { useTranslation } from "@/lib/i18n";
 
 const styles: Record<string, CSSProperties> = {
-  body: { fontSize: 14, color: "var(--text-muted)", maxWidth: 340 },
+  body: { fontSize: "var(--text-sm)", color: "var(--text-muted)", maxWidth: 340 },
 };
 
 /** Minimum password length. Mirrors the server policy, which stays authoritative (breach check). */

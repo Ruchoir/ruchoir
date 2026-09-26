@@ -26,7 +26,7 @@ const TIPS: { icon: IconName; text: TranslationKey }[] = [
 
 const st: Record<string, CSSProperties> = {
   top: { display: "flex", gap: 20, alignItems: "center" },
-  lead: { margin: 0, fontSize: 14, color: "var(--text-muted)" },
+  lead: { margin: 0, fontSize: "var(--text-sm)", color: "var(--text-muted)" },
   destination: {
     marginTop: 8,
     padding: "12px 14px",
@@ -39,14 +39,14 @@ const st: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    fontSize: 18,
+    fontSize: "var(--text-lg)",
     fontWeight: 600,
     color: "var(--text-strong)",
     overflowWrap: "anywhere",
   },
   url: {
     margin: "4px 0 0",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontFamily: "var(--font-mono)",
     color: "var(--text-muted)",
     overflowWrap: "anywhere",
@@ -56,7 +56,7 @@ const st: Record<string, CSSProperties> = {
   section: {
     fontFamily: "var(--font-mono)",
     margin: "20px 0 8px",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
   },
@@ -75,7 +75,7 @@ const st: Record<string, CSSProperties> = {
     padding: "8px 10px",
     borderRadius: "var(--radius-md)",
     border: "1px solid var(--border-subtle)",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     lineHeight: 1.35,
     color: "var(--text-body)",
   },
@@ -163,7 +163,7 @@ export function ExternalLinkDialog({
             padding: "10px 12px",
             borderRadius: "var(--radius-md)",
             background: "var(--surface-sunken)",
-            fontSize: 13,
+            fontSize: "var(--text-xs)",
             color: "var(--status-danger-fg)",
           }}
         >

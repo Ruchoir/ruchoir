@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
-import { Avatar, Button, Icon, type IconName, IconButton, Input, Select, Tag, Textarea } from "@/components/ds";
+import { Avatar, Button, Icon, type IconName, IconButton, Input, Select, Tag, Textarea, Tooltip } from "@/components/ds";
 import { getCurrentUser } from "@/lib/data";
 import type { Profile } from "@/lib/data";
 import type { Presence } from "@/components/ds";
@@ -57,7 +57,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "0 8px 0 16px",
     borderBottom: "1.5px solid var(--border-subtle)",
   },
-  title: { fontSize: 16, fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
+  title: { fontSize: "var(--text-base)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   scroll: { flex: 1, overflow: "auto" },
   hero: {
     display: "flex",
@@ -73,13 +73,13 @@ const styles: Record<string, CSSProperties> = {
   section: { padding: "14px 16px", borderBottom: "1px solid var(--border-subtle)" },
   label: {
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
     marginBottom: 8,
   },
-  field: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-body)", padding: "3px 0" },
-  formLabel: { display: "block", fontSize: 12, color: "var(--text-muted)", margin: "10px 0 4px" },
+  field: { display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)", color: "var(--text-body)", padding: "3px 0" },
+  formLabel: { display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", margin: "10px 0 4px" },
 };
 
 function Field({ icon, children }: { icon: IconName; children: ReactNode }) {
@@ -220,11 +220,11 @@ export function ProfilePanel({
               copy of it with its own buttons, so the screen showed the same picture twice and the
               obvious target did nothing. */}
           {isOwn && editing ? (
+            <Tooltip label={t("profile.changePhoto")}>
             <button
               type="button"
               onClick={() => photoRef.current?.click()}
               disabled={photoBusy}
-              title={t("profile.changePhoto")}
               aria-label={t("profile.changePhotoLabel")}
               // `inline-flex` with no line box: a plain button is as tall as its line height, so the
               // badge anchored to its corner floated below and beside the photo instead of on it.
@@ -271,15 +271,16 @@ export function ProfilePanel({
                 onChange={(e) => onPhotoPicked(e.target.files)}
               />
             </button>
+            </Tooltip>
           ) : (
             <Avatar name={p.name} src={photo} size={88} kind={p.bot ? "bot" : "person"} />
           )}
-          <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.03em", color: "var(--text-strong)", marginTop: 4 }}>{p.name}</div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+          <div style={{ fontSize: "var(--text-2xl)", fontWeight: 700, letterSpacing: "-0.03em", color: "var(--text-strong)", marginTop: 4 }}>{p.name}</div>
+          <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
             {p.role}
             {p.pronouns ? ` · ${p.pronouns}` : ""}
           </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>
             <span style={{ width: 9, height: 9, borderRadius: "var(--radius-full)", background: `var(--presence-${shownPresence})` }} />
             {t(presenceLabelKey(shownPresence))}
           </div>
@@ -348,7 +349,7 @@ export function ProfilePanel({
             {p.bio ? (
               <div style={styles.section}>
                 <div style={styles.label}>{t("profile.about")}</div>
-                <p style={{ fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)" }}>{p.bio}</p>
+                <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", lineHeight: "var(--leading-snug)" }}>{p.bio}</p>
               </div>
             ) : null}
 

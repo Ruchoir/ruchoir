@@ -133,6 +133,8 @@
   --text-xs: 13px;
   --text-sm: 14px;
   --text-md: 15px;
+  /* A message's body, and any field a phone types into (below 16px, iOS zooms in on focus). */
+  --text-base: 16px;
   --text-lg: 17px;
   --text-xl: 22px;
   --text-2xl: 26px;
@@ -257,8 +259,11 @@
   --text-disabled: #9aa1ad;
   --text-inverse: var(--on-ink);
   --text-accent: var(--ink);
-  --text-link: var(--ink);
-  --text-link-hover: var(--body);
+  /* A link reads as one before it is pointed at: its own colour, the underline only under the pointer.
+     The theme's accent, deepened towards the ink by day so it holds as text (a pastel alone is too pale
+     on the light canvas: about 6:1 once mixed). At night the pastel is readable as it is. */
+  --text-link: color-mix(in srgb, var(--acc) 40%, var(--ink));
+  --text-link-hover: var(--text-link);
 
   /* Lines */
   --border-subtle: var(--line);
@@ -365,6 +370,7 @@
   --muted: #a7adb8;
   --on-ink: #15171c;
   --selection: rgb(143 208 255 / 0.33);
+  --text-link: var(--acc);
 
   --grey-50: #23262e;
   --grey-300: #4a4f5a;

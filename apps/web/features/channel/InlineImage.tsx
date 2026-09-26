@@ -147,7 +147,7 @@ export function InlineImage({ image }: { image: InlineImageData }) {
                 <SampleChart />
               )}
             </div>
-            <div style={{ marginTop: 10, textAlign: "center", fontSize: 13, color: "var(--text-inverse)" }}>
+            <div style={{ marginTop: 10, textAlign: "center", fontSize: "var(--text-xs)", color: "var(--text-inverse)" }}>
               {image.alt}
             </div>
           </div>

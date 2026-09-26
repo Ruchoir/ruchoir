@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, type CSSProperties, type DragEvent, type ReactNode, useContext, useRef, useState } from "react";
-import { Avatar, Badge, Icon, IconButton, Input, Popover, Sheet, SheetGroup, SheetItem, Skeleton, SkeletonGroup, Tag, type IconName, type TagTone } from "@/components/ds";
+import { createContext, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode, useContext, useRef, useState } from "react";
+import { Avatar, Badge, Icon, IconButton, Input, Popover, Sheet, SheetGroup, SheetItem, Skeleton, SkeletonGroup, Tag, Tooltip, type IconName, type TagTone } from "@/components/ds";
 import { haptic } from "@/lib/haptics";
 import type { Channel, DirectMessage, Workspace } from "@/lib/data";
 import { MenuPopover } from "./MenuPopover";
@@ -11,6 +11,7 @@ import type { ImportTicker } from "./importRun";
 import type { AppView, Toast } from "./types";
 import { Wordmark } from "./Wordmark";
 import { useSettings } from "./settings";
+import { useDragReorder } from "./useDragReorder";
 import { formatChord, isMac } from "./shortcuts";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
@@ -45,7 +46,7 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     fontFamily: "var(--font-sans)",
-    fontSize: 16,
+    fontSize: "var(--text-base)",
     fontWeight: 700,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
@@ -56,7 +57,7 @@ const styles: Record<string, CSSProperties> = {
   scroll: { flex: 1, overflow: "auto", padding: "8px 10px 16px" },
   empty: {
     margin: "2px 6px 4px",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     lineHeight: "var(--leading-snug)",
     color: "var(--text-subtle)",
   },
@@ -66,7 +67,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     gap: 8,
     padding: "18px 6px 6px",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
   },
@@ -100,7 +101,7 @@ function item(on: boolean): CSSProperties {
     color: on ? "var(--on-pastel)" : "var(--text-body)",
     cursor: "pointer",
     fontFamily: "var(--font-sans)",
-    fontSize: 14,
+    fontSize: "var(--text-sm)",
     fontWeight: on ? 600 : 400,
     textAlign: "left",
     transition: "background-color var(--duration-fast) var(--ease-out)",
@@ -139,7 +140,7 @@ const menuItemStyle: CSSProperties = {
   background: "transparent",
   color: "var(--text-body)",
   fontFamily: "var(--font-sans)",
-  fontSize: 13,
+  fontSize: "var(--text-xs)",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -177,23 +178,13 @@ type SideItemProps = {
 
 /** What a movable row needs from the list that owns the order. */
 type RowReorder = {
-  /** The row being dragged is this one: drawn faded. */
-  dragging: boolean;
-  /** Where a drop would land, relative to this row, drawn as a line on that edge. */
-  dropLine: "before" | "after" | null;
-  onDragStart: () => void;
-  onDragEnd: () => void;
-  onDragOver: (where: "before" | "after") => void;
-  onDrop: (where: "before" | "after") => void;
+  /** From the section's `useDragReorder`: the row's element, where it is drawn, and its press. */
+  ref: (el: HTMLElement | null) => void;
+  style: CSSProperties | undefined;
+  onPointerDown: (e: ReactPointerEvent) => void;
   /** Alt with an arrow key: one step up (-1) or down (1). */
   onStep: (step: -1 | 1) => void;
 };
-
-/** Which half of a row the pointer is over, which says whether a drop goes above or below it. */
-function halfOf(e: DragEvent<HTMLElement>): "before" | "after" {
-  const box = e.currentTarget.getBoundingClientRect();
-  return e.clientY < box.top + box.height / 2 ? "before" : "after";
-}
 
 /**
  * A section's label, and the way to fold it when `onToggle` is given. The label is the button, so the
@@ -256,7 +247,11 @@ function SideItem({ icon, label, active: activeProp, unread, mentioned, muted, n
         className="wc-side-item"
         onClick={onClick}
         onPointerDown={(e) => {
-          if (e.pointerType !== "touch" || !hasMenu) return;
+          if (e.pointerType !== "touch") {
+            reorder?.onPointerDown(e);
+            return;
+          }
+          if (!hasMenu) return;
           cancelPress();
           const timer = window.setTimeout(() => {
             press.current = null;
@@ -291,37 +286,14 @@ function SideItem({ icon, label, active: activeProp, unread, mentioned, muted, n
         }}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
-        draggable={!!reorder}
-        onDragStart={reorder ? () => reorder.onDragStart() : undefined}
-        onDragEnd={reorder ? () => reorder.onDragEnd() : undefined}
-        onDragOver={
-          reorder
-            ? (e) => {
-                e.preventDefault();
-                reorder.onDragOver(halfOf(e));
-              }
-            : undefined
-        }
-        onDrop={
-          reorder
-            ? (e) => {
-                e.preventDefault();
-                reorder.onDrop(halfOf(e));
-              }
-            : undefined
-        }
+        ref={reorder?.ref}
         style={{
           ...item(!!active),
-          ...(touch ? { height: 44, fontSize: 16, gap: 12 } : null),
+          ...(touch ? { height: 44, fontSize: "var(--text-base)", gap: 12 } : null),
           background: bg,
-          opacity: reorder?.dragging ? 0.4 : undefined,
-          // Where it would land, drawn on the row being hovered, as the rail does for spaces.
-          boxShadow:
-            reorder?.dropLine === "before"
-              ? "inset 0 2px 0 0 var(--ink)"
-              : reorder?.dropLine === "after"
-                ? "inset 0 -2px 0 0 var(--ink)"
-                : undefined,
+          // Pressed and moved with a mouse or a pen, the row follows the pointer and the others make
+          // room (a finger's press opens the actions instead, which carry the moves).
+          ...reorder?.style,
         }}
       >
         {children ?? <Icon name={icon ?? "hash"} size={14} style={{ color: active ? "var(--on-pastel)" : muted ? "var(--text-subtle)" : "var(--text-muted)" }} />}
@@ -604,33 +576,28 @@ export function Sidebar({
     const neighbour = section[section.findIndex((c) => c.id === channel.id) + step];
     return neighbour ? moved(channel.id, neighbour.id, step === -1 ? "before" : "after") : null;
   };
-  const [dragging, setDragging] = useState<string | null>(null);
-  const [dropAt, setDropAt] = useState<{ id: string; where: "before" | "after" } | null>(null);
-  const reorderFor = (channel: Channel): RowReorder | undefined =>
-    onReorderChannels
-      ? {
-          dragging: dragging === channel.id,
-          dropLine: dragging && dragging !== channel.id && dropAt?.id === channel.id ? dropAt.where : null,
-          onDragStart: () => setDragging(channel.id),
-          onDragEnd: () => {
-            setDragging(null);
-            setDropAt(null);
-          },
-          onDragOver: (where) => {
-            if (dragging && (dropAt?.id !== channel.id || dropAt.where !== where)) setDropAt({ id: channel.id, where });
-          },
-          onDrop: (where) => {
-            const next = dragging ? moved(dragging, channel.id, where) : null;
-            setDragging(null);
-            setDropAt(null);
-            if (next) onReorderChannels(next);
-          },
-          onStep: (step) => {
-            const next = stepped(channel, step);
-            if (next) onReorderChannels(next);
-          },
-        }
-      : undefined;
+  // The two sections as drawn, each dragged within itself: a favourite lands among the favourites.
+  const favRows = channels.filter((c) => c.fav && (!isFolded("favourites") || stays(c.id, c.unread)));
+  const channelRows = channels.filter((c) => !c.fav && (!isFolded("channels") || stays(c.id, c.unread)));
+  const dragWithin = (rows: Channel[]) => (from: number, to: number) => {
+    const next = moved(rows[from].id, rows[to].id, to > from ? "after" : "before");
+    if (next) onReorderChannels?.(next);
+  };
+  const favDrag = useDragReorder({ count: favRows.length, onMove: dragWithin(favRows) });
+  const channelDrag = useDragReorder({ count: channelRows.length, onMove: dragWithin(channelRows) });
+  const reorderFor = (channel: Channel, index: number): RowReorder | undefined => {
+    if (!onReorderChannels) return undefined;
+    const drag = channel.fav ? favDrag : channelDrag;
+    return {
+      ref: drag.itemRef(index),
+      style: drag.itemStyle(index),
+      onPointerDown: drag.onPointerDown(index),
+      onStep: (step) => {
+        const next = stepped(channel, step);
+        if (next) onReorderChannels(next);
+      },
+    };
+  };
   const channelMenu = (channel: Channel): SideMenuItem[] => [
     {
       icon: channel.fav ? "star-off" : "star",
@@ -726,8 +693,9 @@ export function Sidebar({
               // it is announced even before a workspace has loaded (empty name).
               aria-label={workspace?.name ? t("sidebar.spaceSwitchNamed", { name: workspace.name }) : t("sidebar.spaceSwitch")}
             >
-              {workspace?.name}
-              <Icon name="chevron-down" size={14} />
+              {/* A long name ends in an ellipsis and keeps its chevron; the menu opened here says it whole. */}
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{workspace?.name}</span>
+              <Icon name="chevron-down" size={14} style={{ flex: "none" }} />
             </button>
             <MenuPopover
               anchorRef={wsRef}
@@ -754,21 +722,25 @@ export function Sidebar({
             />
             <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
               <span style={{ position: "relative", display: "flex" }}>
-                <IconButton
-                  ref={bellRef}
-                  icon="bell"
-                  label={t("notif.title")}
-                  size="sm"
-                  aria-expanded={notifOpen}
-                  onClick={() => setNotifOpen((o) => !o)}
-                />
+                <Tooltip label={t("notif.title")} disabled={notifOpen}>
+                  <IconButton
+                    ref={bellRef}
+                    icon="bell"
+                    label={t("notif.title")}
+                    size="sm"
+                    aria-expanded={notifOpen}
+                    onClick={() => setNotifOpen((o) => !o)}
+                  />
+                </Tooltip>
                 {notifUnread > 0 ? (
                   <span style={{ position: "absolute", top: -3, right: -3, pointerEvents: "none" }}>
                     <Badge count={notifUnread} />
                   </span>
                 ) : null}
               </span>
-              <IconButton icon="square-pen" label={t("shell.newMessage")} size="sm" onClick={onNewMessage} />
+              <Tooltip label={t("shell.newMessage")}>
+                <IconButton icon="square-pen" label={t("shell.newMessage")} size="sm" onClick={onNewMessage} />
+              </Tooltip>
               {railless?.you}
             </span>
             <NotificationCenter
@@ -832,11 +804,9 @@ export function Sidebar({
             {channels.every((c) => !c.fav) && !isFolded("favourites") ? (
               // Says how to fill it, since there is no button that could: a favourite is set on the
               // channel itself, from its own menu. One line, so an empty section stays small.
-              <p style={styles.empty}>{t(compact ? "sidebar.favouriteHintTouch" : "sidebar.favouriteHintShort")}</p>
+              <p style={styles.empty}>{compact ? t("sidebar.favouriteHintTouch") : t("sidebar.favouriteHintShort")}</p>
             ) : null}
-            {channels
-              .filter((c) => c.fav && (!isFolded("favourites") || stays(c.id, c.unread)))
-              .map((c) => (
+            {favRows.map((c, index) => (
                 <SideItem
                   key={c.id}
                   label={c.name}
@@ -846,7 +816,7 @@ export function Sidebar({
                   active={view === "channel" && channel === c.id}
                   onClick={() => onChannel(c.id)}
                   menuItems={channelMenu(c)}
-                  reorder={reorderFor(c)}
+                  reorder={reorderFor(c, index)}
                 >
                   <Icon
                     name={channelIcon(c, true, workspace?.defaultChannelId)}
@@ -886,9 +856,7 @@ export function Sidebar({
                       t("sidebar.noChannelYet")}
               </p>
             ) : null}
-            {channels
-              .filter((c) => !c.fav && (!isFolded("channels") || stays(c.id, c.unread)))
-              .map((c) => (
+            {channelRows.map((c, index) => (
                 <SideItem
                   key={c.id}
                   label={c.name}
@@ -899,7 +867,7 @@ export function Sidebar({
                   active={view === "channel" && channel === c.id}
                   onClick={() => onChannel(c.id)}
                   menuItems={channelMenu(c)}
-                  reorder={reorderFor(c)}
+                  reorder={reorderFor(c, index)}
                 >
                   <Icon
                     name={channelIcon(c, false, workspace?.defaultChannelId)}

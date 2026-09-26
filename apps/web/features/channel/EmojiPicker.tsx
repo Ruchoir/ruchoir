@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useState } from "react";
-import { EmptyState, Input } from "@/components/ds";
+import { EmptyState, Input, Tooltip } from "@/components/ds";
 import { EMOJI_CATEGORIES, QUICK_REACTIONS, searchEmojis } from "@/lib/emoji";
 import { Emoji } from "../app/Emoji";
 import { useTranslation } from "@/lib/i18n";
@@ -86,7 +86,7 @@ export function EmojiPicker({
           <button
             key={e}
             type="button"
-            style={{ ...emojiBtn, width: 36, height: 36, fontSize: 22 }}
+            style={{ ...emojiBtn, width: 36, height: 36, fontSize: "var(--text-xl)" }}
             onMouseEnter={hoverIn}
             onMouseLeave={hoverOut}
             onClick={() => onPick(e)}
@@ -111,10 +111,9 @@ export function EmojiPicker({
       {!results ? (
         <div style={tabsRow}>
           {EMOJI_CATEGORIES.map((c) => (
+            <Tooltip key={c.id} label={t(c.label)}>
             <button
-              key={c.id}
               type="button"
-              title={t(c.label)}
               aria-label={t(c.label)}
               aria-pressed={c.id === cat}
               onClick={() => setCat(c.id)}
@@ -122,12 +121,13 @@ export function EmojiPicker({
                 ...emojiBtn,
                 width: 30,
                 height: 30,
-                fontSize: 17,
+                fontSize: "var(--text-lg)",
                 background: c.id === cat ? "var(--surface-active)" : "transparent",
               }}
             >
               <Emoji emoji={c.icon} size={17} />
             </button>
+            </Tooltip>
           ))}
         </div>
       ) : null}

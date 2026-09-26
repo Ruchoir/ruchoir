@@ -24,7 +24,7 @@ const itemStyle: CSSProperties = {
   background: "transparent",
   color: "var(--text-body)",
   fontFamily: "var(--font-sans)",
-  fontSize: 13,
+  fontSize: "var(--text-xs)",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -54,7 +54,7 @@ export function MenuPopover({ anchorRef, open, onClose, items, placement = "bott
           }
           if (it.type === "label") {
             return (
-              <div key={i} style={{ fontFamily: "var(--font-mono)", padding: "6px 8px 2px", fontSize: 12, fontWeight: 500, color: "var(--text-muted)" }}>
+              <div key={i} style={{ fontFamily: "var(--font-mono)", padding: "6px 8px 2px", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)" }}>
                 {it.label}
               </div>
             );

@@ -217,8 +217,8 @@ const toastStyle: Record<string, CSSProperties> = {
     // The ink card, lifted on the bee-yellow offset of the product's primary actions.
     boxShadow: "var(--shadow-lift)",
   },
-  title: { fontSize: 13, fontWeight: 600 },
-  desc: { fontSize: 12, color: "color-mix(in srgb, var(--text-inverse) 78%, var(--surface-inverse))" },
+  title: { fontSize: "var(--text-xs)", fontWeight: 600 },
+  desc: { fontSize: "var(--text-2xs)", color: "color-mix(in srgb, var(--text-inverse) 78%, var(--surface-inverse))" },
 };
 
 /** How many faces a thread shows next to its reply count. The API caps its own list to match. */
@@ -603,9 +603,23 @@ function AppShell() {
   // The panel a conversation opens with (the members, by default) is a desktop's: a tablet has no
   // room beside the conversation and a phone shows one thing at a time. The first render cannot
   // know the window yet (see useLayout), so once it does, a panel nobody asked for is put away.
+  // The panel put away is remembered, and comes back if the window widens to a desktop again: resizing
+  // a browser window across the line should not lose what was open.
+  const panelPutAway = useRef<ChannelPanel>(null);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (layout !== "desktop") setPanel((open) => (open === "members" || open === "files" || open === "pinned" ? null : open));
+    if (layout !== "desktop") {
+      setPanel((open) => {
+        if (open === "members" || open === "files" || open === "pinned") {
+          panelPutAway.current = open;
+          return null;
+        }
+        return open;
+      });
+    } else if (panelPutAway.current) {
+      const back = panelPutAway.current;
+      panelPutAway.current = null;
+      setPanel((open) => open ?? back);
+    }
   }, [layout]);
 
   /** Navigating anywhere closes the switcher and the account sheet it was chosen from. */
@@ -3482,10 +3496,10 @@ function AppShell() {
             </span>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+            <div style={{ fontSize: "var(--text-base)", fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
               Ruchoir
             </div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>{t("boot.preparing")}</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>{t("boot.preparing")}</div>
           </div>
         </div>
       </div>
@@ -3504,7 +3518,7 @@ function AppShell() {
           justifyContent: "center",
           background: "var(--surface-canvas)",
           color: "var(--text-muted)",
-          fontSize: 14,
+          fontSize: "var(--text-sm)",
           padding: 24,
           textAlign: "center",
         }}
@@ -4298,6 +4312,7 @@ function AppShell() {
       onSelect={(id) => void switchWorkspace(id)}
       onNew={() => setModal("newWorkspace")}
       onClose={() => setSpaceSheet(false)}
+      onReorder={reorderWorkspace}
     />
   );
 
@@ -4324,6 +4339,7 @@ function AppShell() {
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
               <MobileMessages
                 dms={visibleDms}
+                loading={switchingSpace}
                 onOpen={openChannelPushed}
                 onNew={() => setModal("newMessage")}
               />
