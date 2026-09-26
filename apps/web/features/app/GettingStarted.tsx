@@ -23,8 +23,8 @@ const st: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     width: "min(340px, calc(var(--ui-vw, 100vw) - 32px))",
-    background: "var(--surface-canvas)",
-    border: "1px solid var(--border-default)",
+    background: "var(--surface-raised)",
+    border: "2px solid var(--ink)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-dialog)",
     overflow: "hidden",
@@ -50,7 +50,7 @@ const st: Record<string, CSSProperties> = {
   title: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
   count: { fontSize: 12, fontWeight: 500, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
   bar: { height: 3, background: "var(--grey-200)" },
-  barFill: { height: "100%", background: "var(--terracotta-500)", transition: "width var(--duration-base) var(--ease-out)" },
+  barFill: { height: "100%", background: "var(--ink)", transition: "width var(--duration-base) var(--ease-out)" },
   list: { display: "flex", flexDirection: "column", padding: "6px 8px 10px" },
   row: {
     display: "flex",
@@ -145,7 +145,7 @@ export function GettingStarted({ done, onRun, onDismiss, compact = false }: Gett
                     <span
                       style={{
                         ...st.bullet,
-                        background: isDone ? "var(--terracotta-500)" : "var(--surface-sunken)",
+                        background: isDone ? "var(--ink)" : "var(--surface-sunken)",
                         color: isDone ? "var(--action-primary-fg)" : "var(--text-muted)",
                       }}
                     >

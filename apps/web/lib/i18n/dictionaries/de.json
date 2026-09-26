@@ -287,7 +287,7 @@
     "invitePeople": "Personen einladen",
     "spaceSettings": "Bereichseinstellungen",
     "spaceFiles": "Dateien des Bereichs",
-    "searchPlaceholder": "Kanal oder Person suchen…",
+    "searchPlaceholder": "Überall suchen…",
     "threads": "Threads",
     "favourites": "Favorisierte Kanäle",
     "privateChannel": "Privater Kanal",
@@ -304,7 +304,8 @@
     "spaceSwitch": "Bereich wechseln",
     "spaceSwitchNamed": "Bereich {{name}}, Bereich wechseln",
     "space": "Bereich",
-    "favouriteHint": "Halten Sie Ihre häufigen Kanäle griffbereit: \\u201eZu Favoriten hinzufügen\\u201c im Menü eines Kanals.",
+    "favouriteHintShort": "Fügen Sie einen über das ⋯-Menü eines Kanals hinzu.",
+    "favouriteHintTouch": "Halten Sie einen Kanal gedrückt, um einen hinzuzufügen.",
     "noChannelYet": "Noch kein Kanal. Sobald Sie zu einem hinzugefügt werden, erscheint er hier."
   },
   "welcome": {
@@ -373,6 +374,7 @@
     "react": "Reagieren",
     "replies_one": "{{count}} Antwort",
     "replies_other": "{{count}} Antworten",
+    "lastReply": "Letzte Antwort: {{when}}",
     "reactionCount_one": "{{count}} Reaktion",
     "reactionCount_other": "{{count}} Reaktionen",
     "reactors_one": "{{count}} Person",
@@ -533,7 +535,8 @@
     "deleteBody": "Nachrichten, Threads, Reaktionen und in diesem Kanal hochgeladene Dateien werden für alle Mitglieder gelöscht. Dateien des Bereichs, die nur angehängt waren, bleiben im Bereich.",
     "deleteNameMismatch": "Das ist nicht der Name des Kanals.",
     "deleted": "Kanal gelöscht",
-    "deletedElsewhere": "Der Kanal #{{name}} wurde gelöscht."
+    "deletedElsewhere": "Der Kanal #{{name}} wurde gelöscht.",
+    "details": "Kanaldetails"
   },
   "role": {
     "member": "Mitglied",
@@ -811,7 +814,6 @@
     "backToSpace": "Zurück zum Bereich",
     "appearance": "Erscheinungsbild",
     "appearanceSub": "Thema, Schrift, Textgröße und wie die Oberfläche startet.",
-    "theme": "Thema",
     "font": "Schriftart",
     "textSize": "Textgröße",
     "defaultDisplay": "Standardansicht",
@@ -853,8 +855,17 @@
     "sizeM": "Normal",
     "sizeL": "Groß",
     "sizeXL": "Sehr groß",
-    "themeLight": "Hell",
-    "themeDark": "Dunkel",
+    "mode": "Modus",
+    "modeDay": "Tag",
+    "modeNight": "Nacht",
+    "modeAuto": "Automatisch",
+    "modeAutoHint": "Folgt der hellen oder dunklen Einstellung Ihres Geräts und wechselt mit ihr.",
+    "modeFixedHint": "Zu jeder Stunde gleich, unabhängig von der Einstellung Ihres Geräts.",
+    "accent": "Akzentfarbe",
+    "themeSky": "Himmel",
+    "themeMint": "Minze",
+    "themeViolet": "Violett",
+    "themePink": "Rosa",
     "browserNotif": "Browser-Benachrichtigungen",
     "notifGranted": "Erlaubt. Sie erscheinen, wenn Ruchoir nicht das Fenster ist, das Sie ansehen.",
     "notifDenied": "Für diese Seite abgelehnt. Nur der Browser kann das rückgängig machen: Öffnen Sie die Seiteninformationen in der Adressleiste und erlauben Sie Benachrichtigungen erneut.",
@@ -977,8 +988,8 @@
     "channels": "Kanäle",
     "messages": "Nachrichten",
     "activity": "Aktivität",
-    "search": "Suche",
-    "mainContent": "Hauptinhalt"
+    "mainContent": "Hauptinhalt",
+    "home": "Start"
   },
   "system": {
     "memberJoined": "{{who}} ist dem Bereich beigetreten.",
@@ -1174,5 +1185,9 @@
     "tipDoubt": "Im Zweifel? Fragen Sie den Absender.",
     "dontShowAgain": "Diese Warnung nicht mehr anzeigen",
     "beforeOpening": "Bevor Sie ihn öffnen"
+  },
+  "mobile": {
+    "noDmText": "Ihre Direktnachrichten mit den Mitgliedern des Bereichs erscheinen hier.",
+    "youPrefix": "Sie: {{text}}"
   }
 }

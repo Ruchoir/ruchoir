@@ -35,7 +35,7 @@ function SampleChart({ rounded }: { rounded?: number }) {
             width={step * 0.6}
             height={bh}
             rx={3}
-            fill={i === 5 ? "var(--terracotta-500)" : "var(--grey-300)"}
+            fill={i === 5 ? "var(--ink)" : "var(--grey-300)"}
           />
         );
       })}

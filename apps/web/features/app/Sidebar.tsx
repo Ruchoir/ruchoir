@@ -1,14 +1,17 @@
 "use client";
 
-import { type CSSProperties, type DragEvent, type ReactNode, useRef, useState } from "react";
-import { Avatar, Badge, Icon, IconButton, Input, Popover, Skeleton, SkeletonGroup, Tag, type IconName, type TagTone } from "@/components/ds";
+import { createContext, type CSSProperties, type DragEvent, type ReactNode, useContext, useRef, useState } from "react";
+import { Avatar, Badge, Icon, IconButton, Input, Popover, Sheet, SheetGroup, SheetItem, Skeleton, SkeletonGroup, Tag, type IconName, type TagTone } from "@/components/ds";
+import { haptic } from "@/lib/haptics";
 import type { Channel, DirectMessage, Workspace } from "@/lib/data";
 import { MenuPopover } from "./MenuPopover";
 import { NotificationCenter } from "./NotificationCenter";
-import type { AppNotification, ChannelNotifPref } from "./notifications";
+import { type AppNotification, type ChannelNotifPref, isMention } from "./notifications";
 import type { ImportTicker } from "./importRun";
 import type { AppView, Toast } from "./types";
 import { Wordmark } from "./Wordmark";
+import { useSettings } from "./settings";
+import { formatChord, isMac } from "./shortcuts";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
@@ -17,7 +20,7 @@ const styles: Record<string, CSSProperties> = {
     width: "var(--sidebar-width)",
     flex: "none",
     background: "var(--surface-chrome)",
-    borderRight: "1px solid var(--border-subtle)",
+    borderRight: "1.5px solid var(--border-subtle)",
     display: "flex",
     flexDirection: "column",
     minHeight: 0,
@@ -29,7 +32,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 8px 0 12px",
-    borderBottom: "1px solid var(--border-subtle)",
+    borderBottom: "1.5px solid var(--border-subtle)",
   },
   wsName: {
     display: "flex",
@@ -42,12 +45,15 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     fontFamily: "var(--font-sans)",
-    fontSize: 15,
-    fontWeight: 600,
+    fontSize: 16,
+    fontWeight: 700,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
+    minWidth: 0,
+    whiteSpace: "nowrap",
+    overflow: "hidden",
   },
-  scroll: { flex: 1, overflow: "auto", padding: "8px 8px 16px" },
+  scroll: { flex: 1, overflow: "auto", padding: "8px 10px 16px" },
   empty: {
     margin: "2px 6px 4px",
     fontSize: 12,
@@ -55,15 +61,14 @@ const styles: Record<string, CSSProperties> = {
     color: "var(--text-subtle)",
   },
   sect: {
+    fontFamily: "var(--font-mono)",
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: "14px 6px 4px",
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    gap: 8,
+    padding: "18px 6px 6px",
+    fontSize: 12,
+    fontWeight: 500,
+    color: "var(--text-muted)",
   },
   name: {
     flex: 1,
@@ -74,28 +79,31 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
+/**
+ * Rows at a finger's size: 44px tall and a size larger, on a phone. Carried by context rather than
+ * threaded through every row, since it is the column's density and not any one row's.
+ */
+const TouchRows = createContext(false);
+
 function item(on: boolean): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
     gap: 8,
     width: "100%",
-    height: 32,
+    height: 34,
     padding: "0 8px",
     border: 0,
     borderRadius: "var(--radius-sm)",
-    background: on ? "var(--surface-selected)" : "transparent",
-    color: on ? "var(--text-accent)" : "var(--text-body)",
+    background: on ? "var(--acc)" : "transparent",
+    // The active row is filled with the theme's pastel, and a pastel always carries the dark ink.
+    color: on ? "var(--on-pastel)" : "var(--text-body)",
     cursor: "pointer",
     fontFamily: "var(--font-sans)",
     fontSize: 14,
     fontWeight: on ? 600 : 400,
     textAlign: "left",
-    // Active row: a solid left accent bar (drawn with an inset shadow so it adds no layout width).
-    // A shape cue on top of the colour so the active channel is legible even where the pale selected
-    // surface has low contrast against the canvas.
-    boxShadow: on ? "inset 3px 0 0 0 var(--border-accent)" : undefined,
-    transition: "background-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)",
+    transition: "background-color var(--duration-fast) var(--ease-out)",
   };
 }
 
@@ -113,8 +121,8 @@ export type SideMenuItem = { icon: string; label: string; onClick: () => void; d
 const menuStyle: CSSProperties = {
   minWidth: 200,
   padding: 4,
-  background: "var(--surface-canvas)",
-  border: "1px solid var(--border-subtle)",
+  background: "var(--surface-raised)",
+  border: "2px solid var(--ink)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
@@ -154,6 +162,8 @@ type SideItemProps = {
   label: string;
   active?: boolean;
   unread?: number;
+  /** Something unread here names the reader: the count is drawn as a mention, not as activity. */
+  mentioned?: boolean;
   muted?: boolean;
   /** Notifications silenced (muted or level "none"): shows a bell-off and dims the unread badge. */
   notifMuted?: boolean;
@@ -185,135 +195,220 @@ function halfOf(e: DragEvent<HTMLElement>): "before" | "after" {
   return e.clientY < box.top + box.height / 2 ? "before" : "after";
 }
 
-function SideItem({ icon, label, active, unread, muted, notifMuted, tag, onClick, children, menuItems, reorder }: SideItemProps) {
+/**
+ * A section's label, and the way to fold it when `onToggle` is given. The label is the button, so the
+ * whole word is the target and a screen reader hears "Canaux, développé". The chevron turns with the
+ * state; anything else on the line (the `+` of the channels) follows as children.
+ */
+function SectionHead({ label, collapsed, onToggle, children }: { label: string; collapsed?: boolean; onToggle?: () => void; children?: ReactNode }) {
+  return (
+    <div style={styles.sect} className="wc-sect">
+      {onToggle ? (
+        <button type="button" className="wc-sect__toggle" aria-expanded={!collapsed} onClick={onToggle}>
+          {label}
+          <Icon
+            name="chevron-down"
+            size={12}
+            style={{ transform: collapsed ? "rotate(-90deg)" : undefined, transition: "transform var(--duration-fast) var(--ease-out)" }}
+          />
+        </button>
+      ) : (
+        label
+      )}
+      {children}
+    </div>
+  );
+}
+
+function SideItem({ icon, label, active: activeProp, unread, mentioned, muted, notifMuted, tag, onClick, children, menuItems, reorder }: SideItemProps) {
   const { t } = useTranslation();
+  const touch = useContext(TouchRows);
+  // On a phone the list is its own screen: the conversation it would mark as open is not on it.
+  const active = activeProp && !touch;
   const [hover, setHover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
-  // Active fill: a clearly visible terracotta tint (the token --surface-selected is too pale on the
-  // cream canvas to read). Mixed over transparent so it tints correctly in both light and dark themes.
+  // A mention outranks a mute: being named is the one thing silencing a channel is not meant to hide.
+  const badgeTone = mentioned ? "mention" : notifMuted ? "neutral" : "accent";
+  // Active fill: the theme's pastel, whole, so the open conversation is legible at a glance in the
+  // day and the night themes alike.
   const bg = active
-    ? "color-mix(in srgb, var(--border-accent) 16%, transparent)"
+    ? "var(--acc)"
     : hover || menuOpen
       ? "var(--surface-hover)"
       : "transparent";
   const showMore = !!menuItems && menuItems.length > 0 && (hover || menuOpen);
+  // Press and hold, on a touch screen: the row's actions rise from the bottom, as a message's do.
+  // A finger that moves is scrolling, and lets go of the press.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const press = useRef<{ x: number; y: number; timer: number } | null>(null);
+  const cancelPress = () => {
+    if (press.current) window.clearTimeout(press.current.timer);
+    press.current = null;
+  };
+  const hasMenu = !!menuItems && menuItems.length > 0;
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onClick?.();
-        } else if (reorder && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-          // Moving is a keyboard gesture too, as it is for the spaces in the rail.
-          e.preventDefault();
-          reorder.onStep(e.key === "ArrowUp" ? -1 : 1);
+    <>
+      <div
+        role="button"
+        tabIndex={0}
+        className="wc-side-item"
+        onClick={onClick}
+        onPointerDown={(e) => {
+          if (e.pointerType !== "touch" || !hasMenu) return;
+          cancelPress();
+          const timer = window.setTimeout(() => {
+            press.current = null;
+            haptic("medium");
+            setSheetOpen(true);
+            // Lifting the finger sends a click where it was: it would open the channel under the sheet.
+            const swallow = (ev: MouseEvent) => {
+              ev.stopPropagation();
+              ev.preventDefault();
+            };
+            window.addEventListener("click", swallow, { capture: true, once: true });
+            window.setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 700);
+          }, 450);
+          press.current = { x: e.clientX, y: e.clientY, timer };
+        }}
+        onPointerMove={(e) => {
+          const p = press.current;
+          if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) cancelPress();
+        }}
+        onPointerUp={cancelPress}
+        onPointerCancel={cancelPress}
+        onContextMenu={touch && hasMenu ? (e) => e.preventDefault() : undefined}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick?.();
+          } else if (reorder && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+            // Moving is a keyboard gesture too, as it is for the spaces in the rail.
+            e.preventDefault();
+            reorder.onStep(e.key === "ArrowUp" ? -1 : 1);
+          }
+        }}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        draggable={!!reorder}
+        onDragStart={reorder ? () => reorder.onDragStart() : undefined}
+        onDragEnd={reorder ? () => reorder.onDragEnd() : undefined}
+        onDragOver={
+          reorder
+            ? (e) => {
+                e.preventDefault();
+                reorder.onDragOver(halfOf(e));
+              }
+            : undefined
         }
-      }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      draggable={!!reorder}
-      onDragStart={reorder ? () => reorder.onDragStart() : undefined}
-      onDragEnd={reorder ? () => reorder.onDragEnd() : undefined}
-      onDragOver={
-        reorder
-          ? (e) => {
-              e.preventDefault();
-              reorder.onDragOver(halfOf(e));
-            }
-          : undefined
-      }
-      onDrop={
-        reorder
-          ? (e) => {
-              e.preventDefault();
-              reorder.onDrop(halfOf(e));
-            }
-          : undefined
-      }
-      style={{
-        ...item(!!active),
-        background: bg,
-        opacity: reorder?.dragging ? 0.4 : undefined,
-        // Where it would land, drawn on the row being hovered, as the rail does for spaces.
-        boxShadow:
-          reorder?.dropLine === "before"
-            ? "inset 0 2px 0 0 var(--terracotta-500)"
-            : reorder?.dropLine === "after"
-              ? "inset 0 -2px 0 0 var(--terracotta-500)"
-              : undefined,
-      }}
-    >
-      {children ?? <Icon name={icon ?? "hash"} size={14} style={{ color: muted ? "var(--text-subtle)" : "var(--text-muted)" }} />}
-      <span
+        onDrop={
+          reorder
+            ? (e) => {
+                e.preventDefault();
+                reorder.onDrop(halfOf(e));
+              }
+            : undefined
+        }
         style={{
-          ...styles.name,
-          fontWeight: unread ? 500 : undefined,
-          // De-emphasise muted (archived) channels with a token, not opacity, so contrast stays measurable.
-          color: unread ? "var(--text-strong)" : muted ? "var(--text-subtle)" : undefined,
+          ...item(!!active),
+          ...(touch ? { height: 44, fontSize: 16, gap: 12 } : null),
+          background: bg,
+          opacity: reorder?.dragging ? 0.4 : undefined,
+          // Where it would land, drawn on the row being hovered, as the rail does for spaces.
+          boxShadow:
+            reorder?.dropLine === "before"
+              ? "inset 0 2px 0 0 var(--ink)"
+              : reorder?.dropLine === "after"
+                ? "inset 0 -2px 0 0 var(--ink)"
+                : undefined,
         }}
       >
-        {label}
-      </span>
-      {tag}
-      {notifMuted ? (
-        <Icon name="bell-off" size={13} title={t("sidebar.muted")} style={{ flex: "none", color: "var(--text-subtle)" }} />
-      ) : null}
-      {menuItems && menuItems.length > 0 ? (
-        // Fixed-width slot: the more-button is always mounted (opacity toggled) so the popover anchor
-        // never moves as hover changes, and the unread badge shows underneath when it is hidden.
-        <span style={{ position: "relative", flex: "none", width: 24, height: 20, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-          {!showMore && unread ? <Badge count={unread} tone={notifMuted ? "neutral" : "accent"} /> : null}
-          <IconButton
-            ref={moreRef}
-            icon="more-horizontal"
-            label={t("sidebar.actionsFor", { name: label })}
-            size="sm"
-            tabIndex={showMore ? 0 : -1}
-            aria-hidden={!showMore}
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuOpen((o) => !o);
-            }}
-            style={{
-              position: "absolute",
-              right: 0,
-              opacity: showMore ? 1 : 0,
-              pointerEvents: showMore ? "auto" : "none",
-              transition: "opacity var(--duration-fast) var(--ease-out)",
-            }}
-          />
-          <Popover anchorRef={moreRef} open={menuOpen} onClose={() => setMenuOpen(false)} placement="bottom" align="end">
-            <div style={menuStyle} role="menu" onClick={(e) => e.stopPropagation()}>
-              {menuItems.map((mi) => (
-                <button
-                  key={mi.label}
-                  type="button"
-                  role="menuitem"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    mi.onClick();
-                    setMenuOpen(false);
-                  }}
-                  style={{ ...menuItemStyle, color: mi.danger ? "var(--status-danger-fg)" : "var(--text-body)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                >
-                  <Icon name={mi.icon} size={14} />
-                  {mi.label}
-                </button>
-              ))}
-            </div>
-          </Popover>
+        {children ?? <Icon name={icon ?? "hash"} size={14} style={{ color: active ? "var(--on-pastel)" : muted ? "var(--text-subtle)" : "var(--text-muted)" }} />}
+        <span
+          style={{
+            ...styles.name,
+            fontWeight: unread ? 500 : undefined,
+            // De-emphasise muted (archived) channels with a token, not opacity, so contrast stays measurable.
+            color: active ? "var(--on-pastel)" : unread ? "var(--text-strong)" : muted ? "var(--text-subtle)" : undefined,
+          }}
+        >
+          {label}
         </span>
-      ) : unread ? (
-        <Badge count={unread} tone={notifMuted ? "neutral" : "accent"} />
+        {tag}
+        {notifMuted ? (
+          <Icon name="bell-off" size={13} title={t("sidebar.muted")} style={{ flex: "none", color: "var(--text-subtle)" }} />
+        ) : null}
+        {menuItems && menuItems.length > 0 ? (
+          // Fixed-width slot: the more-button is always mounted (opacity toggled) so the popover anchor
+          // never moves as hover changes, and the unread badge shows underneath when it is hidden.
+          <span style={{ position: "relative", flex: "none", minWidth: 24, height: 20, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+            {!showMore && unread ? <Badge count={unread} tone={badgeTone} /> : null}
+            <IconButton
+              ref={moreRef}
+              icon="more-horizontal"
+              label={t("sidebar.actionsFor", { name: label })}
+              size="sm"
+              tabIndex={showMore ? 0 : -1}
+              aria-hidden={!showMore}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((o) => !o);
+              }}
+              style={{
+                position: "absolute",
+                right: 0,
+                opacity: showMore ? 1 : 0,
+                pointerEvents: showMore ? "auto" : "none",
+                transition: "opacity var(--duration-fast) var(--ease-out)",
+              }}
+            />
+            <Popover anchorRef={moreRef} open={menuOpen} onClose={() => setMenuOpen(false)} placement="bottom" align="end">
+              <div style={menuStyle} role="menu" onClick={(e) => e.stopPropagation()}>
+                {menuItems.map((mi) => (
+                  <button
+                    key={mi.label}
+                    type="button"
+                    role="menuitem"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      mi.onClick();
+                      setMenuOpen(false);
+                    }}
+                    style={{ ...menuItemStyle, color: mi.danger ? "var(--status-danger-fg)" : "var(--text-body)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <Icon name={mi.icon} size={14} />
+                    {mi.label}
+                  </button>
+                ))}
+              </div>
+            </Popover>
+          </span>
+        ) : unread ? (
+          <Badge count={unread} tone={badgeTone} />
+        ) : null}
+      </div>
+      {hasMenu && sheetOpen ? (
+        <Sheet label={label} heading onClose={() => setSheetOpen(false)}>
+          <SheetGroup>
+            {menuItems.map((mi) => (
+              <SheetItem
+                key={mi.label}
+                icon={mi.icon as IconName}
+                label={mi.label}
+                danger={mi.danger}
+                onClick={() => {
+                  setSheetOpen(false);
+                  mi.onClick();
+                }}
+              />
+            ))}
+          </SheetGroup>
+        </Sheet>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -399,6 +494,13 @@ export type SidebarProps = {
   loading?: boolean;
   /** Compact (mobile) mode: full width, no wordmark/header/search (the mobile top bar owns those). */
   compact?: boolean;
+  /** Drawn at the top of the scrolling list, above the channels: the phone's search and shortcuts. */
+  lead?: ReactNode;
+  /**
+   * The column stands without the rail (a tablet): the space's icon, which opens the space switcher,
+   * leads the header, and the signed-in person's avatar ends it, in place of the wordmark bar.
+   */
+  railless?: { onSwitchSpace: () => void; you: ReactNode };
   /** Render only one section, for the compact bottom-tab panels. Omit for the full desktop column. */
   only?: "channels" | "messages" | "activity";
   /** Dev/audit only: open the notification center on mount so the popover can be probed under zoom. */
@@ -457,6 +559,8 @@ export function Sidebar({
   onSpaceNotifications,
   loading = false,
   compact = false,
+  lead,
+  railless,
   only,
   openNotifications = false,
 }: SidebarProps) {
@@ -465,6 +569,23 @@ export function Sidebar({
   const showChannels = !only || only === "channels";
   const showMessages = !only || only === "messages";
   const showFooter = !only || only === "channels";
+  /**
+   * Folding, on the desktop column only (a bottom-tab panel is one section already). A folded section
+   * keeps the open conversation and anything unread in view.
+   */
+  const settings = useSettings();
+  const foldable = !compact && !only;
+  const isFolded = (id: string) => foldable && settings.collapsedSections.includes(id);
+  const toggleFold = (id: string) =>
+    settings.set(
+      "collapsedSections",
+      settings.collapsedSections.includes(id)
+        ? settings.collapsedSections.filter((x) => x !== id)
+        : [...settings.collapsedSections, id],
+    );
+  /** Channels holding an unread mention of the reader, from the notification inbox. */
+  const mentionedIn = new Set(notifications.filter((n) => !n.read && isMention(n.kind)).map((n) => n.channelId));
+  const stays = (id: string, unread?: number) => (view === "channel" && channel === id) || (unread ?? 0) > 0;
   /**
    * The space's order with `id` moved next to `target`. The order is one list for the whole space;
    * the favourites and the rest are two views of it, so a move is made in the whole list.
@@ -573,12 +694,29 @@ export function Sidebar({
   return (
     <nav
       aria-label={t("sidebar.channelsAndMessages")}
-      style={{ ...styles.side, width: compact ? "100%" : styles.side.width, flex: compact ? 1 : styles.side.flex }}
+      // On a phone the list is the screen itself: the canvas, like its header, not a column's white.
+      style={{
+        ...styles.side,
+        width: compact ? "100%" : styles.side.width,
+        flex: compact ? 1 : styles.side.flex,
+        ...(compact ? { background: "var(--surface-canvas)", borderRight: 0 } : null),
+      }}
     >
       {!compact ? (
         <>
-          <Wordmark />
-          <div style={styles.head}>
+          {railless ? null : <Wordmark />}
+          <div style={railless ? { ...styles.head, gap: 8, padding: "0 8px 0 10px" } : styles.head}>
+            {railless ? (
+              <button
+                type="button"
+                className="wc-rail-space"
+                onClick={railless.onSwitchSpace}
+                aria-label={t("shell.workspaces")}
+                style={{ flex: "none", display: "flex", border: 0, padding: 0, background: "none", cursor: "pointer" }}
+              >
+                <Avatar name={workspace?.name ?? ""} src={workspace?.iconUrl} kind="workspace" size={30} />
+              </button>
+            ) : null}
             <button
               ref={wsRef}
               style={styles.wsName}
@@ -631,6 +769,7 @@ export function Sidebar({
                 ) : null}
               </span>
               <IconButton icon="square-pen" label={t("shell.newMessage")} size="sm" onClick={onNewMessage} />
+              {railless?.you}
             </span>
             <NotificationCenter
               anchorRef={bellRef}
@@ -656,15 +795,21 @@ export function Sidebar({
               placeholder={t("sidebar.searchPlaceholder")}
               readOnly
               onClick={onGlobalSearch}
+              // The shortcut, as a key cap: the field is a door to the search dialog, and this says
+              // how to open it without reaching for the mouse. Follows a rebinding.
+              suffix={settings.shortcuts.search ? <kbd className="wc-kbd">{formatChord(settings.shortcuts.search, isMac(), t)}</kbd> : undefined}
             />
           </div>
         </>
       ) : null}
-      <div style={styles.scroll}>
+      <div style={compact ? { ...styles.scroll, padding: "0 0 96px" } : styles.scroll}>
+        {lead}
+        <TouchRows.Provider value={compact}>
+        <div style={compact ? { padding: "0 8px" } : undefined}>
         {showActivity ? (
           <>
             <SideItem icon="inbox" label={t("sidebar.threads")} active={view === "threads"} onClick={() => onView("threads")} />
-            <SideItem icon="at-sign" label={t("activity.mentions")} active={view === "mentions"} unread={mentionCount} onClick={() => onView("mentions")} />
+            <SideItem icon="at-sign" label={t("activity.mentions")} active={view === "mentions"} unread={mentionCount} mentioned onClick={() => onView("mentions")} />
             {canBrowseSpace ? (
               <SideItem icon="hard-drive" label={t("sidebar.spaceFiles")} active={view === "files"} onClick={() => onView("files")} />
             ) : null}
@@ -674,26 +819,29 @@ export function Sidebar({
 
         {showChannels && loading ? (
           <>
-            <div style={styles.sect}>{t("tabs.channels")}</div>
+            <div style={styles.sect} className="wc-sect">{t("tabs.channels")}</div>
             <SideSkeleton widths={[0.55, 0.4, 0.62, 0.35, 0.48]} label={t("common.loading")} />
           </>
         ) : showChannels ? (
           <>
-            <div style={styles.sect}>{t("sidebar.favourites")}</div>
-            {channels.every((c) => !c.fav) ? (
+            <SectionHead
+              label={t("sidebar.favourites")}
+              collapsed={isFolded("favourites")}
+              onToggle={foldable ? () => toggleFold("favourites") : undefined}
+            />
+            {channels.every((c) => !c.fav) && !isFolded("favourites") ? (
               // Says how to fill it, since there is no button that could: a favourite is set on the
-              // channel itself, from its own menu.
-              <p style={styles.empty}>
-                {t("sidebar.favouriteHint")}
-              </p>
+              // channel itself, from its own menu. One line, so an empty section stays small.
+              <p style={styles.empty}>{t(compact ? "sidebar.favouriteHintTouch" : "sidebar.favouriteHintShort")}</p>
             ) : null}
             {channels
-              .filter((c) => c.fav)
+              .filter((c) => c.fav && (!isFolded("favourites") || stays(c.id, c.unread)))
               .map((c) => (
                 <SideItem
                   key={c.id}
                   label={c.name}
                   unread={c.unread}
+                  mentioned={mentionedIn.has(c.id)}
                   notifMuted={notifMutedFor(c.id)}
                   active={view === "channel" && channel === c.id}
                   onClick={() => onChannel(c.id)}
@@ -709,19 +857,22 @@ export function Sidebar({
                 </SideItem>
               ))}
 
-            <div style={styles.sect}>
-              {t("tabs.channels")}
+            <SectionHead
+              label={t("tabs.channels")}
+              collapsed={isFolded("channels")}
+              onToggle={foldable ? () => toggleFold("channels") : undefined}
+            >
               {canBrowseSpace ? (
                 <button
                   onClick={onNewChannel}
                   aria-label={t("sidebar.newChannel")}
-                  style={{ border: 0, background: "none", padding: 0, cursor: "pointer", color: "var(--text-subtle)", display: "flex" }}
+                  style={{ border: 0, background: "none", padding: 0, marginLeft: "auto", cursor: "pointer", color: "var(--text-subtle)", display: "flex" }}
                 >
                   <Icon name="plus" size={13} />
                 </button>
               ) : null}
-            </div>
-            {channels.every((c) => c.fav) ? (
+            </SectionHead>
+            {channels.every((c) => c.fav) && !isFolded("channels") ? (
               // Favouriting the only channel of a space emptied this section, which then read as a
               // space with no channels at all. What is true is said instead, and the two cases are
               // not the same sentence.
@@ -736,12 +887,13 @@ export function Sidebar({
               </p>
             ) : null}
             {channels
-              .filter((c) => !c.fav)
+              .filter((c) => !c.fav && (!isFolded("channels") || stays(c.id, c.unread)))
               .map((c) => (
                 <SideItem
                   key={c.id}
                   label={c.name}
                   unread={c.unread}
+                  mentioned={mentionedIn.has(c.id)}
                   muted={c.type === "archived"}
                   notifMuted={notifMutedFor(c.id)}
                   active={view === "channel" && channel === c.id}
@@ -762,16 +914,20 @@ export function Sidebar({
 
         {showMessages && loading ? (
           <>
-            <div style={styles.sect}>{t("sidebar.directMessages")}</div>
+            <div style={styles.sect} className="wc-sect">{t("sidebar.directMessages")}</div>
             <SideSkeleton widths={[0.5, 0.42, 0.58]} round />
           </>
         ) : showMessages ? (
           <>
-            <div style={styles.sect}>{t("sidebar.directMessages")}</div>
-            {directMessages.length === 0 ? (
+            <SectionHead
+              label={t("sidebar.directMessages")}
+              collapsed={isFolded("messages")}
+              onToggle={foldable ? () => toggleFold("messages") : undefined}
+            />
+            {directMessages.length === 0 && !isFolded("messages") ? (
               <SideItem icon="square-pen" label={t("sidebar.startConversation")} onClick={onNewMessage} />
             ) : null}
-            {directMessages.map((d) => (
+            {directMessages.filter((d) => !isFolded("messages") || stays(d.id, d.unread)).map((d) => (
               <SideItem
                 key={d.id}
                 label={d.name}
@@ -828,6 +984,8 @@ export function Sidebar({
             ) : null}
           </div>
         ) : null}
+        </div>
+        </TouchRows.Provider>
       </div>
     </nav>
   );

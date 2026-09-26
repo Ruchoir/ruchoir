@@ -15,8 +15,8 @@ export type CodeBlockProps = {
 
 const pickerPanel: CSSProperties = {
   width: 240,
-  background: "var(--surface-canvas)",
-  border: "1px solid var(--border-subtle)",
+  background: "var(--surface-raised)",
+  border: "2px solid var(--ink)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
   overflow: "hidden",

@@ -1,19 +1,75 @@
 "use client";
 
-import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { DEFAULT_NOTIF_PREFS, type NotifPrefs } from "./notifications";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { initialLocale, startI18n } from "@/lib/i18n";
 import { setCurrentLocale } from "@/lib/i18n/current";
 import { DEFAULT_BINDINGS, mergeBindings, type Bindings } from "./shortcuts";
 
-/** The four shipped themes. RuchUI (warm cream + terracotta) is the default. */
-export type ThemeName = "ruchui" | "light" | "ruchui-dark" | "dark";
+/** The accent a theme paints with: one of the design system's pastels. */
+export type ThemeAccent = "sky" | "mint" | "violet" | "pink";
+export const THEME_ACCENTS: ThemeAccent[] = ["sky", "mint", "violet", "pink"];
+function isAccent(value: unknown): value is ThemeAccent {
+  return typeof value === "string" && (THEME_ACCENTS as string[]).includes(value);
+}
 
-export const THEMES: ThemeName[] = ["ruchui", "light", "ruchui-dark", "dark"];
+/**
+ * Day, night, or whichever the device is set to. Chosen apart from the accent: which colour is
+ * yours and how bright the screen should be are two questions, and "automatic" only makes sense for
+ * the second.
+ */
+export type ThemeMode = "day" | "night" | "auto";
+export const THEME_MODES: ThemeMode[] = ["day", "night", "auto"];
+function isMode(value: unknown): value is ThemeMode {
+  return typeof value === "string" && (THEME_MODES as string[]).includes(value);
+}
 
-function isTheme(value: unknown): value is ThemeName {
-  return typeof value === "string" && (THEMES as string[]).includes(value);
+/**
+ * What `data-theme` on <html> carries: the accent, then `-dark` by night (see tokens.css). Sky by
+ * day is the bare :root.
+ */
+export type ThemeName = ThemeAccent | `${ThemeAccent}-dark`;
+
+/** The theme to draw for a choice, given whether the device currently asks for a dark screen. */
+export function themeFor(accent: ThemeAccent, mode: ThemeMode, systemDark: boolean): ThemeName {
+  const dark = mode === "night" || (mode === "auto" && systemDark);
+  return dark ? `${accent}-dark` : accent;
+}
+
+/**
+ * A stored appearance, read back. The current shape is `accent` + `mode`; before it there was one
+ * `theme` field, first with the retired palette's names (`ruchui`, `light`, `ruchui-dark`, `dark`)
+ * and then briefly with the eight `<accent>[-dark]` names. Either is read for what it meant, by day
+ * or by night, rather than falling back to the default: that would turn a dark interface light under
+ * somebody who had chosen it dark.
+ */
+function storedAppearance(parsed: { accent?: unknown; mode?: unknown; theme?: unknown }): {
+  accent: ThemeAccent;
+  mode: ThemeMode;
+} {
+  if (isAccent(parsed.accent)) {
+    return { accent: parsed.accent, mode: isMode(parsed.mode) ? parsed.mode : DEFAULTS.mode };
+  }
+  const legacy = typeof parsed.theme === "string" ? parsed.theme : "";
+  const [base, suffix] = legacy.split(/-(?=dark$)/);
+  const night = suffix === "dark" || legacy === "dark";
+  return { accent: isAccent(base) ? base : DEFAULTS.accent, mode: legacy ? (night ? "night" : "day") : DEFAULTS.mode };
+}
+
+/** Whether the device asks for a dark screen, as a store React can subscribe to. */
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+function subscribeToSystemDark(onChange: () => void): () => void {
+  const query = window.matchMedia(DARK_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+function systemDark(): boolean {
+  return window.matchMedia(DARK_QUERY).matches;
+}
+/** No device during the static export's render pass: assume day, which the pre-paint script corrects. */
+function serverSystemDark(): boolean {
+  return false;
 }
 
 /** Interface typeface: the default IBM Plex, the OS system stack, or the dyslexia-friendly OpenDyslexic. */
@@ -65,8 +121,10 @@ function isTextSize(value: unknown): value is TextSize {
 }
 
 export type Settings = {
-  /** Active colour theme, applied as data-theme on <html>. Default RuchUI. */
-  theme: ThemeName;
+  /** The theme's accent, one of four pastels. Default sky. */
+  accent: ThemeAccent;
+  /** Day, night, or following the device. With the accent, gives data-theme on <html>. Default day. */
+  mode: ThemeMode;
   /** Interface typeface, applied as data-font on <html>. Default IBM Plex. */
   font: FontChoice;
   /** Text size, applied as data-text on <html> (proportional interface zoom). Default medium. */
@@ -109,6 +167,11 @@ export type Settings = {
    * which is what stops this from being a way to miss one.
    */
   hiddenDms: string[];
+  /**
+   * Sidebar sections folded away, by id (`favourites`, `channels`, `messages`). A folded section
+   * still shows the open conversation and anything unread, so folding tidies without hiding news.
+   */
+  collapsedSections: string[];
   /** Whether the browser-notification prompt has already been offered, so it is offered once. */
   notifPrompted: boolean;
   /**
@@ -135,11 +198,14 @@ export type Settings = {
 };
 
 type SettingsContextValue = Settings & {
+  /** The theme on screen: the accent and the mode, with "automatic" resolved against the device. */
+  theme: ThemeName;
   set: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
 };
 
 const DEFAULTS: Settings = {
-  theme: "ruchui",
+  accent: "sky",
+  mode: "day",
   font: "plex",
   textSize: "m",
   filesLayout: "list",
@@ -151,6 +217,7 @@ const DEFAULTS: Settings = {
   welcome: DEFAULT_WELCOME,
   spaceOrder: [],
   hiddenDms: [],
+  collapsedSections: [],
   notifPrompted: false,
   externalLinkWarning: true,
   threadWidth: THREAD_WIDTH_DEFAULT,
@@ -159,18 +226,24 @@ const DEFAULTS: Settings = {
 
 const SettingsContext = createContext<SettingsContextValue>({
   ...DEFAULTS,
+  theme: "sky",
   set: () => {},
 });
 
 const STORAGE_KEY = "ruchoir.settings";
 
-/** Read the theme the pre-paint script (see layout.tsx) already applied, so the first render matches. */
-function initialTheme(): ThemeName {
+/**
+ * Read the theme the pre-paint script (see layout.tsx) already applied, so the first render draws the
+ * same one. "Automatic" cannot be told apart from a fixed mode at this point; storage settles it a
+ * moment later, and both resolve to the theme already on screen.
+ */
+function initialAppearance(): { accent: ThemeAccent; mode: ThemeMode } {
   if (typeof document !== "undefined") {
-    const t = document.documentElement.dataset.theme;
-    if (isTheme(t)) return t;
+    const t = document.documentElement.dataset.theme ?? "";
+    const [base, suffix] = t.split(/-(?=dark$)/);
+    if (isAccent(base)) return { accent: base, mode: suffix === "dark" ? "night" : "day" };
   }
-  return DEFAULTS.theme;
+  return { accent: DEFAULTS.accent, mode: DEFAULTS.mode };
 }
 
 /** Keep a stored width usable: a number inside the handle's own bounds, or the default. */
@@ -185,14 +258,15 @@ function stringList(value: unknown): string[] {
 }
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(() => ({ ...DEFAULTS, theme: initialTheme() }));
+  const [settings, setSettings] = useState<Settings>(() => ({ ...DEFAULTS, ...initialAppearance() }));
+  const deviceDark = useSyncExternalStore(subscribeToSystemDark, systemDark, serverSystemDark);
 
   // Load persisted settings once on mount (client only).
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
+        const { theme: _retired, ...parsed } = JSON.parse(raw);
         // Hydration-safe: the server renders the defaults, then this reconciles from localStorage after
         // mount. Reading storage in the initializer instead would cause a hydration mismatch, so the
         // one-shot setState here is intentional.
@@ -200,7 +274,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         setSettings({
           ...DEFAULTS,
           ...parsed,
-          theme: isTheme(parsed.theme) ? parsed.theme : DEFAULTS.theme,
+          ...storedAppearance({ ...parsed, theme: _retired }),
           font: isFont(parsed.font) ? parsed.font : DEFAULTS.font,
           textSize: isTextSize(parsed.textSize) ? parsed.textSize : DEFAULTS.textSize,
           filesLayout: isFilesLayout(parsed.filesLayout) ? parsed.filesLayout : DEFAULTS.filesLayout,
@@ -218,6 +292,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           },
           spaceOrder: stringList(parsed.spaceOrder),
           hiddenDms: stringList(parsed.hiddenDms),
+          collapsedSections: stringList(parsed.collapsedSections),
           notifPrompted: parsed.notifPrompted === true,
           externalLinkWarning: parsed.externalLinkWarning !== false,
           threadWidth: threadWidth(parsed.threadWidth),
@@ -242,10 +317,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = locale;
   }, [settings.locale]);
 
-  // Reflect the active theme onto <html> so the CSS [data-theme] blocks apply.
+  // Reflect the active theme onto <html> so the CSS [data-theme] blocks apply. In automatic mode it
+  // follows the device as it changes (a laptop switching to dark at sunset), with no reload.
+  const theme = themeFor(settings.accent, settings.mode, deviceDark);
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.theme;
-  }, [settings.theme]);
+    document.documentElement.dataset.theme = theme;
+    // The browser's own chrome (the status bar of an installed app, the address bar of Android's
+    // browser) takes the canvas of the theme in force, so the edge of the screen is not a band of
+    // the default's grey above a night theme.
+    const canvas = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (meta && canvas) meta.content = canvas;
+  }, [theme]);
 
   // Reflect the active typeface and text size onto <html> so the CSS [data-font]/[data-text] blocks apply.
   useEffect(() => {
@@ -265,7 +348,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  return <SettingsContext.Provider value={{ ...settings, set }}>{children}</SettingsContext.Provider>;
+  return <SettingsContext.Provider value={{ ...settings, theme, set }}>{children}</SettingsContext.Provider>;
 }
 
 export function useSettings(): SettingsContextValue {

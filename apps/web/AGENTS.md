@@ -23,8 +23,15 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 
 - Next.js (App Router) + React + TypeScript.
 - Tailwind CSS v4, **CSS-first**: theme tokens live in `app/globals.css` under `@theme`,
-  not in a JS config. Two brand colors: terracotta (accent) and deep teal (dark surfaces only);
-  warm cream/sand neutrals. IBM Plex is the type family.
+  not in a JS config; the full token set is `app/tokens.css`. The palette is the Ruchoir design
+  system's (see the root `AGENTS.md`): grey canvas, an ink accent, pastels, and a per-theme `--acc`.
+  IBM Plex is the type family. Eight themes, `data-theme` on `<html>`: `sky` (the bare `:root`),
+  `mint`, `violet`, `pink`, each also as `<accent>-dark`. A retired theme name (`ruchui`, `light`,
+  `dark`, `ruchui-dark`) is read as its successor by `SettingsProvider` and the pre-paint script.
+- **A token defined as `var(--x)` is resolved where it is declared.** Redefining `--ink` on an
+  element does not change `--text-strong` below it, since that was computed on `:root`. This is why
+  the themes live on `<html>` itself, and why a pastel band (`.wc-pastel`, the profile's head)
+  restates each text and action token it needs rather than only `--ink`.
 - ESLint flat config (`eslint.config.mjs`): import and spread `eslint-config-next`'s native
   flat-config array directly. Do not wrap it in `FlatCompat` (it re-processes an already-flat
   config and crashes under ESLint 10).
@@ -330,10 +337,9 @@ prop: `FilesScreen` (card grid instead of the 7-column table; toolbar/header wra
 title/topic truncate). The channel right panel defaults to closed (`panel: null`) and `openChannel` resets it, so you land on
 the conversation, not a full-screen dock, and a panel opened in one channel does not carry into the next. Below 600px `.wc-dlg` becomes a full-width bottom sheet whose
 body scrolls (first width `@media` in the app, in `components.css`); the top-bar actions are 44px on
-mobile. Action fills use `--action-primary-bg: terracotta-600` (not -500) so white text clears WCAG AA;
-terracotta-500 stays the brand accent (borders, wordmark dot, links, focus ring). `--text-subtle` is
-`#6c6c64` (not grey-500 #7a7a71, which was only 4.33:1) so small subtle labels clear AA on light
-surfaces. The responsive audit measures overlap on VISIBLE (clip-intersected) rects, so controls
+mobile. Action fills are the ink (`--action-primary-bg`), with white text; the brand terracotta only
+draws the wordmark's point. `--text-subtle` is the muted grey `#5a6070` (6.1:1 on the canvas) so small
+subtle labels clear AA on light surfaces. The responsive audit measures overlap on VISIBLE (clip-intersected) rects, so controls
 scrolled under a bar are not false positives. Remaining touch-target
 (<44px on dense secondary icons) and tiny-text (11px labels) findings are a deliberate density trade-off,
 not bugs.
@@ -416,7 +422,7 @@ usage with the design-system oxlint config.
 - **Avatars** are generated locally with DiceBear (`lib/avatar.ts`, `@dicebear/core` v10 +
   `@dicebear/styles` JSON defs), seeded by name, cached, emitted as data URIs (no remote request).
   Styles by subject: person=cameo, bot=gaze, workspace=blobs. Person/bot backgrounds are lively
-  pastels chosen for face contrast and **never terracotta/red** (single brand accent rule).
+  pastels chosen for face contrast and **never red** (red reads as an alert).
 - **Message text** is rendered by `features/channel/richText.tsx` (bold, italic, inline + fenced
   code, links, "- " and "1." lists, "- [ ] " checklists, "> " quotes, "## " headings, @mentions and
   #channels), building React nodes. A heading starts at two hashes, never one: a single `#` names a

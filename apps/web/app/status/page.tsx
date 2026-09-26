@@ -45,7 +45,7 @@ export default function Status() {
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-8 px-6">
       <header className="flex items-center gap-3">
-        <span className="inline-block h-3 w-3 rounded-full bg-terracotta-500" />
+        <span className="inline-block h-3 w-3 rounded-full bg-ink" />
         <h1 className="text-2xl font-semibold tracking-tight">Ruchoir</h1>
       </header>
 
@@ -65,7 +65,7 @@ export default function Status() {
           </span>
         )}
         {probe.state === "error" && (
-          <span className="text-terracotta-700">API unreachable: {probe.message}</span>
+          <span className="text-danger">API unreachable: {probe.message}</span>
         )}
       </section>
 

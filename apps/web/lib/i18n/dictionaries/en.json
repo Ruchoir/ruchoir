@@ -287,7 +287,7 @@
     "invitePeople": "Invite people",
     "spaceSettings": "Space settings",
     "spaceFiles": "Space files",
-    "searchPlaceholder": "Search a channel, a person…",
+    "searchPlaceholder": "Search everywhere…",
     "threads": "Threads",
     "favourites": "Favourite channels",
     "privateChannel": "Private channel",
@@ -304,7 +304,8 @@
     "spaceSwitch": "Switch space",
     "spaceSwitchNamed": "Space {{name}}, switch space",
     "space": "Space",
-    "favouriteHint": "Keep the channels you use within reach: \\u201cAdd to favourites\\u201d in a channel's menu.",
+    "favouriteHintShort": "Add one from a channel's ⋯ menu.",
+    "favouriteHintTouch": "Press and hold a channel to add one.",
     "noChannelYet": "No channel yet. One will appear as soon as you are added to it."
   },
   "welcome": {
@@ -373,6 +374,7 @@
     "react": "React",
     "replies_one": "{{count}} reply",
     "replies_other": "{{count}} replies",
+    "lastReply": "Last reply {{when}}",
     "reactionCount_one": "{{count}} reaction",
     "reactionCount_other": "{{count}} reactions",
     "reactors_one": "{{count}} person",
@@ -533,7 +535,8 @@
     "deleteBody": "The messages, threads, reactions and files uploaded in this channel will be erased for all its members. Space files that were only attached stay in the space.",
     "deleteNameMismatch": "That is not the channel's name.",
     "deleted": "Channel deleted",
-    "deletedElsewhere": "The channel #{{name}} was deleted."
+    "deletedElsewhere": "The channel #{{name}} was deleted.",
+    "details": "Channel details"
   },
   "role": {
     "member": "Member",
@@ -811,7 +814,6 @@
     "backToSpace": "Back to the space",
     "appearance": "Appearance",
     "appearanceSub": "Theme, typeface, text size and how the interface opens.",
-    "theme": "Theme",
     "font": "Typeface",
     "textSize": "Text size",
     "defaultDisplay": "Default display",
@@ -853,8 +855,17 @@
     "sizeM": "Normal",
     "sizeL": "Large",
     "sizeXL": "Very large",
-    "themeLight": "Light",
-    "themeDark": "Dark",
+    "mode": "Mode",
+    "modeDay": "Day",
+    "modeNight": "Night",
+    "modeAuto": "Automatic",
+    "modeAutoHint": "Follows your device's light or dark setting, and changes with it.",
+    "modeFixedHint": "The same at any hour, whatever your device is set to.",
+    "accent": "Accent colour",
+    "themeSky": "Sky",
+    "themeMint": "Mint",
+    "themeViolet": "Violet",
+    "themePink": "Pink",
     "browserNotif": "Browser notifications",
     "notifGranted": "Allowed. They appear when Ruchoir is not the window you are looking at.",
     "notifDenied": "Refused for this site. Only the browser can undo that: open the site information in the address bar, then allow notifications again.",
@@ -977,8 +988,8 @@
     "channels": "Channels",
     "messages": "Messages",
     "activity": "Activity",
-    "search": "Search",
-    "mainContent": "Main content"
+    "mainContent": "Main content",
+    "home": "Home"
   },
   "system": {
     "memberJoined": "{{who}} joined the space.",
@@ -1174,5 +1185,9 @@
     "tipDoubt": "In doubt? Ask whoever sent it.",
     "dontShowAgain": "Do not show this warning again",
     "beforeOpening": "Before you open it"
+  },
+  "mobile": {
+    "noDmText": "Your direct messages with the space's members will appear here.",
+    "youPrefix": "You: {{text}}"
   }
 }

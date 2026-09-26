@@ -8,8 +8,8 @@ import { useTranslation } from "@/lib/i18n";
 
 const panel: CSSProperties = {
   width: 320,
-  background: "var(--surface-canvas)",
-  border: "1px solid var(--border-subtle)",
+  background: "var(--surface-raised)",
+  border: "2px solid var(--ink)",
   borderRadius: "var(--radius-lg)",
   boxShadow: "var(--shadow-popover)",
   overflow: "hidden",

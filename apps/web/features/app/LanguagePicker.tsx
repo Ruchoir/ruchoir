@@ -39,10 +39,10 @@ const st: Record<string, CSSProperties> = {
   list: {
     minWidth: 280,
     padding: 4,
-    background: "var(--surface-canvas)",
-    border: "1px solid var(--border-default)",
+    background: "var(--surface-raised)",
+    border: "2px solid var(--ink)",
     borderRadius: "var(--radius-md)",
-    boxShadow: "var(--shadow-popover, var(--shadow-dialog))",
+    boxShadow: "var(--shadow-popover)",
   },
   option: {
     display: "flex",

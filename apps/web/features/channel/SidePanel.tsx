@@ -7,12 +7,13 @@ import type { DirectMessage, Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatBytes, formatStamp } from "@/lib/i18n/format";
+import { PanelHead } from "./PanelHead";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
     width: "var(--panel-width)",
     flex: "none",
-    borderLeft: "1px solid var(--border-subtle)",
+    borderLeft: "1.5px solid var(--border-subtle)",
     background: "var(--surface-chrome)",
     display: "flex",
     flexDirection: "column",
@@ -24,9 +25,9 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 8px 0 16px",
-    borderBottom: "1px solid var(--border-subtle)",
+    borderBottom: "1.5px solid var(--border-subtle)",
   },
-  title: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
+  title: { fontSize: 16, fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   row: {
     display: "flex",
     alignItems: "center",
@@ -100,16 +101,13 @@ export function SidePanel({ kind, files, members, membersLoading = false, pinned
 
   return (
     <div style={styles.panel}>
-      <div style={styles.head}>
-        <span style={styles.title}>{t(TITLES[kind])}</span>
-        <IconButton icon="x" label={t("panel.close")} size="sm" onClick={onClose} />
-      </div>
+      <PanelHead title={t(TITLES[kind])} closeLabel={t("panel.close")} onClose={onClose} />
       <div style={{ flex: 1, overflow: "auto" }} ref={scrollRef}>
         {kind === "files"
           ? files.map((fl) => (
               <div key={fl.id ?? `${fl.name}:${fl.updatedAt}`} data-file={fl.name} style={styles.row}>
                 {fl.kind === "folder" ? (
-                  <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)" }} />
+                  <Icon name="folder" size={18} style={{ color: "var(--ink)" }} />
                 ) : (
                   <FileIcon name={fl.name} size={22} />
                 )}

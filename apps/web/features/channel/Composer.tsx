@@ -7,18 +7,19 @@ import { deleteFile } from "@/lib/data/api";
 import { MenuPopover, type MenuItem } from "../app/MenuPopover";
 import type { Toast } from "../app/types";
 import { useCompact } from "../app/useCompact";
+import { useLayout, useTouch } from "../app/useLayout";
 import { EmojiPicker } from "./EmojiPicker";
 import { MessageEditor, type MessageEditorHandle } from "./MessageEditor";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatBytes } from "@/lib/i18n/format";
 
 const styles: Record<string, CSSProperties> = {
-  wrap: { flex: "none", padding: "8px 24px 20px" },
+  wrap: { flex: "none", padding: "8px 24px 22px" },
+  // Edge, surface and focus shadow come from `.wc-message-composer` (components.css).
   composer: {
     maxWidth: "var(--channel-measure)",
     margin: "0 auto",
-    borderRadius: "var(--radius-lg)",
-    background: "var(--surface-canvas)",
+    borderRadius: "var(--radius-md)",
     padding: "10px 12px 8px",
   },
   editingBanner: {
@@ -35,8 +36,9 @@ const styles: Record<string, CSSProperties> = {
   hint: {
     maxWidth: "var(--channel-measure)",
     margin: "6px auto 0",
-    fontSize: 12,
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontSize: 11.5,
+    color: "var(--text-muted)",
   },
   chip: {
     display: "inline-flex",
@@ -223,6 +225,10 @@ export function Composer({
   const fileRef = useRef<HTMLInputElement>(null);
   const lastTyping = useRef(0);
   const compact = useCompact(TOOLBAR_BREAKPOINT);
+  // A phone: one line at rest (the text, emoji, a file, send), the formatting tools once writing.
+  const phone = useLayout() === "phone";
+  // "Enter to send" is about a keyboard: on a touch screen it is a sentence about something absent.
+  const touch = useTouch();
 
   // Fire a typing signal at most every 2s while composing; input events bubble up from the editor.
   const signalTyping = () => {
@@ -326,12 +332,17 @@ export function Composer({
   ]);
 
   return (
-    <div style={styles.wrap}>
+    <div style={phone ? { ...styles.wrap, padding: undefined } : styles.wrap} className={phone ? "wc-composer-wrap--phone" : undefined}>
       <div
-        className="wc-message-composer"
+        className={phone ? "wc-message-composer wc-composer--phone" : "wc-message-composer"}
+        // Read by the send button's resting state (components.css): files alone are something to send.
+        data-has-files={(editing ? editPending : pending).length > 0 || undefined}
         style={{
           ...styles.composer,
-          ...(editing ? { borderColor: "var(--border-accent)" } : draggingFiles ? { borderColor: "var(--border-accent)", background: "var(--surface-selected)" } : {}),
+          ...(phone ? { padding: "6px 6px 6px 12px" } : null),
+          // Correcting a message sets the box on a peach offset, the colour of a change under way;
+          // files held over it fill it with the accent.
+          ...(editing ? { boxShadow: "4px 4px 0 var(--peach)" } : draggingFiles ? { background: "var(--surface-selected)" } : {}),
         }}
         onDragEnter={(event) => {
           if (event.dataTransfer.types.includes("Files")) setDraggingFiles(true);
@@ -387,7 +398,16 @@ export function Composer({
           onSend={sendWith}
           onPasteFiles={(files) => void addFiles(files)}
         />
-        <div style={styles.tools}>
+        <div
+          style={styles.tools}
+          className="wc-composer__tools"
+          // A tool pressed must not take the focus from the editor. On a phone the tap's blur closed
+          // the keyboard and reflowed the composer, so the first press on send only dismissed the
+          // keyboard. The mousedown is where a browser moves the focus, iOS's synthesized one included.
+          onMouseDown={(e) => {
+            if ((e.target as HTMLElement).closest("button")) e.preventDefault();
+          }}
+        >
           <IconButton icon="bold" label={t("composer.bold")} size="sm" onClick={() => editorRef.current?.wrapSelection("**")} />
           <IconButton icon="italic" label={t("composer.italic")} size="sm" onClick={() => editorRef.current?.wrapSelection("_")} />
           {compact ? (
@@ -426,7 +446,7 @@ export function Composer({
             </>
           )}
           <span style={styles.divider} />
-          <IconButton icon="paperclip" label={t("composer.attach")} size="sm" onClick={() => fileRef.current?.click()} />
+          <IconButton icon="paperclip" label={t("composer.attach")} size="sm" onClick={() => fileRef.current?.click()} className="wc-keep" />
           <input
             ref={fileRef}
             type="file"
@@ -443,6 +463,8 @@ export function Composer({
             icon="smile"
             label={t("composer.emoji")}
             size="sm"
+            // Not on a phone: its own keyboard has the emoji.
+            className={phone ? undefined : "wc-keep"}
             aria-expanded={emojiOpen}
             onClick={() => setEmojiOpen((o) => !o)}
           />
@@ -454,11 +476,11 @@ export function Composer({
               }}
             />
           </Popover>
-          <div style={{ flex: 1 }} />
-          <IconButton icon="send" label={t("composer.send")} variant="accent" size="lg" disabled={uploading} onClick={clickSend} />
+          <div style={{ flex: 1 }} className="wc-keep" />
+          <IconButton icon="send" label={t("composer.send")} variant="accent" size="lg" disabled={uploading} onClick={clickSend} className="wc-send wc-keep" />
         </div>
       </div>
-      <div style={styles.hint}>{t("composer.hint")}</div>
+      {touch || phone ? null : <div style={styles.hint}>{t("composer.hint")}</div>}
     </div>
   );
 }

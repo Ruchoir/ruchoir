@@ -27,9 +27,9 @@ export function TypingIndicator({ names }: { names: string[] }) {
         alignItems: "center",
         gap: 8,
         minHeight: 20,
+        fontFamily: "var(--font-mono)",
         fontSize: 12,
-        fontStyle: "italic",
-        color: "var(--text-subtle)",
+        color: "var(--text-muted)",
       }}
     >
       <span className="wc-typing" aria-hidden>

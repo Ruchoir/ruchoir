@@ -44,7 +44,7 @@ Plus screen-reader structure checks (`category: "a11y"`), so a blind user can na
 | `positive-tabindex`     | minor    | A positive tabindex reorders the focus sequence.                    |
 
 These are theme-dependent, so the audit can sweep every shipped theme (`--all-themes`): contrast and
-icon legibility are re-measured under RuchUI, Clair, RuchUI-Dark and Sombre. A caveat the probe
+icon legibility are re-measured under the eight themes (four accents, by day and by night). A caveat the probe
 enforces by construction: dim icons/text via `opacity` is invisible to a contrast check (the computed
 `color` is unchanged), so de-emphasis must use a colour token, not `opacity`.
 
@@ -100,7 +100,7 @@ PORT=46789 pnpm --dir apps/web audit:responsive
 | `--reload`        | Reload per viewport instead of resizing in place (slower, stricter).          |
 | `--headed`        | Show the browser window.                                                      |
 | `--fail-on <lvl>` | Exit non-zero on `critical` (default), `major`, or `none`. Used to gate CI.    |
-| `--themes <t,...>`| Sweep these themes (`ruchui`, `light`, `ruchui-dark`, `dark`). Default `ruchui`.|
+| `--themes <t,...>`| Sweep these themes (`sky`, `mint`, `violet`, `pink`, each also with `-dark`). Default `sky`.|
 | `--all-themes`    | Shorthand for every shipped theme.                                            |
 | `--fail-rules <r,...>` | Exit non-zero if any finding matches these rules, whatever the severity.  |
 

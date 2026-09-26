@@ -10,10 +10,10 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 const styles: Record<string, CSSProperties> = {
   switcher: { display: "flex", flexDirection: "column", gap: 8, marginTop: 18 },
   switchLabel: {
-    fontSize: 11,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontWeight: 500,
+    fontSize: 12,
+    color: "var(--text-muted)",
   },
 };
 

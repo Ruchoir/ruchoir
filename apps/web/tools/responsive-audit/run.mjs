@@ -18,7 +18,7 @@
  *   --out <dir>       output dir (default tools/responsive-audit/report)
  *   --tag <t,...>     keep only viewports carrying every tag (e.g. quick, zoom, mobile-portrait)
  *   --state <id,...>  keep only these states (e.g. files,login)
- *   --themes <t,...>  sweep these themes (ruchui,light,ruchui-dark,dark); default ruchui only
+ *   --themes <t,...>  sweep these themes (sky,mint,violet,pink and each with -dark); default sky only
  *   --all-themes      shorthand for every shipped theme
  *   --fail-rules <r,...>  exit non-zero if any finding matches these rules (e.g. low-contrast,icon-contrast)
  *   --quick           shorthand for --tag quick (a fast, representative subset)
@@ -36,7 +36,8 @@ import { writeReports } from "./report.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
-const ALL_THEMES = ["ruchui", "light", "ruchui-dark", "dark"];
+const ACCENTS = ["sky", "mint", "violet", "pink"];
+const ALL_THEMES = [...ACCENTS, ...ACCENTS.map((a) => `${a}-dark`)];
 
 /** Where the dev server is, from --url, else $AUDIT_URL, else $PORT on localhost, else the default. */
 function defaultUrl() {
@@ -62,7 +63,7 @@ function parseArgs(argv) {
     else if (a === "--fail-on") args.failOn = argv[++i]; // critical (default) | major | none
   }
   // Default to the base theme only, so the existing responsive job is unaffected.
-  if (args.themes.length === 0) args.themes = ["ruchui"];
+  if (args.themes.length === 0) args.themes = ["sky"];
   else args.themes = [...new Set(args.themes)];
   return args;
 }

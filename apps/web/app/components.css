@@ -17,9 +17,9 @@
   justify-content: center;
   border-radius: var(--radius-sm);
   background: var(--grey-100);
-  color: var(--grey-700);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-caps);
+  color: var(--on-pastel);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.02em;
   overflow: hidden;
   text-transform: uppercase;
   font-variant-numeric: tabular-nums;
@@ -48,39 +48,46 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1-5);
-  border: var(--border-width) solid transparent;
+  border: var(--border-width-strong) solid transparent;
   border-radius: var(--radius-md);
   font-family: var(--font-sans);
-  font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
   transition: background-color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out),
-    transform var(--duration-instant) var(--ease-out);
+    box-shadow 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
 }
-/* Tactile press: a slight give on click. Never on disabled buttons. */
+/* A filled action rises off the page under the pointer, onto an offset shadow, the way the public
+   site's buttons do; pressing puts it back down. Never on disabled buttons. */
+.wc-btn--primary:not(:disabled):hover,
+.wc-btn--danger:not(:disabled):hover {
+  transform: translate(-2px, -2px);
+}
 .wc-btn:not(:disabled):active {
-  transform: scale(0.97);
+  transform: none;
+  box-shadow: none;
 }
 .wc-btn--link:not(:disabled):active {
   transform: none;
 }
 .wc-btn--sm {
-  height: 26px;
-  padding: 0 var(--space-2);
-  font-size: var(--text-xs);
+  height: 34px;
+  padding: 0 var(--space-3);
+  font-size: 13.5px;
 }
 .wc-btn--md {
-  height: 32px;
-  padding: 0 var(--space-3);
+  height: 40px;
+  padding: 0 var(--space-4);
   font-size: var(--text-sm);
 }
 .wc-btn--lg {
-  height: 40px;
-  padding: 0 var(--space-4);
+  height: 46px;
+  padding: 0 var(--space-5);
   font-size: var(--text-md);
 }
 .wc-btn--full {
@@ -89,9 +96,11 @@
 .wc-btn--primary {
   background: var(--action-primary-bg);
   color: var(--action-primary-fg);
+  border-color: var(--action-primary-bg);
 }
 .wc-btn--primary:hover {
   background: var(--action-primary-bg-hover);
+  box-shadow: var(--shadow-lift);
 }
 .wc-btn--primary:active {
   background: var(--action-primary-bg-active);
@@ -103,7 +112,6 @@
 }
 .wc-btn--secondary:hover {
   background: var(--action-secondary-bg-hover);
-  border-color: var(--border-strong);
 }
 .wc-btn--secondary:active {
   background: var(--action-secondary-bg-active);
@@ -121,43 +129,52 @@
 .wc-btn--danger {
   background: var(--action-danger-bg);
   color: var(--action-danger-fg);
+  border-color: var(--ink);
 }
 .wc-btn--danger:hover {
   background: var(--action-danger-bg-hover);
+  box-shadow: var(--shadow-popover);
 }
+/* A link is underlined in the theme's accent, thick, as on the site; the pointer darkens the line. */
 .wc-btn--link {
   background: transparent;
   color: var(--text-link);
   height: auto;
   padding: 0;
+  border: 0;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-color: var(--acc);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 .wc-btn--link:hover {
   color: var(--text-link-hover);
+  text-decoration-color: var(--ink);
 }
 .wc-message-link {
   color: var(--text-link);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-color: var(--acc);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
 .wc-message-link:hover {
-  color: var(--text-link-hover);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-color: var(--ink);
 }
 .wc-btn:disabled {
   cursor: not-allowed;
   background: var(--surface-disabled);
   color: var(--text-disabled);
-  border-color: var(--border-subtle);
+  border-color: var(--border-default);
+  box-shadow: none;
 }
 .wc-btn--ghost:disabled,
 .wc-btn--link:disabled {
   background: transparent;
 }
 .wc-btn:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 /* IconButton */
@@ -166,13 +183,14 @@
   align-items: center;
   justify-content: center;
   border: var(--border-width) solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--action-ghost-fg);
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out),
-    transform var(--duration-instant) var(--ease-out);
+    box-shadow 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
 }
 .wc-ibtn--sm {
   width: 24px;
@@ -186,16 +204,20 @@
   width: 40px;
   height: 40px;
 }
-.wc-ibtn:hover {
-  background: var(--action-ghost-bg-hover);
-  color: var(--text-strong);
+/* Hover only where there is a pointer that hovers: a touch screen keeps :hover stuck on whatever was
+   last under the finger, which lit a tool that the reflowing composer had slid under the tap. */
+@media (hover: hover) {
+  .wc-ibtn:hover {
+    background: var(--action-ghost-bg-hover);
+    color: var(--text-strong);
+  }
 }
 .wc-ibtn:not(:disabled):active {
   background: var(--action-ghost-bg-active);
   transform: scale(0.92);
 }
 .wc-ibtn--outlined {
-  border-color: var(--action-secondary-border);
+  border: var(--border-width-strong) solid var(--action-secondary-border);
   background: var(--action-secondary-bg);
 }
 .wc-ibtn--outlined:hover {
@@ -204,14 +226,18 @@
 .wc-ibtn--accent {
   background: var(--action-primary-bg);
   color: var(--action-primary-fg);
+  border: var(--border-width-strong) solid var(--action-primary-bg);
 }
-.wc-ibtn--accent:hover {
+.wc-ibtn--accent:not(:disabled):hover {
   background: var(--action-primary-bg-hover);
   color: var(--action-primary-fg);
+  box-shadow: 3px 3px 0 var(--bee);
+  transform: translate(-2px, -2px);
 }
+/* Pressed (a panel that is open): filled with the theme's pastel, which carries the dark ink. */
 .wc-ibtn[aria-pressed="true"] {
-  background: var(--surface-selected);
-  color: var(--text-accent);
+  background: var(--acc);
+  color: var(--on-pastel);
 }
 /* Bare variant (channel header): subtle hover fill, no dark tooltip bar (tooltip is dynamic now). */
 .wc-ibtn--bare:hover {
@@ -219,8 +245,8 @@
   color: var(--text-strong);
 }
 .wc-ibtn--bare[aria-pressed="true"] {
-  background: var(--surface-selected);
-  color: var(--text-accent);
+  background: var(--acc);
+  color: var(--on-pastel);
 }
 .wc-ibtn:disabled {
   cursor: not-allowed;
@@ -228,13 +254,13 @@
   background: transparent;
 }
 .wc-ibtn:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
 }
 
 /* Badge */
 .wc-badge {
-  animation: wc-badge-bump var(--duration-base) var(--ease-entrance);
+  animation: wc-badge-bump 400ms var(--ease-spring);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -244,32 +270,40 @@
   border-radius: var(--radius-full);
   background: var(--action-primary-bg);
   color: var(--action-primary-fg);
-  font-size: var(--text-2xs);
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 .wc-badge--neutral {
-  background: var(--grey-200);
+  background: var(--line);
   color: var(--text-body);
 }
 .wc-badge--strong {
-  /* High-contrast neutral. `neutral` sits two steps from the sand surfaces and disappears on the
-     workspace rail; this one stays legible without spending the terracotta accent on it. */
-  background: var(--grey-900);
-  color: var(--grey-0);
+  /* High-contrast neutral: the ink, without the accent. */
+  background: var(--ink);
+  color: var(--on-ink);
 }
+/* Statuses are pastels, and a pastel carries the dark ink. */
 .wc-badge--success {
-  background: var(--green-500);
-  color: var(--grey-0);
+  background: var(--mint);
+  color: var(--on-pastel);
 }
 .wc-badge--warning {
-  background: var(--amber-500);
-  color: var(--grey-0);
+  background: var(--sun);
+  color: var(--on-pastel);
 }
 .wc-badge--danger {
-  background: var(--crimson-500);
-  color: var(--grey-0);
+  background: var(--peach);
+  color: var(--on-pastel);
+}
+/* Addressed to the reader: the peach of what is new, edged in ink so it holds on the rail and in the
+   sidebar alike, and read before a plain count. */
+.wc-badge--mention {
+  background: var(--peach);
+  color: var(--on-pastel);
+  box-shadow: inset 0 0 0 1.5px var(--on-pastel);
 }
 .wc-badge--dot {
   min-width: 8px;
@@ -286,17 +320,18 @@
   height: 22px;
   padding: 0 var(--space-2);
   border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-canvas);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   font-weight: var(--weight-medium);
   white-space: nowrap;
 }
 .wc-tag--accent {
-  background: var(--terracotta-50);
-  border-color: var(--terracotta-100);
-  color: var(--terracotta-800);
+  background: var(--acc);
+  border-color: var(--acc);
+  color: var(--on-pastel);
 }
 .wc-tag--success {
   background: var(--status-success-bg);
@@ -341,8 +376,8 @@
 /* Card */
 .wc-card {
   background: var(--surface-card);
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 .wc-card--pad {
@@ -351,22 +386,26 @@
 .wc-card--interactive {
   cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-out),
-    background-color var(--duration-fast) var(--ease-out);
+    box-shadow 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
 }
+/* Under the pointer a card you can press rises onto an ink offset. */
 .wc-card--interactive:hover {
-  border-color: var(--border-strong);
-  background: var(--grey-25);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-popover);
+  transform: translate(-2px, -2px);
 }
 .wc-card--interactive:active {
-  background: var(--grey-50);
+  box-shadow: none;
+  transform: none;
 }
 .wc-card--selected {
-  border-color: var(--border-accent);
+  border-color: var(--ink);
   background: var(--surface-selected);
 }
 .wc-card--raised {
   box-shadow: var(--shadow-popover);
-  border-color: var(--border-default);
+  border: var(--border-width-strong) solid var(--ink);
 }
 .wc-card--sunken {
   background: var(--surface-sunken);
@@ -395,7 +434,7 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-top: var(--border-width) solid var(--border-subtle);
-  background: var(--grey-25);
+  background: var(--surface-canvas);
 }
 
 /* Textarea */
@@ -403,8 +442,8 @@
   display: block;
   width: 100%;
   background: var(--surface-canvas);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
   font-family: inherit;
   font-size: var(--text-sm);
@@ -415,12 +454,13 @@
     box-shadow var(--duration-fast) var(--ease-out);
 }
 .wc-ta:hover {
-  border-color: var(--border-strong);
+  border-color: var(--ink);
 }
+/* Focus: the ink edge, and a halo of the theme's pastel. */
 .wc-ta:focus {
   outline: none;
-  border-color: var(--terracotta-500);
-  box-shadow: 0 0 0 3px var(--terracotta-100);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 60%, transparent);
 }
 .wc-ta--seamless {
   border-color: transparent;
@@ -436,7 +476,7 @@
   box-shadow: none;
 }
 .wc-ta--invalid {
-  border-color: var(--crimson-500);
+  border-color: var(--status-danger-fg);
 }
 
 /* Rich message input (contenteditable): renders inline emote chips the plain textarea cannot show. */
@@ -483,42 +523,45 @@
   align-items: center;
   gap: var(--space-2);
   background: var(--surface-canvas);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-sm);
   padding: 0 var(--space-2-5);
   transition: border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
 }
 .wc-inp--sm {
-  height: 28px;
+  height: 34px;
 }
 .wc-inp--md {
-  height: 32px;
-}
-.wc-inp--lg {
   height: 40px;
 }
+.wc-inp--lg {
+  height: 46px;
+}
 .wc-inp:hover {
-  border-color: var(--border-strong);
+  border-color: var(--ink);
 }
 .wc-inp:focus-within {
-  border-color: var(--terracotta-500);
-  box-shadow: 0 0 0 3px var(--terracotta-100);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 60%, transparent);
 }
 
-/* Message composers stay quiet at rest and regain the regular control edge while in use. */
+/* A message composer is the one control drawn in full ink: it is what the screen is for. While in
+   use it takes an offset shadow in the theme's pastel. */
 .wc-message-composer {
-  border: var(--border-width) solid var(--border-subtle);
-  transition: border-color var(--duration-fast) var(--ease-out);
+  border: var(--border-width-strong) solid var(--ink);
+  background: var(--surface-card);
+  transition: box-shadow 150ms var(--ease-out);
 }
 .wc-message-composer:focus-within {
-  border-color: var(--border-default);
+  border-color: var(--ink);
+  box-shadow: 4px 4px 0 var(--acc);
 }
 .wc-inp--invalid {
-  border-color: var(--crimson-500);
+  border-color: var(--status-danger-fg);
 }
 .wc-inp--invalid:focus-within {
-  box-shadow: 0 0 0 3px var(--crimson-100);
+  box-shadow: 0 0 0 3px var(--status-danger-border);
 }
 .wc-inp--disabled {
   background: var(--surface-disabled);
@@ -591,7 +634,8 @@
   color: var(--text-strong);
 }
 .wc-tab--on::after {
-  background: var(--terracotta-500);
+  background: var(--ink);
+  height: 3px;
 }
 .wc-tab__n {
   font-size: var(--text-xs);
@@ -602,21 +646,24 @@
   border-bottom: 0;
   gap: var(--space-1);
   padding: 3px;
-  background: var(--surface-sunken);
-  border-radius: var(--radius-md);
+  background: var(--surface-canvas);
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-full);
   display: inline-flex;
 }
 .wc-tabs--pills .wc-tab {
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
-  height: 26px;
+  border-radius: var(--radius-full);
+  height: 30px;
+  font-weight: var(--weight-semibold);
+  color: var(--text-body);
 }
 .wc-tabs--pills .wc-tab::after {
   display: none;
 }
 .wc-tabs--pills .wc-tab--on {
-  background: var(--surface-canvas);
-  box-shadow: 0 1px 2px rgb(26 26 24 / 0.07);
+  background: var(--ink);
+  color: var(--on-ink);
 }
 
 /* Self-hosted emoji image (Fluent), sized to sit on the text baseline. */
@@ -630,9 +677,9 @@
 .wc-code {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: var(--surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
   padding: 0 4px;
 }
 /* A turning ring, for a control that is working. Drawn rather than imported: one element, one
@@ -670,7 +717,7 @@
   border-color: var(--border-default);
 }
 .wc-choice:focus-visible {
-  outline: 2px solid var(--border-accent, var(--terracotta-500));
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
 
@@ -680,8 +727,8 @@
 .wc-quote {
   margin: 2px 0;
   padding: 1px 0 1px 10px;
-  border-left: 3px solid var(--border-default);
-  color: var(--text-muted);
+  border-left: 3px solid var(--violet);
+  color: var(--text-body);
   white-space: pre-wrap;
 }
 /*
@@ -723,46 +770,48 @@
   text-decoration: line-through;
 }
 .wc-mention {
-  color: var(--terracotta-800);
-  background: var(--terracotta-50);
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--acc) 45%, transparent);
   border-radius: var(--radius-sm);
   padding: 0 3px;
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
 }
 /* A room, not a person: the same pill shape, in the neutral ink, because pointing at a channel is
    not addressing somebody and should not read like a call for attention. */
 .wc-mention--room {
   color: var(--text-strong);
-  background: var(--surface-sunken);
+  background: var(--line);
 }
 /* A mention of the current user: a stronger, filled pill so it stands out in the feed. */
 .wc-mention--me {
-  color: #fff;
-  background: var(--terracotta-600, var(--terracotta-500));
+  color: var(--on-ink);
+  background: var(--ink);
   font-weight: var(--weight-semibold);
 }
+/* A code block is a dark slab in every theme, as a terminal is: its colours are fixed, not tokens
+   that would flip with the night. */
 .wc-codeblock {
   margin: 6px 0;
-  border: 1px solid var(--border-subtle);
+  border: var(--border-width-strong) solid var(--ink);
   border-radius: var(--radius-md);
-  background: var(--surface-sunken);
+  background: #15171c;
   overflow: hidden;
-  color: var(--text-body);
+  color: #e2e5ea;
 }
 .wc-codebar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 28px;
+  height: 30px;
   padding: 0 6px 0 10px;
-  background: var(--surface-chrome);
-  border-bottom: 1px solid var(--border-subtle);
+  background: #1d2027;
+  border-bottom: 1px solid #2e323a;
 }
 .wc-codelang {
-  font-size: 10px;
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--text-subtle);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  color: #a7adb8;
   user-select: none;
 }
 .wc-codelang--edit {
@@ -779,8 +828,8 @@
   transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 .wc-codelang--edit:hover {
-  background: var(--surface-hover);
-  color: var(--text-body);
+  background: #2e323a;
+  color: #ffffff;
 }
 .wc-codecopy {
   display: inline-flex;
@@ -791,15 +840,15 @@
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-muted);
+  color: #c9ced6;
   font-family: var(--font-sans);
   font-size: 12px;
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 .wc-codecopy:hover {
-  background: var(--surface-hover);
-  color: var(--text-strong);
+  background: #2e323a;
+  color: #ffffff;
 }
 .wc-codeblock pre {
   margin: 0;
@@ -815,10 +864,11 @@
   white-space: pre;
 }
 
-/* highlight.js theme, mapped to the desaturated semantic palette (no terracotta accent). */
+/* highlight.js theme, on the dark slab: the design system's pastels, which all read on it. Keywords
+   take the theme's own accent. */
 .hljs-comment,
 .hljs-quote {
-  color: var(--text-subtle);
+  color: #8b919d;
   font-style: italic;
 }
 .hljs-keyword,
@@ -826,35 +876,35 @@
 .hljs-built_in,
 .hljs-name,
 .hljs-tag {
-  color: var(--blue-700);
+  color: var(--acc);
 }
 .hljs-string,
 .hljs-attr,
 .hljs-symbol,
 .hljs-bullet,
 .hljs-addition {
-  color: var(--green-700);
+  color: var(--mint);
 }
 .hljs-number,
 .hljs-literal,
 .hljs-variable,
 .hljs-template-variable,
 .hljs-attribute {
-  color: var(--amber-700);
+  color: var(--sun);
 }
 .hljs-title,
 .hljs-section,
 .hljs-selector-id,
 .hljs-function .hljs-title {
-  color: var(--crimson-700);
+  color: var(--pink);
 }
 .hljs-type,
 .hljs-class .hljs-title,
 .hljs-meta {
-  color: var(--blue-600);
+  color: var(--violet);
 }
 .hljs-deletion {
-  color: var(--crimson-600);
+  color: var(--peach);
 }
 .hljs-emphasis {
   font-style: italic;
@@ -953,20 +1003,21 @@
 }
 
 /* Toast: slide-and-fade in, reverse out (the exit class is held by useMountAnimation). */
-.wc-toast--in {
-  animation: wc-toast-in var(--duration-slow) var(--ease-entrance);
-}
 .wc-toast--out {
   animation: wc-toast-out var(--duration-slow) var(--ease-out) forwards;
 }
+.wc-toast--in {
+  animation: wc-toast-in 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+/* A toast slides in from the side, a little tilted, and settles: a note stuck to the corner. */
 @keyframes wc-toast-in {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
+    transform: translateX(40px) rotate(3deg);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: none;
   }
 }
 @keyframes wc-toast-out {
@@ -1046,12 +1097,13 @@
   opacity: 0;
   background: var(--surface-inverse);
   color: var(--text-inverse);
-  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: var(--weight-medium);
   line-height: 1.3;
   padding: 5px var(--space-2);
   border-radius: var(--radius-sm);
   white-space: nowrap;
-  box-shadow: var(--shadow-popover);
   transition: opacity var(--duration-fast) var(--ease-out);
 }
 .wc-tt:hover .wc-tt__b,
@@ -1080,7 +1132,7 @@
 }
 .wc-tt__k {
   margin-left: var(--space-2);
-  color: var(--grey-400);
+  color: color-mix(in srgb, var(--text-inverse) 65%, var(--surface-inverse));
   font-family: var(--font-mono);
 }
 
@@ -1107,16 +1159,16 @@
   width: 16px;
   height: 16px;
   margin-top: 1px;
-  border: var(--border-width) solid var(--border-strong);
-  border-radius: var(--radius-xs);
-  background: var(--surface-canvas);
+  border: var(--border-width) solid var(--control-line);
+  border-radius: 4px;
+  background: var(--surface-card);
   color: transparent;
   transition:
     background-color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out);
 }
 .wc-cb:hover .wc-cb__box {
-  border-color: var(--grey-400);
+  border-color: var(--ink);
 }
 .wc-cb input:checked + .wc-cb__box,
 .wc-cb input:indeterminate + .wc-cb__box {
@@ -1184,13 +1236,13 @@
   width: 16px;
   height: 16px;
   margin-top: 1px;
-  border: var(--border-width) solid var(--border-strong);
+  border: var(--border-width) solid var(--control-line);
   border-radius: var(--radius-full);
-  background: var(--surface-canvas);
+  background: var(--surface-card);
   transition: border-color var(--duration-fast) var(--ease-out);
 }
 .wc-rd:hover .wc-rd__dot {
-  border-color: var(--grey-400);
+  border-color: var(--ink);
 }
 .wc-rd input:checked + .wc-rd__dot {
   border-color: var(--action-primary-bg);
@@ -1235,34 +1287,35 @@
 .wc-sw__track {
   flex: none;
   position: relative;
-  width: 32px;
-  height: 18px;
+  width: 42px;
+  height: 24px;
   border-radius: var(--radius-full);
-  background: var(--grey-300);
+  background: var(--line-strong);
   transition: background-color var(--duration-base) var(--ease-out);
 }
 .wc-sw__track::after {
   content: "";
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--radius-full);
-  background: var(--grey-0);
-  transition: transform var(--duration-base) var(--ease-out);
+  background: #ffffff;
+  transition: transform var(--duration-base) var(--ease-spring), background-color var(--duration-base) var(--ease-out);
 }
 .wc-sw input:checked + .wc-sw__track {
-  background: var(--action-primary-bg);
+  background: var(--ink);
 }
 .wc-sw input:checked + .wc-sw__track::after {
-  transform: translateX(14px);
+  transform: translateX(18px);
+  background: var(--on-ink);
 }
 .wc-sw input:focus-visible + .wc-sw__track {
   box-shadow: var(--focus-ring);
 }
 .wc-sw input:disabled + .wc-sw__track {
-  background: var(--grey-200);
+  background: var(--line);
 }
 .wc-sw--disabled {
   color: var(--text-disabled);
@@ -1281,27 +1334,27 @@
   align-items: center;
   width: 100%;
   background: var(--surface-canvas);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-sm);
   transition:
     border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);
 }
 .wc-sel--sm {
-  height: 28px;
+  height: 34px;
 }
 .wc-sel--md {
-  height: 32px;
-}
-.wc-sel--lg {
   height: 40px;
 }
+.wc-sel--lg {
+  height: 46px;
+}
 .wc-sel:hover {
-  border-color: var(--border-strong);
+  border-color: var(--ink);
 }
 .wc-sel:focus-within {
-  border-color: var(--terracotta-500);
-  box-shadow: 0 0 0 3px var(--terracotta-100);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 60%, transparent);
 }
 .wc-sel select {
   appearance: none;
@@ -1338,8 +1391,8 @@
   align-items: baseline;
   gap: var(--space-1);
   font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--text-body);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
 }
 .wc-field__opt {
   font-size: var(--text-xs);
@@ -1379,16 +1432,15 @@
   justify-content: center;
   padding: var(--space-6);
   background: var(--scrim);
-  backdrop-filter: blur(2px);
 }
 .wc-dlg {
   width: 100%;
   display: flex;
   flex-direction: column;
   max-height: calc(var(--ui-vh, 100dvh) - var(--space-6) * 2);
-  background: var(--surface-canvas);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
+  background: var(--surface-raised);
+  border: var(--border-width-strong) solid var(--ink);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-dialog);
   overflow: hidden;
   animation: wc-dlg-in var(--duration-base) var(--ease-entrance);
@@ -1419,9 +1471,10 @@
 }
 .wc-dlg__ttl {
   flex: 1;
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-tight);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-tight);
   color: var(--text-strong);
 }
 .wc-dlg__sub {
@@ -1469,8 +1522,9 @@
   .wc-dlg--lg {
     max-width: none;
     max-height: calc(0.92 * var(--ui-vh, 100dvh));
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     border-bottom: 0;
+    box-shadow: none;
   }
   /* The import is a working surface, not a confirmation: on a phone it takes the whole screen,
      edge to edge, rather than sitting as a short sheet a multi-step flow would fight against. */
@@ -1490,7 +1544,7 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-5);
   border-top: var(--border-width) solid var(--border-subtle);
-  background: var(--grey-25);
+  background: var(--surface-canvas);
 }
 
 /* Generic selectable list row (dialog pickers, search results). */
@@ -1498,7 +1552,7 @@
   background: var(--surface-hover);
 }
 
-/* Branded boot loader: a terracotta arc spinning around the Ruchoir mark. */
+/* Branded boot loader: an ink arc spinning around the Ruchoir mark. */
 @keyframes wc-boot-spin {
   to {
     transform: rotate(360deg);
@@ -1520,7 +1574,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 3px solid rgba(198, 93, 69, 0.15);
+  border: 3px solid var(--line);
 }
 .wc-boot__ring::after {
   content: "";
@@ -1528,7 +1582,7 @@
   inset: 0;
   border-radius: 50%;
   border: 3px solid transparent;
-  border-top-color: var(--terracotta-500);
+  border-top-color: var(--ink);
   animation: wc-boot-spin 0.9s linear infinite;
 }
 .wc-boot__mark {
@@ -1605,17 +1659,17 @@
   color: var(--text-strong);
 }
 .wc-imp-step--current .wc-imp-step__dot {
-  background: var(--terracotta-500);
-  border-color: var(--terracotta-500);
-  color: #fff;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--on-ink);
 }
 .wc-imp-step--done {
   color: var(--text-muted);
 }
 .wc-imp-step--done .wc-imp-step__dot {
-  background: var(--terracotta-50);
-  border-color: var(--terracotta-200);
-  color: var(--terracotta-600);
+  background: var(--surface-selected);
+  border-color: color-mix(in srgb, var(--acc) 70%, var(--surface));
+  color: var(--ink);
 }
 .wc-imp-steps__line {
   flex: 1;
@@ -1624,7 +1678,7 @@
   background: var(--border-subtle);
 }
 .wc-imp-steps__line--done {
-  background: var(--terracotta-200);
+  background: color-mix(in srgb, var(--acc) 70%, var(--surface));
 }
 /* On a narrow screen only the current step keeps its name: the numbers still say where you are. */
 .wc-imp-col--compact .wc-imp-step:not(.wc-imp-step--current) .wc-imp-step__name {
@@ -1661,7 +1715,7 @@
   background: none;
   font: inherit;
   font-weight: 500;
-  color: var(--terracotta-600);
+  color: var(--ink);
   cursor: pointer;
 }
 .wc-imp-link:hover {
@@ -1757,8 +1811,8 @@
   color: var(--text-muted);
 }
 .wc-imp-timeline__num--done {
-  background: var(--terracotta-50);
-  color: var(--terracotta-600);
+  background: var(--acc);
+  color: var(--on-pastel);
 }
 .wc-imp-timeline h3 {
   margin: 4px 0;
@@ -1823,7 +1877,7 @@
   height: 8px;
   flex: none;
   border-radius: 50%;
-  background: var(--terracotta-500);
+  background: var(--ink);
   animation: wc-imp-pulse 1.6s var(--ease-in-out) infinite;
 }
 @keyframes wc-imp-pulse {
@@ -1867,8 +1921,8 @@
 }
 .wc-imp-choice--selected,
 .wc-imp-choice--selected:hover {
-  border-color: var(--terracotta-400);
-  box-shadow: 0 0 0 3px var(--terracotta-50);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-popover);
 }
 .wc-imp-choice__head {
   display: flex;
@@ -1895,14 +1949,14 @@
   place-items: center;
 }
 .wc-imp-choice--selected .wc-imp-radio {
-  border-color: var(--terracotta-500);
+  border-color: var(--ink);
 }
 .wc-imp-choice--selected .wc-imp-radio::after {
   content: "";
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--terracotta-500);
+  background: var(--ink);
 }
 .wc-imp-choice__name {
   overflow: hidden;
@@ -1924,8 +1978,8 @@
   flex: none;
   padding: 2px 7px;
   border-radius: 999px;
-  background: var(--terracotta-50);
-  color: var(--terracotta-700);
+  background: var(--acc);
+  color: var(--on-pastel);
   font-size: 11px;
   font-weight: 600;
 }
@@ -2004,8 +2058,8 @@
   color: var(--status-success-fg);
 }
 .wc-imp-check__icon--accent {
-  background: var(--terracotta-50);
-  color: var(--terracotta-600);
+  background: var(--acc);
+  color: var(--on-pastel);
 }
 .wc-imp-check__title {
   margin-top: 3px;
@@ -2283,7 +2337,7 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--terracotta-500);
+  background: var(--ink);
   transition: width 0.4s var(--ease-out);
 }
 /* Before the run has said how much there is: movement without a number, rather than a zero. */
@@ -2343,7 +2397,7 @@
   color: var(--status-success-fg);
 }
 .wc-imp-phase--current .wc-imp-phase__dot {
-  border: 2px solid var(--terracotta-500);
+  border: 2px solid var(--ink);
   border-top-color: transparent;
   animation: wc-spin 0.9s linear infinite;
 }
@@ -2571,8 +2625,7 @@
   --fi-ink: var(--fi-c);
   --fi-tint: 11%;
 }
-[data-theme="ruchui-dark"] .wc-fi,
-[data-theme="dark"] .wc-fi {
+[data-theme$="-dark"] .wc-fi {
   --fi-ink: color-mix(in srgb, var(--fi-c) 68%, white);
   --fi-tint: 16%;
 }
@@ -2589,4 +2642,816 @@
 }
 .wc-fi__glyph {
   color: var(--fi-ink);
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Shell. The pieces of the application frame that need a state an inline style cannot say
+   (:hover, the open space, a checked theme). Everything else about them stays inline, beside the
+   markup, as the rest of the shell is written.
+   --------------------------------------------------------------------------------------------- */
+
+/* A section label: the monospace face, after a short rule, as the public site sets its kickers. */
+.wc-sect::before {
+  content: "";
+  flex: none;
+  width: 12px;
+  height: 2px;
+  background: currentColor;
+}
+.wc-sect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/*
+ * A band of pastel (the profile's head, a highlighted section). A pastel carries the dark ink in every
+ * theme, the night ones included, so the tokens its content reads are set back to the day's ink here.
+ * They have to be restated one by one: a token defined as `var(--ink)` was resolved where it was
+ * declared, and redefining `--ink` below it would not reach it.
+ */
+.wc-pastel {
+  --ink: #15171c;
+  --on-ink: #ffffff;
+  --text-strong: #15171c;
+  --text-body: #15171c;
+  --text-muted: #15171c;
+  --text-subtle: #15171c;
+  --action-primary-bg: #15171c;
+  --action-primary-bg-hover: #15171c;
+  --action-primary-fg: #ffffff;
+  --action-secondary-fg: #15171c;
+  --action-secondary-border: #15171c;
+  --action-secondary-bg-hover: rgb(255 255 255 / 0.4);
+  --surface-hover: rgb(255 255 255 / 0.35);
+  color: #15171c;
+}
+.wc-pastel .wc-av {
+  box-shadow: 0 0 0 2px #15171c;
+}
+.wc-pastel .wc-tag--accent {
+  background: #fdfdfe;
+  border-color: #15171c;
+  color: var(--text-strong);
+}
+
+/* A section label that folds its section: the label itself is the button. */
+.wc-sect__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.wc-sect__toggle:hover {
+  color: var(--text-strong);
+}
+.wc-sect__toggle:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* A key cap: the outline of a control, thicker at its bottom edge, in the monospace face. */
+.wc-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 5px;
+  border: 1px solid var(--control-line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-card);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* The send button rests, outlined and quiet, while there is nothing to send, and takes the ink (and
+   its lift under the pointer) as soon as there is. It stays pressable either way: pressing it empty
+   does nothing, which is the same thing Enter does. */
+.wc-message-composer:has(.wc-rich-input[data-empty="true"]):not([data-has-files]) .wc-send {
+  background: transparent;
+  border-color: var(--border-default);
+  color: var(--text-subtle);
+  box-shadow: none;
+  transform: none;
+}
+
+/* A space in the rail: a hairline ring at rest, the ink under the pointer, and the open space set
+   on an offset shadow like a sticker. It tilts a little under the pointer. */
+.wc-rail-space .wc-av {
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1.5px var(--line-strong);
+  transition: transform 200ms var(--ease-spring), box-shadow 150ms var(--ease-out);
+}
+.wc-rail-space:hover .wc-av {
+  box-shadow: 0 0 0 1.5px var(--ink);
+  transform: rotate(-6deg) scale(1.06);
+}
+.wc-rail-space[aria-current="true"] .wc-av {
+  box-shadow: 0 0 0 2px var(--ink), 3px 3px 0 2px var(--ink);
+}
+.wc-rail-space .wc-av__dot {
+  border-color: var(--surface-canvas);
+}
+/* A mention waiting in another space, ringed in the rail's own colour. */
+.wc-rail-ind .wc-badge {
+  box-shadow: inset 0 0 0 1.5px var(--on-pastel), 0 0 0 2px var(--surface-canvas);
+}
+
+/* A row of the sidebar: its icon gives a small start under the pointer. */
+.wc-side-item > svg:first-child {
+  transition: transform 200ms var(--ease-spring);
+}
+.wc-side-item:hover > svg:first-child {
+  transform: scale(1.15) rotate(-6deg);
+}
+
+/* A theme in the preferences: a swatch in four bands and its name. The chosen one is set on an ink
+   offset; the others rise onto it under the pointer. */
+.wc-theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out),
+    border-color 150ms var(--ease-out);
+}
+.wc-theme-card:hover,
+.wc-theme-card[aria-checked="true"] {
+  border-color: var(--ink);
+  box-shadow: var(--shadow-popover);
+  transform: translate(-2px, -2px);
+}
+.wc-theme-card[aria-checked="true"] {
+  border-width: var(--border-width-strong);
+  /* Keep the content where it was: the border grew by half a pixel on each side. */
+  padding: 9.5px;
+}
+.wc-theme-card:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.wc-theme-card__sw {
+  display: flex;
+  height: 54px;
+  overflow: hidden;
+  border: var(--border-width) solid var(--ink);
+  border-radius: var(--radius-sm);
+}
+.wc-theme-card__sw > span {
+  flex: 1;
+}
+
+/* A sticker (empty states): an icon on the theme's pastel, edged in ink, set a little askew. It
+   straightens under the pointer of whatever holds it. */
+.wc-sticker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: var(--border-width-strong) solid var(--ink);
+  border-radius: var(--radius-md);
+  background: var(--acc);
+  color: var(--on-pastel);
+  transform: rotate(-4deg);
+  transition: transform 200ms var(--ease-spring);
+}
+:hover > .wc-sticker {
+  transform: rotate(0deg) scale(1.04);
+}
+
+/* A card of a list that opens something (activity, search results): it rises onto an ink offset. */
+.wc-lift {
+  transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out),
+    border-color 150ms var(--ease-out);
+}
+.wc-lift:hover {
+  border-color: var(--ink) !important;
+  box-shadow: var(--shadow-popover);
+  transform: translate(-2px, -2px);
+}
+
+/* The messages of a conversation just opened come in one after the other, briefly. They sit in one
+   block per day (`.wc-day`), so it is the block's children that are counted. */
+.wc-feed-in > :not(.wc-day),
+.wc-feed-in > .wc-day > * {
+  animation: wc-enter 340ms var(--ease-entrance) both;
+}
+.wc-feed-in > .wc-day > :nth-child(2) {
+  animation-delay: 30ms;
+}
+.wc-feed-in > .wc-day > :nth-child(3) {
+  animation-delay: 60ms;
+}
+.wc-feed-in > .wc-day > :nth-child(4) {
+  animation-delay: 90ms;
+}
+.wc-feed-in > .wc-day > :nth-child(5) {
+  animation-delay: 120ms;
+}
+.wc-feed-in > .wc-day > :nth-child(6) {
+  animation-delay: 150ms;
+}
+.wc-feed-in > .wc-day > :nth-child(n + 7) {
+  animation-delay: 180ms;
+}
+
+/* A reaction, just added: a short spring. */
+.wc-react--pop {
+  animation: wc-react-pop 380ms var(--ease-spring);
+}
+@keyframes wc-react-pop {
+  0% {
+    transform: scale(0.8);
+  }
+  60% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-rail-space .wc-av,
+  .wc-side-item > svg:first-child,
+  .wc-sticker,
+  .wc-theme-card,
+  .wc-lift,
+  .wc-btn,
+  .wc-ibtn,
+  .wc-card--interactive {
+    transition: none;
+  }
+  .wc-rail-space:hover .wc-av,
+  .wc-side-item:hover > svg:first-child,
+  :hover > .wc-sticker,
+  .wc-theme-card:hover,
+  .wc-theme-card[aria-checked="true"],
+  .wc-lift:hover,
+  .wc-btn--primary:not(:disabled):hover,
+  .wc-btn--danger:not(:disabled):hover,
+  .wc-ibtn--accent:not(:disabled):hover,
+  .wc-card--interactive:hover {
+    transform: none;
+  }
+  .wc-feed-in > :not(.wc-day),
+  .wc-feed-in > .wc-day > *,
+  .wc-react--pop {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Sheet (components/ds/Sheet.tsx): the touch form of a menu, rising from the bottom edge. On a
+   wider screen it keeps a phone's width, centred, rather than stretching rows across a tablet.
+   --------------------------------------------------------------------------------------------- */
+.wc-sheet__scrim {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--ui-vw, 100vw);
+  height: var(--ui-vh, 100dvh);
+  z-index: 95;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--scrim);
+  animation: wc-fade-in var(--duration-base) var(--ease-out);
+}
+.wc-sheet {
+  width: min(520px, 100%);
+  max-height: calc(0.88 * var(--ui-vh, 100dvh));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-raised);
+  border: var(--border-width-strong) solid var(--ink);
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  outline: none;
+  animation: wc-sheet-in 260ms var(--ease-entrance);
+}
+@keyframes wc-sheet-in {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.wc-sheet__handle {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 2px auto 10px;
+  border-radius: var(--radius-full);
+  background: var(--line-strong);
+}
+.wc-sheet__title {
+  padding: 2px 6px 10px;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-strong);
+}
+.wc-sheet__group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  overflow: hidden;
+}
+.wc-sheet__group > .wc-sheet__item + .wc-sheet__item {
+  border-top: 1px solid var(--border-subtle);
+}
+.wc-sheet__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--text-body);
+  text-align: left;
+  cursor: pointer;
+}
+.wc-sheet__item > svg {
+  flex: none;
+  color: var(--text-muted);
+}
+.wc-sheet__item:active,
+.wc-sheet__item:hover {
+  background: var(--surface-hover);
+}
+.wc-sheet__item[aria-current="true"] {
+  background: color-mix(in srgb, var(--acc) 35%, transparent);
+  color: var(--text-strong);
+  font-weight: var(--weight-semibold);
+}
+.wc-sheet__item--danger,
+.wc-sheet__item--danger > svg {
+  color: var(--status-danger-fg);
+}
+.wc-sheet__item:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.wc-sheet__label {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.wc-sheet__label > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wc-sheet__detail {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: var(--weight-regular);
+}
+/* Quick reactions at the head of a message's sheet: round targets a thumb can hit. */
+.wc-sheet__reacts {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 0 2px 12px;
+}
+.wc-sheet__react {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform 150ms var(--ease-spring);
+}
+.wc-sheet__react:active {
+  transform: scale(0.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wc-sheet,
+  .wc-sheet__scrim {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Phone shell (features/app/mobile): the root screens' header, the search door, the shortcut
+   cards, the conversation rows and the compose button. Targets are 44px at least.
+   --------------------------------------------------------------------------------------------- */
+.wc-mhead {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  min-height: 60px;
+  padding: 8px 10px 8px 16px;
+  background: var(--surface-canvas);
+}
+.wc-mhead__title {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+button.wc-mhead__title {
+  cursor: pointer;
+}
+.wc-mhead__space .wc-av {
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1.5px var(--ink), 2px 2px 0 1.5px var(--ink);
+}
+.wc-mhead__you,
+.wc-mhead__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--text-body);
+  cursor: pointer;
+}
+.wc-mhead__you .wc-av {
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 1.5px var(--ink);
+}
+.wc-mhead__you .wc-av__dot {
+  border-color: var(--surface-canvas);
+}
+.wc-mhead__icon:active,
+.wc-mhead__you:active {
+  background: var(--surface-hover);
+}
+.wc-msearch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--text-muted);
+  text-align: left;
+  cursor: text;
+}
+.wc-msearch:focus-visible,
+.wc-mchip:focus-visible,
+.wc-mrow:focus-visible,
+.wc-fab:focus-visible,
+.wc-mhead__title:focus-visible,
+.wc-mhead__you:focus-visible,
+.wc-mhead__icon:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.wc-mchips {
+  display: flex;
+  gap: 10px;
+  flex: none;
+  overflow-x: auto;
+  padding: 2px 16px 14px;
+  scroll-snap-type: x proximity;
+  /* Snapping aligns a card with the scroll box itself, not its padding: without this the first card
+     snapped flush against the screen edge. */
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+}
+.wc-mchips::-webkit-scrollbar {
+  display: none;
+}
+.wc-mchip {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  width: 116px;
+  min-height: 76px;
+  padding: 10px 12px;
+  scroll-snap-align: start;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  color: var(--text-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out), border-color 150ms var(--ease-out);
+}
+.wc-mchip:active {
+  border-color: var(--ink);
+  box-shadow: var(--shadow-offset-sm);
+  transform: translate(-1px, -1px);
+}
+.wc-mchip__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.wc-mchip__label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+}
+.wc-mlist {
+  margin: 0;
+  padding: 0 0 96px;
+  list-style: none;
+}
+.wc-mrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 16px;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wc-mrow:active {
+  background: var(--surface-hover);
+}
+.wc-mrow__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.wc-mrow__line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.wc-mrow__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+.wc-mrow__time {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.wc-mrow__preview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.wc-mrow--unread .wc-mrow__name {
+  font-weight: var(--weight-bold);
+}
+.wc-mrow--unread .wc-mrow__preview {
+  color: var(--text-body);
+}
+/* The compose button: an ink sticker at the thumb's corner, lifted on the bee's offset. */
+.wc-fab {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: var(--border-width-strong) solid var(--ink);
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  color: var(--on-ink);
+  box-shadow: var(--shadow-lift);
+  cursor: pointer;
+  transition: transform 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+.wc-fab:active {
+  transform: translate(3px, 3px);
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wc-mchip,
+  .wc-fab {
+    transition: none;
+  }
+  .wc-mchip:active,
+  .wc-fab:active {
+    transform: none;
+  }
+}
+
+/* The conversation's name in a phone's header: a button onto its details. */
+.wc-conv-title {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wc-conv-title:active {
+  background: var(--surface-hover);
+}
+.wc-conv-title:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.wc-conv-title__text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.wc-conv-title__name {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.25;
+  color: var(--text-strong);
+}
+.wc-conv-title__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* The rest of a conversation under a tablet's side panel: dimmed, and a tap on it closes the panel. */
+.wc-dock-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 39;
+  background: color-mix(in srgb, var(--scrim) 45%, transparent);
+  animation: wc-fade-in var(--duration-base) var(--ease-out);
+}
+.wc-dock-scrim--out {
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+/* Clear of the home indicator at rest. While writing the keyboard covers it, and the inset would only
+   leave a gap between the composer and the keyboard. */
+.wc-composer-wrap--phone {
+  padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+}
+.wc-composer-wrap--phone:focus-within {
+  padding-bottom: 8px;
+}
+
+/* The composer on a phone: one line, the editor and the kept tools (emoji, a file, send) side by
+   side. The formatting toolbar stays off: on a touch screen it took room from the conversation, and
+   Markdown typed by hand still formats. */
+.wc-composer--phone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  column-gap: 2px;
+}
+.wc-composer--phone > :not(.wc-rich-input):not(.wc-composer__tools) {
+  flex-basis: 100%;
+}
+.wc-composer--phone .wc-rich-input {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 24px;
+  max-height: 38vh;
+  align-self: center;
+  padding: 8px 0;
+  font-size: 16px;
+}
+/* The placeholder is positioned against the padding box: it starts where the text does only if it
+   carries the same top padding (it sat 8px above the caret). */
+.wc-composer--phone .wc-rich-input[data-empty="true"]::before {
+  top: 8px;
+}
+.wc-composer--phone .wc-composer__tools {
+  margin-top: 0 !important;
+  gap: 2px;
+}
+.wc-composer--phone .wc-composer__tools .wc-ibtn--sm {
+  width: 38px;
+  height: 38px;
+}
+.wc-composer--phone .wc-composer__tools > :not(.wc-keep),
+.wc-composer--phone .wc-composer__tools > div.wc-keep {
+  display: none;
+}
+
+/* A message on a touch screen is pressed and held for its actions: the browser's own callout and
+   text selection would open on top of them. Copying the text is one of the actions. */
+@media (hover: none) and (pointer: coarse) {
+  [data-mid] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+/* The global search: a fixed-height list in the desktop's dialog, the whole screen on a phone. */
+.wc-search-results {
+  max-height: 360px;
+}
+@media (max-width: 767px) {
+  .wc-dlg__scrim:has(.wc-dlg--search) {
+    padding: 0;
+    align-items: stretch;
+  }
+  .wc-dlg.wc-dlg--search {
+    max-width: none;
+    height: var(--ui-vh, 100dvh);
+    max-height: var(--ui-vh, 100dvh);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .wc-dlg--search .wc-dlg__body {
+    display: flex;
+    flex-direction: column;
+  }
+  .wc-dlg--search .wc-search-results {
+    flex: 1;
+    max-height: none;
+  }
+}
+
+/* A dialog drawn as a bottom sheet keeps its buttons above a phone's home indicator. */
+@media (max-width: 599px) {
+  .wc-dlg {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }

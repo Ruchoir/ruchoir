@@ -59,12 +59,14 @@ const bubble: CSSProperties = {
   alignItems: "center",
   background: "var(--surface-inverse)",
   color: "var(--text-inverse)",
-  fontSize: "var(--text-xs)",
+  // Set like every label: the monospace face, in sentence case.
+  fontFamily: "var(--font-mono)",
+  fontSize: 12,
+  fontWeight: 500,
   lineHeight: 1.3,
   padding: "5px var(--space-2)",
   borderRadius: "var(--radius-sm)",
   whiteSpace: "nowrap",
-  boxShadow: "var(--shadow-popover)",
 };
 
 /** Dark hover tooltip, portaled and viewport-aware (flips/clamps so it never overflows). */
@@ -130,7 +132,7 @@ export function Tooltip({ label, shortcut, side = "top", children, className = "
             >
               {label}
               {shortcut ? (
-                <span style={{ marginLeft: "var(--space-2)", color: "var(--grey-400)", fontFamily: "var(--font-mono)" }}>
+                <span style={{ marginLeft: "var(--space-2)", color: "color-mix(in srgb, var(--text-inverse) 65%, var(--surface-inverse))", fontFamily: "var(--font-mono)" }}>
                   {shortcut}
                 </span>
               ) : null}

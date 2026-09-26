@@ -1,5 +1,6 @@
 "use client";
 
+import { useTouch } from "./useLayout";
 import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Dialog, Field, Icon, Input, Radio, Select } from "@/components/ds";
 import type { Presence } from "@/components/ds";
@@ -15,10 +16,10 @@ const sep: Record<string, CSSProperties> = {
   row: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
   line: { flex: 1, height: 1, background: "var(--border-default)" },
   word: {
-    fontSize: 11,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontWeight: 500,
+    fontSize: 12,
+    color: "var(--text-muted)",
   },
   card: {
     display: "flex",
@@ -198,7 +199,7 @@ const INVITE_ROLES = [
 const inviteStyles: Record<string, CSSProperties> = {
   body: { display: "flex", flexDirection: "column", gap: 16 },
   section: { display: "flex", flexDirection: "column", gap: 8 },
-  sectionTitle: { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" },
+  sectionTitle: { fontFamily: "var(--font-mono)", fontSize: 12, fontWeight: 500, color: "var(--text-muted)" },
   link: {
     display: "flex",
     alignItems: "center",
@@ -403,7 +404,7 @@ export function InviteDialog({
         ) : null}
 
         {error ? (
-          <p role="alert" style={{ ...inviteStyles.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
+          <p role="alert" style={{ ...inviteStyles.empty, color: "var(--status-danger-fg)" }}>
             {t(error)}
           </p>
         ) : null}
@@ -478,6 +479,7 @@ export function NewWorkspaceDialog({
   /** Bring a workspace over from another product instead of starting an empty one. */
   onImport?: () => void;
 }) {
+  const touch = useTouch();
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<TranslationKey | null>(null);
@@ -514,7 +516,8 @@ export function NewWorkspaceDialog({
       >
         <Input
           id="ws-name"
-          autoFocus
+          // On a touch screen the keyboard would rise over the dialog before it is even read.
+          autoFocus={!touch}
           invalid={!!nameError}
           placeholder={t("dialogs.workspacePlaceholder")}
           value={name}
@@ -537,7 +540,7 @@ export function NewWorkspaceDialog({
             <span style={sep.line} />
           </div>
           <button type="button" onClick={onImport} style={sep.card} className="wc-choice">
-            <Icon name="import" size={18} style={{ color: "var(--accent-fg, var(--terracotta-600))" }} />
+            <Icon name="import" size={18} style={{ color: "var(--ink)" }} />
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={sep.cardTitle}>{t(key("import.screenTitle"))}</span>
               <span style={sep.cardHint}>{t(key("dialogs.importFromAnotherTool"))}</span>
@@ -805,11 +808,10 @@ export function HelpDialog({
       >
         <span
           style={{
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "var(--tracking-caps)",
-            textTransform: "uppercase",
-            color: "var(--text-subtle)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            fontWeight: 500,
+            color: "var(--text-muted)",
           }}
         >
           {t("prefs.shortcuts")}
@@ -831,9 +833,11 @@ export function HelpDialog({
                   style={{
                     fontFamily: "var(--font-mono)",
                     fontSize: 12,
-                    color: "var(--text-muted)",
-                    background: "var(--grey-100)",
-                    border: "1px solid var(--border-subtle)",
+                    color: "var(--text-strong)",
+                    background: "var(--surface-card)",
+                    // A key cap: the outline of a control, thicker at the bottom.
+                    border: "1.5px solid var(--control-line)",
+                    borderBottomWidth: 3,
                     borderRadius: "var(--radius-sm)",
                     padding: "1px 6px",
                     whiteSpace: "nowrap",

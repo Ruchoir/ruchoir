@@ -6,6 +6,8 @@ import { getCurrentUser, getMentionNames, getPresence, getSpaceRooms } from "@/l
 import type { ImportSource, Message, MessageAttachment } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
+import { MessageActionSheet } from "./MessageActionSheet";
+import { useTouch } from "../app/useLayout";
 import { UserProfileCard } from "../app/UserProfileCard";
 import { prefetchProfile } from "../app/useProfile";
 import { renderRichText } from "./richText";
@@ -16,6 +18,7 @@ import { ReactionMenu } from "./ReactionMenu";
 import { ReadReceipt } from "./ReadReceipt";
 import { useTranslation } from "@/lib/i18n";
 import { formatBytes, formatDateTime, formatRelativeStamp, formatStamp, formatTime, isSameDay } from "@/lib/i18n/format";
+import { haptic } from "@/lib/haptics";
 
 /** Everything a message row can do. Grouped to keep the prop surface readable. */
 export type MessageActions = {
@@ -62,6 +65,7 @@ const styles: Record<string, CSSProperties> = {
     width: 34,
     paddingTop: 3,
     textAlign: "right",
+    fontFamily: "var(--font-mono)",
     fontSize: 11,
     lineHeight: "var(--leading-normal)",
     color: "var(--text-subtle)",
@@ -73,8 +77,8 @@ const styles: Record<string, CSSProperties> = {
     // row's left padding on the rare wide glyph rather than be cut.
     whiteSpace: "nowrap",
   },
-  name: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
-  time: { fontSize: 13, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
+  name: { fontSize: 15, fontWeight: 700, color: "var(--text-strong)" },
+  time: { fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
   body: {
     fontSize: 16,
     lineHeight: "var(--leading-normal)",
@@ -83,7 +87,7 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "pre-wrap",
     overflowWrap: "anywhere",
   },
-  edited: { fontSize: 12, color: "var(--text-subtle)" },
+  edited: { fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-subtle)" },
   editedLine: { display: "block", marginTop: 2 },
   attachmentName: {
     display: "block",
@@ -98,15 +102,15 @@ const styles: Record<string, CSSProperties> = {
   },
   actions: {
     position: "absolute",
-    top: -14,
+    top: -18,
     right: 8,
     display: "flex",
     gap: 2,
     padding: 2,
-    background: "var(--surface-canvas)",
-    border: "1px solid var(--border-subtle)",
-    borderRadius: "var(--radius-md)",
-    boxShadow: "var(--shadow-popover)",
+    background: "var(--surface-raised)",
+    border: "2px solid var(--ink)",
+    borderRadius: "var(--radius-sm)",
+    boxShadow: "var(--shadow-offset-sm)",
   },
   // Inside the reserve left under the last message of a run (18px, see the row's padding), and on
   // the hovered row's own colour with a fade on its left: at 6px from the bottom it sat on the last
@@ -138,7 +142,7 @@ function AttachmentCard({ attachment }: { attachment: MessageAttachment }) {
             minWidth: 0,
             padding: "8px 10px",
             borderRadius: "var(--radius-md)",
-            border: "1px dashed var(--border-default)",
+            border: "1.5px dashed var(--border-strong)",
             color: "var(--text-subtle)",
             fontSize: 13,
           }}
@@ -194,13 +198,16 @@ function reactionPill(mine?: boolean): CSSProperties {
     display: "inline-flex",
     alignItems: "center",
     gap: 5,
-    height: 26,
+    height: 28,
     padding: "0 9px",
-    border: `1px solid ${mine ? "var(--border-accent)" : "var(--border-default)"}`,
-    background: mine ? "var(--surface-selected)" : "var(--surface-canvas)",
+    border: `1.5px solid ${mine ? "var(--ink)" : "var(--control-line)"}`,
+    // One's own reaction is filled with the theme's pastel, which carries the dark ink.
+    background: mine ? "var(--acc)" : "var(--surface-card)",
     borderRadius: "var(--radius-full)",
-    fontSize: 13,
-    color: mine ? "var(--text-accent)" : "var(--text-muted)",
+    fontFamily: "var(--font-mono)",
+    fontSize: 12,
+    fontWeight: 600,
+    color: mine ? "var(--on-pastel)" : "var(--text-body)",
     cursor: "pointer",
     fontVariantNumeric: "tabular-nums",
     transition:
@@ -303,7 +310,19 @@ export function MessageRow({
   // fixture rows and compact callers, and must not hide the rest of a multi-file message.
   const images = m.images ?? (m.image ? [m.image] : []);
   const attachments = m.attachments ?? (m.attachment ? [m.attachment] : []);
-  const [hover, setHover] = useState(false);
+  const [hoverState, setHover] = useState(false);
+  // A finger has no hover: a tap sends a synthetic mouseenter that would leave the toolbar and the
+  // highlight stuck on the last message touched. On touch, the actions are a press and hold away.
+  const touch = useTouch();
+  const hover = hoverState && !touch;
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const pressTimer = useRef<number | null>(null);
+  const pressAt = useRef<{ x: number; y: number } | null>(null);
+  const cancelPress = () => {
+    if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+    pressAt.current = null;
+  };
   const [reactOpen, setReactOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -345,7 +364,7 @@ export function MessageRow({
     m.kind !== "system" &&
     !!me &&
     (m.body.includes(`@${me}`) || (firstName.length > 1 && m.body.includes(`@${firstName}`)));
-  const showActions = (hover || reactOpen || menuOpen) && !deleted && !readOnly;
+  const showActions = (hover || reactOpen || menuOpen) && !deleted && !readOnly && !touch;
 
   /**
    * What the gutter of a continued message shows: the hour, and only the hour.
@@ -383,21 +402,47 @@ export function MessageRow({
         // "grouped" instead left the full reserve under the *first* line of a block, so a run opened
         // with a gap its own members did not have.
         padding: `${grouped ? 2 : 6}px 8px ${endsRun ? 18 : 4}px`,
-        // The rail is a straight edge, so the corners it runs along are straight too. Rounded ones
-        // pinched it at both ends, and broke the line where two highlighted messages meet.
-        ...(mentionsMe ? { borderRadius: "0 var(--radius-md) var(--radius-md) 0" } : {}),
+        // A message that mentions the current user is washed in the theme's pastel: the colour that
+        // means "yours" everywhere else (the open conversation, one's own reaction).
         background: deleted
           ? "transparent"
-          : hover
+          : sheetOpen
+            ? "var(--surface-selected)"
+            : hover
             ? "var(--surface-hover)"
             : mentionsMe
-              ? "var(--surface-mention, rgba(198, 93, 69, 0.07))"
+              ? "var(--surface-mention)"
               : "transparent",
-        // A terracotta rail on the left marks a message that mentions the current user.
-        ...(mentionsMe ? { boxShadow: "inset 3px 0 0 0 var(--terracotta-500)" } : {}),
       }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      // Press and hold, on a touch screen: the message's actions rise from the bottom. A finger
+      // that moves is scrolling, not pressing, and lets go of the press.
+      onPointerDown={(e) => {
+        if (e.pointerType !== "touch" || deleted || readOnly || m.kind === "system") return;
+        pressAt.current = { x: e.clientX, y: e.clientY };
+        pressTimer.current = window.setTimeout(() => {
+          pressTimer.current = null;
+          haptic("medium");
+          setSheetOpen(true);
+          // Lifting the finger sends a click where it was, which is now on the sheet: it would press
+          // whatever row rose under it. The next click, within a moment, is swallowed.
+          const swallow = (ev: MouseEvent) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+          };
+          window.addEventListener("click", swallow, { capture: true, once: true });
+          window.setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 700);
+        }, 450);
+      }}
+      onPointerMove={(e) => {
+        const at = pressAt.current;
+        if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > 10) cancelPress();
+      }}
+      onPointerUp={cancelPress}
+      onPointerCancel={cancelPress}
+      // The browser's own long-press menu (select, copy, share) would open on top of ours.
+      onContextMenu={touch ? (e) => e.preventDefault() : undefined}
     >
       {grouped ? (
         <span style={styles.gutterTime} aria-hidden={!hover}>
@@ -558,7 +603,7 @@ export function MessageRow({
                   cursor: "pointer",
                   fontFamily: "var(--font-sans)",
                   fontSize: 13,
-                  fontWeight: 500,
+                  fontWeight: 600,
                   color: "var(--text-link)",
                 }}
               >
@@ -576,7 +621,16 @@ export function MessageRow({
                 ) : (
                   <Icon name="message-square" size={14} />
                 )}
-                {t("message.replies", { count: m.replies })}
+                {/* Underlined in the accent, thick, as every link; the time beside it is not. */}
+                <span style={{ textDecoration: "underline", textDecorationColor: "var(--acc)", textDecorationThickness: 2, textUnderlineOffset: 3 }}>
+                  {t("message.replies", { count: m.replies })}
+                </span>
+                {/* How fresh the thread is, which is what decides whether it is worth opening now. */}
+                {m.lastReplyAt ? (
+                  <span style={{ fontWeight: 400, fontSize: 12, color: "var(--text-muted)" }}>
+                    {t("message.lastReply", { when: formatRelativeStamp(m.lastReplyAt) })}
+                  </span>
+                ) : null}
               </button>
             ) : null}
           </>
@@ -595,19 +649,31 @@ export function MessageRow({
       ) : null}
 
       {showActions ? (
-        <div style={styles.actions}>
+        // Where it floats depends on what is above. The first line of a block has the room left under
+        // the block before it (see the row's bottom padding), so the bar sits there, over the seam.
+        // A line continuing a block has no such room: raised, the bar covered the end of the line
+        // above, which belongs to another message, so it stays on the row's own first line instead.
+        <div style={{ ...styles.actions, top: grouped ? 2 : -14 }}>
           <ReactionMenu variant="action" onPick={actions.onReact} onOpenChange={setReactOpen} />
           {inThread ? null : (
-            <IconButton icon="message-square" label={t("message.replyInThread")} size="sm" onClick={actions.onOpenThread} />
+            <Tooltip label={t("message.replyInThread")} side="top">
+              <IconButton icon="message-square" label={t("message.replyInThread")} size="sm" onClick={actions.onOpenThread} />
+            </Tooltip>
           )}
-          {isOwn ? <IconButton icon="square-pen" label={t("message.edit")} size="sm" onClick={actions.onEdit} /> : null}
-          <IconButton
-            icon="bookmark"
-            label={m.saved ? t("message.unsave") : t("message.save")}
-            size="sm"
-            aria-pressed={m.saved}
-            onClick={actions.onToggleSave}
-          />
+          {isOwn ? (
+            <Tooltip label={t("message.edit")} side="top">
+              <IconButton icon="square-pen" label={t("message.edit")} size="sm" onClick={actions.onEdit} />
+            </Tooltip>
+          ) : null}
+          <Tooltip label={m.saved ? t("message.unsave") : t("message.save")} side="top">
+            <IconButton
+              icon="bookmark"
+              label={m.saved ? t("message.unsave") : t("message.save")}
+              size="sm"
+              aria-pressed={m.saved}
+              onClick={actions.onToggleSave}
+            />
+          </Tooltip>
           <MessageMenu
             canPin={canPin}
             pinned={m.pinned}
@@ -624,6 +690,30 @@ export function MessageRow({
             onOpenChange={setMenuOpen}
           />
         </div>
+      ) : null}
+
+      {sheetOpen ? (
+        <MessageActionSheet
+          open
+          onClose={() => setSheetOpen(false)}
+          sentAt={formatDateTime(m.createdAt)}
+          own={isOwn}
+          saved={m.saved}
+          pinned={m.pinned}
+          canPin={canPin}
+          inThread={inThread}
+          hasReactions={!!m.reactions?.length}
+          onReact={actions.onReact}
+          onOpenThread={actions.onOpenThread}
+          onToggleSave={actions.onToggleSave}
+          onEdit={actions.onEdit}
+          onCopyMessage={actions.onCopyMessage}
+          onCopyLink={actions.onCopyLink}
+          onTogglePin={actions.onTogglePin}
+          onMarkUnread={actions.onMarkUnread}
+          onShowReactions={() => setReactionsOpen(true)}
+          onDelete={actions.onDelete}
+        />
       ) : null}
 
       {reactionsOpen ? (

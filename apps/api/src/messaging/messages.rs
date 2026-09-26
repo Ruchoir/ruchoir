@@ -756,20 +756,28 @@ pub async fn hydrate_messages(
         .map(|m| m.id)
         .collect();
     let mut repliers: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+    // When each thread was last answered: the first row read for it, since they come newest first.
+    let mut last_reply: HashMap<Uuid, OffsetDateTime> = HashMap::new();
     if !thread_ids.is_empty() {
-        let reply_rows: Vec<(Option<Uuid>, Option<Uuid>)> = messages::Entity::find()
-            .select_only()
-            .column(messages::Column::ParentMessageId)
-            .column(messages::Column::AuthorId)
-            .filter(messages::Column::ParentMessageId.is_in(thread_ids))
-            .filter(messages::Column::DeletedAt.is_null())
-            .order_by_desc(messages::Column::CreatedAt)
-            .order_by_desc(messages::Column::Id)
-            .into_tuple()
-            .all(db)
-            .await?;
-        for (parent_id, author_id) in reply_rows {
-            let (Some(parent_id), Some(author_id)) = (parent_id, author_id) else {
+        let reply_rows: Vec<(Option<Uuid>, Option<Uuid>, OffsetDateTime)> =
+            messages::Entity::find()
+                .select_only()
+                .column(messages::Column::ParentMessageId)
+                .column(messages::Column::AuthorId)
+                .column(messages::Column::CreatedAt)
+                .filter(messages::Column::ParentMessageId.is_in(thread_ids))
+                .filter(messages::Column::DeletedAt.is_null())
+                .order_by_desc(messages::Column::CreatedAt)
+                .order_by_desc(messages::Column::Id)
+                .into_tuple()
+                .all(db)
+                .await?;
+        for (parent_id, author_id, created_at) in reply_rows {
+            let Some(parent_id) = parent_id else {
+                continue;
+            };
+            last_reply.entry(parent_id).or_insert(created_at);
+            let Some(author_id) = author_id else {
                 continue;
             };
             let faces = repliers.entry(parent_id).or_default();
@@ -827,6 +835,7 @@ pub async fn hydrate_messages(
                 .filter_map(|id| names.get(&id).cloned())
                 .collect(),
             reply_count: m.reply_count,
+            last_reply_at: last_reply.remove(&m.id).map(rfc3339),
             // A deleted message keeps nothing of what it said, its link included.
             link: if m.deleted_at.is_some() {
                 None

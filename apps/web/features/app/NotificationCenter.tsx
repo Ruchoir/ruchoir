@@ -24,8 +24,8 @@ const styles: Record<string, CSSProperties> = {
     maxHeight: "min(560px, calc(0.8 * var(--ui-vh, 100dvh)))",
     display: "flex",
     flexDirection: "column",
-    background: "var(--surface-canvas)",
-    border: "1px solid var(--border-subtle)",
+    background: "var(--surface-raised)",
+    border: "2px solid var(--ink)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-popover)",
     overflow: "hidden",
@@ -38,7 +38,7 @@ const styles: Record<string, CSSProperties> = {
     padding: "12px 10px 12px 16px",
     borderBottom: "1px solid var(--border-subtle)",
   },
-  title: { fontSize: 15, fontWeight: 600, color: "var(--text-strong)" },
+  title: { fontSize: 18, fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   filters: { padding: "8px 12px", borderBottom: "1px solid var(--border-subtle)" },
   scroll: { flex: 1, overflow: "auto", padding: 6 },
   row: {
@@ -94,15 +94,7 @@ export function NotificationCenter({
   onOpenPrefs,
 }: NotificationCenterProps) {
   const { t } = useTranslation();
-  const [filter, setFilter] = useState<Filter>("all");
   const unread = notifications.filter((n) => !n.read).length;
-
-  const rows =
-    filter === "unread"
-      ? notifications.filter((n) => !n.read)
-      : filter === "mentions"
-        ? notifications.filter((n) => isMention(n.kind))
-        : notifications;
 
   return (
     <Popover anchorRef={anchorRef} open={open} onClose={onClose} placement="bottom" align="start">
@@ -121,33 +113,7 @@ export function NotificationCenter({
           </span>
         </div>
 
-        <div style={styles.filters}>
-          <Tabs
-            variant="pills"
-            value={filter}
-            onChange={(v) => setFilter(v as Filter)}
-            items={[
-              { value: "all", label: t("notif.all") },
-              { value: "unread", label: t("notif.unread"), count: unread || undefined },
-              { value: "mentions", label: t("activity.mentions") },
-            ]}
-          />
-        </div>
-
-        {rows.length === 0 ? (
-          <EmptyState
-            size="compact"
-            icon={filter === "mentions" ? "at-sign" : filter === "unread" ? "check-check" : "bell"}
-            title={t(EMPTY[filter].title)}
-            description={t(EMPTY[filter].text)}
-          />
-        ) : (
-          <div style={styles.scroll}>
-            {rows.map((n) => (
-              <NotifRow key={n.id} notif={n} onOpen={onOpen} onToggleRead={onToggleRead} />
-            ))}
-          </div>
-        )}
+        <NotificationFeed notifications={notifications} onOpen={onOpen} onToggleRead={onToggleRead} />
 
         {notifications.length > 0 ? (
           <div style={styles.foot}>
@@ -173,17 +139,83 @@ export function NotificationCenter({
   );
 }
 
+/**
+ * The inbox itself: the three filters and the rows under them. Drawn in the bell's popover on a
+ * desktop, and as the whole Activity tab on a phone (`page`), where the rows are taller, their
+ * read toggle is always there (there is no hover to reveal it) and the page scrolls, not the list.
+ */
+export function NotificationFeed({
+  notifications,
+  onOpen,
+  onToggleRead,
+  page = false,
+}: {
+  notifications: AppNotification[];
+  onOpen: (channelId: string, messageId: string, id: string) => void;
+  onToggleRead: (id: string, read: boolean) => void;
+  page?: boolean;
+}) {
+  const { t } = useTranslation();
+  const [filter, setFilter] = useState<Filter>("all");
+  const unread = notifications.filter((n) => !n.read).length;
+
+  const rows =
+    filter === "unread"
+      ? notifications.filter((n) => !n.read)
+      : filter === "mentions"
+        ? notifications.filter((n) => isMention(n.kind))
+        : notifications;
+
+  return (
+    <>
+      <div style={page ? { padding: "4px 16px 12px" } : styles.filters}>
+        <Tabs
+          variant="pills"
+          value={filter}
+          onChange={(v) => setFilter(v as Filter)}
+          items={[
+            { value: "all", label: t("notif.all") },
+            { value: "unread", label: t("notif.unread"), count: unread || undefined },
+            { value: "mentions", label: t("activity.mentions") },
+          ]}
+        />
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          size={page ? "hero" : "compact"}
+          icon={filter === "mentions" ? "at-sign" : filter === "unread" ? "check-check" : "bell"}
+          title={t(EMPTY[filter].title)}
+          description={t(EMPTY[filter].text)}
+          // On the page, the rest of the screen, centred like the other tabs' empty states.
+          style={page ? { flex: 1 } : undefined}
+        />
+      ) : (
+        <div style={page ? { padding: "0 8px 24px" } : styles.scroll}>
+          {rows.map((n) => (
+            <NotifRow key={n.id} notif={n} onOpen={onOpen} onToggleRead={onToggleRead} page={page} />
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function NotifRow({
   notif,
   onOpen,
   onToggleRead,
+  page = false,
 }: {
   notif: AppNotification;
   onOpen: (channelId: string, messageId: string, id: string) => void;
   onToggleRead: (id: string, read: boolean) => void;
+  page?: boolean;
 }) {
   const { t } = useTranslation();
-  const [hover, setHover] = useState(false);
+  const [hovered, setHover] = useState(false);
+  // On a page (a phone) there is no hover: the toggle is always offered.
+  const hover = hovered || page;
 
   return (
     <div
@@ -198,7 +230,7 @@ function NotifRow({
       }}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={{ ...styles.row, background: hover ? "var(--surface-hover)" : "transparent" }}
+      style={{ ...styles.row, padding: page ? "12px 10px" : styles.row.padding, background: hovered ? "var(--surface-hover)" : "transparent" }}
     >
       {/* Unread rail: a filled dot for unread, an invisible spacer for read, so rows stay aligned. */}
       <span

@@ -26,8 +26,8 @@ const styles: Record<string, CSSProperties> = {
   tagline: { fontSize: 13, color: "var(--text-muted)" },
   card: {
     width: "min(400px, 100%)",
-    background: "var(--surface-canvas)",
-    border: "1px solid var(--border-subtle)",
+    background: "var(--surface-raised)",
+    border: "2px solid var(--ink)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-dialog)",
     padding: "28px 28px 24px",
@@ -44,7 +44,7 @@ export function AuthShell({ children, footer }: { children: ReactNode; footer?: 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/ruchoir-mark.png" alt="" style={styles.mark} />
         <div style={styles.wordmark}>
-          Ruchoir<span style={{ color: "var(--terracotta-500)" }}>.</span>
+          Ruchoir<span style={{ color: "var(--brand)" }}>.</span>
         </div>
         <div style={styles.tagline}>{t("brand.tagline")}</div>
       </div>

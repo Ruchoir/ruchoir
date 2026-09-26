@@ -33,8 +33,11 @@ import {
   type FilesLayout,
   type FontChoice,
   type TextSize,
-  type ThemeName,
+  THEME_ACCENTS,
+  type ThemeAccent,
+  type ThemeMode,
 } from "./settings";
+import { WordmarkLockup } from "./Wordmark";
 import {
   COMMANDS,
   DEFAULT_BINDINGS,
@@ -56,12 +59,24 @@ const NAV: [PrefTab, TranslationKey, IconName][] = [
 ];
 
 
-/** Representative swatches per theme, purely for the picker preview (fixed, not live tokens). */
-const THEME_PREVIEWS: { id: ThemeName; label: TranslationKey; canvas: string; chrome: string; accent: string; ink: string }[] = [
-  { id: "ruchui", label: literal("RuchUI"), canvas: "#f7f3ed", chrome: "#f0e8e0", accent: "#c65d45", ink: "#171716" },
-  { id: "light", label: key("prefs.themeLight"), canvas: "#ffffff", chrome: "#f4f5f6", accent: "#c65d45", ink: "#17181b" },
-  { id: "ruchui-dark", label: literal("RuchUI Dark"), canvas: "#143336", chrome: "#0f2629", accent: "#d07a66", ink: "#f5f3ec" },
-  { id: "dark", label: key("prefs.themeDark"), canvas: "#1a1a1c", chrome: "#141416", accent: "#db9788", ink: "#f4f4f6" },
+/** The pastel each accent paints with, for the picker's swatches (fixed, not live tokens). */
+const ACCENT_PREVIEW: Record<ThemeAccent, { label: TranslationKey; colour: string }> = {
+  sky: { label: key("prefs.themeSky"), colour: "#8fd0ff" },
+  mint: { label: key("prefs.themeMint"), colour: "#6fe0c2" },
+  violet: { label: key("prefs.themeViolet"), colour: "#c9a8ff" },
+  pink: { label: key("prefs.themePink"), colour: "#f5b0f0" },
+};
+
+/** Canvas, surface and ink of the day and the night, for the same swatches. */
+const MODE_PREVIEW = {
+  day: { canvas: "#f6f7f9", surface: "#fdfdfe", ink: "#15171c" },
+  night: { canvas: "#15171c", surface: "#1d2027", ink: "#f6f7f9" },
+};
+
+const MODE_OPTIONS: { id: ThemeMode; label: TranslationKey; icon: IconName }[] = [
+  { id: "day", label: key("prefs.modeDay"), icon: "sun" },
+  { id: "night", label: key("prefs.modeNight"), icon: "moon" },
+  { id: "auto", label: key("prefs.modeAuto"), icon: "monitor" },
 ];
 
 const st: Record<string, CSSProperties> = {
@@ -70,18 +85,12 @@ const st: Record<string, CSSProperties> = {
     flex: "none",
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    padding: "0 12px",
-    borderBottom: "1px solid var(--border-subtle)",
+    gap: 12,
+    padding: "0 16px",
+    background: "var(--surface-chrome)",
+    borderBottom: "1.5px solid var(--border-subtle)",
   },
   mark: { width: 22, height: 22, flex: "none", display: "block" },
-  wordmark: {
-    fontFamily: "var(--font-sans)",
-    fontSize: 16,
-    fontWeight: 600,
-    letterSpacing: "var(--tracking-display)",
-    color: "var(--text-strong)",
-  },
   divider: { width: 1, height: 20, flex: "none", background: "var(--border-subtle)", margin: "0 2px" },
   title: {
     margin: 0,
@@ -92,33 +101,39 @@ const st: Record<string, CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: 600,
-    letterSpacing: "var(--tracking-tight)",
-    color: "var(--text-strong)",
+    color: "var(--text-muted)",
   },
   // The row itself never scrolls: the sub-nav and the panel each scroll on their own, so reading a
   // long section does not carry the nav out of reach.
   body: { flex: 1, overflow: "hidden", display: "flex", minWidth: 0, minHeight: 0 },
   nav: {
-    width: 200,
+    width: 220,
     flex: "none",
     padding: "16px 8px",
-    borderRight: "1px solid var(--border-subtle)",
+    background: "var(--surface-chrome)",
+    borderRight: "1.5px solid var(--border-subtle)",
     overflowY: "auto",
   },
   /** The scrolling half. Its bottom padding is what keeps the last row off the edge of the window. */
   scroller: { flex: 1, minWidth: 0, overflowY: "auto" },
-  main: { padding: "24px 28px 64px", maxWidth: 760 },
-  h: { fontSize: 18, marginBottom: 4 },
-  sub: { fontSize: 13, color: "var(--text-muted)", marginBottom: 20 },
+  main: { padding: "40px 40px 64px", maxWidth: 820 },
+  h: {
+    fontSize: "clamp(28px, 3.4vw, 40px)",
+    fontWeight: 700,
+    letterSpacing: "var(--tracking-display)",
+    lineHeight: 1.05,
+    color: "var(--text-strong)",
+    marginBottom: 10,
+  },
+  sub: { fontSize: 15, color: "var(--text-body)", marginBottom: 8 },
   sect: {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
-    margin: "22px 0 10px",
+    fontFamily: "var(--font-mono)",
+    fontSize: 12,
+    fontWeight: 500,
+    color: "var(--text-muted)",
+    margin: "32px 0 10px",
   },
 };
 
@@ -129,15 +144,15 @@ function navItem(on: boolean, compact = false): CSSProperties {
     gap: 8,
     width: compact ? "auto" : "100%",
     flex: "none",
-    height: 30,
+    height: compact ? 32 : 36,
     padding: "0 10px",
     border: 0,
     borderRadius: "var(--radius-sm)",
-    background: on ? "var(--surface-selected)" : compact ? "var(--surface-sunken)" : "transparent",
-    color: on ? "var(--text-accent)" : "var(--text-body)",
+    background: on ? "var(--acc)" : compact ? "var(--surface-sunken)" : "transparent",
+    color: on ? "var(--on-pastel)" : "var(--text-body)",
     fontFamily: "var(--font-sans)",
-    fontSize: 13,
-    fontWeight: on ? 500 : 400,
+    fontSize: 14,
+    fontWeight: on ? 600 : 400,
     cursor: "pointer",
     textAlign: "left",
     whiteSpace: "nowrap",
@@ -160,7 +175,7 @@ function Row({ title, desc, children }: { title: ReactNode; desc?: ReactNode; ch
   return (
     <div style={rowStyle}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{title}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{title}</div>
         {desc ? <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 460 }}>{desc}</div> : null}
       </div>
       {children}
@@ -283,16 +298,15 @@ function NotificationKinds() {
         <div
           role="row"
           style={{
+            fontFamily: "var(--font-mono)",
             display: "flex",
             alignItems: "center",
             gap: 8,
             padding: "8px 12px",
             background: "var(--surface-sunken)",
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
-            color: "var(--text-subtle)",
+            fontSize: 12,
+            fontWeight: 500,
+            color: "var(--text-muted)",
           }}
         >
           <span role="columnheader" style={{ flex: 1 }} />
@@ -451,10 +465,11 @@ function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: Font
               cursor: "pointer",
               textAlign: "left",
               borderRadius: "var(--radius-md)",
-              background: selected ? "var(--surface-selected)" : "var(--surface-canvas)",
-              border: `1px solid ${selected ? "var(--border-accent)" : "var(--border-default)"}`,
-              boxShadow: selected ? "0 0 0 1px var(--border-accent)" : "none",
-              transition: "border-color var(--duration-fast) var(--ease-out)",
+              background: "var(--surface-card)",
+              // Chosen: an ink edge and the offset shadow, as the chosen theme.
+              border: `1.5px solid ${selected ? "var(--ink)" : "var(--border-default)"}`,
+              boxShadow: selected ? "var(--shadow-popover)" : "none",
+              transition: "border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)",
             }}
           >
             <span aria-hidden style={{ fontFamily: f.stack, fontSize: 30, lineHeight: 1, color: "var(--text-strong)", flex: "none", width: 44, textAlign: "center" }}>
@@ -463,7 +478,7 @@ function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: Font
             <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(f.label)}</span>
-                {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>{t("prefs.active")}</span> : null}
+                {selected ? <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>{t("prefs.active")}</span> : null}
               </span>
               <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(f.desc)}</span>
               {/* Sample rendered in the target font so the choice previews before it is applied. */}
@@ -508,10 +523,11 @@ function TextSizePicker({ value, onChange }: { value: TextSize; onChange: (t: Te
               height: 72,
               cursor: "pointer",
               borderRadius: "var(--radius-md)",
-              background: selected ? "var(--surface-selected)" : "var(--surface-canvas)",
-              border: `1px solid ${selected ? "var(--border-accent)" : "var(--border-default)"}`,
-              boxShadow: selected ? "0 0 0 1px var(--border-accent)" : "none",
-              transition: "border-color var(--duration-fast) var(--ease-out)",
+              background: "var(--surface-card)",
+              // Chosen: an ink edge and the offset shadow, as the chosen theme.
+              border: `1.5px solid ${selected ? "var(--ink)" : "var(--border-default)"}`,
+              boxShadow: selected ? "var(--shadow-popover)" : "none",
+              transition: "border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)",
             }}
           >
             <span aria-hidden style={{ fontSize: o.sample, fontWeight: 600, lineHeight: 1, color: "var(--text-strong)" }}>A</span>
@@ -523,61 +539,67 @@ function TextSizePicker({ value, onChange }: { value: TextSize; onChange: (t: Te
   );
 }
 
-function ThemePicker({ value, onChange }: { value: ThemeName; onChange: (t: ThemeName) => void }) {
+/**
+ * The accent, as four cards. Each swatch is drawn in the mode on screen, so what is chosen here is
+ * what the interface will look like right now, by day or by night.
+ */
+function AccentPicker({ value, night, onChange }: { value: ThemeAccent; night: boolean; onChange: (a: ThemeAccent) => void }) {
+  const { t } = useTranslation();
+  const colours = MODE_PREVIEW[night ? "night" : "day"];
+  return (
+    <div
+      role="radiogroup"
+      aria-label={t("prefs.accent")}
+      style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, maxWidth: 720 }}
+    >
+      {THEME_ACCENTS.map((accent) => (
+        <button
+          key={accent}
+          type="button"
+          role="radio"
+          aria-checked={accent === value}
+          className="wc-theme-card"
+          onClick={() => onChange(accent)}
+        >
+          {/* The theme in four bands: canvas, surface, accent, ink. */}
+          <span aria-hidden className="wc-theme-card__sw">
+            <span style={{ background: colours.canvas }} />
+            <span style={{ background: colours.surface }} />
+            <span style={{ background: ACCENT_PREVIEW[accent].colour }} />
+            <span style={{ background: colours.ink }} />
+          </span>
+          {t(ACCENT_PREVIEW[accent].label)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const MODE_HINT = { auto: key("prefs.modeAutoHint"), fixed: key("prefs.modeFixedHint") };
+
+/** Day, night or automatic: one row of three, drawn as the design system's pill switch. */
+function ModePicker({ value, onChange }: { value: ThemeMode; onChange: (m: ThemeMode) => void }) {
   const { t } = useTranslation();
   return (
-    <div role="radiogroup" aria-label={t("prefs.theme")} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, maxWidth: 520 }}>
-      {THEME_PREVIEWS.map((theme) => {
-        const selected = theme.id === value;
-        return (
+    <div>
+      <div role="radiogroup" aria-label={t("prefs.mode")} className="wc-tabs wc-tabs--pills">
+        {MODE_OPTIONS.map((o) => (
           <button
-            key={theme.id}
+            key={o.id}
             type="button"
             role="radio"
-            aria-checked={selected}
-            onClick={() => onChange(theme.id)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: 8,
-              cursor: "pointer",
-              textAlign: "left",
-              borderRadius: "var(--radius-md)",
-              background: selected ? "var(--surface-selected)" : "var(--surface-canvas)",
-              border: `1px solid ${selected ? "var(--border-accent)" : "var(--border-default)"}`,
-              boxShadow: selected ? "0 0 0 1px var(--border-accent)" : "none",
-              transition: "border-color var(--duration-fast) var(--ease-out)",
-            }}
+            aria-checked={o.id === value}
+            className={`wc-tab${o.id === value ? " wc-tab--on" : ""}`}
+            onClick={() => onChange(o.id)}
           >
-            {/* Miniature UI: chrome strip + canvas with an accent dot and text bars. */}
-            <span
-              aria-hidden
-              style={{
-                display: "flex",
-                width: 46,
-                height: 34,
-                flex: "none",
-                borderRadius: "var(--radius-sm)",
-                overflow: "hidden",
-                border: "1px solid var(--border-subtle)",
-                background: theme.canvas,
-              }}
-            >
-              <span style={{ width: 12, height: "100%", background: theme.chrome }} />
-              <span style={{ flex: 1, position: "relative", padding: 5 }}>
-                <span style={{ display: "block", width: 8, height: 8, borderRadius: "var(--radius-full)", background: theme.accent }} />
-                <span style={{ display: "block", width: "80%", height: 3, marginTop: 4, borderRadius: 2, background: theme.ink, opacity: 0.55 }} />
-                <span style={{ display: "block", width: "55%", height: 3, marginTop: 3, borderRadius: 2, background: theme.ink, opacity: 0.3 }} />
-              </span>
-            </span>
-            <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-              <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t(theme.label)}</span>
-              {selected ? <span style={{ fontSize: 11, color: "var(--text-accent)" }}>{t("prefs.active")}</span> : null}
-            </span>
+            <Icon name={o.icon} size={14} />
+            {t(o.label)}
           </button>
-        );
-      })}
+        ))}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
+        {t(value === "auto" ? MODE_HINT.auto : MODE_HINT.fixed)}
+      </div>
     </div>
   );
 }
@@ -585,9 +607,11 @@ function ThemePicker({ value, onChange }: { value: ThemeName; onChange: (t: Them
 const kbdStyle: CSSProperties = {
   fontFamily: "var(--font-mono)",
   fontSize: 12,
-  color: "var(--text-muted)",
-  background: "var(--grey-100)",
-  border: "1px solid var(--border-subtle)",
+  color: "var(--text-strong)",
+  background: "var(--surface-card)",
+  // A key cap: the outline of a control, thicker at the bottom.
+  border: "1.5px solid var(--control-line)",
+  borderBottomWidth: 3,
   borderRadius: "var(--radius-sm)",
   padding: "2px 8px",
   whiteSpace: "nowrap",
@@ -786,9 +810,12 @@ export function PreferencesScreen({
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
       <div style={st.top}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/ruchoir-mark.png" alt="" style={st.mark} />
-        {compact ? null : <span style={st.wordmark}>Ruchoir</span>}
+        {compact ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/brand/ruchoir-mark.png" alt="" style={st.mark} />
+        ) : (
+          <WordmarkLockup />
+        )}
         <span style={st.divider} aria-hidden />
         <h1 style={st.title}>{t("prefs.title")}</h1>
         <Button variant="secondary" iconLeft="arrow-left" onClick={onClose} style={{ flexShrink: 0 }}>
@@ -805,7 +832,7 @@ export function PreferencesScreen({
         >
           {NAV.map(([v, l, i]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
-              <Icon name={i} size={14} style={{ color: "var(--text-muted)" }} />
+              <Icon name={i} size={14} style={{ color: v === tab ? "var(--on-pastel)" : "var(--text-muted)" }} />
               {t(l)}
             </button>
           ))}
@@ -818,7 +845,7 @@ export function PreferencesScreen({
                 <h2 style={st.h}>{t("prefs.appearance")}</h2>
                 <p style={st.sub}>{t("prefs.appearanceSub")}</p>
 
-                <div style={st.sect}>{t("language.section")}</div>
+                <div style={st.sect} className="wc-sect">{t("language.section")}</div>
                 {/*
                   Under its description rather than beside it: the control is wide (a flag, a
                   language named in its own script, a chevron), and squeezed into the right-hand
@@ -849,14 +876,16 @@ export function PreferencesScreen({
                   />
                 </div>
 
-                <div style={st.sect}>{t("prefs.theme")}</div>
-                <ThemePicker value={s.theme} onChange={(t) => s.set("theme", t)} />
-                <div style={st.sect}>{t("prefs.font")}</div>
+                <div style={st.sect} className="wc-sect">{t("prefs.mode")}</div>
+                <ModePicker value={s.mode} onChange={(m) => s.set("mode", m)} />
+                <div style={st.sect} className="wc-sect">{t("prefs.accent")}</div>
+                <AccentPicker value={s.accent} night={s.theme.endsWith("-dark")} onChange={(a) => s.set("accent", a)} />
+                <div style={st.sect} className="wc-sect">{t("prefs.font")}</div>
                 <FontPicker value={s.font} onChange={(f) => s.set("font", f)} />
-                <div style={st.sect}>{t("prefs.textSize")}</div>
+                <div style={st.sect} className="wc-sect">{t("prefs.textSize")}</div>
                 <TextSizePicker value={s.textSize} onChange={(t) => s.set("textSize", t)} />
 
-                <div style={st.sect}>{t("prefs.defaultDisplay")}</div>
+                <div style={st.sect} className="wc-sect">{t("prefs.defaultDisplay")}</div>
                 <Row title={t("prefs.filesView")} desc={t("prefs.filesViewDesc")}>
                   <Select
                     aria-label={t("prefs.filesViewLabel")}

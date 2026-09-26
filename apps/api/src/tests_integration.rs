@@ -644,6 +644,87 @@ async fn create_dm_is_idempotent_by_participants() {
 }
 
 #[tokio::test]
+async fn a_direct_message_list_previews_the_latest_message() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let dm: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/dm", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "user_ids": [fx.bob] }))
+        .send()
+        .await
+        .expect("dm")
+        .json()
+        .await
+        .expect("json");
+    let dm_id = dm["id"].as_str().expect("id").to_owned();
+    let list = format!("/api/v1/spaces/{}/dms", fx.space_id);
+    let preview = |cookie: String| {
+        let app = &app;
+        let list = &list;
+        let dm_id = dm_id.clone();
+        async move {
+            let dms: Value = app
+                .req(reqwest::Method::GET, list, &cookie)
+                .send()
+                .await
+                .expect("dms")
+                .json()
+                .await
+                .expect("json");
+            dms.as_array()
+                .expect("list")
+                .iter()
+                .find(|d| d["id"] == dm_id.as_str())
+                .expect("the conversation")
+                .get("last_message")
+                .cloned()
+        }
+    };
+
+    // Nothing said yet: nothing to preview.
+    assert!(preview(alice.clone()).await.is_none());
+
+    let post = format!("/api/v1/conversations/{dm_id}/messages");
+    let send = |cookie: String, body: Value| {
+        let app = &app;
+        let post = &post;
+        async move {
+            let sent: Value = app
+                .req(reqwest::Method::POST, post, &cookie)
+                .json(&body)
+                .send()
+                .await
+                .expect("send")
+                .json()
+                .await
+                .expect("json");
+            sent
+        }
+    };
+    send(alice.clone(), json!({ "body": "premier" })).await;
+    let latest = send(bob.clone(), json!({ "body": "second" })).await;
+    // A reply in a thread is not the conversation's latest word.
+    send(
+        alice.clone(),
+        json!({ "body": "dans le fil", "parent_message_id": latest["id"] }),
+    )
+    .await;
+
+    let seen_by_alice = preview(alice.clone()).await.expect("a preview");
+    assert_eq!(seen_by_alice["excerpt"], "second");
+    assert_eq!(seen_by_alice["mine"], false);
+    assert_eq!(seen_by_alice["created_at"], latest["created_at"]);
+    let seen_by_bob = preview(bob.clone()).await.expect("a preview");
+    assert_eq!(seen_by_bob["mine"], true);
+}
+
+#[tokio::test]
 async fn creating_a_space_starts_it_with_an_owner_and_a_channel() {
     let Some(app) = boot().await else { return };
     let founder = make_user(&app.db, "founder").await;
@@ -2824,6 +2905,79 @@ async fn a_channel_owner_names_moderators_and_a_moderator_names_nobody() {
         .await
         .expect("remove owner");
     assert_eq!(refused.status(), 403);
+}
+
+#[tokio::test]
+async fn a_thread_root_says_when_it_was_last_answered() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let post = format!("/api/v1/conversations/{}/messages", fx.public_channel);
+    let send = |body: Value| {
+        let app = &app;
+        let alice = &alice;
+        let post = &post;
+        async move {
+            let sent: Value = app
+                .req(reqwest::Method::POST, post, alice)
+                .json(&body)
+                .send()
+                .await
+                .expect("send")
+                .json()
+                .await
+                .expect("json");
+            sent
+        }
+    };
+    let root = send(json!({ "body": "le plan" })).await;
+    let root_id = root["id"].as_str().expect("id").to_owned();
+
+    // No reply yet: nothing to say.
+    let history: Value = app
+        .req(reqwest::Method::GET, &post, &alice)
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    let rows = history
+        .get("messages")
+        .unwrap_or(&history)
+        .as_array()
+        .expect("rows")
+        .clone();
+    let row = rows
+        .iter()
+        .find(|m| m["id"] == root_id.as_str())
+        .expect("root");
+    assert!(row.get("last_reply_at").is_none(), "{row}");
+
+    send(json!({ "body": "d'accord", "parent_message_id": root_id })).await;
+    let last = send(json!({ "body": "moi aussi", "parent_message_id": root_id })).await;
+
+    // Two replies: the time is the later one's.
+    let history: Value = app
+        .req(reqwest::Method::GET, &post, &alice)
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    let rows = history
+        .get("messages")
+        .unwrap_or(&history)
+        .as_array()
+        .expect("rows")
+        .clone();
+    let row = rows
+        .iter()
+        .find(|m| m["id"] == root_id.as_str())
+        .expect("root");
+    assert_eq!(row["reply_count"], 2);
+    assert_eq!(row["last_reply_at"], last["created_at"], "{row}");
 }
 
 #[tokio::test]

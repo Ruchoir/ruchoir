@@ -12,6 +12,8 @@ import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import { ProfilePanel } from "./ProfilePanel";
 import type { ChannelPanel, Toast } from "../app/types";
 import { ChannelMenu } from "./ChannelMenu";
+import { ChannelDetails } from "./ChannelDetails";
+import { PanelAsPage } from "./PanelHead";
 import {
   AddPeopleDialog,
   ChannelNotificationsDialog,
@@ -27,19 +29,28 @@ import { ThreadPanel } from "./ThreadPanel";
 import { TypingIndicator } from "./TypingIndicator";
 import { useStickToBottom } from "./useStickToBottom";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { formatDayHeading, isSameDay } from "@/lib/i18n/format";
 
 /** Right-hand dock: animates in/out, stays mounted during exit, and cross-fades on content switch. */
 function RightDock({
   open,
   contentKey,
-  compact = false,
+  mode = "column",
+  onDismiss,
   children,
 }: {
   open: boolean;
   contentKey: string;
-  compact?: boolean;
+  /**
+   * `column` beside the conversation (a desktop); `overlay` over its right edge, with the rest of the
+   * conversation dimmed and a tap on it closing the panel (a tablet, where a third column would leave
+   * the conversation too narrow); `page` over all of it (a phone).
+   */
+  mode?: "column" | "overlay" | "page";
+  onDismiss?: () => void;
   children: ReactNode;
 }) {
+  const compact = mode === "page";
   const { mounted, closing } = useMountAnimation(open, 200);
   // Remember the last open content so it stays visible through the exit animation. Written in an effect
   // (not during render); the exit-time reads below are the one place the ref must be read during render.
@@ -56,6 +67,8 @@ function RightDock({
   // feed, so it covers the whole view as a full-screen sheet. Setting `--panel-width: 100%` makes the
   // panels (which size themselves from that variable) fill the width instead of staying at 340px.
   // Its own header close button dismisses it.
+  // The panels size themselves from `--panel-width`, and the thread from `--dock-width` when it is
+  // set (it has a width of its own, dragged by its handle, that only a column can honour).
   const container: CSSProperties = compact
     ? {
         position: "absolute",
@@ -65,24 +78,49 @@ function RightDock({
         display: "flex",
         background: "var(--surface-canvas)",
         ["--panel-width" as string]: "100%",
+        ["--dock-width" as string]: "100%",
       }
-    : { display: "flex", flex: "none" };
+    : mode === "overlay"
+      ? {
+          position: "absolute",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 40,
+          display: "flex",
+          boxShadow: "-8px 0 0 -6px var(--ink), var(--shadow-dialog)",
+          ["--panel-width" as string]: "min(380px, 100vw)",
+          ["--dock-width" as string]: "min(440px, 100vw)",
+        }
+      : { display: "flex", flex: "none" };
   // The exit animation renders the cached last-open content, which requires reading these refs during
   // render; scope the ref-access rule here since the values are written from the effect above.
   /* eslint-disable react-hooks/refs */
   const dockKey = open ? contentKey : lastKey.current;
   const dockNode = open ? children : last.current;
   /* eslint-enable react-hooks/refs */
-  return (
+  const dock = (
     <div style={container} className={closing ? "wc-dock--out" : "wc-dock--in"}>
       <div
         key={dockKey}
         className="wc-dock-content"
-        style={{ display: "flex", flex: compact ? 1 : undefined, minWidth: 0, background: compact ? "var(--surface-canvas)" : undefined }}
+        style={{ display: "flex", flex: compact ? 1 : undefined, minWidth: 0, background: compact || mode === "overlay" ? "var(--surface-chrome)" : undefined }}
       >
-        {dockNode}
+        <PanelAsPage.Provider value={compact}>{dockNode}</PanelAsPage.Provider>
       </div>
     </div>
+  );
+  if (mode !== "overlay") return dock;
+  return (
+    <>
+      {/* What the panel covers stays in view, dimmed; touching it puts the panel away. */}
+      <div
+        aria-hidden
+        onClick={onDismiss}
+        className={closing ? "wc-dock-scrim wc-dock-scrim--out" : "wc-dock-scrim"}
+      />
+      {dock}
+    </>
   );
 }
 
@@ -103,9 +141,9 @@ const styles: Record<string, CSSProperties> = {
     margin: "0 16px 16px",
     padding: "12px 16px",
     fontSize: 13,
-    color: "var(--text-muted)",
-    background: "var(--surface-sunken)",
-    border: "1px solid var(--border-subtle)",
+    color: "var(--text-body)",
+    background: "var(--surface-card)",
+    border: "1.5px dashed var(--border-strong)",
     borderRadius: "var(--radius-md)",
   },
   top: {
@@ -114,8 +152,8 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    padding: "0 12px 0 16px",
-    borderBottom: "1px solid var(--border-subtle)",
+    padding: "0 12px 0 20px",
+    borderBottom: "1.5px solid var(--border-subtle)",
     background: "var(--alpha-paper-90)",
     backdropFilter: "blur(6px)",
   },
@@ -126,8 +164,8 @@ const styles: Record<string, CSSProperties> = {
     minWidth: 0,
     flexShrink: 0,
     margin: 0, // rendered as an <h1>: drop the UA heading margin
-    fontSize: 17,
-    fontWeight: 600,
+    fontSize: 18,
+    fontWeight: 700,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
     whiteSpace: "nowrap",
@@ -154,32 +192,47 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
     padding: "7px 14px",
     borderRadius: 999,
-    border: "1px solid var(--border-subtle)",
-    background: "var(--surface-raised)",
-    boxShadow: "var(--shadow-popover)",
-    color: "var(--text-strong)",
+    border: "2px solid var(--ink)",
+    background: "var(--ink)",
+    color: "var(--on-ink)",
     fontSize: 13,
     fontWeight: 600,
     cursor: "pointer",
   },
   inner: { maxWidth: "var(--channel-measure)", margin: "0 auto", padding: "0 24px" },
-  day: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
-  dayLine: { flex: 1, height: 1, background: "var(--border-subtle)" },
+  // Sticky: the heading of the day being read stays at the top of the feed. The next day's heading,
+  // coming later in the flow, slides over it; each is opaque, so they never show through each other.
+  day: {
+    position: "sticky",
+    top: 8,
+    zIndex: 2,
+    display: "flex",
+    justifyContent: "center",
+    margin: "18px 0",
+    pointerEvents: "none",
+  },
+  // The day reads as a tag, in the monospace face of every label.
   dayLbl: {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontSize: 12,
+    fontWeight: 500,
+    color: "var(--text-muted)",
+    padding: "3px 10px",
+    border: "1.5px solid var(--border-default)",
+    borderRadius: "var(--radius-full)",
+    background: "var(--surface-canvas)",
   },
   unread: { display: "flex", alignItems: "center", gap: 10, margin: "10px 0" },
-  unreadLine: { flex: 1, height: 1, background: "var(--terracotta-400)" },
+  // What is new is the one place the alarm colour appears in a conversation.
+  unreadLine: { flex: 1, height: 2, background: "var(--alarm)" },
   unreadLabel: {
-    fontSize: 11,
+    fontFamily: "var(--font-mono)",
+    fontSize: 12,
     fontWeight: 600,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-accent)",
+    color: "var(--on-pastel)",
+    background: "var(--peach)",
+    padding: "2px 10px",
+    borderRadius: "var(--radius-full)",
   },
 };
 
@@ -287,6 +340,14 @@ export type ChannelScreenProps = {
   onTyping?: () => void;
   /** Compact (mobile) mode: the right panel becomes a full-width overlay instead of a column. */
   compact?: boolean;
+  /** A tablet: side panels cover the conversation's right edge instead of standing beside it. */
+  overlayPanels?: boolean;
+  /**
+   * Back to the list, drawn at the start of the header. The compact shell passes it and drops its
+   * own top bar for a conversation: two bars naming the same channel cost a phone a sixth of its
+   * height for nothing.
+   */
+  onBack?: () => void;
   actions: MessageActionHandlers;
 };
 
@@ -310,8 +371,37 @@ function followsSameAuthor(previous: Message | undefined, current: Message): boo
   // Ids are compared when both are known, so two people sharing a display name are still two people.
   if (previous.authorId && current.authorId && previous.authorId !== current.authorId) return false;
   if (!previous.createdAt || !current.createdAt) return false;
+  // A new day starts a new block: the day's heading sits between them.
+  if (!isSameDay(previous.createdAt, current.createdAt)) return false;
   const gap = Date.parse(current.createdAt) - Date.parse(previous.createdAt);
   return Number.isFinite(gap) && gap >= 0 && gap < GROUPING_WINDOW_MS;
+}
+
+/** A day of the feed: its first message's date (absent when it has none), and its messages with their index in the feed. */
+type FeedDay = { key: string; at?: string; items: { m: Message; index: number }[] };
+
+/**
+ * The feed cut into days, where the reader is. A message with no date (one being sent) stays in the
+ * day it follows, so it never opens a day of its own.
+ */
+function groupByDay(messages: Message[]): FeedDay[] {
+  const days: FeedDay[] = [];
+  messages.forEach((m, index) => {
+    const last = days[days.length - 1];
+    if (last && (!m.createdAt || (last.at && isSameDay(last.at, m.createdAt)))) {
+      last.items.push({ m, index });
+    } else {
+      // Keyed on the day itself, so loading older messages into it does not rebuild the block.
+      days.push({ key: m.createdAt ? new Date(m.createdAt).toDateString() : m.id, at: m.createdAt, items: [{ m, index }] });
+    }
+  });
+  return days;
+}
+
+/** A day's heading: the dictionary's word for today, else the date spelled out (see `formatDayHeading`). */
+function useDayHeading(): (at: string) => string {
+  const { t } = useTranslation();
+  return (at) => (isSameDay(at, Date.now()) ? t("conversation.today") : formatDayHeading(at));
 }
 
 export function ChannelScreen({
@@ -359,10 +449,13 @@ export function ChannelScreen({
   profilePresence,
   onTyping,
   compact = false,
+  overlayPanels = false,
+  onBack,
   actions,
   loading = false,
 }: ChannelScreenProps) {
   const { t } = useTranslation();
+  const dayHeading = useDayHeading();
   const isDm = !!dm;
   // An archived channel is read-only: the API refuses new messages, so the composer gives way to a note.
   const isArchived = !isDm && channel.type === "archived";
@@ -589,6 +682,26 @@ export function ChannelScreen({
   const { ref: feedRef, following, scrollToBottom } = useStickToBottom<HTMLDivElement>(channel.id);
   const msgCount = messages.length;
 
+  /*
+   * The lines of a conversation just opened come in one after the other (`.wc-feed-in`). Only for a
+   * moment after it has loaded: a message arriving later has its own short rise, and one loaded
+   * above by scrolling back must not play an entrance at all. Set on the element rather than through
+   * state, since it changes nothing React renders; React leaves the class list alone because the
+   * `className` it wrote does not change.
+   */
+  const feedInnerRef = useRef<HTMLDivElement>(null);
+  const conversationId = isDm ? dm.id : channel.id;
+  useEffect(() => {
+    const el = feedInnerRef.current;
+    if (!el || loading) return;
+    el.classList.add("wc-feed-in");
+    const timer = window.setTimeout(() => el.classList.remove("wc-feed-in"), 700);
+    return () => {
+      window.clearTimeout(timer);
+      el.classList.remove("wc-feed-in");
+    };
+  }, [conversationId, loading]);
+
   const [highlightFile, setHighlightFile] = useState<string | null>(null);
   const jumpToFile = (fileName: string) => {
     onPanel("files");
@@ -611,6 +724,25 @@ export function ChannelScreen({
     const raf = requestAnimationFrame(() => jumpToMessage(focusMessageId));
     return () => cancelAnimationFrame(raf);
   }, [focusMessageId, channel.id]);
+
+  /**
+   * A panel opened from the channel's details goes back to them when closed, as a page opened from a
+   * page does, rather than dropping the reader into the conversation they did not ask to return to.
+   */
+  const [fromDetails, setFromDetails] = useState(false);
+  const openFromDetails = (next: "members" | "pinned" | "files" | "search") => {
+    setFromDetails(true);
+    onPanel(next);
+  };
+  const closePanel = () => {
+    if (fromDetails && panel !== "details") {
+      setFromDetails(false);
+      onPanel("details");
+      return;
+    }
+    setFromDetails(false);
+    onPanel(null);
+  };
 
   const contentKey = profileName
     ? `profile:${profileName}`
@@ -647,15 +779,28 @@ export function ChannelScreen({
       readOnlyNotice={isVisitor ? visitorNotice : undefined}
       loadingReplies={threadLoading}
     />
+  ) : panel === "details" && !isDm ? (
+    <ChannelDetails
+      channel={channel}
+      members={memberList}
+      canModerate={canModerate}
+      onClose={closePanel}
+      onOpenPanel={openFromDetails}
+      onNotifications={() => setMenuDialog("notifications")}
+      onAddPeople={() => setMenuDialog("addpeople")}
+      onSettings={() => setMenuDialog("settings")}
+      onLeave={() => setMenuDialog("leave")}
+      onJoin={onJoinChannel}
+    />
   ) : panel === "search" ? (
     <SearchPanel
       messages={messages}
       files={files}
-      onClose={() => onPanel(null)}
+      onClose={closePanel}
       onJump={jumpToMessage}
       onJumpFile={jumpToFile}
     />
-  ) : panel ? (
+  ) : panel && panel !== "details" ? (
     <SidePanel
       kind={panel}
       files={panelFiles}
@@ -664,7 +809,7 @@ export function ChannelScreen({
       membersLoading={!isDm && roster?.channelId !== channel.id}
       pinned={pinned}
       highlightFile={highlightFile}
-      onClose={() => onPanel(null)}
+      onClose={closePanel}
       onSelectMember={actions.openProfile}
       onJump={jumpToMessage}
       onNotify={onNotify}
@@ -677,6 +822,41 @@ export function ChannelScreen({
   return (
     <div style={{ flex: 1, display: "flex", minWidth: 0, minHeight: 0, position: "relative" }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+        {onBack ? (
+          // A phone: the way back, the conversation's name as the door to everything about it (its
+          // details, or the person's profile), and search, the one thing reached for in passing.
+          // The desktop's row of five icons does not fit, and guessing them from pictograms on a
+          // small screen is worse than one labelled page.
+          <div style={{ ...styles.top, padding: "0 4px 0 2px", gap: 2 }}>
+            <IconButton icon="arrow-left" label={t("common.back")} onClick={onBack} style={{ width: 44, height: 44 }} />
+            <button
+              type="button"
+              className="wc-conv-title"
+              onClick={() => (isDm ? actions.openProfile(dm.name) : onPanel("details"))}
+              aria-label={isDm ? t("profile.title") : t("channel.details")}
+            >
+              {isDm ? (
+                <Avatar name={dm.name} src={getAvatar(dm.name)} size={30} presence={dmPresence ?? "offline"} kind={dm.bot ? "bot" : "person"} />
+              ) : (
+                <Icon name={channel.type === "private" ? "lock" : "hash"} size={18} style={{ flex: "none", color: "var(--text-muted)" }} />
+              )}
+              <span className="wc-conv-title__text">
+                <h1 className="wc-conv-title__name">{isDm ? dm.name : channel.name}</h1>
+                <span className="wc-conv-title__sub">
+                  {isDm ? (dmProfile?.role ?? t(PRESENCE_LABEL[dmPresence ?? "offline"])) : t("space.members", { count: memberList.length })}
+                </span>
+              </span>
+              <Icon name="chevron-right" size={16} style={{ flex: "none", color: "var(--text-muted)" }} />
+            </button>
+            <IconButton
+              icon="search"
+              label={t("conversation.searchInConversation")}
+              aria-pressed={panel === "search"}
+              onClick={() => togglePanel("search")}
+              style={{ width: 44, height: 44 }}
+            />
+          </div>
+        ) : (
         <div style={styles.top}>
           {isDm ? (
             <>
@@ -762,10 +942,11 @@ export function ChannelScreen({
           ) : null}
           </div>
         </div>
+        )}
         <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div style={{ ...styles.feed, paddingBottom: typing.length > 0 ? 60 : 8 }} ref={feedRef}>
           {/* Keyed on the conversation: switching fades the new one in instead of swapping it. */}
-          <div style={styles.inner} key={isDm ? dm.id : channel.id} className="wc-fade-in">
+          <div style={styles.inner} key={conversationId} ref={feedInnerRef} className="wc-fade-in">
             {loading ? (
               <SkeletonGroup label={t("common.loading")} style={{ padding: "8px 0" }}>
                 {[
@@ -794,22 +975,22 @@ export function ChannelScreen({
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <Avatar name={dm.name} src={getAvatar(dm.name)} size={44} presence={(dmPresence ?? "offline")} kind={dm.bot ? "bot" : "person"} />
                         <div>
-                          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+                          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.1, color: "var(--text-strong)" }}>
                             {dm.name}
                           </div>
                           {dmProfile?.role ? <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{dmProfile.role}</div> : null}
                         </div>
                       </div>
-                      <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 10, maxWidth: 560 }}>
+                      <p style={{ fontSize: 15, color: "var(--text-body)", marginTop: 10, maxWidth: 560 }}>
                         {t("conversation.dmStart", { name: dm.name.split(" ")[0] })}
                       </p>
                     </>
                   ) : (
                     <>
-                      <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+                      <div style={{ fontSize: "clamp(28px, 3.4vw, 40px)", fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.05, color: "var(--text-strong)", overflowWrap: "anywhere" }}>
                         #{channel.name}
                       </div>
-                      <p style={{ fontSize: 14, color: "var(--text-muted)", marginTop: 6, maxWidth: 560 }}>
+                      <p style={{ fontSize: 15, color: "var(--text-body)", marginTop: 10, maxWidth: 560 }}>
                         {isArchived ? t("conversation.archivedNotice") : channel.type === "private" ? t("conversation.privateNotice") : t("conversation.publicNotice")}{" "}
                         {/* A topic written with its own full stop is left with it: an imported one
                             carries whatever the source held, and "votre équipe.. L'historique" is what
@@ -820,14 +1001,17 @@ export function ChannelScreen({
                     </>
                   )}
                 </div>
-                {msgCount > 0 ? (
-                  <div style={styles.day}>
-                    <span style={styles.dayLine} />
-                    <span style={styles.dayLbl}>{t("conversation.today")}</span>
-                    <span style={styles.dayLine} />
-                  </div>
-                ) : null}
-                {messages.map((m, index) => (
+                {/* One block per day, headed by the day. The heading is held at the top of the feed
+                    while that day's messages scroll under it, and only then: each block bounds its
+                    own heading, so the next day's takes over instead of piling on top. */}
+                {groupByDay(messages).map((day) => (
+                  <div key={day.key} className="wc-day">
+                    {day.at ? (
+                      <div style={styles.day} role="separator" aria-label={dayHeading(day.at)}>
+                        <span style={styles.dayLbl}>{dayHeading(day.at)}</span>
+                      </div>
+                    ) : null}
+                    {day.items.map(({ m, index }) => (
                   <Fragment key={m.id}>
                     {m.id === unreadMarker ? (
                       <div style={styles.unread}>
@@ -862,6 +1046,8 @@ export function ChannelScreen({
                       />
                     )}
                   </Fragment>
+                    ))}
+                  </div>
                 ))}
               </>
             )}
@@ -922,7 +1108,19 @@ export function ChannelScreen({
           />
         )}
       </div>
-      <RightDock open={rightNode != null} contentKey={contentKey} compact={compact}>
+      <RightDock
+        open={rightNode != null}
+        contentKey={contentKey}
+        mode={compact ? "page" : overlayPanels ? "overlay" : "column"}
+        onDismiss={() => {
+          if (profileName) onCloseProfile();
+          else if (threadParent) onCloseThread();
+          else {
+            setFromDetails(false);
+            onPanel(null);
+          }
+        }}
+      >
         {rightNode}
       </RightDock>
 

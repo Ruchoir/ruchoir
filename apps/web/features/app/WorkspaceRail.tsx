@@ -10,13 +10,13 @@ import { useTranslation } from "@/lib/i18n";
 const rail: CSSProperties = {
   width: "var(--rail-width)",
   flex: "none",
-  background: "var(--grey-100)",
-  borderRight: "1px solid var(--border-subtle)",
+  background: "var(--surface-canvas)",
+  borderRight: "1.5px solid var(--border-subtle)",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  padding: "8px 0",
-  gap: 6,
+  padding: "12px 0",
+  gap: 10,
 };
 
 /** Wrapper that lets the unread indicator sit on the tile's corner. */
@@ -42,26 +42,22 @@ const wsDot: CSSProperties = {
   display: "inline-flex",
   lineHeight: 0,
   borderRadius: "var(--radius-full)",
-  boxShadow: "0 0 0 2px var(--grey-100)",
+  boxShadow: "0 0 0 2px var(--surface-canvas)",
   pointerEvents: "none",
 };
 
-function wsButton(on: boolean): CSSProperties {
-  return {
-    width: 40,
-    height: 40,
-    borderRadius: "var(--radius-md)",
-    border: 0,
-    padding: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    background: "transparent",
-    boxShadow: on ? "0 0 0 2px var(--terracotta-500)" : "none",
-    transition: "box-shadow var(--duration-fast) var(--ease-out)",
-  };
-}
+const wsButton: CSSProperties = {
+  width: 40,
+  height: 40,
+  borderRadius: "var(--radius-md)",
+  border: 0,
+  padding: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+  background: "transparent",
+};
 
 export type WorkspaceRailProps = {
   workspaces: Workspace[];
@@ -146,7 +142,7 @@ export function WorkspaceRail({
                 // the same thing with nothing jumping around.
                 boxShadow:
                   dropIndex === index && dragging && dragging !== w.id
-                    ? "inset 0 3px 0 0 var(--terracotta-500)"
+                    ? "inset 0 3px 0 0 var(--ink)"
                     : undefined,
               }}
               onDragOver={(e) => {
@@ -163,7 +159,11 @@ export function WorkspaceRail({
               }}
             >
               <button
-                style={wsButton(w.id === active)}
+                // The ring, the offset shadow of the open space and the tilt under the pointer are
+                // drawn by the class (components.css), which can say :hover.
+                className="wc-rail-space"
+                style={wsButton}
+                aria-current={w.id === active ? "true" : undefined}
                 onClick={() => onSelect(w.id)}
                 aria-label={label}
                 // Reordering is a mouse gesture *and* a keyboard one: alt with the arrow keys moves
@@ -191,8 +191,8 @@ export function WorkspaceRail({
                 <Avatar name={w.name} src={w.iconUrl} kind="workspace" size={36} />
               </button>
               {mentions > 0 ? (
-                <span style={wsIndicator}>
-                  <Badge count={mentions} tone="accent" />
+                <span style={wsIndicator} className="wc-rail-ind">
+                  <Badge count={mentions} tone="mention" />
                 </span>
               ) : null}
               {activity ? (
@@ -217,6 +217,7 @@ export function WorkspaceRail({
           onClick={() => setUserMenu((o) => !o)}
           aria-label={t("shell.myProfileAndStatus")}
           aria-expanded={userMenu}
+          className="wc-rail-space"
           style={{ border: 0, background: "none", padding: 0, cursor: "pointer" }}
         >
           <Avatar name={currentUser} src={getAvatar(currentUser)} size={36} presence={presence} />

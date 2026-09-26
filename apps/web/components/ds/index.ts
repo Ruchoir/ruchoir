@@ -51,3 +51,5 @@ export { Textarea } from "./Textarea";
 export type { TextareaProps } from "./Textarea";
 export { Tooltip } from "./Tooltip";
 export type { TooltipProps, TooltipSide } from "./Tooltip";
+export { Sheet, SheetGroup, SheetItem } from "./Sheet";
+export type { SheetItemProps, SheetProps } from "./Sheet";

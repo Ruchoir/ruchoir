@@ -54,12 +54,11 @@ const st: Record<string, CSSProperties> = {
     overflowY: "auto",
   },
   section: {
+    fontFamily: "var(--font-mono)",
     margin: "20px 0 8px",
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontSize: 12,
+    fontWeight: 500,
+    color: "var(--text-muted)",
   },
   tips: {
     display: "grid",
@@ -165,7 +164,7 @@ export function ExternalLinkDialog({
             borderRadius: "var(--radius-md)",
             background: "var(--surface-sunken)",
             fontSize: 13,
-            color: "var(--text-danger, var(--terracotta-700))",
+            color: "var(--status-danger-fg)",
           }}
         >
           <Icon name="alert-triangle" size={16} style={{ flex: "none", marginTop: 1 }} />

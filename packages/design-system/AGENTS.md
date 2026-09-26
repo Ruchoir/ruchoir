@@ -11,9 +11,9 @@ and an oxlint adherence config.
 
 ## Principles (when work starts)
 
-- **Two brand colors**: terracotta `#c65d45` (`--terracotta-500`), the accent, used sparingly;
-  and deep teal `#18383d` (`--teal-500`) for dark surfaces only. Everything else is warm cream/sand
-  neutral and desaturated semantic colors.
+- **Palette**: the Ruchoir design system's, shared with the public site: grey canvas, an ink accent,
+  pastels, terracotta for the mark only. The live tokens are `apps/web/app/tokens.css`; see the root
+  `AGENTS.md` for the rules.
 - Typography: IBM Plex Sans (UI, 14px body) and IBM Plex Mono (code), self-hosted (OFL).
 - Recreate the mockups faithfully in React; do not copy prototype internals when they do
   not fit. Ship the oxlint adherence config so token usage is enforced.

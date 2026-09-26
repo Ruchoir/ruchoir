@@ -156,7 +156,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
       </form>
 
       {error ? (
-        <p role="alert" style={{ ...st.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
+        <p role="alert" style={{ ...st.empty, color: "var(--status-danger-fg)" }}>
           {t(error)}
         </p>
       ) : null}
@@ -306,7 +306,7 @@ function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }
       </div>
 
       {error ? (
-        <p role="alert" style={{ ...st.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
+        <p role="alert" style={{ ...st.empty, color: "var(--status-danger-fg)" }}>
           {t(error)}
         </p>
       ) : null}

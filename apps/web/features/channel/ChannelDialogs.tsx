@@ -177,7 +177,7 @@ export function ChannelSettingsDialog({
 
         <Field label={t("channel.membersAndAccess", { count: members?.length ?? 0 })}>
           {rosterError ? (
-            <p role="alert" style={{ fontSize: 12, color: "var(--text-danger, var(--terracotta-700))" }}>
+            <p role="alert" style={{ fontSize: 12, color: "var(--status-danger-fg)" }}>
               {t(rosterError)}
             </p>
           ) : (
@@ -334,7 +334,7 @@ export function DeleteChannelDialog({
         />
       </Field>
       {error ? (
-        <p role="alert" style={{ fontSize: 12, color: "var(--text-danger, var(--terracotta-700))", margin: "10px 0 0" }}>
+        <p role="alert" style={{ fontSize: 12, color: "var(--status-danger-fg)", margin: "10px 0 0" }}>
           {error}
         </p>
       ) : null}
@@ -550,7 +550,7 @@ export function AddPeopleDialog({
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <Input autoFocus icon="search" placeholder={t("channel.searchPerson")} value={q} onChange={(e) => setQ(e.target.value)} />
         {error ? (
-          <p role="alert" style={{ fontSize: 12, color: "var(--text-danger, var(--terracotta-700))" }}>
+          <p role="alert" style={{ fontSize: 12, color: "var(--status-danger-fg)" }}>
             {t(error)}
           </p>
         ) : null}
