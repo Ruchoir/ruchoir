@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useMemo, useRef, useState } from "react";
-import { Icon, Input, Popover } from "@/components/ds";
+import { Icon, Input, Popover, Tooltip } from "@/components/ds";
 import { highlightCode, listLanguages } from "./highlight";
 import { useTranslation } from "@/lib/i18n";
 
@@ -15,8 +15,8 @@ export type CodeBlockProps = {
 
 const pickerPanel: CSSProperties = {
   width: 240,
-  background: "var(--surface-canvas)",
-  border: "1px solid var(--border-subtle)",
+  background: "var(--surface-raised)",
+  border: "2px solid var(--ink)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
   overflow: "hidden",
@@ -60,17 +60,18 @@ export function CodeBlock({ code, declaredLang, editable }: CodeBlockProps) {
     <div className="wc-codeblock">
       <div className="wc-codebar">
         {editable ? (
-          <button
-            ref={langRef}
-            type="button"
-            className="wc-codelang wc-codelang--edit"
-            onClick={() => setPickerOpen((o) => !o)}
-            aria-expanded={pickerOpen}
-            title={t("code.changeLanguage")}
-          >
-            {displayLang}
-            <Icon name="chevron-down" size={12} />
-          </button>
+          <Tooltip label={t("code.changeLanguage")}>
+            <button
+              ref={langRef}
+              type="button"
+              className="wc-codelang wc-codelang--edit"
+              onClick={() => setPickerOpen((o) => !o)}
+              aria-expanded={pickerOpen}
+            >
+              {displayLang}
+              <Icon name="chevron-down" size={12} />
+            </button>
+          </Tooltip>
         ) : (
           <span className="wc-codelang">{displayLang}</span>
         )}
@@ -116,7 +117,7 @@ function langItem(active: boolean): CSSProperties {
     background: active ? "var(--surface-selected)" : "transparent",
     color: active ? "var(--text-accent)" : "var(--text-body)",
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     textAlign: "left",
     cursor: "pointer",
   };

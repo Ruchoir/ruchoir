@@ -9,14 +9,28 @@ export type BottomTab = { id: string; label: string; icon: string; badge?: numbe
 const bar: CSSProperties = {
   flex: "none",
   display: "flex",
-  borderTop: "1px solid var(--border-subtle)",
+  borderTop: "1.5px solid var(--border-subtle)",
   background: "var(--surface-chrome)",
-  paddingBottom: "env(safe-area-inset-bottom)",
+  // Clear of the home indicator on a phone that has one; a little air on one that does not.
+  paddingBottom: "max(env(safe-area-inset-bottom), 6px)",
+};
+
+/** The open tab's mark: a short ink bar hanging from the top edge. */
+const indicator: CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: "28%",
+  right: "28%",
+  height: 3,
+  borderRadius: "0 0 3px 3px",
+  background: "var(--ink)",
 };
 
 function tabStyle(active: boolean): CSSProperties {
   return {
+    position: "relative",
     flex: 1,
+    // A thumb's target: 52px tall, the label under the icon rather than squeezed beside it.
     minHeight: 52,
     display: "flex",
     flexDirection: "column",
@@ -26,9 +40,9 @@ function tabStyle(active: boolean): CSSProperties {
     border: 0,
     background: "none",
     cursor: "pointer",
-    color: active ? "var(--terracotta-600)" : "var(--text-muted)",
+    color: active ? "var(--ink)" : "var(--text-muted)",
     fontFamily: "var(--font-sans)",
-    fontSize: 11,
+    fontSize: "var(--text-2xs)",
     fontWeight: active ? 600 : 500,
   };
 }
@@ -54,10 +68,11 @@ export function BottomTabs({
           aria-current={active === tab.id ? "page" : undefined}
           onClick={() => onSelect(tab.id)}
         >
+          {active === tab.id ? <span aria-hidden style={indicator} /> : null}
           <span style={{ position: "relative", display: "flex" }}>
-            <Icon name={tab.icon} size={20} />
+            <Icon name={tab.icon} size={22} />
             {tab.badge ? (
-              <span style={{ position: "absolute", top: -6, left: 12 }}>
+              <span style={{ position: "absolute", top: -6, left: 10 }}>
                 <Badge count={tab.badge} />
               </span>
             ) : null}

@@ -31,8 +31,8 @@ const st: Record<string, CSSProperties> = {
     display: "flex",
     gap: 12,
     padding: 14,
-    background: "var(--surface-canvas)",
-    border: "1px solid var(--border-default)",
+    background: "var(--surface-raised)",
+    border: "2px solid var(--ink)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-dialog)",
   },
@@ -46,8 +46,8 @@ const st: Record<string, CSSProperties> = {
     borderRadius: "var(--radius-full)",
     background: "var(--surface-sunken)",
   },
-  title: { fontSize: 13, fontWeight: 600, color: "var(--text-strong)" },
-  body: { fontSize: 12, lineHeight: 1.5, color: "var(--text-muted)", margin: "4px 0 10px" },
+  title: { fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" },
+  body: { fontSize: "var(--text-2xs)", lineHeight: 1.5, color: "var(--text-muted)", margin: "4px 0 10px" },
   actions: { display: "flex", gap: 8 },
 };
 

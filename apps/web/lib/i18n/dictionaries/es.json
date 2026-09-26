@@ -176,6 +176,8 @@
   "shell": {
     "mainNav": "Navegación principal",
     "workspaces": "Espacios de trabajo",
+    "arrangeSpaces": "Reordenar",
+    "dragToMove": "Arrastra para mover {{name}}",
     "newMessage": "Nuevo mensaje",
     "newSpace": "Nuevo espacio",
     "myProfile": "Mi perfil",
@@ -287,7 +289,7 @@
     "invitePeople": "Invitar personas",
     "spaceSettings": "Ajustes del espacio",
     "spaceFiles": "Archivos del espacio",
-    "searchPlaceholder": "Buscar un canal, una persona…",
+    "searchPlaceholder": "Buscar en todas partes…",
     "threads": "Hilos",
     "favourites": "Canales favoritos",
     "privateChannel": "Canal privado",
@@ -304,7 +306,8 @@
     "spaceSwitch": "Cambiar de espacio",
     "spaceSwitchNamed": "Espacio {{name}}, cambiar de espacio",
     "space": "Espacio",
-    "favouriteHint": "Ten a mano tus canales habituales: «Añadir a favoritos» en el menú de un canal.",
+    "favouriteHintShort": "Añade uno desde el menú ⋯ de un canal.",
+    "favouriteHintTouch": "Mantén pulsado un canal para añadir uno.",
     "noChannelYet": "Aún no hay ningún canal. Verás uno en cuanto te añadan."
   },
   "welcome": {
@@ -373,6 +376,7 @@
     "react": "Reaccionar",
     "replies_one": "{{count}} respuesta",
     "replies_other": "{{count}} respuestas",
+    "lastReply": "Última respuesta: {{when}}",
     "reactionCount_one": "{{count}} reacción",
     "reactionCount_other": "{{count}} reacciones",
     "pinnedTag": "Fijado",
@@ -539,7 +543,8 @@
     "deleteBody": "Los mensajes, hilos, reacciones y archivos subidos en este canal se borrarán para todos sus miembros. Los archivos del espacio que solo estaban adjuntos se quedan en el espacio.",
     "deleteNameMismatch": "Ese no es el nombre del canal.",
     "deleted": "Canal eliminado",
-    "deletedElsewhere": "El canal #{{name}} ha sido eliminado."
+    "deletedElsewhere": "El canal #{{name}} ha sido eliminado.",
+    "details": "Detalles del canal"
   },
   "role": {
     "member": "Miembro",
@@ -828,7 +833,6 @@
     "backToSpace": "Volver al espacio",
     "appearance": "Apariencia",
     "appearanceSub": "Tema, tipografía, tamaño del texto y aspecto inicial de la interfaz.",
-    "theme": "Tema",
     "font": "Tipografía",
     "textSize": "Tamaño del texto",
     "defaultDisplay": "Vista por defecto",
@@ -870,8 +874,17 @@
     "sizeM": "Normal",
     "sizeL": "Grande",
     "sizeXL": "Muy grande",
-    "themeLight": "Claro",
-    "themeDark": "Oscuro",
+    "mode": "Modo",
+    "modeDay": "Día",
+    "modeNight": "Noche",
+    "modeAuto": "Automático",
+    "modeAutoHint": "Sigue el ajuste claro u oscuro de tu dispositivo y cambia con él.",
+    "modeFixedHint": "Igual a cualquier hora, sea cual sea el ajuste de tu dispositivo.",
+    "accent": "Color de acento",
+    "themeSky": "Cielo",
+    "themeMint": "Menta",
+    "themeViolet": "Violeta",
+    "themePink": "Rosa",
     "browserNotif": "Notificaciones del navegador",
     "notifGranted": "Autorizadas. Aparecen cuando Ruchoir no es la ventana que estás mirando.",
     "notifDenied": "Rechazadas para este sitio. Solo el navegador puede revertirlo: abre la información del sitio en la barra de direcciones y vuelve a autorizar las notificaciones.",
@@ -994,8 +1007,8 @@
     "channels": "Canales",
     "messages": "Mensajes",
     "activity": "Actividad",
-    "search": "Búsqueda",
-    "mainContent": "Contenido principal"
+    "mainContent": "Contenido principal",
+    "home": "Inicio"
   },
   "system": {
     "memberJoined": "{{who}} se unió al espacio.",
@@ -1205,5 +1218,9 @@
     "tipDoubt": "¿Dudas? Pregunta a quien lo envió.",
     "dontShowAgain": "No volver a mostrar este aviso",
     "beforeOpening": "Antes de abrirlo"
+  },
+  "mobile": {
+    "noDmText": "Tus mensajes directos con los miembros del espacio aparecerán aquí.",
+    "youPrefix": "Tú: {{text}}"
   }
 }

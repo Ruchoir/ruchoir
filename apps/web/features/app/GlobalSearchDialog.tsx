@@ -8,14 +8,14 @@ import { getAvatar } from "@/lib/data";
 import { messageSummary } from "./activity";
 import { useTranslation } from "@/lib/i18n";
 import { formatStamp } from "@/lib/i18n/format";
+import { useTouch } from "./useLayout";
 
 const styles: Record<string, CSSProperties> = {
   label: {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontSize: "var(--text-2xs)",
+    fontWeight: 500,
+    color: "var(--text-muted)",
     padding: "12px 4px 4px",
   },
   row: {
@@ -53,6 +53,7 @@ export function GlobalSearchDialog({
   onOpenProfile,
 }: GlobalSearchDialogProps) {
   const { t } = useTranslation();
+  const touch = useTouch();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [msgHits, setMsgHits] = useState<SearchMessage[]>([]);
@@ -136,19 +137,11 @@ export function GlobalSearchDialog({
   };
 
   return (
-    <Dialog title={t("gsearch.open")} size="md" onClose={onClose} closeLabel={t("common.close")}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "8px 10px",
-          border: "1px solid var(--border-default)",
-          borderRadius: "var(--radius-md)",
-          marginBottom: 4,
-        }}
-      >
-        <Icon name="search" size={16} style={{ color: "var(--text-subtle)" }} />
+    // On a phone, the whole screen: results need the height, and a sheet over a sheet over the
+    // keyboard leaves room for two of them.
+    <Dialog title={t("gsearch.open")} size="md" onClose={onClose} closeLabel={t("common.close")} className="wc-dlg--search">
+      <div className="wc-inp wc-inp--lg" style={{ marginBottom: 4 }}>
+        <Icon name="search" size={18} style={{ color: "var(--text-subtle)" }} />
         <input
           autoFocus
           value={query}
@@ -165,13 +158,14 @@ export function GlobalSearchDialog({
             outline: "none",
             background: "none",
             fontFamily: "inherit",
-            fontSize: 14,
+            // 16px: below it, a phone zooms the whole page in to type.
+            fontSize: "var(--text-base)",
             color: "var(--text-strong)",
           }}
         />
       </div>
 
-      <div ref={listRef} style={{ maxHeight: 360, overflow: "auto" }}>
+      <div ref={listRef} className="wc-search-results" style={{ overflow: "auto" }}>
         {!q ? (
           <EmptyState
             size="compact"
@@ -214,7 +208,7 @@ export function GlobalSearchDialog({
                   >
                     <Avatar name={m.author} src={getAvatar(m.author)} size={26} />
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
+                      <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>
                         {m.author}
                         <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                       </span>
@@ -224,7 +218,7 @@ export function GlobalSearchDialog({
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: "vertical",
                           overflow: "hidden",
-                          fontSize: 13,
+                          fontSize: "var(--text-xs)",
                           color: "var(--text-body)",
                         }}
                       >
@@ -250,12 +244,12 @@ export function GlobalSearchDialog({
                     onClick={onOpenFile}
                   >
                     {f.kind === "folder" ? (
-                      <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)", marginTop: 1 }} />
+                      <Icon name="folder" size={18} style={{ color: "var(--ink)", marginTop: 1 }} />
                     ) : (
                       <FileIcon name={f.name} size={22} />
                     )}
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)" }}>{f.name}</span>
+                      <span style={{ display: "block", fontSize: "var(--text-xs)", color: "var(--text-strong)" }}>{f.name}</span>
                     </span>
                   </button>
                 ))}
@@ -276,7 +270,7 @@ export function GlobalSearchDialog({
                     onClick={() => onOpenProfile(p.name)}
                   >
                     <Avatar name={p.name} src={getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
-                    <span style={{ fontSize: 13, color: "var(--text-strong)", alignSelf: "center" }}>{p.name}</span>
+                    <span style={{ fontSize: "var(--text-xs)", color: "var(--text-strong)", alignSelf: "center" }}>{p.name}</span>
                   </button>
                 ))}
               </>
@@ -284,8 +278,9 @@ export function GlobalSearchDialog({
           </>
         )}
       </div>
-      {total > 0 ? (
-        <div style={{ display: "flex", gap: 14, padding: "8px 2px 0", fontSize: 11, color: "var(--text-subtle)" }}>
+      {/* Keys, which a touch screen does not have. */}
+      {total > 0 && !touch ? (
+        <div style={{ display: "flex", gap: 14, padding: "8px 2px 0", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
           <span>{t("switcher.navigate")}</span>
           <span>{t("switcher.open")}</span>
           <span>{t("switcher.close")}</span>

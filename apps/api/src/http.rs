@@ -81,15 +81,8 @@ pub(crate) async fn healthz() -> Json<Health> {
     responses((status = 200, description = "API readiness with dependency probes", body = ApiHealth))
 )]
 pub(crate) async fn api_health(State(state): State<AppState>) -> Json<ApiHealth> {
-    let database = match state.db.ping().await {
-        Ok(()) => "ok",
-        Err(_) => "down",
-    };
-    // A bare PING; the reply payload is irrelevant, only whether the round-trip succeeds.
-    let cache = match state.valkey.ping::<String>(None).await {
-        Ok(_) => "ok",
-        Err(_) => "down",
-    };
+    let (database, cache) = probe(&state).await;
+    let (database, cache) = (up_or_down(database), up_or_down(cache));
     let status = if database == "ok" && cache == "ok" {
         "ok"
     } else {
@@ -103,6 +96,23 @@ pub(crate) async fn api_health(State(state): State<AppState>) -> Json<ApiHealth>
         database,
         cache,
     })
+}
+
+/// Whether PostgreSQL and Valkey answer, in that order. Shared by the health endpoint and the
+/// status page's link preview card.
+pub(crate) async fn probe(state: &AppState) -> (bool, bool) {
+    let database = state.db.ping().await.is_ok();
+    // A bare PING; the reply payload is irrelevant, only whether the round-trip succeeds.
+    let cache = state.valkey.ping::<String>(None).await.is_ok();
+    (database, cache)
+}
+
+fn up_or_down(up: bool) -> &'static str {
+    if up {
+        "ok"
+    } else {
+        "down"
+    }
 }
 
 /// What a client can count on from this instance, before it has a session.
@@ -214,6 +224,8 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::realtime::routes::router())
         // Notification delivery past the open page: preferences, Web Push, the email fallback.
         .merge(crate::notify::router())
+        // Link preview cards, the images a pasted link's preview shows.
+        .merge(crate::og::router())
         // The files surface (tree, upload/versions, download/preview/thumbnail, shares). Its upload
         // routes carry a raised request-body limit sized from the configured cap plus a small
         // multipart overhead; the byte responses are proxied through the API so the object store is
@@ -257,8 +269,22 @@ pub fn router(state: AppState) -> Router {
             .service(ServeDir::new(web_dist.join("_next/static"))),
     );
 
+    // A page (a browser's or a link scraper's navigation) is served with the preview tags that fit
+    // its path; everything else is a file of the bundle, as before.
     router
-        .fallback_service(static_service)
+        .fallback(move |State(state): State<AppState>, req: Request| {
+            let static_service = static_service.clone();
+            async move {
+                if crate::og::is_page_request(&req) {
+                    crate::og::page(state, req).await
+                } else {
+                    match static_service.oneshot(req).await {
+                        Ok(response) => response.into_response(),
+                        Err(never) => match never {},
+                    }
+                }
+            }
+        })
         .layer(set_header(header::CONTENT_SECURITY_POLICY, csp))
         .layer(set_header(header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
         .layer(set_header(header::REFERRER_POLICY, "no-referrer"))

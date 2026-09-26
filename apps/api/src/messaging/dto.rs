@@ -49,6 +49,10 @@ pub struct MessageDto {
     pub parent_message_id: Option<Uuid>,
     /// Number of replies in this message's thread.
     pub reply_count: i32,
+    /// When the thread was last answered (RFC 3339), for "last reply at 14:32" beside the count.
+    /// Absent for a message without replies.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_reply_at: Option<String>,
     /// The preview of the message's first link, read by the server (see `messaging::unfurl`).
     /// Absent until it has been fetched, and for a message without a readable link.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -228,6 +232,23 @@ pub struct DirectMessageDto {
     pub notify_level: String,
     /// Whether the caller has muted this conversation.
     pub muted: bool,
+    /// The latest message of the conversation, for the preview line of a conversation list.
+    /// Absent while nothing has been said.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_message: Option<LastMessageDto>,
+}
+
+/// The latest message of a conversation, as a list of conversations shows it: the start of what was
+/// said, who said it and when. A reply in a thread is not it, nor a system notice: what a list
+/// previews is the conversation itself.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct LastMessageDto {
+    /// The first characters of the body, raw markdown (the client flattens it for one line).
+    pub excerpt: String,
+    /// Whether the caller wrote it, so the list can say "You: ...".
+    pub mine: bool,
+    /// Sent at, RFC 3339.
+    pub created_at: String,
 }
 
 /// A user's effective presence as seen by others.

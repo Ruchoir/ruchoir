@@ -95,6 +95,17 @@ async fn boot() -> Option<TestApp> {
     let import_dir = std::env::temp_dir().join("ruchoir-test-imports");
     std::fs::create_dir_all(&import_dir).expect("import dir");
     config.import_dir = Some(import_dir);
+    // A stand-in for the web bundle's shell, so the pages served with link preview tags have a head.
+    let web_dist = std::env::temp_dir().join("ruchoir-test-web");
+    std::fs::create_dir_all(&web_dist).expect("web dir");
+    std::fs::write(
+        web_dist.join("index.html"),
+        "<html><head><title>Ruchoir</title></head><body></body></html>",
+    )
+    .expect("index");
+    config.web_dist = web_dist;
+    // The cards' language is asserted below, whatever the machine running the tests has set.
+    config.default_locale = crate::auth::mail_text::Locale::Fr;
 
     let db = crate::db::connect(&config).await.expect("connect db");
     SCHEMA_READY
@@ -641,6 +652,87 @@ async fn create_dm_is_idempotent_by_participants() {
         .await
         .expect("json");
     assert_eq!(first["id"], second["id"], "the same DM is reused");
+}
+
+#[tokio::test]
+async fn a_direct_message_list_previews_the_latest_message() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let dm: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/dm", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "user_ids": [fx.bob] }))
+        .send()
+        .await
+        .expect("dm")
+        .json()
+        .await
+        .expect("json");
+    let dm_id = dm["id"].as_str().expect("id").to_owned();
+    let list = format!("/api/v1/spaces/{}/dms", fx.space_id);
+    let preview = |cookie: String| {
+        let app = &app;
+        let list = &list;
+        let dm_id = dm_id.clone();
+        async move {
+            let dms: Value = app
+                .req(reqwest::Method::GET, list, &cookie)
+                .send()
+                .await
+                .expect("dms")
+                .json()
+                .await
+                .expect("json");
+            dms.as_array()
+                .expect("list")
+                .iter()
+                .find(|d| d["id"] == dm_id.as_str())
+                .expect("the conversation")
+                .get("last_message")
+                .cloned()
+        }
+    };
+
+    // Nothing said yet: nothing to preview.
+    assert!(preview(alice.clone()).await.is_none());
+
+    let post = format!("/api/v1/conversations/{dm_id}/messages");
+    let send = |cookie: String, body: Value| {
+        let app = &app;
+        let post = &post;
+        async move {
+            let sent: Value = app
+                .req(reqwest::Method::POST, post, &cookie)
+                .json(&body)
+                .send()
+                .await
+                .expect("send")
+                .json()
+                .await
+                .expect("json");
+            sent
+        }
+    };
+    send(alice.clone(), json!({ "body": "premier" })).await;
+    let latest = send(bob.clone(), json!({ "body": "second" })).await;
+    // A reply in a thread is not the conversation's latest word.
+    send(
+        alice.clone(),
+        json!({ "body": "dans le fil", "parent_message_id": latest["id"] }),
+    )
+    .await;
+
+    let seen_by_alice = preview(alice.clone()).await.expect("a preview");
+    assert_eq!(seen_by_alice["excerpt"], "second");
+    assert_eq!(seen_by_alice["mine"], false);
+    assert_eq!(seen_by_alice["created_at"], latest["created_at"]);
+    let seen_by_bob = preview(bob.clone()).await.expect("a preview");
+    assert_eq!(seen_by_bob["mine"], true);
 }
 
 #[tokio::test]
@@ -2824,6 +2916,79 @@ async fn a_channel_owner_names_moderators_and_a_moderator_names_nobody() {
         .await
         .expect("remove owner");
     assert_eq!(refused.status(), 403);
+}
+
+#[tokio::test]
+async fn a_thread_root_says_when_it_was_last_answered() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let post = format!("/api/v1/conversations/{}/messages", fx.public_channel);
+    let send = |body: Value| {
+        let app = &app;
+        let alice = &alice;
+        let post = &post;
+        async move {
+            let sent: Value = app
+                .req(reqwest::Method::POST, post, alice)
+                .json(&body)
+                .send()
+                .await
+                .expect("send")
+                .json()
+                .await
+                .expect("json");
+            sent
+        }
+    };
+    let root = send(json!({ "body": "le plan" })).await;
+    let root_id = root["id"].as_str().expect("id").to_owned();
+
+    // No reply yet: nothing to say.
+    let history: Value = app
+        .req(reqwest::Method::GET, &post, &alice)
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    let rows = history
+        .get("messages")
+        .unwrap_or(&history)
+        .as_array()
+        .expect("rows")
+        .clone();
+    let row = rows
+        .iter()
+        .find(|m| m["id"] == root_id.as_str())
+        .expect("root");
+    assert!(row.get("last_reply_at").is_none(), "{row}");
+
+    send(json!({ "body": "d'accord", "parent_message_id": root_id })).await;
+    let last = send(json!({ "body": "moi aussi", "parent_message_id": root_id })).await;
+
+    // Two replies: the time is the later one's.
+    let history: Value = app
+        .req(reqwest::Method::GET, &post, &alice)
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    let rows = history
+        .get("messages")
+        .unwrap_or(&history)
+        .as_array()
+        .expect("rows")
+        .clone();
+    let row = rows
+        .iter()
+        .find(|m| m["id"] == root_id.as_str())
+        .expect("root");
+    assert_eq!(row["reply_count"], 2);
+    assert_eq!(row["last_reply_at"], last["created_at"], "{row}");
 }
 
 #[tokio::test]
@@ -7710,4 +7875,85 @@ async fn every_message_is_notified_to_whoever_asked_for_it_and_nobody_else() {
         space_row(&app, &bob, fx.space_id).await["notify_level"],
         "default"
     );
+}
+
+/// A pasted invitation link previews its space and inviter, from the page a scraper fetches (no
+/// session, no `Accept`), and its card is drawn; a dead token previews as an expired invitation;
+/// a conversation's link names nothing; and the card counts public channels only.
+#[tokio::test]
+async fn link_previews_describe_an_invitation_and_nothing_private() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/invitations", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "role": "member" }))
+        .send()
+        .await
+        .expect("create invitation");
+    let invitation: Value = created.json().await.expect("json");
+    let token = token_of(invitation["url"].as_str().expect("url"));
+
+    // A scraper sends no `Accept` and has no session.
+    let page = |path: String| {
+        let http = app.http.clone();
+        let url = format!("{}{path}", app.base);
+        async move {
+            let response = http.get(url).send().await.expect("page");
+            assert_eq!(response.status(), 200);
+            response.text().await.expect("html")
+        }
+    };
+    let html = page(format!("/invite?token={token}")).await;
+    assert!(
+        html.contains(r#"property="og:title" content="alice vous invite à rejoindre Test Space""#),
+        "{html}"
+    );
+    assert!(html.contains(&format!("/api/v1/og/invite/{token}")));
+    assert!(html.contains(r#"name="robots" content="noindex""#));
+    // The token is in the image address (the scraper has it already), never in `og:url`.
+    assert!(html.contains(r#"property="og:url" content="http"#));
+    assert!(!html.contains(&format!("invite?token={token}")));
+
+    let card = app
+        .http
+        .get(format!("{}/api/v1/og/invite/{token}", app.base))
+        .send()
+        .await
+        .expect("card");
+    assert_eq!(card.status(), 200);
+    assert_eq!(card.headers()["content-type"], "image/png");
+    assert!(card.bytes().await.expect("png").starts_with(b"\x89PNG"));
+
+    // The seed has a public channel and a private one: only the public one is counted.
+    let facts = crate::messaging::invitations::invitation_card(&app.state, &token)
+        .await
+        .expect("card facts")
+        .expect("usable invitation");
+    assert_eq!(facts.channels, 1);
+
+    let html = page("/invite?token=0000".to_owned()).await;
+    assert!(
+        html.contains("n&#39;est plus valable") || html.contains("n'est plus valable"),
+        "{html}"
+    );
+    assert!(html.contains("/api/v1/og/expired.png"));
+
+    let html = page("/e/test-space/c/secret".to_owned()).await;
+    assert!(html.contains("/api/v1/og/message.png"));
+    assert!(!html.contains("Test Space"));
+
+    // A missing file keeps its 404, a page is a page.
+    let missing = app
+        .http
+        .get(format!("{}/missing.js", app.base))
+        .send()
+        .await
+        .expect("missing");
+    assert_eq!(missing.status(), 404);
 }

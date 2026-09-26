@@ -35,7 +35,7 @@ function SampleChart({ rounded }: { rounded?: number }) {
             width={step * 0.6}
             height={bh}
             rx={3}
-            fill={i === 5 ? "var(--terracotta-500)" : "var(--grey-300)"}
+            fill={i === 5 ? "var(--ink)" : "var(--grey-300)"}
           />
         );
       })}
@@ -147,7 +147,7 @@ export function InlineImage({ image }: { image: InlineImageData }) {
                 <SampleChart />
               )}
             </div>
-            <div style={{ marginTop: 10, textAlign: "center", fontSize: 13, color: "var(--text-inverse)" }}>
+            <div style={{ marginTop: 10, textAlign: "center", fontSize: "var(--text-xs)", color: "var(--text-inverse)" }}>
               {image.alt}
             </div>
           </div>

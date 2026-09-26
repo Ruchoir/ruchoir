@@ -7,12 +7,13 @@ import type { DirectMessage, Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatBytes, formatStamp } from "@/lib/i18n/format";
+import { PanelHead } from "./PanelHead";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
     width: "var(--panel-width)",
     flex: "none",
-    borderLeft: "1px solid var(--border-subtle)",
+    borderLeft: "1.5px solid var(--border-subtle)",
     background: "var(--surface-chrome)",
     display: "flex",
     flexDirection: "column",
@@ -24,9 +25,9 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 8px 0 16px",
-    borderBottom: "1px solid var(--border-subtle)",
+    borderBottom: "1.5px solid var(--border-subtle)",
   },
-  title: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
+  title: { fontSize: "var(--text-base)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   row: {
     display: "flex",
     alignItems: "center",
@@ -100,24 +101,21 @@ export function SidePanel({ kind, files, members, membersLoading = false, pinned
 
   return (
     <div style={styles.panel}>
-      <div style={styles.head}>
-        <span style={styles.title}>{t(TITLES[kind])}</span>
-        <IconButton icon="x" label={t("panel.close")} size="sm" onClick={onClose} />
-      </div>
+      <PanelHead title={t(TITLES[kind])} closeLabel={t("panel.close")} onClose={onClose} />
       <div style={{ flex: 1, overflow: "auto" }} ref={scrollRef}>
         {kind === "files"
           ? files.map((fl) => (
               <div key={fl.id ?? `${fl.name}:${fl.updatedAt}`} data-file={fl.name} style={styles.row}>
                 {fl.kind === "folder" ? (
-                  <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)" }} />
+                  <Icon name="folder" size={18} style={{ color: "var(--ink)" }} />
                 ) : (
                   <FileIcon name={fl.name} size={22} />
                 )}
                 <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: 14, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span style={{ display: "block", fontSize: "var(--text-sm)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {fl.name}
                   </span>
-                  <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                  <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
                     {fl.kind === "folder" ? "" : `${formatBytes(fl.sizeBytes)} · `}{formatStamp(fl.updatedAt)}
                   </span>
                 </span>
@@ -158,7 +156,7 @@ export function SidePanel({ kind, files, members, membersLoading = false, pinned
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 <Avatar name={p.name} src={p.avatar} size={30} presence={p.presence} kind={p.bot ? "bot" : "person"} shape={p.bot ? "round" : "square"} />
-                <span style={{ flex: 1, fontSize: 14, color: "var(--text-strong)" }}>{p.name}</span>
+                <span style={{ flex: 1, fontSize: "var(--text-sm)", color: "var(--text-strong)" }}>{p.name}</span>
                 {p.bot ? <Tag>{t("sidebar.bot")}</Tag> : null}
               </button>
             ))
@@ -184,11 +182,11 @@ export function SidePanel({ kind, files, members, membersLoading = false, pinned
                 >
                   <Avatar name={m.author} src={getAvatar(m.author)} size={28} presence={getPresence(m.author)} />
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
+                    <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>
                       {m.author}
                       <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                     </span>
-                    <span style={{ display: "block", fontSize: 13, color: "var(--text-body)", lineHeight: "var(--leading-snug)", marginTop: 2, textWrap: "pretty" }}>
+                    <span style={{ display: "block", fontSize: "var(--text-xs)", color: "var(--text-body)", lineHeight: "var(--leading-snug)", marginTop: 2, textWrap: "pretty" }}>
                       {messageSummary(m) ?? t("activity.attachment")}
                     </span>
                     {(m.images ?? (m.image ? [m.image] : [])).map((image, index) => image.src ? (
@@ -216,7 +214,7 @@ export function SidePanel({ kind, files, members, membersLoading = false, pinned
                         target="_blank"
                         rel="noopener noreferrer nofollow"
                         onClick={(e) => e.stopPropagation()}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: 12, color: "var(--text-link)" }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 6, fontSize: "var(--text-2xs)", color: "var(--text-link)" }}
                       >
                         <Icon name="globe" size={13} />
                         {m.link.domain}
@@ -230,7 +228,7 @@ export function SidePanel({ kind, files, members, membersLoading = false, pinned
                           onNotify({ tone: "info", title: t("panel.downloading"), description: attachment.name });
                         }}
                         title={attachment.name}
-                        style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", minWidth: 0, marginTop: 6, border: 0, background: "none", padding: 0, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--text-link)" }}
+                        style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", minWidth: 0, marginTop: 6, border: 0, background: "none", padding: 0, cursor: "pointer", fontFamily: "var(--font-sans)", fontSize: "var(--text-2xs)", color: "var(--text-link)" }}
                       >
                         <Icon name="download" size={14} style={{ flex: "none" }} />
                         <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

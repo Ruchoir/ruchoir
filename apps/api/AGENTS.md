@@ -205,12 +205,14 @@ context and takes precedence here.
   `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`), never a code change. Dev talks plaintext to Garage over
   the Docker network; `rust-s3` is built without any TLS backend (no `aws-lc-rs`, no OpenSSL), so
   TLS-to-store is a later hardening step (the `ring` path).
-- `src/http.rs`   - router, health endpoints (incl. DB/Valkey readiness probe), static web
-  hosting (SPA fallback), security headers. The SPA fallback answers a browser navigation (an
-  `Accept` carrying `text/html`) with `index.html` and a `200`, because the client resolves the
-  route: the address-confirmation and password-reset links the API emails point at paths that are
-  not files in the bundle. Any other request for a missing path keeps a truthful `404`, so a wrong
-  asset path fails loudly instead of receiving HTML. The `messaging`, `realtime` and `files` routers use
+- `src/http.rs`   - router, health endpoints (incl. DB/Valkey readiness probe, shared as `probe`),
+  static web hosting, security headers. A page navigation (see `og::is_page_request`: a `GET` with
+  no file extension, outside `/api/`, `/_next/`, `/emoji/`, whose `Accept` is missing, `*/*` or
+  `text/html`, because link scrapers rarely send `text/html`) is answered by `og::page` with the
+  shell and a `200`, because the client resolves the route: the address-confirmation and
+  password-reset links the API emails point at paths that are not files in the bundle. Any other
+  request for a missing path keeps a truthful `404`, so a wrong asset path fails loudly instead of
+  receiving HTML. The `messaging`, `realtime` and `files` routers use
   absolute `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
   The files router carries a raised request-body limit (`RUCHOIR_UPLOAD_MAX_BYTES`, default 100 MiB).
 - `src/messaging/unfurl.rs` - link previews, read by this server only (never a third-party service,
@@ -229,6 +231,14 @@ context and takes precedence here.
   by `GET /link-previews/{id}/image` to members of the conversation only. A thumbnail (about 13 KB) is removed from the
   store with the last preview that shows it; every failed fetch is logged as a warning with why.
   `RUCHOIR_UNFURL_ENABLED=false` turns it off.
+- `src/og/`       - link preview cards (ADR 0002). `page` adds Open Graph / Twitter tags to the shell
+  for the path being opened (home, invitation valid or not, channel or message, space, personal
+  email link, status), `render` draws the matching 1200x630 card from an SVG template with `resvg`,
+  `text` holds the cards' words in the six languages. **A card never says more than the link:** a
+  conversation or a space is anonymous, only a usable invitation names its space and inviter (and
+  counts public, active channels only). Language: `RUCHOIR_DEFAULT_LOCALE`. Every asset (fonts, bee,
+  emoji, avatars, mark) is embedded from `assets/og` and the image resolver refuses anything else.
+  After changing a card or a sentence, `RUCHOIR_OG_DUMP=<dir> cargo test og::` writes them all out.
 - `src/notify/`   - reaching someone with no Ruchoir page open (ADR 0001). `prefs`: the notification
   preferences, held server-side, in three layers where **the nearest one that says something wins**:
   the conversation's level (`channel_members` / `dm_participants`: `default`, `all`, `mentions`,

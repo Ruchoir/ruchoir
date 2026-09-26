@@ -9,6 +9,7 @@ import type { Channel } from "@/lib/data";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { BackHeading } from "../app/BackHeading";
 
 type NavKey = "general" | "members";
 
@@ -29,25 +30,38 @@ const st: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    padding: "0 16px",
+    padding: "0 20px",
     margin: 0, // rendered as an <h1>
-    borderBottom: "1px solid var(--border-subtle)",
-    fontSize: 15,
-    fontWeight: 600,
+    borderBottom: "1.5px solid var(--border-subtle)",
+    fontSize: "var(--text-lg)",
+    fontWeight: 700,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
   },
   body: { flex: 1, overflow: "auto", display: "flex", minWidth: 0, minHeight: 0 },
-  nav: { width: 200, flex: "none", padding: "16px 8px", borderRight: "1px solid var(--border-subtle)" },
-  main: { flex: 1, minWidth: 0, padding: "24px 28px", maxWidth: 760 },
-  h: { fontSize: 18, marginBottom: 4 },
-  sub: { fontSize: 13, color: "var(--text-muted)", marginBottom: 20 },
+  nav: {
+    width: 220,
+    flex: "none",
+    padding: "16px 8px",
+    background: "var(--surface-chrome)",
+    borderRight: "1.5px solid var(--border-subtle)",
+  },
+  main: { flex: 1, minWidth: 0, padding: "40px 40px 64px", maxWidth: 820 },
+  // The same heading as the preferences: the two are the product's two settings screens.
+  h: {
+    fontSize: "clamp(28px, 3.4vw, 40px)",
+    fontWeight: 700,
+    letterSpacing: "var(--tracking-display)",
+    lineHeight: 1.05,
+    color: "var(--text-strong)",
+    marginBottom: 10,
+  },
+  sub: { fontSize: "var(--text-md)", color: "var(--text-body)", marginBottom: 20 },
   sect: {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontSize: "var(--text-2xs)",
+    fontWeight: 500,
+    color: "var(--text-muted)",
     margin: "24px 0 10px",
   },
   row: {
@@ -60,8 +74,8 @@ const st: Record<string, CSSProperties> = {
     padding: "12px 0",
     borderBottom: "1px solid var(--border-subtle)",
   },
-  rowT: { fontSize: 13, fontWeight: 500, color: "var(--text-strong)" },
-  rowD: { fontSize: 12, color: "var(--text-muted)", marginTop: 2, maxWidth: 420 },
+  rowT: { fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" },
+  rowD: { fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2, maxWidth: 420 },
 };
 
 function navItem(on: boolean, compact = false): CSSProperties {
@@ -71,15 +85,15 @@ function navItem(on: boolean, compact = false): CSSProperties {
     gap: 8,
     width: compact ? "auto" : "100%",
     flex: "none",
-    height: 30,
+    height: compact ? 32 : 36,
     padding: "0 10px",
     border: 0,
     borderRadius: "var(--radius-sm)",
-    background: on ? "var(--surface-selected)" : compact ? "var(--surface-sunken)" : "transparent",
-    color: on ? "var(--text-accent)" : "var(--text-body)",
+    background: on ? "var(--acc)" : compact ? "var(--surface-sunken)" : "transparent",
+    color: on ? "var(--on-pastel)" : "var(--text-body)",
     fontFamily: "var(--font-sans)",
-    fontSize: 13,
-    fontWeight: on ? 500 : 400,
+    fontSize: "var(--text-sm)",
+    fontWeight: on ? 600 : 400,
     cursor: "pointer",
     textAlign: "left",
     whiteSpace: "nowrap",
@@ -194,6 +208,8 @@ export type WorkspaceSettingsProps = {
    */
   onLeave: () => void;
   /** Compact (mobile): stack the sub-nav above the panel and let setting rows wrap. */
+  /** A phone: the way back to the tabs, at the start of the heading. */
+  onBack?: () => void;
   compact?: boolean;
 };
 
@@ -218,6 +234,7 @@ export function WorkspaceSettings({
   canDelete,
   onDelete,
   onLeave,
+  onBack,
   compact = false,
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
@@ -325,10 +342,12 @@ export function WorkspaceSettings({
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-      <h1 style={st.top}>
-        <Icon name="settings" size={15} style={{ color: "var(--text-muted)" }} />
-        {t("sidebar.spaceSettings")}
-      </h1>
+      <BackHeading onBack={onBack} bar={st.top}>
+        <h1 style={onBack ? { ...st.top, height: "auto", padding: 0, border: 0, flex: 1, minWidth: 0 } : st.top}>
+          <Icon name="settings" size={15} style={{ color: "var(--text-muted)" }} />
+          {t("sidebar.spaceSettings")}
+        </h1>
+      </BackHeading>
       <div style={compact ? { ...st.body, flexDirection: "column" } : st.body}>
         <div
           style={
@@ -346,7 +365,7 @@ export function WorkspaceSettings({
         >
           {sections.map(([v, l, i]) => (
             <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
-              <Icon name={i} size={14} style={{ color: "var(--text-muted)" }} />
+              <Icon name={i} size={14} style={{ color: v === tab ? "var(--on-pastel)" : "var(--text-muted)" }} />
               {t(l)}
             </button>
           ))}
@@ -378,7 +397,7 @@ export function WorkspaceSettings({
                         ) : null}
                       </>
                     ) : (
-                      <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                      <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                         {t("space.ownerOnlyIcon")}
                       </span>
                     )}
@@ -501,10 +520,10 @@ export function WorkspaceSettings({
                           role rather than as a kind of account. */}
                       <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
+                          <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
                           {/* Their job title when they have set one. The address used to be shown here,
                               invented from the first name and a domain nobody owns. */}
-                          {m.title ? <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{m.title}</div> : null}
+                          {m.title ? <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{m.title}</div> : null}
                         </span>
                         {m.bot ? <Tag>{t("sidebar.bot")}</Tag> : null}
                         {guest ? <Tag tone="warning">{t("space.external")}</Tag> : null}
@@ -534,7 +553,7 @@ export function WorkspaceSettings({
                             }))}
                           />
                         ) : (
-                          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(role)}</span>
+                          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t(role)}</span>
                         )}
                       </div>
                       {/* Removing sits next to the role and not in it: a role is what someone may do

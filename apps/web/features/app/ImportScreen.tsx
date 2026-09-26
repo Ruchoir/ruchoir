@@ -776,7 +776,7 @@ export function ImportScreen({
           </button>
         ))}
       </div>
-      <p className="wc-imp-meta" style={{ fontSize: 13, marginTop: 22, color: "var(--text-muted)" }}>
+      <p className="wc-imp-meta" style={{ fontSize: "var(--text-xs)", marginTop: 22, color: "var(--text-muted)" }}>
         {t(key("import.skipLead"))}{" "}
         <button type="button" className="wc-imp-link" onClick={() => choosePlatform(null)}>
           {t(key("import.skipAction"))}
@@ -901,7 +901,7 @@ export function ImportScreen({
               ) : null}
             </div>
           )}
-          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 16, fontSize: 13 }}>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 16, fontSize: "var(--text-xs)" }}>
             <button
               type="button"
               className="wc-imp-link"
@@ -934,9 +934,9 @@ export function ImportScreen({
     <div className={colClass} ref={column}>
       {stepper}
       <h2 className="wc-imp-title">{t(key("import.planTitle"))}</h2>
-      <p className="wc-imp-lead" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 16, fontSize: 13.5 }}>
+      <p className="wc-imp-lead" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 16, fontSize: "var(--text-xs)" }}>
         {sourceBrand ? <BrandIcon name={sourceBrand} size={13} /> : null}
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text-body)", overflowWrap: "anywhere" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-body)", overflowWrap: "anywhere" }}>
           {file}
         </span>
         <span>· {t(key("import.planNothingYet"))}</span>
@@ -1046,7 +1046,7 @@ export function ImportScreen({
             </div>
           ))}
           {plan.spaces.length > SPACES_SHOWN && !showAllSpaces ? (
-            <button type="button" className="wc-imp-link" style={{ fontSize: 13, marginTop: 6 }} onClick={() => setShowAllSpaces(true)}>
+            <button type="button" className="wc-imp-link" style={{ fontSize: "var(--text-xs)", marginTop: 6 }} onClick={() => setShowAllSpaces(true)}>
               {t(key("import.spacesMore"), { count: plan.spaces.length - SPACES_SHOWN })}
             </button>
           ) : null}
@@ -1072,7 +1072,7 @@ export function ImportScreen({
             ) : null}
           </ul>
           {people.length > 0 ? (
-            <button type="button" className="wc-imp-link" style={{ fontSize: 13, marginTop: 10 }} onClick={() => openPeople("all")}>
+            <button type="button" className="wc-imp-link" style={{ fontSize: "var(--text-xs)", marginTop: 10 }} onClick={() => openPeople("all")}>
               {t(key("import.reviewPeople"), { count: people.length })}
             </button>
           ) : null}
@@ -1585,7 +1585,7 @@ export function ImportScreen({
         }}
       >
         <Icon name="import" size={15} style={{ color: "var(--text-muted)" }} />
-        <h1 id="import-title" style={{ margin: 0, fontSize: 15, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+        <h1 id="import-title" style={{ margin: 0, fontSize: "var(--text-md)", fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
           {t(key("import.screenTitle"))}
         </h1>
         {/* Always here, including while a run is going: the run continues without this screen. */}

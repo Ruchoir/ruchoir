@@ -141,7 +141,12 @@ export type DirectMessage = {
   userId?: string;
   /** How much this conversation notifies the signed-in user. */
   notify?: ConversationNotify;
+  /** The latest message, for the preview line of a conversation list; absent while nothing was said. */
+  lastMessage?: LastMessage;
 };
+
+/** The start of a conversation's latest message, who wrote it (the reader or not) and when (RFC 3339). */
+export type LastMessage = { excerpt: string; mine: boolean; at: string };
 
 export type Profile = {
   name: string;
@@ -296,6 +301,8 @@ export type Message = {
    * by name). Capped by the API; a client that shows fewer shows the first of them.
    */
   replyAuthors?: string[];
+  /** When the thread was last answered (RFC 3339); absent without replies. */
+  lastReplyAt?: string;
   imported?: boolean;
   pinned?: boolean;
   /** Who pinned it, when it is pinned: only they (or a moderator) may take it down. */

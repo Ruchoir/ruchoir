@@ -18,9 +18,9 @@ export const authStyles: Record<string, CSSProperties> = {
   /** Failure block under a form: bad credentials, an expired link, a rejected password. */
   error: {
     fontSize: 13,
-    color: "var(--text-danger, var(--terracotta-700))",
-    background: "var(--surface-danger-soft, rgba(198,93,69,0.08))",
-    border: "1px solid var(--terracotta-300, rgba(198,93,69,0.3))",
+    color: "var(--status-danger-fg)",
+    background: "var(--status-danger-bg)",
+    border: "1.5px solid var(--status-danger-border)",
     borderRadius: "var(--radius-md)",
     padding: "8px 12px",
   },

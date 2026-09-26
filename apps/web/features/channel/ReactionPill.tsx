@@ -37,6 +37,8 @@ export function ReactionPill({
   const { t } = useTranslation();
   const [playing, setPlaying] = useState(false);
   const [hovered, setHovered] = useState(false);
+  /** A short spring when the reader adds or takes back their reaction, cleared when it ends. */
+  const [popping, setPopping] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const timerRef = useRef<number | null>(null);
 
@@ -91,9 +93,17 @@ export function ReactionPill({
       <button
         ref={buttonRef}
         type="button"
-        className="wc-react"
+        className={popping ? "wc-react wc-react--pop" : "wc-react"}
         style={onClick ? style : { ...style, cursor: "default" }}
-        onClick={onClick}
+        onClick={
+          onClick
+            ? () => {
+                setPopping(true);
+                onClick();
+              }
+            : undefined
+        }
+        onAnimationEnd={() => setPopping(false)}
         aria-disabled={onClick ? undefined : true}
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
