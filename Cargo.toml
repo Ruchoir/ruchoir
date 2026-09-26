@@ -115,6 +115,10 @@ webauthn-rs = { version = "0.5.5", features = ["danger-allow-state-serialisation
 # like PostgreSQL/Valkey. TLS-to-Garage is later hardening (the `ring` path, never aws-lc-rs).
 # `aws-creds` is pulled transitively (part of the rust-s3 project; credential structs only).
 rust-s3 = { version = "0.37.2", default-features = false, features = ["with-tokio", "fail-on-err"] }
+# SVG to PNG for the link preview cards (`apps/api/src/og`). Linebender (community org, no company
+# behind it), MIT/Apache-2.0, pure Rust. Without the default `system-fonts`/`memmap-fonts`: the fonts
+# are embedded in the binary, so nothing is read from the host. See docs/adr/0002-link-preview-cards.md.
+resvg = { version = "0.48.1", default-features = false, features = ["text", "raster-images"] }
 # Image decode/resize/encode for server-side thumbnails (community image-rs org). Restricted to the
 # web formats we accept so no heavy/native codec (avif/openexr) is pulled.
 image = { version = "0.25.10", default-features = false, features = [

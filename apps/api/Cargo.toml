@@ -59,6 +59,8 @@ webauthn-rs = { workspace = true }
 # Files / object storage: S3 client, image thumbnails, MIME sniffing.
 rust-s3 = { workspace = true }
 image = { workspace = true }
+# Link preview cards: SVG templates rendered to PNG.
+resvg = { workspace = true }
 infer = { workspace = true }
 
 # Import: opening the sealed archive our export tooling produces, and streaming the tar inside it.

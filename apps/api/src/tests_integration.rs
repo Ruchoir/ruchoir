@@ -95,6 +95,17 @@ async fn boot() -> Option<TestApp> {
     let import_dir = std::env::temp_dir().join("ruchoir-test-imports");
     std::fs::create_dir_all(&import_dir).expect("import dir");
     config.import_dir = Some(import_dir);
+    // A stand-in for the web bundle's shell, so the pages served with link preview tags have a head.
+    let web_dist = std::env::temp_dir().join("ruchoir-test-web");
+    std::fs::create_dir_all(&web_dist).expect("web dir");
+    std::fs::write(
+        web_dist.join("index.html"),
+        "<html><head><title>Ruchoir</title></head><body></body></html>",
+    )
+    .expect("index");
+    config.web_dist = web_dist;
+    // The cards' language is asserted below, whatever the machine running the tests has set.
+    config.default_locale = crate::auth::mail_text::Locale::Fr;
 
     let db = crate::db::connect(&config).await.expect("connect db");
     SCHEMA_READY
@@ -7864,4 +7875,85 @@ async fn every_message_is_notified_to_whoever_asked_for_it_and_nobody_else() {
         space_row(&app, &bob, fx.space_id).await["notify_level"],
         "default"
     );
+}
+
+/// A pasted invitation link previews its space and inviter, from the page a scraper fetches (no
+/// session, no `Accept`), and its card is drawn; a dead token previews as an expired invitation;
+/// a conversation's link names nothing; and the card counts public channels only.
+#[tokio::test]
+async fn link_previews_describe_an_invitation_and_nothing_private() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/invitations", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "role": "member" }))
+        .send()
+        .await
+        .expect("create invitation");
+    let invitation: Value = created.json().await.expect("json");
+    let token = token_of(invitation["url"].as_str().expect("url"));
+
+    // A scraper sends no `Accept` and has no session.
+    let page = |path: String| {
+        let http = app.http.clone();
+        let url = format!("{}{path}", app.base);
+        async move {
+            let response = http.get(url).send().await.expect("page");
+            assert_eq!(response.status(), 200);
+            response.text().await.expect("html")
+        }
+    };
+    let html = page(format!("/invite?token={token}")).await;
+    assert!(
+        html.contains(r#"property="og:title" content="alice vous invite à rejoindre Test Space""#),
+        "{html}"
+    );
+    assert!(html.contains(&format!("/api/v1/og/invite/{token}")));
+    assert!(html.contains(r#"name="robots" content="noindex""#));
+    // The token is in the image address (the scraper has it already), never in `og:url`.
+    assert!(html.contains(r#"property="og:url" content="http"#));
+    assert!(!html.contains(&format!("invite?token={token}")));
+
+    let card = app
+        .http
+        .get(format!("{}/api/v1/og/invite/{token}", app.base))
+        .send()
+        .await
+        .expect("card");
+    assert_eq!(card.status(), 200);
+    assert_eq!(card.headers()["content-type"], "image/png");
+    assert!(card.bytes().await.expect("png").starts_with(b"\x89PNG"));
+
+    // The seed has a public channel and a private one: only the public one is counted.
+    let facts = crate::messaging::invitations::invitation_card(&app.state, &token)
+        .await
+        .expect("card facts")
+        .expect("usable invitation");
+    assert_eq!(facts.channels, 1);
+
+    let html = page("/invite?token=0000".to_owned()).await;
+    assert!(
+        html.contains("n&#39;est plus valable") || html.contains("n'est plus valable"),
+        "{html}"
+    );
+    assert!(html.contains("/api/v1/og/expired.png"));
+
+    let html = page("/e/test-space/c/secret".to_owned()).await;
+    assert!(html.contains("/api/v1/og/message.png"));
+    assert!(!html.contains("Test Space"));
+
+    // A missing file keeps its 404, a page is a page.
+    let missing = app
+        .http
+        .get(format!("{}/missing.js", app.base))
+        .send()
+        .await
+        .expect("missing");
+    assert_eq!(missing.status(), 404);
 }
