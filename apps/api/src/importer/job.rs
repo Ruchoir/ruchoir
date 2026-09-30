@@ -287,16 +287,9 @@ async fn run_passes<S: BlobSink>(
             store: storage,
             thumbnail_max_px,
         };
-        let files = run::import_files_from(
-            db,
-            &mapper,
-            &blobs,
-            archive,
-            passphrase,
-            &resolved,
-            &index.files,
-        )
-        .await?;
+        let files =
+            run::import_files_from(db, &mapper, &blobs, archive, passphrase, &resolved, &index)
+                .await?;
         written.files_created = files.files_created;
         written.files_seen = files.files_seen;
         run::attach_files(db, &mapper, archive, passphrase, &resolved).await?;

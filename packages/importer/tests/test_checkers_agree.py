@@ -201,6 +201,57 @@ def _a_file_that_lies_about_its_bytes(archive: Path) -> None:
             blob.write_bytes(b"something else entirely")
 
 
+def _file_sent_in_a_conversation_that_is_not_here(archive: Path) -> None:
+    files = _rows(archive, "files.jsonl")
+    files[0]["channel"] = "nowhere"
+    rewrite(archive, "files.jsonl", files)
+
+
+def _file_in_a_space_that_is_not_here(archive: Path) -> None:
+    files = _rows(archive, "files.jsonl")
+    files[0]["space"] = "elsewhere"
+    rewrite(archive, "files.jsonl", files)
+
+
+def _file_whose_space_is_not_its_conversations(archive: Path) -> None:
+    """Two ways of saying where the file goes, and they disagree: one of them publishes it."""
+    spaces = _rows(archive, "spaces.jsonl")
+    spaces.append({"id": "bureau", "name": "Bureau", "description": "", "visibility": "private"})
+    rewrite(archive, "spaces.jsonl", spaces)
+    files = _rows(archive, "files.jsonl")
+    files[0].update({"channel": "atelier/general", "space": "bureau"})
+    rewrite(archive, "files.jsonl", files)
+
+
+def _file_sent_in_a_conversation_with_a_folder(archive: Path) -> None:
+    """The file goes where its conversation puts it: a folder of its own would contradict that."""
+    files = _rows(archive, "files.jsonl")
+    files[0]["folder"] = "Projets"
+    rewrite(archive, "files.jsonl", files)
+
+
+def _file_in_a_folder_that_climbs_out(archive: Path) -> None:
+    _unattach(archive)
+    files = _rows(archive, "files.jsonl")
+    files[0]["folder"] = "Projets/../../ailleurs"
+    rewrite(archive, "files.jsonl", files)
+
+
+def _file_in_a_folder_with_no_name(archive: Path) -> None:
+    _unattach(archive)
+    files = _rows(archive, "files.jsonl")
+    files[0]["folder"] = "Projets//2026"
+    rewrite(archive, "files.jsonl", files)
+
+
+def _unattach(archive: Path) -> None:
+    """Makes the reference file one nobody sent: a space's file, which may carry a folder."""
+    messages = _messages(archive)
+    for message in messages:
+        message["files"] = []
+    rewrite(archive, "messages.jsonl", messages)
+
+
 def _a_manifest_that_miscounts(archive: Path) -> None:
     manifest = json.loads((archive / "manifest.json").read_text(encoding="utf-8"))
     manifest["counts"]["messages"] = 999
@@ -235,6 +286,12 @@ BREAKAGES = [
     ("a file whose bytes are missing", _file_whose_bytes_are_missing),
     ("a file with a hash that is not one", _file_with_a_hash_that_is_not_one),
     ("a file that lies about its bytes", _a_file_that_lies_about_its_bytes),
+    ("a file sent in a conversation that is not here", _file_sent_in_a_conversation_that_is_not_here),
+    ("a file in a space that is not here", _file_in_a_space_that_is_not_here),
+    ("a file whose space is not its conversation's", _file_whose_space_is_not_its_conversations),
+    ("a file sent in a conversation, with a folder", _file_sent_in_a_conversation_with_a_folder),
+    ("a file in a folder that climbs out", _file_in_a_folder_that_climbs_out),
+    ("a file in a folder with no name", _file_in_a_folder_with_no_name),
     ("a manifest that miscounts", _a_manifest_that_miscounts),
     ("a manifest from a newer producer", _a_manifest_from_a_newer_producer),
 ]
@@ -273,6 +330,21 @@ class CheckersAgree(unittest.TestCase):
 
     def test_both_accept_a_sound_archive(self) -> None:
         """First, because every disagreement below is meaningless if the reference is refused."""
+        py_ok, py_said = python_accepts(self.archive)
+        rs_ok, rs_said = rust_accepts(self.archive)
+        self.assertTrue(py_ok, py_said)
+        self.assertTrue(rs_ok, rs_said)
+
+    def test_both_accept_a_file_placed_in_a_folder_of_another_space(self) -> None:
+        """The other half of the placement rules: a space's file, named where it goes, is fine."""
+        spaces = _rows(self.archive, "spaces.jsonl")
+        spaces.append({"id": "bureau", "name": "Bureau", "description": "", "visibility": "private"})
+        rewrite(self.archive, "spaces.jsonl", spaces)
+        _unattach(self.archive)
+        files = _rows(self.archive, "files.jsonl")
+        files[0].update({"space": "bureau", "folder": "Projets/2026"})
+        rewrite(self.archive, "files.jsonl", files)
+
         py_ok, py_said = python_accepts(self.archive)
         rs_ok, rs_said = rust_accepts(self.archive)
         self.assertTrue(py_ok, py_said)

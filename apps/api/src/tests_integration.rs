@@ -5998,6 +5998,342 @@ async fn importing_the_files_twice_stores_them_once() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+/// Two spaces, and a file for every way a file can be placed.
+struct PlacedFiles {
+    dir: std::path::PathBuf,
+    first_space: Uuid,
+    second_space: Uuid,
+    secret: Uuid,
+    direct: Uuid,
+    /// A member of the first space and of its private channel.
+    insider: Uuid,
+    /// A member of the first space who is not in its private channel.
+    bystander: Uuid,
+    mapper_job: Uuid,
+    spaces: Vec<(String, Uuid)>,
+}
+
+/// Imports an archive whose files were sent in a public channel, a private channel and a direct
+/// conversation, one sent in a channel of the second space, and three nobody sent: two in a folder
+/// of the second space and one naming no space at all.
+async fn import_placed_files(app: &TestApp, admin: Uuid) -> PlacedFiles {
+    let (insider, bystander) = (unique_ref("insider"), unique_ref("bystander"));
+    let (space_a, space_b) = (unique_ref("alpha"), unique_ref("beta"));
+    let (general, secret, direct, news) = (
+        unique_ref("general"),
+        unique_ref("secret"),
+        unique_ref("direct"),
+        unique_ref("news"),
+    );
+
+    let dir = write_archive(
+        &[
+            json!({"id": space_a, "name": format!("Alpha {}", Uuid::new_v4().simple()), "visibility": "private"}),
+            json!({"id": space_b, "name": format!("Beta {}", Uuid::new_v4().simple()), "visibility": "private"}),
+        ],
+        &[
+            json!({"id": insider, "email": format!("{insider}@example.test"), "display_name": "Insider", "active": true}),
+            json!({"id": bystander, "email": format!("{bystander}@example.test"), "display_name": "Bystander", "active": true}),
+        ],
+        &[
+            json!({"id": general, "space": space_a, "kind": "channel", "name": "General",
+                   "visibility": "public", "archived": false, "members": [insider, bystander]}),
+            json!({"id": secret, "space": space_a, "kind": "channel", "name": "Secret",
+                   "visibility": "private", "archived": false, "members": [insider]}),
+            json!({"id": direct, "space": space_a, "kind": "direct", "name": "",
+                   "visibility": "private", "archived": false, "members": [insider, bystander]}),
+            json!({"id": news, "space": space_b, "kind": "channel", "name": "News",
+                   "visibility": "public", "archived": false, "members": [insider]}),
+        ],
+        &[
+            {
+                let mut row = message_row("m-general", &general, Some(&insider), "pour tous");
+                row["files"] = json!(["public.txt"]);
+                row
+            },
+            {
+                let mut row = message_row("m-secret", &secret, Some(&insider), "entre nous");
+                row["files"] = json!(["private.txt"]);
+                row
+            },
+            {
+                let mut row = message_row("m-direct", &direct, Some(&insider), "rien que toi");
+                row["files"] = json!(["direct.txt"]);
+                row
+            },
+            {
+                let mut row = message_row("m-news", &news, Some(&insider), "chez beta");
+                row["files"] = json!(["beta.txt"]);
+                row
+            },
+        ],
+    );
+
+    let mut records = String::new();
+    for (id, place) in [
+        ("public.txt", json!({})),
+        ("private.txt", json!({})),
+        ("direct.txt", json!({})),
+        ("beta.txt", json!({})),
+        (
+            "plan.txt",
+            json!({"space": space_b, "folder": "Projets/2026"}),
+        ),
+        (
+            "budget.txt",
+            json!({"space": space_b, "folder": "Projets/2026"}),
+        ),
+        ("root.txt", json!({})),
+    ] {
+        let content = format!("le contenu de {id}");
+        let digest = {
+            use sha2::{Digest, Sha256};
+            Sha256::digest(content.as_bytes())
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        };
+        let blob = dir.join("blobs").join(&digest[..2]);
+        std::fs::create_dir_all(&blob).expect("blobs");
+        std::fs::write(blob.join(&digest), &content).expect("blob");
+
+        let mut record = json!({
+            "id": id, "name": id, "size": content.len(), "content_type": "text/plain",
+            "hash": format!("sha256:{digest}"),
+            "uploaded_by": insider, "uploaded_at": "2024-03-05T08:00:00Z",
+        });
+        for (key, value) in place.as_object().expect("object") {
+            record[key] = value.clone();
+        }
+        records.push_str(&format!("{record}\n"));
+    }
+    std::fs::write(dir.join("files.jsonl"), records).expect("files.jsonl");
+
+    let (job, spaces) = import_from_archive(app, admin, &dir).await;
+    let mapper = Mapper::new(job, "mattermost");
+    run::import_messages(&app.db, &mapper, &dir, None, &spaces)
+        .await
+        .expect("messages");
+
+    let space_of = |source: &String| spaces.iter().find(|(id, _)| id == source).expect("space").1;
+    let (first_space, second_space) = (space_of(&space_a), space_of(&space_b));
+    let conversation = |source: String, space: Uuid| {
+        let mapper = &mapper;
+        async move {
+            mapper
+                .resolve(&app.db, KIND_CHANNEL, &source, Some(space))
+                .await
+                .expect("resolve")
+                .expect("conversation")
+        }
+    };
+    let person = |source: String| {
+        let mapper = &mapper;
+        async move {
+            mapper
+                .resolve(&app.db, KIND_USER, &source, None)
+                .await
+                .expect("resolve")
+                .expect("person")
+        }
+    };
+    PlacedFiles {
+        first_space,
+        second_space,
+        secret: conversation(secret, first_space).await,
+        direct: conversation(direct, first_space).await,
+        insider: person(insider).await,
+        bystander: person(bystander).await,
+        mapper_job: job,
+        spaces,
+        dir,
+    }
+}
+
+async fn imported_file(db: &DatabaseConnection, name: &str, space: Uuid) -> files::Model {
+    files::Entity::find()
+        .filter(files::Column::Name.eq(name))
+        .filter(files::Column::SpaceId.eq(space))
+        .one(db)
+        .await
+        .expect("query")
+        .unwrap_or_else(|| panic!("{name} did not arrive in the space it belongs to"))
+}
+
+/// Every imported file lands where the same file sent here would.
+///
+/// The first version put every file of every archive at the root of the first space. An attachment
+/// from a private channel or a direct conversation came out of the import readable by everyone in
+/// the space, and a second workspace's files landed in the first one's.
+#[tokio::test]
+async fn every_imported_file_lands_where_the_same_file_sent_here_would() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let placed = import_placed_files(&app, fx.alice).await;
+    let mapper = Mapper::new(placed.mapper_job, "mattermost");
+    let sink = MemorySink::default();
+    run::import_files(
+        &app.db,
+        &mapper,
+        &blobs(&sink),
+        &placed.dir,
+        None,
+        &placed.spaces,
+    )
+    .await
+    .expect("files");
+    run::attach_files(&app.db, &mapper, &placed.dir, None, &placed.spaces)
+        .await
+        .expect("attach");
+
+    // Sent in a public channel: in the space's files, in the folder attachments land in.
+    let public = imported_file(&app.db, "public.txt", placed.first_space).await;
+    assert_eq!(public.conversation_id, None);
+    let folder = files::Entity::find_by_id(public.parent_folder_id.expect("in a folder"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("folder");
+    assert_eq!(folder.system_key.as_deref(), Some("attachments"));
+
+    // Sent in a private channel or a direct conversation: its people's alone, and out of the tree.
+    let private = imported_file(&app.db, "private.txt", placed.first_space).await;
+    assert_eq!(private.conversation_id, Some(placed.secret));
+    assert_eq!(private.parent_folder_id, None);
+    let direct = imported_file(&app.db, "direct.txt", placed.first_space).await;
+    assert_eq!(direct.conversation_id, Some(placed.direct));
+
+    // Sent in a channel of the second space: in the second space, not the first.
+    let beta = imported_file(&app.db, "beta.txt", placed.second_space).await;
+    let beta_folder = files::Entity::find_by_id(beta.parent_folder_id.expect("in a folder"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("folder");
+    assert_eq!(beta_folder.space_id, placed.second_space);
+    assert_eq!(beta_folder.system_key.as_deref(), Some("attachments"));
+
+    // Sent nowhere, with a folder: in that folder of the space it names, both in the same one.
+    let plan = imported_file(&app.db, "plan.txt", placed.second_space).await;
+    let budget = imported_file(&app.db, "budget.txt", placed.second_space).await;
+    assert_eq!(plan.conversation_id, None);
+    assert_eq!(plan.parent_folder_id, budget.parent_folder_id);
+    let year = files::Entity::find_by_id(plan.parent_folder_id.expect("in a folder"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("folder");
+    assert_eq!((year.name.as_str(), year.kind.as_str()), ("2026", "folder"));
+    let projects = files::Entity::find_by_id(year.parent_folder_id.expect("inside Projets"))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("folder");
+    assert_eq!(projects.name, "Projets");
+    assert_eq!(projects.parent_folder_id, None, "Projets sits at the root");
+
+    // Sent nowhere and naming no space: the first space's root, as before.
+    let root = imported_file(&app.db, "root.txt", placed.first_space).await;
+    assert_eq!((root.parent_folder_id, root.conversation_id), (None, None));
+
+    // A second run finds everything, including the folders, rather than doubling any of it.
+    let again = run::import_files(
+        &app.db,
+        &mapper,
+        &blobs(&sink),
+        &placed.dir,
+        None,
+        &placed.spaces,
+    )
+    .await
+    .expect("files again");
+    assert_eq!(again.files_created, 0);
+    let folders = files::Entity::find()
+        .filter(files::Column::SpaceId.eq(placed.second_space))
+        .filter(files::Column::Name.eq("Projets"))
+        .count(&app.db)
+        .await
+        .expect("count");
+    assert_eq!(folders, 1, "the folder is made once");
+
+    std::fs::remove_dir_all(&placed.dir).ok();
+}
+
+/// The same promise, asked of the HTTP surface: an attachment imported from a private channel is not
+/// readable by somebody who shares the space but not the channel, and is not in the space's files.
+#[tokio::test]
+async fn an_imported_private_attachment_stays_with_its_conversation() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let placed = import_placed_files(&app, fx.alice).await;
+    let mapper = Mapper::new(placed.mapper_job, "mattermost");
+    let sink = MemorySink::default();
+    run::import_files(
+        &app.db,
+        &mapper,
+        &blobs(&sink),
+        &placed.dir,
+        None,
+        &placed.spaces,
+    )
+    .await
+    .expect("files");
+    run::attach_files(&app.db, &mapper, &placed.dir, None, &placed.spaces)
+        .await
+        .expect("attach");
+
+    let private = imported_file(&app.db, "private.txt", placed.first_space).await;
+    let public = imported_file(&app.db, "public.txt", placed.first_space).await;
+
+    let bystander = app.cookie_for(placed.bystander).await;
+    let seen = |cookie: String, file: Uuid| {
+        let app = &app;
+        async move {
+            // Its shares: a read that asks who may see the file, and nothing of the object store.
+            app.req(
+                reqwest::Method::GET,
+                &format!("/api/v1/files/{file}/shares"),
+                &cookie,
+            )
+            .send()
+            .await
+            .expect("file")
+            .status()
+        }
+    };
+    // In the space, so the public attachment is theirs to read: the refusal below is about the
+    // channel, not about the space.
+    assert_eq!(seen(bystander.clone(), public.id).await, 200);
+    let refused = seen(bystander.clone(), private.id).await;
+    assert!(
+        refused == 403 || refused == 404,
+        "somebody outside the private channel read its imported attachment, got {refused}"
+    );
+    // Its own people still read it.
+    let insider = app.cookie_for(placed.insider).await;
+    assert_eq!(seen(insider, private.id).await, 200);
+
+    // And it is nowhere in the space's files.
+    let listing: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/files", placed.first_space),
+            &bystander,
+        )
+        .send()
+        .await
+        .expect("listing")
+        .json()
+        .await
+        .expect("json");
+    assert!(
+        !listing.to_string().contains(&private.id.to_string()),
+        "a private channel's attachment is listed in the space's files"
+    );
+
+    std::fs::remove_dir_all(&placed.dir).ok();
+}
+
 // --- Nothing leaks out of an imported space ------------------------------------------------------
 //
 // An import creates spaces, accounts and conversations wholesale, which makes it the easiest place

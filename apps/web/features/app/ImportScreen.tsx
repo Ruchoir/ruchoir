@@ -59,8 +59,8 @@ import type { Toast } from "./types";
 type Stage = "source" | "archive" | "plan" | "run";
 const STAGES: Stage[] = ["source", "archive", "plan", "run"];
 
-/** The three products a workspace can be brought over from, each named by its own logo. */
-const PLATFORMS: BrandName[] = ["Slack", "Mattermost", "Nextcloud"];
+/** The products a workspace can be brought over from, each named by its own logo. */
+const PLATFORMS: BrandName[] = ["Slack", "Teams", "Mattermost", "Nextcloud"];
 
 /** The one command an administrator pastes, with the instance's address and the token filled in. */
 function deliveryCommand(platform: BrandName, drop: DropToken): string {
@@ -73,6 +73,8 @@ function deliveryCommand(platform: BrandName, drop: DropToken): string {
       return `curl -fsSL ${base}/tools/import-mattermost.sh | bash -s -- \\\n  --token ${t} -- --export <dossier-export-mmctl>`;
     case "Slack":
       return `curl -fsSL ${base}/tools/import-slack.sh | bash -s -- \\\n  --token ${t} -- --export <dossier-export-slack>`;
+    case "Teams":
+      return `curl -fsSL ${base}/tools/import-teams.sh | bash -s -- \\\n  --token ${t} -- --tenant <id-du-tenant> --client-id <id-de-l-application> --secret-file <fichier-du-secret>`;
   }
 }
 
@@ -628,6 +630,11 @@ export function ImportScreen({
         t(key("import.exportNextcloudStep2")),
         t(key("import.exportNextcloudStep3")),
       ],
+      Teams: [
+        t(key("import.exportTeamsStep1")),
+        t(key("import.exportTeamsStep2")),
+        t(key("import.exportSeal")),
+      ],
     };
     return (
       <>
@@ -677,6 +684,7 @@ export function ImportScreen({
                   : t(key("import.guideRunRuchoir"))}
               </h3>
               <p>{t(key("import.guideRunText"))}</p>
+              {where === "Teams" ? <p>{t(key("import.guideRunTeamsText"))}</p> : null}
             </div>
           </li>
           <li>
@@ -768,9 +776,11 @@ export function ImportScreen({
               <span className="wc-imp-platform__desc" style={{ display: "block" }}>
                 {name === "Slack"
                   ? t(key("import.platformSlack"))
-                  : name === "Mattermost"
-                    ? t(key("import.platformMattermost"))
-                    : t(key("import.platformNextcloud"))}
+                  : name === "Teams"
+                    ? t(key("import.platformTeams"))
+                    : name === "Mattermost"
+                      ? t(key("import.platformMattermost"))
+                      : t(key("import.platformNextcloud"))}
               </span>
             </span>
           </button>

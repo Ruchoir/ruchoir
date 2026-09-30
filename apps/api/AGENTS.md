@@ -198,7 +198,10 @@ context and takes precedence here.
   decides its audience: a public channel's attachment joins the space files (in the folder marked
   `system_key = 'attachments'`, found by that marker so renaming it is harmless), while a private
   channel's or a DM's carries `conversation_id`, stays out of the tree and out of search, and is
-  readable only by that conversation's participants. `images` is deliberately outside all of this:
+  readable only by that conversation's participants. An **imported** file follows the same rule
+  (`Place` in `importer/run.rs`, shared `uploads::attachments_folder`): it once landed at the root
+  of the first space whatever it was, which published private attachments to the whole space.
+  `images` is deliberately outside all of this:
   avatars and space icons are not files (`files.space_id` is `NOT NULL`, and an avatar belongs to an
   account), so they live under their own object keys recorded in `users.avatar_key` /
   `spaces.icon_key`, carrying a fresh id per upload so the URL changes with the image.
