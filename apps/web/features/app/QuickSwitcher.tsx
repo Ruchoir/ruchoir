@@ -22,7 +22,7 @@ const styles: Record<string, CSSProperties> = {
     outline: "none",
     background: "none",
     fontFamily: "inherit",
-    fontSize: 14,
+    fontSize: "var(--text-sm)",
     color: "var(--text-strong)",
   },
   list: { maxHeight: 360, overflow: "auto", display: "flex", flexDirection: "column", gap: 2 },
@@ -38,9 +38,9 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     textAlign: "left",
   },
-  name: { flex: 1, minWidth: 0, fontSize: 13, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  kind: { fontSize: 11, color: "var(--text-subtle)" },
-  foot: { display: "flex", gap: 14, padding: "8px 2px 0", fontSize: 11, color: "var(--text-subtle)" },
+  name: { flex: 1, minWidth: 0, fontSize: "var(--text-xs)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  kind: { fontSize: "var(--text-2xs)", color: "var(--text-subtle)" },
+  foot: { display: "flex", gap: 14, padding: "8px 2px 0", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" },
 };
 
 type Entry = {

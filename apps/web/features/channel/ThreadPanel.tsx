@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { FileIcon, Icon, IconButton, Popover, Skeleton, SkeletonGroup } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Message, MessageAttachment } from "@/lib/data";
@@ -13,12 +13,13 @@ import { useStickToBottom } from "./useStickToBottom";
 import { THREAD_WIDTH_MAX, THREAD_WIDTH_MIN, useSettings } from "../app/settings";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
+import { PanelAsPage, PanelHead } from "./PanelHead";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
     flex: "none",
     position: "relative",
-    borderLeft: "1px solid var(--border-subtle)",
+    borderLeft: "1.5px solid var(--border-subtle)",
     background: "var(--surface-chrome)",
     display: "flex",
     flexDirection: "column",
@@ -40,16 +41,16 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 8px 0 16px",
-    borderBottom: "1px solid var(--border-subtle)",
+    borderBottom: "1.5px solid var(--border-subtle)",
   },
-  title: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
+  title: { fontSize: "var(--text-base)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   scroll: { flex: 1, overflow: "auto", padding: "12px 16px" },
   count: {
     display: "flex",
     alignItems: "center",
     gap: 8,
     margin: "12px 0",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-subtle)",
   },
   countLine: { flex: 1, height: 1, background: "var(--border-subtle)" },
@@ -58,9 +59,9 @@ const styles: Record<string, CSSProperties> = {
     borderTop: "1px solid var(--border-subtle)",
     padding: 12,
   },
+  // Edge, surface and focus shadow come from `.wc-message-composer` (components.css).
   composerBox: {
-    borderRadius: "var(--radius-lg)",
-    background: "var(--surface-canvas)",
+    borderRadius: "var(--radius-md)",
     padding: "8px 10px",
   },
   editingBanner: {
@@ -68,7 +69,7 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     gap: 6,
     marginBottom: 6,
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-muted)",
   },
   chip: {
@@ -78,7 +79,7 @@ const styles: Record<string, CSSProperties> = {
     border: "1px solid var(--border-subtle)",
     borderRadius: "var(--radius-md)",
     padding: "4px 6px",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
   },
 };
 
@@ -137,6 +138,7 @@ export function ThreadPanel({
 }: ThreadPanelProps) {
   const { t } = useTranslation();
   const settings = useSettings();
+  const asPage = useContext(PanelAsPage);
   // The dragged width is kept in the preferences, so a thread reopens as wide as it was left. Local
   // while the handle is held: storing on every mouse move would write a hundred intermediate widths
   // to keep the last one.
@@ -266,12 +268,10 @@ export function ThreadPanel({
   );
 
   return (
-    <div style={{ ...styles.panel, width }}>
-      <div style={styles.handle} onMouseDown={startResize} role="separator" aria-orientation="vertical" />
-      <div style={styles.head}>
-        <span style={styles.title}>{t("thread.title")}</span>
-        <IconButton icon="x" label={t("thread.close")} size="sm" onClick={onClose} />
-      </div>
+    // A column honours the dragged width; over the conversation or as a page, the dock decides.
+    <div style={{ ...styles.panel, width: `var(--dock-width, ${width}px)` }}>
+      {asPage ? null : <div style={styles.handle} onMouseDown={startResize} role="separator" aria-orientation="vertical" />}
+      <PanelHead title={t("thread.title")} closeLabel={t("thread.close")} onClose={onClose} />
       <div style={styles.scroll} ref={scrollRef}>
         {/* The root is a message of the feed, drawn here as the thread's first row: offering to open
             a thread from inside the one it already opened would go nowhere. */}
@@ -301,7 +301,7 @@ export function ThreadPanel({
         <div style={styles.composer}>{readOnlyNotice}</div>
       ) : (
         <div style={styles.composer}>
-          <div className="wc-message-composer" style={styles.composerBox}>
+          <div className="wc-message-composer" style={styles.composerBox} data-has-files={editPending.length > 0 || undefined}>
             {editing ? (
               <div style={styles.editingBanner}>
                 <Icon name="square-pen" size={14} style={{ color: "var(--text-accent)" }} />
@@ -364,7 +364,7 @@ export function ThreadPanel({
                   }}
                 />
               </Popover>
-              <IconButton icon="send" label={t("composer.send")} variant="accent" size="sm" disabled={uploading} onClick={clickSend} />
+              <IconButton icon="send" label={t("composer.send")} variant="accent" size="sm" disabled={uploading} onClick={clickSend} className="wc-send" />
             </div>
           </div>
         </div>

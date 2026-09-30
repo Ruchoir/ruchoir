@@ -18,19 +18,18 @@ const styles: Record<string, CSSProperties> = {
   col: { width: "min(460px, 100%)", display: "flex", flexDirection: "column", gap: 20 },
   progress: { display: "flex", gap: 6 },
   seg: { flex: 1, height: 4, borderRadius: "var(--radius-full)", background: "var(--grey-200)" },
-  segOn: { background: "var(--terracotta-500)" },
+  segOn: { background: "var(--ink)" },
   step: {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontSize: "var(--text-2xs)",
+    fontWeight: 500,
+    color: "var(--text-muted)",
   },
-  heading: { margin: 0, fontSize: 24, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
-  sub: { fontSize: 14, color: "var(--text-muted)", marginTop: 6 },
+  heading: { margin: 0, fontSize: "var(--text-2xl)", fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
+  sub: { fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: 6 },
   card: {
-    background: "var(--surface-canvas)",
-    border: "1px solid var(--border-subtle)",
+    background: "var(--surface-raised)",
+    border: "2px solid var(--ink)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-dialog)",
     padding: 24,
@@ -40,10 +39,10 @@ const styles: Record<string, CSSProperties> = {
   },
   nav: { display: "flex", alignItems: "center", justifyContent: "space-between" },
   error: {
-    fontSize: 13,
-    color: "var(--text-danger, var(--terracotta-700))",
-    background: "var(--surface-danger-soft, rgba(198,93,69,0.08))",
-    border: "1px solid var(--terracotta-300, rgba(198,93,69,0.3))",
+    fontSize: "var(--text-xs)",
+    color: "var(--status-danger-fg)",
+    background: "var(--status-danger-bg)",
+    border: "1.5px solid var(--status-danger-border)",
     borderRadius: "var(--radius-md)",
     padding: "8px 12px",
   },
@@ -97,7 +96,7 @@ export function OnboardingFlow({
               <Icon name="check" size={26} style={{ color: "var(--status-success-fg)" }} />
             </span>
             <h1 style={styles.heading}>{firstName ? t("onboarding.readyNamed", { name: firstName }) : t("onboarding.ready")}</h1>
-            <p style={{ fontSize: 14, color: "var(--text-muted)", maxWidth: 340 }}>
+            <p style={{ fontSize: "var(--text-sm)", color: "var(--text-muted)", maxWidth: 340 }}>
               <Trans
                 i18nKey={invited > 0 ? "onboarding.readyBodyInvited" : "onboarding.readyBody"}
                 values={{ name, count: invited }}

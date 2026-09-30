@@ -7,8 +7,8 @@ const menu: CSSProperties = {
   minWidth: 224,
   maxWidth: 280,
   padding: 4,
-  background: "var(--surface-canvas)",
-  border: "1px solid var(--border-subtle)",
+  background: "var(--surface-raised)",
+  border: "2px solid var(--ink)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
@@ -24,7 +24,7 @@ const itemStyle: CSSProperties = {
   background: "transparent",
   color: "var(--text-body)",
   fontFamily: "var(--font-sans)",
-  fontSize: 13,
+  fontSize: "var(--text-xs)",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -54,7 +54,7 @@ export function MenuPopover({ anchorRef, open, onClose, items, placement = "bott
           }
           if (it.type === "label") {
             return (
-              <div key={i} style={{ padding: "6px 8px 2px", fontSize: 11, fontWeight: 600, letterSpacing: "var(--tracking-caps)", textTransform: "uppercase", color: "var(--text-subtle)" }}>
+              <div key={i} style={{ fontFamily: "var(--font-mono)", padding: "6px 8px 2px", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)" }}>
                 {it.label}
               </div>
             );

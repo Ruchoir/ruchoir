@@ -6,6 +6,7 @@
  * labels are resolved from the channel and direct-message lists.
  */
 import type { Channel, DirectMessage, Message } from "@/lib/data";
+import { oneLine } from "./preview";
 
 export type ActivityItem = {
   channelId: string;
@@ -27,7 +28,8 @@ export type MessageMap = Record<string, Message[]>;
  * say. The generic wording survives only for the case that has genuinely nothing.
  */
 export function messageSummary(m: Message): string | null {
-  if (m.body) return m.body;
+  // One line of plain words: a summary is drawn in a list, where markdown's marks are noise.
+  if (m.body) return oneLine(m.body);
   if (m.image) return m.image.alt;
   if (m.attachment) return m.attachment.name;
   // Null rather than a sentence: a message that is only an attachment with no name is described

@@ -87,6 +87,27 @@ export function formatRelativeStamp(at: Date | string | number, locale: Locale =
   return formatShortDate(date, locale);
 }
 
+/**
+ * The heading of a day in a conversation, for any day but today (which the dictionary names):
+ * "Hier", then the weekday and the date, "lundi 21 septembre", with the year once it is not this one.
+ * Capitalised, since it stands alone.
+ */
+export function formatDayHeading(at: Date | string | number, locale: Locale = currentLocale()): string {
+  const date = new Date(at);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (sameDay(date, yesterday)) return yesterdayWord(locale);
+  const text = new Intl.DateTimeFormat(locale, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  }).format(date);
+  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+}
+
 /** Whether two instants fall on the same calendar day, where the reader is. */
 export function isSameDay(a: Date | string | number, b: Date | string | number): boolean {
   return sameDay(new Date(a), new Date(b));

@@ -7,12 +7,13 @@ import type { Message, SpaceFile } from "@/lib/data";
 import { messageSummary } from "@/features/app/activity";
 import { useTranslation } from "@/lib/i18n";
 import { formatBytes, formatStamp } from "@/lib/i18n/format";
+import { PanelHead } from "./PanelHead";
 
 const styles: Record<string, CSSProperties> = {
   panel: {
     width: "var(--panel-width)",
     flex: "none",
-    borderLeft: "1px solid var(--border-subtle)",
+    borderLeft: "1.5px solid var(--border-subtle)",
     background: "var(--surface-chrome)",
     display: "flex",
     flexDirection: "column",
@@ -25,17 +26,16 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 8px 0 16px",
-    borderBottom: "1px solid var(--border-subtle)",
+    borderBottom: "1.5px solid var(--border-subtle)",
   },
-  title: { fontSize: 14, fontWeight: 600, color: "var(--text-strong)" },
+  title: { fontSize: "var(--text-base)", fontWeight: 700, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" },
   search: { padding: 12, borderBottom: "1px solid var(--border-subtle)" },
   scroll: { flex: 1, overflow: "auto" },
   label: {
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontSize: "var(--text-2xs)",
+    fontWeight: 500,
+    color: "var(--text-muted)",
     padding: "12px 16px 4px",
   },
   row: {
@@ -81,10 +81,7 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
 
   return (
     <div style={styles.panel}>
-      <div style={styles.head}>
-        <span style={styles.title}>{t("common.search")}</span>
-        <IconButton icon="x" label={t("search.close")} size="sm" onClick={onClose} />
-      </div>
+      <PanelHead title={t("common.search")} closeLabel={t("search.close")} onClose={onClose} />
       <div style={styles.search}>
         <Input
           icon="search"
@@ -114,11 +111,11 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                   >
                     <Avatar name={m.author} src={getAvatar(m.author)} size={26} presence={getPresence(m.author)} />
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
+                      <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>
                         {m.author}
                         <span style={{ fontWeight: 400, color: "var(--text-muted)", marginLeft: 6 }}>{formatStamp(m.createdAt)}</span>
                       </span>
-                      <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: 13, color: "var(--text-body)" }}>
+                      <span style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
                         {messageSummary(m) ?? t("activity.attachment")}
                       </span>
                     </span>
@@ -138,15 +135,15 @@ export function SearchPanel({ messages, files, onClose, onJump, onJumpFile }: Se
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
                     {f.kind === "folder" ? (
-                      <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)", marginTop: 1 }} />
+                      <Icon name="folder" size={18} style={{ color: "var(--ink)", marginTop: 1 }} />
                     ) : (
                       <FileIcon name={f.name} size={22} />
                     )}
                     <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ display: "block", fontSize: 13, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span style={{ display: "block", fontSize: "var(--text-xs)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {f.name}
                       </span>
-                      <span style={{ display: "block", fontSize: 12, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                      <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
                         {f.kind === "folder" ? "" : `${formatBytes(f.sizeBytes)} · `}
                         {formatStamp(f.updatedAt)}
                       </span>

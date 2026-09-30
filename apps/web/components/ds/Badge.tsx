@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
-export type BadgeTone = "accent" | "neutral" | "strong" | "success" | "warning" | "danger";
+/** `mention`: something addressed to the reader (peach, with an "@"), set apart from mere activity. */
+export type BadgeTone = "accent" | "neutral" | "strong" | "success" | "warning" | "danger" | "mention";
 
 export type BadgeProps = {
   count?: number;
@@ -25,7 +26,8 @@ export function Badge({
   children,
   className = "",
 }: BadgeProps) {
-  const label = dot ? null : (children ?? (count != null && count > max ? `${max}+` : count));
+  const number = count != null && count > max ? `${max}+` : count;
+  const label = dot ? null : (children ?? (tone === "mention" && number != null ? `@${number}` : number));
   return (
     <span
       key={dot ? "dot" : String(label)}

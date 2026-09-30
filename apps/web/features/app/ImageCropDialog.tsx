@@ -30,9 +30,9 @@ const styles: Record<string, CSSProperties> = {
     cursor: "grab",
     touchAction: "none",
   },
-  hint: { fontSize: 12, color: "var(--text-muted)", textAlign: "center", maxWidth: 300 },
+  hint: { fontSize: "var(--text-2xs)", color: "var(--text-muted)", textAlign: "center", maxWidth: 300 },
   zoom: { display: "flex", alignItems: "center", gap: 10, width: "100%" },
-  zoomLabel: { fontSize: 12, color: "var(--text-muted)", flex: "none" },
+  zoomLabel: { fontSize: "var(--text-2xs)", color: "var(--text-muted)", flex: "none" },
 };
 
 export type ImageCropDialogProps = {

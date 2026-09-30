@@ -39,7 +39,7 @@ export function SystemMessage({ m }: { m: Message }) {
         justifyContent: "center",
         gap: 8,
         margin: "10px 0",
-        fontSize: 12,
+        fontSize: "var(--text-2xs)",
         color: "var(--text-subtle)",
       }}
     >

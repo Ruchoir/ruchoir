@@ -26,7 +26,7 @@ import type { Toast } from "./types";
  */
 
 const st: Record<string, CSSProperties> = {
-  sub: { fontSize: 13, color: "var(--text-muted)", margin: "0 0 18px", maxWidth: 560, lineHeight: 1.5 },
+  sub: { fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 18px", maxWidth: 560, lineHeight: 1.5 },
   form: { display: "flex", gap: 8, alignItems: "flex-end", maxWidth: 560 },
   row: {
     display: "flex",
@@ -36,9 +36,9 @@ const st: Record<string, CSSProperties> = {
     borderBottom: "1px solid var(--border-subtle)",
   },
   main: { flex: 1, minWidth: 0 },
-  name: { fontSize: 13, fontWeight: 500, color: "var(--text-strong)" },
-  meta: { fontSize: 12, color: "var(--text-muted)", marginTop: 2 },
-  empty: { fontSize: 13, color: "var(--text-muted)", padding: "12px 0" },
+  name: { fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" },
+  meta: { fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2 },
+  empty: { fontSize: "var(--text-xs)", color: "var(--text-muted)", padding: "12px 0" },
   issued: {
     marginTop: 16,
     padding: 14,
@@ -60,7 +60,7 @@ const st: Record<string, CSSProperties> = {
     flex: 1,
     minWidth: 0,
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-default)",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -156,7 +156,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
       </form>
 
       {error ? (
-        <p role="alert" style={{ ...st.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
+        <p role="alert" style={{ ...st.empty, color: "var(--status-danger-fg)" }}>
           {t(error)}
         </p>
       ) : null}
@@ -197,7 +197,7 @@ export function InstanceAdminSection({ onNotify }: { onNotify?: (t: Toast) => vo
         <div style={st.issued}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Icon name="shield" size={16} style={{ color: "var(--text-accent)" }} />
-            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>
+            <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>
               {t("admin.linkFor", { name: issued.user.name })}
             </span>
           </div>
@@ -306,7 +306,7 @@ function InstanceSettingsSection({ onNotify }: { onNotify?: (t: Toast) => void }
       </div>
 
       {error ? (
-        <p role="alert" style={{ ...st.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
+        <p role="alert" style={{ ...st.empty, color: "var(--status-danger-fg)" }}>
           {t(error)}
         </p>
       ) : null}
@@ -328,7 +328,7 @@ const screen: Record<string, CSSProperties> = {
   mark: { width: 22, height: 22, flex: "none", display: "block" },
   wordmark: {
     fontFamily: "var(--font-sans)",
-    fontSize: 16,
+    fontSize: "var(--text-base)",
     fontWeight: 600,
     letterSpacing: "var(--tracking-display)",
     color: "var(--text-strong)",
@@ -341,7 +341,7 @@ const screen: Record<string, CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: 15,
+    fontSize: "var(--text-md)",
     fontWeight: 600,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
@@ -358,7 +358,7 @@ const screen: Record<string, CSSProperties> = {
   },
   scroller: { flex: 1, minWidth: 0, overflowY: "auto" },
   main: { padding: "24px 28px 64px", maxWidth: 760 },
-  h: { fontSize: 18, marginBottom: 4 },
+  h: { fontSize: "var(--text-lg)", marginBottom: 4 },
 };
 
 /** The sections of the administration screen. */
@@ -385,7 +385,7 @@ function navItem(on: boolean, compact: boolean): CSSProperties {
     background: on ? "var(--surface-selected)" : compact ? "var(--surface-sunken)" : "transparent",
     color: on ? "var(--text-accent)" : "var(--text-body)",
     fontFamily: "var(--font-sans)",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     fontWeight: on ? 500 : 400,
     cursor: "pointer",
     textAlign: "left",

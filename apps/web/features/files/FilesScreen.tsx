@@ -37,39 +37,43 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    padding: "0 12px 0 16px",
-    borderBottom: "1px solid var(--border-subtle)",
+    padding: "0 12px 0 20px",
+    borderBottom: "1.5px solid var(--border-subtle)",
   },
   crumb: {
     display: "flex",
     alignItems: "center",
     gap: 6,
     margin: 0, // rendered as the page <h1> (breadcrumb heading)
-    fontSize: 14,
-    fontWeight: 600,
+    fontSize: "var(--text-lg)",
+    fontWeight: 700,
     color: "var(--text-strong)",
     letterSpacing: "var(--tracking-tight)",
+    // One line, shortened at its end: a long space or folder name wrapped onto three lines and
+    // pushed the two buttons beside it off the screen at the largest text size.
+    minWidth: 0,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
   },
-  body: { flex: 1, overflow: "auto", padding: "20px 24px" },
+  body: { flex: 1, overflow: "auto", padding: 24 },
   bar: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 },
   tableWrap: {
-    border: "1px solid var(--border-subtle)",
+    border: "2px solid var(--ink)",
     borderRadius: "var(--radius-md)",
     overflow: "hidden",
-    background: "var(--surface-canvas)",
+    background: "var(--surface-card)",
   },
   table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" },
   th: {
+    fontFamily: "var(--font-mono)",
     height: 34,
     textAlign: "left",
-    fontSize: 11,
-    fontWeight: 600,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontSize: "var(--text-2xs)",
+    fontWeight: 500,
+    color: "var(--text-muted)",
     padding: "0 12px",
-    background: "var(--grey-25)",
-    borderBottom: "1px solid var(--border-subtle)",
+    background: "var(--surface-canvas)",
+    borderBottom: "1.5px solid var(--border-subtle)",
     verticalAlign: "middle",
     whiteSpace: "nowrap",
   },
@@ -77,7 +81,7 @@ const styles: Record<string, CSSProperties> = {
     height: 44,
     padding: "0 12px",
     borderBottom: "1px solid var(--border-subtle)",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     color: "var(--text-body)",
     verticalAlign: "middle",
     overflow: "hidden",
@@ -129,11 +133,13 @@ export type FilesScreenProps = {
   currentUser: string;
   onNotify: (toast: Toast) => void;
   /** Compact (mobile) mode: force the card grid (the wide table cannot fit) and let the toolbar wrap. */
+  /** A phone: the way back to the tabs, at the start of the heading. */
+  onBack?: () => void;
   compact?: boolean;
 };
 
 /** The space files view, backed by the API (folder tree, upload, download, preview). */
-export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false }: FilesScreenProps) {
+export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false, onBack }: FilesScreenProps) {
   const { t } = useTranslation();
 
   const [entries, setEntries] = useState<SpaceFile[]>([]);
@@ -390,6 +396,9 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             : styles.top
         }
       >
+        {onBack ? (
+          <IconButton icon="arrow-left" label={t("common.back")} onClick={onBack} style={{ width: 44, height: 44, flex: "none", marginLeft: -8 }} />
+        ) : null}
         {/* Page heading: the file location, as a breadcrumb. */}
         <h1 style={styles.crumb}>
           <Icon name="hard-drive" size={15} style={{ color: "var(--text-muted)" }} />
@@ -405,21 +414,21 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             <>
               {t("sidebar.spaceFiles")}
               <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
-              <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>{workspaceName}</span>
+              <span style={{ fontWeight: 400, color: "var(--text-muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{workspaceName}</span>
             </>
           )}
           {currentFolderName ? (
             <>
               <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
-              <span>{currentFolderName}</span>
+              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{currentFolderName}</span>
             </>
           ) : null}
         </h1>
         <div style={{ flex: compact ? "1 0 100%" : 1 }} />
-        <Button size="sm" iconLeft="folder-plus" onClick={() => setFolderOpen(true)}>
+        <Button size="sm" iconLeft="folder-plus" onClick={() => setFolderOpen(true)} style={{ flexShrink: 0 }}>
           {t("files.newFolder")}
         </Button>
-        <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()}>
+        <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()} style={{ flexShrink: 0 }}>
           {t("files.upload")}
         </Button>
         <input ref={uploadRef} type="file" style={{ display: "none" }} onChange={(e) => onFilePicked(e.target.files)} />
@@ -451,9 +460,9 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             <Button size="sm" variant="secondary" iconLeft="arrow-left" onClick={() => load(parentId)}>
               {t("common.back")}
             </Button>
-            <Icon name="folder" size={18} style={{ color: "var(--terracotta-500)" }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{currentFolderName}</span>
-            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>· {t("files.count", { count: rows.length })}</span>
+            <Icon name="folder" size={18} style={{ color: "var(--ink)" }} />
+            <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{currentFolderName}</span>
+            <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>· {t("files.count", { count: rows.length })}</span>
           </div>
         ) : null}
         <div style={{ ...styles.bar, flexWrap: compact ? "wrap" : "nowrap" }}>
@@ -471,7 +480,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             ]}
           />
           <div style={{ flex: 1 }} />
-          <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
             {t("files.count", { count: rows.length })}
             {totalBytes > 0 ? ` · ${formatBytes(totalBytes)}` : ""}
           </span>
@@ -488,7 +497,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
           // this has to stay visible and actionable while the folders are being browsed.
           <div style={styles.selectionBar}>
             <Icon name="folder-open" size={15} style={{ color: "var(--text-accent)" }} />
-            <span style={{ fontSize: 13, color: "var(--text-strong)" }}>
+            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-strong)" }}>
               <strong>{t("files.count", { count: moving.length })}</strong> {t("files.chooseDestination")}
             </span>
             <div style={{ flex: 1 }} />
@@ -502,7 +511,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
         ) : selectedEntries.length > 0 ? (
           // The checkboxes had built a selection nothing could act on. This is what they are for.
           <div style={styles.selectionBar}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-strong)" }}>
+            <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>
               {t("files.selectedCount", { count: selectedEntries.length })}
             </span>
             <div style={{ flex: 1 }} />
@@ -584,15 +593,15 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
                     // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by our own API
                     <img src={f.thumbnailUrl} alt="" loading="lazy" style={styles.previewImage} />
                   ) : f.kind === "folder" ? (
-                    <Icon name="folder" size={26} style={{ color: "var(--terracotta-500)" }} />
+                    <Icon name="folder" size={26} style={{ color: "var(--ink)" }} />
                   ) : (
                     <FileIcon name={f.name} size={44} />
                   )}
                 </div>
-                <div title={f.name} style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
+                <div title={f.name} style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
                   {truncateMiddle(f.name)}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: 12, color: "var(--text-muted)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
                   <Avatar name={f.by} src={getAvatar(f.by)} size={18} />
                   <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by}</span>
                   {f.kind === "folder" ? null : (
@@ -632,7 +641,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             }
             action={
               !q ? (
-                <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()}>
+                <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()} style={{ flexShrink: 0 }}>
                   {t("files.upload")}
                 </Button>
               ) : undefined
@@ -712,7 +721,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
           </>
         }
       >
-        <p style={{ fontSize: 14, color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
+        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
           {pendingDelete.length === 1 ? (
             <>
               {t("files.deleteOneBody", { name: pendingDelete[0].name })}
@@ -813,12 +822,12 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false 
             ) : (
               <>
                 {preview.kind === "folder" ? (
-                  <Icon name="folder" size={52} style={{ color: "var(--terracotta-500)" }} />
+                  <Icon name="folder" size={52} style={{ color: "var(--ink)" }} />
                 ) : (
                   <FileIcon name={preview.name} size={72} />
                 )}
-                <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("files.noPreview")}</div>
-                <div style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("files.noPreviewText")}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("files.noPreview")}</div>
+                <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t("files.noPreviewText")}</div>
               </>
             )}
           </div>
@@ -867,7 +876,7 @@ function FileRow({
           style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, cursor: "pointer" }}
         >
           {isFolder ? (
-            <Icon name="folder" size={17} style={{ flex: "none", color: "var(--terracotta-500)" }} />
+            <Icon name="folder" size={17} style={{ flex: "none", color: "var(--ink)" }} />
           ) : (
             <FileIcon name={f.name} size={22} />
           )}
@@ -883,9 +892,9 @@ function FileRow({
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by.split(" ")[0]}</span>
         </span>
       </td>
-      <td style={{ ...styles.td, color: "var(--text-muted)", fontSize: 12 }}>{formatStamp(f.updatedAt)}</td>
+      <td style={{ ...styles.td, color: "var(--text-muted)", fontSize: "var(--text-2xs)" }}>{formatStamp(f.updatedAt)}</td>
       <td style={styles.td}>
-        {f.imported ? <Tag brand={brandFor(f.source) ?? undefined} icon={brandFor(f.source) ? undefined : "import"}>{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>-</span>}
+        {f.imported ? <Tag brand={brandFor(f.source) ?? undefined} icon={brandFor(f.source) ? undefined : "import"}>{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>-</span>}
       </td>
       <td style={styles.td}>
         <span style={{ ...styles.checkCell, opacity: hover ? 1 : 0, transition: "opacity var(--duration-fast) var(--ease-out)" }}>

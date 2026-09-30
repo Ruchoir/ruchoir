@@ -198,6 +198,7 @@ use utoipa::OpenApi;
         crate::messaging::dto::SearchResults,
         crate::messaging::dto::ChannelDto,
         crate::messaging::dto::DirectMessageDto,
+        crate::messaging::dto::LastMessageDto,
         crate::messaging::dto::PresenceDto,
         crate::messaging::dto::UserProfileDto,
         crate::messaging::dto::AddChannelMembersRequest,

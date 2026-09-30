@@ -10,30 +10,18 @@
 
 /*
  * Design tokens (Tailwind v4 is CSS-first: theme values live here, not in a JS config).
- * The full token set lives in tokens.css; this @theme block mirrors the brand subset so
- * Tailwind utilities (bg-terracotta-500, font-sans, ...) exist alongside the raw vars.
- * Two brand colours: terracotta (accent) and teal (dark surfaces); IBM Plex Sans/Mono are the type.
+ * The full token set lives in tokens.css; this @theme block mirrors the fonts and the few palette
+ * colours a Tailwind utility is written against (bg-ink, text-danger, ...). IBM Plex Sans/Mono are the
+ * type, as on the public site.
  */
 @theme {
   --font-sans: "IBM Plex Sans", "Helvetica Neue", Helvetica, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Primary brand accent (palette #c65d45). Use sparingly. */
-  --color-terracotta-50: #f8ece9;
-  --color-terracotta-100: #f0d5cf;
-  --color-terracotta-200: #e5b4a9;
-  --color-terracotta-300: #db9788;
-  --color-terracotta-400: #d07a66;
-  --color-terracotta-500: #c65d45;
-  --color-terracotta-600: #aa513d;
-  --color-terracotta-700: #894433;
-  --color-terracotta-800: #69362a;
-  --color-terracotta-900: #492821;
-
-  /* Second brand colour: deep teal, for dark surfaces. */
-  --color-teal-500: #18383d;
-  --color-teal-600: #122c30;
-  --color-teal-700: #0d2124;
+  /* The ink does the work of an accent; the terracotta belongs to the mark alone. */
+  --color-ink: var(--ink);
+  --color-brand: var(--brand);
+  --color-danger: var(--status-danger-fg);
 }
 
 /*

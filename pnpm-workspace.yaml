@@ -7,3 +7,8 @@ allowBuilds:
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - lucide-react@1.37.0
+# brace-expansion 5.0.9 has three published denial-of-service advisories (fixed in 5.0.12). minimatch
+# 10 asks for ^5.0.8 and the lockfile kept the first match, which `pnpm update` will not move. Drop
+# this once the lockfile resolves to 5.0.12 or later by itself.
+overrides:
+  "brace-expansion@>=5.0.0 <5.0.12": "5.0.12"

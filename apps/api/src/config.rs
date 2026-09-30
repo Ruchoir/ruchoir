@@ -77,6 +77,9 @@ pub struct Config {
     pub smtp_plaintext: bool,
     /// Public base URL used to build verification / reset links in emails.
     pub public_base_url: String,
+    /// The instance's own language (`RUCHOIR_DEFAULT_LOCALE`, French by default): what is written
+    /// when nobody's language is known, like the link preview cards a chat app's scraper fetches.
+    pub default_locale: crate::auth::mail_text::Locale,
     /// Lifetime, in seconds, of an email-verification token.
     pub email_verification_ttl_secs: i64,
     /// Lifetime, in seconds, of a password-reset token.
@@ -258,6 +261,8 @@ impl Config {
             ));
         }
         let public_base_url = env_or("RUCHOIR_PUBLIC_BASE_URL", "http://localhost:8080");
+        let default_locale =
+            crate::auth::mail_text::Locale::parse(env_opt("RUCHOIR_DEFAULT_LOCALE").as_deref());
         let email_verification_ttl_secs: i64 =
             env_or("RUCHOIR_EMAIL_VERIFICATION_TTL_SECS", "86400")
                 .parse()
@@ -337,6 +342,7 @@ impl Config {
         Ok(Self {
             addr: SocketAddr::new(host, port),
             web_dist,
+            default_locale,
             emoji_dir,
             import_dir,
             tls_cert,

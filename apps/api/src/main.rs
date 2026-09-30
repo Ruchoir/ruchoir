@@ -17,6 +17,7 @@ mod http;
 mod importer;
 mod messaging;
 mod notify;
+mod og;
 mod openapi;
 mod realtime;
 mod seed;

@@ -99,6 +99,7 @@ type DirectMessageDto = {
   unread: number;
   notify_level?: string;
   muted?: boolean;
+  last_message?: { excerpt: string; mine: boolean; created_at: string };
 };
 
 type PresenceDto = { user_id: string; presence: string };
@@ -142,6 +143,7 @@ type MessageDto = {
   };
   /** Display names of the last repliers, most recent first. Absent when the thread is empty. */
   reply_authors?: string[];
+  last_reply_at?: string;
   imported: boolean;
   edited: boolean;
   deleted: boolean;
@@ -986,6 +988,9 @@ function toDirectMessage(dto: DirectMessageDto): DirectMessage {
     bot: dto.bot || undefined,
     userId: dto.user_id,
     notify: toConversationNotify(dto.notify_level, dto.muted),
+    lastMessage: dto.last_message
+      ? { excerpt: dto.last_message.excerpt, mine: dto.last_message.mine, at: dto.last_message.created_at }
+      : undefined,
   };
 }
 
@@ -1348,6 +1353,7 @@ function toMessage(dto: MessageDto): ApiMessage {
     parentId: dto.parent_message_id,
     replies: dto.reply_count > 0 ? dto.reply_count : undefined,
     replyAuthors: dto.reply_authors?.length ? dto.reply_authors : undefined,
+    lastReplyAt: dto.last_reply_at,
     imported: dto.imported || undefined,
     pinned: dto.pinned || undefined,
     pinnedBy: dto.pinned_by,

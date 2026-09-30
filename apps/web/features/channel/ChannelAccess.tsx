@@ -155,7 +155,7 @@ export function ChannelAccess({
           background: "var(--surface-sunken)",
           border: "1px solid var(--border-subtle)",
           borderRadius: "var(--radius-md)",
-          fontSize: 12,
+          fontSize: "var(--text-2xs)",
           lineHeight: 1.5,
           color: "var(--text-body)",
         }}

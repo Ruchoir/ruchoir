@@ -1,14 +1,14 @@
 "use client";
 
 import { type CSSProperties, useRef, useState } from "react";
-import { Icon, IconButton, Popover } from "@/components/ds";
+import { Icon, IconButton, Popover, Tooltip } from "@/components/ds";
 import { useTranslation } from "@/lib/i18n";
 
 const menu: CSSProperties = {
   minWidth: 208,
   padding: 4,
-  background: "var(--surface-canvas)",
-  border: "1px solid var(--border-subtle)",
+  background: "var(--surface-raised)",
+  border: "2px solid var(--ink)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
@@ -25,7 +25,7 @@ const itemStyle: CSSProperties = {
   background: "transparent",
   color: "var(--text-body)",
   fontFamily: "var(--font-sans)",
-  fontSize: 13,
+  fontSize: "var(--text-xs)",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -109,14 +109,16 @@ export function MessageMenu({
 
   return (
     <>
-      <IconButton
-        ref={anchorRef}
-        icon="more-horizontal"
-        label={t("message.more")}
-        size="sm"
-        aria-expanded={open}
-        onClick={() => set(!open)}
-      />
+      <Tooltip label={t("message.more")} disabled={open}>
+        <IconButton
+          ref={anchorRef}
+          icon="more-horizontal"
+          label={t("message.more")}
+          size="sm"
+          aria-expanded={open}
+          onClick={() => set(!open)}
+        />
+      </Tooltip>
       <Popover anchorRef={anchorRef} open={open} onClose={() => set(false)} placement="bottom" align="end">
         <div style={menu} role="menu">
           {items.map((it) => (
@@ -134,7 +136,7 @@ export function MessageMenu({
             </button>
           ))}
           <div style={{ height: 1, background: "var(--border-subtle)", margin: "4px 0" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: 12, color: "var(--text-subtle)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
             <Icon name="clock" size={14} />
             {t("message.sentAt", { at: sentAt })}
           </div>

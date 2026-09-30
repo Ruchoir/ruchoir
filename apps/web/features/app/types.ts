@@ -13,7 +13,8 @@ export type AppView =
   | "saved";
 
 /** The optional right-hand panel inside the channel view. */
-export type ChannelPanel = "files" | "members" | "pinned" | "search" | null;
+/** `details` is the phone's page for a channel: what its header's row of icons holds on a desktop. */
+export type ChannelPanel = "files" | "members" | "pinned" | "search" | "details" | null;
 
 /** A transient toast notification for simulated actions. */
 export type Toast = {

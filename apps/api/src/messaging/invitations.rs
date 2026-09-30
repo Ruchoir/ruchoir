@@ -31,7 +31,9 @@ use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
 use crate::auth::tokens;
-use crate::entities::{channel_members, messages, space_invitations, space_members, spaces, users};
+use crate::entities::{
+    channel_members, channels, messages, space_invitations, space_members, spaces, users,
+};
 use crate::state::AppState;
 
 use super::authz::{ensure_space_admin, space_member_ids};
@@ -466,6 +468,51 @@ pub async fn accept_invitation(
         default_channel_id: space.default_channel_id,
         // Just joined: nothing has been set for this space yet.
         notify_level: "default".to_owned(),
+    }))
+}
+
+/// What a link preview card may say about an invitation: exactly what its own screen shows anyone
+/// holding the link (the space and who invited), plus two counts. The channels counted are the
+/// public, active ones only, so the card says nothing a private channel would want kept quiet.
+pub(crate) struct InvitationCard {
+    pub space_name: String,
+    pub invited_by: Option<String>,
+    pub members: u64,
+    pub channels: u64,
+}
+
+/// The card for `token`, or `None` when the invitation would not be accepted now. Like
+/// [`preview_invitation`], the reason an invitation is unusable is never told apart.
+pub(crate) async fn invitation_card(
+    state: &AppState,
+    token: &str,
+) -> Result<Option<InvitationCard>, ApiError> {
+    let record = match usable_invitation(state, token).await {
+        Ok(record) => record,
+        Err(ApiError::NotFound) => return Ok(None),
+        Err(err) => return Err(err),
+    };
+    let Some(space) = spaces::Entity::find_by_id(record.space_id)
+        .one(&state.db)
+        .await?
+    else {
+        return Ok(None);
+    };
+    let members = space_members::Entity::find()
+        .filter(space_members::Column::SpaceId.eq(space.id))
+        .count(&state.db)
+        .await?;
+    let channels = channels::Entity::find()
+        .filter(channels::Column::SpaceId.eq(space.id))
+        .filter(channels::Column::ChannelType.eq("public"))
+        .filter(channels::Column::ArchivedAt.is_null())
+        .count(&state.db)
+        .await?;
+    Ok(Some(InvitationCard {
+        space_name: space.name,
+        invited_by: display_name(state, record.created_by).await?,
+        members,
+        channels,
     }))
 }
 

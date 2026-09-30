@@ -13,7 +13,7 @@ use axum::Json;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, DbBackend,
-    EntityTrait, PaginatorTrait, QueryFilter, Statement, TransactionTrait,
+    EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Statement, TransactionTrait,
 };
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -27,7 +27,8 @@ use crate::state::AppState;
 
 use super::authz::{ensure_space_member, is_space_member};
 use super::dto::{
-    ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto, MemberDto, SpaceDto,
+    ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto, LastMessageDto, MemberDto,
+    SpaceDto,
 };
 use super::error::ApiError;
 
@@ -190,14 +191,18 @@ pub async fn list_channels(
     // A guest is offered nothing they were not added to, so for them every channel is listed the
     // way a private one is. Same test as the one that would refuse them the conversation itself.
     let explicit_only = super::authz::is_guest(&state.db, space_id, session.user_id).await?;
+    // The space's owner is offered its private channels too, joined or not.
+    let owner = super::authz::is_space_owner(&state.db, space_id, session.user_id).await?;
 
     let mut out = Vec::new();
     for channel in all {
-        // Private channels are visible only to their members; public/archived to any space member.
+        // Private channels are visible only to their members and to the space's owner; public and
+        // archived ones to any space member.
         let membership = channel_members::Entity::find_by_id((channel.id, session.user_id))
             .one(&state.db)
             .await?;
-        if (channel.channel_type == "private" || explicit_only) && membership.is_none() {
+        if ((channel.channel_type == "private" && !owner) || explicit_only) && membership.is_none()
+        {
             continue;
         }
         // And the channel's own guest list, checked even for a member: a role taken away takes the
@@ -333,6 +338,13 @@ pub async fn list_dms(
         let bot = counterparts.len() == 1 && counterparts[0].is_bot;
         let user_id = (counterparts.len() == 1).then(|| counterparts[0].id);
         let unread = unread_count(&state.db, dm.id, session.user_id).await?;
+        let last_message = last_message(&state.db, dm.id)
+            .await?
+            .map(|m| LastMessageDto {
+                excerpt: excerpt(&m.body),
+                mine: m.author_id == Some(session.user_id),
+                created_at: super::dto::rfc3339(m.created_at),
+            });
         out.push(DirectMessageDto {
             id: dm.id,
             name,
@@ -342,9 +354,41 @@ pub async fn list_dms(
             unread,
             notify_level: participation.notification_level.clone(),
             muted: participation.muted,
+            last_message,
         });
     }
     Ok(Json(out))
+}
+
+/// How much of a body a preview carries: one line of a phone screen, with room to spare.
+const EXCERPT_CHARS: usize = 160;
+
+/// The start of a body, cut on a character boundary and never mid-word when a space is near.
+fn excerpt(body: &str) -> String {
+    if body.chars().count() <= EXCERPT_CHARS {
+        return body.to_owned();
+    }
+    let cut: String = body.chars().take(EXCERPT_CHARS).collect();
+    match cut.rfind(char::is_whitespace) {
+        Some(at) if at > EXCERPT_CHARS / 2 => format!("{}…", cut[..at].trim_end()),
+        _ => format!("{cut}…"),
+    }
+}
+
+/// The latest message of a conversation: not a reply in a thread, not a system notice, not deleted.
+async fn last_message(
+    db: &DatabaseConnection,
+    conversation_id: Uuid,
+) -> Result<Option<messages::Model>, ApiError> {
+    Ok(messages::Entity::find()
+        .filter(messages::Column::ConversationId.eq(conversation_id))
+        .filter(messages::Column::ParentMessageId.is_null())
+        .filter(messages::Column::DeletedAt.is_null())
+        .filter(messages::Column::Kind.ne("system"))
+        .order_by_desc(messages::Column::CreatedAt)
+        .order_by_desc(messages::Column::Id)
+        .one(db)
+        .await?)
 }
 
 /// `POST /api/v1/spaces/{space_id}/dm`: open (or fetch) a direct message with a set of users.
@@ -599,4 +643,30 @@ async fn find_existing_dm(
         }
     }
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{excerpt, EXCERPT_CHARS};
+
+    #[test]
+    fn a_short_body_is_its_own_excerpt() {
+        assert_eq!(excerpt("bonjour"), "bonjour");
+    }
+
+    #[test]
+    fn a_long_body_is_cut_between_words_and_marked() {
+        let body = "mot ".repeat(100);
+        let cut = excerpt(&body);
+        assert!(cut.ends_with('…'));
+        assert!(cut.chars().count() <= EXCERPT_CHARS + 1);
+        assert!(!cut.trim_end_matches('…').ends_with(' '));
+    }
+
+    #[test]
+    fn a_long_word_is_cut_on_a_character_boundary() {
+        let body = "é".repeat(400);
+        let cut = excerpt(&body);
+        assert_eq!(cut.chars().count(), EXCERPT_CHARS + 1);
+    }
 }

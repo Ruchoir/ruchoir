@@ -213,14 +213,20 @@ terminates TLS for that instance, rather than exposing its port:
 
 ## Design system
 
-A design system handoff already exists (design tokens + React components + screen mockups).
-Follow it strictly:
+The product is drawn with the Ruchoir design system, the same one as the public site (redesign of
+2026-09-25). Follow it strictly:
 
-- **Two brand colors** (updated 2026-08-31): terracotta `#c65d45` (`--terracotta-500`), the accent,
-  used sparingly; and deep teal `#18383d` (`--teal-500`), reserved for dark surfaces (toasts, dark
-  chrome, future dark theme). Everything else is warm cream/sand neutral (`#f7f3ed` .. ink `#171716`)
-  and desaturated semantic colors.
-- Typography: IBM Plex Sans (UI, 14px body) and IBM Plex Mono (code), per the token scale.
+- **Palette:** a cool grey canvas (`--bg #f6f7f9`, `--surface #fdfdfe`), an **ink** (`--ink #15171c`)
+  that does the work of an accent (primary actions, focus, the edge of anything that floats), and
+  pastels (`--sky`, `--mint`, `--violet`, `--pink`, `--peach`, `--lime`, `--sun`). Text on a pastel is
+  always the dark ink (`--on-pastel`), in every theme. Terracotta `#c65d45` (`--brand`) belongs to the
+  mark and the point after the name only; the bee yellow (`--bee`) is the lift of a primary action;
+  the alarm orange (`--alarm`) marks what is new.
+- **Themes:** eight, an accent (sky, mint, violet, pink) by day or by night (`<accent>-dark`). The
+  accent (`--acc`) paints what is selected and what is yours. See `apps/web/app/tokens.css`.
+- **Shape:** 1.5px hairlines, radii 6/10/16, and hard offset shadows (`4px 4px 0` ink) instead of
+  blurred ones. Section labels are set in the monospace face, in sentence case, after a short rule.
+- Typography: IBM Plex Sans (UI) and IBM Plex Mono (labels and code), self-hosted.
 - Screen mockups are HTML/CSS/JS prototypes: recreate them faithfully in React; do not copy the
   prototype's internal structure when it does not fit.
 

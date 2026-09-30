@@ -10,8 +10,8 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 
 const panel: CSSProperties = {
   width: 260,
-  background: "var(--surface-canvas)",
-  border: "1px solid var(--border-subtle)",
+  background: "var(--surface-raised)",
+  border: "2px solid var(--ink)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
   overflow: "hidden",
@@ -19,11 +19,10 @@ const panel: CSSProperties = {
 
 const section: CSSProperties = { padding: 8, borderBottom: "1px solid var(--border-subtle)" };
 const label: CSSProperties = {
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: "var(--tracking-caps)",
-  textTransform: "uppercase",
-  color: "var(--text-subtle)",
+  fontFamily: "var(--font-mono)",
+  fontSize: "var(--text-2xs)",
+  fontWeight: 500,
+  color: "var(--text-muted)",
   padding: "2px 4px 6px",
 };
 
@@ -38,7 +37,7 @@ const item: CSSProperties = {
   background: "transparent",
   color: "var(--text-body)",
   fontFamily: "var(--font-sans)",
-  fontSize: 13,
+  fontSize: "var(--text-xs)",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -56,7 +55,7 @@ const item: CSSProperties = {
  * What changed underneath is that "En ligne" used to store a permanent `active` override, which
  * left everyone lit whether they were connected or not and could not be undone from the menu.
  */
-const CHOICES: { key: PresenceChoice; labelKey: TranslationKey; dot: Presence }[] = [
+export const PRESENCE_CHOICES: { key: PresenceChoice; labelKey: TranslationKey; dot: Presence }[] = [
   { key: "auto", labelKey: key("presence.online"), dot: "online" },
   { key: "away", labelKey: key("presence.away"), dot: "away" },
   { key: "busy", labelKey: key("presence.doNotDisturb"), dot: "busy" },
@@ -114,14 +113,14 @@ export function UserMenu({
         <div style={{ ...section, display: "flex", alignItems: "center", gap: 10 }}>
           <Avatar name={currentUser} src={getAvatar(currentUser)} size={40} presence={presence} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{currentUser}</div>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(presenceLabelKey(presence))}</div>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{currentUser}</div>
+            <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t(presenceLabelKey(presence))}</div>
           </div>
         </div>
 
         <div style={section}>
           <div style={label}>{t("shell.availability")}</div>
-          {CHOICES.map((c) => {
+          {PRESENCE_CHOICES.map((c) => {
             const on = c.key === choice;
             return (
               <button

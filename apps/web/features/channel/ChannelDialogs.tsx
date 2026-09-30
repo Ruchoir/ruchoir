@@ -177,7 +177,7 @@ export function ChannelSettingsDialog({
 
         <Field label={t("channel.membersAndAccess", { count: members?.length ?? 0 })}>
           {rosterError ? (
-            <p role="alert" style={{ fontSize: 12, color: "var(--text-danger, var(--terracotta-700))" }}>
+            <p role="alert" style={{ fontSize: "var(--text-2xs)", color: "var(--status-danger-fg)" }}>
               {t(rosterError)}
             </p>
           ) : (
@@ -205,7 +205,7 @@ export function ChannelSettingsDialog({
                     }}
                   >
                     <Avatar name={m.name} src={m.avatarUrl ?? getAvatar(m.name)} size={26} kind={m.bot ? "bot" : "person"} />
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--text-strong)" }}>{m.name}</span>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: "var(--text-xs)", color: "var(--text-strong)" }}>{m.name}</span>
                     <div style={{ width: 150, flex: "none", display: "flex", justifyContent: "flex-end" }}>
                       {actionable ? (
                         <Select
@@ -216,7 +216,7 @@ export function ChannelSettingsDialog({
                           aria-label={t("channel.roleOf", { name: m.name })}
                         />
                       ) : (
-                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
                           {t(CHANNEL_ROLE_LABEL[m.role] ?? key("role.member"))}
                         </span>
                       )}
@@ -235,7 +235,7 @@ export function ChannelSettingsDialog({
                 );
               })}
               {members !== null && members.length === 0 ? (
-                <p style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 10px", margin: 0 }}>
+                <p style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", padding: "8px 10px", margin: 0 }}>
                   {t("channel.noMembersYet")}
                 </p>
               ) : null}
@@ -257,8 +257,8 @@ export function ChannelSettingsDialog({
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-strong)" }}>{t("channel.delete")}</div>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{t("channel.delete")}</div>
+              <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2 }}>
                 {/* Said rather than drawn disabled: a greyed button reads "unavailable", this one is
                     one step away, and the step is named. */}
                 {isDefault ? t("channel.deleteDefault") : t("channel.deleteDesc")}
@@ -314,8 +314,8 @@ export function DeleteChannelDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)", margin: "0 0 6px" }}>{t("channel.deleteBody")}</p>
-      <p style={{ fontSize: 13, color: "var(--status-danger-fg)", margin: "0 0 14px" }}>{t("space.deleteFinal")}</p>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", margin: "0 0 6px" }}>{t("channel.deleteBody")}</p>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--status-danger-fg)", margin: "0 0 14px" }}>{t("space.deleteFinal")}</p>
       <Field
         label={t("space.deleteConfirmLabel", { name })}
         htmlFor="del-channel"
@@ -334,7 +334,7 @@ export function DeleteChannelDialog({
         />
       </Field>
       {error ? (
-        <p role="alert" style={{ fontSize: 12, color: "var(--text-danger, var(--terracotta-700))", margin: "10px 0 0" }}>
+        <p role="alert" style={{ fontSize: "var(--text-2xs)", color: "var(--status-danger-fg)", margin: "10px 0 0" }}>
           {error}
         </p>
       ) : null}
@@ -550,7 +550,7 @@ export function AddPeopleDialog({
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <Input autoFocus icon="search" placeholder={t("channel.searchPerson")} value={q} onChange={(e) => setQ(e.target.value)} />
         {error ? (
-          <p role="alert" style={{ fontSize: 12, color: "var(--text-danger, var(--terracotta-700))" }}>
+          <p role="alert" style={{ fontSize: "var(--text-2xs)", color: "var(--status-danger-fg)" }}>
             {t(error)}
           </p>
         ) : null}
@@ -580,11 +580,11 @@ export function AddPeopleDialog({
                   aria-label={p.name}
                 />
                 <Avatar name={p.name} src={p.avatarUrl ?? getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
-                <span style={{ flex: 1, fontSize: 13, color: isIn ? "var(--text-strong)" : "var(--text-muted)" }}>
+                <span style={{ flex: 1, fontSize: "var(--text-xs)", color: isIn ? "var(--text-strong)" : "var(--text-muted)" }}>
                   {p.name}
                 </span>
                 {isIn !== wasIn ? (
-                  <span style={{ fontSize: 12, color: "var(--text-accent)" }}>
+                  <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-accent)" }}>
                     {isIn ? t("channel.willBeAdded") : t("channel.willBeRemoved")}
                   </span>
                 ) : null}
@@ -622,7 +622,7 @@ export function LeaveChannelDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)" }}>
         {t("channel.leaveBody", { name: channelName })}
       </p>
     </Dialog>

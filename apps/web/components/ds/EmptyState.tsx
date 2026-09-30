@@ -4,7 +4,7 @@ import { Icon, type IconName } from "./Icon";
 export type EmptyStateSize = "hero" | "compact";
 
 export type EmptyStateProps = {
-  /** Optional icon name (rendered in a soft badge in `hero`, plain in `compact`). */
+  /** Optional icon name, drawn as a sticker (larger in `hero`, smaller in `compact`). */
   icon?: IconName;
   title?: ReactNode;
   description?: ReactNode;
@@ -18,8 +18,7 @@ export type EmptyStateProps = {
 
 /**
  * Consistent empty / no-results placeholder used across the app. Centered on both axes so it
- * drops straight into a `flex: 1` container. `hero` puts the icon in a soft badge with a larger
- * title; `compact` is tighter for floating and inline surfaces.
+ * drops straight into a `flex: 1` container. `hero` has a larger sticker and a bold title; `compact` is tighter for floating and inline surfaces.
  */
 export function EmptyState({ icon, title, description, action, size = "hero", className = "", style }: EmptyStateProps) {
   const hero = size === "hero";
@@ -39,36 +38,30 @@ export function EmptyState({ icon, title, description, action, size = "hero", cl
       }}
     >
       {icon ? (
-        hero ? (
-          <span
-            aria-hidden
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 56,
-              height: 56,
-              marginBottom: 2,
-              borderRadius: "var(--radius-lg)",
-              background: "var(--surface-sunken)",
-              color: "var(--text-subtle)",
-            }}
-          >
-            <Icon name={icon} size={26} />
-          </span>
-        ) : (
-          <Icon name={icon} size={22} style={{ color: "var(--grey-300)" }} />
-        )
+        // A sticker: the icon on the theme's pastel, edged in ink, set a little askew on an offset
+        // shadow. The design system's way of drawing something small with character.
+        <span
+          aria-hidden
+          className="wc-sticker"
+          style={{
+            width: hero ? 64 : 40,
+            height: hero ? 64 : 40,
+            marginBottom: hero ? 8 : 4,
+            boxShadow: hero ? "var(--shadow-popover)" : "var(--shadow-offset-sm)",
+          }}
+        >
+          <Icon name={icon} size={hero ? 28 : 18} />
+        </span>
       ) : null}
       {title ? (
-        <div style={{ fontSize: hero ? 16 : 14, fontWeight: 600, color: "var(--text-strong)" }}>{title}</div>
+        <div style={{ fontSize: hero ? 20 : 14, fontWeight: hero ? 700 : 600, letterSpacing: hero ? "var(--tracking-tight)" : undefined, color: "var(--text-strong)" }}>{title}</div>
       ) : null}
       {description ? (
         <p
           style={{
             margin: 0,
-            fontSize: hero ? 13 : 12.5,
-            color: "var(--text-muted)",
+            fontSize: hero ? 14 : 12.5,
+            color: hero ? "var(--text-body)" : "var(--text-muted)",
             maxWidth: hero ? 340 : 260,
             lineHeight: "var(--leading-snug)",
           }}

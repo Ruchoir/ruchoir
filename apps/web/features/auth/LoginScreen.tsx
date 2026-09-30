@@ -11,10 +11,10 @@ const styles: Record<string, CSSProperties> = {
   divider: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
   dividerLine: { flex: 1, height: 1, background: "var(--border-default)" },
   dividerLabel: {
-    fontSize: 11,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontWeight: 500,
+    fontSize: "var(--text-2xs)",
+    color: "var(--text-muted)",
   },
 };
 
@@ -124,7 +124,7 @@ export function LoginScreen({
         <div style={styles.optionRow}>
           <a
             href="#"
-            style={{ fontSize: 13 }}
+            style={{ fontSize: "var(--text-xs)" }}
             onClick={(e) => {
               e.preventDefault();
               onForgotPassword();

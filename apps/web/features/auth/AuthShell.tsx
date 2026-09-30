@@ -18,21 +18,21 @@ const styles: Record<string, CSSProperties> = {
   brand: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8 },
   mark: { width: 48, height: 48, display: "block" },
   wordmark: {
-    fontSize: 24,
+    fontSize: "var(--text-2xl)",
     fontWeight: 600,
     letterSpacing: "-0.03em",
     color: "var(--text-strong)",
   },
-  tagline: { fontSize: 13, color: "var(--text-muted)" },
+  tagline: { fontSize: "var(--text-xs)", color: "var(--text-muted)" },
   card: {
     width: "min(400px, 100%)",
-    background: "var(--surface-canvas)",
-    border: "1px solid var(--border-subtle)",
+    background: "var(--surface-raised)",
+    border: "2px solid var(--ink)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-dialog)",
     padding: "28px 28px 24px",
   },
-  footer: { fontSize: 12, color: "var(--text-subtle)", textAlign: "center" },
+  footer: { fontSize: "var(--text-2xs)", color: "var(--text-subtle)", textAlign: "center" },
 };
 
 /** Shared centered layout for the sign-in and sign-up screens: wordmark, a card, and a footer note. */
@@ -44,7 +44,7 @@ export function AuthShell({ children, footer }: { children: ReactNode; footer?: 
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brand/ruchoir-mark.png" alt="" style={styles.mark} />
         <div style={styles.wordmark}>
-          Ruchoir<span style={{ color: "var(--terracotta-500)" }}>.</span>
+          Ruchoir<span style={{ color: "var(--brand)" }}>.</span>
         </div>
         <div style={styles.tagline}>{t("brand.tagline")}</div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
+import { getAvatar, getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
 import {
   acceptInvitation,
   addReaction,
@@ -87,7 +87,7 @@ import type {
   SpaceFile,
   Workspace,
 } from "@/lib/data";
-import { Button, Dialog, Drawer, EmptyState } from "@/components/ds";
+import { Avatar, Button, Dialog, EmptyState } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { SavedMessage } from "@/lib/data/api";
 import type { PresenceChoice } from "@/lib/data";
@@ -171,9 +171,11 @@ import type { AppView, ChannelPanel, Toast } from "./types";
 import { WorkspaceRail } from "./WorkspaceRail";
 import { readDeepLink } from "@/lib/dev/deeplink";
 import { lastChannelOf, rememberChannel } from "@/lib/lastChannel";
-import { useCompact } from "./useCompact";
-import { MobileTopBar } from "./MobileTopBar";
+import { useLayout, useTouch } from "./useLayout";
+import { oneLine } from "./preview";
 import { BottomTabs } from "./BottomTabs";
+import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
+import { SpaceSwitcherSheet, YouSheet } from "./mobile/MobileSheets";
 
 /** Wraps the app in the settings provider (emoji rendering, etc.). */
 export function AppRoot() {
@@ -204,16 +206,19 @@ const toastStyle: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 2,
-    minWidth: 240,
-    maxWidth: 360,
+    // Never wider than the screen less its margins (a phone at the largest text size is 267 CSS
+    // pixels across), and the offset shadow has to fit in the margin too.
+    minWidth: "min(240px, calc(var(--ui-vw, 100vw) - 48px))",
+    maxWidth: "min(360px, calc(var(--ui-vw, 100vw) - 48px))",
     padding: "10px 14px",
     borderRadius: "var(--radius-md)",
     background: "var(--surface-inverse)",
     color: "var(--text-inverse)",
-    boxShadow: "var(--shadow-dialog)",
+    // The ink card, lifted on the bee-yellow offset of the product's primary actions.
+    boxShadow: "var(--shadow-lift)",
   },
-  title: { fontSize: 13, fontWeight: 600 },
-  desc: { fontSize: 12, color: "var(--grey-300)" },
+  title: { fontSize: "var(--text-xs)", fontWeight: 600 },
+  desc: { fontSize: "var(--text-2xs)", color: "color-mix(in srgb, var(--text-inverse) 78%, var(--surface-inverse))" },
 };
 
 /** How many faces a thread shows next to its reply count. The API caps its own list to match. */
@@ -248,6 +253,8 @@ function adjustReplyCount(
   parentId: string,
   delta: number,
   author?: string,
+  /** When the arriving reply was sent: the root's "last reply" moves to it. */
+  at?: string,
 ): MessageMap {
   const list = map[conv] ?? [];
   const idx = list.findIndex((x) => x.id === parentId);
@@ -262,7 +269,9 @@ function adjustReplyCount(
       ? [author, ...(root.replyAuthors ?? []).filter((a) => a !== author)].slice(0, MAX_REPLY_FACES)
       : root.replyAuthors;
   const next = list.slice();
-  next[idx] = { ...root, replies: count > 0 ? count : undefined, replyAuthors: faces };
+  // Only an arrival moves the time too, for the same reason as the faces.
+  const lastReplyAt = at && delta > 0 ? at : root.lastReplyAt;
+  next[idx] = { ...root, replies: count > 0 ? count : undefined, replyAuthors: faces, lastReplyAt: count > 0 ? lastReplyAt : undefined };
   return { ...map, [conv]: next };
 }
 
@@ -287,7 +296,7 @@ function applyChanges(map: MessageMap, changes: { conversationId: string; messag
       if (m.parentId && m.deleted && !held.deleted) next = adjustReplyCount(next, conv, m.parentId, -1);
     } else if (!m.deleted) {
       next = upsertMessage(next, conv, { ...m, fresh: true });
-      if (m.parentId) next = adjustReplyCount(next, conv, m.parentId, 1, m.author);
+      if (m.parentId) next = adjustReplyCount(next, conv, m.parentId, 1, m.author, m.createdAt);
     }
   }
   return next;
@@ -322,7 +331,8 @@ function toAppNotification(
     isDm,
     actor: n.actor,
     messageId: n.messageId,
-    preview: n.preview,
+    // The server previews the raw body; a list draws it as one line of words.
+    preview: oneLine(n.preview),
     createdAt: n.createdAt,
     read,
   };
@@ -577,13 +587,46 @@ function AppShell() {
   const [toastKey, setToastKey] = useState(0);
   const { mounted: toastMounted, closing: toastClosing } = useMountAnimation(toastVisible, 280);
 
-  // Compact (mobile/narrow) shell state. `mobileTab` picks the bottom-tab list; `mobileContent`
-  // is true when a conversation or view is pushed full-screen over that list; `railOpen` toggles
-  // the workspace rail drawer.
-  const compact = useCompact();
-  const [mobileTab, setMobileTab] = useState<"channels" | "messages" | "activity">("channels");
+  // Which shell the window calls for (see useLayout). `compact` is the phone's: one screen at a
+  // time, `mobileTab` picking the tab and `mobileContent` true when a conversation or a view is
+  // pushed full screen over it. The tablet keeps two columns and has no rail, so the space switcher
+  // and the account menu are sheets there as on the phone (`spaceSheet`, `youSheet`).
+  const layout = useLayout();
+  const compact = layout === "phone";
+  const touch = useTouch();
+  const tablet = layout === "tablet";
+  const [mobileTab, setMobileTab] = useState<"home" | "messages" | "activity">("home");
   const [mobileContent, setMobileContent] = useState(false);
-  const [railOpen, setRailOpen] = useState(false);
+  const profileFromTabs = useRef(false);
+  const [spaceSheet, setSpaceSheet] = useState(false);
+  const [youSheet, setYouSheet] = useState(false);
+  // The panel a conversation opens with (the members, by default) is a desktop's: a tablet has no
+  // room beside the conversation and a phone shows one thing at a time. The first render cannot
+  // know the window yet (see useLayout), so once it does, a panel nobody asked for is put away.
+  // The panel put away is remembered, and comes back if the window widens to a desktop again: resizing
+  // a browser window across the line should not lose what was open.
+  const panelPutAway = useRef<ChannelPanel>(null);
+  useEffect(() => {
+    if (layout !== "desktop") {
+      setPanel((open) => {
+        if (open === "members" || open === "files" || open === "pinned") {
+          panelPutAway.current = open;
+          return null;
+        }
+        return open;
+      });
+    } else if (panelPutAway.current) {
+      const back = panelPutAway.current;
+      panelPutAway.current = null;
+      setPanel((open) => open ?? back);
+    }
+  }, [layout]);
+
+  /** Navigating anywhere closes the switcher and the account sheet it was chosen from. */
+  const closeSheets = () => {
+    setSpaceSheet(false);
+    setYouSheet(false);
+  };
   const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   /** The space whose load is currently authoritative; see `loadSpace`. */
@@ -1087,7 +1130,7 @@ function AppShell() {
           const next = upsertMessage(prev, conv, { ...m, fresh: true });
           // A reply is held with the rest of the conversation, and kept out of the feed when the
           // feed is drawn. What the feed does show of it is its root's counter and faces.
-          return parentId ? adjustReplyCount(next, conv, parentId, 1, m.author) : next;
+          return parentId ? adjustReplyCount(next, conv, parentId, 1, m.author, m.createdAt) : next;
         });
         // The author stopped typing the moment they sent: clear their now-stale typing signal.
         const author = m.authorId;
@@ -1104,6 +1147,10 @@ function AppShell() {
         // reply takes part in: the history endpoint leaves replies out, and so do the unread counters
         // the server keeps.
         if (parentId) return;
+        // The conversation list previews what was just said, whether or not it is being read.
+        setDms((prev) =>
+          prev.map((d) => (d.id === conv ? { ...d, lastMessage: { excerpt: m.body, mine: false, at: m.createdAt ?? new Date().toISOString() } } : d)),
+        );
         // Reading is having it on screen while looking at the screen. Sitting in a conversation
         // never advanced the read cursor: it moved only when a conversation was opened, so someone
         // who stayed in a channel accumulated unread messages they were watching arrive, and their
@@ -2297,7 +2344,7 @@ function AppShell() {
     if (view !== "instance-admin") setPrevView(view);
     setView("instance-admin");
     setMobileContent(true);
-    setRailOpen(false);
+    closeSheets();
   };
 
   /**
@@ -2313,7 +2360,7 @@ function AppShell() {
     if (view !== "import") setPrevView(view);
     setView("import");
     setMobileContent(true);
-    setRailOpen(false);
+    closeSheets();
   };
 
   const openPreferences = (tab: PrefTab = "appearance") => {
@@ -2325,7 +2372,7 @@ function AppShell() {
     setView("prefs");
     // Compact shell: push the view full-screen over the tab list and close the rail drawer.
     setMobileContent(true);
-    setRailOpen(false);
+    closeSheets();
   };
 
   const openChannel = (id: string) => {
@@ -2343,7 +2390,7 @@ function AppShell() {
     // Right panel is app-level state, so reset it per conversation, to whichever panel the
     // preferences name. The compact shell opens with none (there the panel is a full-screen overlay
     // that would hide the conversation), and a panel closed by hand stays closed.
-    setPanel(compact || panelDismissed ? null : defaultPanel);
+    setPanel(layout !== "desktop" || panelDismissed ? null : defaultPanel);
     setThread(null);
     setProfile(null);
     setProfileEdit(false);
@@ -2719,6 +2766,9 @@ function AppShell() {
     // uploads on pick, so all that travels here is its id.
     sendMessage(conv, text, { attachments: attachments?.flatMap((attachment) => attachment.fileId ? [attachment.fileId] : []) })
       .then((m) => {
+        setDms((prev) =>
+          prev.map((d) => (d.id === conv ? { ...d, lastMessage: { excerpt: m.body, mine: true, at: m.createdAt ?? new Date().toISOString() } } : d)),
+        );
         // Drop the optimistic row and de-dupe the real id, so a realtime echo of our own message that
         // may have already arrived does not leave a duplicate.
         setMessages((prev) => {
@@ -2757,7 +2807,7 @@ function AppShell() {
       .then((m) => {
         setMessages((prev) => {
           const list = (prev[conv] ?? []).filter((x) => x.id !== tempId && x.id !== m.id);
-          return adjustReplyCount({ ...prev, [conv]: [...list, m] }, conv, parentId, 1, m.author);
+          return adjustReplyCount({ ...prev, [conv]: [...list, m] }, conv, parentId, 1, m.author, m.createdAt);
         });
         if (notInChannel(conv)) void markJoined(conv);
       })
@@ -3446,10 +3496,10 @@ function AppShell() {
             </span>
           </div>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
+            <div style={{ fontSize: "var(--text-base)", fontWeight: 600, letterSpacing: "var(--tracking-tight)", color: "var(--text-strong)" }}>
               Ruchoir
             </div>
-            <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 2 }}>{t("boot.preparing")}</div>
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 2 }}>{t("boot.preparing")}</div>
           </div>
         </div>
       </div>
@@ -3468,7 +3518,7 @@ function AppShell() {
           justifyContent: "center",
           background: "var(--surface-canvas)",
           color: "var(--text-muted)",
-          fontSize: 14,
+          fontSize: "var(--text-sm)",
           padding: 24,
           textAlign: "center",
         }}
@@ -3614,12 +3664,35 @@ function AppShell() {
   // over. Prefs and instance admin still replace the screen, so they are not folded in here.
   const contentView = view === "import" ? prevView : view;
   const contentTitle = contentView === "channel" ? (dm ? dm.name : `# ${chan.name}`) : (VIEW_TITLES[contentView] ? t(VIEW_TITLES[contentView]) : wsName);
-  const mobileTabs = [
-    { id: "channels", label: t("tabs.channels"), icon: "hash" },
-    { id: "messages", label: t("tabs.messages"), icon: "message-square" },
-    { id: "activity", label: t("tabs.activity"), icon: "bell", badge: notifUnread || undefined },
-    { id: "search", label: t("tabs.search"), icon: "search" },
-  ];
+
+  const setOwnPresence = (choice: PresenceChoice) => {
+    setMyChoice(choice);
+    // The resulting dot is the server's to decide, not ours to guess: "automatique" reads the
+    // connection, and an override only colours a connection that exists. So the answer to this
+    // call is what we display.
+    void apiSetMyPresence(choice)
+      .then((p) => {
+        setUserPresence(currentUser, p);
+        if (session?.id) setPresence((prev) => ({ ...prev, [session.id]: p }));
+      })
+      .catch(() => setMyChoice(myChoice));
+  };
+  /** One's own profile, in the side panel of the conversation (full screen on a phone). */
+  const showOwnProfile = (edit: boolean) => {
+    setView("channel");
+    setThread(null);
+    setProfileEdit(edit);
+    setProfile(currentUser);
+    if (compact) {
+      // Opened from the tabs, not from a channel: going back returns there, rather than through the
+      // channel's members panel and the channel the profile happens to be drawn over.
+      profileFromTabs.current = !mobileContent;
+      if (!mobileContent) setPanel(null);
+      setMobileContent(true);
+    }
+  };
+  const openOwnProfile = () => showOwnProfile(false);
+  const editOwnProfile = () => showOwnProfile(true);
 
   const rail = (
     <WorkspaceRail
@@ -3628,7 +3701,7 @@ function AppShell() {
       active={ws}
       currentUser={currentUser}
       onSelect={(id) => {
-        setRailOpen(false);
+        closeSheets();
         void switchWorkspace(id);
       }}
       onNew={() => setModal("newWorkspace")}
@@ -3636,36 +3709,59 @@ function AppShell() {
       onLogout={handleLogout}
       presence={myPresence}
       presenceChoice={myChoice}
-      onSetPresence={(choice) => {
-        setMyChoice(choice);
-        // The resulting dot is the server's to decide, not ours to guess: "automatique" reads the
-        // connection, and an override only colours a connection that exists. So the answer to this
-        // call is what we display.
-        void apiSetMyPresence(choice)
-          .then((p) => {
-            setUserPresence(currentUser, p);
-            if (session?.id) setPresence((prev) => ({ ...prev, [session.id]: p }));
-          })
-          .catch(() => setMyChoice(myChoice));
-      }}
+      onSetPresence={setOwnPresence}
       onOpenSettings={() => openPreferences()}
       onOpenInstanceAdmin={session?.isInstanceAdmin === true ? () => openInstanceAdmin() : undefined}
-      onOpenOwnProfile={() => {
-        setView("channel");
-        setThread(null);
-        setProfileEdit(false);
-        setProfile(currentUser);
-      }}
-      onEditOwnProfile={() => {
-        setView("channel");
-        setThread(null);
-        setProfileEdit(true);
-        setProfile(currentUser);
-      }}
+      onOpenOwnProfile={openOwnProfile}
+      onEditOwnProfile={editOwnProfile}
     />
   );
 
-  const desktopSidebar = (
+  // The phone pushes whatever is opened from a tab over the tabs, full screen.
+  const backToTabs = () => setMobileContent(false);
+  const openViewPushed = (v: AppView) => {
+    openView(v);
+    setMobileContent(true);
+  };
+  const openChannelPushed = (id: string) => {
+    openChannel(id);
+    setMobileContent(true);
+  };
+  /** The top of the phone's home tab, above the channels: the search, and the shortcuts. */
+  const phoneLead = (
+    <>
+      <MobileSearchField onOpen={() => setModal("search")} />
+      <QuickLinks
+        links={[
+          { id: "threads", icon: "inbox", label: t("sidebar.threads"), onOpen: () => openViewPushed("threads") },
+          { id: "mentions", icon: "at-sign", label: t("activity.mentions"), count: mentionUnread, mention: true, onOpen: () => openViewPushed("mentions") },
+          { id: "saved", icon: "bookmark", label: t("activity.saved"), onOpen: () => openViewPushed("saved") },
+          ...(currentWorkspace?.role !== "guest"
+            ? [{ id: "files", icon: "hard-drive" as const, label: t("gsearch.files"), onOpen: () => openViewPushed("files") }]
+            : []),
+        ]}
+      />
+    </>
+  );
+  /** The tablet's list has no rail beside it: the space and the account are reached from its head. */
+  const tabletRailless = {
+    onSwitchSpace: () => setSpaceSheet(true),
+    you: (
+      <button
+        type="button"
+        className="wc-rail-space"
+        aria-label={t("shell.myProfileAndStatus")}
+        onClick={() => setYouSheet(true)}
+        style={{ display: "flex", border: 0, padding: 0, marginLeft: 4, background: "none", cursor: "pointer" }}
+      >
+        <Avatar name={currentUser} src={getAvatar(currentUser)} size={30} presence={myPresence} />
+      </button>
+    ),
+  };
+
+  // One set of props for every shell; each shell adds what differs (the phone's single section, the
+  // tablet's railless header).
+  const renderSidebar = (shell: "desktop" | "tablet" | "phone") => (
     <Sidebar
         workspace={workspaces.find((w) => w.id === ws)}
         channels={channels}
@@ -3677,8 +3773,8 @@ function AppShell() {
         channelPrefs={channelPrefs}
         notifications={visibleNotifs}
         notifUnread={notifUnread}
-        onView={openView}
-        onChannel={openChannel}
+        onView={shell === "phone" ? openViewPushed : openView}
+        onChannel={shell === "phone" ? openChannelPushed : openChannel}
         onNotify={showToast}
         onInvite={() => setModal("invite")}
         onNewChannel={() => setModal("newChannel")}
@@ -3707,8 +3803,13 @@ function AppShell() {
         onSpaceNotifications={() => setSpaceNotifOpen(true)}
         loading={switchingSpace}
         openNotifications={deepLinkPop === "notifications"}
+        compact={shell === "phone"}
+        only={shell === "phone" ? "channels" : undefined}
+        lead={shell === "phone" ? phoneLead : undefined}
+        railless={shell === "tablet" ? tabletRailless : undefined}
       />
   );
+  const desktopSidebar = renderSidebar("desktop");
 
   /**
    * What a space switch fades: everything but the rail, which stays live so another space is one
@@ -3768,12 +3869,20 @@ function AppShell() {
           unreadMarker={unreadMarker}
           focusMessageId={focusMessageId}
           compact={compact}
+          overlayPanels={tablet}
+          onBack={compact ? backToTabs : undefined}
           onSend={send}
           onUploadAttachment={uploadAttachment}
           onAvatarChanged={applyOwnAvatar}
           onPanel={openPanel}
           onCloseThread={() => setThread(null)}
-          onCloseProfile={() => setProfile(null)}
+          onCloseProfile={() => {
+            setProfile(null);
+            if (compact && profileFromTabs.current) {
+              profileFromTabs.current = false;
+              setMobileContent(false);
+            }
+          }}
           onNotify={showToast}
           onUpdateChannel={(patch) => updateChannel(channelId, patch)}
           myRole={currentWorkspace?.role ?? "member"}
@@ -3812,6 +3921,7 @@ function AppShell() {
           workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
           currentUser={currentUser}
           compact={compact}
+          onBack={compact ? backToTabs : undefined}
           onNotify={showToast}
         />
       ) : null}
@@ -3850,6 +3960,7 @@ function AppShell() {
           onChangeRole={(member, role) => void changeMemberRole(member, role)}
           onRemoveMember={setRemoving}
           compact={compact}
+          onBack={compact ? backToTabs : undefined}
           onInvite={() => setModal("invite")}
           onNotify={showToast}
           // Deleting is the owner's alone, which is also what the API enforces: an admin runs the
@@ -3859,9 +3970,9 @@ function AppShell() {
           onLeave={() => setModal("leaveSpace")}
         />
       ) : null}
-      {contentView === "threads" ? <ActivityView kind="threads" items={threads} onOpen={openMessage} /> : null}
-      {contentView === "mentions" ? <ActivityView kind="mentions" items={mentions} onOpen={openMessage} /> : null}
-      {contentView === "saved" ? <ActivityView kind="saved" items={saved} onOpen={openMessage} /> : null}
+      {contentView === "threads" ? <ActivityView kind="threads" items={threads} onOpen={openMessage} onBack={compact ? backToTabs : undefined} /> : null}
+      {contentView === "mentions" ? <ActivityView kind="mentions" items={mentions} onOpen={openMessage} onBack={compact ? backToTabs : undefined} /> : null}
+      {contentView === "saved" ? <ActivityView kind="saved" items={saved} onOpen={openMessage} onBack={compact ? backToTabs : undefined} /> : null}
     </main>
   );
 
@@ -3871,7 +3982,7 @@ function AppShell() {
           clear they are account-wide, not scoped to the current workspace. Sits below toasts (z 60)
           and dialogs (z 90) so the security sub-dialogs still layer on top. */}
       {view === "prefs" ? (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
+        <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)", paddingTop: "env(safe-area-inset-top)" }}>
           <PreferencesScreen
             compact={compact}
             initialTab={prefsTab}
@@ -3884,7 +3995,7 @@ function AppShell() {
       {/* Instance administration, full-screen like the preferences and for the same reason: it is
           about the account and the instance, never about the space underneath. */}
       {view === "instance-admin" && session?.isInstanceAdmin ? (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)" }}>
+        <div style={{ position: "fixed", top: 0, left: 0, width: "var(--ui-vw)", height: "var(--ui-vh)", zIndex: 50, display: "flex", flexDirection: "column", background: "var(--surface-canvas)", paddingTop: "env(safe-area-inset-top)" }}>
           <InstanceAdminScreen compact={compact} onClose={() => setView(prevView)} onNotify={showToast} />
         </div>
       ) : null}
@@ -4146,7 +4257,9 @@ function AppShell() {
         />
       ) : null}
 
-      {!settings.welcome.dismissed ? (
+      {/* Not on a touch screen: its steps are a desktop's (shortcuts, the sidebar), and on a phone the
+          card covered the tabs. */}
+      {!settings.welcome.dismissed && !touch ? (
         <GettingStarted
           done={settings.welcome.done}
           onRun={runWelcomeStep}
@@ -4174,102 +4287,132 @@ function AppShell() {
     </>
   );
 
+  /** The signed-in person's menu as a sheet, for the shells without the rail that holds it. */
+  const you = (
+    <YouSheet
+      open={youSheet}
+      currentUser={currentUser}
+      presence={myPresence}
+      choice={myChoice}
+      onClose={() => setYouSheet(false)}
+      onSetPresence={setOwnPresence}
+      onOpenProfile={openOwnProfile}
+      onEditProfile={editOwnProfile}
+      onOpenSettings={() => openPreferences()}
+      onOpenInstanceAdmin={session?.isInstanceAdmin === true ? () => openInstanceAdmin() : undefined}
+      onHelp={() => setModal("help")}
+      onLogout={() => void handleLogout()}
+    />
+  );
+  const spaces = (
+    <SpaceSwitcherSheet
+      open={spaceSheet}
+      workspaces={orderedWorkspaces}
+      active={ws}
+      onSelect={(id) => void switchWorkspace(id)}
+      onNew={() => setModal("newWorkspace")}
+      onClose={() => setSpaceSheet(false)}
+      onReorder={reorderWorkspace}
+    />
+  );
+
   if (compact) {
+    const root = (
+      <main style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+        {mobileTab === "home" ? (
+          <>
+            <MobileHeader
+              leading={<SpaceMark workspace={currentWorkspace} />}
+              title={wsName}
+              titleLabel={wsName ? t("sidebar.spaceSwitchNamed", { name: wsName }) : t("sidebar.spaceSwitch")}
+              onTitle={() => setSpaceSheet(true)}
+              currentUser={currentUser}
+              presence={myPresence}
+              onYou={() => setYouSheet(true)}
+            />
+            {renderSidebar("phone")}
+          </>
+        ) : null}
+        {mobileTab === "messages" ? (
+          <>
+            <MobileHeader title={t("tabs.messages")} currentUser={currentUser} presence={myPresence} onYou={() => setYouSheet(true)} onSearch={() => setModal("search")} />
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+              <MobileMessages
+                dms={visibleDms}
+                loading={switchingSpace}
+                onOpen={openChannelPushed}
+                onNew={() => setModal("newMessage")}
+              />
+            </div>
+          </>
+        ) : null}
+        {mobileTab === "activity" ? (
+          <>
+            <MobileHeader title={t("tabs.activity")} currentUser={currentUser} presence={myPresence} onYou={() => setYouSheet(true)} onSearch={() => setModal("search")} />
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+              <MobileActivity
+                notifications={visibleNotifs}
+                onOpen={(channelId, messageId, id) => {
+                  openNotification(channelId, messageId, id);
+                  setMobileContent(true);
+                }}
+                onToggleRead={setNotifRead}
+              />
+            </div>
+          </>
+        ) : null}
+        {mobileTab !== "activity" ? <ComposeFab onClick={() => setModal("newMessage")} /> : null}
+      </main>
+    );
     return (
       <>
-        <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--surface-canvas)" }}>
-          <MobileTopBar
-            title={mobileContent ? contentTitle : wsName}
-            workspaceName={wsName}
-            workspaceIcon={workspaces.find((w) => w.id === ws)?.iconUrl}
-            onBack={mobileContent ? () => setMobileContent(false) : undefined}
-            onOpenRail={() => setRailOpen(true)}
-            onSearch={() => setModal("search")}
-            onCompose={() => setModal("newMessage")}
-          />
+        {/* Clear of the status bar and the notch (the page draws under them, see `viewportFit` in
+            layout.tsx): every screen of the phone starts below them, on the canvas's colour. */}
+        <div style={{ height: "var(--ui-vh)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--surface-canvas)", paddingTop: "env(safe-area-inset-top)" }}>
+          {/* Whatever is pushed over the tabs carries the way back in its own heading (see the
+              views' `onBack`), so there is no second bar above it naming it again. */}
           <div
             style={{ ...switchingStyle, flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
             aria-busy={switchingSpace || undefined}
           >
-            {mobileContent ? (
-              content
-            ) : (
-              // The mobile list screen is a main landmark; a visually-hidden h1 gives the screen reader
-              // a heading to land on (the top bar shows the same name visually).
-              <main style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                <h1
-                  style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0 }}
-                >
-                  {wsName}
-                </h1>
-                <Sidebar
-                  workspace={workspaces.find((w) => w.id === ws)}
-                channels={channels}
-                directMessages={visibleDms}
-                onHideDm={hideDm}
-                view={view}
-                channel={channelId}
-                mentionCount={mentionUnread}
-                channelPrefs={channelPrefs}
-                notifications={visibleNotifs}
-                notifUnread={notifUnread}
-                compact
-                only={mobileTab}
-                onView={(v) => {
-                  openView(v);
-                  setMobileContent(true);
-                }}
-                onChannel={(id) => {
-                  openChannel(id);
-                  setMobileContent(true);
-                }}
-                onNotify={showToast}
-                onInvite={() => setModal("invite")}
-                onNewChannel={() => setModal("newChannel")}
-                canBrowseSpace={currentWorkspace?.role !== "guest"}
-                canAdministerSpace={canAdministerSpace}
-                canImport={session !== null}
-                importRun={importRun}
-                onImport={openImport}
-                onNewMessage={() => setModal("newMessage")}
-                onGlobalSearch={() => setModal("search")}
-                onLeaveChannel={leaveChannel}
-                onJoinChannel={joinChannel}
-                onChannelSettings={setChannelSettingsId}
-                onChannelNotifications={setChannelNotifId}
-                onMarkRead={markConversationRead}
-                onToggleFavorite={toggleFavorite}
-                onSetDefaultChannel={(id) => void setDefaultChannel(id)}
-                onReorderChannels={canAdministerSpace ? (ids) => void reorderChannels(ids) : undefined}
-                onOpenNotification={openNotification}
-                onToggleNotifRead={setNotifRead}
-                onMarkAllNotifsRead={markAllNotifsRead}
-                onOpenNotifPrefs={() => openPreferences("notifications")}
-                onLeaveSpace={() => setModal("leaveSpace")}
-                onSpaceNotifications={() => setSpaceNotifOpen(true)}
-                loading={switchingSpace}
-                />
-              </main>
-            )}
+            {mobileContent ? content : root}
           </div>
-          <BottomTabs
-            tabs={mobileTabs}
-            active={mobileTab}
-            onSelect={(id) => {
-              if (id === "search") {
-                setModal("search");
-                return;
-              }
-              setMobileTab(id as "channels" | "messages" | "activity");
-              setMobileContent(false);
-            }}
-          />
+          {/* The tabs belong to the root screens: what is pushed over them takes the whole height. */}
+          {mobileContent ? null : (
+            <BottomTabs
+              tabs={[
+                { id: "home", label: t("tabs.home"), icon: "house", badge: mentionUnread || undefined },
+                { id: "messages", label: t("tabs.messages"), icon: "message-square", badge: visibleDms.reduce((n, d) => n + d.unread, 0) || undefined },
+                { id: "activity", label: t("tabs.activity"), icon: "bell", badge: notifUnread || undefined },
+              ]}
+              active={mobileTab}
+              onSelect={(id) => setMobileTab(id as "home" | "messages" | "activity")}
+            />
+          )}
         </div>
-        <Drawer open={railOpen} onClose={() => setRailOpen(false)} side="left" width={72} label={t("shell.workspaces")}>
-          {rail}
-        </Drawer>
+        {spaces}
+        {you}
         {overlays}
       </>
+    );
+  }
+
+  if (tablet) {
+    // Two columns: the space's list, railless, and what is open. Side panels cover the conversation
+    // (see ChannelScreen's `overlayPanels`) rather than squeezing it.
+    return (
+      <div style={{ height: "var(--ui-vh)", display: "flex", overflow: "hidden", background: "var(--surface-canvas)" }}>
+        <div
+          style={{ ...switchingStyle, flex: 1, minWidth: 0, display: "flex", overflow: "hidden" }}
+          aria-busy={switchingSpace || undefined}
+        >
+          {renderSidebar("tablet")}
+          {content}
+        </div>
+        {spaces}
+        {you}
+        {overlays}
+      </div>
     );
   }
 

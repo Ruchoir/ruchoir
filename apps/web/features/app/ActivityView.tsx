@@ -6,6 +6,7 @@ import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { getAvatar, getPresence } from "@/lib/data";
 import { type ActivityItem, messageSummary } from "./activity";
 import { formatStamp } from "@/lib/i18n/format";
+import { BackHeading } from "./BackHeading";
 
 export type ActivityKind = "threads" | "mentions" | "saved";
 
@@ -39,24 +40,24 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    padding: "0 16px",
+    padding: "0 20px",
     margin: 0, // rendered as an <h1>
-    borderBottom: "1px solid var(--border-subtle)",
-    fontSize: 15,
-    fontWeight: 600,
+    borderBottom: "1.5px solid var(--border-subtle)",
+    fontSize: "var(--text-lg)",
+    fontWeight: 700,
     letterSpacing: "var(--tracking-tight)",
     color: "var(--text-strong)",
   },
-  scroll: { flex: 1, overflow: "auto", padding: "18px 0" },
+  scroll: { flex: 1, overflow: "auto", padding: "24px 0" },
   inner: { maxWidth: 720, margin: "0 auto", padding: "0 24px", display: "flex", flexDirection: "column", gap: 10 },
   item: {
     display: "flex",
     gap: 12,
     width: "100%",
     padding: "12px 14px",
-    border: "1px solid var(--border-subtle)",
+    border: "1.5px solid var(--border-default)",
     borderRadius: "var(--radius-md)",
-    background: "var(--surface-canvas)",
+    background: "var(--surface-card)",
     cursor: "pointer",
     textAlign: "left",
   },
@@ -67,22 +68,26 @@ export type ActivityViewProps = {
   kind: ActivityKind;
   items: ActivityItem[];
   onOpen: (channelId: string, messageId: string) => void;
+  /** A phone: the way back to the tabs, at the start of the heading. */
+  onBack?: () => void;
 };
 
 /** Filtered cross-channel list for the Threads, Mentions and Saved views. */
-export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
+export function ActivityView({ kind, items, onOpen, onBack }: ActivityViewProps) {
   const { t } = useTranslation();
   const meta = META[kind];
 
   return (
     <div style={styles.root}>
-      <h1 style={styles.top}>
+      <BackHeading onBack={onBack} bar={styles.top}>
+      <h1 style={onBack ? { ...styles.top, height: "auto", padding: 0, border: 0, flex: 1, minWidth: 0 } : styles.top}>
         <Icon name={meta.icon} size={15} style={{ color: "var(--text-muted)" }} />
         {t(meta.title)}
         {items.length > 0 ? (
-          <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-muted)" }}>· {items.length}</span>
+          <span style={{ fontSize: "var(--text-xs)", fontWeight: 400, color: "var(--text-muted)" }}>· {items.length}</span>
         ) : null}
       </h1>
+      </BackHeading>
 
       {items.length === 0 ? (
         <div style={styles.empty}>
@@ -96,17 +101,17 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
                 key={`${it.channelId}:${it.message.id}`}
                 type="button"
                 style={styles.item}
-                className="wc-listrow"
+                className="wc-listrow wc-lift"
                 onClick={() => onOpen(it.channelId, it.message.id)}
               >
                 <Avatar name={it.message.author} src={getAvatar(it.message.author)} size={30} presence={getPresence(it.message.author)} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 2 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-strong)" }}>{it.message.author}</span>
-                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                    <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{it.message.author}</span>
+                    <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
                       {it.label} · {formatStamp(it.message.createdAt)}
                     </span>
-                    {kind === "saved" ? <Icon name="bookmark" size={13} style={{ color: "var(--terracotta-500)" }} /> : null}
+                    {kind === "saved" ? <Icon name="bookmark" size={13} style={{ color: "var(--ink)" }} /> : null}
                   </span>
                   <span
                     style={{
@@ -114,7 +119,7 @@ export function ActivityView({ kind, items, onOpen }: ActivityViewProps) {
                       WebkitLineClamp: 2,
                       WebkitBoxOrient: "vertical",
                       overflow: "hidden",
-                      fontSize: 14,
+                      fontSize: "var(--text-sm)",
                       color: "var(--text-body)",
                     }}
                   >

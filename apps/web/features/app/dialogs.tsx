@@ -1,5 +1,6 @@
 "use client";
 
+import { useTouch } from "./useLayout";
 import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Dialog, Field, Icon, Input, Radio, Select } from "@/components/ds";
 import type { Presence } from "@/components/ds";
@@ -15,10 +16,10 @@ const sep: Record<string, CSSProperties> = {
   row: { display: "flex", alignItems: "center", gap: 12, margin: "18px 0" },
   line: { flex: 1, height: 1, background: "var(--border-default)" },
   word: {
-    fontSize: 11,
-    letterSpacing: "var(--tracking-caps)",
-    textTransform: "uppercase",
-    color: "var(--text-subtle)",
+    fontFamily: "var(--font-mono)",
+    fontWeight: 500,
+    fontSize: "var(--text-2xs)",
+    color: "var(--text-muted)",
   },
   card: {
     display: "flex",
@@ -35,11 +36,11 @@ const sep: Record<string, CSSProperties> = {
   },
   cardTitle: {
     display: "block",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
     fontWeight: "var(--weight-medium)" as CSSProperties["fontWeight"],
     color: "var(--text-strong)",
   },
-  cardHint: { display: "block", fontSize: 12, color: "var(--text-muted)", marginTop: 2 },
+  cardHint: { display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", marginTop: 2 },
 };
 
 /** Why the thing you just asked for did not happen, said where the eye already is. */
@@ -50,7 +51,7 @@ const dialogError: CSSProperties = {
   background: "var(--surface-sunken)",
   border: "1px solid var(--status-danger-fg)",
   color: "var(--status-danger-fg)",
-  fontSize: 12,
+  fontSize: "var(--text-2xs)",
   lineHeight: 1.5,
 };
 
@@ -173,11 +174,11 @@ export function NewMessageDialog({
               onClick={() => onSelect(p.name)}
             >
               <Avatar name={p.name} src={getAvatar(p.name)} size={26} presence={p.presence} kind={p.bot ? "bot" : "person"} />
-              <span style={{ fontSize: 13, color: "var(--text-strong)" }}>{p.name}</span>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-strong)" }}>{p.name}</span>
             </button>
           ))}
           {rows.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-muted)", padding: "8px 10px" }}>{t("common.nobodyMatches")}</p>
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", padding: "8px 10px" }}>{t("common.nobodyMatches")}</p>
           ) : null}
         </div>
       </div>
@@ -198,7 +199,7 @@ const INVITE_ROLES = [
 const inviteStyles: Record<string, CSSProperties> = {
   body: { display: "flex", flexDirection: "column", gap: 16 },
   section: { display: "flex", flexDirection: "column", gap: 8 },
-  sectionTitle: { fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" },
+  sectionTitle: { fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)" },
   link: {
     display: "flex",
     alignItems: "center",
@@ -212,7 +213,7 @@ const inviteStyles: Record<string, CSSProperties> = {
     flex: 1,
     minWidth: 0,
     fontFamily: "var(--font-mono)",
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     color: "var(--text-default)",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -224,13 +225,13 @@ const inviteStyles: Record<string, CSSProperties> = {
     gap: 10,
     padding: "8px 0",
     borderTop: "1px solid var(--border-subtle)",
-    fontSize: 13,
+    fontSize: "var(--text-xs)",
   },
   rowMain: { flex: 1, minWidth: 0 },
-  rowMeta: { fontSize: 12, color: "var(--text-muted)" },
-  empty: { fontSize: 13, color: "var(--text-muted)" },
+  rowMeta: { fontSize: "var(--text-2xs)", color: "var(--text-muted)" },
+  empty: { fontSize: "var(--text-xs)", color: "var(--text-muted)" },
   notice: {
-    fontSize: 12,
+    fontSize: "var(--text-2xs)",
     lineHeight: 1.5,
     color: "var(--text-muted)",
     padding: "8px 10px",
@@ -403,7 +404,7 @@ export function InviteDialog({
         ) : null}
 
         {error ? (
-          <p role="alert" style={{ ...inviteStyles.empty, color: "var(--text-danger, var(--terracotta-700))" }}>
+          <p role="alert" style={{ ...inviteStyles.empty, color: "var(--status-danger-fg)" }}>
             {t(error)}
           </p>
         ) : null}
@@ -478,6 +479,7 @@ export function NewWorkspaceDialog({
   /** Bring a workspace over from another product instead of starting an empty one. */
   onImport?: () => void;
 }) {
+  const touch = useTouch();
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [nameError, setNameError] = useState<TranslationKey | null>(null);
@@ -514,7 +516,8 @@ export function NewWorkspaceDialog({
       >
         <Input
           id="ws-name"
-          autoFocus
+          // On a touch screen the keyboard would rise over the dialog before it is even read.
+          autoFocus={!touch}
           invalid={!!nameError}
           placeholder={t("dialogs.workspacePlaceholder")}
           value={name}
@@ -537,7 +540,7 @@ export function NewWorkspaceDialog({
             <span style={sep.line} />
           </div>
           <button type="button" onClick={onImport} style={sep.card} className="wc-choice">
-            <Icon name="import" size={18} style={{ color: "var(--accent-fg, var(--terracotta-600))" }} />
+            <Icon name="import" size={18} style={{ color: "var(--ink)" }} />
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={sep.cardTitle}>{t(key("import.screenTitle"))}</span>
               <span style={sep.cardHint}>{t(key("dialogs.importFromAnotherTool"))}</span>
@@ -586,8 +589,8 @@ export function LeaveSpaceDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)", margin: 0 }}>{t("space.leaveBody")}</p>
-      <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", margin: 0 }}>{t("space.leaveBody")}</p>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "10px 0 0" }}>
         {t("space.leaveKeepsMessages")}
       </p>
       {error ? (
@@ -639,8 +642,8 @@ export function DeleteSpaceDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)", margin: "0 0 6px" }}>{t("space.deleteBody")}</p>
-      <p style={{ fontSize: 13, color: "var(--status-danger-fg)", margin: "0 0 14px" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", margin: "0 0 6px" }}>{t("space.deleteBody")}</p>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--status-danger-fg)", margin: "0 0 14px" }}>
         {t("space.deleteFinal")}
       </p>
       <Field
@@ -704,10 +707,10 @@ export function TransferOwnershipDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)", margin: 0 }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", margin: 0 }}>
         {t("space.transferBody", { name: memberName, space: spaceName })}
       </p>
-      <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "10px 0 0" }}>
         {t("space.transferStepDown")}
       </p>
     </Dialog>
@@ -749,10 +752,10 @@ export function RemoveMemberDialog({
         </>
       }
     >
-      <p style={{ fontSize: 13, color: "var(--text-body)", margin: 0 }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-body)", margin: 0 }}>
         {t("space.removeBody", { name: memberName, space: spaceName })}
       </p>
-      <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "10px 0 0" }}>
+      <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "10px 0 0" }}>
         {t("space.removeKeepsMessages")}
       </p>
     </Dialog>
@@ -789,7 +792,7 @@ export function HelpDialog({
             className="wc-listrow"
           >
             <Icon name="file-text" size={16} style={{ color: "var(--text-muted)" }} />
-            <span style={{ flex: 1, fontSize: 13 }}>{t("dialogs.gettingStartedGuide")}</span>
+            <span style={{ flex: 1, fontSize: "var(--text-xs)" }}>{t("dialogs.gettingStartedGuide")}</span>
             <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
           </button>
         </div>
@@ -805,11 +808,10 @@ export function HelpDialog({
       >
         <span
           style={{
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "var(--tracking-caps)",
-            textTransform: "uppercase",
-            color: "var(--text-subtle)",
+            fontFamily: "var(--font-mono)",
+            fontSize: "var(--text-2xs)",
+            fontWeight: 500,
+            color: "var(--text-muted)",
           }}
         >
           {t("prefs.shortcuts")}
@@ -825,15 +827,17 @@ export function HelpDialog({
           const keys = formatChord(shortcuts[c.id], mac, t);
           return (
             <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "6px 2px" }}>
-              <span style={{ fontSize: 13, color: "var(--text-body)" }}>{t(c.label)}</span>
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-body)" }}>{t(c.label)}</span>
               {keys ? (
                 <kbd
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    color: "var(--text-muted)",
-                    background: "var(--grey-100)",
-                    border: "1px solid var(--border-subtle)",
+                    fontSize: "var(--text-2xs)",
+                    color: "var(--text-strong)",
+                    background: "var(--surface-card)",
+                    // A key cap: the outline of a control, thicker at the bottom.
+                    border: "1.5px solid var(--control-line)",
+                    borderBottomWidth: 3,
                     borderRadius: "var(--radius-sm)",
                     padding: "1px 6px",
                     whiteSpace: "nowrap",
@@ -842,7 +846,7 @@ export function HelpDialog({
                   {keys}
                 </kbd>
               ) : (
-                <span style={{ fontSize: 12, color: "var(--text-subtle)" }}>{t("dialogs.unassigned")}</span>
+                <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t("dialogs.unassigned")}</span>
               )}
             </div>
           );
