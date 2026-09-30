@@ -63,7 +63,12 @@ const styles: Record<string, CSSProperties> = {
 const TOOLBAR_BREAKPOINT = 640;
 
 /** A block-level formatting tool: an icon, the key of its label, and what it does to the editor. */
-type BlockTool = { icon: IconName; label: TranslationKey; apply: (editor: MessageEditorHandle) => void };
+type BlockTool = {
+  icon: IconName;
+  label: TranslationKey;
+  /** `t` is for the tool that writes words of its own (a table's column names). */
+  apply: (editor: MessageEditorHandle, t: (key: TranslationKey) => string) => void;
+};
 
 /**
  * The block tools, named once and composed twice below.
@@ -89,6 +94,12 @@ const QUOTE: BlockTool = {
   icon: "quote",
   label: key("composer.quote"),
   apply: (ed) => ed.prefixLines("> "),
+};
+const TABLE: BlockTool = {
+  icon: "table",
+  label: key("composer.table"),
+  // Written into the message like every other block tool: Tab then walks its cells.
+  apply: (ed, t) => ed.insertTable([`${t(key("composer.tableColumn"))} 1`, `${t(key("composer.tableColumn"))} 2`]),
 };
 const HEADINGS: BlockTool[] = [
   { icon: "heading-1", label: key("composer.heading1"), apply: (ed) => ed.prefixLines("## ") },
@@ -127,7 +138,7 @@ const FAMILIES: ToolFamily[] = [
  */
 const FORMAT_SECTIONS: { label: TranslationKey | null; tools: BlockTool[] }[] = [
   { label: key("composer.headings"), tools: HEADINGS },
-  { label: null, tools: [QUOTE, INLINE_CODE, CODE_BLOCK] },
+  { label: null, tools: [QUOTE, TABLE, INLINE_CODE, CODE_BLOCK] },
   { label: key("composer.lists"), tools: LISTS },
 ];
 
@@ -324,7 +335,7 @@ export function Composer({
   /** Run a tool on the editor. The table holds what each one does; the ref is read here, on click. */
   const runTool = (tool: BlockTool) => {
     const ed = editorRef.current;
-    if (ed) tool.apply(ed);
+    if (ed) tool.apply(ed, t);
   };
 
   const formatItems: MenuItem[] = FORMAT_SECTIONS.flatMap((group, i): MenuItem[] => [
@@ -444,6 +455,7 @@ export function Composer({
               <span style={styles.divider} />
               <FamilyMenu family={FAMILIES[1]} run={runTool} />
               <IconButton icon={QUOTE.icon} label={t(QUOTE.label)} size="sm" onClick={() => runTool(QUOTE)} />
+              <IconButton icon={TABLE.icon} label={t(TABLE.label)} size="sm" onClick={() => runTool(TABLE)} />
               <FamilyMenu family={FAMILIES[2]} run={runTool} />
             </>
           )}

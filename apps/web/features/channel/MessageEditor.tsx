@@ -18,12 +18,22 @@ import {
   editorState,
   emojiNode,
   insertBlockAtSelection,
+  addRowBelow,
+  cellAtCaret,
+  fillFrom,
+  insertTableAtCaret,
+  loadBody,
+  moveCell,
+  selectCell,
+  tableNode,
+  type TableLabels,
   insertLineBreakAtSelection,
   insertNodeAtSelection,
   insertTextAtSelection,
   replaceTokenBeforeCaret,
   serialize,
 } from "./composerEditor";
+import { parseTsv, splitTables } from "./tableEdit";
 
 type Member = ReturnType<typeof getChannelMembers>[number];
 
@@ -73,6 +83,12 @@ export type MessageEditorHandle = {
   codeFormat: () => void;
   /** Open a fenced code block around the selection, caret inside it when there is none. */
   blockCode: () => void;
+  /**
+   * Open a table on a line of its own, at the caret: a header naming each column, the dashed row
+   * that makes it a table, and an empty row. The first header cell is selected to be typed over, and
+   * Tab then walks the cells.
+   */
+  insertTable: (headers: string[]) => void;
   /** Whether the editor currently has no text (used to allow attachment-only sends). */
   isEmpty: () => boolean;
   /** Clear the editor without sending. */
@@ -396,6 +412,27 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
     sync();
   };
 
+  /** The words on a table's three buttons. */
+  const tableLabels = (): TableLabels => ({
+    addRow: t("composer.tableAddRow"),
+    addColumn: t("composer.tableAddColumn"),
+    remove: t("composer.tableRemove"),
+  });
+
+  const insertTable = (headers: string[]) => {
+    if (headers.length === 0) return;
+    ensureCaret();
+    const ed = edRef.current;
+    if (!ed) return;
+    const empty = headers.map(() => "");
+    const box = tableNode([headers, empty, empty], tableLabels(), sync);
+    insertTableAtCaret(ed, box);
+    // The first header is selected, so typing names the column at once.
+    const first = box.querySelector<HTMLElement>("th");
+    if (first) selectCell(first);
+    sync();
+  };
+
   const insertTrigger = (char: "@" | "#") => {
     ensureCaret();
     const ed = edRef.current;
@@ -419,6 +456,7 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
     numberLines,
     codeFormat,
     blockCode,
+    insertTable,
     isEmpty: () => {
       const ed = edRef.current;
       return !ed || serialize(ed).trim() === "";
@@ -435,8 +473,8 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
       if (!ed) return;
       // Written as a text node rather than as HTML: the body is the user's own text, and anything
       // in it that looks like markup is text too.
-      ed.innerHTML = "";
-      ed.append(document.createTextNode(text));
+      // A pipe table in it is drawn as a table again, to be edited as one.
+      loadBody(ed, splitTables(text), tableLabels(), sync);
       setTrigger(null);
       setEmpty(text === "");
       ed.focus();
@@ -474,6 +512,22 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
         return;
       }
     }
+    // In a table, Tab walks the cells and Shift+Enter starts a new row (the way it continues a
+    // list). Anywhere else they keep their usual jobs.
+    const ed0 = edRef.current;
+    const cell = ed0 ? cellAtCaret(ed0) : null;
+    if (cell && e.key === "Tab" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      moveCell(cell, !e.shiftKey);
+      sync();
+      return;
+    }
+    if (cell && e.key === "Enter" && e.shiftKey) {
+      e.preventDefault();
+      addRowBelow(cell);
+      sync();
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       submit();
@@ -500,7 +554,16 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
       return;
     }
     e.preventDefault();
-    insertTextAtSelection(e.clipboardData.getData("text/plain"));
+    const text = e.clipboardData.getData("text/plain");
+    const ed = edRef.current;
+    const cell = ed ? cellAtCaret(ed) : null;
+    const grid = cell ? parseTsv(text) : null;
+    if (cell && grid) {
+      // A block copied from a spreadsheet, pasted into a table, fills the cells from this one.
+      fillFrom(cell, grid);
+    } else {
+      insertTextAtSelection(text);
+    }
     sync();
   };
 
