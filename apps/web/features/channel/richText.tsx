@@ -229,6 +229,30 @@ function renderInline(
         continue;
       }
     }
+    // A named link, `[the words](https://address)`. Only an http(s) address becomes one: anything
+    // else stays the text it was typed as. The address is on the tooltip, because the words can
+    // say anything and the reader deserves to see where it goes before following it.
+    if (text[i] === "[") {
+      const m = /^\[([^\]\n]+)\]\((https?:\/\/[^\s)]+(?:\([^\s)]*\)[^\s)]*)*)\)/.exec(text.slice(i));
+      if (m && m[2].length > "https://".length) {
+        flush();
+        nodes.push(
+          <a
+            key={`${keyBase}-n${k++}`}
+            className="wc-message-link"
+            href={m[2]}
+            title={m[2]}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {m[1]}
+          </a>,
+        );
+        i += m[0].length;
+        continue;
+      }
+    }
     if (text.startsWith("http", i)) {
       const m = /^https?:\/\/[^\s]+/.exec(text.slice(i));
       const url = m ? trimTrailing(m[0]) : "";
@@ -260,6 +284,28 @@ function renderInline(
 }
 
 /** Render a plain-text block (no fenced code): lists, line breaks, and inline formatting. */
+/** The cells of one table row: the outer bars are optional, and so is the space around a cell. */
+function tableCells(line: string): string[] {
+  let row = line.trim();
+  if (row.startsWith("|")) row = row.slice(1);
+  if (row.endsWith("|")) row = row.slice(0, -1);
+  return row.split("|").map((cell) => cell.trim());
+}
+
+/**
+ * The alignment of each column when this line is a table's separator row (`---|:---:|---:`), or
+ * null when it is not one. A separator needs a bar, or a line of dashes would turn any heading
+ * underline into a table.
+ */
+function tableAlignments(line: string): ("left" | "center" | "right")[] | null {
+  if (!line.includes("|")) return null;
+  const cells = tableCells(line);
+  if (!cells.every((cell) => /^:?-{1,}:?$/.test(cell))) return null;
+  return cells.map((cell) =>
+    cell.startsWith(":") && cell.endsWith(":") ? "center" : cell.endsWith(":") ? "right" : "left",
+  );
+}
+
 function renderTextBlock(
   text: string,
   names: string[],
@@ -325,9 +371,62 @@ function renderTextBlock(
     return run;
   };
 
+  /** The last line a table already drew, so the loop does not draw its rows a second time. */
+  let tableEnd = -1;
+
   lines.forEach((line, idx) => {
+    if (idx <= tableEnd) return;
     const inline = (from: string) =>
       renderInline(from, names, `${keyBase}ln${idx}`, emojiSize, onMention, meName, rooms);
+    // A table: a header row, then the separator row that makes it one, then rows while they last.
+    const aligns = line.includes("|") && idx + 1 < lines.length ? tableAlignments(lines[idx + 1]) : null;
+    const header = aligns ? tableCells(line) : null;
+    if (aligns && header && header.length === aligns.length) {
+      closeRun();
+      let end = idx + 1;
+      const body: string[][] = [];
+      while (end + 1 < lines.length && lines[end + 1].includes("|") && lines[end + 1].trim() !== "") {
+        body.push(tableCells(lines[end + 1]));
+        end += 1;
+      }
+      tableEnd = end;
+      const cell = (content: string, col: number, tag: "th" | "td", row: string) => {
+        const Tag = tag;
+        return (
+          <Tag
+            key={`${keyBase}-${row}c${col}`}
+            style={{
+              textAlign: aligns[col],
+              padding: "4px 10px",
+              border: "1px solid var(--border-default)",
+              fontWeight: tag === "th" ? 600 : undefined,
+              background: tag === "th" ? "var(--surface-hover)" : undefined,
+              verticalAlign: "top",
+            }}
+          >
+            {renderInline(content, names, `${keyBase}-${row}c${col}`, emojiSize, onMention, meName, rooms)}
+          </Tag>
+        );
+      };
+      blocks.push(
+        // Its own scroll box, so a wide table scrolls inside the message instead of widening the page.
+        <div key={`${keyBase}-tb${idx}`} style={{ overflowX: "auto", maxWidth: "100%", margin: "4px 0" }}>
+          <table style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr>{header.map((content, col) => cell(content, col, "th", `h${idx}`))}</tr>
+            </thead>
+            <tbody>
+              {body.map((row, r) => (
+                <tr key={`${keyBase}-tr${idx}-${r}`}>
+                  {aligns.map((_, col) => cell(row[col] ?? "", col, "td", `r${idx}-${r}`))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      return;
+    }
     const numbered = /^(\d{1,9})[.)] /.exec(line);
     // A checklist item, before the bullet test that would otherwise swallow it and leave "[ ]" as
     // the first two characters of the text.
