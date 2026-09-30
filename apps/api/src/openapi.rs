@@ -135,6 +135,7 @@ use utoipa::OpenApi;
         crate::files::uploads::upload_version,
         crate::files::download::download_file,
         crate::files::download::preview_file,
+        crate::files::convert::preview_document,
         crate::files::download::thumbnail_file,
         crate::files::shares::list_shares,
         crate::files::shares::create_share,

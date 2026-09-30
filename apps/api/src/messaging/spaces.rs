@@ -912,6 +912,12 @@ async fn stored_object_keys(state: &AppState, space_id: Uuid) -> Result<Vec<Stri
         .await?;
     let mut keys = Vec::with_capacity(versions.len());
     for version in versions {
+        keys.extend(
+            version
+                .storage_key
+                .iter()
+                .map(|key| crate::files::convert::pdf_key(key)),
+        );
         keys.extend(version.storage_key);
         keys.extend(version.thumbnail_key);
     }

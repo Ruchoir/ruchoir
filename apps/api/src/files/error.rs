@@ -29,6 +29,8 @@ pub enum FileError {
     StorageUnavailable,
     /// The object-storage backend failed.
     Storage,
+    /// An office document could not be converted to PDF for preview.
+    Conversion,
     /// Any unexpected server-side failure. Never leaks internals to the client.
     Internal,
 }
@@ -61,6 +63,11 @@ impl IntoResponse for FileError {
                 StatusCode::BAD_GATEWAY,
                 "storage_error",
                 "The object store could not be reached.",
+            ),
+            FileError::Conversion => (
+                StatusCode::BAD_GATEWAY,
+                "conversion_failed",
+                "The document could not be converted for preview.",
             ),
             FileError::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,

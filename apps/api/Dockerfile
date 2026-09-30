@@ -58,8 +58,14 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 FROM debian:bookworm-slim AS runtime
 # `libssl3` is the runtime half of the build dependency above: `openssl-sys` links dynamically, so
 # the binary needs the shared library even though nothing here terminates TLS with it.
+# LibreOffice (The Document Foundation, Germany) converts Word, Excel and PowerPoint files (and their
+# OpenDocument and older siblings, and CSV) to PDF for the file viewer; see `files::convert`, which
+# drives it from Python (`python3-uno`). Only the three components the viewer needs, without the
+# recommended extras (no Java, no GUI), and a couple of fonts so a document does not fall back to
+# boxes. It runs as the unprivileged user below.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl libssl3 \
+       libreoffice-writer libreoffice-calc libreoffice-impress python3-uno fonts-liberation fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --user-group ruchoir
 WORKDIR /srv/ruchoir

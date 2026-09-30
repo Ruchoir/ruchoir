@@ -601,6 +601,12 @@ pub async fn delete_channel(
             .all(&state.db)
             .await?
         {
+            file_keys.extend(
+                version
+                    .storage_key
+                    .iter()
+                    .map(|key| crate::files::convert::pdf_key(key)),
+            );
             file_keys.extend(version.storage_key);
             file_keys.extend(version.thumbnail_key);
         }

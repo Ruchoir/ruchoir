@@ -285,7 +285,11 @@ pub fn router(state: AppState) -> Router {
                 }
             }
         })
-        .layer(set_header(header::CONTENT_SECURITY_POLICY, csp))
+        // Only when the handler set none: an inline file preview carries its own (see `files::download`).
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(csp),
+        ))
         .layer(set_header(header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
         .layer(set_header(header::REFERRER_POLICY, "no-referrer"))
         .layer(set_header(

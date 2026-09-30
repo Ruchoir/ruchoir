@@ -7,6 +7,7 @@
 //! keys and their own audiences, and are kept apart on purpose.
 
 mod authz;
+pub(crate) mod convert;
 pub(crate) mod download;
 pub(crate) mod dto;
 mod error;
