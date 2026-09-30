@@ -191,14 +191,18 @@ pub async fn list_channels(
     // A guest is offered nothing they were not added to, so for them every channel is listed the
     // way a private one is. Same test as the one that would refuse them the conversation itself.
     let explicit_only = super::authz::is_guest(&state.db, space_id, session.user_id).await?;
+    // The space's owner is offered its private channels too, joined or not.
+    let owner = super::authz::is_space_owner(&state.db, space_id, session.user_id).await?;
 
     let mut out = Vec::new();
     for channel in all {
-        // Private channels are visible only to their members; public/archived to any space member.
+        // Private channels are visible only to their members and to the space's owner; public and
+        // archived ones to any space member.
         let membership = channel_members::Entity::find_by_id((channel.id, session.user_id))
             .one(&state.db)
             .await?;
-        if (channel.channel_type == "private" || explicit_only) && membership.is_none() {
+        if ((channel.channel_type == "private" && !owner) || explicit_only) && membership.is_none()
+        {
             continue;
         }
         // And the channel's own guest list, checked even for a member: a role taken away takes the
