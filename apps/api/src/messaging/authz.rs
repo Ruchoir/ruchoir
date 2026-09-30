@@ -81,9 +81,11 @@ pub async fn ensure_conversation_access(
                 .one(db)
                 .await?
                 .ok_or(ApiError::Forbidden)?;
-            // A private channel is joined explicitly, and so is *every* channel for a guest: that
-            // is the whole of what the role means. Both paths end at the same row.
-            let explicit_only = channel.channel_type == "private"
+            // A private channel is joined explicitly (its owner of the space aside, who reads it
+            // without joining), and so is *every* channel for a guest: that is the whole of what
+            // the role means. Both paths end at the same row.
+            let explicit_only = (channel.channel_type == "private"
+                && !is_space_owner(db, conversation.space_id, user_id).await?)
                 || is_guest(db, conversation.space_id, user_id).await?;
             let authorized = if explicit_only {
                 is_channel_member(db, conversation_id, user_id).await?
@@ -351,8 +353,9 @@ pub async fn accessible_conversation_ids(
     // Same rule as [`ensure_conversation_access`], and it has to be the same or search would find
     // what opening the conversation refuses to show.
     let explicit_only = is_guest(db, space_id, user_id).await?;
+    let owner = is_space_owner(db, space_id, user_id).await?;
     for channel in channels {
-        let open = !explicit_only && channel.channel_type != "private";
+        let open = !explicit_only && (channel.channel_type != "private" || owner);
         if !(open || joined_channels.contains(&channel.id)) {
             continue;
         }
@@ -454,6 +457,21 @@ pub async fn space_role(
         .one(db)
         .await?
         .map(|member| member.role))
+}
+
+/// Whether a user holds the space: its owner, the one role that reads every channel in it.
+///
+/// A private channel is entered explicitly by everybody else, and stays invisible to whoever is not
+/// in it. The owner answers for the whole space (its data, its members, what is said in it), so
+/// they read a private channel without being in it, the way any member reads a public channel they
+/// have not joined. Reading is all it grants: they are not pushed its messages and do not count
+/// among its members until they join it.
+pub async fn is_space_owner(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, ApiError> {
+    Ok(space_role(db, space_id, user_id).await?.as_deref() == Some("owner"))
 }
 
 /// Whether a user reaches this space only where they were explicitly added.

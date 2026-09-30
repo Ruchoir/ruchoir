@@ -451,6 +451,98 @@ async fn private_channel_denies_a_non_member() {
 }
 
 #[tokio::test]
+async fn the_space_owner_reads_a_private_channel_they_are_not_in() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Carol is not in the private channel. As owner she answers for the whole space, so she reads
+    // it anyway; Bob, promoted to administrator, is still only a person who was not invited.
+    set_space_role(&app.db, fx.space_id, fx.carol, "owner").await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let messages = format!("/api/v1/conversations/{}/messages", fx.private_channel);
+
+    let read = app
+        .req(reqwest::Method::GET, &messages, &carol)
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(read.status(), 200, "the owner reads every channel");
+    let refused = app
+        .req(reqwest::Method::GET, &messages, &bob)
+        .send()
+        .await
+        .expect("history");
+    assert_eq!(refused.status(), 403, "an administrator is not the owner");
+
+    // It is in her list, marked as one she has not joined, and absent from Bob's.
+    let listed = |cookie: String| {
+        let app = &app;
+        let path = format!("/api/v1/spaces/{}/channels", fx.space_id);
+        async move {
+            app.req(reqwest::Method::GET, &path, &cookie)
+                .send()
+                .await
+                .expect("channels")
+                .json::<Value>()
+                .await
+                .expect("json")
+        }
+    };
+    let hers = listed(carol.clone()).await;
+    let entry = hers
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|c| c["id"] == fx.private_channel.to_string())
+        .expect("the owner lists the private channel");
+    assert_eq!(entry["member"], false);
+    assert!(!listed(bob.clone())
+        .await
+        .as_array()
+        .expect("array")
+        .iter()
+        .any(|c| c["id"] == fx.private_channel.to_string()));
+
+    // She sees who is in it, and can join it rather than be offered a button that refuses.
+    let members = format!("/api/v1/channels/{}/members", fx.private_channel);
+    assert_eq!(
+        app.req(reqwest::Method::GET, &members, &carol)
+            .send()
+            .await
+            .expect("members")
+            .status(),
+        200
+    );
+    assert_eq!(
+        app.req(reqwest::Method::GET, &members, &bob)
+            .send()
+            .await
+            .expect("members")
+            .status(),
+        403
+    );
+    let membership = format!("/api/v1/channels/{}/membership", fx.private_channel);
+    assert_eq!(
+        app.req(reqwest::Method::PUT, &membership, &carol)
+            .send()
+            .await
+            .expect("join")
+            .status(),
+        204
+    );
+    assert_eq!(
+        app.req(reqwest::Method::PUT, &membership, &bob)
+            .send()
+            .await
+            .expect("join")
+            .status(),
+        403,
+        "joining a private channel stays an invitation for everybody else"
+    );
+}
+
+#[tokio::test]
 async fn only_the_author_can_edit() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
