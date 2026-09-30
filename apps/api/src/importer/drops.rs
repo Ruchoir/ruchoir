@@ -54,9 +54,11 @@ pub fn router() -> Router<AppState> {
             get(script_convert_mattermost),
         )
         .route("/tools/convert-slack.py", get(script_convert_slack))
+        .route("/tools/convert-teams.py", get(script_convert_teams))
         .route("/tools/import-nextcloud.sh", get(script_import_nextcloud))
         .route("/tools/import-mattermost.sh", get(script_import_mattermost))
         .route("/tools/import-slack.sh", get(script_import_slack))
+        .route("/tools/import-teams.sh", get(script_import_teams))
 }
 
 #[derive(Serialize)]
@@ -286,6 +288,13 @@ async fn script_convert_slack() -> impl IntoResponse {
     )
 }
 
+async fn script_convert_teams() -> impl IntoResponse {
+    (
+        [(header::CONTENT_TYPE, "text/x-python; charset=utf-8")],
+        scripts::CONVERT_TEAMS_PY.to_owned(),
+    )
+}
+
 async fn script_import_nextcloud(State(state): State<AppState>) -> impl IntoResponse {
     shell(scripts::render(
         scripts::IMPORT_NEXTCLOUD_SH,
@@ -303,6 +312,13 @@ async fn script_import_mattermost(State(state): State<AppState>) -> impl IntoRes
 async fn script_import_slack(State(state): State<AppState>) -> impl IntoResponse {
     shell(scripts::render(
         scripts::IMPORT_SLACK_SH,
+        &state.config.public_base_url,
+    ))
+}
+
+async fn script_import_teams(State(state): State<AppState>) -> impl IntoResponse {
+    shell(scripts::render(
+        scripts::IMPORT_TEAMS_SH,
         &state.config.public_base_url,
     ))
 }

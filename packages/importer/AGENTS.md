@@ -1,15 +1,17 @@
 # AGENTS.md - packages/importer
 
 The zero-loss import tooling: the official Ruchoir export scripts (run by the customer on their own
-Nextcloud or Mattermost server) plus the adapters that turn a vendor export into a Ruchoir archive.
+Nextcloud or Mattermost server) plus the adapters that turn a vendor export, or a vendor's API, into
+a Ruchoir archive.
 This is the product's signature feature. See the root `AGENTS.md` for project-wide rules.
 
 ## Status
 
 In progress. The archive format is written down (`docs/import-archive.md`), the job and mapping
-tables exist (`import_jobs`, `import_mappings`), and three producers are here: Nextcloud and
-Mattermost, verified against real servers, and Slack, written against a real workspace export. The
-Teams adapter is not written yet. The SeaORM entities land with the code that reads
+tables exist (`import_jobs`, `import_mappings`), and four producers are here: Nextcloud and
+Mattermost, verified against real servers, Slack, written against a real workspace export, and
+Teams, written against the Microsoft Graph documentation and a Graph of our own on localhost, then
+run once against a small trial tenant (2026-09-30). The SeaORM entities land with the code that reads
 them, not before: an entity nothing calls is dead weight, and the compiler says so.
 
 ## Contents
@@ -41,6 +43,19 @@ them, not before: an entity nothing calls is dead weight, and the compiler says 
   the converter stop and print how to make a `files:read` token for `--token-file`. Reaching
   files.slack.com is a one-off migration step a customer asked for, not a runtime dependency, and
   this script is the only thing in the product that does it.
+- `convert-teams.py` : reads a Microsoft Teams organisation through Microsoft Graph and writes the
+  archive. Teams has no export to hand over, so this is the one producer that is an API client from
+  end to end, signing in as an application the customer registers in their own Entra ID with seven
+  read-only permissions (`--help-app` prints them and the steps). Each team becomes a space, each
+  channel a conversation (private and shared ones private, with their own members), and each team's
+  document library lands in its space's files, folders kept, except what was posted in a message,
+  which travels with the message. Chats are left in Teams by decision (2026-09-24), and so are
+  private channels' libraries, whose files would otherwise be shown to the whole space. Everything
+  Graph answers is kept in a cache directory, so a read that stops after hours resumes when run
+  again; the cache holds the conversations in clear, is created readable by its owner only, and
+  the delivery script removes it once the archive is delivered. The token is sent to Graph and the
+  sign-in service only: a file's bytes are served from a signed SharePoint address it redirects to,
+  fetched without it.
 - `export-nextcloud.sh` : runs on the Nextcloud host, reads the database and the data directory,
   writes a sealed Ruchoir archive. Nextcloud Talk has no export of its own, which is why we ship
   one. Read-only: it never writes to the source instance. Sealing is OpenPGP symmetric through
@@ -88,6 +103,22 @@ fixtures are shaped like what that export actually held, down to the escaping in
 snippet. The export itself is deliberately absent from the repository: it holds somebody's real
 messages and files. When Slack changes its format, the way to find out is another real export, not
 a reading of the documentation.
+
+**Teams cannot join it either**, because there is no Teams to stand up: the only way to see what
+Graph really answers is a Microsoft 365 tenant. `convert-teams.py` was written from the Graph
+documentation, and its tests run it against a Graph of our own on localhost
+(`tests/test_convert_teams.py`) that answers with the documentation's own shapes, down to the
+notices, the replies behind a second page and the redirect a download takes. That checks the wire
+(the token reaches Graph and nothing else, a throttled call waits as long as it is told) and the
+conversion, not whether Graph really answers that way.
+
+It has been run once against a real one: a trial Microsoft 365 Business Standard tenant on
+2026-09-30, with three teams (one archived), a private channel, replies, reactions, a deleted
+message, a pasted image, a PDF and files in a document library (21 messages, 6 files, 4 accounts in
+all). The archive passed `import-check`, was imported, and the result was compared with Teams. That is one small
+tenant: it says nothing about a large one (Graph's throttling, hours of reading) or about a
+tenant with guests and shared channels, so the larger claims are still a rehearsal rather than a
+promise.
 
 The API half (`--with-private`) has no real workspace behind its tests either: the calls are stood
 in for, except one test that runs a server on localhost and checks what actually goes over the wire
@@ -148,6 +179,14 @@ problem now and finding it after uploading sixty gigabytes.
 - **One archive format, many producers.** Our export scripts and our adapters produce the format in
   `docs/import-archive.md`; the importer consumes only that. No source-API scraping in the importer,
   and adding a source never changes it.
+- **Write the Markdown the product reads, not CommonMark.** The message reader
+  (`apps/web/features/channel/richText.tsx`) takes `**bold**`, `_italic_` (one asterisk is not
+  italic), `~~struck~~`, backticks, fences, `## ` headings and up (one `#` is a channel), `- ` and
+  `1. ` lists with no nesting, `> ` quotes, bare links, named links `[text](https://address)` and
+  pipe tables (a header row, a dashed row, then rows). It has no backslash escapes, so a bar inside
+  a table cell cannot be written and crosses as `¦`, and a link whose address has a space or whose
+  words have a bracket crosses as "text (address)". An instance older than that reader shows a table
+  and a named link as the characters they are written with.
 - **Import is transactional and idempotent.** An interrupted import leaves no half-populated
   conversation; re-running an archive imports nothing twice. That property rests on
   `import_mappings`, written in the same transaction as the row it points at, not on heuristics.

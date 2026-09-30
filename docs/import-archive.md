@@ -157,6 +157,35 @@ A message's `files` holds the `id` of each attached file, exactly as `files.json
 the content hash: two accounts can hold the same bytes, and the attachment belongs to one of them.
 The bytes are reached through that record's `hash`.
 
+## Where a file lands
+
+**A file lands where the same file sent here would**, because where it lands decides who can read
+it. Three optional fields on a file record say where that is, and the importer reads them in this
+order:
+
+- `channel`: the conversation the file was sent in. When a producer leaves it off (a source that
+  records the file apart from the message), the conversation of the first message carrying the file
+  stands in. A file sent in a **public channel** joins its space's files, in the folder attachments
+  land in; one sent in a **private channel or a direct conversation** is readable by that
+  conversation's people only and stays out of the space's files, exactly like an attachment sent
+  there.
+- `space`: for a file nobody sent anywhere (an account's documents, a shared library), the space it
+  belongs to. Absent, it is the first space of the archive, which is the only one a single-workspace
+  source has. When both `channel` and `space` are given they must agree.
+- `folder`: where in that space's files it sits, as folder names joined by `/` from the root
+  (`"Projets/2026"`). Only for a file nobody sent: a file sent in a conversation goes where its
+  conversation puts it, and naming a folder for it as well is refused. An empty name, `.` or `..` is
+  refused too. A folder already there under the same name is filled rather than doubled, the way a
+  conversation of the same name is.
+
+```json
+{"id":"lib-4410","name":"Plan.docx","size":20480,"content_type":"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+ "hash":"sha256:…","space":"direction","folder":"Documents/Plans","uploaded_by":"alice"}
+```
+
+A file whose conversation or space did not cross is left behind rather than placed somewhere
+else: anywhere else could show it to people who were never meant to read it.
+
 Mentions are the one thing a producer must not leave in vendor syntax: `<@U123>` means nothing here.
 A mention is written as the source identifier of the person, in braces: `@{U123}`. The importer
 resolves it to a real account once the accounts are mapped, and leaves it exactly as it found it
@@ -205,7 +234,14 @@ send an administrator down completely different roads.
 | Nextcloud | `packages/importer/export-nextcloud.sh`, shipped for administrators | On the Nextcloud host |
 | Mattermost | Adapter over the bulk export (JSONL + attachments) | On the Ruchoir host |
 | Slack | Adapter over the workspace export ZIP | On the Ruchoir host |
-| Teams | Adapter over Microsoft Graph | On the Ruchoir host, against the tenant |
+| Teams | `convert-teams.py`, a reader over Microsoft Graph | On the Ruchoir host, against the tenant |
 
 Nextcloud is the odd one out because Talk has no export at all: the script is the only way its
 conversations come out, so we write and support it ourselves.
+
+Teams has no export a customer can download either, but it has an API: the reader asks Microsoft
+Graph, with an application the organisation registers in its own Entra ID and allows to read and
+nothing else (`convert-teams.py --help-app` prints the steps and the seven permissions). Each team
+becomes a space, each channel a conversation, and each team's document library lands in its space's
+files through `space` and `folder`. Chats stay in Teams, by decision: an application that reads
+channels does not need to read everybody's private conversations too.

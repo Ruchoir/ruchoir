@@ -10,8 +10,8 @@ use axum::http::StatusCode;
 use axum::Json;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, QueryFilter,
-    QueryOrder, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
+    IntoActiveModel, QueryFilter, QueryOrder, TransactionTrait,
 };
 use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
@@ -169,7 +169,14 @@ pub async fn upload_attachment(
     let space_id = access.space_id;
     let public_channel = access.channel_type.as_deref() == Some("public");
     let folder_id = if public_channel {
-        Some(attachments_folder(&state.db, space_id, session.user_id).await?)
+        Some(
+            attachments_folder(&state.db, space_id, Some(session.user_id))
+                .await
+                .map_err(|error| {
+                    tracing::error!(%error, "could not create or find the attachments folder");
+                    FileError::Internal
+                })?,
+        )
     } else {
         None
     };
@@ -218,11 +225,15 @@ pub async fn upload_attachment(
 ///
 /// Found by `system_key` so that renaming it keeps it working, and guarded by a unique index so two
 /// simultaneous first uploads cannot each create one.
-async fn attachments_folder(
-    db: &DatabaseConnection,
+///
+/// An import files a public channel's attachments here as well, so that an imported attachment
+/// sits where the same file sent here would. It creates the folder with no owner when it is the
+/// first to need it: nobody uploaded anything, and a folder the product maintains is not anyone's.
+pub(crate) async fn attachments_folder<C: ConnectionTrait>(
+    db: &C,
     space_id: Uuid,
-    owner_id: Uuid,
-) -> Result<Uuid, FileError> {
+    owner_id: Option<Uuid>,
+) -> Result<Uuid, sea_orm::DbErr> {
     if let Some(existing) = files::Entity::find()
         .filter(files::Column::SpaceId.eq(space_id))
         .filter(files::Column::SystemKey.eq(ATTACHMENTS_KEY))
@@ -238,7 +249,7 @@ async fn attachments_folder(
     let created = files::ActiveModel {
         id: Set(id),
         space_id: Set(space_id),
-        owner_id: Set(Some(owner_id)),
+        owner_id: Set(owner_id),
         // A display name, in the product's language like every other name a person reads. The marker
         // above is what identifies it.
         name: Set("Pièces jointes".to_owned()),
@@ -262,10 +273,7 @@ async fn attachments_folder(
             .one(db)
             .await?
             .map(|folder| folder.id)
-            .ok_or_else(|| {
-                tracing::error!(%error, "could not create or find the attachments folder");
-                FileError::Internal
-            }),
+            .ok_or(error),
     }
 }
 

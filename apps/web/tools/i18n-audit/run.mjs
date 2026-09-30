@@ -69,6 +69,7 @@ const ALLOWED = new Set([
   "Nextcloud",
   "Slack",
   "Mattermost",
+  "Teams",
   "IBM Plex Sans",
   "IBM Plex Mono",
   "OpenDyslexic",

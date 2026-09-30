@@ -118,7 +118,13 @@ context and takes precedence here.
   place, is a real thing to want. **The space's `owner` is admitted whatever the list says**
   (`role_admitted`), and that is the only exception: reserving a channel to the administrators used
   to take it out of the owner's own sidebar with no way back that did not go through the API. It
-  grants nothing else, a private channel is still entered explicitly, owner included.
+  grants nothing else on a channel's own roles or its audience.
+  **The space's owner also reads every private channel**, joined or not (`is_space_owner`, decided
+  2026-09-30 after an import left the owner unable to see the private channels they had just
+  migrated): it is listed for them, opens, searches, shows its members and can be joined through the
+  ordinary membership endpoint. It is reading, not belonging: they are not pushed its messages
+  (like a public channel they have not joined) and do not count among its members until they join.
+  An administrator is not the owner and still needs an invitation.
   **`guest` is a real restriction, not a label.** For that role every channel behaves like a private
   one: the member reaches a conversation only where they hold an explicit `channel_members` /
   `dm_participants` row, public or not. Everything else follows from that one rule rather than being
@@ -192,7 +198,10 @@ context and takes precedence here.
   decides its audience: a public channel's attachment joins the space files (in the folder marked
   `system_key = 'attachments'`, found by that marker so renaming it is harmless), while a private
   channel's or a DM's carries `conversation_id`, stays out of the tree and out of search, and is
-  readable only by that conversation's participants. `images` is deliberately outside all of this:
+  readable only by that conversation's participants. An **imported** file follows the same rule
+  (`Place` in `importer/run.rs`, shared `uploads::attachments_folder`): it once landed at the root
+  of the first space whatever it was, which published private attachments to the whole space.
+  `images` is deliberately outside all of this:
   avatars and space icons are not files (`files.space_id` is `NOT NULL`, and an avatar belongs to an
   account), so they live under their own object keys recorded in `users.avatar_key` /
   `spaces.icon_key`, carrying a fresh id per upload so the URL changes with the image.
