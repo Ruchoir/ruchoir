@@ -31,7 +31,7 @@ use uuid::Uuid;
 use crate::auth::extract::AuthSession;
 use crate::entities::{
     channel_members, channel_role_access, channels, conversations, file_versions, files,
-    message_link_previews, messages, spaces, users,
+    message_link_previews, messages, space_members, spaces, users,
 };
 use crate::state::AppState;
 use sea_orm::DatabaseConnection;
@@ -684,10 +684,12 @@ pub async fn join_channel(
         .await?
         .ok_or(ApiError::Forbidden)?;
     ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
-    // A private channel is joined by invitation, which is not this endpoint. The 403 is the same
-    // one a non-member gets when reading it, so nothing is revealed either way. A guest is refused
-    // for the same reason on any channel: every room they are in, somebody put them in.
-    if channel.channel_type == "private"
+    // A private channel is joined by invitation, which is not this endpoint, except by the space's
+    // owner, who already reads it and would otherwise be offered a "join" that refuses. The 403 is
+    // the same one a non-member gets when reading it, so nothing is revealed either way. A guest is
+    // refused for the same reason on any channel: every room they are in, somebody put them in.
+    if (channel.channel_type == "private"
+        && !super::authz::is_space_owner(&state.db, channel.space_id, session.user_id).await?)
         || super::authz::is_guest(&state.db, channel.space_id, session.user_id).await?
         || !super::authz::role_admitted(&state.db, channel_id, channel.space_id, session.user_id)
             .await?
@@ -744,8 +746,9 @@ pub async fn list_channel_members(
         .ok_or(ApiError::Forbidden)?;
     ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
     // A private channel does not list its people to someone outside it: its membership is as private
-    // as its messages.
+    // as its messages. The space's owner is not outside it: they read the messages too.
     if channel.channel_type == "private"
+        && !super::authz::is_space_owner(&state.db, channel.space_id, session.user_id).await?
         && channel_members::Entity::find_by_id((channel_id, session.user_id))
             .one(&state.db)
             .await?
@@ -1145,13 +1148,25 @@ async fn channel_audience(
     user_id: Uuid,
 ) -> Result<Vec<Uuid>, ApiError> {
     if channel_type == "private" {
-        return Ok(channel_members::Entity::find()
+        // Its members, and the space's owner, who sees it listed whether or not they are in it.
+        let mut audience: Vec<Uuid> = channel_members::Entity::find()
             .filter(channel_members::Column::ChannelId.eq(channel_id))
             .all(db)
             .await?
             .into_iter()
             .map(|m| m.user_id)
-            .collect());
+            .collect();
+        let owners = space_members::Entity::find()
+            .filter(space_members::Column::SpaceId.eq(space_id))
+            .filter(space_members::Column::Role.eq("owner"))
+            .all(db)
+            .await?;
+        for owner in owners {
+            if !audience.contains(&owner.user_id) {
+                audience.push(owner.user_id);
+            }
+        }
+        return Ok(audience);
     }
     space_member_ids(db, space_id, user_id).await
 }
@@ -1282,8 +1297,10 @@ pub async fn set_channel_order(
     let all = in_space_order(&state.db, space_id).await?;
     // What the caller sees, with the rule the channel list applies to them.
     let mut visible = std::collections::HashSet::new();
+    let owner = super::authz::is_space_owner(&state.db, space_id, session.user_id).await?;
     for channel in &all {
         if channel.channel_type == "private"
+            && !owner
             && channel_members::Entity::find_by_id((channel.id, session.user_id))
                 .one(&state.db)
                 .await?

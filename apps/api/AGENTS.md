@@ -118,7 +118,13 @@ context and takes precedence here.
   place, is a real thing to want. **The space's `owner` is admitted whatever the list says**
   (`role_admitted`), and that is the only exception: reserving a channel to the administrators used
   to take it out of the owner's own sidebar with no way back that did not go through the API. It
-  grants nothing else, a private channel is still entered explicitly, owner included.
+  grants nothing else on a channel's own roles or its audience.
+  **The space's owner also reads every private channel**, joined or not (`is_space_owner`, decided
+  2026-09-30 after an import left the owner unable to see the private channels they had just
+  migrated): it is listed for them, opens, searches, shows its members and can be joined through the
+  ordinary membership endpoint. It is reading, not belonging: they are not pushed its messages
+  (like a public channel they have not joined) and do not count among its members until they join.
+  An administrator is not the owner and still needs an invitation.
   **`guest` is a real restriction, not a label.** For that role every channel behaves like a private
   one: the member reaches a conversation only where they hold an explicit `channel_members` /
   `dm_participants` row, public or not. Everything else follows from that one rule rather than being
