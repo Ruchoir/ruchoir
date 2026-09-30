@@ -1,6 +1,8 @@
 "use client";
 
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import { FileViewer, viewerKind } from "./FileViewer";
+import { ImageViewer } from "./ImageViewer";
 import { Avatar, brandFor, Button, Card, Checkbox, Dialog, EmptyState, Field, FileIcon, Icon, IconButton, Input, Skeleton, SkeletonGroup, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import {
@@ -733,8 +735,38 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
         </p>
       </Dialog>
 
+      {preview?.id && (isImage(preview.name) || viewerKind(preview.name)) ? (
+        (() => {
+          const target = preview;
+          const actions = {
+            onClose: () => setPreview(null),
+            onDownload: () => download(target.id!, target.name),
+            onNewVersion: () => {
+              setVersionTarget(target);
+              setPreview(null);
+              versionRef.current?.click();
+            },
+            onDelete: () => {
+              setPreview(null);
+              setPendingDelete([target]);
+            },
+          };
+          const kind = viewerKind(target.name);
+          return kind ? (
+            <FileViewer file={target} kind={kind} {...actions} />
+          ) : (
+            <ImageViewer
+              file={target}
+              images={rows.filter((f) => f.id && isImage(f.name))}
+              onNavigate={setPreview}
+              {...actions}
+            />
+          );
+        })()
+      ) : null}
+
       <Dialog
-        open={preview != null}
+        open={preview != null && !(preview.id && (isImage(preview.name) || viewerKind(preview.name)))}
         title={preview?.name}
         subtitle={
           preview
@@ -812,15 +844,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
               overflow: "hidden",
             }}
           >
-            {preview.id && isImage(preview.name) ? (
-              // eslint-disable-next-line @next/next/no-img-element -- same-origin API bytes, not a Next asset
-              <img
-                src={filePreviewUrl(preview.id)}
-                alt={preview.name}
-                style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
-              />
-            ) : (
-              <>
+            <>
                 {preview.kind === "folder" ? (
                   <Icon name="folder" size={52} style={{ color: "var(--ink)" }} />
                 ) : (
@@ -828,8 +852,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
                 )}
                 <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("files.noPreview")}</div>
                 <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t("files.noPreviewText")}</div>
-              </>
-            )}
+            </>
           </div>
         ) : null}
       </Dialog>

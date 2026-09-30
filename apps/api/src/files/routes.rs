@@ -11,7 +11,7 @@ use axum::Router;
 
 use crate::state::AppState;
 
-use super::{download, images, shares, tree, uploads};
+use super::{convert, download, images, shares, tree, uploads};
 
 /// Build the files sub-router with `upload_max_bytes` as the request-body limit.
 pub fn router(upload_max_bytes: usize) -> Router<AppState> {
@@ -62,6 +62,10 @@ pub fn router(upload_max_bytes: usize) -> Router<AppState> {
         .route(
             "/api/v1/files/{file_id}/preview",
             get(download::preview_file),
+        )
+        .route(
+            "/api/v1/files/{file_id}/document",
+            get(convert::preview_document),
         )
         .route(
             "/api/v1/files/{file_id}/thumbnail",

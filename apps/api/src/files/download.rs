@@ -7,7 +7,7 @@
 
 use axum::body::Body;
 use axum::extract::{Path, State};
-use axum::http::{header, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
 use axum::response::Response;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use uuid::Uuid;
@@ -39,7 +39,7 @@ pub async fn download_file(
     session: AuthSession,
     Path(file_id): Path<Uuid>,
 ) -> Result<Response, FileError> {
-    serve_object(&state, session.user_id, file_id, false).await
+    serve_object(&state, session.user_id, file_id, false, &HeaderMap::new()).await
 }
 
 /// `GET /api/v1/files/{file_id}/preview`: serve the bytes inline for previewable types.
@@ -58,9 +58,10 @@ pub async fn download_file(
 pub async fn preview_file(
     State(state): State<AppState>,
     session: AuthSession,
+    headers: HeaderMap,
     Path(file_id): Path<Uuid>,
 ) -> Result<Response, FileError> {
-    serve_object(&state, session.user_id, file_id, true).await
+    serve_object(&state, session.user_id, file_id, true, &headers).await
 }
 
 /// `GET /api/v1/files/{file_id}/thumbnail`: the current version's thumbnail (images only).
@@ -99,6 +100,7 @@ async fn serve_object(
     user_id: Uuid,
     file_id: Uuid,
     inline: bool,
+    request_headers: &HeaderMap,
 ) -> Result<Response, FileError> {
     let access = authz::ensure_readable(&state.db, file_id, user_id).await?;
     let file = access.file;
@@ -111,6 +113,12 @@ async fn serve_object(
         .ok_or(FileError::StorageUnavailable)?;
 
     let version = current_version(&state.db, &file).await?;
+    // An inline preview is revalidated, not re-sent: the tag is the version, so the browser keeps
+    // its copy until the file changes and asks the API (which still checks access) each time.
+    let tag = version_etag(version.id);
+    if inline && is_fresh(request_headers, &tag) {
+        return not_modified(&tag);
+    }
     let key = version.storage_key.ok_or(FileError::NotFound)?;
     let bytes = storage.get(&key).await?;
 
@@ -120,11 +128,66 @@ async fn serve_object(
     } else {
         "attachment"
     };
-    build_response(bytes, &version.mime_type, disposition, &file.name, false)
+    let mut response = build_response(bytes, &version.mime_type, disposition, &file.name, false)?;
+    if disposition == "inline" {
+        // The app shows a preview in a same-origin frame, which the global policy forbids
+        // (`frame-ancestors 'none'`). This one allows our own page to frame it and nothing else:
+        // no script, no remote request, so an SVG or a PDF cannot run code from the preview.
+        response.headers_mut().insert(
+            header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(PREVIEW_CSP),
+        );
+        with_validator(&mut response, &tag);
+    }
+    Ok(response)
 }
 
+/// The entity tag of a version: versions never change, so the id says it all.
+pub(super) fn version_etag(version_id: Uuid) -> String {
+    format!("\"{version_id}\"")
+}
+
+/// Whether the browser already holds the version `tag` names.
+pub(super) fn is_fresh(request_headers: &HeaderMap, tag: &str) -> bool {
+    request_headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.split(',').any(|candidate| candidate.trim() == tag))
+}
+
+/// `304 Not Modified`, carrying the tag and the same caching rule as the full response.
+pub(super) fn not_modified(tag: &str) -> Result<Response, FileError> {
+    let mut response = Response::builder()
+        .status(StatusCode::NOT_MODIFIED)
+        .body(Body::empty())
+        .map_err(|_| FileError::Internal)?;
+    // The browser applies a `304`'s headers to its stored copy: without this policy the global one
+    // (`frame-ancestors 'none'`) would land on it and the frame would refuse to show the file.
+    response.headers_mut().insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(PREVIEW_CSP),
+    );
+    with_validator(&mut response, tag);
+    Ok(response)
+}
+
+/// Let the browser keep the response and revalidate it with the tag before every reuse.
+pub(super) fn with_validator(response: &mut Response, tag: &str) {
+    if let Ok(value) = HeaderValue::from_str(tag) {
+        response.headers_mut().insert(header::ETAG, value);
+    }
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-cache"),
+    );
+}
+
+/// Policy of an inline preview: framable by the app only, and inert.
+pub(super) const PREVIEW_CSP: &str =
+    "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; frame-ancestors 'self'";
+
 /// The current version of a file, or a `404` when it was never uploaded.
-async fn current_version(
+pub(super) async fn current_version(
     db: &DatabaseConnection,
     file: &files::Model,
 ) -> Result<file_versions::Model, FileError> {
@@ -136,7 +199,7 @@ async fn current_version(
 }
 
 /// Assemble a byte response with content type, disposition and an ASCII-safe filename.
-fn build_response(
+pub(super) fn build_response(
     bytes: Vec<u8>,
     content_type: &str,
     disposition: &str,

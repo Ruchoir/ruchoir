@@ -1947,6 +1947,14 @@ export function fileDownloadUrl(fileId: string): string {
   return `/api/v1/files/${fileId}/download`;
 }
 
+/**
+ * The same-origin URL of an office document converted to PDF. The version stamp is part of the
+ * address so the browser's private copy is never taken for a newer version's.
+ */
+export function fileDocumentUrl(fileId: string, stamp: string): string {
+  return `/api/v1/files/${fileId}/document?v=${encodeURIComponent(stamp)}`;
+}
+
 /** The same-origin URL for a file's inline preview bytes. */
 export function filePreviewUrl(fileId: string): string {
   return `/api/v1/files/${fileId}/preview`;
