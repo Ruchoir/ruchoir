@@ -426,7 +426,10 @@ usage with the design-system oxlint config.
 - **Message text** is rendered by `features/channel/richText.tsx` (bold, italic, inline + fenced
   code, links, "- " and "1." lists, "- [ ] " checklists, "> " quotes, "## " headings, @mentions and
   #channels), building React nodes. A heading starts at two hashes, never one: a single `#` names a
-  channel here and in the composer.
+  channel here and in the composer. A **pipe table** (header row, a dashed separator row, then rows)
+  is drawn as a table inside its own scroll box, and a named link `[words](https://address)` shows
+  its words with the address on the tooltip (http and https only). Nothing else of CommonMark is
+  read: no backslash escapes, no nested lists.
 - **A checklist in a sent message is ticked in place.** The boxes are the DS `Checkbox`, never a bare
   input (the browser's own is unthemed and a different shape per platform), and the item's text is
   the label, so the sentence is part of the target. Ticking one is an **edit of the body**: it flips
