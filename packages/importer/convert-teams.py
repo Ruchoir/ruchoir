@@ -227,9 +227,9 @@ def to_markdown(content: str, content_type: str, mentions: list[dict], person) -
     otherwise, because `@{8ea0e38b-...}` in a message means nothing to anyone.
 
     The product's reader is narrower than CommonMark and this writes only what it reads: `**`,
-    `_`, `~~`, backticks, fences, `## ` headings, `- ` and `1. ` lists, `> ` quotes and bare links.
-    A link whose text is not its address becomes "text (address)", since a bracketed Markdown link
-    would arrive as brackets.
+    `_`, `~~`, backticks, fences, `## ` headings, `- ` and `1. ` lists, `> ` quotes, bare links,
+    named links `[text](address)` and pipe tables. A link whose text is not its address is written
+    named when both can be (`named_link`), and as "text (address)" when they cannot.
     """
     body = Body()
     if not content:
@@ -342,7 +342,7 @@ class _Renderer:
                 return text or href[len("mailto:"):]
             if not text or text == href or text.rstrip("/") == href.rstrip("/"):
                 return href
-            return f"{text} ({href})"
+            return named_link(text, href)
         if tag == "at":
             return self.mention(node)
         if tag in ("emoji", "customemoji"):
@@ -423,23 +423,50 @@ class _Renderer:
         return SOFT + "\n".join(lines) + SOFT if lines else SOFT
 
     def table(self, node: Node) -> str:
-        rows: list[str] = []
+        """A pipe table: the first row is the header, then the dashed row that makes it a table.
+
+        Teams tables often have no header row of their own, and the format needs one, so the first row
+        stands as it. A bar inside a cell would cut the row in two (the reader has no escape for it),
+        so it is written as the look-alike bar.
+        """
+        rows: list[list[str]] = []
 
         def walk(parent: Node) -> None:
             for child in parent.children:
                 if child.tag == "tr":
                     cells = [
-                        _finish(self.children(cell)).replace("\n", " ").strip()
+                        _finish(self.children(cell)).replace("\n", " ").replace("|", "\u00a6").strip()
                         for cell in child.children
                         if cell.tag in ("td", "th")
                     ]
                     if any(cells):
-                        rows.append(" | ".join(cells))
+                        rows.append(cells)
                 elif child.tag in ("thead", "tbody", "tfoot"):
                     walk(child)
 
         walk(node)
-        return SOFT + "\n".join(rows) + SOFT if rows else SOFT
+        if not rows:
+            return SOFT
+        width = max(len(row) for row in rows)
+        lines = ["| " + " | ".join(row + [""] * (width - len(row))) + " |" for row in rows]
+        lines.insert(1, "|" + " --- |" * width)
+        return SOFT + "\n".join(lines) + SOFT
+
+
+# An address the reader can close a named link on: http(s), no space, and any bracket balanced.
+_NAMED_ADDRESS = re.compile(r"https?://[^\s()]*(?:\([^\s()]*\)[^\s()]*)*")
+
+
+def named_link(text: str, href: str) -> str:
+    """A link as the reader draws it: `[text](address)`, or `text (address)` when it cannot be one.
+
+    The reader closes a named link at the first bracket or the first unbalanced parenthesis, so an
+    address with a space or a stray bracket, or words with a bracket in them, would arrive cut in the
+    middle. Those keep the older form, which is at worst a little plainer.
+    """
+    if _NAMED_ADDRESS.fullmatch(href) and not any(c in text for c in "[]\n"):
+        return f"[{text}]({href})"
+    return f"{text} ({href})"
 
 
 def reaction_emoji(reaction: dict) -> str:

@@ -174,8 +174,11 @@ problem now and finding it after uploading sixty gigabytes.
 - **Write the Markdown the product reads, not CommonMark.** The message reader
   (`apps/web/features/channel/richText.tsx`) takes `**bold**`, `_italic_` (one asterisk is not
   italic), `~~struck~~`, backticks, fences, `## ` headings and up (one `#` is a channel), `- ` and
-  `1. ` lists with no nesting, `> ` quotes and bare links. It has no `[text](address)` and no
-  backslash escapes: a named link must cross as "text (address)", or it arrives as brackets.
+  `1. ` lists with no nesting, `> ` quotes, bare links, named links `[text](https://address)` and
+  pipe tables (a header row, a dashed row, then rows). It has no backslash escapes, so a bar inside
+  a table cell cannot be written and crosses as `¦`, and a link whose address has a space or whose
+  words have a bracket crosses as "text (address)". An instance older than that reader shows a table
+  and a named link as the characters they are written with.
 - **Import is transactional and idempotent.** An interrupted import leaves no half-populated
   conversation; re-running an archive imports nothing twice. That property rests on
   `import_mappings`, written in the same transaction as the row it points at, not on heuristics.

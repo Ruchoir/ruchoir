@@ -473,7 +473,7 @@ class Tenant(unittest.TestCase):
     def test_a_message_crosses_as_markdown_with_its_mentions_merged(self) -> None:
         message = self.messages(self.convert())[f"{GENERAL}/100"]
         # "Bob" and "Martin" were two mentions of one person.
-        self.assertEqual(message["body"], "Bonjour @{" + BOB + "}, voir le doc (https://example.org/doc)")
+        self.assertEqual(message["body"], "Bonjour @{" + BOB + "}, voir [le doc](https://example.org/doc)")
         self.assertEqual(message["author"], ALICE)
         self.assertEqual(message["sent_at"], "2026-03-02T09:00:00Z")
 
@@ -719,7 +719,7 @@ class Markdown(unittest.TestCase):
         self.assertEqual(self.md("un<b> gras </b>mot"), "un **gras** mot")
 
     def test_a_link_named_otherwise_keeps_both(self) -> None:
-        self.assertEqual(self.md('<a href="https://a.example/x">ici</a>'), "ici (https://a.example/x)")
+        self.assertEqual(self.md('<a href="https://a.example/x">ici</a>'), "[ici](https://a.example/x)")
         self.assertEqual(self.md('<a href="https://a.example/x">https://a.example/x</a>'), "https://a.example/x")
         self.assertEqual(self.md('<a href="mailto:a@b.example">a@b.example</a>'), "a@b.example")
 
@@ -742,9 +742,27 @@ class Markdown(unittest.TestCase):
     def test_an_emoji_is_its_character(self) -> None:
         self.assertEqual(self.md('Bravo <emoji id="1f389_party" alt="\U0001f389" title="Fête"></emoji>'), "Bravo \U0001f389")
 
-    def test_a_table_is_one_line_per_row(self) -> None:
+    def test_a_link_the_reader_cannot_close_keeps_the_older_form(self) -> None:
+        # A space in the address, or a bracket in the words, would cut a named link in the middle.
+        self.assertEqual(self.md('<a href="https://a.example/un deux">ici</a>'), "ici (https://a.example/un deux)")
+        self.assertEqual(self.md('<a href="https://a.example/x">un [mot]</a>'), "un [mot] (https://a.example/x)")
+        # A balanced parenthesis in the address is fine.
+        self.assertEqual(
+            self.md('<a href="https://fr.wikipedia.org/wiki/Rust_(langage)">Rust</a>'),
+            "[Rust](https://fr.wikipedia.org/wiki/Rust_(langage))",
+        )
+
+    def test_a_table_is_a_pipe_table_with_its_dashed_row(self) -> None:
         html = "<table><tr><th>Nom</th><th>Rôle</th></tr><tr><td>Alice</td><td>Direction</td></tr></table>"
-        self.assertEqual(self.md(html), "Nom | Rôle\nAlice | Direction")
+        self.assertEqual(self.md(html), "| Nom | Rôle |\n| --- | --- |\n| Alice | Direction |")
+
+    def test_a_table_without_a_header_row_uses_its_first_row_and_pads_short_rows(self) -> None:
+        html = "<table><tr><td>a</td><td>b</td></tr><tr><td>c</td></tr></table>"
+        self.assertEqual(self.md(html), "| a | b |\n| --- | --- |\n| c | |")
+
+    def test_a_bar_inside_a_cell_does_not_cut_the_row(self) -> None:
+        html = "<table><tr><th>x</th></tr><tr><td>a | b</td></tr></table>"
+        self.assertEqual(self.md(html), "| x |\n| --- |\n| a \u00a6 b |")
 
     def test_a_mention_of_somebody_who_cannot_be_an_account_is_their_name(self) -> None:
         mentions = [{"id": 0, "mentionText": "Eve", "mentioned": {"user": {"id": "x", "userIdentityType": "federatedUser"}}}]
