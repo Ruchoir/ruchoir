@@ -10,8 +10,8 @@ This is the product's signature feature. See the root `AGENTS.md` for project-wi
 In progress. The archive format is written down (`docs/import-archive.md`), the job and mapping
 tables exist (`import_jobs`, `import_mappings`), and four producers are here: Nextcloud and
 Mattermost, verified against real servers, Slack, written against a real workspace export, and
-Teams, written against the Microsoft Graph documentation and a Graph of our own on localhost, and
-**not yet run against a real tenant**. The SeaORM entities land with the code that reads
+Teams, written against the Microsoft Graph documentation and a Graph of our own on localhost, then
+run once against a small trial tenant (2026-09-30). The SeaORM entities land with the code that reads
 them, not before: an entity nothing calls is dead weight, and the compiler says so.
 
 ## Contents
@@ -104,13 +104,21 @@ snippet. The export itself is deliberately absent from the repository: it holds 
 messages and files. When Slack changes its format, the way to find out is another real export, not
 a reading of the documentation.
 
-**Teams cannot join it either**, and has no real export behind it yet: `convert-teams.py` was
-written from the Graph documentation, and its tests run it against a Graph of our own on localhost
+**Teams cannot join it either**, because there is no Teams to stand up: the only way to see what
+Graph really answers is a Microsoft 365 tenant. `convert-teams.py` was written from the Graph
+documentation, and its tests run it against a Graph of our own on localhost
 (`tests/test_convert_teams.py`) that answers with the documentation's own shapes, down to the
 notices, the replies behind a second page and the redirect a download takes. That checks the wire
 (the token reaches Graph and nothing else, a throttled call waits as long as it is told) and the
-conversion, not whether Graph really answers that way. A trial Microsoft 365 tenant is the way to
-find out, and until one has been read, the Teams import is a rehearsal rather than a promise.
+conversion, not whether Graph really answers that way.
+
+It has been run once against a real one: a trial Microsoft 365 Business Standard tenant on
+2026-09-30, with three teams (one archived), a private channel, replies, reactions, a deleted
+message, a pasted image, a PDF and files in a document library (21 messages, 6 files, 4 accounts in
+all). The archive passed `import-check`, was imported, and the result was compared with Teams. That is one small
+tenant: it says nothing about a large one (Graph's throttling, hours of reading) or about a
+tenant with guests and shared channels, so the larger claims are still a rehearsal rather than a
+promise.
 
 The API half (`--with-private`) has no real workspace behind its tests either: the calls are stood
 in for, except one test that runs a server on localhost and checks what actually goes over the wire

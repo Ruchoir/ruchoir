@@ -32,9 +32,9 @@ only, and it should be deleted once the archive is delivered (`--fresh` starts o
 This is the only part of the product that talks to Microsoft, and it talks to it once, during a
 migration a customer asked for. It is not a runtime dependency.
 
-Written against Microsoft Graph v1.0 as documented in September 2026, and not yet run against a real
-tenant: its fixtures are shaped like the documentation's own examples. Treat its first real run as a
-rehearsal, and read the counts it prints.
+Written against Microsoft Graph v1.0 as documented in September 2026, and run once against a small
+trial tenant: its fixtures are shaped like the documentation's own examples. Treat the first run on
+a larger tenant as a rehearsal, and read the counts it prints.
 """
 
 from __future__ import annotations
