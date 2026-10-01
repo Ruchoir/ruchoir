@@ -31,7 +31,7 @@ may open what, where the bytes live, the versions, the look, and the presence of
 |---|---|
 | Engine | Euro-Office (AGPL-3.0, European fork of OnlyOffice). Chosen over Collabora Online after a side-by-side test on real files, see ADR 0003. |
 | Protocol | WOPI only. Euro-Office's richer configuration is passed through WOPI's `docs_api_config` form field, so nothing ties the host to one engine's private API. |
-| How the browser reaches the engine | Through the API, under `/office/`: one public origin, works whether TLS ends at a proxy or in the API, the engine is never published. |
+| How the browser reaches the engine | Through the API, on a **dedicated hostname** (`RUCHOIR_OFFICE_PUBLIC_URL`, for example `https://office.example.org`): the API recognises that host and relays it to the engine. The engine is never published, and the browser keeps the editor in an origin of its own, so a flaw in the engine cannot act inside Ruchoir with the signed-in member's session. Costs one more DNS name and certificate per instance. |
 | Who may edit | Anyone who may read the file and is not a guest of its space. Renaming, moving and deleting keep today's rule (owner, space owner or admin). |
 | Saving | Every save the engine sends is a new version of the file. The engine saves when the last editor leaves, and every 10 minutes during a long session. |
 | In scope | Edit existing files, create blank documents, convert legacy formats into a copy, show who is editing in the file list. |
@@ -40,22 +40,27 @@ may open what, where the bytes live, the versions, the look, and the presence of
 ## How it fits together
 
 ```
-                        ┌───────────────────────── instance ─────────────────────────────┐
- Browser ──HTTPS──▶     │  API ── /office/* (HTTP + WebSocket relay) ──▶ office (engine)    │
-  Ruchoir page,         │   │                                               │               │
-  editor in a           │   │  internal WOPI listener ◀──── WOPI ───────────┘               │
-  same-origin frame     │   ▼  (files, save, locks)                                         │
-                        │  Garage (bytes) · PostgreSQL (files, versions) · Valkey (tokens,  │
-                        │  locks, who is editing)                                           │
-                        └──────────────────────────────────────────────────────────────────┘
+                          ┌──────────────────────── instance ─────────────────────────────┐
+ ruchoir.example.org ──▶  │  API (Ruchoir: app, REST, real time)                           │
+   Ruchoir page           │   │                                                            │
+     └ frame ──────────┐  │   │                                                            │
+ office.example.org ──▶│  │  API, same process: host = office → relay (HTTP + WebSocket)   │
+   editor (own origin) ┘  │   │                                   │                        │
+                          │   │                                   ▼                        │
+                          │   │  internal WOPI listener ◀── WOPI ── office (engine)         │
+                          │   ▼  (files, save, locks)                                      │
+                          │  Garage (bytes) · PostgreSQL (files, versions) · Valkey        │
+                          │  (tokens, locks, who is editing)                               │
+                          └────────────────────────────────────────────────────────────────┘
 ```
 
 1. A member clicks **Edit** on a file. The web client asks the API for an editing session.
 2. The API checks the member's rights, mints a short-lived **access token** for that member and that
-   file, and answers with the engine's editing address (under `/office/`), the token and the
+   file, and answers with the engine's editing address (on the office hostname), the token and the
    engine configuration (theme, language, logo).
-3. The client posts the token to that address inside a frame. The browser only ever talks to the
-   API's origin; the API relays `/office/*` to the engine.
+3. The client posts the token to that address inside a frame. The office hostname resolves to the
+   same API, which sees the host and relays the request to the engine. Ruchoir's session cookie is
+   bound to Ruchoir's own host (`__Host-`), so the browser never sends it to the editor's.
 4. The engine calls the API's **WOPI listener** on the internal network to read the file, take a
    lock, and later to save. Every save becomes a new version; the members of the space are told in
    real time.
@@ -97,6 +102,7 @@ capabilities say the feature is off.
 | Variable | Meaning |
 |---|---|
 | `RUCHOIR_OFFICE_URL` | The engine's internal base URL. Unset: feature off. |
+| `RUCHOIR_OFFICE_PUBLIC_URL` | The editor's public origin, for example `https://office.example.org`. Required when the feature is on, and must not be Ruchoir's own host (start-up refuses it otherwise). |
 | `RUCHOIR_WOPI_LISTEN` | The internal listener for WOPI calls, default `0.0.0.0:8081`. Never published by compose. |
 | `RUCHOIR_WOPI_BASE_URL` | How the engine addresses that listener, default `http://api:8081`. |
 | `RUCHOIR_OFFICE_TOKEN_TTL_SECS` | Lifetime of an access token, default 10 hours (a working day in one session). |
@@ -105,8 +111,8 @@ capabilities say the feature is off.
 
 The engine publishes the formats it handles and the address of each action (`edit`, `view`,
 `convert`) at `/hosting/discovery`. The API reads it from the engine directly at start and every
-hour, sending `X-Forwarded-Host: <public host>/office` and `X-Forwarded-Proto` so that the addresses
-it gets back are the public ones the browser must use, and keeps it in memory:
+hour, sending `X-Forwarded-Host: <office host>` and `X-Forwarded-Proto` so that the addresses it gets
+back are the public ones the browser must use, and keeps it in memory:
 
 - the extensions that can be edited, viewed, or converted (and to what);
 - the address template of each action, its optional parameters (`<ui=UI_LLCC&>` and the like) filled
@@ -117,20 +123,24 @@ request.
 
 ### The relay (`proxy.rs`)
 
-`/office/*` on the public router is relayed to the engine, HTTP and WebSocket, streaming both ways.
+A request whose `Host` is the office hostname never reaches Ruchoir's routes: the outermost layer of
+the API's router sees the host and hands the request to the relay, HTTP and WebSocket, streaming both
+ways. Conversely, the relay answers nothing on Ruchoir's own host.
 
-- The prefix is stripped; `X-Forwarded-Host` is set to `<public host>/office` and
-  `X-Forwarded-Proto` to the public scheme, which is how the engine builds its own addresses under a
-  sub-path.
-- **Ruchoir's credentials never cross:** the session cookie, `Authorization` and any `Cookie` header
-  are removed before the request leaves for the engine.
-- The global security headers are replaced for this subtree only: the engine's pages are framed by
-  Ruchoir (`frame-ancestors 'self'`) and run the engine's own scripts; the rest of the instance keeps
-  `frame-ancestors 'none'`.
-- Only the paths the editor needs are relayed: the versioned static tree, `/hosting/wopi/*` (the
-  editor page), `/doc/*` (the co-editing WebSocket), `/cache/*`, `/fonts/*` and `/themes.json`. The
-  engine's admin panel, example app, converter and command endpoints are never reachable from
-  outside.
+- `X-Forwarded-Host` is set to the office host and `X-Forwarded-Proto` to its scheme, which is how
+  the engine builds its own addresses. The engine sits at the root of its hostname, so no path is
+  rewritten.
+- **No credential crosses:** any `Cookie` and `Authorization` header is removed before the request
+  leaves for the engine (the browser should send none, the relay makes sure), and `Set-Cookie` from
+  the engine is dropped.
+- The engine's pages carry `frame-ancestors <Ruchoir's origin>`; Ruchoir's own CSP gains
+  `frame-src <office origin>` so it can frame them, and nothing else changes for it.
+- Only the paths the editor needs are relayed (observed during the test of 2026-10-01): the versioned
+  static tree (`/<version>-<hash>/…`: `sdkjs`, `fonts`, `web-apps`, `doc` (the co-editing socket),
+  `dictionaries`, `themes.json`, `plugins.json`, the editor's service worker), the unversioned
+  `/web-apps/apps/…` loader, `/hosting/wopi/*` (the editor page), `/cache/files/*`, `/downloadfile/*`
+  and `/printfile/*`. Everything else answers `404`: the engine's admin panel, example app,
+  converter and command endpoints are never reachable from outside.
 
 New runtime dependencies for the relay: `hyper-util` (client) and `tokio-tungstenite` (WebSocket
 client). Both are community projects already in the dependency tree (the first through axum, the
@@ -147,7 +157,7 @@ WOPI call; it carries nothing readable. Tokens are never logged.
 
 | Route | What it does |
 |---|---|
-| `POST /api/v1/files/{id}/office` | Checks the rights, mints a token, answers `{ url, access_token, access_token_ttl, mode, config }`. `mode` is `edit` or `view`; `config` is the engine configuration below. |
+| `POST /api/v1/files/{id}/office` | Checks the rights, mints a token, answers `{ file, url, access_token, access_token_ttl, mode, config }`. `url` is on the office hostname; `mode` is `edit`, `view` or `convert`; `config` is the engine configuration below. The request carries the interface `locale` and whether the theme is `light` or `dark`. |
 | `POST /api/v1/files/office` | Creates a blank document (`kind`: `document`, `spreadsheet`, `presentation`) in a space folder, from the templates embedded in the API, and answers the new file. |
 | `POST /api/v1/files/{id}/office/heartbeat` | The editor page reports it is still open (every 30 s). Feeds "who is editing". |
 | `DELETE /api/v1/files/{id}/office/heartbeat` | The editor page was closed. |
@@ -169,7 +179,7 @@ token, and the public surface does not grow.
 
 | WOPI operation | Behaviour |
 |---|---|
-| `CheckFileInfo` | Name, size, version, owner, the member's id and display name, `UserCanWrite`, `SupportsLocks`, `SupportsUpdate`, `SupportsGetLock`, `UserCanNotWriteRelative` (false only for a convert session), `PostMessageOrigin` (the public origin). |
+| `CheckFileInfo` | Name, size, version, owner, the member's id and display name, `UserCanWrite`, `SupportsLocks`, `SupportsUpdate`, `SupportsGetLock`, `UserCanNotWriteRelative` (false only for a convert session), `PostMessageOrigin` (Ruchoir's public origin, the page that frames the editor). |
 | `GetFile` | The bytes of the current version, from the object store. |
 | `PutFile` | A new version (see [Saving](#saving)). Refused with `409` if the lock does not match, `413` above the upload cap. |
 | `Lock`, `Unlock`, `RefreshLock`, `GetLock`, unlock-and-relock | Standard WOPI semantics. The lock lives in Valkey (`office:lock:<file>`, 30 minutes, refreshed by the engine every 10), so several API instances agree. |
@@ -226,13 +236,13 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
 `FilesScreen.tsx`.
 
 - **`OfficeEditor.tsx`:** the editor across the whole window. A Ruchoir band on top (close, file
-  name, the avatars of who is editing, "open in a new tab"), then the engine in a same-origin frame,
-  loaded by posting the token to the session's `url`. Closing returns exactly where the member was.
+  name, the avatars of who is editing, "open in a new tab"), then the engine in a frame on the office
+  origin, loaded by posting the token to the session's `url`. Closing returns exactly where the
+  member was.
 - **`useOfficeSession.ts`:** asks for the session, sends the heartbeat every 30 s, says goodbye on
   close and on `pagehide`.
-- **`officeTheme.ts`:** maps the Ruchoir theme (eight accents by day or night) to the engine theme,
-  and carries the temporary repaint of the engine theme (see [Upstream work](#upstream-work)); it can
-  reach into the frame because the engine is served from Ruchoir's own origin.
+- **`officeTheme.ts`:** maps the Ruchoir theme (eight accents by day or night) to `light` or `dark`
+  for the session request.
 - **`NewDocumentMenu.tsx`:** "New document / spreadsheet / presentation" in the files toolbar,
   asking for a name, then opening the editor on the new file.
 - **`EditingBadge.tsx`:** the "being edited by …" mark on a row of the file list, fed by the
@@ -255,8 +265,12 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
 
 ## Security
 
-- The engine is never published; the browser reaches only the relayed editor paths.
-- Ruchoir's session cookie and authorization never reach the engine.
+- **The editor lives in an origin of its own.** Whatever runs in the engine's pages (a flaw in the
+  engine, a crafted document) cannot read or drive Ruchoir: the browser keeps the two origins apart,
+  and Ruchoir's session cookie (`__Host-`, bound to Ruchoir's host) is never sent to the editor's.
+- The engine is never published; the browser reaches only the relayed editor paths, and only on the
+  office hostname.
+- Any cookie or authorization header that reaches the relay is removed before the engine sees it.
 - WOPI is served on an internal listener only, and every call needs a live token bound to one member
   and one file. Tokens expire, are stored server-side, and are never logged.
 - Rights are checked when the session is created and again on every WOPI call (a member removed from
@@ -270,13 +284,16 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
 ## Deployment
 
 - `docker compose --profile office up -d` adds the engine; `.env.example` documents
-  `RUCHOIR_OFFICE_URL`, `OFFICE_JWT_SECRET` and the memory limit.
+  `RUCHOIR_OFFICE_URL`, `RUCHOIR_OFFICE_PUBLIC_URL`, `OFFICE_JWT_SECRET` and the memory limit.
+- **A second hostname** for the editor (`office.<domain>`): a DNS record pointing at the same address
+  as Ruchoir, and a certificate for it at the reverse proxy (or in the API when it terminates TLS).
+  The proxy forwards it to the same API, unchanged.
 - `docs/deployment.md` gains a section: what the feature needs (4 GB of RAM for the engine, 7 GB of
-  disk for its image), how to turn it on, how to check it (`/office/healthcheck` through the API's
-  capabilities), and that the image is pulled from the GitHub container registry (a registry, not a
+  disk for its image, the second hostname), how to turn it on, how to check it (the capabilities say
+  `office.enabled`), and that the image is pulled from the GitHub container registry (a registry, not a
   runtime service; mirrorable).
 - `AGENTS.md`: the engine pinned in the version table, the new crates and their origin, the module in
-  the layout, and the gotchas met while integrating (sub-path headers, one theme per file).
+  the layout, and the gotchas met while integrating (forwarded host, one theme per file).
 - `README.md`: the feature in the feature list.
 
 ## Testing
@@ -302,7 +319,7 @@ the fix.
 | # | Defect | Workaround in Ruchoir |
 |---|---|---|
 | 1 | The WOPI editor page overwrites the integrator's `uiTheme` with `undefined` when the `thm` parameter is absent. | `patches/editor-wopi.ejs`: keep the integrator's theme when `thm` is absent (one line). |
-| 2 | A custom theme given at launch is selected but not painted (it is only painted on a change). | `officeTheme.ts` switches away and back once the editor is up (same origin). |
+| 2 | A custom theme given at launch is selected but not painted (it is only painted on a change). | Also in `patches/editor-wopi.ejs`: the WOPI page, on the editor's own origin, switches away and back once the editor is up. |
 | 3 | A custom dark theme is never painted. | None: the engine's own dark theme is used by night. |
 | 4 | The Visio viewer's page omits the module configuration the other editors have, so the viewer dies before loading the file. | `patches/visioeditor-index.html`: add the missing `shim` entry. |
 | 5 | Translations: about 15 strings per editor left in English in French and German, up to 362 in Italian and 1,008 in Polish. | None now; translations contributed upstream. |

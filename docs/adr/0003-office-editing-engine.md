@@ -39,7 +39,9 @@ The two people driving the product tested live co-editing together on Euro-Offic
 ## Decision
 
 - **Euro-Office is the engine**, run as an optional compose service (profile `office`), never
-  published, reached by the browser through the API under `/office/`.
+  published, reached by the browser through the API on a hostname of its own (`office.<domain>`),
+  so the editor runs in an origin separate from Ruchoir's and a flaw in the engine cannot act inside
+  Ruchoir with the signed-in member's session.
 - **Ruchoir speaks WOPI**, the standard host protocol, and nothing else. Euro-Office's own
   configuration (theme, logo, feature switches) travels through WOPI's `docs_api_config` form field,
   which other engines ignore. Replacing the engine is a matter of configuration, not of rewriting
@@ -50,10 +52,11 @@ The two people driving the product tested live co-editing together on Euro-Offic
 
 - The feature is free and sovereign in the sense of golden rule 2. The engine image is pulled from
   the GitHub container registry at deployment: a registry, not a runtime service, and mirrorable.
-- An instance that turns the feature on needs about 4 GB of extra memory and 7 GB of disk. The
-  feature is optional for that reason, and the engine runs under a memory limit.
+- An instance that turns the feature on needs about 4 GB of extra memory and 7 GB of disk, and a
+  second hostname (a DNS record and a certificate). The feature is optional for those reasons, and
+  the engine runs under a memory limit.
 - Euro-Office is young. The defects found are reported upstream with fixes; until released, small
-  documented workarounds ship in `infra/office/patches/` and in the web client, each removed when the
+  documented workarounds ship in `infra/office/patches/`, each removed when the
   pinned version carries the fix. Collabora Online stays one configuration away if the project
   falters.
 - WOPI is Euro-Office's second protocol (most of its deployments use its own API). Every engine
