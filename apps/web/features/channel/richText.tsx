@@ -125,11 +125,11 @@ function renderInline(
       const node = <Emoji emoji={glyph} size={emojiSize} />;
       nodes.push(
         shortcode ? (
-          <Tooltip key={key} label={shortcode}>
+          <Tooltip key={key} label={shortcode} className="wc-emoji-slot">
             {node}
           </Tooltip>
         ) : (
-          <span key={key} style={{ display: "inline-flex" }}>
+          <span key={key} className="wc-emoji-slot" style={{ display: "inline-flex" }}>
             {node}
           </span>
         ),
