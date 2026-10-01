@@ -222,7 +222,7 @@ answers its WOPI address. The editor continues on the copy. The original is neve
 Each open editor page sends a heartbeat; the API keeps `office:editing:<file>` in Valkey (a sorted
 set of member ids scored by last heartbeat, entries older than 60 s ignored and pruned). When the set
 changes, the members of the space receive `files.editing` with the file id and the current editors.
-File listings carry `editors` (ids) for each file. A crashed tab drops out within a minute.
+File listings carry `editors` (id and display name) for each file. A crashed tab drops out within a minute.
 
 ### Instance capabilities
 
