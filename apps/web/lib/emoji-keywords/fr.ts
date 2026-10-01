@@ -1,15 +1,12 @@
-// i18n-audit-ignore-file -- search keywords in the source language: translating 520 of them is a
-// data job of its own, tracked separately, and not something a screen can be held up for.
+// i18n-audit-ignore-file -- search keywords in the source language, matched and never drawn.
 
 /**
- * What a reader can type to find an emoji.
+ * What a reader can type to find an emoji, in French: the source language, written by hand.
  *
- * Kept apart from the categories so the picker itself carries no prose: the words here are matched,
- * never drawn. They are French today, which means the search only answers a French reader; every
- * other language falls back to matching the emoji itself. A language gets its own map by adding one
- * here, keyed the same way.
+ * The other five languages are generated from the Unicode CLDR annotations into `<locale>.json`
+ * beside this file (see `scripts/build-emoji-keywords.mjs`); `index.ts` picks between them.
  */
-export const EMOJI_KEYWORDS: Record<string, string> = {
+export const KEYWORDS_FR: Record<string, string> = {
   "😀": "sourire content",
   "😃": "sourire joie",
   "😄": "rire joie",

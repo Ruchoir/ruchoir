@@ -1,11 +1,11 @@
 /**
  * Emoji dataset for the reaction picker. Native Unicode, no dependency, no remote source
  * (sovereign). A broad curated subset covering everyday use, organized by category. The words a
- * reader types to find one live in `emoji-keywords.ts`: they are matched, never drawn.
+ * reader types to find one live in `emoji-keywords/`: they are matched, never drawn.
  */
 
 import { key, type TranslationKey } from "@/lib/i18n";
-import { EMOJI_KEYWORDS } from "./emoji-keywords";
+import { keywordsMatch, normalizeSearch } from "./emoji-keywords";
 export type EmojiCategory = {
   id: string;
   label: TranslationKey;
@@ -610,15 +610,15 @@ export const EMOJI_CATEGORIES: EmojiCategory[] = [
   },
 ];
 
-/** Flat search over every category by keyword or the emoji itself. */
+/** Flat search over every category by keyword (in the language in force, then French and English) or the emoji itself. */
 export function searchEmojis(query: string): string[] {
-  const q = query.trim().toLowerCase();
+  const q = normalizeSearch(query.trim());
   if (!q) return [];
   const out: string[] = [];
   const seen = new Set<string>();
   for (const cat of EMOJI_CATEGORIES) {
     for (const emoji of cat.emojis) {
-      if (((EMOJI_KEYWORDS[emoji] ?? "").includes(q) || emoji === q) && !seen.has(emoji)) {
+      if ((keywordsMatch(emoji, q) || emoji === query.trim()) && !seen.has(emoji)) {
         seen.add(emoji);
         out.push(emoji);
       }
