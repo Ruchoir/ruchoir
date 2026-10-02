@@ -18,6 +18,7 @@ pub(crate) mod shares;
 pub(crate) mod thumbnail;
 pub(crate) mod tree;
 pub(crate) mod uploads;
+pub(crate) mod versions;
 
 pub use dto::AttachmentDto;
 pub use images::{avatar_url, icon_url};

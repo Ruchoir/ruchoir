@@ -377,7 +377,7 @@ async fn single_dto(db: &DatabaseConnection, file_id: Uuid) -> Result<FileDto, F
 }
 
 /// Validate that `folder_id` is a live folder in `space_id`, else a `400`.
-async fn ensure_folder_in_space(
+pub(crate) async fn ensure_folder_in_space(
     db: &DatabaseConnection,
     folder_id: Uuid,
     space_id: Uuid,

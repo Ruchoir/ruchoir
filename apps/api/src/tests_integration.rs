@@ -8396,3 +8396,84 @@ async fn link_previews_describe_an_invitation_and_nothing_private() {
         .expect("missing");
     assert_eq!(missing.status(), 404);
 }
+
+// --- Versions and live office editing -----------------------------------------------------------
+
+/// Upload `bytes` as a new file at the root of `space_id`, returning its id.
+async fn upload_bytes(
+    app: &TestApp,
+    cookie: &str,
+    space_id: Uuid,
+    name: &str,
+    bytes: &[u8],
+) -> Uuid {
+    let form = reqwest::multipart::Form::new()
+        .text("name", name.to_owned())
+        .part(
+            "file",
+            reqwest::multipart::Part::bytes(bytes.to_vec()).file_name(name.to_owned()),
+        );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space_id}/files"),
+            cookie,
+        )
+        .multipart(form)
+        .send()
+        .await
+        .expect("upload");
+    assert_eq!(res.status(), 201, "upload");
+    let body: Value = res.json().await.expect("json");
+    body["id"].as_str().expect("id").parse().expect("uuid")
+}
+
+/// Wait for the next event of `kind`, skipping presence, typing and anything else.
+async fn next_event_of(
+    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    kind: &str,
+) -> Option<Value> {
+    for _ in 0..20 {
+        let event = next_event(ws).await?;
+        if event["type"] == kind {
+            return Some(event);
+        }
+    }
+    None
+}
+
+#[tokio::test]
+async fn a_new_version_reaches_the_space_as_files_updated() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "note.txt", b"one").await;
+    let mut ws = app.connect_ws(&bob).await;
+
+    let form = reqwest::multipart::Form::new().part(
+        "file",
+        reqwest::multipart::Part::bytes(b"two".to_vec()).file_name("note.txt"),
+    );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/versions"),
+            &alice,
+        )
+        .multipart(form)
+        .send()
+        .await
+        .expect("new version");
+    assert_eq!(res.status(), 201);
+
+    let event = next_event_of(&mut ws, "files.updated")
+        .await
+        .expect("files.updated reaches another member");
+    assert_eq!(event["payload"]["space_id"], fx.space_id.to_string());
+    assert_eq!(event["payload"]["file"]["id"], file_id.to_string());
+    assert_eq!(event["payload"]["file"]["version_no"], 2);
+}

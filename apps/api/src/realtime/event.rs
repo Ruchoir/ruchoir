@@ -200,6 +200,24 @@ impl RealtimeEnvelope {
         Self::global("files.deleted", payload)
     }
 
+    /// A file gained a new version, or was created by the server from bytes it holds (a blank
+    /// document, a converted copy).
+    ///
+    /// Delivered to everyone who can see the file, the author included, so an open file list or
+    /// viewer shows the change without a reload.
+    pub fn files_updated(payload: impl Serialize) -> Self {
+        Self::global("files.updated", payload)
+    }
+
+    /// Who is editing a file in the office editor changed.
+    ///
+    /// Delivered to everyone who can see the file; it carries the whole current list, so a client
+    /// only ever replaces what it shows.
+    #[allow(dead_code)] // TEMP-OFFICE
+    pub fn files_editing(payload: impl Serialize) -> Self {
+        Self::global("files.editing", payload)
+    }
+
     /// A user's effective presence changed.
     pub fn presence(payload: impl Serialize) -> Self {
         Self::global("presence", payload)
