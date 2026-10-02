@@ -202,6 +202,9 @@ async fn check_file_info(
         "SupportsRename": false,
         "UserCanRename": false,
         "PostMessageOrigin": state.config.public_origin(),
+        // The editor page posts `Edit_Notification` to Ruchoir when the document changes: a member
+        // who only reads is not shown as editing.
+        "EditNotificationPostMessage": true,
     })))
 }
 

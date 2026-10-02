@@ -60,6 +60,10 @@ impl Discovery {
             else {
                 continue;
             };
+            // The engine also lists actions with an empty extension (its defaults): not a format.
+            if ext.is_empty() {
+                continue;
+            }
             let entry = by_ext.entry(ext.to_ascii_lowercase()).or_default();
             match name.as_str() {
                 "edit" => {
@@ -234,6 +238,10 @@ mod tests {
         assert!(
             !discovery.viewable().contains(&"docx".to_owned()),
             "an editable format is not listed as view-only"
+        );
+        assert!(
+            !edit.contains(&String::new()),
+            "an action without an extension is not a format"
         );
     }
 

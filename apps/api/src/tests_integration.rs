@@ -8746,6 +8746,10 @@ async fn the_engine_reads_a_file_through_wopi() {
     assert_eq!(info["UserCanWrite"], true);
     assert_eq!(info["SupportsLocks"], true);
     assert_eq!(info["UserCanNotWriteRelative"], true);
+    assert_eq!(
+        info["EditNotificationPostMessage"], true,
+        "the editor page tells Ruchoir when the document changes"
+    );
 
     let bytes = wopi_req(&app, reqwest::Method::GET, file_id, "/contents", &token)
         .send()
