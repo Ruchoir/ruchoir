@@ -91,7 +91,8 @@ A new service in `docker-compose.yml`, `office`, behind the compose profile `off
     engine settings Ruchoir needs, today `services.CoAuthoring.autoAssembly`
     (`enable: true`, `interval: "10m"`) so a long session saves every 10 minutes;
   - `patches/`: the temporary fixes listed under [Upstream work](#upstream-work), each with a header
-    naming the upstream issue and the engine version it was written against.
+    naming the engine version it was written against and marking every change `Ruchoir patch`
+    (the upstream issue is added once reported).
 - **Health:** the engine's `/healthcheck`, used by compose and by the API (see below).
 
 ## API
@@ -169,7 +170,8 @@ WOPI call; it carries nothing readable. Tokens are never logged.
 | `POST /api/v1/files/{id}/office` | Checks the rights, mints a token, answers `{ file, url, access_token, access_token_ttl, mode, config }`. `url` is on the office hostname; `mode` is `edit`, `view` or `convert`; `config` is the engine configuration below. The request carries the interface `locale` and whether the theme is `light` or `dark`. |
 | `POST /api/v1/files/office` | Creates a blank document (`kind`: `document`, `spreadsheet`, `presentation`) in a space folder, from the templates embedded in the API, and answers the new file. |
 | `POST /api/v1/files/{id}/office/heartbeat` | The editor page reports it is still open (every 30 s). Feeds "who is editing". |
-| `DELETE /api/v1/files/{id}/office/heartbeat` | The editor page was closed. |
+| `DELETE /api/v1/files/{id}/office/heartbeat` | The editor page was closed. Both carry `?tab=<id>`. |
+| `GET /api/v1/files/{id}/office/converted` | The copy this member's conversion produced (`204` until the engine has written it): the editor page names it, reports editing it and moves its address there. |
 
 The engine configuration sent with a session (Euro-Office's `docs_api_config`): the theme id
 (`theme-ruchoir-light` by day, the engine's `theme-dark` by night), `features.featuresTips: false`
@@ -228,10 +230,14 @@ answers its WOPI address. The editor continues on the copy. The original is neve
 
 ### Who is editing (`presence.rs`)
 
-Each open editor page sends a heartbeat; the API keeps `office:editing:<file>` in Valkey (a sorted
-set of member ids scored by last heartbeat, entries older than 60 s ignored and pruned). When the set
-changes, the members of the space receive `files.editing` with the file id and the current editors.
-File listings carry `editors` (id and display name) for each file. A crashed tab drops out within a minute.
+Each open editor tab sends a heartbeat carrying a random tab id; the API keeps `office:editing:<file>`
+in Valkey (a set of `<member>:<tab>` entries, each alive while its `office:beat:…` key, renewed by
+the heartbeat, lives: 60 s). A member edits while any of their tabs beats, so closing one of two tabs
+changes nothing. When the set of members changes, the members of the space (not its guests, who
+cannot read its files) receive `files.editing` with the file id and the current editors. File
+listings carry `editors` (id and display name) for each file, read for the whole folder at once.
+A sweep every 30 s re-reads the files someone is in (`office:editing:files`), so a crashed tab
+leaves every open file list within a minute and a half, without anyone reloading.
 
 ### Instance capabilities
 
@@ -277,6 +283,14 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
 - **The editor lives in an origin of its own.** Whatever runs in the engine's pages (a flaw in the
   engine, a crafted document) cannot read or drive Ruchoir: the browser keeps the two origins apart,
   and Ruchoir's session cookie (`__Host-`, bound to Ruchoir's host) is never sent to the editor's.
+- **But the two hostnames are the same site**, and a `SameSite=Lax` cookie still rides on a
+  same-site request. So Ruchoir refuses every state-changing request a browser marks as coming from
+  another site (`Sec-Fetch-Site: same-site` or `cross-site`, or, for a browser too old to send it, an
+  `Origin` other than Ruchoir's own): script on the editor's origin can reach Ruchoir's address, but
+  nothing it sends there can change anything with the member's session. Reads stay cross-origin,
+  hence unreadable to it.
+- A conversion session reads its original and writes a copy beside it, never the original: its
+  token cannot lock or save the file it was opened on.
 - The engine is never published; the browser reaches only the relayed editor paths, and only on the
   office hostname.
 - Any cookie or authorization header that reaches the relay is removed before the engine sees it.

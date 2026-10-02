@@ -235,6 +235,10 @@ What cost time while integrating Euro-Office (2026-10-01), so it is not paid twi
   move while a lock is held, or a late joiner starts a second session (see `office::locks`).
 - The engine reads `local-production-linux.json` after its own `local.json`, which its start script
   rewrites: Ruchoir's settings go in the former.
+- The office host is the same site as Ruchoir's, so a `SameSite=Lax` cookie rides on a request from
+  it: Ruchoir refuses writes a browser marks as same-site or cross-site (`http::same_site_guard`).
+  A new browser-facing endpoint that must accept a cross-site POST (an identity provider's
+  `form_post` callback, say) has to be exempted there deliberately.
 - Compose interpolates the variables of every service, profile or not: a `${VAR:?}` on the `office`
   service would break every `docker compose` command of an instance without the engine.
 
