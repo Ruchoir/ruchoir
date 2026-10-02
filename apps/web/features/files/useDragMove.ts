@@ -1,12 +1,13 @@
 "use client";
 
 import { type DragEvent, useRef, useState } from "react";
+import { carriesFiles } from "./dropFiles";
 import type { Item } from "./listTypes";
 
 /**
  * The type entries carry while dragged inside the list. A file dragged in from the desktop carries
- * `Files` instead, which is an upload and not a move: a target accepts this type only, so the two
- * never meet.
+ * `Files` instead, which is an upload and not a move: a target tells the two apart by type, so a
+ * move never reaches the uploader and a desktop file never reaches the move.
  */
 export const DRAG_TYPE = "application/x-ruchoir-files";
 
@@ -43,10 +44,13 @@ export function useDragMove({
   selectedItems,
   currentFolderId,
   onMove,
+  onFilesDrop,
 }: {
   selectedItems: Item[];
   currentFolderId: string | undefined;
   onMove: (items: Item[], targetFolderId: string | null) => void;
+  /** Files dropped from the desktop onto a folder: an upload into it. */
+  onFilesDrop?: (dt: DataTransfer, targetFolderId: string | null) => void;
 }): DragMove {
   // The browser only tells a hovered target what types are dragged, never the data: the dragged
   // entries are held here.
@@ -82,6 +86,14 @@ export function useDragMove({
     },
     target: (folderId) => ({
       onDragOver: (e) => {
+        // Files from the desktop go into whatever folder they are dropped on.
+        if (onFilesDrop && carriesFiles(e.dataTransfer)) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = "copy";
+          setOver(folderId ?? ROOT);
+          return;
+        }
         if (!e.dataTransfer.types.includes(DRAG_TYPE) || !accepts(folderId)) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
@@ -89,6 +101,13 @@ export function useDragMove({
       },
       onDragLeave: () => setOver((prev) => (prev === (folderId ?? ROOT) ? null : prev)),
       onDrop: (e) => {
+        if (onFilesDrop && carriesFiles(e.dataTransfer)) {
+          e.preventDefault();
+          e.stopPropagation();
+          setOver(null);
+          onFilesDrop(e.dataTransfer, folderId);
+          return;
+        }
         if (!e.dataTransfer.types.includes(DRAG_TYPE) || !accepts(folderId)) return;
         e.preventDefault();
         const items = dragged.current;

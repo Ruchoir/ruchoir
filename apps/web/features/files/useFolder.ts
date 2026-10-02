@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SpaceFile } from "@/lib/data";
 import { getFolder } from "@/lib/data/api";
 import { onFileEvent } from "@/lib/fileEvents";
+import { onUploadDone } from "@/lib/uploads";
 
 export type Crumb = { id: string; name: string };
 
@@ -84,5 +85,36 @@ export function useFolder(spaceId: string, onError: () => void) {
     [spaceId],
   );
 
-  return { entries, breadcrumb, folderId, loading, load, reload };
+  /** One more entry in a folder this list shows, so its size does not read "empty" while it fills. */
+  const bumpCount = (folderId: string | undefined) => {
+    if (!folderId) return;
+    setEntries((prev) => prev.map((f) => (f.id === folderId && f.kind === "folder" ? { ...f, childCount: (f.childCount ?? 0) + 1 } : f)));
+  };
+
+  // What this person sends lands here as each file arrives, without waiting for the server's word
+  // about it (which goes to the others) or for a reload that would lose the place in the list.
+  useEffect(
+    () =>
+      onUploadDone((job, file) => {
+        if (job.spaceId !== spaceId) return;
+        if (file.parentFolderId !== folderRef.current) {
+          // Into a folder of this list: one more entry in it.
+          if (!job.replaceFileId) bumpCount(file.parentFolderId);
+          return;
+        }
+        setEntries((prev) => (prev.some((f) => f.id === file.id) ? prev.map((f) => (f.id === file.id ? { ...file, editors: f.editors } : f)) : [...prev, file]));
+      }),
+    [spaceId],
+  );
+
+  /** Put an entry made here (a folder created for an upload) in the list if it belongs to it. */
+  const upsert = useCallback((file: SpaceFile) => {
+    if (file.parentFolderId !== folderRef.current) {
+      bumpCount(file.parentFolderId);
+      return;
+    }
+    setEntries((prev) => (prev.some((f) => f.id === file.id) ? prev : [...prev, file]));
+  }, []);
+
+  return { entries, breadcrumb, folderId, loading, load, reload, upsert };
 }

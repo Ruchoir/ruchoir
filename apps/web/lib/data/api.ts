@@ -472,6 +472,8 @@ export type InstanceCapabilities = {
   emailDelivery: boolean;
   /** Live office editing, when the instance has it. */
   office: OfficeCapabilities;
+  /** The largest file an upload accepts, in bytes (absent from an older server: no check). */
+  uploadMaxBytes?: number;
 };
 
 /**
@@ -484,9 +486,11 @@ export async function getInstanceCapabilities(signal?: AbortSignal): Promise<Ins
   const dto = await apiGet<{
     email_delivery: boolean;
     office?: { enabled: boolean; edit: string[]; view: string[]; convert: string[]; public_url?: string };
+    upload_max_bytes?: number;
   }>("/instance", signal);
   return {
     emailDelivery: dto.email_delivery,
+    uploadMaxBytes: dto.upload_max_bytes,
     office: {
       enabled: dto.office?.enabled === true,
       edit: dto.office?.edit ?? [],
@@ -1937,6 +1941,57 @@ export async function uploadFileVersion(fileId: string, file: File): Promise<Spa
   });
   if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
   return toSpaceFile((await res.json()) as FileDto);
+}
+
+/** A sending in flight: its result, and the way to stop it. */
+export type UploadRequest = { done: Promise<SpaceFile>; abort: () => void };
+
+/**
+ * Send a file with its progress reported, as a new file in a folder or as a new version of an
+ * existing one (`replaceFileId`).
+ *
+ * Through `XMLHttpRequest` rather than `fetch`: only the former reports how much of a request body
+ * has gone, which is what a progress bar is made of. Same-origin, so the session cookie goes along
+ * as with every other call. A refusal rejects with an {@link ApiError} carrying its status (413 too
+ * large, 403 not allowed); a dropped connection with status 0; an abort with an `AbortError`.
+ */
+export function sendFile(
+  target: { spaceId: string; folderId?: string; name: string; replaceFileId?: string },
+  file: File,
+  onProgress: (loaded: number) => void,
+): UploadRequest {
+  const xhr = new XMLHttpRequest();
+  const form = new FormData();
+  form.append("file", file, target.name);
+  let url: string;
+  if (target.replaceFileId) {
+    url = `/api/v1/files/${target.replaceFileId}/versions`;
+  } else {
+    url = `/api/v1/spaces/${target.spaceId}/files`;
+    form.append("name", target.name);
+    // `folder_id`, as `uploadFile` explains.
+    if (target.folderId) form.append("folder_id", target.folderId);
+  }
+  const done = new Promise<SpaceFile>((resolve, reject) => {
+    xhr.upload.onprogress = (e) => onProgress(e.loaded);
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(toSpaceFile(JSON.parse(xhr.responseText) as FileDto));
+        } catch {
+          reject(new ApiError(xhr.status, "unreadable answer", null));
+        }
+      } else {
+        reject(new ApiError(xhr.status, `HTTP ${xhr.status}`, xhr.responseText));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(0, "network", null));
+    xhr.onabort = () => reject(new DOMException("aborted", "AbortError"));
+  });
+  xhr.open("POST", url);
+  xhr.withCredentials = true;
+  xhr.send(form);
+  return { done, abort: () => xhr.abort() };
 }
 
 /**
