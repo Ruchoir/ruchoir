@@ -254,10 +254,12 @@ convert: [extensions] }`, read from the discovery. The client shows nothing offi
 A new feature folder, `apps/web/features/office/`, rather than more weight in the 950-line
 `FilesScreen.tsx`.
 
-- **`OfficeEditor.tsx`:** the editor across the whole window. A Ruchoir band on top (close, file
-  name, the avatars of who is editing), then the engine in a frame on the office
-  origin, loaded by posting the token to the session's `url`. Closing returns exactly where the
-  member was.
+- **`OfficeEditor.tsx`:** the engine in a frame on the office origin, loaded by posting the token to
+  the session's `url`, across the whole page of the document's own tab (`bare`: no Ruchoir band,
+  the tab named after the document, the engine's close button closing the tab). Over the files list
+  (when the browser refuses a new tab), a Ruchoir band on top (close, file name, the avatars of who
+  is editing), closing returning exactly where the member was. The member's Ruchoir photo is the
+  engine's avatar for them (`editorConfig.user.image`).
 - **`useOfficeSession.ts`:** asks for the session, sends the heartbeat every 30 s, says goodbye on
   close and on `pagehide`.
 - **`officeTheme.ts`:** maps the Ruchoir theme (eight accents by day or night) to `light` or `dark`
