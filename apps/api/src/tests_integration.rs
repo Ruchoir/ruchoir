@@ -9846,3 +9846,40 @@ async fn a_listing_names_each_files_editors() {
         .await
         .is_empty());
 }
+
+#[tokio::test]
+async fn a_private_conversations_file_update_says_where_it_lives() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "board", "private").await;
+    add_channel_member(&app.db, channel, fx.alice).await;
+    add_channel_member(&app.db, channel, fx.bob).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let mut ws = app.connect_ws(&bob).await;
+
+    let file = crate::files::versions::create_file(
+        &app.state,
+        crate::files::versions::NewFile {
+            space_id: fx.space_id,
+            folder_id: None,
+            conversation_id: Some(channel),
+            owner: fx.alice,
+            name: "minutes.docx".to_owned(),
+        },
+        b"PK",
+    )
+    .await
+    .expect("file");
+
+    let event = next_event_of(&mut ws, "files.updated")
+        .await
+        .expect("a participant hears it");
+    assert_eq!(event["payload"]["file"]["id"], file.id.to_string());
+    assert_eq!(
+        event["payload"]["conversation_id"],
+        channel.to_string(),
+        "a list of the space's folders must not take it in"
+    );
+}

@@ -31,6 +31,10 @@ use super::thumbnail::{self, THUMBNAIL_MIME};
 pub(crate) struct FilesUpdatedEvent {
     pub space_id: Uuid,
     pub file: FileDto,
+    /// The conversation the file belongs to, when it is a private conversation's: such a file is
+    /// not in the space's folders, and a client must not list it there.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conversation_id: Option<Uuid>,
 }
 
 /// A file the server creates from bytes it holds.
@@ -242,6 +246,7 @@ async fn publish_updated(state: &AppState, file: &files::Model, actor: Uuid, dto
             RealtimeEnvelope::files_updated(FilesUpdatedEvent {
                 space_id: file.space_id,
                 file: dto.clone(),
+                conversation_id: file.conversation_id,
             }),
         )
         .await;
