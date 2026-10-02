@@ -7,3 +7,12 @@ export function officeTheme(): "light" | "dark" {
   if (typeof document === "undefined") return "light";
   return (document.documentElement.getAttribute("data-theme") ?? "").endsWith("-dark") ? "dark" : "light";
 }
+
+/**
+ * Whether this screen is driven by touch (a phone, a tablet): the engine then opens its own mobile
+ * editor, made for fingers, rather than the desktop one with its ribbons.
+ */
+export function touchScreen(): boolean {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+  return window.matchMedia("(pointer: coarse)").matches;
+}

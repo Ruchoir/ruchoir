@@ -2001,12 +2001,13 @@ type OfficeSessionDto = {
  */
 export async function openOfficeSession(
   fileId: string,
-  opts: { theme: "light" | "dark"; mode?: "convert" },
+  opts: { theme: "light" | "dark"; mode?: "convert"; mobile?: boolean },
 ): Promise<OfficeSession> {
   const dto = await apiPost<OfficeSessionDto>(`/files/${fileId}/office`, {
     locale: currentLocale(),
     theme: opts.theme,
     mode: opts.mode,
+    mobile: opts.mobile,
   });
   return {
     file: toSpaceFile(dto.file),

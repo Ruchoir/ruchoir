@@ -23,6 +23,8 @@ export type SpaceLocation = {
   channelName?: string;
   /** A file open in the editor, from `/e/<space>/f/<file>` or `/f/<file>`. */
   fileId?: string;
+  /** The file is to be converted into an editable copy (`?convert=1`). */
+  convert?: boolean;
 };
 
 /** Strip the export's optional trailing slash and split a path into its segments. */
@@ -59,13 +61,13 @@ export function readSpaceLocation(slugs: string[]): SpaceLocation | null {
     const spaceSlug = decodeURIComponent(parts[1]);
     const channelName = parts[2] === "c" && parts[3] ? decodeURIComponent(parts[3]) : undefined;
     const fileId = parts[2] === "f" && parts[3] ? decodeURIComponent(parts[3]) : undefined;
-    return { spaceSlug, channelName, fileId };
+    return { spaceSlug, channelName, fileId, convert: fileId ? converting() : undefined };
   }
   // Short form: the space came from the host, the path only names the channel.
   if (fromHost) {
     const channelName = parts[0] === "c" && parts[1] ? decodeURIComponent(parts[1]) : undefined;
     const fileId = parts[0] === "f" && parts[1] ? decodeURIComponent(parts[1]) : undefined;
-    return { spaceSlug: fromHost, channelName, fileId };
+    return { spaceSlug: fromHost, channelName, fileId, convert: fileId ? converting() : undefined };
   }
   return null;
 }
@@ -82,9 +84,17 @@ export function spaceUrl(spaceSlug: string, channelName: string | undefined, slu
   return `/e/${encodeURIComponent(spaceSlug)}${channel}`;
 }
 
-/** The address of a file open in the editor, adaptive like {@link spaceUrl}. */
-export function fileUrl(spaceSlug: string, fileId: string, slugs: string[]): string {
-  const file = `/f/${encodeURIComponent(fileId)}`;
+/** Whether the address asks to convert the file it names. */
+function converting(): boolean {
+  return new URLSearchParams(window.location.search).get("convert") === "1";
+}
+
+/**
+ * The address of a file open in the editor, adaptive like {@link spaceUrl}. `convert` asks for its
+ * conversion into an editable copy.
+ */
+export function fileUrl(spaceSlug: string, fileId: string, slugs: string[], convert = false): string {
+  const file = `/f/${encodeURIComponent(fileId)}${convert ? "?convert=1" : ""}`;
   if (hostSpace(slugs) === spaceSlug) return file;
   return `/e/${encodeURIComponent(spaceSlug)}${file}`;
 }

@@ -150,10 +150,6 @@ export type FilesScreenProps = {
   spaceSlug?: string;
   /** Every slug the account belongs to, which decides the address's form. */
   slugs?: string[];
-  /** A file an address asked to open in the editor. */
-  openFileId?: string | null;
-  /** The file of `openFileId` was opened: the caller forgets it. */
-  onOpenFileHandled?: () => void;
   /** The office editor opened or closed (it owns the address while open). */
   onEditorChange?: (open: boolean) => void;
 };
@@ -167,8 +163,6 @@ export function FilesScreen({
   onBack,
   spaceSlug,
   slugs,
-  openFileId,
-  onOpenFileHandled,
   onEditorChange,
 }: FilesScreenProps) {
   const { t } = useTranslation();
@@ -281,13 +275,20 @@ export function FilesScreen({
   // Leaving the files screen closes the editor with it.
   useEffect(() => () => onEditorChange?.(false), [onEditorChange]);
 
-  // An address that named a file (`/e/<space>/f/<file>`) opens it in the editor once.
-  useEffect(() => {
-    if (!openFileId) return;
-    /* eslint-disable-next-line react-hooks/set-state-in-effect */
-    setEditing({ fileId: openFileId, convert: false });
-    onOpenFileHandled?.();
-  }, [openFileId, onOpenFileHandled]);
+  /**
+   * Open a document in the editor: in a tab of its own, as in any office suite, the list staying
+   * here. Over the list instead when the space has no address or the browser refuses the tab.
+   */
+  const openEditor = (fileId: string, convert: boolean, tab?: Window | null) => {
+    const url = spaceSlug ? fileUrl(spaceSlug, fileId, slugs ?? [], convert) : null;
+    const opened = tab !== undefined ? tab : url ? window.open(url, "_blank") : null;
+    if (opened && url) {
+      if (tab) opened.location.href = url;
+      return;
+    }
+    opened?.close();
+    setEditing({ fileId, convert });
+  };
 
   // Live: a new version, a file created by the server, who is editing what.
   const folderRef = useRef(folderId);
@@ -334,7 +335,7 @@ export function FilesScreen({
       (action === "edit" && viewerKind(f.name) === "office") ||
       (action === "view" && !viewerKind(f.name) && !isImage(f.name));
     if (f.id && opensInEditor) {
-      setEditing({ fileId: f.id, convert: false });
+      openEditor(f.id, false);
     } else {
       setPreview(f);
     }
@@ -540,9 +541,10 @@ export function FilesScreen({
             spaceId={spaceId}
             folderId={folderId}
             onNotify={onNotify}
-            onCreated={(file) => {
+            onCreated={(file, tab) => {
               load(folderId);
-              if (file.id) setEditing({ fileId: file.id, convert: false });
+              if (file.id) openEditor(file.id, false, tab);
+              else tab?.close();
             }}
           />
         ) : null}
@@ -871,14 +873,14 @@ export function FilesScreen({
               officeActionFor(target.name, office) === "edit"
                 ? () => {
                     setPreview(null);
-                    setEditing({ fileId: target.id!, convert: false });
+                    openEditor(target.id!, false);
                   }
                 : undefined,
             onConvert:
               officeActionFor(target.name, office) === "convert"
                 ? () => {
                     setPreview(null);
-                    setEditing({ fileId: target.id!, convert: true });
+                    openEditor(target.id!, true);
                   }
                 : undefined,
           };
@@ -928,7 +930,7 @@ export function FilesScreen({
                     const id = preview.id!;
                     const convert = officeActionFor(preview.name, office) === "convert";
                     setPreview(null);
-                    setEditing({ fileId: id, convert });
+                    openEditor(id, convert);
                   }}
                 >
                   {officeActionFor(preview.name, office) === "view"

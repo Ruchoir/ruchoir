@@ -16,7 +16,8 @@ export function NewDocumentMenu({
 }: {
   spaceId: string;
   folderId?: string;
-  onCreated: (file: SpaceFile) => void;
+  /** `tab` was opened on the click, for the document to open in (null: the browser refused it). */
+  onCreated: (file: SpaceFile, tab: Window | null) => void;
   onNotify: (toast: Toast) => void;
 }) {
   const { t } = useTranslation();
@@ -34,14 +35,20 @@ export function NewDocumentMenu({
   const create = () => {
     if (busy) return;
     setBusy(true);
+    // The new document opens in a tab of its own. The tab is opened now, on the click: once the
+    // document exists, the browser would take a new tab for a pop-up and refuse it.
+    const tab = window.open("", "_blank");
     createBlankDocument(spaceId, kind, name.trim(), folderId)
       .then((file) => {
         setOpen(false);
         setName("");
         onNotify({ tone: "success", title: t("office.created"), description: file.name });
-        onCreated(file);
+        onCreated(file, tab);
       })
-      .catch(() => onNotify({ tone: "danger", title: t("office.createFailed") }))
+      .catch(() => {
+        tab?.close();
+        onNotify({ tone: "danger", title: t("office.createFailed") });
+      })
       .finally(() => setBusy(false));
   };
 

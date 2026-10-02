@@ -76,7 +76,8 @@ import {
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
-import { readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
+import { fileUrl, readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
+import { OfficeEditor } from "@/features/office/OfficeEditor";
 import { emitFileEvent } from "@/lib/fileEvents";
 import type {
   Channel,
@@ -538,9 +539,11 @@ function AppShell() {
 
   const [ws, setWs] = useState("");
   const [view, setView] = useState<AppView>("channel");
-  /** A file an address named (`/e/<space>/f/<file>`), opened in the editor once the files show. */
-  const [openFileId, setOpenFileId] = useState<string | null>(null);
-  const clearOpenFileId = useCallback(() => setOpenFileId(null), []);
+  /**
+   * A document an address named (`/e/<space>/f/<file>`): this tab is that document's, the editor
+   * alone across it (documents open in a tab of their own, see `FilesScreen`).
+   */
+  const [standalone, setStandalone] = useState<{ fileId: string; convert: boolean } | null>(null);
   /** Whether the office editor is open: it owns the address meanwhile (`/e/<space>/f/<file>`). */
   const [editorOpen, setEditorOpen] = useState(false);
   // The view to restore when the full-screen preferences are closed (they are opened from menus, not the nav).
@@ -880,10 +883,9 @@ function AppShell() {
     }
     const landing = wanted ?? spaces[0];
     await loadSpace(landing?.id ?? "", wanted ? target?.channelName : undefined, landing?.defaultChannelId);
-    // An address naming a file opens the files of its space, then the file in the editor.
+    // An address naming a file is a document's own tab: the editor alone.
     if (wanted && target?.fileId) {
-      setView("files");
-      setOpenFileId(target.fileId);
+      setStandalone({ fileId: target.fileId, convert: target.convert === true });
     }
     return spaces;
   }, [loadSpace]);
@@ -3478,7 +3480,7 @@ function AppShell() {
   // and reopened where it was left. `writeSpaceLocation` replaces rather than pushes: the app gains
   // an address without pretending to have a history it does not implement.
   useEffect(() => {
-    if (authStage !== "app" || !ws || editorOpen) return;
+    if (authStage !== "app" || !ws || editorOpen || standalone) return;
     const space = workspaces.find((w) => w.id === ws);
     if (!space) return;
     const channel = channels.find((c) => c.id === channelId);
@@ -3487,7 +3489,7 @@ function AppShell() {
       channel?.name,
       workspaces.map((w) => w.slug),
     );
-  }, [authStage, ws, channelId, channels, workspaces, editorOpen]);
+  }, [authStage, ws, channelId, channels, workspaces, editorOpen, standalone]);
 
   if (booting) {
     return (
@@ -3669,6 +3671,29 @@ function AppShell() {
           />
         ) : null}
       </div>
+    );
+  }
+
+  // A document's own tab: the editor alone. Closing it closes the tab when a script opened it (the
+  // files list did); a tab the person opened (a link, a reload) cannot be closed by a page, so it
+  // lands on the space's files instead.
+  if (standalone) {
+    const slug = workspaces.find((w) => w.id === ws)?.slug;
+    const slugs = workspaces.map((w) => w.slug);
+    return (
+      <OfficeEditor
+        bare
+        fileId={standalone.fileId}
+        convert={standalone.convert}
+        addressOf={slug ? (id) => fileUrl(slug, id, slugs) : undefined}
+        onClose={() => {
+          window.close();
+          window.setTimeout(() => {
+            setStandalone(null);
+            setView("files");
+          }, 300);
+        }}
+      />
     );
   }
 
@@ -3939,8 +3964,6 @@ function AppShell() {
           onNotify={showToast}
           spaceSlug={workspaces.find((w) => w.id === ws)?.slug}
           slugs={workspaces.map((w) => w.slug)}
-          openFileId={openFileId}
-          onOpenFileHandled={clearOpenFileId}
           onEditorChange={setEditorOpen}
         />
       ) : null}

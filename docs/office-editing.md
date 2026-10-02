@@ -272,9 +272,18 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   which gains **Edit** (editable format, member may edit) and **Convert to edit** (convertible
   format, for which conversion stays a deliberate act). When the editor cannot be reached, a file
   that would open in it falls back to the preview.
+- **A tab of its own:** a document opens in a new browser tab, as in any office suite, the files
+  list staying where it was. That tab is the document's address (`/e/<space>/f/<file>`,
+  `?convert=1` for a conversion) and holds the editor alone, without Ruchoir's band: the engine's
+  own close button closes the tab (WOPI `ClosePostMessage`), and a tab the browser will not let a
+  page close (one the person opened from a link) lands on the space's files instead. Ruchoir's band
+  remains only when the browser refuses the new tab, the editor then opening over the list.
+- **Touch screens:** on a phone or a tablet (`pointer: coarse`), the session asks for the engine's
+  mobile editor (its `mobileEdit` and `mobileView` actions), made for fingers, rather than the
+  desktop one with its ribbons.
 - **Address:** `/e/<space>/f/<file>` opens the editor on that file (read once at load, like the
-  space and channel addresses in `lib/spaceUrl.ts`), which is what a reload and
-  a shared link land on.
+  space and channel addresses in `lib/spaceUrl.ts`), which is what a reload and a shared link land
+  on.
 - **Languages:** every new string in the six dictionaries from the start, French first.
 
 ## Look

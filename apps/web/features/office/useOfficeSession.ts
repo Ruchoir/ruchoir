@@ -5,7 +5,7 @@ import { endOfficeHeartbeat, getConvertedCopy, officeHeartbeat, openOfficeSessio
 import { isApiError } from "@/lib/data/http";
 import type { FileEditor, OfficeSession, SpaceFile } from "@/lib/data/types";
 import { onFileEvent } from "@/lib/fileEvents";
-import { officeTheme } from "./officeTheme";
+import { officeTheme, touchScreen } from "./officeTheme";
 
 /** How often an editing tab says it is still there (the API forgets it after 60 s). */
 const HEARTBEAT_MS = 30_000;
@@ -46,7 +46,7 @@ export function useOfficeSession(
 
   useEffect(() => {
     let cancelled = false;
-    openOfficeSession(fileId, { theme: officeTheme(), mode: convert ? "convert" : undefined })
+    openOfficeSession(fileId, { theme: officeTheme(), mode: convert ? "convert" : undefined, mobile: touchScreen() })
       .then((session) => {
         if (!cancelled) setState({ status: "ready", session, editors: session.file.editors ?? [] });
       })
@@ -77,7 +77,7 @@ export function useOfficeSession(
         .then(async (found) => {
           if (cancelled || !found?.id) return;
           opening = true;
-          const next = await openOfficeSession(found.id, { theme: officeTheme() });
+          const next = await openOfficeSession(found.id, { theme: officeTheme(), mobile: touchScreen() });
           if (!cancelled) setState({ status: "ready", session: next, copy: found, editors: next.file.editors ?? [] });
         })
         .catch(() => {
