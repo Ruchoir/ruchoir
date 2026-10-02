@@ -144,7 +144,12 @@ ways. Conversely, the relay answers nothing on Ruchoir's own host.
   `dictionaries`, `themes.json`, `plugins.json`, the editor's service worker), the unversioned
   `/web-apps/apps/…` loader, `/hosting/wopi/*` (the editor page), `/cache/files/*`, `/downloadfile/*`
   and `/printfile/*`. Everything else answers `404`: the engine's admin panel, example app,
-  converter and command endpoints are never reachable from outside.
+  converter and command endpoints are never reachable from outside. A path that could become a
+  separator or a dot segment once the engine decodes it (`%2F`, `%5C`, `%2E`, `//`) is refused
+  too, since the engine's own nginx normalises after the relay's check.
+- The editor page (`/hosting/wopi/*`) is relayed only when its single `WOPISrc` names a file of
+  this instance's WOPI listener (`RUCHOIR_WOPI_BASE_URL/wopi/files/<uuid>`): the engine fetches
+  whatever `WOPISrc` says, so anything else would let anyone send it to another host.
 
 New runtime dependencies for the relay: `hyper-util` (client) and `tokio-tungstenite` (WebSocket
 client). Both are community projects already in the dependency tree (the first through axum, the
@@ -279,8 +284,9 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   and one file. Tokens expire, are stored server-side, and are never logged.
 - Rights are checked when the session is created and again on every WOPI call (a member removed from
   the space mid-session can no longer save).
-- `ALLOW_PRIVATE_IP_ADDRESS` lets the engine reach the WOPI listener; the engine has no other private
-  address to fetch from inside the compose network.
+- `ALLOW_PRIVATE_IP_ADDRESS` lets the engine reach the WOPI listener. The engine sits on an
+  `internal` compose network shared with the API only, so it has no route out at all, and the relay
+  refuses any editor page whose `WOPISrc` is not one of this instance's files.
 - No outbound call: verified on 2026-10-01 in the browser (only the instance's origin is contacted
   with a document open) and on the engine's own connections (only its internal database, queue and
   cache).

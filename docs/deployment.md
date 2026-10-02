@@ -188,7 +188,8 @@ answers `"office": { "enabled": true, … }`. The API reads the engine's formats
 engine being ready (its first start takes a couple of minutes).
 
 The image is pulled from the GitHub container registry at deployment: a registry, not a runtime
-service, and it can be mirrored. The engine makes no outbound call. Before moving the engine to a new
+service, and it can be mirrored. The engine runs on an internal network with no route out: it can
+reach the API and nothing else. Before moving the engine to a new
 version, read `infra/office/README.md`: the temporary patches it mounts are tied to the pinned one.
 
 ## Not there yet
