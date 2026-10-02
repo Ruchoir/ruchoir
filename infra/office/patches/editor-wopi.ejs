@@ -1,7 +1,8 @@
 ﻿<%# Ruchoir patch of Euro-Office 9.3.4's web-apps/apps/api/wopi/editor-wopi.ejs, mounted read-only by
-    docker-compose.yml. Two changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
+    docker-compose.yml. Three changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
     the thm parameter is absent; (2) paint a custom theme given at launch, which the engine selects but
-    does not paint. Remove each when the pinned engine version fixes it (see infra/office/README.md). %>
+    does not paint; (3) let the integrator's theme win over one an earlier session stored. Remove each
+    when the pinned engine version fixes it (see infra/office/README.md). %>
 <!DOCTYPE html>
 <html>
 <head runat="server">
@@ -417,6 +418,17 @@ div {
             if (postMessageOrigin && (typeof postMessageOrigin === 'string') && postMessageOrigin.charAt(postMessageOrigin.length-1)=='/')
                 postMessageOrigin = postMessageOrigin.substring(0, postMessageOrigin.length - 1);
             lang = config.editorConfig.lang;
+
+            // Ruchoir patch (upstream defect 7): the editor prefers the theme an earlier session left
+            // in this origin's storage over the one the integrator asks for, so a member who opened a
+            // document by day stayed on the day theme by night. Store the asked theme first.
+            try {
+                var askedTheme = config.editorConfig && config.editorConfig.customization && config.editorConfig.customization.uiTheme;
+                if (typeof askedTheme === "string" && askedTheme && window.localStorage.getItem("ui-theme-id") !== askedTheme) {
+                    window.localStorage.setItem("ui-theme-id", askedTheme);
+                    window.localStorage.removeItem("ui-theme");
+                }
+            } catch (e) {}
 
             startTime = Date.now();
             docEditor = new DocsAPI.DocEditor("iframeEditor", config);
