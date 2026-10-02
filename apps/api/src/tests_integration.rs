@@ -8477,3 +8477,51 @@ async fn a_new_version_reaches_the_space_as_files_updated() {
     assert_eq!(event["payload"]["file"]["id"], file_id.to_string());
     assert_eq!(event["payload"]["file"]["version_no"], 2);
 }
+
+/// A file row with no bytes, enough for the rights checks.
+async fn insert_file_row(db: &DatabaseConnection, space_id: Uuid, owner: Uuid, name: &str) -> Uuid {
+    let id = Uuid::new_v4();
+    let now = OffsetDateTime::now_utc();
+    files::ActiveModel {
+        id: Set(id),
+        space_id: Set(space_id),
+        owner_id: Set(Some(owner)),
+        name: Set(name.to_owned()),
+        kind: Set("file".to_owned()),
+        size_bytes: Set(0),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("file");
+    id
+}
+
+#[tokio::test]
+async fn any_member_may_edit_a_colleagues_document_but_a_guest_may_not() {
+    use crate::files::authz::ensure_content_editable;
+    use crate::files::error::FileError;
+
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let file_id = insert_file_row(&app.db, fx.space_id, fx.alice, "plan.docx").await;
+
+    assert!(
+        ensure_content_editable(&app.db, file_id, fx.bob)
+            .await
+            .is_ok(),
+        "a member edits a colleague's document"
+    );
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    assert!(matches!(
+        ensure_content_editable(&app.db, file_id, fx.carol).await,
+        Err(FileError::Forbidden)
+    ));
+    let stranger = make_user(&app.db, "dave").await;
+    assert!(matches!(
+        ensure_content_editable(&app.db, file_id, stranger).await,
+        Err(FileError::Forbidden)
+    ));
+}
