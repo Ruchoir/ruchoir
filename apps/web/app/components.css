@@ -692,6 +692,13 @@
   object-fit: contain;
 }
 
+/* The inline-flex wrapper around an emoji in a message body (tooltip or plain span). A flex item
+   ignores its own vertical-align, so the lift lives here: without it the glyph sat on the baseline
+   and read as raised against the text. */
+.wc-emoji-slot {
+  vertical-align: -0.15em;
+}
+
 /* Inline message formatting. */
 .wc-code {
   font-family: var(--font-mono);
