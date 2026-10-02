@@ -1,7 +1,8 @@
 ﻿<%# Ruchoir patch of Euro-Office 9.3.4's web-apps/apps/api/wopi/editor-wopi.ejs, mounted read-only by
-    docker-compose.yml. Three changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
+    docker-compose.yml. Four changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
     the thm parameter is absent; (2) paint a custom theme given at launch, which the engine selects but
-    does not paint; (3) let the integrator's theme win over one an earlier session stored. Remove each
+    does not paint; (3) let the integrator's theme win over one an earlier session stored; (4) keep the
+    member's avatar round. Remove each
     when the pinned engine version fixes it (see infra/office/README.md). %>
 <!DOCTYPE html>
 <html>
@@ -192,6 +193,22 @@ div {
                 "Status": "Document_Loaded"
             });
             innerAlert("App ready");
+
+            // Ruchoir patch (upstream defect 8): the header squeezes the member's avatar to 18px wide,
+            // an oval rather than a circle, and a photo in it would be stretched. The editor frame is
+            // on this same origin.
+            for (var i = 0; i < window.frames.length; i++) {
+                try {
+                    var doc = window.frames[i].document;
+                    if (doc && doc.head && !doc.getElementById("ruchoir-avatar")) {
+                        var style = doc.createElement("style");
+                        style.id = "ruchoir-avatar";
+                        style.textContent = ".btn-current-user .color-user-name{flex:none;min-width:20px;"
+                            + "background-size:cover;background-position:center}";
+                        doc.head.appendChild(style);
+                    }
+                } catch (e) {}
+            }
         };
 
         var sendEditNotification = function () {

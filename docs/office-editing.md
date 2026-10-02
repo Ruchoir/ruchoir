@@ -356,6 +356,7 @@ the fix.
 | 4 | The Visio viewer's page omits the module configuration the other editors have, so the viewer dies before loading the file. | `patches/visioeditor-index.html`: add the missing `shim` entry. |
 | 5 | Translations: about 15 strings per editor left in English in French and German, up to 362 in Italian and 1,008 in Polish. | None now; translations contributed upstream. |
 | 7 | The editor prefers the theme an earlier session stored in its origin over the one the integrator asks for: a member who opened a document by day stays on the day theme by night. | Also in `patches/editor-wopi.ejs`: the asked theme is stored first. |
+| 8 | The header squeezes the member's avatar to 18 px wide: an oval, and a photo in it would be stretched. | Also in `patches/editor-wopi.ejs`: a style that keeps it 20 px round, added to the editor's frame once it is up. |
 
 ## Risks
 
