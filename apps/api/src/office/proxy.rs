@@ -49,7 +49,7 @@ pub async fn dispatch(State(state): State<AppState>, req: Request, next: Next) -
         Some(office) if serves(office, &req) => {
             relay(
                 office.clone(),
-                &state.config.public_base_url,
+                &state.config.public_origin(),
                 &state.config.wopi_base_url,
                 req,
             )

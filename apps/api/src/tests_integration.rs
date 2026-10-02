@@ -9552,3 +9552,63 @@ async fn a_neighbouring_site_cannot_write_with_a_members_session() {
         .unwrap();
     assert_eq!(read.status(), 200);
 }
+
+#[tokio::test]
+async fn the_engine_is_told_ruchoirs_origin_even_with_a_trailing_slash() {
+    let engine = fake_engine().await;
+    let Some(app) = boot_office(|config| {
+        config.public_base_url = "http://localhost:8080/".to_owned();
+        config.office_url = Some(engine);
+    })
+    .await
+    else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let token = edit_token(&app, fx.alice, file_id).await;
+    let info: Value = wopi_req(&app, reqwest::Method::GET, file_id, "", &token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(info["PostMessageOrigin"], "http://localhost:8080");
+
+    let page = app
+        .http
+        .get(format!("{}/web-apps/apps/api/documents/api.js", app.base))
+        .header(reqwest::header::HOST, "office.example.org")
+        .send()
+        .await
+        .unwrap();
+    let csp = page.headers()[reqwest::header::CONTENT_SECURITY_POLICY]
+        .to_str()
+        .unwrap()
+        .to_owned();
+    assert!(
+        csp.ends_with("frame-ancestors http://localhost:8080"),
+        "{csp}"
+    );
+
+    let session: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office"),
+            &alice,
+        )
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let config: Value = serde_json::from_str(session["config"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        config["editorConfig"]["customization"]["logo"]["image"],
+        "http://localhost:8080/brand/ruchoir-mark.png"
+    );
+}

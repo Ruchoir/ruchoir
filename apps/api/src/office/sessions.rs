@@ -115,7 +115,7 @@ pub async fn open_session(
         access_token_ttl: grant.expires_at * 1000,
         mode,
         config: engine_config(
-            &state.config.public_base_url,
+            state.config.public_base_url.trim_end_matches('/'),
             request.theme.as_deref(),
             lang,
         ),

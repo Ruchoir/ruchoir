@@ -176,7 +176,7 @@ async fn check_file_info(
         "UserCanNotWriteRelative": grant.mode != Mode::Convert,
         "SupportsRename": false,
         "UserCanRename": false,
-        "PostMessageOrigin": state.config.public_base_url,
+        "PostMessageOrigin": state.config.public_origin(),
     })))
 }
 
