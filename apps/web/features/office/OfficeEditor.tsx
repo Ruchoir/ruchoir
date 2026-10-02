@@ -10,8 +10,8 @@ export type OfficeEditorProps = {
   /** Convert a legacy format into an editable copy rather than opening it as it is. */
   convert?: boolean;
   /**
-   * The address of a file open in the editor, for the address bar and "open in a new tab" (none: no
-   * button). Asked again when a conversion moves the editor to its copy.
+   * The address of a file open in the editor, for the address bar (a reload or a shared link lands
+   * back on it). Asked again when a conversion moves the editor to its copy.
    */
   addressOf?: (fileId: string) => string;
   /** The editor cannot be reached right now: the caller shows the file another way (none: a note). */
@@ -21,7 +21,7 @@ export type OfficeEditorProps = {
 
 /**
  * A document in the office editor, across the whole window: a Ruchoir band on top (the document,
- * who is editing it, a new tab, the way out), the engine below in a frame on its own hostname.
+ * who is editing it, the way out), the engine below in a frame on its own hostname.
  *
  * The token is posted in a form, so it travels in a request body and never in an address. The
  * engine is a different origin from Ruchoir on purpose (see `docs/office-editing.md`): nothing here
@@ -116,9 +116,6 @@ export function OfficeEditor({ fileId, convert = false, addressOf, onUnavailable
               <Avatar key={editor.id} name={editor.name} size={24} />
             ))}
           </div>
-        ) : null}
-        {href ? (
-          <IconButton icon="external-link" label={t("image.openInNewTab", { name: title || t("office.editor") })} onClick={() => window.open(href, "_blank", "noopener")} />
         ) : null}
         <IconButton ref={closeRef} icon="x" label={t("common.close")} onClick={close} />
       </div>

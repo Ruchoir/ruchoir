@@ -255,7 +255,7 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
 `FilesScreen.tsx`.
 
 - **`OfficeEditor.tsx`:** the editor across the whole window. A Ruchoir band on top (close, file
-  name, the avatars of who is editing, "open in a new tab"), then the engine in a frame on the office
+  name, the avatars of who is editing), then the engine in a frame on the office
   origin, loaded by posting the token to the session's `url`. Closing returns exactly where the
   member was.
 - **`useOfficeSession.ts`:** asks for the session, sends the heartbeat every 30 s, says goodbye on
@@ -273,7 +273,7 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   format, for which conversion stays a deliberate act). When the editor cannot be reached, a file
   that would open in it falls back to the preview.
 - **Address:** `/e/<space>/f/<file>` opens the editor on that file (read once at load, like the
-  space and channel addresses in `lib/spaceUrl.ts`), which is what "open in a new tab", a reload and
+  space and channel addresses in `lib/spaceUrl.ts`), which is what a reload and
   a shared link land on.
 - **Languages:** every new string in the six dictionaries from the start, French first.
 
