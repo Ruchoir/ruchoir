@@ -1271,5 +1271,25 @@
   "mobile": {
     "noDmText": "Tutaj pojawią się Twoje wiadomości bezpośrednie z członkami przestrzeni.",
     "youPrefix": "Ty: {{text}}"
+  },
+  "office": {
+    "editor": "Edytor dokumentów",
+    "convert": "Konwertuj, aby edytować",
+    "convertHint": "Obok oryginału powstanie edytowalna kopia, a oryginał pozostanie bez zmian.",
+    "openInEditor": "Otwórz w edytorze",
+    "opening": "Otwieranie dokumentu…",
+    "failed": "Nie udało się otworzyć",
+    "unavailable": "Edytor jest teraz niedostępny.",
+    "unsupported": "Tego formatu nie można otworzyć w edytorze.",
+    "forbidden": "Nie masz dostępu do tego dokumentu.",
+    "editingNow": "Edytują: {{names}}",
+    "newDocument": "Nowy dokument",
+    "newDocumentTitle": "Utwórz dokument",
+    "kindDocument": "Dokument tekstowy",
+    "kindSpreadsheet": "Arkusz kalkulacyjny",
+    "kindPresentation": "Prezentacja",
+    "namePlaceholder": "Nazwa dokumentu",
+    "created": "Utworzono dokument",
+    "createFailed": "Nie udało się utworzyć dokumentu"
   }
 }

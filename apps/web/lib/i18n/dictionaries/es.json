@@ -1240,5 +1240,25 @@
   "mobile": {
     "noDmText": "Tus mensajes directos con los miembros del espacio aparecerán aquí.",
     "youPrefix": "Tú: {{text}}"
+  },
+  "office": {
+    "editor": "Editor de documentos",
+    "convert": "Convertir para editar",
+    "convertHint": "Se creará una copia editable junto al original, que no cambia.",
+    "openInEditor": "Abrir en el editor",
+    "opening": "Abriendo el documento…",
+    "failed": "No se pudo abrir",
+    "unavailable": "El editor no está disponible en este momento.",
+    "unsupported": "Este formato no se puede abrir en el editor.",
+    "forbidden": "No tienes acceso a este documento.",
+    "editingNow": "En edición por {{names}}",
+    "newDocument": "Nuevo documento",
+    "newDocumentTitle": "Crear un documento",
+    "kindDocument": "Documento de texto",
+    "kindSpreadsheet": "Hoja de cálculo",
+    "kindPresentation": "Presentación",
+    "namePlaceholder": "Nombre del documento",
+    "created": "Documento creado",
+    "createFailed": "No se pudo crear el documento"
   }
 }

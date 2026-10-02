@@ -1209,5 +1209,25 @@
   "mobile": {
     "noDmText": "Your direct messages with the space's members will appear here.",
     "youPrefix": "You: {{text}}"
+  },
+  "office": {
+    "editor": "Document editor",
+    "convert": "Convert to edit",
+    "convertHint": "An editable copy is created next to the original, which stays as it is.",
+    "openInEditor": "Open in the editor",
+    "opening": "Opening the document…",
+    "failed": "Could not open",
+    "unavailable": "The editor is not available right now.",
+    "unsupported": "This format cannot be opened in the editor.",
+    "forbidden": "You do not have access to this document.",
+    "editingNow": "Being edited by {{names}}",
+    "newDocument": "New document",
+    "newDocumentTitle": "Create a document",
+    "kindDocument": "Text document",
+    "kindSpreadsheet": "Spreadsheet",
+    "kindPresentation": "Presentation",
+    "namePlaceholder": "Document name",
+    "created": "Document created",
+    "createFailed": "Could not create the document"
   }
 }

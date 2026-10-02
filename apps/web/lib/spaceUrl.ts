@@ -18,7 +18,12 @@
  */
 
 /** A space, and optionally a channel inside it, named by an address. */
-export type SpaceLocation = { spaceSlug: string; channelName?: string };
+export type SpaceLocation = {
+  spaceSlug: string;
+  channelName?: string;
+  /** A file open in the editor, from `/e/<space>/f/<file>` or `/f/<file>`. */
+  fileId?: string;
+};
 
 /** Strip the export's optional trailing slash and split a path into its segments. */
 function segments(pathname: string): string[] {
@@ -53,12 +58,14 @@ export function readSpaceLocation(slugs: string[]): SpaceLocation | null {
   if (parts[0] === "e" && parts[1]) {
     const spaceSlug = decodeURIComponent(parts[1]);
     const channelName = parts[2] === "c" && parts[3] ? decodeURIComponent(parts[3]) : undefined;
-    return { spaceSlug, channelName };
+    const fileId = parts[2] === "f" && parts[3] ? decodeURIComponent(parts[3]) : undefined;
+    return { spaceSlug, channelName, fileId };
   }
   // Short form: the space came from the host, the path only names the channel.
   if (fromHost) {
     const channelName = parts[0] === "c" && parts[1] ? decodeURIComponent(parts[1]) : undefined;
-    return { spaceSlug: fromHost, channelName };
+    const fileId = parts[0] === "f" && parts[1] ? decodeURIComponent(parts[1]) : undefined;
+    return { spaceSlug: fromHost, channelName, fileId };
   }
   return null;
 }
@@ -73,6 +80,13 @@ export function spaceUrl(spaceSlug: string, channelName: string | undefined, slu
   const channel = channelName ? `/c/${encodeURIComponent(channelName)}` : "";
   if (hostSpace(slugs) === spaceSlug) return `${channel || "/"}`;
   return `/e/${encodeURIComponent(spaceSlug)}${channel}`;
+}
+
+/** The address of a file open in the editor, adaptive like {@link spaceUrl}. */
+export function fileUrl(spaceSlug: string, fileId: string, slugs: string[]): string {
+  const file = `/f/${encodeURIComponent(fileId)}`;
+  if (hostSpace(slugs) === spaceSlug) return file;
+  return `/e/${encodeURIComponent(spaceSlug)}${file}`;
 }
 
 /**

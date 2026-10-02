@@ -1209,5 +1209,25 @@
   "mobile": {
     "noDmText": "Vos messages directs avec les membres de l'espace apparaîtront ici.",
     "youPrefix": "Vous : {{text}}"
+  },
+  "office": {
+    "editor": "Éditeur de documents",
+    "convert": "Convertir pour modifier",
+    "convertHint": "Une copie modifiable sera créée à côté de l'original, qui reste intact.",
+    "openInEditor": "Ouvrir dans l'éditeur",
+    "opening": "Ouverture du document…",
+    "failed": "Ouverture impossible",
+    "unavailable": "L'éditeur n'est pas disponible pour le moment.",
+    "unsupported": "Ce format ne peut pas être ouvert dans l'éditeur.",
+    "forbidden": "Vous n'avez pas accès à ce document.",
+    "editingNow": "En cours d'édition par {{names}}",
+    "newDocument": "Nouveau document",
+    "newDocumentTitle": "Créer un document",
+    "kindDocument": "Document texte",
+    "kindSpreadsheet": "Classeur",
+    "kindPresentation": "Présentation",
+    "namePlaceholder": "Nom du document",
+    "created": "Document créé",
+    "createFailed": "Création du document impossible"
   }
 }
