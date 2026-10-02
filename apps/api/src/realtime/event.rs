@@ -213,7 +213,6 @@ impl RealtimeEnvelope {
     ///
     /// Delivered to everyone who can see the file; it carries the whole current list, so a client
     /// only ever replaces what it shows.
-    #[allow(dead_code)] // TEMP-OFFICE
     pub fn files_editing(payload: impl Serialize) -> Self {
         Self::global("files.editing", payload)
     }

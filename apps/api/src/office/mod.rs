@@ -15,6 +15,7 @@
 pub mod discovery;
 pub mod error;
 pub mod locks;
+pub mod presence;
 pub(crate) mod sessions;
 pub(crate) mod templates;
 pub mod tokens;
@@ -47,6 +48,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v1/files/{file_id}/office",
             post(sessions::open_session),
+        )
+        .route(
+            "/api/v1/files/{file_id}/office/heartbeat",
+            post(sessions::heartbeat).delete(sessions::end_heartbeat),
         )
 }
 

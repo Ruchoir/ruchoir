@@ -234,3 +234,72 @@ fn extension(name: &str) -> Option<String> {
     let (_, ext) = name.rsplit_once('.')?;
     (!ext.is_empty()).then(|| ext.to_ascii_lowercase())
 }
+
+/// The payload of `files.editing`.
+#[derive(Serialize)]
+struct FilesEditingEvent {
+    space_id: Uuid,
+    file_id: Uuid,
+    editors: Vec<crate::files::dto::EditorDto>,
+}
+
+/// `POST /api/v1/files/{file_id}/office/heartbeat`: the editor page is still open.
+#[utoipa::path(
+    post,
+    path = "/api/v1/files/{file_id}/office/heartbeat",
+    tag = "office",
+    params(("file_id" = Uuid, Path, description = "File id")),
+    responses((status = 204, description = "Noted"), (status = 403, description = "May not edit this file"))
+)]
+pub async fn heartbeat(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(file_id): Path<Uuid>,
+) -> Result<StatusCode, OfficeError> {
+    state.office.as_ref().ok_or(OfficeError::Disabled)?;
+    let access = authz::ensure_content_editable(&state.db, file_id, session.user_id).await?;
+    if super::presence::beat(&state.valkey, file_id, session.user_id).await? {
+        publish_editing(&state, &access.file, session.user_id).await;
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// `DELETE /api/v1/files/{file_id}/office/heartbeat`: the editor page was closed.
+#[utoipa::path(
+    delete,
+    path = "/api/v1/files/{file_id}/office/heartbeat",
+    tag = "office",
+    params(("file_id" = Uuid, Path, description = "File id")),
+    responses((status = 204, description = "Noted"))
+)]
+pub async fn end_heartbeat(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(file_id): Path<Uuid>,
+) -> Result<StatusCode, OfficeError> {
+    state.office.as_ref().ok_or(OfficeError::Disabled)?;
+    let access = authz::ensure_readable(&state.db, file_id, session.user_id).await?;
+    if super::presence::leave(&state.valkey, file_id, session.user_id).await? {
+        publish_editing(&state, &access.file, session.user_id).await;
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn publish_editing(state: &AppState, file: &crate::entities::files::Model, actor: Uuid) {
+    let ids = super::presence::editors(&state.valkey, file.id)
+        .await
+        .unwrap_or_default();
+    let editors = super::presence::named(&state.db, ids).await;
+    let audience = versions::file_audience(&state.db, file, actor).await;
+    state
+        .hub
+        .publish(
+            audience,
+            crate::realtime::event::RealtimeEnvelope::files_editing(FilesEditingEvent {
+                space_id: file.space_id,
+                file_id: file.id,
+                editors,
+            }),
+        )
+        .await;
+}

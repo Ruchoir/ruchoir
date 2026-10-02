@@ -47,6 +47,16 @@ pub struct FileDto {
     pub imported_source: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    /// Who is editing the file in the office editor right now (folder listings only).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub editors: Vec<EditorDto>,
+}
+
+/// Someone editing a file in the office editor right now.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct EditorDto {
+    pub id: Uuid,
+    pub name: String,
 }
 
 impl FileDto {
@@ -76,6 +86,7 @@ impl FileDto {
             imported_source: file.imported_source.clone(),
             created_at: rfc3339(file.created_at),
             updated_at: rfc3339(file.updated_at),
+            editors: Vec::new(),
         }
     }
 }

@@ -141,7 +141,9 @@ use utoipa::OpenApi;
         crate::files::shares::create_share,
         crate::files::shares::delete_share,
         crate::office::sessions::open_session,
-        crate::office::sessions::create_blank
+        crate::office::sessions::create_blank,
+        crate::office::sessions::heartbeat,
+        crate::office::sessions::end_heartbeat
     ),
     components(schemas(
         crate::importer::routes::ArchiveRequest,
@@ -242,6 +244,7 @@ use utoipa::OpenApi;
         crate::messaging::dto::SetPresenceRequest,
         crate::messaging::dto::TypingRequest,
         crate::files::dto::FileDto,
+        crate::files::dto::EditorDto,
         crate::files::dto::FolderListing,
         crate::files::dto::Breadcrumb,
         crate::files::dto::AttachmentDto,

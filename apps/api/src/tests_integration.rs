@@ -9184,3 +9184,78 @@ async fn a_member_creates_a_blank_document_in_their_language() {
         .unwrap();
     assert_eq!(refused.status(), 403);
 }
+
+#[tokio::test]
+async fn the_space_sees_who_is_editing_a_document() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let mut ws = app.connect_ws(&alice).await;
+
+    let beat = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office/heartbeat"),
+            &bob,
+        )
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(beat.status(), 204);
+    let joined = next_event_of(&mut ws, "files.editing")
+        .await
+        .expect("joined");
+    assert_eq!(joined["payload"]["file_id"], file_id.to_string());
+    assert_eq!(joined["payload"]["editors"][0]["name"], "bob");
+
+    let listing: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/files", fx.space_id),
+            &alice,
+        )
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let row = listing["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == file_id.to_string())
+        .unwrap()
+        .clone();
+    assert_eq!(row["editors"][0]["id"], fx.bob.to_string());
+
+    let bye = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file_id}/office/heartbeat"),
+            &bob,
+        )
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bye.status(), 204);
+    let left = next_event_of(&mut ws, "files.editing").await.expect("left");
+    assert_eq!(left["payload"]["editors"].as_array().unwrap().len(), 0);
+
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    let carol = app.cookie_for(fx.carol).await;
+    let refused = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office/heartbeat"),
+            &carol,
+        )
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(refused.status(), 403);
+}
