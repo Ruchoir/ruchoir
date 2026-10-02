@@ -456,6 +456,12 @@ export function FilesScreen({
           sendDrop(e.dataTransfer, undefined);
         },
       };
+  // The frame names where the files will go: the folder row or breadcrumb step under the pointer,
+  // else the open folder.
+  const dropTargetName =
+    entries.find((f) => f.kind === "folder" && f.id && drag.isOver(f.id))?.name ??
+    (drag.isOver(null) ? rootLabel : breadcrumb.find((c) => drag.isOver(c.id))?.name) ??
+    currentName;
   // A drop on a folder row is that row's: the frame goes when any drop ends.
   useEffect(() => {
     const end = () => {
@@ -608,7 +614,7 @@ export function FilesScreen({
               }}
             >
               <Icon name="upload" size={16} />
-              {t("files.dropHere", { folder: currentName })}
+              {t("files.dropHere", { folder: dropTargetName })}
             </span>
           </div>
         ) : null}
