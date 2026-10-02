@@ -89,7 +89,8 @@ function walk(dir, out = []) {
     if (statSync(path).isDirectory()) {
       if (entry === "node_modules" || entry === ".next") continue;
       walk(path, out);
-    } else if (/\.tsx?$/.test(entry)) {
+    } else if (/\.tsx?$/.test(entry) && !entry.endsWith(".test.ts")) {
+      // A test's fixtures are data a person never reads: file names, people's names.
       out.push(path);
     }
   }
@@ -330,6 +331,12 @@ const ALLOWED_DUPLICATES = new Set([
   // "Nom" is the file's name and a person's surname. English already says "Name" and "Surname",
   // German "Name" and "Nachname": merging them would put one of the two words in the wrong place.
   "signup.lastName",
+  // "Nouveau" is the button that creates something in the files and the badge on a space an import
+  // just created. Polish agrees each with what it names: "Nowy" for the first, "Nowa" for a space.
+  "files.new",
+  // "Archive" is the kind of a compressed file and the sealed export an import reads. Spanish says
+  // "Archivo comprimido" for the first and "Archivo" for the second, which is also its word for a file.
+  "files.typeArchive",
 ]);
 
 /** Every key path in a dictionary object, flattened to `a.b.c`. */

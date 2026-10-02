@@ -1817,6 +1817,9 @@ type FileDto = {
   imported_source?: string;
   created_at: string;
   updated_at: string;
+  modified_by_id?: string;
+  modified_by_name?: string;
+  child_count?: number;
   editors?: { id: string; name: string }[];
 };
 
@@ -1855,6 +1858,12 @@ function toSpaceFile(dto: FileDto): SpaceFile {
     thumbnailUrl: dto.has_thumbnail ? `/api/v1/files/${dto.id}/thumbnail` : undefined,
     parentFolderId: dto.parent_folder_id,
     editors: dto.editors ?? [],
+    ownerId: dto.owner_id,
+    modifiedBy: dto.modified_by_name,
+    childCount: dto.child_count,
+    createdAt: dto.created_at,
+    mimeType: dto.mime_type,
+    versionNo: dto.version_no,
   };
 }
 

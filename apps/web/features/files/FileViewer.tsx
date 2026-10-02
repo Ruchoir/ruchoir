@@ -43,8 +43,10 @@ export function printUrl(url: string) {
 export type ViewerActions = {
   onClose: () => void;
   onDownload: () => void;
-  onNewVersion: () => void;
-  onDelete: () => void;
+  /** Absent for someone who may not replace the file (only its owner and the space's admins may). */
+  onNewVersion?: () => void;
+  /** Absent for someone who may not remove the file. */
+  onDelete?: () => void;
   /** Open the file in the office editor (absent: not offered). */
   onEdit?: () => void;
   /** Convert a legacy format into an editable copy (absent: not offered). */
@@ -155,12 +157,16 @@ export function FileViewer({ file, kind, onClose, onDownload, onNewVersion, onDe
             <Button iconLeft="printer" fullWidth onClick={print}>
               {t("files.print")}
             </Button>
-            <Button iconLeft="upload" fullWidth onClick={onNewVersion}>
-              {t("files.newVersion")}
-            </Button>
-            <Button variant="danger" iconLeft="trash-2" fullWidth onClick={onDelete}>
-              {t("common.delete")}
-            </Button>
+            {onNewVersion ? (
+              <Button iconLeft="upload" fullWidth onClick={onNewVersion}>
+                {t("files.newVersion")}
+              </Button>
+            ) : null}
+            {onDelete ? (
+              <Button variant="danger" iconLeft="trash-2" fullWidth onClick={onDelete}>
+                {t("common.delete")}
+              </Button>
+            ) : null}
           </div>
         </aside>
       </div>

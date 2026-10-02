@@ -57,6 +57,26 @@ export const COMMANDS: CommandDef[] = [
 // digit row needs Shift anyway, so the label would not match the key. Switching space goes through
 // the rail or the quick switcher, which lists spaces.
 
+/**
+ * The keys of the files list, shown read-only beside the commands above: they act on the entry that
+ * has the focus, so they are fixed, as in any file manager, rather than rebindable.
+ */
+export const FILE_KEYS: { chords: string[]; label: TranslationKey }[] = [
+  { chords: ["ArrowUp", "ArrowDown"], label: key("shortcut.filesWalk") },
+  { chords: ["Shift+ArrowDown"], label: key("shortcut.filesExtend") },
+  // i18n-audit-ignore-next-line -- a key name inside a chord, drawn through formatChord
+  { chords: ["Enter"], label: key("files.openAction") },
+  // i18n-audit-ignore-next-line -- a key name inside a chord, drawn through formatChord
+  { chords: ["Space"], label: key("shortcut.filesToggle") },
+  { chords: ["F2"], label: key("files.rename") },
+  // i18n-audit-ignore-next-line -- a key name inside a chord, drawn through formatChord
+  { chords: ["Delete"], label: key("common.delete") },
+  { chords: ["Mod+A"], label: key("files.selectAll") },
+  // i18n-audit-ignore-next-line -- a key name inside a chord, drawn through formatChord
+  { chords: ["Escape"], label: key("files.clearSelection") },
+  { chords: ["Shift+F10"], label: key("shortcut.filesMenu") },
+];
+
 export const DEFAULT_BINDINGS: Bindings = Object.fromEntries(
   COMMANDS.map((c) => [c.id, c.defaultChord]),
 ) as Bindings;

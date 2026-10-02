@@ -3976,7 +3976,8 @@ function AppShell() {
         <FilesScreen
           spaceId={ws}
           workspaceName={workspaces.find((w) => w.id === ws)?.name ?? "espace"}
-          currentUser={currentUser}
+          currentUserId={session?.id}
+          spaceRole={currentWorkspace?.role}
           compact={compact}
           onBack={compact ? backToTabs : undefined}
           onNotify={showToast}

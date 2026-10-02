@@ -359,6 +359,16 @@ export type SpaceFile = {
   parentFolderId?: string;
   /** Who is editing the file in the office editor right now. */
   editors?: FileEditor[];
+  /** The owner's account id: with the space role, it decides who may rename, move or delete. */
+  ownerId?: string;
+  /** Who wrote the current version (absent for a folder, or an import with no known author). */
+  modifiedBy?: string;
+  /** A folder's number of direct entries. */
+  childCount?: number;
+  /** Creation, RFC 3339. */
+  createdAt?: string;
+  mimeType?: string;
+  versionNo?: number;
 };
 
 /** Someone editing a file in the office editor. */

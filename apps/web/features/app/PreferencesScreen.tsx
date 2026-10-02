@@ -42,6 +42,7 @@ import {
   COMMANDS,
   DEFAULT_BINDINGS,
   eventToChord,
+  FILE_KEYS,
   formatChord,
   isMac,
   type ShortcutId,
@@ -769,6 +770,20 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
           {t("shortcut.resetAll")}
         </Button>
       </div>
+      <h3 style={{ margin: "28px 0 4px", fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{t("shortcut.inFiles")}</h3>
+      <p style={st.sub}>{t("shortcut.inFilesHint")}</p>
+      {FILE_KEYS.map((k) => (
+        <div key={k.chords.join()} style={rowStyle}>
+          <div style={{ flex: 1, minWidth: 0, fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{t(k.label)}</div>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            {k.chords.map((c) => (
+              <kbd key={c} style={kbdStyle}>
+                {formatChord(c, mac, t)}
+              </kbd>
+            ))}
+          </div>
+        </div>
+      ))}
     </>
   );
 }
