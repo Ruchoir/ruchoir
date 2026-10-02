@@ -151,22 +151,22 @@ pub async fn create_blank(
     Json(request): Json<BlankRequest>,
 ) -> Result<(StatusCode, Json<FileDto>), OfficeError> {
     state.office.as_ref().ok_or(OfficeError::Disabled)?;
+    // Members only: this already refuses a guest of the space.
     authz::ensure_space_files_member(&state.db, request.space_id, session.user_id).await?;
-    let guest = crate::messaging::authz::is_guest(&state.db, request.space_id, session.user_id)
-        .await
-        .map_err(|_| OfficeError::Internal)?;
-    if guest {
-        return Err(FileError::Forbidden.into());
-    }
     if let Some(folder_id) = request.folder_id {
         crate::files::tree::ensure_folder_in_space(&state.db, folder_id, request.space_id).await?;
     }
     let ext = request.kind.extension();
     let cleaned = crate::files::tree::clean_name(&request.name);
-    let stem = cleaned
-        .strip_suffix(&format!(".{ext}"))
-        .unwrap_or(&cleaned)
-        .trim();
+    // A typed extension is not doubled, whatever its case (`Notes.DOCX` gives `Notes.docx`).
+    let suffix = format!(".{ext}");
+    let stem = match cleaned.len().checked_sub(suffix.len()) {
+        Some(at) if cleaned.is_char_boundary(at) && cleaned[at..].eq_ignore_ascii_case(&suffix) => {
+            &cleaned[..at]
+        }
+        _ => cleaned.as_str(),
+    }
+    .trim();
     let stem = if stem.is_empty() { "Document" } else { stem };
     let name = versions::free_name(
         &state.db,

@@ -9655,3 +9655,42 @@ async fn a_conversion_session_never_locks_or_writes_the_original() {
         .unwrap();
     assert_eq!(versions, 1, "the original keeps its one version");
 }
+
+#[tokio::test]
+async fn a_blank_documents_name_is_tidied_and_never_too_long() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let create = |name: String| {
+        app.req(reqwest::Method::POST, "/api/v1/files/office", &bob)
+            .json(&json!({ "space_id": fx.space_id, "kind": "document", "name": name }))
+            .send()
+    };
+
+    let upper: Value = create("Notes.DOCX".to_owned())
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        upper["name"], "Notes.docx",
+        "a typed extension is not doubled, whatever its case"
+    );
+
+    let long = "a".repeat(300);
+    for expected_suffix in [".docx", " (2).docx"] {
+        let res = create(long.clone()).await.unwrap();
+        assert_eq!(res.status(), 201);
+        let file: Value = res.json().await.unwrap();
+        let name = file["name"].as_str().unwrap();
+        assert!(
+            name.chars().count() <= 255,
+            "{} characters",
+            name.chars().count()
+        );
+        assert!(name.ends_with(expected_suffix), "{name}");
+    }
+}

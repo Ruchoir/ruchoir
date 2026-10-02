@@ -154,6 +154,9 @@ pub(crate) async fn create_file(
     Ok(dto)
 }
 
+/// The longest file name, in characters, as `tree::clean_name` caps an uploaded one.
+const MAX_NAME_CHARS: usize = 255;
+
 /// The first of `stem.ext`, `stem (2).ext`, `stem (3).ext`… that no live file in the same place
 /// carries. Never an existing name: a conversion or a blank document must not hide a file.
 pub(crate) async fn free_name(
@@ -183,11 +186,16 @@ pub(crate) async fn free_name(
         .collect();
     let mut n = 1;
     loop {
-        let candidate = if n == 1 {
-            format!("{stem}.{ext}")
+        let suffix = if n == 1 {
+            format!(".{ext}")
         } else {
-            format!("{stem} ({n}).{ext}")
+            format!(" ({n}).{ext}")
         };
+        // Names are capped at 255 characters (see `tree::clean_name`): the stem gives way, never the
+        // number or the extension.
+        let room = MAX_NAME_CHARS.saturating_sub(suffix.chars().count());
+        let stem: String = stem.chars().take(room).collect();
+        let candidate = format!("{}{suffix}", stem.trim_end());
         if !taken.contains(&candidate.to_lowercase()) {
             return Ok(candidate);
         }
