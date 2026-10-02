@@ -205,6 +205,9 @@ async fn check_file_info(
         // The editor page posts `Edit_Notification` to Ruchoir when the document changes: a member
         // who only reads is not shown as editing.
         "EditNotificationPostMessage": true,
+        // The editor's own close button (there is no Ruchoir band around it in its own tab): it
+        // posts `UI_Close` to Ruchoir's page, which closes the tab.
+        "ClosePostMessage": true,
     })))
 }
 

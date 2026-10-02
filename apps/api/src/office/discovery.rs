@@ -35,6 +35,9 @@ pub struct Actions {
     pub edit: Option<String>,
     pub view: Option<String>,
     pub convert: Option<Convert>,
+    /// The touch-screen editor and viewer (`mobile=1`), for phones and tablets.
+    pub mobile_edit: Option<String>,
+    pub mobile_view: Option<String>,
 }
 
 /// The whole discovery, by lower-case extension.
@@ -71,6 +74,12 @@ impl Discovery {
                 }
                 "view" => {
                     entry.view.get_or_insert_with(|| urlsrc.clone());
+                }
+                "mobileEdit" => {
+                    entry.mobile_edit.get_or_insert_with(|| urlsrc.clone());
+                }
+                "mobileView" => {
+                    entry.mobile_view.get_or_insert_with(|| urlsrc.clone());
                 }
                 "convert" => {
                     if let Some(target) = attrs.get("targetext") {
@@ -122,12 +131,26 @@ impl Discovery {
 
     /// The address that opens `ext` in `mode` for the file at `wopi_src`, in `lang` (an engine
     /// language tag such as `fr-FR`). `None` when the engine has no such action.
-    pub fn action_url(&self, ext: &str, mode: Mode, wopi_src: &str, lang: &str) -> Option<String> {
+    /// `mobile` asks for the touch-screen editor where the engine has one (phones, tablets).
+    pub fn action_url(
+        &self,
+        ext: &str,
+        mode: Mode,
+        wopi_src: &str,
+        lang: &str,
+        mobile: bool,
+    ) -> Option<String> {
         let actions = self.actions(ext)?;
-        let urlsrc = match mode {
-            Mode::Edit => actions.edit.as_ref()?,
-            Mode::View => actions.view.as_ref().or(actions.edit.as_ref())?,
-            Mode::Convert => &actions.convert.as_ref()?.urlsrc,
+        let urlsrc = match (mode, mobile) {
+            (Mode::Edit, true) => actions.mobile_edit.as_ref().or(actions.edit.as_ref())?,
+            (Mode::Edit, false) => actions.edit.as_ref()?,
+            (Mode::View, true) => actions
+                .mobile_view
+                .as_ref()
+                .or(actions.view.as_ref())
+                .or(actions.edit.as_ref())?,
+            (Mode::View, false) => actions.view.as_ref().or(actions.edit.as_ref())?,
+            (Mode::Convert, _) => &actions.convert.as_ref()?.urlsrc,
         };
         Some(fill(urlsrc, wopi_src, lang))
     }
@@ -254,6 +277,7 @@ mod tests {
                 Mode::Edit,
                 "http://api:8081/wopi/files/abc",
                 "fr-FR",
+                false,
             )
             .expect("docx edit");
         assert_eq!(
@@ -266,15 +290,39 @@ mod tests {
                 Mode::View,
                 "http://api:8081/wopi/files/abc",
                 "pl-PL",
+                false,
             )
             .expect("vsdx view");
         assert!(view.starts_with("https://office.example.org/hosting/wopi/diagram/view?"));
         assert!(discovery
-            .action_url("vsdx", Mode::Edit, "x", "fr-FR")
+            .action_url("vsdx", Mode::Edit, "x", "fr-FR", false)
             .is_none());
         assert!(discovery
-            .action_url("exe", Mode::View, "x", "fr-FR")
+            .action_url("exe", Mode::View, "x", "fr-FR", false)
             .is_none());
+    }
+
+    #[test]
+    fn a_touch_screen_gets_the_engines_mobile_editor() {
+        let discovery = Discovery::parse(XML).expect("parse");
+        let edit = discovery
+            .action_url("docx", Mode::Edit, "w", "fr-FR", true)
+            .expect("mobile edit");
+        assert!(
+            edit.starts_with("https://office.example.org/hosting/wopi/word/edit?mobile=1&"),
+            "{edit}"
+        );
+        let view = discovery
+            .action_url("vsdx", Mode::View, "w", "fr-FR", true)
+            .expect("mobile view");
+        assert!(view.contains("mobile=1"), "{view}");
+        let convert = discovery
+            .action_url("doc", Mode::Convert, "w", "fr-FR", true)
+            .expect("convert");
+        assert!(
+            !convert.contains("mobile=1"),
+            "a conversion has no mobile page"
+        );
     }
 
     #[test]
@@ -288,7 +336,7 @@ mod tests {
         let discovery = Discovery::parse(xml).expect("parse");
         assert_eq!(
             discovery
-                .action_url("docx", Mode::Edit, "w", "de-DE")
+                .action_url("docx", Mode::Edit, "w", "de-DE", false)
                 .as_deref(),
             Some("https://o.test/e?ui=de-DE&a=1&WOPISrc=w")
         );

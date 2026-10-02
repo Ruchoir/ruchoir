@@ -8750,6 +8750,10 @@ async fn the_engine_reads_a_file_through_wopi() {
         info["EditNotificationPostMessage"], true,
         "the editor page tells Ruchoir when the document changes"
     );
+    assert_eq!(
+        info["ClosePostMessage"], true,
+        "the editor shows its own close button, which tells Ruchoir"
+    );
 
     let bytes = wopi_req(&app, reqwest::Method::GET, file_id, "/contents", &token)
         .send()
@@ -9072,6 +9076,16 @@ async fn a_member_opens_a_document_for_editing_and_a_guest_for_reading() {
         .unwrap()
         .unwrap();
     assert_eq!((grant.user_id, grant.file_id), (fx.bob, file_id));
+
+    let touch: Value = open_session(&app, &bob, file_id, json!({ "mobile": true }))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        touch["url"].as_str().unwrap().contains("mobile=1"),
+        "a touch screen opens the engine's mobile editor"
+    );
 
     let light: Value = open_session(&app, &bob, file_id, json!({}))
         .await

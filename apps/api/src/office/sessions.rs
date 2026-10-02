@@ -30,6 +30,8 @@ pub struct SessionRequest {
     pub theme: Option<String>,
     /// `convert` to convert a legacy format into an editable copy.
     pub mode: Option<String>,
+    /// A touch screen (phone, tablet): the engine's mobile editor.
+    pub mobile: Option<bool>,
 }
 
 /// An editing session: where to post the token, and what to tell the engine.
@@ -95,7 +97,7 @@ pub async fn open_session(
     let lang = engine_language(request.locale.as_deref());
     let wopi_src = format!("{}/wopi/files/{file_id}", state.config.wopi_base_url);
     let url = discovery
-        .action_url(&ext, mode, &wopi_src, lang)
+        .action_url(&ext, mode, &wopi_src, lang, request.mobile == Some(true))
         .ok_or(OfficeError::Unsupported)?;
     let (token, grant) = tokens::mint(
         &state.valkey,
