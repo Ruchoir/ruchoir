@@ -16,7 +16,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::config::Config;
-use crate::entities::{file_versions, files};
+use crate::entities::{file_versions, files, space_members};
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
 use crate::storage::S3Store;
@@ -195,7 +195,8 @@ pub(crate) async fn free_name(
     }
 }
 
-/// Who may see `file`: the participants of its conversation, or the members of its space.
+/// Who may see `file`: the participants of its conversation, or the members of its space other than
+/// its guests, who cannot read the space's files (see `authz::ensure_readable`).
 pub(crate) async fn file_audience(
     db: &DatabaseConnection,
     file: &files::Model,
@@ -212,9 +213,23 @@ pub(crate) async fn file_audience(
                 Err(_) => Vec::new(),
             }
         }
-        None => crate::messaging::authz::space_member_ids(db, file.space_id, actor)
-            .await
-            .unwrap_or_default(),
+        None => {
+            let members = crate::messaging::authz::space_member_ids(db, file.space_id, actor)
+                .await
+                .unwrap_or_default();
+            let guests: std::collections::HashSet<Uuid> = space_members::Entity::find()
+                .filter(space_members::Column::SpaceId.eq(file.space_id))
+                .filter(space_members::Column::Role.eq("guest"))
+                .all(db)
+                .await
+                .map(|rows| rows.into_iter().map(|m| m.user_id).collect())
+                // When the roles cannot be read, nobody hears of it rather than a guest.
+                .unwrap_or_else(|_| members.iter().copied().collect());
+            members
+                .into_iter()
+                .filter(|id| !guests.contains(id))
+                .collect()
+        }
     }
 }
 
