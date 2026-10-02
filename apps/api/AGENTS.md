@@ -240,6 +240,8 @@ context and takes precedence here.
   (`Sec-Fetch-Site: same-site`/`cross-site`, or an `Origin` that is not `Config::public_origin`):
   the session cookie is `SameSite=Lax`, which does not stop a same-site request, and the office
   editor's hostname is the same site as Ruchoir's. A client that is not a browser sends neither header.
+  The real-time socket (`realtime::ws`) refuses a handshake whose `Origin` is not Ruchoir's for the
+  same reason: a WebSocket has no CORS, and a page on the office host would otherwise read live messages.
 - `src/messaging/unfurl.rs` - link previews, read by this server only (never a third-party service,
   never the readers' browsers). A message's first link outside code is fetched in the background
   after a send or an edit, stored in `message_link_previews`, returned as `MessageDto.link`, and the

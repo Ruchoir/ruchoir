@@ -42,8 +42,9 @@ The two people driving the product tested live co-editing together on Euro-Offic
   published, reached by the browser through the API on a hostname of its own (`office.<domain>`),
   so the editor runs in an origin separate from Ruchoir's and a flaw in the engine cannot act inside
   Ruchoir with the signed-in member's session. The two hostnames being the same site, Ruchoir also
-  refuses any write a browser sends from another site (`Sec-Fetch-Site`, `Origin`), which is what
-  keeps the `SameSite=Lax` session cookie from riding on one (amended 2026-10-02).
+  refuses any write a browser sends from another site (`Sec-Fetch-Site`, `Origin`), and any
+  real-time socket opened from another origin, which is what keeps the `SameSite=Lax` session cookie
+  from riding on either (amended 2026-10-02).
 - **Ruchoir speaks WOPI**, the standard host protocol, and nothing else. Euro-Office's own
   configuration (theme, logo, feature switches) travels through WOPI's `docs_api_config` form field,
   which other engines ignore. Replacing the engine is a matter of configuration, not of rewriting

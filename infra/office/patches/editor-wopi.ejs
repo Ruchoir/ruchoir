@@ -1,8 +1,8 @@
 ﻿<%# Ruchoir patch of Euro-Office 9.3.4's web-apps/apps/api/wopi/editor-wopi.ejs, mounted read-only by
-    docker-compose.yml. Four changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
+    docker-compose.yml. Five changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
     the thm parameter is absent; (2) paint a custom theme given at launch, which the engine selects but
     does not paint; (3) let the integrator's theme win over one an earlier session stored; (4) keep the
-    member's avatar round. Remove each
+    member's avatar round; (5) Ruchoir's day colours in the mobile editor. Remove each
     when the pinned engine version fixes it (see infra/office/README.md). %>
 <!DOCTYPE html>
 <html>
@@ -194,7 +194,7 @@ div {
             });
             innerAlert("App ready");
 
-            // Ruchoir patch (upstream defect 8): the header squeezes the member's avatar to 18px wide,
+            // Ruchoir patch (upstream defect 9): the header squeezes the member's avatar to 18px wide,
             // an oval rather than a circle, and a photo in it would be stretched. The editor frame is
             // on this same origin.
             for (var i = 0; i < window.frames.length; i++) {
@@ -207,7 +207,7 @@ div {
                             + "background-size:cover;background-position:center}";
                         doc.head.appendChild(style);
                     }
-                    // Ruchoir patch (upstream defect 9): the mobile editor reads no custom theme, so
+                    // Ruchoir patch (upstream defect 10): the mobile editor reads no custom theme, so
                     // phones and tablets got the engine's own blue, green and orange. Ruchoir's day
                     // colours, set on the variables its stylesheet uses (by night it keeps its own).
                     if (doc && doc.head && /\/mobile\//.test(doc.location.pathname) && !doc.getElementById("ruchoir-mobile")) {
@@ -458,7 +458,7 @@ div {
                 postMessageOrigin = postMessageOrigin.substring(0, postMessageOrigin.length - 1);
             lang = config.editorConfig.lang;
 
-            // Ruchoir patch (upstream defect 7): the editor prefers the theme an earlier session left
+            // Ruchoir patch (upstream defect 8): the editor prefers the theme an earlier session left
             // in this origin's storage over the one the integrator asks for, so a member who opened a
             // document by day stayed on the day theme by night. Store the asked theme first.
             try {

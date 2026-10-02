@@ -136,20 +136,25 @@ ways. Conversely, the relay answers nothing on Ruchoir's own host.
 - `X-Forwarded-Host` is set to the office host and `X-Forwarded-Proto` to its scheme, which is how
   the engine builds its own addresses. The engine sits at the root of its hostname, so no path is
   rewritten.
-- **No credential crosses:** any `Cookie` and `Authorization` header is removed before the request
-  leaves for the engine (the browser should send none, the relay makes sure), and `Set-Cookie` from
-  the engine is dropped.
+- **No Ruchoir credential crosses:** any `Cookie` is removed before the request leaves for the
+  engine, and `Set-Cookie` from the engine is dropped. `Authorization` is relayed: Ruchoir never uses
+  it (its session is a cookie), and what a browser sends the office host there is the engine's own
+  session token, set by the engine's pages (an image upload needs it).
 - The engine's pages carry `frame-ancestors 'self' <Ruchoir's origin>` (`'self'` because the engine's WOPI page frames its own editor page, and every ancestor is checked); Ruchoir's own CSP gains
   `frame-src <office origin>` so it can frame them, and nothing else changes for it.
 - Only the paths the editor needs are relayed (observed during the test of 2026-10-01): the versioned
   static tree (`/<version>-<hash>/…`: `sdkjs`, `fonts`, `web-apps`, `doc` (the co-editing socket),
   `dictionaries`, `themes.json`, `plugins.json`, the editor's service worker), the unversioned
-  `/web-apps/apps/…` loader and the few `/sdkjs/…` scripts the editor pages load unversioned, `/hosting/wopi/*` (the editor page), `/cache/files/*`, `/downloadfile/*`
-  and `/printfile/*`. Everything else answers `404`: the engine's admin panel, example app,
+  `/web-apps/apps/…` loader and the few `/sdkjs/…` scripts the editor pages load unversioned,
+  `/hosting/wopi/*` (the editor page), `/cache/files/*`, `/downloadfile/*` and `/printfile/*`, and the
+  editor's own actions under the versioned prefix (`downloadas/` for printing and "download as",
+  `upload/` for an image inserted from the computer, `savefile/`, `printfile/`, `downloadfile/`),
+  which the engine checks against the document's session. Everything else answers `404`: the engine's admin panel, example app,
   converter and command endpoints are never reachable from outside. A path that could become a
   separator or a dot segment once the engine decodes it (`%2F`, `%5C`, `%2E`, a leading `//`) is refused
   too, since the engine's own nginx normalises after the relay's check.
-- The editor page (`/hosting/wopi/*`) is relayed only when its single `WOPISrc` names a file of
+- The editor page (`/hosting/wopi/*`) is relayed only when its single `WOPISrc` (parameter names
+  compared decoded, as the engine reads them, so `WOPISr%63` or `wopisrc[]` cannot add a second) names a file of
   this instance's WOPI listener (`RUCHOIR_WOPI_BASE_URL/wopi/files/<uuid>`): the engine fetches
   whatever `WOPISrc` says, so anything else would let anyone send it to another host.
 
@@ -307,12 +312,19 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   another site (`Sec-Fetch-Site: same-site` or `cross-site`, or, for a browser too old to send it, an
   `Origin` other than Ruchoir's own): script on the editor's origin can reach Ruchoir's address, but
   nothing it sends there can change anything with the member's session. Reads stay cross-origin,
-  hence unreadable to it.
+  hence unreadable to it, and the real-time socket (which has no CORS to protect it) refuses a
+  handshake whose `Origin` is not Ruchoir's. All of this assumes the office hostname is the same
+  site as Ruchoir's (`office.<domain>`), which is also what lets the engine show the member's
+  Ruchoir photo: on another site, the photo would not load.
+- **The editor frame has no `sandbox`:** the engine prints by loading a PDF in a frame of its own,
+  which Chrome refuses inside a sandboxed frame. What a sandbox prevented, the engine's page moving
+  Ruchoir's tab elsewhere, needs a click in Chrome and Safari (Firefox may differ), and the one place
+  the engine did it (the convert page) is bypassed: Ruchoir opens the converted copy itself.
 - A conversion session reads its original and writes a copy beside it, never the original: its
   token cannot lock or save the file it was opened on.
 - The engine is never published; the browser reaches only the relayed editor paths, and only on the
   office hostname.
-- Any cookie or authorization header that reaches the relay is removed before the engine sees it.
+- Any cookie that reaches the relay is removed before the engine sees it.
 - WOPI is served on an internal listener only, and every call needs a live token bound to one member
   and one file. Tokens expire, are stored server-side, and are never logged.
 - Rights are checked when the session is created and again on every WOPI call (a member removed from
@@ -366,8 +378,11 @@ the fix.
 | 3 | A custom dark theme is never painted. | None: the engine's own dark theme is used by night. |
 | 4 | The Visio viewer's page omits the module configuration the other editors have, so the viewer dies before loading the file. | `patches/visioeditor-index.html`: add the missing `shim` entry. |
 | 5 | Translations: about 15 strings per editor left in English in French and German, up to 362 in Italian and 1,008 in Polish. | None now; translations contributed upstream. |
-| 7 | The editor prefers the theme an earlier session stored in its origin over the one the integrator asks for: a member who opened a document by day stays on the day theme by night. | Also in `patches/editor-wopi.ejs`: the asked theme is stored first. |
-| 8 | The header squeezes the member's avatar to 18 px wide: an oval, and a photo in it would be stretched. | Also in `patches/editor-wopi.ejs`: a style that keeps it 20 px round, added to the editor's frame once it is up. |
+| 6 | A Visio drawing always opens with a "forced view mode" warning, in English. | None: decided in the engine's compiled server. |
+| 7 | The convert-and-edit page sends the whole tab to the bare editor once the copy is written. | Ruchoir opens the copy itself, in the same frame, as soon as the API knows it (`/office/converted`). |
+| 8 | The editor prefers the theme an earlier session stored in its origin over the one the integrator asks for: a member who opened a document by day stays on the day theme by night. | Also in `patches/editor-wopi.ejs`: the asked theme is stored first. |
+| 9 | The header squeezes the member's avatar to 18 px wide: an oval, and a photo in it would be stretched. | Also in `patches/editor-wopi.ejs`: a style that keeps it 20 px round, added to the editor's frame once it is up. |
+| 10 | The mobile editor (phones, tablets) reads no custom theme: the engine's blue, green and orange. | Also in `patches/editor-wopi.ejs`: Ruchoir's day colours on the variables of its stylesheet (by night it keeps its own dark one). |
 
 ## Risks
 
