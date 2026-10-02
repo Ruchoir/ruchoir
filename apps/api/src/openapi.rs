@@ -142,6 +142,7 @@ use utoipa::OpenApi;
         crate::files::shares::delete_share,
         crate::office::sessions::open_session,
         crate::office::sessions::create_blank,
+        crate::office::sessions::converted_copy,
         crate::office::sessions::heartbeat,
         crate::office::sessions::end_heartbeat
     ),

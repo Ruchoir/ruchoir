@@ -51,6 +51,10 @@ pub fn router() -> Router<AppState> {
             post(sessions::open_session),
         )
         .route(
+            "/api/v1/files/{file_id}/office/converted",
+            axum::routing::get(sessions::converted_copy),
+        )
+        .route(
             "/api/v1/files/{file_id}/office/heartbeat",
             post(sessions::heartbeat).delete(sessions::end_heartbeat),
         )

@@ -385,6 +385,14 @@ async fn put_relative(
         state.config.office_token_ttl_secs,
     )
     .await?;
+    tokens::remember_copy(
+        &state.valkey,
+        file_id,
+        grant.user_id,
+        created.id,
+        state.config.office_token_ttl_secs,
+    )
+    .await?;
     Ok(Json(json!({
         "Name": created.name,
         "Url": format!("{}/wopi/files/{}?access_token={new_token}", state.config.wopi_base_url, created.id),

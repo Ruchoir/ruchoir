@@ -87,3 +87,43 @@ fn now_secs() -> i64 {
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0)
 }
+
+/// Where a member's conversion of `original` landed: the editor carries on in the copy, and the page
+/// that framed it asks here which one, to name it and say who is editing it.
+fn copy_key(original: Uuid, user_id: Uuid) -> String {
+    format!("office:converted:{original}:{user_id}")
+}
+
+/// Remember that `user_id` converted `original` into `copy`, for as long as their session lasts.
+pub async fn remember_copy(
+    valkey: &Pool,
+    original: Uuid,
+    user_id: Uuid,
+    copy: Uuid,
+    ttl_secs: i64,
+) -> Result<(), OfficeError> {
+    let _: () = valkey
+        .set(
+            copy_key(original, user_id).as_str(),
+            copy.to_string(),
+            Some(Expiration::EX(ttl_secs)),
+            None,
+            false,
+        )
+        .await
+        .map_err(|_| OfficeError::Internal)?;
+    Ok(())
+}
+
+/// The copy `user_id` converted `original` into, if any.
+pub async fn copy_of(
+    valkey: &Pool,
+    original: Uuid,
+    user_id: Uuid,
+) -> Result<Option<Uuid>, OfficeError> {
+    let id: Option<String> = valkey
+        .get(copy_key(original, user_id).as_str())
+        .await
+        .map_err(|_| OfficeError::Internal)?;
+    Ok(id.and_then(|id| id.parse().ok()))
+}

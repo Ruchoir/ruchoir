@@ -9883,3 +9883,56 @@ async fn a_private_conversations_file_update_says_where_it_lives() {
         "a list of the space's folders must not take it in"
     );
 }
+
+#[tokio::test]
+async fn the_converting_member_learns_which_copy_the_editor_moved_to() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let original = upload_bytes(&app, &alice, fx.space_id, "rapport.doc", b"old-binary").await;
+    let converted = |cookie: String| {
+        app.req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{original}/office/converted"),
+            &cookie,
+        )
+        .send()
+    };
+    assert_eq!(
+        converted(bob.clone()).await.unwrap().status(),
+        204,
+        "nothing yet"
+    );
+
+    let token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.bob,
+        original,
+        crate::office::discovery::Mode::Convert,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+    let res = wopi_req(&app, reqwest::Method::POST, original, "", &token)
+        .header("X-WOPI-Override", "PUT_RELATIVE")
+        .header("X-WOPI-SuggestedTarget", ".docx")
+        .body(b"converted".to_vec())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+
+    let found = converted(bob.clone()).await.unwrap();
+    assert_eq!(found.status(), 200);
+    let copy: Value = found.json().await.unwrap();
+    assert_eq!(copy["name"], "rapport.docx");
+    assert_eq!(
+        converted(alice.clone()).await.unwrap().status(),
+        204,
+        "another member's conversion"
+    );
+}

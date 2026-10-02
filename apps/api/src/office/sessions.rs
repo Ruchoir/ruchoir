@@ -235,6 +235,46 @@ fn extension(name: &str) -> Option<String> {
     (!ext.is_empty()).then(|| ext.to_ascii_lowercase())
 }
 
+/// `GET /api/v1/files/{file_id}/office/converted`: the copy this member's conversion of the file
+/// produced, once the engine has written it. The editor page asks while converting, then names the
+/// copy and reports editing it rather than the original.
+#[utoipa::path(
+    get,
+    path = "/api/v1/files/{file_id}/office/converted",
+    tag = "office",
+    params(("file_id" = Uuid, Path, description = "The original file id")),
+    responses(
+        (status = 200, description = "The converted copy", body = FileDto),
+        (status = 204, description = "No copy yet"),
+        (status = 403, description = "No access to the file")
+    )
+)]
+pub async fn converted_copy(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(file_id): Path<Uuid>,
+) -> Result<axum::response::Response, OfficeError> {
+    use axum::response::IntoResponse;
+
+    state.office.as_ref().ok_or(OfficeError::Disabled)?;
+    authz::ensure_readable(&state.db, file_id, session.user_id).await?;
+    let Some(copy_id) = tokens::copy_of(&state.valkey, file_id, session.user_id).await? else {
+        return Ok(StatusCode::NO_CONTENT.into_response());
+    };
+    let copy = match authz::ensure_readable(&state.db, copy_id, session.user_id).await {
+        Ok(access) => access.file,
+        Err(FileError::NotFound | FileError::Forbidden) => {
+            return Ok(StatusCode::NO_CONTENT.into_response())
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let dto = crate::files::hydrate_files(&state.db, vec![copy])
+        .await?
+        .pop()
+        .ok_or(OfficeError::Internal)?;
+    Ok(Json(dto).into_response())
+}
+
 /// Which editor tab a heartbeat comes from: a member may have the same file open in several.
 #[derive(Debug, Deserialize, utoipa::IntoParams)]
 pub struct HeartbeatQuery {
