@@ -116,15 +116,16 @@ capabilities say the feature is off.
 
 The engine publishes the formats it handles and the address of each action (`edit`, `view`,
 `convert`) at `/hosting/discovery`. The API reads it from the engine directly at start and every
-hour, sending `X-Forwarded-Host: <office host>` and `X-Forwarded-Proto` so that the addresses it gets
+minute, sending `X-Forwarded-Host: <office host>` and `X-Forwarded-Proto` so that the addresses it gets
 back are the public ones the browser must use, and keeps it in memory:
 
 - the extensions that can be edited, viewed, or converted (and to what);
 - the address template of each action, its optional parameters (`<ui=UI_LLCC&>` and the like) filled
   or dropped.
 
-When the engine does not answer, the feature reports itself unavailable rather than failing per
-request.
+When the engine does not answer, the discovery is forgotten and the feature reports itself
+unavailable rather than failing per request: the client then opens every file in the preview, as
+without live editing, until the engine is back (within a minute).
 
 ### The relay (`proxy.rs`)
 

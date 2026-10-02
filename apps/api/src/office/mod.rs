@@ -154,7 +154,26 @@ impl Office {
     }
 
     /// Read the engine's discovery, as served under the public hostname.
+    ///
+    /// When the engine does not answer, what it opens is forgotten: the editor is then reported
+    /// unavailable (capabilities, sessions), and the client shows files the way it did without it.
     pub async fn refresh_discovery(&self) -> Result<(), OfficeError> {
+        let fetched = self.fetch_discovery().await;
+        match fetched {
+            Ok(discovery) => {
+                self.set_discovery(discovery);
+                Ok(())
+            }
+            Err(error) => {
+                if let Ok(mut slot) = self.discovery.write() {
+                    *slot = None;
+                }
+                Err(error)
+            }
+        }
+    }
+
+    async fn fetch_discovery(&self) -> Result<Discovery, OfficeError> {
         let request = Request::get(format!("{}/hosting/discovery", self.engine_url))
             .header("x-forwarded-host", &self.public_authority)
             .header("x-forwarded-proto", self.public_scheme())
@@ -174,24 +193,26 @@ impl Office {
             .map_err(|_| OfficeError::EngineUnavailable)?
             .to_bytes();
         let xml = std::str::from_utf8(&bytes).map_err(|_| OfficeError::Discovery("not UTF-8"))?;
-        self.set_discovery(Discovery::parse(xml)?);
-        Ok(())
+        Discovery::parse(xml)
     }
 }
 
-/// Keep the discovery fresh: at start, then every hour, and every minute while the engine has not
-/// answered yet (an engine that starts after the API is caught up quickly).
+/// Keep the discovery fresh, and know within a minute when the engine stops or comes back: an
+/// engine that starts after the API, or restarts, is picked up on its own. Logged on a change only.
 pub fn spawn_discovery_refresh(office: Arc<Office>) {
     tokio::spawn(async move {
+        let mut was_up: Option<bool> = None;
         loop {
-            let wait = match office.refresh_discovery().await {
-                Ok(()) => Duration::from_secs(3600),
-                Err(error) => {
-                    tracing::warn!(%error, "office engine discovery not available yet");
-                    Duration::from_secs(60)
+            let result = office.refresh_discovery().await;
+            let up = result.is_ok();
+            if was_up != Some(up) {
+                match result {
+                    Ok(()) => tracing::info!("office engine available"),
+                    Err(error) => tracing::warn!(%error, "office engine not available"),
                 }
-            };
-            tokio::time::sleep(wait).await;
+                was_up = Some(up);
+            }
+            tokio::time::sleep(Duration::from_secs(60)).await;
         }
     });
 }

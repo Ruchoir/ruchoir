@@ -9979,3 +9979,34 @@ async fn a_silent_engine_does_not_hold_the_relay_forever() {
     .unwrap();
     assert_eq!(res.status(), 504);
 }
+
+#[tokio::test]
+async fn an_engine_that_stops_answering_turns_the_editor_off() {
+    // The pretend engine of `boot_office` (127.0.0.1:9) answers nothing, while its discovery is known.
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let office = app.state.office.as_ref().unwrap();
+    assert!(office.discovery().is_some());
+
+    assert!(office.refresh_discovery().await.is_err());
+
+    assert!(
+        office.discovery().is_none(),
+        "what an absent engine opens is not known any more"
+    );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office"),
+            &alice,
+        )
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 503, "the page falls back to the preview");
+}
