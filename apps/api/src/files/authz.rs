@@ -199,7 +199,6 @@ pub async fn ensure_editable(
 /// only by whoever uploaded it. Whoever may read the file and is not a guest of its space may edit
 /// its content; renaming, moving, deleting and uploading a version by hand stay with
 /// [`ensure_editable`].
-#[allow(dead_code)] // TEMP-OFFICE
 pub async fn ensure_content_editable(
     db: &DatabaseConnection,
     file_id: Uuid,

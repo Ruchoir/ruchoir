@@ -187,7 +187,7 @@ pub(super) const PREVIEW_CSP: &str =
     "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; frame-ancestors 'self'";
 
 /// The current version of a file, or a `404` when it was never uploaded.
-pub(super) async fn current_version(
+pub(crate) async fn current_version(
     db: &DatabaseConnection,
     file: &files::Model,
 ) -> Result<file_versions::Model, FileError> {

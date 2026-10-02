@@ -55,6 +55,8 @@ static SCHEMA_READY: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_ne
 /// A booted test server plus the handles the tests need.
 struct TestApp {
     base: String,
+    /// Base URL of the internal WOPI listener, when live editing is on.
+    wopi_base: Option<String>,
     ws_url: String,
     db: DatabaseConnection,
     config: Config,
@@ -167,9 +169,25 @@ async fn boot_with(
         .await
         .expect("serve");
     });
+    let wopi_base = if state.office.is_some() {
+        let wopi_listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind wopi");
+        let wopi_addr = wopi_listener.local_addr().expect("wopi addr");
+        let wopi_app = crate::office::wopi_router(state.clone());
+        tokio::spawn(async move {
+            axum::serve(wopi_listener, wopi_app)
+                .await
+                .expect("serve wopi");
+        });
+        Some(format!("http://{wopi_addr}"))
+    } else {
+        None
+    };
 
     Some(TestApp {
         base: format!("http://{addr}"),
+        wopi_base,
         ws_url: format!("ws://{addr}/api/v1/realtime/ws"),
         db,
         config,
@@ -8668,4 +8686,238 @@ async fn a_lock_follows_the_wopi_rules_and_remembers_its_version() {
         locks::refresh(&app.valkey, file, "C").await.unwrap(),
         Outcome::Conflict(String::new())
     );
+}
+
+fn wopi(app: &TestApp) -> &str {
+    app.wopi_base.as_deref().expect("wopi listener")
+}
+
+/// A WOPI call on `file_id` with `token`.
+fn wopi_req(
+    app: &TestApp,
+    method: reqwest::Method,
+    file_id: Uuid,
+    tail: &str,
+    token: &str,
+) -> reqwest::RequestBuilder {
+    app.http.request(
+        method,
+        format!(
+            "{}/wopi/files/{file_id}{tail}?access_token={token}",
+            wopi(app)
+        ),
+    )
+}
+
+async fn edit_token(app: &TestApp, user: Uuid, file: Uuid) -> String {
+    crate::office::tokens::mint(
+        &app.valkey,
+        user,
+        file,
+        crate::office::discovery::Mode::Edit,
+        3600,
+    )
+    .await
+    .expect("mint")
+    .0
+}
+
+#[tokio::test]
+async fn the_engine_reads_a_file_through_wopi() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK-bytes").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+
+    let info: Value = wopi_req(&app, reqwest::Method::GET, file_id, "", &token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(info["BaseFileName"], "plan.docx");
+    assert_eq!(info["Size"], 8);
+    assert_eq!(info["UserId"], fx.bob.to_string());
+    assert_eq!(info["UserFriendlyName"], "bob");
+    assert_eq!(info["UserCanWrite"], true);
+    assert_eq!(info["SupportsLocks"], true);
+    assert_eq!(info["UserCanNotWriteRelative"], true);
+
+    let bytes = wopi_req(&app, reqwest::Method::GET, file_id, "/contents", &token)
+        .send()
+        .await
+        .unwrap()
+        .bytes()
+        .await
+        .unwrap();
+    assert_eq!(&bytes[..], b"PK-bytes");
+
+    let refused = wopi_req(
+        &app,
+        reqwest::Method::GET,
+        file_id,
+        "",
+        "0".repeat(64).as_str(),
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(refused.status(), 401);
+    let other_file = upload_bytes(&app, &alice, fx.space_id, "other.docx", b"x").await;
+    let wrong_file = wopi_req(&app, reqwest::Method::GET, other_file, "", &token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(wrong_file.status(), 401, "a token opens its own file only");
+}
+
+/// Take a WOPI lock.
+async fn wopi_lock(app: &TestApp, file_id: Uuid, token: &str, lock: &str) -> reqwest::Response {
+    wopi_req(app, reqwest::Method::POST, file_id, "", token)
+        .header("X-WOPI-Override", "LOCK")
+        .header("X-WOPI-Lock", lock)
+        .send()
+        .await
+        .expect("lock")
+}
+
+async fn wopi_put(
+    app: &TestApp,
+    file_id: Uuid,
+    token: &str,
+    lock: &str,
+    body: Vec<u8>,
+) -> reqwest::Response {
+    wopi_req(app, reqwest::Method::POST, file_id, "/contents", token)
+        .header("X-WOPI-Override", "PUT")
+        .header("X-WOPI-Lock", lock)
+        .body(body)
+        .send()
+        .await
+        .expect("put")
+}
+
+#[tokio::test]
+async fn a_save_needs_the_lock_and_becomes_a_version_by_its_author() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"v1").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+
+    assert_eq!(wopi_lock(&app, file_id, &token, "L1").await.status(), 200);
+    let wrong = wopi_put(&app, file_id, &token, "L2", b"v2".to_vec()).await;
+    assert_eq!(wrong.status(), 409);
+    assert_eq!(wrong.headers()["x-wopi-lock"], "L1");
+
+    let saved = wopi_put(&app, file_id, &token, "L1", b"v2".to_vec()).await;
+    assert_eq!(saved.status(), 200);
+    let version = file_versions::Entity::find()
+        .filter(file_versions::Column::FileId.eq(file_id))
+        .all(&app.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .max_by_key(|v| v.version_no)
+        .unwrap();
+    assert_eq!(version.version_no, 2);
+    assert_eq!(version.created_by, Some(fx.bob));
+}
+
+#[tokio::test]
+async fn while_locked_the_engine_keeps_seeing_the_version_its_session_started_on() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"v1").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+    let info = |app: &TestApp, token: String| {
+        let req = wopi_req(app, reqwest::Method::GET, file_id, "", &token);
+        async move { req.send().await.unwrap().json::<Value>().await.unwrap() }
+    };
+
+    let before = info(&app, token.clone()).await;
+    assert_eq!(wopi_lock(&app, file_id, &token, "L1").await.status(), 200);
+    assert_eq!(
+        wopi_put(&app, file_id, &token, "L1", b"autosave".to_vec())
+            .await
+            .status(),
+        200
+    );
+    let during = info(&app, token.clone()).await;
+    assert_eq!(
+        during["Version"], before["Version"],
+        "an autosave must not move the session key"
+    );
+    assert_eq!(during["LastModifiedTime"], before["LastModifiedTime"]);
+
+    let unlock = wopi_req(&app, reqwest::Method::POST, file_id, "", &token)
+        .header("X-WOPI-Override", "UNLOCK")
+        .header("X-WOPI-Lock", "L1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unlock.status(), 200);
+    let after = info(&app, token.clone()).await;
+    assert_ne!(
+        after["Version"], before["Version"],
+        "once the session ends, the new version shows"
+    );
+}
+
+#[tokio::test]
+async fn a_member_removed_during_a_session_can_no_longer_save() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"v1").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+    assert_eq!(wopi_lock(&app, file_id, &token, "L1").await.status(), 200);
+
+    space_members::Entity::delete_many()
+        .filter(space_members::Column::SpaceId.eq(fx.space_id))
+        .filter(space_members::Column::UserId.eq(fx.bob))
+        .exec(&app.db)
+        .await
+        .unwrap();
+
+    let refused = wopi_put(&app, file_id, &token, "L1", b"v2".to_vec()).await;
+    assert_eq!(refused.status(), 401);
+    let versions = file_versions::Entity::find()
+        .filter(file_versions::Column::FileId.eq(file_id))
+        .count(&app.db)
+        .await
+        .unwrap();
+    assert_eq!(versions, 1);
+}
+
+#[tokio::test]
+async fn a_save_over_the_upload_cap_is_refused_and_changes_nothing() {
+    let Some(app) = boot_office(|config| config.upload_max_bytes = 1024).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"v1").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+    assert_eq!(wopi_lock(&app, file_id, &token, "L1").await.status(), 200);
+
+    let refused = wopi_put(&app, file_id, &token, "L1", vec![b'x'; 4096]).await;
+    assert_eq!(refused.status(), 413);
+    let versions = file_versions::Entity::find()
+        .filter(file_versions::Column::FileId.eq(file_id))
+        .count(&app.db)
+        .await
+        .unwrap();
+    assert_eq!(versions, 1);
 }

@@ -141,7 +141,6 @@ pub struct Config {
     /// editor runs in an origin separate from Ruchoir's.
     pub office_public_url: Option<String>,
     /// Where the internal WOPI listener binds (`RUCHOIR_WOPI_LISTEN`). Never published.
-    #[allow(dead_code)] // TEMP-OFFICE
     pub wopi_listen: SocketAddr,
     /// How the engine addresses the WOPI listener (`RUCHOIR_WOPI_BASE_URL`).
     #[allow(dead_code)] // TEMP-OFFICE

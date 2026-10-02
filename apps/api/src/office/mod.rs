@@ -16,6 +16,9 @@ pub mod discovery;
 pub mod error;
 pub mod locks;
 pub mod tokens;
+pub mod wopi;
+
+pub use wopi::wopi_router;
 
 use std::sync::{Arc, RwLock};
 use std::time::Duration;

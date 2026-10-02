@@ -310,6 +310,9 @@ fn init_tracing() {
 /// Serve the application, selecting HTTPS when TLS material is configured and the
 /// `tls` feature is built in, otherwise plain HTTP for local development.
 async fn serve(state: AppState) -> Result<(), Box<dyn std::error::Error>> {
+    if state.office.is_some() {
+        tokio::spawn(serve_wopi(state.clone()));
+    }
     let addr = state.config.addr;
     let app = http::router(state.clone());
 
@@ -339,6 +342,22 @@ async fn serve(state: AppState) -> Result<(), Box<dyn std::error::Error>> {
     .with_graceful_shutdown(shutdown_signal())
     .await?;
     Ok(())
+}
+
+/// The internal WOPI listener the office engine calls. Never published (see `crate::office`).
+async fn serve_wopi(state: AppState) {
+    let addr = state.config.wopi_listen;
+    match tokio::net::TcpListener::bind(addr).await {
+        Ok(listener) => {
+            tracing::info!("WOPI listener on http://{addr}");
+            if let Err(error) = axum::serve(listener, office::wopi_router(state)).await {
+                tracing::error!(%error, "WOPI listener stopped");
+            }
+        }
+        Err(error) => {
+            tracing::error!(%error, %addr, "could not bind the WOPI listener; live editing cannot save");
+        }
+    }
 }
 
 /// Serve over HTTPS using rustls with the community `ring` crypto provider.
