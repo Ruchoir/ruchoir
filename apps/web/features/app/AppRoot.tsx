@@ -543,7 +543,7 @@ function AppShell() {
    * A document an address named (`/e/<space>/f/<file>`): this tab is that document's, the editor
    * alone across it (documents open in a tab of their own, see `FilesScreen`).
    */
-  const [standalone, setStandalone] = useState<{ fileId: string; convert: boolean } | null>(null);
+  const [standalone, setStandalone] = useState<{ fileId: string; convert: boolean; slug: string } | null>(null);
   /** Whether the office editor is open: it owns the address meanwhile (`/e/<space>/f/<file>`). */
   const [editorOpen, setEditorOpen] = useState(false);
   // The view to restore when the full-screen preferences are closed (they are opened from menus, not the nav).
@@ -881,12 +881,15 @@ function AppShell() {
       const resolved = await resolveSpaceSlug(target.spaceSlug);
       wanted = resolved ? spaces.find((s) => s.id === resolved.id) : undefined;
     }
+    // An address naming a file is a document's own tab: the editor alone. The space is not opened:
+    // a channel loaded behind the editor would be marked read, its notifications cleared, on behalf
+    // of a member who is looking at a document.
+    if (wanted && target?.fileId) {
+      setStandalone({ fileId: target.fileId, convert: target.convert === true, slug: wanted.slug });
+      return spaces;
+    }
     const landing = wanted ?? spaces[0];
     await loadSpace(landing?.id ?? "", wanted ? target?.channelName : undefined, landing?.defaultChannelId);
-    // An address naming a file is a document's own tab: the editor alone.
-    if (wanted && target?.fileId) {
-      setStandalone({ fileId: target.fileId, convert: target.convert === true });
-    }
     return spaces;
   }, [loadSpace]);
 
@@ -1130,7 +1133,9 @@ function AppShell() {
   // Live realtime channel: connect once per session and dispatch server pushes into state. Mutations
   // still go through REST; this only receives (and sends typing/ping).
   useEffect(() => {
-    if (!session) return;
+    // A document's own tab listens to nothing: the editor needs no live event, and a connection would
+    // count this tab as the member being present in the space.
+    if (!session || standalone) return;
     const conn = connectRealtime({
       onReconnect: () => resyncRef.current(),
       onMessageCreated: (conv, m) => {
@@ -1482,7 +1487,7 @@ function AppShell() {
       conn.close();
       rtRef.current = null;
     };
-  }, [session, refreshSpaceCounters]);
+  }, [session, refreshSpaceCounters, standalone]);
 
   // Expire typing signals a few seconds after the last keystroke, so the indicator does not stick.
   useEffect(() => {
@@ -2025,7 +2030,7 @@ function AppShell() {
    */
   useEffect(() => {
     const catchUp = () => {
-      if (document.visibilityState !== "visible") return;
+      if (standalone || document.visibilityState !== "visible") return;
       if (Date.now() - lastResync.current > 5000) resyncRef.current();
       if (view !== "channel" || !channelId) return;
       markConversationRead(channelId);
@@ -3457,6 +3462,7 @@ function AppShell() {
   // dialog, the preferences overlay or the login flow is up, so their own key handling wins.
   const shortcutsEnabled =
     authStage === "app" &&
+    !standalone &&
     modal === null &&
     view !== "prefs" &&
     editing === null &&
@@ -3471,7 +3477,7 @@ function AppShell() {
       nextUnread: () => gotoUnread(1),
       prevUnread: () => gotoUnread(-1),
       markRead: () => {
-        if (view === "channel") markConversationRead(channelId);
+        if (view === "channel" && !standalone) markConversationRead(channelId);
       },
       help: () => setModal("help"),
     },
@@ -3680,7 +3686,7 @@ function AppShell() {
   // files list did); a tab the person opened (a link, a reload) cannot be closed by a page, so it
   // lands on the space's files instead.
   if (standalone) {
-    const slug = workspaces.find((w) => w.id === ws)?.slug;
+    const slug = standalone.slug;
     const slugs = workspaces.map((w) => w.slug);
     return (
       <OfficeEditor
