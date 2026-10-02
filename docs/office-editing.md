@@ -1,6 +1,6 @@
 # Live office editing
 
-Status: design, approved for planning on 2026-10-01. Decision record: [ADR 0003](adr/0003-office-editing-engine.md).
+Status: implemented on branch feat/live-office-editing (2026-10-02); end-to-end check pending on the development instance. Decision record: [ADR 0003](adr/0003-office-editing-engine.md).
 
 Several people edit the same Word, Excel or PowerPoint file at the same time, in the browser, without
 leaving Ruchoir, and every save lands as a new version of the file. The editing itself is done by
@@ -71,20 +71,24 @@ A new service in `docker-compose.yml`, `office`, behind the compose profile `off
 `docker compose up` without the profile runs the instance as today.
 
 - **Image:** `ghcr.io/euro-office/documentserver`, pinned to an exact version in `AGENTS.md` like
-  every other dependency (9.3.4 was tested on 2026-10-01).
+  every other dependency (9.3.4 was tested on 2026-10-01; the registry tags that image
+  `v9.3.4-hotfix.1`, which is the pin).
 - **Network:** internal only. No published port: the browser reaches it through the API's relay, the
   API reaches it by its service name.
 - **Resources:** a memory limit (`mem_limit`, 4 GB by default, configurable), so the engine can never
   starve the database or the API on a shared host. Measured: 2.1 GB at rest, 7 GB of disk for the
   image. The deployment guide states these numbers.
 - **Settings** (environment of the engine container): `WOPI_ENABLED=true`, `JWT_ENABLED=true` with
-  `OFFICE_JWT_SECRET` from `.env` (the engine refuses its own non-WOPI API without it),
+  `OFFICE_JWT_SECRET` from `.env` (the engine refuses its own non-WOPI API without a signed token;
+  Ruchoir never calls that API, so the secret is optional and the engine draws a random one when it
+  is empty),
   `ALLOW_PRIVATE_IP_ADDRESS=true` (the WOPI listener is on the private compose network),
   `EXAMPLE_ENABLED=false`.
 - **Files mounted read-only from `infra/office/`:**
   - `themes/theme-ruchoir-light.json` (and its dark sibling, kept for when the upstream fix lands)
     into `web-apps/apps/common/main/resources/themes/`: one theme per file, the engine gathers them;
-  - `local.json`: engine settings Ruchoir needs, today `services.CoAuthoring.autoAssembly`
+  - `local-production-linux.json` (read after the `local.json` the engine's start script writes):
+    engine settings Ruchoir needs, today `services.CoAuthoring.autoAssembly`
     (`enable: true`, `interval: "10m"`) so a long session saves every 10 minutes;
   - `patches/`: the temporary fixes listed under [Upstream work](#upstream-work), each with a header
     naming the upstream issue and the engine version it was written against.
