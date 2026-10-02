@@ -66,7 +66,7 @@ export function useOfficeSession(
 
   // A conversion: ask until the engine has written the copy, then open the copy for editing in the
   // same frame. The engine's own page would instead offer a button that navigates the whole tab to
-  // the bare editor, out of Ruchoir (and the frame's sandbox refuses that anyway).
+  // the bare editor, out of Ruchoir.
   useEffect(() => {
     if (!awaitingCopy) return;
     let cancelled = false;

@@ -132,9 +132,9 @@ export function OfficeEditor({ fileId, convert = false, addressOf, onUnavailable
               className="wc-office__frame"
               title={title}
               allow={`clipboard-read ${origin}; clipboard-write ${origin}; fullscreen ${origin}`}
-              // Everything the editor needs, but never the right to navigate this tab: a page of the
-              // engine (or a crafted document) could otherwise take the member out of Ruchoir.
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
+              // No `sandbox`: the editor prints by loading a PDF in a frame of its own, and Chrome
+              // refuses to show a PDF in a sandboxed frame. The frame is another origin anyway, and
+              // a browser lets it move this tab only on a click (see `useOfficeSession`'s copy).
             />
           </>
         ) : state.status === "loading" ? (
