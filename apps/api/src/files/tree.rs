@@ -212,7 +212,7 @@ pub async fn create_folder(
 
     let folder_id = Uuid::new_v4();
     let now = OffsetDateTime::now_utc();
-    files::ActiveModel {
+    let created = files::ActiveModel {
         id: Set(folder_id),
         space_id: Set(space_id),
         owner_id: Set(Some(session.user_id)),
@@ -228,6 +228,7 @@ pub async fn create_folder(
     .await?;
 
     let dto = single_dto(&state.db, folder_id).await?;
+    super::versions::publish_updated(&state, &created, session.user_id, &dto).await;
     Ok((StatusCode::CREATED, Json(dto)))
 }
 

@@ -8497,6 +8497,55 @@ async fn a_new_version_reaches_the_space_as_files_updated() {
     assert_eq!(event["payload"]["file"]["version_no"], 2);
 }
 
+#[tokio::test]
+async fn a_new_file_or_folder_reaches_the_space_and_the_instance_says_its_upload_cap() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let mut ws = app.connect_ws(&bob).await;
+
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "new.txt", b"hello").await;
+    let event = next_event_of(&mut ws, "files.updated")
+        .await
+        .expect("an upload reaches another member");
+    assert_eq!(event["payload"]["file"]["id"], file_id.to_string());
+
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/folders", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": "Shared" }))
+        .send()
+        .await
+        .expect("folder");
+    assert_eq!(res.status(), 201);
+    let event = next_event_of(&mut ws, "files.updated")
+        .await
+        .expect("a new folder reaches another member");
+    assert_eq!(event["payload"]["file"]["name"], "Shared");
+    assert_eq!(event["payload"]["file"]["is_folder"], true);
+
+    let caps: Value = app
+        .http
+        .get(format!("{}/api/v1/instance", app.base))
+        .send()
+        .await
+        .expect("instance")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(
+        caps["upload_max_bytes"].as_u64(),
+        Some(app.state.config.upload_max_bytes)
+    );
+}
+
 /// The entries of a folder (the root when `folder` is `None`), as the listing returns them.
 async fn listing_entries(
     app: &TestApp,

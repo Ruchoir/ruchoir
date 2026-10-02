@@ -128,6 +128,9 @@ pub(crate) struct InstanceCapabilities {
     email_delivery: bool,
     /// Live office editing.
     office: OfficeCapabilities,
+    /// The largest file an upload accepts, in bytes, so the interface can turn a file down before
+    /// sending it rather than after.
+    upload_max_bytes: u64,
 }
 
 /// What the client needs to know about live editing.
@@ -171,6 +174,7 @@ pub(crate) async fn instance_capabilities(
                 .unwrap_or_default(),
             public_url: office.map(|o| o.public_origin().to_owned()),
         },
+        upload_max_bytes: state.config.upload_max_bytes,
     })
 }
 

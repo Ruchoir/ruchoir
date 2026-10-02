@@ -237,7 +237,13 @@ pub(crate) async fn file_audience(
     }
 }
 
-async fn publish_updated(state: &AppState, file: &files::Model, actor: Uuid, dto: &FileDto) {
+/// Tell the people who can see `file` that it changed: a new version, a new file, a new folder.
+pub(crate) async fn publish_updated(
+    state: &AppState,
+    file: &files::Model,
+    actor: Uuid,
+    dto: &FileDto,
+) {
     let audience = file_audience(&state.db, file, actor).await;
     state
         .hub
