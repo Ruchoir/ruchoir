@@ -17,6 +17,8 @@ mod http;
 mod importer;
 mod messaging;
 mod notify;
+#[allow(dead_code)] // TEMP-OFFICE
+mod office;
 mod og;
 mod openapi;
 mod realtime;
@@ -249,6 +251,15 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    let office = office::Office::from_config(&config).map(Arc::new);
+    match &office {
+        Some(office) => {
+            tracing::info!(public = %office.public_origin(), "live office editing enabled");
+            office::spawn_discovery_refresh(office.clone());
+        }
+        None => tracing::info!("live office editing not configured"),
+    }
+
     let state = AppState {
         db,
         valkey,
@@ -258,6 +269,7 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         webauthn: Arc::new(webauthn),
         hub,
         storage,
+        office,
         config: Arc::new(config),
     };
 

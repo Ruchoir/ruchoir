@@ -150,6 +150,7 @@ async fn boot_with(
         hub,
         // `None` unless the test asked for a store: the byte endpoints then report 503.
         storage,
+        office: crate::office::Office::from_config(&config).map(Arc::new),
         config: Arc::new(config.clone()),
     };
 
@@ -8524,4 +8525,54 @@ async fn any_member_may_edit_a_colleagues_document_but_a_guest_may_not() {
         ensure_content_editable(&app.db, file_id, stranger).await,
         Err(FileError::Forbidden)
     ));
+}
+
+/// Euro-Office 9.3.4's discovery, as served under `office.example.org`.
+const DISCOVERY: &str = include_str!("office/testdata/euro-office-9.3.4-discovery.xml");
+
+/// Boot with an in-memory store and live editing on, against a pretend engine whose discovery is
+/// the fixture. `configure` adjusts the configuration further (the relay tests point the engine at
+/// a fake one).
+async fn boot_office(configure: impl FnOnce(&mut Config)) -> Option<TestApp> {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let app = boot_with(Some(store), |config| {
+        config.office_url = Some("http://127.0.0.1:9".to_owned());
+        config.office_public_url = Some("https://office.example.org".to_owned());
+        configure(config);
+    })
+    .await?;
+    app.state
+        .office
+        .as_ref()
+        .expect("office configured")
+        .set_discovery(crate::office::discovery::Discovery::parse(DISCOVERY).expect("fixture"));
+    Some(app)
+}
+
+#[tokio::test]
+async fn the_instance_says_what_the_editor_opens() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let caps: Value = app
+        .http
+        .get(format!("{}/api/v1/instance", app.base))
+        .send()
+        .await
+        .expect("instance")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(caps["office"]["enabled"], true);
+    assert_eq!(caps["office"]["public_url"], "https://office.example.org");
+    assert!(caps["office"]["edit"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e == "docx"));
+    assert!(caps["office"]["convert"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e == "doc"));
 }

@@ -135,6 +135,20 @@ pub struct Config {
     /// this instance's own host and its parent domain: services published next to the instance behind
     /// an address filter would otherwise be readable by this server on anyone's behalf.
     pub unfurl_deny_hosts: Vec<String>,
+    /// The office engine's internal base URL (`RUCHOIR_OFFICE_URL`). `None`: live editing is off.
+    pub office_url: Option<String>,
+    /// The editor's public origin (`RUCHOIR_OFFICE_PUBLIC_URL`), a hostname of its own so the
+    /// editor runs in an origin separate from Ruchoir's.
+    pub office_public_url: Option<String>,
+    /// Where the internal WOPI listener binds (`RUCHOIR_WOPI_LISTEN`). Never published.
+    #[allow(dead_code)] // TEMP-OFFICE
+    pub wopi_listen: SocketAddr,
+    /// How the engine addresses the WOPI listener (`RUCHOIR_WOPI_BASE_URL`).
+    #[allow(dead_code)] // TEMP-OFFICE
+    pub wopi_base_url: String,
+    /// Lifetime of an office access token, in seconds (`RUCHOIR_OFFICE_TOKEN_TTL_SECS`).
+    #[allow(dead_code)] // TEMP-OFFICE
+    pub office_token_ttl_secs: i64,
 }
 
 /// This instance's host and, when it has one, its parent domain (`ruchoir.example.org` gives
@@ -156,6 +170,17 @@ fn own_domains(public_base_url: &str) -> Vec<String> {
         out.push(labels[1..].join("."));
     }
     out
+}
+
+/// The host of an absolute URL, lower-cased, without port or path. `None` when there is none.
+pub fn host_of(url: &str) -> Option<String> {
+    let (_, rest) = url.split_once("://")?;
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let host = match authority.rsplit_once(':') {
+        Some((host, port)) if port.bytes().all(|b| b.is_ascii_digit()) => host,
+        _ => authority,
+    };
+    (!host.is_empty()).then(|| host.to_ascii_lowercase())
 }
 
 /// The push services of the major browsers: Chrome, Edge (and other Chromium browsers) through
@@ -338,6 +363,31 @@ impl Config {
                 .map(|host| host.trim().trim_start_matches('.').to_ascii_lowercase())
                 .filter(|host| !host.is_empty()),
         );
+        // Live office editing (see `crate::office`). Off unless the engine's address is given; when
+        // it is, the editor's own hostname is required and must not be Ruchoir's.
+        let office_url = env_opt("RUCHOIR_OFFICE_URL").map(|u| u.trim_end_matches('/').to_owned());
+        let office_public_url =
+            env_opt("RUCHOIR_OFFICE_PUBLIC_URL").map(|u| u.trim_end_matches('/').to_owned());
+        if office_url.is_some() {
+            let public = office_public_url
+                .as_deref()
+                .ok_or(ConfigError::Invalid("RUCHOIR_OFFICE_PUBLIC_URL"))?;
+            let office_host =
+                host_of(public).ok_or(ConfigError::Invalid("RUCHOIR_OFFICE_PUBLIC_URL"))?;
+            if Some(office_host) == host_of(&public_base_url) {
+                return Err(ConfigError::Invalid("RUCHOIR_OFFICE_PUBLIC_URL"));
+            }
+        }
+        let wopi_listen: SocketAddr = env_or("RUCHOIR_WOPI_LISTEN", "0.0.0.0:8081")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_WOPI_LISTEN"))?;
+        let wopi_base_url = env_or("RUCHOIR_WOPI_BASE_URL", "http://api:8081")
+            .trim_end_matches('/')
+            .to_owned();
+        let office_token_ttl_secs: i64 =
+            env_or("RUCHOIR_OFFICE_TOKEN_TTL_SECS", "36000")
+                .parse()
+                .map_err(|_| ConfigError::Invalid("RUCHOIR_OFFICE_TOKEN_TTL_SECS"))?;
 
         Ok(Self {
             addr: SocketAddr::new(host, port),
@@ -392,6 +442,11 @@ impl Config {
             notify_email_delay_secs,
             unfurl_enabled,
             unfurl_deny_hosts,
+            office_url,
+            office_public_url,
+            wopi_listen,
+            wopi_base_url,
+            office_token_ttl_secs,
         })
     }
 
@@ -437,3 +492,22 @@ impl std::fmt::Display for ConfigError {
 }
 
 impl std::error::Error for ConfigError {}
+
+#[cfg(test)]
+mod tests {
+    use super::host_of;
+
+    #[test]
+    fn a_host_is_read_without_scheme_port_or_path() {
+        assert_eq!(
+            host_of("https://Office.Example.org/x"),
+            Some("office.example.org".to_owned())
+        );
+        assert_eq!(
+            host_of("http://office.test:8443"),
+            Some("office.test".to_owned())
+        );
+        assert_eq!(host_of("office.test"), None);
+        assert_eq!(host_of("https://"), None);
+    }
+}

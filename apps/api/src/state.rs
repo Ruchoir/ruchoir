@@ -36,6 +36,8 @@ pub struct AppState {
     /// Object store for file bytes (Garage/S3). `None` when no credentials are configured: file
     /// metadata still works, but byte upload/download/preview/thumbnail return 503.
     pub storage: Option<Arc<S3Store>>,
+    /// The office engine, when live editing is configured (`RUCHOIR_OFFICE_URL`).
+    pub office: Option<Arc<crate::office::Office>>,
     /// Fully resolved runtime configuration.
     pub config: Arc<Config>,
 }

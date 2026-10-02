@@ -126,6 +126,24 @@ pub(crate) struct InstanceCapabilities {
     /// Whether an SMTP relay is configured. When false, every flow that would depend on a message
     /// arriving has an alternative the interface offers instead.
     email_delivery: bool,
+    /// Live office editing.
+    office: OfficeCapabilities,
+}
+
+/// What the client needs to know about live editing.
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct OfficeCapabilities {
+    /// Whether the editor can be opened now (configured, and its discovery is known).
+    enabled: bool,
+    /// Extensions the editor edits in place.
+    edit: Vec<String>,
+    /// Extensions the editor only shows.
+    view: Vec<String>,
+    /// Extensions the editor converts into an editable copy.
+    convert: Vec<String>,
+    /// The editor's origin, which the client frames.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    public_url: Option<String>,
 }
 
 /// Public description of the instance. Deliberately unauthenticated: the screens that need it are
@@ -139,8 +157,20 @@ pub(crate) struct InstanceCapabilities {
 pub(crate) async fn instance_capabilities(
     State(state): State<AppState>,
 ) -> Json<InstanceCapabilities> {
+    let office = state.office.as_ref();
+    let discovery = office.and_then(|o| o.discovery());
     Json(InstanceCapabilities {
         email_delivery: state.mailer.can_send(),
+        office: OfficeCapabilities {
+            enabled: discovery.is_some(),
+            edit: discovery.as_ref().map(|d| d.editable()).unwrap_or_default(),
+            view: discovery.as_ref().map(|d| d.viewable()).unwrap_or_default(),
+            convert: discovery
+                .as_ref()
+                .map(|d| d.convertible())
+                .unwrap_or_default(),
+            public_url: office.map(|o| o.public_origin().to_owned()),
+        },
     })
 }
 

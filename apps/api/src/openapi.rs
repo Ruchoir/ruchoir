@@ -158,6 +158,7 @@ use utoipa::OpenApi;
         crate::auth::routes::RegisterRequest,
         crate::auth::routes::RecoveryResetRequest,
         crate::http::InstanceCapabilities,
+        crate::http::OfficeCapabilities,
         crate::admin::AdminUserDto,
         crate::admin::IssuedResetDto,
         crate::admin::InstanceSettingsDto,

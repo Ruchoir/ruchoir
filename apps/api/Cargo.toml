@@ -34,6 +34,10 @@ utoipa = { workspace = true }
 axum-server = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 
+# The office relay and the engine's discovery: an HTTP client over the same hyper the server runs on.
+hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
+http-body-util = "0.1"
+
 # Data layer: PostgreSQL via SeaORM, Valkey via fred, migrations from the workspace crate.
 sea-orm = { workspace = true }
 fred = { workspace = true }
