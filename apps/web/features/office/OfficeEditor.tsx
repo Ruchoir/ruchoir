@@ -35,9 +35,11 @@ export function OfficeEditor({ fileId, convert = false, addressOf, onClose }: Of
   const closeRef = useRef<HTMLButtonElement>(null);
   const frameName = `office-${fileId}`;
 
+  // Post the token into the frame for each session: the first one, and the copy's after a conversion.
+  const sessionToken = state.status === "ready" ? state.session.accessToken : null;
   useEffect(() => {
-    if (state.status === "ready") formRef.current?.submit();
-  }, [state.status]);
+    if (sessionToken) formRef.current?.submit();
+  }, [sessionToken]);
 
   // The latest `onClose`, so the parent handing a fresh function on each render (it re-renders on
   // every realtime event) neither re-runs the focus below nor re-binds the key listener.
@@ -121,6 +123,9 @@ export function OfficeEditor({ fileId, convert = false, addressOf, onClose }: Of
               className="wc-office__frame"
               title={title}
               allow={`clipboard-read ${origin}; clipboard-write ${origin}; fullscreen ${origin}`}
+              // Everything the editor needs, but never the right to navigate this tab: a page of the
+              // engine (or a crafted document) could otherwise take the member out of Ruchoir.
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals"
             />
           </>
         ) : state.status === "loading" ? (

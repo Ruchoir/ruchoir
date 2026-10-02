@@ -64,17 +64,25 @@ export function useOfficeSession(
   const copy = state.status === "ready" ? state.copy : undefined;
   const awaitingCopy = mode === "convert" && !copy;
 
-  // A conversion: ask until the engine has written the copy.
+  // A conversion: ask until the engine has written the copy, then open the copy for editing in the
+  // same frame. The engine's own page would instead offer a button that navigates the whole tab to
+  // the bare editor, out of Ruchoir (and the frame's sandbox refuses that anyway).
   useEffect(() => {
     if (!awaitingCopy) return;
     let cancelled = false;
+    let opening = false;
     const look = () => {
+      if (opening) return;
       getConvertedCopy(fileId)
-        .then((found) => {
-          if (cancelled || !found) return;
-          setState((prev) => (prev.status === "ready" ? { ...prev, copy: found, editors: found.editors ?? [] } : prev));
+        .then(async (found) => {
+          if (cancelled || !found?.id) return;
+          opening = true;
+          const next = await openOfficeSession(found.id, { theme: officeTheme() });
+          if (!cancelled) setState({ status: "ready", session: next, copy: found, editors: next.file.editors ?? [] });
         })
-        .catch(() => {});
+        .catch(() => {
+          opening = false;
+        });
     };
     const timer = window.setInterval(look, COPY_POLL_MS);
     return () => {
@@ -83,8 +91,8 @@ export function useOfficeSession(
     };
   }, [awaitingCopy, fileId]);
 
-  /** The file this tab is editing: the original in an edit session, a conversion's copy once known. */
-  const editedId = mode === "edit" ? fileId : (copy?.id ?? null);
+  /** The file this tab is editing: the session's own file, once it is an edit session. */
+  const editedId = state.status === "ready" && state.session.mode === "edit" ? (state.session.file.id ?? null) : null;
   const editedRef = useRef<string | null>(null);
   /** Set once this tab said goodbye itself, so tearing down does not say it twice. */
   const leftRef = useRef(false);
