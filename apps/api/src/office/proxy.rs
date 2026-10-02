@@ -135,7 +135,7 @@ pub fn allowed(path: &str) -> bool {
     if !is_engine_version(version) {
         return false;
     }
-    const VERSIONED: [&str; 9] = [
+    const VERSIONED: [&str; 14] = [
         "sdkjs/",
         "sdkjs-plugins/",
         "fonts/",
@@ -145,6 +145,13 @@ pub fn allowed(path: &str) -> bool {
         "themes.json",
         "plugins.json",
         "document_editor_service_worker.js",
+        // The editor's own actions, checked by the engine against the session: print and
+        // "download as", inserting an image from the computer, saving a copy, fetching the result.
+        "downloadas/",
+        "upload/",
+        "savefile/",
+        "printfile/",
+        "downloadfile/",
     ];
     VERSIONED.iter().any(|prefix| rest.starts_with(prefix))
 }
@@ -405,6 +412,12 @@ mod tests {
             "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/document_editor_service_worker.js",
             // Asked for by the engine itself, unversioned and with a doubled slash.
             "/sdkjs/common/device_scale.js",
+            // The editor's own actions: print and "download as", inserting an image, a copy.
+            "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/downloadas/abc",
+            "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/upload/abc",
+            "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/savefile/abc",
+            "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/printfile/abc/x.pdf",
+            "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/downloadfile/abc",
             "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/sdkjs/slide/themes//themes.js",
         ] {
             assert!(allowed(path), "{path} is relayed");
@@ -415,6 +428,13 @@ mod tests {
             "/hosting/discovery",
             "/example/",
             "/coauthoring/CommandService.ashx",
+            "/9.3.4-abc/coauthoring/CommandService.ashx",
+            "/9.3.4-abc/command",
+            "/9.3.4-abc/converter",
+            "/9.3.4-abc/info/info.json",
+            "/9.3.4-abc/internal/cluster/inactive",
+            "/9.3.4-abc/docbuilder",
+            "/9.3.4-abc/ai-proxy/x",
             "/converter",
             "/info/info.json",
             "/9.3.4/sdkjs/x.js",
