@@ -278,10 +278,6 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     if state.office.is_some() {
         office::presence::spawn_sweep(state.clone());
     }
-    // Who is editing what: a tab that died without a goodbye leaves the file lists by itself.
-    if state.office.is_some() {
-        office::presence::spawn_sweep(state.clone());
-    }
 
     tracing::info!(
         addr = %state.config.addr,

@@ -28,7 +28,10 @@ use crate::state::AppState;
 use super::Office;
 
 /// Headers that belong to one hop, or that would carry credentials or a forged origin.
-const DROPPED: [&str; 12] = [
+/// `Authorization` is not among them: Ruchoir's credential is a cookie, and what a browser sends the
+/// office host in that header is the engine's own session token, set by the engine's pages (an image
+/// upload carries it).
+const DROPPED: [&str; 11] = [
     "connection",
     "keep-alive",
     "proxy-authenticate",
@@ -39,7 +42,6 @@ const DROPPED: [&str; 12] = [
     "upgrade",
     "host",
     "cookie",
-    "authorization",
     "forwarded",
 ];
 
@@ -177,12 +179,24 @@ pub fn wopi_src_is_ours(path: &str, query: Option<&str>, wopi_base: &str) -> boo
     if !path.starts_with("/hosting/wopi/") {
         return true;
     }
+    // Names are compared decoded, as the engine reads them (it decodes and lower-cases them): any
+    // name that decodes to something starting with `wopisrc` counts, so `WOPISr%63` or `wopisrc[]`
+    // cannot slip a second source past this check.
     let mut sources = query
         .unwrap_or("")
         .split('&')
-        .filter_map(|pair| pair.split_once('='))
-        .filter(|(name, _)| name.eq_ignore_ascii_case("wopisrc"))
-        .map(|(_, value)| percent_decode(value));
+        .map(|pair| pair.split_once('=').unwrap_or((pair, "")))
+        .filter(|(name, _)| {
+            percent_decode(name).is_none_or(|name| name.to_ascii_lowercase().starts_with("wopisrc"))
+        })
+        .map(|(name, value)| {
+            let exact = percent_decode(name).is_some_and(|n| n.eq_ignore_ascii_case("wopisrc"));
+            if exact {
+                percent_decode(value)
+            } else {
+                None
+            }
+        });
     let (Some(Some(source)), None) = (sources.next(), sources.next()) else {
         return false;
     };
@@ -480,6 +494,10 @@ mod tests {
             Some("WOPISrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2Fnot-a-uuid"),
             Some("WOPISrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2F0b8e4f2a-3c1d-4e5f-8a9b-0c1d2e3f4a5b%2F..%2Fx"),
             Some("WOPISrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2F0b8e4f2a-3c1d-4e5f-8a9b-0c1d2e3f4a5b&WOPISrc=http%3A%2F%2Fevil.example"),
+            // A second source behind an encoded or decorated name, which the engine decodes.
+            Some("wopisrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2F0b8e4f2a-3c1d-4e5f-8a9b-0c1d2e3f4a5b&WOPISr%63=http%3A%2F%2F127.0.0.1%3A8000%2F"),
+            Some("wopisrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2F0b8e4f2a-3c1d-4e5f-8a9b-0c1d2e3f4a5b&wopisrc%5B%5D=http%3A%2F%2F127.0.0.1%3A8000%2F"),
+            Some("wopisrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2F0b8e4f2a-3c1d-4e5f-8a9b-0c1d2e3f4a5b&wopisrc[]=http%3A%2F%2F127.0.0.1%3A8000%2F"),
         ] {
             assert!(!wopi_src_is_ours("/hosting/wopi/word/edit", query, base), "{query:?} is refused");
         }
@@ -487,9 +505,11 @@ mod tests {
 
     #[test]
     fn no_credential_reaches_the_engine() {
+        // The engine's own session token (its pages set `Authorization` for an image upload) passes;
+        // Ruchoir's credential is a cookie, which never does.
+        assert!(forwardable(&HeaderName::from_static("authorization")));
         for name in [
             "cookie",
-            "authorization",
             "host",
             "connection",
             "upgrade",

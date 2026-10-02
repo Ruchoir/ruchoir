@@ -9351,7 +9351,10 @@ async fn the_office_hostname_is_relayed_without_credentials_and_only_there() {
     )));
     let seen: Value = relayed.json().await.unwrap();
     assert!(seen.get("cookie").is_none(), "no cookie reaches the engine");
-    assert!(seen.get("authorization").is_none());
+    assert_eq!(
+        seen["authorization"], "Bearer secret",
+        "the engine's own token, which its pages set, reaches it"
+    );
     assert_eq!(seen["x-forwarded-host"], "office.example.org");
     assert_eq!(seen["x-forwarded-proto"], "https");
 
@@ -10074,4 +10077,73 @@ async fn the_editor_shows_the_members_ruchoir_photo() {
         )),
         "{image}"
     );
+}
+
+#[tokio::test]
+async fn the_realtime_socket_opens_only_from_ruchoirs_own_pages() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let connect = |origin: Option<&'static str>| {
+        let mut request = app
+            .ws_url
+            .as_str()
+            .into_client_request()
+            .expect("ws request");
+        request
+            .headers_mut()
+            .insert("cookie", alice.parse().unwrap());
+        if let Some(origin) = origin {
+            request
+                .headers_mut()
+                .insert("origin", origin.parse().unwrap());
+        }
+        tokio_tungstenite::connect_async(request)
+    };
+
+    // The office editor's hostname is the same site, so the session cookie rides on its handshake:
+    // a page there (a flaw in the engine, a crafted document) must not read the member's messages.
+    assert!(connect(Some("https://office.example.org")).await.is_err());
+    assert!(
+        connect(Some("http://localhost:8080")).await.is_ok(),
+        "Ruchoir's own pages"
+    );
+    assert!(
+        connect(None).await.is_ok(),
+        "a client that is not a browser"
+    );
+}
+
+#[tokio::test]
+async fn a_listing_does_not_hide_a_dead_tab_from_the_sweep() {
+    use fred::interfaces::KeysInterface;
+
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "tab-a").await,
+        204
+    );
+    let mut ws = app.connect_ws(&alice).await;
+
+    let _: i64 = app
+        .valkey
+        .del(format!("office:beat:{file_id}:{}:tab-a", fx.bob).as_str())
+        .await
+        .unwrap();
+    // Somebody opens the folder before the sweep comes round.
+    assert!(listed_editors(&app, &alice, fx.space_id, file_id)
+        .await
+        .is_empty());
+    crate::office::presence::sweep_once(&app.state).await;
+
+    let left = next_event_of(&mut ws, "files.editing")
+        .await
+        .expect("those with the list open hear it");
+    assert_eq!(left["payload"]["editors"].as_array().unwrap().len(), 0);
 }

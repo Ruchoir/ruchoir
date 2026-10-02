@@ -10,7 +10,7 @@
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -37,8 +37,23 @@ use super::typing;
 pub async fn ws_handler(
     State(state): State<AppState>,
     session: AuthSession,
+    headers: axum::http::HeaderMap,
     ws: WebSocketUpgrade,
 ) -> Response {
+    // A WebSocket has no CORS: a page on a neighbouring host of the same site (the office editor's,
+    // see `http::same_site_guard`) would otherwise read the member's live messages with their
+    // cookie. Browsers always send `Origin` on the handshake; a client that is not one sends none.
+    if let Some(origin) = headers
+        .get(axum::http::header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+    {
+        if crate::config::origin_of(origin).as_deref()
+            != Some(state.config.public_origin().as_str())
+        {
+            tracing::warn!("realtime socket from another origin refused");
+            return crate::messaging::error::ApiError::Forbidden.into_response();
+        }
+    }
     let user_id = session.user_id;
     ws.on_upgrade(move |socket| handle_socket(state, user_id, socket))
 }

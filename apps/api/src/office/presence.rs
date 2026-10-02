@@ -68,11 +68,15 @@ fn internal<E>(_: E) -> OfficeError {
     OfficeError::Internal
 }
 
-/// Read the live editors of several files at once, dropping lapsed entries: one round trip for the
-/// sets, one for the beats, whatever the number of files.
+/// Read the live editors of several files at once: one round trip for the sets, one for the beats,
+/// whatever the number of files. With `prune`, lapsed entries are dropped too (one more round trip),
+/// and `changed` says whether that removed a member; without it nothing is written, which is what a
+/// file listing wants: pruning there would take the file out of the sweep's index before the sweep
+/// could tell the members who already have the list open.
 async fn read_many(
     valkey: &Pool,
     file_ids: &[Uuid],
+    prune: bool,
 ) -> Result<HashMap<Uuid, (Vec<Uuid>, bool)>, OfficeError> {
     let mut out = HashMap::new();
     if file_ids.is_empty() {
@@ -114,31 +118,41 @@ async fn read_many(
             lapsed.entry(file_id).or_default().push(e);
         }
     }
-    for (file_id, gone) in &lapsed {
-        let _: i64 = valkey
-            .srem(set_key(*file_id).as_str(), gone.clone())
-            .await
-            .map_err(internal)?;
-    }
+    let pruning = valkey.next().pipeline();
+    let mut writes = 0;
     for file_id in file_ids {
         let now = live.remove(file_id).unwrap_or_default();
         let gone = lapsed.remove(file_id).unwrap_or_default();
         let after = members(&now);
-        let changed = members(now.iter().chain(&gone)) != after;
-        if now.is_empty() {
-            let _: i64 = valkey
-                .srem(INDEX_KEY, file_id.to_string())
+        let changed = prune && members(now.iter().chain(&gone)) != after;
+        if prune && !gone.is_empty() {
+            let _: () = pruning
+                .srem(set_key(*file_id).as_str(), gone)
                 .await
                 .map_err(internal)?;
+            writes += 1;
+            if now.is_empty() {
+                let _: () = pruning
+                    .srem(INDEX_KEY, file_id.to_string())
+                    .await
+                    .map_err(internal)?;
+                writes += 1;
+            }
         }
         out.insert(*file_id, (after, changed));
+    }
+    if writes > 0 {
+        let results: Vec<Result<i64, _>> = pruning.try_all().await;
+        for result in results {
+            result.map_err(internal)?;
+        }
     }
     Ok(out)
 }
 
 /// The live editors of one file, and whether reading dropped someone whose tabs all lapsed.
 async fn read(valkey: &Pool, file_id: Uuid) -> Result<(Vec<Uuid>, bool), OfficeError> {
-    Ok(read_many(valkey, &[file_id])
+    Ok(read_many(valkey, &[file_id], true)
         .await?
         .remove(&file_id)
         .unwrap_or_default())
@@ -186,7 +200,7 @@ pub async fn leave(
     user_id: Uuid,
     tab: &str,
 ) -> Result<bool, OfficeError> {
-    let (before, _) = read(valkey, file_id).await?;
+    let (before, pruned) = read(valkey, file_id).await?;
     let e = entry(user_id, tab);
     let _: i64 = valkey
         .del(beat_key(file_id, &e).as_str())
@@ -197,7 +211,7 @@ pub async fn leave(
         .await
         .map_err(internal)?;
     let (after, _) = read(valkey, file_id).await?;
-    Ok(before != after)
+    Ok(pruned || before != after)
 }
 
 /// The members editing `file_id` now, lapsed tabs dropped.
@@ -211,7 +225,7 @@ pub async fn named_editors_of(
     db: &DatabaseConnection,
     file_ids: &[Uuid],
 ) -> Result<HashMap<Uuid, Vec<EditorDto>>, OfficeError> {
-    let live = read_many(valkey, file_ids).await?;
+    let live = read_many(valkey, file_ids, false).await?;
     let everyone: Vec<Uuid> = live
         .values()
         .flat_map(|(ids, _)| ids.iter().copied())
@@ -292,7 +306,7 @@ pub async fn sweep_once(state: &AppState) {
         }
     };
     let file_ids: Vec<Uuid> = indexed.iter().filter_map(|id| id.parse().ok()).collect();
-    let Ok(live) = read_many(&state.valkey, &file_ids).await else {
+    let Ok(live) = read_many(&state.valkey, &file_ids, true).await else {
         return;
     };
     for (file_id, (_, changed)) in live {
