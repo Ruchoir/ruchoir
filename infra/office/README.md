@@ -8,7 +8,7 @@ Mounted read-only into the `office` service (Euro-Office) by `docker-compose.yml
 | `local-production-linux.json` | Engine settings Ruchoir needs: a save every 10 minutes during a long session (`autoAssembly`). Read after the `local.json` the engine writes itself. |
 | `themes/theme-ruchoir-light.json` | The "Ruchoir day" theme: light top bar (the engine draws its top-bar icons with the toolbar's colour, so they vanish on a dark bar), Ruchoir greys, ink for actions, sky for selection. One theme per file: the engine gathers the folder. |
 | `themes/theme-ruchoir-dark.json` | The night sibling. Not used yet: the engine does not paint a custom dark theme (upstream defect 3); by night the editor uses the engine's own dark theme. |
-| `patches/editor-wopi.ejs` | Temporary fixes of the engine's WOPI page: keep the integrator's theme when the `thm` parameter is absent (defect 1), paint a custom theme given at launch (defect 2), let the asked theme win over one an earlier session stored (defect 8), keep the member's avatar round (defect 9), and give the mobile editor Ruchoir's day colours (defect 10). |
+| `patches/editor-wopi.ejs` | Temporary fixes of the engine's WOPI page: keep the integrator's theme when the `thm` parameter is absent (defect 1), paint a custom theme given at launch (defect 2), let the asked theme win over one an earlier session stored (defect 8), keep the member's avatar round (defect 9), give the mobile editor Ruchoir's day colours (defect 10), and lay the member's accent (sent by the API as `ruchoir.accent`) over whichever theme is in force, the engine's dark one included (defect 3). |
 | `patches/visioeditor-index.html` | Temporary fix of the Visio viewer's page: the module configuration it lacks (defect 4). |
 
 ## Removing a patch

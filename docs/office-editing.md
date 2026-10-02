@@ -267,8 +267,11 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   engine's avatar for them (`editorConfig.user.image`).
 - **`useOfficeSession.ts`:** asks for the session, sends the heartbeat every 30 s, says goodbye on
   close and on `pagehide`.
-- **`officeTheme.ts`:** maps the Ruchoir theme (eight accents by day or night) to `light` or `dark`
-  for the session request.
+- **`officeTheme.ts`:** maps the Ruchoir theme (four accents, by day or night) to `light` or `dark`
+  and to the accent for the session request. The API turns the accent into its colour (only
+  Ruchoir's own four), and the patched WOPI page lays it over the engine's theme, day or night: pressed
+  buttons, the open ribbon tab, the selected preview, the mobile editor's links by night. Text
+  selected in the page itself is drawn by the engine's canvas and keeps the engine's colour.
 - **`NewDocumentMenu.tsx`:** "New document / spreadsheet / presentation" in the files toolbar,
   asking for a name, then opening the editor on the new file.
 - **`EditingBadge.tsx`:** the "being edited by …" mark on a row of the file list, fed by the
@@ -375,7 +378,7 @@ the fix.
 |---|---|---|
 | 1 | The WOPI editor page overwrites the integrator's `uiTheme` with `undefined` when the `thm` parameter is absent. | `patches/editor-wopi.ejs`: keep the integrator's theme when `thm` is absent (one line). |
 | 2 | A custom theme given at launch is selected but not painted (it is only painted on a change). | Also in `patches/editor-wopi.ejs`: the WOPI page, on the editor's own origin, switches away and back once the editor is up. |
-| 3 | A custom dark theme is never painted. | None: the engine's own dark theme is used by night. |
+| 3 | A custom dark theme is never painted. | The engine's own dark theme is used by night, with the member's accent laid over it by `patches/editor-wopi.ejs`. |
 | 4 | The Visio viewer's page omits the module configuration the other editors have, so the viewer dies before loading the file. | `patches/visioeditor-index.html`: add the missing `shim` entry. |
 | 5 | Translations: about 15 strings per editor left in English in French and German, up to 362 in Italian and 1,008 in Polish. | None now; translations contributed upstream. |
 | 6 | A Visio drawing always opens with a "forced view mode" warning, in English. | None: decided in the engine's compiled server. |
