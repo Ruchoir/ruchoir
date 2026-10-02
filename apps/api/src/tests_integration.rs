@@ -9479,3 +9479,76 @@ async fn a_guest_hears_nothing_of_the_files_they_cannot_read() {
         "file names stay with members: {seen:?}"
     );
 }
+
+#[tokio::test]
+async fn a_neighbouring_site_cannot_write_with_a_members_session() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let folder = |site: Option<&'static str>, origin: Option<&'static str>, name: &'static str| {
+        let mut req = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/spaces/{}/folders", fx.space_id),
+                &alice,
+            )
+            .json(&json!({ "name": name }));
+        if let Some(site) = site {
+            req = req.header("sec-fetch-site", site);
+        }
+        if let Some(origin) = origin {
+            req = req.header(reqwest::header::ORIGIN, origin);
+        }
+        req.send()
+    };
+
+    // The office editor's own hostname is the same site as Ruchoir's: a flaw in the engine must not
+    // be able to write here with the member's cookie, which the browser attaches to same-site requests.
+    assert_eq!(
+        folder(Some("same-site"), None, "a").await.unwrap().status(),
+        403
+    );
+    assert_eq!(
+        folder(Some("cross-site"), None, "b")
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    assert_eq!(
+        folder(None, Some("https://office.example.org"), "c")
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    // Ruchoir's own pages, and clients that are not browsers, are unaffected.
+    assert_eq!(
+        folder(Some("same-origin"), None, "d")
+            .await
+            .unwrap()
+            .status(),
+        201
+    );
+    assert_eq!(folder(None, None, "e").await.unwrap().status(), 201);
+    assert_eq!(
+        folder(None, Some("http://localhost:8080"), "f")
+            .await
+            .unwrap()
+            .status(),
+        201,
+        "the instance's own origin"
+    );
+    // Reading is not concerned.
+    let read = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/files", fx.space_id),
+            &alice,
+        )
+        .header("sec-fetch-site", "same-site")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(read.status(), 200);
+}

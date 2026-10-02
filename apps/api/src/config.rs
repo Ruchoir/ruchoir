@@ -169,6 +169,21 @@ fn own_domains(public_base_url: &str) -> Vec<String> {
     out
 }
 
+/// The origin of an absolute URL (`scheme://host[:port]`, lower-cased, no path or trailing slash),
+/// as a browser writes it in `Origin` and as `frame-ancestors` and WOPI's `PostMessageOrigin` compare
+/// it. `None` when there is none.
+pub fn origin_of(url: &str) -> Option<String> {
+    let (scheme, rest) = url.split_once("://")?;
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or("");
+    (!scheme.is_empty() && !authority.is_empty()).then(|| {
+        format!(
+            "{}://{}",
+            scheme.to_ascii_lowercase(),
+            authority.to_ascii_lowercase()
+        )
+    })
+}
+
 /// The host of an absolute URL, lower-cased, without port or path. `None` when there is none.
 pub fn host_of(url: &str) -> Option<String> {
     let (_, rest) = url.split_once("://")?;
@@ -447,6 +462,12 @@ impl Config {
         })
     }
 
+    /// This instance's own origin, derived from `public_base_url` (a trailing slash or path dropped).
+    pub fn public_origin(&self) -> String {
+        origin_of(&self.public_base_url)
+            .unwrap_or_else(|| self.public_base_url.trim_end_matches('/').to_owned())
+    }
+
     /// Whether object-store credentials are configured. When false, byte endpoints return 503 and
     /// file metadata (the tree) keeps working.
     pub fn s3_enabled(&self) -> bool {
@@ -492,7 +513,20 @@ impl std::error::Error for ConfigError {}
 
 #[cfg(test)]
 mod tests {
-    use super::host_of;
+    use super::{host_of, origin_of};
+
+    #[test]
+    fn an_origin_drops_the_path_and_the_trailing_slash() {
+        assert_eq!(
+            origin_of("https://Ruchoir.Example.org/"),
+            Some("https://ruchoir.example.org".to_owned())
+        );
+        assert_eq!(
+            origin_of("http://localhost:8080/app/x"),
+            Some("http://localhost:8080".to_owned())
+        );
+        assert_eq!(origin_of("ruchoir.example.org"), None);
+    }
 
     #[test]
     fn a_host_is_read_without_scheme_port_or_path() {

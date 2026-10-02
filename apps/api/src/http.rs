@@ -338,6 +338,11 @@ pub fn router(state: AppState) -> Router {
             HeaderName::from_static("permissions-policy"),
             "geolocation=(), camera=(), microphone=()",
         ))
+        // Writes from another site are refused before they reach a handler (see `same_site_guard`).
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            same_site_guard,
+        ))
         .layer(TraceLayer::new_for_http())
         .with_state(state.clone())
         // Outermost: the office editor's hostname is relayed whole and never reaches the layers
@@ -346,6 +351,46 @@ pub fn router(state: AppState) -> Router {
             state,
             crate::office::proxy::dispatch,
         ))
+}
+
+/// Refuse a state-changing request that a browser sent from another site.
+///
+/// The session cookie is `SameSite=Lax`, which keeps it off cross-site writes but not off
+/// **same-site** ones, and the office editor runs on a hostname of the same site as Ruchoir
+/// (`office.example.org` next to `ruchoir.example.org`): script running there, a flaw in the engine
+/// or a crafted document, could otherwise post here with the member's cookie. Browsers say where a
+/// request comes from in `Sec-Fetch-Site`; older ones only in `Origin`, which then has to be this
+/// instance's own. A client that is not a browser sends neither and is unaffected; so are reads.
+pub(crate) async fn same_site_guard(
+    State(state): State<AppState>,
+    req: Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let writes = !matches!(
+        *req.method(),
+        axum::http::Method::GET | axum::http::Method::HEAD | axum::http::Method::OPTIONS
+    );
+    if writes {
+        let headers = req.headers();
+        let site = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok());
+        let refused = match site {
+            Some(site) => {
+                site.eq_ignore_ascii_case("same-site") || site.eq_ignore_ascii_case("cross-site")
+            }
+            None => headers
+                .get(header::ORIGIN)
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|origin| {
+                    crate::config::origin_of(origin).as_deref()
+                        != Some(state.config.public_origin().as_str())
+                }),
+        };
+        if refused {
+            tracing::warn!(method = %req.method(), path = %req.uri().path(), "write from another site refused");
+            return crate::messaging::error::ApiError::Forbidden.into_response();
+        }
+    }
+    next.run(req).await
 }
 
 /// Serve the single-page application for a path that is not a file in the bundle.
