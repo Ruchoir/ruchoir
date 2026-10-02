@@ -34,7 +34,6 @@ pub(crate) struct FilesUpdatedEvent {
 }
 
 /// A file the server creates from bytes it holds.
-#[allow(dead_code)] // TEMP-OFFICE
 pub(crate) struct NewFile {
     pub space_id: Uuid,
     pub folder_id: Option<Uuid>,
@@ -102,7 +101,6 @@ pub(crate) async fn add_version(
 }
 
 /// Create a file from `data` and tell its audience.
-#[allow(dead_code)] // TEMP-OFFICE
 pub(crate) async fn create_file(
     state: &AppState,
     new: NewFile,
@@ -158,7 +156,6 @@ pub(crate) async fn create_file(
 
 /// The first of `stem.ext`, `stem (2).ext`, `stem (3).ext`… that no live file in the same place
 /// carries. Never an existing name: a conversion or a blank document must not hide a file.
-#[allow(dead_code)] // TEMP-OFFICE
 pub(crate) async fn free_name(
     db: &DatabaseConnection,
     space_id: Uuid,

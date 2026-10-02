@@ -143,10 +143,8 @@ pub struct Config {
     /// Where the internal WOPI listener binds (`RUCHOIR_WOPI_LISTEN`). Never published.
     pub wopi_listen: SocketAddr,
     /// How the engine addresses the WOPI listener (`RUCHOIR_WOPI_BASE_URL`).
-    #[allow(dead_code)] // TEMP-OFFICE
     pub wopi_base_url: String,
     /// Lifetime of an office access token, in seconds (`RUCHOIR_OFFICE_TOKEN_TTL_SECS`).
-    #[allow(dead_code)] // TEMP-OFFICE
     pub office_token_ttl_secs: i64,
 }
 

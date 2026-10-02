@@ -8921,3 +8921,92 @@ async fn a_save_over_the_upload_cap_is_refused_and_changes_nothing() {
         .unwrap();
     assert_eq!(versions, 1);
 }
+
+#[tokio::test]
+async fn converting_makes_a_copy_beside_the_original_and_never_overwrites() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let original = upload_bytes(&app, &alice, fx.space_id, "rapport.doc", b"old-binary").await;
+    let taken = upload_bytes(&app, &alice, fx.space_id, "rapport.docx", b"already here").await;
+    let token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.bob,
+        original,
+        crate::office::discovery::Mode::Convert,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+
+    let info: Value = wopi_req(&app, reqwest::Method::GET, original, "", &token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(info["UserCanNotWriteRelative"], false);
+
+    let res = wopi_req(&app, reqwest::Method::POST, original, "", &token)
+        .header("X-WOPI-Override", "PUT_RELATIVE")
+        .header("X-WOPI-SuggestedTarget", ".docx")
+        .body(b"converted".to_vec())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.unwrap();
+    assert_eq!(body["Name"], "rapport (2).docx");
+    assert!(body["Url"].as_str().unwrap().contains("/wopi/files/"));
+
+    let copy = files::Entity::find()
+        .filter(files::Column::SpaceId.eq(fx.space_id))
+        .filter(files::Column::Name.eq("rapport (2).docx"))
+        .one(&app.db)
+        .await
+        .unwrap()
+        .expect("copy");
+    assert_eq!(copy.owner_id, Some(fx.bob));
+    let untouched = files::Entity::find_by_id(taken)
+        .one(&app.db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        untouched.size_bytes, 12,
+        "an existing file is never overwritten"
+    );
+    let still = files::Entity::find_by_id(original)
+        .one(&app.db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(still.size_bytes, 10, "the original is never touched");
+
+    let edit_token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.bob,
+        original,
+        crate::office::discovery::Mode::Edit,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+    let refused = wopi_req(&app, reqwest::Method::POST, original, "", &edit_token)
+        .header("X-WOPI-Override", "PUT_RELATIVE")
+        .header("X-WOPI-SuggestedTarget", ".docx")
+        .body(b"x".to_vec())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        refused.status(),
+        501,
+        "only a conversion session writes a copy"
+    );
+}

@@ -275,11 +275,76 @@ async fn file_operation(
             Ok(response)
         }
         "PUT_RELATIVE" => {
-            let _ = body;
-            Err(WopiError::NotImplemented)
+            put_relative(&state, file_id, &access.access_token, &headers, &body).await
         }
         _ => Err(WopiError::NotImplemented),
     }
+}
+
+/// `PutRelativeFile`, for the conversion of a legacy format only: the converted bytes become a new
+/// file beside the original, which is never touched. The name is the original's with the target
+/// extension, made free if taken. The suggested target's name part is ignored on purpose (WOPI
+/// encodes it in UTF-7); only its extension is read.
+async fn put_relative(
+    state: &AppState,
+    file_id: Uuid,
+    token: &str,
+    headers: &HeaderMap,
+    body: &[u8],
+) -> Result<Response, WopiError> {
+    let (grant, access) = authorize(state, file_id, token, true).await?;
+    if grant.mode != Mode::Convert {
+        return Err(WopiError::NotImplemented);
+    }
+    let target = match header(headers, "x-wopi-suggestedtarget") {
+        "" => header(headers, "x-wopi-relativetarget"),
+        suggested => suggested,
+    };
+    let ext = target
+        .rsplit('.')
+        .next()
+        .filter(|e| !e.is_empty() && e.len() <= 8 && e.bytes().all(|b| b.is_ascii_alphanumeric()))
+        .map(|e| e.to_ascii_lowercase())
+        .ok_or(WopiError::BadRequest)?;
+    let original = access.file;
+    let stem = original
+        .name
+        .rsplit_once('.')
+        .map_or(original.name.as_str(), |(stem, _)| stem);
+    let name = versions::free_name(
+        &state.db,
+        original.space_id,
+        original.parent_folder_id,
+        original.conversation_id,
+        stem,
+        &ext,
+    )
+    .await?;
+    let created = versions::create_file(
+        state,
+        versions::NewFile {
+            space_id: original.space_id,
+            folder_id: original.parent_folder_id,
+            conversation_id: original.conversation_id,
+            owner: grant.user_id,
+            name,
+        },
+        body,
+    )
+    .await?;
+    let (new_token, _) = tokens::mint(
+        &state.valkey,
+        grant.user_id,
+        created.id,
+        Mode::Edit,
+        state.config.office_token_ttl_secs,
+    )
+    .await?;
+    Ok(Json(json!({
+        "Name": created.name,
+        "Url": format!("{}/wopi/files/{}?access_token={new_token}", state.config.wopi_base_url, created.id),
+    }))
+    .into_response())
 }
 
 fn lock_answer(outcome: Outcome) -> Result<Response, WopiError> {
