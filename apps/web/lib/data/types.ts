@@ -391,6 +391,8 @@ export type OfficeSession = {
   mode: OfficeMode;
   /** The engine configuration posted with the token (JSON). */
   config: string;
+  /** The member's display name, which seeds their default avatar. */
+  memberName: string;
 };
 
 /** What a blank document is. */

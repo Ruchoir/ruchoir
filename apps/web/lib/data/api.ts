@@ -1991,6 +1991,7 @@ type OfficeSessionDto = {
   access_token_ttl: number;
   mode: OfficeMode;
   config: string;
+  member_name: string;
 };
 
 /**
@@ -2018,6 +2019,7 @@ export async function openOfficeSession(
     accessTokenTtl: dto.access_token_ttl,
     mode: dto.mode,
     config: dto.config,
+    memberName: dto.member_name,
   };
 }
 

@@ -48,6 +48,9 @@ pub struct SessionResponse {
     pub mode: Mode,
     /// Euro-Office's `docs_api_config`, a JSON string posted with the token.
     pub config: String,
+    /// The member's display name: without a photo, Ruchoir draws their default avatar from it (it
+    /// is generated in the browser) and gives it to the editor.
+    pub member_name: String,
 }
 
 /// `POST /api/v1/files/{file_id}/office`.
@@ -111,17 +114,21 @@ pub async fn open_session(
     .await?;
     // The member's Ruchoir photo, for the editor's own avatar (and the co-authors'): served by
     // Ruchoir's host, which is the same site as the editor's, so the session cookie goes with it.
-    let photo = crate::entities::users::Entity::find_by_id(session.user_id)
+    let member = crate::entities::users::Entity::find_by_id(session.user_id)
         .one(&state.db)
-        .await?
-        .and_then(|user| {
-            let key = user.avatar_key?;
-            Some(format!(
-                "{}{}",
-                state.config.public_base_url.trim_end_matches('/'),
-                crate::files::avatar_url(user.id, &key)
-            ))
-        });
+        .await?;
+    let member_name = member
+        .as_ref()
+        .map(|user| user.display_name.clone())
+        .unwrap_or_default();
+    let photo = member.and_then(|user| {
+        let key = user.avatar_key?;
+        Some(format!(
+            "{}{}",
+            state.config.public_base_url.trim_end_matches('/'),
+            crate::files::avatar_url(user.id, &key)
+        ))
+    });
     let file = crate::files::hydrate_files(&state.db, vec![access.file])
         .await?
         .pop()
@@ -139,6 +146,7 @@ pub async fn open_session(
             lang,
             photo.as_deref(),
         ),
+        member_name,
     }))
 }
 

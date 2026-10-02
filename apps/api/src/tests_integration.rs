@@ -10080,6 +10080,40 @@ async fn the_editor_shows_the_members_ruchoir_photo() {
 }
 
 #[tokio::test]
+async fn a_session_names_the_member_for_their_default_avatar() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let session: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office"),
+            &bob,
+        )
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let bob_name = users::Entity::find_by_id(fx.bob)
+        .one(&app.db)
+        .await
+        .unwrap()
+        .unwrap()
+        .display_name;
+    assert_eq!(
+        session["member_name"], bob_name,
+        "Ruchoir draws the member's default avatar from their name"
+    );
+}
+
+#[tokio::test]
 async fn the_realtime_socket_opens_only_from_ruchoirs_own_pages() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;
