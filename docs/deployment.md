@@ -183,9 +183,15 @@ OFFICE_JWT_SECRET=
 
 `RUCHOIR_OFFICE_PUBLIC_URL` must not be Ruchoir's own host: the API refuses to start if it is.
 
-**Start it** with `docker compose --profile office up -d`, then check that `GET /api/v1/instance`
-answers `"office": { "enabled": true, … }`. The API reads the engine's formats within a minute of the
-engine being ready (its first start takes a couple of minutes).
+**Turn it on for good** with `COMPOSE_PROFILES=office` in `.env`: Compose then includes the engine in
+every `docker compose up -d`, and with `restart: unless-stopped` it comes back with the rest after a
+reboot, starting alongside the API rather than at the first document. (A one-off
+`docker compose --profile office up -d` works too, but a later `up` without the flag leaves the
+engine out.) Deploying Ruchoir (`docker compose up -d --build api`) does not restart the engine.
+
+Then check that `GET /api/v1/instance` answers `"office": { "enabled": true, … }`. The engine takes
+about 40 seconds to start; the API looks for it every five seconds until it answers. Until then,
+documents open in the preview.
 
 The image is pulled from the GitHub container registry at deployment: a registry, not a runtime
 service, and it can be mirrored. The engine runs on an internal network with no route out: it can
