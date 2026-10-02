@@ -65,8 +65,18 @@ struct TestApp {
     state: AppState,
 }
 
-/// Boot the app or return `None` when the test infrastructure is not configured.
+/// Boot the app or return `None` when the test infrastructure is not configured. No object store:
+/// file byte endpoints report 503.
 async fn boot() -> Option<TestApp> {
+    boot_with(None, |_| {}).await
+}
+
+/// Boot with a chosen object store and configuration adjustments. Most tests use [`boot`]; the
+/// ones that write bytes pass an in-memory store, and the office tests turn live editing on.
+async fn boot_with(
+    storage: Option<Arc<crate::storage::S3Store>>,
+    configure: impl FnOnce(&mut Config),
+) -> Option<TestApp> {
     let Ok(database_url) = std::env::var("RUCHOIR_TEST_DATABASE_URL") else {
         // Skipping is right on a developer's machine, where a database may not be running. It is
         // not right in CI: a suite that quietly tests nothing and reports success is worse than no
@@ -106,6 +116,7 @@ async fn boot() -> Option<TestApp> {
     config.web_dist = web_dist;
     // The cards' language is asserted below, whatever the machine running the tests has set.
     config.default_locale = crate::auth::mail_text::Locale::Fr;
+    configure(&mut config);
 
     let db = crate::db::connect(&config).await.expect("connect db");
     SCHEMA_READY
@@ -137,8 +148,8 @@ async fn boot() -> Option<TestApp> {
         secret_key: Arc::new([0x11u8; 32]),
         webauthn: Arc::new(webauthn),
         hub,
-        // Object storage is not exercised by these tests; file byte endpoints report 503.
-        storage: None,
+        // `None` unless the test asked for a store: the byte endpoints then report 503.
+        storage,
         config: Arc::new(config.clone()),
     };
 
