@@ -9936,3 +9936,37 @@ async fn the_converting_member_learns_which_copy_the_editor_moved_to() {
         "another member's conversion"
     );
 }
+
+#[tokio::test]
+async fn a_silent_engine_does_not_hold_the_relay_forever() {
+    // Accepts connections and never answers.
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((socket, _)) = listener.accept().await {
+            held.push(socket);
+        }
+    });
+    let Some(app) = boot_office(|config| config.office_url = Some(format!("http://{addr}"))).await
+    else {
+        return;
+    };
+    app.state
+        .office
+        .as_ref()
+        .unwrap()
+        .set_response_timeout(Duration::from_millis(300));
+
+    let res = tokio::time::timeout(
+        Duration::from_secs(5),
+        app.http
+            .get(format!("{}/web-apps/apps/api/documents/api.js", app.base))
+            .header(reqwest::header::HOST, "office.example.org")
+            .send(),
+    )
+    .await
+    .expect("the relay gives up on its own")
+    .unwrap();
+    assert_eq!(res.status(), 504);
+}

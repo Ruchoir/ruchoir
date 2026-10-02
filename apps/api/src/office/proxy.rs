@@ -267,8 +267,17 @@ async fn relay_http(office: Arc<Office>, ruchoir_origin: &str, req: Request) -> 
     let Ok(upstream_request) = builder.body(body) else {
         return StatusCode::BAD_GATEWAY.into_response();
     };
-    match office.client().request(upstream_request).await {
-        Ok(upstream) => {
+    let answer = tokio::time::timeout(
+        office.response_timeout(),
+        office.client().request(upstream_request),
+    )
+    .await;
+    match answer {
+        Err(_) => {
+            tracing::warn!("office engine did not answer in time");
+            StatusCode::GATEWAY_TIMEOUT.into_response()
+        }
+        Ok(Ok(upstream)) => {
             let (mut parts, body) = upstream.into_parts();
             for name in DROPPED {
                 parts.headers.remove(name);
@@ -277,7 +286,7 @@ async fn relay_http(office: Arc<Office>, ruchoir_origin: &str, req: Request) -> 
             frame_for(&mut parts.headers, ruchoir_origin);
             Response::from_parts(parts, Body::new(body))
         }
-        Err(error) => {
+        Ok(Err(error)) => {
             tracing::warn!(%error, "office engine unreachable");
             StatusCode::BAD_GATEWAY.into_response()
         }
@@ -300,11 +309,19 @@ async fn relay_websocket(office: Arc<Office>, req: Request) -> Response {
         return StatusCode::BAD_GATEWAY.into_response();
     };
     forwarded(&office, request.headers_mut());
-    let upstream = match tokio_tungstenite::connect_async(request).await {
-        Ok((stream, _)) => stream,
-        Err(error) => {
+    let connecting = tokio::time::timeout(
+        office.response_timeout(),
+        tokio_tungstenite::connect_async(request),
+    );
+    let upstream = match connecting.await {
+        Ok(Ok((stream, _))) => stream,
+        Ok(Err(error)) => {
             tracing::warn!(%error, "office engine refused the co-editing socket");
             return StatusCode::BAD_GATEWAY.into_response();
+        }
+        Err(_) => {
+            tracing::warn!("office engine did not open the co-editing socket in time");
+            return StatusCode::GATEWAY_TIMEOUT.into_response();
         }
     };
     upgrade.on_upgrade(move |client| bridge(client, upstream))

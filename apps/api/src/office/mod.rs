@@ -24,6 +24,7 @@ pub mod wopi;
 
 pub use wopi::wopi_router;
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -68,7 +69,16 @@ pub struct Office {
     public_host: String,
     client: Client<HttpConnector, Body>,
     discovery: RwLock<Option<Arc<Discovery>>>,
+    /// How long the engine has to start answering a request, in milliseconds.
+    response_timeout_ms: AtomicU64,
 }
+
+/// How long the engine has to accept a connection.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// How long the engine has to start answering (its headers, not the whole body: an editor's assets
+/// and a co-editing socket legitimately stream for much longer). A conversion of a large file is
+/// the slowest answer seen; a minute is well above it.
+const RESPONSE_TIMEOUT: Duration = Duration::from_secs(60);
 
 impl Office {
     /// Build the handle when live editing is configured.
@@ -83,9 +93,26 @@ impl Office {
             public_origin: format!("{scheme}://{public_authority}"),
             public_authority,
             public_host,
-            client: Client::builder(TokioExecutor::new()).build_http(),
+            client: Client::builder(TokioExecutor::new()).build({
+                let mut connector = HttpConnector::new();
+                connector.set_connect_timeout(Some(CONNECT_TIMEOUT));
+                connector
+            }),
             discovery: RwLock::new(None),
+            response_timeout_ms: AtomicU64::new(RESPONSE_TIMEOUT.as_millis() as u64),
         })
+    }
+
+    /// How long the engine has to start answering a request.
+    pub fn response_timeout(&self) -> Duration {
+        Duration::from_millis(self.response_timeout_ms.load(Ordering::Relaxed))
+    }
+
+    /// Shorten the wait, for the tests of a silent engine.
+    #[cfg(test)]
+    pub fn set_response_timeout(&self, timeout: Duration) {
+        self.response_timeout_ms
+            .store(timeout.as_millis() as u64, Ordering::Relaxed);
     }
 
     pub fn engine_url(&self) -> &str {
@@ -133,10 +160,9 @@ impl Office {
             .header("x-forwarded-proto", self.public_scheme())
             .body(Body::empty())
             .map_err(|_| OfficeError::Internal)?;
-        let response = self
-            .client
-            .request(request)
+        let response = tokio::time::timeout(self.response_timeout(), self.client.request(request))
             .await
+            .map_err(|_| OfficeError::EngineUnavailable)?
             .map_err(|_| OfficeError::EngineUnavailable)?;
         if !response.status().is_success() {
             return Err(OfficeError::EngineUnavailable);
