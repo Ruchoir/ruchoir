@@ -103,10 +103,12 @@ async fn relay(
 /// Whether a path is one the editor needs.
 pub fn allowed(path: &str) -> bool {
     // The engine's own nginx decodes and normalises the path after this check, so anything that
-    // could turn into a separator or a dot segment once decoded is refused here, encoded or not.
+    // could turn into a separator or a dot segment once decoded is refused here, encoded or not. A
+    // doubled slash alone climbs nowhere (the engine asks for `themes//themes.js` itself), but a
+    // path may not start with one.
     let lower = path.to_ascii_lowercase();
     if path.contains("/.")
-        || path.contains("//")
+        || path.starts_with("//")
         || path.contains('\\')
         || ["%2e", "%2f", "%5c"]
             .iter()
@@ -114,9 +116,11 @@ pub fn allowed(path: &str) -> bool {
     {
         return false;
     }
-    const ROOTS: [&str; 5] = [
+    const ROOTS: [&str; 6] = [
         "/hosting/wopi/",
         "/web-apps/apps/",
+        // The editor's pages also load a script or two from the unversioned tree.
+        "/sdkjs/",
         "/cache/files/",
         "/downloadfile/",
         "/printfile/",
@@ -399,6 +403,9 @@ mod tests {
             "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/doc/abc/c/",
             "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/themes.json",
             "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/document_editor_service_worker.js",
+            // Asked for by the engine itself, unversioned and with a doubled slash.
+            "/sdkjs/common/device_scale.js",
+            "/9.3.4-2344a07b03340e4cde66040c75fb8ae6/sdkjs/slide/themes//themes.js",
         ] {
             assert!(allowed(path), "{path} is relayed");
         }
@@ -419,7 +426,8 @@ mod tests {
             "/hosting/wopi/x%2f..%2fadmin/",
             "/9.3.4-abc/sdkjs/x%2F..%2F..%2Fcoauthoring/CommandService.ashx",
             "/hosting/wopi/x%5C..%5Cadmin/",
-            "/hosting/wopi//admin/",
+            "//admin/",
+            "/sdkjs/../info/",
         ] {
             assert!(!allowed(path), "{path} is not relayed");
         }

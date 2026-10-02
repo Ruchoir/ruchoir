@@ -216,7 +216,7 @@ context and takes precedence here.
   the Docker network; `rust-s3` is built without any TLS backend (no `aws-lc-rs`, no OpenSSL), so
   TLS-to-store is a later hardening step (the `ring` path).
 - `src/office/`   - live office editing (ADR 0003, `docs/office-editing.md`), on only when
-  `RUCHOIR_OFFICE_URL` is set. `discovery` (what the engine opens, read every minute from its
+  `RUCHOIR_OFFICE_URL` is set. `discovery` (what the engine opens, read every minute, every five seconds while absent, from its
   `/hosting/discovery`), `tokens` (opaque access tokens in Valkey, one member, one file, never
   logged), `locks` (WOPI locks in Valkey, remembering the version the session started on),
   `wopi` (the internal listener the engine calls, `RUCHOIR_WOPI_LISTEN`, never published; rights

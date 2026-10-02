@@ -197,6 +197,13 @@ impl Office {
     }
 }
 
+/// How long to wait before the next look at the engine.
+/// Every few seconds while it is absent, so an engine that starts (or restarts) is in use as soon
+/// as it is ready; every minute once it answers.
+fn refresh_interval(up: bool) -> Duration {
+    Duration::from_secs(if up { 60 } else { 5 })
+}
+
 /// Keep the discovery fresh, and know within a minute when the engine stops or comes back: an
 /// engine that starts after the API, or restarts, is picked up on its own. Logged on a change only.
 pub fn spawn_discovery_refresh(office: Arc<Office>) {
@@ -212,7 +219,19 @@ pub fn spawn_discovery_refresh(office: Arc<Office>) {
                 }
                 was_up = Some(up);
             }
-            tokio::time::sleep(Duration::from_secs(60)).await;
+            tokio::time::sleep(refresh_interval(up)).await;
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::refresh_interval;
+    use std::time::Duration;
+
+    #[test]
+    fn an_absent_engine_is_looked_for_often() {
+        assert_eq!(refresh_interval(false), Duration::from_secs(5));
+        assert_eq!(refresh_interval(true), Duration::from_secs(60));
+    }
 }

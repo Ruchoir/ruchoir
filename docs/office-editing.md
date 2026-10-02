@@ -115,8 +115,8 @@ capabilities say the feature is off.
 ### Discovery (`discovery.rs`)
 
 The engine publishes the formats it handles and the address of each action (`edit`, `view`,
-`convert`) at `/hosting/discovery`. The API reads it from the engine directly at start and every
-minute, sending `X-Forwarded-Host: <office host>` and `X-Forwarded-Proto` so that the addresses it gets
+`convert`) at `/hosting/discovery`. The API reads it from the engine directly at start, every minute while it answers and every
+five seconds while it does not, sending `X-Forwarded-Host: <office host>` and `X-Forwarded-Proto` so that the addresses it gets
 back are the public ones the browser must use, and keeps it in memory:
 
 - the extensions that can be edited, viewed, or converted (and to what);
@@ -125,7 +125,7 @@ back are the public ones the browser must use, and keeps it in memory:
 
 When the engine does not answer, the discovery is forgotten and the feature reports itself
 unavailable rather than failing per request: the client then opens every file in the preview, as
-without live editing, until the engine is back (within a minute).
+without live editing, until the engine is back (within seconds of it being ready).
 
 ### The relay (`proxy.rs`)
 
@@ -144,10 +144,10 @@ ways. Conversely, the relay answers nothing on Ruchoir's own host.
 - Only the paths the editor needs are relayed (observed during the test of 2026-10-01): the versioned
   static tree (`/<version>-<hash>/…`: `sdkjs`, `fonts`, `web-apps`, `doc` (the co-editing socket),
   `dictionaries`, `themes.json`, `plugins.json`, the editor's service worker), the unversioned
-  `/web-apps/apps/…` loader, `/hosting/wopi/*` (the editor page), `/cache/files/*`, `/downloadfile/*`
+  `/web-apps/apps/…` loader and the few `/sdkjs/…` scripts the editor pages load unversioned, `/hosting/wopi/*` (the editor page), `/cache/files/*`, `/downloadfile/*`
   and `/printfile/*`. Everything else answers `404`: the engine's admin panel, example app,
   converter and command endpoints are never reachable from outside. A path that could become a
-  separator or a dot segment once the engine decodes it (`%2F`, `%5C`, `%2E`, `//`) is refused
+  separator or a dot segment once the engine decodes it (`%2F`, `%5C`, `%2E`, a leading `//`) is refused
   too, since the engine's own nginx normalises after the relay's check.
 - The editor page (`/hosting/wopi/*`) is relayed only when its single `WOPISrc` names a file of
   this instance's WOPI listener (`RUCHOIR_WOPI_BASE_URL/wopi/files/<uuid>`): the engine fetches
