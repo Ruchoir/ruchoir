@@ -1,10 +1,10 @@
 ﻿<%# Ruchoir patch of Euro-Office 9.3.4's web-apps/apps/api/wopi/editor-wopi.ejs, mounted read-only by
-    docker-compose.yml. Six changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
+    docker-compose.yml. Seven changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
     the thm parameter is absent; (2) paint a custom theme given at launch, which the engine selects but
     does not paint; (3) let the integrator's theme win over one an earlier session stored; (4) keep the
     member's avatar round; (5) Ruchoir's day colours in the mobile editor; (6) the member's accent on
-    what is selected or active. Remove each when the pinned engine version fixes it (see
-    infra/office/README.md). %>
+    what is selected or active; (7) tell Ruchoir once the editor wears its colours. Remove each when
+    the pinned engine version fixes it (see infra/office/README.md). %>
 <!DOCTYPE html>
 <html>
 <head runat="server">
@@ -187,6 +187,16 @@ div {
             window.addEventListener('message', fn, false);
         }
 
+        // Ruchoir patch: tell Ruchoir when the editor wears its colours (the app is ready, and a
+        // custom theme is painted, see upstream defect 2). Ruchoir keeps the frame hidden until then,
+        // so the engine's own blue theme never shows while the theme is put right.
+        var ruchoirAppReady = false, ruchoirPainted = false, ruchoirShown = false;
+        var ruchoirReveal = function () {
+            if (ruchoirShown || !ruchoirAppReady || !ruchoirPainted) return;
+            ruchoirShown = true;
+            _postMessage("Ruchoir_Painted", {});
+        };
+
         var onAppReady = function () {
             //Collabora extension field "Status"
             _postMessage('App_LoadingStatus', {
@@ -261,8 +271,56 @@ div {
                             }).join("") + "--brand-text-on-brand:#15171c!important}";
                         doc.head.appendChild(accent);
                     }
+                    // Ruchoir patch: the engine draws selected text (and found text) in one blue it
+                    // writes as is, at about a fifth of its strength, in each editor. Swap that one
+                    // colour for the accent, deepened so that at a fifth it reads like Ruchoir's own
+                    // selection (the accent at 55 % on white).
+                    var win = window.frames[i];
+                    var proto = typeof acc === "string" && /^#[0-9a-f]{6}$/i.test(acc) && win.CanvasRenderingContext2D && win.CanvasRenderingContext2D.prototype;
+                    if (proto && !proto.ruchoirSelection) {
+                        var fill = Object.getOwnPropertyDescriptor(proto, "fillStyle");
+                        var deep = "rgb(" + [1, 3, 5].map(function (k) {
+                            var c = parseInt(acc.substr(k, 2), 16);
+                            return Math.max(0, Math.min(255, Math.round(255 - 2.75 * (255 - c))));
+                        }).join(",") + ")";
+                        if (fill && fill.set) {
+                            Object.defineProperty(proto, "fillStyle", {
+                                configurable: true,
+                                enumerable: fill.enumerable,
+                                get: fill.get,
+                                set: function (value) {
+                                    fill.set.call(this, value === "rgba(51,102,204,255)" ? deep : value);
+                                }
+                            });
+                            proto.ruchoirSelection = deep;
+                        }
+                    }
+                    // Ruchoir patch: the spreadsheet frames the selected cells in its own green, one
+                    // colour all sheets share, set once the workbook is loaded (after the app is
+                    // ready). The accent there, deepened towards Ruchoir's ink so a two-pixel line
+                    // still reads on white.
+                    if (proto && /\/spreadsheeteditor\//.test(doc.location.pathname)) {
+                        (function (win, acc) {
+                            var tries = 0;
+                            var timer = setInterval(function () {
+                                if (++tries > 240) clearInterval(timer);
+                                try {
+                                    var api = win.Asc.editor;
+                                    var sheet = api.controller.view.defaults.worksheetView;
+                                    var ink = [21, 23, 28];
+                                    [1, 3, 5].forEach(function (k, n) {
+                                        sheet.activeCellBorderColor[["r", "g", "b"][n]] = Math.round(parseInt(acc.substr(k, 2), 16) * 0.55 + ink[n] * 0.45);
+                                    });
+                                    clearInterval(timer);
+                                    api.wb.getWorksheet().draw();
+                                } catch (e) {}
+                            }, 250);
+                        })(win, acc);
+                    }
                 } catch (e) {}
             }
+            ruchoirAppReady = true;
+            ruchoirReveal();
         };
 
         var sendEditNotification = function () {
@@ -509,17 +567,27 @@ div {
             // and back until the theme's sentinel colour is in force. Same origin as the editor frame.
             (function () {
                 var want = config.editorConfig && config.editorConfig.customization && config.editorConfig.customization.uiTheme;
-                if (typeof want !== "string" || want.indexOf("theme-ruchoir-") !== 0) return;
+                // The mobile editor reads no custom theme (upstream defect 10): nothing to paint.
+                if (typeof want !== "string" || want.indexOf("theme-ruchoir-") !== 0 || /[?&]mobile=1(&|$)/.test(window.location.search)) {
+                    ruchoirPainted = true;
+                    return;
+                }
                 var other = want.indexOf("-dark") > 0 ? "theme-dark" : "theme-light";
                 var tries = 0, good = 0;
                 var timer = setInterval(function () {
-                    if (++tries > 240) clearInterval(timer);
+                    if (++tries > 240) {
+                        clearInterval(timer);
+                        ruchoirPainted = true;
+                        ruchoirReveal();
+                    }
                     for (var i = 0; i < window.frames.length; i++) {
                         try {
                             var w = window.frames[i], T = w.Common && w.Common.UI && w.Common.UI.Themes;
                             if (!T || !T.map()[want] || !w.document.body) continue;
                             var painted = w.getComputedStyle(w.document.body).getPropertyValue("--ruchoir-painted").trim() === "1";
                             if (painted) {
+                                ruchoirPainted = true;
+                                ruchoirReveal();
                                 if (++good >= 6) clearInterval(timer);
                             } else {
                                 good = 0;

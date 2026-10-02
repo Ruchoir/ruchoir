@@ -3647,9 +3647,21 @@ button.wc-mhead__title {
   flex: none;
 }
 .wc-office__body {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
+}
+/* Hidden, not removed: the engine keeps loading behind the cover until it wears Ruchoir's colours. */
+.wc-office__frame--hidden {
+  opacity: 0;
+}
+.wc-office__cover {
+  position: absolute;
+  inset: 0;
+  justify-content: center;
+  max-width: none;
+  background: var(--surface);
 }
 .wc-office__frame {
   flex: 1;

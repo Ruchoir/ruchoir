@@ -1,9 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, Button, IconButton } from "@/components/ds";
+import { avatarBase64Uri } from "@/lib/avatar";
 import { useTranslation } from "@/lib/i18n";
 import { useOfficeSession } from "./useOfficeSession";
+
+/**
+ * How long the frame may stay hidden waiting for the engine's page to say it wears Ruchoir's colours
+ * (`Ruchoir_Painted`, from `infra/office/patches/editor-wopi.ejs`). Past it, the editor shows anyway:
+ * an engine without the patch still works, in its own colours.
+ */
+const REVEAL_FALLBACK_MS = 15_000;
+
+/**
+ * The engine configuration as posted: without a photo, the member's Ruchoir default avatar rather
+ * than the engine's initials. The avatar is generated in the browser, so it is added here.
+ */
+function withDefaultAvatar(config: string, name: string): string {
+  if (!name) return config;
+  try {
+    const parsed = JSON.parse(config) as { editorConfig?: { user?: { image?: string } } };
+    if (!parsed.editorConfig || parsed.editorConfig.user?.image) return config;
+    parsed.editorConfig.user = { ...parsed.editorConfig.user, image: avatarBase64Uri(name) };
+    return JSON.stringify(parsed);
+  } catch {
+    return config;
+  }
+}
 
 export type OfficeEditorProps = {
   fileId: string;
@@ -65,6 +89,22 @@ export function OfficeEditor({
 
   // Post the token into the frame for each session: the first one, and the copy's after a conversion.
   const sessionToken = state.status === "ready" ? state.session.accessToken : null;
+  const sessionConfig = state.status === "ready" ? state.session.config : "";
+  const memberName = state.status === "ready" ? state.session.memberName : "";
+  const postedConfig = useMemo(() => withDefaultAvatar(sessionConfig, memberName), [sessionConfig, memberName]);
+
+  // The frame stays hidden until the engine's page says it wears Ruchoir's colours, so its own theme
+  // never flashes while it is put right. Per session: a conversion's copy loads anew. Not while a
+  // conversion runs, whose page is the engine's own and says nothing.
+  const [paintedFor, setPaintedFor] = useState<string | null>(null);
+  const tokenRef = useRef(sessionToken);
+  useEffect(() => {
+    tokenRef.current = sessionToken;
+    if (!sessionToken) return;
+    const timer = window.setTimeout(() => setPaintedFor(sessionToken), REVEAL_FALLBACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [sessionToken]);
+  const hidden = !!sessionToken && paintedFor !== sessionToken && !(convert && !copied);
   useEffect(() => {
     if (sessionToken) formRef.current?.submit();
   }, [sessionToken]);
@@ -113,6 +153,7 @@ export function OfficeEditor({
         const id = (JSON.parse(e.data) as { MessageId?: string }).MessageId;
         if (id === "UI_Close") closeHandlerRef.current();
         if (id === "Edit_Notification") noteChange();
+        if (id === "Ruchoir_Painted") setPaintedFor(tokenRef.current);
       } catch {
         // Not a WOPI message.
       }
@@ -176,18 +217,19 @@ export function OfficeEditor({
             <form ref={formRef} action={state.session.url} method="post" target={frameName} hidden>
               <input type="hidden" name="access_token" value={state.session.accessToken} />
               <input type="hidden" name="access_token_ttl" value={String(state.session.accessTokenTtl)} />
-              <input type="hidden" name="docs_api_config" value={state.session.config} />
+              <input type="hidden" name="docs_api_config" value={postedConfig} />
             </form>
             <iframe
               ref={frameRef}
               name={frameName}
-              className="wc-office__frame"
+              className={hidden ? "wc-office__frame wc-office__frame--hidden" : "wc-office__frame"}
               title={title}
               allow={`clipboard-read ${origin}; clipboard-write ${origin}; fullscreen ${origin}`}
               // No `sandbox`: the editor prints by loading a PDF in a frame of its own, and Chrome
               // refuses to show a PDF in a sandboxed frame. The frame is another origin anyway, and
               // a browser lets it move this tab only on a click (see `useOfficeSession`'s copy).
             />
+            {hidden ? <div className="wc-office__note wc-office__cover">{t("office.opening")}</div> : null}
           </>
         ) : state.status === "loading" ? (
           <div className="wc-office__note">{t("office.opening")}</div>
