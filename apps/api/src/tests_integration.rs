@@ -9307,7 +9307,13 @@ async fn the_office_hostname_is_relayed_without_credentials_and_only_there() {
 
     let relayed = app
         .http
-        .get(format!("{}/hosting/wopi/word/edit?WOPISrc=x", app.base))
+        .get(format!(
+            "{}/hosting/wopi/word/edit?WOPISrc={}",
+            app.base,
+            format!("{}/wopi/files/{}", app.config.wopi_base_url, Uuid::new_v4())
+                .replace(':', "%3A")
+                .replace('/', "%2F")
+        ))
         .header(reqwest::header::HOST, "office.example.org")
         .header(reqwest::header::COOKIE, "__Host-ruchoir_session=secret")
         .header(reqwest::header::AUTHORIZATION, "Bearer secret")
@@ -9325,6 +9331,22 @@ async fn the_office_hostname_is_relayed_without_credentials_and_only_there() {
     assert!(seen.get("authorization").is_none());
     assert_eq!(seen["x-forwarded-host"], "office.example.org");
     assert_eq!(seen["x-forwarded-proto"], "https");
+
+    let elsewhere = app
+        .http
+        .get(format!(
+            "{}/hosting/wopi/word/edit?WOPISrc=http%3A%2F%2F192.168.1.1%2F",
+            app.base
+        ))
+        .header(reqwest::header::HOST, "office.example.org")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        elsewhere.status(),
+        404,
+        "the engine is never sent to fetch another host"
+    );
 
     let ruchoir_path = app
         .http
@@ -9410,5 +9432,50 @@ async fn a_converted_copy_takes_the_extension_the_engine_announces() {
     assert_eq!(
         body["Name"], "notes.docx",
         "the discovery's target wins over the header"
+    );
+}
+
+#[tokio::test]
+async fn a_guest_hears_nothing_of_the_files_they_cannot_read() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    let carol = app.cookie_for(fx.carol).await;
+    let mut ws = app.connect_ws(&carol).await;
+
+    let beat = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office/heartbeat"),
+            &bob,
+        )
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(beat.status(), 204);
+    let created = app
+        .req(reqwest::Method::POST, "/api/v1/files/office", &alice)
+        .json(&json!({ "space_id": fx.space_id, "kind": "document", "name": "Secret plan" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(created.status(), 201);
+
+    let mut seen = Vec::new();
+    while let Some(event) = next_event(&mut ws).await {
+        seen.push(event["type"].as_str().unwrap_or("").to_owned());
+    }
+    assert!(
+        !seen.iter().any(|t| t == "files.editing"),
+        "who edits what stays with members: {seen:?}"
+    );
+    assert!(
+        !seen.iter().any(|t| t == "files.updated"),
+        "file names stay with members: {seen:?}"
     );
 }

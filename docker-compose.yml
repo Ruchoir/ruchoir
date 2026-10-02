@@ -118,6 +118,10 @@ services:
         condition: service_healthy
       garage:
         condition: service_started
+    networks:
+      - default
+      # Shared with the office engine only, so the engine can reach the WOPI listener.
+      - office
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/healthz || exit 1"]
       interval: 15s
@@ -150,6 +154,10 @@ services:
       - ./infra/office/patches/editor-wopi.ejs:/var/www/euro-office/documentserver/web-apps/apps/api/wopi/editor-wopi.ejs:ro
       - ./infra/office/patches/visioeditor-index.html:/var/www/euro-office/documentserver/web-apps/apps/visioeditor/main/index.html:ro
     mem_limit: ${OFFICE_MEM_LIMIT:-4g}
+    # On the internal network only: no route out, so whatever a document or a crafted request asks
+    # the engine to fetch, it can reach nothing but the API.
+    networks:
+      - office
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/healthcheck || exit 1"]
       interval: 30s
@@ -157,6 +165,11 @@ services:
       retries: 5
       start_period: 120s
     restart: unless-stopped
+
+networks:
+  # The office engine's network: the API and the engine, no egress (`internal`).
+  office:
+    internal: true
 
 volumes:
   postgres-data:

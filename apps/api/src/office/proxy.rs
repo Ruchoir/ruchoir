@@ -47,7 +47,13 @@ const DROPPED: [&str; 12] = [
 pub async fn dispatch(State(state): State<AppState>, req: Request, next: Next) -> Response {
     match state.office.as_ref() {
         Some(office) if serves(office, &req) => {
-            relay(office.clone(), &state.config.public_base_url, req).await
+            relay(
+                office.clone(),
+                &state.config.public_base_url,
+                &state.config.wopi_base_url,
+                req,
+            )
+            .await
         }
         _ => next.run(req).await,
     }
@@ -71,8 +77,15 @@ pub fn serves(office: &Office, req: &Request) -> bool {
     host.eq_ignore_ascii_case(office.public_host())
 }
 
-async fn relay(office: Arc<Office>, ruchoir_origin: &str, req: Request) -> Response {
-    if !allowed(req.uri().path()) {
+async fn relay(
+    office: Arc<Office>,
+    ruchoir_origin: &str,
+    wopi_base: &str,
+    req: Request,
+) -> Response {
+    if !allowed(req.uri().path())
+        || !wopi_src_is_ours(req.uri().path(), req.uri().query(), wopi_base)
+    {
         return StatusCode::NOT_FOUND.into_response();
     }
     let websocket = req
@@ -89,7 +102,16 @@ async fn relay(office: Arc<Office>, ruchoir_origin: &str, req: Request) -> Respo
 
 /// Whether a path is one the editor needs.
 pub fn allowed(path: &str) -> bool {
-    if path.contains("/.") || path.contains("%2e") || path.contains("%2E") || path.contains('\\') {
+    // The engine's own nginx decodes and normalises the path after this check, so anything that
+    // could turn into a separator or a dot segment once decoded is refused here, encoded or not.
+    let lower = path.to_ascii_lowercase();
+    if path.contains("/.")
+        || path.contains("//")
+        || path.contains('\\')
+        || ["%2e", "%2f", "%5c"]
+            .iter()
+            .any(|encoded| lower.contains(encoded))
+    {
         return false;
     }
     const ROOTS: [&str; 5] = [
@@ -135,6 +157,54 @@ fn is_engine_version(segment: &str) -> bool {
             .all(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
         && !hash.is_empty()
         && hash.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// Whether an editor page request names one of this instance's own files. The engine fetches
+/// whatever `WOPISrc` says, server side, so anything else would turn it into a way to reach other
+/// hosts. Paths outside `/hosting/wopi/` carry no `WOPISrc` and are not concerned.
+pub fn wopi_src_is_ours(path: &str, query: Option<&str>, wopi_base: &str) -> bool {
+    if !path.starts_with("/hosting/wopi/") {
+        return true;
+    }
+    let mut sources = query
+        .unwrap_or("")
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .filter(|(name, _)| name.eq_ignore_ascii_case("wopisrc"))
+        .map(|(_, value)| percent_decode(value));
+    let (Some(Some(source)), None) = (sources.next(), sources.next()) else {
+        return false;
+    };
+    source
+        .strip_prefix(wopi_base)
+        .and_then(|rest| rest.strip_prefix("/wopi/files/"))
+        .is_some_and(|id| uuid::Uuid::parse_str(id).is_ok() && id.len() == 36)
+}
+
+/// Decode `%XX` escapes (and `+` as a space); `None` when an escape is malformed or the result is
+/// not UTF-8.
+fn percent_decode(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'%' => {
+                let hex = std::str::from_utf8(bytes.get(i + 1..i + 3)?).ok()?;
+                out.push(u8::from_str_radix(hex, 16).ok()?);
+                i += 3;
+            }
+            b'+' => {
+                out.push(b' ');
+                i += 1;
+            }
+            byte => {
+                out.push(byte);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8(out).ok()
 }
 
 /// Whether a request header may be passed on to the engine.
@@ -326,8 +396,45 @@ mod tests {
             "/9.3.4-abc/admin/",
             "/hosting/wopi/../../info/",
             "/web-apps/apps/%2e%2e/x",
+            "/hosting/wopi/x%2F..%2F..%2F..%2Fadmin/",
+            "/hosting/wopi/x%2f..%2fadmin/",
+            "/9.3.4-abc/sdkjs/x%2F..%2F..%2Fcoauthoring/CommandService.ashx",
+            "/hosting/wopi/x%5C..%5Cadmin/",
+            "/hosting/wopi//admin/",
         ] {
             assert!(!allowed(path), "{path} is not relayed");
+        }
+    }
+
+    #[test]
+    fn the_editor_page_opens_only_this_instances_files() {
+        let base = "http://api:8081";
+        let ours =
+            "WOPISrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2F0b8e4f2a-3c1d-4e5f-8a9b-0c1d2e3f4a5b";
+        assert!(wopi_src_is_ours(
+            "/hosting/wopi/word/edit",
+            Some(&format!("ui=fr-FR&{ours}")),
+            base
+        ));
+        assert!(wopi_src_is_ours(
+            "/hosting/wopi/word/edit",
+            Some(&ours.replace("WOPISrc", "wopisrc")),
+            base
+        ));
+        assert!(
+            wopi_src_is_ours("/web-apps/apps/api/documents/api.js", None, base),
+            "other paths carry none"
+        );
+        for query in [
+            None,
+            Some("ui=fr-FR"),
+            Some("WOPISrc=http%3A%2F%2Fevil.example%2Fwopi%2Ffiles%2F0b8e4f2a-3c1d-4e5f-8a9b-0c1d2e3f4a5b"),
+            Some("WOPISrc=http%3A%2F%2F192.168.1.1%2Fadmin"),
+            Some("WOPISrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2Fnot-a-uuid"),
+            Some("WOPISrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2F0b8e4f2a-3c1d-4e5f-8a9b-0c1d2e3f4a5b%2F..%2Fx"),
+            Some("WOPISrc=http%3A%2F%2Fapi%3A8081%2Fwopi%2Ffiles%2F0b8e4f2a-3c1d-4e5f-8a9b-0c1d2e3f4a5b&WOPISrc=http%3A%2F%2Fevil.example"),
+        ] {
+            assert!(!wopi_src_is_ours("/hosting/wopi/word/edit", query, base), "{query:?} is refused");
         }
     }
 
