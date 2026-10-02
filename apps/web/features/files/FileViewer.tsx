@@ -65,14 +65,20 @@ export function FileViewer({ file, kind, onClose, onDownload, onNewVersion, onDe
   const closeRef = useRef<HTMLButtonElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
 
+  // The latest `onClose`: the parent hands a fresh one on each render, and live file events make it
+  // render often. Focus moves to the way out once, on open, never again under the reader's feet.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
 
   const print = () => {
     try {

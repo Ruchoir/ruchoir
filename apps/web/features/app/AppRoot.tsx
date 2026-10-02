@@ -1425,7 +1425,8 @@ function AppShell() {
       },
       onTyping: (conv, userId) =>
         setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
-      onFilesUpdated: (spaceId, file) => emitFileEvent({ type: "updated", spaceId, file }),
+      onFilesUpdated: (spaceId, file, conversationId) =>
+        emitFileEvent({ type: "updated", spaceId, file, conversationId }),
       onFilesEditing: (spaceId, fileId, editors) => emitFileEvent({ type: "editing", spaceId, fileId, editors }),
       onFilesDeleted: (spaceId, fileIds) => {
         if (fileIds.length === 0) return;

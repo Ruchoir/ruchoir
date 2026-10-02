@@ -9,8 +9,11 @@ export type OfficeEditorProps = {
   fileId: string;
   /** Convert a legacy format into an editable copy rather than opening it as it is. */
   convert?: boolean;
-  /** This editor's own address, for the address bar and "open in a new tab" (none: no button). */
-  href?: string;
+  /**
+   * The address of a file open in the editor, for the address bar and "open in a new tab" (none: no
+   * button). Asked again when a conversion moves the editor to its copy.
+   */
+  addressOf?: (fileId: string) => string;
   onClose: () => void;
 };
 
@@ -22,9 +25,12 @@ export type OfficeEditorProps = {
  * engine is a different origin from Ruchoir on purpose (see `docs/office-editing.md`): nothing here
  * reaches into the frame.
  */
-export function OfficeEditor({ fileId, convert = false, href, onClose }: OfficeEditorProps) {
+export function OfficeEditor({ fileId, convert = false, addressOf, onClose }: OfficeEditorProps) {
   const { t } = useTranslation();
   const state = useOfficeSession(fileId, convert);
+  // The file on screen: a conversion's copy once the engine has written it, the file asked otherwise.
+  const shown = state.status === "ready" ? (state.copy ?? state.session.file) : null;
+  const href = addressOf?.(shown?.id ?? fileId);
   const formRef = useRef<HTMLFormElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const frameName = `office-${fileId}`;
@@ -69,7 +75,7 @@ export function OfficeEditor({ fileId, convert = false, href, onClose }: OfficeE
     };
   }, [href]);
 
-  const title = state.status === "ready" ? state.session.file.name : "";
+  const title = shown?.name ?? "";
   const origin = state.status === "ready" ? new URL(state.session.url).origin : "";
   const names = state.editors.map((e) => e.name).join(", ");
 

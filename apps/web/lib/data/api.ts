@@ -2036,9 +2036,9 @@ export async function createBlankDocument(
   return toSpaceFile(dto);
 }
 
-/** `POST /files/{id}/office/heartbeat`: this page is still editing the file. */
-export async function officeHeartbeat(fileId: string): Promise<void> {
-  await apiPost<void>(`/files/${fileId}/office/heartbeat`);
+/** `POST /files/{id}/office/heartbeat`: this tab is still editing the file. */
+export async function officeHeartbeat(fileId: string, tab: string): Promise<void> {
+  await apiPost<void>(`/files/${fileId}/office/heartbeat?tab=${encodeURIComponent(tab)}`);
 }
 
 /**
@@ -2046,12 +2046,21 @@ export async function officeHeartbeat(fileId: string): Promise<void> {
  *
  * `keepalive`, because it is sent as the page goes away (a closed tab) and must outlive it.
  */
-export function endOfficeHeartbeat(fileId: string): void {
-  void fetch(`/api/v1/files/${fileId}/office/heartbeat`, {
+export function endOfficeHeartbeat(fileId: string, tab: string): void {
+  void fetch(`/api/v1/files/${fileId}/office/heartbeat?tab=${encodeURIComponent(tab)}`, {
     method: "DELETE",
     credentials: "same-origin",
     keepalive: true,
   }).catch(() => {});
+}
+
+/**
+ * `GET /files/{id}/office/converted`: the copy this member's conversion of the file produced, or
+ * `null` while the engine has not written it yet.
+ */
+export async function getConvertedCopy(fileId: string): Promise<SpaceFile | null> {
+  const dto = await apiGet<FileDto | undefined>(`/files/${fileId}/office/converted`);
+  return dto ? toSpaceFile(dto) : null;
 }
 
 /** What the editor can do with a file of this name on this instance. */
@@ -2153,7 +2162,7 @@ export type RealtimeHandlers = {
   /** Files were removed from a space: anything showing them has to stop offering them. */
   onFilesDeleted?: (spaceId: string, fileIds: string[]) => void;
   /** A file gained a version, or the server created one (a blank document, a converted copy). */
-  onFilesUpdated?: (spaceId: string, file: SpaceFile) => void;
+  onFilesUpdated?: (spaceId: string, file: SpaceFile, conversationId?: string) => void;
   /** Who is editing a file in the office editor changed. */
   onFilesEditing?: (spaceId: string, fileId: string, editors: FileEditor[]) => void;
 };
@@ -2347,7 +2356,11 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         handlers.onFilesDeleted?.(String(payload.space_id), (payload.file_ids as string[]) ?? []);
         break;
       case "files.updated":
-        handlers.onFilesUpdated?.(String(payload.space_id), toSpaceFile(payload.file as unknown as FileDto));
+        handlers.onFilesUpdated?.(
+          String(payload.space_id),
+          toSpaceFile(payload.file as unknown as FileDto),
+          payload.conversation_id ? String(payload.conversation_id) : undefined,
+        );
         break;
       case "files.editing":
         handlers.onFilesEditing?.(

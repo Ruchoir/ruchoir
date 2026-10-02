@@ -8,7 +8,13 @@
 import type { FileEditor, SpaceFile } from "@/lib/data/types";
 
 export type FileEvent =
-  | { type: "updated"; spaceId: string; file: SpaceFile }
+  | {
+      type: "updated";
+      spaceId: string;
+      file: SpaceFile;
+      /** Set for a private conversation's file, which is in no folder of the space. */
+      conversationId?: string;
+    }
   | { type: "editing"; spaceId: string; fileId: string; editors: FileEditor[] };
 
 const listeners = new Set<(event: FileEvent) => void>();

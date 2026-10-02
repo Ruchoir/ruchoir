@@ -291,7 +291,9 @@ export function FilesScreen({
             if (prev.some((f) => f.id === event.file.id)) {
               return prev.map((f) => (f.id === event.file.id ? { ...event.file, editors: f.editors } : f));
             }
-            return event.file.parentFolderId === folderRef.current ? [...prev, event.file] : prev;
+            // A private conversation's file is in no folder: it never joins a listing.
+            const here = !event.conversationId && event.file.parentFolderId === folderRef.current;
+            return here ? [...prev, event.file] : prev;
           });
         } else {
           setEntries((prev) => prev.map((f) => (f.id === event.fileId ? { ...f, editors: event.editors } : f)));
@@ -986,7 +988,7 @@ export function FilesScreen({
           key={`${editing.fileId}-${editing.convert}`}
           fileId={editing.fileId}
           convert={editing.convert}
-          href={spaceSlug ? fileUrl(spaceSlug, editing.fileId, slugs ?? []) : undefined}
+          addressOf={spaceSlug ? (id) => fileUrl(spaceSlug, id, slugs ?? []) : undefined}
           onClose={() => {
             setEditing(null);
             // A conversion leaves a new file; a save, a new version.
