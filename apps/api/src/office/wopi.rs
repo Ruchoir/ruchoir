@@ -111,20 +111,45 @@ impl From<FileError> for WopiError {
     }
 }
 
+/// What a WOPI call does to the file it names.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Need {
+    /// Reads it (file info, bytes, the current lock).
+    Read,
+    /// Locks or saves it: an edit session only. A conversion never touches its original.
+    Write,
+    /// Writes a new file beside it (`PutRelativeFile`): a conversion session only.
+    Copy,
+}
+
 /// Resolve the token and check the member's rights on this file now.
 async fn authorize(
     state: &AppState,
     file_id: Uuid,
     token: &str,
-    write: bool,
+    need: Need,
 ) -> Result<(Grant, FileAccess), WopiError> {
     let grant = tokens::resolve(&state.valkey, token)
         .await?
         .ok_or(WopiError::Unauthorized)?;
-    if grant.file_id != file_id || (write && grant.mode == Mode::View) {
+    let mode_allows = match need {
+        Need::Read => true,
+        Need::Write => grant.mode == Mode::Edit,
+        Need::Copy => grant.mode == Mode::Convert,
+    };
+    if grant.file_id != file_id {
         return Err(WopiError::Unauthorized);
     }
-    let access = if write {
+    if !mode_allows {
+        // Another session's operation: refused, and named as unsupported for the copy case, which
+        // is what WOPI expects from a host that does not offer it to that session.
+        return Err(if need == Need::Copy {
+            WopiError::NotImplemented
+        } else {
+            WopiError::Unauthorized
+        });
+    }
+    let access = if need != Need::Read {
         authz::ensure_content_editable(&state.db, file_id, grant.user_id).await?
     } else {
         authz::ensure_readable(&state.db, file_id, grant.user_id).await?
@@ -142,7 +167,7 @@ async fn check_file_info(
     Path(file_id): Path<Uuid>,
     Query(access): Query<Access>,
 ) -> Result<Json<serde_json::Value>, WopiError> {
-    let (grant, access) = authorize(&state, file_id, &access.access_token, false).await?;
+    let (grant, access) = authorize(&state, file_id, &access.access_token, Need::Read).await?;
     let file = access.file;
     let version = crate::files::download::current_version(&state.db, &file).await?;
     let can_write = grant.mode != Mode::View
@@ -186,7 +211,7 @@ async fn get_file(
     Path(file_id): Path<Uuid>,
     Query(access): Query<Access>,
 ) -> Result<Response, WopiError> {
-    let (_, access) = authorize(&state, file_id, &access.access_token, false).await?;
+    let (_, access) = authorize(&state, file_id, &access.access_token, Need::Read).await?;
     let storage = state.storage.as_ref().ok_or(WopiError::Internal)?;
     let version = crate::files::download::current_version(&state.db, &access.file).await?;
     let key = version.storage_key.ok_or(WopiError::NotFound)?;
@@ -211,7 +236,7 @@ async fn put_file(
     headers: HeaderMap,
     body: Bytes,
 ) -> Result<Response, WopiError> {
-    let (grant, access) = authorize(&state, file_id, &access.access_token, true).await?;
+    let (grant, access) = authorize(&state, file_id, &access.access_token, Need::Write).await?;
     let given = header(&headers, LOCK_HEADER);
     match locks::current(&state.valkey, file_id).await? {
         Some(held) if held.lock != given => return Err(WopiError::Conflict(held.lock)),
@@ -243,7 +268,7 @@ async fn file_operation(
     let lock = header(&headers, LOCK_HEADER).to_owned();
     match operation.as_str() {
         "LOCK" => {
-            let (_, access) = authorize(&state, file_id, &access.access_token, true).await?;
+            let (_, access) = authorize(&state, file_id, &access.access_token, Need::Write).await?;
             let version = crate::files::download::current_version(&state.db, &access.file).await?;
             let old = headers
                 .get("x-wopi-oldlock")
@@ -253,15 +278,15 @@ async fn file_operation(
             lock_answer(locks::lock(&state.valkey, file_id, &lock, old, at).await?)
         }
         "REFRESH_LOCK" => {
-            authorize(&state, file_id, &access.access_token, true).await?;
+            authorize(&state, file_id, &access.access_token, Need::Write).await?;
             lock_answer(locks::refresh(&state.valkey, file_id, &lock).await?)
         }
         "UNLOCK" => {
-            authorize(&state, file_id, &access.access_token, true).await?;
+            authorize(&state, file_id, &access.access_token, Need::Write).await?;
             lock_answer(locks::unlock(&state.valkey, file_id, &lock).await?)
         }
         "GET_LOCK" => {
-            authorize(&state, file_id, &access.access_token, false).await?;
+            authorize(&state, file_id, &access.access_token, Need::Read).await?;
             let current = locks::current(&state.valkey, file_id)
                 .await?
                 .map(|held| held.lock)
@@ -292,10 +317,7 @@ async fn put_relative(
     headers: &HeaderMap,
     body: &[u8],
 ) -> Result<Response, WopiError> {
-    let (grant, access) = authorize(state, file_id, token, true).await?;
-    if grant.mode != Mode::Convert {
-        return Err(WopiError::NotImplemented);
-    }
+    let (grant, access) = authorize(state, file_id, token, Need::Copy).await?;
     let original = access.file;
     // The extension the engine announced for this conversion; the header only when it is unknown.
     let announced = state

@@ -9612,3 +9612,46 @@ async fn the_engine_is_told_ruchoirs_origin_even_with_a_trailing_slash() {
         "http://localhost:8080/brand/ruchoir-mark.png"
     );
 }
+
+#[tokio::test]
+async fn a_conversion_session_never_locks_or_writes_the_original() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let original = upload_bytes(&app, &alice, fx.space_id, "old.doc", b"old-binary").await;
+    let token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.alice,
+        original,
+        crate::office::discovery::Mode::Convert,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+
+    assert_eq!(wopi_lock(&app, original, &token, "L1").await.status(), 401);
+    assert_eq!(
+        wopi_put(&app, original, &token, "L1", b"overwritten".to_vec())
+            .await
+            .status(),
+        401
+    );
+    for operation in ["REFRESH_LOCK", "UNLOCK"] {
+        let res = wopi_req(&app, reqwest::Method::POST, original, "", &token)
+            .header("X-WOPI-Override", operation)
+            .header("X-WOPI-Lock", "L1")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 401, "{operation}");
+    }
+    let versions = file_versions::Entity::find()
+        .filter(file_versions::Column::FileId.eq(original))
+        .count(&app.db)
+        .await
+        .unwrap();
+    assert_eq!(versions, 1, "the original keeps its one version");
+}
