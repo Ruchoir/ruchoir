@@ -207,6 +207,27 @@ div {
                             + "background-size:cover;background-position:center}";
                         doc.head.appendChild(style);
                     }
+                    // Ruchoir patch (upstream defect 9): the mobile editor reads no custom theme, so
+                    // phones and tablets got the engine's own blue, green and orange. Ruchoir's day
+                    // colours, set on the variables its stylesheet uses (by night it keeps its own).
+                    if (doc && doc.head && /\/mobile\//.test(doc.location.pathname) && !doc.getElementById("ruchoir-mobile")) {
+                        var mobile = doc.createElement("style");
+                        mobile.id = "ruchoir-mobile";
+                        mobile.textContent = "body.theme-type-light{"
+                            + "--background-navbar-word:#fdfdfe;--background-navbar-cell:#fdfdfe;"
+                            + "--background-navbar-slide:#fdfdfe;--background-navbar-visio:#fdfdfe;"
+                            + "--background-navbar-pdf:#fdfdfe;--brand-word:#15171c;--brand-cell:#15171c;"
+                            + "--brand-slide:#15171c;--brand-visio:#15171c;--brand-form:#15171c;"
+                            + "--brand-primary:#15171c;--brand-text-on-brand:#fdfdfe;--toolbar-background:#fdfdfe;"
+                            + "--toolbar-icons:#15171c;--toolbar-segment:#15171c;"
+                            + "--toolbar-tab-normal:rgba(21,23,28,.5);--f7-navbar-text-color:#15171c;"
+                            + "--f7-navbar-link-color:#15171c}"
+                            + "body.theme-type-light .view-main>.navbar .title,"
+                            + "body.theme-type-light .view-main>.navbar .link,"
+                            + "body.theme-type-light .view-main>.navbar .icon{color:#15171c}"
+                            + "body.theme-type-light .view-main>.navbar .navbar-bg{border-bottom:1px solid #e2e5ea}";
+                        doc.head.appendChild(mobile);
+                    }
                 } catch (e) {}
             }
         };
