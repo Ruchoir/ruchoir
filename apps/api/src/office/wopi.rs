@@ -296,17 +296,40 @@ async fn put_relative(
     if grant.mode != Mode::Convert {
         return Err(WopiError::NotImplemented);
     }
-    let target = match header(headers, "x-wopi-suggestedtarget") {
-        "" => header(headers, "x-wopi-relativetarget"),
-        suggested => suggested,
-    };
-    let ext = target
-        .rsplit('.')
-        .next()
-        .filter(|e| !e.is_empty() && e.len() <= 8 && e.bytes().all(|b| b.is_ascii_alphanumeric()))
-        .map(|e| e.to_ascii_lowercase())
-        .ok_or(WopiError::BadRequest)?;
     let original = access.file;
+    // The extension the engine announced for this conversion; the header only when it is unknown.
+    let announced = state
+        .office
+        .as_ref()
+        .and_then(|office| office.discovery())
+        .and_then(|discovery| {
+            let (_, from) = original.name.rsplit_once('.')?;
+            Some(
+                discovery
+                    .actions(from)?
+                    .convert
+                    .as_ref()?
+                    .target_ext
+                    .clone(),
+            )
+        });
+    let ext = match announced {
+        Some(ext) => ext,
+        None => {
+            let target = match header(headers, "x-wopi-suggestedtarget") {
+                "" => header(headers, "x-wopi-relativetarget"),
+                suggested => suggested,
+            };
+            target
+                .rsplit('.')
+                .next()
+                .filter(|e| {
+                    !e.is_empty() && e.len() <= 8 && e.bytes().all(|b| b.is_ascii_alphanumeric())
+                })
+                .map(|e| e.to_ascii_lowercase())
+                .ok_or(WopiError::BadRequest)?
+        }
+    };
     let stem = original
         .name
         .rsplit_once('.')

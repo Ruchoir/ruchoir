@@ -17,7 +17,6 @@ mod http;
 mod importer;
 mod messaging;
 mod notify;
-#[allow(dead_code)] // TEMP-OFFICE
 mod office;
 mod og;
 mod openapi;

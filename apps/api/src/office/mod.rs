@@ -16,6 +16,7 @@ pub mod discovery;
 pub mod error;
 pub mod locks;
 pub mod presence;
+pub mod proxy;
 pub(crate) mod sessions;
 pub(crate) mod templates;
 pub mod tokens;

@@ -9259,3 +9259,156 @@ async fn the_space_sees_who_is_editing_a_document() {
         .unwrap();
     assert_eq!(refused.status(), 403);
 }
+
+/// A stand-in engine: answers every HTTP path with the headers it received (as JSON) and echoes
+/// WebSocket messages on `/9.3.4-abc123/doc/x/c/`. Returns its base URL.
+async fn fake_engine() -> String {
+    use axum::extract::ws::{Message as AxMessage, WebSocketUpgrade};
+    use axum::routing::{any, get};
+
+    async fn echo_headers(headers: axum::http::HeaderMap) -> axum::Json<Value> {
+        let map: serde_json::Map<String, Value> = headers
+            .iter()
+            .map(|(k, v)| {
+                (
+                    k.to_string(),
+                    Value::String(v.to_str().unwrap_or("").to_owned()),
+                )
+            })
+            .collect();
+        axum::Json(Value::Object(map))
+    }
+    async fn echo_socket(ws: WebSocketUpgrade) -> axum::response::Response {
+        ws.on_upgrade(|mut socket| async move {
+            while let Some(Ok(msg)) = socket.recv().await {
+                if let AxMessage::Text(text) = msg {
+                    let _ = socket
+                        .send(AxMessage::Text(format!("echo:{}", text.as_str()).into()))
+                        .await;
+                }
+            }
+        })
+    }
+    let app = axum::Router::new()
+        .route("/9.3.4-abc123/doc/x/c/", get(echo_socket))
+        .fallback(any(echo_headers));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    format!("http://{addr}")
+}
+
+#[tokio::test]
+async fn the_office_hostname_is_relayed_without_credentials_and_only_there() {
+    let engine = fake_engine().await;
+    let Some(app) = boot_office(|config| config.office_url = Some(engine)).await else {
+        return;
+    };
+
+    let relayed = app
+        .http
+        .get(format!("{}/hosting/wopi/word/edit?WOPISrc=x", app.base))
+        .header(reqwest::header::HOST, "office.example.org")
+        .header(reqwest::header::COOKIE, "__Host-ruchoir_session=secret")
+        .header(reqwest::header::AUTHORIZATION, "Bearer secret")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(relayed.status(), 200);
+    let csp = relayed.headers()[reqwest::header::CONTENT_SECURITY_POLICY]
+        .to_str()
+        .unwrap()
+        .to_owned();
+    assert!(csp.contains(&format!("frame-ancestors {}", app.config.public_base_url)));
+    let seen: Value = relayed.json().await.unwrap();
+    assert!(seen.get("cookie").is_none(), "no cookie reaches the engine");
+    assert!(seen.get("authorization").is_none());
+    assert_eq!(seen["x-forwarded-host"], "office.example.org");
+    assert_eq!(seen["x-forwarded-proto"], "https");
+
+    let ruchoir_path = app
+        .http
+        .get(format!("{}/api/v1/health", app.base))
+        .header(reqwest::header::HOST, "office.example.org")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        ruchoir_path.status(),
+        404,
+        "the office hostname never reaches Ruchoir's routes"
+    );
+
+    let ruchoir_host = app
+        .http
+        .get(format!("{}/hosting/wopi/word/edit", app.base))
+        .send()
+        .await
+        .unwrap();
+    let body = ruchoir_host.text().await.unwrap_or_default();
+    assert!(
+        !body.contains("x-forwarded-host"),
+        "Ruchoir's host never relays"
+    );
+}
+
+#[tokio::test]
+async fn the_coediting_socket_is_relayed_both_ways() {
+    let engine = fake_engine().await;
+    let Some(app) = boot_office(|config| config.office_url = Some(engine)).await else {
+        return;
+    };
+    let url = format!(
+        "{}/9.3.4-abc123/doc/x/c/",
+        app.base.replacen("http", "ws", 1)
+    );
+    let mut request = url.as_str().into_client_request().unwrap();
+    request
+        .headers_mut()
+        .insert("host", "office.example.org".parse().unwrap());
+    let (mut ws, _) = tokio_tungstenite::connect_async(request)
+        .await
+        .expect("connect");
+    use futures_util::SinkExt;
+    ws.send(WsMessage::Text("hello".into())).await.unwrap();
+    let reply = tokio::time::timeout(Duration::from_secs(2), ws.next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(reply.into_text().unwrap().as_str(), "echo:hello");
+}
+
+#[tokio::test]
+async fn a_converted_copy_takes_the_extension_the_engine_announces() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let original = upload_bytes(&app, &alice, fx.space_id, "notes.doc", b"old-binary").await;
+    let token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.alice,
+        original,
+        crate::office::discovery::Mode::Convert,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+
+    let res = wopi_req(&app, reqwest::Method::POST, original, "", &token)
+        .header("X-WOPI-Override", "PUT_RELATIVE")
+        .header("X-WOPI-SuggestedTarget", ".exe")
+        .body(b"converted".to_vec())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.unwrap();
+    assert_eq!(
+        body["Name"], "notes.docx",
+        "the discovery's target wins over the header"
+    );
+}

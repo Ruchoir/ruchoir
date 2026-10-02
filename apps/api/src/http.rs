@@ -218,10 +218,20 @@ pub fn router(state: AppState) -> Router {
     // created by the page from data it already holds, so it opens no remote origin and leaves the
     // no-external-request rule intact. `data:` was already allowed for the same class of reason
     // (the locally generated default avatars).
-    let csp = "default-src 'self'; base-uri 'self'; object-src 'none'; \
-               frame-ancestors 'none'; img-src 'self' data: blob:; font-src 'self'; \
-               style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; \
-               connect-src 'self'; worker-src 'self'; manifest-src 'self'";
+    //
+    // `frame-src` names the office editor's origin when live editing is on: it is the only page
+    // Ruchoir frames from elsewhere.
+    let frame_src = state
+        .office
+        .as_ref()
+        .map(|office| format!(" frame-src 'self' {};", office.public_origin()))
+        .unwrap_or_default();
+    let csp = format!(
+        "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none';{frame_src} \
+         img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; \
+         script-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; manifest-src 'self'"
+    );
+    let csp = HeaderValue::from_str(&csp).expect("a valid content security policy");
 
     // Coarse per-IP rate limit on the auth surface: a backstop above the per-account lockout.
     // `SmartIpKeyExtractor` reads a forwarded client IP behind a proxy and falls back to the
@@ -320,7 +330,7 @@ pub fn router(state: AppState) -> Router {
         // Only when the handler set none: an inline file preview carries its own (see `files::download`).
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CONTENT_SECURITY_POLICY,
-            HeaderValue::from_static(csp),
+            csp,
         ))
         .layer(set_header(header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
         .layer(set_header(header::REFERRER_POLICY, "no-referrer"))
@@ -329,7 +339,13 @@ pub fn router(state: AppState) -> Router {
             "geolocation=(), camera=(), microphone=()",
         ))
         .layer(TraceLayer::new_for_http())
-        .with_state(state)
+        .with_state(state.clone())
+        // Outermost: the office editor's hostname is relayed whole and never reaches the layers
+        // and routes above (see `office::proxy`).
+        .layer(axum::middleware::from_fn_with_state(
+            state,
+            crate::office::proxy::dispatch,
+        ))
 }
 
 /// Serve the single-page application for a path that is not a file in the bundle.
