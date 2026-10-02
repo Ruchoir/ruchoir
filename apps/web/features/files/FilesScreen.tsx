@@ -5,12 +5,20 @@ import { FileViewer, viewerKind } from "./FileViewer";
 import { ImageViewer } from "./ImageViewer";
 import { Avatar, brandFor, Button, Card, Checkbox, Dialog, EmptyState, Field, FileIcon, Icon, IconButton, Input, Skeleton, SkeletonGroup, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
+import type { OfficeCapabilities } from "@/lib/data/types";
+import { onFileEvent } from "@/lib/fileEvents";
+import { fileUrl } from "@/lib/spaceUrl";
+import { EditingBadge } from "@/features/office/EditingBadge";
+import { NewDocumentMenu } from "@/features/office/NewDocumentMenu";
+import { OfficeEditor } from "@/features/office/OfficeEditor";
 import {
   createFolder as apiCreateFolder,
   deleteFile,
   fileDownloadUrl,
   filePreviewUrl,
   getFolder,
+  getInstanceCapabilities,
+  officeActionFor,
   updateFile,
   uploadFile,
   uploadFileVersion,
@@ -138,10 +146,28 @@ export type FilesScreenProps = {
   /** A phone: the way back to the tabs, at the start of the heading. */
   onBack?: () => void;
   compact?: boolean;
+  /** The space's slug, for the editor's own address (none: the address is left alone). */
+  spaceSlug?: string;
+  /** Every slug the account belongs to, which decides the address's form. */
+  slugs?: string[];
+  /** A file an address asked to open in the editor. */
+  openFileId?: string | null;
+  /** The file of `openFileId` was opened: the caller forgets it. */
+  onOpenFileHandled?: () => void;
 };
 
 /** The space files view, backed by the API (folder tree, upload, download, preview). */
-export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false, onBack }: FilesScreenProps) {
+export function FilesScreen({
+  spaceId,
+  workspaceName,
+  onNotify,
+  compact = false,
+  onBack,
+  spaceSlug,
+  slugs,
+  openFileId,
+  onOpenFileHandled,
+}: FilesScreenProps) {
   const { t } = useTranslation();
 
   const [entries, setEntries] = useState<SpaceFile[]>([]);
@@ -219,6 +245,51 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
     setQ("");
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [load]);
+
+  // What the office editor opens here, if the instance has one.
+  const [office, setOffice] = useState<OfficeCapabilities | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    getInstanceCapabilities()
+      .then((caps) => !cancelled && setOffice(caps.office.enabled ? caps.office : null))
+      .catch(() => !cancelled && setOffice(null));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  /** The file open in the editor, and whether it is being converted rather than opened. */
+  const [editing, setEditing] = useState<{ fileId: string; convert: boolean } | null>(null);
+
+  // An address that named a file (`/e/<space>/f/<file>`) opens it in the editor once.
+  useEffect(() => {
+    if (!openFileId) return;
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
+    setEditing({ fileId: openFileId, convert: false });
+    onOpenFileHandled?.();
+  }, [openFileId, onOpenFileHandled]);
+
+  // Live: a new version, a file created by the server, who is editing what.
+  const folderRef = useRef(folderId);
+  useEffect(() => {
+    folderRef.current = folderId;
+  });
+  useEffect(
+    () =>
+      onFileEvent((event) => {
+        if (event.spaceId !== spaceId) return;
+        if (event.type === "updated") {
+          setEntries((prev) => {
+            if (prev.some((f) => f.id === event.file.id)) {
+              return prev.map((f) => (f.id === event.file.id ? { ...event.file, editors: f.editors } : f));
+            }
+            return event.file.parentFolderId === folderRef.current ? [...prev, event.file] : prev;
+          });
+        } else {
+          setEntries((prev) => prev.map((f) => (f.id === event.fileId ? { ...f, editors: event.editors } : f)));
+        }
+      }),
+    [spaceId],
+  );
 
   const currentFolderName = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].name : null;
   const parentId = breadcrumb.length > 1 ? breadcrumb[breadcrumb.length - 2].id : undefined;
@@ -430,6 +501,17 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
         <Button size="sm" iconLeft="folder-plus" onClick={() => setFolderOpen(true)} style={{ flexShrink: 0 }}>
           {t("files.newFolder")}
         </Button>
+        {office ? (
+          <NewDocumentMenu
+            spaceId={spaceId}
+            folderId={folderId}
+            onNotify={onNotify}
+            onCreated={(file) => {
+              load(folderId);
+              if (file.id) setEditing({ fileId: file.id, convert: false });
+            }}
+          />
+        ) : null}
         <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()} style={{ flexShrink: 0 }}>
           {t("files.upload")}
         </Button>
@@ -603,6 +685,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
                 <div title={f.name} style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
                   {truncateMiddle(f.name)}
                 </div>
+                <EditingBadge editors={f.editors} />
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
                   <Avatar name={f.by} src={getAvatar(f.by)} size={18} />
                   <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by}</span>
@@ -750,6 +833,20 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
               setPreview(null);
               setPendingDelete([target]);
             },
+            onEdit:
+              officeActionFor(target.name, office) === "edit"
+                ? () => {
+                    setPreview(null);
+                    setEditing({ fileId: target.id!, convert: false });
+                  }
+                : undefined,
+            onConvert:
+              officeActionFor(target.name, office) === "convert"
+                ? () => {
+                    setPreview(null);
+                    setEditing({ fileId: target.id!, convert: true });
+                  }
+                : undefined,
           };
           const kind = viewerKind(target.name);
           return kind ? (
@@ -789,6 +886,24 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
                 </Tag>
               ) : null}
               <div style={{ flex: 1 }} />
+              {preview?.id && officeActionFor(preview.name, office) ? (
+                <Button
+                  variant="primary"
+                  iconLeft={officeActionFor(preview.name, office) === "view" ? "eye" : "square-pen"}
+                  onClick={() => {
+                    const id = preview.id!;
+                    const convert = officeActionFor(preview.name, office) === "convert";
+                    setPreview(null);
+                    setEditing({ fileId: id, convert });
+                  }}
+                >
+                  {officeActionFor(preview.name, office) === "view"
+                    ? t("office.openInEditor")
+                    : officeActionFor(preview.name, office) === "convert"
+                      ? t("office.convert")
+                      : t("message.edit")}
+                </Button>
+              ) : null}
               {preview.id ? (
                 <Button
                   iconLeft="upload"
@@ -856,6 +971,20 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
           </div>
         ) : null}
       </Dialog>
+
+      {editing ? (
+        <OfficeEditor
+          key={`${editing.fileId}-${editing.convert}`}
+          fileId={editing.fileId}
+          convert={editing.convert}
+          href={spaceSlug ? fileUrl(spaceSlug, editing.fileId, slugs ?? []) : undefined}
+          onClose={() => {
+            setEditing(null);
+            // A conversion leaves a new file; a save, a new version.
+            load(folderId);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -906,6 +1035,7 @@ function FileRow({
           <span style={{ fontWeight: 500, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {f.name}
           </span>
+          <EditingBadge editors={f.editors} size={16} />
         </span>
       </td>
       <td style={styles.td}>{f.version ? <Tag mono tone="info">{f.version}</Tag> : null}</td>

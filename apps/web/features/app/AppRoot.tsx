@@ -538,6 +538,9 @@ function AppShell() {
 
   const [ws, setWs] = useState("");
   const [view, setView] = useState<AppView>("channel");
+  /** A file an address named (`/e/<space>/f/<file>`), opened in the editor once the files show. */
+  const [openFileId, setOpenFileId] = useState<string | null>(null);
+  const clearOpenFileId = useCallback(() => setOpenFileId(null), []);
   // The view to restore when the full-screen preferences are closed (they are opened from menus, not the nav).
   const [prevView, setPrevView] = useState<AppView>("channel");
   // Which preferences section to land on when the full-screen preferences open.
@@ -875,6 +878,11 @@ function AppShell() {
     }
     const landing = wanted ?? spaces[0];
     await loadSpace(landing?.id ?? "", wanted ? target?.channelName : undefined, landing?.defaultChannelId);
+    // An address naming a file opens the files of its space, then the file in the editor.
+    if (wanted && target?.fileId) {
+      setView("files");
+      setOpenFileId(target.fileId);
+    }
     return spaces;
   }, [loadSpace]);
 
@@ -3926,6 +3934,10 @@ function AppShell() {
           compact={compact}
           onBack={compact ? backToTabs : undefined}
           onNotify={showToast}
+          spaceSlug={workspaces.find((w) => w.id === ws)?.slug}
+          slugs={workspaces.map((w) => w.slug)}
+          openFileId={openFileId}
+          onOpenFileHandled={clearOpenFileId}
         />
       ) : null}
       {contentView === "settings" ? (

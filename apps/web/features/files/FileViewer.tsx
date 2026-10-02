@@ -45,6 +45,10 @@ export type ViewerActions = {
   onDownload: () => void;
   onNewVersion: () => void;
   onDelete: () => void;
+  /** Open the file in the office editor (absent: not offered). */
+  onEdit?: () => void;
+  /** Convert a legacy format into an editable copy (absent: not offered). */
+  onConvert?: () => void;
 };
 
 export type FileViewerProps = ViewerActions & {
@@ -56,7 +60,7 @@ export type FileViewerProps = ViewerActions & {
  * A document shown across the whole window, without leaving the app: the document on the left, a
  * side panel with its details and actions on the right, and the way out at the top right.
  */
-export function FileViewer({ file, kind, onClose, onDownload, onNewVersion, onDelete }: FileViewerProps) {
+export function FileViewer({ file, kind, onClose, onDownload, onNewVersion, onDelete, onEdit, onConvert }: FileViewerProps) {
   const { t } = useTranslation();
   const closeRef = useRef<HTMLButtonElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -129,7 +133,17 @@ export function FileViewer({ file, kind, onClose, onDownload, onNewVersion, onDe
             ) : null}
           </dl>
           <div className="wc-viewer__actions">
-            <Button variant="primary" iconLeft="download" fullWidth onClick={onDownload}>
+            {onEdit ? (
+              <Button variant="primary" iconLeft="square-pen" fullWidth onClick={onEdit}>
+                {t("message.edit")}
+              </Button>
+            ) : null}
+            {onConvert ? (
+              <Button iconLeft="refresh-cw" fullWidth onClick={onConvert} title={t("office.convertHint")}>
+                {t("office.convert")}
+              </Button>
+            ) : null}
+            <Button variant={onEdit ? "secondary" : "primary"} iconLeft="download" fullWidth onClick={onDownload}>
               {t("message.download")}
             </Button>
             <Button iconLeft="printer" fullWidth onClick={print}>
