@@ -2046,12 +2046,15 @@ export async function officeHeartbeat(fileId: string, tab: string): Promise<void
  *
  * `keepalive`, because it is sent as the page goes away (a closed tab) and must outlive it.
  */
-export function endOfficeHeartbeat(fileId: string, tab: string): void {
-  void fetch(`/api/v1/files/${fileId}/office/heartbeat?tab=${encodeURIComponent(tab)}`, {
+export function endOfficeHeartbeat(fileId: string, tab: string): Promise<void> {
+  return fetch(`/api/v1/files/${fileId}/office/heartbeat?tab=${encodeURIComponent(tab)}`, {
     method: "DELETE",
     credentials: "same-origin",
     keepalive: true,
-  }).catch(() => {});
+  }).then(
+    () => undefined,
+    () => undefined,
+  );
 }
 
 /**

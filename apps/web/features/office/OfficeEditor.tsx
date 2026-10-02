@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Avatar, Button, IconButton } from "@/components/ds";
 import { useTranslation } from "@/lib/i18n";
 import { useOfficeSession } from "./useOfficeSession";
@@ -27,7 +27,7 @@ export type OfficeEditorProps = {
  */
 export function OfficeEditor({ fileId, convert = false, addressOf, onClose }: OfficeEditorProps) {
   const { t } = useTranslation();
-  const state = useOfficeSession(fileId, convert);
+  const { state, leave } = useOfficeSession(fileId, convert);
   // The file on screen: a conversion's copy once the engine has written it, the file asked otherwise.
   const shown = state.status === "ready" ? (state.copy ?? state.session.file) : null;
   const href = addressOf?.(shown?.id ?? fileId);
@@ -45,13 +45,24 @@ export function OfficeEditor({ fileId, convert = false, addressOf, onClose }: Of
   useEffect(() => {
     onCloseRef.current = onClose;
   });
+  // Closing says goodbye first and waits for it (see `useOfficeSession`'s `leave`), once.
+  const closingRef = useRef(false);
+  const close = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    void leave().finally(() => onCloseRef.current());
+  }, [leave]);
+  const closeHandlerRef = useRef(close);
+  useEffect(() => {
+    closeHandlerRef.current = close;
+  });
 
   // Focus the way out once, when the editor opens: never again, or a member typing in the document
   // would lose the keyboard whenever anything happened elsewhere in the app.
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
+      if (e.key === "Escape") closeHandlerRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -95,7 +106,7 @@ export function OfficeEditor({ fileId, convert = false, addressOf, onClose }: Of
         {href ? (
           <IconButton icon="external-link" label={t("image.openInNewTab", { name: title || t("office.editor") })} onClick={() => window.open(href, "_blank", "noopener")} />
         ) : null}
-        <IconButton ref={closeRef} icon="x" label={t("common.close")} onClick={onClose} />
+        <IconButton ref={closeRef} icon="x" label={t("common.close")} onClick={close} />
       </div>
       <div className="wc-office__body">
         {state.status === "ready" ? (
@@ -124,7 +135,7 @@ export function OfficeEditor({ fileId, convert = false, addressOf, onClose }: Of
                   ? t("office.unsupported")
                   : `${t("office.unavailable")} ${t("common.tryAgain")}`}
             </span>
-            <Button onClick={onClose}>{t("common.close")}</Button>
+            <Button onClick={close}>{t("common.close")}</Button>
           </div>
         )}
       </div>

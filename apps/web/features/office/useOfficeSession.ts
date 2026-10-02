@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { endOfficeHeartbeat, getConvertedCopy, officeHeartbeat, openOfficeSession } from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
 import type { FileEditor, OfficeSession, SpaceFile } from "@/lib/data/types";
@@ -37,7 +37,10 @@ function newTabId(): string {
  * is. In a conversion, find the copy the engine writes and report editing that instead. Says goodbye
  * when the editor closes and when the page goes away.
  */
-export function useOfficeSession(fileId: string, convert: boolean): OfficeSessionState {
+export function useOfficeSession(
+  fileId: string,
+  convert: boolean,
+): { state: OfficeSessionState; leave: () => Promise<void> } {
   const [state, setState] = useState<OfficeSessionState>({ status: "loading", editors: [] });
   const [tab] = useState(newTabId);
 
@@ -82,15 +85,22 @@ export function useOfficeSession(fileId: string, convert: boolean): OfficeSessio
 
   /** The file this tab is editing: the original in an edit session, a conversion's copy once known. */
   const editedId = mode === "edit" ? fileId : (copy?.id ?? null);
+  const editedRef = useRef<string | null>(null);
+  /** Set once this tab said goodbye itself, so tearing down does not say it twice. */
+  const leftRef = useRef(false);
 
   useEffect(() => {
+    editedRef.current = editedId;
     if (!editedId) return;
+    leftRef.current = false;
     const beat = () => {
-      void officeHeartbeat(editedId, tab).catch(() => {});
+      if (!leftRef.current) void officeHeartbeat(editedId, tab).catch(() => {});
     };
     beat();
     const timer = window.setInterval(beat, HEARTBEAT_MS);
-    const bye = () => endOfficeHeartbeat(editedId, tab);
+    const bye = () => {
+      if (!leftRef.current) void endOfficeHeartbeat(editedId, tab);
+    };
     window.addEventListener("pagehide", bye);
     return () => {
       window.clearInterval(timer);
@@ -98,6 +108,18 @@ export function useOfficeSession(fileId: string, convert: boolean): OfficeSessio
       bye();
     };
   }, [editedId, tab]);
+
+  /**
+   * Say goodbye and wait until the API has it. Closing the editor goes through here before the file
+   * list reloads: a reload that overtook the goodbye would show this tab still editing, and nothing
+   * would correct it afterwards.
+   */
+  const leave = useCallback(async () => {
+    const edited = editedRef.current;
+    if (!edited || leftRef.current) return;
+    leftRef.current = true;
+    await endOfficeHeartbeat(edited, tab);
+  }, [tab]);
 
   useEffect(
     () =>
@@ -109,5 +131,5 @@ export function useOfficeSession(fileId: string, convert: boolean): OfficeSessio
     [editedId],
   );
 
-  return state;
+  return { state, leave };
 }
