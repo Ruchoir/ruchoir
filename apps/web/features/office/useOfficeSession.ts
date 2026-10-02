@@ -91,8 +91,30 @@ export function useOfficeSession(
     };
   }, [awaitingCopy, fileId]);
 
-  /** The file this tab is editing: the session's own file, once it is an edit session. */
-  const editedId = state.status === "ready" && state.session.mode === "edit" ? (state.session.file.id ?? null) : null;
+  /** The file this tab may edit: the session's own file, once it is an edit session. */
+  const editableId = state.status === "ready" && state.session.mode === "edit" ? (state.session.file.id ?? null) : null;
+  const engineOrigin = state.status === "ready" ? new URL(state.session.url).origin : null;
+
+  // Opening a document is not editing it: the tab counts as editing (heartbeat, badge, band) from the
+  // first change the editor reports (`Edit_Notification`, posted by the engine's page when the
+  // document changes; WOPI's `EditNotificationPostMessage`), so a member who only reads is not shown.
+  const [changedId, setChangedId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!engineOrigin || !editableId) return;
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== engineOrigin || typeof e.data !== "string") return;
+      try {
+        if ((JSON.parse(e.data) as { MessageId?: string }).MessageId === "Edit_Notification") setChangedId(editableId);
+      } catch {
+        // Not a WOPI message.
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [engineOrigin, editableId]);
+
+  /** The file this tab is editing: the editable file, once it has changed here. */
+  const editedId = editableId && changedId === editableId ? editableId : null;
   const editedRef = useRef<string | null>(null);
   /** Set once this tab said goodbye itself, so tearing down does not say it twice. */
   const leftRef = useRef(false);
@@ -132,11 +154,11 @@ export function useOfficeSession(
   useEffect(
     () =>
       onFileEvent((event) => {
-        if (event.type === "editing" && event.fileId === editedId) {
+        if (event.type === "editing" && event.fileId === (editableId ?? fileId)) {
           setState((prev) => ({ ...prev, editors: event.editors }));
         }
       }),
-    [editedId],
+    [editableId, fileId],
   );
 
   return { state, leave };

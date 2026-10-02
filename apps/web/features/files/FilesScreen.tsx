@@ -312,6 +312,17 @@ export function FilesScreen({
   const openEntry = (f: SpaceFile) => {
     if (f.kind === "folder") {
       if (f.id) load(f.id);
+      return;
+    }
+    // A Word, Excel or PowerPoint file opens straight in the editor, as in any office suite; so does
+    // a format only the editor can show (a Visio drawing). Everything else, and a PDF, is previewed,
+    // where the editor stays one button away.
+    const action = officeActionFor(f.name, office);
+    const opensInEditor =
+      (action === "edit" && viewerKind(f.name) === "office") ||
+      (action === "view" && !viewerKind(f.name) && !isImage(f.name));
+    if (f.id && opensInEditor) {
+      setEditing({ fileId: f.id, convert: false });
     } else {
       setPreview(f);
     }
@@ -989,6 +1000,12 @@ export function FilesScreen({
           fileId={editing.fileId}
           convert={editing.convert}
           addressOf={spaceSlug ? (id) => fileUrl(spaceSlug, id, slugs ?? []) : undefined}
+          onUnavailable={() => {
+            // The engine is down: show the file the way it was shown before live editing.
+            const file = entries.find((f) => f.id === editing.fileId);
+            setEditing(null);
+            if (file) setPreview(file);
+          }}
           onClose={() => {
             setEditing(null);
             // A conversion leaves a new file; a save, a new version.

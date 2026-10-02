@@ -230,7 +230,10 @@ answers its WOPI address. The editor continues on the copy. The original is neve
 
 ### Who is editing (`presence.rs`)
 
-Each open editor tab sends a heartbeat carrying a random tab id; the API keeps `office:editing:<file>`
+Opening a document is not editing it: a tab starts reporting only from the first change the editor
+makes (the engine's page posts `Edit_Notification` to Ruchoir's page, which CheckFileInfo asks for
+with `EditNotificationPostMessage`), so a member who only reads is shown nowhere. From then on, each
+editing tab sends a heartbeat carrying a random tab id; the API keeps `office:editing:<file>`
 in Valkey (a set of `<member>:<tab>` entries, each alive while its `office:beat:…` key, renewed by
 the heartbeat, lives: 60 s). A member edits while any of their tabs beats, so closing one of two tabs
 changes nothing. When the set of members changes, the members of the space (not its guests, who
@@ -262,8 +265,12 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   asking for a name, then opening the editor on the new file.
 - **`EditingBadge.tsx`:** the "being edited by …" mark on a row of the file list, fed by the
   listing and the `files.editing` event.
-- **The viewer (#70)** gains **Edit** (editable format, member may edit) and **Convert to edit**
-  (convertible format). Reading keeps the existing PDF preview.
+- **Opening a file:** a Word, Excel or PowerPoint file (or OpenDocument) opens straight in the
+  editor, as in any office suite, in view mode for whoever may not edit; so does a format only the
+  editor shows (a Visio drawing). A PDF, a text file and everything else keep the preview (#70),
+  which gains **Edit** (editable format, member may edit) and **Convert to edit** (convertible
+  format, for which conversion stays a deliberate act). When the editor cannot be reached, a file
+  that would open in it falls back to the preview.
 - **Address:** `/e/<space>/f/<file>` opens the editor on that file (read once at load, like the
   space and channel addresses in `lib/spaceUrl.ts`), which is what "open in a new tab", a reload and
   a shared link land on.

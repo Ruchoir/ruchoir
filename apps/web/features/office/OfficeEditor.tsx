@@ -14,6 +14,8 @@ export type OfficeEditorProps = {
    * button). Asked again when a conversion moves the editor to its copy.
    */
   addressOf?: (fileId: string) => string;
+  /** The editor cannot be reached right now: the caller shows the file another way (none: a note). */
+  onUnavailable?: () => void;
   onClose: () => void;
 };
 
@@ -25,7 +27,7 @@ export type OfficeEditorProps = {
  * engine is a different origin from Ruchoir on purpose (see `docs/office-editing.md`): nothing here
  * reaches into the frame.
  */
-export function OfficeEditor({ fileId, convert = false, addressOf, onClose }: OfficeEditorProps) {
+export function OfficeEditor({ fileId, convert = false, addressOf, onUnavailable, onClose }: OfficeEditorProps) {
   const { t } = useTranslation();
   const { state, leave } = useOfficeSession(fileId, convert);
   // The file on screen: a conversion's copy once the engine has written it, the file asked otherwise.
@@ -34,6 +36,16 @@ export function OfficeEditor({ fileId, convert = false, addressOf, onClose }: Of
   const formRef = useRef<HTMLFormElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const frameName = `office-${fileId}`;
+
+  // The engine down: hand the file back to the caller once, rather than showing an error.
+  const unavailable = state.status === "error" && state.reason === "unavailable";
+  const onUnavailableRef = useRef(onUnavailable);
+  useEffect(() => {
+    onUnavailableRef.current = onUnavailable;
+  });
+  useEffect(() => {
+    if (unavailable) onUnavailableRef.current?.();
+  }, [unavailable]);
 
   // Post the token into the frame for each session: the first one, and the copy's after a conversion.
   const sessionToken = state.status === "ready" ? state.session.accessToken : null;
