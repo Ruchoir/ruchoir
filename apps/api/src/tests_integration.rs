@@ -9694,3 +9694,155 @@ async fn a_blank_documents_name_is_tidied_and_never_too_long() {
         assert!(name.ends_with(expected_suffix), "{name}");
     }
 }
+
+/// A heartbeat of the office editor from one tab.
+async fn office_beat(
+    app: &TestApp,
+    cookie: &str,
+    file_id: Uuid,
+    method: reqwest::Method,
+    tab: &str,
+) -> u16 {
+    app.req(
+        method,
+        &format!("/api/v1/files/{file_id}/office/heartbeat?tab={tab}"),
+        cookie,
+    )
+    .send()
+    .await
+    .unwrap()
+    .status()
+    .as_u16()
+}
+
+/// Who the folder listing says is editing `file_id`.
+async fn listed_editors(app: &TestApp, cookie: &str, space_id: Uuid, file_id: Uuid) -> Vec<String> {
+    let listing: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space_id}/files"),
+            cookie,
+        )
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    listing["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == file_id.to_string())
+        .and_then(|e| e["editors"].as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .map(|e| e["id"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[tokio::test]
+async fn closing_one_tab_keeps_a_member_editing_in_another() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "tab-a").await,
+        204
+    );
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "tab-b").await,
+        204
+    );
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::DELETE, "tab-a").await,
+        204
+    );
+    assert_eq!(
+        listed_editors(&app, &alice, fx.space_id, file_id).await,
+        vec![fx.bob.to_string()]
+    );
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::DELETE, "tab-b").await,
+        204
+    );
+    assert!(listed_editors(&app, &alice, fx.space_id, file_id)
+        .await
+        .is_empty());
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "not a tab!").await,
+        400,
+        "a tab id is short and plain"
+    );
+}
+
+#[tokio::test]
+async fn a_crashed_editor_leaves_the_badge_without_anyone_reloading() {
+    use fred::interfaces::KeysInterface;
+
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "tab-a").await,
+        204
+    );
+    let mut ws = app.connect_ws(&alice).await;
+
+    // The tab died: no goodbye, and its heartbeat lapses.
+    let _: i64 = app
+        .valkey
+        .del(format!("office:beat:{file_id}:{}:tab-a", fx.bob).as_str())
+        .await
+        .unwrap();
+    crate::office::presence::sweep_once(&app.state).await;
+
+    let left = next_event_of(&mut ws, "files.editing")
+        .await
+        .expect("the space hears it");
+    assert_eq!(left["payload"]["file_id"], file_id.to_string());
+    assert_eq!(left["payload"]["editors"].as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn a_listing_names_each_files_editors() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let plan = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let budget = upload_bytes(&app, &alice, fx.space_id, "budget.xlsx", b"PK").await;
+    let quiet = upload_bytes(&app, &alice, fx.space_id, "quiet.pptx", b"PK").await;
+    assert_eq!(
+        office_beat(&app, &bob, plan, reqwest::Method::POST, "t1").await,
+        204
+    );
+    assert_eq!(
+        office_beat(&app, &carol, budget, reqwest::Method::POST, "t2").await,
+        204
+    );
+
+    assert_eq!(
+        listed_editors(&app, &alice, fx.space_id, plan).await,
+        vec![fx.bob.to_string()]
+    );
+    assert_eq!(
+        listed_editors(&app, &alice, fx.space_id, budget).await,
+        vec![fx.carol.to_string()]
+    );
+    assert!(listed_editors(&app, &alice, fx.space_id, quiet)
+        .await
+        .is_empty());
+}

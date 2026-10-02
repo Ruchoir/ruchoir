@@ -162,11 +162,16 @@ pub async fn list_folder(
     let mut entries = super::hydrate_files(&state.db, rows).await?;
     // Who is editing what, when live editing is on. A Valkey hiccup costs the badge, not the list.
     if state.office.is_some() {
-        for entry in entries.iter_mut().filter(|e| !e.is_folder) {
-            let ids = crate::office::presence::editors(&state.valkey, entry.id)
-                .await
-                .unwrap_or_default();
-            entry.editors = crate::office::presence::named(&state.db, ids).await;
+        let ids: Vec<Uuid> = entries
+            .iter()
+            .filter(|e| !e.is_folder)
+            .map(|e| e.id)
+            .collect();
+        let mut editing = crate::office::presence::named_editors_of(&state.valkey, &state.db, &ids)
+            .await
+            .unwrap_or_default();
+        for entry in entries.iter_mut() {
+            entry.editors = editing.remove(&entry.id).unwrap_or_default();
         }
     }
     Ok(Json(FolderListing {

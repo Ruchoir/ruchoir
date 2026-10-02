@@ -274,6 +274,14 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     // The unread-notification email fallback: a sweep a minute, in the background.
     notify::email::spawn(state.clone());
+    // Who is editing what: a tab that died without a goodbye leaves the file lists by itself.
+    if state.office.is_some() {
+        office::presence::spawn_sweep(state.clone());
+    }
+    // Who is editing what: a tab that died without a goodbye leaves the file lists by itself.
+    if state.office.is_some() {
+        office::presence::spawn_sweep(state.clone());
+    }
 
     tracing::info!(
         addr = %state.config.addr,

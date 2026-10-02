@@ -221,23 +221,15 @@ pub(crate) async fn file_audience(
                 Err(_) => Vec::new(),
             }
         }
-        None => {
-            let members = crate::messaging::authz::space_member_ids(db, file.space_id, actor)
-                .await
-                .unwrap_or_default();
-            let guests: std::collections::HashSet<Uuid> = space_members::Entity::find()
-                .filter(space_members::Column::SpaceId.eq(file.space_id))
-                .filter(space_members::Column::Role.eq("guest"))
-                .all(db)
-                .await
-                .map(|rows| rows.into_iter().map(|m| m.user_id).collect())
-                // When the roles cannot be read, nobody hears of it rather than a guest.
-                .unwrap_or_else(|_| members.iter().copied().collect());
-            members
-                .into_iter()
-                .filter(|id| !guests.contains(id))
-                .collect()
-        }
+        // The space's members other than its guests. Read directly rather than through the actor,
+        // so a change nobody made (an editor's tab lapsing) still reaches them.
+        None => space_members::Entity::find()
+            .filter(space_members::Column::SpaceId.eq(file.space_id))
+            .filter(space_members::Column::Role.ne("guest"))
+            .all(db)
+            .await
+            .map(|rows| rows.into_iter().map(|m| m.user_id).collect())
+            .unwrap_or_default(),
     }
 }
 

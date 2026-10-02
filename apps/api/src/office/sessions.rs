@@ -1,6 +1,6 @@
 //! The public, authenticated side: open a file in the editor, create a blank document.
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde::{Deserialize, Serialize};
@@ -235,12 +235,22 @@ fn extension(name: &str) -> Option<String> {
     (!ext.is_empty()).then(|| ext.to_ascii_lowercase())
 }
 
-/// The payload of `files.editing`.
-#[derive(Serialize)]
-struct FilesEditingEvent {
-    space_id: Uuid,
-    file_id: Uuid,
-    editors: Vec<crate::files::dto::EditorDto>,
+/// Which editor tab a heartbeat comes from: a member may have the same file open in several.
+#[derive(Debug, Deserialize, utoipa::IntoParams)]
+pub struct HeartbeatQuery {
+    /// A random id the tab keeps for its life (letters, digits, `-`, `_`; at most 64).
+    pub tab: Option<String>,
+}
+
+impl HeartbeatQuery {
+    fn tab(&self) -> Result<&str, OfficeError> {
+        let tab = self.tab.as_deref().unwrap_or("page");
+        if super::presence::valid_tab(tab) {
+            Ok(tab)
+        } else {
+            Err(FileError::BadRequest("invalid tab id").into())
+        }
+    }
 }
 
 /// `POST /api/v1/files/{file_id}/office/heartbeat`: the editor page is still open.
@@ -248,18 +258,24 @@ struct FilesEditingEvent {
     post,
     path = "/api/v1/files/{file_id}/office/heartbeat",
     tag = "office",
-    params(("file_id" = Uuid, Path, description = "File id")),
-    responses((status = 204, description = "Noted"), (status = 403, description = "May not edit this file"))
+    params(("file_id" = Uuid, Path, description = "File id"), HeartbeatQuery),
+    responses(
+        (status = 204, description = "Noted"),
+        (status = 400, description = "Invalid tab id"),
+        (status = 403, description = "May not edit this file")
+    )
 )]
 pub async fn heartbeat(
     State(state): State<AppState>,
     session: AuthSession,
     Path(file_id): Path<Uuid>,
+    Query(query): Query<HeartbeatQuery>,
 ) -> Result<StatusCode, OfficeError> {
     state.office.as_ref().ok_or(OfficeError::Disabled)?;
+    let tab = query.tab()?;
     let access = authz::ensure_content_editable(&state.db, file_id, session.user_id).await?;
-    if super::presence::beat(&state.valkey, file_id, session.user_id).await? {
-        publish_editing(&state, &access.file, session.user_id).await;
+    if super::presence::beat(&state.valkey, file_id, session.user_id, tab).await? {
+        super::presence::publish(&state, &access.file, session.user_id).await;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -269,37 +285,20 @@ pub async fn heartbeat(
     delete,
     path = "/api/v1/files/{file_id}/office/heartbeat",
     tag = "office",
-    params(("file_id" = Uuid, Path, description = "File id")),
-    responses((status = 204, description = "Noted"))
+    params(("file_id" = Uuid, Path, description = "File id"), HeartbeatQuery),
+    responses((status = 204, description = "Noted"), (status = 400, description = "Invalid tab id"))
 )]
 pub async fn end_heartbeat(
     State(state): State<AppState>,
     session: AuthSession,
     Path(file_id): Path<Uuid>,
+    Query(query): Query<HeartbeatQuery>,
 ) -> Result<StatusCode, OfficeError> {
     state.office.as_ref().ok_or(OfficeError::Disabled)?;
+    let tab = query.tab()?;
     let access = authz::ensure_readable(&state.db, file_id, session.user_id).await?;
-    if super::presence::leave(&state.valkey, file_id, session.user_id).await? {
-        publish_editing(&state, &access.file, session.user_id).await;
+    if super::presence::leave(&state.valkey, file_id, session.user_id, tab).await? {
+        super::presence::publish(&state, &access.file, session.user_id).await;
     }
     Ok(StatusCode::NO_CONTENT)
-}
-
-async fn publish_editing(state: &AppState, file: &crate::entities::files::Model, actor: Uuid) {
-    let ids = super::presence::editors(&state.valkey, file.id)
-        .await
-        .unwrap_or_default();
-    let editors = super::presence::named(&state.db, ids).await;
-    let audience = versions::file_audience(&state.db, file, actor).await;
-    state
-        .hub
-        .publish(
-            audience,
-            crate::realtime::event::RealtimeEnvelope::files_editing(FilesEditingEvent {
-                space_id: file.space_id,
-                file_id: file.id,
-                editors,
-            }),
-        )
-        .await;
 }
