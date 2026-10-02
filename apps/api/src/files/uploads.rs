@@ -10,42 +10,28 @@ use axum::http::StatusCode;
 use axum::Json;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
-    IntoActiveModel, QueryFilter, QueryOrder, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    TransactionTrait,
 };
-use sha2::{Digest, Sha256};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
-use crate::config::Config;
-use crate::entities::{file_versions, files};
+use crate::entities::files;
 use crate::state::AppState;
-use crate::storage::S3Store;
 
 use super::authz;
 use super::dto::FileDto;
 use super::error::FileError;
 use super::mime;
-use super::thumbnail::{self, THUMBNAIL_MIME};
 use super::tree::clean_name;
+use super::versions::{self, insert_version, point_to_version, store_version_object};
 
 /// The parsed parts of a multipart upload.
 struct UploadPayload {
     name: Option<String>,
     folder_id: Option<Uuid>,
     data: Vec<u8>,
-}
-
-/// The stored-object metadata for one version after bytes are written.
-struct StoredObject {
-    storage_key: String,
-    thumbnail_key: Option<String>,
-    image_width: Option<i32>,
-    image_height: Option<i32>,
-    mime_type: String,
-    size_bytes: i64,
-    content_hash: Vec<u8>,
 }
 
 /// `POST /api/v1/spaces/{space_id}/files`: upload a new file (its first version).
@@ -303,55 +289,11 @@ pub async fn upload_version(
     if file.kind == "folder" {
         return Err(FileError::BadRequest("cannot add a version to a folder"));
     }
-    let storage = state
-        .storage
-        .as_ref()
-        .ok_or(FileError::StorageUnavailable)?;
-
+    if state.storage.is_none() {
+        return Err(FileError::StorageUnavailable);
+    }
     let payload = collect_upload(multipart, state.config.upload_max_bytes).await?;
-
-    let next_no = file_versions::Entity::find()
-        .filter(file_versions::Column::FileId.eq(file_id))
-        .order_by_desc(file_versions::Column::VersionNo)
-        .one(&state.db)
-        .await?
-        .map(|v| v.version_no + 1)
-        .unwrap_or(1);
-
-    let version_id = Uuid::new_v4();
-    let stored = store_version_object(
-        storage,
-        &state.config,
-        file.space_id,
-        file_id,
-        version_id,
-        &payload.data,
-    )
-    .await?;
-    let kind = mime::kind_for_mime(&stored.mime_type).to_owned();
-    let now = OffsetDateTime::now_utc();
-
-    let txn = state.db.begin().await?;
-    insert_version(
-        &txn,
-        file_id,
-        version_id,
-        next_no,
-        session.user_id,
-        now,
-        &stored,
-    )
-    .await?;
-    // Keep the file kind in step with its current version, and refresh size/current pointer.
-    let mut file_update = file.into_active_model();
-    file_update.current_version_id = Set(Some(version_id));
-    file_update.size_bytes = Set(stored.size_bytes);
-    file_update.kind = Set(kind);
-    file_update.updated_at = Set(now);
-    file_update.update(&txn).await?;
-    txn.commit().await?;
-
-    let dto = single_dto(&state.db, file_id).await?;
+    let dto = versions::add_version(&state, file, session.user_id, &payload.data).await?;
     Ok((StatusCode::CREATED, Json(dto)))
 }
 
@@ -418,99 +360,6 @@ async fn collect_upload(
     })
 }
 
-/// Sniff, thumbnail (for images) and store the bytes for one version, returning its metadata.
-async fn store_version_object(
-    storage: &S3Store,
-    config: &Config,
-    space_id: Uuid,
-    file_id: Uuid,
-    version_id: Uuid,
-    data: &[u8],
-) -> Result<StoredObject, FileError> {
-    let mime_type = mime::sniff_mime(data);
-    let content_hash = Sha256::digest(data).to_vec();
-    let size_bytes = data.len() as i64;
-    let storage_key = object_key(space_id, file_id, version_id);
-
-    // Images: record intrinsic dimensions and store a thumbnail. A decode failure is non-fatal: the
-    // original bytes are still stored, just without a thumbnail.
-    let (image_width, image_height, thumbnail_key) = if mime::is_image(&mime_type) {
-        match thumbnail::make_thumbnail(data, config.thumbnail_max_px) {
-            Ok(info) => {
-                let key = thumbnail_key(&storage_key);
-                storage.put(&key, &info.thumbnail, THUMBNAIL_MIME).await?;
-                (Some(info.width as i32), Some(info.height as i32), Some(key))
-            }
-            Err(error) => {
-                tracing::warn!(%error, "could not generate a thumbnail; storing without one");
-                (None, None, None)
-            }
-        }
-    } else {
-        (None, None, None)
-    };
-
-    storage.put(&storage_key, data, &mime_type).await?;
-
-    Ok(StoredObject {
-        storage_key,
-        thumbnail_key,
-        image_width,
-        image_height,
-        mime_type,
-        size_bytes,
-        content_hash,
-    })
-}
-
-/// Insert one immutable version row from stored-object metadata.
-async fn insert_version<C: sea_orm::ConnectionTrait>(
-    db: &C,
-    file_id: Uuid,
-    version_id: Uuid,
-    version_no: i32,
-    created_by: Uuid,
-    now: OffsetDateTime,
-    stored: &StoredObject,
-) -> Result<(), FileError> {
-    file_versions::ActiveModel {
-        id: Set(version_id),
-        file_id: Set(file_id),
-        version_no: Set(version_no),
-        size_bytes: Set(stored.size_bytes),
-        content_hash: Set(Some(stored.content_hash.clone())),
-        storage_key: Set(Some(stored.storage_key.clone())),
-        thumbnail_key: Set(stored.thumbnail_key.clone()),
-        mime_type: Set(stored.mime_type.clone()),
-        image_width: Set(stored.image_width),
-        image_height: Set(stored.image_height),
-        created_by: Set(Some(created_by)),
-        created_at: Set(now),
-    }
-    .insert(db)
-    .await?;
-    Ok(())
-}
-
-/// Point a fresh file at its first version (app-maintained pointer, no FK).
-async fn point_to_version<C: sea_orm::ConnectionTrait>(
-    db: &C,
-    file_id: Uuid,
-    version_id: Uuid,
-    size_bytes: i64,
-    now: OffsetDateTime,
-) -> Result<(), FileError> {
-    let mut update = files::ActiveModel {
-        id: Set(file_id),
-        ..Default::default()
-    };
-    update.current_version_id = Set(Some(version_id));
-    update.size_bytes = Set(size_bytes);
-    update.updated_at = Set(now);
-    update.update(db).await?;
-    Ok(())
-}
-
 /// Load a single file as a DTO after a write.
 async fn single_dto(db: &DatabaseConnection, file_id: Uuid) -> Result<FileDto, FileError> {
     let row = files::Entity::find_by_id(file_id)
@@ -531,14 +380,4 @@ fn default_name(raw: Option<String>) -> String {
     } else {
         cleaned
     }
-}
-
-/// Deterministic, opaque object key for a version (never derived from a filename).
-fn object_key(space_id: Uuid, file_id: Uuid, version_id: Uuid) -> String {
-    format!("spaces/{space_id}/{file_id}/{version_id}")
-}
-
-/// The thumbnail key derived from an object key.
-fn thumbnail_key(object_key: &str) -> String {
-    format!("{object_key}.thumb")
 }

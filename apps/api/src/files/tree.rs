@@ -159,7 +159,21 @@ pub async fn list_folder(
             .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
     });
 
-    let entries = super::hydrate_files(&state.db, rows).await?;
+    let mut entries = super::hydrate_files(&state.db, rows).await?;
+    // Who is editing what, when live editing is on. A Valkey hiccup costs the badge, not the list.
+    if state.office.is_some() {
+        let ids: Vec<Uuid> = entries
+            .iter()
+            .filter(|e| !e.is_folder)
+            .map(|e| e.id)
+            .collect();
+        let mut editing = crate::office::presence::named_editors_of(&state.valkey, &state.db, &ids)
+            .await
+            .unwrap_or_default();
+        for entry in entries.iter_mut() {
+            entry.editors = editing.remove(&entry.id).unwrap_or_default();
+        }
+    }
     Ok(Json(FolderListing {
         folder_id: query.folder,
         breadcrumb,
@@ -358,7 +372,7 @@ struct FilesDeletedEvent {
 
 /// Clean a user-supplied name: strip any path component, drop control characters, trim, and cap the
 /// length. Returns an empty string when nothing usable remains (callers apply their own default).
-pub(super) fn clean_name(raw: &str) -> String {
+pub(crate) fn clean_name(raw: &str) -> String {
     let base = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
     let cleaned: String = base.chars().filter(|c| !c.is_control()).collect();
     cleaned.trim().chars().take(255).collect()
@@ -377,7 +391,7 @@ async fn single_dto(db: &DatabaseConnection, file_id: Uuid) -> Result<FileDto, F
 }
 
 /// Validate that `folder_id` is a live folder in `space_id`, else a `400`.
-async fn ensure_folder_in_space(
+pub(crate) async fn ensure_folder_in_space(
     db: &DatabaseConnection,
     folder_id: Uuid,
     space_id: Uuid,

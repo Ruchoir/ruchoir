@@ -22,12 +22,14 @@ import {
   type PasskeyCreationChallenge,
 } from "@/lib/webauthn";
 import type {
+  BlankKind,
   Channel,
   ChannelType,
   ConversationNotify,
   NotifyLevel,
   CreatedInvitation,
   DirectMessage,
+  FileEditor,
   ImportSource,
   InlineImage,
   Invitation,
@@ -36,6 +38,9 @@ import type {
   Message,
   MessageAttachment,
   MessageKind,
+  OfficeCapabilities,
+  OfficeMode,
+  OfficeSession,
   PresenceChoice,
   Profile,
   Reaction,
@@ -465,6 +470,8 @@ export async function resetPasswordWithRecoveryCode(email: string, code: string,
 export type InstanceCapabilities = {
   /** Whether a mail relay is configured. False means every emailed flow is a dead end. */
   emailDelivery: boolean;
+  /** Live office editing, when the instance has it. */
+  office: OfficeCapabilities;
 };
 
 /**
@@ -474,8 +481,20 @@ export type InstanceCapabilities = {
  * a message ask this first and offer the other way in instead.
  */
 export async function getInstanceCapabilities(signal?: AbortSignal): Promise<InstanceCapabilities> {
-  const dto = await apiGet<{ email_delivery: boolean }>("/instance", signal);
-  return { emailDelivery: dto.email_delivery };
+  const dto = await apiGet<{
+    email_delivery: boolean;
+    office?: { enabled: boolean; edit: string[]; view: string[]; convert: string[]; public_url?: string };
+  }>("/instance", signal);
+  return {
+    emailDelivery: dto.email_delivery,
+    office: {
+      enabled: dto.office?.enabled === true,
+      edit: dto.office?.edit ?? [],
+      view: dto.office?.view ?? [],
+      convert: dto.office?.convert ?? [],
+      publicUrl: dto.office?.public_url,
+    },
+  };
 }
 
 // --- Instance administration ---
@@ -1798,6 +1817,7 @@ type FileDto = {
   imported_source?: string;
   created_at: string;
   updated_at: string;
+  editors?: { id: string; name: string }[];
 };
 
 type FolderListingDto = {
@@ -1833,6 +1853,8 @@ function toSpaceFile(dto: FileDto): SpaceFile {
     imported: dto.imported,
     // Generated and stored server-side at upload; served by the API, never by the object store.
     thumbnailUrl: dto.has_thumbnail ? `/api/v1/files/${dto.id}/thumbnail` : undefined,
+    parentFolderId: dto.parent_folder_id,
+    editors: dto.editors ?? [],
   };
 }
 
@@ -1960,6 +1982,108 @@ export function filePreviewUrl(fileId: string): string {
   return `/api/v1/files/${fileId}/preview`;
 }
 
+// --- Live office editing ---
+
+type OfficeSessionDto = {
+  file: FileDto;
+  url: string;
+  access_token: string;
+  access_token_ttl: number;
+  mode: OfficeMode;
+  config: string;
+  member_name: string;
+};
+
+/**
+ * `POST /files/{id}/office`: open a file in the office editor.
+ *
+ * The API decides the mode from the member's rights and the format: `edit`, `view`, or `convert`
+ * when asked to turn a legacy format into an editable copy.
+ */
+export async function openOfficeSession(
+  fileId: string,
+  opts: { theme: "light" | "dark"; accent?: string; mode?: "convert"; mobile?: boolean },
+): Promise<OfficeSession> {
+  const dto = await apiPost<OfficeSessionDto>(`/files/${fileId}/office`, {
+    locale: currentLocale(),
+    theme: opts.theme,
+    accent: opts.accent,
+    mode: opts.mode,
+    mobile: opts.mobile,
+  });
+  return {
+    file: toSpaceFile(dto.file),
+    spaceId: dto.file.space_id,
+    url: dto.url,
+    accessToken: dto.access_token,
+    accessTokenTtl: dto.access_token_ttl,
+    mode: dto.mode,
+    config: dto.config,
+    memberName: dto.member_name,
+  };
+}
+
+/** `POST /files/office`: a blank document, in the interface's language. */
+export async function createBlankDocument(
+  spaceId: string,
+  kind: BlankKind,
+  name: string,
+  folderId?: string,
+): Promise<SpaceFile> {
+  const dto = await apiPost<FileDto>("/files/office", {
+    space_id: spaceId,
+    folder_id: folderId,
+    kind,
+    name,
+    locale: currentLocale(),
+  });
+  return toSpaceFile(dto);
+}
+
+/** `POST /files/{id}/office/heartbeat`: this tab is still editing the file. */
+export async function officeHeartbeat(fileId: string, tab: string): Promise<void> {
+  await apiPost<void>(`/files/${fileId}/office/heartbeat?tab=${encodeURIComponent(tab)}`);
+}
+
+/**
+ * `DELETE /files/{id}/office/heartbeat`: this page stopped editing.
+ *
+ * `keepalive`, because it is sent as the page goes away (a closed tab) and must outlive it.
+ */
+export function endOfficeHeartbeat(fileId: string, tab: string): Promise<void> {
+  return fetch(`/api/v1/files/${fileId}/office/heartbeat?tab=${encodeURIComponent(tab)}`, {
+    method: "DELETE",
+    credentials: "same-origin",
+    keepalive: true,
+  }).then(
+    () => undefined,
+    () => undefined,
+  );
+}
+
+/**
+ * `GET /files/{id}/office/converted`: the copy this member's conversion of the file produced, or
+ * `null` while the engine has not written it yet.
+ */
+export async function getConvertedCopy(fileId: string): Promise<SpaceFile | null> {
+  const dto = await apiGet<FileDto | undefined>(`/files/${fileId}/office/converted`);
+  return dto ? toSpaceFile(dto) : null;
+}
+
+/** What the editor can do with a file of this name on this instance. */
+export function officeActionFor(
+  name: string,
+  caps: OfficeCapabilities | null,
+): "edit" | "convert" | "view" | null {
+  if (!caps?.enabled) return null;
+  const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1).toLowerCase() : "";
+  if (!ext) return null;
+  if (caps.edit.includes(ext)) return "edit";
+  if (caps.convert.includes(ext)) return "convert";
+  if (caps.view.includes(ext)) return "view";
+  return null;
+}
+
 // --- Realtime (WebSocket) ---
 
 /** A decoded server-to-client realtime frame. `payload` shape depends on `type`. */
@@ -2044,6 +2168,10 @@ export type RealtimeHandlers = {
   onReadCursor?: (conversationId: string, userId: string, lastReadMessageId: string) => void;
   /** Files were removed from a space: anything showing them has to stop offering them. */
   onFilesDeleted?: (spaceId: string, fileIds: string[]) => void;
+  /** A file gained a version, or the server created one (a blank document, a converted copy). */
+  onFilesUpdated?: (spaceId: string, file: SpaceFile, conversationId?: string) => void;
+  /** Who is editing a file in the office editor changed. */
+  onFilesEditing?: (spaceId: string, fileId: string, editors: FileEditor[]) => void;
 };
 
 /** A live realtime connection: close it on teardown, and signal typing over it. */
@@ -2075,6 +2203,8 @@ const REALTIME_EVENTS = [
   "typing",
   "read.updated",
   "files.deleted",
+  "files.updated",
+  "files.editing",
 ] as const;
 
 /** How many failed WebSocket attempts, none of which ever opened, before falling back to SSE. */
@@ -2231,6 +2361,20 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
         break;
       case "files.deleted":
         handlers.onFilesDeleted?.(String(payload.space_id), (payload.file_ids as string[]) ?? []);
+        break;
+      case "files.updated":
+        handlers.onFilesUpdated?.(
+          String(payload.space_id),
+          toSpaceFile(payload.file as unknown as FileDto),
+          payload.conversation_id ? String(payload.conversation_id) : undefined,
+        );
+        break;
+      case "files.editing":
+        handlers.onFilesEditing?.(
+          String(payload.space_id),
+          String(payload.file_id),
+          ((payload.editors as { id: string; name: string }[]) ?? []).map((e) => ({ id: e.id, name: e.name })),
+        );
         break;
       default:
         // Unhandled event types (saved) are ignored for now.

@@ -355,4 +355,45 @@ export type SpaceFile = {
   imported?: boolean;
   /** Same-origin URL of the server-generated thumbnail, when there is one (images). */
   thumbnailUrl?: string;
+  /** The folder holding the file (absent at the space root). */
+  parentFolderId?: string;
+  /** Who is editing the file in the office editor right now. */
+  editors?: FileEditor[];
 };
+
+/** Someone editing a file in the office editor. */
+export type FileEditor = { id: string; name: string };
+
+/** What the office editor opens on this instance. */
+export type OfficeCapabilities = {
+  enabled: boolean;
+  /** Extensions edited in place. */
+  edit: string[];
+  /** Extensions only shown. */
+  view: string[];
+  /** Extensions converted into an editable copy. */
+  convert: string[];
+  /** The editor's origin, which the client frames. */
+  publicUrl?: string;
+};
+
+export type OfficeMode = "edit" | "view" | "convert";
+
+/** An editing session, as the API opens it. */
+export type OfficeSession = {
+  file: SpaceFile;
+  spaceId: string;
+  /** The engine's address for the file, on the editor's own hostname. */
+  url: string;
+  accessToken: string;
+  /** Token expiry, milliseconds since the epoch. */
+  accessTokenTtl: number;
+  mode: OfficeMode;
+  /** The engine configuration posted with the token (JSON). */
+  config: string;
+  /** The member's display name, which seeds their default avatar. */
+  memberName: string;
+};
+
+/** What a blank document is. */
+export type BlankKind = "document" | "spreadsheet" | "presentation";

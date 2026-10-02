@@ -137,6 +137,67 @@ Then sign in as the administrator, open the space settings and invite someone by
 cookie is being rejected you will see it immediately: the sign-in appears to succeed and returns you
 to the sign-in screen.
 
+## Live office editing (optional)
+
+Several people edit the same Word, Excel or PowerPoint file at once, in the browser, through
+Euro-Office (see [office-editing.md](office-editing.md) and ADR 0003). An instance without it works
+exactly as before, minus the "Edit" button.
+
+**What it needs.** About 2 GB of memory at rest for the engine, 4 GB recommended (capped by
+`OFFICE_MEM_LIMIT`, default `4g`), 7 GB of disk for its image, and a **second hostname**: the editor
+runs in an origin of its own, so a flaw in the engine cannot act inside Ruchoir.
+
+**DNS.** A record for `office.<domain>` pointing at the same address as Ruchoir.
+
+**Proxy.** Forward the second name to the same API, with the same headers as Ruchoir (`Host`
+preserved, `Upgrade`/`Connection` for the co-editing socket, no buffering, long read timeout), and
+give it a certificate. With nginx:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name office.example.org;
+    # ssl_certificate / ssl_certificate_key for office.example.org
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_buffering off;
+        proxy_read_timeout 1h;
+    }
+}
+```
+
+**`.env`.**
+
+```bash
+RUCHOIR_OFFICE_URL=http://office
+RUCHOIR_OFFICE_PUBLIC_URL=https://office.example.org
+# Optional: the engine's own (non-WOPI) API, which Ruchoir never calls. Empty: a random one per start.
+OFFICE_JWT_SECRET=
+```
+
+`RUCHOIR_OFFICE_PUBLIC_URL` must not be Ruchoir's own host: the API refuses to start if it is.
+
+**Turn it on for good** with `COMPOSE_PROFILES=office` in `.env`: Compose then includes the engine in
+every `docker compose up -d`, and with `restart: unless-stopped` it comes back with the rest after a
+reboot, starting alongside the API rather than at the first document. (A one-off
+`docker compose --profile office up -d` works too, but a later `up` without the flag leaves the
+engine out.) Deploying Ruchoir (`docker compose up -d --build api`) does not restart the engine.
+
+Then check that `GET /api/v1/instance` answers `"office": { "enabled": true, … }`. The engine takes
+about 40 seconds to start; the API looks for it every five seconds until it answers. Until then,
+documents open in the preview.
+
+The image is pulled from the GitHub container registry at deployment: a registry, not a runtime
+service, and it can be mirrored. The engine runs on an internal network with no route out: it can
+reach the API and nothing else. Before moving the engine to a new
+version, read `infra/office/README.md`: the temporary patches it mounts are tied to the pinned one.
+
 ## Not there yet
 
 Deliberate gaps, so nobody discovers them the hard way:

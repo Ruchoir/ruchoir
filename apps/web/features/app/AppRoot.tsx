@@ -76,7 +76,9 @@ import {
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
-import { readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
+import { fileUrl, readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
+import { OfficeEditor } from "@/features/office/OfficeEditor";
+import { emitFileEvent } from "@/lib/fileEvents";
 import type {
   Channel,
   DirectMessage,
@@ -537,6 +539,21 @@ function AppShell() {
 
   const [ws, setWs] = useState("");
   const [view, setView] = useState<AppView>("channel");
+  /**
+   * A document an address named (`/e/<space>/f/<file>`): this tab is that document's, the editor
+   * alone across it (documents open in a tab of their own, see `FilesScreen`).
+   */
+  const [standalone, setStandalone] = useState<{ fileId: string; convert: boolean; slug: string } | null>(null);
+  /**
+   * The address looks like a document's (`/e/<space>/f/<file>`, `/f/<file>`) and the boot has not yet
+   * said whether it is one: nothing live starts meanwhile (no realtime connection), so a document's
+   * tab never appears present in the space, not even for the moment the boot takes.
+   */
+  const [maybeDocumentTab, setMaybeDocumentTab] = useState(
+    () => typeof window !== "undefined" && /^\/(?:e\/[^/]+\/)?f\/[^/]+/.test(window.location.pathname),
+  );
+  /** Whether the office editor is open: it owns the address meanwhile (`/e/<space>/f/<file>`). */
+  const [editorOpen, setEditorOpen] = useState(false);
   // The view to restore when the full-screen preferences are closed (they are opened from menus, not the nav).
   const [prevView, setPrevView] = useState<AppView>("channel");
   // Which preferences section to land on when the full-screen preferences open.
@@ -872,6 +889,15 @@ function AppShell() {
       const resolved = await resolveSpaceSlug(target.spaceSlug);
       wanted = resolved ? spaces.find((s) => s.id === resolved.id) : undefined;
     }
+    // An address naming a file is a document's own tab: the editor alone. The space is not opened:
+    // a channel loaded behind the editor would be marked read, its notifications cleared, on behalf
+    // of a member who is looking at a document.
+    if (wanted && target?.fileId) {
+      setStandalone({ fileId: target.fileId, convert: target.convert === true, slug: wanted.slug });
+      setMaybeDocumentTab(false);
+      return spaces;
+    }
+    setMaybeDocumentTab(false);
     const landing = wanted ?? spaces[0];
     await loadSpace(landing?.id ?? "", wanted ? target?.channelName : undefined, landing?.defaultChannelId);
     return spaces;
@@ -1117,7 +1143,9 @@ function AppShell() {
   // Live realtime channel: connect once per session and dispatch server pushes into state. Mutations
   // still go through REST; this only receives (and sends typing/ping).
   useEffect(() => {
-    if (!session) return;
+    // A document's own tab listens to nothing: the editor needs no live event, and a connection would
+    // count this tab as the member being present in the space.
+    if (!session || standalone || maybeDocumentTab) return;
     const conn = connectRealtime({
       onReconnect: () => resyncRef.current(),
       onMessageCreated: (conv, m) => {
@@ -1414,6 +1442,9 @@ function AppShell() {
       },
       onTyping: (conv, userId) =>
         setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
+      onFilesUpdated: (spaceId, file, conversationId) =>
+        emitFileEvent({ type: "updated", spaceId, file, conversationId }),
+      onFilesEditing: (spaceId, fileId, editors) => emitFileEvent({ type: "editing", spaceId, fileId, editors }),
       onFilesDeleted: (spaceId, fileIds) => {
         if (fileIds.length === 0) return;
         const gone = new Set(fileIds);
@@ -1466,7 +1497,7 @@ function AppShell() {
       conn.close();
       rtRef.current = null;
     };
-  }, [session, refreshSpaceCounters]);
+  }, [session, refreshSpaceCounters, standalone, maybeDocumentTab]);
 
   // Expire typing signals a few seconds after the last keystroke, so the indicator does not stick.
   useEffect(() => {
@@ -1800,6 +1831,8 @@ function AppShell() {
       document.title = "Ruchoir";
       return;
     }
+    // A document's own tab is named after the document, by the editor.
+    if (standalone) return;
     const waiting = notifs.filter((n) => !n.read).length;
     const dmHere = dms.find((d) => d.id === channelId);
     const channelHere = channels.find((c) => c.id === channelId);
@@ -1809,7 +1842,7 @@ function AppShell() {
         : (VIEW_TITLES[view] ? t(VIEW_TITLES[view]) : undefined);
     const parts = [here, workspaces.find((w) => w.id === ws)?.name, "Ruchoir"].filter(Boolean);
     document.title = `${waiting > 0 ? `(${waiting}) ` : ""}${parts.join(" · ")}`;
-  }, [session, notifs, view, channelId, channels, dms, workspaces, ws, t]);
+  }, [session, notifs, view, channelId, channels, dms, workspaces, ws, t, standalone]);
 
   /**
    * Switch the main view, and treat opening Mentions as reading them.
@@ -2007,7 +2040,7 @@ function AppShell() {
    */
   useEffect(() => {
     const catchUp = () => {
-      if (document.visibilityState !== "visible") return;
+      if (standalone || document.visibilityState !== "visible") return;
       if (Date.now() - lastResync.current > 5000) resyncRef.current();
       if (view !== "channel" || !channelId) return;
       markConversationRead(channelId);
@@ -3439,6 +3472,7 @@ function AppShell() {
   // dialog, the preferences overlay or the login flow is up, so their own key handling wins.
   const shortcutsEnabled =
     authStage === "app" &&
+    !standalone &&
     modal === null &&
     view !== "prefs" &&
     editing === null &&
@@ -3453,7 +3487,7 @@ function AppShell() {
       nextUnread: () => gotoUnread(1),
       prevUnread: () => gotoUnread(-1),
       markRead: () => {
-        if (view === "channel") markConversationRead(channelId);
+        if (view === "channel" && !standalone) markConversationRead(channelId);
       },
       help: () => setModal("help"),
     },
@@ -3464,7 +3498,7 @@ function AppShell() {
   // and reopened where it was left. `writeSpaceLocation` replaces rather than pushes: the app gains
   // an address without pretending to have a history it does not implement.
   useEffect(() => {
-    if (authStage !== "app" || !ws) return;
+    if (authStage !== "app" || !ws || editorOpen || standalone) return;
     const space = workspaces.find((w) => w.id === ws);
     if (!space) return;
     const channel = channels.find((c) => c.id === channelId);
@@ -3473,7 +3507,7 @@ function AppShell() {
       channel?.name,
       workspaces.map((w) => w.slug),
     );
-  }, [authStage, ws, channelId, channels, workspaces]);
+  }, [authStage, ws, channelId, channels, workspaces, editorOpen, standalone]);
 
   if (booting) {
     return (
@@ -3655,6 +3689,29 @@ function AppShell() {
           />
         ) : null}
       </div>
+    );
+  }
+
+  // A document's own tab: the editor alone. Closing it closes the tab when a script opened it (the
+  // files list did); a tab the person opened (a link, a reload) cannot be closed by a page, so it
+  // lands on the space's files instead.
+  if (standalone) {
+    const slug = standalone.slug;
+    const slugs = workspaces.map((w) => w.slug);
+    return (
+      <OfficeEditor
+        bare
+        fileId={standalone.fileId}
+        convert={standalone.convert}
+        addressOf={slug ? (id, convert) => fileUrl(slug, id, slugs, convert) : undefined}
+        onClose={() => {
+          window.close();
+          window.setTimeout(() => {
+            setStandalone(null);
+            setView("files");
+          }, 300);
+        }}
+      />
     );
   }
 
@@ -3923,6 +3980,9 @@ function AppShell() {
           compact={compact}
           onBack={compact ? backToTabs : undefined}
           onNotify={showToast}
+          spaceSlug={workspaces.find((w) => w.id === ws)?.slug}
+          slugs={workspaces.map((w) => w.slug)}
+          onEditorChange={setEditorOpen}
         />
       ) : null}
       {contentView === "settings" ? (

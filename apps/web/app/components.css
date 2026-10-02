@@ -3618,6 +3618,79 @@ button.wc-mhead__title {
   }
 }
 
+/* The office editor: a Ruchoir band above the engine's frame, across the whole window. */
+.wc-office {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--ui-vw, 100vw);
+  height: var(--ui-vh, 100dvh);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-canvas);
+}
+.wc-office__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1.5px solid var(--border-subtle);
+  background: var(--surface-raised);
+}
+.wc-office__title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wc-office__people {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+.wc-office__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+/* Hidden, not removed: the engine keeps loading behind the cover until it wears Ruchoir's colours. */
+.wc-office__frame--hidden {
+  opacity: 0;
+}
+.wc-office__cover {
+  position: absolute;
+  inset: 0;
+  justify-content: center;
+  max-width: none;
+  background: var(--surface);
+}
+.wc-office__frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: var(--surface);
+}
+.wc-office__note {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: 28rem;
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+}
+.wc-office__note strong {
+  color: var(--text-strong);
+}
+
 /* The image viewer: the picture on a dark backdrop, the controls in small floating bars. The
    backdrop stays dark in both themes (a picture reads best on it), the bars follow the theme. */
 .wc-imgv {

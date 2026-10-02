@@ -192,3 +192,27 @@ pub async fn ensure_editable(
     }
     Ok(access)
 }
+
+/// Resolve and authorize a file for editing its content in the office editor, or fail with `403`.
+///
+/// Wider than [`ensure_editable`] on purpose: a document a team works on is edited by the team, not
+/// only by whoever uploaded it. Whoever may read the file and is not a guest of its space may edit
+/// its content; renaming, moving, deleting and uploading a version by hand stay with
+/// [`ensure_editable`].
+pub async fn ensure_content_editable(
+    db: &DatabaseConnection,
+    file_id: Uuid,
+    user_id: Uuid,
+) -> Result<FileAccess, FileError> {
+    let access = ensure_readable(db, file_id, user_id).await?;
+    if access.file.kind == "folder" {
+        return Err(FileError::BadRequest("a folder has no content to edit"));
+    }
+    let guest = crate::messaging::authz::is_guest(db, access.file.space_id, user_id)
+        .await
+        .map_err(|_| FileError::Internal)?;
+    if guest {
+        return Err(FileError::Forbidden);
+    }
+    Ok(access)
+}

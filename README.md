@@ -20,6 +20,8 @@
 - Real-time messaging: channels (public/private), direct messages, threads, reactions, mentions,
   presence, full-text search.
 - Files: uploads, folders, previews, message attachments, S3-compatible object storage.
+- Live editing of Word, Excel and PowerPoint files by several people at once, through the optional
+  Euro-Office engine ([docs/office-editing.md](docs/office-editing.md)).
 - Accounts: authentication, roles, workspace and member management.
 - Import: Nextcloud and Mattermost via an official encrypted export, Slack from its workspace export,
   Teams through Microsoft Graph.

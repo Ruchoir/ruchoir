@@ -18,7 +18,17 @@ use crate::config::Config;
 
 /// A handle to the configured object store bucket.
 pub struct S3Store {
-    bucket: Box<Bucket>,
+    backend: Backend,
+}
+
+/// Where the bytes actually go.
+enum Backend {
+    /// The S3-compatible server of the deployment (Garage by default).
+    Bucket(Box<Bucket>),
+    /// Test builds only: lets the integration tests exercise the byte paths (versions, the office
+    /// editor's saves) without a running Garage.
+    #[cfg(test)]
+    Memory(std::sync::Mutex<std::collections::HashMap<String, Vec<u8>>>),
 }
 
 impl S3Store {
@@ -47,7 +57,17 @@ impl S3Store {
             .map_err(StorageError::Backend)?
             .with_path_style();
 
-        Ok(Self { bucket })
+        Ok(Self {
+            backend: Backend::Bucket(bucket),
+        })
+    }
+
+    /// An empty store held in memory, for the tests.
+    #[cfg(test)]
+    pub fn in_memory() -> Self {
+        Self {
+            backend: Backend::Memory(Default::default()),
+        }
     }
 
     /// Store an object under `key` with the given content type, replacing any existing object.
@@ -57,17 +77,40 @@ impl S3Store {
         bytes: &[u8],
         content_type: &str,
     ) -> Result<(), StorageError> {
-        self.bucket
-            .put_object_with_content_type(key, bytes, content_type)
-            .await?;
+        match &self.backend {
+            Backend::Bucket(bucket) => {
+                bucket
+                    .put_object_with_content_type(key, bytes, content_type)
+                    .await?;
+            }
+            #[cfg(test)]
+            Backend::Memory(objects) => {
+                let _ = content_type;
+                objects
+                    .lock()
+                    .expect("memory store lock")
+                    .insert(key.to_owned(), bytes.to_vec());
+            }
+        }
         Ok(())
     }
 
     /// Fetch an object's bytes. The size is bounded upstream by the upload cap, so buffering the
     /// whole object is acceptable for the MVP (streaming back is a later optimization).
     pub async fn get(&self, key: &str) -> Result<Vec<u8>, StorageError> {
-        let response = self.bucket.get_object(key).await?;
-        Ok(response.bytes().to_vec())
+        match &self.backend {
+            Backend::Bucket(bucket) => {
+                let response = bucket.get_object(key).await?;
+                Ok(response.bytes().to_vec())
+            }
+            #[cfg(test)]
+            Backend::Memory(objects) => objects
+                .lock()
+                .expect("memory store lock")
+                .get(key)
+                .cloned()
+                .ok_or_else(|| StorageError::Config(format!("no object at {key}"))),
+        }
     }
 
     /// Ask the backend whether it is reachable and the bucket is usable.
@@ -77,9 +120,15 @@ impl S3Store {
     /// one is the cheapest request that exercises credentials, the bucket and the grant at once; an
     /// empty bucket answers it successfully, which is the state a fresh install is in.
     pub async fn probe(&self) -> Result<(), StorageError> {
-        self.bucket
-            .list_page("".to_owned(), None, None, None, Some(1))
-            .await?;
+        match &self.backend {
+            Backend::Bucket(bucket) => {
+                bucket
+                    .list_page("".to_owned(), None, None, None, Some(1))
+                    .await?;
+            }
+            #[cfg(test)]
+            Backend::Memory(_) => {}
+        }
         Ok(())
     }
 
@@ -88,7 +137,15 @@ impl S3Store {
     /// hard-delete / garbage collection (soft-delete keeps object bytes, so it is not called yet).
     #[allow(dead_code)]
     pub async fn delete(&self, key: &str) -> Result<(), StorageError> {
-        self.bucket.delete_object(key).await?;
+        match &self.backend {
+            Backend::Bucket(bucket) => {
+                bucket.delete_object(key).await?;
+            }
+            #[cfg(test)]
+            Backend::Memory(objects) => {
+                objects.lock().expect("memory store lock").remove(key);
+            }
+        }
         Ok(())
     }
 }
@@ -118,3 +175,21 @@ impl fmt::Display for StorageError {
 }
 
 impl std::error::Error for StorageError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn the_memory_store_keeps_what_it_is_given() {
+        let store = S3Store::in_memory();
+        store
+            .put("spaces/a/b/c", b"bytes", "text/plain")
+            .await
+            .expect("put");
+        assert_eq!(store.get("spaces/a/b/c").await.expect("get"), b"bytes");
+        store.delete("spaces/a/b/c").await.expect("delete");
+        assert!(store.get("spaces/a/b/c").await.is_err());
+        store.probe().await.expect("probe");
+    }
+}

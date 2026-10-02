@@ -190,7 +190,8 @@ context and takes precedence here.
   access, **except a file carrying a `conversation_id`, whose audience is that conversation's**;
   owner/space-admin for mutations), `mime` (magic-byte sniffing + kind mapping), `thumbnail`
   (image decode/resize), `tree` (folder listing, create, rename/move, recursive soft-delete),
-  `uploads` (multipart upload + versions), `download` (download/preview/thumbnail, streamed back
+  `uploads` (multipart upload), `versions` (the one path every new version and every server-made
+  file goes through, announced as `files.updated`), `download` (download/preview/thumbnail, streamed back
   through the API), `shares`, and `routes`. Bytes are proxied through the API (the browser never
   contacts the object store), validated server-side (size + sniffed type), stored under opaque keys
   (`spaces/{space}/{file}/{version}`); image uploads get intrinsic dimensions and a stored thumbnail.
@@ -214,6 +215,17 @@ context and takes precedence here.
   `S3_ACCESS_KEY_ID`/`S3_SECRET_ACCESS_KEY`), never a code change. Dev talks plaintext to Garage over
   the Docker network; `rust-s3` is built without any TLS backend (no `aws-lc-rs`, no OpenSSL), so
   TLS-to-store is a later hardening step (the `ring` path).
+- `src/office/`   - live office editing (ADR 0003, `docs/office-editing.md`), on only when
+  `RUCHOIR_OFFICE_URL` is set. `discovery` (what the engine opens, read every minute, every five seconds while absent, from its
+  `/hosting/discovery`), `tokens` (opaque access tokens in Valkey, one member, one file, never
+  logged), `locks` (WOPI locks in Valkey, remembering the version the session started on),
+  `wopi` (the internal listener the engine calls, `RUCHOIR_WOPI_LISTEN`, never published; rights
+  checked again on every call), `sessions` (opening a file, blank documents from
+  `assets/office/`, the editor's heartbeat per tab, the copy a conversion produced), `presence`
+  (who is editing, per tab, read for a whole folder at once, with a 30 s sweep publishing
+  `files.editing` when a tab dies without a goodbye) and
+  `proxy` (the outermost router layer: a request for the office hostname is relayed to the engine,
+  HTTP and WebSocket, cookies and credentials stripped, only the editor's paths allowed).
 - `src/http.rs`   - router, health endpoints (incl. DB/Valkey readiness probe, shared as `probe`),
   static web hosting, security headers. A page navigation (see `og::is_page_request`: a `GET` with
   no file extension, outside `/api/`, `/_next/`, `/emoji/`, whose `Accept` is missing, `*/*` or
@@ -224,6 +236,12 @@ context and takes precedence here.
   receiving HTML. The `messaging`, `realtime` and `files` routers use
   absolute `/api/v1/...` paths and are merged in (not a second `/api/v1` nest) to avoid path overlap.
   The files router carries a raised request-body limit (`RUCHOIR_UPLOAD_MAX_BYTES`, default 100 MiB).
+  `same_site_guard` refuses any state-changing request a browser marks as sent from another site
+  (`Sec-Fetch-Site: same-site`/`cross-site`, or an `Origin` that is not `Config::public_origin`):
+  the session cookie is `SameSite=Lax`, which does not stop a same-site request, and the office
+  editor's hostname is the same site as Ruchoir's. A client that is not a browser sends neither header.
+  The real-time socket (`realtime::ws`) refuses a handshake whose `Origin` is not Ruchoir's for the
+  same reason: a WebSocket has no CORS, and a page on the office host would otherwise read live messages.
 - `src/messaging/unfurl.rs` - link previews, read by this server only (never a third-party service,
   never the readers' browsers). A message's first link outside code is fetched in the background
   after a send or an edit, stored in `message_link_previews`, returned as `MessageDto.link`, and the

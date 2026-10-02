@@ -46,3 +46,15 @@ export function avatarDataUri(seed: string, kind: AvatarKind = "person"): string
   cache.set(key, uri);
   return uri;
 }
+
+/**
+ * The same default avatar, base64-encoded: for a consumer that writes it into a bare CSS `url(...)`
+ * (the office editor does), where the parentheses and quotes of a plain data URI would break.
+ */
+export function avatarBase64Uri(seed: string, kind: AvatarKind = "person"): string {
+  const svg = decodeURIComponent(avatarDataUri(seed, kind).slice("data:image/svg+xml;utf8,".length));
+  const bytes = new TextEncoder().encode(svg);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return `data:image/svg+xml;base64,${btoa(binary)}`;
+}

@@ -5,12 +5,20 @@ import { FileViewer, viewerKind } from "./FileViewer";
 import { ImageViewer } from "./ImageViewer";
 import { Avatar, brandFor, Button, Card, Checkbox, Dialog, EmptyState, Field, FileIcon, Icon, IconButton, Input, Skeleton, SkeletonGroup, Tabs, Tag } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
+import type { OfficeCapabilities } from "@/lib/data/types";
+import { onFileEvent } from "@/lib/fileEvents";
+import { fileUrl } from "@/lib/spaceUrl";
+import { EditingBadge } from "@/features/office/EditingBadge";
+import { NewDocumentMenu } from "@/features/office/NewDocumentMenu";
+import { OfficeEditor } from "@/features/office/OfficeEditor";
 import {
   createFolder as apiCreateFolder,
   deleteFile,
   fileDownloadUrl,
   filePreviewUrl,
   getFolder,
+  getInstanceCapabilities,
+  officeActionFor,
   updateFile,
   uploadFile,
   uploadFileVersion,
@@ -138,10 +146,25 @@ export type FilesScreenProps = {
   /** A phone: the way back to the tabs, at the start of the heading. */
   onBack?: () => void;
   compact?: boolean;
+  /** The space's slug, for the editor's own address (none: the address is left alone). */
+  spaceSlug?: string;
+  /** Every slug the account belongs to, which decides the address's form. */
+  slugs?: string[];
+  /** The office editor opened or closed (it owns the address while open). */
+  onEditorChange?: (open: boolean) => void;
 };
 
 /** The space files view, backed by the API (folder tree, upload, download, preview). */
-export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false, onBack }: FilesScreenProps) {
+export function FilesScreen({
+  spaceId,
+  workspaceName,
+  onNotify,
+  compact = false,
+  onBack,
+  spaceSlug,
+  slugs,
+  onEditorChange,
+}: FilesScreenProps) {
   const { t } = useTranslation();
 
   const [entries, setEntries] = useState<SpaceFile[]>([]);
@@ -220,6 +243,89 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [load]);
 
+  // What the office editor opens here, if the instance has one.
+  const [office, setOffice] = useState<OfficeCapabilities | null>(null);
+  /** The editor turned out to be unreachable: ask again every minute until it is back. */
+  const [officeLost, setOfficeLost] = useState(false);
+  const [officeCheck, setOfficeCheck] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    getInstanceCapabilities()
+      .then((caps) => {
+        if (cancelled) return;
+        setOffice(caps.office.enabled ? caps.office : null);
+        // Configured but not answering yet (an engine still starting): look again until it does.
+        setOfficeLost(!caps.office.enabled && !!caps.office.publicUrl);
+      })
+      .catch(() => !cancelled && setOffice(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [officeCheck]);
+  useEffect(() => {
+    if (!officeLost) return;
+    const timer = window.setInterval(() => setOfficeCheck((n) => n + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, [officeLost]);
+  /** The file open in the editor, and whether it is being converted rather than opened. */
+  const [editing, setEditing] = useState<{ fileId: string; convert: boolean } | null>(null);
+  const editorOpen = editing != null;
+  useEffect(() => {
+    onEditorChange?.(editorOpen);
+  }, [editorOpen, onEditorChange]);
+  // Leaving the files screen closes the editor with it.
+  useEffect(() => () => onEditorChange?.(false), [onEditorChange]);
+
+  /**
+   * Open a document in the editor: in a tab of its own, as in any office suite, the list staying
+   * here. Over the list instead on a phone (one screen, one thing at a time), in the installed app
+   * (a new tab would leave it, and on iOS its session with it), when the space has no address, or
+   * when the browser refuses the tab.
+   */
+  const opensInPlace =
+    compact || (typeof window !== "undefined" && !!window.matchMedia?.("(display-mode: standalone)").matches);
+  const openEditor = (fileId: string, convert: boolean, tab?: Window | null) => {
+    const url = spaceSlug && !opensInPlace ? fileUrl(spaceSlug, fileId, slugs ?? [], convert) : null;
+    const opened = tab !== undefined ? tab : url ? window.open(url, "_blank") : null;
+    if (opened && url) {
+      if (tab) opened.location.href = url;
+      // The document's tab has no business with this one.
+      try {
+        opened.opener = null;
+      } catch {
+        // Not ours to change: nothing lost.
+      }
+      return;
+    }
+    opened?.close();
+    setEditing({ fileId, convert });
+  };
+
+  // Live: a new version, a file created by the server, who is editing what.
+  const folderRef = useRef(folderId);
+  useEffect(() => {
+    folderRef.current = folderId;
+  });
+  useEffect(
+    () =>
+      onFileEvent((event) => {
+        if (event.spaceId !== spaceId) return;
+        if (event.type === "updated") {
+          setEntries((prev) => {
+            if (prev.some((f) => f.id === event.file.id)) {
+              return prev.map((f) => (f.id === event.file.id ? { ...event.file, editors: f.editors } : f));
+            }
+            // A private conversation's file is in no folder: it never joins a listing.
+            const here = !event.conversationId && event.file.parentFolderId === folderRef.current;
+            return here ? [...prev, event.file] : prev;
+          });
+        } else {
+          setEntries((prev) => prev.map((f) => (f.id === event.fileId ? { ...f, editors: event.editors } : f)));
+        }
+      }),
+    [spaceId],
+  );
+
   const currentFolderName = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].name : null;
   const parentId = breadcrumb.length > 1 ? breadcrumb[breadcrumb.length - 2].id : undefined;
 
@@ -230,6 +336,17 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
   const openEntry = (f: SpaceFile) => {
     if (f.kind === "folder") {
       if (f.id) load(f.id);
+      return;
+    }
+    // A Word, Excel or PowerPoint file opens straight in the editor, as in any office suite; so does
+    // a format only the editor can show (a Visio drawing). Everything else, and a PDF, is previewed,
+    // where the editor stays one button away.
+    const action = officeActionFor(f.name, office);
+    const opensInEditor =
+      (action === "edit" && viewerKind(f.name) === "office") ||
+      (action === "view" && !viewerKind(f.name) && !isImage(f.name));
+    if (f.id && opensInEditor) {
+      openEditor(f.id, false);
     } else {
       setPreview(f);
     }
@@ -430,6 +547,19 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
         <Button size="sm" iconLeft="folder-plus" onClick={() => setFolderOpen(true)} style={{ flexShrink: 0 }}>
           {t("files.newFolder")}
         </Button>
+        {office ? (
+          <NewDocumentMenu
+            newTab={!opensInPlace}
+            spaceId={spaceId}
+            folderId={folderId}
+            onNotify={onNotify}
+            onCreated={(file, tab) => {
+              load(folderId);
+              if (file.id) openEditor(file.id, false, tab);
+              else tab?.close();
+            }}
+          />
+        ) : null}
         <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()} style={{ flexShrink: 0 }}>
           {t("files.upload")}
         </Button>
@@ -603,6 +733,7 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
                 <div title={f.name} style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
                   {truncateMiddle(f.name)}
                 </div>
+                <EditingBadge editors={f.editors} />
                 <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
                   <Avatar name={f.by} src={getAvatar(f.by)} size={18} />
                   <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by}</span>
@@ -750,6 +881,20 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
               setPreview(null);
               setPendingDelete([target]);
             },
+            onEdit:
+              officeActionFor(target.name, office) === "edit"
+                ? () => {
+                    setPreview(null);
+                    openEditor(target.id!, false);
+                  }
+                : undefined,
+            onConvert:
+              officeActionFor(target.name, office) === "convert"
+                ? () => {
+                    setPreview(null);
+                    openEditor(target.id!, true);
+                  }
+                : undefined,
           };
           const kind = viewerKind(target.name);
           return kind ? (
@@ -789,6 +934,24 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
                 </Tag>
               ) : null}
               <div style={{ flex: 1 }} />
+              {preview?.id && officeActionFor(preview.name, office) ? (
+                <Button
+                  variant="primary"
+                  iconLeft={officeActionFor(preview.name, office) === "view" ? "eye" : "square-pen"}
+                  onClick={() => {
+                    const id = preview.id!;
+                    const convert = officeActionFor(preview.name, office) === "convert";
+                    setPreview(null);
+                    openEditor(id, convert);
+                  }}
+                >
+                  {officeActionFor(preview.name, office) === "view"
+                    ? t("office.openInEditor")
+                    : officeActionFor(preview.name, office) === "convert"
+                      ? t("office.convert")
+                      : t("message.edit")}
+                </Button>
+              ) : null}
               {preview.id ? (
                 <Button
                   iconLeft="upload"
@@ -856,6 +1019,28 @@ export function FilesScreen({ spaceId, workspaceName, onNotify, compact = false,
           </div>
         ) : null}
       </Dialog>
+
+      {editing ? (
+        <OfficeEditor
+          key={`${editing.fileId}-${editing.convert}`}
+          fileId={editing.fileId}
+          convert={editing.convert}
+          addressOf={spaceSlug ? (id, convert) => fileUrl(spaceSlug, id, slugs ?? [], convert) : undefined}
+          onUnavailable={() => {
+            // The engine is down: show the file the way it was shown before live editing.
+            const file = entries.find((f) => f.id === editing.fileId);
+            setEditing(null);
+            setOffice(null);
+            setOfficeLost(true);
+            if (file) setPreview(file);
+          }}
+          onClose={() => {
+            setEditing(null);
+            // A conversion leaves a new file; a save, a new version.
+            load(folderId);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -906,6 +1091,7 @@ function FileRow({
           <span style={{ fontWeight: 500, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {f.name}
           </span>
+          <EditingBadge editors={f.editors} size={16} />
         </span>
       </td>
       <td style={styles.td}>{f.version ? <Tag mono tone="info">{f.version}</Tag> : null}</td>

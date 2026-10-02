@@ -6,11 +6,11 @@
 //! [`images`] is the exception to all of that: avatars and space icons are not files, have their own
 //! keys and their own audiences, and are kept apart on purpose.
 
-mod authz;
+pub(crate) mod authz;
 pub(crate) mod convert;
 pub(crate) mod download;
 pub(crate) mod dto;
-mod error;
+pub(crate) mod error;
 pub(crate) mod images;
 pub(crate) mod mime;
 mod routes;
@@ -18,6 +18,7 @@ pub(crate) mod shares;
 pub(crate) mod thumbnail;
 pub(crate) mod tree;
 pub(crate) mod uploads;
+pub(crate) mod versions;
 
 pub use dto::AttachmentDto;
 pub use images::{avatar_url, icon_url};

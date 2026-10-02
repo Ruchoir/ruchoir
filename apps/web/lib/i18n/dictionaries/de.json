@@ -1209,5 +1209,28 @@
   "mobile": {
     "noDmText": "Ihre Direktnachrichten mit den Mitgliedern des Bereichs erscheinen hier.",
     "youPrefix": "Sie: {{text}}"
+  },
+  "office": {
+    "editor": "Dokumenteditor",
+    "convert": "Zum Bearbeiten umwandeln",
+    "convertHint": "Neben dem Original wird eine bearbeitbare Kopie angelegt; das Original bleibt unverändert.",
+    "openInEditor": "Im Editor öffnen",
+    "opening": "Dokument wird geöffnet…",
+    "failed": "Öffnen nicht möglich",
+    "unavailable": "Der Editor ist gerade nicht verfügbar.",
+    "unsupported": "Dieses Format kann im Editor nicht geöffnet werden.",
+    "forbidden": "Sie haben keinen Zugriff auf dieses Dokument.",
+    "editingNow": "Wird bearbeitet von {{names}}",
+    "newDocument": "Neues Dokument",
+    "newDocumentTitle": "Dokument erstellen",
+    "kindDocument": "Textdokument",
+    "kindSpreadsheet": "Tabelle",
+    "kindPresentation": "Präsentation",
+    "namePlaceholder": "Name des Dokuments",
+    "created": "Dokument erstellt",
+    "createFailed": "Dokument konnte nicht erstellt werden",
+    "missing": "Dieses Dokument existiert nicht mehr.",
+    "signedOut": "Ihre Sitzung ist abgelaufen: Melden Sie sich erneut bei Ruchoir an und öffnen Sie das Dokument dann erneut.",
+    "conversionFailed": "Die Umwandlung ist nicht gelungen. Das Original ist unverändert."
   }
 }

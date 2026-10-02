@@ -17,6 +17,7 @@ mod http;
 mod importer;
 mod messaging;
 mod notify;
+mod office;
 mod og;
 mod openapi;
 mod realtime;
@@ -249,6 +250,15 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
+    let office = office::Office::from_config(&config).map(Arc::new);
+    match &office {
+        Some(office) => {
+            tracing::info!(public = %office.public_origin(), "live office editing enabled");
+            office::spawn_discovery_refresh(office.clone());
+        }
+        None => tracing::info!("live office editing not configured"),
+    }
+
     let state = AppState {
         db,
         valkey,
@@ -258,11 +268,16 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         webauthn: Arc::new(webauthn),
         hub,
         storage,
+        office,
         config: Arc::new(config),
     };
 
     // The unread-notification email fallback: a sweep a minute, in the background.
     notify::email::spawn(state.clone());
+    // Who is editing what: a tab that died without a goodbye leaves the file lists by itself.
+    if state.office.is_some() {
+        office::presence::spawn_sweep(state.clone());
+    }
 
     tracing::info!(
         addr = %state.config.addr,
@@ -298,6 +313,9 @@ fn init_tracing() {
 /// Serve the application, selecting HTTPS when TLS material is configured and the
 /// `tls` feature is built in, otherwise plain HTTP for local development.
 async fn serve(state: AppState) -> Result<(), Box<dyn std::error::Error>> {
+    if state.office.is_some() {
+        tokio::spawn(serve_wopi(state.clone()));
+    }
     let addr = state.config.addr;
     let app = http::router(state.clone());
 
@@ -327,6 +345,22 @@ async fn serve(state: AppState) -> Result<(), Box<dyn std::error::Error>> {
     .with_graceful_shutdown(shutdown_signal())
     .await?;
     Ok(())
+}
+
+/// The internal WOPI listener the office engine calls. Never published (see `crate::office`).
+async fn serve_wopi(state: AppState) {
+    let addr = state.config.wopi_listen;
+    match tokio::net::TcpListener::bind(addr).await {
+        Ok(listener) => {
+            tracing::info!("WOPI listener on http://{addr}");
+            if let Err(error) = axum::serve(listener, office::wopi_router(state)).await {
+                tracing::error!(%error, "WOPI listener stopped");
+            }
+        }
+        Err(error) => {
+            tracing::error!(%error, %addr, "could not bind the WOPI listener; live editing cannot save");
+        }
+    }
 }
 
 /// Serve over HTTPS using rustls with the community `ring` crypto provider.

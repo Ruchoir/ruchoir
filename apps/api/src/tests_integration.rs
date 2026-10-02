@@ -55,6 +55,8 @@ static SCHEMA_READY: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_ne
 /// A booted test server plus the handles the tests need.
 struct TestApp {
     base: String,
+    /// Base URL of the internal WOPI listener, when live editing is on.
+    wopi_base: Option<String>,
     ws_url: String,
     db: DatabaseConnection,
     config: Config,
@@ -65,8 +67,18 @@ struct TestApp {
     state: AppState,
 }
 
-/// Boot the app or return `None` when the test infrastructure is not configured.
+/// Boot the app or return `None` when the test infrastructure is not configured. No object store:
+/// file byte endpoints report 503.
 async fn boot() -> Option<TestApp> {
+    boot_with(None, |_| {}).await
+}
+
+/// Boot with a chosen object store and configuration adjustments. Most tests use [`boot`]; the
+/// ones that write bytes pass an in-memory store, and the office tests turn live editing on.
+async fn boot_with(
+    storage: Option<Arc<crate::storage::S3Store>>,
+    configure: impl FnOnce(&mut Config),
+) -> Option<TestApp> {
     let Ok(database_url) = std::env::var("RUCHOIR_TEST_DATABASE_URL") else {
         // Skipping is right on a developer's machine, where a database may not be running. It is
         // not right in CI: a suite that quietly tests nothing and reports success is worse than no
@@ -106,6 +118,7 @@ async fn boot() -> Option<TestApp> {
     config.web_dist = web_dist;
     // The cards' language is asserted below, whatever the machine running the tests has set.
     config.default_locale = crate::auth::mail_text::Locale::Fr;
+    configure(&mut config);
 
     let db = crate::db::connect(&config).await.expect("connect db");
     SCHEMA_READY
@@ -137,8 +150,9 @@ async fn boot() -> Option<TestApp> {
         secret_key: Arc::new([0x11u8; 32]),
         webauthn: Arc::new(webauthn),
         hub,
-        // Object storage is not exercised by these tests; file byte endpoints report 503.
-        storage: None,
+        // `None` unless the test asked for a store: the byte endpoints then report 503.
+        storage,
+        office: crate::office::Office::from_config(&config).map(Arc::new),
         config: Arc::new(config.clone()),
     };
 
@@ -155,9 +169,25 @@ async fn boot() -> Option<TestApp> {
         .await
         .expect("serve");
     });
+    let wopi_base = if state.office.is_some() {
+        let wopi_listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind wopi");
+        let wopi_addr = wopi_listener.local_addr().expect("wopi addr");
+        let wopi_app = crate::office::wopi_router(state.clone());
+        tokio::spawn(async move {
+            axum::serve(wopi_listener, wopi_app)
+                .await
+                .expect("serve wopi");
+        });
+        Some(format!("http://{wopi_addr}"))
+    } else {
+        None
+    };
 
     Some(TestApp {
         base: format!("http://{addr}"),
+        wopi_base,
         ws_url: format!("ws://{addr}/api/v1/realtime/ws"),
         db,
         config,
@@ -8384,4 +8414,1770 @@ async fn link_previews_describe_an_invitation_and_nothing_private() {
         .await
         .expect("missing");
     assert_eq!(missing.status(), 404);
+}
+
+// --- Versions and live office editing -----------------------------------------------------------
+
+/// Upload `bytes` as a new file at the root of `space_id`, returning its id.
+async fn upload_bytes(
+    app: &TestApp,
+    cookie: &str,
+    space_id: Uuid,
+    name: &str,
+    bytes: &[u8],
+) -> Uuid {
+    let form = reqwest::multipart::Form::new()
+        .text("name", name.to_owned())
+        .part(
+            "file",
+            reqwest::multipart::Part::bytes(bytes.to_vec()).file_name(name.to_owned()),
+        );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space_id}/files"),
+            cookie,
+        )
+        .multipart(form)
+        .send()
+        .await
+        .expect("upload");
+    assert_eq!(res.status(), 201, "upload");
+    let body: Value = res.json().await.expect("json");
+    body["id"].as_str().expect("id").parse().expect("uuid")
+}
+
+/// Wait for the next event of `kind`, skipping presence, typing and anything else.
+async fn next_event_of(
+    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    kind: &str,
+) -> Option<Value> {
+    for _ in 0..20 {
+        let event = next_event(ws).await?;
+        if event["type"] == kind {
+            return Some(event);
+        }
+    }
+    None
+}
+
+#[tokio::test]
+async fn a_new_version_reaches_the_space_as_files_updated() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "note.txt", b"one").await;
+    let mut ws = app.connect_ws(&bob).await;
+
+    let form = reqwest::multipart::Form::new().part(
+        "file",
+        reqwest::multipart::Part::bytes(b"two".to_vec()).file_name("note.txt"),
+    );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/versions"),
+            &alice,
+        )
+        .multipart(form)
+        .send()
+        .await
+        .expect("new version");
+    assert_eq!(res.status(), 201);
+
+    let event = next_event_of(&mut ws, "files.updated")
+        .await
+        .expect("files.updated reaches another member");
+    assert_eq!(event["payload"]["space_id"], fx.space_id.to_string());
+    assert_eq!(event["payload"]["file"]["id"], file_id.to_string());
+    assert_eq!(event["payload"]["file"]["version_no"], 2);
+}
+
+/// A file row with no bytes, enough for the rights checks.
+async fn insert_file_row(db: &DatabaseConnection, space_id: Uuid, owner: Uuid, name: &str) -> Uuid {
+    let id = Uuid::new_v4();
+    let now = OffsetDateTime::now_utc();
+    files::ActiveModel {
+        id: Set(id),
+        space_id: Set(space_id),
+        owner_id: Set(Some(owner)),
+        name: Set(name.to_owned()),
+        kind: Set("file".to_owned()),
+        size_bytes: Set(0),
+        created_at: Set(now),
+        updated_at: Set(now),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("file");
+    id
+}
+
+#[tokio::test]
+async fn any_member_may_edit_a_colleagues_document_but_a_guest_may_not() {
+    use crate::files::authz::ensure_content_editable;
+    use crate::files::error::FileError;
+
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let file_id = insert_file_row(&app.db, fx.space_id, fx.alice, "plan.docx").await;
+
+    assert!(
+        ensure_content_editable(&app.db, file_id, fx.bob)
+            .await
+            .is_ok(),
+        "a member edits a colleague's document"
+    );
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    assert!(matches!(
+        ensure_content_editable(&app.db, file_id, fx.carol).await,
+        Err(FileError::Forbidden)
+    ));
+    let stranger = make_user(&app.db, "dave").await;
+    assert!(matches!(
+        ensure_content_editable(&app.db, file_id, stranger).await,
+        Err(FileError::Forbidden)
+    ));
+}
+
+/// Euro-Office 9.3.4's discovery, as served under `office.example.org`.
+const DISCOVERY: &str = include_str!("office/testdata/euro-office-9.3.4-discovery.xml");
+
+/// Boot with an in-memory store and live editing on, against a pretend engine whose discovery is
+/// the fixture. `configure` adjusts the configuration further (the relay tests point the engine at
+/// a fake one).
+async fn boot_office(configure: impl FnOnce(&mut Config)) -> Option<TestApp> {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let app = boot_with(Some(store), |config| {
+        config.office_url = Some("http://127.0.0.1:9".to_owned());
+        config.office_public_url = Some("https://office.example.org".to_owned());
+        configure(config);
+    })
+    .await?;
+    app.state
+        .office
+        .as_ref()
+        .expect("office configured")
+        .set_discovery(crate::office::discovery::Discovery::parse(DISCOVERY).expect("fixture"));
+    Some(app)
+}
+
+#[tokio::test]
+async fn the_instance_says_what_the_editor_opens() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let caps: Value = app
+        .http
+        .get(format!("{}/api/v1/instance", app.base))
+        .send()
+        .await
+        .expect("instance")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(caps["office"]["enabled"], true);
+    assert_eq!(caps["office"]["public_url"], "https://office.example.org");
+    assert!(caps["office"]["edit"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e == "docx"));
+    assert!(caps["office"]["convert"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e == "doc"));
+}
+
+#[tokio::test]
+async fn an_office_token_names_one_member_one_file_and_expires() {
+    use crate::office::discovery::Mode;
+    use crate::office::tokens;
+
+    let Some(app) = boot().await else { return };
+    let (user, file) = (Uuid::new_v4(), Uuid::new_v4());
+    let (token, grant) = tokens::mint(&app.valkey, user, file, Mode::Edit, 2)
+        .await
+        .expect("mint");
+    assert_eq!(token.len(), 64);
+    assert_eq!(
+        tokens::resolve(&app.valkey, &token).await.expect("resolve"),
+        Some(grant)
+    );
+    assert_eq!(
+        tokens::resolve(&app.valkey, "not-a-token")
+            .await
+            .expect("garbage"),
+        None
+    );
+    tokio::time::sleep(Duration::from_millis(2_200)).await;
+    assert_eq!(
+        tokens::resolve(&app.valkey, &token).await.expect("expired"),
+        None
+    );
+}
+
+#[tokio::test]
+async fn a_lock_follows_the_wopi_rules_and_remembers_its_version() {
+    use crate::office::locks::{self, Outcome};
+
+    let Some(app) = boot().await else { return };
+    let file = Uuid::new_v4();
+    let v1 = Uuid::new_v4();
+    let at = (v1, "2026-10-01T10:00:00Z".to_owned());
+
+    assert_eq!(
+        locks::lock(&app.valkey, file, "A", None, at.clone())
+            .await
+            .unwrap(),
+        Outcome::Ok
+    );
+    assert_eq!(
+        locks::lock(&app.valkey, file, "A", None, at.clone())
+            .await
+            .unwrap(),
+        Outcome::Ok,
+        "relocking with the same id refreshes"
+    );
+    assert_eq!(
+        locks::lock(&app.valkey, file, "B", None, at.clone())
+            .await
+            .unwrap(),
+        Outcome::Conflict("A".into())
+    );
+    assert_eq!(
+        locks::refresh(&app.valkey, file, "B").await.unwrap(),
+        Outcome::Conflict("A".into())
+    );
+    assert_eq!(
+        locks::unlock(&app.valkey, file, "B").await.unwrap(),
+        Outcome::Conflict("A".into())
+    );
+    assert_eq!(
+        locks::lock(&app.valkey, file, "C", Some("B"), at.clone())
+            .await
+            .unwrap(),
+        Outcome::Conflict("A".into())
+    );
+    assert_eq!(
+        locks::lock(&app.valkey, file, "C", Some("A"), at.clone())
+            .await
+            .unwrap(),
+        Outcome::Ok,
+        "unlock-and-relock"
+    );
+    let held = locks::current(&app.valkey, file)
+        .await
+        .unwrap()
+        .expect("held");
+    assert_eq!((held.lock.as_str(), held.version_id), ("C", v1));
+    assert_eq!(
+        locks::unlock(&app.valkey, file, "C").await.unwrap(),
+        Outcome::Ok
+    );
+    assert_eq!(locks::current(&app.valkey, file).await.unwrap(), None);
+    assert_eq!(
+        locks::refresh(&app.valkey, file, "C").await.unwrap(),
+        Outcome::Conflict(String::new())
+    );
+}
+
+fn wopi(app: &TestApp) -> &str {
+    app.wopi_base.as_deref().expect("wopi listener")
+}
+
+/// A WOPI call on `file_id` with `token`.
+fn wopi_req(
+    app: &TestApp,
+    method: reqwest::Method,
+    file_id: Uuid,
+    tail: &str,
+    token: &str,
+) -> reqwest::RequestBuilder {
+    app.http.request(
+        method,
+        format!(
+            "{}/wopi/files/{file_id}{tail}?access_token={token}",
+            wopi(app)
+        ),
+    )
+}
+
+async fn edit_token(app: &TestApp, user: Uuid, file: Uuid) -> String {
+    crate::office::tokens::mint(
+        &app.valkey,
+        user,
+        file,
+        crate::office::discovery::Mode::Edit,
+        3600,
+    )
+    .await
+    .expect("mint")
+    .0
+}
+
+#[tokio::test]
+async fn the_engine_reads_a_file_through_wopi() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK-bytes").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+
+    let info: Value = wopi_req(&app, reqwest::Method::GET, file_id, "", &token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(info["BaseFileName"], "plan.docx");
+    assert_eq!(info["Size"], 8);
+    assert_eq!(info["UserId"], fx.bob.to_string());
+    assert_eq!(info["UserFriendlyName"], "bob");
+    assert_eq!(info["UserCanWrite"], true);
+    assert_eq!(info["SupportsLocks"], true);
+    assert_eq!(info["UserCanNotWriteRelative"], true);
+    assert_eq!(
+        info["EditNotificationPostMessage"], true,
+        "the editor page tells Ruchoir when the document changes"
+    );
+    assert_eq!(
+        info["ClosePostMessage"], true,
+        "the editor shows its own close button, which tells Ruchoir"
+    );
+
+    let bytes = wopi_req(&app, reqwest::Method::GET, file_id, "/contents", &token)
+        .send()
+        .await
+        .unwrap()
+        .bytes()
+        .await
+        .unwrap();
+    assert_eq!(&bytes[..], b"PK-bytes");
+
+    let refused = wopi_req(
+        &app,
+        reqwest::Method::GET,
+        file_id,
+        "",
+        "0".repeat(64).as_str(),
+    )
+    .send()
+    .await
+    .unwrap();
+    assert_eq!(refused.status(), 401);
+    let other_file = upload_bytes(&app, &alice, fx.space_id, "other.docx", b"x").await;
+    let wrong_file = wopi_req(&app, reqwest::Method::GET, other_file, "", &token)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(wrong_file.status(), 401, "a token opens its own file only");
+}
+
+/// Take a WOPI lock.
+async fn wopi_lock(app: &TestApp, file_id: Uuid, token: &str, lock: &str) -> reqwest::Response {
+    wopi_req(app, reqwest::Method::POST, file_id, "", token)
+        .header("X-WOPI-Override", "LOCK")
+        .header("X-WOPI-Lock", lock)
+        .send()
+        .await
+        .expect("lock")
+}
+
+async fn wopi_put(
+    app: &TestApp,
+    file_id: Uuid,
+    token: &str,
+    lock: &str,
+    body: Vec<u8>,
+) -> reqwest::Response {
+    wopi_req(app, reqwest::Method::POST, file_id, "/contents", token)
+        .header("X-WOPI-Override", "PUT")
+        .header("X-WOPI-Lock", lock)
+        .body(body)
+        .send()
+        .await
+        .expect("put")
+}
+
+#[tokio::test]
+async fn a_save_needs_the_lock_and_becomes_a_version_by_its_author() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"v1").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+
+    assert_eq!(wopi_lock(&app, file_id, &token, "L1").await.status(), 200);
+    let wrong = wopi_put(&app, file_id, &token, "L2", b"v2".to_vec()).await;
+    assert_eq!(wrong.status(), 409);
+    assert_eq!(wrong.headers()["x-wopi-lock"], "L1");
+
+    let saved = wopi_put(&app, file_id, &token, "L1", b"v2".to_vec()).await;
+    assert_eq!(saved.status(), 200);
+    let version = file_versions::Entity::find()
+        .filter(file_versions::Column::FileId.eq(file_id))
+        .all(&app.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .max_by_key(|v| v.version_no)
+        .unwrap();
+    assert_eq!(version.version_no, 2);
+    assert_eq!(version.created_by, Some(fx.bob));
+}
+
+#[tokio::test]
+async fn while_locked_the_engine_keeps_seeing_the_version_its_session_started_on() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"v1").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+    let info = |app: &TestApp, token: String| {
+        let req = wopi_req(app, reqwest::Method::GET, file_id, "", &token);
+        async move { req.send().await.unwrap().json::<Value>().await.unwrap() }
+    };
+
+    let before = info(&app, token.clone()).await;
+    assert_eq!(wopi_lock(&app, file_id, &token, "L1").await.status(), 200);
+    assert_eq!(
+        wopi_put(&app, file_id, &token, "L1", b"autosave".to_vec())
+            .await
+            .status(),
+        200
+    );
+    let during = info(&app, token.clone()).await;
+    assert_eq!(
+        during["Version"], before["Version"],
+        "an autosave must not move the session key"
+    );
+    assert_eq!(during["LastModifiedTime"], before["LastModifiedTime"]);
+
+    let unlock = wopi_req(&app, reqwest::Method::POST, file_id, "", &token)
+        .header("X-WOPI-Override", "UNLOCK")
+        .header("X-WOPI-Lock", "L1")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unlock.status(), 200);
+    let after = info(&app, token.clone()).await;
+    assert_ne!(
+        after["Version"], before["Version"],
+        "once the session ends, the new version shows"
+    );
+}
+
+#[tokio::test]
+async fn a_member_removed_during_a_session_can_no_longer_save() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"v1").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+    assert_eq!(wopi_lock(&app, file_id, &token, "L1").await.status(), 200);
+
+    space_members::Entity::delete_many()
+        .filter(space_members::Column::SpaceId.eq(fx.space_id))
+        .filter(space_members::Column::UserId.eq(fx.bob))
+        .exec(&app.db)
+        .await
+        .unwrap();
+
+    let refused = wopi_put(&app, file_id, &token, "L1", b"v2".to_vec()).await;
+    assert_eq!(refused.status(), 401);
+    let versions = file_versions::Entity::find()
+        .filter(file_versions::Column::FileId.eq(file_id))
+        .count(&app.db)
+        .await
+        .unwrap();
+    assert_eq!(versions, 1);
+}
+
+#[tokio::test]
+async fn a_save_over_the_upload_cap_is_refused_and_changes_nothing() {
+    let Some(app) = boot_office(|config| config.upload_max_bytes = 1024).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"v1").await;
+    let token = edit_token(&app, fx.bob, file_id).await;
+    assert_eq!(wopi_lock(&app, file_id, &token, "L1").await.status(), 200);
+
+    let refused = wopi_put(&app, file_id, &token, "L1", vec![b'x'; 4096]).await;
+    assert_eq!(refused.status(), 413);
+    let versions = file_versions::Entity::find()
+        .filter(file_versions::Column::FileId.eq(file_id))
+        .count(&app.db)
+        .await
+        .unwrap();
+    assert_eq!(versions, 1);
+}
+
+#[tokio::test]
+async fn converting_makes_a_copy_beside_the_original_and_never_overwrites() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let original = upload_bytes(&app, &alice, fx.space_id, "rapport.doc", b"old-binary").await;
+    let taken = upload_bytes(&app, &alice, fx.space_id, "rapport.docx", b"already here").await;
+    let token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.bob,
+        original,
+        crate::office::discovery::Mode::Convert,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+
+    let info: Value = wopi_req(&app, reqwest::Method::GET, original, "", &token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(info["UserCanNotWriteRelative"], false);
+
+    let res = wopi_req(&app, reqwest::Method::POST, original, "", &token)
+        .header("X-WOPI-Override", "PUT_RELATIVE")
+        .header("X-WOPI-SuggestedTarget", ".docx")
+        .body(b"converted".to_vec())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.unwrap();
+    assert_eq!(body["Name"], "rapport (2).docx");
+    assert!(body["Url"].as_str().unwrap().contains("/wopi/files/"));
+
+    let copy = files::Entity::find()
+        .filter(files::Column::SpaceId.eq(fx.space_id))
+        .filter(files::Column::Name.eq("rapport (2).docx"))
+        .one(&app.db)
+        .await
+        .unwrap()
+        .expect("copy");
+    assert_eq!(copy.owner_id, Some(fx.bob));
+    let untouched = files::Entity::find_by_id(taken)
+        .one(&app.db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        untouched.size_bytes, 12,
+        "an existing file is never overwritten"
+    );
+    let still = files::Entity::find_by_id(original)
+        .one(&app.db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(still.size_bytes, 10, "the original is never touched");
+
+    let edit_token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.bob,
+        original,
+        crate::office::discovery::Mode::Edit,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+    let refused = wopi_req(&app, reqwest::Method::POST, original, "", &edit_token)
+        .header("X-WOPI-Override", "PUT_RELATIVE")
+        .header("X-WOPI-SuggestedTarget", ".docx")
+        .body(b"x".to_vec())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        refused.status(),
+        501,
+        "only a conversion session writes a copy"
+    );
+}
+
+async fn open_session(
+    app: &TestApp,
+    cookie: &str,
+    file_id: Uuid,
+    body: Value,
+) -> reqwest::Response {
+    app.req(
+        reqwest::Method::POST,
+        &format!("/api/v1/files/{file_id}/office"),
+        cookie,
+    )
+    .json(&body)
+    .send()
+    .await
+    .expect("session")
+}
+
+#[tokio::test]
+async fn a_member_opens_a_document_for_editing_and_a_guest_for_reading() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+
+    let bob = app.cookie_for(fx.bob).await;
+    let res = open_session(
+        &app,
+        &bob,
+        file_id,
+        json!({ "locale": "pl", "theme": "dark" }),
+    )
+    .await;
+    assert_eq!(res.status(), 200);
+    let session: Value = res.json().await.unwrap();
+    assert_eq!(session["mode"], "edit");
+    assert_eq!(session["file"]["name"], "plan.docx");
+    let url = session["url"].as_str().unwrap();
+    assert!(url.starts_with("https://office.example.org/hosting/wopi/word/edit?"));
+    assert!(url.contains("ui=pl-PL"));
+    assert!(url.contains(&format!("wopi%2Ffiles%2F{file_id}")));
+    let config: Value = serde_json::from_str(session["config"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        config["editorConfig"]["customization"]["uiTheme"],
+        "theme-dark"
+    );
+    assert_eq!(
+        config["editorConfig"]["customization"]["features"]["featuresTips"],
+        false
+    );
+    let token = session["access_token"].as_str().unwrap();
+    let grant = crate::office::tokens::resolve(&app.valkey, token)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!((grant.user_id, grant.file_id), (fx.bob, file_id));
+
+    let touch: Value = open_session(&app, &bob, file_id, json!({ "mobile": true }))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        touch["url"].as_str().unwrap().contains("mobile=1"),
+        "a touch screen opens the engine's mobile editor"
+    );
+
+    let light: Value = open_session(&app, &bob, file_id, json!({}))
+        .await
+        .json()
+        .await
+        .unwrap();
+    let light_config: Value = serde_json::from_str(light["config"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        light_config["editorConfig"]["customization"]["uiTheme"],
+        "theme-ruchoir-light"
+    );
+    assert!(
+        light["url"].as_str().unwrap().contains("ui=fr-FR"),
+        "French by default"
+    );
+
+    // A guest who reaches the file through a message reads it; here Carol is a member made guest
+    // and the file is a space-tree file she cannot reach, so she is refused outright.
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    let carol = app.cookie_for(fx.carol).await;
+    assert_eq!(
+        open_session(&app, &carol, file_id, json!({}))
+            .await
+            .status(),
+        403
+    );
+
+    let stranger = make_user(&app.db, "dave").await;
+    let dave = app.cookie_for(stranger).await;
+    assert_eq!(
+        open_session(&app, &dave, file_id, json!({})).await.status(),
+        403
+    );
+}
+
+#[tokio::test]
+async fn a_format_the_engine_cannot_open_is_refused_and_a_legacy_one_converts() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let binary = upload_bytes(&app, &alice, fx.space_id, "tool.exe", b"MZ").await;
+    assert_eq!(
+        open_session(&app, &alice, binary, json!({})).await.status(),
+        400
+    );
+
+    let legacy = upload_bytes(&app, &alice, fx.space_id, "old.doc", b"\xd0\xcf").await;
+    let plain: Value = open_session(&app, &alice, legacy, json!({}))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        plain["mode"], "view",
+        "a legacy format opens for reading unless conversion is asked"
+    );
+    let convert: Value = open_session(&app, &alice, legacy, json!({ "mode": "convert" }))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(convert["mode"], "convert");
+    assert!(convert["url"]
+        .as_str()
+        .unwrap()
+        .contains("/hosting/wopi/convert-and-edit/doc/docx"));
+}
+
+#[tokio::test]
+async fn a_member_creates_a_blank_document_in_their_language() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let create = |name: &str, kind: &str| {
+        app.req(reqwest::Method::POST, "/api/v1/files/office", &bob)
+            .json(&json!({ "space_id": fx.space_id, "kind": kind, "name": name, "locale": "de" }))
+            .send()
+    };
+
+    let res = create("Budget", "spreadsheet").await.unwrap();
+    assert_eq!(res.status(), 201);
+    let file: Value = res.json().await.unwrap();
+    assert_eq!(file["name"], "Budget.xlsx");
+    assert_eq!(file["owner_id"], fx.bob.to_string());
+    let again: Value = create("Budget", "spreadsheet")
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(again["name"], "Budget (2).xlsx");
+    let named: Value = create("Notes.docx", "document")
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        named["name"], "Notes.docx",
+        "an extension already typed is not doubled"
+    );
+
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    let carol = app.cookie_for(fx.carol).await;
+    let refused = app
+        .req(reqwest::Method::POST, "/api/v1/files/office", &carol)
+        .json(&json!({ "space_id": fx.space_id, "kind": "document", "name": "x" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(refused.status(), 403);
+}
+
+#[tokio::test]
+async fn the_space_sees_who_is_editing_a_document() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let mut ws = app.connect_ws(&alice).await;
+
+    let beat = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office/heartbeat"),
+            &bob,
+        )
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(beat.status(), 204);
+    let joined = next_event_of(&mut ws, "files.editing")
+        .await
+        .expect("joined");
+    assert_eq!(joined["payload"]["file_id"], file_id.to_string());
+    assert_eq!(joined["payload"]["editors"][0]["name"], "bob");
+
+    let listing: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/files", fx.space_id),
+            &alice,
+        )
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let row = listing["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == file_id.to_string())
+        .unwrap()
+        .clone();
+    assert_eq!(row["editors"][0]["id"], fx.bob.to_string());
+
+    let bye = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file_id}/office/heartbeat"),
+            &bob,
+        )
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(bye.status(), 204);
+    let left = next_event_of(&mut ws, "files.editing").await.expect("left");
+    assert_eq!(left["payload"]["editors"].as_array().unwrap().len(), 0);
+
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    let carol = app.cookie_for(fx.carol).await;
+    let refused = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office/heartbeat"),
+            &carol,
+        )
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(refused.status(), 403);
+}
+
+/// A stand-in engine: answers every HTTP path with the headers it received (as JSON) and echoes
+/// WebSocket messages on `/9.3.4-abc123/doc/x/c/`. Returns its base URL.
+async fn fake_engine() -> String {
+    use axum::extract::ws::{Message as AxMessage, WebSocketUpgrade};
+    use axum::routing::{any, get};
+
+    async fn echo_headers(headers: axum::http::HeaderMap) -> axum::Json<Value> {
+        let map: serde_json::Map<String, Value> = headers
+            .iter()
+            .map(|(k, v)| {
+                (
+                    k.to_string(),
+                    Value::String(v.to_str().unwrap_or("").to_owned()),
+                )
+            })
+            .collect();
+        axum::Json(Value::Object(map))
+    }
+    async fn echo_socket(ws: WebSocketUpgrade) -> axum::response::Response {
+        ws.on_upgrade(|mut socket| async move {
+            while let Some(Ok(msg)) = socket.recv().await {
+                if let AxMessage::Text(text) = msg {
+                    let _ = socket
+                        .send(AxMessage::Text(format!("echo:{}", text.as_str()).into()))
+                        .await;
+                }
+            }
+        })
+    }
+    let app = axum::Router::new()
+        .route("/9.3.4-abc123/doc/x/c/", get(echo_socket))
+        .fallback(any(echo_headers));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    format!("http://{addr}")
+}
+
+#[tokio::test]
+async fn the_office_hostname_is_relayed_without_credentials_and_only_there() {
+    let engine = fake_engine().await;
+    let Some(app) = boot_office(|config| config.office_url = Some(engine)).await else {
+        return;
+    };
+
+    let relayed = app
+        .http
+        .get(format!(
+            "{}/hosting/wopi/word/edit?WOPISrc={}",
+            app.base,
+            format!("{}/wopi/files/{}", app.config.wopi_base_url, Uuid::new_v4())
+                .replace(':', "%3A")
+                .replace('/', "%2F")
+        ))
+        .header(reqwest::header::HOST, "office.example.org")
+        .header(reqwest::header::COOKIE, "__Host-ruchoir_session=secret")
+        .header(reqwest::header::AUTHORIZATION, "Bearer secret")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(relayed.status(), 200);
+    let csp = relayed.headers()[reqwest::header::CONTENT_SECURITY_POLICY]
+        .to_str()
+        .unwrap()
+        .to_owned();
+    // The engine's own pages frame each other (the WOPI page frames the editor), and every ancestor
+    // must be allowed: the editor's origin itself, then Ruchoir's.
+    assert!(csp.contains(&format!(
+        "frame-ancestors 'self' {}",
+        app.config.public_base_url
+    )));
+    let seen: Value = relayed.json().await.unwrap();
+    assert!(seen.get("cookie").is_none(), "no cookie reaches the engine");
+    assert_eq!(
+        seen["authorization"], "Bearer secret",
+        "the engine's own token, which its pages set, reaches it"
+    );
+    assert_eq!(seen["x-forwarded-host"], "office.example.org");
+    assert_eq!(seen["x-forwarded-proto"], "https");
+
+    let elsewhere = app
+        .http
+        .get(format!(
+            "{}/hosting/wopi/word/edit?WOPISrc=http%3A%2F%2F192.168.1.1%2F",
+            app.base
+        ))
+        .header(reqwest::header::HOST, "office.example.org")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        elsewhere.status(),
+        404,
+        "the engine is never sent to fetch another host"
+    );
+
+    let ruchoir_path = app
+        .http
+        .get(format!("{}/api/v1/health", app.base))
+        .header(reqwest::header::HOST, "office.example.org")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(
+        ruchoir_path.status(),
+        404,
+        "the office hostname never reaches Ruchoir's routes"
+    );
+
+    let ruchoir_host = app
+        .http
+        .get(format!("{}/hosting/wopi/word/edit", app.base))
+        .send()
+        .await
+        .unwrap();
+    let body = ruchoir_host.text().await.unwrap_or_default();
+    assert!(
+        !body.contains("x-forwarded-host"),
+        "Ruchoir's host never relays"
+    );
+}
+
+#[tokio::test]
+async fn the_coediting_socket_is_relayed_both_ways() {
+    let engine = fake_engine().await;
+    let Some(app) = boot_office(|config| config.office_url = Some(engine)).await else {
+        return;
+    };
+    let url = format!(
+        "{}/9.3.4-abc123/doc/x/c/",
+        app.base.replacen("http", "ws", 1)
+    );
+    let mut request = url.as_str().into_client_request().unwrap();
+    request
+        .headers_mut()
+        .insert("host", "office.example.org".parse().unwrap());
+    let (mut ws, _) = tokio_tungstenite::connect_async(request)
+        .await
+        .expect("connect");
+    use futures_util::SinkExt;
+    ws.send(WsMessage::Text("hello".into())).await.unwrap();
+    let reply = tokio::time::timeout(Duration::from_secs(2), ws.next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(reply.into_text().unwrap().as_str(), "echo:hello");
+}
+
+#[tokio::test]
+async fn a_converted_copy_takes_the_extension_the_engine_announces() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let original = upload_bytes(&app, &alice, fx.space_id, "notes.doc", b"old-binary").await;
+    let token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.alice,
+        original,
+        crate::office::discovery::Mode::Convert,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+
+    let res = wopi_req(&app, reqwest::Method::POST, original, "", &token)
+        .header("X-WOPI-Override", "PUT_RELATIVE")
+        .header("X-WOPI-SuggestedTarget", ".exe")
+        .body(b"converted".to_vec())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.unwrap();
+    assert_eq!(
+        body["Name"], "notes.docx",
+        "the discovery's target wins over the header"
+    );
+}
+
+#[tokio::test]
+async fn a_guest_hears_nothing_of_the_files_they_cannot_read() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    let carol = app.cookie_for(fx.carol).await;
+    let mut ws = app.connect_ws(&carol).await;
+
+    let beat = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office/heartbeat"),
+            &bob,
+        )
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(beat.status(), 204);
+    let created = app
+        .req(reqwest::Method::POST, "/api/v1/files/office", &alice)
+        .json(&json!({ "space_id": fx.space_id, "kind": "document", "name": "Secret plan" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(created.status(), 201);
+
+    let mut seen = Vec::new();
+    while let Some(event) = next_event(&mut ws).await {
+        seen.push(event["type"].as_str().unwrap_or("").to_owned());
+    }
+    assert!(
+        !seen.iter().any(|t| t == "files.editing"),
+        "who edits what stays with members: {seen:?}"
+    );
+    assert!(
+        !seen.iter().any(|t| t == "files.updated"),
+        "file names stay with members: {seen:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_neighbouring_site_cannot_write_with_a_members_session() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let folder = |site: Option<&'static str>, origin: Option<&'static str>, name: &'static str| {
+        let mut req = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/spaces/{}/folders", fx.space_id),
+                &alice,
+            )
+            .json(&json!({ "name": name }));
+        if let Some(site) = site {
+            req = req.header("sec-fetch-site", site);
+        }
+        if let Some(origin) = origin {
+            req = req.header(reqwest::header::ORIGIN, origin);
+        }
+        req.send()
+    };
+
+    // The office editor's own hostname is the same site as Ruchoir's: a flaw in the engine must not
+    // be able to write here with the member's cookie, which the browser attaches to same-site requests.
+    assert_eq!(
+        folder(Some("same-site"), None, "a").await.unwrap().status(),
+        403
+    );
+    assert_eq!(
+        folder(Some("cross-site"), None, "b")
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    assert_eq!(
+        folder(None, Some("https://office.example.org"), "c")
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    // Ruchoir's own pages, and clients that are not browsers, are unaffected.
+    assert_eq!(
+        folder(Some("same-origin"), None, "d")
+            .await
+            .unwrap()
+            .status(),
+        201
+    );
+    assert_eq!(folder(None, None, "e").await.unwrap().status(), 201);
+    assert_eq!(
+        folder(None, Some("http://localhost:8080"), "f")
+            .await
+            .unwrap()
+            .status(),
+        201,
+        "the instance's own origin"
+    );
+    // Reading is not concerned.
+    let read = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/files", fx.space_id),
+            &alice,
+        )
+        .header("sec-fetch-site", "same-site")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(read.status(), 200);
+}
+
+#[tokio::test]
+async fn the_engine_is_told_ruchoirs_origin_even_with_a_trailing_slash() {
+    let engine = fake_engine().await;
+    let Some(app) = boot_office(|config| {
+        config.public_base_url = "http://localhost:8080/".to_owned();
+        config.office_url = Some(engine);
+    })
+    .await
+    else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let token = edit_token(&app, fx.alice, file_id).await;
+    let info: Value = wopi_req(&app, reqwest::Method::GET, file_id, "", &token)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(info["PostMessageOrigin"], "http://localhost:8080");
+
+    let page = app
+        .http
+        .get(format!("{}/web-apps/apps/api/documents/api.js", app.base))
+        .header(reqwest::header::HOST, "office.example.org")
+        .send()
+        .await
+        .unwrap();
+    let csp = page.headers()[reqwest::header::CONTENT_SECURITY_POLICY]
+        .to_str()
+        .unwrap()
+        .to_owned();
+    assert!(
+        csp.ends_with("frame-ancestors 'self' http://localhost:8080"),
+        "{csp}"
+    );
+
+    let session: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office"),
+            &alice,
+        )
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let config: Value = serde_json::from_str(session["config"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        config["editorConfig"]["customization"]["logo"]["image"],
+        "http://localhost:8080/brand/ruchoir-mark.png"
+    );
+}
+
+#[tokio::test]
+async fn a_conversion_session_never_locks_or_writes_the_original() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let original = upload_bytes(&app, &alice, fx.space_id, "old.doc", b"old-binary").await;
+    let token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.alice,
+        original,
+        crate::office::discovery::Mode::Convert,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+
+    assert_eq!(wopi_lock(&app, original, &token, "L1").await.status(), 401);
+    assert_eq!(
+        wopi_put(&app, original, &token, "L1", b"overwritten".to_vec())
+            .await
+            .status(),
+        401
+    );
+    for operation in ["REFRESH_LOCK", "UNLOCK"] {
+        let res = wopi_req(&app, reqwest::Method::POST, original, "", &token)
+            .header("X-WOPI-Override", operation)
+            .header("X-WOPI-Lock", "L1")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 401, "{operation}");
+    }
+    let versions = file_versions::Entity::find()
+        .filter(file_versions::Column::FileId.eq(original))
+        .count(&app.db)
+        .await
+        .unwrap();
+    assert_eq!(versions, 1, "the original keeps its one version");
+}
+
+#[tokio::test]
+async fn a_blank_documents_name_is_tidied_and_never_too_long() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let create = |name: String| {
+        app.req(reqwest::Method::POST, "/api/v1/files/office", &bob)
+            .json(&json!({ "space_id": fx.space_id, "kind": "document", "name": name }))
+            .send()
+    };
+
+    let upper: Value = create("Notes.DOCX".to_owned())
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        upper["name"], "Notes.docx",
+        "a typed extension is not doubled, whatever its case"
+    );
+
+    let long = "a".repeat(300);
+    for expected_suffix in [".docx", " (2).docx"] {
+        let res = create(long.clone()).await.unwrap();
+        assert_eq!(res.status(), 201);
+        let file: Value = res.json().await.unwrap();
+        let name = file["name"].as_str().unwrap();
+        assert!(
+            name.chars().count() <= 255,
+            "{} characters",
+            name.chars().count()
+        );
+        assert!(name.ends_with(expected_suffix), "{name}");
+    }
+}
+
+/// A heartbeat of the office editor from one tab.
+async fn office_beat(
+    app: &TestApp,
+    cookie: &str,
+    file_id: Uuid,
+    method: reqwest::Method,
+    tab: &str,
+) -> u16 {
+    app.req(
+        method,
+        &format!("/api/v1/files/{file_id}/office/heartbeat?tab={tab}"),
+        cookie,
+    )
+    .send()
+    .await
+    .unwrap()
+    .status()
+    .as_u16()
+}
+
+/// Who the folder listing says is editing `file_id`.
+async fn listed_editors(app: &TestApp, cookie: &str, space_id: Uuid, file_id: Uuid) -> Vec<String> {
+    let listing: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space_id}/files"),
+            cookie,
+        )
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    listing["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == file_id.to_string())
+        .and_then(|e| e["editors"].as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .map(|e| e["id"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[tokio::test]
+async fn closing_one_tab_keeps_a_member_editing_in_another() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "tab-a").await,
+        204
+    );
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "tab-b").await,
+        204
+    );
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::DELETE, "tab-a").await,
+        204
+    );
+    assert_eq!(
+        listed_editors(&app, &alice, fx.space_id, file_id).await,
+        vec![fx.bob.to_string()]
+    );
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::DELETE, "tab-b").await,
+        204
+    );
+    assert!(listed_editors(&app, &alice, fx.space_id, file_id)
+        .await
+        .is_empty());
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "not a tab!").await,
+        400,
+        "a tab id is short and plain"
+    );
+}
+
+#[tokio::test]
+async fn a_crashed_editor_leaves_the_badge_without_anyone_reloading() {
+    use fred::interfaces::KeysInterface;
+
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "tab-a").await,
+        204
+    );
+    let mut ws = app.connect_ws(&alice).await;
+
+    // The tab died: no goodbye, and its heartbeat lapses.
+    let _: i64 = app
+        .valkey
+        .del(format!("office:beat:{file_id}:{}:tab-a", fx.bob).as_str())
+        .await
+        .unwrap();
+    crate::office::presence::sweep_once(&app.state).await;
+
+    let left = next_event_of(&mut ws, "files.editing")
+        .await
+        .expect("the space hears it");
+    assert_eq!(left["payload"]["file_id"], file_id.to_string());
+    assert_eq!(left["payload"]["editors"].as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn a_listing_names_each_files_editors() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let plan = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let budget = upload_bytes(&app, &alice, fx.space_id, "budget.xlsx", b"PK").await;
+    let quiet = upload_bytes(&app, &alice, fx.space_id, "quiet.pptx", b"PK").await;
+    assert_eq!(
+        office_beat(&app, &bob, plan, reqwest::Method::POST, "t1").await,
+        204
+    );
+    assert_eq!(
+        office_beat(&app, &carol, budget, reqwest::Method::POST, "t2").await,
+        204
+    );
+
+    assert_eq!(
+        listed_editors(&app, &alice, fx.space_id, plan).await,
+        vec![fx.bob.to_string()]
+    );
+    assert_eq!(
+        listed_editors(&app, &alice, fx.space_id, budget).await,
+        vec![fx.carol.to_string()]
+    );
+    assert!(listed_editors(&app, &alice, fx.space_id, quiet)
+        .await
+        .is_empty());
+}
+
+#[tokio::test]
+async fn a_private_conversations_file_update_says_where_it_lives() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "board", "private").await;
+    add_channel_member(&app.db, channel, fx.alice).await;
+    add_channel_member(&app.db, channel, fx.bob).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let mut ws = app.connect_ws(&bob).await;
+
+    let file = crate::files::versions::create_file(
+        &app.state,
+        crate::files::versions::NewFile {
+            space_id: fx.space_id,
+            folder_id: None,
+            conversation_id: Some(channel),
+            owner: fx.alice,
+            name: "minutes.docx".to_owned(),
+        },
+        b"PK",
+    )
+    .await
+    .expect("file");
+
+    let event = next_event_of(&mut ws, "files.updated")
+        .await
+        .expect("a participant hears it");
+    assert_eq!(event["payload"]["file"]["id"], file.id.to_string());
+    assert_eq!(
+        event["payload"]["conversation_id"],
+        channel.to_string(),
+        "a list of the space's folders must not take it in"
+    );
+}
+
+#[tokio::test]
+async fn the_converting_member_learns_which_copy_the_editor_moved_to() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let original = upload_bytes(&app, &alice, fx.space_id, "rapport.doc", b"old-binary").await;
+    let converted = |cookie: String| {
+        app.req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{original}/office/converted"),
+            &cookie,
+        )
+        .send()
+    };
+    assert_eq!(
+        converted(bob.clone()).await.unwrap().status(),
+        204,
+        "nothing yet"
+    );
+
+    let token = crate::office::tokens::mint(
+        &app.valkey,
+        fx.bob,
+        original,
+        crate::office::discovery::Mode::Convert,
+        3600,
+    )
+    .await
+    .unwrap()
+    .0;
+    let res = wopi_req(&app, reqwest::Method::POST, original, "", &token)
+        .header("X-WOPI-Override", "PUT_RELATIVE")
+        .header("X-WOPI-SuggestedTarget", ".docx")
+        .body(b"converted".to_vec())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 200);
+
+    let found = converted(bob.clone()).await.unwrap();
+    assert_eq!(found.status(), 200);
+    let copy: Value = found.json().await.unwrap();
+    assert_eq!(copy["name"], "rapport.docx");
+    assert_eq!(
+        converted(alice.clone()).await.unwrap().status(),
+        204,
+        "another member's conversion"
+    );
+}
+
+#[tokio::test]
+async fn a_silent_engine_does_not_hold_the_relay_forever() {
+    // Accepts connections and never answers.
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let mut held = Vec::new();
+        while let Ok((socket, _)) = listener.accept().await {
+            held.push(socket);
+        }
+    });
+    let Some(app) = boot_office(|config| config.office_url = Some(format!("http://{addr}"))).await
+    else {
+        return;
+    };
+    app.state
+        .office
+        .as_ref()
+        .unwrap()
+        .set_response_timeout(Duration::from_millis(300));
+
+    let res = tokio::time::timeout(
+        Duration::from_secs(5),
+        app.http
+            .get(format!("{}/web-apps/apps/api/documents/api.js", app.base))
+            .header(reqwest::header::HOST, "office.example.org")
+            .send(),
+    )
+    .await
+    .expect("the relay gives up on its own")
+    .unwrap();
+    assert_eq!(res.status(), 504);
+}
+
+#[tokio::test]
+async fn an_engine_that_stops_answering_turns_the_editor_off() {
+    // The pretend engine of `boot_office` (127.0.0.1:9) answers nothing, while its discovery is known.
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let office = app.state.office.as_ref().unwrap();
+    assert!(office.discovery().is_some());
+
+    assert!(office.refresh_discovery().await.is_err());
+
+    assert!(
+        office.discovery().is_none(),
+        "what an absent engine opens is not known any more"
+    );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office"),
+            &alice,
+        )
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(res.status(), 503, "the page falls back to the preview");
+}
+
+#[tokio::test]
+async fn the_editor_shows_the_members_ruchoir_photo() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let config_for = |cookie: String| {
+        let req = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/files/{file_id}/office"),
+                &cookie,
+            )
+            .json(&json!({}));
+        async move {
+            let session: Value = req.send().await.unwrap().json().await.unwrap();
+            serde_json::from_str::<Value>(session["config"].as_str().unwrap()).unwrap()
+        }
+    };
+
+    let without = config_for(bob.clone()).await;
+    assert!(
+        without["editorConfig"]["user"]["image"].is_null(),
+        "no photo: the editor keeps the initials"
+    );
+
+    let mut user = users::Entity::find_by_id(fx.bob)
+        .one(&app.db)
+        .await
+        .unwrap()
+        .unwrap()
+        .into_active_model();
+    user.avatar_key = Set(Some(format!("avatars/{}/0b8e4f2a", fx.bob)));
+    user.update(&app.db).await.unwrap();
+
+    let with = config_for(bob).await;
+    let image = with["editorConfig"]["user"]["image"]
+        .as_str()
+        .expect("a photo");
+    assert!(
+        image.starts_with(&format!(
+            "{}/api/v1/users/{}/avatar?v=",
+            app.config.public_base_url, fx.bob
+        )),
+        "{image}"
+    );
+}
+
+#[tokio::test]
+async fn a_session_names_the_member_for_their_default_avatar() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let session: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file_id}/office"),
+            &bob,
+        )
+        .json(&json!({}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let bob_name = users::Entity::find_by_id(fx.bob)
+        .one(&app.db)
+        .await
+        .unwrap()
+        .unwrap()
+        .display_name;
+    assert_eq!(
+        session["member_name"], bob_name,
+        "Ruchoir draws the member's default avatar from their name"
+    );
+}
+
+#[tokio::test]
+async fn the_realtime_socket_opens_only_from_ruchoirs_own_pages() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let connect = |origin: Option<&'static str>| {
+        let mut request = app
+            .ws_url
+            .as_str()
+            .into_client_request()
+            .expect("ws request");
+        request
+            .headers_mut()
+            .insert("cookie", alice.parse().unwrap());
+        if let Some(origin) = origin {
+            request
+                .headers_mut()
+                .insert("origin", origin.parse().unwrap());
+        }
+        tokio_tungstenite::connect_async(request)
+    };
+
+    // The office editor's hostname is the same site, so the session cookie rides on its handshake:
+    // a page there (a flaw in the engine, a crafted document) must not read the member's messages.
+    assert!(connect(Some("https://office.example.org")).await.is_err());
+    assert!(
+        connect(Some("http://localhost:8080")).await.is_ok(),
+        "Ruchoir's own pages"
+    );
+    assert!(
+        connect(None).await.is_ok(),
+        "a client that is not a browser"
+    );
+}
+
+#[tokio::test]
+async fn a_listing_does_not_hide_a_dead_tab_from_the_sweep() {
+    use fred::interfaces::KeysInterface;
+
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    assert_eq!(
+        office_beat(&app, &bob, file_id, reqwest::Method::POST, "tab-a").await,
+        204
+    );
+    let mut ws = app.connect_ws(&alice).await;
+
+    let _: i64 = app
+        .valkey
+        .del(format!("office:beat:{file_id}:{}:tab-a", fx.bob).as_str())
+        .await
+        .unwrap();
+    // Somebody opens the folder before the sweep comes round.
+    assert!(listed_editors(&app, &alice, fx.space_id, file_id)
+        .await
+        .is_empty());
+    crate::office::presence::sweep_once(&app.state).await;
+
+    let left = next_event_of(&mut ws, "files.editing")
+        .await
+        .expect("those with the list open hear it");
+    assert_eq!(left["payload"]["editors"].as_array().unwrap().len(), 0);
 }

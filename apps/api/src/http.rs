@@ -126,6 +126,24 @@ pub(crate) struct InstanceCapabilities {
     /// Whether an SMTP relay is configured. When false, every flow that would depend on a message
     /// arriving has an alternative the interface offers instead.
     email_delivery: bool,
+    /// Live office editing.
+    office: OfficeCapabilities,
+}
+
+/// What the client needs to know about live editing.
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct OfficeCapabilities {
+    /// Whether the editor can be opened now (configured, and its discovery is known).
+    enabled: bool,
+    /// Extensions the editor edits in place.
+    edit: Vec<String>,
+    /// Extensions the editor only shows.
+    view: Vec<String>,
+    /// Extensions the editor converts into an editable copy.
+    convert: Vec<String>,
+    /// The editor's origin, which the client frames.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    public_url: Option<String>,
 }
 
 /// Public description of the instance. Deliberately unauthenticated: the screens that need it are
@@ -139,8 +157,20 @@ pub(crate) struct InstanceCapabilities {
 pub(crate) async fn instance_capabilities(
     State(state): State<AppState>,
 ) -> Json<InstanceCapabilities> {
+    let office = state.office.as_ref();
+    let discovery = office.and_then(|o| o.discovery());
     Json(InstanceCapabilities {
         email_delivery: state.mailer.can_send(),
+        office: OfficeCapabilities {
+            enabled: discovery.is_some(),
+            edit: discovery.as_ref().map(|d| d.editable()).unwrap_or_default(),
+            view: discovery.as_ref().map(|d| d.viewable()).unwrap_or_default(),
+            convert: discovery
+                .as_ref()
+                .map(|d| d.convertible())
+                .unwrap_or_default(),
+            public_url: office.map(|o| o.public_origin().to_owned()),
+        },
     })
 }
 
@@ -188,10 +218,20 @@ pub fn router(state: AppState) -> Router {
     // created by the page from data it already holds, so it opens no remote origin and leaves the
     // no-external-request rule intact. `data:` was already allowed for the same class of reason
     // (the locally generated default avatars).
-    let csp = "default-src 'self'; base-uri 'self'; object-src 'none'; \
-               frame-ancestors 'none'; img-src 'self' data: blob:; font-src 'self'; \
-               style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; \
-               connect-src 'self'; worker-src 'self'; manifest-src 'self'";
+    //
+    // `frame-src` names the office editor's origin when live editing is on: it is the only page
+    // Ruchoir frames from elsewhere.
+    let frame_src = state
+        .office
+        .as_ref()
+        .map(|office| format!(" frame-src 'self' {};", office.public_origin()))
+        .unwrap_or_default();
+    let csp = format!(
+        "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none';{frame_src} \
+         img-src 'self' data: blob:; font-src 'self'; style-src 'self' 'unsafe-inline'; \
+         script-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'self'; manifest-src 'self'"
+    );
+    let csp = HeaderValue::from_str(&csp).expect("a valid content security policy");
 
     // Coarse per-IP rate limit on the auth surface: a backstop above the per-account lockout.
     // `SmartIpKeyExtractor` reads a forwarded client IP behind a proxy and falls back to the
@@ -232,7 +272,9 @@ pub fn router(state: AppState) -> Router {
         // never exposed to the browser.
         .merge(crate::files::router(
             state.config.upload_max_bytes.saturating_add(1 << 20) as usize,
-        ));
+        ))
+        // Live office editing: opening a file in the editor, blank documents (404 when off).
+        .merge(crate::office::router());
 
     // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
     // for missing files, which the client treats as "no asset" and renders the native glyph. The
@@ -288,7 +330,7 @@ pub fn router(state: AppState) -> Router {
         // Only when the handler set none: an inline file preview carries its own (see `files::download`).
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CONTENT_SECURITY_POLICY,
-            HeaderValue::from_static(csp),
+            csp,
         ))
         .layer(set_header(header::X_CONTENT_TYPE_OPTIONS, "nosniff"))
         .layer(set_header(header::REFERRER_POLICY, "no-referrer"))
@@ -296,8 +338,59 @@ pub fn router(state: AppState) -> Router {
             HeaderName::from_static("permissions-policy"),
             "geolocation=(), camera=(), microphone=()",
         ))
+        // Writes from another site are refused before they reach a handler (see `same_site_guard`).
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            same_site_guard,
+        ))
         .layer(TraceLayer::new_for_http())
-        .with_state(state)
+        .with_state(state.clone())
+        // Outermost: the office editor's hostname is relayed whole and never reaches the layers
+        // and routes above (see `office::proxy`).
+        .layer(axum::middleware::from_fn_with_state(
+            state,
+            crate::office::proxy::dispatch,
+        ))
+}
+
+/// Refuse a state-changing request that a browser sent from another site.
+///
+/// The session cookie is `SameSite=Lax`, which keeps it off cross-site writes but not off
+/// **same-site** ones, and the office editor runs on a hostname of the same site as Ruchoir
+/// (`office.example.org` next to `ruchoir.example.org`): script running there, a flaw in the engine
+/// or a crafted document, could otherwise post here with the member's cookie. Browsers say where a
+/// request comes from in `Sec-Fetch-Site`; older ones only in `Origin`, which then has to be this
+/// instance's own. A client that is not a browser sends neither and is unaffected; so are reads.
+pub(crate) async fn same_site_guard(
+    State(state): State<AppState>,
+    req: Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let writes = !matches!(
+        *req.method(),
+        axum::http::Method::GET | axum::http::Method::HEAD | axum::http::Method::OPTIONS
+    );
+    if writes {
+        let headers = req.headers();
+        let site = headers.get("sec-fetch-site").and_then(|v| v.to_str().ok());
+        let refused = match site {
+            Some(site) => {
+                site.eq_ignore_ascii_case("same-site") || site.eq_ignore_ascii_case("cross-site")
+            }
+            None => headers
+                .get(header::ORIGIN)
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|origin| {
+                    crate::config::origin_of(origin).as_deref()
+                        != Some(state.config.public_origin().as_str())
+                }),
+        };
+        if refused {
+            tracing::warn!(method = %req.method(), path = %req.uri().path(), "write from another site refused");
+            return crate::messaging::error::ApiError::Forbidden.into_response();
+        }
+    }
+    next.run(req).await
 }
 
 /// Serve the single-page application for a path that is not a file in the bundle.

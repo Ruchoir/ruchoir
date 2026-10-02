@@ -139,7 +139,12 @@ use utoipa::OpenApi;
         crate::files::download::thumbnail_file,
         crate::files::shares::list_shares,
         crate::files::shares::create_share,
-        crate::files::shares::delete_share
+        crate::files::shares::delete_share,
+        crate::office::sessions::open_session,
+        crate::office::sessions::create_blank,
+        crate::office::sessions::converted_copy,
+        crate::office::sessions::heartbeat,
+        crate::office::sessions::end_heartbeat
     ),
     components(schemas(
         crate::importer::routes::ArchiveRequest,
@@ -158,6 +163,7 @@ use utoipa::OpenApi;
         crate::auth::routes::RegisterRequest,
         crate::auth::routes::RecoveryResetRequest,
         crate::http::InstanceCapabilities,
+        crate::http::OfficeCapabilities,
         crate::admin::AdminUserDto,
         crate::admin::IssuedResetDto,
         crate::admin::InstanceSettingsDto,
@@ -239,13 +245,19 @@ use utoipa::OpenApi;
         crate::messaging::dto::SetPresenceRequest,
         crate::messaging::dto::TypingRequest,
         crate::files::dto::FileDto,
+        crate::files::dto::EditorDto,
         crate::files::dto::FolderListing,
         crate::files::dto::Breadcrumb,
         crate::files::dto::AttachmentDto,
         crate::files::dto::ShareDto,
         crate::files::dto::CreateFolderRequest,
         crate::files::dto::UpdateFileRequest,
-        crate::files::dto::CreateShareRequest
+        crate::files::dto::CreateShareRequest,
+        crate::office::sessions::SessionRequest,
+        crate::office::sessions::SessionResponse,
+        crate::office::sessions::BlankRequest,
+        crate::office::templates::Kind,
+        crate::office::discovery::Mode
     )),
     tags(
         (name = "health", description = "Liveness and health checks"),
@@ -253,6 +265,7 @@ use utoipa::OpenApi;
         (name = "messaging", description = "Channels, direct messages, messages, threads, reactions, pins, saved"),
         (name = "realtime", description = "WebSocket / SSE transport, typing and presence"),
         (name = "files", description = "File tree, upload and versions, download, preview, thumbnails, shares"),
+        (name = "office", description = "Live office editing: editing sessions and blank documents"),
         (name = "admin", description = "Instance administration: account lookup and recovery")
     )
 )]

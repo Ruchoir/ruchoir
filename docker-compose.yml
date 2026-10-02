@@ -95,6 +95,13 @@ services:
       # are deliberately separate so that renaming a directory on the host cannot change what an
       # administrator types into the screen.
       RUCHOIR_IMPORT_DIR: /srv/ruchoir/imports
+      # Live office editing (optional). Empty unless the `office` profile runs and `.env` sets the
+      # two addresses; see docs/office-editing.md. The engine reaches the WOPI listener on the
+      # internal network only: 8081 is never published.
+      RUCHOIR_OFFICE_URL: ${RUCHOIR_OFFICE_URL:-}
+      RUCHOIR_OFFICE_PUBLIC_URL: ${RUCHOIR_OFFICE_PUBLIC_URL:-}
+      RUCHOIR_WOPI_LISTEN: 0.0.0.0:8081
+      RUCHOIR_WOPI_BASE_URL: http://api:8081
     volumes:
       # Archives land here two ways: dropped by scp or a share, or delivered by the one-time upload
       # an export command carries (see the import screen). Read-write, because that delivery writes
@@ -111,6 +118,10 @@ services:
         condition: service_healthy
       garage:
         condition: service_started
+    networks:
+      - default
+      # Shared with the office engine only, so the engine can reach the WOPI listener.
+      - office
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/healthz || exit 1"]
       interval: 15s
@@ -118,6 +129,47 @@ services:
       retries: 5
       start_period: 20s
     restart: unless-stopped
+
+  # Live office editing (optional): Euro-Office, run with `docker compose --profile office up -d`.
+  # Never published: the API relays the editor's own hostname to it and serves it files over WOPI.
+  # About 2 GB of memory at rest (capped below) and 7 GB of disk for the image. See
+  # docs/office-editing.md, ADR 0003 and infra/office/README.md.
+  office:
+    profiles: ["office"]
+    image: ghcr.io/euro-office/documentserver:${OFFICE_IMAGE_TAG:-v9.3.4-hotfix.1}
+    environment:
+      # The engine refuses its own (non-WOPI) API without a signed token. Ruchoir never calls that
+      # API, so an empty secret is fine: the engine then draws a random one at start. Not `:?`,
+      # which Compose would evaluate even without the profile and so break every command.
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${OFFICE_JWT_SECRET:-}
+      WOPI_ENABLED: "true"
+      # The WOPI listener (api:8081) is on the private compose network.
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+      EXAMPLE_ENABLED: "false"
+    volumes:
+      - ./infra/office/local-production-linux.json:/etc/euro-office/documentserver/local-production-linux.json:ro
+      - ./infra/office/themes/theme-ruchoir-light.json:/var/www/euro-office/documentserver/web-apps/apps/common/main/resources/themes/theme-ruchoir-light.json:ro
+      - ./infra/office/themes/theme-ruchoir-dark.json:/var/www/euro-office/documentserver/web-apps/apps/common/main/resources/themes/theme-ruchoir-dark.json:ro
+      - ./infra/office/patches/editor-wopi.ejs:/var/www/euro-office/documentserver/web-apps/apps/api/wopi/editor-wopi.ejs:ro
+      - ./infra/office/patches/visioeditor-index.html:/var/www/euro-office/documentserver/web-apps/apps/visioeditor/main/index.html:ro
+    mem_limit: ${OFFICE_MEM_LIMIT:-4g}
+    # On the internal network only: no route out, so whatever a document or a crafted request asks
+    # the engine to fetch, it can reach nothing but the API.
+    networks:
+      - office
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/healthcheck || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+networks:
+  # The office engine's network: the API and the engine, no egress (`internal`).
+  office:
+    internal: true
 
 volumes:
   postgres-data:

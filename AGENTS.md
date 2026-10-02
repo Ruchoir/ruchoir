@@ -60,6 +60,11 @@ Web interface only for now. The core is open source under **AGPLv3**.
   the `ring` provider. A development machine usually has both already, which is why this only
   surfaced when the image was first built on a clean host. Optional OIDC connectors for Google and
   Microsoft, disabled by default (opt-in, see Golden rule #2). No Node-side auth.
+- **Live office editing (optional):** Euro-Office (AGPL-3.0, a European fork of OnlyOffice led by
+  Nextcloud and IONOS) behind WOPI, on a hostname of its own relayed by the API; see
+  `docs/office-editing.md` and ADR 0003. New crates: `hyper-util` and `http-body-util` (hyperium,
+  community-governed, already in the tree through axum) and `tokio-tungstenite` (Snapview GmbH,
+  Germany).
 - **Containerization:** Docker + `docker compose` (all-in-one deployment).
 
 ## Pinned versions
@@ -102,6 +107,9 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | PostgreSQL | 18-alpine | `docker-compose.yml` |
 | Valkey | 9-alpine | `docker-compose.yml` |
 | Garage | v2.3.0 | `docker-compose.yml` |
+| Euro-Office documentserver (optional `office` profile) | v9.3.4-hotfix.1 | `docker-compose.yml` (`OFFICE_IMAGE_TAG`) |
+| hyper-util / http-body-util (office relay client) | 0.1 / 0.1 | `apps/api/Cargo.toml` |
+| tokio-tungstenite (office relay socket) | 0.29 | `apps/api/Cargo.toml` |
 
 ## Languages
 
@@ -140,13 +148,15 @@ to it, and a new screen is written translated from the start.
 
 ```
 apps/api/            Rust backend (axum/tokio)            - has its own AGENTS.md
+                     incl. `src/office/`, live office editing (WOPI host, sessions, relay)
 apps/web/            Next.js frontend                     - has its own AGENTS.md
 packages/importer/   Export scripts + import adapters     - has its own AGENTS.md
 packages/design-system/  React components + design tokens - has its own AGENTS.md
 migrations/          Versioned SeaORM migrations (Rust crate `ruchoir-migration`)
 docs/                Technical documentation (EN)
                      incl. `import-archive.md`, the archive format every importer reads
-docker-compose.yml   Full stack (api, web, PostgreSQL, Valkey, Garage)
+infra/office/        Office engine settings, themes and temporary patches (mounted read-only)
+docker-compose.yml   Full stack (api, web, PostgreSQL, Valkey, Garage; Euro-Office behind a profile)
 ```
 
 ## Setup commands
@@ -210,6 +220,27 @@ terminates TLS for that instance, rather than exposing its port:
   Push to subscribed browsers (ADR 0001) and an unread digest by email through the instance's own
   relay. The preferences they obey are held server-side, and the server rule (`notify::prefs::allows`)
   mirrors the inbox rule (`passesPref` in the web client): change one, change the other.
+
+### Office editing gotchas
+
+What cost time while integrating Euro-Office (2026-10-01), so it is not paid twice:
+
+- The engine builds its own addresses from `X-Forwarded-Host`/`X-Forwarded-Proto`: the relay (and the
+  discovery request) must send the office host, or the editor's assets point at the internal name.
+- A custom engine theme is one JSON file per theme in the themes folder; a single file listing
+  several is silently ignored.
+- The engine's top-bar icons use the toolbar's colour variable: a dark top bar makes them invisible,
+  which is why the Ruchoir day theme has a light one.
+- Euro-Office derives a session key from the `Version`/`LastModifiedTime` it is given: they must not
+  move while a lock is held, or a late joiner starts a second session (see `office::locks`).
+- The engine reads `local-production-linux.json` after its own `local.json`, which its start script
+  rewrites: Ruchoir's settings go in the former.
+- The office host is the same site as Ruchoir's, so a `SameSite=Lax` cookie rides on a request from
+  it: Ruchoir refuses writes a browser marks as same-site or cross-site (`http::same_site_guard`).
+  A new browser-facing endpoint that must accept a cross-site POST (an identity provider's
+  `form_post` callback, say) has to be exempted there deliberately.
+- Compose interpolates the variables of every service, profile or not: a `${VAR:?}` on the `office`
+  service would break every `docker compose` command of an instance without the engine.
 
 ## Design system
 
