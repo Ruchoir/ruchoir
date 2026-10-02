@@ -13,7 +13,7 @@ export type OfficeEditorProps = {
    * The address of a file open in the editor, for the address bar (a reload or a shared link lands
    * back on it). Asked again when a conversion moves the editor to its copy.
    */
-  addressOf?: (fileId: string) => string;
+  addressOf?: (fileId: string, convert: boolean) => string;
   /** The editor cannot be reached right now: the caller shows the file another way (none: a note). */
   onUnavailable?: () => void;
   /**
@@ -42,10 +42,13 @@ export function OfficeEditor({
   onClose,
 }: OfficeEditorProps) {
   const { t } = useTranslation();
-  const { state, leave } = useOfficeSession(fileId, convert);
+  const { state, leave, noteChange } = useOfficeSession(fileId, convert);
   // The file on screen: a conversion's copy once the engine has written it, the file asked otherwise.
+  // The address keeps asking for the conversion until the copy exists, so a reload resumes it.
   const shown = state.status === "ready" ? (state.copy ?? state.session.file) : null;
-  const href = addressOf?.(shown?.id ?? fileId);
+  const copied = state.status === "ready" && !!state.copy;
+  const href = addressOf?.(shown?.id ?? fileId, convert && !copied);
+  const frameRef = useRef<HTMLIFrameElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const frameName = `office-${fileId}`;
@@ -97,21 +100,26 @@ export function OfficeEditor({
     return () => document.removeEventListener("keydown", onKey);
   }, [bare]);
 
-  // The engine's own close button posts `UI_Close` (WOPI `ClosePostMessage`).
+  // What the editor's frame tells this page (WOPI post messages): its own close button was pressed
+  // (`UI_Close`, `ClosePostMessage`), the document changed (`Edit_Notification`). Only from this
+  // frame: another window of the editor's origin (another document's tab) is not listened to.
   const engineOrigin = state.status === "ready" ? new URL(state.session.url).origin : null;
   useEffect(() => {
     if (!engineOrigin) return;
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== engineOrigin || typeof e.data !== "string") return;
+      if (e.origin !== engineOrigin || e.source !== frameRef.current?.contentWindow) return;
+      if (typeof e.data !== "string") return;
       try {
-        if ((JSON.parse(e.data) as { MessageId?: string }).MessageId === "UI_Close") closeHandlerRef.current();
+        const id = (JSON.parse(e.data) as { MessageId?: string }).MessageId;
+        if (id === "UI_Close") closeHandlerRef.current();
+        if (id === "Edit_Notification") noteChange();
       } catch {
         // Not a WOPI message.
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [engineOrigin]);
+  }, [engineOrigin, noteChange]);
 
   // The address names the document while it is open, and goes back to what it was on close.
   useEffect(() => {
@@ -171,6 +179,7 @@ export function OfficeEditor({
               <input type="hidden" name="docs_api_config" value={state.session.config} />
             </form>
             <iframe
+              ref={frameRef}
               name={frameName}
               className="wc-office__frame"
               title={title}
@@ -190,7 +199,15 @@ export function OfficeEditor({
                 ? t("office.forbidden")
                 : state.reason === "unsupported"
                   ? t("office.unsupported")
-                  : `${t("office.unavailable")} ${t("common.tryAgain")}`}
+                  : state.reason === "missing"
+                    ? t("office.missing")
+                    : state.reason === "signedOut"
+                      ? t("office.signedOut")
+                      : state.reason === "conversion"
+                        ? t("office.conversionFailed")
+                        : state.reason === "unavailable"
+                          ? `${t("office.unavailable")} ${t("common.tryAgain")}`
+                          : t("common.tryAgain")}
             </span>
             <Button onClick={close}>{t("common.close")}</Button>
           </div>

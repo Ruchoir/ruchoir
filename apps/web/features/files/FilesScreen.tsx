@@ -254,7 +254,8 @@ export function FilesScreen({
       .then((caps) => {
         if (cancelled) return;
         setOffice(caps.office.enabled ? caps.office : null);
-        if (caps.office.enabled) setOfficeLost(false);
+        // Configured but not answering yet (an engine still starting): look again until it does.
+        setOfficeLost(!caps.office.enabled && !!caps.office.publicUrl);
       })
       .catch(() => !cancelled && setOffice(null));
     return () => {
@@ -277,13 +278,23 @@ export function FilesScreen({
 
   /**
    * Open a document in the editor: in a tab of its own, as in any office suite, the list staying
-   * here. Over the list instead when the space has no address or the browser refuses the tab.
+   * here. Over the list instead on a phone (one screen, one thing at a time), in the installed app
+   * (a new tab would leave it, and on iOS its session with it), when the space has no address, or
+   * when the browser refuses the tab.
    */
+  const opensInPlace =
+    compact || (typeof window !== "undefined" && !!window.matchMedia?.("(display-mode: standalone)").matches);
   const openEditor = (fileId: string, convert: boolean, tab?: Window | null) => {
-    const url = spaceSlug ? fileUrl(spaceSlug, fileId, slugs ?? [], convert) : null;
+    const url = spaceSlug && !opensInPlace ? fileUrl(spaceSlug, fileId, slugs ?? [], convert) : null;
     const opened = tab !== undefined ? tab : url ? window.open(url, "_blank") : null;
     if (opened && url) {
       if (tab) opened.location.href = url;
+      // The document's tab has no business with this one.
+      try {
+        opened.opener = null;
+      } catch {
+        // Not ours to change: nothing lost.
+      }
       return;
     }
     opened?.close();
@@ -538,6 +549,7 @@ export function FilesScreen({
         </Button>
         {office ? (
           <NewDocumentMenu
+            newTab={!opensInPlace}
             spaceId={spaceId}
             folderId={folderId}
             onNotify={onNotify}
@@ -1013,7 +1025,7 @@ export function FilesScreen({
           key={`${editing.fileId}-${editing.convert}`}
           fileId={editing.fileId}
           convert={editing.convert}
-          addressOf={spaceSlug ? (id) => fileUrl(spaceSlug, id, slugs ?? []) : undefined}
+          addressOf={spaceSlug ? (id, convert) => fileUrl(spaceSlug, id, slugs ?? [], convert) : undefined}
           onUnavailable={() => {
             // The engine is down: show the file the way it was shown before live editing.
             const file = entries.find((f) => f.id === editing.fileId);

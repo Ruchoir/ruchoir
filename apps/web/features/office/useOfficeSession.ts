@@ -11,6 +11,18 @@ import { officeTheme, touchScreen } from "./officeTheme";
 const HEARTBEAT_MS = 30_000;
 /** How often a converting tab asks whether the engine has written the copy yet. */
 const COPY_POLL_MS = 3_000;
+/** How long a conversion may take before the tab says it did not come through. */
+const COPY_WAIT_MS = 120_000;
+
+/** Why the editor could not open, each with its own sentence. */
+export type OfficeFailure =
+  | "unavailable"
+  | "unsupported"
+  | "forbidden"
+  | "missing"
+  | "signedOut"
+  | "conversion"
+  | "failed";
 
 export type OfficeSessionState =
   | { status: "loading"; editors: FileEditor[] }
@@ -21,7 +33,17 @@ export type OfficeSessionState =
       /** A conversion's copy, once the engine has written it: the editor carries on there. */
       copy?: SpaceFile;
     }
-  | { status: "error"; reason: "unavailable" | "unsupported" | "forbidden"; editors: FileEditor[] };
+  | { status: "error"; reason: OfficeFailure; editors: FileEditor[] };
+
+/** The failure an API error means. Only the engine being down falls back to the preview. */
+function failureOf(err: unknown): OfficeFailure {
+  if (isApiError(err, 503)) return "unavailable";
+  if (isApiError(err, 403)) return "forbidden";
+  if (isApiError(err, 400)) return "unsupported";
+  if (isApiError(err, 404)) return "missing";
+  if (isApiError(err, 401)) return "signedOut";
+  return "failed";
+}
 
 /** An id this tab keeps for its life, so the API tells two tabs of one member apart. */
 function newTabId(): string {
@@ -40,7 +62,7 @@ function newTabId(): string {
 export function useOfficeSession(
   fileId: string,
   convert: boolean,
-): { state: OfficeSessionState; leave: () => Promise<void> } {
+): { state: OfficeSessionState; leave: () => Promise<void>; noteChange: () => void } {
   const [state, setState] = useState<OfficeSessionState>({ status: "loading", editors: [] });
   const [tab] = useState(newTabId);
 
@@ -51,9 +73,7 @@ export function useOfficeSession(
         if (!cancelled) setState({ status: "ready", session, editors: session.file.editors ?? [] });
       })
       .catch((err) => {
-        if (cancelled) return;
-        const reason = isApiError(err, 403) ? "forbidden" : isApiError(err, 400) ? "unsupported" : "unavailable";
-        setState({ status: "error", reason, editors: [] });
+        if (!cancelled) setState({ status: "error", reason: failureOf(err), editors: [] });
       });
     return () => {
       cancelled = true;
@@ -71,8 +91,15 @@ export function useOfficeSession(
     if (!awaitingCopy) return;
     let cancelled = false;
     let opening = false;
+    const started = Date.now();
     const look = () => {
       if (opening) return;
+      if (Date.now() - started > COPY_WAIT_MS) {
+        // The engine never wrote the copy: say so rather than waiting for the life of the tab.
+        window.clearInterval(timer);
+        setState({ status: "error", reason: "conversion", editors: [] });
+        return;
+      }
       getConvertedCopy(fileId)
         .then(async (found) => {
           if (cancelled || !found?.id) return;
@@ -93,25 +120,19 @@ export function useOfficeSession(
 
   /** The file this tab may edit: the session's own file, once it is an edit session. */
   const editableId = state.status === "ready" && state.session.mode === "edit" ? (state.session.file.id ?? null) : null;
-  const engineOrigin = state.status === "ready" ? new URL(state.session.url).origin : null;
 
   // Opening a document is not editing it: the tab counts as editing (heartbeat, badge, band) from the
-  // first change the editor reports (`Edit_Notification`, posted by the engine's page when the
+  // first change the editor reports (`Edit_Notification`, which the editor's frame posts when the
   // document changes; WOPI's `EditNotificationPostMessage`), so a member who only reads is not shown.
+  // The frame's messages are received by the editor screen, which knows the frame (`noteChange`).
   const [changedId, setChangedId] = useState<string | null>(null);
+  const editableRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!engineOrigin || !editableId) return;
-    const onMessage = (e: MessageEvent) => {
-      if (e.origin !== engineOrigin || typeof e.data !== "string") return;
-      try {
-        if ((JSON.parse(e.data) as { MessageId?: string }).MessageId === "Edit_Notification") setChangedId(editableId);
-      } catch {
-        // Not a WOPI message.
-      }
-    };
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [engineOrigin, editableId]);
+    editableRef.current = editableId;
+  });
+  const noteChange = useCallback(() => {
+    if (editableRef.current) setChangedId(editableRef.current);
+  }, []);
 
   /** The file this tab is editing: the editable file, once it has changed here. */
   const editedId = editableId && changedId === editableId ? editableId : null;
@@ -161,5 +182,5 @@ export function useOfficeSession(
     [editableId, fileId],
   );
 
-  return { state, leave };
+  return { state, leave, noteChange };
 }

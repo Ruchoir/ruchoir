@@ -13,11 +13,14 @@ export function NewDocumentMenu({
   folderId,
   onCreated,
   onNotify,
+  newTab = true,
 }: {
   spaceId: string;
   folderId?: string;
   /** `tab` was opened on the click, for the document to open in (null: the browser refused it). */
   onCreated: (file: SpaceFile, tab: Window | null) => void;
+  /** Whether the new document opens in a tab of its own (false: over the list). */
+  newTab?: boolean;
   onNotify: (toast: Toast) => void;
 }) {
   const { t } = useTranslation();
@@ -37,7 +40,7 @@ export function NewDocumentMenu({
     setBusy(true);
     // The new document opens in a tab of its own. The tab is opened now, on the click: once the
     // document exists, the browser would take a new tab for a pop-up and refuse it.
-    const tab = window.open("", "_blank");
+    const tab = newTab ? window.open("", "_blank") : null;
     createBlankDocument(spaceId, kind, name.trim(), folderId)
       .then((file) => {
         setOpen(false);

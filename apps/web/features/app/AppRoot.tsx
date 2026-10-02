@@ -3693,7 +3693,7 @@ function AppShell() {
         bare
         fileId={standalone.fileId}
         convert={standalone.convert}
-        addressOf={slug ? (id) => fileUrl(slug, id, slugs) : undefined}
+        addressOf={slug ? (id, convert) => fileUrl(slug, id, slugs, convert) : undefined}
         onClose={() => {
           window.close();
           window.setTimeout(() => {

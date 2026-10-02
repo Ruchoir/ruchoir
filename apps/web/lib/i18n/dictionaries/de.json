@@ -1228,6 +1228,9 @@
     "kindPresentation": "Präsentation",
     "namePlaceholder": "Name des Dokuments",
     "created": "Dokument erstellt",
-    "createFailed": "Dokument konnte nicht erstellt werden"
+    "createFailed": "Dokument konnte nicht erstellt werden",
+    "missing": "Dieses Dokument existiert nicht mehr.",
+    "signedOut": "Ihre Sitzung ist abgelaufen: Melden Sie sich erneut bei Ruchoir an und öffnen Sie das Dokument dann erneut.",
+    "conversionFailed": "Die Umwandlung ist nicht gelungen. Das Original ist unverändert."
   }
 }

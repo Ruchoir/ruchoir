@@ -1259,6 +1259,9 @@
     "kindPresentation": "Presentazione",
     "namePlaceholder": "Nome del documento",
     "created": "Documento creato",
-    "createFailed": "Impossibile creare il documento"
+    "createFailed": "Impossibile creare il documento",
+    "missing": "Questo documento non esiste più.",
+    "signedOut": "La tua sessione è scaduta: accedi di nuovo a Ruchoir, poi riapri il documento.",
+    "conversionFailed": "La conversione non è andata a buon fine. L'originale è intatto."
   }
 }

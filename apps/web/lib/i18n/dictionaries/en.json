@@ -1228,6 +1228,9 @@
     "kindPresentation": "Presentation",
     "namePlaceholder": "Document name",
     "created": "Document created",
-    "createFailed": "Could not create the document"
+    "createFailed": "Could not create the document",
+    "missing": "This document no longer exists.",
+    "signedOut": "Your session has expired: sign in to Ruchoir again, then reopen the document.",
+    "conversionFailed": "The conversion did not go through. The original is untouched."
   }
 }
