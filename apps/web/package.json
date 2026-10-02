@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "audit:responsive": "node tools/responsive-audit/run.mjs",
     "audit:a11y": "node tools/responsive-audit/run.mjs --all-themes",
-    "i18n:check": "node tools/i18n-audit/run.mjs"
+    "i18n:check": "node tools/i18n-audit/run.mjs",
+    "test": "node --test 'features/**/*.test.ts'"
   },
   "dependencies": {
     "@dicebear/core": "^10.7.0",
