@@ -77,6 +77,7 @@ import {
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
 import { readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
+import { emitFileEvent } from "@/lib/fileEvents";
 import type {
   Channel,
   DirectMessage,
@@ -1414,6 +1415,8 @@ function AppShell() {
       },
       onTyping: (conv, userId) =>
         setTyping((prev) => ({ ...prev, [conv]: { ...prev[conv], [userId]: Date.now() } })),
+      onFilesUpdated: (spaceId, file) => emitFileEvent({ type: "updated", spaceId, file }),
+      onFilesEditing: (spaceId, fileId, editors) => emitFileEvent({ type: "editing", spaceId, fileId, editors }),
       onFilesDeleted: (spaceId, fileIds) => {
         if (fileIds.length === 0) return;
         const gone = new Set(fileIds);
