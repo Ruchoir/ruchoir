@@ -3,12 +3,13 @@
 import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
 import { FileViewer, viewerKind } from "./FileViewer";
 import { ImageViewer } from "./ImageViewer";
-import { Button, Dialog, EmptyState, FileIcon, type IconName, Skeleton, SkeletonGroup } from "@/components/ds";
+import { Button, Dialog, EmptyState, FileIcon, Icon, type IconName, Skeleton, SkeletonGroup } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import type { OfficeCapabilities } from "@/lib/data/types";
 import { fileUrl } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
-import { deleteFile, fileDownloadUrl, getInstanceCapabilities, officeActionFor, updateFile, uploadFile, uploadFileVersion } from "@/lib/data/api";
+import { deleteFile, fileDownloadUrl, getInstanceCapabilities, officeActionFor, updateFile } from "@/lib/data/api";
+import { enqueue, reject as rejectUpload } from "@/lib/uploads";
 import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
@@ -25,7 +26,10 @@ import { entryOf, type Item, type ListProps, type MenuAt } from "./listTypes";
 import { type ActionId, actionsFor, canManage, filterEntries, type Sort, sortEntries } from "./model";
 import { MoveDialog } from "./MoveDialog";
 import { NewMenu } from "./NewMenu";
+import { carriesFiles, fromInput, readDrop } from "./dropFiles";
 import { useDragMove } from "./useDragMove";
+import { tooLarge } from "./uploadPlan";
+import { useUploader } from "./useUploader";
 import { useFolder } from "./useFolder";
 import { useSelection } from "./useSelection";
 
@@ -104,7 +108,7 @@ export function FilesScreen({
   const { t } = useTranslation();
   const rootLabel = t("sidebar.spaceFiles");
 
-  const { entries, breadcrumb, folderId, loading, load, reload } = useFolder(spaceId, () =>
+  const { entries, breadcrumb, folderId, loading, load, reload, upsert } = useFolder(spaceId, () =>
     onNotify({ tone: "danger", title: t("files.loadFailed") }),
   );
 
@@ -122,6 +126,7 @@ export function FilesScreen({
   const [moving, setMoving] = useState<Item[]>([]);
   const [preview, setPreview] = useState<SpaceFile | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   /**
    * The file a new version is being picked for, and the input that picks it. The input is reached by
    * its id rather than a ref: the menus are built during render, and a ref read from a function
@@ -133,6 +138,8 @@ export function FilesScreen({
 
   // What the office editor opens here, if the instance has one.
   const [office, setOffice] = useState<OfficeCapabilities | null>(null);
+  /** The largest file the instance accepts (unknown until asked). */
+  const [maxBytes, setMaxBytes] = useState<number | undefined>(undefined);
   /** The editor turned out to be unreachable: ask again every minute until it is back. */
   const [officeLost, setOfficeLost] = useState(false);
   const [officeCheck, setOfficeCheck] = useState(0);
@@ -142,6 +149,7 @@ export function FilesScreen({
       .then((caps) => {
         if (cancelled) return;
         setOffice(caps.office.enabled ? caps.office : null);
+        setMaxBytes(caps.uploadMaxBytes);
         // Configured but not answering yet (an engine still starting): look again until it does.
         setOfficeLost(!caps.office.enabled && !!caps.office.publicUrl);
       })
@@ -401,45 +409,84 @@ export function FilesScreen({
   const folderName = (id: string | null) =>
     id == null ? rootLabel : (entries.find((f) => f.id === id)?.name ?? breadcrumb.find((c) => c.id === id)?.name ?? rootLabel);
 
+  const currentName = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].name : rootLabel;
+  const uploader = useUploader({ spaceId, maxBytes, currentUserId, spaceRole, onNotify, onFolderCreated: upsert });
+  /** Send what was dropped onto a folder (`null`: the space's root), the open one when none is named. */
+  const sendDrop = (dt: DataTransfer, targetId: string | null | undefined) => {
+    const target = targetId === undefined ? { folderId, name: currentName } : { folderId: targetId ?? undefined, name: folderName(targetId) };
+    readDrop(dt)
+      .then((dropped) => uploader.send(dropped, target))
+      .catch(() => onNotify({ tone: "danger", title: t("files.uploadFailed") }));
+  };
+
   const drag = useDragMove({
     selectedItems,
     currentFolderId: folderId,
     onMove: (targets, targetId) => moveTo(targets, targetId, folderName(targetId)),
+    onFilesDrop: (dt, targetId) => sendDrop(dt, targetId),
   });
 
-  /** Replace a file's contents, keeping its name and its place. */
+  // Files dragged in from the desktop over the list: a frame says where they will go. Counted, as
+  // every child the pointer crosses fires its own enter and leave.
+  const [dropping, setDropping] = useState(false);
+  const dragDepth = useRef(0);
+  const dropZone = compact
+    ? {}
+    : {
+        onDragEnter: (e: React.DragEvent) => {
+          if (!carriesFiles(e.dataTransfer)) return;
+          dragDepth.current += 1;
+          setDropping(true);
+        },
+        onDragLeave: (e: React.DragEvent) => {
+          if (!carriesFiles(e.dataTransfer)) return;
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDropping(false);
+        },
+        onDragOver: (e: React.DragEvent) => {
+          if (!carriesFiles(e.dataTransfer)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        },
+        onDrop: (e: React.DragEvent) => {
+          dragDepth.current = 0;
+          setDropping(false);
+          if (!carriesFiles(e.dataTransfer)) return;
+          e.preventDefault();
+          sendDrop(e.dataTransfer, undefined);
+        },
+      };
+  // A drop on a folder row is that row's: the frame goes when any drop ends.
+  useEffect(() => {
+    const end = () => {
+      dragDepth.current = 0;
+      setDropping(false);
+    };
+    window.addEventListener("drop", end);
+    window.addEventListener("dragend", end);
+    return () => {
+      window.removeEventListener("drop", end);
+      window.removeEventListener("dragend", end);
+    };
+  }, []);
+
+  /** Replace a file's contents, keeping its name and its place: through the queue, with its progress. */
   const onVersionPicked = (input: HTMLInputElement) => {
     const file = input.files?.[0];
     const target = versionTarget;
     input.value = "";
     setVersionTarget(null);
     if (!file || !target?.id) return;
-    onNotify({ tone: "info", title: t("files.uploadingVersion"), description: target.name });
-    uploadFileVersion(target.id, file)
-      .then((updated) => {
-        onNotify({ tone: "success", title: t("files.versionUploaded", { version: updated.version }), description: target.name });
-        refresh();
-      })
-      .catch((err) =>
-        onNotify({
-          tone: "danger",
-          title: t("files.versionFailed"),
-          description: isApiError(err, 403) ? t("files.ownFilesOnlyReplace") : target.name,
-        }),
-      );
+    const job = { file, name: target.name, spaceId, folderId: target.parentFolderId, replaceFileId: target.id };
+    if (tooLarge(file.size, maxBytes)) rejectUpload(job, "tooLarge");
+    else enqueue([job]);
   };
 
-  const onFilePicked = (fileList: FileList | null) => {
-    const file = fileList?.[0];
-    if (!file) return;
-    if (uploadRef.current) uploadRef.current.value = "";
-    onNotify({ tone: "info", title: t("files.uploading"), description: file.name });
-    uploadFile(spaceId, file, folderId)
-      .then(() => {
-        onNotify({ tone: "success", title: t("files.uploaded"), description: file.name });
-        refresh();
-      })
-      .catch(() => onNotify({ tone: "danger", title: t("files.uploadFailed"), description: file.name }));
+  /** Files (or a folder's files, with their paths) picked from the device, into the open folder. */
+  const onFilesPicked = (input: HTMLInputElement) => {
+    const files = fromInput(input.files);
+    input.value = "";
+    if (files.length > 0) void uploader.send({ files, emptyDirs: [] }, { folderId, name: currentName });
   };
 
   const listProps: ListProps = {
@@ -458,7 +505,6 @@ export function FilesScreen({
     drag: compact ? undefined : drag,
   };
 
-  const currentName = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].name : rootLabel;
   const detailsSubject: DetailsSubject =
     selectedItems.length === 1 ? { kind: "entry", file: selectedItems[0].file } : { kind: "folder", name: currentName, count: entries.length };
 
@@ -471,6 +517,7 @@ export function FilesScreen({
       newTab={!opensInPlace}
       onNotify={onNotify}
       onUpload={() => uploadRef.current?.click()}
+      onUploadFolder={compact ? undefined : () => folderInputRef.current?.click()}
       onFolderCreated={refresh}
       onDocumentCreated={(file, tab) => {
         refresh();
@@ -514,13 +561,57 @@ export function FilesScreen({
             : null
         }
       />
-      <input ref={uploadRef} type="file" style={{ display: "none" }} onChange={(e) => onFilePicked(e.target.files)} />
+      <input ref={uploadRef} type="file" multiple style={{ display: "none" }} onChange={(e) => onFilesPicked(e.currentTarget)} />
+      {/* A whole folder, its tree kept (`webkitdirectory` is the attribute every browser reads). */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        style={{ display: "none" }}
+        onChange={(e) => onFilesPicked(e.currentTarget)}
+        {...{ webkitdirectory: "", directory: "" }}
+      />
       {/* A second picker, so choosing a replacement never runs through the one that creates a new
           file: the two differ only in where the bytes are sent, which is exactly the confusion
           worth designing out. */}
       <input id={versionInputId} type="file" style={{ display: "none" }} onChange={(e) => onVersionPicked(e.currentTarget)} />
 
-      <div style={styles.main}>
+      <div style={{ ...styles.main, position: "relative" }} {...dropZone}>
+        {dropping ? (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 8,
+              zIndex: 3,
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              paddingBottom: 32,
+              border: "2px dashed var(--text-accent)",
+              borderRadius: "var(--radius-lg)",
+              background: "color-mix(in srgb, var(--surface-selected) 55%, transparent)",
+              pointerEvents: "none",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 16px",
+                borderRadius: "var(--radius-md)",
+                background: "var(--ink)",
+                color: "var(--on-ink)",
+                fontSize: "var(--text-sm)",
+                fontWeight: 600,
+                boxShadow: "var(--shadow-popover)",
+              }}
+            >
+              <Icon name="upload" size={16} />
+              {t("files.dropHere", { folder: currentName })}
+            </span>
+          </div>
+        ) : null}
         <div
           style={compact ? { ...styles.body, padding: layout === "grid" ? "12px 12px 96px" : "0 0 96px" } : styles.body}
           onClick={(e) => {
@@ -578,6 +669,7 @@ export function FilesScreen({
         onClose={() => setMenu(null)}
       />
       {compact ? <DetailsPanel subject={detailsSheet} trail={breadcrumb} rootLabel={rootLabel} sheet onClose={() => setDetailsSheet(null)} /> : null}
+      {uploader.dialog}
       <RenameDialog item={renaming} onClose={() => setRenaming(null)} onRename={confirmRename} />
       <DeleteDialog items={deleting.items} skipped={deleting.skipped} onClose={() => setDeleting({ items: [], skipped: 0 })} onConfirm={confirmDelete} />
       <MoveDialog

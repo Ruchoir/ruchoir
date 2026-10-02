@@ -176,6 +176,7 @@ import { lastChannelOf, rememberChannel } from "@/lib/lastChannel";
 import { useLayout, useTouch } from "./useLayout";
 import { oneLine } from "./preview";
 import { BottomTabs } from "./BottomTabs";
+import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
 import { SpaceSwitcherSheet, YouSheet } from "./mobile/MobileSheets";
 
@@ -4039,6 +4040,8 @@ function AppShell() {
 
   const overlays = (
     <>
+      {/* What is being sent, wherever the person goes meanwhile. */}
+      <UploadPanel compact={compact} />
       {/* Personal preferences take over the whole viewport (covering the rail and sidebar) so it is
           clear they are account-wide, not scoped to the current workspace. Sits below toasts (z 60)
           and dialogs (z 90) so the security sub-dialogs still layer on top. */}
