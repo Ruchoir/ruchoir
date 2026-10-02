@@ -544,6 +544,14 @@ function AppShell() {
    * alone across it (documents open in a tab of their own, see `FilesScreen`).
    */
   const [standalone, setStandalone] = useState<{ fileId: string; convert: boolean; slug: string } | null>(null);
+  /**
+   * The address looks like a document's (`/e/<space>/f/<file>`, `/f/<file>`) and the boot has not yet
+   * said whether it is one: nothing live starts meanwhile (no realtime connection), so a document's
+   * tab never appears present in the space, not even for the moment the boot takes.
+   */
+  const [maybeDocumentTab, setMaybeDocumentTab] = useState(
+    () => typeof window !== "undefined" && /^\/(?:e\/[^/]+\/)?f\/[^/]+/.test(window.location.pathname),
+  );
   /** Whether the office editor is open: it owns the address meanwhile (`/e/<space>/f/<file>`). */
   const [editorOpen, setEditorOpen] = useState(false);
   // The view to restore when the full-screen preferences are closed (they are opened from menus, not the nav).
@@ -886,8 +894,10 @@ function AppShell() {
     // of a member who is looking at a document.
     if (wanted && target?.fileId) {
       setStandalone({ fileId: target.fileId, convert: target.convert === true, slug: wanted.slug });
+      setMaybeDocumentTab(false);
       return spaces;
     }
+    setMaybeDocumentTab(false);
     const landing = wanted ?? spaces[0];
     await loadSpace(landing?.id ?? "", wanted ? target?.channelName : undefined, landing?.defaultChannelId);
     return spaces;
@@ -1135,7 +1145,7 @@ function AppShell() {
   useEffect(() => {
     // A document's own tab listens to nothing: the editor needs no live event, and a connection would
     // count this tab as the member being present in the space.
-    if (!session || standalone) return;
+    if (!session || standalone || maybeDocumentTab) return;
     const conn = connectRealtime({
       onReconnect: () => resyncRef.current(),
       onMessageCreated: (conv, m) => {
@@ -1487,7 +1497,7 @@ function AppShell() {
       conn.close();
       rtRef.current = null;
     };
-  }, [session, refreshSpaceCounters, standalone]);
+  }, [session, refreshSpaceCounters, standalone, maybeDocumentTab]);
 
   // Expire typing signals a few seconds after the last keystroke, so the indicator does not stick.
   useEffect(() => {
