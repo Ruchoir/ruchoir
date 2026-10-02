@@ -251,15 +251,27 @@ export function FilesScreen({
 
   // What the office editor opens here, if the instance has one.
   const [office, setOffice] = useState<OfficeCapabilities | null>(null);
+  /** The editor turned out to be unreachable: ask again every minute until it is back. */
+  const [officeLost, setOfficeLost] = useState(false);
+  const [officeCheck, setOfficeCheck] = useState(0);
   useEffect(() => {
     let cancelled = false;
     getInstanceCapabilities()
-      .then((caps) => !cancelled && setOffice(caps.office.enabled ? caps.office : null))
+      .then((caps) => {
+        if (cancelled) return;
+        setOffice(caps.office.enabled ? caps.office : null);
+        if (caps.office.enabled) setOfficeLost(false);
+      })
       .catch(() => !cancelled && setOffice(null));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [officeCheck]);
+  useEffect(() => {
+    if (!officeLost) return;
+    const timer = window.setInterval(() => setOfficeCheck((n) => n + 1), 60_000);
+    return () => window.clearInterval(timer);
+  }, [officeLost]);
   /** The file open in the editor, and whether it is being converted rather than opened. */
   const [editing, setEditing] = useState<{ fileId: string; convert: boolean } | null>(null);
   const editorOpen = editing != null;
@@ -1004,6 +1016,8 @@ export function FilesScreen({
             // The engine is down: show the file the way it was shown before live editing.
             const file = entries.find((f) => f.id === editing.fileId);
             setEditing(null);
+            setOffice(null);
+            setOfficeLost(true);
             if (file) setPreview(file);
           }}
           onClose={() => {
