@@ -1,6 +1,6 @@
 # Live office editing
 
-Status: implemented on branch feat/live-office-editing (2026-10-02); end-to-end check pending on the development instance. Decision record: [ADR 0003](adr/0003-office-editing-engine.md).
+Status: implemented on branch feat/live-office-editing; end-to-end check passed on the development instance on 2026-10-02 (two people co-editing, one version by the last to leave, autosave after ten minutes, a legacy spreadsheet converted, a blank spreadsheet, a Visio drawing viewed, the editing badge, no request to another host). Trial by the product owners pending. Decision record: [ADR 0003](adr/0003-office-editing-engine.md).
 
 Several people edit the same Word, Excel or PowerPoint file at the same time, in the browser, without
 leaving Ruchoir, and every save lands as a new version of the file. The editing itself is done by
