@@ -8576,3 +8576,96 @@ async fn the_instance_says_what_the_editor_opens() {
         .iter()
         .any(|e| e == "doc"));
 }
+
+#[tokio::test]
+async fn an_office_token_names_one_member_one_file_and_expires() {
+    use crate::office::discovery::Mode;
+    use crate::office::tokens;
+
+    let Some(app) = boot().await else { return };
+    let (user, file) = (Uuid::new_v4(), Uuid::new_v4());
+    let (token, grant) = tokens::mint(&app.valkey, user, file, Mode::Edit, 2)
+        .await
+        .expect("mint");
+    assert_eq!(token.len(), 64);
+    assert_eq!(
+        tokens::resolve(&app.valkey, &token).await.expect("resolve"),
+        Some(grant)
+    );
+    assert_eq!(
+        tokens::resolve(&app.valkey, "not-a-token")
+            .await
+            .expect("garbage"),
+        None
+    );
+    tokio::time::sleep(Duration::from_millis(2_200)).await;
+    assert_eq!(
+        tokens::resolve(&app.valkey, &token).await.expect("expired"),
+        None
+    );
+}
+
+#[tokio::test]
+async fn a_lock_follows_the_wopi_rules_and_remembers_its_version() {
+    use crate::office::locks::{self, Outcome};
+
+    let Some(app) = boot().await else { return };
+    let file = Uuid::new_v4();
+    let v1 = Uuid::new_v4();
+    let at = (v1, "2026-10-01T10:00:00Z".to_owned());
+
+    assert_eq!(
+        locks::lock(&app.valkey, file, "A", None, at.clone())
+            .await
+            .unwrap(),
+        Outcome::Ok
+    );
+    assert_eq!(
+        locks::lock(&app.valkey, file, "A", None, at.clone())
+            .await
+            .unwrap(),
+        Outcome::Ok,
+        "relocking with the same id refreshes"
+    );
+    assert_eq!(
+        locks::lock(&app.valkey, file, "B", None, at.clone())
+            .await
+            .unwrap(),
+        Outcome::Conflict("A".into())
+    );
+    assert_eq!(
+        locks::refresh(&app.valkey, file, "B").await.unwrap(),
+        Outcome::Conflict("A".into())
+    );
+    assert_eq!(
+        locks::unlock(&app.valkey, file, "B").await.unwrap(),
+        Outcome::Conflict("A".into())
+    );
+    assert_eq!(
+        locks::lock(&app.valkey, file, "C", Some("B"), at.clone())
+            .await
+            .unwrap(),
+        Outcome::Conflict("A".into())
+    );
+    assert_eq!(
+        locks::lock(&app.valkey, file, "C", Some("A"), at.clone())
+            .await
+            .unwrap(),
+        Outcome::Ok,
+        "unlock-and-relock"
+    );
+    let held = locks::current(&app.valkey, file)
+        .await
+        .unwrap()
+        .expect("held");
+    assert_eq!((held.lock.as_str(), held.version_id), ("C", v1));
+    assert_eq!(
+        locks::unlock(&app.valkey, file, "C").await.unwrap(),
+        Outcome::Ok
+    );
+    assert_eq!(locks::current(&app.valkey, file).await.unwrap(), None);
+    assert_eq!(
+        locks::refresh(&app.valkey, file, "C").await.unwrap(),
+        Outcome::Conflict(String::new())
+    );
+}

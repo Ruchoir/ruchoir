@@ -14,6 +14,8 @@
 
 pub mod discovery;
 pub mod error;
+pub mod locks;
+pub mod tokens;
 
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
