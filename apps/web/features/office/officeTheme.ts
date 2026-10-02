@@ -9,6 +9,15 @@ export function officeTheme(): "light" | "dark" {
 }
 
 /**
+ * The person's accent (`sky`, `mint`, `violet`, `pink`): the first half of `data-theme` on `<html>`.
+ * The editor paints with it what is selected or active, as Ruchoir does.
+ */
+export function officeAccent(): string {
+  if (typeof document === "undefined") return "sky";
+  return (document.documentElement.getAttribute("data-theme") ?? "").split("-")[0] || "sky";
+}
+
+/**
  * Whether this screen is driven by touch (a phone, a tablet): the engine then opens its own mobile
  * editor, made for fingers, rather than the desktop one with its ribbons.
  */

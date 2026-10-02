@@ -1,9 +1,10 @@
 ﻿<%# Ruchoir patch of Euro-Office 9.3.4's web-apps/apps/api/wopi/editor-wopi.ejs, mounted read-only by
-    docker-compose.yml. Five changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
+    docker-compose.yml. Six changes, each marked "Ruchoir patch": (1) keep the integrator's uiTheme when
     the thm parameter is absent; (2) paint a custom theme given at launch, which the engine selects but
     does not paint; (3) let the integrator's theme win over one an earlier session stored; (4) keep the
-    member's avatar round; (5) Ruchoir's day colours in the mobile editor. Remove each
-    when the pinned engine version fixes it (see infra/office/README.md). %>
+    member's avatar round; (5) Ruchoir's day colours in the mobile editor; (6) the member's accent on
+    what is selected or active. Remove each when the pinned engine version fixes it (see
+    infra/office/README.md). %>
 <!DOCTYPE html>
 <html>
 <head runat="server">
@@ -228,6 +229,37 @@ div {
                             + "body.theme-type-light #editor-navbar .icon{color:#15171c}"
                             + "body.theme-type-light #editor-navbar .navbar-bg{border-bottom:1px solid #e2e5ea}";
                         doc.head.appendChild(mobile);
+                    }
+                    // Ruchoir patch: the member's accent (`ruchoir.accent` in the configuration Ruchoir
+                    // posted, rendered in this page) on what is selected or active, as in Ruchoir:
+                    // pressed buttons, the open ribbon tab, the selected preview, text selection; by
+                    // night also the mobile editor's links. A custom dark theme is never painted
+                    // (upstream defect 3), so this rides on the engine's own themes, day and night.
+                    var posted = JSON.parse(document.getElementById("docsApiConfigJsonData").getAttribute("data-json") || "{}");
+                    var acc = posted && posted.ruchoir && posted.ruchoir.accent;
+                    if (doc && doc.head && typeof acc === "string" && /^#[0-9a-f]{6}$/i.test(acc) && !doc.getElementById("ruchoir-accent")) {
+                        var rgb = [1, 3, 5].map(function (k) { return parseInt(acc.substr(k, 2), 16); }).join(",");
+                        var tabs = ["document", "spreadsheet", "presentation", "pdf", "visio"].map(function (k) {
+                            return "--highlight-toolbar-tab-underline-" + k + ":" + acc + "!important;"
+                                + "--highlight-header-tab-underline-" + k + ":" + acc + "!important;";
+                        }).join("");
+                        var common = tabs + "--highlight-text-select:" + acc + "!important;"
+                            + "--border-preview-select:" + acc + "!important;"
+                            + "--f7-toggle-active-color:" + acc + "!important;"
+                            + "--f7-checkbox-active-color:" + acc + "!important;"
+                            + "--f7-radio-active-color:" + acc + "!important;";
+                        var accent = doc.createElement("style");
+                        accent.id = "ruchoir-accent";
+                        accent.textContent = "body.theme-type-light{" + common
+                            + "--highlight-button-pressed:rgba(" + rgb + ",.45)!important;"
+                            + "--highlight-button-pressed-hover:rgba(" + rgb + ",.6)!important}"
+                            + "body.theme-type-dark{" + common
+                            + "--highlight-button-pressed:rgba(" + rgb + ",.28)!important;"
+                            + "--highlight-button-pressed-hover:rgba(" + rgb + ",.38)!important;"
+                            + ["word", "cell", "slide", "visio", "form", "primary"].map(function (k) {
+                                return "--brand-" + k + ":" + acc + "!important;";
+                            }).join("") + "--brand-text-on-brand:#15171c!important}";
+                        doc.head.appendChild(accent);
                     }
                 } catch (e) {}
             }

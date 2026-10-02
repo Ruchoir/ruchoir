@@ -28,6 +28,8 @@ pub struct SessionRequest {
     pub locale: Option<String>,
     /// `light` or `dark`, from the person's theme.
     pub theme: Option<String>,
+    /// The person's accent (`sky`, `mint`, `violet`, `pink`).
+    pub accent: Option<String>,
     /// `convert` to convert a legacy format into an editable copy.
     pub mode: Option<String>,
     /// A touch screen (phone, tablet): the engine's mobile editor.
@@ -133,6 +135,7 @@ pub async fn open_session(
         config: engine_config(
             state.config.public_base_url.trim_end_matches('/'),
             request.theme.as_deref(),
+            request.accent.as_deref(),
             lang,
             photo.as_deref(),
         ),
@@ -221,10 +224,23 @@ pub fn engine_language(locale: Option<&str>) -> &'static str {
     }
 }
 
-/// Euro-Office's configuration for a session, ignored by other engines.
+/// The colour of one of Ruchoir's accents (`apps/web/app/tokens.css`), sky by default. Only these
+/// reach the engine's page, which writes the colour into a style sheet.
+fn accent_colour(accent: Option<&str>) -> &'static str {
+    match accent {
+        Some("mint") => "#6fe0c2",
+        Some("violet") => "#c9a8ff",
+        Some("pink") => "#f5b0f0",
+        _ => "#8fd0ff",
+    }
+}
+
+/// Euro-Office's configuration for a session, ignored by other engines. `ruchoir.accent` is read by
+/// the patched WOPI page (`infra/office/patches/editor-wopi.ejs`), which paints the editor with it.
 fn engine_config(
     public_base_url: &str,
     theme: Option<&str>,
+    accent: Option<&str>,
     lang: &str,
     photo: Option<&str>,
 ) -> String {
@@ -247,6 +263,7 @@ fn engine_config(
                 "customer": { "name": "Ruchoir", "www": public_base_url },
             },
         },
+        "ruchoir": { "accent": accent_colour(accent) },
     });
     if let Some(photo) = photo {
         config["editorConfig"]["user"] = json!({ "image": photo });
@@ -366,4 +383,36 @@ pub async fn end_heartbeat(
         super::presence::publish(&state, &access.file, session.user_id).await;
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+
+    fn accent_of(accent: Option<&str>) -> Value {
+        let config: Value = serde_json::from_str(&engine_config(
+            "https://r.test",
+            None,
+            accent,
+            "fr-FR",
+            None,
+        ))
+        .unwrap();
+        config["ruchoir"]["accent"].clone()
+    }
+
+    #[test]
+    fn the_editor_takes_the_members_accent() {
+        assert_eq!(accent_of(Some("violet")), "#c9a8ff");
+        assert_eq!(accent_of(Some("mint")), "#6fe0c2");
+        assert_eq!(accent_of(Some("pink")), "#f5b0f0");
+        assert_eq!(accent_of(Some("sky")), "#8fd0ff");
+        assert_eq!(accent_of(None), "#8fd0ff", "Ruchoir's default accent");
+        assert_eq!(
+            accent_of(Some("#ff0000;}")),
+            "#8fd0ff",
+            "only Ruchoir's own accents reach the engine's page"
+        );
+    }
 }
