@@ -215,7 +215,9 @@ pub fn forwardable(name: &HeaderName) -> bool {
 
 /// Let Ruchoir, and only Ruchoir, frame the engine's pages.
 pub fn frame_for(headers: &mut HeaderMap, ruchoir_origin: &str) {
-    let ours = format!("frame-ancestors {ruchoir_origin}");
+    // `'self'` too: the engine's WOPI page frames its own editor page, and a browser checks every
+    // ancestor of a frame against this list, the editor's own origin included.
+    let ours = format!("frame-ancestors 'self' {ruchoir_origin}");
     let policy = match headers
         .get(CONTENT_SECURITY_POLICY)
         .and_then(|v| v.to_str().ok())
@@ -479,7 +481,7 @@ mod tests {
         frame_for(&mut headers, "https://ruchoir.example.org");
         assert_eq!(
             headers[CONTENT_SECURITY_POLICY],
-            "frame-ancestors https://ruchoir.example.org"
+            "frame-ancestors 'self' https://ruchoir.example.org"
         );
 
         let mut headers = HeaderMap::new();
@@ -491,7 +493,7 @@ mod tests {
         frame_for(&mut headers, "https://ruchoir.example.org");
         assert_eq!(
             headers[CONTENT_SECURITY_POLICY],
-            "default-src 'self'; frame-ancestors https://ruchoir.example.org"
+            "default-src 'self'; frame-ancestors 'self' https://ruchoir.example.org"
         );
         assert!(headers.get("x-frame-options").is_none());
     }

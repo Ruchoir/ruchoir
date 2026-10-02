@@ -138,7 +138,7 @@ ways. Conversely, the relay answers nothing on Ruchoir's own host.
 - **No credential crosses:** any `Cookie` and `Authorization` header is removed before the request
   leaves for the engine (the browser should send none, the relay makes sure), and `Set-Cookie` from
   the engine is dropped.
-- The engine's pages carry `frame-ancestors <Ruchoir's origin>`; Ruchoir's own CSP gains
+- The engine's pages carry `frame-ancestors 'self' <Ruchoir's origin>` (`'self'` because the engine's WOPI page frames its own editor page, and every ancestor is checked); Ruchoir's own CSP gains
   `frame-src <office origin>` so it can frame them, and nothing else changes for it.
 - Only the paths the editor needs are relayed (observed during the test of 2026-10-01): the versioned
   static tree (`/<version>-<hash>/…`: `sdkjs`, `fonts`, `web-apps`, `doc` (the co-editing socket),

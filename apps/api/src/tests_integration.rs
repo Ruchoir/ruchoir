@@ -9325,7 +9325,12 @@ async fn the_office_hostname_is_relayed_without_credentials_and_only_there() {
         .to_str()
         .unwrap()
         .to_owned();
-    assert!(csp.contains(&format!("frame-ancestors {}", app.config.public_base_url)));
+    // The engine's own pages frame each other (the WOPI page frames the editor), and every ancestor
+    // must be allowed: the editor's origin itself, then Ruchoir's.
+    assert!(csp.contains(&format!(
+        "frame-ancestors 'self' {}",
+        app.config.public_base_url
+    )));
     let seen: Value = relayed.json().await.unwrap();
     assert!(seen.get("cookie").is_none(), "no cookie reaches the engine");
     assert!(seen.get("authorization").is_none());
@@ -9589,7 +9594,7 @@ async fn the_engine_is_told_ruchoirs_origin_even_with_a_trailing_slash() {
         .unwrap()
         .to_owned();
     assert!(
-        csp.ends_with("frame-ancestors http://localhost:8080"),
+        csp.ends_with("frame-ancestors 'self' http://localhost:8080"),
         "{csp}"
     );
 
