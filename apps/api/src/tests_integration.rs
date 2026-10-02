@@ -10010,3 +10010,54 @@ async fn an_engine_that_stops_answering_turns_the_editor_off() {
         .unwrap();
     assert_eq!(res.status(), 503, "the page falls back to the preview");
 }
+
+#[tokio::test]
+async fn the_editor_shows_the_members_ruchoir_photo() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+    let config_for = |cookie: String| {
+        let req = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/files/{file_id}/office"),
+                &cookie,
+            )
+            .json(&json!({}));
+        async move {
+            let session: Value = req.send().await.unwrap().json().await.unwrap();
+            serde_json::from_str::<Value>(session["config"].as_str().unwrap()).unwrap()
+        }
+    };
+
+    let without = config_for(bob.clone()).await;
+    assert!(
+        without["editorConfig"]["user"]["image"].is_null(),
+        "no photo: the editor keeps the initials"
+    );
+
+    let mut user = users::Entity::find_by_id(fx.bob)
+        .one(&app.db)
+        .await
+        .unwrap()
+        .unwrap()
+        .into_active_model();
+    user.avatar_key = Set(Some(format!("avatars/{}/0b8e4f2a", fx.bob)));
+    user.update(&app.db).await.unwrap();
+
+    let with = config_for(bob).await;
+    let image = with["editorConfig"]["user"]["image"]
+        .as_str()
+        .expect("a photo");
+    assert!(
+        image.starts_with(&format!(
+            "{}/api/v1/users/{}/avatar?v=",
+            app.config.public_base_url, fx.bob
+        )),
+        "{image}"
+    );
+}

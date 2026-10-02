@@ -3,6 +3,7 @@
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
+use sea_orm::EntityTrait;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use utoipa::ToSchema;
@@ -104,6 +105,19 @@ pub async fn open_session(
         state.config.office_token_ttl_secs,
     )
     .await?;
+    // The member's Ruchoir photo, for the editor's own avatar (and the co-authors'): served by
+    // Ruchoir's host, which is the same site as the editor's, so the session cookie goes with it.
+    let photo = crate::entities::users::Entity::find_by_id(session.user_id)
+        .one(&state.db)
+        .await?
+        .and_then(|user| {
+            let key = user.avatar_key?;
+            Some(format!(
+                "{}{}",
+                state.config.public_base_url.trim_end_matches('/'),
+                crate::files::avatar_url(user.id, &key)
+            ))
+        });
     let file = crate::files::hydrate_files(&state.db, vec![access.file])
         .await?
         .pop()
@@ -118,6 +132,7 @@ pub async fn open_session(
             state.config.public_base_url.trim_end_matches('/'),
             request.theme.as_deref(),
             lang,
+            photo.as_deref(),
         ),
     }))
 }
@@ -205,13 +220,18 @@ pub fn engine_language(locale: Option<&str>) -> &'static str {
 }
 
 /// Euro-Office's configuration for a session, ignored by other engines.
-fn engine_config(public_base_url: &str, theme: Option<&str>, lang: &str) -> String {
+fn engine_config(
+    public_base_url: &str,
+    theme: Option<&str>,
+    lang: &str,
+    photo: Option<&str>,
+) -> String {
     let ui_theme = if theme == Some("dark") {
         "theme-dark"
     } else {
         "theme-ruchoir-light"
     };
-    json!({
+    let mut config = json!({
         "editorConfig": {
             "lang": lang,
             "customization": {
@@ -225,8 +245,11 @@ fn engine_config(public_base_url: &str, theme: Option<&str>, lang: &str) -> Stri
                 "customer": { "name": "Ruchoir", "www": public_base_url },
             },
         },
-    })
-    .to_string()
+    });
+    if let Some(photo) = photo {
+        config["editorConfig"]["user"] = json!({ "image": photo });
+    }
+    config.to_string()
 }
 
 /// The lower-case extension of a file name.
