@@ -154,6 +154,8 @@ export type FilesScreenProps = {
   openFileId?: string | null;
   /** The file of `openFileId` was opened: the caller forgets it. */
   onOpenFileHandled?: () => void;
+  /** The office editor opened or closed (it owns the address while open). */
+  onEditorChange?: (open: boolean) => void;
 };
 
 /** The space files view, backed by the API (folder tree, upload, download, preview). */
@@ -167,6 +169,7 @@ export function FilesScreen({
   slugs,
   openFileId,
   onOpenFileHandled,
+  onEditorChange,
 }: FilesScreenProps) {
   const { t } = useTranslation();
 
@@ -259,6 +262,12 @@ export function FilesScreen({
   }, []);
   /** The file open in the editor, and whether it is being converted rather than opened. */
   const [editing, setEditing] = useState<{ fileId: string; convert: boolean } | null>(null);
+  const editorOpen = editing != null;
+  useEffect(() => {
+    onEditorChange?.(editorOpen);
+  }, [editorOpen, onEditorChange]);
+  // Leaving the files screen closes the editor with it.
+  useEffect(() => () => onEditorChange?.(false), [onEditorChange]);
 
   // An address that named a file (`/e/<space>/f/<file>`) opens it in the editor once.
   useEffect(() => {

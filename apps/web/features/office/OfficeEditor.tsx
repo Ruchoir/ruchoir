@@ -33,14 +33,23 @@ export function OfficeEditor({ fileId, convert = false, href, onClose }: OfficeE
     if (state.status === "ready") formRef.current?.submit();
   }, [state.status]);
 
+  // The latest `onClose`, so the parent handing a fresh function on each render (it re-renders on
+  // every realtime event) neither re-runs the focus below nor re-binds the key listener.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  // Focus the way out once, when the editor opens: never again, or a member typing in the document
+  // would lose the keyboard whenever anything happened elsewhere in the app.
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
 
   // The address names the document while it is open, and goes back to what it was on close.
   useEffect(() => {

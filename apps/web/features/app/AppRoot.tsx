@@ -541,6 +541,8 @@ function AppShell() {
   /** A file an address named (`/e/<space>/f/<file>`), opened in the editor once the files show. */
   const [openFileId, setOpenFileId] = useState<string | null>(null);
   const clearOpenFileId = useCallback(() => setOpenFileId(null), []);
+  /** Whether the office editor is open: it owns the address meanwhile (`/e/<space>/f/<file>`). */
+  const [editorOpen, setEditorOpen] = useState(false);
   // The view to restore when the full-screen preferences are closed (they are opened from menus, not the nav).
   const [prevView, setPrevView] = useState<AppView>("channel");
   // Which preferences section to land on when the full-screen preferences open.
@@ -3475,7 +3477,7 @@ function AppShell() {
   // and reopened where it was left. `writeSpaceLocation` replaces rather than pushes: the app gains
   // an address without pretending to have a history it does not implement.
   useEffect(() => {
-    if (authStage !== "app" || !ws) return;
+    if (authStage !== "app" || !ws || editorOpen) return;
     const space = workspaces.find((w) => w.id === ws);
     if (!space) return;
     const channel = channels.find((c) => c.id === channelId);
@@ -3484,7 +3486,7 @@ function AppShell() {
       channel?.name,
       workspaces.map((w) => w.slug),
     );
-  }, [authStage, ws, channelId, channels, workspaces]);
+  }, [authStage, ws, channelId, channels, workspaces, editorOpen]);
 
   if (booting) {
     return (
@@ -3938,6 +3940,7 @@ function AppShell() {
           slugs={workspaces.map((w) => w.slug)}
           openFileId={openFileId}
           onOpenFileHandled={clearOpenFileId}
+          onEditorChange={setEditorOpen}
         />
       ) : null}
       {contentView === "settings" ? (
