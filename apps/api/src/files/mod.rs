@@ -26,15 +26,17 @@ pub use routes::router;
 
 use std::collections::HashMap;
 
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::sea_query::{Expr, Func};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 use uuid::Uuid;
 
 use crate::entities::{file_versions, files, message_attachments, users};
 use dto::FileDto;
 use error::FileError;
 
-/// Turn file rows into DTOs, batch-loading their current versions and owner names in a fixed number
-/// of queries (a page costs a handful of queries rather than one per file).
+/// Turn file rows into DTOs, batch-loading their current versions, the names of their owners and of
+/// their versions' authors, and their folders' entry counts in a fixed number of queries (a page
+/// costs a handful of queries rather than one per file).
 pub(crate) async fn hydrate_files(
     db: &DatabaseConnection,
     rows: Vec<files::Model>,
@@ -46,16 +48,62 @@ pub(crate) async fn hydrate_files(
     let version_ids: Vec<Uuid> = rows.iter().filter_map(|f| f.current_version_id).collect();
     let versions = load_versions(db, version_ids).await?;
 
-    let owner_ids: Vec<Uuid> = rows.iter().filter_map(|f| f.owner_id).collect();
-    let names = load_names(db, owner_ids).await?;
+    // Owners and authors in one query: they are mostly the same people.
+    let people: Vec<Uuid> = rows
+        .iter()
+        .filter_map(|f| f.owner_id)
+        .chain(versions.values().filter_map(|v| v.created_by))
+        .collect();
+    let names = load_names(db, people).await?;
+
+    let folder_ids: Vec<Uuid> = rows
+        .iter()
+        .filter(|f| f.kind == "folder")
+        .map(|f| f.id)
+        .collect();
+    let counts = count_children(db, folder_ids).await?;
 
     Ok(rows
         .into_iter()
         .map(|file| {
             let version = file.current_version_id.and_then(|id| versions.get(&id));
             let owner_name = file.owner_id.and_then(|id| names.get(&id).cloned());
-            FileDto::from_models(&file, version, owner_name)
+            let modified_by_name = version
+                .and_then(|v| v.created_by)
+                .and_then(|id| names.get(&id).cloned());
+            let child_count =
+                (file.kind == "folder").then(|| counts.get(&file.id).copied().unwrap_or(0));
+            FileDto::from_models(&file, version, owner_name, modified_by_name, child_count)
         })
+        .collect())
+}
+
+/// How many entries each folder directly holds, in one grouped query. Counted as the folder's own
+/// listing would show them: removed entries and private conversations' files are left out.
+async fn count_children(
+    db: &DatabaseConnection,
+    folder_ids: Vec<Uuid>,
+) -> Result<HashMap<Uuid, i64>, FileError> {
+    if folder_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let rows: Vec<(Option<Uuid>, i64)> = files::Entity::find()
+        .select_only()
+        .column(files::Column::ParentFolderId)
+        .column_as(
+            Expr::from(Func::count(Expr::col(files::Column::Id))),
+            "entries",
+        )
+        .filter(files::Column::ParentFolderId.is_in(folder_ids))
+        .filter(files::Column::DeletedAt.is_null())
+        .filter(files::Column::ConversationId.is_null())
+        .group_by(files::Column::ParentFolderId)
+        .into_tuple()
+        .all(db)
+        .await?;
+    Ok(rows
+        .into_iter()
+        .filter_map(|(parent, n)| parent.map(|id| (id, n)))
         .collect())
 }
 
