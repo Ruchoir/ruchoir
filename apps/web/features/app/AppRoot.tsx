@@ -1816,6 +1816,8 @@ function AppShell() {
       document.title = "Ruchoir";
       return;
     }
+    // A document's own tab is named after the document, by the editor.
+    if (standalone) return;
     const waiting = notifs.filter((n) => !n.read).length;
     const dmHere = dms.find((d) => d.id === channelId);
     const channelHere = channels.find((c) => c.id === channelId);
@@ -1825,7 +1827,7 @@ function AppShell() {
         : (VIEW_TITLES[view] ? t(VIEW_TITLES[view]) : undefined);
     const parts = [here, workspaces.find((w) => w.id === ws)?.name, "Ruchoir"].filter(Boolean);
     document.title = `${waiting > 0 ? `(${waiting}) ` : ""}${parts.join(" · ")}`;
-  }, [session, notifs, view, channelId, channels, dms, workspaces, ws, t]);
+  }, [session, notifs, view, channelId, channels, dms, workspaces, ws, t, standalone]);
 
   /**
    * Switch the main view, and treat opening Mentions as reading them.
