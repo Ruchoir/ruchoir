@@ -139,7 +139,9 @@ use utoipa::OpenApi;
         crate::files::download::thumbnail_file,
         crate::files::shares::list_shares,
         crate::files::shares::create_share,
-        crate::files::shares::delete_share
+        crate::files::shares::delete_share,
+        crate::office::sessions::open_session,
+        crate::office::sessions::create_blank
     ),
     components(schemas(
         crate::importer::routes::ArchiveRequest,
@@ -246,7 +248,12 @@ use utoipa::OpenApi;
         crate::files::dto::ShareDto,
         crate::files::dto::CreateFolderRequest,
         crate::files::dto::UpdateFileRequest,
-        crate::files::dto::CreateShareRequest
+        crate::files::dto::CreateShareRequest,
+        crate::office::sessions::SessionRequest,
+        crate::office::sessions::SessionResponse,
+        crate::office::sessions::BlankRequest,
+        crate::office::templates::Kind,
+        crate::office::discovery::Mode
     )),
     tags(
         (name = "health", description = "Liveness and health checks"),
@@ -254,6 +261,7 @@ use utoipa::OpenApi;
         (name = "messaging", description = "Channels, direct messages, messages, threads, reactions, pins, saved"),
         (name = "realtime", description = "WebSocket / SSE transport, typing and presence"),
         (name = "files", description = "File tree, upload and versions, download, preview, thumbnails, shares"),
+        (name = "office", description = "Live office editing: editing sessions and blank documents"),
         (name = "admin", description = "Instance administration: account lookup and recovery")
     )
 )]

@@ -9010,3 +9010,177 @@ async fn converting_makes_a_copy_beside_the_original_and_never_overwrites() {
         "only a conversion session writes a copy"
     );
 }
+
+async fn open_session(
+    app: &TestApp,
+    cookie: &str,
+    file_id: Uuid,
+    body: Value,
+) -> reqwest::Response {
+    app.req(
+        reqwest::Method::POST,
+        &format!("/api/v1/files/{file_id}/office"),
+        cookie,
+    )
+    .json(&body)
+    .send()
+    .await
+    .expect("session")
+}
+
+#[tokio::test]
+async fn a_member_opens_a_document_for_editing_and_a_guest_for_reading() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file_id = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
+
+    let bob = app.cookie_for(fx.bob).await;
+    let res = open_session(
+        &app,
+        &bob,
+        file_id,
+        json!({ "locale": "pl", "theme": "dark" }),
+    )
+    .await;
+    assert_eq!(res.status(), 200);
+    let session: Value = res.json().await.unwrap();
+    assert_eq!(session["mode"], "edit");
+    assert_eq!(session["file"]["name"], "plan.docx");
+    let url = session["url"].as_str().unwrap();
+    assert!(url.starts_with("https://office.example.org/hosting/wopi/word/edit?"));
+    assert!(url.contains("ui=pl-PL"));
+    assert!(url.contains(&format!("wopi%2Ffiles%2F{file_id}")));
+    let config: Value = serde_json::from_str(session["config"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        config["editorConfig"]["customization"]["uiTheme"],
+        "theme-dark"
+    );
+    assert_eq!(
+        config["editorConfig"]["customization"]["features"]["featuresTips"],
+        false
+    );
+    let token = session["access_token"].as_str().unwrap();
+    let grant = crate::office::tokens::resolve(&app.valkey, token)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!((grant.user_id, grant.file_id), (fx.bob, file_id));
+
+    let light: Value = open_session(&app, &bob, file_id, json!({}))
+        .await
+        .json()
+        .await
+        .unwrap();
+    let light_config: Value = serde_json::from_str(light["config"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        light_config["editorConfig"]["customization"]["uiTheme"],
+        "theme-ruchoir-light"
+    );
+    assert!(
+        light["url"].as_str().unwrap().contains("ui=fr-FR"),
+        "French by default"
+    );
+
+    // A guest who reaches the file through a message reads it; here Carol is a member made guest
+    // and the file is a space-tree file she cannot reach, so she is refused outright.
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    let carol = app.cookie_for(fx.carol).await;
+    assert_eq!(
+        open_session(&app, &carol, file_id, json!({}))
+            .await
+            .status(),
+        403
+    );
+
+    let stranger = make_user(&app.db, "dave").await;
+    let dave = app.cookie_for(stranger).await;
+    assert_eq!(
+        open_session(&app, &dave, file_id, json!({})).await.status(),
+        403
+    );
+}
+
+#[tokio::test]
+async fn a_format_the_engine_cannot_open_is_refused_and_a_legacy_one_converts() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let binary = upload_bytes(&app, &alice, fx.space_id, "tool.exe", b"MZ").await;
+    assert_eq!(
+        open_session(&app, &alice, binary, json!({})).await.status(),
+        400
+    );
+
+    let legacy = upload_bytes(&app, &alice, fx.space_id, "old.doc", b"\xd0\xcf").await;
+    let plain: Value = open_session(&app, &alice, legacy, json!({}))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        plain["mode"], "view",
+        "a legacy format opens for reading unless conversion is asked"
+    );
+    let convert: Value = open_session(&app, &alice, legacy, json!({ "mode": "convert" }))
+        .await
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(convert["mode"], "convert");
+    assert!(convert["url"]
+        .as_str()
+        .unwrap()
+        .contains("/hosting/wopi/convert-and-edit/doc/docx"));
+}
+
+#[tokio::test]
+async fn a_member_creates_a_blank_document_in_their_language() {
+    let Some(app) = boot_office(|_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let create = |name: &str, kind: &str| {
+        app.req(reqwest::Method::POST, "/api/v1/files/office", &bob)
+            .json(&json!({ "space_id": fx.space_id, "kind": kind, "name": name, "locale": "de" }))
+            .send()
+    };
+
+    let res = create("Budget", "spreadsheet").await.unwrap();
+    assert_eq!(res.status(), 201);
+    let file: Value = res.json().await.unwrap();
+    assert_eq!(file["name"], "Budget.xlsx");
+    assert_eq!(file["owner_id"], fx.bob.to_string());
+    let again: Value = create("Budget", "spreadsheet")
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(again["name"], "Budget (2).xlsx");
+    let named: Value = create("Notes.docx", "document")
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        named["name"], "Notes.docx",
+        "an extension already typed is not doubled"
+    );
+
+    set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;
+    let carol = app.cookie_for(fx.carol).await;
+    let refused = app
+        .req(reqwest::Method::POST, "/api/v1/files/office", &carol)
+        .json(&json!({ "space_id": fx.space_id, "kind": "document", "name": "x" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(refused.status(), 403);
+}

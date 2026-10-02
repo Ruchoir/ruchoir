@@ -1,0 +1,236 @@
+//! The public, authenticated side: open a file in the editor, create a blank document.
+
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::Json;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use utoipa::ToSchema;
+use uuid::Uuid;
+
+use crate::auth::extract::AuthSession;
+use crate::files::authz;
+use crate::files::dto::FileDto;
+use crate::files::error::FileError;
+use crate::files::versions;
+use crate::state::AppState;
+
+use super::discovery::Mode;
+use super::error::OfficeError;
+use super::templates::{self, Kind};
+use super::tokens;
+
+/// What the client says about the person opening the file.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+pub struct SessionRequest {
+    /// Interface language (`fr`, `en`, `es`, `de`, `it`, `pl`).
+    pub locale: Option<String>,
+    /// `light` or `dark`, from the person's theme.
+    pub theme: Option<String>,
+    /// `convert` to convert a legacy format into an editable copy.
+    pub mode: Option<String>,
+}
+
+/// An editing session: where to post the token, and what to tell the engine.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct SessionResponse {
+    pub file: FileDto,
+    /// The engine's address for this file, on the office hostname.
+    pub url: String,
+    pub access_token: String,
+    /// Expiry of the token, in milliseconds since the epoch (as WOPI expects it).
+    pub access_token_ttl: i64,
+    pub mode: Mode,
+    /// Euro-Office's `docs_api_config`, a JSON string posted with the token.
+    pub config: String,
+}
+
+/// `POST /api/v1/files/{file_id}/office`.
+#[utoipa::path(
+    post,
+    path = "/api/v1/files/{file_id}/office",
+    tag = "office",
+    params(("file_id" = Uuid, Path, description = "File id")),
+    request_body = SessionRequest,
+    responses(
+        (status = 200, description = "Session opened", body = SessionResponse),
+        (status = 400, description = "The editor cannot open this format"),
+        (status = 403, description = "No access to the file"),
+        (status = 404, description = "Live editing is not configured"),
+        (status = 503, description = "The editor is not available right now")
+    )
+)]
+pub async fn open_session(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(file_id): Path<Uuid>,
+    Json(request): Json<SessionRequest>,
+) -> Result<Json<SessionResponse>, OfficeError> {
+    let office = state.office.as_ref().ok_or(OfficeError::Disabled)?;
+    let discovery = office.discovery().ok_or(OfficeError::EngineUnavailable)?;
+    let access = authz::ensure_readable(&state.db, file_id, session.user_id).await?;
+    if access.file.kind == "folder" {
+        return Err(OfficeError::Unsupported);
+    }
+    let ext = extension(&access.file.name).ok_or(OfficeError::Unsupported)?;
+    let actions = discovery.actions(&ext).ok_or(OfficeError::Unsupported)?;
+    let may_edit = match authz::ensure_content_editable(&state.db, file_id, session.user_id).await {
+        Ok(_) => true,
+        Err(FileError::Forbidden) => false,
+        Err(error) => return Err(error.into()),
+    };
+    let mode = if request.mode.as_deref() == Some("convert") {
+        if !may_edit || actions.convert.is_none() {
+            return Err(OfficeError::Unsupported);
+        }
+        Mode::Convert
+    } else if may_edit && actions.edit.is_some() {
+        Mode::Edit
+    } else if actions.view.is_some() || actions.edit.is_some() {
+        Mode::View
+    } else {
+        return Err(OfficeError::Unsupported);
+    };
+    let lang = engine_language(request.locale.as_deref());
+    let wopi_src = format!("{}/wopi/files/{file_id}", state.config.wopi_base_url);
+    let url = discovery
+        .action_url(&ext, mode, &wopi_src, lang)
+        .ok_or(OfficeError::Unsupported)?;
+    let (token, grant) = tokens::mint(
+        &state.valkey,
+        session.user_id,
+        file_id,
+        mode,
+        state.config.office_token_ttl_secs,
+    )
+    .await?;
+    let file = crate::files::hydrate_files(&state.db, vec![access.file])
+        .await?
+        .pop()
+        .ok_or(OfficeError::Internal)?;
+    Ok(Json(SessionResponse {
+        file,
+        url,
+        access_token: token,
+        access_token_ttl: grant.expires_at * 1000,
+        mode,
+        config: engine_config(
+            &state.config.public_base_url,
+            request.theme.as_deref(),
+            lang,
+        ),
+    }))
+}
+
+/// A blank document to create.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct BlankRequest {
+    pub space_id: Uuid,
+    pub folder_id: Option<Uuid>,
+    pub kind: Kind,
+    pub name: String,
+    pub locale: Option<String>,
+}
+
+/// `POST /api/v1/files/office`: create a blank document.
+#[utoipa::path(
+    post,
+    path = "/api/v1/files/office",
+    tag = "office",
+    request_body = BlankRequest,
+    responses(
+        (status = 201, description = "Document created", body = FileDto),
+        (status = 400, description = "Invalid folder"),
+        (status = 403, description = "Not a member of the space, or a guest"),
+        (status = 404, description = "Live editing is not configured")
+    )
+)]
+pub async fn create_blank(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Json(request): Json<BlankRequest>,
+) -> Result<(StatusCode, Json<FileDto>), OfficeError> {
+    state.office.as_ref().ok_or(OfficeError::Disabled)?;
+    authz::ensure_space_files_member(&state.db, request.space_id, session.user_id).await?;
+    let guest = crate::messaging::authz::is_guest(&state.db, request.space_id, session.user_id)
+        .await
+        .map_err(|_| OfficeError::Internal)?;
+    if guest {
+        return Err(FileError::Forbidden.into());
+    }
+    if let Some(folder_id) = request.folder_id {
+        crate::files::tree::ensure_folder_in_space(&state.db, folder_id, request.space_id).await?;
+    }
+    let ext = request.kind.extension();
+    let cleaned = crate::files::tree::clean_name(&request.name);
+    let stem = cleaned
+        .strip_suffix(&format!(".{ext}"))
+        .unwrap_or(&cleaned)
+        .trim();
+    let stem = if stem.is_empty() { "Document" } else { stem };
+    let name = versions::free_name(
+        &state.db,
+        request.space_id,
+        request.folder_id,
+        None,
+        stem,
+        ext,
+    )
+    .await?;
+    let file = versions::create_file(
+        &state,
+        versions::NewFile {
+            space_id: request.space_id,
+            folder_id: request.folder_id,
+            conversation_id: None,
+            owner: session.user_id,
+            name,
+        },
+        templates::blank(request.kind, request.locale.as_deref()),
+    )
+    .await?;
+    Ok((StatusCode::CREATED, Json(file)))
+}
+
+/// The engine language for an interface locale (European paper sizes; French by default).
+pub fn engine_language(locale: Option<&str>) -> &'static str {
+    match locale {
+        Some("en") => "en-GB",
+        Some("es") => "es-ES",
+        Some("de") => "de-DE",
+        Some("it") => "it-IT",
+        Some("pl") => "pl-PL",
+        _ => "fr-FR",
+    }
+}
+
+/// Euro-Office's configuration for a session, ignored by other engines.
+fn engine_config(public_base_url: &str, theme: Option<&str>, lang: &str) -> String {
+    let ui_theme = if theme == Some("dark") {
+        "theme-dark"
+    } else {
+        "theme-ruchoir-light"
+    };
+    json!({
+        "editorConfig": {
+            "lang": lang,
+            "customization": {
+                "uiTheme": ui_theme,
+                // The "New" bubbles sell the engine and are half English.
+                "features": { "featuresTips": false },
+                "logo": {
+                    "image": format!("{public_base_url}/brand/ruchoir-mark.png"),
+                    "url": public_base_url,
+                },
+                "customer": { "name": "Ruchoir", "www": public_base_url },
+            },
+        },
+    })
+    .to_string()
+}
+
+/// The lower-case extension of a file name.
+fn extension(name: &str) -> Option<String> {
+    let (_, ext) = name.rsplit_once('.')?;
+    (!ext.is_empty()).then(|| ext.to_ascii_lowercase())
+}

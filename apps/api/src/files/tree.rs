@@ -358,7 +358,7 @@ struct FilesDeletedEvent {
 
 /// Clean a user-supplied name: strip any path component, drop control characters, trim, and cap the
 /// length. Returns an empty string when nothing usable remains (callers apply their own default).
-pub(super) fn clean_name(raw: &str) -> String {
+pub(crate) fn clean_name(raw: &str) -> String {
     let base = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
     let cleaned: String = base.chars().filter(|c| !c.is_control()).collect();
     cleaned.trim().chars().take(255).collect()

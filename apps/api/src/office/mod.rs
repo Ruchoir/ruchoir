@@ -15,6 +15,8 @@
 pub mod discovery;
 pub mod error;
 pub mod locks;
+pub(crate) mod sessions;
+pub(crate) mod templates;
 pub mod tokens;
 pub mod wopi;
 
@@ -30,9 +32,23 @@ use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::TokioExecutor;
 
+use axum::routing::post;
+use axum::Router;
+
 use crate::config::{host_of, Config};
+use crate::state::AppState;
 use discovery::Discovery;
 use error::OfficeError;
+
+/// The public office routes, guarded per request by the session extractor.
+pub fn router() -> Router<AppState> {
+    Router::new()
+        .route("/api/v1/files/office", post(sessions::create_blank))
+        .route(
+            "/api/v1/files/{file_id}/office",
+            post(sessions::open_session),
+        )
+}
 
 /// The engine, as the API knows it.
 pub struct Office {
