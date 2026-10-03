@@ -15,7 +15,9 @@ export type FileEvent =
       /** Set for a private conversation's file, which is in no folder of the space. */
       conversationId?: string;
     }
-  | { type: "editing"; spaceId: string; fileId: string; editors: FileEditor[] };
+  | { type: "editing"; spaceId: string; fileId: string; editors: FileEditor[] }
+  /** Removed (to the trash), a folder with everything under it. */
+  | { type: "deleted"; spaceId: string; fileIds: string[] };
 
 const listeners = new Set<(event: FileEvent) => void>();
 

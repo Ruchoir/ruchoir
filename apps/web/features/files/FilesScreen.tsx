@@ -3,12 +3,12 @@
 import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
 import { FileViewer, viewerKind } from "./FileViewer";
 import { ImageViewer } from "./ImageViewer";
-import { Button, Dialog, EmptyState, FileIcon, Icon, type IconName, Skeleton, SkeletonGroup } from "@/components/ds";
+import { Button, Dialog, EmptyState, FileIcon, Icon, type IconName, Skeleton, SkeletonGroup, Tabs } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import type { OfficeCapabilities } from "@/lib/data/types";
 import { fileUrl } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
-import { deleteFile, fileDownloadUrl, getInstanceCapabilities, officeActionFor, updateFile } from "@/lib/data/api";
+import { deleteFile, fileDownloadUrl, getInstanceCapabilities, officeActionFor, restoreFile, updateFile } from "@/lib/data/api";
 import { enqueue, reject as rejectUpload } from "@/lib/uploads";
 import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
@@ -17,7 +17,7 @@ import { useTranslation } from "@/lib/i18n";
 import { formatBytes, formatStamp } from "@/lib/i18n/format";
 import { ActionMenu, type MenuEntry } from "./ActionMenu";
 import { DetailsPanel, type DetailsSubject } from "./DetailsPanel";
-import { DeleteDialog, RenameDialog } from "./FileDialogs";
+import { RenameDialog } from "./FileDialogs";
 import { FileGrid } from "./FileGrid";
 import { FileRows } from "./FileRows";
 import { FilesHeader, type Layout } from "./FilesHeader";
@@ -25,6 +25,7 @@ import { FileTable } from "./FileTable";
 import { entryOf, type Item, type ListProps, type MenuAt } from "./listTypes";
 import { type ActionId, actionsFor, canManage, filterEntries, type Sort, sortEntries } from "./model";
 import { MoveDialog } from "./MoveDialog";
+import { TrashView } from "./TrashView";
 import { NewMenu } from "./NewMenu";
 import { carriesFiles, fromInput, readDrop } from "./dropFiles";
 import { useDragMove } from "./useDragMove";
@@ -46,6 +47,7 @@ const ACTION_ICONS: Record<ActionId, IconName> = {
   rename: "type",
   move: "arrow-right",
   newVersion: "upload",
+  versions: "clock",
   details: "info",
   delete: "trash-2",
 };
@@ -127,7 +129,6 @@ export function FilesScreen({
   const [detailsSheet, setDetailsSheet] = useState<DetailsSubject | null>(null);
   const [menu, setMenu] = useState<{ item: Item; at: MenuAt } | null>(null);
   const [renaming, setRenaming] = useState<Item | null>(null);
-  const [deleting, setDeleting] = useState<{ items: Item[]; skipped: number }>({ items: [], skipped: 0 });
   const [moving, setMoving] = useState<Item[]>([]);
   const [preview, setPreview] = useState<SpaceFile | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -145,6 +146,11 @@ export function FilesScreen({
   const [office, setOffice] = useState<OfficeCapabilities | null>(null);
   /** The largest file the instance accepts (unknown until asked). */
   const [maxBytes, setMaxBytes] = useState<number | undefined>(undefined);
+  const [retentionDays, setRetentionDays] = useState<number | undefined>(undefined);
+  /** Which view: the space's files, or its trash. */
+  const [view, setView] = useState<"files" | "trash">("files");
+  /** Bumped when something leaves or returns to the trash from here, for the trash view to ask again. */
+  const [trashStamp, setTrashStamp] = useState(0);
   /** The editor turned out to be unreachable: ask again every minute until it is back. */
   const [officeLost, setOfficeLost] = useState(false);
   const [officeCheck, setOfficeCheck] = useState(0);
@@ -155,6 +161,7 @@ export function FilesScreen({
         if (cancelled) return;
         setOffice(caps.office.enabled ? caps.office : null);
         setMaxBytes(caps.uploadMaxBytes);
+        setRetentionDays(caps.trashRetentionDays);
         // Configured but not answering yet (an engine still starting): look again until it does.
         setOfficeLost(!caps.office.enabled && !!caps.office.publicUrl);
       })
@@ -227,6 +234,7 @@ export function FilesScreen({
     selection.clear();
     setDetailsOpen(false);
     setPreview(null);
+    setView("files");
   }
 
   /** Open a folder: a new place, so no selection and no filter carried into it. */
@@ -262,10 +270,50 @@ export function FilesScreen({
   /** The entries an action on `item` applies to: the whole selection when `item` is part of it. */
   const groupOf = (item: Item) => (selection.selected.has(item.key) && selectedItems.length > 1 ? selectedItems : [item]);
 
+  /**
+   * Put entries in the trash, at once: no confirmation, as in Drive or Nextcloud, but a toast that
+   * takes it back. What the person may not remove is left out, and the toast says so.
+   */
   const requestDelete = (group: Item[]) => {
     const allowed = group.filter((i) => i.manage && i.file.id);
     if (allowed.length === 0) return;
-    setDeleting({ items: allowed, skipped: group.length - allowed.length });
+    const skipped = group.length - allowed.length;
+    // Settled rather than raced: one refusal must not hide the others, and a partial result still
+    // needs the folder reloaded. A 403 is the one worth naming: the file belongs to someone else.
+    Promise.allSettled(allowed.map((i) => deleteFile(i.file.id as string))).then((results) => {
+      const gone = allowed.filter((_, n) => results[n].status === "fulfilled");
+      const refused = results.some((r) => r.status === "rejected" && isApiError(r.reason, 403));
+      if (gone.length > 0) {
+        onNotify({
+          tone: "success",
+          title: gone.length === 1 ? t("files.trashedOne") : t("files.trashedMany", { count: gone.length }),
+          description: skipped > 0 ? t("files.skippedNotYours", { count: skipped }) : gone.length === 1 ? gone[0].file.name : undefined,
+          action: { label: t("files.undo"), onClick: () => undoDelete(gone) },
+        });
+      }
+      if (gone.length > 0) setTrashStamp((n) => n + 1);
+      if (gone.length < results.length) {
+        onNotify({
+          tone: "danger",
+          title: t("files.deleteIncomplete"),
+          description: refused ? t("files.ownFilesOnlyDelete") : t("common.tryAgain"),
+        });
+      }
+      refresh();
+    });
+  };
+  /** Take entries back out of the trash, the "Undo" of a removal. */
+  const undoDelete = (items: Item[]) => {
+    Promise.allSettled(items.map((i) => restoreFile(i.file.id as string))).then((results) => {
+      const back = results.filter((r) => r.status === "fulfilled").length;
+      onNotify(
+        back === results.length
+          ? { tone: "success", title: back === 1 ? t("files.restoredOne") : t("files.restoredMany", { count: back }) }
+          : { tone: "danger", title: t("files.restoreFailed") },
+      );
+      refresh();
+      setTrashStamp((n) => n + 1);
+    });
   };
   const requestMove = (group: Item[]) => {
     const allowed = group.filter((i) => i.manage && i.file.id);
@@ -298,6 +346,7 @@ export function FilesScreen({
         pickVersion();
         return;
       case "details":
+      case "versions":
         return showDetails(item);
       case "delete":
         return requestDelete(groupOf(item));
@@ -317,6 +366,8 @@ export function FilesScreen({
         return t("files.move");
       case "newVersion":
         return t("files.uploadNewVersion");
+      case "versions":
+        return t("files.versions");
       case "details":
         return t("files.details");
       case "delete":
@@ -346,33 +397,6 @@ export function FilesScreen({
       });
     }
     return out;
-  };
-
-  const confirmDelete = () => {
-    const targets = deleting.items;
-    setDeleting({ items: [], skipped: 0 });
-    if (targets.length === 0) return;
-    // Settled rather than raced: one refusal must not hide the others, and a partial result still
-    // needs the folder reloaded. A 403 is the one worth naming: the file belongs to someone else.
-    Promise.allSettled(targets.map((i) => deleteFile(i.file.id as string))).then((results) => {
-      const gone = results.filter((r) => r.status === "fulfilled").length;
-      const refused = results.some((r) => r.status === "rejected" && isApiError(r.reason, 403));
-      if (gone > 0) {
-        onNotify({
-          tone: "success",
-          title: gone === 1 ? t("files.deleted") : t("files.deletedMany", { count: gone }),
-          description: gone === 1 ? targets[0].file.name : undefined,
-        });
-      }
-      if (gone < results.length) {
-        onNotify({
-          tone: "danger",
-          title: t("files.deleteIncomplete"),
-          description: refused ? t("files.ownFilesOnlyDelete") : t("common.tryAgain"),
-        });
-      }
-      refresh();
-    });
   };
 
   const confirmRename = (name: string) => {
@@ -546,8 +570,9 @@ export function FilesScreen({
   return (
     <div style={styles.root}>
       <FilesHeader
+        minimal={view === "trash"}
         compact={compact}
-        rootLabel={rootLabel}
+        rootLabel={view === "trash" ? t("files.trash") : rootLabel}
         trail={breadcrumb}
         onOpenFolder={openFolder}
         onBack={onBack}
@@ -562,7 +587,7 @@ export function FilesScreen({
         onToggleDetails={() => setDetailsOpen((v) => !v)}
         newButton={compact ? undefined : newMenu}
         selection={
-          selectedItems.length > 0
+          view === "files" && selectedItems.length > 0
             ? {
                 count: selectedItems.length,
                 canMove: selectedItems.some((i) => i.manage),
@@ -588,6 +613,35 @@ export function FilesScreen({
           worth designing out. */}
       <input id={versionInputId} type="file" style={{ display: "none" }} onChange={(e) => onVersionPicked(e.currentTarget)} />
 
+      {/* The views of the drive. The trash is the second, so the row shows from here on. */}
+      <div style={{ flex: "none", padding: compact ? "0 12px" : "0 20px", borderBottom: "1px solid var(--border-subtle)" }}>
+        <Tabs
+          value={view}
+          onChange={(v) => {
+            selection.clear();
+            setView(v === "trash" ? "trash" : "files");
+          }}
+          items={[
+            { value: "files", label: t("files.allFiles"), icon: "hard-drive" },
+            { value: "trash", label: t("files.trash"), icon: "trash-2" },
+          ]}
+        />
+      </div>
+      {view === "trash" ? (
+        <div style={styles.main}>
+          <div style={compact ? { ...styles.body, padding: "12px 0 24px" } : styles.body}>
+            <TrashView
+              spaceId={spaceId}
+              compact={compact}
+              retentionDays={retentionDays}
+              rootLabel={rootLabel}
+              stamp={trashStamp}
+              onNotify={onNotify}
+              onRestored={reload}
+            />
+          </div>
+        </div>
+      ) : (
       <div style={{ ...styles.main, position: "relative" }} {...dropZone}>
         {dropping ? (
           <div
@@ -666,12 +720,22 @@ export function FilesScreen({
           )}
         </div>
         {!compact && detailsOpen ? (
-          <DetailsPanel subject={detailsSubject} trail={breadcrumb} rootLabel={rootLabel} sheet={false} onClose={() => setDetailsOpen(false)} />
+          <DetailsPanel
+            subject={detailsSubject}
+            trail={breadcrumb}
+            rootLabel={rootLabel}
+            sheet={false}
+            onClose={() => setDetailsOpen(false)}
+            canManage={selectedItems.length === 1 && selectedItems[0].manage}
+            onNotify={onNotify}
+            onVersionRestored={upsert}
+          />
         ) : null}
       </div>
+      )}
 
       {/* The selection has its own bar; creating something new waits until it is let go. */}
-      {compact && selectedItems.length === 0 ? newMenu : null}
+      {compact && view === "files" && selectedItems.length === 0 ? newMenu : null}
 
       <ActionMenu
         open={menu != null}
@@ -681,10 +745,23 @@ export function FilesScreen({
         sheet={compact}
         onClose={() => setMenu(null)}
       />
-      {compact ? <DetailsPanel subject={detailsSheet} trail={breadcrumb} rootLabel={rootLabel} sheet onClose={() => setDetailsSheet(null)} /> : null}
+      {compact ? (
+        <DetailsPanel
+          subject={detailsSheet}
+          trail={breadcrumb}
+          rootLabel={rootLabel}
+          sheet
+          onClose={() => setDetailsSheet(null)}
+          canManage={detailsSheet?.kind === "entry" ? items.find((i) => i.file.id === detailsSheet.file.id)?.manage : false}
+          onNotify={onNotify}
+          onVersionRestored={(file) => {
+            upsert(file);
+            setDetailsSheet({ kind: "entry", file });
+          }}
+        />
+      ) : null}
       {uploader.dialog}
       <RenameDialog item={renaming} onClose={() => setRenaming(null)} onRename={confirmRename} />
-      <DeleteDialog items={deleting.items} skipped={deleting.skipped} onClose={() => setDeleting({ items: [], skipped: 0 })} onConfirm={confirmDelete} />
       <MoveDialog
         spaceId={spaceId}
         rootLabel={rootLabel}

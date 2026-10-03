@@ -8546,6 +8546,491 @@ async fn a_new_file_or_folder_reaches_the_space_and_the_instance_says_its_upload
     );
 }
 
+// --- Trash and version history ----------------------------------------------------------------
+
+/// Create a folder through the API (in `parent`, or at the root), returning its id.
+async fn api_folder(
+    app: &TestApp,
+    cookie: &str,
+    space_id: Uuid,
+    name: &str,
+    parent: Option<Uuid>,
+) -> Uuid {
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space_id}/folders"),
+            cookie,
+        )
+        .json(&json!({ "name": name, "parent_folder_id": parent }))
+        .send()
+        .await
+        .expect("folder");
+    assert_eq!(res.status(), 201, "create folder");
+    res.json::<Value>().await.expect("json")["id"]
+        .as_str()
+        .expect("id")
+        .parse()
+        .expect("uuid")
+}
+
+/// Upload `bytes` into `folder` (or the root), returning the new file's id.
+async fn api_upload(
+    app: &TestApp,
+    cookie: &str,
+    space_id: Uuid,
+    folder: Option<Uuid>,
+    name: &str,
+    bytes: &[u8],
+) -> Uuid {
+    let mut form = reqwest::multipart::Form::new()
+        .text("name", name.to_owned())
+        .part(
+            "file",
+            reqwest::multipart::Part::bytes(bytes.to_vec()).file_name(name.to_owned()),
+        );
+    if let Some(folder) = folder {
+        form = form.text("folder_id", folder.to_string());
+    }
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space_id}/files"),
+            cookie,
+        )
+        .multipart(form)
+        .send()
+        .await
+        .expect("upload");
+    assert_eq!(res.status(), 201, "upload");
+    res.json::<Value>().await.expect("json")["id"]
+        .as_str()
+        .expect("id")
+        .parse()
+        .expect("uuid")
+}
+
+/// Send a request with no body and return its status.
+async fn api_status(app: &TestApp, method: reqwest::Method, path: &str, cookie: &str) -> u16 {
+    app.req(method, path, cookie)
+        .send()
+        .await
+        .expect("request")
+        .status()
+        .as_u16()
+}
+
+/// The space's trash, as listed for `cookie`.
+async fn api_trash(app: &TestApp, cookie: &str, space_id: Uuid) -> Vec<Value> {
+    let res = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space_id}/trash"),
+            cookie,
+        )
+        .send()
+        .await
+        .expect("trash");
+    assert_eq!(res.status(), 200, "list trash");
+    res.json::<Vec<Value>>().await.expect("json")
+}
+
+#[tokio::test]
+async fn a_removed_folder_waits_in_the_trash_and_comes_back_whole() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let folder = api_folder(&app, &alice, fx.space_id, "Reports", None).await;
+    let inside = api_upload(&app, &alice, fx.space_id, Some(folder), "q3.txt", b"q3").await;
+
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{folder}"),
+            &alice
+        )
+        .await,
+        204
+    );
+    assert!(listing_entries(&app, &alice, fx.space_id, None)
+        .await
+        .iter()
+        .all(|e| e["id"] != folder.to_string()));
+
+    // One entry: the folder, not each thing that went with it. Any member sees it.
+    let trash = api_trash(&app, &bob, fx.space_id).await;
+    assert_eq!(trash.len(), 1, "{trash:?}");
+    assert_eq!(trash[0]["file"]["id"], folder.to_string());
+    assert_eq!(trash[0]["deleted_by_id"], fx.alice.to_string());
+    assert!(trash[0]["deleted_at"].is_string());
+
+    // Restoring is the owner's (or an administrator's), as removing was.
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{folder}/restore"),
+            &bob
+        )
+        .await,
+        403
+    );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{folder}/restore"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("restore");
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.expect("json");
+    assert_eq!(body["restored_to_root"], false);
+    assert!(listing_entries(&app, &alice, fx.space_id, None)
+        .await
+        .iter()
+        .any(|e| e["id"] == folder.to_string()));
+    assert!(listing_entries(&app, &alice, fx.space_id, Some(folder))
+        .await
+        .iter()
+        .any(|e| e["id"] == inside.to_string()));
+    assert!(api_trash(&app, &alice, fx.space_id).await.is_empty());
+}
+
+#[tokio::test]
+async fn a_file_whose_folder_is_gone_comes_back_at_the_root() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let folder = api_folder(&app, &alice, fx.space_id, "Old", None).await;
+    let file = api_upload(&app, &alice, fx.space_id, Some(folder), "x.txt", b"x").await;
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file}"),
+            &alice
+        )
+        .await,
+        204
+    );
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{folder}"),
+            &alice
+        )
+        .await,
+        204
+    );
+    assert_eq!(
+        api_trash(&app, &alice, fx.space_id).await.len(),
+        2,
+        "two removals, two entries"
+    );
+
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file}/restore"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("restore");
+    assert_eq!(res.status(), 200);
+    let body: Value = res.json().await.expect("json");
+    assert_eq!(body["restored_to_root"], true);
+    assert!(body["file"].get("parent_folder_id").is_none());
+    assert!(listing_entries(&app, &alice, fx.space_id, None)
+        .await
+        .iter()
+        .any(|e| e["id"] == file.to_string()));
+}
+
+#[tokio::test]
+async fn erasing_for_good_removes_the_bytes_and_keeps_a_tombstone() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store.clone()), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file = api_upload(&app, &alice, fx.space_id, None, "gone.txt", b"bytes").await;
+    let key = file_versions::Entity::find()
+        .filter(file_versions::Column::FileId.eq(file))
+        .one(&app.db)
+        .await
+        .unwrap()
+        .unwrap()
+        .storage_key
+        .unwrap();
+    assert!(store.get(&key).await.is_ok());
+
+    // Only what is in the trash can be erased.
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file}/trash"),
+            &alice
+        )
+        .await,
+        400
+    );
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file}"),
+            &alice
+        )
+        .await,
+        204
+    );
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file}/trash"),
+            &alice
+        )
+        .await,
+        204
+    );
+
+    assert!(store.get(&key).await.is_err(), "the bytes are gone");
+    assert!(api_trash(&app, &alice, fx.space_id).await.is_empty());
+    let row = files::Entity::find_by_id(file)
+        .one(&app.db)
+        .await
+        .unwrap()
+        .expect("tombstone");
+    assert!(row.purged_at.is_some());
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file}/restore"),
+            &alice
+        )
+        .await,
+        404
+    );
+}
+
+#[tokio::test]
+async fn emptying_the_trash_takes_only_what_the_caller_may_manage() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let mine = api_upload(&app, &bob, fx.space_id, None, "bob.txt", b"b").await;
+    let hers = api_upload(&app, &alice, fx.space_id, None, "alice.txt", b"a").await;
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{mine}"),
+            &bob
+        )
+        .await,
+        204
+    );
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{hers}"),
+            &alice
+        )
+        .await,
+        204
+    );
+
+    let res = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{}/trash", fx.space_id),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("empty");
+    assert_eq!(res.status(), 200);
+    assert_eq!(res.json::<Value>().await.expect("json")["erased"], 1);
+    let left = api_trash(&app, &alice, fx.space_id).await;
+    assert_eq!(left.len(), 1);
+    assert_eq!(left[0]["file"]["id"], hers.to_string());
+}
+
+#[tokio::test]
+async fn the_trash_lets_go_of_what_is_past_its_retention() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |config| config.trash_retention_days = 30).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let old = api_upload(&app, &alice, fx.space_id, None, "old.txt", b"o").await;
+    let recent = api_upload(&app, &alice, fx.space_id, None, "recent.txt", b"r").await;
+    for id in [old, recent] {
+        assert_eq!(
+            api_status(
+                &app,
+                reqwest::Method::DELETE,
+                &format!("/api/v1/files/{id}"),
+                &alice
+            )
+            .await,
+            204
+        );
+    }
+    let long_ago = OffsetDateTime::now_utc() - time::Duration::days(31);
+    files::ActiveModel {
+        id: Set(old),
+        deleted_at: Set(Some(long_ago)),
+        ..Default::default()
+    }
+    .update(&app.db)
+    .await
+    .expect("age the removal");
+
+    let erased = crate::files::trash::sweep_once(&app.state, OffsetDateTime::now_utc())
+        .await
+        .expect("sweep");
+    assert_eq!(erased, 1);
+    let left = api_trash(&app, &alice, fx.space_id).await;
+    assert_eq!(left.len(), 1);
+    assert_eq!(left[0]["file"]["id"], recent.to_string());
+}
+
+#[tokio::test]
+async fn a_file_keeps_its_versions_and_an_old_one_comes_back_as_the_newest() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file = api_upload(&app, &alice, fx.space_id, None, "plan.txt", b"one").await;
+    let form = reqwest::multipart::Form::new().part(
+        "file",
+        reqwest::multipart::Part::bytes(b"two".to_vec()).file_name("plan.txt"),
+    );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file}/versions"),
+            &alice,
+        )
+        .multipart(form)
+        .send()
+        .await
+        .expect("v2");
+    assert_eq!(res.status(), 201);
+
+    let versions: Vec<Value> = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{file}/versions"),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("versions")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(versions.len(), 2);
+    assert_eq!(versions[0]["version_no"], 2);
+    assert_eq!(versions[0]["current"], true);
+    assert_eq!(versions[1]["current"], false);
+    assert_eq!(versions[1]["created_by_id"], fx.alice.to_string());
+    let first: Uuid = versions[1]["id"].as_str().unwrap().parse().unwrap();
+
+    let old = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{file}/versions/{first}/download"),
+            &bob,
+        )
+        .send()
+        .await
+        .expect("download v1");
+    assert_eq!(old.status(), 200);
+    assert_eq!(old.bytes().await.unwrap().as_ref(), b"one");
+
+    // Restoring changes the content: whoever may replace the file, not any reader.
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file}/versions/{first}/restore"),
+            &bob
+        )
+        .await,
+        403
+    );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file}/versions/{first}/restore"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("restore v1");
+    assert_eq!(res.status(), 200);
+    assert_eq!(res.json::<Value>().await.expect("json")["version_no"], 3);
+    let now = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{file}/download"),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("download");
+    assert_eq!(now.bytes().await.unwrap().as_ref(), b"one");
+
+    // Erasing the file then erases its bytes once, shared or not, without failing.
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file}"),
+            &alice
+        )
+        .await,
+        204
+    );
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file}/trash"),
+            &alice
+        )
+        .await,
+        204
+    );
+}
+
 /// The entries of a folder (the root when `folder` is `None`), as the listing returns them.
 async fn listing_entries(
     app: &TestApp,

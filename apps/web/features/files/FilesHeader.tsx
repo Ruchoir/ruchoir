@@ -69,7 +69,10 @@ export function FilesHeader({
   onToggleDetails,
   newButton,
   selection,
+  minimal = false,
 }: {
+  /** A view with nothing to browse (the trash): its name, and on a phone the way back. */
+  minimal?: boolean;
   compact: boolean;
   rootLabel: string;
   trail: Crumb[];
@@ -152,6 +155,19 @@ export function FilesHeader({
         ) : null}
         {/* The details of what is selected are the reason to open the panel at all. */}
         {compact ? null : <IconButton icon="info" label={t("files.details")} size="sm" aria-pressed={detailsOpen} onClick={onToggleDetails} />}
+      </div>
+    );
+  }
+
+  if (minimal) {
+    return (
+      <div style={compact ? { ...bar, padding: "0 4px", gap: 4 } : bar}>
+        {compact && onBack ? (
+          <IconButton icon="arrow-left" label={t("common.back")} onClick={onBack} style={{ width: 44, height: 44, flex: "none" }} />
+        ) : null}
+        <h1 style={{ margin: compact ? 0 : "0", fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {rootLabel}
+        </h1>
       </div>
     );
   }

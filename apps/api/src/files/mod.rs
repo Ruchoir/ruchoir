@@ -1,5 +1,6 @@
 //! The files feature: a per-space folder tree, upload with versioning, download and inline preview,
-//! server-generated image thumbnails, file shares, and files attached to messages. Bytes live in an
+//! server-generated image thumbnails, file shares, files attached to messages, the space's trash
+//! ([`trash`]) and each file's version history ([`history`]). Bytes live in an
 //! S3-compatible object store behind the `storage` module; this module owns the metadata, the
 //! authorization choke point, and the byte proxying (the browser never talks to the store directly).
 //!
@@ -11,11 +12,13 @@ pub(crate) mod convert;
 pub(crate) mod download;
 pub(crate) mod dto;
 pub(crate) mod error;
+pub(crate) mod history;
 pub(crate) mod images;
 pub(crate) mod mime;
 mod routes;
 pub(crate) mod shares;
 pub(crate) mod thumbnail;
+pub(crate) mod trash;
 pub(crate) mod tree;
 pub(crate) mod uploads;
 pub(crate) mod versions;
@@ -186,7 +189,7 @@ async fn load_versions(
 }
 
 /// Batch-load display names into a map keyed by user id.
-async fn load_names(
+pub(crate) async fn load_names(
     db: &DatabaseConnection,
     ids: Vec<Uuid>,
 ) -> Result<HashMap<Uuid, String>, FileError> {

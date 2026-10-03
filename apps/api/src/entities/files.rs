@@ -6,8 +6,10 @@
 //!
 //! `conversation_id` gives a file an audience narrower than its space: set, the file was attached to
 //! a message in a private conversation, stays out of the space tree, and is readable only by that
-//! conversation's participants. `system_key` marks a folder the product maintains (the one public
-//! attachments land in), so it is found by that marker and not by a name a user may change.
+//! conversation's participants. `deleted_by`, `trashed` and `purged_at` make the trash (see the
+//! `m20261003_000001_file_trash` migration). `system_key` marks a folder the product maintains
+//! (the one public attachments land in), so it is found by that marker and not by a name a user
+//! may change.
 
 use sea_orm::entity::prelude::*;
 
@@ -33,6 +35,12 @@ pub struct Model {
     pub created_at: TimeDateTimeWithTimeZone,
     pub updated_at: TimeDateTimeWithTimeZone,
     pub deleted_at: Option<TimeDateTimeWithTimeZone>,
+    /// Who removed it (with the rest of its removal).
+    pub deleted_by: Option<Uuid>,
+    /// The root of a removal: the entry the trash lists, which brings back what went with it.
+    pub trashed: bool,
+    /// When its bytes were erased for good; the row stays as a tombstone.
+    pub purged_at: Option<TimeDateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

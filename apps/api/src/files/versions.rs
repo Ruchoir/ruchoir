@@ -356,7 +356,7 @@ pub(super) async fn insert_version<C: sea_orm::ConnectionTrait>(
 }
 
 /// Point a fresh file at its first version (app-maintained pointer, no FK).
-pub(super) async fn point_to_version<C: sea_orm::ConnectionTrait>(
+pub(crate) async fn point_to_version<C: sea_orm::ConnectionTrait>(
     db: &C,
     file_id: Uuid,
     version_id: Uuid,

@@ -474,6 +474,8 @@ export type InstanceCapabilities = {
   office: OfficeCapabilities;
   /** The largest file an upload accepts, in bytes (absent from an older server: no check). */
   uploadMaxBytes?: number;
+  /** Days a removed file stays in the trash (0: until emptied; absent from an older server). */
+  trashRetentionDays?: number;
 };
 
 /**
@@ -487,10 +489,12 @@ export async function getInstanceCapabilities(signal?: AbortSignal): Promise<Ins
     email_delivery: boolean;
     office?: { enabled: boolean; edit: string[]; view: string[]; convert: string[]; public_url?: string };
     upload_max_bytes?: number;
+    trash_retention_days?: number;
   }>("/instance", signal);
   return {
     emailDelivery: dto.email_delivery,
     uploadMaxBytes: dto.upload_max_bytes,
+    trashRetentionDays: dto.trash_retention_days,
     office: {
       enabled: dto.office?.enabled === true,
       edit: dto.office?.edit ?? [],
@@ -1941,6 +1945,108 @@ export async function uploadFileVersion(fileId: string, file: File): Promise<Spa
   });
   if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
   return toSpaceFile((await res.json()) as FileDto);
+}
+
+// --- Trash and versions ---
+
+type TrashEntryDto = {
+  file: FileDto;
+  deleted_at: string;
+  deleted_by_id?: string;
+  deleted_by_name?: string;
+  original_folder_id?: string;
+  original_folder_name?: string;
+  original_folder_present: boolean;
+  can_manage: boolean;
+};
+
+/** One entry of a space's trash: what was removed, when, by whom, and from where. */
+export type TrashEntry = {
+  file: SpaceFile;
+  deletedAt: string;
+  deletedBy?: string;
+  /** The folder it was in (absent: the space root), and whether it is still there. */
+  originalFolderId?: string;
+  originalFolderName?: string;
+  originalFolderPresent: boolean;
+  /** Whether this person may restore it or erase it. */
+  canManage: boolean;
+};
+
+/** `GET /spaces/{id}/trash`: the space's trash, latest removal first. */
+export async function getTrash(spaceId: string, signal?: AbortSignal): Promise<TrashEntry[]> {
+  const rows = await apiGet<TrashEntryDto[]>(`/spaces/${spaceId}/trash`, signal);
+  return rows.map((r) => ({
+    file: toSpaceFile(r.file),
+    deletedAt: r.deleted_at,
+    deletedBy: r.deleted_by_name,
+    originalFolderId: r.original_folder_id,
+    originalFolderName: r.original_folder_name,
+    originalFolderPresent: r.original_folder_present,
+    canManage: r.can_manage,
+  }));
+}
+
+/** `POST /files/{id}/restore`: bring a trash entry back (at the root when its folder is gone). */
+export async function restoreFile(fileId: string): Promise<{ file: SpaceFile; restoredToRoot: boolean }> {
+  const dto = await apiPost<{ file: FileDto; restored_to_root: boolean }>(`/files/${fileId}/restore`, {});
+  return { file: toSpaceFile(dto.file), restoredToRoot: dto.restored_to_root };
+}
+
+/** `DELETE /files/{id}/trash`: erase a trash entry for good. */
+export async function eraseFile(fileId: string): Promise<void> {
+  await apiDelete<void>(`/files/${fileId}/trash`);
+}
+
+/** `DELETE /spaces/{id}/trash`: erase every trash entry this person may manage; how many. */
+export async function emptyTrash(spaceId: string): Promise<number> {
+  const dto = await apiDelete<{ erased: number }>(`/spaces/${spaceId}/trash`);
+  return dto?.erased ?? 0;
+}
+
+type VersionDto = {
+  id: string;
+  version_no: number;
+  size_bytes: number;
+  mime_type: string;
+  created_at: string;
+  created_by_id?: string;
+  created_by_name?: string;
+  current: boolean;
+};
+
+/** One version of a file. */
+export type FileVersion = {
+  id: string;
+  number: number;
+  sizeBytes: number;
+  createdAt: string;
+  createdBy?: string;
+  /** The version the file serves now. */
+  current: boolean;
+};
+
+/** `GET /files/{id}/versions`: a file's versions, newest first. */
+export async function getVersions(fileId: string, signal?: AbortSignal): Promise<FileVersion[]> {
+  const rows = await apiGet<VersionDto[]>(`/files/${fileId}/versions`, signal);
+  return rows.map((v) => ({
+    id: v.id,
+    number: v.version_no,
+    sizeBytes: v.size_bytes,
+    createdAt: v.created_at,
+    createdBy: v.created_by_name,
+    current: v.current,
+  }));
+}
+
+/** The same-origin URL that downloads one version's bytes. */
+export function versionDownloadUrl(fileId: string, versionId: string): string {
+  return `/api/v1/files/${fileId}/versions/${versionId}/download`;
+}
+
+/** `POST /files/{id}/versions/{vid}/restore`: an old version comes back as the newest. */
+export async function restoreVersion(fileId: string, versionId: string): Promise<SpaceFile> {
+  return toSpaceFile(await apiPost<FileDto>(`/files/${fileId}/versions/${versionId}/restore`, {}));
 }
 
 /** A sending in flight: its result, and the way to stop it. */

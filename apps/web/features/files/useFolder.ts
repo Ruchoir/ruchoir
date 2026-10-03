@@ -82,6 +82,9 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
             const here = !event.conversationId && event.file.parentFolderId === folderRef.current;
             return here ? [...prev, event.file] : prev;
           });
+        } else if (event.type === "deleted") {
+          const gone = new Set(event.fileIds);
+          setEntries((prev) => prev.filter((f) => !f.id || !gone.has(f.id)));
         } else {
           setEntries((prev) => prev.map((f) => (f.id === event.fileId ? { ...f, editors: event.editors } : f)));
         }
@@ -111,13 +114,14 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
     [spaceId],
   );
 
-  /** Put an entry made here (a folder created for an upload) in the list if it belongs to it. */
+  /** Put an entry made here (a folder created for an upload, a version brought back) in the list if it belongs to it. */
   const upsert = useCallback((file: SpaceFile) => {
     if (file.parentFolderId !== folderRef.current) {
       bumpCount(file.parentFolderId);
       return;
     }
-    setEntries((prev) => (prev.some((f) => f.id === file.id) ? prev : [...prev, file]));
+    // A newer copy of an entry already listed (a version brought back) replaces it.
+    setEntries((prev) => (prev.some((f) => f.id === file.id) ? prev.map((f) => (f.id === file.id ? { ...file, editors: f.editors } : f)) : [...prev, file]));
   }, []);
 
   return { entries, breadcrumb, folderId, loading, load, reload, upsert };

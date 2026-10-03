@@ -335,8 +335,15 @@ pub async fn delete_file(
 
     files::Entity::update_many()
         .col_expr(files::Column::DeletedAt, Expr::value(now))
+        .col_expr(files::Column::DeletedBy, Expr::value(session.user_id))
         .col_expr(files::Column::UpdatedAt, Expr::value(now))
         .filter(files::Column::Id.is_in(to_delete.clone()))
+        .exec(&txn)
+        .await?;
+    // The root of the removal is the trash's entry: restoring it brings back the rest.
+    files::Entity::update_many()
+        .col_expr(files::Column::Trashed, Expr::value(true))
+        .filter(files::Column::Id.eq(file.id))
         .exec(&txn)
         .await?;
     txn.commit().await?;
