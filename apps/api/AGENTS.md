@@ -192,7 +192,13 @@ context and takes precedence here.
   (image decode/resize), `tree` (folder listing, create, rename/move, recursive soft-delete),
   `uploads` (multipart upload), `versions` (the one path every new version and every server-made
   file goes through, announced as `files.updated`), `download` (download/preview/thumbnail, streamed back
-  through the API), `shares`, and `routes`. Bytes are proxied through the API (the browser never
+  through the API), `shares`, `trash` (the space's trash: a removal's root is marked `trashed`, listed
+  with who removed it and from where, restored with everything removed with it, at the root when its
+  folder is gone; erasing for good deletes the bytes and keeps the row as a tombstone, `purged_at`,
+  an object still used by a living version being kept; an hourly sweep erases what is past
+  `RUCHOIR_TRASH_RETENTION_DAYS`, 30 by default, 0 to keep everything), `history` (a file's
+  versions, each downloadable; restoring an old one adds a version that copies it, sharing its
+  object, so the history stays linear), and `routes`. Bytes are proxied through the API (the browser never
   contacts the object store), validated server-side (size + sniffed type), stored under opaque keys
   (`spaces/{space}/{file}/{version}`); image uploads get intrinsic dimensions and a stored thumbnail.
   A message attachment uploads through its **conversation**, not its space, because that is what

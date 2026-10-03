@@ -21,4 +21,6 @@ export type Toast = {
   tone: "success" | "info" | "warning" | "danger";
   title: string;
   description?: string;
+  /** One thing to do about it ("Undo"): the toast then stays longer, and goes when it is used. */
+  action?: { label: string; onClick: () => void };
 };

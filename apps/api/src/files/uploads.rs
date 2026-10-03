@@ -88,7 +88,7 @@ pub async fn upload_file(
     let now = OffsetDateTime::now_utc();
 
     let txn = state.db.begin().await?;
-    files::ActiveModel {
+    let created = files::ActiveModel {
         id: Set(file_id),
         space_id: Set(space_id),
         owner_id: Set(Some(session.user_id)),
@@ -107,6 +107,9 @@ pub async fn upload_file(
     txn.commit().await?;
 
     let dto = single_dto(&state.db, file_id).await?;
+    // The others in the space see it arrive, as they see a new version: a folder open on someone
+    // else's screen had to be reloaded to show what a colleague had just put in it.
+    versions::publish_updated(&state, &created, session.user_id, &dto).await;
     Ok((StatusCode::CREATED, Json(dto)))
 }
 

@@ -345,6 +345,23 @@ assembles; each part has its own file:
   `MoveDialog` (walk the tree, folders being moved greyed out), `DetailsPanel`, `FileDialogs`
   (rename, delete), `FilesHeader` and `Breadcrumb` complete it.
 
+**Uploads** go through `lib/uploads.ts`, an app-wide queue (a module store read with
+`useSyncExternalStore`), so sending survives a change of folder or of screen; `UploadPanel` (mounted
+in `AppRoot`'s overlays) shows it. Files go three at a time over `XMLHttpRequest` (`sendFile` in
+`lib/data/api.ts`), the only browser API that reports upload progress. `useUploader` turns "these
+files into this folder" into queue entries: what is over `upload_max_bytes` (from `/instance`) is
+refused at once, a dropped or picked folder has its tree made (a folder already there under the
+same name is reused, not doubled), and a taken name asks "replace, keep both or skip". The pure part
+(`uploadPlan.ts`) is unit tested. A drag from the desktop carries `Files` and is an upload; a drag of
+entries carries `application/x-ruchoir-files` and is a move: targets tell them apart by type.
+
+**Trash and versions.** Removing puts entries in the trash at once, with no confirmation, and the
+toast carries "Undo" (`Toast.action`); only erasing for good and emptying the trash ask first. The
+files screen has two views, "All files" and "Trash" (`TrashView`, its own list, menus and notice of
+the retention from `/instance`). A file's versions are in its details (`VersionsSection`), reached
+from the details or the "Versions" action; bringing one back is offered to whoever may replace the
+file. The open folder drops what `files.deleted` announces.
+
 **Rights are computed on the client** with the server's own rule (`canManage`: the entry's owner, or
 an owner or administrator of the space, as `authz::ensure_readable`'s `can_edit`). They are not sent
 per entry because `files.updated` reaches every member with one payload. Rename, move, delete and

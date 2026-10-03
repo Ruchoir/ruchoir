@@ -11,7 +11,7 @@ use axum::Router;
 
 use crate::state::AppState;
 
-use super::{convert, download, images, shares, tree, uploads};
+use super::{convert, download, history, images, shares, trash, tree, uploads};
 
 /// Build the files sub-router with `upload_max_bytes` as the request-body limit.
 pub fn router(upload_max_bytes: usize) -> Router<AppState> {
@@ -53,8 +53,23 @@ pub fn router(upload_max_bytes: usize) -> Router<AppState> {
         )
         .route(
             "/api/v1/files/{file_id}/versions",
-            post(uploads::upload_version),
+            get(history::list_versions).post(uploads::upload_version),
         )
+        .route(
+            "/api/v1/files/{file_id}/versions/{version_id}/download",
+            get(history::download_version),
+        )
+        .route(
+            "/api/v1/files/{file_id}/versions/{version_id}/restore",
+            post(history::restore_version),
+        )
+        // The trash: what was removed, its restoring and its erasing for good.
+        .route(
+            "/api/v1/spaces/{space_id}/trash",
+            get(trash::list_trash).delete(trash::empty_trash),
+        )
+        .route("/api/v1/files/{file_id}/restore", post(trash::restore_file))
+        .route("/api/v1/files/{file_id}/trash", delete(trash::erase_file))
         .route(
             "/api/v1/files/{file_id}/download",
             get(download::download_file),

@@ -267,7 +267,9 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   engine's avatar for them (`editorConfig.user.image`); without one, their Ruchoir default avatar,
   generated in the browser from the `member_name` the session returns and added to the posted
   configuration (base64, since the engine writes it into a bare CSS `url(...)`). The frame stays
-  hidden behind "Opening" until the engine's page posts `Ruchoir_Painted` (defect 2), or 15 s.
+  hidden behind "Opening" until the engine's page posts `Ruchoir_Painted` (defect 2), or 15 s. The
+  patched page posts it once the app is ready, the theme painted and the document itself loaded
+  (`onDocumentReady`): on the app alone, the engine's grey "Loading" box showed over an empty page.
 - **`useOfficeSession.ts`:** asks for the session, sends the heartbeat every 30 s, says goodbye on
   close and on `pagehide`.
 - **`officeTheme.ts`:** maps the Ruchoir theme (four accents, by day or night) to `light` or `dark`
@@ -288,10 +290,14 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   that would open in it falls back to the preview.
 - **A tab of its own:** a document opens in a new browser tab, as in any office suite, the files
   list staying where it was. That tab is the document's address (`/e/<space>/f/<file>`,
-  `?convert=1` for a conversion) and holds the editor alone, without Ruchoir's band: the engine's
-  own close button closes the tab (WOPI `ClosePostMessage`), and a tab the browser will not let a
-  page close (one the person opened from a link) lands on the space's files instead. Ruchoir's band
-  remains only when the browser refuses the new tab, the editor then opening over the list.
+  `?convert=1` for a conversion) and holds the editor alone, without Ruchoir's band. The files list
+  opens it with `?opened=1` (dropped from the address as soon as the editor writes its own): only
+  then does the engine's close button (WOPI `ClosePostMessage`) close the tab. A tab reached any
+  other way (a reload, which a phone does to a tab left in the background, a link, the installed app,
+  where closing the window would close Ruchoir) goes back to the space's files instead, on the
+  document's folder, the space being loaded first. On a phone the band stays even there, its close
+  button being the way out (the engine's own sits deep in its "…" menu). Ruchoir's band also remains
+  when the browser refuses the new tab, the editor then opening over the list.
 - **Touch screens:** on a phone or a tablet (`pointer: coarse`), the session asks for the engine's
   mobile editor (its `mobileEdit` and `mobileView` actions), made for fingers, rather than the
   desktop one with its ribbons.
