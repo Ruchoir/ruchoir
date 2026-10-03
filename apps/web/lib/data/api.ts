@@ -476,6 +476,8 @@ export type InstanceCapabilities = {
   uploadMaxBytes?: number;
   /** Days a removed file stays in the trash (0: until emptied; absent from an older server). */
   trashRetentionDays?: number;
+  /** Whether files may be handed out by public link. */
+  publicLinks: boolean;
 };
 
 /**
@@ -490,11 +492,13 @@ export async function getInstanceCapabilities(signal?: AbortSignal): Promise<Ins
     office?: { enabled: boolean; edit: string[]; view: string[]; convert: string[]; public_url?: string };
     upload_max_bytes?: number;
     trash_retention_days?: number;
+    public_links?: boolean;
   }>("/instance", signal);
   return {
     emailDelivery: dto.email_delivery,
     uploadMaxBytes: dto.upload_max_bytes,
     trashRetentionDays: dto.trash_retention_days,
+    publicLinks: dto.public_links === true,
     office: {
       enabled: dto.office?.enabled === true,
       edit: dto.office?.edit ?? [],
@@ -2047,6 +2051,117 @@ export function versionDownloadUrl(fileId: string, versionId: string): string {
 /** `POST /files/{id}/versions/{vid}/restore`: an old version comes back as the newest. */
 export async function restoreVersion(fileId: string, versionId: string): Promise<SpaceFile> {
   return toSpaceFile(await apiPost<FileDto>(`/files/${fileId}/versions/${versionId}/restore`, {}));
+}
+
+// --- Public links ---
+
+type LinkDto = {
+  id: string;
+  token: string;
+  created_at: string;
+  created_by_name?: string;
+  expires_at?: string;
+  expired: boolean;
+  has_password: boolean;
+  download_count: number;
+};
+
+/** A file's public link, as those who manage the file see it. */
+export type FileLink = {
+  id: string;
+  token: string;
+  /** The address to hand out. */
+  url: string;
+  createdAt: string;
+  createdBy?: string;
+  expiresAt?: string;
+  expired: boolean;
+  hasPassword: boolean;
+  downloads: number;
+};
+
+/** The public address of a link, on this instance. */
+export function publicLinkUrl(token: string): string {
+  return `${window.location.origin}/s/?t=${encodeURIComponent(token)}`;
+}
+
+function toLink(dto: LinkDto): FileLink {
+  return {
+    id: dto.id,
+    token: dto.token,
+    url: publicLinkUrl(dto.token),
+    createdAt: dto.created_at,
+    createdBy: dto.created_by_name,
+    expiresAt: dto.expires_at,
+    expired: dto.expired,
+    hasPassword: dto.has_password,
+    downloads: dto.download_count,
+  };
+}
+
+/** `GET /files/{id}/links`: the file's live public links. */
+export async function listLinks(fileId: string, signal?: AbortSignal): Promise<FileLink[]> {
+  return (await apiGet<LinkDto[]>(`/files/${fileId}/links`, signal)).map(toLink);
+}
+
+/** `POST /files/{id}/links`: a new public link, ending at `expiresAt` and asking for `password` when given. */
+export async function createLink(fileId: string, opts: { expiresAt?: string; password?: string }): Promise<FileLink> {
+  return toLink(await apiPost<LinkDto>(`/files/${fileId}/links`, { expires_at: opts.expiresAt, password: opts.password }));
+}
+
+/** `DELETE /files/{id}/links/{linkId}`: revoke a public link. */
+export async function revokeLink(fileId: string, linkId: string): Promise<void> {
+  await apiDelete<void>(`/files/${fileId}/links/${linkId}`);
+}
+
+type PublicLinkDto = {
+  needs_password: boolean;
+  name?: string;
+  size_bytes?: number;
+  mime_type?: string;
+  shared_by?: string;
+  expires_at?: string;
+  has_thumbnail?: boolean;
+};
+
+/** What a public link shows: only that it asks for a password, until it has been given. */
+export type PublicLink =
+  | { needsPassword: true }
+  | { needsPassword: false; name: string; sizeBytes: number; mimeType?: string; sharedBy?: string; expiresAt?: string; hasThumbnail: boolean };
+
+function toPublicLink(dto: PublicLinkDto): PublicLink {
+  if (dto.needs_password) return { needsPassword: true };
+  return {
+    needsPassword: false,
+    name: dto.name ?? "",
+    sizeBytes: dto.size_bytes ?? 0,
+    mimeType: dto.mime_type,
+    sharedBy: dto.shared_by,
+    expiresAt: dto.expires_at,
+    hasThumbnail: dto.has_thumbnail === true,
+  };
+}
+
+/** `GET /public/links/{token}`: no session needed. A `404` means the link is no longer valid. */
+export async function getPublicLink(token: string, grant?: string): Promise<PublicLink> {
+  const query = grant ? `?grant=${encodeURIComponent(grant)}` : "";
+  return toPublicLink(await apiGet<PublicLinkDto>(`/public/links/${encodeURIComponent(token)}${query}`));
+}
+
+/** `POST /public/links/{token}/unlock`: the password; the grant it earns, and the file. A `403` is the wrong password. */
+export async function unlockLink(token: string, password: string): Promise<{ grant: string; link: PublicLink }> {
+  const dto = await apiPost<{ grant: string; link: PublicLinkDto }>(`/public/links/${encodeURIComponent(token)}/unlock`, { password });
+  return { grant: dto.grant, link: toPublicLink(dto.link) };
+}
+
+/** The address that downloads a shared file (with the grant a password earned, if any). */
+export function publicDownloadUrl(token: string, grant?: string): string {
+  return `/api/v1/public/links/${encodeURIComponent(token)}/download${grant ? `?grant=${encodeURIComponent(grant)}` : ""}`;
+}
+
+/** The address of a shared image's thumbnail. */
+export function publicThumbnailUrl(token: string, grant?: string): string {
+  return `/api/v1/public/links/${encodeURIComponent(token)}/thumbnail${grant ? `?grant=${encodeURIComponent(grant)}` : ""}`;
 }
 
 /** A sending in flight: its result, and the way to stop it. */

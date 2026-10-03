@@ -4024,6 +4024,10 @@ function AppShell() {
           slugs={workspaces.map((w) => w.slug)}
           onEditorChange={setEditorOpen}
           initialFolderId={filesFolder}
+          shareTargets={[
+            ...channels.filter((c) => c.member !== false).map((c) => ({ id: c.id, name: c.name, kind: "channel" as const })),
+            ...visibleDms.filter((d) => !d.bot).map((d) => ({ id: d.id, name: d.name, kind: "dm" as const })),
+          ]}
         />
       ) : null}
       {contentView === "settings" ? (
