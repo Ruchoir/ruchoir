@@ -688,7 +688,8 @@ export function FilesScreen({
       <div style={{ flex: "none", padding: compact ? "0 12px" : "0 20px", borderBottom: "1px solid var(--border-subtle)" }}>
         <Tabs
           className="wc-tabs--scroll"
-          value={view}
+          // A search covers the whole space, not the view it was typed in: no tab is lit meanwhile.
+          value={searching ? "" : view}
           onChange={switchView}
           items={[
             { value: "files", label: t("files.allFiles"), icon: "hard-drive" },
