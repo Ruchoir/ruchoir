@@ -79,13 +79,14 @@ export function canManage(entry: { ownerId?: string }, me: string | undefined, s
   return !!me && entry.ownerId === me;
 }
 
-export type ActionId = "open" | "download" | "rename" | "move" | "newVersion" | "versions" | "details" | "delete";
+export type ActionId = "open" | "download" | "share" | "rename" | "move" | "newVersion" | "versions" | "details" | "delete";
 
 /** The actions an entry offers, in the order every menu shows them. */
 export function actionsFor(entry: Entry, manage: boolean): ActionId[] {
   if (!entry.id) return ["details"];
   const out: ActionId[] = ["open"];
-  if (!entry.isFolder) out.push("download");
+  // Sharing (into a conversation, by public link) is a file's: an attachment and a link are files.
+  if (!entry.isFolder) out.push("download", "share");
   if (manage) {
     out.push("rename", "move");
     if (!entry.isFolder) out.push("newVersion");

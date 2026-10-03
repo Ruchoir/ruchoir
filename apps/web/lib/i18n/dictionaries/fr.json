@@ -726,7 +726,38 @@
     "restoreVersion": "Restaurer la version {{number}}",
     "versionRestored": "Version {{number}} restaurée",
     "versionRestoredHint": "Elle devient la version {{number}} : les autres restent dans l'historique.",
-    "versionRestoreFailed": "Restauration de la version impossible"
+    "versionRestoreFailed": "Restauration de la version impossible",
+    "share": "Partager",
+    "shareTitle": "Partager « {{name}} »",
+    "sendToConversation": "Envoyer dans une conversation",
+    "findConversation": "Chercher un canal ou une personne",
+    "noConversation": "Aucune conversation ne correspond.",
+    "changeConversation": "Changer",
+    "shareNote": "Message (facultatif)",
+    "shareNotePlaceholder": "Un mot pour accompagner le fichier",
+    "sentTo": "Envoyé dans {{name}}",
+    "sendFailed": "Envoi impossible",
+    "publicLinks": "Liens publics",
+    "publicLinksHint": "Toute personne qui a le lien peut télécharger ce fichier, sans compte Ruchoir.",
+    "publicLinksOff": "Les liens publics sont désactivés sur cette instance.",
+    "linksLoading": "Récupération des liens…",
+    "linkExpiry": "Expiration",
+    "linkNoEnd": "Sans expiration",
+    "linkDays_one": "{{count}} jour",
+    "linkDays_other": "{{count}} jours",
+    "linkOnDate": "À une date",
+    "linkDate": "Date de fin",
+    "linkPasswordPlaceholder": "Facultatif",
+    "revokeLink": "Supprimer ce lien",
+    "linkCopyFailed": "Copie impossible : sélectionnez le lien à la main",
+    "linkCreateFailed": "Création du lien impossible",
+    "linkRevoked": "Lien supprimé : il ne fonctionne plus",
+    "linkRevokeFailed": "Suppression du lien impossible",
+    "linkExpired": "Expiré",
+    "linkUntil": "Jusqu'au {{date}}",
+    "linkWithPassword": "avec mot de passe",
+    "linkDownloads_one": "{{count}} téléchargement",
+    "linkDownloads_other": "{{count}} téléchargements"
   },
   "status": {
     "checking": "Vérification de l'état de l'API…"
@@ -1311,5 +1342,16 @@
     "missing": "Ce document n'existe plus.",
     "signedOut": "Votre session a expiré : reconnectez-vous à Ruchoir, puis rouvrez le document.",
     "conversionFailed": "La conversion n'a pas abouti. L'original est intact."
+  },
+  "share": {
+    "loading": "Ouverture du lien…",
+    "goneTitle": "Ce lien n'est plus valide",
+    "goneText": "Il a peut-être expiré ou été supprimé, ou le fichier n'est plus partagé. Demandez un nouveau lien à la personne qui vous l'a envoyé.",
+    "protectedTitle": "Fichier protégé",
+    "protectedText": "Ce lien demande un mot de passe. La personne qui vous l'a envoyé peut vous le donner.",
+    "unlock": "Accéder au fichier",
+    "sharedBy": "partagé par {{name}}",
+    "availableUntil": "Disponible jusqu'au {{date}}",
+    "footer": "Partagé avec Ruchoir, l'espace de travail européen."
   }
 }

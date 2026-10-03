@@ -362,6 +362,12 @@ the retention from `/instance`). A file's versions are in its details (`Versions
 from the details or the "Versions" action; bringing one back is offered to whoever may replace the
 file. The open folder drops what `files.deleted` announces.
 
+**Sharing.** "Share" (files only) opens `ShareDialog`: sending the file into a conversation (a message
+carrying it as an attachment; the space's members already see its files, so this is how one shows
+a file to someone) and, for whoever manages it, public links. A public link's page is a static page
+of its own, `app/s/page.tsx` (`/s/?t=<token>`, exported like `/status`, so it needs no session and
+loads none of the app): `features/share/PublicShareScreen.tsx`.
+
 **Rights are computed on the client** with the server's own rule (`canManage`: the entry's owner, or
 an owner or administrator of the space, as `authz::ensure_readable`'s `can_edit`). They are not sent
 per entry because `files.updated` reaches every member with one payload. Rename, move, delete and

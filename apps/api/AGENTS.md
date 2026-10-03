@@ -198,7 +198,12 @@ context and takes precedence here.
   an object still used by a living version being kept; an hourly sweep erases what is past
   `RUCHOIR_TRASH_RETENTION_DAYS`, 30 by default, 0 to keep everything), `history` (a file's
   versions, each downloadable; restoring an old one adds a version that copies it, sharing its
-  object, so the history stays linear), and `routes`. Bytes are proxied through the API (the browser never
+  object, so the history stays linear), `links` (public links: managed by the file's managers,
+  never a guest, each with an optional end and argon2id password, counted and revoked; answered
+  without a session by `links::public_router`, merged in `http.rs` behind the same per-IP rate
+  limit as sign-in; a dead link, whatever killed it, is the same `404`; a password earns an hour's
+  grant in Valkey that the download carries; `RUCHOIR_PUBLIC_LINKS=false` turns it off), and
+  `routes`. Bytes are proxied through the API (the browser never
   contacts the object store), validated server-side (size + sniffed type), stored under opaque keys
   (`spaces/{space}/{file}/{version}`); image uploads get intrinsic dimensions and a stored thumbnail.
   A message attachment uploads through its **conversation**, not its space, because that is what

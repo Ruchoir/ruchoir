@@ -25,6 +25,7 @@ import { FileTable } from "./FileTable";
 import { entryOf, type Item, type ListProps, type MenuAt } from "./listTypes";
 import { type ActionId, actionsFor, canManage, filterEntries, type Sort, sortEntries } from "./model";
 import { MoveDialog } from "./MoveDialog";
+import { type ShareTarget, ShareDialog } from "./ShareDialog";
 import { TrashView } from "./TrashView";
 import { NewMenu } from "./NewMenu";
 import { carriesFiles, fromInput, readDrop } from "./dropFiles";
@@ -44,6 +45,7 @@ const styles: Record<string, CSSProperties> = {
 const ACTION_ICONS: Record<ActionId, IconName> = {
   open: "folder-open",
   download: "download",
+  share: "send",
   rename: "type",
   move: "arrow-right",
   newVersion: "upload",
@@ -87,6 +89,8 @@ export type FilesScreenProps = {
   onEditorChange?: (open: boolean) => void;
   /** The folder to open first (the space root when absent). */
   initialFolderId?: string;
+  /** The conversations a file can be sent into (the space's channels joined, the direct messages). */
+  shareTargets?: ShareTarget[];
 };
 
 /**
@@ -109,6 +113,7 @@ export function FilesScreen({
   slugs,
   onEditorChange,
   initialFolderId,
+  shareTargets = [],
 }: FilesScreenProps) {
   const { t } = useTranslation();
   const rootLabel = t("sidebar.spaceFiles");
@@ -147,6 +152,9 @@ export function FilesScreen({
   /** The largest file the instance accepts (unknown until asked). */
   const [maxBytes, setMaxBytes] = useState<number | undefined>(undefined);
   const [retentionDays, setRetentionDays] = useState<number | undefined>(undefined);
+  const [publicLinks, setPublicLinks] = useState(false);
+  /** The file being shared, with whether this person manages it. */
+  const [sharing, setSharing] = useState<{ file: SpaceFile; manage: boolean } | null>(null);
   /** Which view: the space's files, or its trash. */
   const [view, setView] = useState<"files" | "trash">("files");
   /** Bumped when something leaves or returns to the trash from here, for the trash view to ask again. */
@@ -162,6 +170,7 @@ export function FilesScreen({
         setOffice(caps.office.enabled ? caps.office : null);
         setMaxBytes(caps.uploadMaxBytes);
         setRetentionDays(caps.trashRetentionDays);
+        setPublicLinks(caps.publicLinks);
         // Configured but not answering yet (an engine still starting): look again until it does.
         setOfficeLost(!caps.office.enabled && !!caps.office.publicUrl);
       })
@@ -337,6 +346,8 @@ export function FilesScreen({
       case "download":
         if (f.id) download(f.id, f.name);
         return;
+      case "share":
+        return setSharing({ file: f, manage: item.manage });
       case "rename":
         return setRenaming(item);
       case "move":
@@ -360,6 +371,8 @@ export function FilesScreen({
         return opensInEditor(item.file) ? t("office.openInEditor") : t("files.previewAction");
       case "download":
         return t("message.download");
+      case "share":
+        return t("files.share");
       case "rename":
         return t("files.rename");
       case "move":
@@ -761,6 +774,14 @@ export function FilesScreen({
         />
       ) : null}
       {uploader.dialog}
+      <ShareDialog
+        file={sharing?.file ?? null}
+        canManage={sharing?.manage ?? false}
+        publicLinks={publicLinks}
+        targets={shareTargets}
+        onNotify={onNotify}
+        onClose={() => setSharing(null)}
+      />
       <RenameDialog item={renaming} onClose={() => setRenaming(null)} onRename={confirmRename} />
       <MoveDialog
         spaceId={spaceId}

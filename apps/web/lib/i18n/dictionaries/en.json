@@ -726,7 +726,38 @@
     "restoreVersion": "Restore version {{number}}",
     "versionRestored": "Version {{number}} restored",
     "versionRestoredHint": "It becomes version {{number}}: the others stay in the history.",
-    "versionRestoreFailed": "Could not restore the version"
+    "versionRestoreFailed": "Could not restore the version",
+    "share": "Share",
+    "shareTitle": "Share “{{name}}”",
+    "sendToConversation": "Send in a conversation",
+    "findConversation": "Find a channel or a person",
+    "noConversation": "No conversation matches.",
+    "changeConversation": "Change",
+    "shareNote": "Message (optional)",
+    "shareNotePlaceholder": "A word to go with the file",
+    "sentTo": "Sent in {{name}}",
+    "sendFailed": "Could not send",
+    "publicLinks": "Public links",
+    "publicLinksHint": "Anyone with the link can download this file, without a Ruchoir account.",
+    "publicLinksOff": "Public links are turned off on this instance.",
+    "linksLoading": "Loading links…",
+    "linkExpiry": "Expiry",
+    "linkNoEnd": "No expiry",
+    "linkDays_one": "{{count}} day",
+    "linkDays_other": "{{count}} days",
+    "linkOnDate": "On a date",
+    "linkDate": "End date",
+    "linkPasswordPlaceholder": "Optional",
+    "revokeLink": "Delete this link",
+    "linkCopyFailed": "Could not copy: select the link by hand",
+    "linkCreateFailed": "Could not create the link",
+    "linkRevoked": "Link deleted: it no longer works",
+    "linkRevokeFailed": "Could not delete the link",
+    "linkExpired": "Expired",
+    "linkUntil": "Until {{date}}",
+    "linkWithPassword": "with a password",
+    "linkDownloads_one": "{{count}} download",
+    "linkDownloads_other": "{{count}} downloads"
   },
   "status": {
     "checking": "Checking API health…"
@@ -1311,5 +1342,16 @@
     "missing": "This document no longer exists.",
     "signedOut": "Your session has expired: sign in to Ruchoir again, then reopen the document.",
     "conversionFailed": "The conversion did not go through. The original is untouched."
+  },
+  "share": {
+    "loading": "Opening the link…",
+    "goneTitle": "This link is no longer valid",
+    "goneText": "It may have expired or been deleted, or the file is no longer shared. Ask the person who sent it for a new link.",
+    "protectedTitle": "Protected file",
+    "protectedText": "This link asks for a password. The person who sent it can give it to you.",
+    "unlock": "Open the file",
+    "sharedBy": "shared by {{name}}",
+    "availableUntil": "Available until {{date}}",
+    "footer": "Shared with Ruchoir, the European workspace."
   }
 }
