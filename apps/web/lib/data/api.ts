@@ -2173,12 +2173,25 @@ type PublicLinkDto = {
   shared_by?: string;
   expires_at?: string;
   has_thumbnail?: boolean;
+  preview?: PublicPreview;
 };
+
+/** How a shared file's page can show it. */
+export type PublicPreview = "image" | "pdf" | "document" | "video" | "audio" | "text";
 
 /** What a public link shows: only that it asks for a password, until it has been given. */
 export type PublicLink =
   | { needsPassword: true }
-  | { needsPassword: false; name: string; sizeBytes: number; mimeType?: string; sharedBy?: string; expiresAt?: string; hasThumbnail: boolean };
+  | {
+      needsPassword: false;
+      name: string;
+      sizeBytes: number;
+      mimeType?: string;
+      sharedBy?: string;
+      expiresAt?: string;
+      hasThumbnail: boolean;
+      preview?: PublicPreview;
+    };
 
 function toPublicLink(dto: PublicLinkDto): PublicLink {
   if (dto.needs_password) return { needsPassword: true };
@@ -2190,6 +2203,7 @@ function toPublicLink(dto: PublicLinkDto): PublicLink {
     sharedBy: dto.shared_by,
     expiresAt: dto.expires_at,
     hasThumbnail: dto.has_thumbnail === true,
+    preview: dto.preview,
   };
 }
 
@@ -2208,6 +2222,21 @@ export async function unlockLink(token: string, password: string): Promise<{ gra
 /** The address that downloads a shared file (with the grant a password earned, if any). */
 export function publicDownloadUrl(token: string, grant?: string): string {
   return `/api/v1/public/links/${encodeURIComponent(token)}/download${grant ? `?grant=${encodeURIComponent(grant)}` : ""}`;
+}
+
+/** The address of a shared file's bytes, inline (an image, a PDF, a video, a sound, a text). */
+export function publicPreviewUrl(token: string, grant?: string): string {
+  return `/api/v1/public/links/${encodeURIComponent(token)}/preview${grant ? `?grant=${encodeURIComponent(grant)}` : ""}`;
+}
+
+/** The address of a shared office document as a PDF. */
+export function publicDocumentUrl(token: string, grant?: string): string {
+  return `/api/v1/public/links/${encodeURIComponent(token)}/document${grant ? `?grant=${encodeURIComponent(grant)}` : ""}`;
+}
+
+/** The address of a shared office document's first page, as a picture. */
+export function publicPageUrl(token: string, grant?: string): string {
+  return `/api/v1/public/links/${encodeURIComponent(token)}/page${grant ? `?grant=${encodeURIComponent(grant)}` : ""}`;
 }
 
 /** The address of a shared image's thumbnail. */

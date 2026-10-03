@@ -773,7 +773,9 @@
     "nothingShared": "Rien n'a été partagé avec vous",
     "nothingSharedText": "Les fichiers que l'on vous envoie dans vos canaux et vos messages directs apparaissent ici.",
     "sentBy": "envoyé par {{name}}",
-    "directMessage": "message direct"
+    "directMessage": "message direct",
+    "conversationCount_one": "{{count}} conversation",
+    "conversationCount_other": "{{count}} conversations"
   },
   "status": {
     "checking": "Vérification de l'état de l'API…"
@@ -1368,6 +1370,7 @@
     "unlock": "Accéder au fichier",
     "sharedBy": "partagé par {{name}}",
     "availableUntil": "Disponible jusqu'au {{date}}",
-    "footer": "Partagé avec Ruchoir, l'espace de travail européen."
+    "footer": "Partagé avec Ruchoir, l'espace de travail européen.",
+    "openDocument": "Ouvrir le document"
   }
 }

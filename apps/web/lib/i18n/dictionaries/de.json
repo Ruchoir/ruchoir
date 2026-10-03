@@ -773,7 +773,9 @@
     "nothingShared": "Nichts wurde mit Ihnen geteilt",
     "nothingSharedText": "Dateien, die man Ihnen in Ihren Kanälen und Direktnachrichten sendet, erscheinen hier.",
     "sentBy": "gesendet von {{name}}",
-    "directMessage": "Direktnachricht"
+    "directMessage": "Direktnachricht",
+    "conversationCount_one": "{{count}} Unterhaltung",
+    "conversationCount_other": "{{count}} Unterhaltungen"
   },
   "status": {
     "checking": "API-Zustand wird geprüft…"
@@ -1368,6 +1370,7 @@
     "unlock": "Datei öffnen",
     "sharedBy": "geteilt von {{name}}",
     "availableUntil": "Verfügbar bis {{date}}",
-    "footer": "Geteilt mit Ruchoir, dem europäischen Arbeitsbereich."
+    "footer": "Geteilt mit Ruchoir, dem europäischen Arbeitsbereich.",
+    "openDocument": "Dokument öffnen"
   }
 }

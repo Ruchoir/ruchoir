@@ -366,7 +366,14 @@ file. The open folder drops what `files.deleted` announces.
 carrying it as an attachment; the space's members already see its files, so this is how one shows
 a file to someone) and, for whoever manages it, public links. A public link's page is a static page
 of its own, `app/s/page.tsx` (`/s/?t=<token>`, exported like `/status`, so it needs no session and
-loads none of the app): `features/share/PublicShareScreen.tsx`.
+loads none of the app): `features/share/PublicShareScreen.tsx`. The dialog lists every
+conversation in one scrolling list, grouped as the sidebar is (favourite channels, direct messages
+from the most recent, channels by name), the search narrowing it. The public page shows the file
+the way its link's `preview` says: an image whole, a PDF or an office document in a frame (the
+document converted to PDF by the API), a video or a sound in the browser's own player, a text in a
+`<pre>`; on a phone, a document is its first page as a picture that opens the whole PDF, and a PDF
+an icon with "Open" (a frame shows a PDF's first page at best there, and no PDF library is
+allowed). Anything else keeps its icon and the download.
 
 **Views.** The row of views is All files, Recent, Favourites, Shared with me, Trash (a row that
 scrolls sideways on a phone, `.wc-tabs--scroll`). The search field searches the whole space (server

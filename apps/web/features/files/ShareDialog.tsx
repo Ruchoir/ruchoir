@@ -9,7 +9,33 @@ import { formatDate } from "@/lib/i18n/format";
 import type { Toast } from "../app/types";
 
 /** A conversation a file can be sent into. */
-export type ShareTarget = { id: string; name: string; kind: "channel" | "dm" };
+export type ShareTarget = {
+  id: string;
+  name: string;
+  kind: "channel" | "dm";
+  /** A favourite channel: listed first. */
+  fav?: boolean;
+  /** When something was last said there (direct messages), for the order. */
+  lastAt?: string;
+};
+
+/**
+ * Every conversation, in the order a person looks for one: their favourite channels, then their
+ * direct messages, latest first, then the other channels by name. Each group under its heading.
+ */
+function grouped(targets: ShareTarget[]): { key: string; items: ShareTarget[] }[] {
+  const byName = (a: ShareTarget, b: ShareTarget) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+  const favs = targets.filter((c) => c.kind === "channel" && c.fav).sort(byName);
+  const dms = targets
+    .filter((c) => c.kind === "dm")
+    .sort((a, b) => (b.lastAt ?? "").localeCompare(a.lastAt ?? "") || byName(a, b));
+  const channels = targets.filter((c) => c.kind === "channel" && !c.fav).sort(byName);
+  return [
+    { key: "favourites", items: favs },
+    { key: "dms", items: dms },
+    { key: "channels", items: channels },
+  ].filter((g) => g.items.length > 0);
+}
 
 type Expiry = "never" | "7" | "30" | "date";
 
@@ -72,9 +98,10 @@ export function ShareDialog({
     return () => ctrl.abort();
   }, [file?.id, manageLinks]);
 
-  const found = targets
-    .filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()))
-    .slice(0, 8);
+  const found = targets.filter((c) => c.name.toLowerCase().includes(query.trim().toLowerCase()));
+  const groups = grouped(found);
+  const heading = (key: string) =>
+    key === "favourites" ? t("sidebar.favourites") : key === "dms" ? t("sidebar.directMessages") : t("tabs.channels");
 
   const send = () => {
     if (!file?.id || !target || sending) return;
@@ -144,39 +171,52 @@ export function ShareDialog({
       ) : (
         <>
           <Input size="sm" icon="search" placeholder={t("files.findConversation")} value={query} onChange={(e) => setQuery(e.target.value)} />
-          <div role="listbox" aria-label={t("files.sendToConversation")} style={{ margin: "8px 0 12px", maxHeight: 200, overflowY: "auto" }}>
+          <div style={{ margin: "8px 0 4px", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+            {t("files.conversationCount", { count: found.length })}
+          </div>
+          {/* Every conversation, in a list that scrolls: none is left to be guessed at by name. */}
+          <div
+            role="listbox"
+            aria-label={t("files.sendToConversation")}
+            style={{ margin: "0 0 12px", maxHeight: 264, overflowY: "auto", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", padding: 4 }}
+          >
             {found.length === 0 ? (
-              <p style={muted}>{t("files.noConversation")}</p>
+              <p style={{ ...muted, margin: 8 }}>{t("files.noConversation")}</p>
             ) : (
-              found.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  onClick={() => setTarget(c)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    width: "100%",
-                    minHeight: 40,
-                    padding: "4px 8px",
-                    border: 0,
-                    borderRadius: "var(--radius-sm)",
-                    background: "none",
-                    font: "inherit",
-                    fontSize: "var(--text-sm)",
-                    color: "var(--text-strong)",
-                    textAlign: "left",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-                >
-                  {c.kind === "channel" ? <Icon name="hash" size={16} style={{ color: "var(--text-muted)" }} /> : <Avatar name={c.name} size={22} />}
-                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                </button>
+              groups.map((g) => (
+                <div key={g.key} role="group" aria-label={heading(g.key)}>
+                  <div style={{ padding: "8px 8px 4px", fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{heading(g.key)}</div>
+                  {g.items.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      onClick={() => setTarget(c)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        width: "100%",
+                        minHeight: 40,
+                        padding: "4px 8px",
+                        border: 0,
+                        borderRadius: "var(--radius-sm)",
+                        background: "none",
+                        font: "inherit",
+                        fontSize: "var(--text-sm)",
+                        color: "var(--text-strong)",
+                        textAlign: "left",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                    >
+                      {c.kind === "channel" ? <Icon name="hash" size={16} style={{ color: "var(--text-muted)" }} /> : <Avatar name={c.name} size={22} />}
+                      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                    </button>
+                  ))}
+                </div>
               ))
             )}
           </div>
