@@ -222,6 +222,19 @@ const toastStyle: Record<string, CSSProperties> = {
   },
   title: { fontSize: "var(--text-xs)", fontWeight: 600 },
   desc: { fontSize: "var(--text-2xs)", color: "color-mix(in srgb, var(--text-inverse) 78%, var(--surface-inverse))" },
+  action: {
+    flex: "none",
+    minHeight: 32,
+    padding: "4px 10px",
+    border: "1.5px solid color-mix(in srgb, var(--text-inverse) 45%, transparent)",
+    borderRadius: "var(--radius-sm)",
+    background: "transparent",
+    color: "var(--text-inverse)",
+    font: "inherit",
+    fontSize: "var(--text-xs)",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
 };
 
 /** How many faces a thread shows next to its reply count. The API caps its own list to match. */
@@ -1456,6 +1469,7 @@ function AppShell() {
       onFilesEditing: (spaceId, fileId, editors) => emitFileEvent({ type: "editing", spaceId, fileId, editors }),
       onFilesDeleted: (spaceId, fileIds) => {
         if (fileIds.length === 0) return;
+        emitFileEvent({ type: "deleted", spaceId, fileIds });
         const gone = new Set(fileIds);
         // Every loaded conversation, not only the one on screen: the others are in memory and
         // would otherwise keep a working-looking attachment until they were next opened.
@@ -2079,7 +2093,8 @@ function AppShell() {
     setToastVisible(true);
     setToastKey((k) => k + 1);
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToastVisible(false), 4000);
+    // Long enough to reach for its button, when it has one.
+    toastTimer.current = setTimeout(() => setToastVisible(false), t.action ? 8000 : 4000);
   };
 
   // Keep `notifyRef` (declared with the other realtime refs, and read by handlers wired once per
@@ -4366,9 +4381,25 @@ function AppShell() {
           role="status"
           aria-live="polite"
         >
-          <div style={toastStyle.card}>
-            <span style={toastStyle.title}>{toast.title}</span>
-            {toast.description ? <span style={toastStyle.desc}>{toast.description}</span> : null}
+          <div style={toast.action ? { ...toastStyle.card, flexDirection: "row", alignItems: "center", gap: 12 } : toastStyle.card}>
+            <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+              <span style={toastStyle.title}>{toast.title}</span>
+              {toast.description ? <span style={toastStyle.desc}>{toast.description}</span> : null}
+            </span>
+            {toast.action ? (
+              <button
+                type="button"
+                style={toastStyle.action}
+                onClick={() => {
+                  const run = toast.action?.onClick;
+                  clearTimeout(toastTimer.current);
+                  setToastVisible(false);
+                  run?.();
+                }}
+              >
+                {toast.action.label}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

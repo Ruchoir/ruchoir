@@ -355,6 +355,13 @@ same name is reused, not doubled), and a taken name asks "replace, keep both or 
 (`uploadPlan.ts`) is unit tested. A drag from the desktop carries `Files` and is an upload; a drag of
 entries carries `application/x-ruchoir-files` and is a move: targets tell them apart by type.
 
+**Trash and versions.** Removing puts entries in the trash at once, with no confirmation, and the
+toast carries "Undo" (`Toast.action`); only erasing for good and emptying the trash ask first. The
+files screen has two views, "All files" and "Trash" (`TrashView`, its own list, menus and notice of
+the retention from `/instance`). A file's versions are in its details (`VersionsSection`), reached
+from the details or the "Versions" action; bringing one back is offered to whoever may replace the
+file. The open folder drops what `files.deleted` announces.
+
 **Rights are computed on the client** with the server's own rule (`canManage`: the entry's owner, or
 an owner or administrator of the space, as `authz::ensure_readable`'s `can_edit`). They are not sent
 per entry because `files.updated` reaches every member with one payload. Rename, move, delete and

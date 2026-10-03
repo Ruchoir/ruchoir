@@ -5,7 +5,9 @@ import { FileIcon, Icon, IconButton, Sheet } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import { type TranslationKey, key, useTranslation } from "@/lib/i18n";
 import { formatBytes, formatDateTime } from "@/lib/i18n/format";
+import type { Toast } from "../app/types";
 import type { Crumb } from "./useFolder";
+import { VersionsSection } from "./VersionsSection";
 
 /** A file's kind as a person names it, from its extension. */
 const TYPE_BY_EXTENSION: Record<string, TranslationKey> = {
@@ -84,6 +86,9 @@ export function DetailsPanel({
   rootLabel,
   sheet,
   onClose,
+  canManage = false,
+  onNotify,
+  onVersionRestored,
 }: {
   subject: DetailsSubject | null;
   /** Where the list is, which is where the entry lives. */
@@ -91,10 +96,21 @@ export function DetailsPanel({
   rootLabel: string;
   sheet: boolean;
   onClose: () => void;
+  /** Whether this person may replace the file (bring an old version back). */
+  canManage?: boolean;
+  onNotify?: (toast: Toast) => void;
+  onVersionRestored?: (file: SpaceFile) => void;
 }) {
   const { t } = useTranslation();
   const title = subject ? (subject.kind === "entry" ? subject.file.name : subject.name) : t("files.details");
-  const body = subject ? <Body subject={subject} trail={trail} rootLabel={rootLabel} /> : null;
+  const body = subject ? (
+    <>
+      <Body subject={subject} trail={trail} rootLabel={rootLabel} />
+      {subject.kind === "entry" && subject.file.id && subject.file.kind !== "folder" ? (
+        <VersionsSection file={subject.file} canManage={canManage} onNotify={onNotify} onRestored={onVersionRestored} />
+      ) : null}
+    </>
+  ) : null;
 
   if (sheet) {
     return (

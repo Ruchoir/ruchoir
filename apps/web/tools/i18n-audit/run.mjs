@@ -337,6 +337,9 @@ const ALLOWED_DUPLICATES = new Set([
   // "Archive" is the kind of a compressed file and the sealed export an import reads. Spanish says
   // "Archivo comprimido" for the first and "Archivo" for the second, which is also its word for a file.
   "files.typeArchive",
+  // "Annuler" closes a dialog without acting and takes back an action just done. English says
+  // "Cancel" and "Undo", German "Abbrechen" and "Rückgängig".
+  "files.undo",
 ]);
 
 /** Every key path in a dictionary object, flattened to `a.b.c`. */
