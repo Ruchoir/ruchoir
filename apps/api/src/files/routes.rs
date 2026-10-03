@@ -11,7 +11,7 @@ use axum::Router;
 
 use crate::state::AppState;
 
-use super::{convert, download, history, images, links, shares, trash, tree, uploads};
+use super::{convert, download, history, images, links, shares, trash, tree, uploads, views};
 
 /// Build the files sub-router with `upload_max_bytes` as the request-body limit.
 pub fn router(upload_max_bytes: usize) -> Router<AppState> {
@@ -70,6 +70,21 @@ pub fn router(upload_max_bytes: usize) -> Router<AppState> {
         )
         .route("/api/v1/files/{file_id}/restore", post(trash::restore_file))
         .route("/api/v1/files/{file_id}/trash", delete(trash::erase_file))
+        // The views beyond a folder, and a person's favourites.
+        .route("/api/v1/spaces/{space_id}/files/recent", get(views::recent))
+        .route(
+            "/api/v1/spaces/{space_id}/files/starred",
+            get(views::starred),
+        )
+        .route(
+            "/api/v1/spaces/{space_id}/files/shared",
+            get(views::shared_with_me),
+        )
+        .route("/api/v1/spaces/{space_id}/files/search", get(views::search))
+        .route(
+            "/api/v1/files/{file_id}/star",
+            put(views::star).delete(views::unstar),
+        )
         // Public links: managed here, answered without a session by `links::public_router`.
         .route(
             "/api/v1/files/{file_id}/links",

@@ -160,6 +160,7 @@ pub async fn list_folder(
     });
 
     let mut entries = super::hydrate_files(&state.db, rows).await?;
+    super::views::mark_starred(&state.db, session.user_id, &mut entries).await?;
     // Who is editing what, when live editing is on. A Valkey hiccup costs the badge, not the list.
     if state.office.is_some() {
         let ids: Vec<Uuid> = entries

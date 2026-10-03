@@ -585,7 +585,7 @@
     "moveIncomplete": "Déplacement incomplet",
     "moveIntoItself": "Un dossier ne peut pas être déplacé dans lui-même.",
     "uploadFailed": "Dépôt impossible",
-    "filter": "Filtrer les fichiers",
+    "filter": "Rechercher dans les fichiers",
     "gridView": "Vue en grille",
     "listView": "Vue en liste",
     "selectAll": "Tout sélectionner",
@@ -757,7 +757,23 @@
     "linkUntil": "Jusqu'au {{date}}",
     "linkWithPassword": "avec mot de passe",
     "linkDownloads_one": "{{count}} téléchargement",
-    "linkDownloads_other": "{{count}} téléchargements"
+    "linkDownloads_other": "{{count}} téléchargements",
+    "recent": "Récents",
+    "favourites": "Favoris",
+    "favourite": "Favori",
+    "sharedWithMe": "Partagés avec moi",
+    "starred": "Ajouté aux favoris",
+    "unstarred": "Retiré des favoris",
+    "starFailed": "Favori impossible à enregistrer",
+    "searchResults": "Résultats pour « {{query}} »",
+    "noRecent": "Aucun fichier récent",
+    "noRecentText": "Les fichiers modifiés dans l'espace apparaîtront ici, les plus récents en premier.",
+    "noFavourites": "Aucun favori",
+    "noFavouritesText": "Ajoutez un fichier ou un dossier aux favoris depuis son menu ⋯ pour le retrouver ici.",
+    "nothingShared": "Rien n'a été partagé avec vous",
+    "nothingSharedText": "Les fichiers que l'on vous envoie dans vos canaux et vos messages directs apparaissent ici.",
+    "sentBy": "envoyé par {{name}}",
+    "directMessage": "message direct"
   },
   "status": {
     "checking": "Vérification de l'état de l'API…"
