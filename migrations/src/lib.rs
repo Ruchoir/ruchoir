@@ -33,6 +33,8 @@ mod m20260924_000001_push_and_email_notifications;
 mod m20260924_000002_link_preview_look;
 mod m20260924_000003_notification_levels;
 mod m20261003_000001_file_trash;
+mod m20261003_000002_file_links;
+mod m20261003_000003_file_stars;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -68,6 +70,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260924_000002_link_preview_look::Migration),
             Box::new(m20260924_000003_notification_levels::Migration),
             Box::new(m20261003_000001_file_trash::Migration),
+            Box::new(m20261003_000002_file_links::Migration),
+            Box::new(m20261003_000003_file_stars::Migration),
         ]
     }
 }

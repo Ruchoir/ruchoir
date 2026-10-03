@@ -1,7 +1,8 @@
 """Convert one office document to PDF with LibreOffice, for the file viewer.
 
-Run by `files::convert` as `python3 convert.py <input> <output.pdf> <profile dir>`; the input's
-extension tells LibreOffice the format. It drives LibreOffice through its UNO bridge rather than the
+Run by `files::convert` as `python3 convert.py <input> <output> <profile dir>`; the input's
+extension tells LibreOffice the format. An output ending in `.png` is the first page as a picture
+(a shared document's page on a phone, where a PDF does not show inside a page) rather than a PDF. It drives LibreOffice through its UNO bridge rather than the
 plain `--convert-to` switch because a preview needs two things that switch cannot do: a CSV has to
 be read with the right separator and encoding (there is no header to say which), and a spreadsheet
 has to be laid out for looking at, in landscape and fitted to the page width, rather than cut into
@@ -103,13 +104,14 @@ def main():
         doc = desktop.loadComponentFromURL(uno.systemPathToFileUrl(source), "_blank", 0, tuple(arguments))
         if doc is None:
             sys.exit(1)
+        kind = "pdf" if not target.lower().endswith(".png") else "png"
         if doc.supportsService("com.sun.star.sheet.SpreadsheetDocument"):
             lay_out_spreadsheet(doc)
-            export = "calc_pdf_Export"
+            export = "calc_%s_Export" % kind
         elif doc.supportsService("com.sun.star.presentation.PresentationDocument"):
-            export = "impress_pdf_Export"
+            export = "impress_%s_Export" % kind
         else:
-            export = "writer_pdf_Export"
+            export = "writer_%s_Export" % kind
         doc.storeToURL(uno.systemPathToFileUrl(target), (prop("FilterName", export),))
         status = 0
     finally:

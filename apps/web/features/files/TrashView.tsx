@@ -257,7 +257,8 @@ export function TrashView({
         open={confirm != null}
         title={confirm?.kind === "all" ? t("files.emptyTrashTitle") : t("files.eraseTitle")}
         closeLabel={t("common.close")}
-        size="sm"
+        // Room for the title on one line.
+        size="md"
         onClose={() => setConfirm(null)}
         footer={
           <>

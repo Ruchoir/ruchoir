@@ -23,6 +23,7 @@ pub mod totp;
 
 mod password;
 
-/// Re-exported so other modules (the dev seed, the `bootstrap` subcommand) can hash a password and
-/// hold it to the same policy without reaching into the private `password` submodule.
-pub use password::{check_policy, hash_password};
+/// Re-exported so other modules (the dev seed, the `bootstrap` subcommand, a file's public link) can
+/// hash and check a password and hold it to the same policy without reaching into the private
+/// `password` submodule.
+pub use password::{check_policy, hash_password, verify_password};

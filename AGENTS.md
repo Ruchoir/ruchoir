@@ -120,6 +120,8 @@ the other five until they carry it.
 
 - Dictionaries: `apps/web/lib/i18n/dictionaries/<locale>.json`, bundled rather than fetched (a
   self-hosted instance must not download its own interface twice).
+- French typography: a non-breaking space (U+00A0) inside « » and before `?`, `:`, `;` and `!`, so
+  a line never starts with one of them (a dialog title once ended on a lone `?`).
 - Runtime: i18next + react-i18next. Chosen over FormatJS/react-intl partly for governance: i18next is
   developed in Europe, react-intl is US-governed, and between two MIT libraries that both run
   locally, the sovereign one costs nothing.

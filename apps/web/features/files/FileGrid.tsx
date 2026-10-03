@@ -177,10 +177,11 @@ function Card({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={styles.name}>
             <FileName name={f.name} isFolder={entry.isFolder} />
+            {entry.starred ? <Icon name="star" size={13} title={t("files.favourite")} style={{ flex: "none", color: "var(--status-warning-fg, var(--text-accent))", fill: "currentColor" }} /> : null}
             <EditingBadge editors={f.editors} size={14} />
           </div>
           <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {entry.isFolder ? folderSize(t, f.childCount) : formatBytes(f.sizeBytes)}
+            {item.location ?? (entry.isFolder ? folderSize(t, f.childCount) : formatBytes(f.sizeBytes))}
           </div>
         </div>
         <IconButton

@@ -58,6 +58,10 @@ pub struct FileDto {
     /// left out). Absent for a file.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub child_count: Option<i64>,
+    /// Whether the person asking keeps it among their favourites. Set by the listings that know who
+    /// asks; an event shared by a whole space leaves it out (false).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub starred: bool,
     /// Who is editing the file in the office editor right now (folder listings only).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub editors: Vec<EditorDto>,
@@ -103,6 +107,7 @@ impl FileDto {
             modified_by_id: version.and_then(|v| v.created_by),
             modified_by_name,
             child_count,
+            starred: false,
             editors: Vec::new(),
         }
     }

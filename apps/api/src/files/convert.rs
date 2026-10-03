@@ -48,7 +48,7 @@ const CONVERT_SCRIPT: &str = include_str!("convert.py");
 /// archive (`application/zip`), and an old binary one as a generic blob, so for those the name's
 /// extension picks the format, from the list above and nothing else: the name the uploader gave is
 /// never put on the input as such, and a file that is not what its name says simply fails to convert.
-fn office_extension(mime: &str, name: &str) -> Option<&'static str> {
+pub(crate) fn office_extension(mime: &str, name: &str) -> Option<&'static str> {
     let by_mime = match mime {
         "application/msword" => Some("doc"),
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => Some("docx"),
@@ -124,21 +124,7 @@ pub async fn preview_document(
     if is_fresh(&headers, &tag) {
         return not_modified(&tag);
     }
-    let key = version.storage_key.ok_or(FileError::NotFound)?;
-    let cache_key = pdf_key(&key);
-
-    let pdf = match storage.get(&cache_key).await {
-        Ok(bytes) => bytes,
-        Err(_) => {
-            let source = storage.get(&key).await?;
-            let pdf = convert_to_pdf(&source, extension).await?;
-            // A failure to keep the result costs a second conversion next time, not the preview.
-            if let Err(error) = storage.put(&cache_key, &pdf, "application/pdf").await {
-                tracing::warn!(%error, "could not keep a converted preview");
-            }
-            pdf
-        }
-    };
+    let pdf = document_pdf(storage, &version, extension).await?;
 
     let stem = file
         .name
@@ -159,8 +145,65 @@ pub async fn preview_document(
     Ok(response)
 }
 
+/// A version of an office document as a PDF, converted once and kept next to its bytes.
+pub(crate) async fn document_pdf(
+    storage: &crate::storage::S3Store,
+    version: &crate::entities::file_versions::Model,
+    extension: &str,
+) -> Result<Vec<u8>, FileError> {
+    let key = version.storage_key.as_deref().ok_or(FileError::NotFound)?;
+    let cache_key = pdf_key(key);
+    if let Ok(bytes) = storage.get(&cache_key).await {
+        return Ok(bytes);
+    }
+    let source = storage.get(key).await?;
+    let pdf = convert_to_pdf(&source, extension).await?;
+    // A failure to keep the result costs a second conversion next time, not the preview.
+    if let Err(error) = storage.put(&cache_key, &pdf, "application/pdf").await {
+        tracing::warn!(%error, "could not keep a converted preview");
+    }
+    Ok(pdf)
+}
+
+/// A version of an office document's first page, as a picture no wider than `max_px`, made once
+/// and kept next to its bytes.
+pub(crate) async fn document_page(
+    storage: &crate::storage::S3Store,
+    version: &crate::entities::file_versions::Model,
+    extension: &str,
+    max_px: u32,
+) -> Result<Vec<u8>, FileError> {
+    let key = version.storage_key.as_deref().ok_or(FileError::NotFound)?;
+    let cache_key = format!("{key}.page1");
+    if let Ok(bytes) = storage.get(&cache_key).await {
+        return Ok(bytes);
+    }
+    let source = storage.get(key).await?;
+    let png = convert_to_page(&source, extension).await?;
+    let picture = super::thumbnail::make_thumbnail(&png, max_px)
+        .map_err(|_| FileError::Conversion)?
+        .thumbnail;
+    if let Err(error) = storage
+        .put(&cache_key, &picture, super::thumbnail::THUMBNAIL_MIME)
+        .await
+    {
+        tracing::warn!(%error, "could not keep a document's first page");
+    }
+    Ok(picture)
+}
+
 /// Run LibreOffice on `source` and return the PDF it writes.
 async fn convert_to_pdf(source: &[u8], extension: &str) -> Result<Vec<u8>, FileError> {
+    convert(source, extension, "output.pdf").await
+}
+
+/// Run LibreOffice on `source` and return the picture of its first page (PNG).
+async fn convert_to_page(source: &[u8], extension: &str) -> Result<Vec<u8>, FileError> {
+    convert(source, extension, "output.png").await
+}
+
+/// Run LibreOffice on `source`, writing `output` (its extension picks a PDF or a page picture).
+async fn convert(source: &[u8], extension: &str, output: &str) -> Result<Vec<u8>, FileError> {
     static SLOTS: OnceLock<Semaphore> = OnceLock::new();
     let _slot = SLOTS
         .get_or_init(|| Semaphore::new(MAX_CONCURRENT))
@@ -169,7 +212,7 @@ async fn convert_to_pdf(source: &[u8], extension: &str) -> Result<Vec<u8>, FileE
         .map_err(|_| FileError::Internal)?;
 
     let dir = std::env::temp_dir().join(format!("ruchoir-convert-{}", Uuid::new_v4()));
-    let result = run_conversion(&dir, source, extension).await;
+    let result = run_conversion(&dir, source, extension, output).await;
     if let Err(error) = tokio::fs::remove_dir_all(&dir).await {
         tracing::warn!(%error, "could not remove a conversion directory");
     }
@@ -180,6 +223,7 @@ async fn run_conversion(
     dir: &FsPath,
     source: &[u8],
     extension: &str,
+    output: &str,
 ) -> Result<Vec<u8>, FileError> {
     let fail = |error: &dyn std::fmt::Display| {
         tracing::error!(%error, "office conversion failed");
@@ -198,7 +242,7 @@ async fn run_conversion(
     let mut child = Command::new("python3")
         .arg(&script)
         .arg(&input)
-        .arg(dir.join("output.pdf"))
+        .arg(dir.join(output))
         .arg(dir.join("profile"))
         .env_clear()
         .env("PATH", "/usr/local/bin:/usr/bin:/bin")
@@ -219,7 +263,7 @@ async fn run_conversion(
             return Err(fail(&"timed out"));
         }
     }
-    tokio::fs::read(dir.join("output.pdf"))
+    tokio::fs::read(dir.join(output))
         .await
         .map_err(|e| fail(&e))
 }

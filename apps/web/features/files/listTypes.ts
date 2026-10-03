@@ -12,6 +12,8 @@ export type Item = {
   /** Whether the person may rename, move, delete or replace it (see `canManage`). */
   manage: boolean;
   actions: ActionId[];
+  /** Where it lives, said under its name in a view beyond a folder (recent, search...). */
+  location?: string;
 };
 
 /** Where an entry's menu opens: under its ⋯ button, or where the pointer was (a right-click). */
@@ -53,6 +55,7 @@ export function entryOf(f: SpaceFile): Entry {
     modifiedBy: f.modifiedBy ?? f.by,
     ownerId: f.ownerId,
     parentFolderId: f.parentFolderId,
+    starred: f.starred,
   };
 }
 

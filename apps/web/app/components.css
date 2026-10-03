@@ -661,6 +661,18 @@
   color: var(--text-subtle);
   font-variant-numeric: tabular-nums;
 }
+/* A row of views wider than a phone: it scrolls sideways, each tab whole. */
+.wc-tabs--scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.wc-tabs--scroll::-webkit-scrollbar {
+  display: none;
+}
+.wc-tabs--scroll .wc-tab {
+  flex: none;
+  white-space: nowrap;
+}
 .wc-tabs--pills {
   border-bottom: 0;
   gap: var(--space-1);
@@ -1502,6 +1514,8 @@
   letter-spacing: var(--tracking-display);
   line-height: var(--leading-tight);
   color: var(--text-strong);
+  /* A title over two lines splits evenly rather than leaving one word alone on the second. */
+  text-wrap: balance;
 }
 .wc-dlg__sub {
   margin-top: var(--space-1);
@@ -1571,6 +1585,31 @@
   padding: var(--space-3) var(--space-5);
   border-top: var(--border-width) solid var(--border-subtle);
   background: var(--surface-canvas);
+}
+
+/* Several answers in a dialog's footer: a row, the first one apart on the left. On a phone (the
+   dialog is a bottom sheet) they stack full width, the last one, the main answer, on top. */
+.wc-dlg__choices {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.wc-dlg__gap {
+  flex: 1;
+}
+@media (max-width: 599px) {
+  .wc-dlg__choices {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .wc-dlg__choices > .wc-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .wc-dlg__gap {
+    display: none;
+  }
 }
 
 /* Generic selectable list row (dialog pickers, search results). */

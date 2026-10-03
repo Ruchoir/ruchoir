@@ -70,7 +70,10 @@ export function FilesHeader({
   newButton,
   selection,
   minimal = false,
+  title,
 }: {
+  /** A view beyond a folder (recent, a search...): its name stands where the breadcrumb was. */
+  title?: string;
   /** A view with nothing to browse (the trash): its name, and on a phone the way back. */
   minimal?: boolean;
   compact: boolean;
@@ -95,7 +98,7 @@ export function FilesHeader({
   const { t } = useTranslation();
   const [searching, setSearching] = useState(false);
   const [viewAt, setViewAt] = useState<MenuAt | null>(null);
-  const current = trail.length > 0 ? trail[trail.length - 1].name : rootLabel;
+  const current = title ?? (trail.length > 0 ? trail[trail.length - 1].name : rootLabel);
   const parent = trail.length > 1 ? trail[trail.length - 2].id : undefined;
 
   const sortLabels: Record<SortKey, string> = {
@@ -238,7 +241,13 @@ export function FilesHeader({
   return (
     <div style={bar}>
       <h1 style={hidden}>{current}</h1>
-      <Breadcrumb rootLabel={rootLabel} trail={trail} onOpen={onOpenFolder} drag={drag} />
+      {title ? (
+        <span aria-hidden style={{ minWidth: 0, fontSize: "var(--text-lg)", fontWeight: 700, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {title}
+        </span>
+      ) : (
+        <Breadcrumb rootLabel={rootLabel} trail={trail} onOpen={onOpenFolder} drag={drag} />
+      )}
       <div style={{ flex: 1 }} />
       <div style={{ width: 220, flex: "0 1 220px", minWidth: 120 }}>
         <Input size="sm" icon="search" placeholder={t("files.filter")} value={query} onChange={(e) => onQuery(e.target.value)} />

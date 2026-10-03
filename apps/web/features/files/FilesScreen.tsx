@@ -8,7 +8,7 @@ import type { SpaceFile } from "@/lib/data";
 import type { OfficeCapabilities } from "@/lib/data/types";
 import { fileUrl } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
-import { deleteFile, fileDownloadUrl, getInstanceCapabilities, officeActionFor, restoreFile, updateFile } from "@/lib/data/api";
+import { deleteFile, fileDownloadUrl, type FilesView, getInstanceCapabilities, officeActionFor, restoreFile, setStarred, updateFile, type ViewEntry } from "@/lib/data/api";
 import { enqueue, reject as rejectUpload } from "@/lib/uploads";
 import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
@@ -23,8 +23,10 @@ import { FileRows } from "./FileRows";
 import { FilesHeader, type Layout } from "./FilesHeader";
 import { FileTable } from "./FileTable";
 import { entryOf, type Item, type ListProps, type MenuAt } from "./listTypes";
-import { type ActionId, actionsFor, canManage, filterEntries, type Sort, sortEntries } from "./model";
+import { type ActionId, actionsFor, canManage, type Sort, sortEntries } from "./model";
+import { useView } from "./useView";
 import { MoveDialog } from "./MoveDialog";
+import { type ShareTarget, ShareDialog } from "./ShareDialog";
 import { TrashView } from "./TrashView";
 import { NewMenu } from "./NewMenu";
 import { carriesFiles, fromInput, readDrop } from "./dropFiles";
@@ -44,6 +46,8 @@ const styles: Record<string, CSSProperties> = {
 const ACTION_ICONS: Record<ActionId, IconName> = {
   open: "folder-open",
   download: "download",
+  share: "send",
+  star: "star",
   rename: "type",
   move: "arrow-right",
   newVersion: "upload",
@@ -87,6 +91,8 @@ export type FilesScreenProps = {
   onEditorChange?: (open: boolean) => void;
   /** The folder to open first (the space root when absent). */
   initialFolderId?: string;
+  /** The conversations a file can be sent into (the space's channels joined, the direct messages). */
+  shareTargets?: ShareTarget[];
 };
 
 /**
@@ -109,11 +115,12 @@ export function FilesScreen({
   slugs,
   onEditorChange,
   initialFolderId,
+  shareTargets = [],
 }: FilesScreenProps) {
   const { t } = useTranslation();
   const rootLabel = t("sidebar.spaceFiles");
 
-  const { entries, breadcrumb, folderId, loading, load, reload, upsert } = useFolder(
+  const { entries, breadcrumb, folderId, loading, load, reload, upsert, patch } = useFolder(
     spaceId,
     () => onNotify({ tone: "danger", title: t("files.loadFailed") }),
     initialFolderId,
@@ -147,8 +154,11 @@ export function FilesScreen({
   /** The largest file the instance accepts (unknown until asked). */
   const [maxBytes, setMaxBytes] = useState<number | undefined>(undefined);
   const [retentionDays, setRetentionDays] = useState<number | undefined>(undefined);
+  const [publicLinks, setPublicLinks] = useState(false);
+  /** The file being shared, with whether this person manages it. */
+  const [sharing, setSharing] = useState<{ file: SpaceFile; manage: boolean } | null>(null);
   /** Which view: the space's files, or its trash. */
-  const [view, setView] = useState<"files" | "trash">("files");
+  const [view, setView] = useState<"files" | FilesView | "trash">("files");
   /** Bumped when something leaves or returns to the trash from here, for the trash view to ask again. */
   const [trashStamp, setTrashStamp] = useState(0);
   /** The editor turned out to be unreachable: ask again every minute until it is back. */
@@ -162,6 +172,7 @@ export function FilesScreen({
         setOffice(caps.office.enabled ? caps.office : null);
         setMaxBytes(caps.uploadMaxBytes);
         setRetentionDays(caps.trashRetentionDays);
+        setPublicLinks(caps.publicLinks);
         // Configured but not answering yet (an engine still starting): look again until it does.
         setOfficeLost(!caps.office.enabled && !!caps.office.publicUrl);
       })
@@ -212,16 +223,32 @@ export function FilesScreen({
   };
 
   // The list as shown: filtered, sorted, each entry with what this person may do with it.
+  /** Where an entry of a view lives, said under its name; for what was sent, by whom and where. */
+  function locationOf(e: ViewEntry): string {
+    if (e.sharedIn) {
+      const where = e.sharedIn.kind === "channel" && e.sharedIn.name ? `#${e.sharedIn.name}` : t("files.directMessage");
+      return [e.sharedBy ? t("files.sentBy", { name: e.sharedBy }) : null, where, e.sharedAt ? formatStamp(e.sharedAt) : null].filter(Boolean).join(" · ");
+    }
+    return [rootLabel, ...e.path.map((c) => c.name)].join(" › ");
+  }
+
+  // What the screen lists: the open folder, or a view beyond it (recent, favourites, shared with
+  // me), or a search through the whole space when there are words in the search field.
+  const searching = q.trim().length > 0 && view !== "trash";
+  const flatView: FilesView | null = view === "recent" || view === "starred" || view === "shared" ? view : null;
+  const flat = searching || flatView != null;
+  const viewData = useView(spaceId, flatView, view === "trash" ? "" : q, () => onNotify({ tone: "danger", title: t("files.loadFailed") }));
+  const viewEntries: ViewEntry[] = flat ? (viewData.entries ?? []) : [];
+  const locations = new Map(viewEntries.map((e) => [e.file.id ?? e.file.name, locationOf(e)]));
+  const listed = flat ? viewEntries.map((e) => e.file) : entries;
   const items: Item[] = sortEntries(
-    filterEntries(
-      entries.map((f) => ({ ...entryOf(f), file: f })),
-      q,
-    ),
+    listed.map((f) => ({ ...entryOf(f), file: f })),
     sort,
   ).map(({ file }) => {
     const entry = entryOf(file);
     const manage = canManage(entry, currentUserId, spaceRole);
-    return { key: file.id ?? file.name, file, entry, manage, actions: actionsFor(entry, manage) };
+    const key = file.id ?? file.name;
+    return { key, file, entry, manage, actions: actionsFor(entry, manage), location: flat ? locations.get(key) : undefined };
   });
   const selection = useSelection(items.map((i) => i.key));
   const selectedItems = items.filter((i) => selection.selected.has(i.key));
@@ -237,16 +264,26 @@ export function FilesScreen({
     setView("files");
   }
 
-  /** Open a folder: a new place, so no selection and no filter carried into it. */
+  /** Open a folder: a new place, so no selection and no search carried into it, from any view. */
   const openFolder = (id: string | undefined) => {
     selection.clear();
     setQ("");
+    setView("files");
     load(id);
   };
-  /** Reload the folder after a change, dropping a selection that may name entries now gone. */
+  /** Reload what is listed after a change, dropping a selection that may name entries now gone. */
   const refresh = () => {
     selection.clear();
     reload();
+    if (flat) viewData.reload();
+  };
+  /** Switch between the drive's views, each with the order it reads best in. */
+  const switchView = (next: string) => {
+    selection.clear();
+    setQ("");
+    const v = next === "recent" || next === "starred" || next === "shared" || next === "trash" ? next : "files";
+    setView(v);
+    setSort(v === "recent" || v === "shared" ? { key: "updatedAt", dir: "desc" } : { key: "name", dir: "asc" });
   };
 
   /** What "open" does for a file: the editor, the full-page viewer, or the plain preview. */
@@ -337,6 +374,25 @@ export function FilesScreen({
       case "download":
         if (f.id) download(f.id, f.name);
         return;
+      case "share":
+        return setSharing({ file: f, manage: item.manage });
+      case "star": {
+        if (!f.id) return;
+        const next = !item.entry.starred;
+        patch(f.id, { starred: next });
+        viewData.patch(f.id, { starred: next });
+        setStarred(f.id, next)
+          .then(() => {
+            onNotify({ tone: "success", title: next ? t("files.starred") : t("files.unstarred"), description: f.name });
+            if (view === "starred") viewData.reload();
+          })
+          .catch(() => {
+            patch(f.id as string, { starred: !next });
+            viewData.patch(f.id as string, { starred: !next });
+            onNotify({ tone: "danger", title: t("files.starFailed") });
+          });
+        return;
+      }
       case "rename":
         return setRenaming(item);
       case "move":
@@ -360,6 +416,10 @@ export function FilesScreen({
         return opensInEditor(item.file) ? t("office.openInEditor") : t("files.previewAction");
       case "download":
         return t("message.download");
+      case "share":
+        return t("files.share");
+      case "star":
+        return item.entry.starred ? t("sidebar.unfavourite") : t("sidebar.favourite");
       case "rename":
         return t("files.rename");
       case "move":
@@ -539,7 +599,7 @@ export function FilesScreen({
     onAction: (item, action) => runAction(item, action),
     onSelectAll: selection.selectAll,
     onClearSelection: selection.clear,
-    drag: compact ? undefined : drag,
+    drag: compact || flat ? undefined : drag,
   };
 
   const detailsSubject: DetailsSubject =
@@ -571,12 +631,23 @@ export function FilesScreen({
     <div style={styles.root}>
       <FilesHeader
         minimal={view === "trash"}
+        title={
+          searching
+            ? t("files.searchResults", { query: q.trim() })
+            : view === "recent"
+              ? t("files.recent")
+              : view === "starred"
+                ? t("files.favourites")
+                : view === "shared"
+                  ? t("files.sharedWithMe")
+                  : undefined
+        }
         compact={compact}
         rootLabel={view === "trash" ? t("files.trash") : rootLabel}
-        trail={breadcrumb}
+        trail={flat ? [] : breadcrumb}
         onOpenFolder={openFolder}
         onBack={onBack}
-        drag={compact ? undefined : drag}
+        drag={compact || flat ? undefined : drag}
         query={q}
         onQuery={setQ}
         layout={layout}
@@ -613,16 +684,18 @@ export function FilesScreen({
           worth designing out. */}
       <input id={versionInputId} type="file" style={{ display: "none" }} onChange={(e) => onVersionPicked(e.currentTarget)} />
 
-      {/* The views of the drive. The trash is the second, so the row shows from here on. */}
+      {/* The views of the drive: a row that scrolls sideways on a phone. */}
       <div style={{ flex: "none", padding: compact ? "0 12px" : "0 20px", borderBottom: "1px solid var(--border-subtle)" }}>
         <Tabs
-          value={view}
-          onChange={(v) => {
-            selection.clear();
-            setView(v === "trash" ? "trash" : "files");
-          }}
+          className="wc-tabs--scroll"
+          // A search covers the whole space, not the view it was typed in: no tab is lit meanwhile.
+          value={searching ? "" : view}
+          onChange={switchView}
           items={[
             { value: "files", label: t("files.allFiles"), icon: "hard-drive" },
+            { value: "recent", label: t("files.recent"), icon: "clock" },
+            { value: "starred", label: t("files.favourites"), icon: "star" },
+            { value: "shared", label: t("files.sharedWithMe"), icon: "users" },
             { value: "trash", label: t("files.trash"), icon: "trash-2" },
           ]}
         />
@@ -642,7 +715,7 @@ export function FilesScreen({
           </div>
         </div>
       ) : (
-      <div style={{ ...styles.main, position: "relative" }} {...dropZone}>
+      <div style={{ ...styles.main, position: "relative" }} {...(flat ? {} : dropZone)}>
         {dropping ? (
           <div
             aria-hidden
@@ -686,7 +759,7 @@ export function FilesScreen({
             if (e.target === e.currentTarget && !compact) selection.clear();
           }}
         >
-          {items.length === 0 && loading ? (
+          {items.length === 0 && (flat ? viewData.entries === null : loading) ? (
             // Rows at the size of rows: the list lands where the placeholders were.
             <SkeletonGroup label={t("files.loading")} style={{ padding: "4px 0" }}>
               {[0.62, 0.45, 0.7, 0.38, 0.55].map((width, i) => (
@@ -698,6 +771,20 @@ export function FilesScreen({
                 </div>
               ))}
             </SkeletonGroup>
+          ) : items.length === 0 && flat ? (
+            <EmptyState
+              icon={searching ? "search" : view === "starred" ? "star" : view === "shared" ? "users" : "clock"}
+              title={searching ? t("search.noResult") : view === "starred" ? t("files.noFavourites") : view === "shared" ? t("files.nothingShared") : t("files.noRecent")}
+              description={
+                searching
+                  ? t("files.noFileMatch", { query: q.trim() })
+                  : view === "starred"
+                    ? t("files.noFavouritesText")
+                    : view === "shared"
+                      ? t("files.nothingSharedText")
+                      : t("files.noRecentText")
+              }
+            />
           ) : items.length === 0 ? (
             <EmptyState
               icon={q ? "search" : breadcrumb.length > 0 ? "folder-open" : "folder"}
@@ -761,6 +848,14 @@ export function FilesScreen({
         />
       ) : null}
       {uploader.dialog}
+      <ShareDialog
+        file={sharing?.file ?? null}
+        canManage={sharing?.manage ?? false}
+        publicLinks={publicLinks}
+        targets={shareTargets}
+        onNotify={onNotify}
+        onClose={() => setSharing(null)}
+      />
       <RenameDialog item={renaming} onClose={() => setRenaming(null)} onRename={confirmRename} />
       <MoveDialog
         spaceId={spaceId}
