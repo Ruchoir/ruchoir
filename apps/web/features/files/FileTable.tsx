@@ -44,6 +44,7 @@ const styles: Record<string, CSSProperties> = {
   },
   td: {
     height: 46,
+    paddingBlock: 4,
     padding: "0 12px",
     borderBottom: "1px solid var(--border-subtle)",
     fontSize: "var(--text-xs)",
@@ -271,7 +272,18 @@ function Row({
           ) : (
             <FileIcon name={f.name} size={22} />
           )}
-          <FileName name={f.name} isFolder={entry.isFolder} />
+          {item.location ? (
+            // In a view beyond a folder, where it lives goes under its name.
+            <span style={{ display: "flex", flexDirection: "column", minWidth: 0, gap: 1 }}>
+              <FileName name={f.name} isFolder={entry.isFolder} />
+              <span style={{ fontSize: "var(--text-2xs)", fontWeight: 400, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {item.location}
+              </span>
+            </span>
+          ) : (
+            <FileName name={f.name} isFolder={entry.isFolder} />
+          )}
+          {entry.starred ? <Icon name="star" size={13} title={t("files.favourite")} style={{ flex: "none", color: "var(--status-warning-fg, var(--text-accent))", fill: "currentColor" }} /> : null}
           <EditingBadge editors={f.editors} size={16} />
         </button>
       </td>

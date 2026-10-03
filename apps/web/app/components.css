@@ -661,6 +661,18 @@
   color: var(--text-subtle);
   font-variant-numeric: tabular-nums;
 }
+/* A row of views wider than a phone: it scrolls sideways, each tab whole. */
+.wc-tabs--scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.wc-tabs--scroll::-webkit-scrollbar {
+  display: none;
+}
+.wc-tabs--scroll .wc-tab {
+  flex: none;
+  white-space: nowrap;
+}
 .wc-tabs--pills {
   border-bottom: 0;
   gap: var(--space-1);

@@ -20,6 +20,7 @@ pub mod spaces;
 // Files.
 pub mod file_links;
 pub mod file_shares;
+pub mod file_stars;
 pub mod file_versions;
 pub mod files;
 

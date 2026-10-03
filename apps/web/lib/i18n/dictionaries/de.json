@@ -585,7 +585,7 @@
     "moveIncomplete": "Verschieben unvollständig",
     "moveIntoItself": "Ein Ordner kann nicht in sich selbst verschoben werden.",
     "uploadFailed": "Hochladen fehlgeschlagen",
-    "filter": "Dateien filtern",
+    "filter": "In den Dateien suchen",
     "gridView": "Rasteransicht",
     "listView": "Listenansicht",
     "selectAll": "Alle auswählen",
@@ -757,7 +757,23 @@
     "linkUntil": "Bis {{date}}",
     "linkWithPassword": "mit Passwort",
     "linkDownloads_one": "{{count}} Download",
-    "linkDownloads_other": "{{count}} Downloads"
+    "linkDownloads_other": "{{count}} Downloads",
+    "recent": "Zuletzt",
+    "favourites": "Favoriten",
+    "favourite": "Favorit",
+    "sharedWithMe": "Mit mir geteilt",
+    "starred": "Zu Favoriten hinzugefügt",
+    "unstarred": "Aus Favoriten entfernt",
+    "starFailed": "Favorit konnte nicht gespeichert werden",
+    "searchResults": "Ergebnisse für „{{query}}“",
+    "noRecent": "Keine zuletzt geänderten Dateien",
+    "noRecentText": "Im Bereich geänderte Dateien erscheinen hier, die neuesten zuerst.",
+    "noFavourites": "Keine Favoriten",
+    "noFavouritesText": "Fügen Sie eine Datei oder einen Ordner über das ⋯-Menü zu den Favoriten hinzu, um sie hier wiederzufinden.",
+    "nothingShared": "Nichts wurde mit Ihnen geteilt",
+    "nothingSharedText": "Dateien, die man Ihnen in Ihren Kanälen und Direktnachrichten sendet, erscheinen hier.",
+    "sentBy": "gesendet von {{name}}",
+    "directMessage": "Direktnachricht"
   },
   "status": {
     "checking": "API-Zustand wird geprüft…"

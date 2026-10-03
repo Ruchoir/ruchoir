@@ -9337,6 +9337,169 @@ async fn a_link_dies_with_its_file_with_its_expiry_and_with_the_switch() {
     assert_eq!(caps["public_links"], false);
 }
 
+// --- Views beyond a folder ---------------------------------------------------------------------
+
+/// A view of the space's files, as `cookie` sees it.
+async fn api_view(app: &TestApp, cookie: &str, space_id: Uuid, view: &str) -> Vec<Value> {
+    let res = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space_id}/files/{view}"),
+            cookie,
+        )
+        .send()
+        .await
+        .expect("view");
+    assert_eq!(res.status(), 200, "view {view}");
+    res.json::<Vec<Value>>().await.expect("json")
+}
+
+fn names_of(entries: &[Value]) -> Vec<String> {
+    entries
+        .iter()
+        .map(|e| e["file"]["name"].as_str().unwrap_or_default().to_owned())
+        .collect()
+}
+
+#[tokio::test]
+async fn the_drive_finds_recent_starred_and_searched_files_with_their_place() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let projects = api_folder(&app, &alice, fx.space_id, "Projects", None).await;
+    let summer = api_folder(&app, &alice, fx.space_id, "Summer", Some(projects)).await;
+    let plan = api_upload(&app, &alice, fx.space_id, Some(summer), "plan.txt", b"p").await;
+    let budget = api_upload(&app, &alice, fx.space_id, None, "budget 100%.txt", b"b").await;
+    let gone = api_upload(&app, &alice, fx.space_id, None, "gone plan.txt", b"g").await;
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{gone}"),
+            &alice
+        )
+        .await,
+        204
+    );
+
+    // Recent: files only, latest first, each with its folders.
+    let recent = api_view(&app, &bob, fx.space_id, "recent").await;
+    assert_eq!(names_of(&recent), vec!["budget 100%.txt", "plan.txt"]);
+    let path: Vec<&str> = recent[1]["path"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(path, vec!["Projects", "Summer"]);
+
+    // A favourite is the person's own.
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::PUT,
+            &format!("/api/v1/files/{plan}/star"),
+            &bob
+        )
+        .await,
+        204
+    );
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::PUT,
+            &format!("/api/v1/files/{plan}/star"),
+            &bob
+        )
+        .await,
+        204,
+        "twice is still once"
+    );
+    assert_eq!(
+        names_of(&api_view(&app, &bob, fx.space_id, "starred").await),
+        vec!["plan.txt"]
+    );
+    assert!(api_view(&app, &alice, fx.space_id, "starred")
+        .await
+        .is_empty());
+    let in_summer_bob = listing_entries(&app, &bob, fx.space_id, Some(summer)).await;
+    assert_eq!(in_summer_bob[0]["starred"], true);
+    let in_summer_alice = listing_entries(&app, &alice, fx.space_id, Some(summer)).await;
+    assert!(in_summer_alice[0].get("starred").is_none());
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{plan}/star"),
+            &bob
+        )
+        .await,
+        204
+    );
+    assert!(api_view(&app, &bob, fx.space_id, "starred")
+        .await
+        .is_empty());
+
+    // Search: the whole space, folders first, nothing from the trash, a typed `%` looked for as is.
+    let found = api_view(&app, &bob, fx.space_id, "search?q=PLAN").await;
+    assert_eq!(names_of(&found), vec!["plan.txt"]);
+    let found = api_view(&app, &bob, fx.space_id, "search?q=s").await;
+    assert_eq!(
+        found[0]["file"]["is_folder"],
+        true,
+        "folders first: {:?}",
+        names_of(&found)
+    );
+    let found = api_view(&app, &bob, fx.space_id, "search?q=%25").await;
+    assert_eq!(names_of(&found), vec!["budget 100%.txt"]);
+    let _ = budget;
+}
+
+#[tokio::test]
+async fn shared_with_me_lists_what_others_sent_into_my_conversations() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let report = api_upload(&app, &alice, fx.space_id, None, "report.txt", b"r").await;
+    let secret = api_upload(&app, &alice, fx.space_id, None, "secret.txt", b"s").await;
+    let mine = api_upload(&app, &bob, fx.space_id, None, "mine.txt", b"m").await;
+    for (cookie, conversation, file) in [
+        (&alice, fx.public_channel, report),
+        (&alice, fx.private_channel, secret),
+        (&bob, fx.public_channel, mine),
+    ] {
+        let res = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/conversations/{conversation}/messages"),
+                cookie,
+            )
+            .json(&json!({ "body": "", "attachments": [file] }))
+            .send()
+            .await
+            .expect("send");
+        assert!(res.status().is_success(), "send {}", res.status());
+    }
+
+    // Bob is in the public channel, not the private one; his own sending is not "shared with" him.
+    let shared = api_view(&app, &bob, fx.space_id, "shared").await;
+    assert_eq!(names_of(&shared), vec!["report.txt"]);
+    assert_eq!(shared[0]["shared_in_kind"], "channel");
+    assert_eq!(shared[0]["shared_in_name"], "general");
+    assert!(shared[0]["shared_by_name"].is_string());
+    assert!(shared[0]["shared_at"].is_string());
+    let for_alice = names_of(&api_view(&app, &alice, fx.space_id, "shared").await);
+    assert_eq!(for_alice, vec!["mine.txt"]);
+}
+
 /// The entries of a folder (the root when `folder` is `None`), as the listing returns them.
 async fn listing_entries(
     app: &TestApp,

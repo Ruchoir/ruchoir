@@ -65,7 +65,9 @@ function Row({ item, props, checked, selecting }: { item: Item; props: ListProps
   const { file: f, entry } = item;
   const longPress = useLongPress(() => props.onToggle(item));
 
-  const meta = entry.isFolder
+  const meta = item.location
+    ? item.location
+    : entry.isFolder
     ? folderSize(t, f.childCount)
     : [f.modifiedBy ?? f.by, formatStamp(f.updatedAt), formatBytes(f.sizeBytes)].filter(Boolean).join(" · ");
 
@@ -105,6 +107,7 @@ function Row({ item, props, checked, selecting }: { item: Item; props: ListProps
           >
             <FileName name={f.name} isFolder={entry.isFolder} />
           </button>
+          {entry.starred ? <Icon name="star" size={13} title={t("files.favourite")} style={{ flex: "none", color: "var(--status-warning-fg, var(--text-accent))", fill: "currentColor" }} /> : null}
           <EditingBadge editors={f.editors} size={16} />
         </span>
         <span style={styles.meta}>{meta}</span>
