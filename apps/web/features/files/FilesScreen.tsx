@@ -83,6 +83,8 @@ export type FilesScreenProps = {
   slugs?: string[];
   /** The office editor opened or closed (it owns the address while open). */
   onEditorChange?: (open: boolean) => void;
+  /** The folder to open first (the space root when absent). */
+  initialFolderId?: string;
 };
 
 /**
@@ -104,12 +106,15 @@ export function FilesScreen({
   spaceSlug,
   slugs,
   onEditorChange,
+  initialFolderId,
 }: FilesScreenProps) {
   const { t } = useTranslation();
   const rootLabel = t("sidebar.spaceFiles");
 
-  const { entries, breadcrumb, folderId, loading, load, reload, upsert } = useFolder(spaceId, () =>
-    onNotify({ tone: "danger", title: t("files.loadFailed") }),
+  const { entries, breadcrumb, folderId, loading, load, reload, upsert } = useFolder(
+    spaceId,
+    () => onNotify({ tone: "danger", title: t("files.loadFailed") }),
+    initialFolderId,
   );
 
   // Seeded from the preference on a desktop, then free to change for this visit. A phone starts on
@@ -181,7 +186,9 @@ export function FilesScreen({
   const opensInPlace =
     compact || (typeof window !== "undefined" && !!window.matchMedia?.("(display-mode: standalone)").matches);
   const openEditor = (fileId: string, convert: boolean, tab?: Window | null) => {
-    const url = spaceSlug && !opensInPlace ? fileUrl(spaceSlug, fileId, slugs ?? [], convert) : null;
+    // `opened=1`: this list opened the tab, so its own close button may close it (see AppRoot).
+    const address = spaceSlug && !opensInPlace ? fileUrl(spaceSlug, fileId, slugs ?? [], convert) : null;
+    const url = address ? `${address}${address.includes("?") ? "&" : "?"}opened=1` : null;
     const opened = tab !== undefined ? tab : url ? window.open(url, "_blank") : null;
     if (opened && url) {
       if (tab) opened.location.href = url;

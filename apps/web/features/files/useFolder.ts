@@ -16,7 +16,7 @@ export type Crumb = { id: string; name: string };
  * rebuild the loader and refetch the folder (which looped a failing fetch and never let the network
  * go idle).
  */
-export function useFolder(spaceId: string, onError: () => void) {
+export function useFolder(spaceId: string, onError: () => void, initialFolderId?: string) {
   const [entries, setEntries] = useState<SpaceFile[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<Crumb[]>([]);
   const [folderId, setFolderId] = useState<string | undefined>(undefined);
@@ -53,11 +53,15 @@ export function useFolder(spaceId: string, onError: () => void) {
     [spaceId],
   );
 
+  // Where to start, for the space it was given with. Not cleared on use: a development build runs
+  // an effect twice, and the second run must land on the same folder. A change of space forgets it.
+  const initialRef = useRef<{ space: string; folder?: string } | null>({ space: spaceId, folder: initialFolderId });
   useEffect(() => {
-    // The space root on mount, and again when the space changes. Fetching on mount is the point.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load(undefined);
-  }, [load]);
+    // The first folder on mount (the space root unless one was asked for), and the root again when
+    // the space changes. Fetching on mount is the point.
+    if (initialRef.current && initialRef.current.space !== spaceId) initialRef.current = null;
+    load(initialRef.current?.folder);
+  }, [load, spaceId]);
 
   const folderRef = useRef(folderId);
   useEffect(() => {

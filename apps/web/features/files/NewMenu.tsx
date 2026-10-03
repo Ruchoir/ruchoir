@@ -85,7 +85,9 @@ export function NewMenu({
     createBlankDocument(spaceId, doc.kind, doc.name.trim(), folderId)
       .then((file) => {
         setDoc(null);
-        onNotify({ tone: "success", title: t("office.created"), description: file.name });
+        // Opening over the list (a phone), the editor itself says it worked: a toast on top of it
+        // was one more thing moving on a small screen while the document loads.
+        if (newTab) onNotify({ tone: "success", title: t("office.created"), description: file.name });
         onDocumentCreated(file, tab);
       })
       .catch(() => {
