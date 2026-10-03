@@ -167,16 +167,17 @@ export function useUploader({
       onClose={() => answer(null)}
       footer={
         question ? (
-          <>
+          // A row on a computer; on a phone, stacked full width with the main answer on top.
+          <div className="wc-dlg__choices">
             <Button onClick={() => answer({ choice: "skip", forAll })}>{t("files.conflictSkip")}</Button>
-            <div style={{ flex: 1 }} />
+            <div className="wc-dlg__gap" />
             <Button onClick={() => answer({ choice: "keepBoth", forAll })}>{t("files.conflictKeepBoth")}</Button>
             {question.canReplace ? (
               <Button variant="primary" onClick={() => answer({ choice: "replace", forAll })}>
                 {t("files.conflictReplace")}
               </Button>
             ) : null}
-          </>
+          </div>
         ) : null
       }
     >
