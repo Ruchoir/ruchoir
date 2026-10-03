@@ -202,7 +202,11 @@ context and takes precedence here.
   never a guest, each with an optional end and argon2id password, counted and revoked; answered
   without a session by `links::public_router`, merged in `http.rs` behind the same per-IP rate
   limit as sign-in; a dead link, whatever killed it, is the same `404`; a password earns an hour's
-  grant in Valkey that the download carries; `RUCHOIR_PUBLIC_LINKS=false` turns it off), `views`
+  grant in Valkey that the download carries; `RUCHOIR_PUBLIC_LINKS=false` turns it off; the link
+  says how its page can show the file (`preview`), served by `preview`, ranged for players and a
+  text always as `text/plain`, `document`, the office file as a cached PDF, and `page`, its first
+  page as a cached JPEG; a text upload sniffs as `application/octet-stream`, so a known text
+  extension is what makes it a text there), `views`
   (recent, favourites in `file_stars`, shared with me, a search of the whole space by name, each
   entry with its path; `FileDto.starred` is set by the listings that know who asks, never in an
   event a whole space shares), and `routes`. Bytes are proxied through the API (the browser never
