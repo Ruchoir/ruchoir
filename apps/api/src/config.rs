@@ -120,6 +120,8 @@ pub struct Config {
     pub s3_secret_key: Option<String>,
     /// Maximum accepted upload size, in bytes. Uploads above this are rejected with 413.
     pub upload_max_bytes: u64,
+    /// Days a removed file stays in the trash before its bytes are erased (0: kept until emptied).
+    pub trash_retention_days: u32,
     /// Longest edge, in pixels, of a generated image thumbnail (aspect ratio preserved).
     pub thumbnail_max_px: u32,
     /// Hosts a Web Push subscription may point at (each also covers its subdomains). The API only
@@ -351,6 +353,9 @@ impl Config {
         let upload_max_bytes: u64 = env_or("RUCHOIR_UPLOAD_MAX_BYTES", "104857600")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_UPLOAD_MAX_BYTES"))?;
+        let trash_retention_days: u32 = env_or("RUCHOIR_TRASH_RETENTION_DAYS", "30")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_TRASH_RETENTION_DAYS"))?;
         let thumbnail_max_px: u32 = env_or("RUCHOIR_THUMBNAIL_MAX_PX", "512")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_THUMBNAIL_MAX_PX"))?;
@@ -449,6 +454,7 @@ impl Config {
             s3_access_key,
             s3_secret_key,
             upload_max_bytes,
+            trash_retention_days,
             thumbnail_max_px,
             push_allowed_hosts,
             notify_email_delay_secs,

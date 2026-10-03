@@ -3,12 +3,13 @@
 import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
 import { FileViewer, viewerKind } from "./FileViewer";
 import { ImageViewer } from "./ImageViewer";
-import { Button, Dialog, EmptyState, FileIcon, type IconName, Skeleton, SkeletonGroup } from "@/components/ds";
+import { Button, Dialog, EmptyState, FileIcon, Icon, type IconName, Skeleton, SkeletonGroup, Tabs } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import type { OfficeCapabilities } from "@/lib/data/types";
 import { fileUrl } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
-import { deleteFile, fileDownloadUrl, getInstanceCapabilities, officeActionFor, updateFile, uploadFile, uploadFileVersion } from "@/lib/data/api";
+import { deleteFile, fileDownloadUrl, getInstanceCapabilities, officeActionFor, restoreFile, updateFile } from "@/lib/data/api";
+import { enqueue, reject as rejectUpload } from "@/lib/uploads";
 import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
@@ -16,7 +17,7 @@ import { useTranslation } from "@/lib/i18n";
 import { formatBytes, formatStamp } from "@/lib/i18n/format";
 import { ActionMenu, type MenuEntry } from "./ActionMenu";
 import { DetailsPanel, type DetailsSubject } from "./DetailsPanel";
-import { DeleteDialog, RenameDialog } from "./FileDialogs";
+import { RenameDialog } from "./FileDialogs";
 import { FileGrid } from "./FileGrid";
 import { FileRows } from "./FileRows";
 import { FilesHeader, type Layout } from "./FilesHeader";
@@ -24,8 +25,12 @@ import { FileTable } from "./FileTable";
 import { entryOf, type Item, type ListProps, type MenuAt } from "./listTypes";
 import { type ActionId, actionsFor, canManage, filterEntries, type Sort, sortEntries } from "./model";
 import { MoveDialog } from "./MoveDialog";
+import { TrashView } from "./TrashView";
 import { NewMenu } from "./NewMenu";
+import { carriesFiles, fromInput, readDrop } from "./dropFiles";
 import { useDragMove } from "./useDragMove";
+import { tooLarge } from "./uploadPlan";
+import { useUploader } from "./useUploader";
 import { useFolder } from "./useFolder";
 import { useSelection } from "./useSelection";
 
@@ -42,6 +47,7 @@ const ACTION_ICONS: Record<ActionId, IconName> = {
   rename: "type",
   move: "arrow-right",
   newVersion: "upload",
+  versions: "clock",
   details: "info",
   delete: "trash-2",
 };
@@ -79,6 +85,8 @@ export type FilesScreenProps = {
   slugs?: string[];
   /** The office editor opened or closed (it owns the address while open). */
   onEditorChange?: (open: boolean) => void;
+  /** The folder to open first (the space root when absent). */
+  initialFolderId?: string;
 };
 
 /**
@@ -100,12 +108,15 @@ export function FilesScreen({
   spaceSlug,
   slugs,
   onEditorChange,
+  initialFolderId,
 }: FilesScreenProps) {
   const { t } = useTranslation();
   const rootLabel = t("sidebar.spaceFiles");
 
-  const { entries, breadcrumb, folderId, loading, load, reload } = useFolder(spaceId, () =>
-    onNotify({ tone: "danger", title: t("files.loadFailed") }),
+  const { entries, breadcrumb, folderId, loading, load, reload, upsert } = useFolder(
+    spaceId,
+    () => onNotify({ tone: "danger", title: t("files.loadFailed") }),
+    initialFolderId,
   );
 
   // Seeded from the preference on a desktop, then free to change for this visit. A phone starts on
@@ -118,10 +129,10 @@ export function FilesScreen({
   const [detailsSheet, setDetailsSheet] = useState<DetailsSubject | null>(null);
   const [menu, setMenu] = useState<{ item: Item; at: MenuAt } | null>(null);
   const [renaming, setRenaming] = useState<Item | null>(null);
-  const [deleting, setDeleting] = useState<{ items: Item[]; skipped: number }>({ items: [], skipped: 0 });
   const [moving, setMoving] = useState<Item[]>([]);
   const [preview, setPreview] = useState<SpaceFile | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
   /**
    * The file a new version is being picked for, and the input that picks it. The input is reached by
    * its id rather than a ref: the menus are built during render, and a ref read from a function
@@ -133,6 +144,13 @@ export function FilesScreen({
 
   // What the office editor opens here, if the instance has one.
   const [office, setOffice] = useState<OfficeCapabilities | null>(null);
+  /** The largest file the instance accepts (unknown until asked). */
+  const [maxBytes, setMaxBytes] = useState<number | undefined>(undefined);
+  const [retentionDays, setRetentionDays] = useState<number | undefined>(undefined);
+  /** Which view: the space's files, or its trash. */
+  const [view, setView] = useState<"files" | "trash">("files");
+  /** Bumped when something leaves or returns to the trash from here, for the trash view to ask again. */
+  const [trashStamp, setTrashStamp] = useState(0);
   /** The editor turned out to be unreachable: ask again every minute until it is back. */
   const [officeLost, setOfficeLost] = useState(false);
   const [officeCheck, setOfficeCheck] = useState(0);
@@ -142,6 +160,8 @@ export function FilesScreen({
       .then((caps) => {
         if (cancelled) return;
         setOffice(caps.office.enabled ? caps.office : null);
+        setMaxBytes(caps.uploadMaxBytes);
+        setRetentionDays(caps.trashRetentionDays);
         // Configured but not answering yet (an engine still starting): look again until it does.
         setOfficeLost(!caps.office.enabled && !!caps.office.publicUrl);
       })
@@ -173,7 +193,9 @@ export function FilesScreen({
   const opensInPlace =
     compact || (typeof window !== "undefined" && !!window.matchMedia?.("(display-mode: standalone)").matches);
   const openEditor = (fileId: string, convert: boolean, tab?: Window | null) => {
-    const url = spaceSlug && !opensInPlace ? fileUrl(spaceSlug, fileId, slugs ?? [], convert) : null;
+    // `opened=1`: this list opened the tab, so its own close button may close it (see AppRoot).
+    const address = spaceSlug && !opensInPlace ? fileUrl(spaceSlug, fileId, slugs ?? [], convert) : null;
+    const url = address ? `${address}${address.includes("?") ? "&" : "?"}opened=1` : null;
     const opened = tab !== undefined ? tab : url ? window.open(url, "_blank") : null;
     if (opened && url) {
       if (tab) opened.location.href = url;
@@ -212,6 +234,7 @@ export function FilesScreen({
     selection.clear();
     setDetailsOpen(false);
     setPreview(null);
+    setView("files");
   }
 
   /** Open a folder: a new place, so no selection and no filter carried into it. */
@@ -247,10 +270,50 @@ export function FilesScreen({
   /** The entries an action on `item` applies to: the whole selection when `item` is part of it. */
   const groupOf = (item: Item) => (selection.selected.has(item.key) && selectedItems.length > 1 ? selectedItems : [item]);
 
+  /**
+   * Put entries in the trash, at once: no confirmation, as in Drive or Nextcloud, but a toast that
+   * takes it back. What the person may not remove is left out, and the toast says so.
+   */
   const requestDelete = (group: Item[]) => {
     const allowed = group.filter((i) => i.manage && i.file.id);
     if (allowed.length === 0) return;
-    setDeleting({ items: allowed, skipped: group.length - allowed.length });
+    const skipped = group.length - allowed.length;
+    // Settled rather than raced: one refusal must not hide the others, and a partial result still
+    // needs the folder reloaded. A 403 is the one worth naming: the file belongs to someone else.
+    Promise.allSettled(allowed.map((i) => deleteFile(i.file.id as string))).then((results) => {
+      const gone = allowed.filter((_, n) => results[n].status === "fulfilled");
+      const refused = results.some((r) => r.status === "rejected" && isApiError(r.reason, 403));
+      if (gone.length > 0) {
+        onNotify({
+          tone: "success",
+          title: gone.length === 1 ? t("files.trashedOne") : t("files.trashedMany", { count: gone.length }),
+          description: skipped > 0 ? t("files.skippedNotYours", { count: skipped }) : gone.length === 1 ? gone[0].file.name : undefined,
+          action: { label: t("files.undo"), onClick: () => undoDelete(gone) },
+        });
+      }
+      if (gone.length > 0) setTrashStamp((n) => n + 1);
+      if (gone.length < results.length) {
+        onNotify({
+          tone: "danger",
+          title: t("files.deleteIncomplete"),
+          description: refused ? t("files.ownFilesOnlyDelete") : t("common.tryAgain"),
+        });
+      }
+      refresh();
+    });
+  };
+  /** Take entries back out of the trash, the "Undo" of a removal. */
+  const undoDelete = (items: Item[]) => {
+    Promise.allSettled(items.map((i) => restoreFile(i.file.id as string))).then((results) => {
+      const back = results.filter((r) => r.status === "fulfilled").length;
+      onNotify(
+        back === results.length
+          ? { tone: "success", title: back === 1 ? t("files.restoredOne") : t("files.restoredMany", { count: back }) }
+          : { tone: "danger", title: t("files.restoreFailed") },
+      );
+      refresh();
+      setTrashStamp((n) => n + 1);
+    });
   };
   const requestMove = (group: Item[]) => {
     const allowed = group.filter((i) => i.manage && i.file.id);
@@ -283,6 +346,7 @@ export function FilesScreen({
         pickVersion();
         return;
       case "details":
+      case "versions":
         return showDetails(item);
       case "delete":
         return requestDelete(groupOf(item));
@@ -302,6 +366,8 @@ export function FilesScreen({
         return t("files.move");
       case "newVersion":
         return t("files.uploadNewVersion");
+      case "versions":
+        return t("files.versions");
       case "details":
         return t("files.details");
       case "delete":
@@ -331,33 +397,6 @@ export function FilesScreen({
       });
     }
     return out;
-  };
-
-  const confirmDelete = () => {
-    const targets = deleting.items;
-    setDeleting({ items: [], skipped: 0 });
-    if (targets.length === 0) return;
-    // Settled rather than raced: one refusal must not hide the others, and a partial result still
-    // needs the folder reloaded. A 403 is the one worth naming: the file belongs to someone else.
-    Promise.allSettled(targets.map((i) => deleteFile(i.file.id as string))).then((results) => {
-      const gone = results.filter((r) => r.status === "fulfilled").length;
-      const refused = results.some((r) => r.status === "rejected" && isApiError(r.reason, 403));
-      if (gone > 0) {
-        onNotify({
-          tone: "success",
-          title: gone === 1 ? t("files.deleted") : t("files.deletedMany", { count: gone }),
-          description: gone === 1 ? targets[0].file.name : undefined,
-        });
-      }
-      if (gone < results.length) {
-        onNotify({
-          tone: "danger",
-          title: t("files.deleteIncomplete"),
-          description: refused ? t("files.ownFilesOnlyDelete") : t("common.tryAgain"),
-        });
-      }
-      refresh();
-    });
   };
 
   const confirmRename = (name: string) => {
@@ -401,45 +440,90 @@ export function FilesScreen({
   const folderName = (id: string | null) =>
     id == null ? rootLabel : (entries.find((f) => f.id === id)?.name ?? breadcrumb.find((c) => c.id === id)?.name ?? rootLabel);
 
+  const currentName = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].name : rootLabel;
+  const uploader = useUploader({ spaceId, maxBytes, currentUserId, spaceRole, onNotify, onFolderCreated: upsert });
+  /** Send what was dropped onto a folder (`null`: the space's root), the open one when none is named. */
+  const sendDrop = (dt: DataTransfer, targetId: string | null | undefined) => {
+    const target = targetId === undefined ? { folderId, name: currentName } : { folderId: targetId ?? undefined, name: folderName(targetId) };
+    readDrop(dt)
+      .then((dropped) => uploader.send(dropped, target))
+      .catch(() => onNotify({ tone: "danger", title: t("files.uploadFailed") }));
+  };
+
   const drag = useDragMove({
     selectedItems,
     currentFolderId: folderId,
     onMove: (targets, targetId) => moveTo(targets, targetId, folderName(targetId)),
+    onFilesDrop: (dt, targetId) => sendDrop(dt, targetId),
   });
 
-  /** Replace a file's contents, keeping its name and its place. */
+  // Files dragged in from the desktop over the list: a frame says where they will go. Counted, as
+  // every child the pointer crosses fires its own enter and leave.
+  const [dropping, setDropping] = useState(false);
+  const dragDepth = useRef(0);
+  const dropZone = compact
+    ? {}
+    : {
+        onDragEnter: (e: React.DragEvent) => {
+          if (!carriesFiles(e.dataTransfer)) return;
+          dragDepth.current += 1;
+          setDropping(true);
+        },
+        onDragLeave: (e: React.DragEvent) => {
+          if (!carriesFiles(e.dataTransfer)) return;
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDropping(false);
+        },
+        onDragOver: (e: React.DragEvent) => {
+          if (!carriesFiles(e.dataTransfer)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        },
+        onDrop: (e: React.DragEvent) => {
+          dragDepth.current = 0;
+          setDropping(false);
+          if (!carriesFiles(e.dataTransfer)) return;
+          e.preventDefault();
+          sendDrop(e.dataTransfer, undefined);
+        },
+      };
+  // The frame names where the files will go: the folder row or breadcrumb step under the pointer,
+  // else the open folder.
+  const dropTargetName =
+    entries.find((f) => f.kind === "folder" && f.id && drag.isOver(f.id))?.name ??
+    (drag.isOver(null) ? rootLabel : breadcrumb.find((c) => drag.isOver(c.id))?.name) ??
+    currentName;
+  // A drop on a folder row is that row's: the frame goes when any drop ends.
+  useEffect(() => {
+    const end = () => {
+      dragDepth.current = 0;
+      setDropping(false);
+    };
+    window.addEventListener("drop", end);
+    window.addEventListener("dragend", end);
+    return () => {
+      window.removeEventListener("drop", end);
+      window.removeEventListener("dragend", end);
+    };
+  }, []);
+
+  /** Replace a file's contents, keeping its name and its place: through the queue, with its progress. */
   const onVersionPicked = (input: HTMLInputElement) => {
     const file = input.files?.[0];
     const target = versionTarget;
     input.value = "";
     setVersionTarget(null);
     if (!file || !target?.id) return;
-    onNotify({ tone: "info", title: t("files.uploadingVersion"), description: target.name });
-    uploadFileVersion(target.id, file)
-      .then((updated) => {
-        onNotify({ tone: "success", title: t("files.versionUploaded", { version: updated.version }), description: target.name });
-        refresh();
-      })
-      .catch((err) =>
-        onNotify({
-          tone: "danger",
-          title: t("files.versionFailed"),
-          description: isApiError(err, 403) ? t("files.ownFilesOnlyReplace") : target.name,
-        }),
-      );
+    const job = { file, name: target.name, spaceId, folderId: target.parentFolderId, replaceFileId: target.id };
+    if (tooLarge(file.size, maxBytes)) rejectUpload(job, "tooLarge");
+    else enqueue([job]);
   };
 
-  const onFilePicked = (fileList: FileList | null) => {
-    const file = fileList?.[0];
-    if (!file) return;
-    if (uploadRef.current) uploadRef.current.value = "";
-    onNotify({ tone: "info", title: t("files.uploading"), description: file.name });
-    uploadFile(spaceId, file, folderId)
-      .then(() => {
-        onNotify({ tone: "success", title: t("files.uploaded"), description: file.name });
-        refresh();
-      })
-      .catch(() => onNotify({ tone: "danger", title: t("files.uploadFailed"), description: file.name }));
+  /** Files (or a folder's files, with their paths) picked from the device, into the open folder. */
+  const onFilesPicked = (input: HTMLInputElement) => {
+    const files = fromInput(input.files);
+    input.value = "";
+    if (files.length > 0) void uploader.send({ files, emptyDirs: [] }, { folderId, name: currentName });
   };
 
   const listProps: ListProps = {
@@ -458,7 +542,6 @@ export function FilesScreen({
     drag: compact ? undefined : drag,
   };
 
-  const currentName = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].name : rootLabel;
   const detailsSubject: DetailsSubject =
     selectedItems.length === 1 ? { kind: "entry", file: selectedItems[0].file } : { kind: "folder", name: currentName, count: entries.length };
 
@@ -471,6 +554,7 @@ export function FilesScreen({
       newTab={!opensInPlace}
       onNotify={onNotify}
       onUpload={() => uploadRef.current?.click()}
+      onUploadFolder={compact ? undefined : () => folderInputRef.current?.click()}
       onFolderCreated={refresh}
       onDocumentCreated={(file, tab) => {
         refresh();
@@ -486,8 +570,9 @@ export function FilesScreen({
   return (
     <div style={styles.root}>
       <FilesHeader
+        minimal={view === "trash"}
         compact={compact}
-        rootLabel={rootLabel}
+        rootLabel={view === "trash" ? t("files.trash") : rootLabel}
         trail={breadcrumb}
         onOpenFolder={openFolder}
         onBack={onBack}
@@ -502,7 +587,7 @@ export function FilesScreen({
         onToggleDetails={() => setDetailsOpen((v) => !v)}
         newButton={compact ? undefined : newMenu}
         selection={
-          selectedItems.length > 0
+          view === "files" && selectedItems.length > 0
             ? {
                 count: selectedItems.length,
                 canMove: selectedItems.some((i) => i.manage),
@@ -514,13 +599,86 @@ export function FilesScreen({
             : null
         }
       />
-      <input ref={uploadRef} type="file" style={{ display: "none" }} onChange={(e) => onFilePicked(e.target.files)} />
+      <input ref={uploadRef} type="file" multiple style={{ display: "none" }} onChange={(e) => onFilesPicked(e.currentTarget)} />
+      {/* A whole folder, its tree kept (`webkitdirectory` is the attribute every browser reads). */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        style={{ display: "none" }}
+        onChange={(e) => onFilesPicked(e.currentTarget)}
+        {...{ webkitdirectory: "", directory: "" }}
+      />
       {/* A second picker, so choosing a replacement never runs through the one that creates a new
           file: the two differ only in where the bytes are sent, which is exactly the confusion
           worth designing out. */}
       <input id={versionInputId} type="file" style={{ display: "none" }} onChange={(e) => onVersionPicked(e.currentTarget)} />
 
-      <div style={styles.main}>
+      {/* The views of the drive. The trash is the second, so the row shows from here on. */}
+      <div style={{ flex: "none", padding: compact ? "0 12px" : "0 20px", borderBottom: "1px solid var(--border-subtle)" }}>
+        <Tabs
+          value={view}
+          onChange={(v) => {
+            selection.clear();
+            setView(v === "trash" ? "trash" : "files");
+          }}
+          items={[
+            { value: "files", label: t("files.allFiles"), icon: "hard-drive" },
+            { value: "trash", label: t("files.trash"), icon: "trash-2" },
+          ]}
+        />
+      </div>
+      {view === "trash" ? (
+        <div style={styles.main}>
+          <div style={compact ? { ...styles.body, padding: "12px 0 24px" } : styles.body}>
+            <TrashView
+              spaceId={spaceId}
+              compact={compact}
+              retentionDays={retentionDays}
+              rootLabel={rootLabel}
+              stamp={trashStamp}
+              onNotify={onNotify}
+              onRestored={reload}
+            />
+          </div>
+        </div>
+      ) : (
+      <div style={{ ...styles.main, position: "relative" }} {...dropZone}>
+        {dropping ? (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              inset: 8,
+              zIndex: 3,
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "center",
+              paddingBottom: 32,
+              border: "2px dashed var(--text-accent)",
+              borderRadius: "var(--radius-lg)",
+              background: "color-mix(in srgb, var(--surface-selected) 55%, transparent)",
+              pointerEvents: "none",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 16px",
+                borderRadius: "var(--radius-md)",
+                background: "var(--ink)",
+                color: "var(--on-ink)",
+                fontSize: "var(--text-sm)",
+                fontWeight: 600,
+                boxShadow: "var(--shadow-popover)",
+              }}
+            >
+              <Icon name="upload" size={16} />
+              {t("files.dropHere", { folder: dropTargetName })}
+            </span>
+          </div>
+        ) : null}
         <div
           style={compact ? { ...styles.body, padding: layout === "grid" ? "12px 12px 96px" : "0 0 96px" } : styles.body}
           onClick={(e) => {
@@ -562,12 +720,22 @@ export function FilesScreen({
           )}
         </div>
         {!compact && detailsOpen ? (
-          <DetailsPanel subject={detailsSubject} trail={breadcrumb} rootLabel={rootLabel} sheet={false} onClose={() => setDetailsOpen(false)} />
+          <DetailsPanel
+            subject={detailsSubject}
+            trail={breadcrumb}
+            rootLabel={rootLabel}
+            sheet={false}
+            onClose={() => setDetailsOpen(false)}
+            canManage={selectedItems.length === 1 && selectedItems[0].manage}
+            onNotify={onNotify}
+            onVersionRestored={upsert}
+          />
         ) : null}
       </div>
+      )}
 
       {/* The selection has its own bar; creating something new waits until it is let go. */}
-      {compact && selectedItems.length === 0 ? newMenu : null}
+      {compact && view === "files" && selectedItems.length === 0 ? newMenu : null}
 
       <ActionMenu
         open={menu != null}
@@ -577,9 +745,23 @@ export function FilesScreen({
         sheet={compact}
         onClose={() => setMenu(null)}
       />
-      {compact ? <DetailsPanel subject={detailsSheet} trail={breadcrumb} rootLabel={rootLabel} sheet onClose={() => setDetailsSheet(null)} /> : null}
+      {compact ? (
+        <DetailsPanel
+          subject={detailsSheet}
+          trail={breadcrumb}
+          rootLabel={rootLabel}
+          sheet
+          onClose={() => setDetailsSheet(null)}
+          canManage={detailsSheet?.kind === "entry" ? items.find((i) => i.file.id === detailsSheet.file.id)?.manage : false}
+          onNotify={onNotify}
+          onVersionRestored={(file) => {
+            upsert(file);
+            setDetailsSheet({ kind: "entry", file });
+          }}
+        />
+      ) : null}
+      {uploader.dialog}
       <RenameDialog item={renaming} onClose={() => setRenaming(null)} onRename={confirmRename} />
-      <DeleteDialog items={deleting.items} skipped={deleting.skipped} onClose={() => setDeleting({ items: [], skipped: 0 })} onConfirm={confirmDelete} />
       <MoveDialog
         spaceId={spaceId}
         rootLabel={rootLabel}

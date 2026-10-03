@@ -237,7 +237,13 @@ pub(crate) async fn file_audience(
     }
 }
 
-async fn publish_updated(state: &AppState, file: &files::Model, actor: Uuid, dto: &FileDto) {
+/// Tell the people who can see `file` that it changed: a new version, a new file, a new folder.
+pub(crate) async fn publish_updated(
+    state: &AppState,
+    file: &files::Model,
+    actor: Uuid,
+    dto: &FileDto,
+) {
     let audience = file_audience(&state.db, file, actor).await;
     state
         .hub
@@ -350,7 +356,7 @@ pub(super) async fn insert_version<C: sea_orm::ConnectionTrait>(
 }
 
 /// Point a fresh file at its first version (app-maintained pointer, no FK).
-pub(super) async fn point_to_version<C: sea_orm::ConnectionTrait>(
+pub(crate) async fn point_to_version<C: sea_orm::ConnectionTrait>(
     db: &C,
     file_id: Uuid,
     version_id: Uuid,

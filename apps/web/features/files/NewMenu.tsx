@@ -22,6 +22,7 @@ export function NewMenu({
   newTab,
   onNotify,
   onUpload,
+  onUploadFolder,
   onFolderCreated,
   onDocumentCreated,
 }: {
@@ -34,6 +35,8 @@ export function NewMenu({
   newTab: boolean;
   onNotify: (toast: Toast) => void;
   onUpload: () => void;
+  /** Pick a whole folder (absent where the device cannot: a phone). */
+  onUploadFolder?: () => void;
   onFolderCreated: () => void;
   /** `tab` was opened on the click, for the document to open in (null: the browser refused it). */
   onDocumentCreated: (file: SpaceFile, tab: Window | null) => void;
@@ -56,6 +59,7 @@ export function NewMenu({
       : []),
     { separator: true },
     { label: t("files.upload"), icon: "upload", onSelect: onUpload },
+    ...(onUploadFolder ? [{ label: t("files.uploadFolder"), icon: "folder-open" as const, onSelect: onUploadFolder }] : []),
   ];
 
   const submitFolder = () => {
@@ -81,7 +85,9 @@ export function NewMenu({
     createBlankDocument(spaceId, doc.kind, doc.name.trim(), folderId)
       .then((file) => {
         setDoc(null);
-        onNotify({ tone: "success", title: t("office.created"), description: file.name });
+        // Opening over the list (a phone), the editor itself says it worked: a toast on top of it
+        // was one more thing moving on a small screen while the document loads.
+        if (newTab) onNotify({ tone: "success", title: t("office.created"), description: file.name });
         onDocumentCreated(file, tab);
       })
       .catch(() => {

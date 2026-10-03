@@ -190,9 +190,11 @@ div {
         // Ruchoir patch: tell Ruchoir when the editor wears its colours (the app is ready, and a
         // custom theme is painted, see upstream defect 2). Ruchoir keeps the frame hidden until then,
         // so the engine's own blue theme never shows while the theme is put right.
-        var ruchoirAppReady = false, ruchoirPainted = false, ruchoirShown = false;
+        // The document too: the app is ready before its document has loaded, and showing it then showed
+        // the engine's own grey "Loading" box over an empty page, on a phone for several seconds.
+        var ruchoirAppReady = false, ruchoirPainted = false, ruchoirShown = false, ruchoirDocReady = false;
         var ruchoirReveal = function () {
-            if (ruchoirShown || !ruchoirAppReady || !ruchoirPainted) return;
+            if (ruchoirShown || !ruchoirAppReady || !ruchoirPainted || !ruchoirDocReady) return;
             ruchoirShown = true;
             _postMessage("Ruchoir_Painted", {});
         };
@@ -530,6 +532,11 @@ div {
 				},
 				"events": {
                     "onAppReady": onAppReady,
+                    // Ruchoir patch: see `ruchoirReveal`.
+                    "onDocumentReady": function () {
+                        ruchoirDocReady = true;
+                        ruchoirReveal();
+                    },
                     "onDocumentStateChange": fileInfo.EditNotificationPostMessage ? onDocumentStateChange : undefined,
                     'onRequestEditRights': fileInfo.EditModePostMessage || fileInfo.HostEditUrl ? onRequestEditRights : undefined,
                     'onRequestSaveAs': customizationSaveAs ? onRequestSaveAs : undefined,

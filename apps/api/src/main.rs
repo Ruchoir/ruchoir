@@ -274,6 +274,8 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     // The unread-notification email fallback: a sweep a minute, in the background.
     notify::email::spawn(state.clone());
+    // The trash lets go of what has been in it past the retention: a sweep an hour.
+    files::trash::spawn(state.clone());
     // Who is editing what: a tab that died without a goodbye leaves the file lists by itself.
     if state.office.is_some() {
         office::presence::spawn_sweep(state.clone());

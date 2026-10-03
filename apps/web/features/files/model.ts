@@ -79,7 +79,7 @@ export function canManage(entry: { ownerId?: string }, me: string | undefined, s
   return !!me && entry.ownerId === me;
 }
 
-export type ActionId = "open" | "download" | "rename" | "move" | "newVersion" | "details" | "delete";
+export type ActionId = "open" | "download" | "rename" | "move" | "newVersion" | "versions" | "details" | "delete";
 
 /** The actions an entry offers, in the order every menu shows them. */
 export function actionsFor(entry: Entry, manage: boolean): ActionId[] {
@@ -90,6 +90,9 @@ export function actionsFor(entry: Entry, manage: boolean): ActionId[] {
     out.push("rename", "move");
     if (!entry.isFolder) out.push("newVersion");
   }
+  // Any reader may look at a file's history and download an old version; bringing one back is
+  // offered inside it, to those who may.
+  if (!entry.isFolder) out.push("versions");
   out.push("details");
   if (manage) out.push("delete");
   return out;

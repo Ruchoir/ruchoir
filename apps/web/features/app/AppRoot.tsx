@@ -176,6 +176,7 @@ import { lastChannelOf, rememberChannel } from "@/lib/lastChannel";
 import { useLayout, useTouch } from "./useLayout";
 import { oneLine } from "./preview";
 import { BottomTabs } from "./BottomTabs";
+import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
 import { SpaceSwitcherSheet, YouSheet } from "./mobile/MobileSheets";
 
@@ -221,6 +222,19 @@ const toastStyle: Record<string, CSSProperties> = {
   },
   title: { fontSize: "var(--text-xs)", fontWeight: 600 },
   desc: { fontSize: "var(--text-2xs)", color: "color-mix(in srgb, var(--text-inverse) 78%, var(--surface-inverse))" },
+  action: {
+    flex: "none",
+    minHeight: 32,
+    padding: "4px 10px",
+    border: "1.5px solid color-mix(in srgb, var(--text-inverse) 45%, transparent)",
+    borderRadius: "var(--radius-sm)",
+    background: "transparent",
+    color: "var(--text-inverse)",
+    font: "inherit",
+    fontSize: "var(--text-xs)",
+    fontWeight: 600,
+    cursor: "pointer",
+  },
 };
 
 /** How many faces a thread shows next to its reply count. The API caps its own list to match. */
@@ -543,7 +557,14 @@ function AppShell() {
    * A document an address named (`/e/<space>/f/<file>`): this tab is that document's, the editor
    * alone across it (documents open in a tab of their own, see `FilesScreen`).
    */
-  const [standalone, setStandalone] = useState<{ fileId: string; convert: boolean; slug: string } | null>(null);
+  /**
+   * A document's own tab. `opened`: the files list opened it (`?opened=1`), so a script may close it;
+   * a tab reached any other way (a reload, which a phone does to a tab left in the background, a link,
+   * the installed app) cannot, or must not, be closed by the page.
+   */
+  const [standalone, setStandalone] = useState<{ fileId: string; convert: boolean; slug: string; opened: boolean } | null>(null);
+  /** The folder the files screen opens on, once: where a document closed from its own tab lives. */
+  const [filesFolder, setFilesFolder] = useState<string | undefined>(undefined);
   /**
    * The address looks like a document's (`/e/<space>/f/<file>`, `/f/<file>`) and the boot has not yet
    * said whether it is one: nothing live starts meanwhile (no realtime connection), so a document's
@@ -893,7 +914,8 @@ function AppShell() {
     // a channel loaded behind the editor would be marked read, its notifications cleared, on behalf
     // of a member who is looking at a document.
     if (wanted && target?.fileId) {
-      setStandalone({ fileId: target.fileId, convert: target.convert === true, slug: wanted.slug });
+      const opened = new URLSearchParams(window.location.search).get("opened") === "1";
+      setStandalone({ fileId: target.fileId, convert: target.convert === true, slug: wanted.slug, opened });
       setMaybeDocumentTab(false);
       return spaces;
     }
@@ -1447,6 +1469,7 @@ function AppShell() {
       onFilesEditing: (spaceId, fileId, editors) => emitFileEvent({ type: "editing", spaceId, fileId, editors }),
       onFilesDeleted: (spaceId, fileIds) => {
         if (fileIds.length === 0) return;
+        emitFileEvent({ type: "deleted", spaceId, fileIds });
         const gone = new Set(fileIds);
         // Every loaded conversation, not only the one on screen: the others are in memory and
         // would otherwise keep a working-looking attachment until they were next opened.
@@ -2070,7 +2093,8 @@ function AppShell() {
     setToastVisible(true);
     setToastKey((k) => k + 1);
     clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToastVisible(false), 4000);
+    // Long enough to reach for its button, when it has one.
+    toastTimer.current = setTimeout(() => setToastVisible(false), t.action ? 8000 : 4000);
   };
 
   // Keep `notifyRef` (declared with the other realtime refs, and read by handlers wired once per
@@ -3692,24 +3716,39 @@ function AppShell() {
     );
   }
 
-  // A document's own tab: the editor alone. Closing it closes the tab when a script opened it (the
-  // files list did); a tab the person opened (a link, a reload) cannot be closed by a page, so it
-  // lands on the space's files instead.
+  // A document's own tab: the editor alone. Closing it closes the tab when the files list opened it,
+  // in a browser. Anywhere else (a reload, a link, the installed app, where closing the window closes
+  // Ruchoir) it goes to the space's files, on the document's folder, with the space loaded first:
+  // the tab never opened it, and showing the files of no space was an empty screen.
   if (standalone) {
     const slug = standalone.slug;
     const slugs = workspaces.map((w) => w.slug);
+    const toFiles = (file?: SpaceFile) => {
+      const space = workspaces.find((w) => w.slug === slug);
+      setFilesFolder(file?.parentFolderId);
+      setStandalone(null);
+      void loadSpace(space?.id ?? workspaces[0]?.id ?? "", undefined, space?.defaultChannelId).then(() => {
+        setView("files");
+        setMobileContent(true);
+      });
+    };
+    const installed = window.matchMedia?.("(display-mode: standalone)").matches ?? false;
     return (
       <OfficeEditor
-        bare
+        // On a phone the band stays, with its close button: the engine's own lives three taps deep in
+        // its "…" menu, and a phone lands here mostly after reloading a tab it had set aside.
+        bare={!compact}
         fileId={standalone.fileId}
         convert={standalone.convert}
         addressOf={slug ? (id, convert) => fileUrl(slug, id, slugs, convert) : undefined}
-        onClose={() => {
+        onClose={(file) => {
+          if (!standalone.opened || installed) {
+            toFiles(file);
+            return;
+          }
           window.close();
-          window.setTimeout(() => {
-            setStandalone(null);
-            setView("files");
-          }, 300);
+          // Still here: the browser kept the tab after all.
+          window.setTimeout(() => toFiles(file), 300);
         }}
       />
     );
@@ -3984,6 +4023,7 @@ function AppShell() {
           spaceSlug={workspaces.find((w) => w.id === ws)?.slug}
           slugs={workspaces.map((w) => w.slug)}
           onEditorChange={setEditorOpen}
+          initialFolderId={filesFolder}
         />
       ) : null}
       {contentView === "settings" ? (
@@ -4039,6 +4079,8 @@ function AppShell() {
 
   const overlays = (
     <>
+      {/* What is being sent, wherever the person goes meanwhile. */}
+      <UploadPanel compact={compact} />
       {/* Personal preferences take over the whole viewport (covering the rail and sidebar) so it is
           clear they are account-wide, not scoped to the current workspace. Sits below toasts (z 60)
           and dialogs (z 90) so the security sub-dialogs still layer on top. */}
@@ -4339,9 +4381,25 @@ function AppShell() {
           role="status"
           aria-live="polite"
         >
-          <div style={toastStyle.card}>
-            <span style={toastStyle.title}>{toast.title}</span>
-            {toast.description ? <span style={toastStyle.desc}>{toast.description}</span> : null}
+          <div style={toast.action ? { ...toastStyle.card, flexDirection: "row", alignItems: "center", gap: 12 } : toastStyle.card}>
+            <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
+              <span style={toastStyle.title}>{toast.title}</span>
+              {toast.description ? <span style={toastStyle.desc}>{toast.description}</span> : null}
+            </span>
+            {toast.action ? (
+              <button
+                type="button"
+                style={toastStyle.action}
+                onClick={() => {
+                  const run = toast.action?.onClick;
+                  clearTimeout(toastTimer.current);
+                  setToastVisible(false);
+                  run?.();
+                }}
+              >
+                {toast.action.label}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}
