@@ -42,9 +42,9 @@ use crate::auth::cookie::SESSION_COOKIE;
 use crate::config::Config;
 use crate::entities::{
     channel_members, channel_pins, channels, conversations, dm_conversations, dm_participants,
-    file_versions, files, import_mappings, message_attachments, message_reactions, messages,
-    notifications, push_subscriptions, read_cursors, space_invitations, space_members, spaces,
-    user_saved_messages, users,
+    file_links, file_versions, files, import_mappings, message_attachments, message_reactions,
+    messages, notifications, push_subscriptions, read_cursors, space_invitations, space_members,
+    spaces, user_saved_messages, users,
 };
 use crate::state::AppState;
 
@@ -9029,6 +9029,312 @@ async fn a_file_keeps_its_versions_and_an_old_one_comes_back_as_the_newest() {
         .await,
         204
     );
+}
+
+// --- Public links ------------------------------------------------------------------------------
+
+/// Create a public link on `file` as `cookie`, returning the status and the body.
+async fn api_link(app: &TestApp, cookie: &str, file: Uuid, body: Value) -> (u16, Value) {
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file}/links"),
+            cookie,
+        )
+        .json(&body)
+        .send()
+        .await
+        .expect("create link");
+    let status = res.status().as_u16();
+    (status, res.json().await.unwrap_or(Value::Null))
+}
+
+/// An anonymous request on the public side of a link.
+async fn anon(app: &TestApp, method: reqwest::Method, path: &str) -> reqwest::Response {
+    app.http
+        .request(method, format!("{}{path}", app.base))
+        .send()
+        .await
+        .expect("anonymous request")
+}
+
+#[tokio::test]
+async fn a_public_link_hands_the_file_to_anyone_until_it_is_revoked() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let file = api_upload(&app, &alice, fx.space_id, None, "devis.txt", b"devis").await;
+
+    // Handing a file out is its manager's, as removing it is.
+    assert_eq!(api_link(&app, &bob, file, json!({})).await.0, 403);
+    let (status, link) = api_link(&app, &alice, file, json!({})).await;
+    assert_eq!(status, 201);
+    let token = link["token"].as_str().expect("token").to_owned();
+    assert_eq!(token.len(), 48);
+    assert_eq!(link["has_password"], false);
+
+    let meta: Value = anon(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/v1/public/links/{token}"),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(meta["needs_password"], false);
+    assert_eq!(meta["name"], "devis.txt");
+    assert!(meta["shared_by"].is_string());
+    let bytes = anon(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/v1/public/links/{token}/download"),
+    )
+    .await;
+    assert_eq!(bytes.status(), 200);
+    assert_eq!(bytes.bytes().await.unwrap().as_ref(), b"devis");
+
+    let links: Vec<Value> = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{file}/links"),
+            &alice,
+        )
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0]["download_count"], 1);
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/files/{file}/links"),
+            &bob
+        )
+        .await,
+        403
+    );
+
+    let link_id = link["id"].as_str().unwrap();
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file}/links/{link_id}"),
+            &alice
+        )
+        .await,
+        204
+    );
+    assert_eq!(
+        anon(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/public/links/{token}")
+        )
+        .await
+        .status(),
+        404
+    );
+    assert_eq!(
+        anon(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/public/links/{token}/download")
+        )
+        .await
+        .status(),
+        404
+    );
+}
+
+#[tokio::test]
+async fn a_protected_link_shows_nothing_before_its_password() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file = api_upload(&app, &alice, fx.space_id, None, "contrat.txt", b"secret").await;
+    let (status, link) =
+        api_link(&app, &alice, file, json!({ "password": "pomme verte 42" })).await;
+    assert_eq!(status, 201);
+    assert_eq!(link["has_password"], true);
+    let token = link["token"].as_str().unwrap();
+
+    let meta: Value = anon(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/v1/public/links/{token}"),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    assert_eq!(meta["needs_password"], true);
+    assert!(
+        meta.get("name").is_none(),
+        "nothing before the password: {meta}"
+    );
+    assert_eq!(
+        anon(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/public/links/{token}/download")
+        )
+        .await
+        .status(),
+        403
+    );
+
+    let wrong = app
+        .http
+        .post(format!("{}/api/v1/public/links/{token}/unlock", app.base))
+        .json(&json!({ "password": "pomme rouge" }))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(wrong.status(), 403);
+    let right: Value = app
+        .http
+        .post(format!("{}/api/v1/public/links/{token}/unlock", app.base))
+        .json(&json!({ "password": "pomme verte 42" }))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(right["link"]["name"], "contrat.txt");
+    let grant = right["grant"].as_str().expect("grant");
+    let bytes = anon(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/v1/public/links/{token}/download?grant={grant}"),
+    )
+    .await;
+    assert_eq!(bytes.status(), 200);
+    assert_eq!(bytes.bytes().await.unwrap().as_ref(), b"secret");
+    // A grant opens this link only.
+    let (_, other) = api_link(&app, &alice, file, json!({ "password": "autre" })).await;
+    let other_token = other["token"].as_str().unwrap();
+    assert_eq!(
+        anon(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/public/links/{other_token}/download?grant={grant}")
+        )
+        .await
+        .status(),
+        403
+    );
+}
+
+#[tokio::test]
+async fn a_link_dies_with_its_file_with_its_expiry_and_with_the_switch() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let file = api_upload(&app, &alice, fx.space_id, None, "plan.txt", b"plan").await;
+    let folder = api_folder(&app, &alice, fx.space_id, "Dossier", None).await;
+    assert_eq!(
+        api_link(&app, &alice, folder, json!({})).await.0,
+        400,
+        "files only"
+    );
+    assert_eq!(
+        api_link(
+            &app,
+            &alice,
+            file,
+            json!({ "expires_at": "2020-01-01T00:00:00Z" })
+        )
+        .await
+        .0,
+        400
+    );
+
+    let (_, link) = api_link(
+        &app,
+        &alice,
+        file,
+        json!({ "expires_at": "2099-01-01T00:00:00Z" }),
+    )
+    .await;
+    let token = link["token"].as_str().unwrap().to_owned();
+    assert!(link["expires_at"].is_string());
+    let path = format!("/api/v1/public/links/{token}");
+    assert_eq!(anon(&app, reqwest::Method::GET, &path).await.status(), 200);
+
+    // In the trash, the file opens for nobody; back from it, the link works again.
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{file}"),
+            &alice
+        )
+        .await,
+        204
+    );
+    assert_eq!(anon(&app, reqwest::Method::GET, &path).await.status(), 404);
+    assert_eq!(
+        api_status(
+            &app,
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{file}/restore"),
+            &alice
+        )
+        .await,
+        200
+    );
+    assert_eq!(anon(&app, reqwest::Method::GET, &path).await.status(), 200);
+
+    // Past its expiry, it is dead.
+    file_links::ActiveModel {
+        id: Set(link["id"].as_str().unwrap().parse().unwrap()),
+        expires_at: Set(Some(OffsetDateTime::now_utc() - time::Duration::minutes(1))),
+        ..Default::default()
+    }
+    .update(&app.db)
+    .await
+    .unwrap();
+    assert_eq!(anon(&app, reqwest::Method::GET, &path).await.status(), 404);
+
+    // An instance with public links off answers none and makes none.
+    let Some(off) = boot_with(Some(Arc::new(crate::storage::S3Store::in_memory())), |c| {
+        c.public_links = false
+    })
+    .await
+    else {
+        return;
+    };
+    let fx = seed(&off.db).await;
+    let alice = off.cookie_for(fx.alice).await;
+    let file = api_upload(&off, &alice, fx.space_id, None, "x.txt", b"x").await;
+    assert_eq!(api_link(&off, &alice, file, json!({})).await.0, 403);
+    let caps: Value = off
+        .http
+        .get(format!("{}/api/v1/instance", off.base))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(caps["public_links"], false);
 }
 
 /// The entries of a folder (the root when `folder` is `None`), as the listing returns them.
