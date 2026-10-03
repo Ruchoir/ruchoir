@@ -12,3 +12,11 @@ minimumReleaseAgeExclude:
 # this once the lockfile resolves to 5.0.12 or later by itself.
 overrides:
   "brace-expansion@>=5.0.0 <5.0.12": "5.0.12"
+# GHSA-vfj7-8cjw-p6xm (braces <= 3.0.3, stack exhaustion on deeply nested brace patterns): dev only,
+# via eslint-config-next > @next/eslint-plugin-next > fast-glob 3.3.1 > micromatch > braces. It runs
+# at lint time on the repository's own glob patterns, never on input from a user, and nothing of it
+# reaches the built app. There is no patched braces release, and the latest @next/eslint-plugin-next
+# (16.3.8) still pins fast-glob 3.3.1. Drop this once either moves.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm
