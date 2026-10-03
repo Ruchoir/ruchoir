@@ -107,32 +107,26 @@ pub async fn list_trash(
     let removers: Vec<Uuid> = roots.iter().filter_map(|f| f.deleted_by).collect();
     let names = super::load_names(&state.db, removers).await?;
 
-    let meta: Vec<(Option<OffsetDateTime>, Option<Uuid>, Option<Uuid>, bool)> = roots
-        .iter()
-        .map(|f| {
-            let manage = admin || f.owner_id == Some(session.user_id);
-            (f.deleted_at, f.deleted_by, f.parent_folder_id, manage)
-        })
-        .collect();
-    let dtos = super::hydrate_files(&state.db, roots).await?;
+    let dtos = super::hydrate_files(&state.db, roots.clone()).await?;
 
     Ok(Json(
         dtos.into_iter()
-            .zip(meta)
-            .map(|(file, (deleted_at, deleted_by, parent, can_manage))| {
+            .zip(roots)
+            .map(|(file, row)| {
+                let parent = row.parent_folder_id;
                 let folder = parent.and_then(|id| parents.get(&id));
                 TrashEntryDto {
                     file,
-                    deleted_at: deleted_at.map(rfc3339).unwrap_or_default(),
-                    deleted_by_id: deleted_by,
-                    deleted_by_name: deleted_by.and_then(|id| names.get(&id).cloned()),
+                    deleted_at: row.deleted_at.map(rfc3339).unwrap_or_default(),
+                    deleted_by_id: row.deleted_by,
+                    deleted_by_name: row.deleted_by.and_then(|id| names.get(&id).cloned()),
                     original_folder_id: parent,
                     original_folder_name: folder.map(|f| f.name.clone()),
                     original_folder_present: match parent {
                         None => true,
                         Some(_) => folder.is_some_and(|f| f.deleted_at.is_none()),
                     },
-                    can_manage,
+                    can_manage: admin || row.owner_id == Some(session.user_id),
                 }
             })
             .collect(),
