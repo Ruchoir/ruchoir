@@ -87,6 +87,10 @@ pub struct PublicLinkDto {
     pub expires_at: Option<String>,
     #[serde(default)]
     pub has_thumbnail: bool,
+    /// How the page can show it: `image`, `pdf`, `document` (an office file, shown as a PDF and as
+    /// its first page), `video`, `audio` or `text`. Absent: nothing to show but its name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
 }
 
 /// The password, to unlock a protected link.
@@ -124,6 +128,12 @@ pub fn public_router() -> Router<AppState> {
             "/api/v1/public/links/{token}/thumbnail",
             get(public_thumbnail),
         )
+        .route("/api/v1/public/links/{token}/preview", get(public_preview))
+        .route(
+            "/api/v1/public/links/{token}/document",
+            get(public_document),
+        )
+        .route("/api/v1/public/links/{token}/page", get(public_page))
 }
 
 /// `GET /api/v1/files/{file_id}/links`: the file's live public links, newest first.
@@ -318,6 +328,7 @@ pub async fn public_link(
             shared_by: None,
             expires_at: None,
             has_thumbnail: false,
+            preview: None,
         }));
     }
     Ok(Json(describe(&state, &link, &file).await?))
@@ -441,6 +452,227 @@ pub async fn public_thumbnail(
     super::download::build_response(bytes, THUMBNAIL_MIME, "inline", "thumbnail.jpg", true)
 }
 
+/// How a shared file can be shown in its page, from what it is.
+fn preview_kind(mime: &str, name: &str) -> Option<&'static str> {
+    if mime.starts_with("image/") {
+        Some("image")
+    } else if mime == "application/pdf" {
+        Some("pdf")
+    } else if super::convert::office_extension(mime, name).is_some() {
+        Some("document")
+    } else if mime.starts_with("video/") {
+        Some("video")
+    } else if mime.starts_with("audio/") {
+        Some("audio")
+    } else if mime.starts_with("text/")
+        || (mime == "application/octet-stream" && is_text_name(name))
+    {
+        // An HTML file too: it is served as plain text (see `public_preview`), its source shown.
+        Some("text")
+    } else {
+        None
+    }
+}
+
+/// The extensions of plain text. A text has no signature, so the sniffed type of an upload is
+/// `application/octet-stream` (`mime.rs`) and its name is all there is to go on; it is only ever
+/// served as `text/plain`, so a wrong name shows garbled text at worst.
+const TEXT_EXTENSIONS: [&str; 12] = [
+    "txt", "md", "markdown", "log", "json", "xml", "yaml", "yml", "ini", "toml", "tsv", "conf",
+];
+
+fn is_text_name(name: &str) -> bool {
+    name.rsplit_once('.').is_some_and(|(_, extension)| {
+        TEXT_EXTENSIONS
+            .iter()
+            .any(|known| extension.eq_ignore_ascii_case(known))
+    })
+}
+
+/// `GET /api/v1/public/links/{token}/preview`: the shared file's bytes, inline when its page can show
+/// them (an image, a PDF, a video, a sound, a text). Answers a byte range, which a phone's player
+/// asks for before it plays a video at all.
+#[utoipa::path(
+    get,
+    path = "/api/v1/public/links/{token}/preview",
+    tag = "files",
+    params(("token" = String, Path, description = "The link's key"), GrantQuery),
+    responses(
+        (status = 200, description = "The bytes, inline"),
+        (status = 206, description = "The range asked for"),
+        (status = 400, description = "Nothing the page can show inline"),
+        (status = 403, description = "A protected link without its grant"),
+        (status = 404, description = "No live link under this key")
+    )
+)]
+pub async fn public_preview(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    Query(query): Query<GrantQuery>,
+    headers: axum::http::HeaderMap,
+) -> Result<Response, FileError> {
+    let (link, file) = live_link(&state, &token).await?;
+    if link.password_hash.is_some() && !granted(&state, &link, query.grant.as_deref()).await? {
+        return Err(FileError::Forbidden);
+    }
+    let version = current_version(&state.db, &file).await?;
+    let kind = preview_kind(&version.mime_type, &file.name);
+    if !matches!(kind, Some("image" | "pdf" | "video" | "audio" | "text")) {
+        return Err(FileError::BadRequest("nothing to show inline"));
+    }
+    let storage = state
+        .storage
+        .as_ref()
+        .ok_or(FileError::StorageUnavailable)?;
+    let key = version.storage_key.ok_or(FileError::NotFound)?;
+    let bytes = storage.get(&key).await?;
+    // A text is shown as text, whatever it says it is: never run as a page.
+    let mime = if kind == Some("text") {
+        "text/plain; charset=utf-8"
+    } else {
+        version.mime_type.as_str()
+    };
+    ranged(bytes, mime, &file.name, &headers)
+}
+
+/// `GET /api/v1/public/links/{token}/document`: a shared office document, as a PDF.
+#[utoipa::path(
+    get,
+    path = "/api/v1/public/links/{token}/document",
+    tag = "files",
+    params(("token" = String, Path, description = "The link's key"), GrantQuery),
+    responses(
+        (status = 200, description = "The document as a PDF, inline"),
+        (status = 400, description = "Not an office document"),
+        (status = 403, description = "A protected link without its grant"),
+        (status = 404, description = "No live link under this key"),
+        (status = 502, description = "The conversion failed")
+    )
+)]
+pub async fn public_document(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    Query(query): Query<GrantQuery>,
+) -> Result<Response, FileError> {
+    let (link, file) = live_link(&state, &token).await?;
+    if link.password_hash.is_some() && !granted(&state, &link, query.grant.as_deref()).await? {
+        return Err(FileError::Forbidden);
+    }
+    let version = current_version(&state.db, &file).await?;
+    let extension = super::convert::office_extension(&version.mime_type, &file.name)
+        .ok_or(FileError::BadRequest("not an office document"))?;
+    let storage = state
+        .storage
+        .as_ref()
+        .ok_or(FileError::StorageUnavailable)?;
+    let pdf = super::convert::document_pdf(storage, &version, extension).await?;
+    let stem = file
+        .name
+        .rsplit_once('.')
+        .map_or(file.name.as_str(), |(s, _)| s);
+    let mut response = super::download::build_response(
+        pdf,
+        "application/pdf",
+        "inline",
+        &format!("{stem}.pdf"),
+        false,
+    )?;
+    response.headers_mut().insert(
+        axum::http::header::CONTENT_SECURITY_POLICY,
+        axum::http::HeaderValue::from_static(super::download::PREVIEW_CSP),
+    );
+    Ok(response)
+}
+
+/// `GET /api/v1/public/links/{token}/page`: a shared office document's first page, as a picture.
+#[utoipa::path(
+    get,
+    path = "/api/v1/public/links/{token}/page",
+    tag = "files",
+    params(("token" = String, Path, description = "The link's key"), GrantQuery),
+    responses(
+        (status = 200, description = "The first page"),
+        (status = 400, description = "Not an office document"),
+        (status = 403, description = "A protected link without its grant"),
+        (status = 404, description = "No live link under this key"),
+        (status = 502, description = "The conversion failed")
+    )
+)]
+pub async fn public_page(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    Query(query): Query<GrantQuery>,
+) -> Result<Response, FileError> {
+    let (link, file) = live_link(&state, &token).await?;
+    if link.password_hash.is_some() && !granted(&state, &link, query.grant.as_deref()).await? {
+        return Err(FileError::Forbidden);
+    }
+    let version = current_version(&state.db, &file).await?;
+    let extension = super::convert::office_extension(&version.mime_type, &file.name)
+        .ok_or(FileError::BadRequest("not an office document"))?;
+    let storage = state
+        .storage
+        .as_ref()
+        .ok_or(FileError::StorageUnavailable)?;
+    let picture = super::convert::document_page(storage, &version, extension, PAGE_MAX_PX).await?;
+    super::download::build_response(picture, THUMBNAIL_MIME, "inline", "page.jpg", true)
+}
+
+/// The widest a document's first page is drawn for its page (twice a phone's width, for its screen).
+const PAGE_MAX_PX: u32 = 900;
+
+/// The whole body, or the one range a `Range: bytes=a-b` header asks for.
+fn ranged(
+    bytes: Vec<u8>,
+    mime: &str,
+    name: &str,
+    headers: &axum::http::HeaderMap,
+) -> Result<Response, FileError> {
+    use axum::http::{header, HeaderValue};
+    let total = bytes.len();
+    let range = headers
+        .get(header::RANGE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("bytes="))
+        .and_then(|v| v.split_once('-'))
+        .and_then(|(start, end)| {
+            let start: usize = start.trim().parse().ok()?;
+            let end: usize = if end.trim().is_empty() {
+                total.checked_sub(1)?
+            } else {
+                end.trim().parse().ok()?
+            };
+            (start <= end && start < total).then_some((start, end.min(total - 1)))
+        });
+    let mut response = match range {
+        Some((start, end)) => {
+            let mut r = super::download::build_response(
+                bytes[start..=end].to_vec(),
+                mime,
+                "inline",
+                name,
+                false,
+            )?;
+            *r.status_mut() = StatusCode::PARTIAL_CONTENT;
+            r.headers_mut().insert(
+                header::CONTENT_RANGE,
+                HeaderValue::from_str(&format!("bytes {start}-{end}/{total}"))
+                    .map_err(|_| FileError::Internal)?,
+            );
+            r
+        }
+        None => super::download::build_response(bytes, mime, "inline", name, false)?,
+    };
+    response
+        .headers_mut()
+        .insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+    response.headers_mut().insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(super::download::PREVIEW_CSP),
+    );
+    Ok(response)
+}
+
 /// The file, when the caller may manage its links: its owner or an owner or administrator of its
 /// space, not a guest, and a file rather than a folder.
 async fn ensure_link_manager(
@@ -534,6 +766,10 @@ async fn describe(
         shared_by: sharer.and_then(|id| names.get(&id).cloned()),
         expires_at: link.expires_at.map(rfc3339),
         has_thumbnail: version.as_ref().is_some_and(|v| v.thumbnail_key.is_some()),
+        preview: version
+            .as_ref()
+            .and_then(|v| preview_kind(&v.mime_type, &file.name))
+            .map(str::to_owned),
     })
 }
 

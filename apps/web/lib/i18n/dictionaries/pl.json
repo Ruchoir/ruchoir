@@ -813,7 +813,11 @@
     "nothingShared": "Nic ci nie udostępniono",
     "nothingSharedText": "Pliki wysyłane ci w kanałach i wiadomościach bezpośrednich pojawiają się tutaj.",
     "sentBy": "wysłał(a) {{name}}",
-    "directMessage": "wiadomość bezpośrednia"
+    "directMessage": "wiadomość bezpośrednia",
+    "conversationCount_one": "{{count}} rozmowa",
+    "conversationCount_few": "{{count}} rozmowy",
+    "conversationCount_many": "{{count}} rozmów",
+    "conversationCount_other": "{{count}} rozmowy"
   },
   "status": {
     "checking": "Sprawdzanie stanu API…"
@@ -1448,6 +1452,7 @@
     "unlock": "Otwórz plik",
     "sharedBy": "udostępnił(a) {{name}}",
     "availableUntil": "Dostępny do {{date}}",
-    "footer": "Udostępnione przez Ruchoir, europejską przestrzeń roboczą."
+    "footer": "Udostępnione przez Ruchoir, europejską przestrzeń roboczą.",
+    "openDocument": "Otwórz dokument"
   }
 }

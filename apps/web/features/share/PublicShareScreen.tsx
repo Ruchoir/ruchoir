@@ -2,10 +2,22 @@
 
 import { type CSSProperties, useEffect, useState } from "react";
 import { Button, FileIcon, Icon, Input, Skeleton, SkeletonGroup } from "@/components/ds";
-import { getPublicLink, publicDownloadUrl, publicThumbnailUrl, type PublicLink, unlockLink } from "@/lib/data/api";
+import {
+  getPublicLink,
+  publicDocumentUrl,
+  publicDownloadUrl,
+  type PublicLink,
+  publicPageUrl,
+  publicPreviewUrl,
+  unlockLink,
+} from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
 import { useTranslation } from "@/lib/i18n";
 import { formatBytes, formatDate } from "@/lib/i18n/format";
+import { useCompact } from "@/features/app/useCompact";
+
+/** The longest text shown in the page; the rest is in the download. */
+const TEXT_LIMIT = 200_000;
 
 const styles: Record<string, CSSProperties> = {
   page: {
@@ -29,8 +41,8 @@ const styles: Record<string, CSSProperties> = {
     flexDirection: "column",
     gap: 14,
   },
-  preview: {
-    height: 200,
+  stage: {
+    position: "relative",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -42,19 +54,26 @@ const styles: Record<string, CSSProperties> = {
   meta: { margin: 0, fontSize: "var(--text-xs)", color: "var(--text-muted)", lineHeight: "var(--leading-normal)" },
 };
 
+type File = Extract<PublicLink, { needsPassword: false }>;
+
 type State =
   | { kind: "loading" }
   | { kind: "gone" }
   | { kind: "password"; wrong: boolean }
-  | { kind: "file"; link: Extract<PublicLink, { needsPassword: false }>; grant?: string };
+  | { kind: "file"; link: File; grant?: string };
 
 /**
- * What someone outside the space sees of a file handed to them: its name, size, who shared it and
- * until when, a picture when it is an image, and the download. A protected link asks for its
- * password before showing anything; a dead one says so, the same way whatever killed it.
+ * What someone outside the space sees of a file handed to them: the file itself when the page can
+ * show it (a document read in the page, a picture, a video or a sound played, a text), its name, size,
+ * who shared it and until when, and the download. A protected link asks for its password before
+ * showing anything; a dead one says so, the same way whatever killed it.
+ *
+ * On a phone a PDF does not show inside a page, so a document is its first page, with a button that
+ * opens the whole of it in the phone's own reader.
  */
 export function PublicShareScreen() {
   const { t } = useTranslation();
+  const narrow = useCompact(760);
   const [token, setToken] = useState("");
   const [state, setState] = useState<State>({ kind: "loading" });
   const [password, setPassword] = useState("");
@@ -84,10 +103,25 @@ export function PublicShareScreen() {
       .finally(() => setBusy(false));
   };
 
+  const mark = (
+    // eslint-disable-next-line @next/next/no-img-element -- the self-hosted brand mark
+    <img src="/brand/ruchoir-mark.png" alt="Ruchoir" width={40} height={40} />
+  );
+  const footer = <p style={{ ...styles.meta, textAlign: "center" }}>{t("share.footer")}</p>;
+
+  if (state.kind === "file" && state.link.preview) {
+    return (
+      <main style={{ ...styles.page, justifyContent: "flex-start" }}>
+        {mark}
+        <FileView token={token} link={state.link} grant={state.grant} narrow={narrow} />
+        {footer}
+      </main>
+    );
+  }
+
   return (
     <main style={styles.page}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- the self-hosted brand mark */}
-      <img src="/brand/ruchoir-mark.png" alt="Ruchoir" width={40} height={40} />
+      {mark}
       <div style={styles.card}>
         {state.kind === "loading" ? (
           <SkeletonGroup label={t("share.loading")}>
@@ -97,7 +131,7 @@ export function PublicShareScreen() {
           </SkeletonGroup>
         ) : state.kind === "gone" ? (
           <>
-            <div style={{ ...styles.preview, height: 140 }}>
+            <div style={{ ...styles.stage, height: 140 }}>
               <Icon name="circle-alert" size={40} style={{ color: "var(--text-muted)" }} />
             </div>
             <h1 style={styles.title}>{t("share.goneTitle")}</h1>
@@ -105,7 +139,7 @@ export function PublicShareScreen() {
           </>
         ) : state.kind === "password" ? (
           <>
-            <div style={{ ...styles.preview, height: 140 }}>
+            <div style={{ ...styles.stage, height: 140 }}>
               <Icon name="lock" size={40} style={{ color: "var(--text-muted)" }} />
             </div>
             <h1 style={styles.title}>{t("share.protectedTitle")}</h1>
@@ -138,39 +172,162 @@ export function PublicShareScreen() {
           </>
         ) : (
           <>
-            <div style={styles.preview}>
-              {state.link.hasThumbnail ? (
-                // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by our own API
-                <img src={publicThumbnailUrl(token, state.grant)} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-              ) : (
-                <FileIcon name={state.link.name} size={80} />
-              )}
+            <div style={{ ...styles.stage, height: 200 }}>
+              <FileIcon name={state.link.name} size={80} />
             </div>
-            <h1 style={styles.title}>{state.link.name}</h1>
-            <p style={styles.meta}>
-              {[formatBytes(state.link.sizeBytes), state.link.sharedBy ? t("share.sharedBy", { name: state.link.sharedBy }) : null]
-                .filter(Boolean)
-                .join(" · ")}
-              {state.link.expiresAt ? (
-                <>
-                  <br />
-                  {t("share.availableUntil", { date: formatDate(state.link.expiresAt) })}
-                </>
-              ) : null}
-            </p>
-            <a
-              href={publicDownloadUrl(token, state.grant)}
-              download={state.link.name}
-              className="wc-btn wc-btn--primary wc-btn--md"
-              style={{ justifyContent: "center", textDecoration: "none" }}
-            >
-              <Icon name="download" size={16} />
-              {t("message.download")}
-            </a>
+            <Heading link={state.link} />
+            <DownloadButton token={token} link={state.link} grant={state.grant} />
           </>
         )}
       </div>
-      <p style={{ ...styles.meta, textAlign: "center" }}>{t("share.footer")}</p>
+      {footer}
     </main>
+  );
+}
+
+function Heading({ link }: { link: File }) {
+  const { t } = useTranslation();
+  return (
+    <div style={{ minWidth: 0 }}>
+      <h1 style={styles.title}>{link.name}</h1>
+      <p style={{ ...styles.meta, marginTop: 4 }}>
+        {[formatBytes(link.sizeBytes), link.sharedBy ? t("share.sharedBy", { name: link.sharedBy }) : null].filter(Boolean).join(" · ")}
+        {link.expiresAt ? (
+          <>
+            <br />
+            {t("share.availableUntil", { date: formatDate(link.expiresAt) })}
+          </>
+        ) : null}
+      </p>
+    </div>
+  );
+}
+
+function DownloadButton({ token, link, grant, compact = false }: { token: string; link: File; grant?: string; compact?: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <a
+      href={publicDownloadUrl(token, grant)}
+      download={link.name}
+      className="wc-btn wc-btn--primary wc-btn--md"
+      style={{ justifyContent: "center", textDecoration: "none", flex: compact ? "none" : undefined }}
+    >
+      <Icon name="download" size={16} />
+      {t("message.download")}
+    </a>
+  );
+}
+
+/** A shared file shown for what it is, its name and the download above it. */
+function FileView({ token, link, grant, narrow }: { token: string; link: File; grant?: string; narrow: boolean }) {
+  const { t } = useTranslation();
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [text, setText] = useState<string | null>(null);
+  const kind = link.preview;
+  // On a phone a PDF is opened in the phone's reader rather than drawn in the page.
+  const inPage = !narrow && (kind === "pdf" || kind === "document");
+  const pdfUrl = kind === "document" ? publicDocumentUrl(token, grant) : publicPreviewUrl(token, grant);
+
+  useEffect(() => {
+    if (kind !== "text") return;
+    const ctrl = new AbortController();
+    fetch(publicPreviewUrl(token, grant), { signal: ctrl.signal })
+      .then((res) => (res.ok ? res.text() : Promise.reject(new Error(String(res.status)))))
+      .then((body) => setText(body.length > TEXT_LIMIT ? `${body.slice(0, TEXT_LIMIT)}\n…` : body))
+      .catch(() => !ctrl.signal.aborted && setFailed(true));
+    return () => ctrl.abort();
+  }, [kind, token, grant]);
+
+  const stageHeight = narrow ? undefined : "calc(var(--ui-vh, 100vh) - 260px)";
+  let stage: React.ReactNode;
+  if (failed) {
+    stage = <FileIcon name={link.name} size={80} />;
+  } else if (kind === "image") {
+    // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by our own API
+    stage = <img src={publicPreviewUrl(token, grant)} alt={link.name} style={{ maxWidth: "100%", maxHeight: narrow ? "60vh" : "100%", objectFit: "contain", display: "block" }} />;
+  } else if (inPage) {
+    stage = (
+      <>
+        <iframe
+          src={pdfUrl}
+          title={link.name}
+          onLoad={() => setLoaded(true)}
+          style={{ width: "100%", height: "100%", border: 0, background: "var(--surface-card)" }}
+        />
+        {loaded ? null : (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--surface-sunken)", ...styles.meta }}>
+            {kind === "document" ? t("files.convertingDocument") : t("share.loading")}
+          </div>
+        )}
+      </>
+    );
+  } else if (kind === "document") {
+    // The first page, which opens the whole document when touched.
+    stage = (
+      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" style={{ display: "block", width: "100%" }} aria-label={t("share.openDocument")}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- same-origin, served by our own API */}
+        <img src={publicPageUrl(token, grant)} alt="" onError={() => setFailed(true)} style={{ width: "100%", display: "block", boxSizing: "border-box", background: "#fff", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)" }} />
+      </a>
+    );
+  } else if (kind === "video") {
+    stage = <video controls playsInline preload="metadata" src={publicPreviewUrl(token, grant)} style={{ width: "100%", maxHeight: narrow ? "60vh" : "100%", background: "#000" }} />;
+  } else if (kind === "audio") {
+    stage = (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, padding: 24, width: "100%" }}>
+        <FileIcon name={link.name} size={72} />
+        <audio controls preload="metadata" src={publicPreviewUrl(token, grant)} style={{ width: "100%", maxWidth: 520 }} />
+      </div>
+    );
+  } else if (kind === "text") {
+    stage =
+      text === null ? (
+        <span style={styles.meta}>{t("share.loading")}</span>
+      ) : (
+        <pre
+          style={{
+            margin: 0,
+            width: "100%",
+            height: "100%",
+            maxHeight: narrow ? "60vh" : undefined,
+            overflow: "auto",
+            padding: 16,
+            boxSizing: "border-box",
+            background: "var(--surface-card)",
+            fontFamily: "var(--font-mono)",
+            fontSize: "var(--text-xs)",
+            lineHeight: 1.6,
+            color: "var(--text-body)",
+            whiteSpace: "pre-wrap",
+            overflowWrap: "anywhere",
+            alignSelf: "stretch",
+          }}
+        >
+          {text}
+        </pre>
+      );
+  } else {
+    // A PDF on a phone: its icon, and the reader one button away.
+    stage = <FileIcon name={link.name} size={80} />;
+  }
+
+  return (
+    <div style={{ ...styles.card, maxWidth: 1040, padding: narrow ? 16 : 20 }}>
+      <div style={{ display: "flex", alignItems: narrow ? "stretch" : "center", flexDirection: narrow ? "column" : "row", gap: 14 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Heading link={link} />
+        </div>
+        <div style={{ display: "flex", gap: 8, flexDirection: narrow ? "column" : "row" }}>
+          {!inPage && (kind === "pdf" || kind === "document") && !failed ? (
+            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="wc-btn wc-btn--secondary wc-btn--md" style={{ justifyContent: "center", textDecoration: "none" }}>
+              <Icon name="eye" size={16} />
+              {t("share.openDocument")}
+            </a>
+          ) : null}
+          <DownloadButton token={token} link={link} grant={grant} compact={!narrow} />
+        </div>
+      </div>
+      <div style={{ ...styles.stage, height: stageHeight, minHeight: narrow ? 160 : 360 }}>{stage}</div>
+    </div>
   );
 }

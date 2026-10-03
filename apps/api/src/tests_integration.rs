@@ -9337,6 +9337,110 @@ async fn a_link_dies_with_its_file_with_its_expiry_and_with_the_switch() {
     assert_eq!(caps["public_links"], false);
 }
 
+#[tokio::test]
+async fn a_public_link_says_how_its_page_can_show_the_file_and_serves_ranges() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let note = api_upload(
+        &app,
+        &alice,
+        fx.space_id,
+        None,
+        "notes.txt",
+        // Plain text has no signature: it is stored as `application/octet-stream`.
+        b"hello <script>alert(1)</script>",
+    )
+    .await;
+    let pdf = api_upload(
+        &app,
+        &alice,
+        fx.space_id,
+        None,
+        "devis.pdf",
+        b"%PDF-1.4\n%%EOF\n",
+    )
+    .await;
+    let zip = api_upload(
+        &app,
+        &alice,
+        fx.space_id,
+        None,
+        "a.zip",
+        b"PK\x03\x04rest of an archive",
+    )
+    .await;
+    let token = |v: &Value| v["token"].as_str().unwrap().to_owned();
+    let t_note = token(&api_link(&app, &alice, note, json!({})).await.1);
+    let t_pdf = token(&api_link(&app, &alice, pdf, json!({})).await.1);
+    let t_zip = token(&api_link(&app, &alice, zip, json!({})).await.1);
+
+    let mut kinds = Vec::new();
+    for t in [&t_note, &t_pdf, &t_zip] {
+        let meta: Value = anon(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/public/links/{t}"),
+        )
+        .await
+        .json()
+        .await
+        .unwrap();
+        kinds.push(meta["preview"].clone());
+    }
+    assert_eq!(kinds, vec![json!("text"), json!("pdf"), Value::Null]);
+
+    // A text is served as plain text, never as a page that would run.
+    let text = anon(
+        &app,
+        reqwest::Method::GET,
+        &format!("/api/v1/public/links/{t_note}/preview"),
+    )
+    .await;
+    assert_eq!(text.status(), 200);
+    assert!(text.headers()["content-type"]
+        .to_str()
+        .unwrap()
+        .starts_with("text/plain"));
+    assert_eq!(text.headers()["accept-ranges"], "bytes");
+
+    // A player's range.
+    let part = app
+        .http
+        .get(format!("{}/api/v1/public/links/{t_note}/preview", app.base))
+        .header("Range", "bytes=0-7")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(part.status(), 206);
+    assert_eq!(part.headers()["content-range"], "bytes 0-7/31");
+    assert_eq!(part.bytes().await.unwrap().as_ref(), b"hello <s");
+
+    assert_eq!(
+        anon(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/public/links/{t_zip}/preview")
+        )
+        .await
+        .status(),
+        400
+    );
+    assert_eq!(
+        anon(
+            &app,
+            reqwest::Method::GET,
+            &format!("/api/v1/public/links/{t_zip}/document")
+        )
+        .await
+        .status(),
+        400
+    );
+}
+
 // --- Views beyond a folder ---------------------------------------------------------------------
 
 /// A view of the space's files, as `cookie` sees it.

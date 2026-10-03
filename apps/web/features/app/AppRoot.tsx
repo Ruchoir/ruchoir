@@ -4025,8 +4025,8 @@ function AppShell() {
           onEditorChange={setEditorOpen}
           initialFolderId={filesFolder}
           shareTargets={[
-            ...channels.filter((c) => c.member !== false).map((c) => ({ id: c.id, name: c.name, kind: "channel" as const })),
-            ...visibleDms.filter((d) => !d.bot).map((d) => ({ id: d.id, name: d.name, kind: "dm" as const })),
+            ...channels.filter((c) => c.member !== false).map((c) => ({ id: c.id, name: c.name, kind: "channel" as const, fav: c.fav })),
+            ...visibleDms.filter((d) => !d.bot).map((d) => ({ id: d.id, name: d.name, kind: "dm" as const, lastAt: d.lastMessage?.at })),
           ]}
         />
       ) : null}

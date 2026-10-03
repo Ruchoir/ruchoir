@@ -773,7 +773,9 @@
     "nothingShared": "Nothing has been shared with you",
     "nothingSharedText": "Files people send you in your channels and direct messages show here.",
     "sentBy": "sent by {{name}}",
-    "directMessage": "direct message"
+    "directMessage": "direct message",
+    "conversationCount_one": "{{count}} conversation",
+    "conversationCount_other": "{{count}} conversations"
   },
   "status": {
     "checking": "Checking API health…"
@@ -1368,6 +1370,7 @@
     "unlock": "Open the file",
     "sharedBy": "shared by {{name}}",
     "availableUntil": "Available until {{date}}",
-    "footer": "Shared with Ruchoir, the European workspace."
+    "footer": "Shared with Ruchoir, the European workspace.",
+    "openDocument": "Open the document"
   }
 }

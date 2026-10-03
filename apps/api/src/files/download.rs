@@ -183,7 +183,7 @@ pub(super) fn with_validator(response: &mut Response, tag: &str) {
 }
 
 /// Policy of an inline preview: framable by the app only, and inert.
-pub(super) const PREVIEW_CSP: &str =
+pub(crate) const PREVIEW_CSP: &str =
     "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; frame-ancestors 'self'";
 
 /// The current version of a file, or a `404` when it was never uploaded.
