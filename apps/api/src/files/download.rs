@@ -199,7 +199,7 @@ pub(crate) async fn current_version(
 }
 
 /// Assemble a byte response with content type, disposition and an ASCII-safe filename.
-pub(super) fn build_response(
+pub(crate) fn build_response(
     bytes: Vec<u8>,
     content_type: &str,
     disposition: &str,

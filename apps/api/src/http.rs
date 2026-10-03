@@ -131,6 +131,8 @@ pub(crate) struct InstanceCapabilities {
     /// The largest file an upload accepts, in bytes, so the interface can turn a file down before
     /// sending it rather than after.
     upload_max_bytes: u64,
+    /// Days a removed file stays in the trash before it is erased (0: until the trash is emptied).
+    trash_retention_days: u32,
 }
 
 /// What the client needs to know about live editing.
@@ -175,6 +177,7 @@ pub(crate) async fn instance_capabilities(
             public_url: office.map(|o| o.public_origin().to_owned()),
         },
         upload_max_bytes: state.config.upload_max_bytes,
+        trash_retention_days: state.config.trash_retention_days,
     })
 }
 

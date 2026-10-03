@@ -1945,6 +1945,9 @@ async fn store_file<C: ConnectionTrait, S: BlobSink>(
         created_at: Set(created_at),
         updated_at: Set(created_at),
         deleted_at: Set(None),
+        deleted_by: Set(None),
+        trashed: Set(false),
+        purged_at: Set(None),
     }
     .insert(db)
     .await?;
