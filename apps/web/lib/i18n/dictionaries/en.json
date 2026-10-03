@@ -585,7 +585,7 @@
     "moveIncomplete": "Move incomplete",
     "moveIntoItself": "A folder cannot be moved into itself.",
     "uploadFailed": "Upload failed",
-    "filter": "Filter the files",
+    "filter": "Search the files",
     "gridView": "Grid view",
     "listView": "List view",
     "selectAll": "Select all",
@@ -757,7 +757,23 @@
     "linkUntil": "Until {{date}}",
     "linkWithPassword": "with a password",
     "linkDownloads_one": "{{count}} download",
-    "linkDownloads_other": "{{count}} downloads"
+    "linkDownloads_other": "{{count}} downloads",
+    "recent": "Recent",
+    "favourites": "Favourites",
+    "favourite": "Favourite",
+    "sharedWithMe": "Shared with me",
+    "starred": "Added to favourites",
+    "unstarred": "Removed from favourites",
+    "starFailed": "Could not save the favourite",
+    "searchResults": "Results for “{{query}}”",
+    "noRecent": "No recent files",
+    "noRecentText": "Files changed in the space will show here, latest first.",
+    "noFavourites": "No favourites",
+    "noFavouritesText": "Add a file or folder to your favourites from its ⋯ menu to find it here.",
+    "nothingShared": "Nothing has been shared with you",
+    "nothingSharedText": "Files people send you in your channels and direct messages show here.",
+    "sentBy": "sent by {{name}}",
+    "directMessage": "direct message"
   },
   "status": {
     "checking": "Checking API health…"

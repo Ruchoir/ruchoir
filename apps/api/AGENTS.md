@@ -202,8 +202,10 @@ context and takes precedence here.
   never a guest, each with an optional end and argon2id password, counted and revoked; answered
   without a session by `links::public_router`, merged in `http.rs` behind the same per-IP rate
   limit as sign-in; a dead link, whatever killed it, is the same `404`; a password earns an hour's
-  grant in Valkey that the download carries; `RUCHOIR_PUBLIC_LINKS=false` turns it off), and
-  `routes`. Bytes are proxied through the API (the browser never
+  grant in Valkey that the download carries; `RUCHOIR_PUBLIC_LINKS=false` turns it off), `views`
+  (recent, favourites in `file_stars`, shared with me, a search of the whole space by name, each
+  entry with its path; `FileDto.starred` is set by the listings that know who asks, never in an
+  event a whole space shares), and `routes`. Bytes are proxied through the API (the browser never
   contacts the object store), validated server-side (size + sniffed type), stored under opaque keys
   (`spaces/{space}/{file}/{version}`); image uploads get intrinsic dimensions and a stored thumbnail.
   A message attachment uploads through its **conversation**, not its space, because that is what

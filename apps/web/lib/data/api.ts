@@ -1832,6 +1832,7 @@ type FileDto = {
   modified_by_id?: string;
   modified_by_name?: string;
   child_count?: number;
+  starred?: boolean;
   editors?: { id: string; name: string }[];
 };
 
@@ -1876,6 +1877,7 @@ function toSpaceFile(dto: FileDto): SpaceFile {
     createdAt: dto.created_at,
     mimeType: dto.mime_type,
     versionNo: dto.version_no,
+    starred: dto.starred === true,
   };
 }
 
@@ -2051,6 +2053,55 @@ export function versionDownloadUrl(fileId: string, versionId: string): string {
 /** `POST /files/{id}/versions/{vid}/restore`: an old version comes back as the newest. */
 export async function restoreVersion(fileId: string, versionId: string): Promise<SpaceFile> {
   return toSpaceFile(await apiPost<FileDto>(`/files/${fileId}/versions/${versionId}/restore`, {}));
+}
+
+// --- Views beyond a folder ---
+
+type ViewEntryDto = {
+  file: FileDto;
+  path: { id: string; name: string }[];
+  shared_by_name?: string;
+  shared_in_kind?: "channel" | "dm";
+  shared_in_name?: string;
+  shared_at?: string;
+};
+
+/** One entry of a view (recent, favourites, shared with me, search): the file and where it lives. */
+export type ViewEntry = {
+  file: SpaceFile;
+  /** Its folders from the space root down (empty at the root). */
+  path: { id: string; name: string }[];
+  sharedBy?: string;
+  sharedIn?: { kind: "channel" | "dm"; name?: string };
+  sharedAt?: string;
+};
+
+function toViewEntry(dto: ViewEntryDto): ViewEntry {
+  return {
+    file: toSpaceFile(dto.file),
+    path: dto.path ?? [],
+    sharedBy: dto.shared_by_name,
+    sharedIn: dto.shared_in_kind ? { kind: dto.shared_in_kind, name: dto.shared_in_name } : undefined,
+    sharedAt: dto.shared_at,
+  };
+}
+
+export type FilesView = "recent" | "starred" | "shared";
+
+/** `GET /spaces/{id}/files/{recent|starred|shared}`. */
+export async function getFilesView(spaceId: string, view: FilesView, signal?: AbortSignal): Promise<ViewEntry[]> {
+  return (await apiGet<ViewEntryDto[]>(`/spaces/${spaceId}/files/${view}`, signal)).map(toViewEntry);
+}
+
+/** `GET /spaces/{id}/files/search?q=`: the whole space's files and folders whose name contains `q`. */
+export async function searchFiles(spaceId: string, q: string, signal?: AbortSignal): Promise<ViewEntry[]> {
+  return (await apiGet<ViewEntryDto[]>(`/spaces/${spaceId}/files/search?q=${encodeURIComponent(q)}`, signal)).map(toViewEntry);
+}
+
+/** `PUT|DELETE /files/{id}/star`: keep among one's favourites, or not. */
+export async function setStarred(fileId: string, starred: boolean): Promise<void> {
+  if (starred) await apiPut<void>(`/files/${fileId}/star`, {});
+  else await apiDelete<void>(`/files/${fileId}/star`);
 }
 
 // --- Public links ---

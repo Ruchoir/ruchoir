@@ -592,7 +592,7 @@
     "moveIncomplete": "Movimiento incompleto",
     "moveIntoItself": "Una carpeta no puede moverse dentro de sí misma.",
     "uploadFailed": "No se ha podido subir",
-    "filter": "Filtrar los archivos",
+    "filter": "Buscar en los archivos",
     "gridView": "Vista de cuadrícula",
     "listView": "Vista de lista",
     "selectAll": "Seleccionar todo",
@@ -777,7 +777,23 @@
     "linkWithPassword": "con contraseña",
     "linkDownloads_one": "{{count}} descarga",
     "linkDownloads_other": "{{count}} descargas",
-    "linkDownloads_many": "{{count}} descargas"
+    "linkDownloads_many": "{{count}} descargas",
+    "recent": "Recientes",
+    "favourites": "Favoritos",
+    "favourite": "Favorito",
+    "sharedWithMe": "Compartidos conmigo",
+    "starred": "Añadido a favoritos",
+    "unstarred": "Quitado de favoritos",
+    "starFailed": "No se pudo guardar el favorito",
+    "searchResults": "Resultados para «{{query}}»",
+    "noRecent": "No hay archivos recientes",
+    "noRecentText": "Los archivos modificados en el espacio aparecerán aquí, los más recientes primero.",
+    "noFavourites": "No hay favoritos",
+    "noFavouritesText": "Añade un archivo o una carpeta a favoritos desde su menú ⋯ para encontrarlo aquí.",
+    "nothingShared": "No se ha compartido nada contigo",
+    "nothingSharedText": "Los archivos que te envían en tus canales y mensajes directos aparecen aquí.",
+    "sentBy": "enviado por {{name}}",
+    "directMessage": "mensaje directo"
   },
   "status": {
     "checking": "Comprobando el estado de la API…"

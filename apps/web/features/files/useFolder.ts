@@ -76,7 +76,8 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
         if (event.type === "updated") {
           setEntries((prev) => {
             if (prev.some((f) => f.id === event.file.id)) {
-              return prev.map((f) => (f.id === event.file.id ? { ...event.file, editors: f.editors } : f));
+              // The space's event knows nothing of this person's favourites: keep theirs.
+              return prev.map((f) => (f.id === event.file.id ? { ...event.file, editors: f.editors, starred: f.starred } : f));
             }
             // A private conversation's file is in no folder: it never joins a listing.
             const here = !event.conversationId && event.file.parentFolderId === folderRef.current;
@@ -109,7 +110,7 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
           if (!job.replaceFileId) bumpCount(file.parentFolderId);
           return;
         }
-        setEntries((prev) => (prev.some((f) => f.id === file.id) ? prev.map((f) => (f.id === file.id ? { ...file, editors: f.editors } : f)) : [...prev, file]));
+        setEntries((prev) => (prev.some((f) => f.id === file.id) ? prev.map((f) => (f.id === file.id ? { ...file, editors: f.editors, starred: f.starred } : f)) : [...prev, file]));
       }),
     [spaceId],
   );
@@ -124,5 +125,10 @@ export function useFolder(spaceId: string, onError: () => void, initialFolderId?
     setEntries((prev) => (prev.some((f) => f.id === file.id) ? prev.map((f) => (f.id === file.id ? { ...file, editors: f.editors } : f)) : [...prev, file]));
   }, []);
 
-  return { entries, breadcrumb, folderId, loading, load, reload, upsert };
+  /** Change one entry in place (a favourite marked), without asking the server again. */
+  const patch = useCallback((id: string, change: Partial<SpaceFile>) => {
+    setEntries((prev) => prev.map((f) => (f.id === id ? { ...f, ...change } : f)));
+  }, []);
+
+  return { entries, breadcrumb, folderId, loading, load, reload, upsert, patch };
 }

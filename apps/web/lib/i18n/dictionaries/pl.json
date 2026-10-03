@@ -599,7 +599,7 @@
     "moveIncomplete": "Przenoszenie niekompletne",
     "moveIntoItself": "Folder nie może zostać przeniesiony do samego siebie.",
     "uploadFailed": "Wysyłanie nie powiodło się",
-    "filter": "Filtruj pliki",
+    "filter": "Szukaj w plikach",
     "gridView": "Widok siatki",
     "listView": "Widok listy",
     "selectAll": "Zaznacz wszystko",
@@ -797,7 +797,23 @@
     "linkDownloads_one": "{{count}} pobranie",
     "linkDownloads_other": "{{count}} pobrania",
     "linkDownloads_many": "{{count}} pobrań",
-    "linkDownloads_few": "{{count}} pobrania"
+    "linkDownloads_few": "{{count}} pobrania",
+    "recent": "Ostatnie",
+    "favourites": "Ulubione",
+    "favourite": "Ulubiony",
+    "sharedWithMe": "Udostępnione mi",
+    "starred": "Dodano do ulubionych",
+    "unstarred": "Usunięto z ulubionych",
+    "starFailed": "Nie udało się zapisać ulubionego",
+    "searchResults": "Wyniki dla „{{query}}”",
+    "noRecent": "Brak ostatnich plików",
+    "noRecentText": "Pliki zmienione w przestrzeni pojawią się tutaj, od najnowszych.",
+    "noFavourites": "Brak ulubionych",
+    "noFavouritesText": "Dodaj plik lub folder do ulubionych z jego menu ⋯, aby znaleźć go tutaj.",
+    "nothingShared": "Nic ci nie udostępniono",
+    "nothingSharedText": "Pliki wysyłane ci w kanałach i wiadomościach bezpośrednich pojawiają się tutaj.",
+    "sentBy": "wysłał(a) {{name}}",
+    "directMessage": "wiadomość bezpośrednia"
   },
   "status": {
     "checking": "Sprawdzanie stanu API…"

@@ -369,6 +369,8 @@ export type SpaceFile = {
   createdAt?: string;
   mimeType?: string;
   versionNo?: number;
+  /** Whether the person keeps it among their favourites. */
+  starred?: boolean;
 };
 
 /** Someone editing a file in the office editor. */

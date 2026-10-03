@@ -368,6 +368,13 @@ a file to someone) and, for whoever manages it, public links. A public link's pa
 of its own, `app/s/page.tsx` (`/s/?t=<token>`, exported like `/status`, so it needs no session and
 loads none of the app): `features/share/PublicShareScreen.tsx`.
 
+**Views.** The row of views is All files, Recent, Favourites, Shared with me, Trash (a row that
+scrolls sideways on a phone, `.wc-tabs--scroll`). The search field searches the whole space (server
+side, `useView`), whichever view it is typed in; a search, Recent, Favourites and Shared with me are
+"flat" lists whose entries say where they live (`Item.location`), and opening a folder from them
+goes to it in All files. Uploading by drop and moving by drag only happen in a folder. A favourite
+is the person's own: a space's `files.updated` event keeps the star the list already had.
+
 **Rights are computed on the client** with the server's own rule (`canManage`: the entry's owner, or
 an owner or administrator of the space, as `authz::ensure_readable`'s `can_edit`). They are not sent
 per entry because `files.updated` reaches every member with one payload. Rename, move, delete and
