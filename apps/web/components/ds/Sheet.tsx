@@ -51,7 +51,11 @@ export function Sheet({ open = true, label, heading = false, onClose, children, 
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      before?.focus?.();
+      // Back where it was, unless a row's action has put the focus somewhere on purpose (a dialog's
+      // field): taking it back there would hide a phone's keyboard, and a key typed next would land
+      // on whatever opened the sheet.
+      const active = document.activeElement;
+      if (!active || active === document.body || active.closest(".wc-sheet")) before?.focus?.();
     };
   }, [open]);
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, Button, IconButton } from "@/components/ds";
 import { avatarBase64Uri } from "@/lib/avatar";
 import { useTranslation } from "@/lib/i18n";
+import type { SpaceFile } from "@/lib/data";
 import { useOfficeSession } from "./useOfficeSession";
 
 /**
@@ -45,7 +46,8 @@ export type OfficeEditorProps = {
    * document, Escape left to the editor. The engine's own close button stays.
    */
   bare?: boolean;
-  onClose: () => void;
+  /** Closed, with the file it showed (a conversion's copy once made), so the caller can go back to its folder. */
+  onClose: (file?: SpaceFile) => void;
 };
 
 /**
@@ -117,10 +119,14 @@ export function OfficeEditor({
   });
   // Closing says goodbye first and waits for it (see `useOfficeSession`'s `leave`), once.
   const closingRef = useRef(false);
+  const shownRef = useRef(shown);
+  useEffect(() => {
+    shownRef.current = shown;
+  });
   const close = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
-    void leave().finally(() => onCloseRef.current());
+    void leave().finally(() => onCloseRef.current(shownRef.current ?? undefined));
   }, [leave]);
   const closeHandlerRef = useRef(close);
   useEffect(() => {
