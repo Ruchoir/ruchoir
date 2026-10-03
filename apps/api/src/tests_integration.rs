@@ -8497,6 +8497,131 @@ async fn a_new_version_reaches_the_space_as_files_updated() {
     assert_eq!(event["payload"]["file"]["version_no"], 2);
 }
 
+/// The entries of a folder (the root when `folder` is `None`), as the listing returns them.
+async fn listing_entries(
+    app: &TestApp,
+    cookie: &str,
+    space_id: Uuid,
+    folder: Option<Uuid>,
+) -> Vec<Value> {
+    let query = folder.map(|id| format!("?folder={id}")).unwrap_or_default();
+    let listing: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space_id}/files{query}"),
+            cookie,
+        )
+        .send()
+        .await
+        .expect("listing")
+        .json()
+        .await
+        .expect("json");
+    listing["entries"].as_array().expect("entries").clone()
+}
+
+#[tokio::test]
+async fn a_listing_says_who_changed_a_file_last_and_how_full_a_folder_is() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    // Alice owns the file; Bob, an administrator, uploads its second version.
+    let note = upload_bytes(&app, &alice, fx.space_id, "note.txt", b"one").await;
+    set_space_role(&app.db, fx.space_id, fx.bob, "admin").await;
+    let form = reqwest::multipart::Form::new().part(
+        "file",
+        reqwest::multipart::Part::bytes(b"two".to_vec()).file_name("note.txt"),
+    );
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/files/{note}/versions"),
+            &bob,
+        )
+        .multipart(form)
+        .send()
+        .await
+        .expect("new version");
+    assert_eq!(res.status(), 201);
+
+    // A folder holding two files, one of which is then removed.
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/folders", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": "F" }))
+        .send()
+        .await
+        .expect("folder");
+    assert_eq!(res.status(), 201);
+    let folder: Uuid = res.json::<Value>().await.expect("json")["id"]
+        .as_str()
+        .expect("id")
+        .parse()
+        .expect("uuid");
+    let mut inside = Vec::new();
+    for name in ["a.txt", "b.txt"] {
+        let form = reqwest::multipart::Form::new()
+            .text("folder_id", folder.to_string())
+            .part(
+                "file",
+                reqwest::multipart::Part::bytes(b"x".to_vec()).file_name(name.to_owned()),
+            );
+        let res = app
+            .req(
+                reqwest::Method::POST,
+                &format!("/api/v1/spaces/{}/files", fx.space_id),
+                &alice,
+            )
+            .multipart(form)
+            .send()
+            .await
+            .expect("upload into the folder");
+        assert_eq!(res.status(), 201);
+        inside.push(res.json::<Value>().await.expect("json")["id"].clone());
+    }
+    let res = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/files/{}", inside[0].as_str().expect("id")),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("delete");
+    assert!(res.status().is_success());
+
+    let root = listing_entries(&app, &alice, fx.space_id, None).await;
+    let note_entry = root
+        .iter()
+        .find(|e| e["id"] == note.to_string())
+        .expect("the note is listed");
+    assert_eq!(note_entry["owner_id"], fx.alice.to_string());
+    assert_eq!(note_entry["modified_by_id"], fx.bob.to_string());
+    assert!(note_entry["modified_by_name"].is_string());
+    assert_ne!(note_entry["modified_by_name"], note_entry["owner_name"]);
+    assert!(
+        note_entry.get("child_count").is_none(),
+        "a file has no entries"
+    );
+    let folder_entry = root
+        .iter()
+        .find(|e| e["id"] == folder.to_string())
+        .expect("the folder is listed");
+    assert_eq!(
+        folder_entry["child_count"], 1,
+        "a removed file is not counted"
+    );
+    assert!(folder_entry.get("modified_by_id").is_none());
+}
+
 /// A file row with no bytes, enough for the rights checks.
 async fn insert_file_row(db: &DatabaseConnection, space_id: Uuid, owner: Uuid, name: &str) -> Uuid {
     let id = Uuid::new_v4();

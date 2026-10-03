@@ -51,6 +51,10 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 - Build (static export to `out/`): `pnpm --filter @ruchoir/web build`
 - Lint: `pnpm --filter @ruchoir/web lint`
 - Responsive audit: `pnpm --filter @ruchoir/web audit:responsive` (run against a live dev server)
+- Unit tests: `pnpm --filter @ruchoir/web test`, Node's own runner on `features/**/*.test.ts` (types
+  stripped by Node, no dependency). Only pure modules with no imports are tested this way (today
+  `features/files/model.ts`): a test imports its module with the `.ts` extension, which is why
+  `tsconfig.json` excludes `**/*.test.ts` and the i18n audit skips them.
 
 Permission gates in the shell: `canBrowseSpace` (not a guest) hides the space-wide entries (files,
 new channel), and `canAdministerSpace` (owner or admin) hides the space settings and the invitation.
@@ -322,6 +326,35 @@ not rendered (the `message_link_previews` table exists but nothing populates or 
 server-side link fetching needs a sovereignty/SSRF design first). A member profile still falls back to
 the mock by name only when no user id is resolvable for them (the member list now supplies ids).
 
+## Files screen (`features/files/`)
+
+The space's files, shown one folder at a time as a Drive shows them. `FilesScreen.tsx` only
+assembles; each part has its own file:
+
+- `model.ts`: the pure logic, with no imports (tested by `model.test.ts`): ordering (folders first,
+  numeric collation), the accent-blind filter, `canManage`, `actionsFor` (the actions an entry offers,
+  in menu order) and selection ranges. Every surface asks it the same questions.
+- `useFolder.ts` (a folder kept current, live events included), `useSelection.ts` (click, Ctrl/Cmd,
+  Shift ranges over the visible order), `useDragMove.ts` (dragging entries onto a folder or a
+  breadcrumb step), `useLongPress.ts` (a phone's selection gesture).
+- `FileTable.tsx` (desktop: sorted headings, a click on the name opens, elsewhere selects, double
+  click opens, right click opens the menu at the pointer, roving focus and keys), `FileRows.tsx`
+  (phone), `FileGrid.tsx` (folders as tiles, then files as cards), `FileName.tsx` (a name cut from its
+  end with its extension kept).
+- `ActionMenu.tsx` draws an entry's actions as a `MenuPopover` or, on a phone, a `Sheet`; `NewMenu`,
+  `MoveDialog` (walk the tree, folders being moved greyed out), `DetailsPanel`, `FileDialogs`
+  (rename, delete), `FilesHeader` and `Breadcrumb` complete it.
+
+**Rights are computed on the client** with the server's own rule (`canManage`: the entry's owner, or
+an owner or administrator of the space, as `authz::ensure_readable`'s `can_edit`). They are not sent
+per entry because `files.updated` reaches every member with one payload. Rename, move, delete and
+"new version" are only offered when `canManage` holds, in every surface (menus, selection bar,
+keyboard, drag); the server still decides, and a refusal is still reported.
+
+Gotcha: never mix a `border` shorthand with a `borderColor` that changes in the same style object.
+When the colour goes back to `undefined`, React removes `border-color` and the border falls back to
+the text colour (black cards after a hover). Write the three longhands instead.
+
 ## Responsive shell
 
 Below ~960px (`useCompact()`), `AppRoot` switches from the desktop three-column shell to a compact
@@ -332,7 +365,7 @@ left `Drawer` (DS); the channel right-panel (`RightDock`) becomes a full-width o
 `ChannelScreen compact`. `Sidebar` takes `compact` (full width, no wordmark/header/search) and `only`
 (render just one section for a bottom-tab). At and above ~960px the desktop columns are unchanged.
 Breakpoint chosen from the audit (content breaks up to ~900px). Responsive views take a `compact`
-prop: `FilesScreen` (card grid instead of the 7-column table; toolbar/header wrap), `WorkspaceSettings`
+prop: `FilesScreen` (rows instead of the table, sheets instead of menus, a floating "+"), `WorkspaceSettings`
 (sub-nav wraps above the panel; rows wrap), `ChannelScreen` (header actions in a horizontal scroller,
 title/topic truncate). The channel right panel defaults to closed (`panel: null`) and `openChannel` resets it, so you land on
 the conversation, not a full-screen dock, and a panel opened in one channel does not carry into the next. Below 600px `.wc-dlg` becomes a full-width bottom sheet whose

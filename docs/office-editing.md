@@ -276,8 +276,8 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   buttons, the open ribbon tab, the selected preview, the mobile editor's links by night. Selected
   text and cells are drawn on the engine's canvas in colours it writes as is (defect 11): the page
   swaps them for the accent too.
-- **`NewDocumentMenu.tsx`:** "New document / spreadsheet / presentation" in the files toolbar,
-  asking for a name, then opening the editor on the new file.
+- **New document:** the files screen's "+ New" menu (`features/files/NewMenu.tsx`) offers a
+  document, a spreadsheet or a presentation, asks for a name, then opens the editor on the new file.
 - **`EditingBadge.tsx`:** the "being edited by …" mark on a row of the file list, fed by the
   listing and the `files.editing` event.
 - **Opening a file:** a Word, Excel or PowerPoint file (or OpenDocument) opens straight in the

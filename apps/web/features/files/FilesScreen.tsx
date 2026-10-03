@@ -1,125 +1,50 @@
 "use client";
 
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useId, useRef, useState } from "react";
 import { FileViewer, viewerKind } from "./FileViewer";
 import { ImageViewer } from "./ImageViewer";
-import { Avatar, brandFor, Button, Card, Checkbox, Dialog, EmptyState, Field, FileIcon, Icon, IconButton, Input, Skeleton, SkeletonGroup, Tabs, Tag } from "@/components/ds";
+import { Button, Dialog, EmptyState, FileIcon, type IconName, Skeleton, SkeletonGroup } from "@/components/ds";
 import type { SpaceFile } from "@/lib/data";
 import type { OfficeCapabilities } from "@/lib/data/types";
-import { onFileEvent } from "@/lib/fileEvents";
 import { fileUrl } from "@/lib/spaceUrl";
-import { EditingBadge } from "@/features/office/EditingBadge";
-import { NewDocumentMenu } from "@/features/office/NewDocumentMenu";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
-import {
-  createFolder as apiCreateFolder,
-  deleteFile,
-  fileDownloadUrl,
-  filePreviewUrl,
-  getFolder,
-  getInstanceCapabilities,
-  officeActionFor,
-  updateFile,
-  uploadFile,
-  uploadFileVersion,
-} from "@/lib/data/api";
+import { deleteFile, fileDownloadUrl, getInstanceCapabilities, officeActionFor, updateFile, uploadFile, uploadFileVersion } from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
 import { useSettings } from "../app/settings";
 import type { Toast } from "../app/types";
-import { getAvatar } from "@/lib/data";
-import { key, useTranslation } from "@/lib/i18n";
+import { useTranslation } from "@/lib/i18n";
 import { formatBytes, formatStamp } from "@/lib/i18n/format";
+import { ActionMenu, type MenuEntry } from "./ActionMenu";
+import { DetailsPanel, type DetailsSubject } from "./DetailsPanel";
+import { DeleteDialog, RenameDialog } from "./FileDialogs";
+import { FileGrid } from "./FileGrid";
+import { FileRows } from "./FileRows";
+import { FilesHeader, type Layout } from "./FilesHeader";
+import { FileTable } from "./FileTable";
+import { entryOf, type Item, type ListProps, type MenuAt } from "./listTypes";
+import { type ActionId, actionsFor, canManage, filterEntries, type Sort, sortEntries } from "./model";
+import { MoveDialog } from "./MoveDialog";
+import { NewMenu } from "./NewMenu";
+import { useDragMove } from "./useDragMove";
+import { useFolder } from "./useFolder";
+import { useSelection } from "./useSelection";
 
 const styles: Record<string, CSSProperties> = {
-  root: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 },
-  selectionBar: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    flex: "none",
-    padding: "8px 16px",
-    borderBottom: "1px solid var(--border-subtle)",
-    background: "var(--surface-selected)",
-  },
-  top: {
-    height: "var(--topbar-height)",
-    flex: "none",
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "0 12px 0 20px",
-    borderBottom: "1.5px solid var(--border-subtle)",
-  },
-  crumb: {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    margin: 0, // rendered as the page <h1> (breadcrumb heading)
-    fontSize: "var(--text-lg)",
-    fontWeight: 700,
-    color: "var(--text-strong)",
-    letterSpacing: "var(--tracking-tight)",
-    // One line, shortened at its end: a long space or folder name wrapped onto three lines and
-    // pushed the two buttons beside it off the screen at the largest text size.
-    minWidth: 0,
-    overflow: "hidden",
-    whiteSpace: "nowrap",
-  },
-  body: { flex: 1, overflow: "auto", padding: 24 },
-  bar: { display: "flex", alignItems: "center", gap: 10, marginBottom: 14 },
-  tableWrap: {
-    border: "2px solid var(--ink)",
-    borderRadius: "var(--radius-md)",
-    overflow: "hidden",
-    background: "var(--surface-card)",
-  },
-  table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" },
-  th: {
-    fontFamily: "var(--font-mono)",
-    height: 34,
-    textAlign: "left",
-    fontSize: "var(--text-2xs)",
-    fontWeight: 500,
-    color: "var(--text-muted)",
-    padding: "0 12px",
-    background: "var(--surface-canvas)",
-    borderBottom: "1.5px solid var(--border-subtle)",
-    verticalAlign: "middle",
-    whiteSpace: "nowrap",
-  },
-  td: {
-    height: 44,
-    padding: "0 12px",
-    borderBottom: "1px solid var(--border-subtle)",
-    fontSize: "var(--text-xs)",
-    color: "var(--text-body)",
-    verticalAlign: "middle",
-    overflow: "hidden",
-  },
-  checkCell: { display: "flex", alignItems: "center", justifyContent: "center" },
-  grid: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(180px, 100%), 1fr))", gap: 12 },
-  /** Fixed-height preview area, so cards stay aligned whatever each file turns out to be. */
-  preview: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 96,
-    borderRadius: "var(--radius-md)",
-    background: "var(--surface-sunken)",
-    overflow: "hidden",
-  },
-  previewImage: { width: "100%", height: "100%", objectFit: "cover" },
+  root: { position: "relative", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 },
+  main: { flex: 1, display: "flex", minHeight: 0, minWidth: 0 },
+  body: { flex: 1, overflow: "auto", padding: 24, minWidth: 0 },
 };
 
-/** Shorten a file name from the middle so the extension stays visible (e.g. "Rapproche…mars.csv"). */
-function truncateMiddle(name: string, max = 22): string {
-  if (name.length <= max) return name;
-  const dot = name.lastIndexOf(".");
-  const ext = dot > 0 && name.length - dot <= 6 ? name.slice(dot) : "";
-  const base = ext ? name.slice(0, name.length - ext.length) : name;
-  const keep = Math.max(4, max - ext.length - 1);
-  return `${base.slice(0, keep)}…${ext}`;
-}
+/** Each action's icon, the same in every menu. "open" is refined per entry (folder, editor, viewer). */
+const ACTION_ICONS: Record<ActionId, IconName> = {
+  open: "folder-open",
+  download: "download",
+  rename: "type",
+  move: "arrow-right",
+  newVersion: "upload",
+  details: "info",
+  delete: "trash-2",
+};
 
 /** Whether a file name looks like an image (drives the preview rendering). */
 function isImage(name: string): boolean {
@@ -140,11 +65,13 @@ export type FilesScreenProps = {
   /** The space whose files are shown. */
   spaceId: string;
   workspaceName: string;
-  currentUser: string;
+  /** The signed-in account, and its role in the space: together they decide who may manage what. */
+  currentUserId?: string;
+  spaceRole?: string;
   onNotify: (toast: Toast) => void;
-  /** Compact (mobile) mode: force the card grid (the wide table cannot fit) and let the toolbar wrap. */
   /** A phone: the way back to the tabs, at the start of the heading. */
   onBack?: () => void;
+  /** Compact (phone) mode: rows instead of the table, sheets instead of menus, a floating "+". */
   compact?: boolean;
   /** The space's slug, for the editor's own address (none: the address is left alone). */
   spaceSlug?: string;
@@ -154,10 +81,19 @@ export type FilesScreenProps = {
   onEditorChange?: (open: boolean) => void;
 };
 
-/** The space files view, backed by the API (folder tree, upload, download, preview). */
+/**
+ * The space's files: a folder at a time, as a Drive shows it.
+ *
+ * This component assembles; each part has its own file. `model.ts` decides the order, the rights and
+ * the actions; `useFolder` keeps the folder current; the table, the phone rows and the grid draw it;
+ * `ActionMenu` offers each entry's actions wherever they are asked for (⋯, a right click, a long
+ * press then ⋯); the dialogs carry out what needs confirming.
+ */
 export function FilesScreen({
   spaceId,
   workspaceName,
+  currentUserId,
+  spaceRole,
   onNotify,
   compact = false,
   onBack,
@@ -166,82 +102,34 @@ export function FilesScreen({
   onEditorChange,
 }: FilesScreenProps) {
   const { t } = useTranslation();
+  const rootLabel = t("sidebar.spaceFiles");
 
-  const [entries, setEntries] = useState<SpaceFile[]>([]);
-  const [breadcrumb, setBreadcrumb] = useState<{ id: string; name: string }[]>([]);
-  const [folderId, setFolderId] = useState<string | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
-  const [q, setQ] = useState("");
-  // The tab is state, so its value is an identifier rather than a French word: a label belongs in
-  // the dictionary, and comparing against one would break the moment it is translated.
-  const [tab, setTab] = useState("all");
-  // Seeded from the preference, then free to change for this visit: a default is a starting point,
-  // not a lock.
-  const settings = useSettings();
-  const [layout, setLayout] = useState<"list" | "grid">(settings.filesLayout);
-  // The 7-column table cannot fit a phone; force the responsive card grid on compact.
-  const effectiveLayout = compact ? "grid" : layout;
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [folderOpen, setFolderOpen] = useState(false);
-  const [folderName, setFolderName] = useState("");
-  const [preview, setPreview] = useState<SpaceFile | null>(null);
-  // What a confirmed removal would take. Held as the entries themselves, so the dialog can name
-  // them and warn about a folder, which takes everything under it.
-  const [pendingDelete, setPendingDelete] = useState<SpaceFile[]>([]);
-  /** The entry being renamed, and the name as typed. */
-  const [renaming, setRenaming] = useState<{ entry: SpaceFile; name: string } | null>(null);
-  /**
-   * Entries picked up for a move, kept while the folder browser is used to choose where.
-   *
-   * The destination is chosen by walking to it, which is the navigation this screen already has,
-   * rather than by a second tree inside a dialog. It survives `load`, which clears the selection.
-   */
-  const [moving, setMoving] = useState<SpaceFile[]>([]);
-  const uploadRef = useRef<HTMLInputElement>(null);
-  /** The file a new version is being picked for, and the input that picks it. */
-  const versionRef = useRef<HTMLInputElement>(null);
-  const [versionTarget, setVersionTarget] = useState<SpaceFile | null>(null);
-
-  // `onNotify` (AppRoot's toast) is a fresh function each parent render; keep the latest in a ref so
-  // `load` stays stable across renders (otherwise the load effect below refires every render, which
-  // loops a failing fetch and never lets the network go idle).
-  const onNotifyRef = useRef(onNotify);
-  // Same treatment for the translator: the loader is memoised on the space id, and a language change
-  // must not rebuild it and refetch the folder.
-  const tRef = useRef(t);
-  useEffect(() => {
-    onNotifyRef.current = onNotify;
-    tRef.current = t;
-  });
-
-  /** Load a folder (the space root when `id` is undefined) and reset the local view state. */
-  const load = useCallback(
-    (id?: string) => {
-      setLoading(true);
-      getFolder(spaceId, id)
-        .then((listing) => {
-          setEntries(listing.entries);
-          setBreadcrumb(listing.breadcrumb);
-          setFolderId(listing.folderId);
-          setSelected(new Set());
-          setLoading(false);
-        })
-        .catch(() => {
-          setEntries([]);
-          setLoading(false);
-          onNotifyRef.current({ tone: "danger", title: tRef.current(key("files.loadFailed")) });
-        });
-    },
-    [spaceId],
+  const { entries, breadcrumb, folderId, loading, load, reload } = useFolder(spaceId, () =>
+    onNotify({ tone: "danger", title: t("files.loadFailed") }),
   );
 
-  useEffect(() => {
-    // Load the space root on mount (and when the space changes). Data fetch on mount is the point.
-    /* eslint-disable react-hooks/set-state-in-effect */
-    load(undefined);
-    setQ("");
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [load]);
+  // Seeded from the preference on a desktop, then free to change for this visit. A phone starts on
+  // the list, which fits a narrow screen; the grid stays one tap away.
+  const settings = useSettings();
+  const [layout, setLayout] = useState<Layout>(compact ? "list" : settings.filesLayout);
+  const [sort, setSort] = useState<Sort>({ key: "name", dir: "asc" });
+  const [q, setQ] = useState("");
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsSheet, setDetailsSheet] = useState<DetailsSubject | null>(null);
+  const [menu, setMenu] = useState<{ item: Item; at: MenuAt } | null>(null);
+  const [renaming, setRenaming] = useState<Item | null>(null);
+  const [deleting, setDeleting] = useState<{ items: Item[]; skipped: number }>({ items: [], skipped: 0 });
+  const [moving, setMoving] = useState<Item[]>([]);
+  const [preview, setPreview] = useState<SpaceFile | null>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  /**
+   * The file a new version is being picked for, and the input that picks it. The input is reached by
+   * its id rather than a ref: the menus are built during render, and a ref read from a function
+   * built there is one the compiler cannot tell from a ref read while rendering.
+   */
+  const versionInputId = useId();
+  const pickVersion = () => document.getElementById(versionInputId)?.click();
+  const [versionTarget, setVersionTarget] = useState<SpaceFile | null>(null);
 
   // What the office editor opens here, if the instance has one.
   const [office, setOffice] = useState<OfficeCapabilities | null>(null);
@@ -301,194 +189,242 @@ export function FilesScreen({
     setEditing({ fileId, convert });
   };
 
-  // Live: a new version, a file created by the server, who is editing what.
-  const folderRef = useRef(folderId);
-  useEffect(() => {
-    folderRef.current = folderId;
+  // The list as shown: filtered, sorted, each entry with what this person may do with it.
+  const items: Item[] = sortEntries(
+    filterEntries(
+      entries.map((f) => ({ ...entryOf(f), file: f })),
+      q,
+    ),
+    sort,
+  ).map(({ file }) => {
+    const entry = entryOf(file);
+    const manage = canManage(entry, currentUserId, spaceRole);
+    return { key: file.id ?? file.name, file, entry, manage, actions: actionsFor(entry, manage) };
   });
-  useEffect(
-    () =>
-      onFileEvent((event) => {
-        if (event.spaceId !== spaceId) return;
-        if (event.type === "updated") {
-          setEntries((prev) => {
-            if (prev.some((f) => f.id === event.file.id)) {
-              return prev.map((f) => (f.id === event.file.id ? { ...event.file, editors: f.editors } : f));
-            }
-            // A private conversation's file is in no folder: it never joins a listing.
-            const here = !event.conversationId && event.file.parentFolderId === folderRef.current;
-            return here ? [...prev, event.file] : prev;
-          });
-        } else {
-          setEntries((prev) => prev.map((f) => (f.id === event.fileId ? { ...f, editors: event.editors } : f)));
-        }
-      }),
-    [spaceId],
-  );
+  const selection = useSelection(items.map((i) => i.key));
+  const selectedItems = items.filter((i) => selection.selected.has(i.key));
 
-  const currentFolderName = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].name : null;
-  const parentId = breadcrumb.length > 1 ? breadcrumb[breadcrumb.length - 2].id : undefined;
+  // Another space is another drive: nothing selected, filtered or open carries over to it.
+  const [shownSpace, setShownSpace] = useState(spaceId);
+  if (shownSpace !== spaceId) {
+    setShownSpace(spaceId);
+    setQ("");
+    selection.clear();
+    setDetailsOpen(false);
+    setPreview(null);
+  }
 
-  const rows = entries
-    .filter((f) => f.name.toLowerCase().includes(q.toLowerCase()))
-    .filter((f) => tab === "all" || (tab === "imported" ? !!f.imported : f.kind === "folder"));
+  /** Open a folder: a new place, so no selection and no filter carried into it. */
+  const openFolder = (id: string | undefined) => {
+    selection.clear();
+    setQ("");
+    load(id);
+  };
+  /** Reload the folder after a change, dropping a selection that may name entries now gone. */
+  const refresh = () => {
+    selection.clear();
+    reload();
+  };
 
-  const openEntry = (f: SpaceFile) => {
-    if (f.kind === "folder") {
-      if (f.id) load(f.id);
-      return;
-    }
+  /** What "open" does for a file: the editor, the full-page viewer, or the plain preview. */
+  const opensInEditor = (f: SpaceFile) => {
     // A Word, Excel or PowerPoint file opens straight in the editor, as in any office suite; so does
     // a format only the editor can show (a Visio drawing). Everything else, and a PDF, is previewed,
     // where the editor stays one button away.
     const action = officeActionFor(f.name, office);
-    const opensInEditor =
-      (action === "edit" && viewerKind(f.name) === "office") ||
-      (action === "view" && !viewerKind(f.name) && !isImage(f.name));
-    if (f.id && opensInEditor) {
-      openEditor(f.id, false);
+    return (action === "edit" && viewerKind(f.name) === "office") || (action === "view" && !viewerKind(f.name) && !isImage(f.name));
+  };
+  const openEntry = (item: Item) => {
+    const f = item.file;
+    if (item.entry.isFolder) {
+      if (f.id) openFolder(f.id);
+      return;
+    }
+    if (f.id && opensInEditor(f)) openEditor(f.id, false);
+    else setPreview(f);
+  };
+
+  /** The entries an action on `item` applies to: the whole selection when `item` is part of it. */
+  const groupOf = (item: Item) => (selection.selected.has(item.key) && selectedItems.length > 1 ? selectedItems : [item]);
+
+  const requestDelete = (group: Item[]) => {
+    const allowed = group.filter((i) => i.manage && i.file.id);
+    if (allowed.length === 0) return;
+    setDeleting({ items: allowed, skipped: group.length - allowed.length });
+  };
+  const requestMove = (group: Item[]) => {
+    const allowed = group.filter((i) => i.manage && i.file.id);
+    if (allowed.length > 0) setMoving(allowed);
+  };
+  const showDetails = (item: Item) => {
+    if (compact) {
+      setDetailsSheet({ kind: "entry", file: item.file });
     } else {
-      setPreview(f);
+      selection.set([item.key]);
+      setDetailsOpen(true);
     }
   };
 
-  const totalBytes = rows.reduce((sum, f) => sum + f.sizeBytes, 0);
-  const rowKey = (f: SpaceFile) => f.id ?? f.name;
-  const allSelected = rows.length > 0 && rows.every((f) => selected.has(rowKey(f)));
-
-  const toggle = (key: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-
-  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(rows.map(rowKey)));
-
-  // The selection as entries rather than keys: a removal needs the id and the name, and a key is
-  // only a name when the entry has no id.
-  const selectedEntries = rows.filter((f) => f.id && selected.has(rowKey(f)));
-
-  const createFolder = () => {
-    const name = folderName.trim();
-    if (!name) return;
-    setFolderName("");
-    setFolderOpen(false);
-    apiCreateFolder(spaceId, name, folderId)
-      .then(() => {
-        onNotify({ tone: "success", title: t("files.folderCreated"), description: name });
-        load(folderId);
-      })
-      .catch(() => onNotify({ tone: "danger", title: t("files.folderFailed") }));
+  const runAction = (item: Item, action: ActionId) => {
+    if (!item.actions.includes(action)) return;
+    const f = item.file;
+    switch (action) {
+      case "open":
+        return openEntry(item);
+      case "download":
+        if (f.id) download(f.id, f.name);
+        return;
+      case "rename":
+        return setRenaming(item);
+      case "move":
+        return requestMove(groupOf(item));
+      case "newVersion":
+        setVersionTarget(f);
+        pickVersion();
+        return;
+      case "details":
+        return showDetails(item);
+      case "delete":
+        return requestDelete(groupOf(item));
+    }
   };
 
-  /**
-   * Remove the entries the dialog is holding.
-   *
-   * Settled rather than raced: one refusal must not hide the others, and a partial result still
-   * needs the folder reloaded. A 403 is the one worth naming, since it means the file belongs to
-   * someone else rather than that anything went wrong.
-   */
-  const confirmDelete = () => {
-    const targets = pendingDelete;
-    setPendingDelete([]);
-    if (targets.length === 0) return;
-    Promise.allSettled(targets.filter((f) => f.id).map((f) => deleteFile(f.id as string)))
-      .then((results) => {
-        const gone = results.filter((r) => r.status === "fulfilled").length;
-        const refused = results.some((r) => r.status === "rejected" && isApiError(r.reason, 403));
-        if (gone > 0) {
-          onNotify({
-            tone: "success",
-            title: gone === 1 ? t("files.deleted") : t("files.deletedMany", { count: gone }),
-            description: gone === 1 ? targets[0].name : undefined,
-          });
-        }
-        if (gone < results.length) {
-          onNotify({
-            tone: "danger",
-            title: t("files.deleteIncomplete"),
-            description: refused
-              ? t("files.ownFilesOnlyDelete")
-              : t("common.tryAgain"),
-          });
-        }
-        load(folderId);
+  const actionLabel = (item: Item, action: ActionId): string => {
+    switch (action) {
+      case "open":
+        if (item.entry.isFolder) return t("files.openAction");
+        return opensInEditor(item.file) ? t("office.openInEditor") : t("files.previewAction");
+      case "download":
+        return t("message.download");
+      case "rename":
+        return t("files.rename");
+      case "move":
+        return t("files.move");
+      case "newVersion":
+        return t("files.uploadNewVersion");
+      case "details":
+        return t("files.details");
+      case "delete":
+        return t("common.delete");
+    }
+  };
+
+  /** The menu for an entry, or for the whole selection when the entry is part of a larger one. */
+  const menuEntries = (item: Item): MenuEntry[] => {
+    const group = groupOf(item);
+    if (group.length > 1) {
+      const entries: MenuEntry[] = [];
+      if (group.some((i) => i.manage)) entries.push({ label: t("files.move"), icon: "arrow-right", onSelect: () => requestMove(group) });
+      if (group.some((i) => i.manage)) entries.push({ separator: true }, { label: t("common.delete"), icon: "trash-2", danger: true, onSelect: () => requestDelete(group) });
+      return entries;
+    }
+    const out: MenuEntry[] = [];
+    for (const action of item.actions) {
+      // The removal stands apart from the rest, as it is the one that cannot be taken back here.
+      if (action === "delete") out.push({ separator: true });
+      if (action === "details" && out.length > 0) out.push({ separator: true });
+      out.push({
+        label: actionLabel(item, action),
+        icon: action === "open" && !item.entry.isFolder ? (opensInEditor(item.file) ? "square-pen" : "eye") : ACTION_ICONS[action],
+        danger: action === "delete",
+        onSelect: () => runAction(item, action),
       });
+    }
+    return out;
   };
 
-  const confirmRename = () => {
-    const entry = renaming?.entry;
-    const name = renaming?.name.trim() ?? "";
-    if (!entry?.id) return;
+  const confirmDelete = () => {
+    const targets = deleting.items;
+    setDeleting({ items: [], skipped: 0 });
+    if (targets.length === 0) return;
+    // Settled rather than raced: one refusal must not hide the others, and a partial result still
+    // needs the folder reloaded. A 403 is the one worth naming: the file belongs to someone else.
+    Promise.allSettled(targets.map((i) => deleteFile(i.file.id as string))).then((results) => {
+      const gone = results.filter((r) => r.status === "fulfilled").length;
+      const refused = results.some((r) => r.status === "rejected" && isApiError(r.reason, 403));
+      if (gone > 0) {
+        onNotify({
+          tone: "success",
+          title: gone === 1 ? t("files.deleted") : t("files.deletedMany", { count: gone }),
+          description: gone === 1 ? targets[0].file.name : undefined,
+        });
+      }
+      if (gone < results.length) {
+        onNotify({
+          tone: "danger",
+          title: t("files.deleteIncomplete"),
+          description: refused ? t("files.ownFilesOnlyDelete") : t("common.tryAgain"),
+        });
+      }
+      refresh();
+    });
+  };
+
+  const confirmRename = (name: string) => {
+    const item = renaming;
     setRenaming(null);
-    if (!name || name === entry.name) return;
-    updateFile(entry.id, { name })
+    if (!item?.file.id || name === item.file.name) return;
+    updateFile(item.file.id, { name })
       .then(() => {
         onNotify({ tone: "success", title: t("files.renamed"), description: name });
-        load(folderId);
+        refresh();
       })
       .catch((err) =>
         onNotify({
           tone: "danger",
           title: t("files.renameFailed"),
-          description: isApiError(err, 403)
-            ? t("files.ownFilesOnlyRename")
-            : t("files.renameHint"),
+          description: isApiError(err, 403) ? t("files.ownFilesOnlyRename") : t("files.renameHint"),
         }),
       );
   };
 
-  /** Drop the entries being moved into the folder currently open. */
-  const confirmMove = () => {
-    const targets = moving;
+  /** Move entries into a folder (`null`: the space's root), from the dialog or a drop. */
+  const moveTo = (targets: Item[], targetId: string | null, targetName: string) => {
     setMoving([]);
     if (targets.length === 0) return;
-    Promise.allSettled(
-      targets.filter((f) => f.id).map((f) => updateFile(f.id as string, { parentFolderId: folderId ?? null })),
-    ).then((results) => {
+    Promise.allSettled(targets.map((i) => updateFile(i.file.id as string, { parentFolderId: targetId }))).then((results) => {
       const moved = results.filter((r) => r.status === "fulfilled").length;
       if (moved > 0) {
         onNotify({
           tone: "success",
           title: moved === 1 ? t("files.moved") : t("files.movedMany", { count: moved }),
-          description: currentFolderName ?? workspaceName,
+          description: targetName,
         });
       }
       if (moved < results.length) {
-        onNotify({
-          tone: "danger",
-          title: t("files.moveIncomplete"),
-          // The server refuses a folder moved into itself or into its own descendant, which is the
-          // one mistake this way of choosing a destination makes easy.
-          description: t("files.moveIntoItself"),
-        });
+        // The server refuses a folder moved into itself or into its own descendant.
+        onNotify({ tone: "danger", title: t("files.moveIncomplete"), description: t("files.moveIntoItself") });
       }
-      load(folderId);
+      refresh();
     });
   };
+  const folderName = (id: string | null) =>
+    id == null ? rootLabel : (entries.find((f) => f.id === id)?.name ?? breadcrumb.find((c) => c.id === id)?.name ?? rootLabel);
+
+  const drag = useDragMove({
+    selectedItems,
+    currentFolderId: folderId,
+    onMove: (targets, targetId) => moveTo(targets, targetId, folderName(targetId)),
+  });
 
   /** Replace a file's contents, keeping its name and its place. */
-  const onVersionPicked = (fileList: FileList | null) => {
-    const file = fileList?.[0];
+  const onVersionPicked = (input: HTMLInputElement) => {
+    const file = input.files?.[0];
     const target = versionTarget;
-    if (versionRef.current) versionRef.current.value = "";
+    input.value = "";
     setVersionTarget(null);
     if (!file || !target?.id) return;
     onNotify({ tone: "info", title: t("files.uploadingVersion"), description: target.name });
     uploadFileVersion(target.id, file)
       .then((updated) => {
         onNotify({ tone: "success", title: t("files.versionUploaded", { version: updated.version }), description: target.name });
-        load(folderId);
+        refresh();
       })
       .catch((err) =>
         onNotify({
           tone: "danger",
           title: t("files.versionFailed"),
-          description: isApiError(err, 403)
-            ? t("files.ownFilesOnlyReplace")
-            : target.name,
+          description: isApiError(err, 403) ? t("files.ownFilesOnlyReplace") : target.name,
         }),
       );
   };
@@ -501,370 +437,159 @@ export function FilesScreen({
     uploadFile(spaceId, file, folderId)
       .then(() => {
         onNotify({ tone: "success", title: t("files.uploaded"), description: file.name });
-        load(folderId);
+        refresh();
       })
       .catch(() => onNotify({ tone: "danger", title: t("files.uploadFailed"), description: file.name }));
   };
 
+  const listProps: ListProps = {
+    items,
+    selected: selection.selected,
+    sort,
+    onSort: (key) => setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "updatedAt" ? "desc" : "asc" })),
+    onOpen: openEntry,
+    onSelect: (item, mods) => selection.click(item.key, mods),
+    onToggle: (item) => selection.toggle(item.key),
+    onToggleAll: () => (items.length > 0 && items.every((i) => selection.selected.has(i.key)) ? selection.clear() : selection.selectAll()),
+    onMenu: (item, at) => setMenu({ item, at }),
+    onAction: (item, action) => runAction(item, action),
+    onSelectAll: selection.selectAll,
+    onClearSelection: selection.clear,
+    drag: compact ? undefined : drag,
+  };
+
+  const currentName = breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1].name : rootLabel;
+  const detailsSubject: DetailsSubject =
+    selectedItems.length === 1 ? { kind: "entry", file: selectedItems[0].file } : { kind: "folder", name: currentName, count: entries.length };
+
+  const newMenu = (
+    <NewMenu
+      compact={compact}
+      spaceId={spaceId}
+      folderId={folderId}
+      office={!!office}
+      newTab={!opensInPlace}
+      onNotify={onNotify}
+      onUpload={() => uploadRef.current?.click()}
+      onFolderCreated={refresh}
+      onDocumentCreated={(file, tab) => {
+        refresh();
+        if (file.id) openEditor(file.id, false, tab);
+        else tab?.close();
+      }}
+    />
+  );
+
+  const previewItem = preview ? items.find((i) => i.file.id === preview.id) : undefined;
+  const previewManage = previewItem?.manage ?? false;
+
   return (
     <div style={styles.root}>
-      <div
-        style={
-          compact
-            ? { ...styles.top, height: "auto", minHeight: "var(--topbar-height)", flexWrap: "wrap", rowGap: 8, padding: "8px 12px" }
-            : styles.top
+      <FilesHeader
+        compact={compact}
+        rootLabel={rootLabel}
+        trail={breadcrumb}
+        onOpenFolder={openFolder}
+        onBack={onBack}
+        drag={compact ? undefined : drag}
+        query={q}
+        onQuery={setQ}
+        layout={layout}
+        onLayout={setLayout}
+        sort={sort}
+        onSort={setSort}
+        detailsOpen={detailsOpen}
+        onToggleDetails={() => setDetailsOpen((v) => !v)}
+        newButton={compact ? undefined : newMenu}
+        selection={
+          selectedItems.length > 0
+            ? {
+                count: selectedItems.length,
+                canMove: selectedItems.some((i) => i.manage),
+                canDelete: selectedItems.some((i) => i.manage),
+                onMove: () => requestMove(selectedItems),
+                onDelete: () => requestDelete(selectedItems),
+                onClear: selection.clear,
+              }
+            : null
         }
-      >
-        {onBack ? (
-          <IconButton icon="arrow-left" label={t("common.back")} onClick={onBack} style={{ width: 44, height: 44, flex: "none", marginLeft: -8 }} />
-        ) : null}
-        {/* Page heading: the file location, as a breadcrumb. */}
-        <h1 style={styles.crumb}>
-          <Icon name="hard-drive" size={15} style={{ color: "var(--text-muted)" }} />
-          {currentFolderName ? (
-            <button
-              type="button"
-              onClick={() => load(undefined)}
-              style={{ border: 0, background: "none", padding: 0, cursor: "pointer", font: "inherit", color: "var(--text-muted)", fontWeight: 400 }}
-            >
-              {workspaceName}
-            </button>
-          ) : (
-            <>
-              {t("sidebar.spaceFiles")}
-              <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
-              <span style={{ fontWeight: 400, color: "var(--text-muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{workspaceName}</span>
-            </>
-          )}
-          {currentFolderName ? (
-            <>
-              <Icon name="chevron-right" size={13} style={{ color: "var(--text-subtle)" }} />
-              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{currentFolderName}</span>
-            </>
-          ) : null}
-        </h1>
-        <div style={{ flex: compact ? "1 0 100%" : 1 }} />
-        <Button size="sm" iconLeft="folder-plus" onClick={() => setFolderOpen(true)} style={{ flexShrink: 0 }}>
-          {t("files.newFolder")}
-        </Button>
-        {office ? (
-          <NewDocumentMenu
-            newTab={!opensInPlace}
-            spaceId={spaceId}
-            folderId={folderId}
-            onNotify={onNotify}
-            onCreated={(file, tab) => {
-              load(folderId);
-              if (file.id) openEditor(file.id, false, tab);
-              else tab?.close();
-            }}
-          />
-        ) : null}
-        <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()} style={{ flexShrink: 0 }}>
-          {t("files.upload")}
-        </Button>
-        <input ref={uploadRef} type="file" style={{ display: "none" }} onChange={(e) => onFilePicked(e.target.files)} />
-        {/* A second picker, so choosing a replacement never runs through the one that creates a new
-            file: the two differ only in where the bytes are sent, which is exactly the confusion
-            worth designing out. */}
-        <input
-          ref={versionRef}
-          type="file"
-          style={{ display: "none" }}
-          onChange={(e) => onVersionPicked(e.target.files)}
-        />
-      </div>
+      />
+      <input ref={uploadRef} type="file" style={{ display: "none" }} onChange={(e) => onFilePicked(e.target.files)} />
+      {/* A second picker, so choosing a replacement never runs through the one that creates a new
+          file: the two differ only in where the bytes are sent, which is exactly the confusion
+          worth designing out. */}
+      <input id={versionInputId} type="file" style={{ display: "none" }} onChange={(e) => onVersionPicked(e.currentTarget)} />
 
-      <div style={styles.body}>
-        {currentFolderName ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: 14,
-              padding: "10px 12px",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "var(--radius-md)",
-              background: "var(--surface-sunken)",
-            }}
-          >
-            <Button size="sm" variant="secondary" iconLeft="arrow-left" onClick={() => load(parentId)}>
-              {t("common.back")}
-            </Button>
-            <Icon name="folder" size={18} style={{ color: "var(--ink)" }} />
-            <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" }}>{currentFolderName}</span>
-            <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>· {t("files.count", { count: rows.length })}</span>
-          </div>
-        ) : null}
-        <div style={{ ...styles.bar, flexWrap: compact ? "wrap" : "nowrap" }}>
-          <div style={{ width: compact ? "100%" : 280 }}>
-            <Input size="sm" icon="search" placeholder={t("files.filter")} value={q} onChange={(e) => setQ(e.target.value)} />
-          </div>
-          <Tabs
-            variant="pills"
-            value={tab}
-            onChange={setTab}
-            items={[
-              { value: "all", label: t("files.all") },
-              { value: "folders", label: t("files.folders") },
-              { value: "imported", label: t("files.imported") },
-            ]}
-          />
-          <div style={{ flex: 1 }} />
-          <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
-            {t("files.count", { count: rows.length })}
-            {totalBytes > 0 ? ` · ${formatBytes(totalBytes)}` : ""}
-          </span>
-          {!compact ? (
-            <>
-              <IconButton icon="layout-grid" label={t("files.gridView")} size="sm" aria-pressed={layout === "grid"} onClick={() => setLayout("grid")} />
-              <IconButton icon="list" label={t("files.listView")} size="sm" aria-pressed={layout === "list"} onClick={() => setLayout("list")} />
-            </>
-          ) : null}
+      <div style={styles.main}>
+        <div
+          style={compact ? { ...styles.body, padding: layout === "grid" ? "12px 12px 96px" : "0 0 96px" } : styles.body}
+          onClick={(e) => {
+            // A click on the empty space around the list lets go of the selection, as on a desktop.
+            if (e.target === e.currentTarget && !compact) selection.clear();
+          }}
+        >
+          {items.length === 0 && loading ? (
+            // Rows at the size of rows: the list lands where the placeholders were.
+            <SkeletonGroup label={t("files.loading")} style={{ padding: "4px 0" }}>
+              {[0.62, 0.45, 0.7, 0.38, 0.55].map((width, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px" }}>
+                  <Skeleton width={22} height={22} />
+                  <Skeleton width={`${width * 100}%`} height={12} />
+                  <div style={{ flex: 1 }} />
+                  <Skeleton width={64} height={10} />
+                </div>
+              ))}
+            </SkeletonGroup>
+          ) : items.length === 0 ? (
+            <EmptyState
+              icon={q ? "search" : breadcrumb.length > 0 ? "folder-open" : "folder"}
+              title={q ? t("search.noResult") : breadcrumb.length > 0 ? t("files.emptyFolder") : t("files.noFile")}
+              description={q ? t("files.noFileMatch", { query: q }) : breadcrumb.length > 0 ? t("files.folderEmptyText") : t("files.emptyText")}
+              action={
+                !q ? (
+                  <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()} style={{ flexShrink: 0 }}>
+                    {t("files.upload")}
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : layout === "grid" ? (
+            <FileGrid {...listProps} touch={compact} />
+          ) : compact ? (
+            <FileRows {...listProps} />
+          ) : (
+            <FileTable {...listProps} />
+          )}
         </div>
-
-        {moving.length > 0 ? (
-          // A move in progress takes over the bar: the destination is chosen by walking to it, so
-          // this has to stay visible and actionable while the folders are being browsed.
-          <div style={styles.selectionBar}>
-            <Icon name="folder-open" size={15} style={{ color: "var(--text-accent)" }} />
-            <span style={{ fontSize: "var(--text-xs)", color: "var(--text-strong)" }}>
-              <strong>{t("files.count", { count: moving.length })}</strong> {t("files.chooseDestination")}
-            </span>
-            <div style={{ flex: 1 }} />
-            <Button size="sm" onClick={() => setMoving([])}>
-              {t("common.cancel")}
-            </Button>
-            <Button size="sm" variant="primary" iconLeft="folder-plus" onClick={confirmMove}>
-              {t("files.moveHere")}
-            </Button>
-          </div>
-        ) : selectedEntries.length > 0 ? (
-          // The checkboxes had built a selection nothing could act on. This is what they are for.
-          <div style={styles.selectionBar}>
-            <span style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: "var(--text-strong)" }}>
-              {t("files.selectedCount", { count: selectedEntries.length })}
-            </span>
-            <div style={{ flex: 1 }} />
-            <Button size="sm" onClick={() => setSelected(new Set())}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              size="sm"
-              iconLeft="folder-open"
-              onClick={() => {
-                setMoving(selectedEntries);
-                setSelected(new Set());
-              }}
-            >
-              {t("files.move")}
-            </Button>
-            <Button size="sm" variant="danger" iconLeft="trash-2" onClick={() => setPendingDelete(selectedEntries)}>
-              {t("common.delete")}
-            </Button>
-          </div>
-        ) : null}
-
-        {effectiveLayout === "list" ? (
-          <div style={styles.tableWrap}>
-            <table style={styles.table}>
-              <colgroup>
-                <col style={{ width: 44 }} />
-                <col />
-                <col style={{ width: 84 }} />
-                <col style={{ width: 150 }} />
-                <col style={{ width: 120 }} />
-                <col style={{ width: 116 }} />
-                <col style={{ width: 52 }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th style={styles.th}>
-                    <span style={styles.checkCell}>
-                      <Checkbox checked={allSelected} onChange={toggleAll} aria-label={t("files.selectAll")} />
-                    </span>
-                  </th>
-                  <th style={styles.th}>{t("files.name")}</th>
-                  <th style={styles.th}>{t("files.version")}</th>
-                  <th style={styles.th}>{t("files.modifiedBy")}</th>
-                  <th style={styles.th}>{t("files.date")}</th>
-                  <th style={styles.th}>{t("files.source")}</th>
-                  <th style={styles.th} aria-label={t("files.actions")} />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((f) => (
-                  <FileRow
-                    key={rowKey(f)}
-                    f={f}
-                    checked={selected.has(rowKey(f))}
-                    onToggle={() => toggle(rowKey(f))}
-                    onOpen={() => openEntry(f)}
-                    onDelete={f.id ? () => setPendingDelete([f]) : undefined}
-                    onRename={f.id ? () => setRenaming({ entry: f, name: f.name }) : undefined}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div style={styles.grid}>
-            {rows.map((f) => (
-              <Card
-                key={rowKey(f)}
-                variant="interactive"
-                padded
-                onClick={() => openEntry(f)}
-                style={{ display: "flex", flexDirection: "column", gap: 8, cursor: "pointer" }}
-              >
-                {/* A card is big enough to show what the file is, so show it: the API already stored
-                    a thumbnail at upload, and an icon says far less than the picture itself. */}
-                <div style={styles.preview}>
-                  {f.thumbnailUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- same-origin, served by our own API
-                    <img src={f.thumbnailUrl} alt="" loading="lazy" style={styles.previewImage} />
-                  ) : f.kind === "folder" ? (
-                    <Icon name="folder" size={26} style={{ color: "var(--ink)" }} />
-                  ) : (
-                    <FileIcon name={f.name} size={44} />
-                  )}
-                </div>
-                <div title={f.name} style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)", whiteSpace: "nowrap", overflow: "hidden" }}>
-                  {truncateMiddle(f.name)}
-                </div>
-                <EditingBadge editors={f.editors} />
-                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
-                  <Avatar name={f.by} src={getAvatar(f.by)} size={18} />
-                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by}</span>
-                  {f.kind === "folder" ? null : (
-                    <span style={{ flex: "none" }}>
-                      · {formatBytes(f.sizeBytes)}
-                    </span>
-                  )}
-                </div>
-                {f.imported ? <Tag brand={brandFor(f.source) ?? undefined} icon={brandFor(f.source) ? undefined : "import"}>{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : null}
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {rows.length === 0 && loading ? (
-          // Rows at the size of rows: the list lands where the placeholders were.
-          <SkeletonGroup label={t("files.loading")} style={{ padding: "4px 0" }}>
-            {[0.62, 0.45, 0.7, 0.38, 0.55].map((width, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px" }}>
-                <Skeleton width={20} height={20} />
-                <Skeleton width={`${width * 100}%`} height={12} />
-                <div style={{ flex: 1 }} />
-                <Skeleton width={64} height={10} />
-              </div>
-            ))}
-          </SkeletonGroup>
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon={q ? "search" : currentFolderName ? "folder-open" : "folder"}
-            title={q ? t("search.noResult") : currentFolderName ? t("files.emptyFolder") : t("files.noFile")}
-            description={
-              q
-                ? t("files.noFileMatch", { query: q })
-                : currentFolderName
-                  ? t("files.folderEmptyText")
-                  : t("files.emptyText")
-            }
-            action={
-              !q ? (
-                <Button size="sm" variant="primary" iconLeft="upload" onClick={() => uploadRef.current?.click()} style={{ flexShrink: 0 }}>
-                  {t("files.upload")}
-                </Button>
-              ) : undefined
-            }
-          />
+        {!compact && detailsOpen ? (
+          <DetailsPanel subject={detailsSubject} trail={breadcrumb} rootLabel={rootLabel} sheet={false} onClose={() => setDetailsOpen(false)} />
         ) : null}
       </div>
 
-      <Dialog
-        open={folderOpen}
-        title={t("files.newFolder")}
-        closeLabel={t("common.close")}
-        size="sm"
-        onClose={() => setFolderOpen(false)}
-        footer={
-          <>
-            <Button onClick={() => setFolderOpen(false)}>{t("common.cancel")}</Button>
-            <Button variant="primary" onClick={createFolder}>
-              {t("common.create")}
-            </Button>
-          </>
-        }
-      >
-        <Field label={t("files.folderName")} htmlFor="fname">
-          <Input
-            id="fname"
-            autoFocus
-            placeholder={t("files.folderPlaceholder")}
-            value={folderName}
-            onChange={(e) => setFolderName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") createFolder();
-            }}
-          />
-        </Field>
-      </Dialog>
+      {/* The selection has its own bar; creating something new waits until it is let go. */}
+      {compact && selectedItems.length === 0 ? newMenu : null}
 
-      <Dialog
-        open={renaming != null}
-        title={t("files.rename")}
-        closeLabel={t("common.close")}
-        size="sm"
-        onClose={() => setRenaming(null)}
-        footer={
-          <>
-            <Button onClick={() => setRenaming(null)}>{t("common.cancel")}</Button>
-            <Button variant="primary" onClick={confirmRename}>
-              {t("files.rename")}
-            </Button>
-          </>
-        }
-      >
-        <Field label={t("files.name")} htmlFor="rename">
-          <Input
-            id="rename"
-            autoFocus
-            value={renaming?.name ?? ""}
-            onChange={(e) => setRenaming((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") confirmRename();
-            }}
-          />
-        </Field>
-      </Dialog>
-
-      <Dialog
-        open={pendingDelete.length > 0}
-        title={pendingDelete.length > 1 ? t("files.deleteManyTitle", { count: pendingDelete.length }) : t("files.deleteTitle")}
-        size="sm"
-        onClose={() => setPendingDelete([])}
-        footer={
-          <>
-            <Button onClick={() => setPendingDelete([])}>{t("common.cancel")}</Button>
-            <Button variant="danger" iconLeft="trash-2" onClick={confirmDelete}>
-              {t("common.delete")}
-            </Button>
-          </>
-        }
-      >
-        <p style={{ fontSize: "var(--text-sm)", color: "var(--text-body)", lineHeight: "var(--leading-normal)" }}>
-          {pendingDelete.length === 1 ? (
-            <>
-              {t("files.deleteOneBody", { name: pendingDelete[0].name })}
-            </>
-          ) : (
-            <>{t("files.deleteBody")}</>
-          )}
-          {pendingDelete.some((f) => f.kind === "folder") ? ` ${t("files.folderTakesAll")}` : ""}
-        </p>
-      </Dialog>
+      <ActionMenu
+        open={menu != null}
+        at={menu?.at ?? null}
+        title={menu ? (groupOf(menu.item).length > 1 ? t("files.selectedCount", { count: groupOf(menu.item).length }) : menu.item.file.name) : ""}
+        entries={menu ? menuEntries(menu.item) : []}
+        sheet={compact}
+        onClose={() => setMenu(null)}
+      />
+      {compact ? <DetailsPanel subject={detailsSheet} trail={breadcrumb} rootLabel={rootLabel} sheet onClose={() => setDetailsSheet(null)} /> : null}
+      <RenameDialog item={renaming} onClose={() => setRenaming(null)} onRename={confirmRename} />
+      <DeleteDialog items={deleting.items} skipped={deleting.skipped} onClose={() => setDeleting({ items: [], skipped: 0 })} onConfirm={confirmDelete} />
+      <MoveDialog
+        spaceId={spaceId}
+        rootLabel={rootLabel}
+        moving={moving}
+        startFolderId={folderId}
+        startTrail={breadcrumb}
+        onNotify={onNotify}
+        onClose={() => setMoving([])}
+        onMove={(targetId) => moveTo(moving, targetId, folderName(targetId))}
+      />
 
       {preview?.id && (isImage(preview.name) || viewerKind(preview.name)) ? (
         (() => {
@@ -872,15 +597,20 @@ export function FilesScreen({
           const actions = {
             onClose: () => setPreview(null),
             onDownload: () => download(target.id!, target.name),
-            onNewVersion: () => {
-              setVersionTarget(target);
-              setPreview(null);
-              versionRef.current?.click();
-            },
-            onDelete: () => {
-              setPreview(null);
-              setPendingDelete([target]);
-            },
+            onNewVersion: previewManage
+              ? () => {
+                  setVersionTarget(target);
+                  setPreview(null);
+                  pickVersion();
+                }
+              : undefined,
+            onDelete:
+              previewManage && previewItem
+                ? () => {
+                    setPreview(null);
+                    requestDelete([previewItem]);
+                  }
+                : undefined,
             onEdit:
               officeActionFor(target.name, office) === "edit"
                 ? () => {
@@ -900,43 +630,29 @@ export function FilesScreen({
           return kind ? (
             <FileViewer file={target} kind={kind} {...actions} />
           ) : (
-            <ImageViewer
-              file={target}
-              images={rows.filter((f) => f.id && isImage(f.name))}
-              onNavigate={setPreview}
-              {...actions}
-            />
+            <ImageViewer file={target} images={items.map((i) => i.file).filter((f) => f.id && isImage(f.name))} onNavigate={setPreview} {...actions} />
           );
         })()
       ) : null}
 
+      {/* A file nothing here can show: what it is, and the way to get it. */}
       <Dialog
         open={preview != null && !(preview.id && (isImage(preview.name) || viewerKind(preview.name)))}
         title={preview?.name}
         subtitle={
           preview
-            ? t("files.previewMeta", {
-                size: formatBytes(preview.sizeBytes),
-                by: preview.by,
-                when: formatStamp(preview.updatedAt),
-              })
+            ? t("files.previewMeta", { size: formatBytes(preview.sizeBytes), by: preview.modifiedBy ?? preview.by, when: formatStamp(preview.updatedAt) })
             : undefined
         }
-        size="lg"
+        closeLabel={t("common.close")}
+        size="md"
         onClose={() => setPreview(null)}
         footer={
           preview ? (
             <>
-              {preview.imported ? <Tag brand={brandFor(preview.source) ?? undefined} icon={brandFor(preview.source) ? undefined : "import"}>{preview.source !== "Ruchoir" ? preview.source : t("common.imported")}</Tag> : null}
-              {preview.version ? (
-                <Tag mono tone="info">
-                  {preview.version}
-                </Tag>
-              ) : null}
               <div style={{ flex: 1 }} />
-              {preview?.id && officeActionFor(preview.name, office) ? (
+              {preview.id && officeActionFor(preview.name, office) ? (
                 <Button
-                  variant="primary"
                   iconLeft={officeActionFor(preview.name, office) === "view" ? "eye" : "square-pen"}
                   onClick={() => {
                     const id = preview.id!;
@@ -952,32 +668,6 @@ export function FilesScreen({
                       : t("message.edit")}
                 </Button>
               ) : null}
-              {preview.id ? (
-                <Button
-                  iconLeft="upload"
-                  onClick={() => {
-                    setVersionTarget(preview);
-                    setPreview(null);
-                    versionRef.current?.click();
-                  }}
-                >
-                  {t("files.newVersion")}
-                </Button>
-              ) : null}
-              {preview.id ? (
-                <Button
-                  variant="danger"
-                  iconLeft="trash-2"
-                  onClick={() => {
-                    const target = preview;
-                    setPreview(null);
-                    setPendingDelete([target]);
-                  }}
-                >
-                  {t("common.delete")}
-                </Button>
-              ) : null}
-              <Button onClick={() => setPreview(null)}>{t("common.close")}</Button>
               <Button
                 variant="primary"
                 iconLeft="download"
@@ -995,7 +685,7 @@ export function FilesScreen({
         {preview ? (
           <div
             style={{
-              height: 320,
+              height: 240,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -1004,18 +694,11 @@ export function FilesScreen({
               borderRadius: "var(--radius-md)",
               border: "1px solid var(--border-subtle)",
               background: "var(--surface-sunken)",
-              overflow: "hidden",
             }}
           >
-            <>
-                {preview.kind === "folder" ? (
-                  <Icon name="folder" size={52} style={{ color: "var(--ink)" }} />
-                ) : (
-                  <FileIcon name={preview.name} size={72} />
-                )}
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("files.noPreview")}</div>
-                <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t("files.noPreviewText")}</div>
-            </>
+            <FileIcon name={preview.name} size={72} />
+            <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("files.noPreview")}</div>
+            <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t("files.noPreviewText")}</div>
           </div>
         ) : null}
       </Dialog>
@@ -1037,103 +720,10 @@ export function FilesScreen({
           onClose={() => {
             setEditing(null);
             // A conversion leaves a new file; a save, a new version.
-            load(folderId);
+            refresh();
           }}
         />
       ) : null}
     </div>
-  );
-}
-
-function FileRow({
-  f,
-  checked,
-  onToggle,
-  onOpen,
-  onDelete,
-  onRename,
-}: {
-  f: SpaceFile;
-  checked: boolean;
-  onToggle: () => void;
-  onOpen: () => void;
-  /** Both absent for an entry the API cannot address, which is the only case with no id. */
-  onDelete?: () => void;
-  onRename?: () => void;
-}) {
-  const { t } = useTranslation();
-  const [hover, setHover] = useState(false);
-  const isFolder = f.kind === "folder";
-  return (
-    <tr
-      style={{ background: hover || checked ? "var(--surface-hover)" : "transparent" }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
-      <td style={styles.td}>
-        <span style={styles.checkCell}>
-          <Checkbox checked={checked} onChange={onToggle} aria-label={t("files.select", { name: f.name })} />
-        </span>
-      </td>
-      <td style={styles.td}>
-        <span
-          role="button"
-          tabIndex={0}
-          onClick={onOpen}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onOpen()}
-          style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, cursor: "pointer" }}
-        >
-          {isFolder ? (
-            <Icon name="folder" size={17} style={{ flex: "none", color: "var(--ink)" }} />
-          ) : (
-            <FileIcon name={f.name} size={22} />
-          )}
-          <span style={{ fontWeight: 500, color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {f.name}
-          </span>
-          <EditingBadge editors={f.editors} size={16} />
-        </span>
-      </td>
-      <td style={styles.td}>{f.version ? <Tag mono tone="info">{f.version}</Tag> : null}</td>
-      <td style={styles.td}>
-        <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-          <Avatar name={f.by} src={getAvatar(f.by)} size={20} />
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.by.split(" ")[0]}</span>
-        </span>
-      </td>
-      <td style={{ ...styles.td, color: "var(--text-muted)", fontSize: "var(--text-2xs)" }}>{formatStamp(f.updatedAt)}</td>
-      <td style={styles.td}>
-        {f.imported ? <Tag brand={brandFor(f.source) ?? undefined} icon={brandFor(f.source) ? undefined : "import"}>{f.source !== "Ruchoir" ? f.source : t("common.imported")}</Tag> : <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>-</span>}
-      </td>
-      <td style={styles.td}>
-        <span style={{ ...styles.checkCell, opacity: hover ? 1 : 0, transition: "opacity var(--duration-fast) var(--ease-out)" }}>
-          <IconButton
-            icon={isFolder ? "folder-open" : "eye"}
-            label={isFolder ? t("files.open", { name: f.name }) : t("files.preview", { name: f.name })}
-            size="sm"
-            tabIndex={hover ? 0 : -1}
-            onClick={onOpen}
-          />
-          {onRename ? (
-            <IconButton
-              icon="square-pen"
-              label={t("files.renameNamed", { name: f.name })}
-              size="sm"
-              tabIndex={hover ? 0 : -1}
-              onClick={onRename}
-            />
-          ) : null}
-          {onDelete ? (
-            <IconButton
-              icon="trash-2"
-              label={t("files.deleteNamed", { name: f.name })}
-              size="sm"
-              tabIndex={hover ? 0 : -1}
-              onClick={onDelete}
-            />
-          ) : null}
-        </span>
-      </td>
-    </tr>
   );
 }

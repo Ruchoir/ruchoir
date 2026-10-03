@@ -47,6 +47,17 @@ pub struct FileDto {
     pub imported_source: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    /// Who wrote the current version: the last person to change the file's contents, which is not
+    /// its owner once a colleague has uploaded or saved a version. Absent for a folder and for a
+    /// version with no known author (an import).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modified_by_id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modified_by_name: Option<String>,
+    /// How many entries a folder directly holds (removed ones and private conversations' files
+    /// left out). Absent for a file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub child_count: Option<i64>,
     /// Who is editing the file in the office editor right now (folder listings only).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub editors: Vec<EditorDto>,
@@ -60,11 +71,14 @@ pub struct EditorDto {
 }
 
 impl FileDto {
-    /// Build a DTO from a file row plus its (optional) current version and resolved owner name.
+    /// Build a DTO from a file row plus its (optional) current version, the resolved names of its
+    /// owner and of its current version's author, and (for a folder) its number of entries.
     pub fn from_models(
         file: &files::Model,
         version: Option<&file_versions::Model>,
         owner_name: Option<String>,
+        modified_by_name: Option<String>,
+        child_count: Option<i64>,
     ) -> Self {
         FileDto {
             id: file.id,
@@ -86,6 +100,9 @@ impl FileDto {
             imported_source: file.imported_source.clone(),
             created_at: rfc3339(file.created_at),
             updated_at: rfc3339(file.updated_at),
+            modified_by_id: version.and_then(|v| v.created_by),
+            modified_by_name,
+            child_count,
             editors: Vec::new(),
         }
     }
