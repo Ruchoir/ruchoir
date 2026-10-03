@@ -1,6 +1,6 @@
 //! The files feature: a per-space folder tree, upload with versioning, download and inline preview,
 //! server-generated image thumbnails, file shares, files attached to messages, the space's trash
-//! ([`trash`]) and each file's version history ([`history`]). Bytes live in an
+//! ([`trash`]), each file's version history ([`history`]) and public links ([`links`]). Bytes live in an
 //! S3-compatible object store behind the `storage` module; this module owns the metadata, the
 //! authorization choke point, and the byte proxying (the browser never talks to the store directly).
 //!
@@ -14,6 +14,7 @@ pub(crate) mod dto;
 pub(crate) mod error;
 pub(crate) mod history;
 pub(crate) mod images;
+pub(crate) mod links;
 pub(crate) mod mime;
 mod routes;
 pub(crate) mod shares;

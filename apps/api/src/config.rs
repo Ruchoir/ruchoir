@@ -122,6 +122,8 @@ pub struct Config {
     pub upload_max_bytes: u64,
     /// Days a removed file stays in the trash before its bytes are erased (0: kept until emptied).
     pub trash_retention_days: u32,
+    /// Whether files may be handed out by public link (`RUCHOIR_PUBLIC_LINKS`, on by default).
+    pub public_links: bool,
     /// Longest edge, in pixels, of a generated image thumbnail (aspect ratio preserved).
     pub thumbnail_max_px: u32,
     /// Hosts a Web Push subscription may point at (each also covers its subdomains). The API only
@@ -356,6 +358,9 @@ impl Config {
         let trash_retention_days: u32 = env_or("RUCHOIR_TRASH_RETENTION_DAYS", "30")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_TRASH_RETENTION_DAYS"))?;
+        let public_links: bool = env_or("RUCHOIR_PUBLIC_LINKS", "true")
+            .parse()
+            .map_err(|_| ConfigError::Invalid("RUCHOIR_PUBLIC_LINKS"))?;
         let thumbnail_max_px: u32 = env_or("RUCHOIR_THUMBNAIL_MAX_PX", "512")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_THUMBNAIL_MAX_PX"))?;
@@ -455,6 +460,7 @@ impl Config {
             s3_secret_key,
             upload_max_bytes,
             trash_retention_days,
+            public_links,
             thumbnail_max_px,
             push_allowed_hosts,
             notify_email_delay_secs,

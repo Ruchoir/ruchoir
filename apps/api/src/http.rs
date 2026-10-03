@@ -133,6 +133,8 @@ pub(crate) struct InstanceCapabilities {
     upload_max_bytes: u64,
     /// Days a removed file stays in the trash before it is erased (0: until the trash is emptied).
     trash_retention_days: u32,
+    /// Whether files may be handed out by public link.
+    public_links: bool,
 }
 
 /// What the client needs to know about live editing.
@@ -178,6 +180,7 @@ pub(crate) async fn instance_capabilities(
         },
         upload_max_bytes: state.config.upload_max_bytes,
         trash_retention_days: state.config.trash_retention_days,
+        public_links: state.config.public_links,
     })
 }
 
@@ -252,6 +255,18 @@ pub fn router(state: AppState) -> Router {
             .expect("valid rate-limit configuration"),
     );
     let auth_routes = crate::auth::routes::router().layer(GovernorLayer::new(governor));
+    // The same backstop on public links, which answer without a session: a password is guessed
+    // there as on the sign-in form.
+    let links_governor = Arc::new(
+        GovernorConfigBuilder::default()
+            .key_extractor(SmartIpKeyExtractor)
+            .period(Duration::from_millis(state.config.auth_rate_period_ms))
+            .burst_size(state.config.auth_rate_burst)
+            .finish()
+            .expect("valid rate-limit configuration"),
+    );
+    let public_links =
+        crate::files::links::public_router().layer(GovernorLayer::new(links_governor));
 
     let mut router = Router::new()
         .route("/healthz", get(healthz))
@@ -259,6 +274,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/instance", get(instance_capabilities))
         .route("/api/openapi.json", get(crate::openapi::openapi_json))
         .nest("/api/v1/auth", auth_routes)
+        .merge(public_links)
         // The messaging REST surface and the real-time transport use absolute `/api/v1/...` paths
         // and merge in here. Both are guarded per request by the `AuthSession` extractor, so no
         // blanket auth layer is needed. Merging (not a second `/api/v1` nest) avoids path overlap
