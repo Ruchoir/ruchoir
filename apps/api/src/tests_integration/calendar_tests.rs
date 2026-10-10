@@ -1807,3 +1807,5 @@ async fn a_reminder_names_the_moved_occurrence() {
 }
 
 mod invitation_tests;
+
+mod channel_file_tests;

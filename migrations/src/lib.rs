@@ -37,6 +37,7 @@ mod m20261003_000002_file_links;
 mod m20261003_000003_file_stars;
 mod m20261004_000001_calendar;
 mod m20261005_000001_calendar_invitations;
+mod m20261010_000001_calendar_channels_files;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -76,6 +77,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261003_000003_file_stars::Migration),
             Box::new(m20261004_000001_calendar::Migration),
             Box::new(m20261005_000001_calendar_invitations::Migration),
+            Box::new(m20261010_000001_calendar_channels_files::Migration),
         ]
     }
 }

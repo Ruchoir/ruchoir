@@ -44,6 +44,11 @@ export function longDay(day: string): string {
   return capitalized(new Intl.DateTimeFormat(currentLocale(), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(utcNoon(day)));
 }
 
+/** A month's short name, for a date badge: "oct.". */
+export function shortMonth(day: string): string {
+  return new Intl.DateTimeFormat(currentLocale(), { month: "short", timeZone: "UTC" }).format(utcNoon(day));
+}
+
 /** A day in a column head: "lun. 19". */
 export function shortDay(day: string): { weekday: string; date: string } {
   const at = utcNoon(day);

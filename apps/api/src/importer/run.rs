@@ -1148,6 +1148,7 @@ pub async fn import_messages<C: ConnectionTrait>(
             created_at: Set(sent_at),
             edited_at: Set(record.edited_at.as_deref().map(parse_instant)),
             deleted_at: Set(None),
+            event_id: Set(None),
         }
         .insert(db)
         .await?;

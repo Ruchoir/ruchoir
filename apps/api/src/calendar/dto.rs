@@ -4,8 +4,10 @@ use serde::{Deserialize, Deserializer, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use super::attachments::EventFileDto;
 use super::attendees::{AttendeeDto, AttendeeInput, OrganizerDto};
 use super::authz::CalendarAccess;
+use super::links::ChannelDto;
 
 /// Read a field that may be absent (`None`), `null` (`Some(None)`) or a value (`Some(Some(v))`).
 pub(crate) fn absent_null_or<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
@@ -135,6 +137,12 @@ pub struct EventInput {
     pub calendar_id: Option<Uuid>,
     /// The whole list of attendees (accounts or addresses), for the series; absent leaves it.
     pub attendees: Option<Vec<AttendeeInput>>,
+    /// The channel it is linked to: absent leaves it, `null` unlinks it.
+    #[serde(default, deserialize_with = "absent_null_or")]
+    #[schema(value_type = Option<Uuid>)]
+    pub channel_id: Option<Option<Uuid>>,
+    /// The whole list of the Drive files it carries; absent leaves it.
+    pub files: Option<Vec<Uuid>>,
 }
 
 /// One occurrence, ready to draw.
@@ -182,6 +190,10 @@ pub struct EventDto {
     pub organizer: Option<OrganizerDto>,
     /// Who is invited, and their answer for the series.
     pub attendees: Vec<AttendeeDto>,
+    /// The channel it is linked to, as the viewer may know it.
+    pub channel: Option<ChannelDto>,
+    /// The Drive files it carries.
+    pub files: Vec<EventFileDto>,
 }
 
 /// Which part of a series a change or a deletion touches.

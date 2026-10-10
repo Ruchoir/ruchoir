@@ -1,7 +1,9 @@
 "use client";
 
 import { type CSSProperties, useEffect, useState } from "react";
-import { Button, Dialog, Field, Icon, Select, Tabs } from "@/components/ds";
+import { Button, Dialog, Field, FileIcon, Icon, Select, Tabs } from "@/components/ds";
+import { fileDownloadUrl } from "@/lib/data/api";
+import { formatBytes } from "@/lib/i18n/format";
 import {
   deleteEvent,
   getEvent,
@@ -27,7 +29,7 @@ import { SeriesScopeDialog } from "./SeriesScopeDialog";
 const line: CSSProperties = { display: "flex", gap: 10, alignItems: "flex-start", color: "var(--text-body)", fontSize: "var(--text-sm)" };
 
 /** When an occurrence happens, in words: "Lundi 5 octobre, 09:00 - 09:45", or its days. */
-export function whenText(o: Occurrence, timeZone: string): string {
+export function whenText(o: Pick<Occurrence, "allDay" | "start" | "end">, timeZone: string): string {
   if (o.allDay) {
     const last = addDays(o.end, -1);
     return last === o.start ? longDay(o.start) : `${longDay(o.start)} - ${longDay(last)}`;
@@ -60,6 +62,7 @@ export function EventDetails({
   onDone,
   onChanged,
   onClose,
+  onOpenChannel,
 }: {
   occurrence: Occurrence;
   calendar?: Calendar;
@@ -71,6 +74,8 @@ export function EventDetails({
   /** Something was saved that leaves the window open (an answer): the screen reloads. */
   onChanged: () => void;
   onClose: () => void;
+  /** Go to the event's channel (when the viewer reads it). */
+  onOpenChannel?: (spaceId: string, channelId: string) => void;
 }) {
   const { t } = useTranslation();
   const [event, setEvent] = useState<CalendarEvent | null>(null);
@@ -194,10 +199,47 @@ export function EventDetails({
           <span aria-hidden style={{ width: 12, height: 12, margin: 2, borderRadius: 4, flex: "none", background: colorVar(calendar?.color ?? (occurrence.invited ? INVITATIONS_COLOR : undefined)) }} />
           <span>{calendarLabel}</span>
         </div>
+        {event?.channel ? (
+          <div style={line}>
+            <Icon name={event.channel.private ? "lock" : "hash"} size={16} />
+            {event.channel.accessible && event.channel.name && onOpenChannel ? (
+              <button
+                type="button"
+                onClick={() => event.channel && onOpenChannel(event.channel.spaceId, event.channel.id)}
+                style={{ border: 0, background: "none", padding: 0, font: "inherit", color: "var(--text-link)", textDecoration: "underline", cursor: "pointer", textAlign: "left" }}
+              >
+                {t("calendar.inChannel", { name: event.channel.name })}
+              </button>
+            ) : (
+              <span>{event.channel.name ? t("calendar.inChannel", { name: event.channel.name }) : t("sidebar.privateChannel")}</span>
+            )}
+          </div>
+        ) : null}
         {occurrence.location ? (
           <div style={line}>
             <Icon name="map-pin" size={16} />
             <span>{occurrence.location}</span>
+          </div>
+        ) : null}
+        {event && event.files.length > 0 ? (
+          <div style={line}>
+            <Icon name="paperclip" size={16} />
+            <ul aria-label={t("calendar.files")} style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 0 }}>
+              {event.files.map((f) => (
+                <li key={f.id}>
+                  <a
+                    href={fileDownloadUrl(f.id)}
+                    download={f.name}
+                    style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 8px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-subtle)", color: "var(--text-strong)", textDecoration: "none", fontSize: "var(--text-xs)" }}
+                  >
+                    <FileIcon name={f.name} size={18} />
+                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                    <span style={{ color: "var(--text-muted)", flex: "none" }}>{formatBytes(f.size)}</span>
+                    <Icon name="download" size={14} />
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
         {event?.organizer && event.attendees.length > 0 ? (

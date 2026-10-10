@@ -15,6 +15,7 @@
 import type { Presence } from "@/components/ds";
 import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut, apiRequest } from "./http";
 import { currentLocale } from "@/lib/i18n/current";
+import { toEventCard, type EventCardDto } from "./calendar";
 import {
   createPasskeyCredential,
   getPasskeyAssertion,
@@ -133,6 +134,8 @@ type MessageDto = {
   kind: string;
   body: string;
   system_event?: string;
+  /** A calendar card's event, as the reader sees it. */
+  event?: EventCardDto;
   parent_message_id?: string;
   reply_count: number;
   /** The server's preview of the first link, once it has read the page. */
@@ -1376,6 +1379,7 @@ function toMessage(dto: MessageDto): ApiMessage {
         ? { event: dto.system_event, actor: dto.author_name ?? "", detail: dto.body || undefined }
         : undefined,
     systemIcon: dto.kind === "system" ? iconForSystemEvent(dto.system_event) : undefined,
+    eventCard: dto.event ? toEventCard(dto.event) : undefined,
     attachment,
     attachments,
     image,
@@ -1517,6 +1521,12 @@ function iconForSystemEvent(event?: string): string {
     case "channel_archived":
     case "channel_unarchived":
       return "archive";
+    case "calendar_event_posted":
+      return "calendar";
+    case "calendar_event_changed":
+      return "calendar-clock";
+    case "calendar_event_cancelled":
+      return "calendar-x";
     default:
       return "info";
   }
@@ -1538,6 +1548,9 @@ const SYSTEM_EVENTS: SystemEvent[] = [
   "channel_archived",
   "channel_unarchived",
   "channel_access_changed",
+  "calendar_event_posted",
+  "calendar_event_changed",
+  "calendar_event_cancelled",
 ];
 
 /** Whether the API reported an event this client knows a sentence for. */

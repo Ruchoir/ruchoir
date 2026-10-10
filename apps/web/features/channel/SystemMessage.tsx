@@ -20,6 +20,9 @@ const EVENT_TEXT: Record<SystemEvent, TranslationKey> = {
   channel_archived: key("system.channelArchived"),
   channel_unarchived: key("system.channelUnarchived"),
   channel_access_changed: key("system.channelAccessChanged"),
+  calendar_event_posted: key("system.calendarEventPosted"),
+  calendar_event_changed: key("system.calendarEventChanged"),
+  calendar_event_cancelled: key("system.calendarEventCancelled"),
 };
 
 /** Centered notice for join/leave, channel changes and similar system events. */

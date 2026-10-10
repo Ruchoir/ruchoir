@@ -5,7 +5,7 @@ use axum::Router;
 
 use crate::state::AppState;
 
-use super::{attendees, calendars, events, feeds, freebusy, occurrences};
+use super::{attachments, attendees, calendars, events, feeds, freebusy, links, occurrences};
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -45,6 +45,15 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v1/calendars/{calendar_id}/invitees",
             get(attendees::search_invitees),
+        )
+        .route(
+            "/api/v1/calendars/{calendar_id}/channels",
+            get(links::list_linkable),
+        )
+        .route("/api/v1/channels/{channel_id}/events", get(links::upcoming))
+        .route(
+            "/api/v1/calendars/{calendar_id}/attachment-folder",
+            get(attachments::attachment_folder),
         )
         .route(
             "/api/v1/calendar/feeds",

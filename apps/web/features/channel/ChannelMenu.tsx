@@ -47,6 +47,8 @@ export type ChannelMenuProps = {
   onJoin: () => void;
   /** Whether the user has joined this channel; a public one is readable either way. */
   member?: boolean;
+  /** Plan an event linked to this channel. */
+  onPlanEvent?: () => void;
 };
 
 /** The channel header three-dots menu. */
@@ -58,6 +60,7 @@ export function ChannelMenu({
   onLeave,
   onJoin,
   member = true,
+  onPlanEvent,
 }: ChannelMenuProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -70,6 +73,7 @@ export function ChannelMenu({
 
   const items: Item[] = [
     { icon: "settings", label: t("sidebar.channelSettings"), onClick: onSettings },
+    ...(onPlanEvent ? [{ icon: "calendar-plus", label: t("calendar.planEvent"), onClick: onPlanEvent }] : []),
     { icon: "inbox", label: t("notif.title"), onClick: onNotifications },
     ...(canModerate
       ? [{ icon: "user-plus", label: t("channel.addPeople"), onClick: onAddPeople }]

@@ -806,9 +806,16 @@ pub async fn hydrate_messages(
         }
     }
 
+    // Calendar cards, drawn for the caller as their events stand.
+    let cards =
+        crate::calendar::links::cards(db, caller, rows.iter().filter_map(|m| m.event_id).collect())
+            .await
+            .map_err(|_| ApiError::Internal)?;
+
     let dtos = rows
         .into_iter()
         .map(|m| MessageDto {
+            event: m.event_id.and_then(|id| cards.get(&id).cloned()),
             author_name: m.author_id.and_then(|id| names.get(&id).cloned()),
             reactions: reactions.remove(&m.id).unwrap_or_default(),
             mentions: mentions_by_msg.remove(&m.id).unwrap_or_default(),

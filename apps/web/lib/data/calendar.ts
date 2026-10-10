@@ -79,6 +79,47 @@ export type CalendarEvent = Occurrence & {
   updatedAt: string;
   organizer?: { userId: string; name: string };
   attendees: Attendee[];
+  /** The channel it is linked to. */
+  channel?: EventChannel;
+  /** The Drive files it carries, readable by whoever sees it. */
+  files: EventFile[];
+};
+
+/** The channel an event is linked to, as the viewer may know it: a private channel they are not in
+ *  has no name. */
+export type EventChannel = { id: string; name?: string; spaceId: string; private: boolean; accessible: boolean };
+
+/** A channel an event may be linked to. */
+export type LinkableChannel = { id: string; name: string; spaceId: string; spaceName: string; private: boolean };
+
+/** A Drive file an event carries. */
+export type EventFile = { id: string; name: string; size: number };
+
+/** An event as its card in a channel shows it to the reader: its next occurrence. */
+export type EventCard = {
+  eventId: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  tzid?: string;
+  location?: string;
+  recurring: boolean;
+  organizer?: string;
+  organizerId?: string;
+  myStatus?: AttendeeStatus;
+  recurrenceId?: string;
+};
+
+/** An occurrence a channel lists as upcoming. */
+export type UpcomingEvent = {
+  eventId: string;
+  recurrenceId?: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location?: string;
 };
 
 /** Someone who may be invited. */
@@ -100,6 +141,8 @@ export type PublicInvitation = {
   organizer?: string;
   name?: string;
   status: AttendeeStatus;
+  /** Files to download with the page's token. */
+  files: EventFile[];
 };
 
 /** What the form sends for a new event or a change. */
@@ -118,6 +161,10 @@ export type EventInput = {
   calendarId?: string;
   /** The whole list of attendees; `undefined` leaves it as it is. */
   attendees?: AttendeeInput[];
+  /** The linked channel; `null` unlinks it, `undefined` leaves it as it is. */
+  channelId?: string | null;
+  /** The whole list of attached files; `undefined` leaves it as it is. */
+  files?: string[];
 };
 
 export type EditScope = "this" | "following" | "all";
@@ -173,6 +220,23 @@ type EventDto = OccurrenceDto & {
   updated_at: string;
   organizer?: { user_id: string; name: string } | null;
   attendees?: AttendeeDto[];
+  channel?: { id: string; name?: string | null; space_id: string; private: boolean; accessible: boolean } | null;
+  files?: EventFile[];
+};
+
+export type EventCardDto = {
+  event_id: string;
+  title: string;
+  start: string;
+  end: string;
+  all_day: boolean;
+  tzid?: string | null;
+  location?: string | null;
+  recurring: boolean;
+  organizer?: string | null;
+  organizer_id?: string | null;
+  my_status?: AttendeeStatus | null;
+  recurrence_id?: string | null;
 };
 
 type FeedDto = { id: string; calendar_id?: string | null; created_at: string; last_used_at?: string | null; url?: string };
@@ -234,6 +298,34 @@ function toEvent(dto: EventDto): CalendarEvent {
       name: a.name,
       status: a.status,
     })),
+    channel: dto.channel
+      ? {
+          id: dto.channel.id,
+          name: opt(dto.channel.name),
+          spaceId: dto.channel.space_id,
+          private: dto.channel.private,
+          accessible: dto.channel.accessible,
+        }
+      : undefined,
+    files: dto.files ?? [],
+  };
+}
+
+/** A message's event card, as the API sends it. */
+export function toEventCard(dto: EventCardDto): EventCard {
+  return {
+    eventId: dto.event_id,
+    title: dto.title,
+    start: dto.start,
+    end: dto.end,
+    allDay: dto.all_day,
+    tzid: opt(dto.tzid),
+    location: opt(dto.location),
+    recurring: dto.recurring,
+    organizer: opt(dto.organizer),
+    organizerId: opt(dto.organizer_id),
+    myStatus: opt(dto.my_status),
+    recurrenceId: opt(dto.recurrence_id),
   };
 }
 
@@ -256,6 +348,8 @@ function eventBody(input: EventInput) {
     ...(input.attendees
       ? { attendees: input.attendees.map((a) => ("userId" in a ? { user_id: a.userId } : { email: a.email, name: a.name })) }
       : {}),
+    ...(input.channelId !== undefined ? { channel_id: input.channelId } : {}),
+    ...(input.files ? { files: input.files } : {}),
   };
 }
 
@@ -374,9 +468,11 @@ export async function respondToEvent(id: string, status: Exclude<AttendeeStatus,
   return toEvent(await apiPut<EventDto>(`/events/${id}/response`, { status, recurrence_id: recurrenceId }));
 }
 
-/** Who may be invited to an event of this calendar, matching `query`. */
-export async function searchInvitees(calendarId: string, query: string, signal?: AbortSignal): Promise<Invitee[]> {
+/** Who may be invited to an event of this calendar, matching `query`; with `channel`, only that
+ *  channel's members (all of them for an empty query: "invite the whole channel"). */
+export async function searchInvitees(calendarId: string, query: string, signal?: AbortSignal, channel?: string): Promise<Invitee[]> {
   const params = new URLSearchParams({ q: query });
+  if (channel) params.set("channel", channel);
   const found = await apiGet<{ user_id: string; name: string }[]>(`/calendars/${calendarId}/invitees?${params}`, signal);
   return found.map((p) => ({ userId: p.user_id, name: p.name }));
 }
@@ -403,6 +499,7 @@ type PublicInvitationDto = {
   organizer?: string | null;
   name?: string | null;
   status: AttendeeStatus;
+  files?: EventFile[];
 };
 
 function toPublicInvitation(dto: PublicInvitationDto): PublicInvitation {
@@ -418,7 +515,46 @@ function toPublicInvitation(dto: PublicInvitationDto): PublicInvitation {
     organizer: opt(dto.organizer),
     name: opt(dto.name),
     status: dto.status,
+    files: dto.files ?? [],
   };
+}
+
+/** Where someone invited by address downloads a file of the event, with their page's token. */
+export function invitationFileUrl(token: string, fileId: string): string {
+  return `/api/v1/public/invitation/${encodeURIComponent(token)}/files/${fileId}`;
+}
+
+/** The channels an event of this calendar may be linked to, by space then by name. */
+export async function listLinkableChannels(calendarId: string, signal?: AbortSignal): Promise<LinkableChannel[]> {
+  const found = await apiGet<{ id: string; name: string; space_id: string; space_name: string; private: boolean }[]>(
+    `/calendars/${calendarId}/channels`,
+    signal,
+  );
+  return found.map((c) => ({ id: c.id, name: c.name, spaceId: c.space_id, spaceName: c.space_name, private: c.private }));
+}
+
+/** A channel's next linked occurrences (three at most, within two months). */
+export async function listChannelEvents(channelId: string, signal?: AbortSignal): Promise<UpcomingEvent[]> {
+  const found = await apiGet<
+    { event_id: string; recurrence_id?: string | null; title: string; start: string; end: string; all_day: boolean; location?: string | null }[]
+  >(`/channels/${channelId}/events`, signal);
+  return found.map((u) => ({
+    eventId: u.event_id,
+    recurrenceId: opt(u.recurrence_id),
+    title: u.title,
+    start: u.start,
+    end: u.end,
+    allDay: u.all_day,
+    location: opt(u.location),
+  }));
+}
+
+/** Where files dropped for an event of this calendar go: its space's "Agenda" folder (for a personal
+ *  calendar, that of the linked channel's space). */
+export async function eventAttachmentFolder(calendarId: string, channelId?: string, signal?: AbortSignal): Promise<{ spaceId: string; folderId: string }> {
+  const query = channelId ? `?channel=${channelId}` : "";
+  const found = await apiGet<{ space_id: string; folder_id: string }>(`/calendars/${calendarId}/attachment-folder${query}`, signal);
+  return { spaceId: found.space_id, folderId: found.folder_id };
 }
 
 /** `GET /public/invitation/{token}`: no session needed. A `404` means it is no longer there. */

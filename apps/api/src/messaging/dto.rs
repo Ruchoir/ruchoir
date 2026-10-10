@@ -44,6 +44,10 @@ pub struct MessageDto {
     /// System-event discriminator for `system` messages (join/leave and similar).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system_event: Option<String>,
+    /// For a calendar card, its event as the reader sees it now; absent when the event is gone or
+    /// no longer theirs to see (the body keeps its title).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event: Option<crate::calendar::links::EventCardDto>,
     /// Parent message for a threaded reply; `None` for a root message.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_message_id: Option<Uuid>,

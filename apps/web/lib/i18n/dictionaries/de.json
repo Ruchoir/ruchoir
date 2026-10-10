@@ -1161,7 +1161,10 @@
     "channelMadePublic": "{{who}} hat den Kanal öffentlich gemacht.",
     "channelArchived": "{{who}} hat den Kanal archiviert.",
     "channelUnarchived": "{{who}} hat den Kanal wiederhergestellt.",
-    "channelAccessChanged": "{{who}} hat geändert, wer auf den Kanal zugreifen kann."
+    "channelAccessChanged": "{{who}} hat geändert, wer auf den Kanal zugreifen kann.",
+    "calendarEventPosted": "{{who}} hat „{{detail}}“ geplant.",
+    "calendarEventChanged": "{{who}} hat Zeit oder Ort von „{{detail}}“ geändert.",
+    "calendarEventCancelled": "{{who}} hat „{{detail}}“ abgesagt."
   },
   "rail": {
     "unreadActivity": "{{name}}, ungelesene Aktivität"
@@ -1549,7 +1552,7 @@
     "calendarCount_one": "{{count}} Kalender",
     "calendarCount_other": "{{count}} Kalender",
     "moreOptions": "Weitere Optionen",
-    "placeAndNotes": "Ort, Notizen…",
+    "placeAndNotes": "Ort, Notizen, Dateien…",
     "customRule": "Eigene Wiederholung",
     "ruleDone": "Fertig",
     "when": "Wann",
@@ -1627,7 +1630,29 @@
       "needs_action": "Zu beantworten",
       "tentative": "Noch unsicher",
       "declined": "Abgelehnt"
-    }
+    },
+    "channel": "Kanal",
+    "noChannel": "Kein Kanal",
+    "privateTag": "privat",
+    "inviteChannel": "Ganzen Kanal einladen",
+    "inChannel": "In #{{name}}",
+    "planEvent": "Termin planen",
+    "upcoming": "Demnächst",
+    "upcomingInChannel": "Anstehende Termine des Kanals",
+    "seeEvent": "Termin ansehen",
+    "repeats": "Wiederholt sich",
+    "files": "Angehängte Dateien",
+    "fromDrive": "Aus dem Drive",
+    "fromDevice": "Vom Gerät",
+    "removeFile": "Datei {{name}} entfernen",
+    "dropNeedsChannel": "Um eine Datei hochzuladen, zuerst einen Kanal wählen: Sie landet im Ordner Agenda seines Bereichs.",
+    "filesFailed": "Die Datei konnte nicht gesendet werden. Bitte erneut versuchen.",
+    "pickFiles": "Dateien aus dem Drive anhängen",
+    "attachCount": "Anhängen ({{count}})",
+    "driveOf": "Drive des Bereichs",
+    "searchFiles": "Datei suchen",
+    "filesFound": "Ergebnisse",
+    "driveRoot": "Drive-Stammordner"
   },
   "invitationPage": {
     "title": "Einladung",
@@ -1639,6 +1664,7 @@
     "question": "{{name}}, sind Sie dabei?",
     "saved": "Antwort gespeichert. Sie können sie jederzeit über diesen Link ändern.",
     "failed": "Ihre Antwort konnte gerade nicht gespeichert werden, versuchen Sie es später erneut.",
-    "footer": "Ruchoir, der Arbeitsbereich des Teams, das Sie einlädt."
+    "footer": "Ruchoir, der Arbeitsbereich des Teams, das Sie einlädt.",
+    "files": "Angehängte Dokumente"
   }
 }

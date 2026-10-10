@@ -96,6 +96,40 @@ API: `attendees` in the event body (the whole list; absent leaves it), `organize
 `PUT /api/v1/events/{id}/response`, `GET /api/v1/calendars/{id}/invitees?q=`,
 `POST /api/v1/calendar/freebusy`, `GET|POST /api/v1/public/invitation/{token}`.
 
+## Channels and attached files
+
+- **A linked channel.** An event may be linked to one channel: for a space calendar, a public channel
+  of the space or a private one its author is in; for a personal calendar, such a channel of any of
+  the author's spaces (`GET /api/v1/calendars/{id}/channels`). Never a direct message. The link
+  belongs to the series. Whoever reads the channel sees the event, read only, like an invitee;
+  someone who sees the event without reading a private linked channel sees "Private channel", with
+  no name and no way in.
+- **Cards** (`apps/api/src/calendar/links.rs`): linking a channel posts a system message
+  `calendar_event_posted` there, pointing at the event (`messages.event_id`); a new time or place
+  adds `calendar_event_changed`, a deletion of the whole event `calendar_event_cancelled` (its title
+  kept in the body, the event being gone). A message carries `event`, the event as its reader sees
+  it now: its next date, where, the organiser, and the reader's answer, which an invitee gives from
+  the card for every date. A card that arrives live carries nobody's answer: the screen reads the
+  reader's own from the event.
+- **Upcoming**: a channel shows its next three linked occurrences, within two months, under its
+  header (`GET /api/v1/channels/{id}/events`).
+- **Invite the whole channel** adds the channel's members who may be invited
+  (`GET /api/v1/calendars/{id}/invitees?channel=`). **Plan an event**, in a channel's menu, opens the
+  form already linked to it, in the space's default calendar when the viewer may write there.
+- **Attached files** (`apps/api/src/calendar/attachments.rs`): up to 20 files of a space's tree
+  (never a folder, never a private conversation's attachment) that the author may read, taken from a
+  Drive or dropped from the device into the space's "Agenda" folder (created on first use, found by
+  its system key; for a personal calendar, the space of the linked channel). The list belongs to the
+  series and is replaced whole. **The event gives access to its files**: whoever sees it may read
+  them (download and preview, never edit, `FileAccess.through_event`), and taking a file off the
+  event takes that access away; the file stays in the Drive. People invited by address download them
+  from their answer page.
+
+API: `channel_id` (absent leaves it, `null` unlinks) and `files` (the whole list of ids) in the
+event body; `channel` and `files` on an event; `event` on a message;
+`GET /api/v1/calendars/{id}/attachment-folder?channel=`,
+`GET /api/v1/public/invitation/{token}/files/{file_id}`.
+
 ## The screen
 
 - **The column** (desktop and tablet, in place of the space's) lists the viewer's calendars in three
@@ -131,5 +165,5 @@ New Calendar > On the Network.
 
 ## Limits of this first lot
 
-Not yet: linking an event to a channel and attaching files, importing Nextcloud's `.ics`, sharing a personal calendar, several reminders per event,
+Not yet: importing Nextcloud's `.ics`, sharing a personal calendar, several reminders per event,
 a year view, printing, searching events, and two-way sync with other calendars (CalDAV).

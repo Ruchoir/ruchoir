@@ -1,6 +1,8 @@
 import {
   Calendar,
   CalendarPlus,
+  CalendarClock,
+  CalendarX,
   MapPin,
   Repeat,
   Rss,
@@ -125,6 +127,8 @@ const ICONS: Record<string, LucideIcon> = {
   bookmark: Bookmark,
   calendar: Calendar,
   "calendar-plus": CalendarPlus,
+  "calendar-clock": CalendarClock,
+  "calendar-x": CalendarX,
   check: Check,
   "check-check": CheckCheck,
   "circle-alert": CircleAlert,

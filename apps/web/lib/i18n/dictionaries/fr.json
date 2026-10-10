@@ -1161,7 +1161,10 @@
     "channelMadePublic": "{{who}} a rendu le canal public.",
     "channelArchived": "{{who}} a archivé le canal.",
     "channelUnarchived": "{{who}} a désarchivé le canal.",
-    "channelAccessChanged": "{{who}} a changé qui peut accéder au canal."
+    "channelAccessChanged": "{{who}} a changé qui peut accéder au canal.",
+    "calendarEventPosted": "{{who}} a planifié « {{detail}} ».",
+    "calendarEventChanged": "{{who}} a changé l'heure ou le lieu de « {{detail}} ».",
+    "calendarEventCancelled": "{{who}} a annulé « {{detail}} »."
   },
   "rail": {
     "unreadActivity": "{{name}}, activité non lue"
@@ -1565,7 +1568,7 @@
     "calendarCount_many": "{{count}} agendas",
     "calendarCount_other": "{{count}} agendas",
     "moreOptions": "Plus d'options",
-    "placeAndNotes": "Lieu, notes…",
+    "placeAndNotes": "Lieu, notes, fichiers…",
     "customRule": "Répétition personnalisée",
     "ruleDone": "Valider",
     "when": "Quand",
@@ -1650,7 +1653,29 @@
       "needs_action": "À répondre",
       "tentative": "Participation incertaine",
       "declined": "Vous avez refusé"
-    }
+    },
+    "channel": "Canal",
+    "noChannel": "Aucun canal",
+    "privateTag": "privé",
+    "inviteChannel": "Inviter tout le canal",
+    "inChannel": "Dans #{{name}}",
+    "planEvent": "Planifier un événement",
+    "upcoming": "À venir",
+    "upcomingInChannel": "Événements à venir du canal",
+    "seeEvent": "Voir l'événement",
+    "repeats": "Se répète",
+    "files": "Fichiers joints",
+    "fromDrive": "Depuis le Drive",
+    "fromDevice": "Depuis l'appareil",
+    "removeFile": "Retirer le fichier {{name}}",
+    "dropNeedsChannel": "Pour déposer un fichier, choisissez d'abord un canal : il ira dans le dossier Agenda de son espace.",
+    "filesFailed": "Le fichier n'a pas pu être envoyé. Réessayez.",
+    "pickFiles": "Joindre des fichiers du Drive",
+    "attachCount": "Joindre ({{count}})",
+    "driveOf": "Drive de l'espace",
+    "searchFiles": "Chercher un fichier",
+    "filesFound": "Résultats",
+    "driveRoot": "Racine du Drive"
   },
   "invitationPage": {
     "title": "Invitation",
@@ -1662,6 +1687,7 @@
     "question": "{{name}}, serez-vous là ?",
     "saved": "Réponse enregistrée. Vous pouvez la changer à tout moment avec ce lien.",
     "failed": "Réponse impossible pour le moment, réessayez plus tard.",
-    "footer": "Ruchoir, l'espace de travail de l'équipe qui vous invite."
+    "footer": "Ruchoir, l'espace de travail de l'équipe qui vous invite.",
+    "files": "Documents joints"
   }
 }

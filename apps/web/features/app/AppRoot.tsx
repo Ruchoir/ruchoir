@@ -543,7 +543,11 @@ function AppShell() {
   // before it can be opened (see the effect that consumes it).
   const [pendingOpen, setPendingOpen] = useState<PushTarget | null>(null);
   // The event a clicked reminder points at: the calendar opens on its day, with its details.
-  const [calendarFocus, setCalendarFocus] = useState<(ReminderInfo & { at: number }) | null>(null);
+  const [calendarFocus, setCalendarFocus] = useState<
+    (Pick<ReminderInfo, "eventId" | "recurrenceId" | "start" | "allDay"> & { end?: string; at: number }) | null
+  >(null);
+  // An event being planned from a channel: the calendar opens on its form, linked to it.
+  const [calendarCompose, setCalendarCompose] = useState<{ channelId: string; spaceId: string; at: number } | null>(null);
   // The notification level of the space on screen, being set.
   const [spaceNotifOpen, setSpaceNotifOpen] = useState(false);
   // A link to another site, held until the warning about leaving Ruchoir is answered.
@@ -2571,19 +2575,57 @@ function AppShell() {
     setFocusMessageId(messageId);
   };
 
+  /** Show the calendar, wherever the app is. */
+  const showCalendar = () => {
+    if (compact) {
+      setMobileContent(false);
+      setMobileTab("calendar");
+    } else {
+      setView("calendar");
+    }
+  };
+
+  /** Open an event in the calendar, from a channel's card or its upcoming events. */
+  const openCalendarEvent = (event: { eventId: string; recurrenceId?: string; start: string; end: string; allDay: boolean }) => {
+    setCalendarCompose(null);
+    setCalendarFocus({ ...event, at: Date.now() });
+    showCalendar();
+  };
+
+  /** Plan an event from the open channel. */
+  const planEventIn = (channel: string) => {
+    setCalendarFocus(null);
+    setCalendarCompose({ channelId: channel, spaceId: ws, at: Date.now() });
+    showCalendar();
+  };
+
+  /** Go from the calendar to a channel an event is linked to, in its own space. */
+  const openChannelFromCalendar = (spaceId: string, channel: string) => {
+    if (compact) {
+      setMobileTab("home");
+    }
+    if (spaceId === ws) {
+      if (compact) openChannelPushed(channel);
+      else openChannel(channel);
+      return;
+    }
+    // Opened by the space's own choice of conversation, which is the one it remembers.
+    rememberChannel(spaceId, channel);
+    if (compact) setMobileContent(true);
+    void switchWorkspace(spaceId);
+  };
+
   /** Open a notification: mark it read, then jump to its source message. */
   const openNotification = (targetChannel: string, messageId: string, id: string) => {
     setNotifRead(id, true);
     // A calendar reminder has no conversation: it opens its event in the calendar.
     if (!targetChannel) {
       const reminder = notifs.find((n) => n.id === id)?.reminder;
-      if (reminder) setCalendarFocus({ ...reminder, at: Date.now() });
-      if (compact) {
-        setMobileContent(false);
-        setMobileTab("calendar");
-      } else {
-        setView("calendar");
+      if (reminder) {
+        setCalendarCompose(null);
+        setCalendarFocus({ ...reminder, at: Date.now() });
       }
+      showCalendar();
       return;
     }
     openMessage(targetChannel, messageId);
@@ -3988,6 +4030,9 @@ function AppShell() {
       ) : null}
       {contentView === "channel" && channelId ? (
         <ChannelScreen
+          timeZone={viewerTimeZone}
+          onOpenEvent={openCalendarEvent}
+          onPlanEvent={() => planEventIn(channelId)}
           editing={editing}
           onSaveEdit={saveEdit}
           onCancelEdit={() => setEditing(null)}
@@ -4076,8 +4121,10 @@ function AppShell() {
       ) : null}
       {contentView === "calendar" ? (
         <CalendarScreen
-          key={`${ws}:${calendarFocus?.at ?? ""}`}
+          key={`${ws}:${calendarFocus?.at ?? ""}:${calendarCompose?.at ?? ""}`}
           focus={calendarFocus ?? undefined}
+          compose={calendarCompose ?? undefined}
+          onOpenChannel={openChannelFromCalendar}
           compact={compact}
           timeZone={viewerTimeZone}
           viewerId={session?.id}
@@ -4530,8 +4577,10 @@ function AppShell() {
         ) : null}
         {mobileTab === "calendar" ? (
           <CalendarScreen
-            key={calendarFocus?.at ?? ""}
+            key={`${calendarFocus?.at ?? ""}:${calendarCompose?.at ?? ""}`}
             focus={calendarFocus ?? undefined}
+            compose={calendarCompose ?? undefined}
+            onOpenChannel={openChannelFromCalendar}
             compact
             timeZone={viewerTimeZone}
             viewerId={session?.id}

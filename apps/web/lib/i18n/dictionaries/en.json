@@ -1161,7 +1161,10 @@
     "channelMadePublic": "{{who}} made the channel public.",
     "channelArchived": "{{who}} archived the channel.",
     "channelUnarchived": "{{who}} unarchived the channel.",
-    "channelAccessChanged": "{{who}} changed who can access the channel."
+    "channelAccessChanged": "{{who}} changed who can access the channel.",
+    "calendarEventPosted": "{{who}} planned “{{detail}}”.",
+    "calendarEventChanged": "{{who}} changed the time or place of “{{detail}}”.",
+    "calendarEventCancelled": "{{who}} cancelled “{{detail}}”."
   },
   "rail": {
     "unreadActivity": "{{name}}, unread activity"
@@ -1549,7 +1552,7 @@
     "calendarCount_one": "{{count}} calendar",
     "calendarCount_other": "{{count}} calendars",
     "moreOptions": "More options",
-    "placeAndNotes": "Place, notes…",
+    "placeAndNotes": "Place, notes, files…",
     "customRule": "Custom repetition",
     "ruleDone": "Done",
     "when": "When",
@@ -1627,7 +1630,29 @@
       "needs_action": "To answer",
       "tentative": "Not sure yet",
       "declined": "You declined"
-    }
+    },
+    "channel": "Channel",
+    "noChannel": "No channel",
+    "privateTag": "private",
+    "inviteChannel": "Invite the whole channel",
+    "inChannel": "In #{{name}}",
+    "planEvent": "Plan an event",
+    "upcoming": "Upcoming",
+    "upcomingInChannel": "The channel's upcoming events",
+    "seeEvent": "See the event",
+    "repeats": "Repeats",
+    "files": "Attached files",
+    "fromDrive": "From the Drive",
+    "fromDevice": "From this device",
+    "removeFile": "Remove the file {{name}}",
+    "dropNeedsChannel": "To drop a file, pick a channel first: it goes to the Agenda folder of its space.",
+    "filesFailed": "The file could not be sent. Try again.",
+    "pickFiles": "Attach files from the Drive",
+    "attachCount": "Attach ({{count}})",
+    "driveOf": "Space's Drive",
+    "searchFiles": "Search for a file",
+    "filesFound": "Results",
+    "driveRoot": "Drive root"
   },
   "invitationPage": {
     "title": "Invitation",
@@ -1639,6 +1664,7 @@
     "question": "{{name}}, will you be there?",
     "saved": "Answer saved. You can change it at any time with this link.",
     "failed": "Could not save your answer just now, try again later.",
-    "footer": "Ruchoir, the workspace of the team inviting you."
+    "footer": "Ruchoir, the workspace of the team inviting you.",
+    "files": "Attached documents"
   }
 }

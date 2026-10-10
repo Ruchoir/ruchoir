@@ -27,6 +27,8 @@ export type ChannelDetailsProps = {
   onSettings: () => void;
   onLeave: () => void;
   onJoin: () => void;
+  /** Plan an event linked to this channel. */
+  onPlanEvent?: () => void;
 };
 
 const actionStyle: CSSProperties = {
@@ -81,6 +83,7 @@ export function ChannelDetails({
   onSettings,
   onLeave,
   onJoin,
+  onPlanEvent,
 }: ChannelDetailsProps) {
   const { t } = useTranslation();
   const member = channel.member !== false;
@@ -121,6 +124,7 @@ export function ChannelDetails({
           />
           <Row icon="pin" label={t("panel.pinned")} onClick={() => onOpenPanel("pinned")} />
           <Row icon="folder" label={t("gsearch.files")} onClick={() => onOpenPanel("files")} />
+          {onPlanEvent ? <Row icon="calendar-plus" label={t("calendar.planEvent")} onClick={onPlanEvent} /> : null}
           <Row icon="settings" label={t("sidebar.channelSettings")} onClick={onSettings} />
         </div>
 

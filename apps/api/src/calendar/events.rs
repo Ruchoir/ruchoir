@@ -21,12 +21,14 @@ use sea_orm::{
 use time::{Date, Duration, OffsetDateTime};
 use uuid::Uuid;
 
+use super::attachments;
 use super::attendees::{self, Attendance, OrganizerDto, ResponseInput};
 use super::authz::{self, CalendarAccess};
 use super::calendars::announce;
 use super::dto::{EditQuery, EditScope, EventDto, EventInput, EventMe, OccurrenceDto};
 use super::error::CalendarError;
 use super::invitations::{self, Cancellation, Notice};
+use super::links;
 use super::recurrence::{self, ExceptionInput, RecurrenceId, RuleOrigin, SeriesInput, When};
 use super::reminders::effective_minutes;
 use super::{ALL_DAY_REMINDERS, TIMED_REMINDERS};
@@ -163,8 +165,8 @@ impl ViewerReminders {
     }
 }
 
-async fn event_dto<C: ConnectionTrait>(
-    db: &C,
+async fn event_dto(
+    db: &sea_orm::DatabaseConnection,
     user_id: Uuid,
     event: calendar_events::Model,
     access: &CalendarAccess,
@@ -212,6 +214,8 @@ async fn event_dto<C: ConnectionTrait>(
         updated_at: instant_text(event.updated_at),
         organizer,
         attendees: attendees::dtos(db, &list).await?,
+        channel: links::channel_dto(db, event.channel_id, user_id).await?,
+        files: attachments::list(db, event.id).await?,
     })
 }
 
@@ -401,9 +405,9 @@ async fn set_my_reminder<C: ConnectionTrait>(
 }
 
 /// The event and the caller's access to it: through its calendar, or read only through an
-/// invitation; `NotFound` when they cannot see it.
-async fn load_event<C: ConnectionTrait>(
-    db: &C,
+/// invitation or its linked channel; `NotFound` when they cannot see it.
+async fn load_event(
+    db: &sea_orm::DatabaseConnection,
     user_id: Uuid,
     event_id: Uuid,
 ) -> Result<(calendar_events::Model, CalendarAccess), CalendarError> {
@@ -411,15 +415,9 @@ async fn load_event<C: ConnectionTrait>(
         .one(db)
         .await?
         .ok_or(CalendarError::NotFound)?;
-    match authz::access(db, user_id, event.calendar_id).await {
-        Ok(access) => Ok((event, access)),
-        Err(CalendarError::NotFound) => {
-            match attendees::invitation_access(db, user_id, &event).await? {
-                Some(access) => Ok((event, access)),
-                None => Err(CalendarError::NotFound),
-            }
-        }
-        Err(other) => Err(other),
+    match links::reach(db, user_id, &event).await? {
+        Some(access) => Ok((event, access)),
+        None => Err(CalendarError::NotFound),
     }
 }
 
@@ -510,8 +508,27 @@ pub async fn create_event(
     if let Some(minutes) = input.reminder_minutes {
         check_reminder(minutes, all_day)?;
     }
+    let channel = match input.channel_id {
+        Some(Some(channel)) => {
+            links::check(&state.db, &access.calendar, session.user_id, channel).await?;
+            Some(channel)
+        }
+        _ => None,
+    };
+    let files = match &input.files {
+        Some(wanted) => Some(attachments::check(&state.db, session.user_id, wanted, &[]).await?),
+        None => None,
+    };
     let txn = state.db.begin().await?;
-    let event = insert_event(&txn, calendar_id, session.user_id, parsed).await?;
+    let mut event = insert_event(&txn, calendar_id, session.user_id, parsed).await?;
+    if channel.is_some() {
+        let mut active = event.into_active_model();
+        active.channel_id = Set(channel);
+        event = active.update(&txn).await?;
+    }
+    if let Some(files) = &files {
+        attachments::replace(&txn, event.id, session.user_id, files).await?;
+    }
     if let Some(minutes) = input.reminder_minutes {
         set_my_reminder(&txn, session.user_id, event.id, minutes).await?;
     }
@@ -532,6 +549,17 @@ pub async fn create_event(
     };
     txn.commit().await?;
     announce(&state, &access.calendar).await?;
+    if let Some(channel) = event.channel_id {
+        links::post(
+            &state,
+            channel,
+            Some(event.id),
+            session.user_id,
+            links::POSTED,
+            &event.title,
+        )
+        .await;
+    }
     if !invited.is_empty() {
         invitations::send(
             &state,
@@ -646,6 +674,29 @@ pub async fn update_event(
         scope = EditScope::All;
     }
 
+    // The channel asked for, checked against the calendar the event ends up in.
+    let channel: Option<Option<Uuid>> = match input.channel_id {
+        Some(Some(id)) => {
+            let target = match input.calendar_id {
+                Some(other) if other != event.calendar_id => {
+                    authz::access(&state.db, session.user_id, other)
+                        .await?
+                        .calendar
+                }
+                _ => access.calendar.clone(),
+            };
+            links::check(&state.db, &target, session.user_id, id).await?;
+            Some(Some(id))
+        }
+        other => other,
+    };
+    let files = match &input.files {
+        Some(wanted) => {
+            let kept = attachments::carried(&state.db, event.id).await?;
+            Some(attachments::check(&state.db, session.user_id, wanted, &kept).await?)
+        }
+        None => None,
+    };
     let mut touched = vec![access.calendar.clone()];
     // What the attendees will hear about: what changed, and for which date.
     let before_when = when_of(&event);
@@ -843,6 +894,26 @@ pub async fn update_event(
     if let Some(minutes) = input.reminder_minutes {
         set_my_reminder(&txn, session.user_id, result_id, minutes).await?;
     }
+    // So do the files: carried into a new series, then made the ones asked for.
+    if result_id != event.id {
+        attachments::copy_to(&txn, event.id, result_id).await?;
+    }
+    if let Some(files) = &files {
+        attachments::replace(&txn, result_id, session.user_id, files).await?;
+    }
+    // The link belongs to the series: as asked, or carried into a new one cut from it.
+    let carried = (result_id != event.id)
+        .then_some(event.channel_id)
+        .flatten();
+    if let Some(linked) = channel.or(carried.map(Some)) {
+        let result = calendar_events::Entity::find_by_id(result_id)
+            .one(&txn)
+            .await?
+            .ok_or(CalendarError::Internal)?;
+        let mut active = result.into_active_model();
+        active.channel_id = Set(linked);
+        active.update(&txn).await?;
+    }
     let list_change = match &input.attendees {
         Some(list) => {
             let result = calendar_events::Entity::find_by_id(result_id)
@@ -870,6 +941,32 @@ pub async fn update_event(
         .one(&state.db)
         .await?;
     let actor = Some(session.user_id);
+    // The channel hears of it: a card where it is newly linked, a notice where a time or place moved.
+    if let Some(result) = &result {
+        if let Some(channel) = result.channel_id {
+            if result.channel_id != event.channel_id {
+                links::post(
+                    &state,
+                    channel,
+                    Some(result.id),
+                    session.user_id,
+                    links::POSTED,
+                    &result.title,
+                )
+                .await;
+            } else if !changes.is_empty() {
+                links::post(
+                    &state,
+                    channel,
+                    Some(result.id),
+                    session.user_id,
+                    links::CHANGED,
+                    &result.title,
+                )
+                .await;
+            }
+        }
+    }
     if !list_change.removed.is_empty() {
         invitations::send(
             &state,
@@ -1046,6 +1143,17 @@ pub async fn delete_event(
     }
     txn.commit().await?;
     announce(&state, &access.calendar).await?;
+    if let (EditScope::All, Some(channel)) = (scope, event.channel_id) {
+        links::post(
+            &state,
+            channel,
+            None,
+            session.user_id,
+            links::CANCELLED,
+            &event.title,
+        )
+        .await;
+    }
     if let Some(snapshot) = cancelled {
         let after = match scope {
             EditScope::All => None,

@@ -25,10 +25,14 @@ use crate::entities::{files, message_attachments, messages, space_members};
 
 /// A resolved, authorized handle to a file the caller may access.
 pub struct FileAccess {
-    /// The file row (guaranteed to be in a space the caller belongs to, and not soft-deleted).
+    /// The file row (in a space the caller belongs to, or carried by an event they see; not
+    /// soft-deleted).
     pub file: files::Model,
     /// Whether the caller may mutate the file (owner, or a space owner/admin).
     pub can_edit: bool,
+    /// Whether the caller reads it only because a calendar event they see carries it: read only,
+    /// its content included.
+    pub through_event: bool,
 }
 
 /// Ensure the caller belongs to a space, or fail with `403`.
@@ -146,7 +150,37 @@ pub async fn conversation_access(
 
 /// Resolve and authorize a file for reading, or fail with `403` (never revealing whether the file
 /// exists to a non-member). A soft-deleted file is a `404` for a member who addresses it by id.
+///
+/// **A calendar event gives access to the files it carries**: whoever sees the event reads them,
+/// read only, even from outside the file's audience (see `crate::calendar::attachments`).
 pub async fn ensure_readable(
+    db: &DatabaseConnection,
+    file_id: Uuid,
+    user_id: Uuid,
+) -> Result<FileAccess, FileError> {
+    match readable_by_audience(db, file_id, user_id).await {
+        Err(FileError::Forbidden)
+            if crate::calendar::attachments::grants(db, file_id, user_id).await =>
+        {
+            let file = files::Entity::find_by_id(file_id)
+                .one(db)
+                .await?
+                .ok_or(FileError::Forbidden)?;
+            if file.deleted_at.is_some() {
+                return Err(FileError::NotFound);
+            }
+            Ok(FileAccess {
+                file,
+                can_edit: false,
+                through_event: true,
+            })
+        }
+        other => other,
+    }
+}
+
+/// [`ensure_readable`] by the file's own audience: its space, or its private conversation.
+async fn readable_by_audience(
     db: &DatabaseConnection,
     file_id: Uuid,
     user_id: Uuid,
@@ -177,7 +211,11 @@ pub async fn ensure_readable(
     }
     let can_edit =
         file.owner_id == Some(user_id) || is_space_admin(db, file.space_id, user_id).await?;
-    Ok(FileAccess { file, can_edit })
+    Ok(FileAccess {
+        file,
+        can_edit,
+        through_event: false,
+    })
 }
 
 /// Resolve and authorize a file for mutation (owner or space owner/admin), or fail with `403`.
@@ -207,6 +245,10 @@ pub async fn ensure_content_editable(
     let access = ensure_readable(db, file_id, user_id).await?;
     if access.file.kind == "folder" {
         return Err(FileError::BadRequest("a folder has no content to edit"));
+    }
+    // Reading a file through a calendar event is reading it, not working on it.
+    if access.through_event {
+        return Err(FileError::Forbidden);
     }
     let guest = crate::messaging::authz::is_guest(db, access.file.space_id, user_id)
         .await

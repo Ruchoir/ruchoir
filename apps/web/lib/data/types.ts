@@ -4,6 +4,7 @@
  * implementation of the data seam (lib/data) for real HTTP calls without touching views.
  */
 import type { Presence } from "@/components/ds";
+import type { EventCard } from "./calendar";
 
 export type ImportSource = "Nextcloud" | "Slack" | "Mattermost" | "Teams" | "Ruchoir";
 
@@ -278,6 +279,8 @@ export type Message = {
   system?: { event: SystemEvent; actor: string; detail?: string };
   /** Icon for a system message. */
   systemIcon?: string;
+  /** For a calendar card: its event as the reader sees it now (absent once they no longer see it). */
+  eventCard?: EventCard;
   attachment?: MessageAttachment;
   /** Every non-image attachment, in upload order. */
   attachments?: MessageAttachment[];
@@ -335,7 +338,10 @@ export type SystemEvent =
   | "channel_made_public"
   | "channel_archived"
   | "channel_unarchived"
-  | "channel_access_changed";
+  | "channel_access_changed"
+  | "calendar_event_posted"
+  | "calendar_event_changed"
+  | "calendar_event_cancelled";
 
 export type SpaceFileKind = "file" | "file-text" | "file-spreadsheet" | "image" | "folder";
 

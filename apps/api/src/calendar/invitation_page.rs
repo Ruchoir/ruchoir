@@ -39,6 +39,8 @@ pub struct PublicInvitationDto {
     pub name: Option<String>,
     /// `needs_action`, `accepted`, `tentative` or `declined`.
     pub status: String,
+    /// The files the event carries, downloadable with the same token.
+    pub files: Vec<super::attachments::EventFileDto>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -91,6 +93,7 @@ async fn dto(
         organizer,
         name: row.name.clone(),
         status: row.status.clone(),
+        files: super::attachments::list(&state.db, event.id).await?,
     })
 }
 
@@ -160,9 +163,61 @@ pub async fn answer_invitation(
     Ok(Json(dto(&state, &row, &event).await?))
 }
 
-pub fn public_router() -> Router<AppState> {
-    Router::new().route(
-        "/api/v1/public/invitation/{token}",
-        get(read_invitation).post(answer_invitation),
+/// `GET /api/v1/public/invitation/{token}/files/{file_id}`: a file the event carries, downloaded by
+/// its guest without a session.
+#[utoipa::path(
+    get,
+    path = "/api/v1/public/invitation/{token}/files/{file_id}",
+    tag = "calendar",
+    params(
+        ("token" = String, Path, description = "The token from the invitation mail"),
+        ("file_id" = Uuid, Path, description = "A file the event carries")
+    ),
+    responses(
+        (status = 200, description = "The file"),
+        (status = 404, description = "No such invitation, or the event does not carry this file")
     )
+)]
+pub async fn download_file(
+    State(state): State<AppState>,
+    Path((token, file_id)): Path<(String, uuid::Uuid)>,
+) -> Result<axum::response::Response, CalendarError> {
+    let (_, event) = find(&state, &token).await?;
+    if !super::attachments::carries(&state.db, event.id, file_id).await? {
+        return Err(CalendarError::NotFound);
+    }
+    let file = crate::entities::files::Entity::find_by_id(file_id)
+        .one(&state.db)
+        .await?
+        .filter(|f| f.deleted_at.is_none() && f.kind != "folder")
+        .ok_or(CalendarError::NotFound)?;
+    let storage = state.storage.as_ref().ok_or(CalendarError::Internal)?;
+    let version = crate::files::download::current_version(&state.db, &file)
+        .await
+        .map_err(|_| CalendarError::NotFound)?;
+    let key = version.storage_key.ok_or(CalendarError::NotFound)?;
+    let bytes = storage
+        .get(&key)
+        .await
+        .map_err(|_| CalendarError::Internal)?;
+    crate::files::download::build_response(
+        bytes,
+        &version.mime_type,
+        "attachment",
+        &file.name,
+        false,
+    )
+    .map_err(|_| CalendarError::Internal)
+}
+
+pub fn public_router() -> Router<AppState> {
+    Router::new()
+        .route(
+            "/api/v1/public/invitation/{token}",
+            get(read_invitation).post(answer_invitation),
+        )
+        .route(
+            "/api/v1/public/invitation/{token}/files/{file_id}",
+            get(download_file),
+        )
 }

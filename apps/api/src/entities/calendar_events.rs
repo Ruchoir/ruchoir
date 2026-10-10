@@ -33,6 +33,8 @@ pub struct Model {
     pub ical_extra: Json,
     pub created_by: Option<Uuid>,
     pub updated_by: Option<Uuid>,
+    /// The channel it is linked to: discussed there, announced with a card, listed as upcoming.
+    pub channel_id: Option<Uuid>,
     pub created_at: TimeDateTimeWithTimeZone,
     pub updated_at: TimeDateTimeWithTimeZone,
 }
