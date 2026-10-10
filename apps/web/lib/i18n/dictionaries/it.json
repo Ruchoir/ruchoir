@@ -1375,7 +1375,8 @@
     "interrupted": "Interrotto",
     "spaceChannelsFilled_one": "{{count}} canale è già qui: riceverà la cronologia dell'archivio.",
     "spaceChannelsFilled_many": "{{count}} canali sono già qui: riceveranno la cronologia dell'archivio.",
-    "spaceChannelsFilled_other": "{{count}} canali sono già qui: riceveranno la cronologia dell'archivio."
+    "spaceChannelsFilled_other": "{{count}} canali sono già qui: riceveranno la cronologia dell'archivio.",
+    "events": "Eventi"
   },
   "externalLink": {
     "title": "Attenzione, stai lasciando Ruchoir",

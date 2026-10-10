@@ -163,7 +163,16 @@ To add it: on an iPhone, Settings > Calendar > Accounts > Add Account > Other > 
 Calendar; on Android, an app that reads iCal subscriptions (ICSx⁵, for example); in Thunderbird,
 New Calendar > On the Network.
 
+## Coming from Nextcloud
+
+The Nextcloud producer (`packages/importer/export-nextcloud.sh`) exports every calendar holding
+events, and the import brings each one in as a **personal calendar of its owner**, with its events,
+their series and exceptions, attendees and answers (silently), and the first alarm as the owner's
+reminder. Shares, task lists, the contact birthdays calendar, the calendar trash and subscriptions
+to outside calendars stay behind, named in the archive's limits. The format and the rules are in
+`docs/import-archive.md`, section "Calendars".
+
 ## Limits of this first lot
 
-Not yet: importing Nextcloud's `.ics`, sharing a personal calendar, several reminders per event,
+Not yet: sharing a personal calendar, several reminders per event,
 a year view, printing, searching events, and two-way sync with other calendars (CalDAV).

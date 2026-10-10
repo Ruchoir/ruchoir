@@ -1334,7 +1334,8 @@
     "stopped": "Stopped",
     "interrupted": "Interrupted",
     "spaceChannelsFilled_one": "{{count}} channel is already here: it will take the archive's history.",
-    "spaceChannelsFilled_other": "{{count}} channels are already here: they will take the archive's history."
+    "spaceChannelsFilled_other": "{{count}} channels are already here: they will take the archive's history.",
+    "events": "Events"
   },
   "externalLink": {
     "title": "Careful, you are leaving Ruchoir",

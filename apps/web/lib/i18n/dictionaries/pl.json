@@ -1416,7 +1416,8 @@
     "spaceChannelsFilled_one": "{{count}} kanał jest już tutaj: przejmie historię z archiwum.",
     "spaceChannelsFilled_few": "{{count}} kanały są już tutaj: przejmą historię z archiwum.",
     "spaceChannelsFilled_many": "{{count}} kanałów jest już tutaj: przejmą historię z archiwum.",
-    "spaceChannelsFilled_other": "{{count}} kanału jest już tutaj: przejmie historię z archiwum."
+    "spaceChannelsFilled_other": "{{count}} kanału jest już tutaj: przejmie historię z archiwum.",
+    "events": "Wydarzenia"
   },
   "externalLink": {
     "title": "Uwaga, opuszczasz Ruchoir",

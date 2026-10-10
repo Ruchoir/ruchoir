@@ -59,7 +59,8 @@ them, not before: an entity nothing calls is dead weight, and the compiler says 
 - `export-nextcloud.sh` : runs on the Nextcloud host, reads the database and the data directory,
   writes a sealed Ruchoir archive. Nextcloud Talk has no export of its own, which is why we ship
   one. Read-only: it never writes to the source instance. Sealing is OpenPGP symmetric through
-  `gpg`; a generated passphrase is printed once and stored nowhere.
+  `gpg`; a generated passphrase is printed once and stored nowhere. Calendars come out of the CalDAV
+  tables, each event as the iCalendar text Nextcloud keeps (`docs/import-archive.md`, "Calendars").
 
 ## Tests
 

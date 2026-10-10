@@ -310,6 +310,8 @@ export function ImportScreen({
             ["accounts", next.accountsDone, next.accountsTotal],
             ["conversations", next.channelsDone, next.channelsTotal],
             ["messages", next.messagesDone, next.messagesTotal],
+            ["calendars", next.calendarsDone, next.calendarsTotal],
+            ["events", next.eventsDone, next.eventsTotal],
             ["files", next.filesDone, next.filesTotal],
           ] as const) {
             // A pass that has not started, or has finished, has nothing to say about itself.
@@ -952,13 +954,20 @@ export function ImportScreen({
         <span>· {t(key("import.planNothingYet"))}</span>
       </p>
 
-      <div className="wc-imp-stats">
+      <div className={`wc-imp-stats${plan.calendars > 0 ? " wc-imp-stats--six" : ""}`}>
         {(
           [
             [plan.spaces.length, t(key("import.spaces"))],
             [plan.accounts.total, t("gsearch.people")],
             [plan.messages, t(key("import.messages"))],
             [plan.files, t(key("import.files"))],
+            // Only for an archive that carries a calendar: the other sources have none to show.
+            ...(plan.calendars > 0
+              ? ([
+                  [plan.calendars, t("calendar.calendars")],
+                  [plan.events, t(key("import.events"))],
+                ] as const)
+              : []),
           ] as const
         ).map(([value, label]) => (
           <div key={label} className="wc-imp-stat">
@@ -1169,11 +1178,13 @@ export function ImportScreen({
   const preparing =
     running &&
     job !== null &&
-    job.accountsTotal + job.channelsTotal + job.messagesTotal + job.filesTotal === 0;
+    job.accountsTotal + job.channelsTotal + job.messagesTotal + job.calendarsTotal + job.eventsTotal + job.filesTotal === 0;
   const planned = {
     accounts: plan?.accounts.total ?? 0,
     conversations: plan?.spaces.reduce((sum, space) => sum + space.channels + space.directs, 0) ?? 0,
     messages: plan?.messages ?? 0,
+    calendars: plan?.calendars ?? 0,
+    events: plan?.events ?? 0,
     files: plan?.files ?? 0,
   };
   const passes = job
@@ -1181,6 +1192,8 @@ export function ImportScreen({
         ["accounts", t(key("import.accounts")), job.accountsDone, preparing ? planned.accounts : job.accountsTotal],
         ["conversations", t(key("import.conversations")), job.channelsDone, preparing ? planned.conversations : job.channelsTotal],
         ["messages", t(key("import.messages")), job.messagesDone, preparing ? planned.messages : job.messagesTotal],
+        ["calendars", t("calendar.calendars"), job.calendarsDone, preparing ? planned.calendars : job.calendarsTotal],
+        ["events", t(key("import.events")), job.eventsDone, preparing ? planned.events : job.eventsTotal],
         ["files", t(key("import.files")), job.filesDone, preparing ? planned.files : job.filesTotal],
       ] as const).filter(([, , , total]) => total > 0)
     : [];

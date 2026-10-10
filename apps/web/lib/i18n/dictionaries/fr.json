@@ -1334,7 +1334,8 @@
     "stopped": "Arrêté",
     "interrupted": "Interrompu",
     "spaceChannelsFilled_one": "{{count}} canal est déjà ici : il recevra l'historique de l'archive.",
-    "spaceChannelsFilled_other": "{{count}} canaux sont déjà ici : ils recevront l'historique de l'archive."
+    "spaceChannelsFilled_other": "{{count}} canaux sont déjà ici : ils recevront l'historique de l'archive.",
+    "events": "Événements"
   },
   "externalLink": {
     "title": "Attention, vous quittez Ruchoir",
