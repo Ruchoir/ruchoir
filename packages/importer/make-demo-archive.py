@@ -119,6 +119,7 @@ def build(out: str) -> dict:
     ]
 
     messages = _messages(files)
+    calendars, events = _calendars()
 
     checksums = {}
     for name, rows in (
@@ -127,6 +128,8 @@ def build(out: str) -> dict:
         ("channels.jsonl", channels),
         ("messages.jsonl", messages),
         ("files.jsonl", files),
+        ("calendars.jsonl", calendars),
+        ("events.jsonl", events),
     ):
         checksums[name] = _write(out, name, rows)
 
@@ -137,7 +140,8 @@ def build(out: str) -> dict:
         "producer": "ruchoir-make-demo-archive 0.1.0",
         "created_at": at(0),
         "counts": {"spaces": len(spaces), "users": len(USERS), "channels": len(channels),
-                   "messages": len(messages), "files": len(files)},
+                   "messages": len(messages), "files": len(files),
+                   "calendars": len(calendars), "events": len(events)},
         "checksums": checksums,
         "limits": [
             "This archive is written to be looked at, not exported: every person, message and "
@@ -293,6 +297,43 @@ def _messages(files) -> list:
 # Five files, of five kinds, because the files screen shows a type and a preview and one text file
 # repeated five times would say nothing about either. The bytes are generated here rather than
 # carried in the repository: a fixture nobody can regenerate rots.
+
+def _calendars():
+    """A calendar for Camille holding one of each shape an event can take: a weekly series with a
+    date taken out and one moved, a meeting with an answer from Yanis and one from outside, a whole
+    day, an alarm, and a property Ruchoir keeps aside."""
+    def ics(body: str) -> str:
+        return ("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Ruchoir//demo//EN\r\n"
+                + body + "END:VCALENDAR\r\n")
+
+    calendar = f"{uid('camille')}/personnel"
+    calendars = [{"id": calendar, "owner": uid("camille"), "name": "Personnel",
+                  "description": "Agenda de d\u00e9monstration", "color": "#0082c9"}]
+    events = [
+        {"id": f"{calendar}/point.ics", "calendar": calendar, "ics": ics(
+            "BEGIN:VEVENT\r\nUID:demo-point\r\n"
+            "DTSTART;TZID=Europe/Paris:20261005T090000\r\nDTEND;TZID=Europe/Paris:20261005T094500\r\n"
+            "SUMMARY:Point d'\u00e9quipe\r\nRRULE:FREQ=WEEKLY;BYDAY=MO\r\n"
+            "EXDATE;TZID=Europe/Paris:20261012T090000\r\nCATEGORIES:R\u00e9union\r\n"
+            "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nEND:VALARM\r\n"
+            "END:VEVENT\r\n"
+            "BEGIN:VEVENT\r\nUID:demo-point\r\nRECURRENCE-ID;TZID=Europe/Paris:20261019T090000\r\n"
+            "DTSTART;TZID=Europe/Paris:20261019T110000\r\nDTEND;TZID=Europe/Paris:20261019T114500\r\n"
+            "SUMMARY:Point d'\u00e9quipe (d\u00e9cal\u00e9)\r\nEND:VEVENT\r\n")},
+        {"id": f"{calendar}/revue.ics", "calendar": calendar, "ics": ics(
+            "BEGIN:VEVENT\r\nUID:demo-revue\r\n"
+            "DTSTART;TZID=Europe/Paris:20261013T100000\r\nDTEND;TZID=Europe/Paris:20261013T110000\r\n"
+            "SUMMARY:Revue client\r\nLOCATION:Salle Ouest\r\n"
+            "ORGANIZER;CN=Camille Vilain:mailto:camille.vilain@demo.test\r\n"
+            "ATTENDEE;CN=Yanis Berthier;PARTSTAT=ACCEPTED:mailto:yanis.berthier@demo.test\r\n"
+            "ATTENDEE;CN=Claire Dupont;PARTSTAT=TENTATIVE:mailto:claire.dupont@client.test\r\n"
+            "END:VEVENT\r\n")},
+        {"id": f"{calendar}/seminaire.ics", "calendar": calendar, "ics": ics(
+            "BEGIN:VEVENT\r\nUID:demo-seminaire\r\nDTSTART;VALUE=DATE:20261016\r\n"
+            "DTEND;VALUE=DATE:20261017\r\nSUMMARY:S\u00e9minaire\r\nEND:VEVENT\r\n")},
+    ]
+    return calendars, events
+
 
 def _files(out: str):
     entries = [

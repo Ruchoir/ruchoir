@@ -291,11 +291,35 @@ class ExportNextcloudCase(unittest.TestCase):
         self.assertNotIn("favorite", state["bob"], "favorite false says nothing and is left out")
         self.assertNotIn("carol", state, "someone with nothing to say gets no entry")
 
+    # -- calendars ---------------------------------------------------------------------------------
+    def test_calendars_cross_with_their_owner_and_colour(self) -> None:
+        calendars = by_id(self.archive, "calendars.jsonl")
+        self.assertEqual(sorted(calendars), ["alice/personal", "bob/chantiers"])
+        self.assertEqual(calendars["alice/personal"]["owner"], "alice")
+        self.assertEqual(calendars["alice/personal"]["color"], "#0082c9", "the alpha channel is dropped")
+        self.assertEqual(calendars["bob/chantiers"]["description"], "Visites de chantier")
+
+    def test_events_cross_as_their_icalendar_text(self) -> None:
+        events = by_id(self.archive, "events.jsonl")
+        self.assertEqual(
+            sorted(events),
+            ["alice/personal/meeting-1.ics", "alice/personal/series-1.ics", "bob/chantiers/visit-1.ics"],
+        )
+        series = events["alice/personal/series-1.ics"]
+        self.assertEqual(series["calendar"], "alice/personal")
+        self.assertIn("RECURRENCE-ID;TZID=Europe/Paris:20261019T090000\r\n", series["ics"])
+        self.assertIn("SUMMARY:Point d'\u00e9quipe", series["ics"], "accents survive the blob column")
+
+    def test_tasks_birthdays_the_trash_and_app_calendars_stay_behind(self) -> None:
+        text = (self.archive / "events.jsonl").read_text(encoding="utf-8")
+        for uid in ("todo-1", "birthday-1", "old-1", "binned-1", "card-1", "room-1"):
+            self.assertNotIn(f"UID:{uid}", text)
+
     # -- the manifest ------------------------------------------------------------------------------
     def test_the_manifest_declares_what_stayed_behind(self) -> None:
         limits = json.loads((self.archive / "manifest.json").read_text(encoding="utf-8"))["limits"]
         joined = " ".join(limits).lower()
-        for subject in ("archiv", "contact", "share", "group", "saved", "edit"):
+        for subject in ("archiv", "contact", "share", "group", "saved", "edit", "calendar", "alarm"):
             self.assertIn(subject, joined, f"nothing in limits mentions {subject}")
 
     def test_the_counts_are_the_truth(self) -> None:
@@ -303,6 +327,11 @@ class ExportNextcloudCase(unittest.TestCase):
         self.assertEqual(manifest["counts"]["channels"], 3)
         self.assertEqual(manifest["counts"]["users"], 4)
         self.assertEqual(manifest["counts"]["files"], 4)
+        self.assertEqual(manifest["counts"]["calendars"], 2)
+        self.assertEqual(manifest["counts"]["events"], 3)
+        limits = " ".join(manifest["limits"])
+        self.assertIn("(1 share(s) here)", limits)
+        self.assertIn("(1 here)", limits)
         self.assertEqual(manifest["source"], "nextcloud")
         self.assertIn("24.0.4", manifest["source_version"])
 
