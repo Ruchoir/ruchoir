@@ -1215,7 +1215,10 @@
     "channelMadePublic": "{{who}} ustawił(a) kanał jako publiczny.",
     "channelArchived": "{{who}} zarchiwizował(a) kanał.",
     "channelUnarchived": "{{who}} przywrócił(a) kanał z archiwum.",
-    "channelAccessChanged": "{{who}} zmienił(a), kto ma dostęp do kanału."
+    "channelAccessChanged": "{{who}} zmienił(a), kto ma dostęp do kanału.",
+    "calendarEventPosted": "{{who}} zaplanował(a) „{{detail}}”.",
+    "calendarEventChanged": "{{who}} zmienił(a) godzinę lub miejsce „{{detail}}”.",
+    "calendarEventCancelled": "{{who}} odwołał(a) „{{detail}}”."
   },
   "rail": {
     "unreadActivity": "{{name}}, nieprzeczytana aktywność"
@@ -1663,7 +1666,7 @@
     "calendarCount_many": "{{count}} kalendarzy",
     "calendarCount_other": "{{count}} kalendarza",
     "moreOptions": "Więcej opcji",
-    "placeAndNotes": "Miejsce, notatki…",
+    "placeAndNotes": "Miejsce, notatki, pliki…",
     "customRule": "Własne powtarzanie",
     "ruleDone": "Gotowe",
     "when": "Kiedy",
@@ -1755,7 +1758,29 @@
       "needs_action": "Do odpowiedzi",
       "tentative": "Udział niepewny",
       "declined": "Odrzucono"
-    }
+    },
+    "channel": "Kanał",
+    "noChannel": "Brak kanału",
+    "privateTag": "prywatny",
+    "inviteChannel": "Zaproś cały kanał",
+    "inChannel": "W #{{name}}",
+    "planEvent": "Zaplanuj wydarzenie",
+    "upcoming": "Nadchodzące",
+    "upcomingInChannel": "Nadchodzące wydarzenia kanału",
+    "seeEvent": "Zobacz wydarzenie",
+    "repeats": "Powtarza się",
+    "files": "Załączone pliki",
+    "fromDrive": "Z Dysku",
+    "fromDevice": "Z urządzenia",
+    "removeFile": "Usuń plik {{name}}",
+    "dropNeedsChannel": "Aby wgrać plik, najpierw wybierz kanał: trafi do folderu Agenda jego przestrzeni.",
+    "filesFailed": "Nie udało się wysłać pliku. Spróbuj ponownie.",
+    "pickFiles": "Załącz pliki z Dysku",
+    "attachCount": "Załącz ({{count}})",
+    "driveOf": "Dysk przestrzeni",
+    "searchFiles": "Szukaj pliku",
+    "filesFound": "Wyniki",
+    "driveRoot": "Katalog główny Dysku"
   },
   "invitationPage": {
     "title": "Zaproszenie",
@@ -1767,6 +1792,7 @@
     "question": "{{name}}, czy będziesz?",
     "saved": "Odpowiedź zapisana. Możesz ją zmienić w każdej chwili tym linkiem.",
     "failed": "Nie udało się zapisać odpowiedzi, spróbuj później.",
-    "footer": "Ruchoir, przestrzeń pracy zespołu, który Cię zaprasza."
+    "footer": "Ruchoir, przestrzeń pracy zespołu, który Cię zaprasza.",
+    "files": "Załączone dokumenty"
   }
 }

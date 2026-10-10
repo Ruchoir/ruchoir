@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Button, Dialog, Icon, IconButton, Tabs } from "@/components/ds";
 import {
+  getEvent,
   setCalendarMe,
   type Calendar,
   type Occurrence,
@@ -54,7 +55,15 @@ function storedFilter(): Filter | null {
 
 /** What a new event starts from: a day, and a time of that day for a timed one. `at` is where it was
  *  asked for on screen, for the quick form to open beside it (a desktop's). */
-export type Draft = { day: string; minutes?: number; calendarId?: string; at?: { x: number; y: number } };
+export type Draft = {
+  day: string;
+  minutes?: number;
+  calendarId?: string;
+  /** Planned from a channel: linked to it, in its space's calendar when the viewer may write there. */
+  channelId?: string;
+  channelSpaceId?: string;
+  at?: { x: number; y: number };
+};
 
 export type CalendarScreenProps = {
   compact: boolean;
@@ -72,8 +81,13 @@ export type CalendarScreenProps = {
   onLeave?: () => void;
   /** The space it was opened from, named on the way back. */
   spaceName?: string;
-  /** An event to open (a clicked reminder): the screen starts on its day, with its details. */
-  focus?: { eventId: string; start: string; allDay: boolean };
+  /** An event to open (a clicked reminder, a channel's card): the screen starts on its day, with its
+   *  details. */
+  focus?: { eventId: string; start: string; allDay: boolean; end?: string; recurrenceId?: string };
+  /** Plan an event from a channel: the form opens at once, linked to it. */
+  compose?: { channelId: string; spaceId: string };
+  /** Go to a channel an event is linked to. */
+  onOpenChannel?: (spaceId: string, channelId: string) => void;
   onNotify?: (toast: {
     tone: "info" | "success" | "danger";
     title: string;
@@ -97,6 +111,8 @@ export function CalendarScreen({
   onLeave,
   spaceName: leaveLabel,
   focus,
+  compose,
+  onOpenChannel,
   onNotify,
 }: CalendarScreenProps) {
   const { t } = useTranslation();
@@ -118,7 +134,9 @@ export function CalendarScreen({
     return spaceId ? { kind: "space", spaceId } : { kind: "all" };
   });
   const [opened, setOpened] = useState<Occurrence | null>(null);
-  const [draft, setDraft] = useState<Draft | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(() =>
+    compose ? { day: today, channelId: compose.channelId, channelSpaceId: compose.spaceId } : null,
+  );
   const [settings, setSettings] = useState<SettingsTarget | null>(null);
   // The phone's panel listing the calendars.
   const [listOpen, setListOpen] = useState(false);
@@ -157,11 +175,18 @@ export function CalendarScreen({
         o.eventId === focus.eventId &&
         (o.start === focus.start || o.start.slice(0, 10) === focusDay),
     );
+    focused.current = true;
     if (found) {
-      focused.current = true;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpened(found);
+      return;
     }
+    // Not among the viewer's calendars: an event seen through its channel. Read on its own.
+    getEvent(focus.eventId)
+      .then((event) =>
+        setOpened({ ...event, start: focus.start, end: focus.end ?? event.end, recurrenceId: focus.recurrenceId ?? event.recurrenceId }),
+      )
+      .catch(() => {});
   }, [focus, focusDay, occurrences]);
 
   const setFilter = (next: Filter) => {
@@ -664,6 +689,7 @@ export function CalendarScreen({
             }}
             onChanged={reload}
             onNotify={onNotify}
+            onOpenChannel={onOpenChannel}
           />
         ) : null}
       </div>

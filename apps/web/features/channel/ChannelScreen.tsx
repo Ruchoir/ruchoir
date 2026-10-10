@@ -25,6 +25,8 @@ import { type ChannelMember, SidePanel } from "./SidePanel";
 import { Composer } from "./Composer";
 import { MessageRow, type MessageActions } from "./MessageRow";
 import { SystemMessage } from "./SystemMessage";
+import { ChannelEvents } from "@/features/calendar/ChannelEvents";
+import { EventCardMessage } from "@/features/calendar/EventCardMessage";
 import { ThreadPanel } from "./ThreadPanel";
 import { TypingIndicator } from "./TypingIndicator";
 import { useStickToBottom } from "./useStickToBottom";
@@ -340,6 +342,12 @@ export type ChannelScreenProps = {
   onTyping?: () => void;
   /** Compact (mobile) mode: the right panel becomes a full-width overlay instead of a column. */
   compact?: boolean;
+  /** The viewer's time zone, for the channel's events. */
+  timeZone?: string;
+  /** Open an event in the calendar (a card, an upcoming one). */
+  onOpenEvent?: (event: { eventId: string; recurrenceId?: string; title: string; start: string; end: string; allDay: boolean }) => void;
+  /** Plan an event from this channel: the calendar's form, linked to it. */
+  onPlanEvent?: () => void;
   /** A tablet: side panels cover the conversation's right edge instead of standing beside it. */
   overlayPanels?: boolean;
   /**
@@ -449,6 +457,9 @@ export function ChannelScreen({
   profilePresence,
   onTyping,
   compact = false,
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+  onOpenEvent,
+  onPlanEvent,
   overlayPanels = false,
   onBack,
   actions,
@@ -459,6 +470,10 @@ export function ChannelScreen({
   const isDm = !!dm;
   // An archived channel is read-only: the API refuses new messages, so the composer gives way to a note.
   const isArchived = !isDm && channel.type === "archived";
+  // An event is planned from a channel one is in and may still write to.
+  const canPlan = !isDm && !isArchived && channel.member !== false;
+  // The upcoming events are read again when a calendar card arrives.
+  const eventsVersion = messages.filter((m) => m.system?.event.startsWith("calendar_")).at(-1)?.id ?? "";
   /**
    * Who is actually in this channel.
    *
@@ -791,6 +806,7 @@ export function ChannelScreen({
       onSettings={() => setMenuDialog("settings")}
       onLeave={() => setMenuDialog("leave")}
       onJoin={onJoinChannel}
+      onPlanEvent={canPlan ? onPlanEvent : undefined}
     />
   ) : panel === "search" ? (
     <SearchPanel
@@ -938,11 +954,13 @@ export function ChannelScreen({
               onLeave={() => setMenuDialog("leave")}
               onJoin={onJoinChannel}
               member={channel.member !== false}
+              onPlanEvent={canPlan ? onPlanEvent : undefined}
             />
           ) : null}
           </div>
         </div>
         )}
+        {!isDm && onOpenEvent ? <ChannelEvents channelId={channel.id} version={eventsVersion} timeZone={timeZone} onOpen={onOpenEvent} /> : null}
         <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <div style={{ ...styles.feed, paddingBottom: typing.length > 0 ? 60 : 8 }} ref={feedRef}>
           {/* Keyed on the conversation: switching fades the new one in instead of swapping it. */}
@@ -1019,7 +1037,9 @@ export function ChannelScreen({
                         <span style={styles.unreadLabel}>{t("notif.unread")}</span>
                       </div>
                     ) : null}
-                    {m.kind === "system" ? (
+                    {m.kind === "system" && m.system?.event.startsWith("calendar_") ? (
+                      <EventCardMessage m={m} timeZone={timeZone} viewerId={myUserId} compact={compact} onOpen={(card) => onOpenEvent?.(card)} />
+                    ) : m.kind === "system" ? (
                       <SystemMessage m={m} />
                     ) : (
                       <MessageRow

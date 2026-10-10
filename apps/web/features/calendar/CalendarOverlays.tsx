@@ -29,10 +29,11 @@ export type CalendarOverlaysProps = {
   onClose: () => void;
   onChanged: () => void;
   onNotify?: (toast: { tone: "info" | "success" | "danger"; title: string }) => void;
+  onOpenChannel?: (spaceId: string, channelId: string) => void;
 };
 
 /** The calendar's windows: an event's details, the event form, a calendar's settings. */
-export function CalendarOverlays({ compact, timeZone, spaces, calendars, filter, currentSpaceId, viewerId, opened, draft, settings, onClose, onChanged, onNotify }: CalendarOverlaysProps) {
+export function CalendarOverlays({ compact, timeZone, spaces, calendars, filter, currentSpaceId, viewerId, opened, draft, settings, onClose, onChanged, onNotify, onOpenChannel }: CalendarOverlaysProps) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState<{ occurrence: Occurrence; event: CalendarEvent } | null>(null);
   const spaceName = (id?: string) => spaces.find((s) => s.id === id)?.name;
@@ -69,8 +70,10 @@ export function CalendarOverlays({ compact, timeZone, spaces, calendars, filter,
   }
   if (draft) {
     // A new event goes first in the filtered space's default calendar, when the viewer may write in it.
+    const defaultOf = (space: string) => calendars.find((c) => c.spaceId === space && c.isDefault && c.canWriteEvents)?.id;
     const preferred =
       draft.calendarId ??
+      (draft.channelSpaceId ? defaultOf(draft.channelSpaceId) : undefined) ??
       (filter.kind === "space" ? calendars.find((c) => c.spaceId === filter.spaceId && c.isDefault && c.canWriteEvents)?.id : undefined);
     return (
       <EventForm
@@ -99,6 +102,7 @@ export function CalendarOverlays({ compact, timeZone, spaces, calendars, filter,
         onDone={finish}
         onChanged={onChanged}
         onClose={close}
+        onOpenChannel={onOpenChannel}
       />
     );
   }

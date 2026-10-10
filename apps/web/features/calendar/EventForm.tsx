@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Dialog, Icon, type IconName, Input, Popover, Select, Switch, Textarea } from "@/components/ds";
 import {
   createEvent,
@@ -10,7 +10,9 @@ import {
   type Calendar,
   type CalendarEvent,
   type EditScope,
+  type EventFile,
   type EventInput,
+  type Invitee,
   type Occurrence,
 } from "@/lib/data/calendar";
 import { useSettings } from "@/features/app/settings";
@@ -23,6 +25,9 @@ import { reminderOptions, reminderValue } from "./reminders";
 import { AttendeesField, type DraftAttendee } from "./AttendeesField";
 import { AvailabilityStrip } from "./AvailabilityStrip";
 import { CalendarPicker } from "./CalendarPicker";
+import { ChannelField } from "./ChannelField";
+import { DrivePicker } from "./DrivePicker";
+import { FilesField, MAX_EVENT_FILES } from "./FilesField";
 import { buildRule, formFor, parseRule, presetOf, presetRule, type Preset, type RuleForm } from "./rule";
 import { rulePhrase } from "./rulePhrase";
 import { SeriesScopeDialog } from "./SeriesScopeDialog";
@@ -65,8 +70,9 @@ export type EventFormProps = {
   /** The viewer, first on the availability strip. */
   viewerId?: string;
   timeZone: string;
-  /** A new event: where it starts, and in which calendar it goes first. */
-  draft?: { day: string; minutes?: number; calendarId?: string; at?: { x: number; y: number } };
+  /** A new event: where it starts, in which calendar it goes first, and the channel it is planned
+   *  from. */
+  draft?: { day: string; minutes?: number; calendarId?: string; channelId?: string; at?: { x: number; y: number } };
   /** An existing one: the occurrence opened, and its event. */
   editing?: { occurrence: Occurrence; event: CalendarEvent };
   onDone: (message: "saved" | "failed") => void;
@@ -135,13 +141,27 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
   const [error, setError] = useState<string | null>(null);
   const [askScope, setAskScope] = useState(false);
   const [mode, setMode] = useState<"quick" | "full">(draft?.at && !compact ? "quick" : "full");
-  const [panel, setPanel] = useState<"main" | "rule">("main");
-  const [more, setMore] = useState(Boolean(occurrence?.location || occurrence?.description));
+  const [panel, setPanel] = useState<"main" | "rule" | "drive">("main");
+  const [more, setMore] = useState(Boolean(occurrence?.location || occurrence?.description || editing?.event.files.length));
   // Who is invited; sent only when touched, so a change elsewhere leaves the list as it is.
   const [attendees, setAttendees] = useState<DraftAttendee[]>(() =>
     (event?.attendees ?? []).map((a) => ({ key: a.id, userId: a.userId, email: a.email, name: a.name, status: a.status })),
   );
   const [attendeesTouched, setAttendeesTouched] = useState(false);
+  // The channel and the files, sent only when touched (or set on a new event), like the list.
+  const [channelId, setChannelIdState] = useState<string | null>(event?.channel?.id ?? draft?.channelId ?? null);
+  const [channelTouched, setChannelTouched] = useState(false);
+  const changeChannel = useCallback((next: string | null) => {
+    setChannelTouched(true);
+    setChannelIdState(next);
+  }, []);
+  const [files, setFiles] = useState<EventFile[]>(event?.files ?? []);
+  const [filesTouched, setFilesTouched] = useState(false);
+  const changeFiles = (next: EventFile[]) => {
+    setFilesTouched(true);
+    setFiles(next);
+  };
+  const [filesFailed, setFilesFailed] = useState(false);
   const [busyNames, setBusyNames] = useState<string[]>([]);
   const [slots, setSlots] = useState<{ start: string; end: string }[] | null>(null);
   const [finding, setFinding] = useState(false);
@@ -206,6 +226,8 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
       location: location.trim() || undefined,
       rrule: rule(),
       attendees: list,
+      ...(channelTouched || (!occurrence && channelId) ? { channelId } : {}),
+      ...(filesTouched || (!occurrence && files.length > 0) ? { files: files.map((f) => f.id) } : {}),
     };
     const withReminder = reminder === undefined ? {} : { reminderMinutes: reminderValue(reminder) };
     if (allDay) {
@@ -474,6 +496,41 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
     </Line>
   );
 
+  /** Everyone of the channel who may be invited, added to the list (once each). */
+  const inviteAll = (people: Invitee[]) => {
+    const fresh = people.filter((p) => !attendees.some((a) => a.userId === p.userId));
+    if (fresh.length === 0) return;
+    setAttendeesTouched(true);
+    setAttendees([...attendees, ...fresh.map((p) => ({ key: p.userId, userId: p.userId, name: p.name }))]);
+  };
+  const chosenCalendar = calendars.find((c) => c.id === calendarId);
+  const channelLine = (
+    <Line icon="hash">
+      <ChannelField calendarId={calendarId} value={channelId} current={event?.channel} onChange={changeChannel} onInviteAll={inviteAll} />
+    </Line>
+  );
+  const filesLine = (
+    <div style={{ ...line, alignItems: "flex-start" }}>
+      <span aria-hidden style={{ ...lineIcon, paddingTop: 8 }}>
+        <Icon name="paperclip" size={16} />
+      </span>
+      <FilesField
+        calendarId={calendarId}
+        channelId={channelId}
+        personal={!chosenCalendar?.spaceId}
+        value={files}
+        onChange={changeFiles}
+        onPickDrive={() => setPanel("drive")}
+        onFailed={() => setFilesFailed(true)}
+      />
+    </div>
+  );
+  const filesError = filesFailed ? (
+    <p role="alert" style={{ margin: 0, color: "var(--action-danger-bg)", fontSize: "var(--text-xs)" }}>
+      {t("calendar.filesFailed")}
+    </p>
+  ) : null;
+
   const calendarSelect = (
     <CalendarPicker
       id="event-calendar"
@@ -573,6 +630,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
             {titleInput(true)}
             {when}
             <Line icon="calendar">{calendarSelect}</Line>
+            {draft.channelId ? channelLine : null}
             {clashLine}
             {errorLine}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
@@ -615,6 +673,23 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
     );
   }
 
+  // Files of a Drive, in place of the form while they are picked.
+  if (panel === "drive") {
+    return (
+      <DrivePicker
+        spaces={spaces}
+        spaceId={chosenCalendar?.spaceId ?? event?.channel?.spaceId ?? currentSpaceId}
+        already={files.map((f) => f.id)}
+        room={MAX_EVENT_FILES - files.length}
+        onPick={(picked) => {
+          changeFiles([...files, ...picked]);
+          setPanel("main");
+        }}
+        onClose={() => setPanel("main")}
+      />
+    );
+  }
+
   const footer = (
     <>
       <Button variant="ghost" onClick={onCancel}>
@@ -638,6 +713,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
           {allDaySwitch}
           {zoneLine}
           <Line icon="calendar">{calendarSelect}</Line>
+          {channelLine}
           {attendeesLine}
           {availability}
           <Line icon="repeat">{repeatSelect}</Line>
@@ -646,6 +722,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
             <>
               <Line icon="map-pin">{placeInput}</Line>
               <Line icon="file-text">{notesInput(3)}</Line>
+              {filesLine}
             </>
           ) : (
             <div>
@@ -654,6 +731,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
               </Button>
             </div>
           )}
+          {filesError}
           {errorLine}
           <button type="submit" hidden />
         </form>
@@ -675,9 +753,11 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
             {zoneLine}
             <Line icon="repeat">{repeatSelect}</Line>
             <Line icon="bell">{reminderSelect}</Line>
+            {filesLine}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <Line icon="calendar">{calendarSelect}</Line>
+            {channelLine}
             <Line icon="map-pin">{placeInput}</Line>
             <div style={{ ...line, alignItems: "flex-start" }}>
               <span aria-hidden style={{ ...lineIcon, paddingTop: 8 }}>
@@ -687,6 +767,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
             </div>
           </div>
         </div>
+        {filesError}
         {errorLine}
         <button type="submit" hidden />
       </form>

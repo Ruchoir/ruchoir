@@ -1,9 +1,10 @@
 "use client";
 
 import { type CSSProperties, useEffect, useState } from "react";
-import { Button, Icon, Skeleton, SkeletonGroup } from "@/components/ds";
-import { answerInvitation, readInvitation, type AttendeeStatus, type PublicInvitation } from "@/lib/data/calendar";
+import { Button, FileIcon, Icon, Skeleton, SkeletonGroup } from "@/components/ds";
+import { answerInvitation, invitationFileUrl, readInvitation, type AttendeeStatus, type PublicInvitation } from "@/lib/data/calendar";
 import { useTranslation } from "@/lib/i18n";
+import { formatBytes } from "@/lib/i18n/format";
 import { STATUS_LOOK } from "./AttendeesField";
 import { clock, longDay } from "./format";
 import { addDays, localDay } from "./model";
@@ -97,7 +98,7 @@ export function PublicInvitationScreen() {
             <p style={styles.meta}>{t("invitationPage.gone")}</p>
           </>
         ) : (
-          <Shown invitation={state.invitation} saved={state.saved} failed={state.failed} busy={busy} onAnswer={answer} />
+          <Shown invitation={state.invitation} token={token} saved={state.saved} failed={state.failed} busy={busy} onAnswer={answer} />
         )}
       </div>
       <p style={{ ...styles.meta, textAlign: "center" }}>{t("invitationPage.footer")}</p>
@@ -107,12 +108,14 @@ export function PublicInvitationScreen() {
 
 function Shown({
   invitation,
+  token,
   saved,
   failed,
   busy,
   onAnswer,
 }: {
   invitation: PublicInvitation;
+  token: string;
   saved: boolean;
   failed: boolean;
   busy: boolean;
@@ -154,6 +157,27 @@ function Shown({
         </p>
       ) : null}
       {invitation.description ? <p style={{ ...styles.line, whiteSpace: "pre-wrap" }}>{invitation.description}</p> : null}
+      {invitation.files.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: "var(--text-strong)" }}>{t("invitationPage.files")}</span>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+            {invitation.files.map((f) => (
+              <li key={f.id}>
+                <a
+                  href={invitationFileUrl(token, f.id)}
+                  download={f.name}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-subtle)", color: "var(--text-strong)", textDecoration: "none", fontSize: "var(--text-sm)" }}
+                >
+                  <FileIcon name={f.name} size={20} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)", flex: "none" }}>{formatBytes(f.size)}</span>
+                  <Icon name="download" size={14} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       <div role="group" aria-label={t("calendar.yourAnswer")} style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 8, borderTop: "1px solid var(--border-subtle)" }}>
         <span style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-strong)" }}>
           {invitation.name ? t("invitationPage.question", { name: invitation.name }) : t("calendar.yourAnswer")}
