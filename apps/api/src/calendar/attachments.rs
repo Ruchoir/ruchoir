@@ -89,11 +89,14 @@ pub async fn list<C: ConnectionTrait>(
 }
 
 /// Check a wanted list: at most [`MAX_FILES`], each a file (not a folder) of a space's tree that
-/// `user` may read. Returns the ids, without repeats, in their order.
+/// `user` may read on their own (not only through an event). The files the event already carries
+/// (`kept`) stay without being checked again: someone changing the list need not read every file
+/// that someone else put there. Returns the ids, without repeats, in their order.
 pub async fn check(
     db: &DatabaseConnection,
     user: Uuid,
     wanted: &[Uuid],
+    kept: &[Uuid],
 ) -> Result<Vec<Uuid>, CalendarError> {
     let mut ids: Vec<Uuid> = Vec::new();
     for id in wanted {
@@ -104,11 +107,15 @@ pub async fn check(
     if ids.len() > MAX_FILES {
         return Err(CalendarError::Invalid("An event carries at most 20 files."));
     }
-    for id in &ids {
+    for id in ids.iter().filter(|id| !kept.contains(id)) {
         let access = crate::files::authz::ensure_readable(db, *id, user)
             .await
             .map_err(|_| CalendarError::Invalid("A file here cannot be attached."))?;
-        if access.file.kind == "folder" || access.file.conversation_id.is_some() {
+        // A file read only through another event is that event's to show, not one's own to pass on.
+        if access.through_event
+            || access.file.kind == "folder"
+            || access.file.conversation_id.is_some()
+        {
             return Err(CalendarError::Invalid("A file here cannot be attached."));
         }
     }
@@ -150,6 +157,20 @@ pub async fn replace<C: ConnectionTrait>(
         .await?;
     }
     Ok(())
+}
+
+/// The files an event carries, by id.
+pub async fn carried<C: ConnectionTrait>(
+    db: &C,
+    event_id: Uuid,
+) -> Result<Vec<Uuid>, CalendarError> {
+    Ok(calendar_event_files::Entity::find()
+        .filter(calendar_event_files::Column::EventId.eq(event_id))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|l| l.file_id)
+        .collect())
 }
 
 /// Copy an event's files to a new series cut from it.

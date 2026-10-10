@@ -208,6 +208,7 @@ async fn a_card_follows_the_event_in_its_channel() {
     assert_eq!(card["event"]["my_status"], "needs_action");
     assert_eq!(card["event"]["location"], "Salle Ouest");
     assert_eq!(card["event"]["organizer"], "alice");
+    assert_eq!(card["event"]["organizer_id"], fx.alice.to_string());
 
     // A new time is said; a new title alone is not, the card shows it anyway.
     let mut moved = linked("Revue client", Some(fx.public_channel));
@@ -506,4 +507,99 @@ async fn files_dropped_for_an_event_go_to_the_agenda_folder() {
     .await;
     assert_eq!(status, 200);
     assert_eq!(through["folder_id"], first["folder_id"]);
+}
+
+#[tokio::test]
+async fn a_file_read_through_an_event_is_not_attached_again() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let dave = make_user(&app.db, "dave").await;
+    let alice = app.cookie_for(fx.alice).await;
+    let dave_cookie = app.cookie_for(dave).await;
+    // Dave shares another space with Alice, not the one the file is in.
+    let other = Uuid::new_v4();
+    spaces::ActiveModel {
+        id: Set(other),
+        name: Set("Commun".to_owned()),
+        slug: Set(format!("commun-{}", other.simple())),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("space");
+    for user in [fx.alice, dave] {
+        space_members::ActiveModel {
+            space_id: Set(other),
+            user_id: Set(user),
+            role: Set("member".to_owned()),
+            ..Default::default()
+        }
+        .insert(&app.db)
+        .await
+        .expect("member");
+    }
+    let secret = insert_file_row(&app.db, fx.space_id, fx.alice, "secret.pdf").await;
+    let mine = personal(&app, &alice).await;
+    let mut body = linked("Revue", None);
+    body["attendees"] = json!([{ "user_id": dave }]);
+    body["files"] = json!([secret]);
+    assert_eq!(
+        create_event(&app, &alice, &mine["id"], body).await.status(),
+        201
+    );
+    // Dave reads it through the invitation, and may not pass it on through an event of his own.
+    let his = personal(&app, &dave_cookie).await;
+    let mut passed_on = linked("Relais", None);
+    passed_on["files"] = json!([secret]);
+    assert_eq!(
+        create_event(&app, &dave_cookie, &his["id"], passed_on)
+            .await
+            .status(),
+        422
+    );
+}
+
+#[tokio::test]
+async fn files_already_on_the_event_stay_when_someone_else_adds_one() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    // A file of a space Alice is in and Bob is not.
+    let other = Uuid::new_v4();
+    spaces::ActiveModel {
+        id: Set(other),
+        name: Set("Ailleurs".to_owned()),
+        slug: Set(format!("ailleurs-{}", other.simple())),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("space");
+    space_members::ActiveModel {
+        space_id: Set(other),
+        user_id: Set(fx.alice),
+        role: Set("member".to_owned()),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("member");
+    let hers = insert_file_row(&app.db, other, fx.alice, "devis.pdf").await;
+    let his = insert_file_row(&app.db, fx.space_id, fx.bob, "plan.pdf").await;
+    let general = space_default(&app, &alice, fx.space_id).await;
+    let mut body = linked("Revue", None);
+    body["files"] = json!([hers]);
+    let created: Value = create_event(&app, &alice, &general["id"], body)
+        .await
+        .json()
+        .await
+        .expect("json");
+    // Bob, who may write in the calendar, adds his own and sends the whole list back.
+    let mut more = linked("Revue", None);
+    more["files"] = json!([hers, his]);
+    let changed = edit(&app, &bob, &created["event_id"], "", more).await;
+    assert_eq!(changed.status(), 200);
+    let changed: Value = changed.json().await.expect("json");
+    assert_eq!(changed["files"].as_array().unwrap().len(), 2);
 }

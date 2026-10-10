@@ -516,7 +516,7 @@ pub async fn create_event(
         _ => None,
     };
     let files = match &input.files {
-        Some(wanted) => Some(attachments::check(&state.db, session.user_id, wanted).await?),
+        Some(wanted) => Some(attachments::check(&state.db, session.user_id, wanted, &[]).await?),
         None => None,
     };
     let txn = state.db.begin().await?;
@@ -691,7 +691,10 @@ pub async fn update_event(
         other => other,
     };
     let files = match &input.files {
-        Some(wanted) => Some(attachments::check(&state.db, session.user_id, wanted).await?),
+        Some(wanted) => {
+            let kept = attachments::carried(&state.db, event.id).await?;
+            Some(attachments::check(&state.db, session.user_id, wanted, &kept).await?)
+        }
         None => None,
     };
     let mut touched = vec![access.calendar.clone()];

@@ -80,6 +80,8 @@ pub struct EventCardDto {
     pub recurring: bool,
     /// Who organises it.
     pub organizer: Option<String>,
+    /// Their account, so that the card does not ask them for an answer.
+    pub organizer_id: Option<Uuid>,
     /// The reader's answer, when they are invited (`accepted` for the organiser of an event with
     /// attendees).
     pub my_status: Option<String>,
@@ -348,6 +350,7 @@ pub async fn cards(
                 location: event.location.clone(),
                 recurring: event.rrule.is_some(),
                 organizer: event.created_by.and_then(|o| organizers.get(&o).cloned()),
+                organizer_id: event.created_by,
                 my_status: attendance.status(&event, reader, key.as_deref()),
                 recurrence_id: if event.rrule.is_some() { key } else { None },
             },
