@@ -137,7 +137,15 @@ pub struct Object {
 /// Read a `VCALENDAR` text. `fallback_zone` is the owner's zone, for floating times and unknown
 /// zone names. An error is a sentence for the import's report.
 pub fn read(ics: &str, fallback_zone: &str) -> Result<Object, String> {
-    let unfolded = unfold(ics);
+    // Clients end their lines as they please (CRLF, LF, a stray CR) and do not always end the last
+    // one; a CalDAV server keeps the text as it came. One shape before reading.
+    let mut normalized = ics
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .trim_end()
+        .replace('\n', "\r\n");
+    normalized.push_str("\r\n");
+    let unfolded = unfold(&normalized);
     let calendar =
         read_calendar(&unfolded).map_err(|_| "not a readable iCalendar text".to_owned())?;
     let events: Vec<&Component> = calendar
@@ -790,6 +798,21 @@ mod tests {
             "UTC"
         )
         .is_err());
+    }
+
+    #[test]
+    fn line_endings_as_clients_leave_them() {
+        let body = "BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:lf\nDTSTART:20261013T080000Z\nSUMMARY:Long\n  title\nEND:VEVENT\nEND:VCALENDAR";
+        let head = read(body, "UTC")
+            .expect("LF only, no final line break")
+            .head
+            .unwrap();
+        assert_eq!(head.title, "Long title");
+        let crlf = body.replace('\n', "\r\n") + "\r";
+        assert!(
+            read(&crlf, "UTC").is_ok(),
+            "a lone carriage return at the end"
+        );
     }
 
     #[test]
