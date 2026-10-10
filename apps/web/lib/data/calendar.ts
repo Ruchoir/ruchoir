@@ -83,6 +83,8 @@ export type CalendarEvent = Occurrence & {
   channel?: EventChannel;
   /** The Drive files it carries, readable by whoever sees it. */
   files: EventFile[];
+  /** The viewer's own reminder: `undefined` follows their calendar's, `null` is turned off. */
+  myOwnReminder?: number | null;
 };
 
 /** The channel an event is linked to, as the viewer may know it: a private channel they are not in
@@ -222,6 +224,7 @@ type EventDto = OccurrenceDto & {
   attendees?: AttendeeDto[];
   channel?: { id: string; name?: string | null; space_id: string; private: boolean; accessible: boolean } | null;
   files?: EventFile[];
+  my_own_reminder?: number | null;
 };
 
 export type EventCardDto = {
@@ -308,6 +311,7 @@ function toEvent(dto: EventDto): CalendarEvent {
         }
       : undefined,
     files: dto.files ?? [],
+    ...("my_own_reminder" in dto ? { myOwnReminder: dto.my_own_reminder } : {}),
   };
 }
 

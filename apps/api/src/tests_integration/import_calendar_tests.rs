@@ -333,3 +333,40 @@ async fn a_job_counts_its_calendars_and_events() {
     assert_eq!((row.events_done, row.events_total), (7, 7));
     let _ = &archive.bob_email;
 }
+
+#[tokio::test]
+async fn an_imported_reminder_is_the_owners_own_choice() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let archive = calendar_archive();
+    run_import(&app, fx.alice, &archive.dir).await;
+    let alice = account(&app, &archive.alice_email).await;
+    let personal = calendar_of(&app, alice, "Personnel").await;
+    let series = event_by_uid(&app, personal.id, "series-1")
+        .await
+        .expect("series");
+    let meeting = event_by_uid(&app, personal.id, "meeting-1")
+        .await
+        .expect("meeting");
+    let cookie = app.cookie_for(alice).await;
+    let read = |id: Uuid| {
+        let request = app.req(
+            reqwest::Method::GET,
+            &format!("/api/v1/events/{id}"),
+            &cookie,
+        );
+        async move {
+            request
+                .send()
+                .await
+                .expect("event")
+                .json::<Value>()
+                .await
+                .expect("json")
+        }
+    };
+    // Set by the import: the event's own choice, not what the calendar would give.
+    assert_eq!(read(series.id).await["my_own_reminder"], 30);
+    // None set: the key is absent, and the event follows its calendar.
+    assert!(read(meeting.id).await.get("my_own_reminder").is_none());
+}

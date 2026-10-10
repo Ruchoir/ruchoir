@@ -89,7 +89,12 @@ export function EventDetails({
   useEffect(() => {
     const abort = new AbortController();
     getEvent(occurrence.eventId, abort.signal)
-      .then(setEvent)
+      .then((found) => {
+        setEvent(found);
+        // The menu shows the choice in place: the viewer's own, else their calendar's.
+        const own = found.myOwnReminder;
+        setReminder(own === undefined ? "default" : own === null ? "none" : String(own));
+      })
       .catch(() => {});
     return () => abort.abort();
   }, [occurrence.eventId]);

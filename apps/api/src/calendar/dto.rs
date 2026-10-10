@@ -194,6 +194,11 @@ pub struct EventDto {
     pub channel: Option<ChannelDto>,
     /// The Drive files it carries.
     pub files: Vec<EventFileDto>,
+    /// The viewer's own reminder for this event: absent when they follow their calendar's, `null`
+    /// when they turned it off. What the details' menu shows as chosen.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[schema(value_type = Option<i32>)]
+    pub my_own_reminder: Option<Option<i32>>,
 }
 
 /// Which part of a series a change or a deletion touches.
