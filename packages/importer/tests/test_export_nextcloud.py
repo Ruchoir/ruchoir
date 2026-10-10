@@ -53,14 +53,23 @@ def settings() -> dict[str, str] | None:
 
 @unittest.skipIf(settings() is None, "set RUCHOIR_TEST_MARIADB to run the Nextcloud producer")
 class ExportNextcloudCase(unittest.TestCase):
+    #: Drop Talk's tables before exporting: a Nextcloud whose team uses its calendar and not Talk.
+    without_talk = False
+
     @classmethod
     def setUpClass(cls) -> None:
+        cls._prepare()
+
+    @classmethod
+    def _prepare(cls) -> None:
         cls.config = settings()
         cls.container = os.environ.get("RUCHOIR_TEST_MARIADB_CONTAINER", "")
         cls.database = "ruchoir_import_test_" + uuid.uuid4().hex[:8]
         cls.client = cls._pick_client()
         cls._sql(f"CREATE DATABASE `{cls.database}` DEFAULT CHARSET=utf8mb4;", database=None)
         cls._sql(FIXTURE.read_text(encoding="utf-8"))
+        if cls.without_talk:
+            cls._sql("DROP TABLE oc_talk_rooms, oc_talk_attendees;")
 
         cls.tmp = tempfile.TemporaryDirectory()
         root = Path(cls.tmp.name)
@@ -334,6 +343,32 @@ class ExportNextcloudCase(unittest.TestCase):
         self.assertIn("(1 here)", limits)
         self.assertEqual(manifest["source"], "nextcloud")
         self.assertIn("24.0.4", manifest["source_version"])
+
+
+@unittest.skipIf(settings() is None, "set RUCHOIR_TEST_MARIADB to run the Nextcloud producer")
+class WithoutTalkCase(unittest.TestCase):
+    """A Nextcloud without Talk still exports its accounts, files and calendars."""
+
+    without_talk = True
+    _prepare = ExportNextcloudCase.__dict__["_prepare"]
+    _pick_client = ExportNextcloudCase.__dict__["_pick_client"]
+    _sql = ExportNextcloudCase.__dict__["_sql"]
+    tearDownClass = ExportNextcloudCase.__dict__["tearDownClass"]
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls._prepare()
+
+    def test_it_exports_no_conversation_and_says_why(self) -> None:
+        self.assertEqual(read_jsonl(self.archive, "channels.jsonl"), [])
+        self.assertEqual(read_jsonl(self.archive, "messages.jsonl"), [])
+        limits = json.loads((self.archive / "manifest.json").read_text(encoding="utf-8"))["limits"]
+        self.assertIn("Talk is not installed", limits[0])
+
+    def test_the_calendars_still_cross(self) -> None:
+        self.assertEqual(len(read_jsonl(self.archive, "events.jsonl")), 3)
+        report = validator.validate(self.archive)
+        self.assertEqual(report.errors, [])
 
 
 class GuardCase(unittest.TestCase):

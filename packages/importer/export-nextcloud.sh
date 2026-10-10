@@ -162,6 +162,20 @@ expect_jsonl "${OUT}/users.jsonl"
 # account, are Nextcloud's own furniture rather than the customer's conversations: they are left
 # out here and declared in the manifest's limits. Importing them would hand a company a workspace
 # that opens on somebody else's welcome message.
+# A Nextcloud without Talk still has accounts, files and calendars worth bringing: its conversation
+# tables are simply not there, and both files are written empty rather than the export failing.
+HAS_TALK="$(sql <<SQL
+SELECT COUNT(*) FROM information_schema.tables
+WHERE table_schema = DATABASE() AND table_name = '${PREFIX}talk_rooms';
+SQL
+)"
+TALK_LIMIT=""
+if [ "${HAS_TALK}" != "1" ]; then
+  echo "  conversations: Talk is not installed, none to export"
+  : > "${OUT}/channels.jsonl"
+  : > "${OUT}/messages.jsonl"
+  TALK_LIMIT='"Talk is not installed on this Nextcloud: there are no conversations to export.",'
+else
 echo "  conversations"
 sql > "${OUT}/channels.jsonl" <<SQL
 SELECT JSON_OBJECT(
@@ -311,6 +325,7 @@ WHERE c.object_type = 'chat'
 ORDER BY r.id, c.creation_timestamp, c.id;
 SQL
 expect_jsonl "${OUT}/messages.jsonl"
+fi
 
 # --- Files ---------------------------------------------------------------------------------------
 # Read from the data directory rather than from oc_filecache: the cache describes what Nextcloud
@@ -510,6 +525,7 @@ cat > "${OUT}/manifest.json" <<JSON
     "events.jsonl": "$(digest "${OUT}/events.jsonl")"
   },
   "limits": [
+    ${TALK_LIMIT}
     "Only two of Talk's notices have an equivalent here and cross as such: a conversation being created, and someone being added. The others (moderator promoted, call started, conversation renamed, lobby and password changes) are dropped, and pinning and deletion are already carried by the message itself.",
     "Nextcloud's own conversations (changelog, note to self, former one-to-one, and the sample conversations Talk installs for each account) are left behind.",
     "Accounts with no address in Nextcloud cannot be matched automatically: they need a manual pass at import time.",
