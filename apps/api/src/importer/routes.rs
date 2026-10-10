@@ -79,6 +79,9 @@ pub struct PlanResponse {
     pub accounts: PlannedAccounts,
     pub messages: usize,
     pub files: usize,
+    /// Calendars, each landing as a personal calendar of its owner, and the events they hold.
+    pub calendars: usize,
+    pub events: usize,
     /// The producer's own words, unchanged. Shown before the run, in full: summarising a declared
     /// loss is another way of hiding it.
     pub limits: Vec<String>,
@@ -142,6 +145,10 @@ pub struct JobResponse {
     pub messages_total: i32,
     pub files_done: i32,
     pub files_total: i32,
+    pub calendars_done: i32,
+    pub calendars_total: i32,
+    pub events_done: i32,
+    pub events_total: i32,
     pub error: Option<String>,
     /// When it ended, for an import the screen finds again rather than one it started itself.
     pub finished_at: Option<String>,
@@ -161,6 +168,10 @@ impl From<import_jobs::Model> for JobResponse {
             messages_total: job.messages_total,
             files_done: job.files_done,
             files_total: job.files_total,
+            calendars_done: job.calendars_done,
+            calendars_total: job.calendars_total,
+            events_done: job.events_done,
+            events_total: job.events_total,
             error: job.error,
             finished_at: job.finished_at.map(crate::messaging::dto::rfc3339),
         }
@@ -272,6 +283,8 @@ pub async fn preview(
         },
         messages: plan.messages,
         files: plan.files,
+        calendars: index.calendars.len(),
+        events: index.event_count,
         limits: plan.limits,
         warnings: report.warnings(),
     }))
@@ -323,7 +336,10 @@ pub async fn start(
     let admin = session.user_id;
     let passphrase = body.passphrase.clone();
     // An imported image gets the thumbnail an uploaded one gets, at the size this instance chose.
-    let thumbnail_max_px = state.config.thumbnail_max_px;
+    let settings = super::job::RunSettings {
+        thumbnail_max_px: state.config.thumbnail_max_px,
+        secret_key: *state.secret_key,
+    };
 
     // The job row has to exist before the response, or the screen has nothing to watch.
     let (index, _) = super::check::check(&path, passphrase.as_deref()).map_err(|e| readable(&e))?;
@@ -368,7 +384,7 @@ pub async fn start(
             passphrase.as_deref(),
             admin,
             job_id,
-            thumbnail_max_px,
+            settings,
         )
         .await;
         if let Err(error) = outcome {

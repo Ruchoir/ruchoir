@@ -232,6 +232,31 @@ pub fn local_midnight(date: Date, tzid: &str) -> Option<OffsetDateTime> {
     Some(from_chrono(&local))
 }
 
+/// The instant a wall time of `tzid` stands for; `None` for an unknown zone. A time skipped by a
+/// change of clock is read an hour later, as calendar clients do; a time that happens twice is the
+/// first of the two.
+pub fn local_instant(
+    date: Date,
+    hour: u8,
+    minute: u8,
+    second: u8,
+    tzid: &str,
+) -> Option<OffsetDateTime> {
+    use chrono::TimeZone as _;
+    let tz = tzid.parse::<chrono_tz::Tz>().ok()?;
+    let naive = chrono::NaiveDate::from_ymd_opt(
+        date.year(),
+        u32::from(u8::from(date.month())),
+        u32::from(date.day()),
+    )?
+    .and_hms_opt(u32::from(hour), u32::from(minute), u32::from(second))?;
+    let local = tz.from_local_datetime(&naive).earliest().or_else(|| {
+        tz.from_local_datetime(&(naive + chrono::Duration::hours(1)))
+            .earliest()
+    })?;
+    Some(from_chrono(&local))
+}
+
 /// The local date, hour and minute of an instant in `tzid`; `None` for an unknown zone.
 pub fn local_parts(instant: OffsetDateTime, tzid: &str) -> Option<(Date, u8, u8)> {
     use chrono::{Datelike, Timelike};

@@ -5,6 +5,7 @@
 //! would happen, and (in the slices that follow) makes it happen.
 
 pub mod archive;
+pub mod calendars;
 pub mod check;
 pub mod drops;
 pub mod job;
@@ -198,7 +199,7 @@ pub async fn import_command(
     archive: &Path,
     admin_email: &str,
     passphrase: Option<&str>,
-    thumbnail_max_px: u32,
+    settings: job::RunSettings,
 ) -> Result<(), String> {
     use crate::entities::users;
     use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -217,7 +218,7 @@ pub async fn import_command(
     }
 
     println!("importing {} as {}", archive.display(), admin.display_name);
-    let outcome = job::execute(db, storage, archive, passphrase, admin.id, thumbnail_max_px)
+    let outcome = job::execute(db, storage, archive, passphrase, admin.id, settings)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -237,6 +238,23 @@ pub async fn import_command(
     );
     println!("  {} message(s)", written.messages_created);
     println!("  {} file(s)", written.files_created);
+    let calendars = written.calendars;
+    println!(
+        "  {} calendar(s), {} event(s)",
+        calendars.calendars_created, calendars.events_created
+    );
+    if calendars.copies_passed_over > 0 {
+        println!(
+            "    {} invitation copies kept once, in their organiser's calendar",
+            calendars.copies_passed_over
+        );
+    }
+    if calendars.events_left_behind > 0 {
+        println!(
+            "    {} event(s) left behind (cancelled at the source, unreadable, or of a calendar that did not cross)",
+            calendars.events_left_behind
+        );
+    }
     println!("  {} reading position(s) restored", written.read_positions);
 
     if !outcome.limits.is_empty() {

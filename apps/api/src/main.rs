@@ -147,7 +147,10 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
             std::path::Path::new(&path),
             &admin,
             passphrase.as_deref(),
-            config.thumbnail_max_px,
+            importer::job::RunSettings {
+                thumbnail_max_px: config.thumbnail_max_px,
+                secret_key: secret_key_from_env()?,
+            },
         )
         .await
         .map_err(|e| e.into());
@@ -198,17 +201,7 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let secret_key = match std::env::var("RUCHOIR_SECRET_ENCRYPTION_KEY") {
-        Ok(hex) => decode_key_hex(&hex)
-            .ok_or("RUCHOIR_SECRET_ENCRYPTION_KEY must be 64 hex characters (32 bytes)")?,
-        Err(_) => {
-            tracing::warn!(
-                "RUCHOIR_SECRET_ENCRYPTION_KEY unset; using an INSECURE built-in dev key \
-                 (never use in production)"
-            );
-            DEV_SECRET_KEY
-        }
-    };
+    let secret_key = secret_key_from_env()?;
 
     let webauthn = {
         let origin = webauthn_rs::prelude::Url::parse(&config.webauthn_origin)
@@ -296,6 +289,21 @@ async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 /// Insecure development fallback for the secret-encryption key. Production MUST set
 /// `RUCHOIR_SECRET_ENCRYPTION_KEY` to a real 32-byte key (64 hex characters).
 const DEV_SECRET_KEY: [u8; 32] = [0x11; 32];
+
+/// The server's key, from `RUCHOIR_SECRET_ENCRYPTION_KEY`, or the development key when it is unset.
+fn secret_key_from_env() -> Result<[u8; 32], &'static str> {
+    match std::env::var("RUCHOIR_SECRET_ENCRYPTION_KEY") {
+        Ok(hex) => decode_key_hex(&hex)
+            .ok_or("RUCHOIR_SECRET_ENCRYPTION_KEY must be 64 hex characters (32 bytes)"),
+        Err(_) => {
+            tracing::warn!(
+                "RUCHOIR_SECRET_ENCRYPTION_KEY unset; using an INSECURE built-in dev key \
+                 (never use in production)"
+            );
+            Ok(DEV_SECRET_KEY)
+        }
+    }
+}
 
 /// Decode a 64-character hex string into 32 bytes.
 fn decode_key_hex(hex: &str) -> Option<[u8; 32]> {

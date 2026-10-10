@@ -142,6 +142,22 @@ def build_archive(root: Path, **overrides) -> Path:
                 "uploaded_at": "2026-09-13T10:01:00Z",
             }
         ],
+        "calendars": [
+            {"id": "alice/personal", "owner": "alice", "name": "Personnel", "description": "",
+             "color": "#0082c9"}
+        ],
+        "events": [
+            {
+                "id": "alice/personal/revue.ics",
+                "calendar": "alice/personal",
+                "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\nBEGIN:VEVENT\r\n"
+                "UID:revue\r\nDTSTART;TZID=Europe/Paris:20261013T100000\r\n"
+                "DTEND;TZID=Europe/Paris:20261013T110000\r\nSUMMARY:Revue\r\n"
+                "ORGANIZER;CN=Alice:mailto:alice@example.org\r\n"
+                "ATTENDEE;CN=Bob;PARTSTAT=ACCEPTED:mailto:bob@example.org\r\n"
+                "END:VEVENT\r\nEND:VCALENDAR\r\n",
+            }
+        ],
     }
     data.update(overrides)
 

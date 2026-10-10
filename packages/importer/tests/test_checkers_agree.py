@@ -264,6 +264,42 @@ def _a_manifest_from_a_newer_producer(archive: Path) -> None:
     (archive / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
+def _calendar_of_a_stranger(archive: Path) -> None:
+    calendars = _rows(archive, "calendars.jsonl")
+    calendars[0]["owner"] = "ghost"
+    rewrite(archive, "calendars.jsonl", calendars)
+
+
+def _calendar_with_no_name(archive: Path) -> None:
+    calendars = _rows(archive, "calendars.jsonl")
+    calendars[0]["name"] = " "
+    rewrite(archive, "calendars.jsonl", calendars)
+
+
+def _calendar_in_a_colour_that_is_not_one(archive: Path) -> None:
+    calendars = _rows(archive, "calendars.jsonl")
+    calendars[0]["color"] = "blue"
+    rewrite(archive, "calendars.jsonl", calendars)
+
+
+def _event_in_no_calendar(archive: Path) -> None:
+    events = _rows(archive, "events.jsonl")
+    events[0]["calendar"] = "nowhere"
+    rewrite(archive, "events.jsonl", events)
+
+
+def _event_that_is_a_task(archive: Path) -> None:
+    events = _rows(archive, "events.jsonl")
+    events[0]["ics"] = "BEGIN:VCALENDAR\r\nBEGIN:VTODO\r\nUID:t\r\nEND:VTODO\r\nEND:VCALENDAR\r\n"
+    rewrite(archive, "events.jsonl", events)
+
+
+def _two_events_with_one_identifier(archive: Path) -> None:
+    events = _rows(archive, "events.jsonl")
+    events.append(dict(events[0]))
+    rewrite(archive, "events.jsonl", events)
+
+
 BREAKAGES = [
     ("a reaction whose people are under the wrong field", _reaction_by_the_wrong_field),
     ("a pinned notice", _pinned_notice),
@@ -294,6 +330,12 @@ BREAKAGES = [
     ("a file in a folder with no name", _file_in_a_folder_with_no_name),
     ("a manifest that miscounts", _a_manifest_that_miscounts),
     ("a manifest from a newer producer", _a_manifest_from_a_newer_producer),
+    ("a calendar of a stranger", _calendar_of_a_stranger),
+    ("a calendar with no name", _calendar_with_no_name),
+    ("a calendar in a colour that is not one", _calendar_in_a_colour_that_is_not_one),
+    ("an event in no calendar", _event_in_no_calendar),
+    ("an event that is a task", _event_that_is_a_task),
+    ("two events with one identifier", _two_events_with_one_identifier),
 ]
 
 

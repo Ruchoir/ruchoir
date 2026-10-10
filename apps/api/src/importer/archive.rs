@@ -220,6 +220,29 @@ pub struct FileRecord {
     pub folder: Option<String>,
 }
 
+/// A calendar, landing as a personal calendar of its owner.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CalendarRecord {
+    pub id: String,
+    /// The account it belongs to, as `users.jsonl` spells it.
+    pub owner: String,
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// `#RRGGBB`, brought to the nearest colour of the palette.
+    #[serde(default)]
+    pub color: String,
+}
+
+/// One calendar object: a series and its changed occurrences, as the iCalendar text a CalDAV
+/// server keeps for one UID.
+#[derive(Debug, Clone, Deserialize)]
+pub struct EventRecord {
+    pub id: String,
+    pub calendar: String,
+    pub ics: String,
+}
+
 fn yes() -> bool {
     true
 }
@@ -235,7 +258,10 @@ pub struct Index {
     pub users: Vec<UserRecord>,
     pub channels: Vec<ChannelRecord>,
     pub files: Vec<FileRecord>,
+    pub calendars: Vec<CalendarRecord>,
     pub message_count: usize,
+    /// Events are read again during the run, like the messages: their text can be long.
+    pub event_count: usize,
     /// For each file a message carries, the conversation of the first message carrying it.
     ///
     /// Collected while the messages go past on their way to being counted, because the file pass
@@ -263,6 +289,8 @@ pub enum Member<'a> {
     Channel(ChannelRecord),
     Message(MessageRecord),
     File(FileRecord),
+    Calendar(CalendarRecord),
+    Event(EventRecord),
     /// A blob, with a reader positioned on its bytes. The digest is its name in the archive.
     Blob {
         digest: String,
@@ -320,6 +348,8 @@ pub fn index(path: &Path, passphrase: Option<&str>) -> Result<Index> {
             Member::User(u) => index.users.push(u),
             Member::Channel(c) => index.channels.push(c),
             Member::File(f) => index.files.push(f),
+            Member::Calendar(c) => index.calendars.push(c),
+            Member::Event(_) => index.event_count += 1,
             Member::Message(message) => {
                 index.message_count += 1;
                 for file in message.files {
@@ -394,6 +424,8 @@ where
         "channels.jsonl",
         "messages.jsonl",
         "files.jsonl",
+        "calendars.jsonl",
+        "events.jsonl",
     ] {
         let path = root.join(name);
         if !path.is_file() {
@@ -405,6 +437,8 @@ where
             "users.jsonl" => hashed(file, name, visit, Member::User)?,
             "channels.jsonl" => hashed(file, name, visit, Member::Channel)?,
             "messages.jsonl" => hashed(file, name, visit, Member::Message)?,
+            "calendars.jsonl" => hashed(file, name, visit, Member::Calendar)?,
+            "events.jsonl" => hashed(file, name, visit, Member::Event)?,
             _ => hashed(file, name, visit, Member::File)?,
         }
     }
@@ -505,6 +539,8 @@ where
             "channels.jsonl" => hashed(&mut entry, &name, visit, Member::Channel)?,
             "messages.jsonl" => hashed(&mut entry, &name, visit, Member::Message)?,
             "files.jsonl" => hashed(&mut entry, &name, visit, Member::File)?,
+            "calendars.jsonl" => hashed(&mut entry, &name, visit, Member::Calendar)?,
+            "events.jsonl" => hashed(&mut entry, &name, visit, Member::Event)?,
             // Anything else is not ours to interpret. Ignored rather than refused: a producer may
             // add a member a later format version reads, and refusing would break a valid archive.
             _ => {}

@@ -27,6 +27,15 @@ pub struct Outcome {
     pub limits: Vec<String>,
 }
 
+/// What a run needs from the instance besides its database and its object store.
+#[derive(Clone, Copy)]
+pub struct RunSettings {
+    /// The longest side of a generated thumbnail: an imported image gets what an uploaded one gets.
+    pub thumbnail_max_px: u32,
+    /// The server's key, which seals the token of someone invited by address to an imported event.
+    pub secret_key: [u8; 32],
+}
+
 /// Runs every pass against an archive, from an empty instance or on top of an earlier attempt.
 ///
 /// Re-running the same archive is the same call: each pass recognises what it already wrote.
@@ -36,7 +45,7 @@ pub async fn execute<S: BlobSink>(
     archive: &std::path::Path,
     passphrase: Option<&str>,
     admin: Uuid,
-    thumbnail_max_px: u32,
+    settings: RunSettings,
 ) -> Result<Outcome, RunError> {
     let (index, report) =
         super::check::check(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
@@ -75,15 +84,7 @@ pub async fn execute<S: BlobSink>(
 
     let job_id = run::start_job(db, &source, admin, None, "{}").await?;
     run_passes(
-        db,
-        storage,
-        archive,
-        passphrase,
-        admin,
-        job_id,
-        index,
-        plan,
-        thumbnail_max_px,
+        db, storage, archive, passphrase, admin, job_id, index, plan, settings,
     )
     .await
 }
@@ -99,18 +100,9 @@ pub async fn execute_into<S: BlobSink>(
     passphrase: Option<&str>,
     admin: Uuid,
     job_id: Uuid,
-    thumbnail_max_px: u32,
+    settings: RunSettings,
 ) -> Result<Outcome, RunError> {
-    let outcome = run_into(
-        db,
-        storage,
-        archive,
-        passphrase,
-        admin,
-        job_id,
-        thumbnail_max_px,
-    )
-    .await;
+    let outcome = run_into(db, storage, archive, passphrase, admin, job_id, settings).await;
     // Every way this run can end has to reach the job row. A pass that fails on its own terms
     // closes the row itself, with a sentence worth reading; anything else - a query that errors, a
     // process that gets as far as here - would otherwise leave the row saying `running` forever,
@@ -131,7 +123,7 @@ async fn run_into<S: BlobSink>(
     passphrase: Option<&str>,
     admin: Uuid,
     job_id: Uuid,
-    thumbnail_max_px: u32,
+    settings: RunSettings,
 ) -> Result<Outcome, RunError> {
     let (index, report) =
         super::check::check(archive, passphrase).map_err(|e| RunError::Db(e.to_string()))?;
@@ -146,15 +138,7 @@ async fn run_into<S: BlobSink>(
     let existing = existing_for(db, admin).await?;
     let plan = plan::build(&index, &existing);
     run_passes(
-        db,
-        storage,
-        archive,
-        passphrase,
-        admin,
-        job_id,
-        index,
-        plan,
-        thumbnail_max_px,
+        db, storage, archive, passphrase, admin, job_id, index, plan, settings,
     )
     .await
 }
@@ -169,7 +153,7 @@ async fn run_passes<S: BlobSink>(
     job_id: Uuid,
     index: super::archive::Index,
     mut plan: Plan,
-    thumbnail_max_px: u32,
+    settings: RunSettings,
 ) -> Result<Outcome, RunError> {
     let source = index
         .manifest
@@ -217,6 +201,8 @@ async fn run_passes<S: BlobSink>(
     totals.channels_total = Set(index.channels.len() as i32);
     totals.messages_total = Set(index.message_count as i32);
     totals.files_total = Set(index.files.len() as i32);
+    totals.calendars_total = Set(index.calendars.len() as i32);
+    totals.events_total = Set(index.event_count as i32);
     totals.manifest = Set(index
         .manifest
         .as_ref()
@@ -267,6 +253,37 @@ async fn run_passes<S: BlobSink>(
         });
     }
 
+    // The calendars need only the accounts; they come before the files, which can fail for reasons
+    // nobody here controls.
+    if !index.calendars.is_empty() {
+        let mut calendars = super::calendars::CalendarsWritten::default();
+        let landed =
+            super::calendars::import_calendars(db, &mapper, &index, &mut calendars).await?;
+        super::calendars::import_events(
+            db,
+            &mapper,
+            archive,
+            passphrase,
+            &index,
+            &landed,
+            &settings.secret_key,
+            &mut calendars,
+        )
+        .await?;
+        written.calendars = calendars;
+        if calendars.cancelled {
+            written.cancelled = true;
+            let positions = run::import_read_positions(db, &mapper, &index, &resolved).await?;
+            written.read_positions = positions.read_positions;
+            note_progress(db, job_id, &written).await?;
+            run::finish_job(db, job_id, "cancelled").await?;
+            return Ok(Outcome {
+                written,
+                limits: plan.limits,
+            });
+        }
+    }
+
     // Files come last of the data, because they are the only pass that can fail for a reason
     // nobody here controls, and everything before them is already safe on disk.
     if !index.files.is_empty() {
@@ -285,7 +302,7 @@ async fn run_passes<S: BlobSink>(
         };
         let blobs = run::Blobs {
             store: storage,
-            thumbnail_max_px,
+            thumbnail_max_px: settings.thumbnail_max_px,
         };
         let files =
             run::import_files_from(db, &mapper, &blobs, archive, passphrase, &resolved, &index)
@@ -364,6 +381,8 @@ async fn note_progress(
     model.channels_done = Set(written.conversations_seen as i32);
     model.messages_done = Set(written.messages_seen as i32);
     model.files_done = Set(written.files_seen as i32);
+    model.calendars_done = Set(written.calendars.calendars_seen as i32);
+    model.events_done = Set(written.calendars.events_seen as i32);
     model.update(db).await?;
     Ok(())
 }
