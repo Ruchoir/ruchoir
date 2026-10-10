@@ -5,6 +5,7 @@
 //! occurrences are computed when they are asked for ([`recurrence`]). See
 //! `docs/adr/0004-calendar-data-model.md` for why.
 
+pub(crate) mod attachments;
 pub(crate) mod attendees;
 pub(crate) mod authz;
 pub(crate) mod calendars;
@@ -16,6 +17,7 @@ pub(crate) mod freebusy;
 pub(crate) mod ics;
 pub(crate) mod invitation_page;
 pub(crate) mod invitations;
+pub(crate) mod links;
 pub(crate) mod occurrences;
 pub(crate) mod recurrence;
 pub(crate) mod reminders;

@@ -27,6 +27,8 @@ pub struct Model {
     pub created_at: TimeDateTimeWithTimeZone,
     pub edited_at: Option<TimeDateTimeWithTimeZone>,
     pub deleted_at: Option<TimeDateTimeWithTimeZone>,
+    /// The event a calendar card (a system message) is about; cleared when the event is deleted.
+    pub event_id: Option<Uuid>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

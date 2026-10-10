@@ -28,6 +28,7 @@ pub mod files;
 pub mod calendar_attendee_overrides;
 pub mod calendar_event_attendees;
 pub mod calendar_event_exceptions;
+pub mod calendar_event_files;
 pub mod calendar_event_reminders;
 pub mod calendar_events;
 pub mod calendar_feed_tokens;

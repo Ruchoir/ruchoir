@@ -100,6 +100,8 @@ pub struct InviteeDto {
 pub struct InviteeQuery {
     #[serde(default)]
     pub q: String,
+    /// Only the members of this channel: "invite the whole channel".
+    pub channel: Option<Uuid>,
 }
 
 /// An answer, for the series or for one date of it.
@@ -168,7 +170,8 @@ pub async fn invitable<C: ConnectionTrait>(
     tag = "calendar",
     params(
         ("calendar_id" = Uuid, Path, description = "Calendar id"),
-        ("q" = Option<String>, Query, description = "Part of a name or an address")
+        ("q" = Option<String>, Query, description = "Part of a name or an address"),
+        ("channel" = Option<Uuid>, Query, description = "Only the members of this channel")
     ),
     responses(
         (status = 200, description = "Up to twenty people, by name", body = [InviteeDto]),
@@ -203,11 +206,24 @@ pub async fn search_invitees(
                 .await?
         }
     };
-    let ids: HashSet<Uuid> = pool
+    let mut ids: HashSet<Uuid> = pool
         .into_iter()
         .map(|m| m.user_id)
         .filter(|u| *u != session.user_id)
         .collect();
+    if let Some(channel) = query.channel {
+        if !super::links::reads(&state.db, channel, session.user_id).await {
+            return Err(CalendarError::Forbidden);
+        }
+        let members: HashSet<Uuid> = crate::entities::channel_members::Entity::find()
+            .filter(crate::entities::channel_members::Column::ChannelId.eq(channel))
+            .all(&state.db)
+            .await?
+            .into_iter()
+            .map(|m| m.user_id)
+            .collect();
+        ids.retain(|u| members.contains(u));
+    }
     let needle = format!(
         "%{}%",
         query.q.trim().to_lowercase().replace(['%', '_'], "")
@@ -221,7 +237,11 @@ pub async fn search_invitees(
                 .add(Expr::expr(Func::lower(Expr::col(users::Column::Email))).like(&needle)),
         )
         .order_by_asc(users::Column::DisplayName)
-        .limit(SEARCH_LIMIT)
+        .limit(if query.channel.is_some() {
+            MAX_ATTENDEES as u64
+        } else {
+            SEARCH_LIMIT
+        })
         .all(&state.db)
         .await?;
     Ok(Json(
