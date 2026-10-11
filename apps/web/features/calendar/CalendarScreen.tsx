@@ -90,6 +90,9 @@ export type CalendarScreenProps = {
   focus?: { eventId: string; start: string; allDay: boolean; end?: string; recurrenceId?: string };
   /** Plan an event from a channel: the form opens at once, linked to it. */
   compose?: { channelId: string; spaceId: string };
+  /** Told once `focus`, or `compose`, has been acted on: the screen is asked only once. */
+  onFocusUsed?: () => void;
+  onComposeUsed?: () => void;
   /** Go to a channel an event is linked to. */
   onOpenChannel?: (spaceId: string, channelId: string) => void;
   onNotify?: (toast: {
@@ -116,6 +119,8 @@ export function CalendarScreen({
   spaceName: leaveLabel,
   focus,
   compose,
+  onFocusUsed,
+  onComposeUsed,
   onOpenChannel,
   onNotify,
 }: CalendarScreenProps) {
@@ -190,6 +195,7 @@ export function CalendarScreen({
         (o.start === focus.start || o.start.slice(0, 10) === focusDay),
     );
     focused.current = true;
+    onFocusUsed?.();
     if (found) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpened(found);
@@ -201,7 +207,14 @@ export function CalendarScreen({
         setOpened({ ...event, start: focus.start, end: focus.end ?? event.end, recurrenceId: focus.recurrenceId ?? event.recurrenceId }),
       )
       .catch(() => {});
-  }, [focus, focusDay, occurrences]);
+  }, [focus, focusDay, occurrences, onFocusUsed]);
+
+  // A form asked for from a channel opened with the screen: once is enough.
+  useEffect(() => {
+    if (compose) onComposeUsed?.();
+    // Only as the screen opens, which is when the form was opened from it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setFilter = (next: Filter) => {
     setFilterState(next);

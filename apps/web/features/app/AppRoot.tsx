@@ -546,10 +546,14 @@ function AppShell() {
   const [pendingOpen, setPendingOpen] = useState<PushTarget | null>(null);
   // The event a clicked reminder points at: the calendar opens on its day, with its details.
   const [calendarFocus, setCalendarFocus] = useState<
-    (Pick<ReminderInfo, "eventId" | "recurrenceId" | "start" | "allDay"> & { end?: string; at: number }) | null
+    (Pick<ReminderInfo, "eventId" | "recurrenceId" | "start" | "allDay"> & { end?: string; at: number; used?: boolean }) | null
   >(null);
   // An event being planned from a channel: the calendar opens on its form, linked to it.
-  const [calendarCompose, setCalendarCompose] = useState<{ channelId: string; spaceId: string; at: number } | null>(null);
+  const [calendarCompose, setCalendarCompose] = useState<{ channelId: string; spaceId: string; at: number; used?: boolean } | null>(null);
+  // Each asks the calendar once: marked used when the calendar acts on it (not cleared, which would
+  // remount the calendar and close what it just opened), so coming back later opens nothing again.
+  const focusUsed = useCallback(() => setCalendarFocus((f) => (f && !f.used ? { ...f, used: true } : f)), []);
+  const composeUsed = useCallback(() => setCalendarCompose((c) => (c && !c.used ? { ...c, used: true } : c)), []);
   // The notification level of the space on screen, being set.
   const [spaceNotifOpen, setSpaceNotifOpen] = useState(false);
   // A link to another site, held until the warning about leaving Ruchoir is answered.
@@ -1188,8 +1192,11 @@ function AppShell() {
       onMessageCreated: (conv, m) => {
         const { channelId: active, myId } = liveRef.current;
         // Our own message is already shown optimistically and reconciled by the POST response; skip
-        // the echo so it does not briefly duplicate at the bottom of the feed.
-        if (m.authorId && m.authorId === myId) return;
+        // the echo so it does not briefly duplicate at the bottom of the feed. A system message in
+        // our name (an event's card, posted when we plan it for this channel) was never sent from the
+        // composer and has no such copy: it is kept, and counts as read, being ours.
+        const mine = Boolean(m.authorId && m.authorId === myId);
+        if (mine && !m.system) return;
         const parentId = m.parentId;
         setMessages((prev) => {
           const next = upsertMessage(prev, conv, { ...m, fresh: true });
@@ -1197,6 +1204,7 @@ function AppShell() {
           // feed is drawn. What the feed does show of it is its root's counter and faces.
           return parentId ? adjustReplyCount(next, conv, parentId, 1, m.author, m.createdAt) : next;
         });
+        if (mine) return;
         // The author stopped typing the moment they sent: clear their now-stale typing signal.
         const author = m.authorId;
         if (author) {
@@ -4127,8 +4135,10 @@ function AppShell() {
       {contentView === "calendar" ? (
         <CalendarScreen
           key={`${ws}:${calendarFocus?.at ?? ""}:${calendarCompose?.at ?? ""}`}
-          focus={calendarFocus ?? undefined}
-          compose={calendarCompose ?? undefined}
+          focus={calendarFocus && !calendarFocus.used ? calendarFocus : undefined}
+          compose={calendarCompose && !calendarCompose.used ? calendarCompose : undefined}
+          onFocusUsed={focusUsed}
+          onComposeUsed={composeUsed}
           onOpenChannel={openChannelFromCalendar}
           compact={compact}
           timeZone={viewerTimeZone}
@@ -4588,8 +4598,10 @@ function AppShell() {
         {mobileTab === "calendar" ? (
           <CalendarScreen
             key={`${calendarFocus?.at ?? ""}:${calendarCompose?.at ?? ""}`}
-            focus={calendarFocus ?? undefined}
-            compose={calendarCompose ?? undefined}
+            focus={calendarFocus && !calendarFocus.used ? calendarFocus : undefined}
+            compose={calendarCompose && !calendarCompose.used ? calendarCompose : undefined}
+            onFocusUsed={focusUsed}
+            onComposeUsed={composeUsed}
             onOpenChannel={openChannelFromCalendar}
             compact
             timeZone={viewerTimeZone}
