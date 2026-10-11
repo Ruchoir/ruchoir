@@ -179,6 +179,7 @@ use utoipa::OpenApi;
         crate::calendar::attachments::attachment_folder,
         crate::calendar::occurrences::list_occurrences,
         crate::calendar::search::search_events,
+        crate::calendar::print::print,
         crate::calendar::feeds::list_feeds,
         crate::calendar::feeds::create_feed,
         crate::calendar::feeds::revoke_feed,

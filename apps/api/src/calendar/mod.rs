@@ -20,6 +20,8 @@ pub(crate) mod invitation_page;
 pub(crate) mod invitations;
 pub(crate) mod links;
 pub(crate) mod occurrences;
+pub(crate) mod print;
+pub(crate) mod print_text;
 pub(crate) mod recurrence;
 pub(crate) mod reminders;
 mod routes;

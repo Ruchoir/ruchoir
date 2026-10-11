@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use axum::extract::{Query, State};
 use axum::Json;
-use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, Condition, ConnectionTrait, EntityTrait, QueryFilter};
 use time::{Duration, OffsetDateTime};
 use uuid::Uuid;
 
@@ -51,33 +51,59 @@ pub async fn list_occurrences(
     if to - from > Duration::days(recurrence::MAX_WINDOW_DAYS) {
         return Err(RecurrenceError::TooWide.into());
     }
-    let wanted: Option<HashSet<Uuid>> = match query.calendars.as_deref() {
-        None | Some("") => None,
-        Some(list) => Some(
+    let wanted = calendar_ids(query.calendars.as_deref())?;
+    let (found, _) = gather(
+        &state.db,
+        session.user_id,
+        (from, to),
+        wanted.as_ref(),
+        query.invitations.unwrap_or(true),
+    )
+    .await?;
+    Ok(Json(found))
+}
+
+/// A comma-separated list of calendar ids, or none (every visible calendar).
+pub(crate) fn calendar_ids(list: Option<&str>) -> Result<Option<HashSet<Uuid>>, CalendarError> {
+    match list {
+        None | Some("") => Ok(None),
+        Some(list) => Ok(Some(
             list.split(',')
                 .map(|id| id.trim().parse::<Uuid>())
                 .collect::<Result<_, _>>()
                 .map_err(|_| CalendarError::Invalid("Calendar ids are UUIDs."))?,
-        ),
-    };
-    let visible = authz::visible(&state.db, session.user_id).await?;
+        )),
+    }
+}
+
+/// What `viewer` sees happen in `[from, to)`, in order, and the calendars it comes from: the
+/// `wanted` ones among the visible (all when `None`), and with `invitations`, the events seen
+/// through an invitation alone. The period is checked by the caller.
+pub(crate) async fn gather<C: ConnectionTrait>(
+    db: &C,
+    viewer: Uuid,
+    (from, to): (OffsetDateTime, OffsetDateTime),
+    wanted: Option<&HashSet<Uuid>>,
+    invitations: bool,
+) -> Result<(Vec<OccurrenceDto>, HashMap<Uuid, CalendarAccess>), CalendarError> {
+    let visible = authz::visible(db, viewer).await?;
     let seen: HashSet<Uuid> = visible.iter().map(|a| a.calendar.id).collect();
     let mut accesses: HashMap<Uuid, CalendarAccess> = visible
         .into_iter()
-        .filter(|a| wanted.as_ref().is_none_or(|w| w.contains(&a.calendar.id)))
+        .filter(|a| wanted.is_none_or(|w| w.contains(&a.calendar.id)))
         .map(|a| (a.calendar.id, a))
         .collect();
     let calendar_ids: Vec<Uuid> = accesses.keys().copied().collect();
     // Invitations from calendars the viewer does not see: those events only, read only.
     let mut invited_ids: HashSet<Uuid> = HashSet::new();
-    if query.invitations.unwrap_or(true) {
-        for (event, access) in attendees::invited_events(&state.db, session.user_id, &seen).await? {
+    if invitations {
+        for (event, access) in attendees::invited_events(db, viewer, &seen).await? {
             invited_ids.insert(event.id);
             accesses.entry(access.calendar.id).or_insert(access);
         }
     }
     if calendar_ids.is_empty() && invited_ids.is_empty() {
-        return Ok(Json(Vec::new()));
+        return Ok((Vec::new(), accesses));
     }
 
     // Series that may reach into the period: started before its end, not over before its start.
@@ -99,25 +125,20 @@ pub async fn list_occurrences(
                 .add(calendar_events::Column::StartAt.lt(to))
                 .add(calendar_events::Column::StartDate.lte((to + day).date())),
         )
-        .all(&state.db)
+        .all(db)
         .await?;
     let event_ids: Vec<Uuid> = events.iter().map(|e| e.id).collect();
     let mut by_event: HashMap<Uuid, Vec<exceptions::Model>> = HashMap::new();
     for row in exceptions::Entity::find()
         .filter(exceptions::Column::EventId.is_in(event_ids.clone()))
-        .all(&state.db)
+        .all(db)
         .await?
     {
         by_event.entry(row.event_id).or_default().push(row);
     }
-    let attendance = Attendance::load(&state.db, session.user_id, &event_ids).await?;
-    let reminders = ViewerReminders::load(
-        &state.db,
-        session.user_id,
-        event_ids,
-        accesses.keys().copied().collect(),
-    )
-    .await?;
+    let attendance = Attendance::load(db, viewer, &event_ids).await?;
+    let reminders =
+        ViewerReminders::load(db, viewer, event_ids, accesses.keys().copied().collect()).await?;
 
     let mut found = Vec::new();
     for event in &events {
@@ -141,14 +162,14 @@ pub async fn list_occurrences(
                 &texts,
                 &my_reminders,
                 &attendance,
-                session.user_id,
+                viewer,
                 invited,
             ));
         }
     }
     // RFC 3339 in UTC and plain dates sort together correctly as text.
     found.sort_by(|a, b| a.start.cmp(&b.start).then(a.title.cmp(&b.title)));
-    Ok(Json(found))
+    Ok((found, accesses))
 }
 
 /// One occurrence as the screen draws it: an exception's texts over the series', the viewer's

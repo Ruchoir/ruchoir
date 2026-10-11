@@ -1804,5 +1804,6 @@ mod invitation_tests;
 
 mod channel_file_tests;
 mod deferred_tests;
+mod print_tests;
 mod reminders_tests;
 mod search_tests;

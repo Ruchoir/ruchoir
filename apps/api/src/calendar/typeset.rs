@@ -1,6 +1,8 @@
 //! Typesetting a printed calendar with Typst, inside the API: a template, its data, an embedded font,
 //! and nothing read from the disk or the network.
 //!
+//! The Ruchoir mark is the one other file a template may read (`image("mark.png")`).
+//!
 //! What a person typed (a title, a place) never becomes markup: the template reads it as data from a
 //! JSON file (`json("data.json")`), so `#`, `*`, `[` or `$` print as themselves and cannot run.
 
@@ -39,7 +41,15 @@ fn file_id(name: &str) -> FileId {
     .intern()
 }
 
-/// One document to typeset: the template as the main file, the data beside it.
+/// The Ruchoir mark, as the mails carry it: readable by a template as `image("mark.png")`.
+static MARK: LazyLock<(FileId, Bytes)> = LazyLock::new(|| {
+    (
+        file_id("mark.png"),
+        Bytes::new(crate::auth::mail_text::LOGO_PNG),
+    )
+});
+
+/// One document to typeset: the template as the main file, the data and the mark beside it.
 struct PrintWorld {
     main: Source,
     data_id: FileId,
@@ -70,6 +80,8 @@ impl World for PrintWorld {
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         if id == self.data_id {
             Ok(self.data.clone())
+        } else if id == MARK.0 {
+            Ok(MARK.1.clone())
         } else {
             Err(FileError::AccessDenied)
         }
