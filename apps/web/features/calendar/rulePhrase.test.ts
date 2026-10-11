@@ -51,3 +51,9 @@ test("rule_phrase_in_six_languages", () => {
     }
   }
 });
+
+test("polish_says_we_before_a_w_and_a_consonant", () => {
+  assert.equal(phrase("FREQ=WEEKLY;BYDAY=TU", "pl", "2026-10-06"), "Co tydzień we wtorek");
+  assert.equal(phrase("FREQ=WEEKLY;BYDAY=MO,TU", "pl", "2026-10-05"), "Co tydzień w poniedziałek i wtorek");
+  assert.equal(phrase("FREQ=WEEKLY;BYDAY=WE", "pl", "2026-10-07"), "Co tydzień w środę");
+});
