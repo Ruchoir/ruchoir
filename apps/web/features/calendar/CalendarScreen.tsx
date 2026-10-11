@@ -459,9 +459,13 @@ export function CalendarScreen({
                   iconLeft="arrow-left"
                   onClick={onLeave}
                   aria-label={t("calendar.backTo", { name: leaveLabel ?? "" })}
+                  style={{ minWidth: 0 }}
                 >
                   {leaveLabel}
                 </Button>
+                <div style={{ flex: 1 }} />
+                {searchButton}
+                {printButton}
               </div>
             ) : null}
             <div
@@ -587,8 +591,9 @@ export function CalendarScreen({
           {!compact ? (
             <>
               <div style={{ flex: 1 }} />
-              {searchButton}
-              {printButton}
+              {/* With a column heading, they sit there and leave the bar its room. */}
+              {onLeave ? null : searchButton}
+              {onLeave ? null : printButton}
               {filterControl}
               <Tabs
                 variant="pills"

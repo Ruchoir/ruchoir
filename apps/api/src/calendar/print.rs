@@ -527,6 +527,42 @@ mod tests {
     }
 
     #[test]
+    fn a_long_list_carries_the_mark_on_its_next_pages_too() {
+        use typst::layout::{Frame, FrameItem};
+        fn images(frame: &Frame) -> usize {
+            frame
+                .items()
+                .map(|(_, item)| match item {
+                    FrameItem::Group(group) => images(&group.frame),
+                    FrameItem::Image(..) => 1,
+                    _ => 0,
+                })
+                .sum()
+        }
+        let many: Vec<OccurrenceDto> = (0..60)
+            .map(|i| {
+                let day = 1 + i % 28;
+                occurrence(
+                    &format!("Rendez-vous {i}"),
+                    &format!("2026-11-{day:02}T08:00:00Z"),
+                    &format!("2026-11-{day:02}T09:00:00Z"),
+                    false,
+                )
+            })
+            .collect();
+        let data = document(
+            &page(PrintView::List, date!(2026 - 11 - 01)),
+            &many,
+            &HashMap::new(),
+        );
+        let laid = typeset::layout(TEMPLATE, &data).expect("laid out");
+        assert!(laid.pages().len() > 1);
+        for page in laid.pages() {
+            assert_eq!(images(&page.frame), 1);
+        }
+    }
+
+    #[test]
     fn a_period_follows_its_view() {
         assert_eq!(
             period(PrintView::Week, date!(2026 - 10 - 21), 1),

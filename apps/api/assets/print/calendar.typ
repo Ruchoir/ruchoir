@@ -10,8 +10,12 @@
 #let rule = luma(215)
 
 #set document(title: data.title)
+// The Ruchoir mark and name: beside the title on the first page, at the top of the others.
+#let mark = stack(dir: ltr, spacing: 5pt, image("mark.png", height: 16pt), align(horizon, text(11pt, weight: "bold", "Ruchoir")))
+
 #set page(
   paper: "a4",
+  header: context if counter(page).get().first() > 1 { align(right, mark) },
   flipped: data.landscape,
   margin: (x: 1.2cm, top: 1.2cm, bottom: 1.4cm),
   footer: context {
@@ -28,7 +32,7 @@
   columns: (1fr, auto),
   align: horizon,
   text(15pt, weight: "bold", data.title),
-  stack(dir: ltr, spacing: 5pt, image("mark.png", height: 16pt), align(horizon, text(11pt, weight: "bold", "Ruchoir"))),
+  mark,
 )
 #v(8pt)
 
