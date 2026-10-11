@@ -151,6 +151,11 @@ impl ViewerReminders {
         Ok(Self { events, calendars })
     }
 
+    /// The viewer's own choice for an event: `None` when they follow their calendar's.
+    pub(crate) fn own(&self, event_id: Uuid) -> Option<Option<i32>> {
+        self.events.get(&event_id).copied()
+    }
+
     pub(crate) fn effective(
         &self,
         event: &calendar_events::Model,
@@ -216,6 +221,7 @@ async fn event_dto(
         attendees: attendees::dtos(db, &list).await?,
         channel: links::channel_dto(db, event.channel_id, user_id).await?,
         files: attachments::list(db, event.id).await?,
+        my_own_reminder: reminders.own(event.id),
     })
 }
 

@@ -2093,6 +2093,20 @@
 .wc-imp-col--compact .wc-imp-stat:nth-child(3) {
   border-left: 0;
 }
+/* Six figures (an archive carrying calendars): three a row, each row starting without a rule. */
+.wc-imp-stats--six {
+  grid-template-columns: repeat(3, 1fr);
+  row-gap: 14px;
+}
+.wc-imp-stats--six .wc-imp-stat:nth-child(3n + 1) {
+  border-left: 0;
+}
+.wc-imp-col--compact .wc-imp-stats--six .wc-imp-stat:nth-child(even) {
+  border-left: 1px solid var(--border-subtle);
+}
+.wc-imp-col--compact .wc-imp-stats--six .wc-imp-stat:nth-child(odd) {
+  border-left: 0;
+}
 .wc-imp-check {
   display: flex;
   align-items: flex-start;
@@ -2573,6 +2587,12 @@
     row-gap: 14px;
   }
   .wc-imp-stat:nth-child(3) {
+    border-left: 0;
+  }
+  .wc-imp-stats--six .wc-imp-stat:nth-child(even) {
+    border-left: 1px solid var(--border-subtle);
+  }
+  .wc-imp-stats--six .wc-imp-stat:nth-child(odd) {
     border-left: 0;
   }
   .wc-imp-content__half + .wc-imp-content__half {

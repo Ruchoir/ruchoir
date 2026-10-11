@@ -44,7 +44,10 @@ SYSTEM_EVENTS = {
     "channel_created",
 }
 FILES = ("spaces.jsonl", "users.jsonl", "channels.jsonl", "messages.jsonl", "files.jsonl")
+# Optional: an archive from a source with no calendars has neither.
+OPTIONAL_FILES = ("calendars.jsonl", "events.jsonl")
 HASH = re.compile(r"^sha256:[0-9a-f]{64}$")
+COLOUR = re.compile(r"^#[0-9a-fA-F]{6}$")
 # An author that matches no account: a guest, a bot, someone the producer could not resolve. The
 # importer attributes these to an absent author rather than dropping the message.
 ABSENT_AUTHOR = re.compile(r"^[a-z_]+:.+$")
@@ -133,8 +136,13 @@ def validate(archive: Path) -> Report:
     messages_rows = read_jsonl(archive / "messages.jsonl", report)
     messages = unique_ids(messages_rows, "messages.jsonl", report)
     files = unique_ids(read_jsonl(archive / "files.jsonl", report), "files.jsonl", report)
+    calendars = unique_ids(_optional(archive / "calendars.jsonl", report), "calendars.jsonl", report)
+    events = unique_ids(_optional(archive / "events.jsonl", report), "events.jsonl", report)
 
-    _check_manifest(archive, manifest, spaces, users, channels, messages_rows, files, report)
+    _check_manifest(
+        archive, manifest, spaces, users, channels, messages_rows, files, report,
+        calendars=calendars, events=events,
+    )
     _check_spaces(spaces, report)
     _check_users(users, report)
     _check_channels(channels, spaces, users, report)
@@ -142,11 +150,54 @@ def validate(archive: Path) -> Report:
     _check_files(archive, files, messages, report)
     _check_file_places(files, spaces, channels, messages, report)
     _check_member_state(channels, messages, report)
+    _check_calendars(calendars, users, report)
+    _check_events(events, calendars, report)
 
     return report
 
 
-def _check_manifest(archive, manifest, spaces, users, channels, messages, files, report) -> None:
+def _optional(path: Path, report: Report) -> list[dict]:
+    return read_jsonl(path, report) if path.is_file() else []
+
+
+def _check_calendars(calendars, users, report) -> None:
+    """Each calendar belongs to an account of the archive, has a name, and a colour when it says one."""
+    for identifier, calendar in calendars.items():
+        if calendar.get("owner") not in users:
+            report.error(
+                f"calendar {identifier}: owner {calendar.get('owner')} is not an account in this archive"
+            )
+        if not str(calendar.get("name") or "").strip():
+            report.error(f"calendar {identifier}: no name")
+        colour = calendar.get("color") or ""
+        if colour and not COLOUR.match(colour):
+            report.error(f"calendar {identifier}: colour {colour!r} is not written #RRGGBB")
+
+
+def _check_events(events, calendars, report) -> None:
+    """An event sits in a calendar of the archive and is iCalendar text holding an event with a UID
+    and a start. Whether Ruchoir reads the rest is the importer's to say (it leaves such an event
+    behind, named): checked here, it would make the two checkers disagree."""
+    for identifier, event in events.items():
+        if event.get("calendar") not in calendars:
+            report.error(f"event {identifier}: calendar {event.get('calendar')} is not in this archive")
+        text = event.get("ics")
+        if not isinstance(text, str):
+            report.error(f"event {identifier}: not an iCalendar event with a UID and a start")
+            continue
+        unfolded = text.replace("\r\n", "\n").replace("\n ", "").replace("\n\t", "")
+        lines = [line.rstrip().upper() for line in unfolded.splitlines()]
+
+        def has(name: str) -> bool:
+            return any(line.startswith(name) and line[len(name):len(name) + 1] in (":", ";") for line in lines)
+
+        if "BEGIN:VEVENT" not in lines or not has("UID") or not has("DTSTART"):
+            report.error(f"event {identifier}: not an iCalendar event with a UID and a start")
+
+
+def _check_manifest(
+    archive, manifest, spaces, users, channels, messages, files, report, calendars=None, events=None
+) -> None:
     if not manifest:
         return
 
@@ -174,6 +225,8 @@ def _check_manifest(archive, manifest, spaces, users, channels, messages, files,
         "channels": len(channels),
         "messages": len(messages),
         "files": len(files),
+        "calendars": len(calendars or {}),
+        "events": len(events or {}),
     }
     counts = manifest.get("counts") or {}
     for name, value in actual.items():

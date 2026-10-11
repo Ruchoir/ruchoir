@@ -19,6 +19,8 @@ users.jsonl            one account per line
 channels.jsonl         one conversation per line (channels and direct conversations)
 messages.jsonl         one message per line, ordered by conversation then time
 files.jsonl            one file per line, pointing into blobs/
+calendars.jsonl        one calendar per line (optional)
+events.jsonl           one calendar object per line, as iCalendar text (optional)
 blobs/<hh>/<hash>      file bytes, addressed by the SHA-256 of their content
 ```
 
@@ -46,13 +48,10 @@ file attached to forty messages is stored once and a directory never holds a mil
   "checksums": { "users.jsonl": "sha256:...", "messages.jsonl": "sha256:..." },
   "limits": [
     "Nextcloud Talk has no call history export: calls appear as system messages only.",
-    "Contacts and calendars are not imported: Ruchoir has nowhere to put them yet."
+    "Contacts are not exported and never will be: an address book is outside what Ruchoir does."
   ]
 }
 ```
-
-(Calendars now have a home, `docs/calendar.md`; bringing Nextcloud's `.ics` files in is the calendar's
-next step, and until then the Nextcloud producer keeps naming them in its `limits`, as above.)
 
 `limits` is not decoration. A producer states what it could not take, in plain language, and the
 import screen shows those lines to the administrator **before** the run. An import that quietly
@@ -125,6 +124,51 @@ Whatever it cannot map, it drops and declares.
 Message bodies are Markdown, because that is what the product stores. A producer whose source uses
 something else (Slack's `mrkdwn`, Mattermost's flavour) converts, and says so in `limits` if the
 conversion loses anything.
+
+## Calendars
+
+`calendars.jsonl` and `events.jsonl` are optional: an archive from a source with no calendar has
+neither, and an importer from before they existed passes over them. Counted in the manifest as
+`calendars` and `events` when present.
+
+```json
+// calendars.jsonl
+{"id":"alice/personal","owner":"alice","name":"Personnel","description":"","color":"#0082c9"}
+
+// events.jsonl
+{"id":"alice/personal/revue.ics","calendar":"alice/personal",
+ "ics":"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:revue-1\r\n..."}
+```
+
+A calendar belongs to an account of the archive (`owner`) and lands as a **personal calendar** of
+that person: whoever else could see it at the source is not carried, and the producer says so in
+its limits. `color` is `#RRGGBB`, brought to the palette colour nearest in hue.
+
+An event is **one calendar object as a CalDAV server keeps it**: the iCalendar text of one UID,
+the series and the occurrences changed apart from it (`RECURRENCE-ID`). It crosses as text because
+iCalendar is the standard every calendar source already speaks, and a producer that took it apart
+(a shell script, for Nextcloud) would be the least reviewed parser in the chain. The importer reads
+it (`apps/api/src/calendar/ics_import.rs`):
+
+- the rule, the dates added and taken out, the occurrences moved or cancelled, whole days, and zones
+  as IANA names (a Windows name or a path ending in `Region/City` is brought back to one; a floating
+  time, or a zone still unknown, is read in the owner's zone);
+- the organiser and the attendees with their answers: an attendee who crossed is their account,
+  anyone else is invited by address. **Nobody is told**: no mail, no notification;
+- the first alarm set before the start, as the owner's reminder, at the nearest delay the screen
+  offers that reminds no later;
+- everything else (`CATEGORIES`, `URL`, `CLASS`...) kept as content lines, written back in the
+  subscription feed.
+
+**A meeting comes over once.** A CalDAV server files a copy of an invitation in each invitee's
+calendar under the same UID. When the organiser is an account of the archive, their copy is the
+meeting and the invitees' copies are passed over; when the organiser is not (an invitation from
+outside), the invitee's copy becomes their own event.
+
+The checkers hold an event to the contract: it sits in a calendar of the archive and holds a
+`VEVENT` with a `UID` and a `DTSTART`. What Ruchoir then cannot read (a rule it does not understand,
+an event cancelled as a whole, one date of a series the archive does not hold) is a warning on the
+plan, and that event is left behind.
 
 ## What each person kept
 
@@ -248,3 +292,13 @@ nothing else (`convert-teams.py --help-app` prints the steps and the seven permi
 becomes a space, each channel a conversation, and each team's document library lands in its space's
 files through `space` and `folder`. Chats stay in Teams, by decision: an application that reads
 channels does not need to read everybody's private conversations too.
+
+Calendars are **opt-in** (`--with-calendars`), because the permission they need, `Calendars.Read`,
+opens every mailbox's calendar to the application unless Exchange narrows it (an application access
+policy, or RBAC for Applications, scoped to the people being migrated; `--help-app` says how). With
+it, each person's own Outlook calendars cross, every event written as iCalendar text from what Graph
+gives: the series and its rule, the dates cancelled (`cancelledOccurrences`) and changed
+(`exceptionOccurrences`), times in the event's own zone (Outlook's Windows zone names brought to
+IANA), the organiser, the attendees and their answers, the reminder, the Teams meeting link as
+`URL`. Team calendars stay in Outlook: Graph does not open a Microsoft 365 group's calendar to an
+application.

@@ -216,12 +216,23 @@ pub fn check(path: &Path, passphrase: Option<&str>) -> Result<(Index, Report), A
     check_spaces(&index, &mut report);
     check_channels(&index, &spaces, &users, &mut report);
     check_files(&index, &spaces, &channels, &mut report);
+    let calendars = check_calendars(&index, &users, &mut report);
 
     // The messages are streamed rather than collected: there can be millions, and the checks that
     // need to look at every one of them still only need one at a time.
     let mut seen_ids: HashSet<String> = HashSet::new();
     let mut roots: HashMap<String, String> = HashMap::new();
+    let mut seen_events: HashSet<String> = HashSet::new();
     archive::walk(path, passphrase, |member| {
+        if let Member::Event(event) = &member {
+            check_event(event, &calendars, &mut report);
+            if !seen_events.insert(event.id.clone()) {
+                report.error(format!(
+                    "event {}: two events share an identifier",
+                    event.id
+                ));
+            }
+        }
         if let Member::Message(message) = member {
             check_message(&message, &channels, &users, &files, &mut report);
             if !seen_ids.insert(message.id.clone()) {
@@ -284,12 +295,14 @@ fn check_manifest(index: &Index, report: &mut Report) {
         }
     }
 
-    let actual: [(&str, usize); 5] = [
+    let actual: [(&str, usize); 7] = [
         ("spaces", index.spaces.len()),
         ("users", index.users.len()),
         ("channels", index.channels.len()),
         ("messages", index.message_count),
         ("files", index.files.len()),
+        ("calendars", index.calendars.len()),
+        ("events", index.event_count),
     ];
     for (name, count) in actual {
         if let Some(declared) = manifest.counts.get(name) {
@@ -308,6 +321,107 @@ fn check_manifest(index: &Index, report: &mut Report) {
     }
     if manifest.created_at.is_empty() {
         report.warn("this archive does not say when it was made".into());
+    }
+}
+
+/// The calendars: each belongs to an account of the archive, has a name, and a colour when it says
+/// one. Returns their identifiers, for the events.
+fn check_calendars<'a>(
+    index: &'a Index,
+    users: &HashSet<&str>,
+    report: &mut Report,
+) -> HashSet<&'a str> {
+    let mut ids = HashSet::new();
+    for calendar in &index.calendars {
+        if !ids.insert(calendar.id.as_str()) {
+            report.error(format!(
+                "calendar {}: two calendars share an identifier",
+                calendar.id
+            ));
+        }
+        if !users.contains(calendar.owner.as_str()) {
+            report.error(format!(
+                "calendar {}: owner {} is not an account in this archive",
+                calendar.id, calendar.owner
+            ));
+        }
+        if calendar.name.trim().is_empty() {
+            report.error(format!("calendar {}: no name", calendar.id));
+        }
+        if !calendar.color.is_empty() && !is_hex_colour(&calendar.color) {
+            report.error(format!(
+                "calendar {}: colour {:?} is not written #RRGGBB",
+                calendar.id, calendar.color
+            ));
+        }
+    }
+    ids
+}
+
+fn is_hex_colour(value: &str) -> bool {
+    value.len() == 7 && value.starts_with('#') && value[1..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
+/// An event: in a calendar of the archive, and an iCalendar text holding an event with a UID and a
+/// start. That much is the contract, and `validate-archive.py` says the same. Whether Ruchoir reads
+/// the rest is a warning: such an event is left behind at the run, and named.
+fn check_event(event: &archive::EventRecord, calendars: &HashSet<&str>, report: &mut Report) {
+    if !calendars.contains(event.calendar.as_str()) {
+        report.error(format!(
+            "event {}: calendar {} is not in this archive",
+            event.id, event.calendar
+        ));
+    }
+    let lines: Vec<String> = event
+        .ics
+        .replace("\r\n", "\n")
+        .replace("\n ", "")
+        .replace("\n\t", "")
+        .lines()
+        .map(|l| l.trim_end().to_ascii_uppercase())
+        .collect();
+    let has = |prefix: &str| {
+        lines.iter().any(|l| {
+            l.strip_prefix(prefix)
+                .is_some_and(|rest| rest.starts_with(':') || rest.starts_with(';'))
+        })
+    };
+    if !lines.iter().any(|l| l == "BEGIN:VEVENT") || !has("UID") || !has("DTSTART") {
+        report.error(format!(
+            "event {}: not an iCalendar event with a UID and a start",
+            event.id
+        ));
+        return;
+    }
+    let object = match crate::calendar::ics_import::read(&event.ics, "UTC") {
+        Ok(object) => object,
+        Err(why) => {
+            report.warn(format!("event {}: {why}; it will be left behind", event.id));
+            return;
+        }
+    };
+    match &object.head {
+        None => report.warn(format!(
+            "event {}: one date of a series this archive does not hold; it will be left behind",
+            event.id
+        )),
+        Some(head) if head.cancelled => report.warn(format!(
+            "event {}: cancelled at its source; it will be left behind",
+            event.id
+        )),
+        Some(_) => {}
+    }
+    if object.notes.alarms_dropped > 0 {
+        report.warn(format!(
+            "event {}: only its first alarm before the start comes over",
+            event.id
+        ));
+    }
+    if object.notes.unknown_zones > 0 {
+        report.warn(format!(
+            "event {}: a time zone this server does not know, read in its owner's zone",
+            event.id
+        ));
     }
 }
 

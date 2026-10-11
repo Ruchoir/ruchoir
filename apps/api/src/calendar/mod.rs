@@ -15,6 +15,7 @@ pub(crate) mod events;
 pub(crate) mod feeds;
 pub(crate) mod freebusy;
 pub(crate) mod ics;
+pub(crate) mod ics_import;
 pub(crate) mod invitation_page;
 pub(crate) mod invitations;
 pub(crate) mod links;

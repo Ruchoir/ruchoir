@@ -67,6 +67,8 @@ pub struct Written {
     pub conversations_seen: usize,
     pub messages_seen: usize,
     pub files_seen: usize,
+    /// What the calendar passes went through and wrote.
+    pub calendars: super::calendars::CalendarsWritten,
     /// Set when the administrator asked the job to stop and it did, at a boundary, keeping
     /// everything already written.
     pub cancelled: bool,
@@ -102,7 +104,7 @@ impl From<sea_orm::DbErr> for RunError {
     }
 }
 
-type Result<T> = std::result::Result<T, RunError>;
+pub(super) type Result<T> = std::result::Result<T, RunError>;
 
 /// Opens a job: the row an administrator watches, and the anchor every mapping points back to.
 ///
@@ -136,6 +138,10 @@ pub async fn start_job<C: ConnectionTrait>(
         files_done: Set(0),
         accounts_total: Set(0),
         accounts_done: Set(0),
+        calendars_total: Set(0),
+        calendars_done: Set(0),
+        events_total: Set(0),
+        events_done: Set(0),
         error: Set(None),
         started_at: Set(Some(OffsetDateTime::now_utc())),
         finished_at: Set(None),
@@ -167,6 +173,8 @@ pub async fn forget_vanished<C: ConnectionTrait>(db: &C) -> Result<u64> {
         (KIND_CHANNEL, "conversations"),
         (KIND_MESSAGE, "messages"),
         (KIND_FILE, "files"),
+        (super::calendars::KIND_CALENDAR, "calendars"),
+        (super::calendars::KIND_EVENT, "calendar_events"),
     ] {
         // The table name comes from the list above, never from input.
         let sql = format!(
@@ -977,6 +985,8 @@ pub enum Counter {
     Conversations,
     Messages,
     Files,
+    Calendars,
+    Events,
 }
 
 impl Counter {
@@ -988,7 +998,7 @@ impl Counter {
     /// costs more.
     fn step(self) -> usize {
         match self {
-            Counter::Messages => 100,
+            Counter::Messages | Counter::Events => 100,
             // One file can take seconds to store; five of them were a long silence on screen.
             Counter::Files => 1,
             _ => 5,
@@ -997,7 +1007,7 @@ impl Counter {
 }
 
 /// Writes a running count where the screen can read it.
-async fn note_done<C: ConnectionTrait>(
+pub(super) async fn note_done<C: ConnectionTrait>(
     db: &C,
     job_id: Uuid,
     counter: Counter,
@@ -1012,13 +1022,15 @@ async fn note_done<C: ConnectionTrait>(
         Counter::Conversations => model.channels_done = Set(done as i32),
         Counter::Messages => model.messages_done = Set(done as i32),
         Counter::Files => model.files_done = Set(done as i32),
+        Counter::Calendars => model.calendars_done = Set(done as i32),
+        Counter::Events => model.events_done = Set(done as i32),
     }
     model.update(db).await?;
     Ok(())
 }
 
 /// Reports every `step` items, so a caller writes one line rather than three.
-async fn note_every<C: ConnectionTrait>(
+pub(super) async fn note_every<C: ConnectionTrait>(
     db: &C,
     job_id: Uuid,
     counter: Counter,

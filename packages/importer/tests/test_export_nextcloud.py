@@ -53,14 +53,23 @@ def settings() -> dict[str, str] | None:
 
 @unittest.skipIf(settings() is None, "set RUCHOIR_TEST_MARIADB to run the Nextcloud producer")
 class ExportNextcloudCase(unittest.TestCase):
+    #: Drop Talk's tables before exporting: a Nextcloud whose team uses its calendar and not Talk.
+    without_talk = False
+
     @classmethod
     def setUpClass(cls) -> None:
+        cls._prepare()
+
+    @classmethod
+    def _prepare(cls) -> None:
         cls.config = settings()
         cls.container = os.environ.get("RUCHOIR_TEST_MARIADB_CONTAINER", "")
         cls.database = "ruchoir_import_test_" + uuid.uuid4().hex[:8]
         cls.client = cls._pick_client()
         cls._sql(f"CREATE DATABASE `{cls.database}` DEFAULT CHARSET=utf8mb4;", database=None)
         cls._sql(FIXTURE.read_text(encoding="utf-8"))
+        if cls.without_talk:
+            cls._sql("DROP TABLE oc_talk_rooms, oc_talk_attendees;")
 
         cls.tmp = tempfile.TemporaryDirectory()
         root = Path(cls.tmp.name)
@@ -291,11 +300,35 @@ class ExportNextcloudCase(unittest.TestCase):
         self.assertNotIn("favorite", state["bob"], "favorite false says nothing and is left out")
         self.assertNotIn("carol", state, "someone with nothing to say gets no entry")
 
+    # -- calendars ---------------------------------------------------------------------------------
+    def test_calendars_cross_with_their_owner_and_colour(self) -> None:
+        calendars = by_id(self.archive, "calendars.jsonl")
+        self.assertEqual(sorted(calendars), ["alice/personal", "bob/chantiers"])
+        self.assertEqual(calendars["alice/personal"]["owner"], "alice")
+        self.assertEqual(calendars["alice/personal"]["color"], "#0082c9", "the alpha channel is dropped")
+        self.assertEqual(calendars["bob/chantiers"]["description"], "Visites de chantier")
+
+    def test_events_cross_as_their_icalendar_text(self) -> None:
+        events = by_id(self.archive, "events.jsonl")
+        self.assertEqual(
+            sorted(events),
+            ["alice/personal/meeting-1.ics", "alice/personal/series-1.ics", "bob/chantiers/visit-1.ics"],
+        )
+        series = events["alice/personal/series-1.ics"]
+        self.assertEqual(series["calendar"], "alice/personal")
+        self.assertIn("RECURRENCE-ID;TZID=Europe/Paris:20261019T090000\r\n", series["ics"])
+        self.assertIn("SUMMARY:Point d'\u00e9quipe", series["ics"], "accents survive the blob column")
+
+    def test_tasks_birthdays_the_trash_and_app_calendars_stay_behind(self) -> None:
+        text = (self.archive / "events.jsonl").read_text(encoding="utf-8")
+        for uid in ("todo-1", "birthday-1", "old-1", "binned-1", "card-1", "room-1"):
+            self.assertNotIn(f"UID:{uid}", text)
+
     # -- the manifest ------------------------------------------------------------------------------
     def test_the_manifest_declares_what_stayed_behind(self) -> None:
         limits = json.loads((self.archive / "manifest.json").read_text(encoding="utf-8"))["limits"]
         joined = " ".join(limits).lower()
-        for subject in ("archiv", "contact", "share", "group", "saved", "edit"):
+        for subject in ("archiv", "contact", "share", "group", "saved", "edit", "calendar", "alarm"):
             self.assertIn(subject, joined, f"nothing in limits mentions {subject}")
 
     def test_the_counts_are_the_truth(self) -> None:
@@ -303,8 +336,39 @@ class ExportNextcloudCase(unittest.TestCase):
         self.assertEqual(manifest["counts"]["channels"], 3)
         self.assertEqual(manifest["counts"]["users"], 4)
         self.assertEqual(manifest["counts"]["files"], 4)
+        self.assertEqual(manifest["counts"]["calendars"], 2)
+        self.assertEqual(manifest["counts"]["events"], 3)
+        limits = " ".join(manifest["limits"])
+        self.assertIn("(1 share(s) here)", limits)
+        self.assertIn("(1 here)", limits)
         self.assertEqual(manifest["source"], "nextcloud")
         self.assertIn("24.0.4", manifest["source_version"])
+
+
+@unittest.skipIf(settings() is None, "set RUCHOIR_TEST_MARIADB to run the Nextcloud producer")
+class WithoutTalkCase(unittest.TestCase):
+    """A Nextcloud without Talk still exports its accounts, files and calendars."""
+
+    without_talk = True
+    _prepare = ExportNextcloudCase.__dict__["_prepare"]
+    _pick_client = ExportNextcloudCase.__dict__["_pick_client"]
+    _sql = ExportNextcloudCase.__dict__["_sql"]
+    tearDownClass = ExportNextcloudCase.__dict__["tearDownClass"]
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls._prepare()
+
+    def test_it_exports_no_conversation_and_says_why(self) -> None:
+        self.assertEqual(read_jsonl(self.archive, "channels.jsonl"), [])
+        self.assertEqual(read_jsonl(self.archive, "messages.jsonl"), [])
+        limits = json.loads((self.archive / "manifest.json").read_text(encoding="utf-8"))["limits"]
+        self.assertIn("Talk is not installed", limits[0])
+
+    def test_the_calendars_still_cross(self) -> None:
+        self.assertEqual(len(read_jsonl(self.archive, "events.jsonl")), 3)
+        report = validator.validate(self.archive)
+        self.assertEqual(report.errors, [])
 
 
 class GuardCase(unittest.TestCase):

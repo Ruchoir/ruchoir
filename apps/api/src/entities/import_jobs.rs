@@ -33,6 +33,10 @@ pub struct Model {
     pub files_done: i32,
     pub accounts_total: i32,
     pub accounts_done: i32,
+    pub calendars_total: i32,
+    pub calendars_done: i32,
+    pub events_total: i32,
+    pub events_done: i32,
     /// Set only when `status` is `failed`, and phrased for the administrator.
     pub error: Option<String>,
     pub started_at: Option<TimeDateTimeWithTimeZone>,

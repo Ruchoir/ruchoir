@@ -9,7 +9,7 @@ import { type ImportJob, listImports } from "@/lib/data/api";
  * messages and 120 files: roughly 4 ms a message, 8 an account, 37 a conversation, 150 a file.
  * Counts shown as figures stay exact; only bars are weighted.
  */
-export const PASS_WEIGHT = { accounts: 2, conversations: 10, messages: 1, files: 40 } as const;
+export const PASS_WEIGHT = { accounts: 2, conversations: 10, messages: 1, calendars: 10, events: 2, files: 40 } as const;
 
 /**
  * How far along a run is, or `null` while it is still reading the archive.
@@ -23,6 +23,8 @@ export function shareOf(job: ImportJob): number | null {
     [PASS_WEIGHT.accounts, job.accountsDone, job.accountsTotal],
     [PASS_WEIGHT.conversations, job.channelsDone, job.channelsTotal],
     [PASS_WEIGHT.messages, job.messagesDone, job.messagesTotal],
+    [PASS_WEIGHT.calendars, job.calendarsDone, job.calendarsTotal],
+    [PASS_WEIGHT.events, job.eventsDone, job.eventsTotal],
     [PASS_WEIGHT.files, job.filesDone, job.filesTotal],
   ] as const;
   const total = passes.reduce((sum, [weight, , count]) => sum + weight * count, 0);

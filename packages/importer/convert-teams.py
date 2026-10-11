@@ -54,10 +54,11 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Iterator
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 FORMAT_VERSION = 1
 PRODUCER = "ruchoir-convert-teams 0.1.0"
@@ -95,6 +96,10 @@ PERMISSIONS = [
     ("Files.Read.All", "the files posted in channels and the teams' document libraries"),
 ]
 
+# Asked for only by `--with-calendars`: it reads the Outlook calendar of every mailbox the tenant
+# lets it reach, so a customer who does not want calendars does not grant it.
+CALENDAR_PERMISSION = ("Calendars.Read", "the people's Outlook calendars (only with --with-calendars)")
+
 APP_HELP = """
 This reads Teams through Microsoft Graph, as an application registered in your own Entra ID. It
 needs one, allowed to read and nothing else, and removed once the migration is done:
@@ -107,6 +112,11 @@ needs one, allowed to read and nothing else, and removed once the migration is d
   3. Open "API permissions" -> "Add a permission" -> "Microsoft Graph" -> "Application
      permissions", and add these, each of which reads one thing:
 {permissions}
+     To bring the people's Outlook calendars too (--with-calendars), add as well:
+{calendar_permission}
+     It opens every mailbox's calendar to the application. Exchange can narrow it to the people
+     being migrated: an "application access policy", or RBAC for Applications, scoped to a group
+     holding them. Do that before granting consent if the organisation is larger than the teams.
      Then select "Grant admin consent for <your organisation>" and confirm.
   4. Open "Certificates & secrets" -> "New client secret", give it a short life (a week is plenty),
      and copy its Value (not its ID) into a file readable only by you:
@@ -116,7 +126,10 @@ needs one, allowed to read and nothing else, and removed once the migration is d
   5. Run this again with:
        --tenant <Directory (tenant) ID> --client-id <Application (client) ID> --secret-file ~/teams-secret
   6. Once the archive is delivered, delete the secret file and the application registration.
-""".format(permissions="\n".join(f"       {name:26} {why}" for name, why in PERMISSIONS))
+""".format(
+    permissions="\n".join(f"       {name:26} {why}" for name, why in PERMISSIONS),
+    calendar_permission=f"       {CALENDAR_PERMISSION[0]:26} {CALENDAR_PERMISSION[1]}",
+)
 
 
 class Refused(Exception):
@@ -501,6 +514,129 @@ def sniff(data: bytes) -> str | None:
 
 # -- Graph -----------------------------------------------------------------------------------------
 
+# -- calendars: Outlook's events, as the iCalendar text the archive carries ----------------------
+
+# The Windows names Outlook gives its zones, for the IANA zone each stands for (CLDR's mapping,
+# the territory "001" entries, for the zones a European customer meets and the common others).
+WINDOWS_ZONES = {
+    "UTC": "UTC", "GMT Standard Time": "Europe/London", "Greenwich Standard Time": "Atlantic/Reykjavik",
+    "W. Europe Standard Time": "Europe/Berlin", "Central Europe Standard Time": "Europe/Budapest",
+    "Romance Standard Time": "Europe/Paris", "Central European Standard Time": "Europe/Warsaw",
+    "E. Europe Standard Time": "Europe/Chisinau", "FLE Standard Time": "Europe/Kiev",
+    "GTB Standard Time": "Europe/Bucharest", "Turkey Standard Time": "Europe/Istanbul",
+    "Russian Standard Time": "Europe/Moscow", "Morocco Standard Time": "Africa/Casablanca",
+    "W. Central Africa Standard Time": "Africa/Lagos", "South Africa Standard Time": "Africa/Johannesburg",
+    "Arabian Standard Time": "Asia/Dubai", "Israel Standard Time": "Asia/Jerusalem",
+    "India Standard Time": "Asia/Calcutta", "China Standard Time": "Asia/Shanghai",
+    "Singapore Standard Time": "Asia/Singapore", "Tokyo Standard Time": "Asia/Tokyo",
+    "AUS Eastern Standard Time": "Australia/Sydney", "New Zealand Standard Time": "Pacific/Auckland",
+    "Eastern Standard Time": "America/New_York", "Central Standard Time": "America/Chicago",
+    "Mountain Standard Time": "America/Denver", "Pacific Standard Time": "America/Los_Angeles",
+    "Atlantic Standard Time": "America/Halifax", "E. South America Standard Time": "America/Sao_Paulo",
+    "Canada Central Standard Time": "America/Regina", "Hawaiian Standard Time": "Pacific/Honolulu",
+}
+
+_DAYS = {"sunday": "SU", "monday": "MO", "tuesday": "TU", "wednesday": "WE", "thursday": "TH",
+         "friday": "FR", "saturday": "SA"}
+_INDEX = {"first": 1, "second": 2, "third": 3, "fourth": 4, "last": -1}
+_PARTSTAT = {"accepted": "ACCEPTED", "tentativelyAccepted": "TENTATIVE", "declined": "DECLINED"}
+
+
+def iana_zone(name: str | None) -> str | None:
+    """The IANA zone for a zone as Outlook names it (a Windows name, or already IANA), or None."""
+    if not name:
+        return None
+    candidate = WINDOWS_ZONES.get(name.strip(), name.strip())
+    try:
+        ZoneInfo(candidate)
+    except (ZoneInfoNotFoundError, ValueError):
+        return None
+    return candidate
+
+
+def _utc(value: dict | str | None) -> datetime | None:
+    """A Graph time (a dateTimeTimeZone in UTC, or an instant) as an aware UTC datetime."""
+    text = value.get("dateTime") if isinstance(value, dict) else value
+    stamp = iso(text if not text or text.endswith("Z") or "+" in text[10:] else text + "Z")
+    return datetime.fromisoformat(stamp.replace("Z", "+00:00")) if stamp else None
+
+
+def _wall(at: datetime, zone: str | None) -> str:
+    if zone in (None, "UTC"):
+        return at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return at.astimezone(ZoneInfo(zone)).strftime("%Y%m%dT%H%M%S")
+
+
+def _moment(key: str, at: datetime, zone: str | None) -> str:
+    if zone in (None, "UTC"):
+        return f"{key}:{_wall(at, zone)}"
+    return f"{key};TZID={zone}:{_wall(at, zone)}"
+
+
+def _day(at: datetime, zone: str | None) -> date:
+    """The date a whole day stands for. Outlook keeps a whole day at midnight in its zone, but a
+    time asked for in UTC may come back as midnight UTC: whichever of the two is midnight."""
+    if zone and zone != "UTC":
+        local = at.astimezone(ZoneInfo(zone))
+        if (local.hour, local.minute) == (0, 0):
+            return local.date()
+    return at.astimezone(timezone.utc).date()
+
+
+def _text(value: str) -> str:
+    """A TEXT value, escaped as iCalendar wants it."""
+    return (value.replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
+            .replace("\r\n", "\n").replace("\n", "\\n"))
+
+
+def _param(value: str) -> str:
+    """A parameter value: quoted when it carries what would end it."""
+    value = value.replace('"', "'")
+    return f'"{value}"' if any(c in value for c in ";:,") else value
+
+
+def rrule_of(recurrence: dict, all_day: bool, zone: str | None, start_wall: str) -> str | None:
+    """Outlook's recurrence as an `RRULE` value. `start_wall` is the series' local time of day
+    (`HHMMSS`), which an end date's last occurrence starts at."""
+    pattern = recurrence.get("pattern") or {}
+    span = recurrence.get("range") or {}
+    kind = pattern.get("type")
+    interval = max(1, int(pattern.get("interval") or 1))
+    days = ",".join(_DAYS[d] for d in pattern.get("daysOfWeek") or [] if d in _DAYS)
+    index = _INDEX.get(pattern.get("index") or "first", 1)
+    parts: list[str]
+    if kind == "daily":
+        parts = ["FREQ=DAILY", f"INTERVAL={interval}"]
+    elif kind == "weekly":
+        parts = ["FREQ=WEEKLY", f"INTERVAL={interval}"] + ([f"BYDAY={days}"] if days else [])
+        start = _DAYS.get(pattern.get("firstDayOfWeek") or "")
+        if start:
+            parts.append(f"WKST={start}")
+    elif kind == "absoluteMonthly":
+        parts = ["FREQ=MONTHLY", f"INTERVAL={interval}", f"BYMONTHDAY={int(pattern.get('dayOfMonth') or 1)}"]
+    elif kind == "relativeMonthly":
+        parts = ["FREQ=MONTHLY", f"INTERVAL={interval}", f"BYDAY={days}", f"BYSETPOS={index}"]
+    elif kind == "absoluteYearly":
+        parts = ["FREQ=YEARLY", f"INTERVAL={interval}", f"BYMONTH={int(pattern.get('month') or 1)}",
+                 f"BYMONTHDAY={int(pattern.get('dayOfMonth') or 1)}"]
+    elif kind == "relativeYearly":
+        parts = ["FREQ=YEARLY", f"INTERVAL={interval}", f"BYMONTH={int(pattern.get('month') or 1)}",
+                 f"BYDAY={days}", f"BYSETPOS={index}"]
+    else:
+        return None
+    if span.get("type") == "numbered" and int(span.get("numberOfOccurrences") or 0) > 0:
+        parts.append(f"COUNT={int(span['numberOfOccurrences'])}")
+    elif span.get("type") == "endDate" and span.get("endDate") and not span["endDate"].startswith("0001"):
+        last = date.fromisoformat(span["endDate"])
+        if all_day:
+            parts.append(f"UNTIL={last.strftime('%Y%m%d')}")
+        else:
+            local = datetime.strptime(last.strftime("%Y%m%d") + start_wall, "%Y%m%d%H%M%S")
+            moment = local.replace(tzinfo=ZoneInfo(zone)) if zone and zone != "UTC" else local.replace(tzinfo=timezone.utc)
+            parts.append(f"UNTIL={moment.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}")
+    return ";".join(parts)
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     """Hands a redirect back instead of following it, so the token never follows it elsewhere."""
 
@@ -767,8 +903,17 @@ def _quoted(identifier: str) -> str:
 # -- the conversion ------------------------------------------------------------------------------
 
 class Converter:
-    def __init__(self, graph: Graph, out: Path | None, *, fetch_files: bool = True, libraries: bool = True) -> None:
+    def __init__(
+        self,
+        graph: Graph,
+        out: Path | None,
+        *,
+        fetch_files: bool = True,
+        libraries: bool = True,
+        calendars: bool = False,
+    ) -> None:
         self.graph = graph
+        self.with_calendars = calendars
         self.out = out
         self.fetch_files = fetch_files
         self.libraries = libraries
@@ -802,6 +947,16 @@ class Converter:
         self.private_libraries = 0
         self.shared_channels = 0
         self.archived_teams = 0
+        # Calendars, read only when asked for, and what they could not carry.
+        self.calendar_rows: list[dict] = []
+        self.event_rows: list[dict] = []
+        self.shared_calendars = 0
+        self.cancelled_meetings = 0
+        self.rooms = 0
+        self.event_attachments = 0
+        self.no_mailbox = 0
+        self.unknown_zones = 0
+        self.unreadable_rules = 0
 
     # people -------------------------------------------------------------------------------------
     def read_directory(self) -> None:
@@ -1343,11 +1498,182 @@ class Converter:
         print(f"  document library: {len(self.files) - before} files", flush=True)
 
     # writing ------------------------------------------------------------------------------------
+    # calendars ----------------------------------------------------------------------------------
+    def read_calendars(self) -> None:
+        """Each person's own Outlook calendars and their events, for the people the archive carries.
+
+        A calendar someone else shared with them is passed over: it belongs to its owner, and comes
+        with them if they cross. A person with no mailbox (a guest, an account never licensed) has
+        no calendar to read, which Graph says with a 404, not a refusal.
+        """
+        for person_id in list(self.people):
+            entry = self.directory.get(person_id)
+            if not entry or entry.get("userType") == "Guest":
+                continue
+            try:
+                listed = list(self.graph.pages(
+                    f"/users/{person_id}/calendars",
+                    {"$select": "id,name,hexColor,owner,isDefaultCalendar", "$top": "100"},
+                ))
+            except NotFound:
+                self.no_mailbox += 1
+                continue
+            own = {
+                (self.people[person_id].get("email") or "").lower(),
+                (entry.get("userPrincipalName") or "").lower(),
+            } - {""}
+            for calendar in listed:
+                owner = ((calendar.get("owner") or {}).get("address") or "").lower()
+                if owner and owner not in own:
+                    self.shared_calendars += 1
+                    continue
+                identifier = f"{person_id}/{calendar['id']}"
+                colour = calendar.get("hexColor") or ""
+                self.calendar_rows.append({
+                    "id": identifier,
+                    "owner": person_id,
+                    "name": (calendar.get("name") or "").strip() or "Calendar",
+                    "description": "",
+                    "color": colour[:7] if re.match(r"^#[0-9a-fA-F]{6}", colour) else "",
+                })
+                print(f"calendar {calendar.get('name') or ''} of {self.people[person_id]['display_name']}", flush=True)
+                for event in self.graph.pages(f"/users/{person_id}/calendars/{calendar['id']}/events", {"$top": "100"}):
+                    self.calendar_event(person_id, identifier, event)
+
+    def calendar_event(self, person_id: str, calendar: str, event: dict) -> None:
+        if event.get("isCancelled"):
+            # Cancelled by its organiser and still showing in somebody's calendar, struck through.
+            self.cancelled_meetings += 1
+            return
+        if event.get("hasAttachments"):
+            self.event_attachments += 1
+        details: dict = {}
+        if event.get("type") == "seriesMaster":
+            details = self.graph.get(
+                f"/users/{person_id}/events/{event['id']}",
+                {
+                    "$select": "subject,start,end,location,isAllDay,isCancelled,originalStart,occurrenceId,"
+                               "exceptionOccurrences,cancelledOccurrences",
+                    "$expand": "exceptionOccurrences",
+                },
+            )
+        ics = self.event_ics(event, details)
+        if ics:
+            self.event_rows.append({"id": f"{calendar}/{event['id']}", "calendar": calendar, "ics": ics})
+
+    def event_ics(self, event: dict, details: dict) -> str | None:
+        """One Outlook event (a series with its changed and cancelled dates) as iCalendar text."""
+        recurrence = event.get("recurrence") or None
+        zone = iana_zone(((recurrence or {}).get("range") or {}).get("recurrenceTimeZone")) or iana_zone(
+            event.get("originalStartTimeZone"))
+        if zone is None:
+            self.unknown_zones += 1
+            zone = "UTC"
+        start = _utc(event.get("start"))
+        if start is None:
+            return None
+        end = _utc(event.get("end")) or start
+        all_day = bool(event.get("isAllDay"))
+        uid = event.get("iCalUId") or event["id"]
+        start_wall = _wall(start, zone)[9:15]
+
+        def when(head: list[str], begin: datetime, finish: datetime) -> None:
+            if all_day:
+                first = _day(begin, zone)
+                last = max(_day(finish, zone), first + timedelta(days=1))
+                head += [f"DTSTART;VALUE=DATE:{first:%Y%m%d}", f"DTEND;VALUE=DATE:{last:%Y%m%d}"]
+            else:
+                head += [_moment("DTSTART", begin, zone), _moment("DTEND", finish, zone)]
+
+        lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Ruchoir//convert-teams//EN", "BEGIN:VEVENT", f"UID:{uid}"]
+        stamp = _utc(event.get("lastModifiedDateTime"))
+        if stamp:
+            lines.append(f"DTSTAMP:{_wall(stamp, 'UTC')}")
+        when(lines, start, end)
+        lines.append(f"SUMMARY:{_text(event.get('subject') or '')}")
+        place = ((event.get("location") or {}).get("displayName") or "").strip()
+        if place:
+            lines.append(f"LOCATION:{_text(place)}")
+        body = event.get("body") or {}
+        notes = to_markdown(body.get("content") or "", body.get("contentType") or "html", [], lambda *_: None).markdown
+        if notes:
+            lines.append(f"DESCRIPTION:{_text(notes)}")
+        if event.get("categories"):
+            lines.append("CATEGORIES:" + ",".join(_text(c) for c in event["categories"]))
+        link = (event.get("onlineMeeting") or {}).get("joinUrl") or event.get("onlineMeetingUrl")
+        if link:
+            lines.append(f"URL:{link}")
+
+        if recurrence:
+            rule = rrule_of(recurrence, all_day, zone, start_wall)
+            if rule:
+                lines.append(f"RRULE:{rule}")
+                for occurrence in details.get("cancelledOccurrences") or []:
+                    day = occurrence.rsplit(".", 1)[-1].replace("-", "")
+                    if all_day:
+                        lines.append(f"EXDATE;VALUE=DATE:{day}")
+                    elif zone == "UTC":
+                        lines.append(f"EXDATE:{day}T{start_wall}Z")
+                    else:
+                        lines.append(f"EXDATE;TZID={zone}:{day}T{start_wall}")
+            else:
+                self.unreadable_rules += 1
+
+        organizer = (event.get("organizer") or {}).get("emailAddress") or {}
+        organizer_address = (organizer.get("address") or "").strip()
+        if organizer_address:
+            name = (organizer.get("name") or "").strip()
+            lines.append(f"ORGANIZER{';CN=' + _param(name) if name else ''}:mailto:{organizer_address}")
+        booked = False
+        for attendee in event.get("attendees") or []:
+            address = ((attendee.get("emailAddress") or {}).get("address") or "").strip()
+            if not address or address.lower() == organizer_address.lower():
+                continue
+            if attendee.get("type") == "resource":
+                booked = True
+                continue
+            name = ((attendee.get("emailAddress") or {}).get("name") or "").strip()
+            status = _PARTSTAT.get(((attendee.get("status") or {}).get("response") or ""), "NEEDS-ACTION")
+            lines.append(f"ATTENDEE{';CN=' + _param(name) if name else ''};PARTSTAT={status}:mailto:{address}")
+        self.rooms += int(booked)
+        if event.get("isReminderOn") and event.get("reminderMinutesBeforeStart") is not None:
+            minutes = int(event["reminderMinutesBeforeStart"])
+            lines += ["BEGIN:VALARM", "ACTION:DISPLAY", f"TRIGGER:-PT{minutes}M", "END:VALARM"]
+        lines.append("END:VEVENT")
+
+        for changed in details.get("exceptionOccurrences") or []:
+            if changed.get("isCancelled"):
+                continue
+            begin = _utc(changed.get("start"))
+            if begin is None:
+                continue
+            finish = _utc(changed.get("end")) or begin
+            original = _utc(changed.get("originalStart"))
+            lines += ["BEGIN:VEVENT", f"UID:{uid}"]
+            if original is None:
+                day = (changed.get("occurrenceId") or "").rsplit(".", 1)[-1]
+                original = datetime.strptime(day.replace("-", "") + start_wall, "%Y%m%d%H%M%S").replace(
+                    tzinfo=timezone.utc if zone == "UTC" else ZoneInfo(zone))
+            if all_day:
+                lines.append(f"RECURRENCE-ID;VALUE=DATE:{_day(original, zone):%Y%m%d}")
+            else:
+                lines.append(_moment("RECURRENCE-ID", original, zone))
+            when(lines, begin, finish)
+            lines.append(f"SUMMARY:{_text(changed.get('subject') or event.get('subject') or '')}")
+            place = ((changed.get("location") or {}).get("displayName") or "").strip()
+            if place:
+                lines.append(f"LOCATION:{_text(place)}")
+            lines.append("END:VEVENT")
+        lines.append("END:VCALENDAR")
+        return "\r\n".join(lines) + "\r\n"
+
     def write(self) -> None:
         self._write_jsonl("spaces.jsonl", self.spaces)
         self._write_jsonl("users.jsonl", list(self.people.values()))
         self._write_jsonl("channels.jsonl", self.channels)
         self._write_jsonl("files.jsonl", list(self.files.values()))
+        self._write_jsonl("calendars.jsonl", self.calendar_rows)
+        self._write_jsonl("events.jsonl", self.event_rows)
         blobs = self.out / "blobs"
         for record in self.files.values():
             digest = record["hash"].split(":", 1)[1]
@@ -1373,6 +1699,8 @@ class Converter:
                 "channels": len(self.channels),
                 "messages": self.message_count,
                 "files": len(self.files),
+                "calendars": len(self.calendar_rows),
+                "events": len(self.event_rows),
             },
             "checksums": {},
             "limits": self.declare(),
@@ -1460,8 +1788,39 @@ class Converter:
                 + "; ".join(self.missing_files[:20])
                 + (f"; and {len(self.missing_files) - 20} more" if len(self.missing_files) > 20 else "")
             )
+        if not self.with_calendars:
+            limits.append(
+                "Outlook calendars were not read: run again with --with-calendars, after granting the "
+                "application Calendars.Read, to bring each person's calendars."
+            )
+        else:
+            limits.append(
+                "Each person's own Outlook calendars cross as personal calendars of theirs. Team calendars "
+                "(the calendar of each team's Microsoft 365 group) stay in Outlook: Microsoft Graph does not "
+                "open them to an application."
+            )
+            if self.shared_calendars:
+                limits.append(
+                    f"{self.shared_calendars} calendar(s) shared with somebody by another person are not read "
+                    "from them: they belong to their owner, and cross with that person if at all."
+                )
+            if self.cancelled_meetings:
+                limits.append(f"{self.cancelled_meetings} cancelled meeting(s) still shown in calendars are left out.")
+            if self.rooms:
+                limits.append(f"Rooms booked for {self.rooms} meeting(s) do not cross: a room is not a guest here.")
+            if self.event_attachments:
+                limits.append(f"Files attached to {self.event_attachments} event(s) do not cross with them.")
+            if self.no_mailbox:
+                limits.append(f"{self.no_mailbox} person(s) have no mailbox, so no calendar to read.")
+            if self.unknown_zones:
+                limits.append(
+                    f"{self.unknown_zones} event(s) set in a time zone this export does not know are written in UTC: "
+                    "a series of them may shift by an hour when the clocks change."
+                )
+            if self.unreadable_rules:
+                limits.append(f"{self.unreadable_rules} series with a repetition this export cannot read cross as their first date.")
         limits.append(
-            "Calls, meetings, recordings, tabs, apps, Loop components and wikis are not imported."
+            "Calls, meeting recordings and meeting chats, tabs, apps, Loop components and wikis are not imported."
         )
         return limits
 
@@ -1511,6 +1870,11 @@ def main() -> None:
         action="store_true",
         help="bring the files posted in messages, but not the teams' document libraries",
     )
+    parser.add_argument(
+        "--with-calendars",
+        action="store_true",
+        help="bring each person's Outlook calendars too (the application needs Calendars.Read, see --help-app)",
+    )
     parser.add_argument("--help-app", action="store_true", help="print how to register the application, and stop")
     args = parser.parse_args()
 
@@ -1544,12 +1908,20 @@ def main() -> None:
             shutil.rmtree(cache)
         cache.mkdir(parents=True, exist_ok=True)
         graph = Graph(args.tenant, args.client_id, secret, cache)
-        converter = Converter(graph, args.out, fetch_files=not args.no_files, libraries=not args.no_libraries)
+        converter = Converter(
+            graph,
+            args.out,
+            fetch_files=not args.no_files,
+            libraries=not args.no_libraries,
+            calendars=args.with_calendars,
+        )
         try:
             chosen = converter.choose(converter.list_teams(), args.team)
             converter.read_directory()
             for team in chosen:
                 converter.read_team(team)
+            if args.with_calendars:
+                converter.read_calendars()
         except Refused as error:
             raise SystemExit(missing_permission(error)) from error
         except RuntimeError as error:
@@ -1566,7 +1938,8 @@ def main() -> None:
     print(
         f"  {len(converter.spaces)} space(s), {len(converter.people)} accounts, "
         f"{len(converter.channels)} conversations, {converter.message_count} messages, "
-        f"{len(converter.files)} files ({graph.requests} requests to Graph)"
+        f"{len(converter.files)} files, {len(converter.calendar_rows)} calendars, "
+        f"{len(converter.event_rows)} events ({graph.requests} requests to Graph)"
     )
     if converter.missing_files:
         print(f"  {len(converter.missing_files)} file(s) could not be fetched, see the manifest")

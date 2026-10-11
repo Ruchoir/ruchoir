@@ -2955,6 +2955,9 @@ export type ImportPlan = {
   };
   messages: number;
   files: number;
+  /** Calendars (each a personal calendar of its owner) and the events they hold. */
+  calendars: number;
+  events: number;
   /** The producer's own words about what it left behind. Shown in full, never summarised. */
   limits: string[];
   warnings: string[];
@@ -2982,6 +2985,10 @@ export type ImportJob = {
   messagesTotal: number;
   filesDone: number;
   filesTotal: number;
+  calendarsDone: number;
+  calendarsTotal: number;
+  eventsDone: number;
+  eventsTotal: number;
   error: string | null;
   /** When it ended, RFC 3339, or null while it runs. */
   finishedAt: string | null;
@@ -2999,6 +3006,10 @@ type ImportJobDto = {
   messages_total: number;
   files_done: number;
   files_total: number;
+  calendars_done?: number;
+  calendars_total?: number;
+  events_done?: number;
+  events_total?: number;
   error: string | null;
   finished_at: string | null;
 };
@@ -3016,6 +3027,10 @@ function toImportJob(dto: ImportJobDto): ImportJob {
     messagesTotal: dto.messages_total,
     filesDone: dto.files_done,
     filesTotal: dto.files_total,
+    calendarsDone: dto.calendars_done ?? 0,
+    calendarsTotal: dto.calendars_total ?? 0,
+    eventsDone: dto.events_done ?? 0,
+    eventsTotal: dto.events_total ?? 0,
     error: dto.error,
     finishedAt: dto.finished_at,
   };
@@ -3041,6 +3056,8 @@ export async function planImport(file: string, passphrase?: string): Promise<Imp
     };
     messages: number;
     files: number;
+    calendars?: number;
+    events?: number;
     limits: string[];
     warnings: string[];
     replacing_would_destroy: {
@@ -3075,6 +3092,8 @@ export async function planImport(file: string, passphrase?: string): Promise<Imp
     },
     messages: dto.messages,
     files: dto.files,
+    calendars: dto.calendars ?? 0,
+    events: dto.events ?? 0,
     limits: dto.limits,
     warnings: dto.warnings,
     replacingWouldDestroy: {

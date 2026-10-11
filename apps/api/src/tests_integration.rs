@@ -5546,7 +5546,10 @@ async fn an_import_that_was_stopped_still_leaves_the_reading_positions() {
         None,
         fx.alice,
         job,
-        THUMBNAIL_MAX_PX,
+        crate::importer::job::RunSettings {
+            thumbnail_max_px: THUMBNAIL_MAX_PX,
+            secret_key: [7; 32],
+        },
     )
     .await
     .expect("the run leaves cleanly");
@@ -11416,3 +11419,6 @@ async fn a_listing_does_not_hide_a_dead_tab_from_the_sweep() {
 
 /// The calendar's end-to-end tests, kept in their own file; they reuse the helpers above.
 mod calendar_tests;
+
+/// Bringing Nextcloud calendars over, kept in their own file; they reuse the import helpers above.
+mod import_calendar_tests;
