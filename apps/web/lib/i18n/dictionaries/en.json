@@ -1673,7 +1673,10 @@
       "days": "days before",
       "weeks": "weeks before"
     },
-    "reminderDaysAt9Unit": "days before, at 9:00"
+    "reminderDaysAt9Unit": "days before, at 9:00",
+    "searchEvents": "Search the calendar",
+    "searchEventsPlaceholder": "Title, place, notes, guest…",
+    "searchEventsPrompt": "Every event you can see, past and to come."
   },
   "invitationPage": {
     "title": "Invitation",

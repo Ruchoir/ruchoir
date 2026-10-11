@@ -415,6 +415,13 @@ export async function listOccurrences(
   return (await apiGet<OccurrenceDto[]>(`/calendar/occurrences?${params}`, signal)).map(toOccurrence);
 }
 
+/** The events whose words hold `query`, each once: the coming ones on their next date, soonest
+ *  first, then the past ones on their last, latest first. */
+export async function searchEvents(query: string, signal?: AbortSignal): Promise<Occurrence[]> {
+  const params = new URLSearchParams({ q: query });
+  return (await apiGet<OccurrenceDto[]>(`/calendar/search?${params}`, signal)).map(toOccurrence);
+}
+
 export async function getEvent(id: string, signal?: AbortSignal): Promise<CalendarEvent> {
   return toEvent(await apiGet<EventDto>(`/events/${id}`, signal));
 }

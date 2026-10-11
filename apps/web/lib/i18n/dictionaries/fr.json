@@ -1698,7 +1698,10 @@
       "days": "jours avant",
       "weeks": "semaines avant"
     },
-    "reminderDaysAt9Unit": "jours avant, à 9 h"
+    "reminderDaysAt9Unit": "jours avant, à 9 h",
+    "searchEvents": "Rechercher dans l'agenda",
+    "searchEventsPlaceholder": "Titre, lieu, notes, invité…",
+    "searchEventsPrompt": "Tous les événements que vous voyez, passés et à venir."
   },
   "invitationPage": {
     "title": "Invitation",

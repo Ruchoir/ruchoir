@@ -18,6 +18,7 @@ import {
 import { useTranslation } from "@/lib/i18n";
 import { CalendarOverlays, type SettingsTarget } from "./CalendarOverlays";
 import { CalendarSidebar, ScopeSwitch, SpacePicker } from "./CalendarSidebar";
+import { CalendarSearchDialog } from "./EventSearch";
 import { useSettings } from "@/features/app/settings";
 import { periodTitle, setClockFormat } from "./format";
 import { ListView } from "./ListView";
@@ -140,6 +141,7 @@ export function CalendarScreen({
   const [settings, setSettings] = useState<SettingsTarget | null>(null);
   // The phone's panel listing the calendars.
   const [listOpen, setListOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   const range = useMemo(
     () => rangeFor(view, anchor, timeZone, prefs.weekStart),
@@ -297,6 +299,9 @@ export function CalendarScreen({
   };
   // The space listed first in the column: the one the screen was opened from, else the one filtered.
   const currentSpaceId = spaceId ?? (filter.kind === "space" ? filter.spaceId : undefined);
+  const searchButton = (
+    <IconButton icon="search" size={compact ? "lg" : "md"} label={t("calendar.searchEvents")} onClick={() => setSearching(true)} />
+  );
   const filterControl = spaceId ? (
     <ScopeSwitch spaceId={spaceId} filter={filter} onFilter={setFilter} />
   ) : (
@@ -530,6 +535,7 @@ export function CalendarScreen({
               onClick={() => setListOpen(true)}
             />
           ) : null}
+          {compact ? searchButton : null}
           <h2
             style={{
               margin: 0,
@@ -552,6 +558,7 @@ export function CalendarScreen({
           {!compact ? (
             <>
               <div style={{ flex: 1 }} />
+              {searchButton}
               {filterControl}
               <Tabs
                 variant="pills"
@@ -668,6 +675,18 @@ export function CalendarScreen({
               }
             />
           </Dialog>
+        ) : null}
+        {searching ? (
+          <CalendarSearchDialog
+            timeZone={timeZone}
+            colorOf={(id) => calendars?.find((c) => c.id === id)?.color}
+            onClose={() => setSearching(false)}
+            onOpen={(occurrence) => {
+              setSearching(false);
+              setAnchor(occurrence.allDay ? occurrence.start : localDay(occurrence.start, timeZone));
+              setOpened(occurrence);
+            }}
+          />
         ) : null}
         {calendars ? (
           <CalendarOverlays
