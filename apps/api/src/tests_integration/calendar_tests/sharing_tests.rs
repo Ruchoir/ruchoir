@@ -198,6 +198,8 @@ async fn each_level_shows_what_it_says_and_nothing_more() {
     let found = occurrences(&app, &bob, from, to).await;
     assert_eq!(alices(&found, &calendar)[0]["title"], "Dentiste Kervella");
     assert_eq!(alices(&found, &calendar)[0]["busy"], false);
+    // Its owner is reminded of it, not its readers: no reminder is shown to them.
+    assert_eq!(alices(&found, &calendar)[0]["my_reminders"], json!([]));
     assert_eq!(
         status_of(&app, &bob, reqwest::Method::GET, &event_path).await,
         200

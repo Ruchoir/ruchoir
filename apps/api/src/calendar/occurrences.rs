@@ -231,7 +231,8 @@ pub(crate) fn occurrence_dto(
         is_recurring: event.rrule.is_some(),
         overridden: exception.is_some() && !busy,
         can_edit: access.can_write_events,
-        my_reminders: if busy {
+        // A shared calendar reminds its owner, not its readers (unless they are invited).
+        my_reminders: if busy || (access.shared.is_some() && !invited) {
             Vec::new()
         } else {
             my_reminders.to_vec()

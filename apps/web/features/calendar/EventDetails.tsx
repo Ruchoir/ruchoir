@@ -312,7 +312,8 @@ export function EventDetails({
           </div>
         ) : null}
         {occurrence.description ? <p style={{ margin: 0, whiteSpace: "pre-wrap", color: "var(--text-body)", fontSize: "var(--text-sm)" }}>{occurrence.description}</p> : null}
-        {event ? (
+        {/* Someone else's calendar reminds its owner, not its readers, unless they are invited. */}
+        {event && !(calendar?.shareLevel && !occurrence.invited) ? (
           <Field label={t("calendar.myReminder")} htmlFor="details-reminder">
             <RemindersField
               id="details-reminder"
