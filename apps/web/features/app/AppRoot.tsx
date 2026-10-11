@@ -341,7 +341,9 @@ function toAppNotification(
       ? { label: dm.name, isDm: true }
       : n.channelName
         ? { label: `#${n.channelName}`, isDm: false }
-        : { label: "", isDm: true };
+        : n.calendarName
+          ? { label: n.calendarName, isDm: false }
+          : { label: "", isDm: true };
   return {
     id: n.id,
     kind: n.kind as NotifKind,
@@ -1842,8 +1844,11 @@ function AppShell() {
         (n) =>
           // A reminder or an invitation from a personal calendar belongs to no space: every space
           // shows it. So does an invitation (and its change, cancellation or refusal) from any
-          // space: it asks something of this person, wherever they are reading.
-          (n.spaceId === ws || (Boolean(n.reminder) && (!n.spaceId || isInvitationKind(n.kind)))) &&
+          // space: it asks something of this person, wherever they are reading. A calendar shared
+          // with them belongs to no space either.
+          (n.spaceId === ws ||
+            (Boolean(n.reminder) && (!n.spaceId || isInvitationKind(n.kind))) ||
+            n.kind === "calendar_shared") &&
           passesPref(n, channelPrefs[n.channelId], settings.notif, wsNotifyLevel),
       ),
     [notifs, ws, channelPrefs, settings.notif, wsNotifyLevel],

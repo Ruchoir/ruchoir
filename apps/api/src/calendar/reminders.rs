@@ -316,7 +316,7 @@ pub async fn sweep(state: &AppState, now: OffsetDateTime) -> Result<SweepReport,
     }
     let mut audiences: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
     for calendar in calendars.values() {
-        audiences.insert(calendar.id, authz::audience(&state.db, calendar).await?);
+        audiences.insert(calendar.id, authz::reminded(&state.db, calendar).await?);
     }
     // An event with attendees reminds its organiser and its attendees who still may be invited,
     // and only them; each one's answer for a date decides that date.

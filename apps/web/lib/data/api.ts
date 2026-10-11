@@ -1632,7 +1632,7 @@ export type ReminderInfo = {
 
 export type ApiNotification = {
   id: string;
-  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined";
+  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
   conversationId: string;
   /** The space it happened in, so the inbox can be shown for the space on screen. */
   spaceId: string;
@@ -1649,6 +1649,8 @@ export type ApiNotification = {
   /** Set for a calendar reminder or an invitation kind, whose conversation, message and (for a
    *  personal calendar) space are empty strings. */
   reminder?: ReminderInfo;
+  /** For a calendar shared with the reader: its name. */
+  calendarName?: string;
 };
 
 /** A page of the notification inbox, newest first, with the caller's total unread count. */
@@ -1690,6 +1692,7 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
           },
         }
       : {}),
+    ...(dto.kind === "calendar_shared" && dto.calendar_name ? { calendarName: dto.calendar_name } : {}),
     actor: dto.actor_name ?? "",
     preview: dto.preview,
     createdAt: dto.created_at,

@@ -6,6 +6,13 @@
 //!   `members`, by `admin` and `owner` only when it is `admins`. The calendar itself (name, colour,
 //!   settings, deletion) is managed by `admin` and `owner`.
 //!
+//! - A personal calendar may be shared by its owner with someone they have a space in common with,
+//!   at one of three levels (`calendar_shares`): `freebusy` shows its events as busy blocks only,
+//!   in the lists that build a view and never one by one; `read` shows them as an invitee sees an
+//!   event; `write` lets them be created, changed and deleted too. Only the owner manages it.
+//!   [`access`] grants `read` and `write` only, so every route about one event refuses `freebusy`
+//!   by construction; [`visible`] lists all three and marks the busy-only ones.
+//!
 //! Visibility is computed from membership on every request, so leaving a space takes its calendars,
 //! their subscription addresses and their reminders away at once, with nothing to clean up.
 //!
@@ -42,12 +49,44 @@ const SEEING_ROLES: [&str; 3] = ["member", "admin", "owner"];
 /// Roles that manage a space's calendars, and write in every one of them.
 const MANAGING_ROLES: [&str; 2] = ["admin", "owner"];
 
+/// How far a share opens a personal calendar.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShareLevel {
+    /// Busy blocks only: when, never what.
+    FreeBusy,
+    /// The details, read as an invitee reads an event.
+    Read,
+    /// The details, and its events created, changed and deleted.
+    Write,
+}
+
+impl ShareLevel {
+    pub fn parse(text: &str) -> Option<Self> {
+        match text {
+            "freebusy" => Some(Self::FreeBusy),
+            "read" => Some(Self::Read),
+            "write" => Some(Self::Write),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::FreeBusy => "freebusy",
+            Self::Read => "read",
+            Self::Write => "write",
+        }
+    }
+}
+
 /// A calendar the caller sees, and what they may do with it.
 #[derive(Debug, Clone)]
 pub struct CalendarAccess {
     pub calendar: calendars::Model,
     pub can_write_events: bool,
     pub can_manage: bool,
+    /// Set when the caller sees someone else's personal calendar through a share.
+    pub shared: Option<ShareLevel>,
 }
 
 impl CalendarAccess {
@@ -57,6 +96,21 @@ impl CalendarAccess {
             calendar,
             can_write_events: false,
             can_manage: false,
+            shared: None,
+        }
+    }
+
+    /// Whether only busy blocks may be shown: no title, place, notes or anything else.
+    pub fn busy_only(&self) -> bool {
+        self.shared == Some(ShareLevel::FreeBusy)
+    }
+
+    fn through_share(calendar: calendars::Model, level: ShareLevel) -> Self {
+        Self {
+            calendar,
+            can_write_events: level == ShareLevel::Write,
+            can_manage: false,
+            shared: Some(level),
         }
     }
 
@@ -72,6 +126,7 @@ impl CalendarAccess {
             calendar,
             can_write_events,
             can_manage,
+            shared: None,
         }
     }
 }
@@ -88,8 +143,23 @@ pub fn personal_name(locale: Option<&str>) -> &'static str {
     }
 }
 
-/// The calendar `calendar_id` as `user_id` may use it; `NotFound` when they cannot see it.
+/// The calendar `calendar_id` as `user_id` may use it, event by event; `NotFound` when they cannot
+/// see it, or see it as busy blocks only.
 pub async fn access<C: ConnectionTrait>(
+    db: &C,
+    user_id: Uuid,
+    calendar_id: Uuid,
+) -> Result<CalendarAccess, CalendarError> {
+    let access = seen(db, user_id, calendar_id).await?;
+    if access.busy_only() {
+        return Err(CalendarError::NotFound);
+    }
+    Ok(access)
+}
+
+/// The calendar `calendar_id` as `user_id` sees it, a busy-only share included: for what concerns
+/// the calendar as a whole in their own view (hiding it), never its events.
+pub async fn seen<C: ConnectionTrait>(
     db: &C,
     user_id: Uuid,
     calendar_id: Uuid,
@@ -100,6 +170,12 @@ pub async fn access<C: ConnectionTrait>(
         .ok_or(CalendarError::NotFound)?;
     match (calendar.owner_user_id, calendar.space_id) {
         (Some(owner), _) if owner == user_id => Ok(CalendarAccess::new(calendar, None)),
+        (Some(_), None) => {
+            let level = share_level(db, calendar_id, user_id)
+                .await?
+                .ok_or(CalendarError::NotFound)?;
+            Ok(CalendarAccess::through_share(calendar, level))
+        }
         (None, Some(space_id)) => {
             let role = seeing_role(db, space_id, user_id)
                 .await?
@@ -108,6 +184,72 @@ pub async fn access<C: ConnectionTrait>(
         }
         _ => Err(CalendarError::NotFound),
     }
+}
+
+/// The shares that hold: a personal calendar's, for someone who still has a space in common with
+/// its owner. `calendar` and `user` narrow it down when given.
+const LIVE_SHARES: &str = "\
+SELECT s.calendar_id, s.user_id, s.level FROM calendar_shares s \
+  JOIN calendars c ON c.id = s.calendar_id \
+ WHERE c.owner_user_id IS NOT NULL AND c.space_id IS NULL \
+   AND ($1::uuid IS NULL OR s.calendar_id = $1) AND ($2::uuid IS NULL OR s.user_id = $2) \
+   AND EXISTS (SELECT 1 FROM space_members a JOIN space_members b ON b.space_id = a.space_id \
+                WHERE a.user_id = c.owner_user_id AND b.user_id = s.user_id)";
+
+/// The live shares, as (calendar, person, level).
+pub async fn live_shares<C: ConnectionTrait>(
+    db: &C,
+    calendar: Option<Uuid>,
+    user: Option<Uuid>,
+) -> Result<Vec<(Uuid, Uuid, ShareLevel)>, CalendarError> {
+    let rows = db
+        .query_all_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            LIVE_SHARES,
+            [calendar.into(), user.into()],
+        ))
+        .await?;
+    let mut found = Vec::with_capacity(rows.len());
+    for row in rows {
+        let level: String = row.try_get("", "level")?;
+        if let Some(level) = ShareLevel::parse(&level) {
+            found.push((
+                row.try_get("", "calendar_id")?,
+                row.try_get("", "user_id")?,
+                level,
+            ));
+        }
+    }
+    Ok(found)
+}
+
+/// How a live share opens `calendar_id` to `user_id`, if it does.
+async fn share_level<C: ConnectionTrait>(
+    db: &C,
+    calendar_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<ShareLevel>, CalendarError> {
+    Ok(live_shares(db, Some(calendar_id), Some(user_id))
+        .await?
+        .first()
+        .map(|(_, _, level)| *level))
+}
+
+/// Whether two people have a space in common, whatever their role in it.
+pub async fn share_a_space<C: ConnectionTrait>(
+    db: &C,
+    a: Uuid,
+    b: Uuid,
+) -> Result<bool, CalendarError> {
+    Ok(db
+        .query_one_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT 1 AS found FROM space_members a JOIN space_members b ON b.space_id = a.space_id \
+              WHERE a.user_id = $1 AND b.user_id = $2 LIMIT 1",
+            [a.into(), b.into()],
+        ))
+        .await?
+        .is_some())
 }
 
 /// A calendar, whoever asks: for telling its audience something happened from outside (a guest
@@ -152,26 +294,58 @@ pub async fn visible<C: ConnectionTrait>(
         }
     }
 
+    let shared: HashMap<Uuid, ShareLevel> = live_shares(db, None, Some(user_id))
+        .await?
+        .into_iter()
+        .map(|(calendar, _, level)| (calendar, level))
+        .collect();
     let rows = calendars::Entity::find()
         .filter(
             Condition::any()
                 .add(calendars::Column::OwnerUserId.eq(user_id))
-                .add(calendars::Column::SpaceId.is_in(space_ids)),
+                .add(calendars::Column::SpaceId.is_in(space_ids))
+                .add(calendars::Column::Id.is_in(shared.keys().copied())),
         )
         .all(db)
         .await?;
     Ok(rows
         .into_iter()
-        .map(|calendar| {
-            let role = calendar.space_id.and_then(|s| roles.get(&s).cloned());
-            CalendarAccess::new(calendar, role)
+        .map(|calendar| match calendar.owner_user_id {
+            Some(owner) if owner != user_id => {
+                let level = shared
+                    .get(&calendar.id)
+                    .copied()
+                    .unwrap_or(ShareLevel::FreeBusy);
+                CalendarAccess::through_share(calendar, level)
+            }
+            _ => {
+                let role = calendar.space_id.and_then(|s| roles.get(&s).cloned());
+                CalendarAccess::new(calendar, role)
+            }
         })
         .collect())
 }
 
-/// Who is told about a calendar and reminded of its events: its owner, or its space's members who
-/// see it.
+/// Who is told a calendar changed: whoever sees it, through a share too.
 pub async fn audience<C: ConnectionTrait>(
+    db: &C,
+    calendar: &calendars::Model,
+) -> Result<Vec<Uuid>, CalendarError> {
+    let mut people = reminded(db, calendar).await?;
+    if calendar.owner_user_id.is_some() {
+        people.extend(
+            live_shares(db, Some(calendar.id), None)
+                .await?
+                .into_iter()
+                .map(|(_, user, _)| user),
+        );
+    }
+    Ok(people)
+}
+
+/// Who is reminded of a calendar's events: its owner, or its space's members who see it. A share
+/// lets someone see the calendar, not be reminded of another person's day.
+pub async fn reminded<C: ConnectionTrait>(
     db: &C,
     calendar: &calendars::Model,
 ) -> Result<Vec<Uuid>, CalendarError> {

@@ -207,15 +207,22 @@ export function CalendarSidebar({
     }
   };
 
-  const mine = calendars.filter((c) => !c.spaceId);
+  const mine = calendars.filter((c) => !c.spaceId && !c.shareLevel);
+  // Other people's calendars shared with the viewer, by whose they are.
+  const shared = calendars
+    .filter((c) => c.shareLevel)
+    .sort((a, b) => (a.ownerName ?? "").localeCompare(b.ownerName ?? "") || a.name.localeCompare(b.name));
   const of = (spaceId: string) => calendars.filter((c) => c.spaceId === spaceId);
   const current = spaces.find((s) => s.id === currentSpaceId && of(s.id).length > 0);
   const others = spaces.filter((s) => s.id !== current?.id && of(s.id).length > 0).sort(byName);
   const shownOthers = others.filter((s) => matches(s, query));
 
+  // Someone else's calendar is named with whose it is: two "Personal" side by side read alike.
+  const fullName = (calendar: Calendar) => (calendar.shareLevel ? `${calendar.ownerName} · ${calendar.name}` : calendar.name);
+
   const settingsButton = (calendar: Calendar) =>
     onSettings ? (
-      <IconButton className="wc-calrow__more" icon="more-horizontal" size="sm" label={t("calendar.settingsOf", { name: calendar.name })} onClick={() => onSettings(calendar)} />
+      <IconButton className="wc-calrow__more" icon="more-horizontal" size="sm" label={t("calendar.settingsOf", { name: fullName(calendar) })} onClick={() => onSettings(calendar)} />
     ) : null;
 
   const calendarRow = (calendar: Calendar, indent = false, subtitle?: string) => (
@@ -223,7 +230,7 @@ export function CalendarSidebar({
       <Swatch
         color={colorVar(calendar.color)}
         state={calendar.hidden ? "off" : "on"}
-        label={t(calendar.hidden ? "calendar.show" : "calendar.hide", { name: calendar.name })}
+        label={t(calendar.hidden ? "calendar.show" : "calendar.hide", { name: fullName(calendar) })}
         onClick={() => onToggle(calendar)}
       />
       <span style={label(calendar.hidden)}>
@@ -336,6 +343,13 @@ export function CalendarSidebar({
             </div>
           ) : null}
         </section>
+
+        {shared.length > 0 ? (
+          <section style={section}>
+            {heading(t("files.sharedWithMe"))}
+            {shared.map((c) => calendarRow(c, false, c.ownerName))}
+          </section>
+        ) : null}
 
         {current ? (
           <section style={section}>

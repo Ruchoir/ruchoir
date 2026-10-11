@@ -268,7 +268,8 @@
     "invitationCancel": "{{actor}} hat „{{title}}“ abgesagt",
     "invitationDeclined": "{{actor}} hat „{{title}}“ abgelehnt",
     "kindInvitations": "Kalendereinladungen",
-    "kindInvitationsDesc": "Wenn Sie zu einem Termin eingeladen werden, wenn er sich ändert oder abgesagt wird, und wenn jemand eine Ihrer Einladungen ablehnt."
+    "kindInvitationsDesc": "Wenn Sie zu einem Termin eingeladen werden, wenn er sich ändert oder abgesagt wird, und wenn jemand eine Ihrer Einladungen ablehnt.",
+    "calendarShared": "hat einen Kalender mit Ihnen geteilt"
   },
   "switcher": {
     "title": "Zu einer Unterhaltung wechseln",
@@ -1680,7 +1681,21 @@
     "searchEventsPrompt": "Alle Termine, die Sie sehen, vergangene und kommende.",
     "eventCount_one": "{{count}} Termin",
     "eventCount_other": "{{count}} Termine",
-    "print": "Drucken (PDF)"
+    "print": "Drucken (PDF)",
+    "shareIntro": "Mit Personen aus einem gemeinsamen Bereich. Nur Sie verwalten den Kalender; eine Freigabe gilt sofort.",
+    "shareNobody": "Noch mit niemandem geteilt.",
+    "shareSearch": "Person hinzufügen (Name oder Adresse)",
+    "shareNewLevel": "Stufe der neuen Freigabe",
+    "shareLevelOf": "Freigabestufe für {{name}}",
+    "shareRemove": "Freigabe für {{name}} entfernen",
+    "shareNoMatch": "Niemand aus Ihren Bereichen passt.",
+    "shareAlready": "Bereits geteilt",
+    "sharedBy": "Kalender von {{name}}, mit Ihnen geteilt: {{level}}.",
+    "shareLevel": {
+      "freebusy": "Nur Verfügbarkeit",
+      "read": "Details sehen",
+      "write": "Termine bearbeiten"
+    }
   },
   "invitationPage": {
     "title": "Einladung",

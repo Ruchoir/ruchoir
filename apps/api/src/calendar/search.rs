@@ -53,7 +53,13 @@ pub async fn search_events(
         ));
     }
 
-    let visible = authz::visible(&state.db, session.user_id).await?;
+    // A calendar seen as busy blocks only is not searched: its words are not the viewer's to read.
+    // Its events the viewer is invited to come over as invitations.
+    let visible: Vec<CalendarAccess> = authz::visible(&state.db, session.user_id)
+        .await?
+        .into_iter()
+        .filter(|a| !a.busy_only())
+        .collect();
     let seen: HashSet<Uuid> = visible.iter().map(|a| a.calendar.id).collect();
     let mut accesses: HashMap<Uuid, CalendarAccess> =
         visible.into_iter().map(|a| (a.calendar.id, a)).collect();

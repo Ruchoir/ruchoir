@@ -7,6 +7,7 @@ use crate::state::AppState;
 
 use super::{
     attachments, attendees, calendars, events, feeds, freebusy, links, occurrences, print, search,
+    shares,
 };
 
 pub fn router() -> Router<AppState> {
@@ -37,6 +38,18 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/v1/calendar/search", get(search::search_events))
         .route("/api/v1/calendar/print", get(print::print))
+        .route(
+            "/api/v1/calendars/{calendar_id}/shares",
+            get(shares::list_shares),
+        )
+        .route(
+            "/api/v1/calendars/{calendar_id}/shares/{user_id}",
+            put(shares::put_share).delete(shares::delete_share),
+        )
+        .route(
+            "/api/v1/calendars/{calendar_id}/share-candidates",
+            get(shares::share_candidates),
+        )
         .route("/api/v1/calendar/freebusy", post(freebusy::free_busy))
         .route(
             "/api/v1/events/{event_id}",

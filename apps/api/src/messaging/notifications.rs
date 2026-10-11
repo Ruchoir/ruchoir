@@ -145,11 +145,18 @@ pub async fn hydrate<C: ConnectionTrait>(
     let (invitation_rows, rows): (Vec<_>, Vec<_>) = rows
         .into_iter()
         .partition(|r| crate::notify::prefs::is_invitation_kind(&r.kind));
+    let (shared_rows, rows): (Vec<_>, Vec<_>) =
+        rows.into_iter().partition(|r| r.kind == "calendar_shared");
     let mut drawn = crate::calendar::reminders::hydrate(db, reminder_rows)
         .await
         .map_err(|_| ApiError::Internal)?;
     drawn.extend(
         crate::calendar::invitations::hydrate(db, invitation_rows)
+            .await
+            .map_err(|_| ApiError::Internal)?,
+    );
+    drawn.extend(
+        crate::calendar::shares::hydrate(db, shared_rows)
             .await
             .map_err(|_| ApiError::Internal)?,
     );

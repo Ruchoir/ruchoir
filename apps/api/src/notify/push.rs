@@ -420,6 +420,8 @@ pub async fn pending(
                 (texts.title, texts.body)
             } else if prefs::is_invitation_kind(&dto.kind) {
                 crate::calendar::invitations::texts(locale, &dto, &zone)
+            } else if dto.kind == "calendar_shared" {
+                crate::calendar::shares::texts(locale, &dto)
             } else {
                 tray_text(locale, &dto)
             };

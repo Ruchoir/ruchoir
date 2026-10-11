@@ -87,7 +87,13 @@ pub(crate) async fn gather<C: ConnectionTrait>(
     invitations: bool,
 ) -> Result<(Vec<OccurrenceDto>, HashMap<Uuid, CalendarAccess>), CalendarError> {
     let visible = authz::visible(db, viewer).await?;
-    let seen: HashSet<Uuid> = visible.iter().map(|a| a.calendar.id).collect();
+    // A calendar seen as busy blocks only does not hide an invitation from it: that event comes
+    // over in full, as it would from a calendar not seen at all.
+    let seen: HashSet<Uuid> = visible
+        .iter()
+        .filter(|a| !a.busy_only())
+        .map(|a| a.calendar.id)
+        .collect();
     let mut accesses: HashMap<Uuid, CalendarAccess> = visible
         .into_iter()
         .filter(|a| wanted.is_none_or(|w| w.contains(&a.calendar.id)))
@@ -145,6 +151,14 @@ pub(crate) async fn gather<C: ConnectionTrait>(
         let Some(access) = accesses.get(&event.calendar_id) else {
             continue;
         };
+        let invited = invited_ids.contains(&event.id);
+        let as_invitee;
+        let access = if invited && access.busy_only() {
+            as_invitee = CalendarAccess::read_only(access.calendar.clone());
+            &as_invitee
+        } else {
+            access
+        };
         let rows = by_event.remove(&event.id).unwrap_or_default();
         let inputs = exception_inputs(&rows);
         let texts: HashMap<&str, &exceptions::Model> = rows
@@ -153,7 +167,6 @@ pub(crate) async fn gather<C: ConnectionTrait>(
             .map(|r| (r.recurrence_id.as_str(), r))
             .collect();
         let my_reminders = reminders.effective(event, &access.calendar);
-        let invited = invited_ids.contains(&event.id);
         for occurrence in recurrence::expand(&series_of(event, &inputs), from, to)? {
             found.push(occurrence_dto(
                 event,
@@ -188,18 +201,26 @@ pub(crate) fn occurrence_dto(
     let key = occurrence.recurrence_id.map(|id| id.to_key());
     let exception = key.as_deref().and_then(|k| texts.get(k));
     let (start, end) = when_texts(&occurrence.when);
+    let busy = access.busy_only();
     OccurrenceDto {
         event_id: event.id,
         calendar_id: event.calendar_id,
         recurrence_id: key.clone(),
-        title: exception
-            .and_then(|e| e.title.clone())
-            .unwrap_or_else(|| event.title.clone()),
+        // A busy block says when, never what.
+        title: if busy {
+            String::new()
+        } else {
+            exception
+                .and_then(|e| e.title.clone())
+                .unwrap_or_else(|| event.title.clone())
+        },
         location: match exception {
+            _ if busy => None,
             Some(e) => e.location.clone(),
             None => event.location.clone(),
         },
         description: match exception {
+            _ if busy => None,
             Some(e) => e.description.clone(),
             None => event.description.clone(),
         },
@@ -208,11 +229,21 @@ pub(crate) fn occurrence_dto(
         end,
         tzid: event.tzid.clone(),
         is_recurring: event.rrule.is_some(),
-        overridden: exception.is_some(),
+        overridden: exception.is_some() && !busy,
         can_edit: access.can_write_events,
-        my_reminders: my_reminders.to_vec(),
-        my_status: attendance.status(event, viewer, key.as_deref()),
+        // A shared calendar reminds its owner, not its readers (unless they are invited).
+        my_reminders: if busy || (access.shared.is_some() && !invited) {
+            Vec::new()
+        } else {
+            my_reminders.to_vec()
+        },
+        my_status: if busy {
+            None
+        } else {
+            attendance.status(event, viewer, key.as_deref())
+        },
         invited,
-        has_attendees: attendance.has_attendees(event.id),
+        has_attendees: attendance.has_attendees(event.id) && !busy,
+        busy,
     }
 }

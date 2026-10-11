@@ -40,6 +40,25 @@ and each viewer's own settings at `PUT /api/v1/calendars/{id}/me` and `PUT /api/
 The OpenAPI document has the details. Every change publishes `calendar.changed` to the calendar's
 audience, and open screens reload.
 
+## Sharing a personal calendar
+
+- Its owner shares it from its settings with people they have **a space in common** with, at one of
+  three levels (`calendar_shares`): **free/busy only** (busy blocks, without title, place or notes,
+  that do not open), **see details** (as an invitee reads an event), **edit events** (create,
+  change, delete them; the author stays whoever created each). Only the owner manages the calendar
+  and its shares (`/api/v1/calendars/{id}/shares`, `share-candidates`); a change takes effect at
+  once, and opening a share tells the person in the app (`calendar_shared`, never by mail).
+- The person finds it under "Shared with me", by whose it is, and may hide it.
+- A share holds while the two people have a space in common: checked on every read, so leaving the
+  last common space ends it with nothing to clean up. It goes with the calendar or either account.
+- `calendar::authz::access` grants "see details" and "edit events" only, so every route about one
+  event (details, answers, files, channel links) refuses a free/busy share by construction; the
+  lists (`visible`) carry it with a busy flag: occurrences come as blocks, search leaves the
+  calendar out, the PDF prints "Busy", and the feed of all one's calendars writes busy blocks with
+  nothing but their times. An event of that calendar the person is invited to still reads in full.
+- Shared calendars are not reminded to their readers (the owner is), and free/busy blocks count when
+  looking for a free slot like everything else in the owner's day.
+
 ## Reminders
 
 - A reminder belongs to a person, not to an event. Who gets one: the owner of a personal calendar;
@@ -200,4 +219,4 @@ limits. The format and the rules are in
 
 ## Limits of this first lot
 
-Not yet: sharing a personal calendar, and two-way sync with other calendars (CalDAV).
+Not yet: two-way sync with other calendars (CalDAV).

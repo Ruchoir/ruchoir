@@ -234,6 +234,10 @@ pub fn allows(
     if kind == "calendar_reminder" {
         return allows_reminder(prefs, delivery);
     }
+    // A calendar shared with someone: in the app (with the invitations' switch), never by mail.
+    if kind == "calendar_shared" {
+        return delivery == Delivery::App && prefs.calendar_invitations;
+    }
     if is_invitation_kind(kind) {
         return match delivery {
             Delivery::App => prefs.calendar_invitations,

@@ -268,7 +268,8 @@
     "invitationCancel": "{{actor}} a annulé « {{title}} »",
     "invitationDeclined": "{{actor}} a refusé « {{title}} »",
     "kindInvitations": "Invitations d'agenda",
-    "kindInvitationsDesc": "Quand on vous invite à un événement, quand il change ou est annulé, et quand quelqu'un refuse une de vos invitations."
+    "kindInvitationsDesc": "Quand on vous invite à un événement, quand il change ou est annulé, et quand quelqu'un refuse une de vos invitations.",
+    "calendarShared": "a partagé un agenda avec vous"
   },
   "switcher": {
     "title": "Aller à une conversation",
@@ -1706,7 +1707,21 @@
     "eventCount_one": "{{count}} événement",
     "eventCount_many": "{{count}} événements",
     "eventCount_other": "{{count}} événements",
-    "print": "Imprimer (PDF)"
+    "print": "Imprimer (PDF)",
+    "shareIntro": "Avec des personnes d'un espace en commun. Vous seul gérez l'agenda ; un partage prend effet tout de suite.",
+    "shareNobody": "Partagé avec personne pour l'instant.",
+    "shareSearch": "Ajouter une personne (nom ou adresse)",
+    "shareNewLevel": "Niveau du nouveau partage",
+    "shareLevelOf": "Niveau de partage pour {{name}}",
+    "shareRemove": "Retirer le partage avec {{name}}",
+    "shareNoMatch": "Personne de vos espaces ne correspond.",
+    "shareAlready": "Déjà partagé",
+    "sharedBy": "Agenda de {{name}}, partagé avec vous : {{level}}.",
+    "shareLevel": {
+      "freebusy": "Disponibilités seulement",
+      "read": "Voir les détails",
+      "write": "Modifier les événements"
+    }
   },
   "invitationPage": {
     "title": "Invitation",

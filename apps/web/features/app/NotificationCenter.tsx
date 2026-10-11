@@ -22,6 +22,7 @@ const KIND_ICON: Record<NotifKind, string> = {
   calendar_update: "calendar",
   calendar_cancel: "x",
   calendar_declined: "user-minus",
+  calendar_shared: "users",
 };
 
 /** The answers an invitation offers from the inbox, for every date. */

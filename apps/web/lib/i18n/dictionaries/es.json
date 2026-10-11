@@ -268,7 +268,8 @@
     "invitationCancel": "{{actor}} ha cancelado «{{title}}»",
     "invitationDeclined": "{{actor}} ha rechazado «{{title}}»",
     "kindInvitations": "Invitaciones de agenda",
-    "kindInvitationsDesc": "Cuando te invitan a un evento, cuando cambia o se cancela, y cuando alguien rechaza una de tus invitaciones."
+    "kindInvitationsDesc": "Cuando te invitan a un evento, cuando cambia o se cancela, y cuando alguien rechaza una de tus invitaciones.",
+    "calendarShared": "ha compartido un calendario contigo"
   },
   "switcher": {
     "title": "Ir a una conversación",
@@ -1747,7 +1748,21 @@
     "eventCount_one": "{{count}} evento",
     "eventCount_many": "{{count}} eventos",
     "eventCount_other": "{{count}} eventos",
-    "print": "Imprimir (PDF)"
+    "print": "Imprimir (PDF)",
+    "shareIntro": "Con personas de un espacio en común. Solo tú gestionas el calendario; un cambio surte efecto al instante.",
+    "shareNobody": "Aún no se ha compartido con nadie.",
+    "shareSearch": "Añadir a alguien (nombre o dirección)",
+    "shareNewLevel": "Nivel del nuevo acceso",
+    "shareLevelOf": "Nivel de acceso de {{name}}",
+    "shareRemove": "Dejar de compartir con {{name}}",
+    "shareNoMatch": "Nadie de tus espacios coincide.",
+    "shareAlready": "Ya compartido",
+    "sharedBy": "Calendario de {{name}}, compartido contigo: {{level}}.",
+    "shareLevel": {
+      "freebusy": "Solo disponibilidad",
+      "read": "Ver los detalles",
+      "write": "Editar los eventos"
+    }
   },
   "invitationPage": {
     "title": "Invitación",

@@ -210,6 +210,7 @@ async fn event_dto(
         my_status: attendance.status(&event, user_id, None),
         invited,
         has_attendees: attendance.has_attendees(event.id),
+        busy: false,
     };
     Ok(EventDto {
         head,

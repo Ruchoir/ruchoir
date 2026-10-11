@@ -40,6 +40,12 @@ pub struct CalendarDto {
     /// empty when they turned them off.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub my_reminders: Option<Vec<i32>>,
+    /// For someone else's calendar shared with the caller: how far (`freebusy`, `read`, `write`),
+    /// and whose it is.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub share_level: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner_name: Option<String>,
 }
 
 impl CalendarDto {
@@ -47,7 +53,9 @@ impl CalendarDto {
         access: CalendarAccess,
         hidden: bool,
         my_reminders: Option<Vec<i32>>,
+        owner_name: Option<String>,
     ) -> Self {
+        let share_level = access.shared.map(|level| level.as_str().to_owned());
         let c = access.calendar;
         Self {
             id: c.id,
@@ -62,6 +70,8 @@ impl CalendarDto {
             can_manage: access.can_manage,
             hidden,
             my_reminders,
+            share_level,
+            owner_name,
         }
     }
 }
@@ -166,6 +176,9 @@ pub struct OccurrenceDto {
     pub invited: bool,
     /// Whether anyone is invited to it.
     pub has_attendees: bool,
+    /// A busy block from a calendar shared at the free/busy level: when, and nothing of what (no
+    /// title, place or notes), and it does not open.
+    pub busy: bool,
 }
 
 /// An event (or a series' head) with everything the form needs.
