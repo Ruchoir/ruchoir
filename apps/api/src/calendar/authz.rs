@@ -224,9 +224,9 @@ pub async fn ensure_personal<C: ConnectionTrait>(
     let name = personal_name(locale.as_deref());
     db.execute_raw(Statement::from_sql_and_values(
         DbBackend::Postgres,
-        "INSERT INTO calendars (id, owner_user_id, name, color, default_reminder_minutes, \
+        "INSERT INTO calendars (id, owner_user_id, name, color, default_reminders, \
                                 is_default, created_by) \
-         VALUES ($1, $2, $3, 'accent', 10, true, $2) \
+         VALUES ($1, $2, $3, 'accent', ARRAY[10], true, $2) \
          ON CONFLICT (owner_user_id) WHERE is_default AND owner_user_id IS NOT NULL DO NOTHING",
         [Uuid::new_v4().into(), user_id.into(), name.into()],
     ))
@@ -259,14 +259,14 @@ pub async fn create_space_default<C: ConnectionTrait>(
         DbBackend::Postgres,
         format!(
             "INSERT INTO calendars (id, space_id, name, color, write_access, \
-                                    default_reminder_minutes, is_default, created_by) \
+                                    default_reminders, is_default, created_by) \
              SELECT $1, s.id, left(s.name, 200), \
                     (SELECT p.color FROM unnest(ARRAY[{colours}]) WITH ORDINALITY AS p (color, ord) \
                      ORDER BY (SELECT count(*) FROM calendars c \
                                JOIN space_members m ON m.space_id = c.space_id \
                                WHERE m.user_id = $3 AND c.color = p.color), p.ord \
                      LIMIT 1), \
-                    'members', 10, true, $3 \
+                    'members', ARRAY[10], true, $3 \
              FROM spaces s WHERE s.id = $2 \
              ON CONFLICT (space_id) WHERE is_default AND space_id IS NOT NULL DO NOTHING"
         ),

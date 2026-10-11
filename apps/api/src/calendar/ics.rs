@@ -171,6 +171,7 @@ pub fn render_with(
     events: &[(calendar_events::Model, Vec<exceptions::Model>)],
     people: &std::collections::HashMap<uuid::Uuid, People>,
     method: Option<&str>,
+    alarms: &std::collections::HashMap<uuid::Uuid, Vec<i32>>,
 ) -> String {
     let mut calendar = Calendar::new();
     calendar
@@ -212,6 +213,14 @@ pub fn render_with(
         }
         for rdate in event.rdates.iter().flatten() {
             head.append_multi_property(moment("RDATE", Moment::Instant(*rdate), tzid));
+        }
+        // The reader's own reminders, before the start (before the local midnight of a whole day,
+        // which the same morning's comes after).
+        for minutes in alarms.get(&event.id).into_iter().flatten() {
+            head.alarm(icalendar::Alarm::display(
+                &event.title,
+                -chrono::Duration::minutes(i64::from(*minutes)),
+            ));
         }
         let mut changed = Vec::new();
         let series = super::events::series_of(event, &[]);

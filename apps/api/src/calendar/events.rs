@@ -30,8 +30,7 @@ use super::error::CalendarError;
 use super::invitations::{self, Cancellation, Notice};
 use super::links;
 use super::recurrence::{self, ExceptionInput, RecurrenceId, RuleOrigin, SeriesInput, When};
-use super::reminders::effective_minutes;
-use super::{ALL_DAY_REMINDERS, TIMED_REMINDERS};
+use super::reminders::{check_reminders, effective_reminders};
 use crate::auth::extract::AuthSession;
 use crate::entities::{
     calendar_event_exceptions as exceptions, calendar_event_reminders, calendar_events,
@@ -121,8 +120,8 @@ pub(crate) fn when_texts(when: &When) -> (String, String) {
 
 /// A viewer's own reminder choices for some events and calendars.
 pub(crate) struct ViewerReminders {
-    events: HashMap<Uuid, Option<i32>>,
-    calendars: HashMap<Uuid, Option<i32>>,
+    events: HashMap<Uuid, Vec<i32>>,
+    calendars: HashMap<Uuid, Vec<i32>>,
 }
 
 impl ViewerReminders {
@@ -152,19 +151,19 @@ impl ViewerReminders {
     }
 
     /// The viewer's own choice for an event: `None` when they follow their calendar's.
-    pub(crate) fn own(&self, event_id: Uuid) -> Option<Option<i32>> {
-        self.events.get(&event_id).copied()
+    pub(crate) fn own(&self, event_id: Uuid) -> Option<Vec<i32>> {
+        self.events.get(&event_id).cloned()
     }
 
     pub(crate) fn effective(
         &self,
         event: &calendar_events::Model,
         calendar: &calendars::Model,
-    ) -> Option<i32> {
-        effective_minutes(
-            self.events.get(&event.id).copied(),
-            self.calendars.get(&calendar.id).copied(),
-            calendar.default_reminder_minutes,
+    ) -> Vec<i32> {
+        effective_reminders(
+            self.events.get(&event.id).map(Vec::as_slice),
+            self.calendars.get(&calendar.id).map(Vec::as_slice),
+            &calendar.default_reminders,
             event.all_day,
         )
     }
@@ -207,7 +206,7 @@ async fn event_dto(
         is_recurring: event.rrule.is_some(),
         overridden: false,
         can_edit: access.can_write_events,
-        my_reminder_minutes: reminders.effective(&event, &access.calendar),
+        my_reminders: reminders.effective(&event, &access.calendar),
         my_status: attendance.status(&event, user_id, None),
         invited,
         has_attendees: attendance.has_attendees(event.id),
@@ -221,7 +220,7 @@ async fn event_dto(
         attendees: attendees::dtos(db, &list).await?,
         channel: links::channel_dto(db, event.channel_id, user_id).await?,
         files: attachments::list(db, event.id).await?,
-        my_own_reminder: reminders.own(event.id),
+        my_own_reminders: reminders.own(event.id),
     })
 }
 
@@ -320,16 +319,8 @@ fn parse_input(input: &EventInput, default_tz: &str) -> Result<Parsed, CalendarE
     })
 }
 
-fn check_reminder(minutes: Option<i32>, all_day: bool) -> Result<(), CalendarError> {
-    let allowed: &[i32] = if all_day {
-        &ALL_DAY_REMINDERS
-    } else {
-        &TIMED_REMINDERS
-    };
-    match minutes {
-        Some(m) if !allowed.contains(&m) => Err(CalendarError::Invalid("Unknown reminder delay.")),
-        _ => Ok(()),
-    }
+fn check_reminder(minutes: &[i32], all_day: bool) -> Result<(), CalendarError> {
+    check_reminders(minutes, all_day).map_err(CalendarError::Invalid)
 }
 
 /// The time zone of the author's profile, when it is one this server knows.
@@ -390,7 +381,7 @@ async fn set_my_reminder<C: ConnectionTrait>(
     db: &C,
     user_id: Uuid,
     event_id: Uuid,
-    minutes: Option<i32>,
+    minutes: Vec<i32>,
 ) -> Result<(), CalendarError> {
     calendar_event_reminders::Entity::insert(calendar_event_reminders::ActiveModel {
         user_id: Set(user_id),
@@ -521,7 +512,7 @@ pub async fn create_event(
     let tz = profile_time_zone(&state.db, session.user_id).await?;
     let parsed = parse_input(&input, &tz)?;
     let all_day = matches!(parsed.when, When::AllDay { .. });
-    if let Some(minutes) = input.reminder_minutes {
+    if let Some(minutes) = &input.reminders {
         check_reminder(minutes, all_day)?;
     }
     let channel = match input.channel_id {
@@ -545,7 +536,7 @@ pub async fn create_event(
     if let Some(files) = &files {
         attachments::replace(&txn, event.id, session.user_id, files).await?;
     }
-    if let Some(minutes) = input.reminder_minutes {
+    if let Some(minutes) = input.reminders.clone() {
         set_my_reminder(&txn, session.user_id, event.id, minutes).await?;
     }
     let invited = match &input.attendees {
@@ -677,7 +668,7 @@ pub async fn update_event(
     let tz = profile_time_zone(&state.db, session.user_id).await?;
     let parsed = parse_input(&input, &tz)?;
     let all_day = matches!(parsed.when, When::AllDay { .. });
-    if let Some(minutes) = input.reminder_minutes {
+    if let Some(minutes) = &input.reminders {
         check_reminder(minutes, all_day)?;
     }
 
@@ -831,8 +822,8 @@ pub async fn update_event(
             if shift == Duration::ZERO {
                 txn.execute_raw(sea_orm::Statement::from_sql_and_values(
                     sea_orm::DbBackend::Postgres,
-                    "INSERT INTO calendar_reminder_deliveries (user_id, event_id, occurrence_start, sent_at) \
-                     SELECT user_id, $1, occurrence_start, sent_at FROM calendar_reminder_deliveries \
+                    "INSERT INTO calendar_reminder_deliveries (user_id, event_id, occurrence_start, sent_at, minutes) \
+                     SELECT user_id, $1, occurrence_start, sent_at, minutes FROM calendar_reminder_deliveries \
                      WHERE event_id = $2 ON CONFLICT DO NOTHING",
                     [new_event.id.into(), event.id.into()],
                 ))
@@ -869,7 +860,7 @@ pub async fn update_event(
                 .all(&txn)
                 .await?
             {
-                set_my_reminder(&txn, pref.user_id, new_event.id, pref.minutes).await?;
+                set_my_reminder(&txn, pref.user_id, new_event.id, pref.minutes.clone()).await?;
             }
             refresh_until(&txn, event.id).await?;
             refresh_until(&txn, new_event.id).await?;
@@ -928,7 +919,7 @@ pub async fn update_event(
             event.id
         }
     };
-    if let Some(minutes) = input.reminder_minutes {
+    if let Some(minutes) = input.reminders.clone() {
         set_my_reminder(&txn, session.user_id, result_id, minutes).await?;
     }
     // So do the files: carried into a new series, then made the ones asked for.
@@ -1242,8 +1233,8 @@ pub async fn put_event_me(
         calendar_event_reminders::Entity::delete_by_id((session.user_id, event.id))
             .exec(&state.db)
             .await?;
-    } else if let Some(minutes) = body.reminder_minutes {
-        check_reminder(minutes, event.all_day)?;
+    } else if let Some(minutes) = body.reminders {
+        check_reminder(&minutes, event.all_day)?;
         set_my_reminder(&state.db, session.user_id, event.id, minutes).await?;
     }
     state

@@ -40,6 +40,7 @@ mod m20261005_000001_calendar_invitations;
 mod m20261010_000001_calendar_channels_files;
 mod m20261010_000002_import_calendars;
 mod m20261011_000001_calendar_indexes;
+mod m20261011_000002_calendar_many_reminders;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -82,6 +83,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261010_000001_calendar_channels_files::Migration),
             Box::new(m20261010_000002_import_calendars::Migration),
             Box::new(m20261011_000001_calendar_indexes::Migration),
+            Box::new(m20261011_000002_calendar_many_reminders::Migration),
         ]
     }
 }

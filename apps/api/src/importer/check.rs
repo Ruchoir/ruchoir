@@ -413,7 +413,7 @@ fn check_event(event: &archive::EventRecord, calendars: &HashSet<&str>, report: 
     }
     if object.notes.alarms_dropped > 0 {
         report.warn(format!(
-            "event {}: only its first alarm before the start comes over",
+            "event {}: an alarm after the start, at a fixed time or beyond five does not come over",
             event.id
         ));
     }

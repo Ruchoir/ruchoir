@@ -125,13 +125,13 @@ async fn existing_spaces_receive_a_default_calendar() {
     let rows = db
         .query_all_raw(Statement::from_string(
             DbBackend::Postgres,
-            "SELECT s.slug, c.name, c.color, c.write_access, c.default_reminder_minutes \
+            "SELECT s.slug, c.name, c.color, c.write_access, c.default_reminders \
              FROM calendars c JOIN spaces s ON s.id = c.space_id \
              WHERE c.is_default ORDER BY s.slug;",
         ))
         .await
         .expect("read calendars");
-    let found: Vec<(String, String, String, String, Option<i32>)> = rows
+    let found: Vec<(String, String, String, String, Vec<i32>)> = rows
         .iter()
         .map(|r| {
             (
@@ -139,7 +139,7 @@ async fn existing_spaces_receive_a_default_calendar() {
                 r.try_get("", "name").unwrap(),
                 r.try_get("", "color").unwrap(),
                 r.try_get("", "write_access").unwrap(),
-                r.try_get("", "default_reminder_minutes").unwrap(),
+                r.try_get("", "default_reminders").unwrap(),
             )
         })
         .collect();
@@ -149,7 +149,7 @@ async fn existing_spaces_receive_a_default_calendar() {
             name.to_owned(),
             color.to_owned(),
             "members".to_owned(),
-            Some(10),
+            vec![10],
         )
     };
     assert_eq!(

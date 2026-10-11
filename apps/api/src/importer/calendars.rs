@@ -169,7 +169,7 @@ async fn create_calendar<C: ConnectionTrait>(
         color: Set(nearest_colour(&record.color).to_owned()),
         write_access: Set("members".to_owned()),
         // The source's own alarms come with each event; nothing more is added on top.
-        default_reminder_minutes: Set(None),
+        default_reminders: Set(Vec::new()),
         is_default: Set(false),
         created_by: Set(Some(owner)),
         created_at: Set(now),
@@ -427,11 +427,11 @@ async fn write_event<C: ConnectionTrait>(
         .await?;
     }
 
-    if let Some(minutes) = head.reminder_minutes {
+    if !head.reminders.is_empty() {
         calendar_event_reminders::ActiveModel {
             user_id: Set(owner),
             event_id: Set(id),
-            minutes: Set(Some(minutes)),
+            minutes: Set(head.reminders.clone()),
         }
         .insert(db)
         .await?;

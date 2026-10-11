@@ -16,7 +16,6 @@ use uuid::Uuid;
 use super::authz::{self, CalendarAccess, PALETTE};
 use super::dto::{CalendarDto, CalendarMe, CreateCalendar, DeleteCalendar, UpdateCalendar};
 use super::error::CalendarError;
-use super::TIMED_REMINDERS;
 use crate::auth::extract::AuthSession;
 use crate::entities::{calendar_reminder_prefs, calendar_visibility, calendars, space_members};
 use crate::realtime::event::RealtimeEnvelope;
@@ -54,13 +53,9 @@ fn check_write_access(value: &str) -> Result<(), CalendarError> {
     }
 }
 
-fn check_timed_reminder(minutes: Option<i32>) -> Result<(), CalendarError> {
-    match minutes {
-        Some(m) if !TIMED_REMINDERS.contains(&m) => {
-            Err(CalendarError::Invalid("Unknown reminder delay."))
-        }
-        _ => Ok(()),
-    }
+/// A calendar's reminders speak of its timed events.
+fn check_timed_reminders(minutes: &[i32]) -> Result<(), CalendarError> {
+    super::reminders::check_reminders(minutes, false).map_err(CalendarError::Invalid)
 }
 
 fn clean_description(description: Option<String>) -> Result<Option<String>, CalendarError> {
@@ -101,7 +96,7 @@ async fn dtos<C: ConnectionTrait>(
         .into_iter()
         .map(|v| (v.calendar_id, v.hidden))
         .collect();
-    let reminders: HashMap<Uuid, Option<i32>> = calendar_reminder_prefs::Entity::find()
+    let mut reminders: HashMap<Uuid, Vec<i32>> = calendar_reminder_prefs::Entity::find()
         .filter(calendar_reminder_prefs::Column::UserId.eq(user_id))
         .filter(calendar_reminder_prefs::Column::CalendarId.is_in(ids))
         .all(db)
@@ -116,7 +111,7 @@ async fn dtos<C: ConnectionTrait>(
             CalendarDto::from_access(
                 access,
                 hidden.get(&id).copied().unwrap_or(false),
-                reminders.get(&id).copied(),
+                reminders.remove(&id),
             )
         })
         .collect())
@@ -170,8 +165,8 @@ async fn insert_calendar(
     check_color(&body.color)?;
     let write_access = body.write_access.unwrap_or_else(|| "members".to_owned());
     check_write_access(&write_access)?;
-    let reminder = body.default_reminder_minutes.unwrap_or(Some(10));
-    check_timed_reminder(reminder)?;
+    let reminders = body.default_reminders.unwrap_or_else(|| vec![10]);
+    check_timed_reminders(&reminders)?;
     let now = OffsetDateTime::now_utc();
     let calendar = calendars::ActiveModel {
         id: Set(Uuid::new_v4()),
@@ -181,7 +176,7 @@ async fn insert_calendar(
         description: Set(clean_description(body.description)?),
         color: Set(body.color),
         write_access: Set(write_access),
-        default_reminder_minutes: Set(reminder),
+        default_reminders: Set(reminders),
         is_default: Set(false),
         created_by: Set(Some(session.user_id)),
         created_at: Set(now),
@@ -288,9 +283,9 @@ pub async fn update_calendar(
             calendar.write_access = Set(write_access);
         }
     }
-    if let Some(reminder) = body.default_reminder_minutes {
-        check_timed_reminder(reminder)?;
-        calendar.default_reminder_minutes = Set(reminder);
+    if let Some(reminders) = body.default_reminders {
+        check_timed_reminders(&reminders)?;
+        calendar.default_reminders = Set(reminders);
     }
     calendar.updated_at = Set(OffsetDateTime::now_utc());
     let calendar = calendar.update(&state.db).await?;
@@ -381,8 +376,8 @@ pub async fn put_calendar_me(
         calendar_reminder_prefs::Entity::delete_by_id((session.user_id, calendar_id))
             .exec(&state.db)
             .await?;
-    } else if let Some(minutes) = body.reminder_minutes {
-        check_timed_reminder(minutes)?;
+    } else if let Some(minutes) = body.reminders {
+        check_timed_reminders(&minutes)?;
         calendar_reminder_prefs::Entity::insert(calendar_reminder_prefs::ActiveModel {
             user_id: Set(session.user_id),
             calendar_id: Set(calendar_id),

@@ -214,7 +214,7 @@ async fn nextcloud_calendars_land_with_their_owners() {
         .await
         .expect("query")
         .expect("reminder");
-    assert_eq!(reminder.minutes, Some(30));
+    assert_eq!(reminder.minutes, vec![20]);
 
     // The meeting, once, in its organiser's calendar, with its people and their answers.
     let meeting = event_by_uid(&app, personal.id, "meeting-1")
@@ -366,7 +366,7 @@ async fn an_imported_reminder_is_the_owners_own_choice() {
         }
     };
     // Set by the import: the event's own choice, not what the calendar would give.
-    assert_eq!(read(series.id).await["my_own_reminder"], 30);
+    assert_eq!(read(series.id).await["my_own_reminders"], json!([20]));
     // None set: the key is absent, and the event follows its calendar.
-    assert!(read(meeting.id).await.get("my_own_reminder").is_none());
+    assert!(read(meeting.id).await.get("my_own_reminders").is_none());
 }

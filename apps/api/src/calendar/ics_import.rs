@@ -20,7 +20,7 @@ use icalendar::parser::{read_calendar, unfold, Component, Property};
 use time::{Date, Duration, OffsetDateTime};
 
 use super::recurrence::{self, RecurrenceId, When};
-use super::{ALL_DAY_REMINDERS, TIMED_REMINDERS};
+use super::reminders::{MAX_LEAD_MINUTES, MAX_REMINDERS};
 
 /// Properties read into columns, or rebuilt from them; never kept as extra lines.
 const HANDLED: &[&str] = &[
@@ -108,7 +108,7 @@ pub struct Head {
     pub organizer: Option<Person>,
     pub attendees: Vec<Attendee>,
     /// The first alarm before the start, as one of Ruchoir's delays.
-    pub reminder_minutes: Option<i32>,
+    pub reminders: Vec<i32>,
     /// The whole event is cancelled (`STATUS:CANCELLED`).
     pub cancelled: bool,
     pub extra: Vec<String>,
@@ -255,7 +255,7 @@ impl Reader<'_> {
                     .is_none_or(|o| !o.email.eq_ignore_ascii_case(&a.person.email))
             })
             .collect();
-        let reminder_minutes = self.reminder(event, matches!(when, When::AllDay { .. }));
+        let reminders = self.reminders(event, matches!(when, When::AllDay { .. }));
         Ok(Head {
             title: text(event, "SUMMARY").unwrap_or_default(),
             description: text(event, "DESCRIPTION").filter(|t| !t.is_empty()),
@@ -270,7 +270,7 @@ impl Reader<'_> {
                 .unwrap_or(0),
             organizer,
             attendees,
-            reminder_minutes,
+            reminders,
             cancelled: is_cancelled(event),
             extra: extra(event),
         })
@@ -383,9 +383,11 @@ impl Reader<'_> {
         }
     }
 
-    /// The first alarm set before the start, as the nearest of Ruchoir's delays that reminds no later.
-    fn reminder(&mut self, event: &Component, all_day: bool) -> Option<i32> {
-        let mut first = None;
+    /// The alarms set before the start, five at most, each at its own delay (a whole day's on the
+    /// nearest the screen offers that reminds no later). Alarms after the start, at a fixed date or
+    /// from the end, and the ones beyond five, are counted.
+    fn reminders(&mut self, event: &Component, all_day: bool) -> Vec<i32> {
+        let mut kept: Vec<i32> = Vec::new();
         for alarm in event
             .components
             .iter()
@@ -401,30 +403,37 @@ impl Reader<'_> {
                 }
                 duration(trigger.val.as_str()).map(|d| -(d.whole_minutes() as i32))
             });
-            match (first, minutes) {
-                (None, Some(m)) => first = Some(m),
+            let minutes = match minutes {
+                Some(m) if all_day => Some(snap_all_day(m)),
+                Some(m) if (0..=MAX_LEAD_MINUTES).contains(&m) => Some(m),
+                _ => None,
+            };
+            match minutes {
+                Some(m) if kept.contains(&m) => {}
+                Some(m) if kept.len() < MAX_REMINDERS => kept.push(m),
                 _ => self.notes.alarms_dropped += 1,
             }
         }
-        first.map(|m| snap_reminder(m, all_day))
+        kept
     }
 }
 
-/// The delay the screen offers that reminds no later than `minutes` before the start (the earliest
-/// one when none does). A whole day is reminded the evening before, or the same morning.
-pub fn snap_reminder(minutes: i32, all_day: bool) -> i32 {
-    if all_day {
-        return if minutes > 0 {
-            ALL_DAY_REMINDERS[0]
-        } else {
-            ALL_DAY_REMINDERS[1]
-        };
+/// A whole day's alarm, `minutes` before its local midnight, as the delay the screen offers that
+/// reminds no later: the same morning at 9:00, the evening before at 17:00, or N days before at
+/// 9:00 (28 at most).
+pub fn snap_all_day(minutes: i32) -> i32 {
+    if minutes <= 0 {
+        return -540;
     }
-    TIMED_REMINDERS
-        .iter()
-        .copied()
-        .find(|&d| d >= minutes)
-        .unwrap_or(TIMED_REMINDERS[TIMED_REMINDERS.len() - 1])
+    let choices = std::iter::once(420).chain((1..=28).map(|n| n * 1440 - 540));
+    let mut last = 420;
+    for choice in choices {
+        if choice >= minutes {
+            return choice;
+        }
+        last = choice;
+    }
+    last
 }
 
 /// An IANA zone for a name as a client wrote it: itself, the `Region/City` at the end of a path
@@ -657,9 +666,9 @@ mod tests {
             }
         );
         assert_eq!(head.rrule.as_deref(), Some("FREQ=WEEKLY;BYDAY=MO"));
-        // 20 minutes before reminds no later at 30.
-        assert_eq!(head.reminder_minutes, Some(30));
-        assert_eq!(object.notes.alarms_dropped, 1);
+        // Every alarm before the start, at its own delay.
+        assert_eq!(head.reminders, vec![20, 1440]);
+        assert_eq!(object.notes.alarms_dropped, 0);
         assert_eq!(head.extra, vec!["CATEGORIES:R\u{e9}union".to_owned()]);
         assert_eq!(object.overrides.len(), 1);
         let moved = &object.overrides[0];
@@ -711,7 +720,8 @@ mod tests {
                 end: date!(2026 - 10 - 14),
             }
         );
-        assert_eq!(day.reminder_minutes, Some(420));
+        // Fifteen hours before midnight: the day before at 9:00.
+        assert_eq!(day.reminders, vec![900]);
         let floating = read(
             &wrap("BEGIN:VEVENT\r\nUID:f\r\nDTSTART:20261013T100000\r\nDURATION:PT1H\r\nSUMMARY:F\r\nEND:VEVENT\r\n"),
             "Europe/Paris",
@@ -821,9 +831,10 @@ mod tests {
         assert_eq!(duration("P1DT2H"), Some(Duration::hours(26)));
         assert_eq!(duration("P1W"), Some(Duration::weeks(1)));
         assert_eq!(duration("PX"), None);
-        assert_eq!(snap_reminder(0, false), 0);
-        assert_eq!(snap_reminder(45, false), 60);
-        assert_eq!(snap_reminder(4000, false), 1440);
-        assert_eq!(snap_reminder(-60, true), -540);
+        assert_eq!(snap_all_day(-60), -540);
+        assert_eq!(snap_all_day(300), 420);
+        assert_eq!(snap_all_day(900), 900);
+        assert_eq!(snap_all_day(1000), 2340);
+        assert_eq!(snap_all_day(100_000), 28 * 1440 - 540);
     }
 }
