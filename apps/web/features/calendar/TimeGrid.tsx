@@ -74,8 +74,9 @@ export function TimeGrid({
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      {/* Day heads, and the all-day band. */}
-      <div style={{ display: "flex", borderBottom: "1px solid var(--border-subtle)", flex: "none" }}>
+      {/* Day heads, and the all-day band. They keep a scrollbar's room on the right, as the grid
+          below does, or with a classic scrollbar each day's head drifts off its column. */}
+      <div style={{ display: "flex", borderBottom: "1px solid var(--border-subtle)", flex: "none", overflowY: "hidden", scrollbarGutter: "stable" }}>
         <div style={{ width: GUTTER, flex: "none" }} />
         {days.map((day) => {
           const head = shortDay(day);
@@ -108,7 +109,7 @@ export function TimeGrid({
         })}
       </div>
 
-      <div ref={scroller} style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative" }}>
+      <div ref={scroller} style={{ flex: 1, minHeight: 0, overflowY: "auto", scrollbarGutter: "stable", position: "relative" }}>
         <div style={{ display: "flex", height: 24 * HOUR, position: "relative" }}>
           <div style={{ width: GUTTER, flex: "none", position: "relative" }} aria-hidden>
             {Array.from({ length: 24 }, (_, hour) => (
