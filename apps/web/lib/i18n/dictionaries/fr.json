@@ -1705,7 +1705,8 @@
     "searchEventsPrompt": "Tous les événements que vous voyez, passés et à venir.",
     "eventCount_one": "{{count}} événement",
     "eventCount_many": "{{count}} événements",
-    "eventCount_other": "{{count}} événements"
+    "eventCount_other": "{{count}} événements",
+    "print": "Imprimer (PDF)"
   },
   "invitationPage": {
     "title": "Invitation",

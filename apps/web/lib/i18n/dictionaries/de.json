@@ -1679,7 +1679,8 @@
     "searchEventsPlaceholder": "Titel, Ort, Notizen, Gast…",
     "searchEventsPrompt": "Alle Termine, die Sie sehen, vergangene und kommende.",
     "eventCount_one": "{{count}} Termin",
-    "eventCount_other": "{{count}} Termine"
+    "eventCount_other": "{{count}} Termine",
+    "print": "Drucken (PDF)"
   },
   "invitationPage": {
     "title": "Einladung",

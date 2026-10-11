@@ -1679,7 +1679,8 @@
     "searchEventsPlaceholder": "Title, place, notes, guest…",
     "searchEventsPrompt": "Every event you can see, past and to come.",
     "eventCount_one": "{{count}} event",
-    "eventCount_other": "{{count}} events"
+    "eventCount_other": "{{count}} events",
+    "print": "Print (PDF)"
   },
   "invitationPage": {
     "title": "Invitation",

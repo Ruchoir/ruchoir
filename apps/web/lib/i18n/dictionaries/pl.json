@@ -1813,7 +1813,8 @@
     "eventCount_one": "{{count}} wydarzenie",
     "eventCount_few": "{{count}} wydarzenia",
     "eventCount_many": "{{count}} wydarzeń",
-    "eventCount_other": "{{count}} wydarzenia"
+    "eventCount_other": "{{count}} wydarzenia",
+    "print": "Drukuj (PDF)"
   },
   "invitationPage": {
     "title": "Zaproszenie",

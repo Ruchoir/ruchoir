@@ -8,9 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button, Dialog, Icon, IconButton, Tabs } from "@/components/ds";
+import { Button, Dialog, Icon, IconButton, IconLink, Tabs } from "@/components/ds";
 import {
   getEvent,
+  printUrl,
   setCalendarMe,
   type Calendar,
   type Occurrence,
@@ -293,6 +294,22 @@ export function CalendarScreen({
   const searchButton = (
     <IconButton icon="search" size={compact ? "lg" : "md"} label={t("calendar.searchEvents")} onClick={() => setSearching(true)} />
   );
+  // The view as a PDF: what the screen shows, the same calendars and invitations.
+  const printButton = (
+    <IconLink
+      icon="printer"
+      size={compact ? "lg" : "md"}
+      label={t("calendar.print")}
+      download
+      href={printUrl(
+        view,
+        anchor,
+        (calendars ?? []).filter((c) => !c.hidden).map((c) => c.id),
+        !invitationsHidden,
+        prefs.weekStart,
+      )}
+    />
+  );
   const filterControl = spaceId ? (
     <ScopeSwitch spaceId={spaceId} filter={filter} onFilter={setFilter} />
   ) : (
@@ -547,6 +564,7 @@ export function CalendarScreen({
             />
           ) : null}
           {compact ? searchButton : null}
+          {compact ? printButton : null}
           <h2
             style={{
               margin: 0,
@@ -570,6 +588,7 @@ export function CalendarScreen({
             <>
               <div style={{ flex: 1 }} />
               {searchButton}
+              {printButton}
               {filterControl}
               <Tabs
                 variant="pills"

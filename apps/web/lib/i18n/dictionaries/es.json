@@ -1746,7 +1746,8 @@
     "searchEventsPrompt": "Todos los eventos que ves, pasados y futuros.",
     "eventCount_one": "{{count}} evento",
     "eventCount_many": "{{count}} eventos",
-    "eventCount_other": "{{count}} eventos"
+    "eventCount_other": "{{count}} eventos",
+    "print": "Imprimir (PDF)"
   },
   "invitationPage": {
     "title": "Invitación",
