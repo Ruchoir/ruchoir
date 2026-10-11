@@ -163,13 +163,15 @@ To add it: on an iPhone, Settings > Calendar > Accounts > Add Account > Other > 
 Calendar; on Android, an app that reads iCal subscriptions (ICSx⁵, for example); in Thunderbird,
 New Calendar > On the Network.
 
-## Coming from Nextcloud
+## Coming from Nextcloud or Teams
 
 The Nextcloud producer (`packages/importer/export-nextcloud.sh`) exports every calendar holding
-events, and the import brings each one in as a **personal calendar of its owner**, with its events,
-their series and exceptions, attendees and answers (silently), and the first alarm as the owner's
-reminder. Shares, task lists, the contact birthdays calendar, the calendar trash and subscriptions
-to outside calendars stay behind, named in the archive's limits. The format and the rules are in
+events, and the Teams reader (`packages/importer/convert-teams.py --with-calendars`) each person's
+own Outlook calendars. The import brings each one in as a **personal calendar of its owner**, with
+its events, their series and exceptions, attendees and answers (silently), and the first alarm as
+the owner's reminder. Shares, task lists, the contact birthdays calendar, the calendar trash,
+subscriptions to outside calendars and Teams' team calendars stay behind, named in the archive's
+limits. The format and the rules are in
 `docs/import-archive.md`, section "Calendars".
 
 ## Limits of this first lot

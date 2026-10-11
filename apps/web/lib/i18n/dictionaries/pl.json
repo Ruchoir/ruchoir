@@ -1233,7 +1233,7 @@
     "exportSlackStep1": "W administracji Slacka: Ustawienia → Importuj/eksportuj dane → Eksportuj, następnie pobierz i rozpakuj plik ZIP. Standardowy eksport zawiera wyłącznie kanały publiczne.",
     "exportSlackStep2": "Na serwerze Ruchoir: convert-slack.py --export <rozpakowany katalog> --out <archiwum>. Załączniki są pobierane ze Slacka podczas konwersji: wykonaj ją, dopóki eksport jest świeży, jego odnośniki wygasają razem z nim.",
     "exportTeamsStep1": "W Entra ID zarejestruj aplikację z uprawnieniami aplikacji tylko do odczytu, które wymienia convert-teams.py --help-app, udziel zgody administratora i zapisz jej sekret w pliku, który tylko ty możesz odczytać.",
-    "exportTeamsStep2": "Na serwerze Ruchoir: convert-teams.py --tenant <dzierżawa> --client-id <aplikacja> --secret-file <plik> --out <archiwum>. Odczytywane są kanały każdego zespołu i jego biblioteka plików; czaty (rozmowy prywatne) zostają w Teams.",
+    "exportTeamsStep2": "Na serwerze Ruchoir: convert-teams.py --tenant <dzierżawa> --client-id <aplikacja> --secret-file <plik> --out <archiwum>. Odczytywane są kanały każdego zespołu i jego biblioteka plików; czaty (rozmowy prywatne) zostają w Teams. Dodaj --with-calendars, aby przenieść kalendarze Outlook każdej osoby (dodatkowe uprawnienie Calendars.Read).",
     "exportSeal": "Zapieczętuj archiwum hasłem (symetryczne gpg): o nie zostaniesz tutaj poproszony.",
     "exportMattermostStep1": "Na serwerze Mattermost: mmctl export create, a następnie odbierz utworzony ZIP.",
     "exportMattermostStep2": "Na hoście Ruchoir: convert-mattermost.py --export <rozpakowany katalog> --out <archiwum>. Kanały prywatne i wiadomości bezpośrednie są uwzględnione.",

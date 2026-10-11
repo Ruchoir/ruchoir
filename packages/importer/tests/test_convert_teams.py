@@ -391,6 +391,86 @@ def atelier(fake: FakeGraph) -> None:
     ]])
 
 
+SERIES = "AAMkSeries="
+MEETING = "AAMkMeeting="
+PARIS = "Romance Standard Time"
+
+
+def when(at: str) -> dict:
+    return {"dateTime": at, "timeZone": "UTC"}
+
+
+def calendars(fake: FakeGraph) -> None:
+    """Outlook calendars for the people of the team, shaped as Graph documents them."""
+    fake.paged(f"/users/{ALICE}/calendars", [[
+        {"id": "cal-alice", "name": "Calendrier", "hexColor": "#0078d4", "isDefaultCalendar": True,
+         "owner": {"name": "Alice Martin", "address": "alice@atelier.example"}},
+        # Shared with Alice by somebody else: it is theirs, and crosses with them if at all.
+        {"id": "cal-shared", "name": "Agenda de la direction", "hexColor": "",
+         "owner": {"name": "Direction", "address": "direction@atelier.example"}},
+    ]])
+    alice = {"name": "Alice Martin", "address": "alice@atelier.example"}
+    meeting = {
+        "id": MEETING, "iCalUId": "ical-meeting", "type": "singleInstance", "subject": "Revue client",
+        "start": when("2026-10-14T08:00:00.0000000"), "end": when("2026-10-14T09:00:00.0000000"),
+        "originalStartTimeZone": PARIS, "isAllDay": False, "isCancelled": False,
+        "location": {"displayName": "Salle Ouest"}, "categories": ["Client"],
+        "body": {"contentType": "html", "content": "<html><body><p>Ordre du jour : la maquette</p></body></html>"},
+        "isReminderOn": True, "reminderMinutesBeforeStart": 60,
+        "onlineMeeting": {"joinUrl": "https://teams.microsoft.com/l/meetup-join/abc"},
+        "organizer": {"emailAddress": alice},
+        "attendees": [
+            {"type": "required", "status": {"response": "accepted"},
+             "emailAddress": {"name": "Bob Martin", "address": "bob@atelier.example"}},
+            {"type": "optional", "status": {"response": "tentativelyAccepted"},
+             "emailAddress": {"name": "Client", "address": "client@outside.example"}},
+            {"type": "resource", "status": {"response": "accepted"},
+             "emailAddress": {"name": "Salle Ouest", "address": "salle-ouest@atelier.example"}},
+        ],
+        "lastModifiedDateTime": "2026-10-01T08:00:00Z",
+    }
+    fake.paged(f"/users/{ALICE}/calendars/cal-alice/events", [[
+        {"id": SERIES, "iCalUId": "ical-series", "type": "seriesMaster", "subject": "Point hebdo",
+         "start": when("2026-10-05T07:00:00.0000000"), "end": when("2026-10-05T07:45:00.0000000"),
+         "originalStartTimeZone": PARIS, "isAllDay": False, "isCancelled": False,
+         "isReminderOn": True, "reminderMinutesBeforeStart": 15,
+         "organizer": {"emailAddress": alice}, "attendees": [],
+         "recurrence": {
+             "pattern": {"type": "weekly", "interval": 1, "daysOfWeek": ["monday"], "firstDayOfWeek": "monday"},
+             "range": {"type": "noEnd", "startDate": "2026-10-05", "endDate": "0001-01-01",
+                       "recurrenceTimeZone": PARIS, "numberOfOccurrences": 0}},
+         "lastModifiedDateTime": "2026-10-01T08:00:00Z"},
+        meeting,
+    ], [
+        {"id": "AAMkDay=", "iCalUId": "ical-day", "type": "singleInstance", "subject": "S\u00e9minaire",
+         "start": when("2026-10-16T00:00:00.0000000"), "end": when("2026-10-17T00:00:00.0000000"),
+         "originalStartTimeZone": PARIS, "isAllDay": True, "isCancelled": False, "isReminderOn": False,
+         "organizer": {"emailAddress": alice}, "attendees": []},
+        {"id": "AAMkGone=", "iCalUId": "ical-gone", "type": "singleInstance", "subject": "Annul\u00e9e",
+         "start": when("2026-10-20T08:00:00.0000000"), "end": when("2026-10-20T09:00:00.0000000"),
+         "originalStartTimeZone": PARIS, "isAllDay": False, "isCancelled": True,
+         "organizer": {"emailAddress": alice}, "attendees": []},
+    ]])
+    fake.routes[f"/users/{ALICE}/events/{SERIES}"] = {
+        "id": SERIES,
+        "cancelledOccurrences": [f"OID.{SERIES}.2026-10-12"],
+        "exceptionOccurrences": [
+            {"id": "AAMkMoved=", "occurrenceId": f"OID.{SERIES}.2026-10-19", "subject": "Point hebdo (d\u00e9cal\u00e9)",
+             "start": when("2026-10-19T09:00:00.0000000"), "end": when("2026-10-19T09:45:00.0000000"),
+             "originalStart": "2026-10-19T07:00:00Z", "isAllDay": False, "isCancelled": False,
+             "location": {"displayName": "Salle Est"}},
+        ],
+    }
+    fake.paged(f"/users/{BOB}/calendars", [[
+        {"id": "cal-bob", "name": "Calendrier", "hexColor": "#ffaa44", "isDefaultCalendar": True,
+         "owner": {"name": "Bob Martin", "address": "bob@atelier.example"}},
+    ]])
+    # The copy of Alice's meeting Exchange files in Bob's calendar, under the same UID.
+    copy = dict(meeting, id="AAMkBobCopy=")
+    fake.paged(f"/users/{BOB}/calendars/cal-bob/events", [[copy]])
+    # Dan has no mailbox: Graph says so with a 404, which is not a missing permission.
+
+
 class Tenant(unittest.TestCase):
     """The whole adapter, against a Graph standing in for a real tenant."""
 
@@ -400,6 +480,7 @@ class Tenant(unittest.TestCase):
         self.fake = FakeGraph()
         self.addCleanup(self.fake.close)
         atelier(self.fake)
+        calendars(self.fake)
         self.pauses: list[float] = []
 
     def tearDown(self) -> None:
@@ -417,6 +498,8 @@ class Tenant(unittest.TestCase):
             converter.read_directory()
             for team in chosen:
                 converter.read_team(team)
+            if options.get("calendars"):
+                converter.read_calendars()
             converter.write()
         self.converter = converter
         return archive
@@ -697,6 +780,90 @@ class Tenant(unittest.TestCase):
         self.assertEqual(set(Path.cwd().iterdir()), before)
 
 
+class Calendars(unittest.TestCase):
+    """Outlook calendars, read only when asked. The tenant above, without its tests run twice."""
+
+    setUp = Tenant.setUp
+    tearDown = Tenant.tearDown
+    graph = Tenant.graph
+    convert = Tenant.convert
+
+    def events(self, archive: Path) -> dict[str, str]:
+        return {row["id"].split("/")[-1]: row["ics"] for row in read_jsonl(archive, "events.jsonl")}
+
+    def test_calendars_stay_behind_unless_asked_for_and_say_how(self) -> None:
+        archive = self.convert()
+        self.assertEqual(read_jsonl(archive, "calendars.jsonl"), [])
+        limits = " ".join(json.loads((archive / "manifest.json").read_text(encoding="utf-8"))["limits"])
+        self.assertIn("--with-calendars", limits)
+        self.assertFalse(any("/calendars" in r["path"] for r in self.fake.requests))
+
+    def test_each_persons_own_calendars_cross(self) -> None:
+        archive = self.convert(calendars=True)
+        rows = by_id(archive, "calendars.jsonl")
+        self.assertEqual(sorted(rows), [f"{ALICE}/cal-alice", f"{BOB}/cal-bob"])
+        self.assertEqual(rows[f"{ALICE}/cal-alice"]["owner"], ALICE)
+        self.assertEqual(rows[f"{ALICE}/cal-alice"]["color"], "#0078d4")
+
+    def test_a_series_keeps_its_rule_its_cancelled_date_and_its_moved_occurrence(self) -> None:
+        ics = self.events(self.convert(calendars=True))[SERIES]
+        for line in (
+            "UID:ical-series",
+            "DTSTART;TZID=Europe/Paris:20261005T090000",
+            "DTEND;TZID=Europe/Paris:20261005T094500",
+            "RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;WKST=MO",
+            "EXDATE;TZID=Europe/Paris:20261012T090000",
+            "RECURRENCE-ID;TZID=Europe/Paris:20261019T090000",
+            "DTSTART;TZID=Europe/Paris:20261019T110000",
+            "LOCATION:Salle Est",
+            "TRIGGER:-PT15M",
+        ):
+            self.assertIn(line + "\r\n", ics)
+
+    def test_a_meeting_keeps_its_people_their_answers_its_link_and_its_notes(self) -> None:
+        ics = self.events(self.convert(calendars=True))[MEETING]
+        self.assertIn("ORGANIZER;CN=Alice Martin:mailto:alice@atelier.example\r\n", ics)
+        self.assertIn("ATTENDEE;CN=Bob Martin;PARTSTAT=ACCEPTED:mailto:bob@atelier.example\r\n", ics)
+        self.assertIn("ATTENDEE;CN=Client;PARTSTAT=TENTATIVE:mailto:client@outside.example\r\n", ics)
+        self.assertNotIn("salle-ouest", ics, "a room is a booking, not a guest")
+        self.assertIn("URL:https://teams.microsoft.com/l/meetup-join/abc\r\n", ics)
+        self.assertIn("DESCRIPTION:Ordre du jour : la maquette\r\n", ics)
+        self.assertIn("CATEGORIES:Client\r\n", ics)
+
+    def test_a_whole_day_is_a_date_and_a_cancelled_meeting_is_left_and_counted(self) -> None:
+        archive = self.convert(calendars=True)
+        events = self.events(archive)
+        self.assertIn("DTSTART;VALUE=DATE:20261016\r\n", events["AAMkDay="])
+        self.assertIn("DTEND;VALUE=DATE:20261017\r\n", events["AAMkDay="])
+        self.assertNotIn("AAMkGone=", events)
+        limits = " ".join(json.loads((archive / "manifest.json").read_text(encoding="utf-8"))["limits"])
+        self.assertIn("1 cancelled", limits)
+        self.assertIn("team calendars", limits.lower())
+
+    def test_the_copy_in_an_invitees_calendar_crosses_as_it_is(self) -> None:
+        """The importer keeps a meeting once; the archive says what each calendar held."""
+        events = self.events(self.convert(calendars=True))
+        self.assertIn("UID:ical-meeting", events["AAMkBobCopy="])
+
+    def test_somebody_without_a_mailbox_is_passed_over(self) -> None:
+        self.convert(calendars=True)
+        self.assertTrue(any(r["path"] == f"/users/{DAN}/calendars" for r in self.fake.requests))
+
+    def test_a_missing_calendar_permission_says_how_to_grant_it(self) -> None:
+        self.fake.refuse[f"/users/{ALICE}/calendars"] = (403, "Access is denied.")
+        with self.assertRaises(teams.Refused):
+            self.convert(calendars=True)
+        self.assertIn("Calendars.Read", teams.APP_HELP)
+
+    def test_the_api_reads_every_event(self) -> None:
+        if BINARY is None:
+            self.skipTest("no API binary")
+        archive = self.convert(calendars=True)
+        accepted, said = rust_accepts(archive)
+        self.assertTrue(accepted, said)
+        self.assertNotIn("left behind", said)
+
+
 class Markdown(unittest.TestCase):
     """The body of a Teams message, as the Markdown the product reads."""
 
@@ -785,6 +952,51 @@ class Markdown(unittest.TestCase):
 
     def test_an_image_from_elsewhere_is_its_address(self) -> None:
         self.assertEqual(self.md('<p>regarde <img src="https://media.example/chat.gif"></p>'), "regarde https://media.example/chat.gif")
+
+
+class Rules(unittest.TestCase):
+    """Outlook's recurrence patterns, as the rule iCalendar writes."""
+
+    def rule(self, pattern: dict, range_: dict | None = None, all_day: bool = False) -> str:
+        range_ = range_ or {"type": "noEnd", "startDate": "2026-10-01"}
+        return teams.rrule_of({"pattern": pattern, "range": range_}, all_day, "Europe/Paris", "090000")
+
+    def test_daily_every_other_day(self) -> None:
+        self.assertEqual(self.rule({"type": "daily", "interval": 2}), "FREQ=DAILY;INTERVAL=2")
+
+    def test_the_second_thursday_of_every_month(self) -> None:
+        self.assertEqual(
+            self.rule({"type": "relativeMonthly", "interval": 1, "daysOfWeek": ["thursday"], "index": "second"}),
+            "FREQ=MONTHLY;INTERVAL=1;BYDAY=TH;BYSETPOS=2",
+        )
+
+    def test_the_last_friday_of_march_every_year(self) -> None:
+        self.assertEqual(
+            self.rule({"type": "relativeYearly", "interval": 1, "month": 3, "daysOfWeek": ["friday"], "index": "last"}),
+            "FREQ=YEARLY;INTERVAL=1;BYMONTH=3;BYDAY=FR;BYSETPOS=-1",
+        )
+
+    def test_the_fifteenth_and_a_count(self) -> None:
+        self.assertEqual(
+            self.rule({"type": "absoluteMonthly", "interval": 1, "dayOfMonth": 15},
+                      {"type": "numbered", "startDate": "2026-10-15", "numberOfOccurrences": 6}),
+            "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=15;COUNT=6",
+        )
+
+    def test_an_end_date_is_the_last_moment_of_that_day_in_utc(self) -> None:
+        self.assertEqual(
+            self.rule({"type": "daily", "interval": 1}, {"type": "endDate", "startDate": "2026-10-01", "endDate": "2026-12-31"}),
+            "FREQ=DAILY;INTERVAL=1;UNTIL=20261231T080000Z",
+        )
+        self.assertEqual(
+            self.rule({"type": "daily", "interval": 1}, {"type": "endDate", "startDate": "2026-10-01", "endDate": "2026-12-31"}, all_day=True),
+            "FREQ=DAILY;INTERVAL=1;UNTIL=20261231",
+        )
+
+    def test_windows_zones_become_iana(self) -> None:
+        self.assertEqual(teams.iana_zone("Romance Standard Time"), "Europe/Paris")
+        self.assertEqual(teams.iana_zone("Europe/Berlin"), "Europe/Berlin")
+        self.assertIsNone(teams.iana_zone("tzone://Microsoft/Custom"))
 
 
 class Details(unittest.TestCase):

@@ -46,7 +46,8 @@ them, not before: an entity nothing calls is dead weight, and the compiler says 
 - `convert-teams.py` : reads a Microsoft Teams organisation through Microsoft Graph and writes the
   archive. Teams has no export to hand over, so this is the one producer that is an API client from
   end to end, signing in as an application the customer registers in their own Entra ID with seven
-  read-only permissions (`--help-app` prints them and the steps). Each team becomes a space, each
+  read-only permissions (`--help-app` prints them and the steps), and an eighth, `Calendars.Read`,
+  only for `--with-calendars`, which brings each person's Outlook calendars as iCalendar text. Each team becomes a space, each
   channel a conversation (private and shared ones private, with their own members), and each team's
   document library lands in its space's files, folders kept, except what was posted in a message,
   which travels with the message. Chats are left in Teams by decision (2026-09-24), and so are

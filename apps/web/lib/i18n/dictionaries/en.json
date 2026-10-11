@@ -1179,7 +1179,7 @@
     "exportSlackStep1": "In the Slack admin: Settings → Import/Export Data → Export, then download and unpack the ZIP. A standard export holds public channels only.",
     "exportSlackStep2": "On the Ruchoir host: convert-slack.py --export <unpacked dir> --out <archive>. Attachments are downloaded from Slack during the conversion, so convert while the export is fresh: its links expire with it.",
     "exportTeamsStep1": "In Entra ID, register an application with the read-only application permissions that convert-teams.py --help-app lists, grant admin consent, and put its secret in a file only you can read.",
-    "exportTeamsStep2": "On the Ruchoir host: convert-teams.py --tenant <tenant> --client-id <application> --secret-file <file> --out <archive>. Each team's channels and file library are read; chats (private conversations) stay in Teams.",
+    "exportTeamsStep2": "On the Ruchoir host: convert-teams.py --tenant <tenant> --client-id <application> --secret-file <file> --out <archive>. Each team's channels and file library are read; chats (private conversations) stay in Teams. Add --with-calendars for each person's Outlook calendars (one more permission, Calendars.Read).",
     "exportSeal": "Seal the archive with a passphrase (symmetric gpg): it is the one you will be asked for here.",
     "exportMattermostStep1": "On the Mattermost server: mmctl export create, then retrieve the ZIP it produces.",
     "exportMattermostStep2": "On the Ruchoir host: convert-mattermost.py --export <unpacked dir> --out <archive>. Private channels and direct messages are included.",

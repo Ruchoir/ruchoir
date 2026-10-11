@@ -292,3 +292,13 @@ nothing else (`convert-teams.py --help-app` prints the steps and the seven permi
 becomes a space, each channel a conversation, and each team's document library lands in its space's
 files through `space` and `folder`. Chats stay in Teams, by decision: an application that reads
 channels does not need to read everybody's private conversations too.
+
+Calendars are **opt-in** (`--with-calendars`), because the permission they need, `Calendars.Read`,
+opens every mailbox's calendar to the application unless Exchange narrows it (an application access
+policy, or RBAC for Applications, scoped to the people being migrated; `--help-app` says how). With
+it, each person's own Outlook calendars cross, every event written as iCalendar text from what Graph
+gives: the series and its rule, the dates cancelled (`cancelledOccurrences`) and changed
+(`exceptionOccurrences`), times in the event's own zone (Outlook's Windows zone names brought to
+IANA), the organiser, the attendees and their answers, the reminder, the Teams meeting link as
+`URL`. Team calendars stay in Outlook: Graph does not open a Microsoft 365 group's calendar to an
+application.

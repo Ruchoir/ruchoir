@@ -187,6 +187,7 @@ while [ $# -gt 0 ]; do
       echo "         --token <token> -- --tenant <tenant id> --client-id <application id> --secret-file <file>"
       echo
       echo "Reader options after --: --team <name> (repeatable), --no-libraries, --no-files, --fresh,"
+      echo "--with-calendars (each person's Outlook calendars, needs Calendars.Read),"
       echo "--list (the teams the application can read), --help-app (how to register the application)."
       exit 0 ;;
     *) echo "unexpected argument before --: $1 (put reader options after --)" >&2; exit 2 ;;
