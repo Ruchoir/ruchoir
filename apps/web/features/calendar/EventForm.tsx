@@ -28,7 +28,7 @@ import { CalendarPicker } from "./CalendarPicker";
 import { ChannelField } from "./ChannelField";
 import { DrivePicker } from "./DrivePicker";
 import { FilesField, MAX_EVENT_FILES } from "./FilesField";
-import { buildRule, formFor, parseRule, presetOf, presetRule, type Preset, type RuleForm } from "./rule";
+import { buildRule, formFor, parseRule, presetOf, presetRule, withStartDay, type Preset, type RuleForm } from "./rule";
 import { rulePhrase } from "./rulePhrase";
 import { SeriesScopeDialog } from "./SeriesScopeDialog";
 
@@ -210,7 +210,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
 
   const rule = (): string | null => {
     if (!ruleTouched || preset === "imported") return originalRule;
-    if (preset === "custom") return buildRule(custom, allDay, endOfDay);
+    if (preset === "custom") return buildRule(custom, allDay, endOfDay, startDay);
     return presetRule(preset, startDay);
   };
 
@@ -565,7 +565,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
       />
       {preset === "custom" ? (
         <Button type="button" size="sm" variant="ghost" iconLeft="square-pen" onClick={() => setPanel("rule")} style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }}>
-          {rulePhrase(custom, startDay, currentLocale(), (k, v) => t(k as Parameters<typeof t>[0], v))}
+          {rulePhrase(withStartDay(custom, startDay), startDay, currentLocale(), (k, v) => t(k as Parameters<typeof t>[0], v))}
         </Button>
       ) : null}
     </>

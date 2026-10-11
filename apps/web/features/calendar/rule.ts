@@ -95,10 +95,18 @@ export function parseRule(rule: string): RuleForm | null {
 /** Write the form as a rule. An end date is the end of that day: for a timed event the last second of
  *  it in the event's own zone, written in UTC by `endOfDay` as RFC 5545 asks; for an all-day one, the
  *  date itself. */
-export function buildRule(form: RuleForm, allDay: boolean, endOfDay: (day: string) => string): string {
+/** A weekly form with the weekday of `start` among its days: what the rule built from it says. */
+export function withStartDay(form: RuleForm, start: string): RuleForm {
+  if (form.freq !== "WEEKLY") return form;
+  return { ...form, days: sortDays([...form.days, weekdayCode(start)]) };
+}
+
+/** The rule of a form. A weekly rule always holds the weekday of `start`, when given: a series whose
+ *  first date its own rule leaves out is a date other calendars count and this one does not. */
+export function buildRule(form: RuleForm, allDay: boolean, endOfDay: (day: string) => string, start?: string): string {
   const parts = [`FREQ=${form.freq}`];
   if (form.interval > 1) parts.push(`INTERVAL=${form.interval}`);
-  if (form.freq === "WEEKLY") parts.push(`BYDAY=${sortDays(form.days).join(",")}`);
+  if (form.freq === "WEEKLY") parts.push(`BYDAY=${(start ? withStartDay(form, start) : form).days.join(",")}`);
   if (form.freq === "MONTHLY") {
     if (form.monthly.mode === "nth") parts.push(`BYDAY=${form.monthly.nth}${form.monthly.day}`);
     if (form.monthly.mode === "lastWorkday") parts.push(`BYDAY=${WORKDAYS.join(",")}`, "BYSETPOS=-1");

@@ -1781,7 +1781,8 @@
     "driveOf": "Dysk przestrzeni",
     "searchFiles": "Szukaj pliku",
     "filesFound": "Wyniki",
-    "driveRoot": "Katalog główny Dysku"
+    "driveRoot": "Katalog główny Dysku",
+    "startDayKept": "Dzień rozpoczęcia zawsze należy do serii."
   },
   "invitationPage": {
     "title": "Zaproszenie",

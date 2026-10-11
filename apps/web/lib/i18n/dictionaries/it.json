@@ -1717,7 +1717,8 @@
     "driveOf": "Drive dello spazio",
     "searchFiles": "Cerca un file",
     "filesFound": "Risultati",
-    "driveRoot": "Radice del Drive"
+    "driveRoot": "Radice del Drive",
+    "startDayKept": "Il giorno di inizio fa sempre parte della serie."
   },
   "invitationPage": {
     "title": "Invito",

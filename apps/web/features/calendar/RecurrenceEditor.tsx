@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { Input, Radio, Select } from "@/components/ds";
 import { useTranslation } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/current";
-import { WEEKDAYS, type Frequency, type MonthlyMode, type RuleForm, type Weekday } from "./rule";
+import { WEEKDAYS, weekdayCode, withStartDay, type Frequency, type MonthlyMode, type RuleForm, type Weekday } from "./rule";
 import { rulePhrase } from "./rulePhrase";
 
 const DAY_KEYS = {
@@ -44,7 +44,10 @@ export function RecurrenceEditor({ form, start, onChange }: { form: RuleForm; st
     { value: "MONTHLY", key: "calendar.unitMonth" },
     { value: "YEARLY", key: "calendar.unitYear" },
   ];
+  // The series starts on this day, so the rule always holds it (see `buildRule`).
+  const firstDay = weekdayCode(start);
   const toggleDay = (day: Weekday) => {
+    if (day === firstDay) return;
     const days = form.days.includes(day) ? form.days.filter((d) => d !== day) : [...form.days, day];
     if (days.length > 0) set({ days: WEEKDAYS.filter((d) => days.includes(d)) });
   };
@@ -80,13 +83,16 @@ export function RecurrenceEditor({ form, start, onChange }: { form: RuleForm; st
           <span style={groupTitle}>{t("calendar.onDays")}</span>
           <div style={{ display: "flex", gap: 6 }}>
             {WEEKDAYS.map((day, i) => {
-              const on = form.days.includes(day);
+              const fixed = day === firstDay;
+              const on = fixed || form.days.includes(day);
               return (
                 <button
                   key={day}
                   type="button"
                   aria-pressed={on}
+                  aria-disabled={fixed || undefined}
                   aria-label={t(DAY_KEYS[day])}
+                  title={fixed ? t("calendar.startDayKept") : undefined}
                   onClick={() => toggleDay(day)}
                   style={{
                     width: 34,
@@ -96,7 +102,7 @@ export function RecurrenceEditor({ form, start, onChange }: { form: RuleForm; st
                     background: on ? "var(--acc)" : "var(--surface-card)",
                     color: on ? "var(--on-pastel)" : "var(--text-strong)",
                     fontWeight: on ? 700 : 400,
-                    cursor: "pointer",
+                    cursor: fixed ? "default" : "pointer",
                   }}
                 >
                   {initials()[i]}
@@ -166,7 +172,7 @@ export function RecurrenceEditor({ form, start, onChange }: { form: RuleForm; st
       </div>
 
       <p role="status" style={{ margin: "4px 0 0", padding: "8px 10px", borderRadius: "var(--radius-sm)", background: "var(--surface-sunken)", color: "var(--text-strong)", fontSize: "var(--text-xs)" }}>
-        {rulePhrase(form, start, currentLocale(), (key, vars) => t(key as Parameters<typeof t>[0], vars))}
+        {rulePhrase(withStartDay(form, start), start, currentLocale(), (key, vars) => t(key as Parameters<typeof t>[0], vars))}
       </p>
     </div>
   );

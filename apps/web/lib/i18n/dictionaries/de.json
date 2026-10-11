@@ -1653,7 +1653,8 @@
     "driveOf": "Drive des Bereichs",
     "searchFiles": "Datei suchen",
     "filesFound": "Ergebnisse",
-    "driveRoot": "Drive-Stammordner"
+    "driveRoot": "Drive-Stammordner",
+    "startDayKept": "Der Starttag gehört immer zur Serie."
   },
   "invitationPage": {
     "title": "Einladung",
