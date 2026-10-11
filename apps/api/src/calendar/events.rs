@@ -468,16 +468,26 @@ async fn rekey<C: ConnectionTrait>(
     row: exceptions::Model,
     event_id: Uuid,
     shift: Duration,
+    series: Option<&(When, When, Option<String>)>,
 ) -> Result<(), CalendarError> {
     let Some(id) = RecurrenceId::from_key(&row.recurrence_id) else {
         return Ok(());
+    };
+    // A timed series moved as a whole moves its dates by the same wall clock change, not by the
+    // same duration: a date across a change of clock keeps its local time.
+    let moved_id = match (id, series) {
+        (
+            RecurrenceId::Instant(at),
+            Some((When::Timed { start: before, .. }, When::Timed { start: after, .. }, tzid)),
+        ) => RecurrenceId::Instant(recurrence::shift_wall(at, *before, *after, tzid.as_deref())),
+        _ => id.shifted(shift),
     };
     exceptions::Entity::delete_by_id((row.event_id, row.recurrence_id.clone()))
         .exec(db)
         .await?;
     let mut moved = row.into_active_model();
     moved.event_id = Set(event_id);
-    moved.recurrence_id = Set(id.shifted(shift).to_key());
+    moved.recurrence_id = Set(moved_id.to_key());
     exceptions::Entity::insert(moved).exec(db).await?;
     Ok(())
 }
@@ -791,6 +801,14 @@ pub async fn update_event(
                 (RecurrenceId::Date(a), When::AllDay { start, .. }) => *start - a,
                 _ => Duration::ZERO,
             };
+            let split_moves = match at {
+                RecurrenceId::Instant(a) => Some((
+                    When::Timed { start: a, end: a },
+                    parsed.when,
+                    parsed.tzid.clone().or_else(|| event.tzid.clone()),
+                )),
+                RecurrenceId::Date(_) => None,
+            };
             let mut old = event.clone().into_active_model();
             old.rrule = Set(Some(first_rule));
             old.sequence = Set(event.sequence + 1);
@@ -828,7 +846,7 @@ pub async fn update_event(
                         .exec(&txn)
                         .await?;
                 } else {
-                    rekey(&txn, row, new_event.id, shift).await?;
+                    rekey(&txn, row, new_event.id, shift, split_moves.as_ref()).await?;
                 }
             }
             // The attendees and their answers go with the new series.
@@ -868,6 +886,7 @@ pub async fn update_event(
             }
             if timing_changed {
                 let shift = delta(&before, &parsed.when);
+                let moves = (before, parsed.when, event.tzid.clone());
                 let kind_changed = event.all_day != all_day;
                 for row in exceptions::Entity::find()
                     .filter(exceptions::Column::EventId.eq(event.id))
@@ -880,7 +899,7 @@ pub async fn update_event(
                             .exec(&txn)
                             .await?;
                     } else {
-                        rekey(&txn, row, event.id, shift).await?;
+                        rekey(&txn, row, event.id, shift, Some(&moves)).await?;
                     }
                 }
             }

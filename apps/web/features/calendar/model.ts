@@ -86,6 +86,21 @@ export function localMinutes(at: string, tz: string): number {
   return w.hour * 60 + w.minute;
 }
 
+/** Where a whole series' first occurrence (`seriesStart`) goes when one of its occurrences is moved
+ *  from `from` to `to`: by the same change of wall clock in `tz` (days and time of day), so a series
+ *  whose dates fall on both sides of a change of clock keeps its local time. */
+export function movedSeriesStart(seriesStart: string, from: string, to: string, tz: string): string {
+  const wall = (at: string) => {
+    const [y, m, d] = dayParts(localDay(at, tz));
+    return Date.UTC(y, m - 1, d) / 60_000 + localMinutes(at, tz);
+  };
+  const minutes = wall(seriesStart) + (wall(to) - wall(from));
+  const day = Math.floor(minutes / 1440);
+  const at = new Date(day * DAY_MS);
+  const date = `${at.getUTCFullYear()}-${pad(at.getUTCMonth() + 1)}-${pad(at.getUTCDate())}`;
+  return zonedTime(date, minutes - day * 1440, tz);
+}
+
 /** How many days `day` is past the first day of its week, the week starting on `weekStart` (as
  *  `getUTCDay` counts: Sunday 0, Monday 1). */
 export function weekOffset(day: string, weekStart = 1): number {

@@ -257,6 +257,32 @@ pub fn local_instant(
     Some(from_chrono(&local))
 }
 
+/// Where `instant` lands when a whole series moves from `before` to `after`: by the same change of
+/// wall clock in `tzid` (days and time of day), so a date across a change of clock keeps its local
+/// time. Without a zone, or an unknown one, by the same duration.
+pub fn shift_wall(
+    instant: OffsetDateTime,
+    before: OffsetDateTime,
+    after: OffsetDateTime,
+    tzid: Option<&str>,
+) -> OffsetDateTime {
+    use chrono::TimeZone as _;
+    let plain = instant + (after - before);
+    let Some(tz) = tzid.and_then(|t| t.parse::<chrono_tz::Tz>().ok()) else {
+        return plain;
+    };
+    let wall = |at: OffsetDateTime| to_chrono(at).with_timezone(&tz).naive_local();
+    let moved = wall(instant) + (wall(after) - wall(before));
+    tz.from_local_datetime(&moved)
+        .earliest()
+        .or_else(|| {
+            tz.from_local_datetime(&(moved + chrono::Duration::hours(1)))
+                .earliest()
+        })
+        .map(|local| from_chrono(&local))
+        .unwrap_or(plain)
+}
+
 /// The local date, hour and minute of an instant in `tzid`; `None` for an unknown zone.
 pub fn local_parts(instant: OffsetDateTime, tzid: &str) -> Option<(Date, u8, u8)> {
     use chrono::{Datelike, Timelike};
@@ -785,6 +811,28 @@ mod tests {
     use super::*;
     use time::format_description::well_known::Rfc3339;
     use time::Month;
+
+    #[test]
+    fn a_whole_series_moved_across_a_change_of_clock_keeps_its_wall_time() {
+        let at = |text: &str| OffsetDateTime::parse(text, &Rfc3339).unwrap();
+        // 9:00 in Paris, Saturday 24 October (summer) moved to Saturday 31 October (winter).
+        let (before, after) = (at("2026-10-24T07:00:00Z"), at("2026-10-31T08:00:00Z"));
+        // A later date of the series, already in winter, moves to 9:00 a week on, not 10:00.
+        assert_eq!(
+            shift_wall(
+                at("2026-11-07T08:00:00Z"),
+                before,
+                after,
+                Some("Europe/Paris")
+            ),
+            at("2026-11-14T08:00:00Z")
+        );
+        // Without a zone, a shift is a shift.
+        assert_eq!(
+            shift_wall(at("2026-11-07T08:00:00Z"), before, after, None),
+            at("2026-11-14T09:00:00Z")
+        );
+    }
 
     fn at(value: &str) -> OffsetDateTime {
         OffsetDateTime::parse(value, &Rfc3339).expect("RFC 3339")
