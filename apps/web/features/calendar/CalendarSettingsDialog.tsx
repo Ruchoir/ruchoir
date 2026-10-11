@@ -10,7 +10,6 @@ import {
   listFeeds,
   revokeFeed,
   setCalendarMe,
-  TIMED_REMINDERS,
   updateCalendar,
   type Calendar,
   type CalendarColor,
@@ -19,7 +18,8 @@ import {
 import { useTranslation } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/format";
 import { colorVar } from "./OccurrenceChip";
-import { reminderLabel, reminderValue } from "./reminders";
+import { RemindersField } from "./RemindersField";
+import { sameReminders } from "./reminders";
 
 const section: CSSProperties = { display: "flex", flexDirection: "column", gap: 10, paddingTop: 14, borderTop: "1px solid var(--border-subtle)" };
 const heading: CSSProperties = { margin: 0, fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text-strong)" };
@@ -169,8 +169,9 @@ export function CalendarSettingsDialog({
   const [name, setName] = useState(calendar?.name ?? "");
   const [color, setColor] = useState<CalendarColor>(calendar?.color ?? suggestedColor ?? "mint");
   const [writeAccess, setWriteAccess] = useState(calendar?.writeAccess ?? "members");
-  const [defaultReminder, setDefaultReminder] = useState(calendar ? (calendar.defaultReminderMinutes === null ? "none" : String(calendar.defaultReminderMinutes)) : "10");
-  const [mine, setMine] = useState(calendar?.myReminderMinutes === undefined ? "default" : calendar.myReminderMinutes === null ? "none" : String(calendar.myReminderMinutes));
+  const [defaults, setDefaults] = useState<number[]>(calendar?.defaultReminders ?? [10]);
+  // The viewer's own reminders for it: `undefined` follows the calendar's.
+  const [mine, setMine] = useState<number[] | undefined>(calendar?.myReminders);
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -182,12 +183,11 @@ export function CalendarSettingsDialog({
         name: name.trim(),
         color,
         writeAccess: inSpace ? writeAccess : undefined,
-        defaultReminderMinutes: reminderValue(defaultReminder),
+        defaultReminders: defaults,
       };
       if (calendar) {
         if (manage) await updateCalendar(calendar.id, fields);
-        const before = calendar.myReminderMinutes === undefined ? "default" : calendar.myReminderMinutes === null ? "none" : String(calendar.myReminderMinutes);
-        if (mine !== before) await setCalendarMe(calendar.id, { reminderMinutes: mine === "default" ? "default" : reminderValue(mine) });
+        if (!sameReminders(mine, calendar.myReminders)) await setCalendarMe(calendar.id, { reminders: mine ?? "default" });
         onDone("saved");
       } else {
         await createCalendar(fields, spaceId);
@@ -210,8 +210,6 @@ export function CalendarSettingsDialog({
       onDone("failed");
     }
   };
-
-  const timedOptions = [{ value: "none", label: reminderLabel(null, t) }, ...TIMED_REMINDERS.map((m) => ({ value: String(m), label: reminderLabel(m, t) }))];
 
   return (
     <Dialog
@@ -274,22 +272,14 @@ export function CalendarSettingsDialog({
               </div>
             ) : null}
             <Field label={t("calendar.defaultReminder")} hint={t("calendar.defaultReminderHint")} htmlFor="calendar-default-reminder">
-              <Select id="calendar-default-reminder" value={defaultReminder} onChange={(e) => setDefaultReminder(e.target.value)} options={timedOptions} />
+              <RemindersField id="calendar-default-reminder" value={defaults} onChange={(next) => setDefaults(next ?? [])} allDay={false} />
             </Field>
           </>
         ) : null}
 
         {calendar ? (
           <Field label={t("calendar.myReminder")} hint={t("calendar.myReminderHint")} htmlFor="calendar-my-reminder">
-            <Select
-              id="calendar-my-reminder"
-              value={mine}
-              onChange={(e) => setMine(e.target.value)}
-              options={[
-                { value: "default", label: t("calendar.reminderFollowsCalendar", { label: reminderLabel(calendar.defaultReminderMinutes, t) }) },
-                ...timedOptions,
-              ]}
-            />
+            <RemindersField id="calendar-my-reminder" value={mine} onChange={setMine} allDay={false} inherited={manage ? defaults : calendar.defaultReminders} />
           </Field>
         ) : null}
 
