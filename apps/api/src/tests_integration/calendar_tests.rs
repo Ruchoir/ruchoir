@@ -179,7 +179,7 @@ async fn a_space_starts_with_a_calendar_named_after_it_and_a_person_gets_a_perso
     assert_eq!(general["is_default"], true);
     assert_eq!(general["color"], "mint");
     assert_eq!(general["write_access"], "members");
-    assert_eq!(general["default_reminder_minutes"], 10);
+    assert_eq!(general["default_reminders"], json!([10]));
     assert_eq!(general["can_manage"], true);
     assert_eq!(general["can_write_events"], true);
     assert_eq!(general["hidden"], false);
@@ -193,7 +193,7 @@ async fn a_space_starts_with_a_calendar_named_after_it_and_a_person_gets_a_perso
     // The personal calendar wears the viewer's own accent, whichever it is.
     assert_eq!(personal[0]["color"], "accent");
     assert_eq!(personal[0]["is_default"], true);
-    assert_eq!(personal[0]["default_reminder_minutes"], 10);
+    assert_eq!(personal[0]["default_reminders"], json!([10]));
 
     // A second visit finds the same calendars, not new ones.
     let again = calendars_of(&app, &cookie).await;
@@ -214,12 +214,12 @@ async fn calendar_rights_follow_roles_and_write_access() {
         &app,
         &alice,
         fx.space_id,
-        json!({ "name": "Congés", "color": "peach", "write_access": "admins", "default_reminder_minutes": null }),
+        json!({ "name": "Congés", "color": "peach", "write_access": "admins", "default_reminders": [] }),
     )
     .await;
     assert_eq!(leave.status(), 201);
     let leave: Value = leave.json().await.expect("json");
-    assert_eq!(leave["default_reminder_minutes"], Value::Null);
+    assert_eq!(leave["default_reminders"], json!([]));
 
     // A member neither creates nor manages a space calendar.
     let refused = create_space_calendar(
@@ -302,14 +302,14 @@ async fn calendar_rights_follow_roles_and_write_access() {
             &format!("/api/v1/calendars/{}", general["id"].as_str().unwrap()),
             &alice,
         )
-        .json(&json!({ "write_access": "admins", "default_reminder_minutes": 15 }))
+        .json(&json!({ "write_access": "admins", "default_reminders": [15] }))
         .send()
         .await
         .expect("patch general");
     assert_eq!(closed.status(), 200);
     let general = space_default(&app, &bob, fx.space_id).await;
     assert_eq!(general["can_write_events"], false);
-    assert_eq!(general["default_reminder_minutes"], 15);
+    assert_eq!(general["default_reminders"], json!([15]));
 
     // Each person hides and sets their own reminder, whatever their rights.
     let mine = app
@@ -318,29 +318,23 @@ async fn calendar_rights_follow_roles_and_write_access() {
             &format!("/api/v1/calendars/{}/me", general["id"].as_str().unwrap()),
             &bob,
         )
-        .json(&json!({ "hidden": true, "reminder_minutes": null }))
+        .json(&json!({ "hidden": true, "reminders": [] }))
         .send()
         .await
         .expect("put me");
     assert_eq!(mine.status(), 204);
     let general = space_default(&app, &bob, fx.space_id).await;
     assert_eq!(general["hidden"], true);
-    assert_eq!(general["my_reminder_minutes"], Value::Null);
-    assert!(general
-        .as_object()
-        .unwrap()
-        .contains_key("my_reminder_minutes"));
+    assert_eq!(general["my_reminders"], json!([]));
+    assert!(general.as_object().unwrap().contains_key("my_reminders"));
     let for_alice = space_default(&app, &alice, fx.space_id).await;
     assert_eq!(for_alice["hidden"], false);
-    assert!(!for_alice
-        .as_object()
-        .unwrap()
-        .contains_key("my_reminder_minutes"));
+    assert!(!for_alice.as_object().unwrap().contains_key("my_reminders"));
 
     // Out-of-palette colours and unknown reminder values are refused.
     for body in [
         json!({ "name": "Rouge", "color": "red" }),
-        json!({ "name": "Bizarre", "color": "mint", "default_reminder_minutes": 7 }),
+        json!({ "name": "Bizarre", "color": "mint", "default_reminders": [-5] }),
         json!({ "name": "  ", "color": "mint" }),
     ] {
         let refused = create_space_calendar(&app, &alice, fx.space_id, body).await;
@@ -639,7 +633,7 @@ async fn occurrences_unfold_a_series_and_respect_visibility() {
     assert_eq!(found[1]["recurrence_id"], "2026-10-26T08:00:00Z");
     assert_eq!(found[1]["calendar_id"], general["id"]);
     assert_eq!(found[1]["can_edit"], true);
-    assert_eq!(found[1]["my_reminder_minutes"], 10);
+    assert_eq!(found[1]["my_reminders"], json!([10]));
 
     // Asking for a calendar one cannot see changes nothing.
     let narrowed = app
@@ -1005,25 +999,25 @@ async fn a_member_without_write_access_can_still_set_their_reminder() {
             &format!("/api/v1/events/{}/me", event["event_id"].as_str().unwrap()),
             &bob,
         )
-        .json(&json!({ "reminder_minutes": 30 }))
+        .json(&json!({ "reminders": [30] }))
         .send()
         .await
         .expect("my reminder");
     assert_eq!(mine.status(), 204);
     let for_bob = occurrences(&app, &bob, "2026-10-19T00:00:00Z", "2026-10-20T00:00:00Z").await;
-    assert_eq!(for_bob[0]["my_reminder_minutes"], 30);
+    assert_eq!(for_bob[0]["my_reminders"], json!([30]));
     assert_eq!(for_bob[0]["can_edit"], false);
     let for_alice = occurrences(&app, &alice, "2026-10-19T00:00:00Z", "2026-10-20T00:00:00Z").await;
-    assert_eq!(for_alice[0]["my_reminder_minutes"], 10);
+    assert_eq!(for_alice[0]["my_reminders"], json!([10]));
 
-    // An all-day event takes only the all-day delays.
+    // The same morning at 9:00 belongs to a whole day, not to a timed event.
     let off_day = app
         .req(
             reqwest::Method::PUT,
             &format!("/api/v1/events/{}/me", event["event_id"].as_str().unwrap()),
             &bob,
         )
-        .json(&json!({ "reminder_minutes": 420 }))
+        .json(&json!({ "reminders": [-540] }))
         .send()
         .await
         .expect("bad delay");
@@ -1408,7 +1402,7 @@ async fn muting_a_calendar_or_an_event_stops_it() {
         &format!("/api/v1/calendars/{}/me", general["id"].as_str().unwrap()),
         &app.cookie_for(fx.bob).await,
     )
-    .json(&json!({ "reminder_minutes": null }))
+    .json(&json!({ "reminders": [] }))
     .send()
     .await
     .expect("mute calendar");
@@ -1417,7 +1411,7 @@ async fn muting_a_calendar_or_an_event_stops_it() {
         &format!("/api/v1/events/{}/me", event["event_id"].as_str().unwrap()),
         &app.cookie_for(fx.carol).await,
     )
-    .json(&json!({ "reminder_minutes": null }))
+    .json(&json!({ "reminders": [] }))
     .send()
     .await
     .expect("mute event");
@@ -1523,7 +1517,7 @@ async fn an_all_day_reminder_comes_the_evening_before() {
         &alice,
         &general["id"],
         json!({ "title": "Congé", "all_day": true, "start": "2031-03-11", "end": "2031-03-12",
-                "reminder_minutes": 420 }),
+                "reminders": [420] }),
     )
     .await;
     assert_eq!(created.status(), 201);
@@ -1810,3 +1804,4 @@ mod invitation_tests;
 
 mod channel_file_tests;
 mod deferred_tests;
+mod reminders_tests;

@@ -160,7 +160,7 @@ pub async fn list_occurrences(
                 is_recurring: event.rrule.is_some(),
                 overridden: exception.is_some(),
                 can_edit: access.can_write_events,
-                my_reminder_minutes: my_reminder,
+                my_reminders: my_reminder.clone(),
                 my_status: attendance.status(event, session.user_id, key.as_deref()),
                 invited,
                 has_attendees,

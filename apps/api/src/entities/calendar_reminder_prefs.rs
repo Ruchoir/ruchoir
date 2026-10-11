@@ -1,5 +1,5 @@
 //! The `calendar_reminder_prefs` table: a person's reminder for a whole calendar, over its default.
-//! `minutes` NULL is "no reminder".
+//! `minutes` holds the delays; empty is "no reminder".
 
 use sea_orm::entity::prelude::*;
 
@@ -10,7 +10,7 @@ pub struct Model {
     pub user_id: Uuid,
     #[sea_orm(primary_key, auto_increment = false)]
     pub calendar_id: Uuid,
-    pub minutes: Option<i32>,
+    pub minutes: Vec<i32>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

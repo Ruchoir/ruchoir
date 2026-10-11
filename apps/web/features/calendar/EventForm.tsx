@@ -5,6 +5,7 @@ import { Button, Dialog, Icon, type IconName, Input, Popover, Select, Switch, Te
 import {
   createEvent,
   freeBusy,
+  setEventMe,
   listOccurrences,
   updateEvent,
   type Calendar,
@@ -21,7 +22,7 @@ import { currentLocale } from "@/lib/i18n/current";
 import { clock, shortDay } from "./format";
 import { addDays, clashes, freeSlots, localDay, localMinutes, movedSeriesStart, zonedTime } from "./model";
 import { RecurrenceEditor } from "./RecurrenceEditor";
-import { reminderOptions, reminderValue } from "./reminders";
+import { RemindersField } from "./RemindersField";
 import { AttendeesField, type DraftAttendee } from "./AttendeesField";
 import { AvailabilityStrip } from "./AvailabilityStrip";
 import { CalendarPicker } from "./CalendarPicker";
@@ -132,7 +133,9 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
   const readable = originalRule ? parseRule(originalRule) : null;
   const [preset, setPreset] = useState<Preset | "imported">(originalRule && !readable ? "imported" : presetOf(originalRule, initial.startDay));
   const [custom, setCustom] = useState<RuleForm>(formFor(originalRule, initial.startDay));
-  const [reminder, setReminder] = useState<string | undefined>(undefined);
+  // The author's own reminders: `undefined` follows the calendar's; sent only when touched.
+  const [reminders, setReminders] = useState<number[] | undefined>(editing?.event.myOwnReminders);
+  const [remindersTouched, setRemindersTouched] = useState(false);
   const [location, setLocation] = useState(occurrence?.location ?? "");
   const [description, setDescription] = useState(occurrence?.description ?? "");
   /** Whether the repetition was touched: an untouched rule is sent back exactly as it came. */
@@ -229,7 +232,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
       ...(channelTouched || (!occurrence && channelId) ? { channelId } : {}),
       ...(filesTouched || (!occurrence && files.length > 0) ? { files: files.map((f) => f.id) } : {}),
     };
-    const withReminder = reminder === undefined ? {} : { reminderMinutes: reminderValue(reminder) };
+    const withReminder = remindersTouched && reminders !== undefined ? { reminders } : {};
     if (allDay) {
       if (endDay < startDay) return t("calendar.endBeforeStart");
       return { ...base, ...withReminder, allDay: true, start: startDay, end: addDays(endDay, 1) };
@@ -281,6 +284,8 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
       } else {
         await updateEvent(event.eventId, body, scope, occurrence.recurrenceId);
       }
+      // Back to the calendar's reminders: a change of one's own setting, not of the event.
+      if (event && remindersTouched && reminders === undefined) await setEventMe(event.eventId, "default");
       onDone("saved");
     } catch {
       setBusy(false);
@@ -571,16 +576,17 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
     </>
   );
 
+  const chosenForReminders = calendars.find((c) => c.id === calendarId);
   const reminderSelect = (
-    <Select
+    <RemindersField
       id="event-reminder"
-      size="sm"
-      aria-label={t("calendar.myReminder")}
-      title={reminder === undefined ? t("calendar.reminderFollows") : undefined}
-      value={reminder ?? "default"}
-      onChange={(e) => setReminder(e.target.value === "default" ? undefined : e.target.value)}
-      options={[{ value: "default", label: t("calendar.reminderAsCalendar") }, ...reminderOptions(allDay, t)]}
-      style={{ width: "100%" }}
+      value={reminders}
+      allDay={allDay}
+      inherited={allDay ? [] : (chosenForReminders?.myReminders ?? chosenForReminders?.defaultReminders ?? [])}
+      onChange={(next) => {
+        setRemindersTouched(true);
+        setReminders(next);
+      }}
     />
   );
 

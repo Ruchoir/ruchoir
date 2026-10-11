@@ -21,7 +21,7 @@ import { clock, longDay } from "./format";
 import { addDays, localDay } from "./model";
 import { STATUS_LOOK } from "./AttendeesField";
 import { colorVar, INVITATIONS_COLOR } from "./OccurrenceChip";
-import { reminderOptions, reminderValue } from "./reminders";
+import { RemindersField } from "./RemindersField";
 import { parseRule } from "./rule";
 import { rulePhrase } from "./rulePhrase";
 import { SeriesScopeDialog } from "./SeriesScopeDialog";
@@ -79,7 +79,8 @@ export function EventDetails({
 }) {
   const { t } = useTranslation();
   const [event, setEvent] = useState<CalendarEvent | null>(null);
-  const [reminder, setReminder] = useState<string>("default");
+  // The viewer's own reminders once the event is read: `undefined` follows their calendar's.
+  const [reminders, setReminders] = useState<number[] | undefined>(undefined);
   const [asking, setAsking] = useState<"scope" | "confirm" | null>(null);
   // This occurrence's answer as shown, and whether a series' answer is for this date alone.
   const [myStatus, setMyStatus] = useState<AttendeeStatus | undefined>(occurrence.myStatus);
@@ -91,9 +92,8 @@ export function EventDetails({
     getEvent(occurrence.eventId, abort.signal)
       .then((found) => {
         setEvent(found);
-        // The menu shows the choice in place: the viewer's own, else their calendar's.
-        const own = found.myOwnReminder;
-        setReminder(own === undefined ? "default" : own === null ? "none" : String(own));
+        // The field shows the choice in place: the viewer's own, else their calendar's.
+        setReminders(found.myOwnReminders);
       })
       .catch(() => {});
     return () => abort.abort();
@@ -312,18 +312,20 @@ export function EventDetails({
           </div>
         ) : null}
         {occurrence.description ? <p style={{ margin: 0, whiteSpace: "pre-wrap", color: "var(--text-body)", fontSize: "var(--text-sm)" }}>{occurrence.description}</p> : null}
-        <Field label={t("calendar.myReminder")} htmlFor="details-reminder">
-          <Select
-            id="details-reminder"
-            value={reminder}
-            onChange={(e) => {
-              const next = e.target.value;
-              setReminder(next);
-              void setEventMe(occurrence.eventId, next === "default" ? "default" : reminderValue(next)).catch(() => onDone("failed"));
-            }}
-            options={[{ value: "default", label: t("calendar.reminderAsCalendar") }, ...reminderOptions(occurrence.allDay, t)]}
-          />
-        </Field>
+        {event ? (
+          <Field label={t("calendar.myReminder")} htmlFor="details-reminder">
+            <RemindersField
+              id="details-reminder"
+              value={reminders}
+              allDay={occurrence.allDay}
+              inherited={occurrence.allDay ? [] : (calendar?.myReminders ?? calendar?.defaultReminders ?? [])}
+              onChange={(next) => {
+                setReminders(next);
+                void setEventMe(occurrence.eventId, next ?? "default").catch(() => onDone("failed"));
+              }}
+            />
+          </Field>
+        ) : null}
       </div>
     </Dialog>
   );

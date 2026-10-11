@@ -15,8 +15,8 @@ pub struct Model {
     pub color: String,
     /// `members` or `admins`: who may add and change events. Ignored for a personal calendar.
     pub write_access: String,
-    /// The reminder a timed event gets when nobody chose otherwise; `None` is no reminder.
-    pub default_reminder_minutes: Option<i32>,
+    /// The reminders its timed events get by default, in minutes before them; empty is none.
+    pub default_reminders: Vec<i32>,
     /// A space's first calendar, or a person's: renamed, never deleted.
     pub is_default: bool,
     pub created_by: Option<Uuid>,

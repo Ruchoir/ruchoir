@@ -29,25 +29,24 @@ pub struct CalendarDto {
     pub color: String,
     /// `members` or `admins`.
     pub write_access: String,
-    /// The reminder a timed event gets by default, in minutes before it; `null` is none.
-    pub default_reminder_minutes: Option<i32>,
+    /// The reminders a timed event gets by default, in minutes before it; empty is none.
+    pub default_reminders: Vec<i32>,
     pub is_default: bool,
     pub can_write_events: bool,
     pub can_manage: bool,
     /// Whether the viewer hid it from their view.
     pub hidden: bool,
-    /// The viewer's own reminder for the whole calendar: absent when they follow the default,
-    /// `null` when they turned it off.
+    /// The viewer's own reminders for the whole calendar: absent when they follow the defaults,
+    /// empty when they turned them off.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(value_type = Option<i32>)]
-    pub my_reminder_minutes: Option<Option<i32>>,
+    pub my_reminders: Option<Vec<i32>>,
 }
 
 impl CalendarDto {
     pub fn from_access(
         access: CalendarAccess,
         hidden: bool,
-        my_reminder_minutes: Option<Option<i32>>,
+        my_reminders: Option<Vec<i32>>,
     ) -> Self {
         let c = access.calendar;
         Self {
@@ -57,12 +56,12 @@ impl CalendarDto {
             description: c.description,
             color: c.color,
             write_access: c.write_access,
-            default_reminder_minutes: c.default_reminder_minutes,
+            default_reminders: c.default_reminders,
             is_default: c.is_default,
             can_write_events: access.can_write_events,
             can_manage: access.can_manage,
             hidden,
-            my_reminder_minutes,
+            my_reminders,
         }
     }
 }
@@ -75,10 +74,8 @@ pub struct CreateCalendar {
     pub description: Option<String>,
     /// `members` (the default) or `admins`; ignored for a personal calendar.
     pub write_access: Option<String>,
-    /// Absent: ten minutes. `null`: no reminder.
-    #[serde(default, deserialize_with = "absent_null_or")]
-    #[schema(value_type = Option<i32>)]
-    pub default_reminder_minutes: Option<Option<i32>>,
+    /// Absent: ten minutes. Empty: no reminder.
+    pub default_reminders: Option<Vec<i32>>,
 }
 
 /// A change to a calendar; absent fields stay as they are.
@@ -90,20 +87,16 @@ pub struct UpdateCalendar {
     #[schema(value_type = Option<String>)]
     pub description: Option<Option<String>>,
     pub write_access: Option<String>,
-    #[serde(default, deserialize_with = "absent_null_or")]
-    #[schema(value_type = Option<i32>)]
-    pub default_reminder_minutes: Option<Option<i32>>,
+    pub default_reminders: Option<Vec<i32>>,
 }
 
 /// The viewer's own settings for a calendar; absent fields stay as they are.
 #[derive(Debug, Default, Deserialize, ToSchema)]
 pub struct CalendarMe {
     pub hidden: Option<bool>,
-    /// A number of minutes, or `null` for no reminder.
-    #[serde(default, deserialize_with = "absent_null_or")]
-    #[schema(value_type = Option<i32>)]
-    pub reminder_minutes: Option<Option<i32>>,
-    /// `true` drops the viewer's own reminder and follows the calendar's default again.
+    /// The viewer's reminders for the calendar; empty for none.
+    pub reminders: Option<Vec<i32>>,
+    /// `true` drops the viewer's own reminders and follows the calendar's defaults again.
     #[serde(default)]
     pub reminder_default: bool,
 }
@@ -129,10 +122,8 @@ pub struct EventInput {
     pub tzid: Option<String>,
     /// A bare RFC 5545 rule, `FREQ=...`; absent or null for a one-off event.
     pub rrule: Option<String>,
-    /// The author's own reminder for this event: absent leaves it, `null` turns it off.
-    #[serde(default, deserialize_with = "absent_null_or")]
-    #[schema(value_type = Option<i32>)]
-    pub reminder_minutes: Option<Option<i32>>,
+    /// The author's own reminders for this event: absent leaves them, empty turns them off.
+    pub reminders: Option<Vec<i32>>,
     /// Another calendar to move the event to (whole-series changes only).
     pub calendar_id: Option<Uuid>,
     /// The whole list of attendees (accounts or addresses), for the series; absent leaves it.
@@ -165,8 +156,8 @@ pub struct OccurrenceDto {
     /// Whether this occurrence was changed apart from its series.
     pub overridden: bool,
     pub can_edit: bool,
-    /// The reminder the viewer gets for it, in minutes; absent when none.
-    pub my_reminder_minutes: Option<i32>,
+    /// The reminders the viewer gets for it, in minutes; empty when none.
+    pub my_reminders: Vec<i32>,
     /// The viewer's answer for this occurrence (for the series, on an event): `needs_action`,
     /// `accepted`, `tentative` or `declined`; `accepted` for the organiser of an event with
     /// attendees; absent for anyone not on its list.
@@ -194,11 +185,10 @@ pub struct EventDto {
     pub channel: Option<ChannelDto>,
     /// The Drive files it carries.
     pub files: Vec<EventFileDto>,
-    /// The viewer's own reminder for this event: absent when they follow their calendar's, `null`
-    /// when they turned it off. What the details' menu shows as chosen.
+    /// The viewer's own reminders for this event: absent when they follow their calendar's, empty
+    /// when they turned them off. What the details show as chosen.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schema(value_type = Option<i32>)]
-    pub my_own_reminder: Option<Option<i32>>,
+    pub my_own_reminders: Option<Vec<i32>>,
 }
 
 /// Which part of a series a change or a deletion touches.
@@ -237,10 +227,8 @@ pub struct OccurrencesQuery {
 /// The viewer's own reminder for one event (its whole series).
 #[derive(Debug, Default, Deserialize, ToSchema)]
 pub struct EventMe {
-    /// A number of minutes, or `null` for no reminder.
-    #[serde(default, deserialize_with = "absent_null_or")]
-    #[schema(value_type = Option<i32>)]
-    pub reminder_minutes: Option<Option<i32>>,
+    /// The viewer's reminders for this event; empty for none.
+    pub reminders: Option<Vec<i32>>,
     /// `true` drops the viewer's choice for this event and follows their calendar setting again.
     #[serde(default)]
     pub reminder_default: bool,

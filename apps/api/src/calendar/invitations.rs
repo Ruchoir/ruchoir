@@ -621,6 +621,8 @@ async fn event_ics<C: ConnectionTrait>(
         &[(event.clone(), rows)],
         &people,
         Some(method),
+        // An invitation carries nobody's reminders: each invitee keeps their own.
+        &std::collections::HashMap::new(),
     ))
 }
 

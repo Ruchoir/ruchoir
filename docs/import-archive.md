@@ -155,8 +155,9 @@ it (`apps/api/src/calendar/ics_import.rs`):
   time, or a zone still unknown, is read in the owner's zone);
 - the organiser and the attendees with their answers: an attendee who crossed is their account,
   anyone else is invited by address. **Nobody is told**: no mail, no notification;
-- the first alarm set before the start, as the owner's reminder, at the nearest delay the screen
-  offers that reminds no later;
+- the alarms set before the start, as the owner's reminders, five at most, each at its exact delay
+  (for a whole day, the nearest moment the screen offers that reminds no later); an alarm after the
+  start, at a fixed time or beyond the fifth is counted in a warning;
 - everything else (`CATEGORIES`, `URL`, `CLASS`...) kept as content lines, written back in the
   subscription feed.
 

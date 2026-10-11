@@ -235,7 +235,8 @@ pub async fn serve_feed(
             (event, rows)
         })
         .collect();
-    let body = ics::render_with(&name, color.as_deref(), &pairs, &people, None);
+    let alarms = reader_alarms(&state.db, row.user_id, &pairs).await?;
+    let body = ics::render_with(&name, color.as_deref(), &pairs, &people, None, &alarms);
 
     let now = OffsetDateTime::now_utc();
     if row
@@ -257,6 +258,43 @@ pub async fn serve_feed(
 }
 
 /// The routes that answer without a session, kept apart so they get the public rate limit.
+/// The reminders the subscriber gets for each event, written as the feed's alarms.
+async fn reader_alarms(
+    db: &sea_orm::DatabaseConnection,
+    reader: Uuid,
+    pairs: &[(calendar_events::Model, Vec<exceptions::Model>)],
+) -> Result<HashMap<Uuid, Vec<i32>>, CalendarError> {
+    let calendar_ids: Vec<Uuid> = pairs
+        .iter()
+        .map(|(e, _)| e.calendar_id)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    let calendars: HashMap<Uuid, crate::entities::calendars::Model> =
+        crate::entities::calendars::Entity::find()
+            .filter(crate::entities::calendars::Column::Id.is_in(calendar_ids.clone()))
+            .all(db)
+            .await?
+            .into_iter()
+            .map(|c| (c.id, c))
+            .collect();
+    let reminders = super::events::ViewerReminders::load(
+        db,
+        reader,
+        pairs.iter().map(|(e, _)| e.id).collect(),
+        calendar_ids,
+    )
+    .await?;
+    Ok(pairs
+        .iter()
+        .filter_map(|(event, _)| {
+            let calendar = calendars.get(&event.calendar_id)?;
+            let list = reminders.effective(event, calendar);
+            (!list.is_empty()).then_some((event.id, list))
+        })
+        .collect())
+}
+
 /// What the subscription addresses are rate limited by: the subscription itself, not the address it
 /// is read from. An office behind one address holds dozens of phones polling their own feeds, and
 /// they were all held to one person's share. Guessing is not what this guards against: a token is

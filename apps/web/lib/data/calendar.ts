@@ -22,15 +22,15 @@ export type Calendar = {
   description?: string;
   color: CalendarColor;
   writeAccess: "members" | "admins";
-  /** The reminder a timed event gets by default, in minutes; `null` is none. */
-  defaultReminderMinutes: number | null;
+  /** The reminders a timed event gets by default, in minutes before it; empty is none. */
+  defaultReminders: number[];
   isDefault: boolean;
   canWriteEvents: boolean;
   canManage: boolean;
   hidden: boolean;
-  /** The viewer's own reminder for the whole calendar: `undefined` follows the default, `null` is
-   *  off. */
-  myReminderMinutes?: number | null;
+  /** The viewer's own reminders for the whole calendar: `undefined` follows the defaults, empty is
+   *  none. */
+  myReminders?: number[];
 };
 
 export type Occurrence = {
@@ -49,7 +49,8 @@ export type Occurrence = {
   isRecurring: boolean;
   overridden: boolean;
   canEdit: boolean;
-  myReminderMinutes?: number;
+  /** The reminders the viewer gets for it, in minutes; empty when none. */
+  myReminders: number[];
   /** The viewer's answer for this occurrence; `accepted` for the organiser of an event with
    *  attendees; absent for anyone not on its list. */
   myStatus?: AttendeeStatus;
@@ -83,8 +84,8 @@ export type CalendarEvent = Occurrence & {
   channel?: EventChannel;
   /** The Drive files it carries, readable by whoever sees it. */
   files: EventFile[];
-  /** The viewer's own reminder: `undefined` follows their calendar's, `null` is turned off. */
-  myOwnReminder?: number | null;
+  /** The viewer's own reminders: `undefined` follows their calendar's, empty is none. */
+  myOwnReminders?: number[];
 };
 
 /** The channel an event is linked to, as the viewer may know it: a private channel they are not in
@@ -157,8 +158,8 @@ export type EventInput = {
   end: string;
   tzid?: string;
   rrule?: string | null;
-  /** `undefined` leaves the author's reminder as it is; `null` turns it off. */
-  reminderMinutes?: number | null;
+  /** The author's own reminders: `undefined` leaves them as they are, empty turns them off. */
+  reminders?: number[];
   /** Another calendar to move the event to (whole-series changes only). */
   calendarId?: string;
   /** The whole list of attendees; `undefined` leaves it as it is. */
@@ -174,11 +175,6 @@ export type EditScope = "this" | "following" | "all";
 export type Feed = { id: string; calendarId?: string; createdAt: string; lastUsedAt?: string };
 export type CreatedFeed = { id: string; calendarId?: string; url: string; createdAt: string };
 
-/** Reminder delays the screen offers, in minutes before a timed event starts. */
-export const TIMED_REMINDERS = [0, 5, 10, 15, 30, 60, 1440] as const;
-/** And for an all-day event: the evening before at 17:00, the same morning at 9:00. */
-export const ALL_DAY_REMINDERS = [420, -540] as const;
-
 type CalendarDto = {
   id: string;
   space_id?: string | null;
@@ -186,12 +182,12 @@ type CalendarDto = {
   description?: string | null;
   color: CalendarColor;
   write_access: "members" | "admins";
-  default_reminder_minutes: number | null;
+  default_reminders: number[];
   is_default: boolean;
   can_write_events: boolean;
   can_manage: boolean;
   hidden: boolean;
-  my_reminder_minutes?: number | null;
+  my_reminders?: number[];
 };
 
 type OccurrenceDto = {
@@ -208,7 +204,7 @@ type OccurrenceDto = {
   is_recurring: boolean;
   overridden: boolean;
   can_edit: boolean;
-  my_reminder_minutes?: number | null;
+  my_reminders?: number[];
   my_status?: AttendeeStatus | null;
   invited?: boolean;
   has_attendees?: boolean;
@@ -224,7 +220,7 @@ type EventDto = OccurrenceDto & {
   attendees?: AttendeeDto[];
   channel?: { id: string; name?: string | null; space_id: string; private: boolean; accessible: boolean } | null;
   files?: EventFile[];
-  my_own_reminder?: number | null;
+  my_own_reminders?: number[];
 };
 
 export type EventCardDto = {
@@ -256,12 +252,12 @@ function toCalendar(dto: CalendarDto): Calendar {
     description: opt(dto.description),
     color: dto.color,
     writeAccess: dto.write_access,
-    defaultReminderMinutes: dto.default_reminder_minutes,
+    defaultReminders: dto.default_reminders ?? [],
     isDefault: dto.is_default,
     canWriteEvents: dto.can_write_events,
     canManage: dto.can_manage,
     hidden: dto.hidden,
-    ...("my_reminder_minutes" in dto ? { myReminderMinutes: dto.my_reminder_minutes } : {}),
+    ...(dto.my_reminders !== undefined ? { myReminders: dto.my_reminders } : {}),
   };
 }
 
@@ -280,7 +276,7 @@ function toOccurrence(dto: OccurrenceDto): Occurrence {
     isRecurring: dto.is_recurring,
     overridden: dto.overridden,
     canEdit: dto.can_edit,
-    myReminderMinutes: opt(dto.my_reminder_minutes),
+    myReminders: dto.my_reminders ?? [],
     myStatus: opt(dto.my_status),
     invited: dto.invited ?? false,
     hasAttendees: dto.has_attendees ?? false,
@@ -311,7 +307,7 @@ function toEvent(dto: EventDto): CalendarEvent {
         }
       : undefined,
     files: dto.files ?? [],
-    ...("my_own_reminder" in dto ? { myOwnReminder: dto.my_own_reminder } : {}),
+    ...(dto.my_own_reminders !== undefined ? { myOwnReminders: dto.my_own_reminders } : {}),
   };
 }
 
@@ -347,7 +343,7 @@ function eventBody(input: EventInput) {
     end: input.end,
     tzid: input.tzid,
     rrule: input.rrule ?? null,
-    ...(input.reminderMinutes !== undefined ? { reminder_minutes: input.reminderMinutes } : {}),
+    ...(input.reminders !== undefined ? { reminders: input.reminders } : {}),
     calendar_id: input.calendarId,
     ...(input.attendees
       ? { attendees: input.attendees.map((a) => ("userId" in a ? { user_id: a.userId } : { email: a.email, name: a.name })) }
@@ -367,7 +363,7 @@ type CalendarFields = {
   color: CalendarColor;
   description?: string;
   writeAccess?: "members" | "admins";
-  defaultReminderMinutes?: number | null;
+  defaultReminders?: number[];
 };
 
 function calendarBody(fields: Partial<CalendarFields>) {
@@ -376,7 +372,7 @@ function calendarBody(fields: Partial<CalendarFields>) {
     color: fields.color,
     description: fields.description,
     write_access: fields.writeAccess,
-    ...(fields.defaultReminderMinutes !== undefined ? { default_reminder_minutes: fields.defaultReminderMinutes } : {}),
+    ...(fields.defaultReminders !== undefined ? { default_reminders: fields.defaultReminders } : {}),
   };
 }
 
@@ -395,16 +391,12 @@ export async function deleteCalendar(id: string, confirmName: string): Promise<v
   await apiRequest<void>("DELETE", `/calendars/${id}`, { json: { confirm_name: confirmName } });
 }
 
-/** The viewer's own settings for a calendar: shown or hidden, their reminder (`"default"` follows the
- *  calendar's again). */
-export async function setCalendarMe(id: string, me: { hidden?: boolean; reminderMinutes?: number | null | "default" }): Promise<void> {
+/** The viewer's own settings for a calendar: shown or hidden, their reminders (`"default"` follows
+ *  the calendar's again). */
+export async function setCalendarMe(id: string, me: { hidden?: boolean; reminders?: number[] | "default" }): Promise<void> {
   await apiPut<void>(`/calendars/${id}/me`, {
     hidden: me.hidden,
-    ...(me.reminderMinutes === "default"
-      ? { reminder_default: true }
-      : me.reminderMinutes !== undefined
-        ? { reminder_minutes: me.reminderMinutes }
-        : {}),
+    ...(me.reminders === "default" ? { reminder_default: true } : me.reminders !== undefined ? { reminders: me.reminders } : {}),
   });
 }
 
@@ -447,10 +439,10 @@ export async function deleteEvent(id: string, scope: EditScope, recurrenceId?: s
   await apiDelete<void>(`/events/${id}?${scopeQuery(scope, recurrenceId)}`);
 }
 
-/** The viewer's own reminder for an event (its whole series); `"default"` follows their calendar
+/** The viewer's own reminders for an event (its whole series); `"default"` follows their calendar
  *  setting again. */
-export async function setEventMe(id: string, reminderMinutes: number | null | "default"): Promise<void> {
-  await apiPut<void>(`/events/${id}/me`, reminderMinutes === "default" ? { reminder_default: true } : { reminder_minutes: reminderMinutes });
+export async function setEventMe(id: string, reminders: number[] | "default"): Promise<void> {
+  await apiPut<void>(`/events/${id}/me`, reminders === "default" ? { reminder_default: true } : { reminders });
 }
 
 export async function listFeeds(signal?: AbortSignal): Promise<Feed[]> {

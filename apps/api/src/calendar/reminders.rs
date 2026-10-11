@@ -5,7 +5,7 @@
 //! the app (pushed to the browser like any other), and a mail to whoever has no Ruchoir open. A
 //! reminder later than that is dropped rather than sent at the wrong moment.
 //!
-//! `calendar_reminder_deliveries` holds one row per person and occurrence, written in the same
+//! `calendar_reminder_deliveries` holds one row per person, occurrence and delay, written in the same
 //! transaction as the notification and inserted with `ON CONFLICT DO NOTHING`, so two sweeps at the
 //! same moment (two API processes) never remind anyone twice.
 
@@ -41,23 +41,56 @@ const SWEEP_INTERVAL: StdDuration = StdDuration::from_secs(60);
 /// How late a reminder may still be sent.
 pub const LATE_LIMIT: Duration = Duration::minutes(15);
 
-/// The reminder a person gets for an event, in minutes: before its start for a timed event, before
+/// The most reminders one person sets on one event, and a calendar on its events.
+pub const MAX_REMINDERS: usize = 5;
+
+/// The furthest a reminder may come before a timed event: four weeks.
+pub const MAX_LEAD_MINUTES: i32 = 40_320;
+
+/// The reminders a person gets for an event, in minutes: before its start for a timed event, before
 /// the local midnight that starts it for an all-day one (`420` the evening before at 17:00, `-540`
-/// the same morning at 9:00). `None` is no reminder.
+/// the same morning at 9:00, `N * 1440 - 540` N days before at 9:00). Empty is no reminder.
 ///
-/// Their choice for the event wins, then their choice for the calendar, then the calendar's default.
-/// The last two speak of timed events only: an all-day event reminds nobody unless they asked.
-pub fn effective_minutes(
-    event_pref: Option<Option<i32>>,
-    calendar_pref: Option<Option<i32>>,
-    calendar_default: Option<i32>,
+/// Their choice for the event wins, then their choice for the calendar, then the calendar's
+/// defaults. The last two speak of timed events only: an all-day event reminds nobody unless they
+/// asked.
+pub fn effective_reminders(
+    event_pref: Option<&[i32]>,
+    calendar_pref: Option<&[i32]>,
+    calendar_default: &[i32],
     all_day: bool,
-) -> Option<i32> {
+) -> Vec<i32> {
     match event_pref {
-        Some(chosen) => chosen,
-        None if all_day => None,
-        None => calendar_pref.unwrap_or(calendar_default),
+        Some(chosen) => chosen.to_vec(),
+        None if all_day => Vec::new(),
+        None => calendar_pref.unwrap_or(calendar_default).to_vec(),
     }
+}
+
+/// Whether a list of reminders may be kept: five at most, each once, each a delay the screen can
+/// say (any number of minutes up to four weeks before a timed event; for a whole day, the evening
+/// before, the same morning, or one to 28 days before at 9:00).
+pub fn check_reminders(minutes: &[i32], all_day: bool) -> Result<(), &'static str> {
+    if minutes.len() > MAX_REMINDERS {
+        return Err("Five reminders at most.");
+    }
+    let mut seen = HashSet::new();
+    for &m in minutes {
+        if !seen.insert(m) {
+            return Err("The same reminder twice.");
+        }
+        let allowed = if all_day {
+            m == 420
+                || m == -540
+                || ((m + 540) % 1440 == 0 && (1..=28).contains(&((m + 540) / 1440)))
+        } else {
+            (0..=MAX_LEAD_MINUTES).contains(&m)
+        };
+        if !allowed {
+            return Err("Unknown reminder delay.");
+        }
+    }
+    Ok(())
 }
 
 /// Whether a reminder also goes out by mail: the person has no Ruchoir open, wants reminders by
@@ -265,7 +298,7 @@ pub async fn sweep(state: &AppState, now: OffsetDateTime) -> Result<SweepReport,
     {
         by_event.entry(row.event_id).or_default().push(row);
     }
-    let mut event_prefs: HashMap<(Uuid, Uuid), Option<i32>> = HashMap::new();
+    let mut event_prefs: HashMap<(Uuid, Uuid), Vec<i32>> = HashMap::new();
     for row in calendar_event_reminders::Entity::find()
         .filter(calendar_event_reminders::Column::EventId.is_in(event_ids))
         .all(&state.db)
@@ -273,7 +306,7 @@ pub async fn sweep(state: &AppState, now: OffsetDateTime) -> Result<SweepReport,
     {
         event_prefs.insert((row.user_id, row.event_id), row.minutes);
     }
-    let mut calendar_prefs: HashMap<(Uuid, Uuid), Option<i32>> = HashMap::new();
+    let mut calendar_prefs: HashMap<(Uuid, Uuid), Vec<i32>> = HashMap::new();
     for row in calendar_reminder_prefs::Entity::find()
         .filter(calendar_reminder_prefs::Column::CalendarId.is_in(calendar_ids))
         .all(&state.db)
@@ -304,7 +337,7 @@ pub async fn sweep(state: &AppState, now: OffsetDateTime) -> Result<SweepReport,
         .map(|u| (u.id, u))
         .collect();
 
-    let mut due: Vec<(Uuid, Uuid, OffsetDateTime)> = Vec::new();
+    let mut due: Vec<(Uuid, Uuid, OffsetDateTime, i32)> = Vec::new();
     for event in &events {
         let Some(calendar) = calendars.get(&event.calendar_id) else {
             continue;
@@ -328,24 +361,29 @@ pub async fn sweep(state: &AppState, now: OffsetDateTime) -> Result<SweepReport,
             None => audiences.get(&calendar.id).cloned().unwrap_or_default(),
         };
         for person in &audience {
-            let Some(minutes) = effective_minutes(
-                event_prefs.get(&(*person, event.id)).copied(),
-                calendar_prefs.get(&(*person, calendar.id)).copied(),
-                calendar.default_reminder_minutes,
+            let delays = effective_reminders(
+                event_prefs.get(&(*person, event.id)).map(Vec::as_slice),
+                calendar_prefs
+                    .get(&(*person, calendar.id))
+                    .map(Vec::as_slice),
+                &calendar.default_reminders,
                 event.all_day,
-            ) else {
+            );
+            if delays.is_empty() {
                 continue;
-            };
+            }
             let zone = reader_time_zone(readers.get(person));
             for occurrence in &occurrences {
                 if invited.declined(event.id, *person, occurrence.recurrence_id) {
                     continue;
                 }
-                let Some(at) = due_at(&occurrence.when, minutes, &zone) else {
-                    continue;
-                };
-                if at <= now && now - at <= LATE_LIMIT {
-                    due.push((*person, event.id, occurrence_key(&occurrence.when)));
+                for &minutes in &delays {
+                    let Some(at) = due_at(&occurrence.when, minutes, &zone) else {
+                        continue;
+                    };
+                    if at <= now && now - at <= LATE_LIMIT {
+                        due.push((*person, event.id, occurrence_key(&occurrence.when), minutes));
+                    }
                 }
             }
         }
@@ -353,14 +391,18 @@ pub async fn sweep(state: &AppState, now: OffsetDateTime) -> Result<SweepReport,
 
     let mut report = SweepReport::default();
     let mut created: Vec<notifications::Model> = Vec::new();
-    for (person, event_id, occurrence) in due {
+    for (person, event_id, occurrence, minutes) in due {
         let txn = state.db.begin().await?;
+        // One row per reminder of a date. A row from before reminders had delays stands for every
+        // reminder of its date.
         let claimed = txn
             .execute_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
-                "INSERT INTO calendar_reminder_deliveries (user_id, event_id, occurrence_start, sent_at) \
-                 VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
-                [person.into(), event_id.into(), occurrence.into(), now.into()],
+                "INSERT INTO calendar_reminder_deliveries (user_id, event_id, occurrence_start, sent_at, minutes) \
+                 SELECT $1, $2, $3, $4, $5 WHERE NOT EXISTS (SELECT 1 FROM calendar_reminder_deliveries \
+                 WHERE user_id = $1 AND event_id = $2 AND occurrence_start = $3 AND minutes IS NULL) \
+                 ON CONFLICT DO NOTHING",
+                [person.into(), event_id.into(), occurrence.into(), now.into(), minutes.into()],
             ))
             .await?
             .rows_affected();
@@ -658,42 +700,53 @@ mod tests {
 
     #[test]
     fn the_most_specific_choice_wins() {
-        // Nothing chosen: the calendar's default.
-        assert_eq!(effective_minutes(None, None, Some(10), false), Some(10));
-        // The person's calendar setting over the default, including "none".
+        let ten = [10];
+        // Nothing chosen: the calendar's defaults.
+        assert_eq!(effective_reminders(None, None, &ten, false), vec![10]);
+        // The person's calendar setting over the defaults, including "none".
         assert_eq!(
-            effective_minutes(None, Some(Some(30)), Some(10), false),
-            Some(30)
+            effective_reminders(None, Some(&[30, 5][..]), &ten, false),
+            vec![30, 5]
         );
-        assert_eq!(effective_minutes(None, Some(None), Some(10), false), None);
+        assert!(effective_reminders(None, Some(&[][..]), &ten, false).is_empty());
         // The person's event setting over everything.
         assert_eq!(
-            effective_minutes(Some(Some(60)), Some(Some(30)), Some(10), false),
-            Some(60)
+            effective_reminders(Some(&[60, 1440][..]), Some(&[30][..]), &ten, false),
+            vec![60, 1440]
         );
-        assert_eq!(
-            effective_minutes(Some(None), Some(Some(30)), Some(10), false),
-            None
-        );
-        // A calendar without a default reminds nobody who did not ask.
-        assert_eq!(effective_minutes(None, None, None, false), None);
+        assert!(effective_reminders(Some(&[][..]), Some(&[30][..]), &ten, false).is_empty());
+        // A calendar without defaults reminds nobody who did not ask.
+        assert!(effective_reminders(None, None, &[], false).is_empty());
     }
 
     #[test]
     fn an_all_day_event_reminds_only_who_asked() {
-        assert_eq!(effective_minutes(None, None, Some(10), true), None);
+        assert!(effective_reminders(None, None, &[10], true).is_empty());
+        assert!(effective_reminders(None, Some(&[30][..]), &[10], true).is_empty());
         assert_eq!(
-            effective_minutes(None, Some(Some(30)), Some(10), true),
-            None
+            effective_reminders(Some(&[420, -540][..]), None, &[10], true),
+            vec![420, -540]
         );
+    }
+
+    #[test]
+    fn reminders_are_checked_as_a_list() {
+        assert_eq!(check_reminders(&[10, 1440], false), Ok(()));
+        assert_eq!(check_reminders(&[], false), Ok(()));
+        // Any delay up to four weeks before a timed event, never after it.
+        assert_eq!(check_reminders(&[20, 40320], false), Ok(()));
+        assert!(check_reminders(&[40321], false).is_err());
+        assert!(check_reminders(&[-5], false).is_err());
+        // Five at most, each once.
+        assert!(check_reminders(&[1, 2, 3, 4, 5, 6], false).is_err());
+        assert!(check_reminders(&[10, 10], false).is_err());
+        // A whole day: the evening before, the morning, or some days before at 9:00.
         assert_eq!(
-            effective_minutes(Some(Some(420)), None, Some(10), true),
-            Some(420)
+            check_reminders(&[420, -540, 900, 3 * 1440 - 540], true),
+            Ok(())
         );
-        assert_eq!(
-            effective_minutes(Some(Some(-540)), None, None, true),
-            Some(-540)
-        );
+        assert!(check_reminders(&[10], true).is_err());
+        assert!(check_reminders(&[29 * 1440 - 540], true).is_err());
     }
 
     #[test]
