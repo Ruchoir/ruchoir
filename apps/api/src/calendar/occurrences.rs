@@ -131,43 +131,67 @@ pub async fn list_occurrences(
             .filter(|r| !r.cancelled)
             .map(|r| (r.recurrence_id.as_str(), r))
             .collect();
-        let my_reminder = reminders.effective(event, &access.calendar);
+        let my_reminders = reminders.effective(event, &access.calendar);
         let invited = invited_ids.contains(&event.id);
-        let has_attendees = attendance.has_attendees(event.id);
         for occurrence in recurrence::expand(&series_of(event, &inputs), from, to)? {
-            let key = occurrence.recurrence_id.map(|id| id.to_key());
-            let exception = key.as_deref().and_then(|k| texts.get(k));
-            let (start, end) = when_texts(&occurrence.when);
-            found.push(OccurrenceDto {
-                event_id: event.id,
-                calendar_id: event.calendar_id,
-                recurrence_id: key.clone(),
-                title: exception
-                    .and_then(|e| e.title.clone())
-                    .unwrap_or_else(|| event.title.clone()),
-                location: match exception {
-                    Some(e) => e.location.clone(),
-                    None => event.location.clone(),
-                },
-                description: match exception {
-                    Some(e) => e.description.clone(),
-                    None => event.description.clone(),
-                },
-                all_day: event.all_day,
-                start,
-                end,
-                tzid: event.tzid.clone(),
-                is_recurring: event.rrule.is_some(),
-                overridden: exception.is_some(),
-                can_edit: access.can_write_events,
-                my_reminders: my_reminder.clone(),
-                my_status: attendance.status(event, session.user_id, key.as_deref()),
+            found.push(occurrence_dto(
+                event,
+                access,
+                &occurrence,
+                &texts,
+                &my_reminders,
+                &attendance,
+                session.user_id,
                 invited,
-                has_attendees,
-            });
+            ));
         }
     }
     // RFC 3339 in UTC and plain dates sort together correctly as text.
     found.sort_by(|a, b| a.start.cmp(&b.start).then(a.title.cmp(&b.title)));
     Ok(Json(found))
+}
+
+/// One occurrence as the screen draws it: an exception's texts over the series', the viewer's
+/// reminders and answer.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn occurrence_dto(
+    event: &calendar_events::Model,
+    access: &CalendarAccess,
+    occurrence: &recurrence::Occurrence,
+    texts: &HashMap<&str, &exceptions::Model>,
+    my_reminders: &[i32],
+    attendance: &Attendance,
+    viewer: Uuid,
+    invited: bool,
+) -> OccurrenceDto {
+    let key = occurrence.recurrence_id.map(|id| id.to_key());
+    let exception = key.as_deref().and_then(|k| texts.get(k));
+    let (start, end) = when_texts(&occurrence.when);
+    OccurrenceDto {
+        event_id: event.id,
+        calendar_id: event.calendar_id,
+        recurrence_id: key.clone(),
+        title: exception
+            .and_then(|e| e.title.clone())
+            .unwrap_or_else(|| event.title.clone()),
+        location: match exception {
+            Some(e) => e.location.clone(),
+            None => event.location.clone(),
+        },
+        description: match exception {
+            Some(e) => e.description.clone(),
+            None => event.description.clone(),
+        },
+        all_day: event.all_day,
+        start,
+        end,
+        tzid: event.tzid.clone(),
+        is_recurring: event.rrule.is_some(),
+        overridden: exception.is_some(),
+        can_edit: access.can_write_events,
+        my_reminders: my_reminders.to_vec(),
+        my_status: attendance.status(event, viewer, key.as_deref()),
+        invited,
+        has_attendees: attendance.has_attendees(event.id),
+    }
 }

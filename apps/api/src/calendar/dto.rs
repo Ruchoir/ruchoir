@@ -212,6 +212,12 @@ pub struct EditQuery {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct SearchQuery {
+    /// Words looked for, case and accents aside.
+    pub q: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct OccurrencesQuery {
     /// RFC 3339.
     pub from: String,
