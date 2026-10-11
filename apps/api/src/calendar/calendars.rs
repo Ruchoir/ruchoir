@@ -104,14 +104,30 @@ async fn dtos<C: ConnectionTrait>(
         .into_iter()
         .map(|p| (p.calendar_id, p.minutes))
         .collect();
+    // Whose each calendar shared with the caller is.
+    let owners: Vec<Uuid> = accesses
+        .iter()
+        .filter(|a| a.shared.is_some())
+        .filter_map(|a| a.calendar.owner_user_id)
+        .collect();
+    let names = if owners.is_empty() {
+        HashMap::new()
+    } else {
+        super::attendees::names(db, owners).await?
+    };
     Ok(accesses
         .into_iter()
         .map(|access| {
             let id = access.calendar.id;
+            let owner_name = access
+                .shared
+                .and(access.calendar.owner_user_id)
+                .and_then(|owner| names.get(&owner).cloned());
             CalendarDto::from_access(
                 access,
                 hidden.get(&id).copied().unwrap_or(false),
                 reminders.remove(&id),
+                owner_name,
             )
         })
         .collect())
@@ -354,7 +370,8 @@ pub async fn put_calendar_me(
     Path(calendar_id): Path<Uuid>,
     Json(body): Json<CalendarMe>,
 ) -> Result<StatusCode, CalendarError> {
-    authz::access(&state.db, session.user_id, calendar_id).await?;
+    // Hiding a calendar is the caller's own view: a busy-only share may be hidden too.
+    authz::seen(&state.db, session.user_id, calendar_id).await?;
     if let Some(hidden) = body.hidden {
         calendar_visibility::Entity::insert(calendar_visibility::ActiveModel {
             user_id: Set(session.user_id),

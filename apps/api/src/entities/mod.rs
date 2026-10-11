@@ -33,6 +33,7 @@ pub mod calendar_event_reminders;
 pub mod calendar_events;
 pub mod calendar_feed_tokens;
 pub mod calendar_reminder_prefs;
+pub mod calendar_shares;
 pub mod calendar_visibility;
 pub mod calendars;
 

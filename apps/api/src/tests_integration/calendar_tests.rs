@@ -1807,3 +1807,4 @@ mod deferred_tests;
 mod print_tests;
 mod reminders_tests;
 mod search_tests;
+mod sharing_tests;

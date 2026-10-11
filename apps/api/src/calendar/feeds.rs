@@ -179,6 +179,9 @@ pub async fn serve_feed(
         .ok_or(CalendarError::NotFound)?;
 
     let mixed = row.calendar_id.is_none();
+    // Calendars shared with the subscriber at the free/busy level: their events go out as busy
+    // blocks, with nothing of what they are.
+    let mut busy: std::collections::HashSet<Uuid> = std::collections::HashSet::new();
     let (name, color, calendars) = match row.calendar_id {
         Some(calendar_id) => {
             let access = authz::access(&state.db, row.user_id, calendar_id).await?;
@@ -190,18 +193,25 @@ pub async fn serve_feed(
             )
         }
         None => {
-            let ids = authz::visible(&state.db, row.user_id)
-                .await?
-                .into_iter()
+            let visible = authz::visible(&state.db, row.user_id).await?;
+            busy = visible
+                .iter()
+                .filter(|a| a.busy_only())
                 .map(|a| a.calendar.id)
                 .collect();
+            let ids = visible.into_iter().map(|a| a.calendar.id).collect();
             (MIXED_NAME.to_owned(), None, ids)
         }
     };
     // The address for all of someone's calendars also carries what they are invited to from
     // calendars they do not see.
     let invited: Vec<uuid::Uuid> = if mixed {
-        let seen = calendars.iter().copied().collect();
+        // A busy-only calendar does not hide an invitation from it: that event goes out in full.
+        let seen = calendars
+            .iter()
+            .copied()
+            .filter(|c| !busy.contains(c))
+            .collect();
         attendees::invited_events(&state.db, row.user_id, &seen)
             .await?
             .into_iter()
@@ -214,12 +224,12 @@ pub async fn serve_feed(
         .filter(
             sea_orm::Condition::any()
                 .add(calendar_events::Column::CalendarId.is_in(calendars))
-                .add(calendar_events::Column::Id.is_in(invited)),
+                .add(calendar_events::Column::Id.is_in(invited.clone())),
         )
         .order_by_asc(calendar_events::Column::CreatedAt)
         .all(&state.db)
         .await?;
-    let people = invitations::people_of(&state.db, &events).await?;
+    let mut people = invitations::people_of(&state.db, &events).await?;
     let mut by_event: HashMap<Uuid, Vec<exceptions::Model>> = HashMap::new();
     for row in exceptions::Entity::find()
         .filter(exceptions::Column::EventId.is_in(events.iter().map(|e| e.id)))
@@ -235,7 +245,28 @@ pub async fn serve_feed(
             (event, rows)
         })
         .collect();
-    let alarms = reader_alarms(&state.db, row.user_id, &pairs).await?;
+    let reader = crate::entities::users::Entity::find_by_id(row.user_id)
+        .one(&state.db)
+        .await?;
+    let word = super::print_text::busy(crate::auth::mail_text::Locale::parse(
+        reader.as_ref().and_then(|u| u.locale.as_deref()),
+    ));
+    let pairs: Vec<_> = pairs
+        .into_iter()
+        .map(|(event, rows)| {
+            if !busy.contains(&event.calendar_id) || invited.contains(&event.id) {
+                return (event, rows);
+            }
+            people.remove(&event.id);
+            busy_block(event, rows, word)
+        })
+        .collect();
+    let mut alarms = reader_alarms(&state.db, row.user_id, &pairs).await?;
+    alarms.retain(|id, _| {
+        pairs
+            .iter()
+            .any(|(e, _)| e.id == *id && (!busy.contains(&e.calendar_id) || invited.contains(id)))
+    });
     let body = ics::render_with(&name, color.as_deref(), &pairs, &people, None, &alarms);
 
     let now = OffsetDateTime::now_utc();
@@ -255,6 +286,31 @@ pub async fn serve_feed(
         body,
     )
         .into_response())
+}
+
+/// An event as a busy block: its times and its series kept, every word of it (title, place, notes,
+/// the lines an import carried) replaced by `word` or dropped.
+fn busy_block(
+    mut event: calendar_events::Model,
+    rows: Vec<exceptions::Model>,
+    word: &str,
+) -> (calendar_events::Model, Vec<exceptions::Model>) {
+    event.title = word.to_owned();
+    event.location = None;
+    event.description = None;
+    event.ical_extra = serde_json::json!([]);
+    event.channel_id = None;
+    let rows = rows
+        .into_iter()
+        .map(|mut row| {
+            row.title = None;
+            row.location = None;
+            row.description = None;
+            row.ical_extra = serde_json::json!([]);
+            row
+        })
+        .collect();
+    (event, rows)
 }
 
 /// The routes that answer without a session, kept apart so they get the public rate limit.

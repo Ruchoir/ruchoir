@@ -321,8 +321,8 @@ pub fn document(
         json!({
             "slot": e.slot,
             "time": e.time,
-            "title": o.title,
-            "place": o.location.as_deref().filter(|l| !l.trim().is_empty()),
+            "title": if o.busy { words::busy(locale) } else { o.title.as_str() },
+            "place": o.location.as_deref().filter(|l| !l.trim().is_empty() && !o.busy),
             "color": if o.invited { colour(INVITATIONS) } else { colours.get(&o.calendar_id).copied().unwrap_or(colour("accent")) },
         })
     };
@@ -468,6 +468,7 @@ mod tests {
             my_status: None,
             invited: false,
             has_attendees: false,
+            busy: false,
         }
     }
 
@@ -560,6 +561,20 @@ mod tests {
         for page in laid.pages() {
             assert_eq!(images(&page.frame), 1);
         }
+    }
+
+    #[test]
+    fn a_busy_block_prints_as_busy() {
+        let mut block = occurrence("", "2026-10-19T12:00:00Z", "2026-10-19T13:00:00Z", false);
+        block.busy = true;
+        block.location = None;
+        let data = document(
+            &page(PrintView::Day, date!(2026 - 10 - 19)),
+            &[block],
+            &HashMap::new(),
+        );
+        let text = typeset::printed(&typeset::layout(TEMPLATE, &data).expect("laid out"));
+        assert!(text.contains("Occupé"), "{text}");
     }
 
     #[test]

@@ -242,6 +242,18 @@ pub fn all_day(locale: Locale) -> &'static str {
     }
 }
 
+/// "Occupé": a busy block from a calendar shared at the free/busy level, in place of its title.
+pub fn busy(locale: Locale) -> &'static str {
+    match locale {
+        Locale::Fr => "Occupé",
+        Locale::En => "Busy",
+        Locale::Es => "Ocupado",
+        Locale::De => "Beschäftigt",
+        Locale::It => "Occupato",
+        Locale::Pl => "Zajęty",
+    }
+}
+
 /// "Aucun événement": a day or a period with nothing in it.
 pub fn nothing(locale: Locale) -> &'static str {
     match locale {
