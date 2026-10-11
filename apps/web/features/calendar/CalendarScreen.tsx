@@ -167,8 +167,17 @@ export function CalendarScreen({
       return !hidden;
     });
   };
-  const { calendars, occurrences, failed, reload, setCalendars } =
+  const { calendars, occurrences: read, failed, reload, setCalendars } =
     useCalendarData(range, !invitationsHidden);
+  // A busy block says "Busy" where a title would be, and does not open.
+  const busyWord = t("presence.busy");
+  const occurrences = useMemo(
+    () => read?.map((o) => (o.busy ? { ...o, title: busyWord } : o)),
+    [read, busyWord],
+  );
+  const open = useCallback((o: Occurrence) => {
+    if (!o.busy) setOpened(o);
+  }, []);
   const hasInvitations = invitationsHidden || (occurrences ?? []).some((o) => o.invited);
 
   // Once the focused event's day is loaded, open it, once.
@@ -219,6 +228,7 @@ export function CalendarScreen({
       dimmed: !inFilter(o, chipCalendars, filter),
       // An attendee's answer shows; "accepted" (an organiser's too) looks as any event.
       status: o.myStatus,
+      busy: o.busy,
     }),
     [byId, chipCalendars, filter],
   );
@@ -387,7 +397,7 @@ export function CalendarScreen({
           timeZone={timeZone}
           lookOf={lookOf}
           calendarName={calendarName}
-          onOpen={setOpened}
+          onOpen={open}
           onPickDay={(day) => {
             setAnchor(day);
             setView("day");
@@ -406,7 +416,7 @@ export function CalendarScreen({
             timeZone={timeZone}
             lookOf={lookOf}
             calendarName={calendarName}
-            onOpen={setOpened}
+            onOpen={open}
           />
         </div>
       );
@@ -418,7 +428,7 @@ export function CalendarScreen({
         occurrences={occurrences}
         timeZone={timeZone}
         lookOf={lookOf}
-        onOpen={setOpened}
+        onOpen={open}
         onCreateAt={writable.length > 0 ? startDraft : undefined}
         pending={draft && draft.minutes !== undefined ? { day: draft.day, minutes: draft.minutes } : undefined}
         openAt={prefs.openAt}

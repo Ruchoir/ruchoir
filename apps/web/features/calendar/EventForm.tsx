@@ -121,7 +121,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
 
   const [title, setTitle] = useState(occurrence?.title ?? "");
   const [calendarId, setCalendarId] = useState(
-    occurrence?.calendarId ?? draft?.calendarId ?? (writable.find((c) => !c.spaceId) ?? writable[0])?.id ?? "",
+    occurrence?.calendarId ?? draft?.calendarId ?? (writable.find((c) => !c.spaceId && !c.shareLevel) ?? writable[0])?.id ?? "",
   );
   const [allDay, setAllDay] = useState(occurrence?.allDay ?? false);
   const [startDay, setStartDay] = useState(initial.startDay);

@@ -341,7 +341,9 @@ function toAppNotification(
       ? { label: dm.name, isDm: true }
       : n.channelName
         ? { label: `#${n.channelName}`, isDm: false }
-        : { label: "", isDm: true };
+        : n.calendarName
+          ? { label: n.calendarName, isDm: false }
+          : { label: "", isDm: true };
   return {
     id: n.id,
     kind: n.kind as NotifKind,

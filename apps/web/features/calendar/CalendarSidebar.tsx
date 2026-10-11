@@ -207,7 +207,11 @@ export function CalendarSidebar({
     }
   };
 
-  const mine = calendars.filter((c) => !c.spaceId);
+  const mine = calendars.filter((c) => !c.spaceId && !c.shareLevel);
+  // Other people's calendars shared with the viewer, by whose they are.
+  const shared = calendars
+    .filter((c) => c.shareLevel)
+    .sort((a, b) => (a.ownerName ?? "").localeCompare(b.ownerName ?? "") || a.name.localeCompare(b.name));
   const of = (spaceId: string) => calendars.filter((c) => c.spaceId === spaceId);
   const current = spaces.find((s) => s.id === currentSpaceId && of(s.id).length > 0);
   const others = spaces.filter((s) => s.id !== current?.id && of(s.id).length > 0).sort(byName);
@@ -336,6 +340,13 @@ export function CalendarSidebar({
             </div>
           ) : null}
         </section>
+
+        {shared.length > 0 ? (
+          <section style={section}>
+            {heading(t("files.sharedWithMe"))}
+            {shared.map((c) => calendarRow(c, false, c.ownerName))}
+          </section>
+        ) : null}
 
         {current ? (
           <section style={section}>

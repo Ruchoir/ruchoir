@@ -31,7 +31,16 @@ export type Calendar = {
   /** The viewer's own reminders for the whole calendar: `undefined` follows the defaults, empty is
    *  none. */
   myReminders?: number[];
+  /** Someone else's calendar shared with the viewer: how far, and whose. */
+  shareLevel?: ShareLevel;
+  ownerName?: string;
 };
+
+/** How far a personal calendar is shared: busy blocks, its details, or its events too. */
+export type ShareLevel = "freebusy" | "read" | "write";
+
+/** Someone a calendar is shared with. */
+export type Share = { userId: string; name: string; level: ShareLevel };
 
 export type Occurrence = {
   eventId: string;
@@ -57,6 +66,9 @@ export type Occurrence = {
   /** Seen through an invitation alone: its calendar is not the viewer's to see. */
   invited: boolean;
   hasAttendees: boolean;
+  /** A busy block from a calendar shared at the free/busy level: no title, place or notes, and it
+   *  does not open. */
+  busy: boolean;
 };
 
 /** An answer to an invitation. */
@@ -188,6 +200,8 @@ type CalendarDto = {
   can_manage: boolean;
   hidden: boolean;
   my_reminders?: number[];
+  share_level?: ShareLevel;
+  owner_name?: string;
 };
 
 type OccurrenceDto = {
@@ -208,6 +222,7 @@ type OccurrenceDto = {
   my_status?: AttendeeStatus | null;
   invited?: boolean;
   has_attendees?: boolean;
+  busy?: boolean;
 };
 
 type AttendeeDto = { id: string; user_id?: string | null; email?: string | null; name: string; status: AttendeeStatus };
@@ -258,6 +273,7 @@ function toCalendar(dto: CalendarDto): Calendar {
     canManage: dto.can_manage,
     hidden: dto.hidden,
     ...(dto.my_reminders !== undefined ? { myReminders: dto.my_reminders } : {}),
+    ...(dto.share_level ? { shareLevel: dto.share_level, ownerName: dto.owner_name ?? "" } : {}),
   };
 }
 
@@ -280,6 +296,7 @@ function toOccurrence(dto: OccurrenceDto): Occurrence {
     myStatus: opt(dto.my_status),
     invited: dto.invited ?? false,
     hasAttendees: dto.has_attendees ?? false,
+    busy: dto.busy ?? false,
   };
 }
 
@@ -413,6 +430,29 @@ export async function listOccurrences(
   if (calendarIds && calendarIds.length > 0) params.set("calendars", calendarIds.join(","));
   if (!invitations) params.set("invitations", "false");
   return (await apiGet<OccurrenceDto[]>(`/calendar/occurrences?${params}`, signal)).map(toOccurrence);
+}
+
+/** Whom the viewer's calendar is shared with. */
+export async function listShares(calendarId: string, signal?: AbortSignal): Promise<Share[]> {
+  const rows = await apiGet<{ user_id: string; name: string; level: ShareLevel }[]>(`/calendars/${calendarId}/shares`, signal);
+  return rows.map((r) => ({ userId: r.user_id, name: r.name, level: r.level }));
+}
+
+/** Open the viewer's calendar to someone, or change how far. */
+export async function putShare(calendarId: string, userId: string, level: ShareLevel): Promise<void> {
+  await apiPut<void>(`/calendars/${calendarId}/shares/${userId}`, { level });
+}
+
+/** Take a share back. */
+export async function deleteShare(calendarId: string, userId: string): Promise<void> {
+  await apiDelete<void>(`/calendars/${calendarId}/shares/${userId}`);
+}
+
+/** The people the viewer has a space in common with, by name or address. */
+export async function shareCandidates(calendarId: string, query: string, signal?: AbortSignal): Promise<{ userId: string; name: string }[]> {
+  const params = new URLSearchParams({ q: query });
+  const rows = await apiGet<{ user_id: string; name: string }[]>(`/calendars/${calendarId}/share-candidates?${params}`, signal);
+  return rows.map((r) => ({ userId: r.user_id, name: r.name }));
 }
 
 /** Where the PDF of a view is read: the same calendars and invitations as the screen, from the

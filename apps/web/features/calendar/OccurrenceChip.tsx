@@ -18,7 +18,13 @@ export const INVITATIONS_COLOR: CalendarColor = "lime";
 export const HATCHED =
   "repeating-linear-gradient(45deg, var(--surface-sunken) 0 6px, var(--surface-hover) 6px 12px)";
 
-export type ChipLook = { color?: CalendarColor; dimmed: boolean; status?: AttendeeStatus };
+export type ChipLook = {
+  color?: CalendarColor;
+  dimmed: boolean;
+  status?: AttendeeStatus;
+  /** A busy block from a calendar shared at the free/busy level: pale, hatched, in muted ink. */
+  busy?: boolean;
+};
 
 /** The fill, border and ink of an occurrence: its calendar's colour, struck through outside the
  *  filter, and for an invitation the viewer's answer: waiting is outlined in dashes, maybe is
@@ -33,6 +39,13 @@ export function chipStyle(look: ChipLook): CSSProperties {
   }
   const color = colorVar(look.color);
   const pale = `color-mix(in srgb, ${color} 45%, var(--surface-card))`;
+  if (look.busy) {
+    return {
+      background: `repeating-linear-gradient(135deg, ${pale} 0 5px, var(--surface-card) 5px 10px)`,
+      border: `1px solid color-mix(in srgb, ${color} 70%, var(--border-default))`,
+      color: "var(--text-muted)",
+    };
+  }
   switch (look.status) {
     case "needs_action":
       return { background: pale, border: "1.5px dashed var(--on-pastel)", color: "var(--on-pastel)" };

@@ -60,6 +60,7 @@ export function CalendarPicker({
 
   const spaceName = (spaceId?: string) => spaces.find((s) => s.id === spaceId)?.name;
   const label = (c: Calendar) => {
+    if (c.shareLevel) return { main: c.name, sub: c.ownerName };
     const space = spaceName(c.spaceId);
     return { main: c.name, sub: space && space !== c.name ? space : undefined };
   };
@@ -71,9 +72,11 @@ export function CalendarPicker({
       .filter((s) => s.id !== current?.id)
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
     const q = fold(query.trim());
-    const keep = (c: Calendar) => !q || fold(c.name).includes(q) || fold(spaceName(c.spaceId) ?? "").includes(q);
+    const keep = (c: Calendar) =>
+      !q || fold(c.name).includes(q) || fold(spaceName(c.spaceId) ?? "").includes(q) || fold(c.ownerName ?? "").includes(q);
     return [
-      { key: "mine", title: t("calendar.mine"), items: calendars.filter((c) => !c.spaceId) },
+      { key: "mine", title: t("calendar.mine"), items: calendars.filter((c) => !c.spaceId && !c.shareLevel) },
+      { key: "shared", title: t("files.sharedWithMe"), items: calendars.filter((c) => c.shareLevel) },
       ...(current ? [{ key: current.id, title: current.name, items: ofSpace(current) }] : []),
       { key: "others", title: current ? t("calendar.otherSpaces") : t("calendar.mySpaces"), items: others.flatMap(ofSpace) },
     ]

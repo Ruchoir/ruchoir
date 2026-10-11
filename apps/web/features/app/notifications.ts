@@ -21,7 +21,7 @@ import { key, type Translate, type TranslationKey } from "@/lib/i18n";
  * other. `message` is any other message, for someone who asked to hear about every one of them in
  * that conversation (its level, its space's, or their own default).
  */
-export type NotifKind = "mention" | "broadcast" | "reply" | "dm" | "message" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined";
+export type NotifKind = "mention" | "broadcast" | "reply" | "dm" | "message" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
 
 /** Whether a kind is one of an invitation's: the invitation, a change, a cancellation, a refusal. */
 export function isInvitationKind(kind: NotifKind): boolean {
@@ -176,6 +176,7 @@ const KIND_VERB: Record<NotifKind, TranslationKey> = {
   calendar_update: key("notif.invitationUpdate"),
   calendar_cancel: key("notif.invitationCancel"),
   calendar_declined: key("notif.invitationDeclined"),
+  calendar_shared: key("notif.calendarShared"),
 };
 
 /**
@@ -204,7 +205,8 @@ export function passesPref(
   if (!prefs.enabled) return false;
   // A reminder belongs to no conversation: its own switch decides.
   if (n.kind === "calendar_reminder") return prefs.calendarReminders ?? true;
-  if (isInvitationKind(n.kind)) return prefs.calendarInvitations ?? true;
+  // A calendar shared with the reader follows the invitations' switch, as on the server.
+  if (isInvitationKind(n.kind) || n.kind === "calendar_shared") return prefs.calendarInvitations ?? true;
   if (channelPref?.muted) return false;
   const level = effectiveLevel(channelPref, spaceLevel);
   if (level === "none") return false;

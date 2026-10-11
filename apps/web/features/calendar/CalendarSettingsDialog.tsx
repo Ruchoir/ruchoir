@@ -19,6 +19,7 @@ import { useTranslation } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/format";
 import { colorVar } from "./OccurrenceChip";
 import { RemindersField } from "./RemindersField";
+import { SharesSection } from "./SharesSection";
 import { sameReminders } from "./reminders";
 
 const section: CSSProperties = { display: "flex", flexDirection: "column", gap: 10, paddingTop: 14, borderTop: "1px solid var(--border-subtle)" };
@@ -277,13 +278,28 @@ export function CalendarSettingsDialog({
           </>
         ) : null}
 
-        {calendar ? (
+        {calendar?.shareLevel ? (
+          <p style={muted}>
+            {t("calendar.sharedBy", { name: calendar.ownerName ?? "", level: t(`calendar.shareLevel.${calendar.shareLevel}`) })}
+          </p>
+        ) : null}
+
+        {/* Someone else's calendar does not remind its readers: its owner is reminded. */}
+        {calendar && !calendar.shareLevel ? (
           <Field label={t("calendar.myReminder")} hint={t("calendar.myReminderHint")} htmlFor="calendar-my-reminder">
             <RemindersField id="calendar-my-reminder" value={mine} onChange={setMine} allDay={false} inherited={manage ? defaults : calendar.defaultReminders} />
           </Field>
         ) : null}
 
-        {calendar ? (
+        {calendar && manage && !calendar.spaceId ? (
+          <section style={section}>
+            <h3 style={heading}>{t("files.share")}</h3>
+            <SharesSection calendarId={calendar.id} onError={() => onDone("failed")} />
+          </section>
+        ) : null}
+
+        {/* A busy-only share has no address of its own: it rides in "all my calendars". */}
+        {calendar && calendar.shareLevel !== "freebusy" ? (
           <section style={section}>
             <h3 style={heading}>{t("calendar.subscribe")}</h3>
             <FeedsSection calendarId={calendar.id} onError={() => onDone("failed")} />

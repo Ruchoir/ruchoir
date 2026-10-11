@@ -268,7 +268,8 @@
     "invitationCancel": "{{actor}} odwołuje „{{title}}”",
     "invitationDeclined": "{{actor}} odrzuca „{{title}}”",
     "kindInvitations": "Zaproszenia z kalendarza",
-    "kindInvitationsDesc": "Gdy ktoś zaprasza Cię na wydarzenie, gdy się ono zmienia lub zostaje odwołane, i gdy ktoś odrzuca Twoje zaproszenie."
+    "kindInvitationsDesc": "Gdy ktoś zaprasza Cię na wydarzenie, gdy się ono zmienia lub zostaje odwołane, i gdy ktoś odrzuca Twoje zaproszenie.",
+    "calendarShared": "udostępnia Ci kalendarz"
   },
   "switcher": {
     "title": "Przejdź do rozmowy",
@@ -1814,7 +1815,21 @@
     "eventCount_few": "{{count}} wydarzenia",
     "eventCount_many": "{{count}} wydarzeń",
     "eventCount_other": "{{count}} wydarzenia",
-    "print": "Drukuj (PDF)"
+    "print": "Drukuj (PDF)",
+    "shareIntro": "Osobom ze wspólnej przestrzeni. Tylko Ty zarządzasz kalendarzem; zmiana działa od razu.",
+    "shareNobody": "Jeszcze nikomu nie udostępniono.",
+    "shareSearch": "Dodaj osobę (imię lub adres)",
+    "shareNewLevel": "Poziom nowego udostępnienia",
+    "shareLevelOf": "Poziom udostępnienia dla {{name}}",
+    "shareRemove": "Przestań udostępniać {{name}}",
+    "shareNoMatch": "Nikt z Twoich przestrzeni nie pasuje.",
+    "shareAlready": "Już udostępniono",
+    "sharedBy": "Kalendarz {{name}}, udostępniony Ci: {{level}}.",
+    "shareLevel": {
+      "freebusy": "Tylko dostępność",
+      "read": "Widzi szczegóły",
+      "write": "Edytuje wydarzenia"
+    }
   },
   "invitationPage": {
     "title": "Zaproszenie",
