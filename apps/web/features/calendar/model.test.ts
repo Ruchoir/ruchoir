@@ -1,7 +1,7 @@
 // Run with `pnpm --filter @ruchoir/web test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clashes, freeColor, freeSlots, inFilter, layoutDay, localDay, MIN_HEIGHT, movedSeriesStart, occursOn, rangeFor, zonedTime } from "./model.ts";
+import { busyDays, clashes, freeColor, freeSlots, inFilter, layoutDay, localDay, MIN_HEIGHT, movedSeriesStart, occursOn, rangeFor, stepAnchor, zonedTime } from "./model.ts";
 
 const PARIS = "Europe/Paris";
 
@@ -166,4 +166,42 @@ test("a_whole_series_moved_from_a_winter_date_keeps_its_summer_head_at_the_same_
     movedSeriesStart("2026-10-24T07:00:00Z", "2026-11-07T08:00:00Z", "2026-11-07T09:00:00Z", PARIS),
     "2026-10-24T08:00:00.000Z",
   );
+});
+
+test("a_year_is_its_own_twelve_months_in_the_viewers_zone", () => {
+  assert.deepEqual(rangeFor("year", "2026-10-21", PARIS), {
+    from: "2025-12-31T23:00:00.000Z",
+    to: "2026-12-31T23:00:00.000Z",
+  });
+});
+
+test("the_year_view_steps_a_year_at_a_time", () => {
+  assert.equal(stepAnchor("year", "2026-10-21", 1), "2027-01-01");
+  assert.equal(stepAnchor("year", "2026-10-21", -1), "2025-01-01");
+  assert.equal(stepAnchor("month", "2026-10-21", 1), "2026-11-01");
+  assert.equal(stepAnchor("week", "2026-10-21", -1), "2026-10-14");
+  assert.equal(stepAnchor("list", "2026-10-21", 1), "2026-11-20");
+});
+
+test("busy_days_count_each_day_an_event_covers", () => {
+  const counts = busyDays(
+    [
+      { allDay: false, start: "2026-10-20T07:00:00Z", end: "2026-10-20T08:00:00Z" },
+      { allDay: false, start: "2026-10-20T12:00:00Z", end: "2026-10-20T13:00:00Z" },
+      // Late evening in Paris, past midnight in UTC: still the 20th there.
+      { allDay: false, start: "2026-10-20T21:30:00Z", end: "2026-10-20T21:45:00Z" },
+      // Two whole days, the end exclusive.
+      { allDay: true, start: "2026-10-21", end: "2026-10-23" },
+      // Across midnight: both days.
+      { allDay: false, start: "2026-10-24T20:00:00Z", end: "2026-10-25T01:00:00Z" },
+    ],
+    PARIS,
+  );
+  assert.deepEqual(Object.fromEntries(counts), {
+    "2026-10-20": 3,
+    "2026-10-21": 1,
+    "2026-10-22": 1,
+    "2026-10-24": 1,
+    "2026-10-25": 1,
+  });
 });

@@ -44,6 +44,11 @@ export function longDay(day: string): string {
   return capitalized(new Intl.DateTimeFormat(currentLocale(), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(utcNoon(day)));
 }
 
+/** A month's name, as the year view heads it: "Octobre". */
+export function monthName(day: string): string {
+  return capitalized(new Intl.DateTimeFormat(currentLocale(), { month: "long", timeZone: "UTC" }).format(utcNoon(day)));
+}
+
 /** A month's short name, for a date badge: "oct.". */
 export function shortMonth(day: string): string {
   return new Intl.DateTimeFormat(currentLocale(), { month: "short", timeZone: "UTC" }).format(utcNoon(day));
@@ -70,6 +75,7 @@ export function weekdayInitials(weekStart = 1): string[] {
 /** What a view's title says: "octobre 2026", or a day for the day view. */
 export function periodTitle(view: View, anchor: string): string {
   if (view === "day") return longDay(anchor);
+  if (view === "year") return anchor.slice(0, 4);
   return capitalized(new Intl.DateTimeFormat(currentLocale(), { month: "long", year: "numeric", timeZone: "UTC" }).format(utcNoon(anchor)));
 }
 

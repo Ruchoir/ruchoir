@@ -27,12 +27,14 @@ import {
   inFilter,
   localDay,
   rangeFor,
+  stepAnchor,
   weekOffset,
   type Filter,
   type View,
 } from "./model";
 import { MiniMonth } from "./MiniMonth";
 import { MonthView } from "./MonthView";
+import { YearView } from "./YearView";
 import { INVITATIONS_COLOR, type ChipLook } from "./OccurrenceChip";
 import { rowWeek, weekDays } from "./prefs";
 import { TimeGrid } from "./TimeGrid";
@@ -238,18 +240,7 @@ export function CalendarScreen({
     (calendars ?? []).some((c) => c.spaceId === s.id),
   );
 
-  const step = (direction: 1 | -1) => {
-    if (view === "day") setAnchor((a) => addDays(a, direction));
-    else if (view === "week") setAnchor((a) => addDays(a, 7 * direction));
-    else if (view === "list") setAnchor((a) => addDays(a, 30 * direction));
-    else {
-      const [y, m] = anchor.split("-").map(Number);
-      const next = new Date(Date.UTC(y, m - 1 + direction, 1));
-      setAnchor(
-        `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-01`,
-      );
-    }
-  };
+  const step = (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction));
 
   const toggleMany = (many: Calendar[], hidden: boolean) => {
     const ids = new Set(many.map((c) => c.id));
@@ -310,8 +301,8 @@ export function CalendarScreen({
 
   const viewTabs = (
     compact
-      ? (["list", "day", "month"] as const)
-      : (["month", "week", "day", "list"] as const)
+      ? (["list", "day", "month", "year"] as const)
+      : (["year", "month", "week", "day", "list"] as const)
   ).map((v) => ({
     value: v,
     label: t(`calendar.view.${v}`),
@@ -344,6 +335,26 @@ export function CalendarScreen({
         >
           {failed ? t("calendar.loadFailed") : t("calendar.loading")}
         </p>
+      );
+    }
+    if (view === "year") {
+      return (
+        <YearView
+          year={Number(anchor.slice(0, 4))}
+          anchor={anchor}
+          today={today}
+          weekStart={prefs.weekStart}
+          occurrences={occurrences.filter((o) => inFilter(o, chipCalendars, filter))}
+          timeZone={timeZone}
+          onPickDay={(day) => {
+            setAnchor(day);
+            setView("day");
+          }}
+          onPickMonth={(first) => {
+            setAnchor(first);
+            setView("month");
+          }}
+        />
       );
     }
     if (view === "month") {
