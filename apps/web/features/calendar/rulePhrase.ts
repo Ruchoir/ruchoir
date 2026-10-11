@@ -40,7 +40,17 @@ function utcDate(day: string): Date {
 }
 
 /** Say `form` for an event starting on `start` (`YYYY-MM-DD`). */
+/** Polish says "we" for "in" before a word starting with w or f and another consonant ("we wtorek"),
+ *  which no dictionary entry can know ahead of the day it is put before. */
+function polish(text: string, locale: string): string {
+  return locale.startsWith("pl") ? text.replace(/\b([Ww]) (?=[wWfF][^aeiouyąęóAEIOUYĄĘÓ\s])/g, "$1e ") : text;
+}
+
 export function rulePhrase(form: RuleForm, start: string, locale: string, t: Translate): string {
+  return polish(phraseOf(form, start, locale, t), locale);
+}
+
+function phraseOf(form: RuleForm, start: string, locale: string, t: Translate): string {
   const count = form.interval;
   const dayName = (code: Weekday) => t(DAY_KEYS[code]);
   let rule: string;

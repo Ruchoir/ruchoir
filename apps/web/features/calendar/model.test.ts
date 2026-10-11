@@ -1,7 +1,7 @@
 // Run with `pnpm --filter @ruchoir/web test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clashes, freeColor, freeSlots, inFilter, layoutDay, localDay, MIN_HEIGHT, occursOn, rangeFor, zonedTime } from "./model.ts";
+import { clashes, freeColor, freeSlots, inFilter, layoutDay, localDay, MIN_HEIGHT, movedSeriesStart, occursOn, rangeFor, zonedTime } from "./model.ts";
 
 const PARIS = "Europe/Paris";
 
@@ -152,4 +152,18 @@ test("a_commitment_is_never_struck_through_by_the_filter", () => {
   assert.equal(inFilter({ calendarId: "velo", myStatus: "declined" }, calendars, space), false);
   // Seen through an invitation alone, from a calendar the viewer does not see.
   assert.equal(inFilter({ calendarId: "someone", invited: true, myStatus: "tentative" }, calendars, space), true);
+});
+
+test("a_whole_series_moved_from_a_winter_date_keeps_its_summer_head_at_the_same_wall_time", () => {
+  // Series every Saturday at 9:00 Paris from 24 October (summer). The occurrence of 7 November
+  // (winter, 08:00Z) is moved a week later at 9:00: the head moves a week, still at 9:00.
+  assert.equal(
+    movedSeriesStart("2026-10-24T07:00:00Z", "2026-11-07T08:00:00Z", "2026-11-14T08:00:00Z", PARIS),
+    "2026-10-31T08:00:00.000Z",
+  );
+  // An hour later on the same day: the head an hour later too, in its own season.
+  assert.equal(
+    movedSeriesStart("2026-10-24T07:00:00Z", "2026-11-07T08:00:00Z", "2026-11-07T09:00:00Z", PARIS),
+    "2026-10-24T08:00:00.000Z",
+  );
 });

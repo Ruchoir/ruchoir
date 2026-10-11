@@ -257,6 +257,51 @@ pub async fn serve_feed(
 }
 
 /// The routes that answer without a session, kept apart so they get the public rate limit.
+/// What the subscription addresses are rate limited by: the subscription itself, not the address it
+/// is read from. An office behind one address holds dozens of phones polling their own feeds, and
+/// they were all held to one person's share. Guessing is not what this guards against: a token is
+/// 256 random bits.
+#[derive(Clone, Copy)]
+pub struct FeedKey;
+
+impl tower_governor::key_extractor::KeyExtractor for FeedKey {
+    type Key = String;
+
+    fn extract<T>(
+        &self,
+        req: &axum::http::Request<T>,
+    ) -> Result<Self::Key, tower_governor::GovernorError> {
+        Ok(req.uri().path().to_owned())
+    }
+}
+
 pub fn public_router() -> Router<AppState> {
     Router::new().route("/api/v1/public/ical/{file}", get(serve_feed))
+}
+
+#[cfg(test)]
+mod key_tests {
+    use super::*;
+    use tower_governor::key_extractor::KeyExtractor;
+
+    fn request(path: &str) -> axum::http::Request<()> {
+        axum::http::Request::builder()
+            .uri(path)
+            .header("x-forwarded-for", "203.0.113.7")
+            .body(())
+            .unwrap()
+    }
+
+    #[test]
+    fn two_subscriptions_behind_one_address_are_limited_apart() {
+        let key = |path| FeedKey.extract(&request(path)).unwrap();
+        assert_ne!(
+            key("/api/v1/public/ical/aaaa.ics"),
+            key("/api/v1/public/ical/bbbb.ics")
+        );
+        assert_eq!(
+            key("/api/v1/public/ical/aaaa.ics"),
+            key("/api/v1/public/ical/aaaa.ics?x=1")
+        );
+    }
 }

@@ -267,9 +267,18 @@ pub fn router(state: AppState) -> Router {
     );
     let public_links =
         crate::files::links::public_router().layer(GovernorLayer::new(links_governor.clone()));
-    // Calendar subscriptions answer without a session too: a guessed token is limited the same way.
+    // Calendar subscriptions answer without a session too, and are limited each on its own: see
+    // `FeedKey`.
+    let feeds_governor = Arc::new(
+        GovernorConfigBuilder::default()
+            .key_extractor(crate::calendar::feeds::FeedKey)
+            .period(Duration::from_millis(state.config.auth_rate_period_ms))
+            .burst_size(state.config.auth_rate_burst)
+            .finish()
+            .expect("valid rate-limit configuration"),
+    );
     let public_feeds =
-        crate::calendar::feeds::public_router().layer(GovernorLayer::new(links_governor.clone()));
+        crate::calendar::feeds::public_router().layer(GovernorLayer::new(feeds_governor));
     // So does the page someone invited by address answers on.
     let public_invitations =
         crate::calendar::invitation_page::public_router().layer(GovernorLayer::new(links_governor));

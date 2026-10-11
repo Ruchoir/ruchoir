@@ -19,7 +19,7 @@ import { useSettings } from "@/features/app/settings";
 import { useTranslation } from "@/lib/i18n";
 import { currentLocale } from "@/lib/i18n/current";
 import { clock, shortDay } from "./format";
-import { addDays, clashes, freeSlots, localDay, localMinutes, zonedTime } from "./model";
+import { addDays, clashes, freeSlots, localDay, localMinutes, movedSeriesStart, zonedTime } from "./model";
 import { RecurrenceEditor } from "./RecurrenceEditor";
 import { reminderOptions, reminderValue } from "./reminders";
 import { AttendeesField, type DraftAttendee } from "./AttendeesField";
@@ -28,7 +28,7 @@ import { CalendarPicker } from "./CalendarPicker";
 import { ChannelField } from "./ChannelField";
 import { DrivePicker } from "./DrivePicker";
 import { FilesField, MAX_EVENT_FILES } from "./FilesField";
-import { buildRule, formFor, parseRule, presetOf, presetRule, type Preset, type RuleForm } from "./rule";
+import { buildRule, formFor, parseRule, presetOf, presetRule, withStartDay, type Preset, type RuleForm } from "./rule";
 import { rulePhrase } from "./rulePhrase";
 import { SeriesScopeDialog } from "./SeriesScopeDialog";
 
@@ -210,7 +210,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
 
   const rule = (): string | null => {
     if (!ruleTouched || preset === "imported") return originalRule;
-    if (preset === "custom") return buildRule(custom, allDay, endOfDay);
+    if (preset === "custom") return buildRule(custom, allDay, endOfDay, startDay);
     return presetRule(preset, startDay);
   };
 
@@ -270,9 +270,10 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
             const start = addDays(event.start, shift);
             whole = { ...whole, start, end: addDays(start, length) };
           } else if (!body.allDay && !event.allDay) {
-            const shift = Date.parse(body.start) - Date.parse(occurrence.start);
+            // By the same change of wall clock, not the same duration: across a change of clock a
+            // duration lands an hour off.
             const length = Date.parse(body.end) - Date.parse(body.start);
-            const start = new Date(Date.parse(event.start) + shift).toISOString();
+            const start = movedSeriesStart(event.start, occurrence.start, body.start, body.tzid ?? tz);
             whole = { ...whole, start, end: new Date(Date.parse(start) + length).toISOString() };
           }
         }
@@ -564,7 +565,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
       />
       {preset === "custom" ? (
         <Button type="button" size="sm" variant="ghost" iconLeft="square-pen" onClick={() => setPanel("rule")} style={{ whiteSpace: "normal", height: "auto", textAlign: "left" }}>
-          {rulePhrase(custom, startDay, currentLocale(), (k, v) => t(k as Parameters<typeof t>[0], v))}
+          {rulePhrase(withStartDay(custom, startDay), startDay, currentLocale(), (k, v) => t(k as Parameters<typeof t>[0], v))}
         </Button>
       ) : null}
     </>

@@ -59,3 +59,12 @@ test("presets are the screen's quick choices", () => {
   assert.equal(presetOf("FREQ=WEEKLY;BYDAY=MO", start), "custom");
   assert.equal(presetOf("FREQ=MONTHLY;BYDAY=2TH", start), "custom");
 });
+
+test("a_weekly_rule_always_holds_the_day_its_series_starts_on", () => {
+  // Starts on Monday 5 October, asked for Tuesdays and Thursdays: Monday stays in, or the first date
+  // would be one other calendars count and this one does not.
+  const form = parseRule("FREQ=WEEKLY;BYDAY=TU,TH")!;
+  assert.equal(buildRule(form, false, parisEnd, "2026-10-05"), "FREQ=WEEKLY;BYDAY=MO,TU,TH");
+  // Already in: written as it is.
+  assert.equal(buildRule(parseRule("FREQ=WEEKLY;BYDAY=MO,WE")!, false, parisEnd, "2026-10-05"), "FREQ=WEEKLY;BYDAY=MO,WE");
+});

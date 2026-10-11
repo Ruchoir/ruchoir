@@ -1653,7 +1653,8 @@
     "driveOf": "Space's Drive",
     "searchFiles": "Search for a file",
     "filesFound": "Results",
-    "driveRoot": "Drive root"
+    "driveRoot": "Drive root",
+    "startDayKept": "The day the series starts on is always part of it."
   },
   "invitationPage": {
     "title": "Invitation",
