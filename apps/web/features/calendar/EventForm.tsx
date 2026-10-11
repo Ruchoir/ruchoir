@@ -590,7 +590,6 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
     />
   );
 
-
   const placeInput = (
     <Input id="event-location" size="sm" style={{ width: "100%" }} value={location} onChange={(e) => setLocation(e.target.value)} maxLength={500} placeholder={t("calendar.addLocation")} aria-label={t("calendar.location")} />
   );
