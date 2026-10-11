@@ -85,3 +85,27 @@ async fn a_rule_that_cannot_be_read_does_not_stop_the_others_reminders() {
         .expect("the sweep goes on");
     assert_eq!(reminded(&report, &good), vec![fx.alice]);
 }
+
+#[tokio::test]
+async fn a_january_event_is_covered_by_the_zone_the_feed_describes() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let general = space_default(&app, &alice, fx.space_id).await;
+    let created = create_event(
+        &app,
+        &alice,
+        &general["id"],
+        json!({ "title": "Voeux", "all_day": false, "start": "2027-01-12T10:00:00Z",
+                "end": "2027-01-12T11:00:00Z", "tzid": "Europe/Paris" }),
+    )
+    .await;
+    assert_eq!(created.status(), 201);
+    let (_, path) = subscribe(&app, &alice, general["id"].clone()).await;
+    let (_, text) = fetch_feed(&app, &path).await;
+    // In force on 12 January: winter time, which started the October before.
+    assert!(
+        text.contains("BEGIN:STANDARD\r\nDTSTART:20261025T030000"),
+        "{text}"
+    );
+}

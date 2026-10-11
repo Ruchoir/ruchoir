@@ -264,7 +264,9 @@ pub fn render_with(
     let mut text = calendar.done().to_string();
     let blocks: String = zones
         .iter()
-        .filter_map(|(tz, year)| recurrence::vtimezone(tz, *year))
+        // From the year before the earliest event: an event in January falls under the change of
+        // clock of the October before, which a description starting in its own year leaves out.
+        .filter_map(|(tz, year)| recurrence::vtimezone(tz, *year - 1))
         .collect();
     if !blocks.is_empty() {
         let at = text
