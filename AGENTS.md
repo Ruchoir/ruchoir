@@ -71,6 +71,11 @@ Web interface only for now. The core is open source under **AGPLv3**.
   MIT/Apache-2.0; its `parser` feature brings `nom-language`, by `nom`'s author Geoffroy Couprie,
   France, MIT), `chrono` and `chrono-tz` (community chronotope project; MIT/Apache-2.0). `chrono` is
   what `rrule` speaks and does not leave the calendar module: the rest of the API uses `time`.
+  Printing (`apps/api/src/calendar/typeset.rs`) uses the **Typst** compiler as a library (`typst`,
+  `typst-pdf`, `typst-layout`; Typst GmbH, Berlin, Germany; Apache-2.0), with IBM Plex Sans
+  embedded from `apps/api/assets/fonts/` (the complete face, OFL, so Polish prints too). Nothing is
+  read from the disk or the network while typesetting, and what a person typed reaches the template
+  as JSON data (`json("data.json")`), never as markup.
 - **Containerization:** Docker + `docker compose` (all-in-one deployment).
 
 ## Pinned versions
@@ -116,6 +121,7 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | Euro-Office documentserver (optional `office` profile) | v9.3.4-hotfix.1 | `docker-compose.yml` (`OFFICE_IMAGE_TAG`) |
 | hyper-util / http-body-util (office relay client) | 0.1 / 0.1 | `apps/api/Cargo.toml` |
 | tokio-tungstenite (office relay socket) | 0.29 | `apps/api/Cargo.toml` |
+| typst / typst-pdf / typst-layout (calendar printing) | 0.15.1 | `apps/api/Cargo.toml` |
 
 ## Languages
 

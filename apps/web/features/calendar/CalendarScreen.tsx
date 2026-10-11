@@ -8,9 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button, Dialog, Icon, IconButton, Tabs } from "@/components/ds";
+import { Button, Dialog, Icon, IconButton, IconLink, Tabs } from "@/components/ds";
 import {
   getEvent,
+  printUrl,
   setCalendarMe,
   type Calendar,
   type Occurrence,
@@ -18,6 +19,7 @@ import {
 import { useTranslation } from "@/lib/i18n";
 import { CalendarOverlays, type SettingsTarget } from "./CalendarOverlays";
 import { CalendarSidebar, ScopeSwitch, SpacePicker } from "./CalendarSidebar";
+import { CalendarSearchDialog } from "./EventSearch";
 import { useSettings } from "@/features/app/settings";
 import { periodTitle, setClockFormat } from "./format";
 import { ListView } from "./ListView";
@@ -26,12 +28,14 @@ import {
   inFilter,
   localDay,
   rangeFor,
+  stepAnchor,
   weekOffset,
   type Filter,
   type View,
 } from "./model";
 import { MiniMonth } from "./MiniMonth";
 import { MonthView } from "./MonthView";
+import { YearView } from "./YearView";
 import { INVITATIONS_COLOR, type ChipLook } from "./OccurrenceChip";
 import { rowWeek, weekDays } from "./prefs";
 import { TimeGrid } from "./TimeGrid";
@@ -140,6 +144,7 @@ export function CalendarScreen({
   const [settings, setSettings] = useState<SettingsTarget | null>(null);
   // The phone's panel listing the calendars.
   const [listOpen, setListOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
 
   const range = useMemo(
     () => rangeFor(view, anchor, timeZone, prefs.weekStart),
@@ -236,18 +241,7 @@ export function CalendarScreen({
     (calendars ?? []).some((c) => c.spaceId === s.id),
   );
 
-  const step = (direction: 1 | -1) => {
-    if (view === "day") setAnchor((a) => addDays(a, direction));
-    else if (view === "week") setAnchor((a) => addDays(a, 7 * direction));
-    else if (view === "list") setAnchor((a) => addDays(a, 30 * direction));
-    else {
-      const [y, m] = anchor.split("-").map(Number);
-      const next = new Date(Date.UTC(y, m - 1 + direction, 1));
-      setAnchor(
-        `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-01`,
-      );
-    }
-  };
+  const step = (direction: 1 | -1) => setAnchor((a) => stepAnchor(view, a, direction));
 
   const toggleMany = (many: Calendar[], hidden: boolean) => {
     const ids = new Set(many.map((c) => c.id));
@@ -297,6 +291,25 @@ export function CalendarScreen({
   };
   // The space listed first in the column: the one the screen was opened from, else the one filtered.
   const currentSpaceId = spaceId ?? (filter.kind === "space" ? filter.spaceId : undefined);
+  const searchButton = (
+    <IconButton icon="search" size={compact ? "lg" : "md"} label={t("calendar.searchEvents")} onClick={() => setSearching(true)} />
+  );
+  // The view as a PDF: what the screen shows, the same calendars and invitations.
+  const printButton = (
+    <IconLink
+      icon="printer"
+      size={compact ? "lg" : "md"}
+      label={t("calendar.print")}
+      download
+      href={printUrl(
+        view,
+        anchor,
+        (calendars ?? []).filter((c) => !c.hidden).map((c) => c.id),
+        !invitationsHidden,
+        prefs.weekStart,
+      )}
+    />
+  );
   const filterControl = spaceId ? (
     <ScopeSwitch spaceId={spaceId} filter={filter} onFilter={setFilter} />
   ) : (
@@ -305,8 +318,8 @@ export function CalendarScreen({
 
   const viewTabs = (
     compact
-      ? (["list", "day", "month"] as const)
-      : (["month", "week", "day", "list"] as const)
+      ? (["list", "day", "month", "year"] as const)
+      : (["year", "month", "week", "day", "list"] as const)
   ).map((v) => ({
     value: v,
     label: t(`calendar.view.${v}`),
@@ -339,6 +352,26 @@ export function CalendarScreen({
         >
           {failed ? t("calendar.loadFailed") : t("calendar.loading")}
         </p>
+      );
+    }
+    if (view === "year") {
+      return (
+        <YearView
+          year={Number(anchor.slice(0, 4))}
+          anchor={anchor}
+          today={today}
+          weekStart={prefs.weekStart}
+          occurrences={occurrences.filter((o) => inFilter(o, chipCalendars, filter))}
+          timeZone={timeZone}
+          onPickDay={(day) => {
+            setAnchor(day);
+            setView("day");
+          }}
+          onPickMonth={(first) => {
+            setAnchor(first);
+            setView("month");
+          }}
+        />
       );
     }
     if (view === "month") {
@@ -426,9 +459,13 @@ export function CalendarScreen({
                   iconLeft="arrow-left"
                   onClick={onLeave}
                   aria-label={t("calendar.backTo", { name: leaveLabel ?? "" })}
+                  style={{ minWidth: 0 }}
                 >
                   {leaveLabel}
                 </Button>
+                <div style={{ flex: 1 }} />
+                {searchButton}
+                {printButton}
               </div>
             ) : null}
             <div
@@ -530,6 +567,8 @@ export function CalendarScreen({
               onClick={() => setListOpen(true)}
             />
           ) : null}
+          {compact ? searchButton : null}
+          {compact ? printButton : null}
           <h2
             style={{
               margin: 0,
@@ -552,6 +591,9 @@ export function CalendarScreen({
           {!compact ? (
             <>
               <div style={{ flex: 1 }} />
+              {/* With a column heading, they sit there and leave the bar its room. */}
+              {onLeave ? null : searchButton}
+              {onLeave ? null : printButton}
               {filterControl}
               <Tabs
                 variant="pills"
@@ -668,6 +710,18 @@ export function CalendarScreen({
               }
             />
           </Dialog>
+        ) : null}
+        {searching ? (
+          <CalendarSearchDialog
+            timeZone={timeZone}
+            colorOf={(id) => calendars?.find((c) => c.id === id)?.color}
+            onClose={() => setSearching(false)}
+            onOpen={(occurrence) => {
+              setSearching(false);
+              setAnchor(occurrence.allDay ? occurrence.start : localDay(occurrence.start, timeZone));
+              setOpened(occurrence);
+            }}
+          />
         ) : null}
         {calendars ? (
           <CalendarOverlays

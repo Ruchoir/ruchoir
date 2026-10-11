@@ -9,6 +9,8 @@ import { messageSummary } from "./activity";
 import { useTranslation } from "@/lib/i18n";
 import { formatStamp } from "@/lib/i18n/format";
 import { useTouch } from "./useLayout";
+import { EventHitRow, useEventSearch } from "@/features/calendar/EventSearch";
+import type { Occurrence } from "@/lib/data/calendar";
 
 const styles: Record<string, CSSProperties> = {
   label: {
@@ -41,9 +43,14 @@ export type GlobalSearchDialogProps = {
   onOpenMessage: (channelId: string, messageId: string) => void;
   onOpenFile: () => void;
   onOpenProfile: (name: string) => void;
+  /** Open an event at its date in the calendar. */
+  onOpenEvent: (occurrence: Occurrence) => void;
+  /** The viewer's time zone, the one their events are drawn in. */
+  timeZone: string;
 };
 
-/** Workspace-wide search across messages, files (API) and people (local directory). */
+/** Workspace-wide search across messages, events, files (API) and people (local directory). Events
+ *  are every one the viewer sees, in any space. */
 export function GlobalSearchDialog({
   spaceId,
   people,
@@ -51,6 +58,8 @@ export function GlobalSearchDialog({
   onOpenMessage,
   onOpenFile,
   onOpenProfile,
+  onOpenEvent,
+  timeZone,
 }: GlobalSearchDialogProps) {
   const { t } = useTranslation();
   const touch = useTouch();
@@ -61,6 +70,8 @@ export function GlobalSearchDialog({
   const [loading, setLoading] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const q = query.trim();
+  const events = useEventSearch(query);
+  const eventHits = events.hits.slice(0, 6);
 
   // Debounced API search; a new keystroke cancels the in-flight request. Resetting results and the
   // loading flag as the query changes is the intended synchronization here.
@@ -97,20 +108,22 @@ export function GlobalSearchDialog({
     () => (q ? people.filter((p) => p.name.toLowerCase().includes(q.toLowerCase())).slice(0, 6) : []),
     [q, people],
   );
-  const total = msgHits.length + fileHits.length + peopleHits.length;
+  const total = msgHits.length + eventHits.length + fileHits.length + peopleHits.length;
 
-  // Flat list of open actions, in display order (messages, then files, then people), so the arrow
+  // Flat list of open actions, in display order (messages, events, files, people), so the arrow
   // keys move across every group. The group offsets below map a row back to its global index.
   const actions = useMemo<(() => void)[]>(
     () => [
       ...msgHits.map((m) => () => onOpenMessage(m.conversationId, m.id)),
+      ...eventHits.map((o) => () => onOpenEvent(o)),
       ...fileHits.map(() => onOpenFile),
       ...peopleHits.map((p) => () => onOpenProfile(p.name)),
     ],
-    [msgHits, fileHits, peopleHits, onOpenMessage, onOpenFile, onOpenProfile],
+    [msgHits, eventHits, fileHits, peopleHits, onOpenMessage, onOpenEvent, onOpenFile, onOpenProfile],
   );
-  const fileStart = msgHits.length;
-  const peopleStart = msgHits.length + fileHits.length;
+  const eventStart = msgHits.length;
+  const fileStart = eventStart + eventHits.length;
+  const peopleStart = fileStart + fileHits.length;
 
   const rowStyle = (idx: number): CSSProperties => ({
     ...styles.row,
@@ -172,7 +185,7 @@ export function GlobalSearchDialog({
             icon="search"
             description={t("gsearch.prompt")}
           />
-        ) : total === 0 && loading ? (
+        ) : total === 0 && (loading || events.loading) ? (
           <SkeletonGroup label={t("search.querying")} style={{ padding: "6px 12px" }}>
             {[0.7, 0.5, 0.6].map((width, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0" }}>
@@ -226,6 +239,23 @@ export function GlobalSearchDialog({
                       </span>
                     </span>
                   </button>
+                ))}
+              </>
+            ) : null}
+
+            {eventHits.length > 0 ? (
+              <>
+                <div style={styles.label}>{t("import.events")}</div>
+                {eventHits.map((o, i) => (
+                  <EventHitRow
+                    key={`${o.eventId}:${o.recurrenceId ?? ""}`}
+                    occurrence={o}
+                    timeZone={timeZone}
+                    selected={eventStart + i === active}
+                    idx={eventStart + i}
+                    onSelect={() => setActive(eventStart + i)}
+                    onOpen={() => onOpenEvent(o)}
+                  />
                 ))}
               </>
             ) : null}

@@ -6,7 +6,7 @@
  */
 
 import { currentLocale } from "@/lib/i18n/current";
-import type { View } from "./model";
+import { localDay, type View } from "./model";
 
 /** The first letter in capitals, as a heading starts: "Lundi 5 octobre", not "Lundi 5 Octobre". */
 export function capitalized(text: string): string {
@@ -44,6 +44,11 @@ export function longDay(day: string): string {
   return capitalized(new Intl.DateTimeFormat(currentLocale(), { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(utcNoon(day)));
 }
 
+/** A month's name, as the year view heads it: "Octobre". */
+export function monthName(day: string): string {
+  return capitalized(new Intl.DateTimeFormat(currentLocale(), { month: "long", timeZone: "UTC" }).format(utcNoon(day)));
+}
+
 /** A month's short name, for a date badge: "oct.". */
 export function shortMonth(day: string): string {
   return new Intl.DateTimeFormat(currentLocale(), { month: "short", timeZone: "UTC" }).format(utcNoon(day));
@@ -70,5 +75,15 @@ export function weekdayInitials(weekStart = 1): string[] {
 /** What a view's title says: "octobre 2026", or a day for the day view. */
 export function periodTitle(view: View, anchor: string): string {
   if (view === "day") return longDay(anchor);
+  if (view === "year") return anchor.slice(0, 4);
   return capitalized(new Intl.DateTimeFormat(currentLocale(), { month: "long", year: "numeric", timeZone: "UTC" }).format(utcNoon(anchor)));
+}
+
+/** When a found occurrence happens, in a line: "mer. 14 oct., 10:00", with its year when it is not
+ *  this one ("lun. 20 janv. 2020"). */
+export function foundWhen(occurrence: { start: string; allDay: boolean }, timeZone: string, today: string): string {
+  const day = occurrence.allDay ? occurrence.start : localDay(occurrence.start, timeZone);
+  const year = day.slice(0, 4) === today.slice(0, 4) ? {} : { year: "numeric" as const };
+  const date = new Intl.DateTimeFormat(currentLocale(), { weekday: "short", day: "numeric", month: "short", timeZone: "UTC", ...year }).format(utcNoon(day));
+  return occurrence.allDay ? date : `${date}, ${clock(occurrence.start, timeZone)}`;
 }

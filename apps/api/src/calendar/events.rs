@@ -67,7 +67,7 @@ pub(crate) fn when_of(event: &calendar_events::Model) -> When {
 }
 
 /// When an exception moved its occurrence to, if it did.
-fn exception_when(row: &exceptions::Model) -> Option<When> {
+pub(crate) fn exception_when(row: &exceptions::Model) -> Option<When> {
     match (row.start_at, row.end_at, row.start_date, row.end_date) {
         (Some(start), Some(end), _, _) => Some(When::Timed { start, end }),
         (_, _, Some(start), Some(end)) => Some(When::AllDay { start, end }),

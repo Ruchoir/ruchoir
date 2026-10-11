@@ -150,6 +150,24 @@ event body; `channel` and `files` on an event; `event` on a message;
   (without refusing) when the event overlaps another one, in any calendar the viewer sees.
 - **The theme's accent** marks what is chosen: the view, the filter, today, and what the small month
   shows (a faint band for the week on screen, a faint pill for a single day).
+- **The year** shows twelve small months: a dot on a day with events, a filled mark beyond three,
+  today in red. A day opens the day view, a month's name the month view; on a phone it opens on the
+  current month.
+- **Searching** (the magnifier in the bar, and the "Events" section of the global search, Ctrl+K):
+  `GET /api/v1/calendar/search?q=` reads the title, place and notes of every event the viewer sees
+  (their calendars, their spaces', their invitations), its guests' names and addresses, and the dates
+  of a series changed alone, case and accents aside; `%` and `_` are looked for as typed. Each event
+  comes once: the coming ones on their next date, soonest first, then the past ones on their last,
+  latest first (a series found by one changed date comes on that date); fifty at most. A result
+  opens the event at its date.
+- **Printing** (the printer in the bar): `GET /api/v1/calendar/print?view=&date=` turns the view on
+  screen into an A4 PDF (landscape for a week, a month or a year), with the same calendars and
+  invitations, in the reader's time zone, language and first day of the week, in the calendars'
+  colours, with the Ruchoir mark on each page. The week prints as seven columns, the month as its
+  grid (four events a day, then "+N more"), the year as twelve small months. A declined invitation
+  is left off. It is typeset inside the API by Typst (`calendar/typeset.rs`, template
+  `apps/api/assets/print/calendar.typ`), with IBM Plex Sans embedded; what people typed reaches the
+  template as JSON data, never as markup.
 - **Preferences > Calendar** (kept on the device, like the other preferences, in
   `features/calendar/prefs.ts`): the view it opens on (computer and phone apart), the first day of the
   week, the clock (as the language writes it, 24 or 12 hours), the weekend in the week view, week
@@ -182,4 +200,4 @@ limits. The format and the rules are in
 
 ## Limits of this first lot
 
-Not yet: sharing a personal calendar, a year view, printing, searching events, and two-way sync with other calendars (CalDAV).
+Not yet: sharing a personal calendar, and two-way sync with other calendars (CalDAV).

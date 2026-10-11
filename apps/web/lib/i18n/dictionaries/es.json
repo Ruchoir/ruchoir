@@ -1488,7 +1488,8 @@
       "month": "Mes",
       "week": "Semana",
       "day": "Día",
-      "list": "Lista"
+      "list": "Lista",
+      "year": "Año"
     },
     "more_one": "+{{count}} más",
     "more_many": "+{{count}} más",
@@ -1739,7 +1740,14 @@
       "days": "días antes",
       "weeks": "semanas antes"
     },
-    "reminderDaysAt9Unit": "días antes, a las 9:00"
+    "reminderDaysAt9Unit": "días antes, a las 9:00",
+    "searchEvents": "Buscar en el calendario",
+    "searchEventsPlaceholder": "Título, lugar, notas, invitado…",
+    "searchEventsPrompt": "Todos los eventos que ves, pasados y futuros.",
+    "eventCount_one": "{{count}} evento",
+    "eventCount_many": "{{count}} eventos",
+    "eventCount_other": "{{count}} eventos",
+    "print": "Imprimir (PDF)"
   },
   "invitationPage": {
     "title": "Invitación",

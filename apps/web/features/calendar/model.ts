@@ -14,7 +14,7 @@
 export type Filter = { kind: "all" } | { kind: "space"; spaceId: string };
 
 /** The views of the screen. */
-export type View = "month" | "week" | "day" | "list";
+export type View = "year" | "month" | "week" | "day" | "list";
 
 const DAY_MS = 86_400_000;
 
@@ -121,8 +121,23 @@ export function rangeFor(view: View, anchor: string, tz: string, weekStart = 1):
     days = 42;
   } else if (view === "list") {
     days = 30;
+  } else if (view === "year") {
+    const year = Number(anchor.slice(0, 4));
+    return { from: zonedTime(`${year}-01-01`, 0, tz), to: zonedTime(`${year + 1}-01-01`, 0, tz) };
   }
   return { from: zonedTime(first, 0, tz), to: zonedTime(addDays(first, days), 0, tz) };
+}
+
+/** The day a view shows next (`direction` 1) or before (-1): a day, a week, 30 days, the first of
+ *  the next month or of the next year. */
+export function stepAnchor(view: View, anchor: string, direction: 1 | -1): string {
+  if (view === "day") return addDays(anchor, direction);
+  if (view === "week") return addDays(anchor, 7 * direction);
+  if (view === "list") return addDays(anchor, 30 * direction);
+  const [y, m] = anchor.split("-").map(Number);
+  if (view === "year") return `${y + direction}-01-01`;
+  const next = new Date(Date.UTC(y, m - 1 + direction, 1));
+  return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-01`;
 }
 
 /** Whether an occurrence is shown in full under `filter`. A personal calendar always is, and so is
@@ -219,6 +234,26 @@ export function occursOn(occurrence: { allDay: boolean; start: string; end: stri
   const endAt = Date.parse(occurrence.end);
   const last = endAt > Date.parse(occurrence.start) ? localDay(new Date(endAt - 1).toISOString(), tz) : first;
   return first <= day && day <= last;
+}
+
+/** How many occurrences touch each local day, for the year's marks: a day of several days counts
+ *  on each of them. */
+export function busyDays(occurrences: ReadonlyArray<{ allDay: boolean; start: string; end: string }>, tz: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const o of occurrences) {
+    const first = o.allDay ? o.start : localDay(o.start, tz);
+    const endAt = Date.parse(o.end);
+    const last = o.allDay
+      ? addDays(o.end, -1)
+      : endAt > Date.parse(o.start)
+        ? localDay(new Date(endAt - 1).toISOString(), tz)
+        : first;
+    // A whole year at most: an occurrence never spans more, and a bad one never loops for long.
+    for (let day = first, n = 0; day <= last && n < 366; day = addDays(day, 1), n++) {
+      counts.set(day, (counts.get(day) ?? 0) + 1);
+    }
+  }
+  return counts;
 }
 
 /** The colour a new calendar starts with: the pastel the viewer's calendars use least, ties going

@@ -1488,7 +1488,8 @@
       "month": "Mese",
       "week": "Settimana",
       "day": "Giorno",
-      "list": "Elenco"
+      "list": "Elenco",
+      "year": "Anno"
     },
     "more_one": "+{{count}} altro",
     "more_many": "+{{count}} altri",
@@ -1739,7 +1740,14 @@
       "days": "giorni prima",
       "weeks": "settimane prima"
     },
-    "reminderDaysAt9Unit": "giorni prima, alle 9:00"
+    "reminderDaysAt9Unit": "giorni prima, alle 9:00",
+    "searchEvents": "Cerca nel calendario",
+    "searchEventsPlaceholder": "Titolo, luogo, note, invitato…",
+    "searchEventsPrompt": "Tutti gli eventi che vedi, passati e futuri.",
+    "eventCount_one": "{{count}} evento",
+    "eventCount_many": "{{count}} eventi",
+    "eventCount_other": "{{count}} eventi",
+    "print": "Stampa (PDF)"
   },
   "invitationPage": {
     "title": "Invito",

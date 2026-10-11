@@ -415,6 +415,22 @@ export async function listOccurrences(
   return (await apiGet<OccurrenceDto[]>(`/calendar/occurrences?${params}`, signal)).map(toOccurrence);
 }
 
+/** Where the PDF of a view is read: the same calendars and invitations as the screen, from the
+ *  viewer's first day of the week (0 for Sunday). */
+export function printUrl(view: "day" | "week" | "month" | "list" | "year", date: string, calendarIds: string[], invitations: boolean, weekStart: number): string {
+  const params = new URLSearchParams({ view, date, week_start: String(weekStart) });
+  if (calendarIds.length > 0) params.set("calendars", calendarIds.join(","));
+  if (!invitations) params.set("invitations", "false");
+  return `/api/v1/calendar/print?${params}`;
+}
+
+/** The events whose words hold `query`, each once: the coming ones on their next date, soonest
+ *  first, then the past ones on their last, latest first. */
+export async function searchEvents(query: string, signal?: AbortSignal): Promise<Occurrence[]> {
+  const params = new URLSearchParams({ q: query });
+  return (await apiGet<OccurrenceDto[]>(`/calendar/search?${params}`, signal)).map(toOccurrence);
+}
+
 export async function getEvent(id: string, signal?: AbortSignal): Promise<CalendarEvent> {
   return toEvent(await apiGet<EventDto>(`/events/${id}`, signal));
 }

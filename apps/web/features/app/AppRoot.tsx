@@ -4368,6 +4368,11 @@ function AppShell() {
             setProfileEdit(false);
             setProfile(name);
           }}
+          timeZone={viewerTimeZone}
+          onOpenEvent={(occurrence) => {
+            setModal(null);
+            openCalendarEvent(occurrence);
+          }}
         />
       ) : null}
 

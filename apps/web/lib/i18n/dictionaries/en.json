@@ -1440,7 +1440,8 @@
       "month": "Month",
       "week": "Week",
       "day": "Day",
-      "list": "List"
+      "list": "List",
+      "year": "Year"
     },
     "more_one": "+{{count}} more",
     "more_other": "+{{count}} more",
@@ -1673,7 +1674,13 @@
       "days": "days before",
       "weeks": "weeks before"
     },
-    "reminderDaysAt9Unit": "days before, at 9:00"
+    "reminderDaysAt9Unit": "days before, at 9:00",
+    "searchEvents": "Search the calendar",
+    "searchEventsPlaceholder": "Title, place, notes, guest…",
+    "searchEventsPrompt": "Every event you can see, past and to come.",
+    "eventCount_one": "{{count}} event",
+    "eventCount_other": "{{count}} events",
+    "print": "Print (PDF)"
   },
   "invitationPage": {
     "title": "Invitation",
