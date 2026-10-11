@@ -24,5 +24,6 @@ pub(crate) mod recurrence;
 pub(crate) mod reminders;
 mod routes;
 pub(crate) mod search;
+pub(crate) mod typeset;
 
 pub use routes::router;
