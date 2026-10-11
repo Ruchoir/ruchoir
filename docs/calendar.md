@@ -44,14 +44,19 @@ audience, and open screens reload.
 
 - A reminder belongs to a person, not to an event. Who gets one: the owner of a personal calendar;
   every member who sees a space calendar; for an event with attendees, see Invitations below.
-- Each calendar has a **default reminder** for its timed events (10 minutes for the first ones; none
-  is a valid choice, for a leave calendar say). Each person may override it for a whole calendar or
-  for one event. An all-day event reminds only who asked (the evening before at 17:00, or the same
-  morning at 9:00, in their profile's time zone).
+- Each calendar has **default reminders** for its timed events (10 minutes for the first ones; none
+  is a valid choice, for a leave calendar say). Each person may choose their own for a whole calendar
+  or for one event. An all-day event reminds only who asked (the evening before at 17:00, the same
+  morning at 9:00, or N days before at 9:00, in their profile's time zone).
+- **Up to five** reminders each time, each delay once: the usual ones (at the start, 5, 10, 15, 30
+  minutes, an hour, a day) or one's own, up to four weeks before. A delay is stored in minutes before
+  the start; for a whole day, before the local midnight that starts it (`420` the evening before at
+  17:00, `-540` the same morning at 9:00, `N * 1440 - 540` N days before at 9:00, N from 1 to 28).
+  An empty list means no reminder; no choice at all means "as the calendar".
 - `apps/api/src/calendar/reminders.rs` sweeps every minute. A reminder due in the last fifteen minutes
   goes out; a later one (the server was down) is dropped rather than sent at the wrong moment. A log
-  (`calendar_reminder_deliveries`) makes sure no occurrence reminds anyone twice, even with two API
-  processes.
+  (`calendar_reminder_deliveries`, keyed by person, event, occurrence and delay) makes sure no
+  reminder goes out twice, even with two API processes.
 - It lands in the notification inbox (and by Web Push, like any notification), and by **mail** to
   whoever has no Ruchoir open, when the instance has a mail relay. Quiet hours and "do not disturb"
   hold back the push and the mail; the inbox keeps it. The preferences have a "Calendar reminders"
@@ -156,8 +161,9 @@ event body; `channel` and `files` on an event; `event` on a message;
 Each person can make a **personal address** for one calendar, or one address for all of them:
 `https://<instance>/api/v1/public/ical/<token>.ics`. It is read without a session, so the token is
 the whole credential: it is shown once, only its digest is kept, it can be revoked, and requests are
-rate-limited like public file links. The file carries the rules, the cancellations and the changed
-occurrences, a `VTIMEZONE` for every zone in use, the calendar's name and colour.
+rate-limited per address (two phones behind one network do not share a limit). The file carries
+the rules, the cancellations and the changed occurrences, a `VTIMEZONE` for every zone in use, the
+calendar's name and colour, and a `VALARM` for each of the reader's reminders.
 
 To add it: on an iPhone, Settings > Calendar > Accounts > Add Account > Other > Add Subscribed
 Calendar; on Android, an app that reads iCal subscriptions (ICSx⁵, for example); in Thunderbird,
@@ -168,13 +174,12 @@ New Calendar > On the Network.
 The Nextcloud producer (`packages/importer/export-nextcloud.sh`) exports every calendar holding
 events, and the Teams reader (`packages/importer/convert-teams.py --with-calendars`) each person's
 own Outlook calendars. The import brings each one in as a **personal calendar of its owner**, with
-its events, their series and exceptions, attendees and answers (silently), and the first alarm as
-the owner's reminder. Shares, task lists, the contact birthdays calendar, the calendar trash,
+its events, their series and exceptions, attendees and answers (silently), and the alarms set
+before the start as the owner's reminders (five at most, at their exact delay). Shares, task lists, the contact birthdays calendar, the calendar trash,
 subscriptions to outside calendars and Teams' team calendars stay behind, named in the archive's
 limits. The format and the rules are in
 `docs/import-archive.md`, section "Calendars".
 
 ## Limits of this first lot
 
-Not yet: sharing a personal calendar, several reminders per event,
-a year view, printing, searching events, and two-way sync with other calendars (CalDAV).
+Not yet: sharing a personal calendar, a year view, printing, searching events, and two-way sync with other calendars (CalDAV).
