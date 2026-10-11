@@ -295,7 +295,13 @@ mod key_tests {
     #[test]
     fn two_subscriptions_behind_one_address_are_limited_apart() {
         let key = |path| FeedKey.extract(&request(path)).unwrap();
-        assert_ne!(key("/api/v1/public/ical/aaaa.ics"), key("/api/v1/public/ical/bbbb.ics"));
-        assert_eq!(key("/api/v1/public/ical/aaaa.ics"), key("/api/v1/public/ical/aaaa.ics?x=1"));
+        assert_ne!(
+            key("/api/v1/public/ical/aaaa.ics"),
+            key("/api/v1/public/ical/bbbb.ics")
+        );
+        assert_eq!(
+            key("/api/v1/public/ical/aaaa.ics"),
+            key("/api/v1/public/ical/aaaa.ics?x=1")
+        );
     }
 }
