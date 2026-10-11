@@ -1,6 +1,7 @@
 //! The defects the first calendar lot left noted: each test is one of them, fixed.
 
 use super::*;
+use crate::entities::calendar_events;
 
 #[tokio::test]
 async fn a_split_does_not_remind_a_date_twice() {
@@ -49,5 +50,38 @@ async fn a_split_does_not_remind_a_date_twice() {
     let again = crate::calendar::reminders::sweep(&app.state, now + time::Duration::minutes(1))
         .await
         .expect("sweep");
-    assert!(reminded(&again, &renamed).is_empty(), "already reminded of that date");
+    assert!(
+        reminded(&again, &renamed).is_empty(),
+        "already reminded of that date"
+    );
+}
+
+#[tokio::test]
+async fn a_rule_that_cannot_be_read_does_not_stop_the_others_reminders() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let personal = calendars_of(&app, &alice)
+        .await
+        .into_iter()
+        .find(|c| c["space_id"].is_null())
+        .expect("personal");
+    let now = sweep_moment(28);
+    let good = event_in(&app, &alice, &personal["id"], "Lisible", now, 10).await;
+    let broken = event_in(&app, &alice, &personal["id"], "Illisible", now, 10).await;
+    // A rule the engine refuses, as an old import might have stored.
+    let id: Uuid = broken["event_id"].as_str().unwrap().parse().unwrap();
+    let mut row = calendar_events::Entity::find_by_id(id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("row")
+        .into_active_model();
+    row.rrule = Set(Some("FREQ=SOMETIMES".to_owned()));
+    row.update(&app.db).await.expect("break it");
+
+    let report = crate::calendar::reminders::sweep(&app.state, now)
+        .await
+        .expect("the sweep goes on");
+    assert_eq!(reminded(&report, &good), vec![fx.alice]);
 }

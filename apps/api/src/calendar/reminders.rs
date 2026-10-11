@@ -311,7 +311,15 @@ pub async fn sweep(state: &AppState, now: OffsetDateTime) -> Result<SweepReport,
         };
         let rows = by_event.remove(&event.id).unwrap_or_default();
         let inputs = exception_inputs(&rows);
-        let occurrences = recurrence::expand(&series_of(event, &inputs), from, to)?;
+        // One series this server cannot unfold (a rule an old import stored) is passed over, never
+        // the whole round: everyone else's reminders still go.
+        let occurrences = match recurrence::expand(&series_of(event, &inputs), from, to) {
+            Ok(found) => found,
+            Err(error) => {
+                tracing::warn!(event = %event.id, %error, "a series could not be unfolded for its reminders");
+                continue;
+            }
+        };
         if occurrences.is_empty() {
             continue;
         }
