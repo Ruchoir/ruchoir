@@ -826,6 +826,18 @@ pub async fn update_event(
                 },
             )
             .await?;
+            // Its dates already reminded stay reminded: at the same time, a date of the new series is
+            // the same date to whoever was told of it.
+            if shift == Duration::ZERO {
+                txn.execute_raw(sea_orm::Statement::from_sql_and_values(
+                    sea_orm::DbBackend::Postgres,
+                    "INSERT INTO calendar_reminder_deliveries (user_id, event_id, occurrence_start, sent_at) \
+                     SELECT user_id, $1, occurrence_start, sent_at FROM calendar_reminder_deliveries \
+                     WHERE event_id = $2 ON CONFLICT DO NOTHING",
+                    [new_event.id.into(), event.id.into()],
+                ))
+                .await?;
+            }
             // The occurrence being edited is the new series' first one, as the form now says it:
             // its old exception goes. Later ones follow the new series, unless it changed between
             // timed and all-day, where their keys no longer name anything.
