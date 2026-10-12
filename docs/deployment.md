@@ -137,6 +137,65 @@ Then sign in as the administrator, open the space settings and invite someone by
 cookie is being rejected you will see it immediately: the sign-in appears to succeed and returns you
 to the sign-in screen.
 
+## Releasing
+
+An instance built from a checkout (above) compiles on the server. Ruchoir's own instance does not:
+**a version tag is the only thing that builds and deploys**, and the server holds no source.
+
+```
+git tag v1.2.3 && git push origin v1.2.3
+        │
+        ▼
+.github/workflows/release.yml
+  1. builds apps/api/Dockerfile, pushes registry.ruchoir.com/ruchoir/api:v1.2.3
+  2. ssh deploy@<server> v1.2.3 < bundle.tar.gz
+        │
+        ▼
+infra/deploy/ruchoir-deploy (on the server, as root)
+  checks the version and the bundle, pulls the image, takes a backup (scripts/backup.sh),
+  installs the bundle's files, sets RUCHOIR_IMAGE in .env, restarts, waits for a healthy API,
+  and falls back to the previous image if it never comes up
+```
+
+Merging to `main` runs the checks only. Tags follow `vMAJOR.MINOR.PATCH`, with an optional
+pre-release suffix (`v0.4.0-rc.1`).
+
+**The registry** is Ruchoir's own: [Zot](https://zotregistry.dev) (CNCF, Apache-2.0) at
+`registry.ruchoir.com`, behind nginx and an Actalis certificate, with three accounts: `ci` pushes,
+`prod` and `site` only pull. It keeps the ten most recent tags of each image (plus the build cache)
+and collects the rest; nothing in it needs a backup, since every image is rebuilt from its tag.
+
+**The bundle** is what a release places on the server besides the image: `docker-compose.yml`, the
+office editor's mounted files (`infra/office/`), `infra/deploy/` and the backup and restore scripts.
+The deploy script refuses a bundle holding anything else, and never touches `.env` or a local
+`docker-compose.override.yml`.
+
+**The `deploy` account** has one SSH key, bound to `infra/deploy/ruchoir-deploy-entry` by a forced
+command: whatever the client asks, that runs, with the requested words as the version. sudoers lets
+it start `/usr/local/sbin/ruchoir-deploy` and nothing else. A leaked CI key can therefore deploy a
+version that is in the registry, and do nothing more.
+
+Setting it up on a server, once:
+
+```bash
+sudo install -m 0755 infra/deploy/ruchoir-deploy infra/deploy/ruchoir-deploy-entry /usr/local/sbin/
+echo 'deploy ALL=(root) NOPASSWD: /usr/local/sbin/ruchoir-deploy' | sudo tee /etc/sudoers.d/ruchoir-deploy
+# the CI key, bound to the entry point:
+echo 'command="/usr/local/sbin/ruchoir-deploy-entry",restrict ssh-ed25519 AAAA... ci-deploy' \
+  | sudo tee /home/deploy/.ssh/authorized_keys
+sudo docker login registry.ruchoir.com -u prod     # the pull-only account
+```
+
+and in the repository: secrets `REGISTRY_USER`, `REGISTRY_PASSWORD` (the `ci` account),
+`DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan <server>`), variable `DEPLOY_HOST`. Each run
+leaves its log in `/var/log/ruchoir-deploy.log`; later releases install their own version of the
+deploy script as they ship it.
+
+**Going back.** A failed health check restores the previous image by itself. A release that came up
+but misbehaves goes back with `RUCHOIR_IMAGE=<previous tag>` in `.env` and `docker compose up -d`;
+when its migrations must be undone too, restore the backup the deploy took at its start
+(`scripts/restore.sh`, see `docs/backup.md`).
+
 ## Live office editing (optional)
 
 Several people edit the same Word, Excel or PowerPoint file at once, in the browser, through

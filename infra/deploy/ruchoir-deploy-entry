@@ -1,0 +1,15 @@
+#!/bin/sh
+#
+# The forced command of the `deploy` account's SSH key: whatever the client asks to run, this runs
+# instead, with the requested words as the version to deploy and the connection's input as the
+# bundle. It can start ruchoir-deploy and nothing else (sudoers allows exactly that).
+#
+# authorized_keys:
+#   command="/usr/local/sbin/ruchoir-deploy-entry",restrict ssh-ed25519 AAAA... ci-deploy
+# /etc/sudoers.d/ruchoir-deploy:
+#   deploy ALL=(root) NOPASSWD: /usr/local/sbin/ruchoir-deploy
+set -eu
+case "${SSH_ORIGINAL_COMMAND:-}" in
+  *[!A-Za-z0-9.-]*|"") echo "expected a version, such as v1.2.3" >&2; exit 2 ;;
+esac
+exec sudo -n /usr/local/sbin/ruchoir-deploy "$SSH_ORIGINAL_COMMAND"

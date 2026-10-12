@@ -61,6 +61,9 @@ services:
     restart: unless-stopped
 
   api:
+    # A released instance runs the image the CI pushed for a tag (RUCHOIR_IMAGE, set by
+    # infra/deploy/ruchoir-deploy); a checkout builds its own, which Compose names ruchoir-api.
+    image: ${RUCHOIR_IMAGE:-ruchoir-api}
     build:
       context: .
       dockerfile: apps/api/Dockerfile
