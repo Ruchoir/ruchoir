@@ -165,8 +165,8 @@ pre-release suffix (`v0.4.0-rc.1`).
 `prod` and `site` only pull. It keeps the ten most recent tags of each image (plus the build cache)
 and collects the rest; nothing in it needs a backup, since every image is rebuilt from its tag.
 
-**The bundle** is what a release places on the server besides the image: `docker-compose.yml`, the
-office editor's mounted files (`infra/office/`), `infra/deploy/` and the backup and restore scripts.
+**The bundle** is what a release places on the server besides the image: `docker-compose.yml`,
+Garage's configuration (`infra/garage/`), the office editor's mounted files (`infra/office/`), `infra/deploy/` and the backup and restore scripts.
 The deploy script refuses a bundle holding anything else, and never touches `.env` or a local
 `docker-compose.override.yml`.
 
