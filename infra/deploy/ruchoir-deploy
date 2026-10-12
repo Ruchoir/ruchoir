@@ -1,0 +1,111 @@
+#!/usr/bin/env bash
+#
+# Deploy one released version of Ruchoir on this server: the only thing the CI may do here.
+#
+# Installed as /usr/local/sbin/ruchoir-deploy (root, 0755) and reached through the `deploy` account,
+# whose SSH key is bound to ruchoir-deploy-entry (see docs/deployment.md, "Releasing"):
+#
+#   ssh deploy@<server> v1.2.3 < bundle.tar.gz
+#
+# The bundle is what a release needs on the server besides its image and .env: docker-compose.yml,
+# the office editor's mounted files, and the backup and restore scripts. No source code travels.
+#
+# Steps: check the version, unpack the bundle into a staging directory and check what it holds,
+# take a backup (the API paused a moment), install the bundle's files, point .env at the release's
+# image, pull it, restart, and wait for the API to answer healthy. If it does not, the previous
+# image comes back and the run fails. A migration a failed release applied is not undone: the
+# backup taken at the start of the run is the way back (scripts/restore.sh).
+set -euo pipefail
+
+INSTANCE="${RUCHOIR_INSTANCE:-/opt/ruchoir}"
+REGISTRY="${RUCHOIR_REGISTRY:-registry.ruchoir.com}"
+REPOSITORY="${RUCHOIR_REPOSITORY:-ruchoir/api}"
+LOG="/var/log/ruchoir-deploy.log"
+MAX_BUNDLE_BYTES=$((20 * 1024 * 1024))
+HEALTH_TIMEOUT=300
+
+version="${1:-}"
+if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+  echo "usage: ruchoir-deploy vMAJOR.MINOR.PATCH[-pre] < bundle.tar.gz" >&2
+  exit 2
+fi
+image="$REGISTRY/$REPOSITORY:$version"
+
+exec > >(tee -a "$LOG") 2>&1
+echo "=== $(date -u +%FT%TZ) deploying $version"
+
+# One deployment at a time.
+exec 9>/run/ruchoir-deploy.lock
+flock -n 9 || { echo "another deployment is running" >&2; exit 1; }
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+# The bundle, bounded, and holding only what a release may place on the server.
+head -c "$((MAX_BUNDLE_BYTES + 1))" > "$work/bundle.tar.gz"
+[ "$(stat -c %s "$work/bundle.tar.gz")" -le "$MAX_BUNDLE_BYTES" ] || { echo "bundle too large" >&2; exit 1; }
+tar -tzf "$work/bundle.tar.gz" > "$work/list"
+if grep -vE '^(\./)?(docker-compose\.yml|infra/(office|deploy)(/[A-Za-z0-9._/-]*)?|scripts/(backup|restore)\.sh|scripts/?)$' "$work/list" | grep -q .; then
+  echo "the bundle holds files a release may not place:" >&2
+  grep -vE '^(\./)?(docker-compose\.yml|infra/(office|deploy)(/[A-Za-z0-9._/-]*)?|scripts/(backup|restore)\.sh|scripts/?)$' "$work/list" >&2
+  exit 1
+fi
+if grep -qE '(^|/)\.\.(/|$)' "$work/list"; then echo "path escapes the bundle" >&2; exit 1; fi
+mkdir "$work/stage"
+tar -xzf "$work/bundle.tar.gz" -C "$work/stage" --no-same-owner --no-same-permissions
+[ -f "$work/stage/docker-compose.yml" ] || { echo "the bundle has no docker-compose.yml" >&2; exit 1; }
+
+cd "$INSTANCE"
+set_env() {
+  if grep -q "^$1=" .env; then sed -i "s|^$1=.*|$1=$2|" .env; else printf '%s=%s\n' "$1" "$2" >> .env; fi
+}
+# Before the first release from the registry, the instance runs the image Compose builds locally,
+# named after the default below: that is what a failed first release falls back to.
+previous="$(sed -n 's/^RUCHOIR_IMAGE=//p' .env | tail -n 1)"
+previous="${previous:-ruchoir-api}"
+echo "previous image: $previous"
+
+# The image first: a release whose image cannot be pulled changes nothing.
+docker pull -q "$image"
+
+echo "backup before deploying"
+scripts/backup.sh
+
+echo "installing the release's files"
+install -m 0644 "$work/stage/docker-compose.yml" docker-compose.yml
+for dir in infra/office infra/deploy; do
+  if [ -d "$work/stage/$dir" ]; then
+    mkdir -p "$dir"
+    cp -R "$work/stage/$dir/." "$dir/"
+  fi
+done
+for script in backup restore; do
+  [ -f "$work/stage/scripts/$script.sh" ] && install -m 0755 "$work/stage/scripts/$script.sh" "scripts/$script.sh"
+done
+
+set_env RUCHOIR_IMAGE "$image"
+docker compose up -d --no-build --remove-orphans
+
+healthy() {
+  [ "$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q api)" 2>/dev/null)" = healthy ]
+}
+deadline=$((SECONDS + HEALTH_TIMEOUT))
+until healthy; do
+  if [ $SECONDS -ge $deadline ]; then
+    echo "the API did not come up healthy within ${HEALTH_TIMEOUT}s; rolling back"
+    docker compose logs --tail 40 api || true
+    set_env RUCHOIR_IMAGE "$previous"
+    docker compose up -d --no-build api
+    echo "=== $(date -u +%FT%TZ) $version FAILED (previous image restored; the backup above is the way back for data)"
+    exit 1
+  fi
+  sleep 5
+done
+
+# The next release runs this script as it ships it.
+if [ -f "$work/stage/infra/deploy/ruchoir-deploy" ]; then
+  install -m 0755 -o root -g root "$work/stage/infra/deploy/ruchoir-deploy" /usr/local/sbin/ruchoir-deploy
+  install -m 0755 -o root -g root "$work/stage/infra/deploy/ruchoir-deploy-entry" /usr/local/sbin/ruchoir-deploy-entry
+fi
+docker image prune -f >/dev/null || true
+echo "=== $(date -u +%FT%TZ) $version deployed"

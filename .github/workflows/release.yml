@@ -1,0 +1,83 @@
+# Release: a version tag (v1.2.3) builds the instance's image, pushes it to Ruchoir's own registry,
+# and deploys it. Nothing else builds or deploys: merging to main runs the checks in ci.yml only.
+#
+# The server never builds and holds no source: it receives the image from the registry and, from
+# here, a small bundle (docker-compose.yml, the office editor's mounted files, the backup and restore
+# scripts) through the `deploy` account, whose key can run infra/deploy/ruchoir-deploy and nothing
+# else. See docs/deployment.md, "Releasing".
+#
+# Repository settings it reads:
+#   secrets REGISTRY_USER, REGISTRY_PASSWORD  the registry account allowed to push (ci)
+#   secrets DEPLOY_SSH_KEY                    the private key bound to the deploy account
+#   secrets DEPLOY_KNOWN_HOSTS                the server's host keys, as `ssh-keyscan` prints them
+#   variables DEPLOY_HOST                     the server to deploy to
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+", "v[0-9]+.[0-9]+.[0-9]+-*"]
+
+permissions:
+  contents: read
+
+# One release at a time, and never one cancelled half-way through a deployment.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  IMAGE: registry.ruchoir.com/ruchoir/api
+
+jobs:
+  image:
+    name: Build and push the image
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to the registry
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: printf '%s' "$REGISTRY_PASSWORD" | docker login registry.ruchoir.com -u "$REGISTRY_USER" --password-stdin
+
+      - name: Build and push
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          # The layers of the last build come back from the registry, so an unchanged dependency
+          # tree is not compiled again.
+          docker buildx create --use --driver docker-container >/dev/null
+          docker buildx build \
+            --file apps/api/Dockerfile \
+            --cache-from "type=registry,ref=$IMAGE:buildcache" \
+            --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max" \
+            --tag "$IMAGE:$TAG" \
+            --push \
+            .
+
+  deploy:
+    name: Deploy
+    needs: image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bundle what the server needs besides the image
+        run: tar -czf bundle.tar.gz docker-compose.yml infra/office infra/deploy scripts/backup.sh scripts/restore.sh
+
+      - name: Deploy through the deploy account
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o IdentitiesOnly=yes -o BatchMode=yes "deploy@$DEPLOY_HOST" "$TAG" < bundle.tar.gz

@@ -77,6 +77,10 @@ Web interface only for now. The core is open source under **AGPLv3**.
   read from the disk or the network while typesetting, and what a person typed reaches the template
   as JSON data (`json("data.json")`), never as markup.
 - **Containerization:** Docker + `docker compose` (all-in-one deployment).
+- **Releases:** a version tag (`vX.Y.Z`) is the only thing that builds and deploys: the CI pushes
+  the image to Ruchoir's own registry (Zot, CNCF, Apache-2.0, at `registry.ruchoir.com`) and runs
+  `infra/deploy/ruchoir-deploy` on the server through a forced-command `deploy` account. The server
+  never builds and holds no source. See `docs/deployment.md`, "Releasing".
 
 ## Pinned versions
 
