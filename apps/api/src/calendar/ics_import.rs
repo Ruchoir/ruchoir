@@ -13,7 +13,7 @@
 //!   `EXDATE`s as cancelled occurrences, and every component carrying a `RECURRENCE-ID` as a changed
 //!   occurrence (or a cancelled one, when its status says so).
 //! - **People.** The organiser and the attendees with their answers, by address.
-//! - **The reminder.** The first alarm set relative to the start, as Ruchoir's delays offer them.
+//! - **The reminders.** Up to five alarms set before the start, each at its own delay.
 //! - **Everything else** is kept as content lines in `ical_extra`, to be written back in the feed.
 
 use icalendar::parser::{read_calendar, unfold, Component, Property};
@@ -107,7 +107,7 @@ pub struct Head {
     pub sequence: i32,
     pub organizer: Option<Person>,
     pub attendees: Vec<Attendee>,
-    /// The first alarm before the start, as one of Ruchoir's delays.
+    /// The alarms before the start, in minutes, five at most.
     pub reminders: Vec<i32>,
     /// The whole event is cancelled (`STATUS:CANCELLED`).
     pub cancelled: bool,
