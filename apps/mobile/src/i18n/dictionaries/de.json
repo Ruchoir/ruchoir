@@ -64,7 +64,6 @@
     "offline": "Offline"
   },
   "tabs": {
-    "today": "Heute",
     "discussions": "Unterhaltungen",
     "agenda": "Kalender",
     "files": "Dateien"
@@ -79,5 +78,62 @@
   "load": {
     "offline": "Keine Verbindung",
     "failed": "Laden fehlgeschlagen."
+  },
+  "system": {
+    "memberJoined": "{{who}} ist dem Bereich beigetreten.",
+    "memberLeft": "{{who}} hat den Bereich verlassen.",
+    "memberRemoved": "{{who}} wurde aus dem Bereich entfernt.",
+    "channelJoined": "{{who}} ist dem Kanal beigetreten.",
+    "channelLeft": "{{who}} hat den Kanal verlassen.",
+    "channelRemoved": "{{who}} wurde aus dem Kanal entfernt.",
+    "channelCreated": "Der Kanal wurde erstellt.",
+    "channelRenamed": "{{who}} hat den Kanal in #{{detail}} umbenannt.",
+    "channelTopicChanged": "{{who}} hat das Thema des Kanals geändert: {{detail}}",
+    "channelTopicCleared": "{{who}} hat das Thema des Kanals entfernt.",
+    "channelMadePrivate": "{{who}} hat den Kanal privat gemacht.",
+    "channelMadePublic": "{{who}} hat den Kanal öffentlich gemacht.",
+    "channelArchived": "{{who}} hat den Kanal archiviert.",
+    "channelUnarchived": "{{who}} hat den Kanal wiederhergestellt.",
+    "channelAccessChanged": "{{who}} hat geändert, wer auf den Kanal zugreifen kann.",
+    "calendarEventPosted": "{{who}} hat „{{detail}}“ geplant.",
+    "calendarEventChanged": "{{who}} hat Zeit oder Ort von „{{detail}}“ geändert.",
+    "calendarEventCancelled": "{{who}} hat „{{detail}}“ abgesagt."
+  },
+  "message": {
+    "someone": "Jemand",
+    "deleted": "Nachricht gelöscht",
+    "edited": "(bearbeitet)",
+    "image": "Bild"
+  },
+  "common": {
+    "back": "Zurück"
+  },
+  "time": {
+    "today": "Heute",
+    "yesterday": "Gestern"
+  },
+  "agenda": {
+    "allDay": "Ganztägig"
+  },
+  "discussions": {
+    "filterAll": "Alle",
+    "filterUnread": "Ungelesen",
+    "filterGroups": "Gruppen",
+    "filterPeople": "Personen",
+    "search": "Person oder Gruppe suchen…",
+    "noMatch": "Keine passende Unterhaltung.",
+    "empty": "In diesem Bereich gibt es noch keine Unterhaltungen.",
+    "you": "Sie: {{text}}",
+    "by": "{{who}}: {{text}}",
+    "group": "Gruppe"
+  },
+  "conversation": {
+    "messages": "Nachrichten",
+    "people_one": "{{count}} Person",
+    "people_other": "{{count}} Personen",
+    "empty": "Noch keine Nachrichten.",
+    "writingSoon": "Schreiben kommt bald in die App.",
+    "noFiles": "Hier wurden keine Dateien geteilt.",
+    "noEvents": "Keine anstehenden Termine."
   }
 }

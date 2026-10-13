@@ -1,4 +1,3 @@
-import type { SpaceFile } from "@ruchoir/client";
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParams = {
@@ -8,12 +7,15 @@ export type TabParams = {
   files: undefined;
 };
 
+export type ViewerFile = { id: string; name: string; url: string; mime?: string; sizeBytes?: number };
+
 export type RootParams = {
   tabs: NavigatorScreenParams<TabParams>;
   /** A channel or a direct conversation; `channelId` is set for a channel (its agenda tab needs it). */
   conversation: { conversationId: string; title: string; channelId?: string; members?: number };
   folder: { folderId: string; name: string };
-  fileViewer: { file: SpaceFile };
+  /** A file to show: a space file, a message's attachment or an event's, by its download URL. */
+  fileViewer: { file: ViewerFile };
   eventSummary: { eventId: string; recurrenceId?: string };
   spaceSheet: undefined;
   accountSheet: undefined;

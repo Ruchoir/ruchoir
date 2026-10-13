@@ -19,7 +19,7 @@ import type { TabParams } from "./types";
 const Tab = createBottomTabNavigator<TabParams>();
 
 const TABS: Record<keyof TabParams, { icon: LucideIcon; label: ReturnType<typeof key> }> = {
-  today: { icon: House, label: key("tabs.today") },
+  today: { icon: House, label: key("time.today") },
   discussions: { icon: MessageSquare, label: key("tabs.discussions") },
   agenda: { icon: Calendar, label: key("tabs.agenda") },
   files: { icon: Folder, label: key("tabs.files") },

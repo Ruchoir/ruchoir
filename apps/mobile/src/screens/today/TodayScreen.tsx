@@ -6,7 +6,7 @@ export function TodayScreen() {
   const { t } = useTranslation();
   return (
     <TabScreen>
-      <TabHeader title={t("tabs.today")} />
+      <TabHeader title={t("time.today")} />
     </TabScreen>
   );
 }

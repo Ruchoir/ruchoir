@@ -64,7 +64,6 @@
     "offline": "Hors ligne"
   },
   "tabs": {
-    "today": "Aujourd’hui",
     "discussions": "Discussions",
     "agenda": "Agenda",
     "files": "Fichiers"
@@ -79,5 +78,62 @@
   "load": {
     "offline": "Hors connexion",
     "failed": "Le chargement a échoué."
+  },
+  "system": {
+    "memberJoined": "{{who}} a rejoint l'espace.",
+    "memberLeft": "{{who}} a quitté l'espace.",
+    "memberRemoved": "{{who}} a été retiré de l'espace.",
+    "channelJoined": "{{who}} a rejoint le canal.",
+    "channelLeft": "{{who}} a quitté le canal.",
+    "channelRemoved": "{{who}} a été retiré du canal.",
+    "channelCreated": "Le canal a été créé.",
+    "channelRenamed": "{{who}} a renommé le canal en #{{detail}}.",
+    "channelTopicChanged": "{{who}} a changé le sujet du canal : {{detail}}",
+    "channelTopicCleared": "{{who}} a retiré le sujet du canal.",
+    "channelMadePrivate": "{{who}} a rendu le canal privé.",
+    "channelMadePublic": "{{who}} a rendu le canal public.",
+    "channelArchived": "{{who}} a archivé le canal.",
+    "channelUnarchived": "{{who}} a désarchivé le canal.",
+    "channelAccessChanged": "{{who}} a changé qui peut accéder au canal.",
+    "calendarEventPosted": "{{who}} a planifié « {{detail}} ».",
+    "calendarEventChanged": "{{who}} a changé l'heure ou le lieu de « {{detail}} ».",
+    "calendarEventCancelled": "{{who}} a annulé « {{detail}} »."
+  },
+  "message": {
+    "someone": "Quelqu'un",
+    "deleted": "Message supprimé",
+    "edited": "(modifié)",
+    "image": "Image"
+  },
+  "common": {
+    "back": "Retour"
+  },
+  "time": {
+    "today": "Aujourd’hui",
+    "yesterday": "Hier"
+  },
+  "agenda": {
+    "allDay": "Journée"
+  },
+  "discussions": {
+    "filterAll": "Tout",
+    "filterUnread": "Non lus",
+    "filterGroups": "Groupes",
+    "filterPeople": "Personnes",
+    "search": "Rechercher une personne, un groupe…",
+    "noMatch": "Aucune discussion ne correspond.",
+    "empty": "Aucune discussion dans cet espace pour l’instant.",
+    "you": "Vous : {{text}}",
+    "by": "{{who}} : {{text}}",
+    "group": "Groupe"
+  },
+  "conversation": {
+    "messages": "Messages",
+    "people_one": "{{count}} personne",
+    "people_other": "{{count}} personnes",
+    "empty": "Aucun message pour l’instant.",
+    "writingSoon": "L’écriture arrive bientôt dans l’application.",
+    "noFiles": "Aucun fichier partagé ici.",
+    "noEvents": "Aucun événement à venir."
   }
 }

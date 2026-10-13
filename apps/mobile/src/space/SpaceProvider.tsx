@@ -9,7 +9,7 @@ import * as SecureStore from "expo-secure-store";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { useLoad, type Loaded } from "../data/useLoad";
-import { useRealtimeEvent } from "../realtime/RealtimeProvider";
+import { useReloadOn } from "../data/useReloadOn";
 
 const LAST_SPACE = "ruchoir.space";
 
@@ -29,22 +29,12 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
     void SecureStore.getItemAsync(LAST_SPACE).then((id) => id && setChosen((now) => now ?? id));
   }, []);
 
-  // Unread counts move with every message and notification; a burst is folded into one reload.
-  const { reload } = spaces;
-  const [pending, setPending] = useState(false);
-  useRealtimeEvent((event) => {
-    if (event.type === "message" || event.type === "notification" || event.type === "readCursor" || event.type === "spaces") {
-      setPending(true);
-    }
-  });
-  useEffect(() => {
-    if (!pending) return;
-    const timer = setTimeout(() => {
-      setPending(false);
-      reload();
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, [pending, reload]);
+  // Unread counts move with every message and notification.
+  useReloadOn(
+    (e) => e.type === "message" || e.type === "notification" || e.type === "readCursor" || e.type === "spaces",
+    spaces.reload,
+    1200,
+  );
 
   const select = useCallback((id: string) => {
     setChosen(id);

@@ -64,7 +64,6 @@
     "offline": "Niedostępny"
   },
   "tabs": {
-    "today": "Dzisiaj",
     "discussions": "Rozmowy",
     "agenda": "Kalendarz",
     "files": "Pliki"
@@ -81,5 +80,64 @@
   "load": {
     "offline": "Brak połączenia",
     "failed": "Nie udało się wczytać."
+  },
+  "system": {
+    "memberJoined": "{{who}} dołączył(a) do przestrzeni.",
+    "memberLeft": "{{who}} opuścił(a) przestrzeń.",
+    "memberRemoved": "{{who}} został usunięty z przestrzeni.",
+    "channelJoined": "{{who}} dołączył(a) do kanału.",
+    "channelLeft": "{{who}} opuścił(a) kanał.",
+    "channelRemoved": "{{who}} został usunięty z kanału.",
+    "channelCreated": "Kanał został utworzony.",
+    "channelRenamed": "{{who}} zmienił(a) nazwę kanału na #{{detail}}.",
+    "channelTopicChanged": "{{who}} zmienił(a) temat kanału: {{detail}}",
+    "channelTopicCleared": "{{who}} usunął(-ęła) temat kanału.",
+    "channelMadePrivate": "{{who}} ustawił(a) kanał jako prywatny.",
+    "channelMadePublic": "{{who}} ustawił(a) kanał jako publiczny.",
+    "channelArchived": "{{who}} zarchiwizował(a) kanał.",
+    "channelUnarchived": "{{who}} przywrócił(a) kanał z archiwum.",
+    "channelAccessChanged": "{{who}} zmienił(a), kto ma dostęp do kanału.",
+    "calendarEventPosted": "{{who}} zaplanował(a) „{{detail}}”.",
+    "calendarEventChanged": "{{who}} zmienił(a) godzinę lub miejsce „{{detail}}”.",
+    "calendarEventCancelled": "{{who}} odwołał(a) „{{detail}}”."
+  },
+  "message": {
+    "someone": "Ktoś",
+    "deleted": "Wiadomość usunięta",
+    "edited": "(edytowano)",
+    "image": "Obraz"
+  },
+  "common": {
+    "back": "Wstecz"
+  },
+  "time": {
+    "today": "Dzisiaj",
+    "yesterday": "Wczoraj"
+  },
+  "agenda": {
+    "allDay": "Cały dzień"
+  },
+  "discussions": {
+    "filterAll": "Wszystko",
+    "filterUnread": "Nieprzeczytane",
+    "filterGroups": "Grupy",
+    "filterPeople": "Osoby",
+    "search": "Szukaj osoby lub grupy…",
+    "noMatch": "Brak pasujących rozmów.",
+    "empty": "W tej przestrzeni nie ma jeszcze rozmów.",
+    "you": "Ty: {{text}}",
+    "by": "{{who}}: {{text}}",
+    "group": "Grupa"
+  },
+  "conversation": {
+    "messages": "Wiadomości",
+    "people_one": "{{count}} osoba",
+    "people_other": "{{count}} osoby",
+    "empty": "Nie ma jeszcze wiadomości.",
+    "writingSoon": "Pisanie wkrótce pojawi się w aplikacji.",
+    "noFiles": "Nie udostępniono tu żadnych plików.",
+    "noEvents": "Brak nadchodzących wydarzeń.",
+    "people_few": "{{count}} osoby",
+    "people_many": "{{count}} osób"
   }
 }

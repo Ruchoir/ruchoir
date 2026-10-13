@@ -64,7 +64,6 @@
     "offline": "Offline"
   },
   "tabs": {
-    "today": "Today",
     "discussions": "Conversations",
     "agenda": "Calendar",
     "files": "Files"
@@ -79,5 +78,62 @@
   "load": {
     "offline": "No connection",
     "failed": "Loading failed."
+  },
+  "system": {
+    "memberJoined": "{{who}} joined the space.",
+    "memberLeft": "{{who}} left the space.",
+    "memberRemoved": "{{who}} was removed from the space.",
+    "channelJoined": "{{who}} joined the channel.",
+    "channelLeft": "{{who}} left the channel.",
+    "channelRemoved": "{{who}} was removed from the channel.",
+    "channelCreated": "The channel was created.",
+    "channelRenamed": "{{who}} renamed the channel to #{{detail}}.",
+    "channelTopicChanged": "{{who}} changed the channel topic: {{detail}}",
+    "channelTopicCleared": "{{who}} cleared the channel topic.",
+    "channelMadePrivate": "{{who}} made the channel private.",
+    "channelMadePublic": "{{who}} made the channel public.",
+    "channelArchived": "{{who}} archived the channel.",
+    "channelUnarchived": "{{who}} unarchived the channel.",
+    "channelAccessChanged": "{{who}} changed who can access the channel.",
+    "calendarEventPosted": "{{who}} planned “{{detail}}”.",
+    "calendarEventChanged": "{{who}} changed the time or place of “{{detail}}”.",
+    "calendarEventCancelled": "{{who}} cancelled “{{detail}}”."
+  },
+  "message": {
+    "someone": "Someone",
+    "deleted": "Message deleted",
+    "edited": "(edited)",
+    "image": "Image"
+  },
+  "common": {
+    "back": "Back"
+  },
+  "time": {
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
+  "agenda": {
+    "allDay": "All day"
+  },
+  "discussions": {
+    "filterAll": "All",
+    "filterUnread": "Unread",
+    "filterGroups": "Groups",
+    "filterPeople": "People",
+    "search": "Search for a person, a group…",
+    "noMatch": "No conversation matches.",
+    "empty": "No conversations in this space yet.",
+    "you": "You: {{text}}",
+    "by": "{{who}}: {{text}}",
+    "group": "Group"
+  },
+  "conversation": {
+    "messages": "Messages",
+    "people_one": "{{count}} person",
+    "people_other": "{{count}} people",
+    "empty": "No messages yet.",
+    "writingSoon": "Writing is coming to the app soon.",
+    "noFiles": "No files shared here.",
+    "noEvents": "No upcoming events."
   }
 }

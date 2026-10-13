@@ -64,7 +64,6 @@
     "offline": "Non in linea"
   },
   "tabs": {
-    "today": "Oggi",
     "discussions": "Conversazioni",
     "agenda": "Agenda",
     "files": "File"
@@ -80,5 +79,63 @@
   "load": {
     "offline": "Nessuna connessione",
     "failed": "Caricamento non riuscito."
+  },
+  "system": {
+    "memberJoined": "{{who}} si è unito allo spazio.",
+    "memberLeft": "{{who}} ha lasciato lo spazio.",
+    "memberRemoved": "{{who}} è stato rimosso dallo spazio.",
+    "channelJoined": "{{who}} si è unito al canale.",
+    "channelLeft": "{{who}} ha lasciato il canale.",
+    "channelRemoved": "{{who}} è stato rimosso dal canale.",
+    "channelCreated": "Il canale è stato creato.",
+    "channelRenamed": "{{who}} ha rinominato il canale in #{{detail}}.",
+    "channelTopicChanged": "{{who}} ha cambiato l'argomento del canale: {{detail}}",
+    "channelTopicCleared": "{{who}} ha rimosso l'argomento del canale.",
+    "channelMadePrivate": "{{who}} ha reso privato il canale.",
+    "channelMadePublic": "{{who}} ha reso pubblico il canale.",
+    "channelArchived": "{{who}} ha archiviato il canale.",
+    "channelUnarchived": "{{who}} ha ripristinato il canale dall'archivio.",
+    "channelAccessChanged": "{{who}} ha cambiato chi può accedere al canale.",
+    "calendarEventPosted": "{{who}} ha pianificato «{{detail}}».",
+    "calendarEventChanged": "{{who}} ha cambiato l'ora o il luogo di «{{detail}}».",
+    "calendarEventCancelled": "{{who}} ha annullato «{{detail}}»."
+  },
+  "message": {
+    "someone": "Qualcuno",
+    "deleted": "Messaggio eliminato",
+    "edited": "(modificato)",
+    "image": "Immagine"
+  },
+  "common": {
+    "back": "Indietro"
+  },
+  "time": {
+    "today": "Oggi",
+    "yesterday": "Ieri"
+  },
+  "agenda": {
+    "allDay": "Tutto il giorno"
+  },
+  "discussions": {
+    "filterAll": "Tutto",
+    "filterUnread": "Non letti",
+    "filterGroups": "Gruppi",
+    "filterPeople": "Persone",
+    "search": "Cerca una persona, un gruppo…",
+    "noMatch": "Nessuna conversazione corrisponde.",
+    "empty": "Ancora nessuna conversazione in questo spazio.",
+    "you": "Voi: {{text}}",
+    "by": "{{who}}: {{text}}",
+    "group": "Gruppo"
+  },
+  "conversation": {
+    "messages": "Messaggi",
+    "people_one": "{{count}} persona",
+    "people_other": "{{count}} persone",
+    "empty": "Ancora nessun messaggio.",
+    "writingSoon": "Presto si potrà scrivere dall’app.",
+    "noFiles": "Nessun file condiviso qui.",
+    "noEvents": "Nessun evento in programma.",
+    "people_many": "{{count}} persone"
   }
 }
