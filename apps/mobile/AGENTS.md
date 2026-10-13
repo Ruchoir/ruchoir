@@ -13,6 +13,9 @@ rules; this file holds what is particular to the app.
   `apps/mobile/.env.local` (`EXPO_PUBLIC_DEFAULT_SERVER`, untracked).
 - The API is reached only through `@ruchoir/client` (`packages/client`), configured for the instance
   the person chose. A session is a bearer token kept in the Keychain, never anywhere else.
+- **The token only travels to the instance.** An image or a download that the app fetches itself
+  takes its headers from `authHeadersFor(url)`, which gives nothing for another host
+  (`src/api/sameInstance.ts`); never pass `authHeaders()` to a URL that came from data.
 - Every string a person reads goes through i18n, French first, the five other languages complete
   (`pnpm --filter @ruchoir/mobile i18n:check`).
 - Colours come from `src/theme/tokens.ts`, a copy of `apps/web/app/tokens.css` kept honest by

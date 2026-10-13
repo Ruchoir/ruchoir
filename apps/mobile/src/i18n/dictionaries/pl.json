@@ -75,7 +75,9 @@
     "unread_one": "{{count}} nieprzeczytana wiadomość",
     "unread_other": "{{count}} nieprzeczytanej wiadomości",
     "unread_few": "{{count}} nieprzeczytane wiadomości",
-    "unread_many": "{{count}} nieprzeczytanych wiadomości"
+    "unread_many": "{{count}} nieprzeczytanych wiadomości",
+    "none": "Nie należysz jeszcze do żadnej przestrzeni.",
+    "noneHint": "Przyjmij zaproszenie lub utwórz przestrzeń na stronie internetowej; pojawi się tutaj."
   },
   "load": {
     "offline": "Brak połączenia",

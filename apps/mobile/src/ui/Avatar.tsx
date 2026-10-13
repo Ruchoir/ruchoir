@@ -12,7 +12,7 @@ import { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SvgXml } from "react-native-svg";
 
-import { authHeaders } from "../api/instance";
+import { authHeadersFor } from "../api/instance";
 import { radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
 
@@ -76,7 +76,7 @@ export function Avatar({
       <View style={[styles.frame, { width: size, height: size, borderRadius: corner, backgroundColor: c.line }]}>
         {showPhoto ? (
           <Image
-            source={{ uri: absoluteUrl(src), headers: authHeaders() }}
+            source={{ uri: absoluteUrl(src), headers: authHeadersFor(absoluteUrl(src)) }}
             style={{ width: size, height: size }}
             contentFit="cover"
             onError={() => setFailed(true)}

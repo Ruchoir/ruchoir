@@ -11,6 +11,7 @@ import { dayKey } from "../../logic/format";
 import { useSpace } from "../../space/SpaceProvider";
 import { Segmented } from "../../ui/Segmented";
 import { LoadState } from "../../ui/States";
+import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { ListView } from "./ListView";
@@ -32,7 +33,7 @@ export type AgendaData = { occurrences: Occurrence[]; calendars: Map<string, Cal
 export function AgendaScreen() {
   const { t } = useTranslation();
   const { timeZone } = useLocale();
-  const { current } = useSpace();
+  const { current, status } = useSpace();
   const [view, setView] = useState<AgendaView>("list");
   const today = dayKey(new Date(), timeZone);
   const [anchor, setAnchor] = useState(today);
@@ -48,6 +49,8 @@ export function AgendaScreen() {
   useReloadOn((e) => e.type === "calendar", data.reload);
 
   const options = useMemo(() => VIEWS.map((v) => ({ key: v.key, label: t(v.label) })), [t]);
+
+  if (status === "none") return <NoSpace title={t("tabs.agenda")} />;
 
   return (
     <TabScreen>

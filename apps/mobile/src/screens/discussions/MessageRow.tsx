@@ -5,7 +5,7 @@ import { CalendarDays } from "lucide-react-native";
 import { memo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { authHeaders } from "../../api/instance";
+import { authHeadersFor } from "../../api/instance";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { timeOf } from "../../logic/format";
@@ -99,7 +99,7 @@ export const MessageRow = memo(function MessageRow({ message: m, head, mentionsM
                 }
               >
                 <Image
-                  source={{ uri: absoluteUrl(img.src), headers: authHeaders() }}
+                  source={{ uri: absoluteUrl(img.src), headers: authHeadersFor(absoluteUrl(img.src)) }}
                   accessibilityLabel={img.alt}
                   style={[styles.image, { aspectRatio: img.width && img.height ? img.width / img.height : 4 / 3, borderColor: c.line }]}
                   contentFit="cover"

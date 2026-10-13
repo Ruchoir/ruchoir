@@ -13,6 +13,7 @@ import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { SearchField } from "../../ui/SearchField";
 import { EmptyState, LoadState } from "../../ui/States";
+import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
@@ -24,7 +25,7 @@ import { FileRow, openEntry } from "./FileRow";
  */
 export function FilesScreen() {
   const { t } = useTranslation();
-  const { current } = useSpace();
+  const { current, status } = useSpace();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   useEffect(() => {
@@ -43,6 +44,8 @@ export function FilesScreen() {
 
   const folders = root.data?.entries.filter((f) => f.kind === "folder") ?? [];
   const files = root.data?.entries.filter((f) => f.kind !== "folder") ?? [];
+
+  if (status === "none") return <NoSpace title={t("tabs.files")} />;
 
   return (
     <TabScreen>

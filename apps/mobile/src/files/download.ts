@@ -5,7 +5,7 @@
 import { absoluteUrl } from "@ruchoir/client";
 import { File } from "expo-file-system";
 
-import { authHeaders } from "../api/instance";
+import { authHeadersFor } from "../api/instance";
 import type { ViewerFile } from "../navigation/types";
 import { downloadsDirectory } from "./cache";
 
@@ -18,6 +18,7 @@ function safeName(file: ViewerFile): string {
 export async function downloadToCache(file: ViewerFile, signal?: AbortSignal): Promise<string> {
   const target = new File(downloadsDirectory(), safeName(file));
   if (target.exists && target.size > 0) return target.uri;
-  const done = await File.downloadFileAsync(absoluteUrl(file.url), target, { headers: authHeaders(), idempotent: true, signal });
+  const url = absoluteUrl(file.url);
+  const done = await File.downloadFileAsync(url, target, { headers: authHeadersFor(url), idempotent: true, signal });
   return done.uri;
 }

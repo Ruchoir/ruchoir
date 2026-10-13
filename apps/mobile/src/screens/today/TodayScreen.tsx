@@ -29,6 +29,7 @@ import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FileIcon } from "../../ui/FileIcon";
+import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
@@ -51,7 +52,7 @@ export function TodayScreen() {
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { state } = useSession();
-  const { current } = useSpace();
+  const { current, status } = useSpace();
   const space = current?.id;
   const now = useNow();
   const today = dayKey(new Date(now), timeZone);
@@ -96,6 +97,8 @@ export function TodayScreen() {
   const date = new Intl.DateTimeFormat(locale, { timeZone, weekday: "long", day: "numeric", month: "long" }).format(new Date(now));
   const mention = cards.find((card) => card.kind === "mention");
   const small = cards.filter((card) => card.kind !== "mention");
+
+  if (status === "none") return <NoSpace title={t("time.today")} />;
 
   return (
     <TabScreen>

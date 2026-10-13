@@ -9,8 +9,10 @@
 import { configureClient } from "@ruchoir/client";
 
 import i18n from "../i18n";
+import { isInstanceUrl } from "./sameInstance";
 
 let token: string | null = null;
+let origin: string | null = null;
 
 /** React Native's `WebSocket` constructor, which takes request headers as a third argument. */
 type NativeWebSocket = new (
@@ -28,9 +30,18 @@ export function authHeaders(): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {};
 }
 
-export function connectTo(origin: string, onUnauthorized: () => void): void {
+/**
+ * The same header for an image or a download, but only towards the instance itself: a picture
+ * hosted anywhere else is fetched without the token, which must never leave for a third party.
+ */
+export function authHeadersFor(url: string): Record<string, string> {
+  return isInstanceUrl(url, origin) ? authHeaders() : {};
+}
+
+export function connectTo(instance: string, onUnauthorized: () => void): void {
+  origin = instance;
   configureClient({
-    baseUrl: origin,
+    baseUrl: instance,
     sessionDelivery: "token",
     authorization: () => (token ? `Bearer ${token}` : null),
     locale: () => i18n.language,

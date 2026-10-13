@@ -10,11 +10,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { useLoad, type Loaded } from "../data/useLoad";
 import { useReloadOn } from "../data/useReloadOn";
+import { spaceStatus } from "./status";
 
 const LAST_SPACE = "ruchoir.space";
 
 type SpaceApi = {
   spaces: Loaded<Workspace[]>;
+  status: ReturnType<typeof spaceStatus>;
   current: Workspace | null;
   select: (id: string) => void;
 };
@@ -43,7 +45,8 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
 
   const list = spaces.data;
   const current = useMemo(() => list?.find((w) => w.id === chosen) ?? list?.[0] ?? null, [list, chosen]);
-  const api = useMemo(() => ({ spaces, current, select }), [spaces, current, select]);
+  const status = spaceStatus(list);
+  const api = useMemo(() => ({ spaces, status, current, select }), [spaces, status, current, select]);
   return <SpaceContext.Provider value={api}>{children}</SpaceContext.Provider>;
 }
 

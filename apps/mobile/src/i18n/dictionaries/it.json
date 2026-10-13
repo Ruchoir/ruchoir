@@ -74,7 +74,9 @@
     "switchLabel": "Cambia spazio, spazio attuale: {{name}}",
     "unread_one": "{{count}} messaggio non letto",
     "unread_other": "{{count}} messaggi non letti",
-    "unread_many": "{{count}} messaggi non letti"
+    "unread_many": "{{count}} messaggi non letti",
+    "none": "Non fate ancora parte di alcuno spazio.",
+    "noneHint": "Accettate un invito o create uno spazio dal sito web; comparirà qui."
   },
   "load": {
     "offline": "Nessuna connessione",

@@ -73,7 +73,9 @@
     "current": "Geöffneter Bereich",
     "switchLabel": "Bereich wechseln, aktueller Bereich: {{name}}",
     "unread_one": "{{count}} ungelesene Nachricht",
-    "unread_other": "{{count}} ungelesene Nachrichten"
+    "unread_other": "{{count}} ungelesene Nachrichten",
+    "none": "Sie gehören noch keinem Bereich an.",
+    "noneHint": "Nehmen Sie eine Einladung an oder erstellen Sie auf der Website einen Bereich; er erscheint dann hier."
   },
   "load": {
     "offline": "Keine Verbindung",

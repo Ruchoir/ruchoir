@@ -73,7 +73,9 @@
     "current": "Open now",
     "switchLabel": "Switch space, current space: {{name}}",
     "unread_one": "{{count}} unread message",
-    "unread_other": "{{count}} unread messages"
+    "unread_other": "{{count}} unread messages",
+    "none": "You are not in any space yet.",
+    "noneHint": "Accept an invitation or create a space on the website; it will show here."
   },
   "load": {
     "offline": "No connection",

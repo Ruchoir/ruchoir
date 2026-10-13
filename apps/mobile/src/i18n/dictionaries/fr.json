@@ -73,7 +73,9 @@
     "current": "Espace ouvert",
     "switchLabel": "Changer d’espace, espace actuel : {{name}}",
     "unread_one": "{{count}} message non lu",
-    "unread_other": "{{count}} messages non lus"
+    "unread_other": "{{count}} messages non lus",
+    "none": "Vous ne faites encore partie d’aucun espace.",
+    "noneHint": "Acceptez une invitation ou créez un espace depuis le site web ; il apparaîtra ici."
   },
   "load": {
     "offline": "Hors connexion",

@@ -74,7 +74,9 @@
     "switchLabel": "Cambiar de espacio, espacio actual: {{name}}",
     "unread_one": "{{count}} mensaje sin leer",
     "unread_other": "{{count}} mensajes sin leer",
-    "unread_many": "{{count}} mensajes sin leer"
+    "unread_many": "{{count}} mensajes sin leer",
+    "none": "Todavía no forma parte de ningún espacio.",
+    "noneHint": "Acepte una invitación o cree un espacio desde el sitio web; aparecerá aquí."
   },
   "load": {
     "offline": "Sin conexión",
