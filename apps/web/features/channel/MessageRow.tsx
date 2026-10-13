@@ -393,9 +393,12 @@ export function MessageRow({
   return (
     <div
       data-mid={m.id}
-      className={m.fresh ? "wc-enter" : undefined}
+      // A run of messages that mention the current user reads as one washed block: its corners are
+      // drawn by `.wc-msg-mention`, which squares those that touch the next one.
+      className={[m.fresh ? "wc-enter" : "", mentionsMe ? "wc-msg-mention" : ""].filter(Boolean).join(" ") || undefined}
       style={{
         ...styles.msg,
+        borderRadius: mentionsMe ? undefined : styles.msg.borderRadius,
         // The two halves of the gap are decided separately, because they answer different questions.
         // Above: is this line continuing the one before it. Below: is anything continuing this one,
         // which is also what says whether the hover receipt needs room. Tying the bottom to
