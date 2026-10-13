@@ -43,6 +43,13 @@ show. What every screen keeps:
   (`dayStamp`: aujourd'hui, hier, the weekday, then the date).
 - **Pills and segmented controls** come from `Chips` and `Segmented`; a count in a pill is a small
   muted number, not a badge.
+- **Sheet rows come from `ActionRow`** (`ui/ActionRow.tsx`): a 40 tile in a pastel, a title, a line
+  under it; a destructive row in the danger colours, set apart by a hairline. Every sheet uses it.
+- **A form that slides up** (people picker, new group, invitation) is a `modal` screen with
+  `SheetHeader` (its title and a close button); a choice among a few things is a `formSheet` of
+  `ActionRow`s.
+- **Confirmations and failures elsewhere** go through `useToast()` ("Texte copié", "Réaction non
+  enregistrée"); a question that needs an answer is an `Alert`.
 - Check a change against the mockup side by side before calling it done (`docs/specs/mobile/mockups`).
 
 ## Layout
@@ -51,10 +58,14 @@ show. What every screen keeps:
 src/App.tsx            fonts, session, then the signed-in navigator
 src/session/           instance choice (server.ts), the session reducer (machine.ts), Keychain store
 src/api/instance.ts    configures @ruchoir/client for the chosen instance (bearer, socket headers)
-src/realtime/          one socket for the session; screens subscribe and refetch on resync
+src/realtime/          one socket for the session; screens subscribe and refetch on resync; local
+                       "patched" events carry my own changes (a reaction, a pin, an edit) to every screen
+src/compose/           the composer (mentions, files, edit mode), the outbox and drafts (above the
+                       screens), typing, attach sheet, and the request bus sheets use to reach a composer
 src/space/             the space on screen, remembered between launches
 src/data/              useLoad (requests per screen), useReloadOn (live refetch), members, useNow
-src/logic/             pure functions, tested by Node: conversations, inline Markdown, agenda, today
+src/logic/             pure functions, tested by Node: conversations, inline Markdown, agenda, today,
+                       mentions, outbox, unread, reactions, receipts, threads, attachments, handle
 src/navigation/        root stack (pushed screens, sheets) and the four tabs
 src/screens/           auth, today, discussions, agenda, files, account, space
 src/ui/                design-system pieces: Text, Button, TextField, Avatar, Chips, Segmented...
@@ -72,6 +83,16 @@ src/i18n/              i18next and the six dictionaries
 - **No `Date.now()` or `new Date()` for "now" in render** where the lint can see it: `useNow()`.
 - **`useLoad` keys name what is loaded** (`"conversations:<space>"`); a new key never shows the old
   key's data, which is what keeps a space switch from painting the previous space.
+- **Every write shows at once and says when it fails.** A message goes through the outbox
+  (`compose/useOutbox.tsx`), which recognises its own message when it arrives live, since the API
+  takes no idempotency key: never re-send an item `arrivedIds` has matched. Reactions for one
+  message and emoji go out in order (`compose/useReact.ts`).
+- **A sheet is its own screen** (native `formSheet`), so it cannot call into the conversation under
+  it: it emits a `patched` realtime event for what it changed, or asks through `compose/requests.ts`
+  (edit a message, add files) keyed by the composer's `draftKey` (`<conversation>` or
+  `thread:<root>`).
+- **Thread replies never enter a feed.** `screens/discussions/feed.ts` keeps a conversation's and a
+  thread's messages live; a reply moves the count under its root once (`replyDelta`).
 - **Seeded files of the dev database have no bytes** in the dev object store: opening one answers
   404 there, on the web as well. Upload a file to test the viewer.
 
