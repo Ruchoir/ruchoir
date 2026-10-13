@@ -280,5 +280,27 @@
     "activities": "Aktywności",
     "objects": "Przedmioty",
     "symbols": "Symbole"
+  },
+  "attach": {
+    "gallery": "Zdjęcie lub film",
+    "galleryHint": "Z galerii",
+    "camera": "Zrób zdjęcie",
+    "cameraHint": "Aparatem",
+    "document": "Dokument",
+    "documentHint": "PDF, Word, Excel…",
+    "space": "Z plików przestrzeni",
+    "allFiles": "Wszystkie pliki",
+    "cameraDenied": "Odmówiono dostępu do aparatu",
+    "cameraDeniedText": "Zezwól aplikacji Ruchoir na używanie aparatu w ustawieniach telefonu.",
+    "openSettings": "Otwórz ustawienia",
+    "tooLargeText": "Maksymalny rozmiar pliku na tym serwerze to {{limit}}: {{names}}.",
+    "tooLargeShort": "Za duży",
+    "failed": "Błąd · Dotknij, aby ponowić",
+    "uploading": "Przesyłanie… {{percent}}%",
+    "remove": "Usuń {{name}}",
+    "tooLargeTitle_one": "Plik jest za duży",
+    "tooLargeTitle_other": "Pliki są za duże",
+    "tooLargeTitle_few": "Pliki są za duże",
+    "tooLargeTitle_many": "Pliki są za duże"
   }
 }

@@ -187,12 +187,12 @@
     "invited_many": "{{count}} invitados",
     "yes": "Sí, allí estaré",
     "no": "No",
-    "going": "Asistirás",
-    "notGoing": "No asistirás",
+    "going": "Asistirá",
+    "notGoing": "No asistirá",
     "maybe": "Quizá",
     "change": "Cambiar mi respuesta",
     "allDates": "Para todas las fechas",
-    "answerFailed": "Respuesta no guardada, inténtalo de nuevo."
+    "answerFailed": "Respuesta no guardada, vuelva a intentarlo."
   },
   "files": {
     "search": "Buscar un archivo",
@@ -248,19 +248,19 @@
     "typingTwo": "{{a}} y {{b}} están escribiendo…",
     "typingMany": "Varias personas están escribiendo…",
     "sending": "Enviando…",
-    "failed": "No enviado · Toca para reintentar",
+    "failed": "No enviado · Toque para reintentar",
     "unsentTitle": "Mensaje no enviado",
-    "unsentText": "No se pudo enviar. Puedes reintentarlo o eliminarlo.",
+    "unsentText": "No se pudo enviar. Puede reintentarlo o eliminarlo.",
     "delete": "Eliminar",
     "cancel": "Cancelar",
     "broadcastChannel": "Avisa a todos los miembros del canal",
     "broadcastHere": "Avisa solo a quienes están conectados",
     "archived": "Este canal está archivado: ya no se escribe en él.",
-    "notMember": "Únete al canal para escribir en él.",
+    "notMember": "Únase al canal para escribir en él.",
     "join": "Unirse",
     "joinFailed": "No se ha podido unir al canal por ahora.",
     "editFailed": "Edición no guardada",
-    "editFailedText": "El mensaje conserva su texto anterior. Puedes reintentarlo.",
+    "editFailedText": "El mensaje conserva su texto anterior. Puede reintentarlo.",
     "ok": "OK"
   },
   "emoji": {
@@ -275,5 +275,26 @@
     "activities": "Actividades",
     "objects": "Objetos",
     "symbols": "Símbolos"
+  },
+  "attach": {
+    "gallery": "Foto o vídeo",
+    "galleryHint": "Desde su galería",
+    "camera": "Hacer una foto",
+    "cameraHint": "Con la cámara",
+    "document": "Documento",
+    "documentHint": "PDF, Word, Excel…",
+    "space": "Desde los archivos del espacio",
+    "allFiles": "Todos los archivos",
+    "cameraDenied": "Acceso a la cámara denegado",
+    "cameraDeniedText": "Permita que Ruchoir use la cámara en los ajustes del teléfono.",
+    "openSettings": "Abrir ajustes",
+    "tooLargeText": "El tamaño máximo en este servidor es {{limit}}: {{names}}.",
+    "tooLargeShort": "Demasiado grande",
+    "failed": "Error · Toque para reintentar",
+    "uploading": "Subiendo… {{percent}} %",
+    "remove": "Quitar {{name}}",
+    "tooLargeTitle_one": "Archivo demasiado grande",
+    "tooLargeTitle_other": "Archivos demasiado grandes",
+    "tooLargeTitle_many": "Archivos demasiado grandes"
   }
 }

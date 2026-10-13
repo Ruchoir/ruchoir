@@ -7,14 +7,16 @@
  * answer, or a send whose answer was lost): from then on the item is the message, and a retry
  * would post it twice.
  */
-import type { ApiMessage, MessageAttachment } from "@ruchoir/client";
+import type { ApiMessage, InlineImage, MessageAttachment } from "@ruchoir/client";
 
 export type OutboxItem = {
   localId: string;
   conversationId: string;
   body: string;
-  /** Files already uploaded, sent with the text. */
+  /** Files already uploaded, sent with the text, in order. */
   attachments: MessageAttachment[];
+  /** Those of them that are pictures, drawn as pictures while the message goes. */
+  images?: InlineImage[];
   /** The message this one answers, for a thread reply. */
   parentId?: string;
   state: "sending" | "failed";
@@ -103,17 +105,22 @@ export function pendingRows(
 ): PendingRow[] {
   return items
     .filter((i) => i.conversationId === conversationId && i.parentId === parentId)
-    .map((i) => ({
-      localId: i.localId,
-      state: i.state,
-      message: {
-        id: `local:${i.localId}`,
-        author: me.name,
-        authorId: me.id,
-        createdAt: i.createdAt,
-        body: i.body,
-        attachments: i.attachments.length > 0 ? i.attachments : undefined,
-        parentId: i.parentId,
-      },
-    }));
+    .map((i) => {
+      const pictures = new Set((i.images ?? []).map((img) => img.fileId));
+      const files = i.attachments.filter((a) => !pictures.has(a.fileId));
+      return {
+        localId: i.localId,
+        state: i.state,
+        message: {
+          id: `local:${i.localId}`,
+          author: me.name,
+          authorId: me.id,
+          createdAt: i.createdAt,
+          body: i.body,
+          attachments: files.length > 0 ? files : undefined,
+          images: i.images?.length ? i.images : undefined,
+          parentId: i.parentId,
+        },
+      };
+    });
 }

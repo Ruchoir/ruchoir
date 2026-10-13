@@ -9,6 +9,7 @@
 import { configureClient } from "@ruchoir/client";
 
 import i18n from "../i18n";
+import { forgetUploadLimit } from "./limits";
 import { isInstanceUrl } from "./sameInstance";
 
 let token: string | null = null;
@@ -40,6 +41,7 @@ export function authHeadersFor(url: string): Record<string, string> {
 
 export function connectTo(instance: string, onUnauthorized: () => void): void {
   origin = instance;
+  forgetUploadLimit();
   configureClient({
     baseUrl: instance,
     sessionDelivery: "token",

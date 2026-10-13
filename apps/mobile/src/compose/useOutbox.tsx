@@ -6,7 +6,7 @@
  * live event once the server has it; a failure stays on screen, marked, until it is retried or
  * dropped. The rules are in `logic/outbox.ts`.
  */
-import { sendMessage, type MessageAttachment } from "@ruchoir/client";
+import { sendMessage, type InlineImage, type MessageAttachment } from "@ruchoir/client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
 
 import { outboxReducer, type OutboxItem } from "../logic/outbox";
@@ -16,6 +16,7 @@ export type OutgoingMessage = {
   conversationId: string;
   body: string;
   attachments: MessageAttachment[];
+  images?: InlineImage[];
   parentId?: string;
   /** My messages with the same words already on screen (see `OutboxItem.baseline`). */
   baseline: string[];

@@ -15,7 +15,8 @@ import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, Sty
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Composer, type Editing } from "../../compose/Composer";
-import { useEditRequests } from "../../compose/requests";
+import { useAttachRequests, useEditRequests } from "../../compose/requests";
+import { useAttachments } from "../../compose/useAttachments";
 import { useReact } from "../../compose/useReact";
 import { useOutbox } from "../../compose/useOutbox";
 import { useTypingUsers } from "../../compose/useTyping";
@@ -167,6 +168,13 @@ function Messages({ conversationId, title, channelId, channel, channels, onJoine
 
   // "Edit" in the message's sheet puts its text back in the composer.
   useEditRequests(conversationId, (request) => setEditing({ id: request.id, body: request.body }));
+
+  // Files picked in the attach sheet start uploading at once, above the bar.
+  const attachments = useAttachments(conversationId);
+  useAttachRequests(conversationId, (request) => {
+    if (request.kind === "local") void attachments.add(request.files);
+    else attachments.addSpaceFile(request.file);
+  });
 
   // My messages on their way. One that already arrived (live, or after a lost answer) is done.
   const mine = useMemo(
@@ -362,6 +370,8 @@ function Messages({ conversationId, title, channelId, channel, channels, onJoine
           onSaveEdit={saveEdit}
           onCancelEdit={() => setEditing(null)}
           onSent={() => list.current?.scrollToOffset({ offset: 0, animated: true })}
+          onAttach={() => navigation.navigate("attachSheet", { draftKey: conversationId })}
+          attachments={attachments}
         />
       ) : null}
     </KeyboardAvoidingView>

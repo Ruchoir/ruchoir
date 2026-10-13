@@ -82,3 +82,20 @@ test("someone_elses_identical_message_is_not_mine", () => {
   const ids = arrivedIds([item({})], [real("m1", "Bonjour", { authorId: "u2" })], ME.id);
   assert.equal(ids.size, 0);
 });
+
+test("pending_images_show_as_images_and_files_as_files", () => {
+  const photo = { fileId: "f1", name: "photo.jpg", sizeBytes: 10, kind: "file", previewUrl: "/api/v1/files/f1/preview" };
+  const doc = { fileId: "f2", name: "devis.pdf", sizeBytes: 20, kind: "file" };
+  const items = [item({ attachments: [photo, doc], images: [{ fileId: "f1", alt: "photo.jpg", width: 4, height: 3, src: photo.previewUrl }] })];
+  const [row] = pendingRows(items, "c1", undefined, ME);
+  assert.deepEqual(row.message.images?.map((i) => i.fileId), ["f1"]);
+  assert.deepEqual(row.message.attachments?.map((a) => a.fileId), ["f2"]);
+});
+
+test("a_message_with_files_is_recognised_by_its_files", () => {
+  const photo = { fileId: "f1", name: "photo.jpg", sizeBytes: 10, kind: "file" };
+  const ids = arrivedIds([item({ body: "", attachments: [photo] })], [real("m1", "", { images: [{ fileId: "f1" }] })], ME.id);
+  assert.equal(ids.get("l1"), "m1");
+  const none = arrivedIds([item({ body: "", attachments: [photo] })], [real("m1", "", { images: [{ fileId: "f9" }] })], ME.id);
+  assert.equal(none.size, 0);
+});

@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "NSCameraUsageDescription": "Ruchoir usa la fotocamera perché possiate inviare una foto in un messaggio.",
+    "NSPhotoLibraryUsageDescription": "Ruchoir apre le vostre foto perché possiate allegarle a un messaggio."
+  }
+}

@@ -8,8 +8,8 @@
 import type { Channel, Member } from "@ruchoir/client";
 import * as Haptics from "expo-haptics";
 import { PenLine, Plus, Send } from "lucide-react-native";
-import { useMemo, useState, type ReactNode } from "react";
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTranslation } from "../i18n";
@@ -19,6 +19,8 @@ import { hairline, radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
 import { Text } from "../ui/Text";
 import { MentionSuggestions, type Suggestion } from "./MentionSuggestions";
+import { PendingFiles } from "./PendingFiles";
+import type { Attachments } from "./useAttachments";
 import { useKeyboardShown } from "./useKeyboardShown";
 import { useOutbox } from "./useOutbox";
 import { useTypingSignal } from "./useTyping";
@@ -52,8 +54,8 @@ type Props = {
   onSent?: () => void;
   /** `+`: what can be added to the message. Without it, the button is not drawn. */
   onAttach?: () => void;
-  /** Drawn between the edit banner and the bar: the files waiting to go. */
-  pending?: ReactNode;
+  /** The files waiting to go with the message (kept by the screen, so an edit does not lose them). */
+  attachments?: Attachments;
 };
 
 export function Composer(props: Props) {
@@ -113,8 +115,11 @@ export function Composer(props: Props) {
     setForced({ start: next.cursor, end: next.cursor });
   };
 
+  const files = editing ? undefined : props.attachments;
   const body = text.trim();
-  const ready = body.length > 0;
+  // Files go with the text once they have all arrived; one that failed has to be retried or removed.
+  const waiting = !!files && (files.uploading || files.failed);
+  const ready = (body.length > 0 || (files?.attachments.length ?? 0) > 0) && !waiting;
 
   const submit = () => {
     if (!ready) return;
@@ -123,7 +128,15 @@ export function Composer(props: Props) {
       return;
     }
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    outbox.send({ conversationId, body, attachments: [], parentId, baseline: props.baselineFor(body) });
+    outbox.send({
+      conversationId,
+      body,
+      attachments: files?.attachments ?? [],
+      images: files?.images,
+      parentId,
+      baseline: props.baselineFor(body),
+    });
+    files?.clear();
     change("");
     setCursor(0);
     props.onSent?.();
@@ -150,7 +163,7 @@ export function Composer(props: Props) {
           </Pressable>
         </View>
       ) : null}
-      {props.pending}
+      {files ? <PendingFiles attachments={files} /> : null}
       <View style={[styles.bar, { paddingBottom: keyboard ? 8 : Math.max(insets.bottom, 8) }]}>
         {props.onAttach && !editing ? (
           <Pressable
@@ -190,7 +203,7 @@ export function Composer(props: Props) {
             pressed && { opacity: 0.8 },
           ]}
         >
-          <Send size={20} color={ready ? c.onInk : c.ink} />
+          {files?.uploading ? <ActivityIndicator color={c.ink} /> : <Send size={20} color={ready ? c.onInk : c.ink} />}
         </Pressable>
       </View>
     </View>

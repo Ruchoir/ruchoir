@@ -270,5 +270,25 @@
     "activities": "Activities",
     "objects": "Objects",
     "symbols": "Symbols"
+  },
+  "attach": {
+    "gallery": "Photo or video",
+    "galleryHint": "From your gallery",
+    "camera": "Take a photo",
+    "cameraHint": "With the camera",
+    "document": "Document",
+    "documentHint": "PDF, Word, Excel…",
+    "space": "From the space’s files",
+    "allFiles": "All files",
+    "cameraDenied": "Camera access denied",
+    "cameraDeniedText": "Allow Ruchoir to use the camera in the phone’s settings.",
+    "openSettings": "Open settings",
+    "tooLargeText": "The largest file this server accepts is {{limit}}: {{names}}.",
+    "tooLargeShort": "Too large",
+    "failed": "Failed · Tap to retry",
+    "uploading": "Uploading… {{percent}}%",
+    "remove": "Remove {{name}}",
+    "tooLargeTitle_one": "File too large",
+    "tooLargeTitle_other": "Files too large"
   }
 }

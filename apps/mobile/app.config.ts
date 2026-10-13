@@ -27,7 +27,30 @@ const config: ExpoConfig = {
     package: "com.ruchoir.app",
     adaptiveIcon: { foregroundImage: "./assets/icon.png", backgroundColor: "#f6f7f9" },
   },
-  plugins: ["expo-secure-store", "expo-font", "expo-localization", "expo-web-browser"],
+  plugins: [
+    "expo-secure-store",
+    "expo-font",
+    "expo-localization",
+    "expo-web-browser",
+    // Photos are picked through the system picker and the camera takes stills only: no microphone.
+    [
+      "expo-image-picker",
+      {
+        cameraPermission: "Ruchoir uses the camera so you can send a photo in a message.",
+        photosPermission: "Ruchoir opens your photos so you can attach them to a message.",
+        microphonePermission: false,
+      },
+    ],
+  ],
+  // The permission prompts in the six languages of the interface (iOS reads them per language).
+  locales: {
+    fr: "./locales/fr.json",
+    en: "./locales/en.json",
+    es: "./locales/es.json",
+    de: "./locales/de.json",
+    it: "./locales/it.json",
+    pl: "./locales/pl.json",
+  },
   ...(devProjectId ? { extra: { eas: { projectId: devProjectId } } } : {}),
 };
 

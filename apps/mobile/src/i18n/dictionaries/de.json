@@ -270,5 +270,25 @@
     "activities": "Aktivitäten",
     "objects": "Gegenstände",
     "symbols": "Symbole"
+  },
+  "attach": {
+    "gallery": "Foto oder Video",
+    "galleryHint": "Aus Ihrer Galerie",
+    "camera": "Foto aufnehmen",
+    "cameraHint": "Mit der Kamera",
+    "document": "Dokument",
+    "documentHint": "PDF, Word, Excel…",
+    "space": "Aus den Dateien des Bereichs",
+    "allFiles": "Alle Dateien",
+    "cameraDenied": "Kamerazugriff verweigert",
+    "cameraDeniedText": "Erlauben Sie Ruchoir in den Einstellungen des Telefons, die Kamera zu verwenden.",
+    "openSettings": "Einstellungen öffnen",
+    "tooLargeText": "Die maximale Dateigröße auf diesem Server beträgt {{limit}}: {{names}}.",
+    "tooLargeShort": "Zu groß",
+    "failed": "Fehlgeschlagen · Zum Wiederholen tippen",
+    "uploading": "Wird hochgeladen… {{percent}} %",
+    "remove": "{{name}} entfernen",
+    "tooLargeTitle_one": "Datei zu groß",
+    "tooLargeTitle_other": "Dateien zu groß"
   }
 }

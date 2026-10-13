@@ -270,5 +270,25 @@
     "activities": "Activités",
     "objects": "Objets",
     "symbols": "Symboles"
+  },
+  "attach": {
+    "gallery": "Photo ou vidéo",
+    "galleryHint": "Depuis votre galerie",
+    "camera": "Prendre une photo",
+    "cameraHint": "Avec l’appareil photo",
+    "document": "Document",
+    "documentHint": "PDF, Word, Excel…",
+    "space": "Depuis les fichiers de l’espace",
+    "allFiles": "Tous les fichiers",
+    "cameraDenied": "Accès à l’appareil photo refusé",
+    "cameraDeniedText": "Autorisez Ruchoir à utiliser l’appareil photo dans les réglages du téléphone.",
+    "openSettings": "Ouvrir les réglages",
+    "tooLargeText": "La taille maximale sur ce serveur est de {{limit}} : {{names}}.",
+    "tooLargeShort": "Trop volumineux",
+    "failed": "Échec · Toucher pour réessayer",
+    "uploading": "Envoi… {{percent}} %",
+    "remove": "Retirer {{name}}",
+    "tooLargeTitle_one": "Fichier trop volumineux",
+    "tooLargeTitle_other": "Fichiers trop volumineux"
   }
 }

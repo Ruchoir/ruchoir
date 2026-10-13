@@ -3,7 +3,10 @@
  * cannot reach the conversation's composer: it asks here, and the conversation, still mounted under
  * the sheet, answers.
  */
+import type { SpaceFile } from "@ruchoir/client";
 import { useEffect, useRef } from "react";
+
+import type { LocalFile } from "./useAttachments";
 
 export type EditRequest = { conversationId: string; id: string; body: string };
 
@@ -29,4 +32,33 @@ export function useEditRequests(conversationId: string, onEdit: (request: EditRe
       listeners.delete(listen);
     };
   }, [conversationId]);
+}
+
+/** What the attach sheet hands to a composer: files of the phone, or a file of the space. */
+export type AttachRequest =
+  | { draftKey: string; kind: "local"; files: LocalFile[] }
+  | { draftKey: string; kind: "space"; file: SpaceFile };
+
+const attachListeners = new Set<(request: AttachRequest) => void>();
+
+/** Add files to the message being written under `draftKey`. */
+export function requestAttach(request: AttachRequest): void {
+  attachListeners.forEach((listen) => listen(request));
+}
+
+/** Hear the files picked for one composer. */
+export function useAttachRequests(draftKey: string, onAttach: (request: AttachRequest) => void): void {
+  const latest = useRef(onAttach);
+  useEffect(() => {
+    latest.current = onAttach;
+  });
+  useEffect(() => {
+    const listen = (request: AttachRequest) => {
+      if (request.draftKey === draftKey) latest.current(request);
+    };
+    attachListeners.add(listen);
+    return () => {
+      attachListeners.delete(listen);
+    };
+  }, [draftKey]);
 }

@@ -21,6 +21,9 @@ export type RootParams = {
   /** A message's long-press sheet; `channelId` is set in a channel (pinning needs it). */
   messageActions: { conversationId: string; channelId?: string; message: ApiMessage };
   emojiPicker: { conversationId: string; message: ApiMessage };
+  /** "Add to the message", for the composer whose draft is `draftKey`. */
+  attachSheet: { draftKey: string };
+  spaceFilePicker: { draftKey: string };
   spaceSheet: undefined;
   accountSheet: undefined;
 };

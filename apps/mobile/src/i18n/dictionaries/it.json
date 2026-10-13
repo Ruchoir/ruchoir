@@ -187,12 +187,12 @@
     "invited_many": "{{count}} invitati",
     "yes": "Sì, ci sarò",
     "no": "No",
-    "going": "Ci sarai",
-    "notGoing": "Non ci sarai",
+    "going": "Ci sarete",
+    "notGoing": "Non ci sarete",
     "maybe": "Forse",
     "change": "Cambia risposta",
     "allDates": "Per tutte le date",
-    "answerFailed": "Risposta non salvata, riprova."
+    "answerFailed": "Risposta non salvata, riprovate."
   },
   "files": {
     "search": "Cerca un file",
@@ -248,19 +248,19 @@
     "typingTwo": "{{a}} e {{b}} stanno scrivendo…",
     "typingMany": "Più persone stanno scrivendo…",
     "sending": "Invio…",
-    "failed": "Non inviato · Tocca per riprovare",
+    "failed": "Non inviato · Toccate per riprovare",
     "unsentTitle": "Messaggio non inviato",
-    "unsentText": "Non è stato possibile inviarlo. Puoi riprovare o eliminarlo.",
+    "unsentText": "Non è stato possibile inviarlo. Potete riprovare o eliminarlo.",
     "delete": "Elimina",
     "cancel": "Annulla",
     "broadcastChannel": "Avvisa tutti i membri del canale",
     "broadcastHere": "Avvisa solo chi è connesso",
     "archived": "Questo canale è archiviato: non ci si scrive più.",
-    "notMember": "Unisciti al canale per scriverci.",
+    "notMember": "Unitevi al canale per scriverci.",
     "join": "Unisciti",
     "joinFailed": "Al momento non è possibile unirsi al canale.",
     "editFailed": "Modifica non salvata",
-    "editFailedText": "Il messaggio mantiene il testo precedente. Puoi riprovare.",
+    "editFailedText": "Il messaggio mantiene il testo precedente. Potete riprovare.",
     "ok": "OK"
   },
   "emoji": {
@@ -275,5 +275,26 @@
     "activities": "Attività",
     "objects": "Oggetti",
     "symbols": "Simboli"
+  },
+  "attach": {
+    "gallery": "Foto o video",
+    "galleryHint": "Dalla vostra galleria",
+    "camera": "Scatta una foto",
+    "cameraHint": "Con la fotocamera",
+    "document": "Documento",
+    "documentHint": "PDF, Word, Excel…",
+    "space": "Dai file dello spazio",
+    "allFiles": "Tutti i file",
+    "cameraDenied": "Accesso alla fotocamera negato",
+    "cameraDeniedText": "Consentite a Ruchoir di usare la fotocamera nelle impostazioni del telefono.",
+    "openSettings": "Apri impostazioni",
+    "tooLargeText": "La dimensione massima su questo server è {{limit}}: {{names}}.",
+    "tooLargeShort": "Troppo grande",
+    "failed": "Non riuscito · Toccate per riprovare",
+    "uploading": "Caricamento… {{percent}}%",
+    "remove": "Rimuovi {{name}}",
+    "tooLargeTitle_one": "File troppo grande",
+    "tooLargeTitle_other": "File troppo grandi",
+    "tooLargeTitle_many": "File troppo grandi"
   }
 }
