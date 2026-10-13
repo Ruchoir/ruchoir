@@ -135,6 +135,10 @@ pub(crate) struct InstanceCapabilities {
     trash_retention_days: u32,
     /// Whether files may be handed out by public link.
     public_links: bool,
+    /// Whether sign-in can hand a native app a session token (`session_delivery: "token"`), which
+    /// the iOS and Android apps need. Absent from an older instance, which the apps then ask to have
+    /// updated.
+    native_sessions: bool,
 }
 
 /// What the client needs to know about live editing.
@@ -181,6 +185,7 @@ pub(crate) async fn instance_capabilities(
         upload_max_bytes: state.config.upload_max_bytes,
         trash_retention_days: state.config.trash_retention_days,
         public_links: state.config.public_links,
+        native_sessions: true,
     })
 }
 

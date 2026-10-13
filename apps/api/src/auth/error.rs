@@ -31,6 +31,9 @@ pub enum AuthError {
     InvalidToken,
     /// An MFA verification code (e.g. TOTP) is incorrect.
     InvalidCode,
+    /// A browser asked for a session token, which only a native app may hold (see
+    /// [`super::session::Delivery`]).
+    TokenFromBrowser,
     /// Any unexpected server-side failure. Never leaks internals to the client.
     Internal,
 }
@@ -93,6 +96,11 @@ impl IntoResponse for AuthError {
                 StatusCode::BAD_REQUEST,
                 "invalid_code",
                 "Incorrect verification code.",
+            ),
+            AuthError::TokenFromBrowser => (
+                StatusCode::BAD_REQUEST,
+                "token_from_browser",
+                "A browser session is a cookie; tokens are for the apps.",
             ),
             AuthError::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,
