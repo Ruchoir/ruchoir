@@ -175,5 +175,30 @@
   "viewer": {
     "share": "Udostępnij lub otwórz w…",
     "noPreview": "Nie można tu wyświetlić podglądu tego typu pliku."
+  },
+  "today": {
+    "hello": "Dzień dobry, {{name}}",
+    "now": "Do sprawdzenia teraz",
+    "mentioned": "{{who}} wspomina o Tobie",
+    "replied": "{{who}} odpowiada Ci",
+    "wrote": "{{who}} pisze do Ciebie",
+    "broadcast": "{{who}} pisze do całego kanału",
+    "quote": "„{{text}}”",
+    "inChannel": "Kanał {{name}}",
+    "direct": "Wiadomość prywatna",
+    "open": "Otwórz",
+    "ongoing": "trwa",
+    "inMinutes_one": "za {{count}} min",
+    "inMinutes_other": "za {{count}} min",
+    "inHours_one": "za {{count}} godz.",
+    "inHours_other": "za {{count}} godz.",
+    "newFile": "Nowy dokument",
+    "calm": "Na razie nic pilnego.",
+    "recent": "Ostatnie rozmowy",
+    "seeAll": "Zobacz wszystko",
+    "inMinutes_few": "za {{count}} min",
+    "inMinutes_many": "za {{count}} min",
+    "inHours_few": "za {{count}} godz.",
+    "inHours_many": "za {{count}} godz."
   }
 }

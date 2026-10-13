@@ -102,7 +102,7 @@ export function DiscussionsScreen() {
   );
 }
 
-function ConversationRow({ item, onPress }: { item: ConversationItem; onPress: () => void }) {
+export function ConversationRow({ item, onPress }: { item: ConversationItem; onPress: () => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();

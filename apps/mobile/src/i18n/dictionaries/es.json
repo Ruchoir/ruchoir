@@ -172,5 +172,28 @@
   "viewer": {
     "share": "Compartir o abrir en…",
     "noPreview": "Este tipo de archivo no se puede previsualizar aquí."
+  },
+  "today": {
+    "hello": "Hola, {{name}}",
+    "now": "Para ver ahora",
+    "mentioned": "{{who}} le ha mencionado",
+    "replied": "{{who}} le ha respondido",
+    "wrote": "{{who}} le ha escrito",
+    "broadcast": "{{who}} ha escrito a todo el canal",
+    "quote": "«{{text}}»",
+    "inChannel": "Canal {{name}}",
+    "direct": "Mensaje privado",
+    "open": "Abrir",
+    "ongoing": "en curso",
+    "inMinutes_one": "en {{count}} min",
+    "inMinutes_other": "en {{count}} min",
+    "inHours_one": "en {{count}} h",
+    "inHours_other": "en {{count}} h",
+    "newFile": "Documento nuevo",
+    "calm": "Nada urgente por ahora.",
+    "recent": "Conversaciones recientes",
+    "seeAll": "Ver todo",
+    "inMinutes_many": "en {{count}} min",
+    "inHours_many": "en {{count}} h"
   }
 }

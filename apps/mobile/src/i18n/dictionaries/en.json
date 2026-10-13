@@ -169,5 +169,26 @@
   "viewer": {
     "share": "Share or open in…",
     "noPreview": "This kind of file cannot be previewed here."
+  },
+  "today": {
+    "hello": "Hello {{name}}",
+    "now": "To look at now",
+    "mentioned": "{{who}} mentioned you",
+    "replied": "{{who}} replied to you",
+    "wrote": "{{who}} wrote to you",
+    "broadcast": "{{who}} wrote to the whole channel",
+    "quote": "“{{text}}”",
+    "inChannel": "Channel {{name}}",
+    "direct": "Direct message",
+    "open": "Open",
+    "ongoing": "now",
+    "inMinutes_one": "in {{count}} min",
+    "inMinutes_other": "in {{count}} min",
+    "inHours_one": "in {{count}} h",
+    "inHours_other": "in {{count}} h",
+    "newFile": "New document",
+    "calm": "Nothing urgent for now.",
+    "recent": "Recent conversations",
+    "seeAll": "See all"
   }
 }

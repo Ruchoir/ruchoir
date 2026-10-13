@@ -169,5 +169,26 @@
   "viewer": {
     "share": "Teilen oder öffnen in…",
     "noPreview": "Für diesen Dateityp ist hier keine Vorschau möglich."
+  },
+  "today": {
+    "hello": "Hallo {{name}}",
+    "now": "Jetzt ansehen",
+    "mentioned": "{{who}} hat Sie erwähnt",
+    "replied": "{{who}} hat Ihnen geantwortet",
+    "wrote": "{{who}} hat Ihnen geschrieben",
+    "broadcast": "{{who}} hat an den ganzen Kanal geschrieben",
+    "quote": "„{{text}}“",
+    "inChannel": "Kanal {{name}}",
+    "direct": "Direktnachricht",
+    "open": "Öffnen",
+    "ongoing": "läuft",
+    "inMinutes_one": "in {{count}} Min.",
+    "inMinutes_other": "in {{count}} Min.",
+    "inHours_one": "in {{count}} Std.",
+    "inHours_other": "in {{count}} Std.",
+    "newFile": "Neues Dokument",
+    "calm": "Im Moment nichts Dringendes.",
+    "recent": "Letzte Unterhaltungen",
+    "seeAll": "Alle anzeigen"
   }
 }
