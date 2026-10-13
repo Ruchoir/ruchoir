@@ -106,14 +106,24 @@
     "image": "Bild"
   },
   "common": {
-    "back": "Zurück"
+    "back": "Zurück",
+    "close": "Schließen"
   },
   "time": {
     "today": "Heute",
     "yesterday": "Gestern"
   },
   "agenda": {
-    "allDay": "Ganztägig"
+    "allDay": "Ganztägig",
+    "list": "Liste",
+    "week": "Woche",
+    "month": "Monat",
+    "todayLabel": "Heute · {{day}}",
+    "weekOf": "Woche vom {{from}}. bis {{to}}",
+    "previous": "Vorheriger Zeitraum",
+    "next": "Nächster Zeitraum",
+    "nothingSoon": "In den nächsten 30 Tagen ist nichts geplant.",
+    "nothingThatDay": "An diesem Tag ist nichts geplant."
   },
   "discussions": {
     "filterAll": "Alle",
@@ -135,5 +145,17 @@
     "writingSoon": "Schreiben kommt bald in die App.",
     "noFiles": "Hier wurden keine Dateien geteilt.",
     "noEvents": "Keine anstehenden Termine."
+  },
+  "attendee": {
+    "accepted": "Nimmt teil",
+    "tentative": "Nimmt vielleicht teil",
+    "declined": "Nimmt nicht teil",
+    "needsAction": "Noch keine Antwort"
+  },
+  "event": {
+    "sharedIn": "Im Kanal geteilt",
+    "invited_one": "{{count}} Gast",
+    "invited_other": "{{count}} Gäste",
+    "files": "Geteilte Dateien"
   }
 }

@@ -107,14 +107,24 @@
     "image": "Imagen"
   },
   "common": {
-    "back": "Atrás"
+    "back": "Atrás",
+    "close": "Cerrar"
   },
   "time": {
     "today": "Hoy",
     "yesterday": "Ayer"
   },
   "agenda": {
-    "allDay": "Todo el día"
+    "allDay": "Todo el día",
+    "list": "Lista",
+    "week": "Semana",
+    "month": "Mes",
+    "todayLabel": "Hoy · {{day}}",
+    "weekOf": "Semana del {{from}} al {{to}}",
+    "previous": "Período anterior",
+    "next": "Período siguiente",
+    "nothingSoon": "Nada previsto en los próximos 30 días.",
+    "nothingThatDay": "Nada previsto ese día."
   },
   "discussions": {
     "filterAll": "Todo",
@@ -137,5 +147,18 @@
     "noFiles": "No se ha compartido ningún archivo aquí.",
     "noEvents": "No hay eventos próximos.",
     "people_many": "{{count}} personas"
+  },
+  "attendee": {
+    "accepted": "Asiste",
+    "tentative": "Quizá asista",
+    "declined": "No asiste",
+    "needsAction": "Aún no ha respondido"
+  },
+  "event": {
+    "sharedIn": "Compartido en el canal",
+    "invited_one": "{{count}} invitado",
+    "invited_other": "{{count}} invitados",
+    "files": "Archivos compartidos",
+    "invited_many": "{{count}} invitados"
   }
 }

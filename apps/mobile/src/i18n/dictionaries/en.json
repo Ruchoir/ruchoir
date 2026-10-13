@@ -106,14 +106,24 @@
     "image": "Image"
   },
   "common": {
-    "back": "Back"
+    "back": "Back",
+    "close": "Close"
   },
   "time": {
     "today": "Today",
     "yesterday": "Yesterday"
   },
   "agenda": {
-    "allDay": "All day"
+    "allDay": "All day",
+    "list": "List",
+    "week": "Week",
+    "month": "Month",
+    "todayLabel": "Today · {{day}}",
+    "weekOf": "Week of {{from}} to {{to}}",
+    "previous": "Previous period",
+    "next": "Next period",
+    "nothingSoon": "Nothing planned in the next 30 days.",
+    "nothingThatDay": "Nothing planned that day."
   },
   "discussions": {
     "filterAll": "All",
@@ -135,5 +145,17 @@
     "writingSoon": "Writing is coming to the app soon.",
     "noFiles": "No files shared here.",
     "noEvents": "No upcoming events."
+  },
+  "attendee": {
+    "accepted": "Going",
+    "tentative": "Maybe going",
+    "declined": "Not going",
+    "needsAction": "Not answered yet"
+  },
+  "event": {
+    "sharedIn": "Shared in the channel",
+    "invited_one": "{{count}} guest",
+    "invited_other": "{{count}} guests",
+    "files": "Shared files"
   }
 }
