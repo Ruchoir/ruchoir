@@ -3,6 +3,7 @@
 # packages/* are added here when they become real pnpm packages (design system later).
 packages:
   - "apps/web"
+  - "apps/mobile"
   - "packages/client"
 allowBuilds:
   unrs-resolver: true

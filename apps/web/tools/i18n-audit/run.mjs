@@ -19,7 +19,9 @@
  * look like prose, it finds the positions whose value reaches a person's eyes, and every literal
  * that lands in one is a finding whatever language it is written in.
  *
- * Usage: `pnpm --filter @ruchoir/web i18n:check` (CI runs the same command).
+ * Usage: `pnpm --filter @ruchoir/web i18n:check` (CI runs the same command). The mobile app runs the
+ * same rules on its own sources and dictionaries with `--app mobile`
+ * (`pnpm --filter @ruchoir/mobile i18n:check`).
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -28,8 +30,18 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 const WEB_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const SCAN_DIRS = ["app", "components", "features", "lib"];
-const DICT_DIR = join(WEB_ROOT, "lib/i18n/dictionaries");
+
+/** Where each app keeps its sources, its dictionaries and (the web only) its translation debt. */
+const APPS = {
+  web: { root: WEB_ROOT, scan: ["app", "components", "features", "lib"], dict: "lib/i18n/dictionaries", debt: "tools/i18n-audit/untranslated.json" },
+  mobile: { root: resolve(WEB_ROOT, "../mobile"), scan: ["src"], dict: "src/i18n/dictionaries", debt: null },
+};
+const appArg = process.argv.indexOf("--app");
+const APP = APPS[appArg >= 0 ? process.argv[appArg + 1] : "web"];
+if (!APP) throw new Error(`unknown --app; expected one of ${Object.keys(APPS).join(", ")}`);
+const ROOT = APP.root;
+const SCAN_DIRS = APP.scan;
+const DICT_DIR = join(ROOT, APP.dict);
 
 /** Attributes and object fields whose value reaches a person's eyes or a screen reader. */
 const TEXT_FIELDS = new Set([
@@ -53,6 +65,9 @@ const TEXT_FIELDS = new Set([
   "caption",
   "tooltip",
   "name",
+  // React Native's names for what a screen reader says.
+  "accessibilityLabel",
+  "accessibilityHint",
 ]);
 
 /** Fields named like the above whose value is never drawn: they name a thing, they do not say it. */
@@ -217,7 +232,7 @@ function findFrozenLocales(source, path) {
       if (isFormatter && first && TEXT_LITERAL.has(first.kind) && LOCALE_TAG.test(first.text)) {
         const line = sf.getLineAndCharacterOfPosition(first.getStart(sf)).line + 1;
         if (!(line > 1 && lines[line - 2].includes(LINE_OPT_OUT))) {
-          found.push({ line, text: `${callee}("${first.text}")`, file: relative(WEB_ROOT, path) });
+          found.push({ line, text: `${callee}("${first.text}")`, file: relative(ROOT, path) });
         }
       }
     }
@@ -292,7 +307,7 @@ function findHardCoded(source, path) {
       seen.add(key);
       return true;
     })
-    .map((f) => ({ ...f, file: relative(WEB_ROOT, path) }));
+    .map((f) => ({ ...f, file: relative(ROOT, path) }));
 }
 
 /**
@@ -387,7 +402,7 @@ function usedKeys(files) {
   const used = new Map();
   for (const file of files) {
     const source = readFileSync(file, "utf8");
-    const relPath = relative(WEB_ROOT, file);
+    const relPath = relative(ROOT, file);
     // `t("…")` and `key("…")`, but also `tRef.current("…")` and a `<Trans i18nKey="…">`: a key is a
     // key however it reaches the runtime, and a warning that cannot see three of the four shapes
     // spends its time reporting live keys as dead ones.
@@ -413,10 +428,10 @@ function usedKeys(files) {
  * new hard-coded string appears anywhere else. Two rules keep it honest: nothing may be added to it
  * (a new screen is written translated), and a file that has become clean is reported so the line goes.
  */
-const DEBT_FILE = join(WEB_ROOT, "tools/i18n-audit/untranslated.json");
-const debt = new Set(JSON.parse(readFileSync(DEBT_FILE, "utf8")).files);
+// The mobile app was written translated from its first screen, so it has no debt file at all.
+const debt = new Set(APP.debt ? JSON.parse(readFileSync(join(ROOT, APP.debt), "utf8")).files : []);
 
-const files = SCAN_DIRS.flatMap((dir) => walk(join(WEB_ROOT, dir)));
+const files = SCAN_DIRS.flatMap((dir) => walk(join(ROOT, dir)));
 const allFindings = files.flatMap((file) => findHardCoded(readFileSync(file, "utf8"), file));
 const frozenLocales = files.flatMap((file) => findFrozenLocales(readFileSync(file, "utf8"), file));
 const hardCoded = allFindings.filter((f) => !debt.has(f.file));
