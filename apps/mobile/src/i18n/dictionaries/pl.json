@@ -126,8 +126,9 @@
     "weekOf": "Tydzień od {{from}} do {{to}}",
     "previous": "Poprzedni okres",
     "next": "Następny okres",
-    "nothingSoon": "Nic nie zaplanowano na najbliższe 30 dni.",
-    "nothingThatDay": "Tego dnia nic nie zaplanowano."
+    "nothingSoon": "Nic nie zaplanowano",
+    "nothingThatDay": "Tego dnia nic nie zaplanowano",
+    "nothingSoonHint": "Brak wydarzeń w ciągu najbliższych 30 dni."
   },
   "discussions": {
     "filterAll": "Wszystko",
@@ -135,22 +136,26 @@
     "filterGroups": "Grupy",
     "filterPeople": "Osoby",
     "search": "Szukaj osoby lub grupy…",
-    "noMatch": "Brak pasujących rozmów.",
-    "empty": "W tej przestrzeni nie ma jeszcze rozmów.",
+    "noMatch": "Brak pasujących rozmów",
+    "empty": "Brak rozmów",
     "you": "Ty: {{text}}",
     "by": "{{who}}: {{text}}",
-    "group": "Grupa"
+    "group": "Grupa",
+    "emptyHint": "Obserwowane kanały i wiadomości prywatne pojawią się tutaj."
   },
   "conversation": {
     "messages": "Wiadomości",
     "people_one": "{{count}} osoba",
     "people_other": "{{count}} osoby",
-    "empty": "Nie ma jeszcze wiadomości.",
+    "empty": "Nie ma jeszcze wiadomości",
     "writingSoon": "Pisanie wkrótce pojawi się w aplikacji.",
-    "noFiles": "Nie udostępniono tu żadnych plików.",
-    "noEvents": "Brak nadchodzących wydarzeń.",
+    "noFiles": "Nie udostępniono tu żadnych plików",
+    "noEvents": "Brak nadchodzących wydarzeń",
     "people_few": "{{count}} osoby",
-    "people_many": "{{count}} osób"
+    "people_many": "{{count}} osób",
+    "emptyHint": "Wiadomości z tej rozmowy pojawią się tutaj na bieżąco.",
+    "noFilesHint": "Pliki dołączone do wiadomości w tej rozmowie pojawią się tutaj.",
+    "noEventsHint": "Wydarzenia udostępnione na tym kanale pojawią się tutaj."
   },
   "attendee": {
     "accepted": "Weźmie udział",
@@ -168,11 +173,15 @@
   },
   "files": {
     "search": "Szukaj pliku",
-    "noMatch": "Brak pasujących plików.",
+    "noMatch": "Brak pasujących plików",
     "recent": "Ostatnie",
     "atRoot": "W przestrzeni",
-    "empty": "W tej przestrzeni nie ma jeszcze plików.",
-    "folderEmpty": "Ten folder jest pusty."
+    "empty": "Brak plików w tej przestrzeni",
+    "folderEmpty": "Ten folder jest pusty",
+    "emptyHint": "Pliki dodane do przestrzeni pojawią się tutaj.",
+    "folderEmptyHint": "Pliki umieszczone w tym folderze pojawią się tutaj.",
+    "today": "dzisiaj",
+    "yesterday": "wczoraj"
   },
   "viewer": {
     "share": "Udostępnij lub otwórz w…",
@@ -195,12 +204,16 @@
     "inHours_one": "za {{count}} godz.",
     "inHours_other": "za {{count}} godz.",
     "newFile": "Nowy dokument",
-    "calm": "Na razie nic pilnego.",
+    "calm": "Na razie nic pilnego",
     "recent": "Ostatnie rozmowy",
     "seeAll": "Zobacz wszystko",
     "inMinutes_few": "za {{count}} min",
     "inMinutes_many": "za {{count}} min",
     "inHours_few": "za {{count}} godz.",
-    "inHours_many": "za {{count}} godz."
+    "inHours_many": "za {{count}} godz.",
+    "calmHint": "Czekające wiadomości, najbliższe spotkanie i nowe pliki pojawią się tutaj."
+  },
+  "search": {
+    "tryAnother": "Spróbuj innego słowa."
   }
 }

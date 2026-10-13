@@ -11,12 +11,15 @@ import { Text } from "../../ui/Text";
  */
 export function EventCardRow({
   time,
+  allDay,
   title,
   meta,
   color,
   onPress,
 }: {
   time: string;
+  /** The time column holds a word ("All day") rather than a time: smaller, on up to two lines. */
+  allDay?: boolean;
   title: string;
   meta?: string;
   color: string;
@@ -34,7 +37,7 @@ export function EventCardRow({
       ]}
     >
       <View style={[styles.bar, { backgroundColor: color }]} />
-      <Text variant="small" numberOfLines={1} adjustsFontSizeToFit style={styles.time}>
+      <Text variant={allDay ? "tiny" : "small"} numberOfLines={allDay ? 2 : 1} style={styles.time}>
         {time}
       </Text>
       <View style={styles.text}>

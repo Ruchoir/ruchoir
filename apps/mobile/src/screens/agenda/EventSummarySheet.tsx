@@ -1,6 +1,6 @@
 import { fileDownloadUrl, getEvent, type AttendeeStatus } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { Clock, MapPin, MessageSquare, Paperclip, Users, X } from "lucide-react-native";
+import { Clock, Download, MapPin, MessageSquare, Paperclip, Users, X } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -117,6 +117,7 @@ export function EventSummarySheet() {
                 key={f.id}
                 name={f.name}
                 sizeBytes={f.size}
+                trailing={<Download size={18} color={c.body} />}
                 onPress={() => navigation.navigate("fileViewer", { file: { id: f.id, name: f.name, url: fileDownloadUrl(f.id), sizeBytes: f.size } })}
               />
             ))}
@@ -149,7 +150,7 @@ const styles = StyleSheet.create({
   close: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginTop: -6 },
   rows: { paddingHorizontal: 20 },
   row: { flexDirection: "row", gap: 14, paddingVertical: 14, borderBottomWidth: 1 },
-  tile: { width: 36, height: 36, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
+  tile: { width: 32, height: 32, borderRadius: radius.s + 2, alignItems: "center", justifyContent: "center" },
   flex: { flex: 1, minWidth: 0, gap: 6 },
   attendee: { flexDirection: "row", alignItems: "center", gap: 10 },
   description: { paddingTop: 14 },

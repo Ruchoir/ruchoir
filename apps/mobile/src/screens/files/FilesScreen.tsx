@@ -69,7 +69,7 @@ export function FilesScreen() {
             found.data.length ? (
               found.data.map((entry) => <FileRow key={entry.file.id} file={entry.file} line={entry.path.map((p) => p.name).join(" / ") || undefined} />)
             ) : (
-              <EmptyState icon={SearchX} title={t("files.noMatch")} />
+              <EmptyState size="compact" icon={SearchX} title={t("files.noMatch")} text={t("search.tryAnother")} />
             )
           ) : (
             <LoadState error={found.error} onRetry={found.reload} />
@@ -81,7 +81,7 @@ export function FilesScreen() {
             {folders.length ? <FolderTiles folders={folders} /> : null}
             {files.length ? <Section title={t("files.atRoot")} files={files} /> : null}
             {recent.data?.length ? <Section title={t("files.recent")} files={recent.data.slice(0, 20).map((e) => e.file)} /> : null}
-            {!folders.length && !files.length ? <EmptyState icon={FolderOpen} title={t("files.empty")} /> : null}
+            {!folders.length && !files.length ? <EmptyState icon={FolderOpen} title={t("files.empty")} text={t("files.emptyHint")} /> : null}
           </>
         )}
       </ScrollView>

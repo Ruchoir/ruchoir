@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
-import { listStamp } from "../../logic/format";
+import { dayStamp } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
 import { useTheme } from "../../theme/useTheme";
 import { FileIcon } from "../../ui/FileIcon";
@@ -28,8 +28,14 @@ export function FileRow({ file, line }: { file: SpaceFile; line?: string }) {
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const folder = file.kind === "folder";
-  const stamp = file.updatedAt ? listStamp(file.updatedAt, new Date(), locale, timeZone) : null;
-  const when = stamp ? (stamp.kind === "yesterday" ? t("time.yesterday") : stamp.text) : null;
+  const stamp = file.updatedAt ? dayStamp(file.updatedAt, new Date(), locale, timeZone) : null;
+  const when = !stamp
+    ? null
+    : stamp.kind === "today"
+      ? t("files.today")
+      : stamp.kind === "yesterday"
+        ? t("files.yesterday")
+        : stamp.text;
   const meta = line ?? [file.modifiedBy ?? file.by, when].filter(Boolean).join(" · ");
 
   return (

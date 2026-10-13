@@ -1,6 +1,6 @@
 import { getChannelMessages, getChannels, getDirectMessages } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
-import { MessageSquare, Users } from "lucide-react-native";
+import { MessageSquare, SearchX, Users } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 
@@ -85,7 +85,11 @@ export function DiscussionsScreen() {
           !conversations.data ? (
             <LoadState error={conversations.error} onRetry={conversations.reload} />
           ) : (
-            <EmptyState icon={MessageSquare} title={query ? t("discussions.noMatch") : t("discussions.empty")} />
+            query ? (
+              <EmptyState size="compact" icon={SearchX} title={t("discussions.noMatch")} text={t("search.tryAnother")} />
+            ) : (
+              <EmptyState icon={MessageSquare} title={t("discussions.empty")} text={t("discussions.emptyHint")} />
+            )
           )
         }
         renderItem={({ item }) => (
@@ -119,7 +123,10 @@ export function ConversationRow({ item, onPress }: { item: ConversationItem; onP
     : null;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && { backgroundColor: c.line }]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.row, !preview && item.kind !== "group" && styles.single, pressed && { backgroundColor: c.line }]}
+    >
       <Avatar name={item.name} kind={item.kind === "person" ? "person" : "workspace"} size={44} presence={item.kind === "person" ? item.presence : undefined} />
       <View style={styles.body}>
         <View style={styles.line}>
@@ -154,6 +161,7 @@ export function ConversationRow({ item, onPress }: { item: ConversationItem; onP
 const styles = StyleSheet.create({
   top: { gap: 12, paddingBottom: 8 },
   row: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingVertical: 10, alignItems: "flex-start" },
+  single: { alignItems: "center" },
   body: { flex: 1, minWidth: 0, gap: 2 },
   line: { flexDirection: "row", alignItems: "center", gap: 8 },
   name: { flex: 1, minWidth: 0 },

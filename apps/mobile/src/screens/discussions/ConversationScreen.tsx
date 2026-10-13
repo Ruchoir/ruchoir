@@ -47,6 +47,7 @@ type Row = { kind: "message"; message: ApiMessage; head: boolean } | { kind: "da
 export function ConversationScreen() {
   const { params } = useRoute<RouteProp<RootParams, "conversation">>();
   const { t } = useTranslation();
+  const { c } = useTheme();
   const { current } = useSpace();
   const members = useSpaceMembers(current?.id);
   const [pane, setPane] = useState<Pane>("messages");
@@ -62,11 +63,13 @@ export function ConversationScreen() {
         subtitle={subtitle}
         leading={<Avatar name={params.title} kind={params.channelId ? "workspace" : "person"} src={params.channelId ? undefined : members.avatarOf(params.title)} size={36} />}
       />
+      <View style={[styles.tabs, { borderBottomColor: c.line }]}>
       <Chips
         chips={PANES.filter((p) => p.key !== "agenda" || params.channelId).map((p) => ({ key: p.key, label: t(p.label), icon: p.icon }))}
         value={pane}
         onChange={setPane}
       />
+      </View>
       <View style={styles.fill}>
         {pane === "messages" ? (
           <Messages conversationId={params.conversationId} members={members} />
@@ -154,6 +157,9 @@ function Messages({ conversationId, members }: { conversationId: string; members
 
   return (
     <View style={styles.fill}>
+      {rows.length === 0 ? (
+        <EmptyState icon={MessageSquare} title={t("conversation.empty")} text={t("conversation.emptyHint")} />
+      ) : (
       <FlatList
         inverted
         data={rows}
@@ -161,7 +167,6 @@ function Messages({ conversationId, members }: { conversationId: string; members
         onEndReached={() => void loadOlder()}
         onEndReachedThreshold={0.4}
         ListFooterComponent={extra.loadingMore ? <ActivityIndicator color={c.ink} style={styles.more} /> : null}
-        ListEmptyComponent={<EmptyState icon={MessageSquare} title={t("conversation.empty")} />}
         renderItem={({ item }) => {
           if (item.kind === "day") {
             const gap = daysBetween(item.day, today);
@@ -195,6 +200,7 @@ function Messages({ conversationId, members }: { conversationId: string; members
           );
         }}
       />
+      )}
       <SafeAreaView edges={["bottom"]} style={[styles.soon, { borderTopColor: c.line, backgroundColor: c.surface }]}>
         <View style={[styles.soonPill, { backgroundColor: s.sunken }]}>
           <PenLine size={16} color={c.muted} />
@@ -209,6 +215,7 @@ function Messages({ conversationId, members }: { conversationId: string; members
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  tabs: { paddingBottom: 8, borderBottomWidth: hairline },
   more: { padding: 16 },
   day: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
   rule: { flex: 1, height: hairline },

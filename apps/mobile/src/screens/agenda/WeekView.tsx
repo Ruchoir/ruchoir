@@ -43,11 +43,9 @@ export function WeekView({ anchor, today, data, onAnchor }: { anchor: string; to
       <View style={styles.row}>
         {week.map((day, i) => (
           <View key={day} style={styles.column}>
-            <Text variant="label" tone="muted">
-              {letters[i]}
-            </Text>
             <DayCell
               day={day}
+              letter={letters[i]}
               selected={day === chosen}
               today={day === today}
               dots={[...new Set((byDay.get(day) ?? []).map((o) => calendarColor(data?.calendars.get(o.calendarId)?.color, c)))]}
@@ -60,7 +58,10 @@ export function WeekView({ anchor, today, data, onAnchor }: { anchor: string; to
         byDay.get(chosen)?.length ? (
           <DayEvents day={chosen} today={today} items={byDay.get(chosen)!} data={data} />
         ) : (
-          <EmptyState icon={CalendarDays} title={dayLabel(chosen, today)} text={t("agenda.nothingThatDay")} />
+          <View style={styles.dayEmpty}>
+            <Text variant="smallStrong">{dayLabel(chosen, today)}</Text>
+            <EmptyState size="compact" icon={CalendarDays} title={t("agenda.nothingThatDay")} />
+          </View>
         )
       ) : null}
     </View>
@@ -68,6 +69,7 @@ export function WeekView({ anchor, today, data, onAnchor }: { anchor: string; to
 }
 
 const styles = StyleSheet.create({
+  dayEmpty: { gap: 4 },
   gap: { gap: 12 },
   row: { flexDirection: "row", gap: 4 },
   column: { flex: 1, alignItems: "center", gap: 4 },

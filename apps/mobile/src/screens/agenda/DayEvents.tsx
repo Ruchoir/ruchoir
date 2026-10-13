@@ -19,8 +19,8 @@ export function useDayLabel() {
     const long = new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" }).format(
       new Date(`${day}T12:00:00Z`),
     );
-    const named = long.charAt(0).toLocaleUpperCase(locale) + long.slice(1);
-    return day === today ? t("agenda.todayLabel", { day: named }) : named;
+    if (day === today) return t("agenda.todayLabel", { day: long });
+    return long.charAt(0).toLocaleUpperCase(locale) + long.slice(1);
   };
 }
 
@@ -38,6 +38,7 @@ export function DayEvents({ day, today, items, data }: { day: string; today: str
         <EventCardRow
           key={`${o.eventId}:${o.recurrenceId ?? ""}:${day}`}
           time={o.allDay ? t("agenda.allDay") : timeOf(o.start, locale, timeZone)}
+          allDay={o.allDay}
           title={o.title}
           meta={o.location}
           color={calendarColor(data.calendars.get(o.calendarId)?.color, c)}

@@ -36,7 +36,7 @@ export function FolderScreen() {
           data={entries}
           keyExtractor={(f, i) => f.id ?? String(i)}
           renderItem={({ item }) => <FileRow file={item} />}
-          ListEmptyComponent={<EmptyState icon={FolderOpen} title={t("files.folderEmpty")} />}
+          ListEmptyComponent={<EmptyState icon={FolderOpen} title={t("files.folderEmpty")} text={t("files.folderEmptyHint")} />}
           contentContainerStyle={styles.list}
         />
       )}

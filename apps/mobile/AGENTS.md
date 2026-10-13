@@ -24,6 +24,27 @@ rules; this file holds what is particular to the app.
 - Colours come from `src/theme/tokens.ts`, a copy of `apps/web/app/tokens.css` kept honest by
   `test/tokens.test.ts`.
 
+## Design consistency
+
+The mockups (21 phone screens) are the reference; the web's design system fills what they do not
+show. What every screen keeps:
+
+- **Gutter 16**, rows of a list 10 vertical padding, 12 between the icon and the text; a row with no
+  second line centres its single line.
+- **Icon tiles**: 40 in lists, 32 in a sheet's rows, radius 10 (8 for 32); the header avatar is 36.
+- **One empty state, `EmptyState`** (`ui/States.tsx`), the web's: the icon as a sticker (accent
+  pastel, 2 px ink edge, -4 deg, hard offset shadow), a short title without a full stop, and one
+  sentence saying what will appear there. `hero` for a whole screen, `compact` inside content (a
+  day with nothing, a search with no result). Never a bare line of grey text. Never inside an
+  inverted list (it would be drawn upside down): render it instead of the list.
+- **Day headings** come from `useDayLabel` (`Aujourd'hui · mardi 13 octobre`, else `Mercredi 14
+  octobre`), and a list of events is grouped by day with `groupByDay`, wherever it appears.
+- **Dates on rows**: a conversation shows the time today (`listStamp`), a file the day as a word
+  (`dayStamp`: aujourd'hui, hier, the weekday, then the date).
+- **Pills and segmented controls** come from `Chips` and `Segmented`; a count in a pill is a small
+  muted number, not a badge.
+- Check a change against the mockup side by side before calling it done (`docs/specs/mobile/mockups`).
+
 ## Layout
 
 ```

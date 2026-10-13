@@ -66,7 +66,10 @@ export function MonthView({ anchor, today, data, onAnchor }: { anchor: string; t
         byDay.get(chosen)?.length ? (
           <DayEvents day={chosen} today={today} items={byDay.get(chosen)!} data={data} />
         ) : (
-          <EmptyState icon={CalendarDays} title={dayLabel(chosen, today)} text={t("agenda.nothingThatDay")} />
+          <View style={styles.dayEmpty}>
+            <Text variant="smallStrong">{dayLabel(chosen, today)}</Text>
+            <EmptyState size="compact" icon={CalendarDays} title={t("agenda.nothingThatDay")} />
+          </View>
         )
       ) : null}
     </View>
@@ -74,6 +77,7 @@ export function MonthView({ anchor, today, data, onAnchor }: { anchor: string; t
 }
 
 const styles = StyleSheet.create({
+  dayEmpty: { gap: 4 },
   gap: { gap: 8 },
   row: { flexDirection: "row", gap: 2 },
   letter: { flex: 1, textAlign: "center" },

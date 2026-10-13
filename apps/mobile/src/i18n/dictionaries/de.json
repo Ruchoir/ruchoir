@@ -124,8 +124,9 @@
     "weekOf": "Woche vom {{from}}. bis {{to}}",
     "previous": "Vorheriger Zeitraum",
     "next": "Nächster Zeitraum",
-    "nothingSoon": "In den nächsten 30 Tagen ist nichts geplant.",
-    "nothingThatDay": "An diesem Tag ist nichts geplant."
+    "nothingSoon": "Nichts geplant",
+    "nothingThatDay": "An diesem Tag ist nichts geplant",
+    "nothingSoonHint": "Keine Termine in den nächsten 30 Tagen."
   },
   "discussions": {
     "filterAll": "Alle",
@@ -133,20 +134,24 @@
     "filterGroups": "Gruppen",
     "filterPeople": "Personen",
     "search": "Person oder Gruppe suchen…",
-    "noMatch": "Keine passende Unterhaltung.",
-    "empty": "In diesem Bereich gibt es noch keine Unterhaltungen.",
+    "noMatch": "Keine passende Unterhaltung",
+    "empty": "Hier gibt es keine Unterhaltungen",
     "you": "Sie: {{text}}",
     "by": "{{who}}: {{text}}",
-    "group": "Gruppe"
+    "group": "Gruppe",
+    "emptyHint": "Die Kanäle, denen Sie folgen, und Ihre Direktnachrichten erscheinen hier."
   },
   "conversation": {
     "messages": "Nachrichten",
     "people_one": "{{count}} Person",
     "people_other": "{{count}} Personen",
-    "empty": "Noch keine Nachrichten.",
+    "empty": "Noch keine Nachrichten",
     "writingSoon": "Schreiben kommt bald in die App.",
-    "noFiles": "Hier wurden keine Dateien geteilt.",
-    "noEvents": "Keine anstehenden Termine."
+    "noFiles": "Hier wurden keine Dateien geteilt",
+    "noEvents": "Keine anstehenden Termine",
+    "emptyHint": "Die Nachrichten dieser Unterhaltung erscheinen hier, live.",
+    "noFilesHint": "An Nachrichten dieser Unterhaltung angehängte Dateien erscheinen hier.",
+    "noEventsHint": "In diesem Kanal geteilte Termine erscheinen hier."
   },
   "attendee": {
     "accepted": "Nimmt teil",
@@ -162,11 +167,15 @@
   },
   "files": {
     "search": "Datei suchen",
-    "noMatch": "Keine passende Datei.",
+    "noMatch": "Keine passende Datei",
     "recent": "Zuletzt geändert",
     "atRoot": "Im Bereich",
-    "empty": "In diesem Bereich gibt es noch keine Dateien.",
-    "folderEmpty": "Dieser Ordner ist leer."
+    "empty": "Keine Dateien in diesem Bereich",
+    "folderEmpty": "Dieser Ordner ist leer",
+    "emptyHint": "Dateien, die dem Bereich hinzugefügt werden, erscheinen hier.",
+    "folderEmptyHint": "Dateien in diesem Ordner erscheinen hier.",
+    "today": "heute",
+    "yesterday": "gestern"
   },
   "viewer": {
     "share": "Teilen oder öffnen in…",
@@ -189,8 +198,12 @@
     "inHours_one": "in {{count}} Std.",
     "inHours_other": "in {{count}} Std.",
     "newFile": "Neues Dokument",
-    "calm": "Im Moment nichts Dringendes.",
+    "calm": "Im Moment nichts Dringendes",
     "recent": "Letzte Unterhaltungen",
-    "seeAll": "Alle anzeigen"
+    "seeAll": "Alle anzeigen",
+    "calmHint": "Nachrichten, die auf Sie warten, Ihr nächster Termin und neue Dateien erscheinen hier."
+  },
+  "search": {
+    "tryAnother": "Versuchen Sie es mit einem anderen Wort."
   }
 }

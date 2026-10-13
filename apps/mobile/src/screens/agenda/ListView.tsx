@@ -13,7 +13,7 @@ export function ListView({ data, today }: { data: AgendaData; today: string }) {
   const { t } = useTranslation();
   const { timeZone } = useLocale();
   const days = groupByDay(data.occurrences, timeZone).filter((d) => d.day >= today);
-  if (days.length === 0) return <EmptyState icon={CalendarDays} title={t("agenda.nothingSoon")} />;
+  if (days.length === 0) return <EmptyState icon={CalendarDays} title={t("agenda.nothingSoon")} text={t("agenda.nothingSoonHint")} />;
   return (
     <View style={{ gap: 18 }}>
       {days.map((d) => (

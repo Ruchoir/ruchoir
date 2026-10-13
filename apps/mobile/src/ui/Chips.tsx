@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react-native";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet } from "react-native";
 
 import { hairline } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
@@ -28,11 +28,9 @@ export function Chips<K extends string>({ chips, value, onChange }: { chips: Chi
             {Icon ? <Icon size={16} color={c.ink} /> : null}
             <Text variant={on ? "smallStrong" : "small"}>{label}</Text>
             {count ? (
-              <View style={[styles.count, { backgroundColor: c.acc }]}>
-                <Text variant="label" style={{ color: c.onPastel, fontSize: 11 }}>
-                  {String(count)}
-                </Text>
-              </View>
+              <Text variant="label" tone="muted" style={styles.count}>
+                {String(count)}
+              </Text>
             ) : null}
           </Pressable>
         );
@@ -46,5 +44,5 @@ const styles = StyleSheet.create({
   strip: { flexGrow: 0 },
   row: { gap: 8, paddingHorizontal: 16, paddingVertical: 4 },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: hairline },
-  count: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, alignItems: "center", justifyContent: "center" },
+  count: { fontSize: 11, lineHeight: 13, marginTop: -6 },
 });

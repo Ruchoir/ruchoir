@@ -1,4 +1,5 @@
 import { fileExtension } from "@ruchoir/client";
+import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { useLocale } from "../i18n/useLocale";
@@ -9,7 +10,18 @@ import { FileIcon } from "./FileIcon";
 import { Text } from "./Text";
 
 /** A file joined to a message (mockup 13): its icon, its name, its type and size. */
-export function FileCard({ name, sizeBytes, onPress }: { name: string; sizeBytes?: number; onPress?: () => void }) {
+export function FileCard({
+  name,
+  sizeBytes,
+  onPress,
+  trailing,
+}: {
+  name: string;
+  sizeBytes?: number;
+  onPress?: () => void;
+  /** A mark at the end of the card (the download arrow of an event's files). */
+  trailing?: ReactNode;
+}) {
   const { c } = useTheme();
   const { locale } = useLocale();
   const meta = [fileExtension(name).toUpperCase(), sizeBytes !== undefined ? fileSize(sizeBytes, locale) : null]
@@ -33,11 +45,12 @@ export function FileCard({ name, sizeBytes, onPress }: { name: string; sizeBytes
           </Text>
         ) : null}
       </View>
+      {trailing}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: radius.m, borderWidth: hairline, maxWidth: 300 },
-  text: { flexShrink: 1 },
+  text: { flex: 1, minWidth: 0 },
 });

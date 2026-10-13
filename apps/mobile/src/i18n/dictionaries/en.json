@@ -124,8 +124,9 @@
     "weekOf": "Week of {{from}} to {{to}}",
     "previous": "Previous period",
     "next": "Next period",
-    "nothingSoon": "Nothing planned in the next 30 days.",
-    "nothingThatDay": "Nothing planned that day."
+    "nothingSoon": "Nothing planned",
+    "nothingThatDay": "Nothing planned that day",
+    "nothingSoonHint": "No events in the next 30 days."
   },
   "discussions": {
     "filterAll": "All",
@@ -133,20 +134,24 @@
     "filterGroups": "Groups",
     "filterPeople": "People",
     "search": "Search for a person, a group…",
-    "noMatch": "No conversation matches.",
-    "empty": "No conversations in this space yet.",
+    "noMatch": "No conversation matches",
+    "empty": "No conversations here",
     "you": "You: {{text}}",
     "by": "{{who}}: {{text}}",
-    "group": "Group"
+    "group": "Group",
+    "emptyHint": "The channels you follow and your direct messages will show up here."
   },
   "conversation": {
     "messages": "Messages",
     "people_one": "{{count}} person",
     "people_other": "{{count}} people",
-    "empty": "No messages yet.",
+    "empty": "No messages yet",
     "writingSoon": "Writing is coming to the app soon.",
-    "noFiles": "No files shared here.",
-    "noEvents": "No upcoming events."
+    "noFiles": "No files shared here",
+    "noEvents": "No upcoming events",
+    "emptyHint": "Messages in this conversation will show up here, live.",
+    "noFilesHint": "Files attached to messages in this conversation will show up here.",
+    "noEventsHint": "Events shared in this channel will show up here."
   },
   "attendee": {
     "accepted": "Going",
@@ -162,11 +167,15 @@
   },
   "files": {
     "search": "Search for a file",
-    "noMatch": "No file matches.",
+    "noMatch": "No file matches",
     "recent": "Recent",
     "atRoot": "In the space",
-    "empty": "No files in this space yet.",
-    "folderEmpty": "This folder is empty."
+    "empty": "No files in this space",
+    "folderEmpty": "This folder is empty",
+    "emptyHint": "Files added to the space will show up here.",
+    "folderEmptyHint": "Files placed in this folder will show up here.",
+    "today": "today",
+    "yesterday": "yesterday"
   },
   "viewer": {
     "share": "Share or open in…",
@@ -189,8 +198,12 @@
     "inHours_one": "in {{count}} h",
     "inHours_other": "in {{count}} h",
     "newFile": "New document",
-    "calm": "Nothing urgent for now.",
+    "calm": "Nothing urgent for now",
     "recent": "Recent conversations",
-    "seeAll": "See all"
+    "seeAll": "See all",
+    "calmHint": "Messages waiting for you, your next meeting and new files will show up here."
+  },
+  "search": {
+    "tryAnother": "Try another word."
   }
 }

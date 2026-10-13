@@ -28,6 +28,7 @@ import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
+import { EmptyState } from "../../ui/States";
 import { FileIcon } from "../../ui/FileIcon";
 import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
@@ -121,9 +122,8 @@ export function TodayScreen() {
             </View>
           ) : null}
           {!cards.length && notifications.data && events.data ? (
-            <View style={styles.calm}>
-              <Sparkles size={18} color={c.muted} />
-              <Text tone="muted">{t("today.calm")}</Text>
+            <View style={[styles.calm, { borderColor: c.line, backgroundColor: c.surface }]}>
+              <EmptyState size="compact" icon={Sparkles} title={t("today.calm")} text={t("today.calmHint")} />
             </View>
           ) : null}
         </View>
@@ -265,5 +265,5 @@ const styles = StyleSheet.create({
   pair: { flexDirection: "row", gap: 12 },
   tile: { flex: 1, gap: 8, padding: 14, borderRadius: radius.l, borderWidth: hairline },
   tileIcon: { width: 32, height: 32, borderRadius: radius.s, alignItems: "center", justifyContent: "center" },
-  calm: { flexDirection: "row", alignItems: "center", gap: 8 },
+  calm: { borderRadius: radius.l, borderWidth: hairline },
 });

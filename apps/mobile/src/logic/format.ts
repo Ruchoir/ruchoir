@@ -42,6 +42,22 @@ export function listStamp(
   return { kind: "date", text: new Intl.DateTimeFormat(locale, { timeZone, day: "2-digit", month: "2-digit" }).format(date) };
 }
 
+/**
+ * The stamp on a file (mockup 20): "today" and "yesterday" as words, the weekday within the week,
+ * the date beyond. A file's day says more than its minute.
+ */
+export function dayStamp(
+  iso: string,
+  now: Date,
+  locale: string,
+  timeZone: string,
+): { kind: "today" } | { kind: "yesterday" } | { kind: "date"; text: string } {
+  const stamp = listStamp(iso, now, locale, timeZone);
+  if (stamp.kind === "time") return { kind: "today" };
+  if (stamp.kind === "yesterday") return { kind: "yesterday" };
+  return { kind: "date", text: stamp.text };
+}
+
 /** A file's size in the reader's units: "240 ko", "3.4 MB". */
 export function fileSize(bytes: number, locale: string): string {
   const [value, unit] =

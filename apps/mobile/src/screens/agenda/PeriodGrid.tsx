@@ -40,12 +40,15 @@ export function useWeekLetters(): string[] {
  */
 export function DayCell({
   day,
+  letter,
   selected,
   today,
   dots,
   onPress,
 }: {
   day: string;
+  /** The weekday letter, drawn inside the cell in the week strip. */
+  letter?: string;
   selected: boolean;
   today: boolean;
   dots: string[];
@@ -57,8 +60,13 @@ export function DayCell({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={[styles.cell, selected && { backgroundColor: c.acc, borderColor: c.ink }]}
+      style={[styles.cell, letter !== undefined && styles.tall, selected && { backgroundColor: c.acc, borderColor: c.ink }]}
     >
+      {letter !== undefined ? (
+        <Text variant="label" style={{ color: selected ? c.onPastel : c.muted }}>
+          {letter}
+        </Text>
+      ) : null}
       <Text variant={today || selected ? "bodyStrong" : "body"} style={{ color: selected ? c.onPastel : c.ink }}>
         {String(Number(day.slice(8)))}
       </Text>
@@ -75,6 +83,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 4 },
   flex: { flex: 1 },
   arrow: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  tall: { minHeight: 70 },
   cell: { flex: 1, alignSelf: "stretch", minHeight: 50, alignItems: "center", justifyContent: "center", gap: 3, borderRadius: radius.m, borderWidth: hairline, borderColor: "transparent" },
   dots: { flexDirection: "row", gap: 3, height: 5 },
   dot: { width: 5, height: 5, borderRadius: 3 },

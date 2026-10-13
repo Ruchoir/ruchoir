@@ -125,8 +125,9 @@
     "weekOf": "Semana del {{from}} al {{to}}",
     "previous": "Período anterior",
     "next": "Período siguiente",
-    "nothingSoon": "Nada previsto en los próximos 30 días.",
-    "nothingThatDay": "Nada previsto ese día."
+    "nothingSoon": "Nada previsto",
+    "nothingThatDay": "Nada previsto ese día",
+    "nothingSoonHint": "Ningún evento en los próximos 30 días."
   },
   "discussions": {
     "filterAll": "Todo",
@@ -134,21 +135,25 @@
     "filterGroups": "Grupos",
     "filterPeople": "Personas",
     "search": "Buscar una persona, un grupo…",
-    "noMatch": "Ninguna conversación coincide.",
-    "empty": "Todavía no hay conversaciones en este espacio.",
+    "noMatch": "Ninguna conversación coincide",
+    "empty": "No hay conversaciones aquí",
     "you": "Usted: {{text}}",
     "by": "{{who}}: {{text}}",
-    "group": "Grupo"
+    "group": "Grupo",
+    "emptyHint": "Los canales que sigue y sus mensajes privados aparecerán aquí."
   },
   "conversation": {
     "messages": "Mensajes",
     "people_one": "{{count}} persona",
     "people_other": "{{count}} personas",
-    "empty": "Todavía no hay mensajes.",
+    "empty": "Todavía no hay mensajes",
     "writingSoon": "Pronto podrá escribir desde la aplicación.",
-    "noFiles": "No se ha compartido ningún archivo aquí.",
-    "noEvents": "No hay eventos próximos.",
-    "people_many": "{{count}} personas"
+    "noFiles": "No se ha compartido ningún archivo aquí",
+    "noEvents": "No hay eventos próximos",
+    "people_many": "{{count}} personas",
+    "emptyHint": "Los mensajes de esta conversación aparecerán aquí, en directo.",
+    "noFilesHint": "Los archivos adjuntos a los mensajes de esta conversación aparecerán aquí.",
+    "noEventsHint": "Los eventos compartidos en este canal aparecerán aquí."
   },
   "attendee": {
     "accepted": "Asiste",
@@ -165,11 +170,15 @@
   },
   "files": {
     "search": "Buscar un archivo",
-    "noMatch": "Ningún archivo coincide.",
+    "noMatch": "Ningún archivo coincide",
     "recent": "Recientes",
     "atRoot": "En el espacio",
-    "empty": "Todavía no hay archivos en este espacio.",
-    "folderEmpty": "Esta carpeta está vacía."
+    "empty": "No hay archivos en este espacio",
+    "folderEmpty": "Esta carpeta está vacía",
+    "emptyHint": "Los archivos añadidos al espacio aparecerán aquí.",
+    "folderEmptyHint": "Los archivos guardados en esta carpeta aparecerán aquí.",
+    "today": "hoy",
+    "yesterday": "ayer"
   },
   "viewer": {
     "share": "Compartir o abrir en…",
@@ -192,10 +201,14 @@
     "inHours_one": "en {{count}} h",
     "inHours_other": "en {{count}} h",
     "newFile": "Documento nuevo",
-    "calm": "Nada urgente por ahora.",
+    "calm": "Nada urgente por ahora",
     "recent": "Conversaciones recientes",
     "seeAll": "Ver todo",
     "inMinutes_many": "en {{count}} min",
-    "inHours_many": "en {{count}} h"
+    "inHours_many": "en {{count}} h",
+    "calmHint": "Los mensajes que le esperan, la próxima cita y los archivos nuevos aparecerán aquí."
+  },
+  "search": {
+    "tryAnother": "Pruebe con otra palabra."
   }
 }

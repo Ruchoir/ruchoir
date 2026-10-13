@@ -18,8 +18,9 @@ export function ConversationFiles({ conversationId }: { conversationId: string }
     <FlatList
       data={files.data}
       keyExtractor={(f, i) => f.id ?? String(i)}
+      contentContainerStyle={{ flexGrow: 1 }}
       renderItem={({ item }) => <FileRow file={item} />}
-      ListEmptyComponent={<EmptyState icon={FileText} title={t("conversation.noFiles")} />}
+      ListEmptyComponent={<EmptyState icon={FileText} title={t("conversation.noFiles")} text={t("conversation.noFilesHint")} />}
     />
   );
 }
