@@ -157,5 +157,17 @@
     "invited_one": "{{count}} guest",
     "invited_other": "{{count}} guests",
     "files": "Shared files"
+  },
+  "files": {
+    "search": "Search for a file",
+    "noMatch": "No file matches.",
+    "recent": "Recent",
+    "atRoot": "In the space",
+    "empty": "No files in this space yet.",
+    "folderEmpty": "This folder is empty."
+  },
+  "viewer": {
+    "share": "Share or open in…",
+    "noPreview": "This kind of file cannot be previewed here."
   }
 }

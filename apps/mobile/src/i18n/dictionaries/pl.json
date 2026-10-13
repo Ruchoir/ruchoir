@@ -163,5 +163,17 @@
     "files": "Udostępnione pliki",
     "invited_few": "{{count}} gości",
     "invited_many": "{{count}} gości"
+  },
+  "files": {
+    "search": "Szukaj pliku",
+    "noMatch": "Brak pasujących plików.",
+    "recent": "Ostatnie",
+    "atRoot": "W przestrzeni",
+    "empty": "W tej przestrzeni nie ma jeszcze plików.",
+    "folderEmpty": "Ten folder jest pusty."
+  },
+  "viewer": {
+    "share": "Udostępnij lub otwórz w…",
+    "noPreview": "Nie można tu wyświetlić podglądu tego typu pliku."
   }
 }

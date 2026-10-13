@@ -160,5 +160,17 @@
     "invited_other": "{{count}} invitados",
     "files": "Archivos compartidos",
     "invited_many": "{{count}} invitados"
+  },
+  "files": {
+    "search": "Buscar un archivo",
+    "noMatch": "Ningún archivo coincide.",
+    "recent": "Recientes",
+    "atRoot": "En el espacio",
+    "empty": "Todavía no hay archivos en este espacio.",
+    "folderEmpty": "Esta carpeta está vacía."
+  },
+  "viewer": {
+    "share": "Compartir o abrir en…",
+    "noPreview": "Este tipo de archivo no se puede previsualizar aquí."
   }
 }

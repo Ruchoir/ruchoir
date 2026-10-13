@@ -157,5 +157,17 @@
     "invited_one": "{{count}} Gast",
     "invited_other": "{{count}} Gäste",
     "files": "Geteilte Dateien"
+  },
+  "files": {
+    "search": "Datei suchen",
+    "noMatch": "Keine passende Datei.",
+    "recent": "Zuletzt geändert",
+    "atRoot": "Im Bereich",
+    "empty": "In diesem Bereich gibt es noch keine Dateien.",
+    "folderEmpty": "Dieser Ordner ist leer."
+  },
+  "viewer": {
+    "share": "Teilen oder öffnen in…",
+    "noPreview": "Für diesen Dateityp ist hier keine Vorschau möglich."
   }
 }

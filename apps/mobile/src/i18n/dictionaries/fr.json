@@ -157,5 +157,17 @@
     "invited_one": "{{count}} invité",
     "invited_other": "{{count}} invités",
     "files": "Fichiers partagés"
+  },
+  "files": {
+    "search": "Rechercher un fichier",
+    "noMatch": "Aucun fichier ne correspond.",
+    "recent": "Récents",
+    "atRoot": "Dans l’espace",
+    "empty": "Aucun fichier dans cet espace pour l’instant.",
+    "folderEmpty": "Ce dossier est vide."
+  },
+  "viewer": {
+    "share": "Partager ou ouvrir dans…",
+    "noPreview": "Pas d’aperçu possible ici pour ce type de fichier."
   }
 }
