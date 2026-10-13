@@ -31,8 +31,10 @@ is open source under **AGPLv3**.
    touching it, and do not widen it (no content in a push, only the constant encrypted marker; no
    other runtime service on the same grounds).
    **Expo and React Native** (US-governed) are accepted as libraries, like React and Next.js, but no
-   hosted Expo service is ever used (no EAS Build, Update, Submit or push, no Expo account), and the
-   Expo CLI always runs with `EXPO_NO_TELEMETRY=1`: see `docs/adr/0005-native-apps.md`.
+   hosted Expo service is used by anything built or shipped (no EAS Build, Update, Submit or push),
+   and the Expo CLI always runs with `EXPO_NO_TELEMETRY=1`. The one exception is development only:
+   an Expo account signs the manifests Expo Go needs on a physical iPhone, with the project id kept
+   out of the repository: see `docs/adr/0005-native-apps.md`.
 3. **English only** for everything in the repo: code, identifiers, comments, docs, commits,
    branches, issues, PRs.
 4. **Document thoroughly**, following current industry best practices (module docs, docstrings,

@@ -97,17 +97,21 @@ Everyone else joins through an invitation from inside the app; there is no secon
 The app is `apps/mobile` (ADR 0005). It talks to any instance, so it runs against a development
 instance like the web does; nothing of Expo's hosted services is used.
 
-1. Install Expo Go on the phone (App Store or Play Store). No Expo account.
+1. Install Expo Go on the phone (App Store or Play Store).
 2. Give the app a default server for development, in `apps/mobile/.env.local` (never committed):
    `EXPO_PUBLIC_DEFAULT_SERVER=https://your-dev-instance`. The instance must run an API with native
    sessions (`GET /api/v1/instance` answers `"native_sessions": true`).
-3. Start Metro: `cd apps/mobile && pnpm start` (telemetry off). On the same network, scan the QR
+3. **On a physical iPhone only** (ADR 0005, development exception): Expo Go opens a project only when
+   the Expo CLI signs it. Create a free Expo account and a project on expo.dev, sign in with
+   `npx expo login` on the development machine and in Expo Go on the phone, and put the project's
+   id in `apps/mobile/.env.local` as `EXPO_DEV_PROJECT_ID=...`. Android and simulators need none of it.
+4. Start Metro: `cd apps/mobile && pnpm start` (telemetry off). On the same network, scan the QR
    code with the camera. To reach Metro from anywhere, put it behind a reverse proxy with TLS and
-   start it with `EXPO_OFFLINE=1 EXPO_PACKAGER_PROXY_URL=https://your-metro-host npx expo start
+   start it with `EXPO_NO_TELEMETRY=1 EXPO_PACKAGER_PROXY_URL=https://your-metro-host npx expo start
    --localhost`; then open `exps://your-metro-host` in Expo Go. Refuse the debugging endpoints at the
    proxy (`/inspector`, `/json`, `/debugger-frontend`, `/open-debugger`, `/open-stack-frame`,
    `/open-url`, `/_expo/debugger`, `/events`): Expo Go does not need them.
-4. Checks: `pnpm --filter @ruchoir/mobile typecheck`, `lint`, `test`, `i18n:check`, and
+5. Checks: `pnpm --filter @ruchoir/mobile typecheck`, `lint`, `test`, `i18n:check`, and
    `CI=1 pnpm --filter @ruchoir/mobile bundle:ios`, which bundles the app without a phone.
 
 ## Quality gates

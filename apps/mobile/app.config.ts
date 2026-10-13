@@ -1,9 +1,16 @@
 import type { ExpoConfig } from "expo/config";
 
 /**
- * The app's configuration. No `extra.eas.projectId` and no `updates` URL: Ruchoir uses none of
- * Expo's hosted services (no EAS Build, Update or push), see `docs/adr/0005-native-apps.md`.
+ * The app's configuration. No `updates` URL: Ruchoir uses none of Expo's hosted services for what
+ * it builds and ships (no EAS Build, Update or push), see `docs/adr/0005-native-apps.md`.
+ *
+ * One exception, for development only: Expo Go on a physical iPhone opens a project only when the
+ * Expo CLI signs it, which takes an Expo project. Its id comes from the developer's untracked
+ * `.env.local` (`EXPO_DEV_PROJECT_ID`) and never from the repository, so a build made without it
+ * names no Expo project at all.
  */
+const devProjectId = process.env.EXPO_DEV_PROJECT_ID?.trim();
+
 const config: ExpoConfig = {
   name: "Ruchoir",
   slug: "ruchoir",
@@ -21,6 +28,7 @@ const config: ExpoConfig = {
     adaptiveIcon: { foregroundImage: "./assets/icon.png", backgroundColor: "#f6f7f9" },
   },
   plugins: ["expo-secure-store", "expo-font", "expo-localization", "expo-web-browser"],
+  ...(devProjectId ? { extra: { eas: { projectId: devProjectId } } } : {}),
 };
 
 export default config;

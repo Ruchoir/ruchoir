@@ -26,10 +26,25 @@ is `apps/mobile` (Expo SDK 57, React Native 0.86) in the pnpm workspace. Navigat
 Navigation, a community project, rather than `expo-router`, at equal function. Native primitives come
 from Software Mansion (Kraków, Poland) where possible.
 
-**No hosted Expo service, ever.** No EAS Build, Update, Submit or push service, no Expo account, no
-`projectId` in `app.config.ts`. Native builds are made on our own machines. The Expo CLI runs with
-`EXPO_NO_TELEMETRY=1`, and the development server with `EXPO_OFFLINE=1` too, so the tooling never
-calls Expo's servers.
+**No hosted Expo service in what is built or shipped.** No EAS Build, Update, Submit or push
+service. Native builds are made on our own machines, and nothing an installed app does talks to Expo.
+The Expo CLI always runs with `EXPO_NO_TELEMETRY=1`.
+
+**One exception, for development only (2026-10-13).** Expo Go on a physical iPhone opens a project
+from a development server only when the Expo CLI signs its manifest, which takes an Expo account
+signed in on both the CLI and Expo Go, and an Expo project to sign for. Without a Mac there is no
+other way to run the app on an iPhone. So, for development and only there:
+
+- a free Expo account is signed in on the development machine (`npx expo login`) and in Expo Go;
+- the app's development config names an Expo project, by an id read from the untracked
+  `apps/mobile/.env.local` (`EXPO_DEV_PROJECT_ID`): it never enters the repository, and a build made
+  without it names no Expo project;
+- the development server reaches `api.expo.dev` for its development certificate, with telemetry
+  still off.
+
+What crosses is the app's configuration and a request for a certificate, from a developer's machine;
+no user, no message, no file. It ends when native builds replace Expo Go (a Mac, or Android, where
+Expo Go has no such check), and must not grow into builds, updates or push.
 
 **One API client for both apps.** `apps/web/lib/data` moved to the workspace package
 `@ruchoir/client`. The web keeps its defaults (relative same-origin calls, the cookie); the app sets
@@ -52,8 +67,9 @@ the instance it talks to, a bearer provider and a socket factory.
 
 **Expo Go first.** Until a Mac (or a macOS machine of our own) and an Apple Developer account are
 available, the app is developed and tested in Expo Go, which loads it from Metro on the development
-server. Expo Go cannot host custom native code, so passkeys (Face ID), push notifications, widgets
-and the tablet layout wait for native builds; they come with later steps.
+server (signed as the exception above describes). Expo Go cannot host custom native code, so
+passkeys (Face ID), push notifications, widgets and the tablet layout wait for native builds; they
+come with later steps.
 
 ## Consequences
 

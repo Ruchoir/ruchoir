@@ -5,8 +5,11 @@ rules; this file holds what is particular to the app.
 
 ## Rules
 
-- **No hosted Expo service, ever** (golden rule 2, ADR 0005): no EAS Build, Update, Submit or push,
-  no Expo account, no `projectId` in `app.config.ts`. Native builds happen on our own machines.
+- **No hosted Expo service in anything built or shipped** (golden rule 2, ADR 0005): no EAS Build,
+  Update, Submit or push. Native builds happen on our own machines. The only exception is the
+  development signing Expo Go needs on a physical iPhone: an Expo account on the development
+  machine, and `EXPO_DEV_PROJECT_ID` in the untracked `.env.local`, never a project id in the
+  repository.
 - **No telemetry from the tooling.** Every Expo CLI invocation runs with `EXPO_NO_TELEMETRY=1` (the
   package scripts set it); a new script must too.
 - **No deployment hostname in the repository.** The development server comes from
