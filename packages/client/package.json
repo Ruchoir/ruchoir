@@ -10,6 +10,7 @@
     "./api": "./src/api.ts",
     "./calendar": "./src/calendar.ts",
     "./config": "./src/config.ts",
+    "./emoji": "./src/emoji/index.ts",
     "./fileType": "./src/fileType.ts",
     "./http": "./src/http.ts",
     "./types": "./src/types.ts"

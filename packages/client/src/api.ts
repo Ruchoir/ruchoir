@@ -13,7 +13,7 @@
  * `ApiMessage` is the front `Message` with that string id.
  */
 import { apiBase, apiOrigin, authInit, clientOptions } from "./config.ts";
-import { ApiError, apiDelete, apiGet, apiPatch, apiPost, apiPut, apiRequest } from "./http.ts";
+import { ApiError, apiDelete, apiErrorMessage, apiGet, apiPatch, apiPost, apiPut, apiRequest } from "./http.ts";
 import { toEventCard, type EventCardDto } from "./calendar.ts";
 import type {
   BlankKind,
@@ -869,25 +869,73 @@ export async function acceptInvitation(token: string): Promise<Workspace> {
 }
 
 /**
+ * A file to upload: a `Blob` (a `File`, on the web) or, in a native app, a file of the phone named by
+ * its URI, which React Native's `FormData` reads from the device itself.
+ */
+export type UploadPart = Blob | { uri: string; name: string; type: string };
+
+/**
  * `POST /conversations/{id}/attachments`: upload a file to attach to a message here.
  *
  * Through the conversation and not the space, because that is what decides the file's audience: an
  * attachment to a private channel or a direct message stays readable only by its participants, one
  * to a public channel joins the space's files.
+ *
+ * Over `XMLHttpRequest` rather than `fetch`, which reports no upload progress: a phone sending a
+ * video over a weak network has to show how far it is. `onProgress` receives the bytes sent so far.
+ * A refusal rejects with an {@link ApiError} carrying its status (413: larger than the instance
+ * allows), a dropped connection with status 0, as {@link sendFile} does; `abort()` with an
+ * `AbortError` (an `Error` so named: React Native has no `DOMException`).
  */
-export async function uploadAttachment(conversationId: string, file: File): Promise<MessageAttachment> {
-  const form = new FormData();
-  form.append("file", file);
-  // Multipart: let the browser set the boundary, so this call does not go through the JSON client.
-  const res = await fetch(`${apiBase()}/conversations/${conversationId}/attachments`, {
-    method: "POST",
-    ...authInit(),
-    body: form,
+export function startAttachmentUpload(
+  conversationId: string,
+  part: UploadPart,
+  onProgress?: (sent: number) => void,
+): UploadRequest<MessageAttachment> {
+  const xhr = new XMLHttpRequest();
+  const done = new Promise<MessageAttachment>((resolve, reject) => {
+    xhr.onload = () => {
+      let body: unknown = null;
+      try {
+        body = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        body = xhr.responseText;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(toUploadedAttachment(body as FileDto));
+        return;
+      }
+      if (xhr.status === 401) clientOptions().onUnauthorized();
+      reject(new ApiError(xhr.status, apiErrorMessage(body, xhr.status), body));
+    };
+    xhr.onerror = () => reject(new ApiError(0, "network", null));
+    xhr.onabort = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
   });
-  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
-  const dto = (await res.json()) as FileDto;
-  // Returned in the shape the composer and the message row already speak, not as a `SpaceFile`: an
-  // attachment is not a row of the files screen, and half of that shape would be invented here.
+  xhr.open("POST", `${apiBase()}/conversations/${conversationId}/attachments`);
+  const auth = authInit();
+  // Same-origin on the web, where the cookie goes anyway; an app presents its bearer and no cookie.
+  xhr.withCredentials = false;
+  for (const [name, value] of Object.entries(auth.headers)) xhr.setRequestHeader(name, value);
+  if (onProgress) xhr.upload.onprogress = (event) => onProgress(event.loaded);
+  const form = new FormData();
+  // Multipart, with the boundary set by the platform. React Native's `FormData` takes the
+  // `{ uri, name, type }` shape for a file on the device; the DOM's type only knows `Blob`.
+  form.append("file", part as Blob);
+  xhr.send(form);
+  return { done, abort: () => xhr.abort() };
+}
+
+/** {@link startAttachmentUpload}, for a caller that needs neither progress nor a way to stop it. */
+export function uploadAttachment(conversationId: string, part: UploadPart): Promise<MessageAttachment> {
+  return startAttachmentUpload(conversationId, part).done;
+}
+
+/**
+ * An uploaded file, in the shape the composer and the message row already speak rather than as a
+ * `SpaceFile`: an attachment is not a row of the files screen, and half of that shape would be
+ * invented here.
+ */
+function toUploadedAttachment(dto: FileDto): MessageAttachment {
   return {
     fileId: dto.id,
     name: dto.name,
@@ -2311,7 +2359,7 @@ export function publicThumbnailUrl(token: string, grant?: string): string {
 }
 
 /** A sending in flight: its result, and the way to stop it. */
-export type UploadRequest = { done: Promise<SpaceFile>; abort: () => void };
+export type UploadRequest<T = SpaceFile> = { done: Promise<T>; abort: () => void };
 
 /**
  * Send a file with its progress reported, as a new file in a folder or as a new version of an

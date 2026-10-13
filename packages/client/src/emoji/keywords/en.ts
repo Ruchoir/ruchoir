@@ -1,4 +1,5 @@
-{
+/** Search keywords in en, generated from the Unicode CLDR annotations (`apps/web/scripts/build-emoji-keywords.mjs`). */
+export const KEYWORDS_EN: Record<string, string> = {
  "👍": "thumbs up +1 good hand like thumb up yes",
  "❤️": "red heart emotion heart love red",
  "😂": "face with tears of joy crying face feels funny haha happy hehe hilarious joy laugh lmao lol rofl roflmao tear",
@@ -514,4 +515,4 @@
  "👑": "crown clothing family king medieval queen royal royalty win",
  "💎": "gem stone diamond engagement gem jewel money romance stone wedding",
  "🏁": "chequered flag checkered chequered finish flag flags game race racing sport win"
-}
+};

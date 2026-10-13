@@ -3,8 +3,8 @@
 /**
  * What a reader can type to find an emoji, in French: the source language, written by hand.
  *
- * The other five languages are generated from the Unicode CLDR annotations into `<locale>.json`
- * beside this file (see `scripts/build-emoji-keywords.mjs`); `index.ts` picks between them.
+ * The other five languages are generated from the Unicode CLDR annotations into `<locale>.ts`
+ * beside this file (see `apps/web/scripts/build-emoji-keywords.mjs`); `index.ts` picks between them.
  */
 export const KEYWORDS_FR: Record<string, string> = {
   "😀": "sourire content",

@@ -1,4 +1,5 @@
-{
+/** Search keywords in de, generated from the Unicode CLDR annotations (`apps/web/scripts/build-emoji-keywords.mjs`). */
+export const KEYWORDS_DE: Record<string, string> = {
  "👍": "daumen hoch daumen einverstanden finger gut hand in ordnung jawohl klar klasse like nach oben ok super top",
  "❤️": "rotes herz herz",
  "😂": "gesicht mit freudentränen freude freudentränen fröhlich gesicht haha happy hehe hihi lachen lol lustig muahaha rofl smiley tränen witzig",
@@ -514,4 +515,4 @@
  "👑": "krone kopfbedeckung könig königin majestät",
  "💎": "edelstein diamant",
  "🏁": "zielflagge flagge formel 1 karierte flagge nascar rennen sport"
-}
+};
