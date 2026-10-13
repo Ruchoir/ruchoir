@@ -7,6 +7,7 @@ import { ConversationScreen } from "../screens/discussions/ConversationScreen";
 import { EmojiPickerSheet } from "../screens/discussions/EmojiPickerSheet";
 import { MessageActionSheet } from "../screens/discussions/MessageActionSheet";
 import { SpaceFilePicker } from "../screens/discussions/SpaceFilePicker";
+import { ThreadScreen } from "../screens/discussions/ThreadScreen";
 import { EventSummarySheet } from "../screens/agenda/EventSummarySheet";
 import { FileViewerScreen } from "../screens/files/FileViewerScreen";
 import { FolderScreen } from "../screens/files/FolderScreen";
@@ -39,6 +40,7 @@ export function RootNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="tabs" component={Tabs} />
         <Stack.Screen name="conversation" component={ConversationScreen} />
+        <Stack.Screen name="thread" component={ThreadScreen} />
         <Stack.Screen name="folder" component={FolderScreen} />
         <Stack.Screen name="fileViewer" component={FileViewerScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="eventSummary" component={EventSummarySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />

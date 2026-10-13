@@ -29,8 +29,21 @@ export type RootParams = {
   /** A file to show: a space file, a message's attachment or an event's, by its download URL. */
   fileViewer: { file: ViewerFile };
   eventSummary: { eventId: string; recurrenceId?: string };
-  /** A message's long-press sheet; `channelId` is set in a channel (pinning needs it). */
-  messageActions: { conversationId: string; channelId?: string; message: ApiMessage };
+  /**
+   * A message's long-press sheet; `channelId` is set in a channel (pinning needs it), `draftKey` names
+   * the composer an edit goes to, and `inThread` hides "Reply in thread" where that is where one is.
+   */
+  messageActions: {
+    conversationId: string;
+    channelId?: string;
+    /** The conversation's name, for the head of a thread opened from here. */
+    title: string;
+    draftKey: string;
+    inThread?: boolean;
+    message: ApiMessage;
+  };
+  /** A thread: its root message, in its conversation. */
+  thread: { conversationId: string; channelId?: string; rootId: string; title: string; root?: ApiMessage };
   emojiPicker: { conversationId: string; message: ApiMessage };
   /** "Add to the message", for the composer whose draft is `draftKey`. */
   attachSheet: { draftKey: string };

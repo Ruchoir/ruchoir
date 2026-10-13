@@ -123,7 +123,13 @@
     "deleteFailed": "The message could not be deleted.",
     "actionFailed": "That could not be saved.",
     "reactionFailed": "Reaction not saved",
-    "moreReactions": "More reactions"
+    "moreReactions": "More reactions",
+    "replies_one": "{{count}} reply",
+    "replies_other": "{{count}} replies",
+    "replyInThread": "Reply in a thread",
+    "lastAt": "last at {{time}}",
+    "lastYesterday": "last yesterday",
+    "lastOn": "last on {{date}}"
   },
   "common": {
     "back": "Back",
@@ -260,7 +266,8 @@
     "joinFailed": "The channel could not be joined just now.",
     "editFailed": "Edit not saved",
     "editFailedText": "The message keeps its previous text. You can try again.",
-    "ok": "OK"
+    "ok": "OK",
+    "placeholderThread": "Reply in the thread…"
   },
   "emoji": {
     "search": "Search an emoji",
@@ -294,5 +301,10 @@
     "remove": "Remove {{name}}",
     "tooLargeTitle_one": "File too large",
     "tooLargeTitle_other": "Files too large"
+  },
+  "thread": {
+    "title": "Thread",
+    "in": "in {{name}}",
+    "noReplies": "No replies yet"
   }
 }

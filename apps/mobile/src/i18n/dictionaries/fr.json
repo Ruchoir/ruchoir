@@ -123,7 +123,13 @@
     "deleteFailed": "Le message n’a pas pu être supprimé.",
     "actionFailed": "Cela n’a pas pu être enregistré.",
     "reactionFailed": "Réaction non enregistrée",
-    "moreReactions": "Plus de réactions"
+    "moreReactions": "Plus de réactions",
+    "replies_one": "{{count}} réponse",
+    "replies_other": "{{count}} réponses",
+    "replyInThread": "Répondre dans un fil",
+    "lastAt": "dernière à {{time}}",
+    "lastYesterday": "dernière hier",
+    "lastOn": "dernière le {{date}}"
   },
   "common": {
     "back": "Retour",
@@ -260,7 +266,8 @@
     "joinFailed": "Impossible de rejoindre le canal pour le moment.",
     "editFailed": "Modification non enregistrée",
     "editFailedText": "Le message garde son ancien texte. Vous pouvez réessayer.",
-    "ok": "OK"
+    "ok": "OK",
+    "placeholderThread": "Répondre dans le fil…"
   },
   "emoji": {
     "search": "Rechercher un emoji",
@@ -294,5 +301,10 @@
     "remove": "Retirer {{name}}",
     "tooLargeTitle_one": "Fichier trop volumineux",
     "tooLargeTitle_other": "Fichiers trop volumineux"
+  },
+  "thread": {
+    "title": "Fil de discussion",
+    "in": "dans {{name}}",
+    "noReplies": "Pas encore de réponse"
   }
 }

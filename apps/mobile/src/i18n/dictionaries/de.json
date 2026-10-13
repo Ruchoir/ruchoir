@@ -123,7 +123,13 @@
     "deleteFailed": "Die Nachricht konnte nicht gelöscht werden.",
     "actionFailed": "Das konnte nicht gespeichert werden.",
     "reactionFailed": "Reaktion nicht gespeichert",
-    "moreReactions": "Weitere Reaktionen"
+    "moreReactions": "Weitere Reaktionen",
+    "replies_one": "{{count}} Antwort",
+    "replies_other": "{{count}} Antworten",
+    "replyInThread": "In einem Thread antworten",
+    "lastAt": "letzte um {{time}}",
+    "lastYesterday": "letzte gestern",
+    "lastOn": "letzte am {{date}}"
   },
   "common": {
     "back": "Zurück",
@@ -260,7 +266,8 @@
     "joinFailed": "Dem Kanal konnte gerade nicht beigetreten werden.",
     "editFailed": "Änderung nicht gespeichert",
     "editFailedText": "Die Nachricht behält ihren bisherigen Text. Sie können es erneut versuchen.",
-    "ok": "OK"
+    "ok": "OK",
+    "placeholderThread": "Im Thread antworten…"
   },
   "emoji": {
     "search": "Emoji suchen",
@@ -294,5 +301,10 @@
     "remove": "{{name}} entfernen",
     "tooLargeTitle_one": "Datei zu groß",
     "tooLargeTitle_other": "Dateien zu groß"
+  },
+  "thread": {
+    "title": "Thread",
+    "in": "in {{name}}",
+    "noReplies": "Noch keine Antworten"
   }
 }

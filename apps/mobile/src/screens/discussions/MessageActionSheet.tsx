@@ -9,7 +9,7 @@ import { deleteMessage, setMessagePinned } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Clipboard from "expo-clipboard";
-import { Copy, PenLine, Pin, PinOff, SmilePlus, Trash2 } from "lucide-react-native";
+import { Copy, MessageSquareReply, PenLine, Pin, PinOff, SmilePlus, Trash2 } from "lucide-react-native";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { requestEdit } from "../../compose/requests";
@@ -29,7 +29,7 @@ import { useToast } from "../../ui/Toast";
 
 export function MessageActionSheet() {
   const { params } = useRoute<RouteProp<RootParams, "messageActions">>();
-  const { message: m, conversationId, channelId } = params;
+  const { message: m, conversationId, channelId, draftKey, inThread } = params;
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c, s } = useTheme();
@@ -59,7 +59,7 @@ export function MessageActionSheet() {
 
   const edit = () => {
     close();
-    requestEdit({ conversationId, id: m.id, body: m.body });
+    requestEdit({ draftKey, id: m.id, body: m.body });
   };
 
   const togglePin = () => {
@@ -129,6 +129,17 @@ export function MessageActionSheet() {
           <SmilePlus size={22} color={c.ink} />
         </Pressable>
       </View>
+      {!inThread && !m.parentId ? (
+        <ActionRow
+          icon={MessageSquareReply}
+          tint={c.mint}
+          title={t("message.replyInThread")}
+          onPress={() => {
+            close();
+            navigation.navigate("thread", { conversationId, channelId, rootId: m.id, title: params.title, root: m });
+          }}
+        />
+      ) : null}
       {m.body ? <ActionRow icon={Copy} tint={c.sky} title={t("message.copy")} onPress={copy} /> : null}
       {own ? <ActionRow icon={PenLine} tint={c.violet} title={t("message.edit")} onPress={edit} /> : null}
       {canPin ? (

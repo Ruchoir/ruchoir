@@ -125,7 +125,15 @@
     "deleteFailed": "Nie udało się usunąć wiadomości.",
     "actionFailed": "Nie udało się tego zapisać.",
     "reactionFailed": "Nie zapisano reakcji",
-    "moreReactions": "Więcej reakcji"
+    "moreReactions": "Więcej reakcji",
+    "replies_one": "{{count}} odpowiedź",
+    "replies_few": "{{count}} odpowiedzi",
+    "replies_many": "{{count}} odpowiedzi",
+    "replies_other": "{{count}} odpowiedzi",
+    "replyInThread": "Odpowiedz w wątku",
+    "lastAt": "ostatnia o {{time}}",
+    "lastYesterday": "ostatnia wczoraj",
+    "lastOn": "ostatnia {{date}}"
   },
   "common": {
     "back": "Wstecz",
@@ -272,7 +280,8 @@
     "joinFailed": "Nie udało się teraz dołączyć do kanału.",
     "editFailed": "Nie zapisano zmiany",
     "editFailedText": "Wiadomość zachowuje poprzednią treść. Możesz spróbować ponownie.",
-    "ok": "OK"
+    "ok": "OK",
+    "placeholderThread": "Odpowiedz w wątku…"
   },
   "emoji": {
     "search": "Szukaj emoji",
@@ -308,5 +317,10 @@
     "tooLargeTitle_other": "Pliki są za duże",
     "tooLargeTitle_few": "Pliki są za duże",
     "tooLargeTitle_many": "Pliki są za duże"
+  },
+  "thread": {
+    "title": "Wątek",
+    "in": "w {{name}}",
+    "noReplies": "Brak odpowiedzi"
   }
 }

@@ -1,5 +1,4 @@
 import {
-  editMessage,
   getChannelMessages,
   getChannels,
   getReadCursors,
@@ -26,24 +25,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { Composer, type Editing } from "../../compose/Composer";
-import { useAttachRequests, useEditRequests } from "../../compose/requests";
+import { Composer } from "../../compose/Composer";
+import { useAttachRequests } from "../../compose/requests";
 import { useAttachments } from "../../compose/useAttachments";
 import { useReact } from "../../compose/useReact";
-import { useOutbox } from "../../compose/useOutbox";
-import { useTypingUsers } from "../../compose/useTyping";
-
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { dayKey, daysBetween } from "../../logic/format";
-import { arrivedIds, pendingRows } from "../../logic/outbox";
-import { applyReactionDelta } from "../../logic/reactions";
 import { seenMessageId } from "../../logic/receipts";
 import { countNewer, firstUnreadId } from "../../logic/unread";
 import type { RootParams } from "../../navigation/types";
-import { mergeMessages } from "../../realtime/merge";
 import { useRealtimeEvent } from "../../realtime/RealtimeProvider";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
@@ -58,6 +51,7 @@ import { EmptyState, LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
 import { ConversationAgenda } from "./ConversationAgenda";
 import { ConversationFiles } from "./ConversationFiles";
+import { useEditing, useLiveMessages, useMyMentions, useOutboxRows, useTypingLine } from "./feed";
 import { MessageRow } from "./MessageRow";
 
 type Pane = "messages" | "files" | "agenda";
@@ -75,6 +69,8 @@ type Row =
   | { kind: "day"; day: string }
   | { kind: "unread" }
   | { kind: "seen" };
+
+const isInFeed = (m: ApiMessage) => !m.parentId;
 
 /** How far up (in points) the reader has to be for new messages to be announced rather than seen. */
 const AWAY = 240;
@@ -150,50 +146,19 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   const { locale, timeZone } = useLocale();
   const { state } = useSession();
   const me = state.kind === "signedIn" ? state.user : null;
-  const outbox = useOutbox();
   const navigation = useNavigation();
   const react = useReact();
   const list = useRef<FlatList<Row>>(null);
-  const [editing, setEditing] = useState<Editing | null>(null);
   const first = useLoad(`messages:${conversationId}`, (signal) => getChannelMessages(conversationId, {}, signal));
-  const [extra, setExtra] = useState<{ messages: ApiMessage[]; nextBefore?: string; loadingMore: boolean }>({
-    messages: [],
-    loadingMore: false,
-  });
-  const messages = useMemo(() => mergeMessages(first.data?.messages ?? [], extra.messages), [first.data, extra.messages]);
-  const nextBefore = extra.nextBefore ?? first.data?.nextBefore;
-
-  // Change one message on screen from its latest copy (the live one if there is one).
-  const firstPage = first.data?.messages;
-  const patch = useCallback(
-    (id: string, change: (m: ApiMessage) => ApiMessage) =>
-      setExtra((prev) => {
-        const current = prev.messages.find((m) => m.id === id) ?? firstPage?.find((m) => m.id === id);
-        return current ? { ...prev, messages: mergeMessages(prev.messages, [change(current)]) } : prev;
-      }),
-    [firstPage],
-  );
-
-  // Live: a message here is merged in, and an edit, a deletion, a reaction or a pin changes the copy
-  // on screen. My own changes arrive as patches, before the server confirms them.
-  useRealtimeEvent((event) => {
-    if (event.type === "message" && event.conversationId === conversationId) {
-      setExtra((prev) => ({ ...prev, messages: mergeMessages(prev.messages, [event.message]) }));
-    } else if (event.type === "patched" && event.conversationId === conversationId) {
-      patch(event.message.id, () => event.message);
-    } else if (event.type === "reaction" && event.conversationId === conversationId && event.userId !== me?.id) {
-      const name = members.list.find((m) => m.userId === event.userId)?.name ?? t("message.someone");
-      patch(event.messageId, (m) => {
-        const reactions = applyReactionDelta(m.reactions, event.emoji, event.added, name);
-        return { ...m, reactions: reactions.length > 0 ? reactions : undefined };
-      });
-    } else if (event.type === "pinned" && event.conversationId === conversationId) {
-      patch(event.messageId, (m) => ({ ...m, pinned: event.pinned || undefined }));
-    }
-  });
-
-  // "Edit" in the message's sheet puts its text back in the composer.
-  useEditRequests(conversationId, (request) => setEditing({ id: request.id, body: request.body }));
+  // The feed holds no thread replies: they live in their thread, and move the count under their root.
+  const { messages, patch, add } = useLiveMessages(conversationId, first.data?.messages, isInFeed, me, members.list);
+  const [older, setOlder] = useState<{ nextBefore?: string; loading: boolean }>({ loading: false });
+  const nextBefore = older.nextBefore ?? first.data?.nextBefore;
+  const outbox = useOutboxRows(conversationId, undefined, messages, me);
+  const { pending } = outbox;
+  const edit = useEditing(conversationId, messages, patch);
+  const typing = useTypingLine(conversationId, me, members.list);
+  const myNames = useMyMentions(me);
 
   // Files picked in the attach sheet start uploading at once, above the bar.
   const attachments = useAttachments(conversationId);
@@ -201,22 +166,6 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
     if (request.kind === "local") void attachments.add(request.files);
     else attachments.addSpaceFile(request.file);
   });
-
-  // My messages on their way. One that already arrived (live, or after a lost answer) is done.
-  const mine = useMemo(
-    () => outbox.items.filter((i) => i.conversationId === conversationId && i.parentId === undefined),
-    [outbox.items, conversationId],
-  );
-  const arrived = useMemo(() => (me ? arrivedIds(mine, messages, me.id) : new Map<string, string>()), [mine, messages, me]);
-  const { settle } = outbox;
-  useEffect(() => {
-    if (arrived.size > 0) settle([...arrived.keys()]);
-  }, [arrived, settle]);
-  const pending = useMemo(
-    () => (me ? pendingRows(mine, conversationId, undefined, me).filter((row) => !arrived.has(row.localId)) : []),
-    [mine, conversationId, me, arrived],
-  );
-  const pendingById = useMemo(() => new Map(pending.map((row) => [row.message.id, row])), [pending]);
 
   // Reading is the one write of this screen: the newest message on screen is the read cursor.
   const marked = useRef<string | null>(null);
@@ -230,15 +179,16 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   }, [conversationId, newest]);
 
   const loadOlder = useCallback(async () => {
-    if (!nextBefore || extra.loadingMore) return;
-    setExtra((prev) => ({ ...prev, loadingMore: true }));
+    if (!nextBefore || older.loading) return;
+    setOlder((prev) => ({ ...prev, loading: true }));
     try {
       const page = await getChannelMessages(conversationId, { before: nextBefore });
-      setExtra((prev) => ({ messages: mergeMessages(prev.messages, page.messages), nextBefore: page.nextBefore ?? "", loadingMore: false }));
+      add(page.messages);
+      setOlder({ nextBefore: page.nextBefore ?? "", loading: false });
     } catch {
-      setExtra((prev) => ({ ...prev, loadingMore: false }));
+      setOlder((prev) => ({ ...prev, loading: false }));
     }
-  }, [conversationId, nextBefore, extra.loadingMore]);
+  }, [conversationId, nextBefore, older.loading, add]);
 
   // Where the unread messages started when the conversation opened: the line stays there while reading.
   const [anchor, setAnchor] = useState<{ id: string | null } | null>(null);
@@ -306,48 +256,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
     if (unreadIndex > 6) list.current?.scrollToIndex({ index: unreadIndex, viewPosition: 1, animated: false });
   }, [rows.length, unreadIndex]);
 
-  const myNames = useMemo(() => {
-    if (!me) return [];
-    const words = me.name.split(/\s+/).filter(Boolean);
-    return [me.name, words[0], words.join("")].map((n) => `@${n}`.toLowerCase());
-  }, [me]);
   const today = dayKey(new Date(), timeZone);
-
-  const typingIds = useTypingUsers(conversationId, me?.id);
-  const typing = useMemo(() => {
-    const names = typingIds.map((id) => members.list.find((m) => m.userId === id)?.name).filter((n): n is string => !!n);
-    if (names.length === 0) return undefined;
-    if (names.length === 1) return t("compose.typingOne", { name: names[0] });
-    if (names.length === 2) return t("compose.typingTwo", { a: names[0], b: names[1] });
-    return t("compose.typingMany");
-  }, [typingIds, members.list, t]);
-
-  const baselineFor = useCallback(
-    (body: string) => (me ? messages.filter((m) => m.authorId === me.id && m.body.trim() === body).map((m) => m.id) : []),
-    [messages, me],
-  );
-
-  // An edit shows at once; if the server refuses it, the old text comes back and the edit can resume.
-  const saveEdit = useCallback(
-    (id: string, body: string) => {
-      setEditing(null);
-      const before = messages.find((m) => m.id === id);
-      if (!before || before.body.trim() === body) return;
-      const files = [...(before.attachments ?? []), ...(before.images ?? [])].flatMap((f) => (f.fileId ? [f.fileId] : []));
-      setExtra((prev) => ({ ...prev, messages: mergeMessages(prev.messages, [{ ...before, body, edited: true }]) }));
-      editMessage(id, body, files).then(
-        (saved) => setExtra((prev) => ({ ...prev, messages: mergeMessages(prev.messages, [saved]) })),
-        () => {
-          setExtra((prev) => ({ ...prev, messages: mergeMessages(prev.messages, [before]) }));
-          Alert.alert(t("compose.editFailed"), t("compose.editFailedText"), [
-            { text: t("common.retry"), onPress: () => setEditing({ id, body }) },
-            { text: t("compose.ok"), style: "cancel" },
-          ]);
-        },
-      );
-    },
-    [messages, t],
-  );
 
   const join = () => {
     if (!channel) return;
@@ -379,7 +288,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
         onEndReachedThreshold={0.4}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
-        ListFooterComponent={extra.loadingMore ? <ActivityIndicator color={c.ink} style={styles.more} /> : null}
+        ListFooterComponent={older.loading ? <ActivityIndicator color={c.ink} style={styles.more} /> : null}
         renderItem={({ item }) => {
           if (item.kind === "unread") {
             return (
@@ -423,7 +332,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
             );
           }
           const body = item.message.body.toLowerCase();
-          const local = pendingById.get(item.message.id);
+          const local = outbox.byId.get(item.message.id);
           return (
             <MessageRow
               message={item.message}
@@ -435,7 +344,11 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
               onRetry={local ? () => outbox.retry(local.localId) : undefined}
               onDiscard={local ? () => outbox.drop(local.localId) : undefined}
               myUserId={me?.id}
-              onLongPress={() => navigation.navigate("messageActions", { conversationId, channelId, message: item.message })}
+              onLongPress={() =>
+                navigation.navigate("messageActions", { conversationId, channelId, title, draftKey: conversationId, message: item.message })
+              }
+              onOpenThread={() => navigation.navigate("thread", { conversationId, channelId, rootId: item.message.id, title, root: item.message })}
+              avatarOf={members.avatarOf}
               onReact={(emoji) => react(conversationId, item.message, emoji)}
               onAddReaction={() => navigation.navigate("emojiPicker", { conversationId, message: item.message })}
             />
@@ -468,7 +381,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
         </SafeAreaView>
       ) : me ? (
         <Composer
-          key={editing ? `edit:${editing.id}` : conversationId}
+          key={edit.editing ? `edit:${edit.editing.id}` : conversationId}
           conversationId={conversationId}
           draftKey={conversationId}
           placeholder={channel !== undefined ? t("compose.placeholderChannel", { name: title }) : t("compose.placeholderPerson", { name: title })}
@@ -476,11 +389,11 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
           channels={channels}
           broadcasts={channel !== undefined}
           myUserId={me.id}
-          baselineFor={baselineFor}
+          baselineFor={outbox.baselineFor}
           typing={typing}
-          editing={editing}
-          onSaveEdit={saveEdit}
-          onCancelEdit={() => setEditing(null)}
+          editing={edit.editing}
+          onSaveEdit={edit.save}
+          onCancelEdit={edit.cancel}
           onSent={() => list.current?.scrollToOffset({ offset: 0, animated: true })}
           onAttach={() => navigation.navigate("attachSheet", { draftKey: conversationId })}
           attachments={attachments}

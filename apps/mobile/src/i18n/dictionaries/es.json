@@ -124,7 +124,14 @@
     "deleteFailed": "No se ha podido eliminar el mensaje.",
     "actionFailed": "No se ha podido guardar.",
     "reactionFailed": "Reacción no guardada",
-    "moreReactions": "Más reacciones"
+    "moreReactions": "Más reacciones",
+    "replies_one": "{{count}} respuesta",
+    "replies_other": "{{count}} respuestas",
+    "replies_many": "{{count}} respuestas",
+    "replyInThread": "Responder en un hilo",
+    "lastAt": "última a las {{time}}",
+    "lastYesterday": "última ayer",
+    "lastOn": "última el {{date}}"
   },
   "common": {
     "back": "Atrás",
@@ -266,7 +273,8 @@
     "joinFailed": "No se ha podido unir al canal por ahora.",
     "editFailed": "Edición no guardada",
     "editFailedText": "El mensaje conserva su texto anterior. Puede reintentarlo.",
-    "ok": "OK"
+    "ok": "OK",
+    "placeholderThread": "Responder en el hilo…"
   },
   "emoji": {
     "search": "Buscar un emoji",
@@ -301,5 +309,10 @@
     "tooLargeTitle_one": "Archivo demasiado grande",
     "tooLargeTitle_other": "Archivos demasiado grandes",
     "tooLargeTitle_many": "Archivos demasiado grandes"
+  },
+  "thread": {
+    "title": "Hilo",
+    "in": "en {{name}}",
+    "noReplies": "Todavía no hay respuestas"
   }
 }

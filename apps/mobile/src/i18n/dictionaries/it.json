@@ -124,7 +124,14 @@
     "deleteFailed": "Non è stato possibile eliminare il messaggio.",
     "actionFailed": "Non è stato possibile salvarlo.",
     "reactionFailed": "Reazione non salvata",
-    "moreReactions": "Altre reazioni"
+    "moreReactions": "Altre reazioni",
+    "replies_one": "{{count}} risposta",
+    "replies_other": "{{count}} risposte",
+    "replies_many": "{{count}} risposte",
+    "replyInThread": "Rispondi in una discussione",
+    "lastAt": "ultima alle {{time}}",
+    "lastYesterday": "ultima ieri",
+    "lastOn": "ultima il {{date}}"
   },
   "common": {
     "back": "Indietro",
@@ -266,7 +273,8 @@
     "joinFailed": "Al momento non è possibile unirsi al canale.",
     "editFailed": "Modifica non salvata",
     "editFailedText": "Il messaggio mantiene il testo precedente. Potete riprovare.",
-    "ok": "OK"
+    "ok": "OK",
+    "placeholderThread": "Rispondi nella discussione…"
   },
   "emoji": {
     "search": "Cerca un emoji",
@@ -301,5 +309,10 @@
     "tooLargeTitle_one": "File troppo grande",
     "tooLargeTitle_other": "File troppo grandi",
     "tooLargeTitle_many": "File troppo grandi"
+  },
+  "thread": {
+    "title": "Discussione",
+    "in": "in {{name}}",
+    "noReplies": "Ancora nessuna risposta"
   }
 }

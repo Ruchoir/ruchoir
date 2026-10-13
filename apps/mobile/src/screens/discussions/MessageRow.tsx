@@ -9,7 +9,7 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { authHeadersFor } from "../../api/instance";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
-import { timeOf } from "../../logic/format";
+import { listStamp, timeOf } from "../../logic/format";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
@@ -60,6 +60,10 @@ type Props = {
   /** A tap on a reaction pill, and on `+` beside them. */
   onReact?: (emoji: string) => void;
   onAddReaction?: () => void;
+  /** A tap on the line under a message with replies: its thread. Absent inside the thread itself. */
+  onOpenThread?: () => void;
+  /** Faces for the people who replied, by name. */
+  avatarOf?: (name: string) => string | undefined;
 };
 
 /** One message of a conversation (mockup 13). */
@@ -76,6 +80,8 @@ export const MessageRow = memo(function MessageRow({
   onLongPress,
   onReact,
   onAddReaction,
+  onOpenThread,
+  avatarOf,
 }: Props) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
@@ -203,6 +209,7 @@ export const MessageRow = memo(function MessageRow({
         {!m.deleted && m.reactions?.length && onReact && onAddReaction ? (
           <ReactionPills reactions={m.reactions} onToggle={onReact} onAdd={onAddReaction} />
         ) : null}
+        {m.replies && onOpenThread ? <ReplyLine message={m} onPress={onOpenThread} avatarOf={avatarOf} /> : null}
         {m.edited && !m.deleted ? (
           <Text variant="tiny" tone="muted">
             {t("message.edited")}
@@ -221,6 +228,43 @@ export const MessageRow = memo(function MessageRow({
     </Pressable>
   );
 });
+
+/** "3 replies · last at 10:42", with up to three faces of those who answered, in the link colour. */
+function ReplyLine({ message: m, onPress, avatarOf }: { message: ApiMessage; onPress: () => void; avatarOf?: (name: string) => string | undefined }) {
+  const { t } = useTranslation();
+  const { c } = useTheme();
+  const { locale, timeZone } = useLocale();
+  const stamp = m.lastReplyAt ? listStamp(m.lastReplyAt, new Date(), locale, timeZone) : null;
+  const last = !stamp
+    ? null
+    : stamp.kind === "time"
+      ? t("message.lastAt", { time: stamp.text })
+      : stamp.kind === "yesterday"
+        ? t("message.lastYesterday")
+        : t("message.lastOn", { date: stamp.text });
+  const faces = (m.replyAuthors ?? []).slice(0, 3);
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.replies, pressed && { opacity: 0.6 }]}>
+      {faces.length > 0 ? (
+        <View style={styles.faces}>
+          {faces.map((name, i) => (
+            <View key={name} style={[styles.face, { borderColor: c.surface }, i > 0 && styles.faceOverlap]}>
+              <Avatar name={name} src={avatarOf?.(name)} size={20} />
+            </View>
+          ))}
+        </View>
+      ) : null}
+      <Text variant="smallStrong" tone="link">
+        {t("message.replies", { count: m.replies ?? 0 })}
+      </Text>
+      {last ? (
+        <Text variant="tiny" tone="muted" numberOfLines={1} style={styles.shrink}>
+          {last}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+}
 
 function PinnedTag() {
   const { t } = useTranslation();
@@ -247,5 +291,10 @@ const styles = StyleSheet.create({
   system: { textAlign: "center", paddingHorizontal: 24, paddingVertical: 8 },
   systemCard: { paddingHorizontal: 16, paddingBottom: 8, alignItems: "center" },
   pinned: { flexDirection: "row", alignItems: "center", gap: 3 },
+  replies: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", paddingVertical: 2 },
+  faces: { flexDirection: "row" },
+  face: { borderWidth: 2, borderRadius: radius.s + 2 },
+  faceOverlap: { marginLeft: -6 },
+  shrink: { flexShrink: 1 },
   image: { width: "100%", maxWidth: 300, borderRadius: radius.m, borderWidth: hairline },
 });

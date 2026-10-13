@@ -8,30 +8,31 @@ import { useEffect, useRef } from "react";
 
 import type { LocalFile } from "./useAttachments";
 
-export type EditRequest = { conversationId: string; id: string; body: string };
+/** `draftKey` names the composer: a conversation's id, or `thread:<root id>` for a thread's. */
+export type EditRequest = { draftKey: string; id: string; body: string };
 
 const listeners = new Set<(request: EditRequest) => void>();
 
-/** Put a message's text in its conversation's composer, to be edited. */
+/** Put a message's text in the composer it was written from, to be edited. */
 export function requestEdit(request: EditRequest): void {
   listeners.forEach((listen) => listen(request));
 }
 
-/** Hear the edit requests for one conversation. */
-export function useEditRequests(conversationId: string, onEdit: (request: EditRequest) => void): void {
+/** Hear the edit requests for one composer. */
+export function useEditRequests(draftKey: string, onEdit: (request: EditRequest) => void): void {
   const latest = useRef(onEdit);
   useEffect(() => {
     latest.current = onEdit;
   });
   useEffect(() => {
     const listen = (request: EditRequest) => {
-      if (request.conversationId === conversationId) latest.current(request);
+      if (request.draftKey === draftKey) latest.current(request);
     };
     listeners.add(listen);
     return () => {
       listeners.delete(listen);
     };
-  }, [conversationId]);
+  }, [draftKey]);
 }
 
 /** What the attach sheet hands to a composer: files of the phone, or a file of the space. */
