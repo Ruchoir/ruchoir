@@ -100,6 +100,8 @@ export function DiscussionsScreen() {
                 conversationId: item.id,
                 title: item.name,
                 channelId: item.kind === "channel" ? item.id : undefined,
+                unread: item.unread,
+                kind: item.kind,
               })
             }
           />

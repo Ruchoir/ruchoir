@@ -171,7 +171,12 @@
     "people_many": "{{count}} personas",
     "emptyHint": "Los mensajes de esta conversación aparecerán aquí, en directo.",
     "noFilesHint": "Los archivos adjuntos a los mensajes de esta conversación aparecerán aquí.",
-    "noEventsHint": "Los eventos compartidos en este canal aparecerán aquí."
+    "noEventsHint": "Los eventos compartidos en este canal aparecerán aquí.",
+    "newMessages": "Mensajes nuevos",
+    "seen": "Visto",
+    "newBelow_one": "{{count}} mensaje nuevo",
+    "newBelow_other": "{{count}} mensajes nuevos",
+    "newBelow_many": "{{count}} mensajes nuevos"
   },
   "attendee": {
     "accepted": "Asiste",

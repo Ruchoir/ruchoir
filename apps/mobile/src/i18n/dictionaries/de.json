@@ -169,7 +169,11 @@
     "noEvents": "Keine anstehenden Termine",
     "emptyHint": "Die Nachrichten dieser Unterhaltung erscheinen hier, live.",
     "noFilesHint": "An Nachrichten dieser Unterhaltung angehängte Dateien erscheinen hier.",
-    "noEventsHint": "In diesem Kanal geteilte Termine erscheinen hier."
+    "noEventsHint": "In diesem Kanal geteilte Termine erscheinen hier.",
+    "newMessages": "Neue Nachrichten",
+    "seen": "Gesehen",
+    "newBelow_one": "{{count}} neue Nachricht",
+    "newBelow_other": "{{count}} neue Nachrichten"
   },
   "attendee": {
     "accepted": "Nimmt teil",

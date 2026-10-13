@@ -12,8 +12,19 @@ export type ViewerFile = { id: string; name: string; url: string; mime?: string;
 
 export type RootParams = {
   tabs: NavigatorScreenParams<TabParams>;
-  /** A channel or a direct conversation; `channelId` is set for a channel (its agenda tab needs it). */
-  conversation: { conversationId: string; title: string; channelId?: string; members?: number };
+  /**
+   * A channel or a direct conversation; `channelId` is set for a channel (its agenda tab needs it).
+   * `unread` is how many messages were new when it was opened, which places the "New messages" line;
+   * `kind` tells a conversation with one person (where "Seen" shows) from a group.
+   */
+  conversation: {
+    conversationId: string;
+    title: string;
+    channelId?: string;
+    members?: number;
+    unread?: number;
+    kind?: "channel" | "person" | "group";
+  };
   folder: { folderId: string; name: string };
   /** A file to show: a space file, a message's attachment or an event's, by its download URL. */
   fileViewer: { file: ViewerFile };

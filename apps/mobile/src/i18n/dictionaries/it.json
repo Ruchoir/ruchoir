@@ -171,7 +171,12 @@
     "people_many": "{{count}} persone",
     "emptyHint": "I messaggi di questa conversazione compariranno qui, in diretta.",
     "noFilesHint": "I file allegati ai messaggi di questa conversazione compariranno qui.",
-    "noEventsHint": "Gli eventi condivisi in questo canale compariranno qui."
+    "noEventsHint": "Gli eventi condivisi in questo canale compariranno qui.",
+    "newMessages": "Nuovi messaggi",
+    "seen": "Visualizzato",
+    "newBelow_one": "{{count}} nuovo messaggio",
+    "newBelow_other": "{{count}} nuovi messaggi",
+    "newBelow_many": "{{count}} nuovi messaggi"
   },
   "attendee": {
     "accepted": "Partecipa",

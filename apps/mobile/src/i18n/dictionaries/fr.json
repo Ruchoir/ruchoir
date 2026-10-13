@@ -169,7 +169,11 @@
     "noEvents": "Aucun événement à venir",
     "emptyHint": "Les messages de cette conversation apparaîtront ici, en direct.",
     "noFilesHint": "Les fichiers joints aux messages de cette conversation apparaîtront ici.",
-    "noEventsHint": "Les événements partagés dans ce canal apparaîtront ici."
+    "noEventsHint": "Les événements partagés dans ce canal apparaîtront ici.",
+    "newMessages": "Nouveaux messages",
+    "seen": "Vu",
+    "newBelow_one": "{{count}} nouveau message",
+    "newBelow_other": "{{count}} nouveaux messages"
   },
   "attendee": {
     "accepted": "Participe",

@@ -169,7 +169,11 @@
     "noEvents": "No upcoming events",
     "emptyHint": "Messages in this conversation will show up here, live.",
     "noFilesHint": "Files attached to messages in this conversation will show up here.",
-    "noEventsHint": "Events shared in this channel will show up here."
+    "noEventsHint": "Events shared in this channel will show up here.",
+    "newMessages": "New messages",
+    "seen": "Seen",
+    "newBelow_one": "{{count}} new message",
+    "newBelow_other": "{{count}} new messages"
   },
   "attendee": {
     "accepted": "Going",

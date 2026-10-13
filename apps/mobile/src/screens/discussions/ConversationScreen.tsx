@@ -2,6 +2,7 @@ import {
   editMessage,
   getChannelMessages,
   getChannels,
+  getReadCursors,
   joinChannel,
   listChannelMembers,
   setReadCursor,
@@ -9,9 +10,20 @@ import {
   type Channel,
 } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { Archive, CalendarDays, FileText, MessageSquare } from "lucide-react-native";
+import { Archive, ArrowDown, CalendarDays, Check, FileText, MessageSquare } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Composer, type Editing } from "../../compose/Composer";
@@ -28,11 +40,14 @@ import { useLocale } from "../../i18n/useLocale";
 import { dayKey, daysBetween } from "../../logic/format";
 import { arrivedIds, pendingRows } from "../../logic/outbox";
 import { applyReactionDelta } from "../../logic/reactions";
+import { seenMessageId } from "../../logic/receipts";
+import { countNewer, firstUnreadId } from "../../logic/unread";
 import type { RootParams } from "../../navigation/types";
 import { mergeMessages } from "../../realtime/merge";
 import { useRealtimeEvent } from "../../realtime/RealtimeProvider";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
+import { fonts } from "../../theme/fonts";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
@@ -55,7 +70,14 @@ const PANES = [
 /** Two messages by one person less than five minutes apart read as one block. */
 const RUN_GAP_MS = 5 * 60 * 1000;
 
-type Row = { kind: "message"; message: ApiMessage; head: boolean } | { kind: "day"; day: string };
+type Row =
+  | { kind: "message"; message: ApiMessage; head: boolean }
+  | { kind: "day"; day: string }
+  | { kind: "unread" }
+  | { kind: "seen" };
+
+/** How far up (in points) the reader has to be for new messages to be announced rather than seen. */
+const AWAY = 240;
 
 /** A conversation (mockup 13): its messages live, its files and, for a channel, its events. */
 export function ConversationScreen() {
@@ -92,6 +114,8 @@ export function ConversationScreen() {
             conversationId={params.conversationId}
             title={params.title}
             channelId={params.channelId}
+            unread={params.unread}
+            oneToOne={params.kind === "person"}
             channel={params.channelId ? (channel ?? null) : undefined}
             channels={channels.data ?? []}
             onJoined={channels.reload}
@@ -111,6 +135,8 @@ type MessagesProps = {
   conversationId: string;
   title: string;
   channelId?: string;
+  unread?: number;
+  oneToOne: boolean;
   /** The channel, for a channel (null while it loads); undefined for a private conversation. */
   channel: Channel | null | undefined;
   channels: Channel[];
@@ -118,7 +144,7 @@ type MessagesProps = {
   members: ReturnType<typeof useSpaceMembers>;
 };
 
-function Messages({ conversationId, title, channelId, channel, channels, onJoined, members }: MessagesProps) {
+function Messages({ conversationId, title, channelId, unread, oneToOne, channel, channels, onJoined, members }: MessagesProps) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -214,6 +240,40 @@ function Messages({ conversationId, title, channelId, channel, channels, onJoine
     }
   }, [conversationId, nextBefore, extra.loadingMore]);
 
+  // Where the unread messages started when the conversation opened: the line stays there while reading.
+  const [anchor, setAnchor] = useState<{ id: string | null } | null>(null);
+  if (anchor === null && first.data && me) setAnchor({ id: firstUnreadId(first.data.messages, unread ?? 0, me.id) });
+
+  // "Seen" under my last message, in a conversation with one person, from the read cursors.
+  const cursors = useLoad(oneToOne ? `read:${conversationId}` : null, (signal) => getReadCursors(conversationId, signal));
+  const [liveCursors, setLiveCursors] = useState<Record<string, string>>({});
+  useRealtimeEvent((event) => {
+    if (event.type === "readCursor" && event.conversationId === conversationId) {
+      setLiveCursors((prev) => ({ ...prev, [event.userId]: event.lastReadMessageId }));
+    }
+  });
+  const seenId = useMemo(() => {
+    if (!oneToOne || !me || pending.length > 0) return null;
+    const known = (cursors.data ?? []).map((cur) => ({ ...cur, lastReadMessageId: liveCursors[cur.userId] ?? cur.lastReadMessageId }));
+    const added = Object.entries(liveCursors)
+      .filter(([userId]) => !known.some((cur) => cur.userId === userId))
+      .map(([userId, lastReadMessageId]) => ({ userId, lastReadMessageId }));
+    return seenMessageId([...known, ...added], messages, me.id);
+  }, [oneToOne, me, pending.length, cursors.data, liveCursors, messages]);
+
+  // Reading higher up: what arrives below is counted on a pill rather than scrolled to.
+  const [awayFrom, setAwayFrom] = useState<string | null>(null);
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    if (y > AWAY && awayFrom === null && newest) setAwayFrom(newest);
+    else if (y <= AWAY && awayFrom !== null) setAwayFrom(null);
+  };
+  const newBelow = awayFrom && me ? countNewer(messages, awayFrom, me.id) : 0;
+  const toBottom = () => {
+    list.current?.scrollToOffset({ offset: 0, animated: true });
+    setAwayFrom(null);
+  };
+
   // Newest first, for an inverted list that opens at the bottom; a day's label follows its messages.
   const rows = useMemo(() => {
     const all = [...messages, ...pending.map((row) => row.message)];
@@ -229,11 +289,22 @@ function Messages({ conversationId, title, channelId, channel, channels, onJoine
         older.author === m.author &&
         dayKey(older.createdAt, timeZone) === day &&
         Date.parse(m.createdAt) - Date.parse(older.createdAt) < RUN_GAP_MS;
+      if (m.id === seenId) out.push({ kind: "seen" });
       out.push({ kind: "message", message: m, head: !sameRun });
+      if (m.id === anchor?.id) out.push({ kind: "unread" });
       if (!older || dayKey(older.createdAt, timeZone) !== day) out.push({ kind: "day", day });
     }
     return out;
-  }, [messages, pending, timeZone]);
+  }, [messages, pending, timeZone, seenId, anchor]);
+
+  // Open at the "New messages" line when it is further up than the first screen.
+  const opened = useRef(false);
+  const unreadIndex = rows.findIndex((row) => row.kind === "unread");
+  useEffect(() => {
+    if (opened.current || rows.length === 0) return;
+    opened.current = true;
+    if (unreadIndex > 6) list.current?.scrollToIndex({ index: unreadIndex, viewPosition: 1, animated: false });
+  }, [rows.length, unreadIndex]);
 
   const myNames = useMemo(() => {
     if (!me) return [];
@@ -292,17 +363,45 @@ function Messages({ conversationId, title, channelId, channel, channels, onJoine
       {rows.length === 0 ? (
         <EmptyState icon={MessageSquare} title={t("conversation.empty")} text={t("conversation.emptyHint")} />
       ) : (
+      <View style={styles.fill}>
       <FlatList
         ref={list}
         inverted
         data={rows}
-        keyExtractor={(row) => (row.kind === "day" ? `day:${row.day}` : row.message.id)}
+        keyExtractor={(row) => (row.kind === "day" ? `day:${row.day}` : row.kind === "message" ? row.message.id : row.kind)}
+        onScroll={onScroll}
+        scrollEventThrottle={64}
+        onScrollToIndexFailed={(info) => {
+          list.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
+          setTimeout(() => list.current?.scrollToIndex({ index: info.index, viewPosition: 1, animated: false }), 120);
+        }}
         onEndReached={() => void loadOlder()}
         onEndReachedThreshold={0.4}
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         ListFooterComponent={extra.loadingMore ? <ActivityIndicator color={c.ink} style={styles.more} /> : null}
         renderItem={({ item }) => {
+          if (item.kind === "unread") {
+            return (
+              <View style={styles.day} accessibilityRole="header">
+                <View style={[styles.rule, { backgroundColor: c.alarm }]} />
+                <Text variant="tiny" style={[styles.unread, { color: c.alarm }]}>
+                  {t("conversation.newMessages")}
+                </Text>
+                <View style={[styles.rule, { backgroundColor: c.alarm }]} />
+              </View>
+            );
+          }
+          if (item.kind === "seen") {
+            return (
+              <View style={styles.seen}>
+                <Check size={12} color={c.muted} />
+                <Text variant="tiny" tone="muted">
+                  {t("conversation.seen")}
+                </Text>
+              </View>
+            );
+          }
           if (item.kind === "day") {
             const gap = daysBetween(item.day, today);
             const label =
@@ -343,6 +442,19 @@ function Messages({ conversationId, title, channelId, channel, channels, onJoine
           );
         }}
       />
+      {newBelow > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={toBottom}
+          style={({ pressed }) => [styles.pill, { backgroundColor: c.ink, shadowColor: s.shadow }, pressed && { opacity: 0.85 }]}
+        >
+          <ArrowDown size={16} color={c.onInk} />
+          <Text variant="smallStrong" tone="onInk">
+            {t("conversation.newBelow", { count: newBelow })}
+          </Text>
+        </Pressable>
+      ) : null}
+      </View>
       )}
       {closed ? (
         <SafeAreaView edges={["bottom"]} style={[styles.closed, { borderTopColor: c.line, backgroundColor: c.surface }]}>
@@ -384,6 +496,23 @@ const styles = StyleSheet.create({
   more: { padding: 16 },
   day: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
   rule: { flex: 1, height: hairline },
+  unread: { fontFamily: fonts.sansSemibold },
+  seen: { flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 62, paddingBottom: 6 },
+  pill: {
+    position: "absolute",
+    bottom: 12,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radius.l,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
   closed: { borderTopWidth: hairline, paddingHorizontal: 16, paddingTop: 10 },
   closedPill: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.m, marginBottom: 6 },
   closedText: { flex: 1 },

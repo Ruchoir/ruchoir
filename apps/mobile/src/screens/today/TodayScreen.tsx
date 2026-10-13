@@ -144,6 +144,8 @@ export function TodayScreen() {
                 conversationId: item.id,
                 title: item.name,
                 channelId: item.kind === "channel" ? item.id : undefined,
+                unread: item.unread,
+                kind: item.kind,
               })
             }
           />
@@ -164,7 +166,14 @@ function MentionCard({ n }: { n: ApiNotification }) {
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => navigation.navigate("conversation", { conversationId: n.conversationId, title: n.channelName ?? n.actor })}
+      onPress={() =>
+        navigation.navigate("conversation", {
+          conversationId: n.conversationId,
+          title: n.channelName ?? n.actor,
+          // A channel's conversation is the channel itself.
+          channelId: n.channelName ? n.conversationId : undefined,
+        })
+      }
       style={({ pressed }) => [styles.mention, { borderColor: c.ink, backgroundColor: c.surface, shadowColor: c.ink }, pressed && { opacity: 0.8 }]}
     >
       <View style={[styles.mentionIcon, { backgroundColor: c.acc }]}>

@@ -173,7 +173,13 @@
     "people_many": "{{count}} osób",
     "emptyHint": "Wiadomości z tej rozmowy pojawią się tutaj na bieżąco.",
     "noFilesHint": "Pliki dołączone do wiadomości w tej rozmowie pojawią się tutaj.",
-    "noEventsHint": "Wydarzenia udostępnione na tym kanale pojawią się tutaj."
+    "noEventsHint": "Wydarzenia udostępnione na tym kanale pojawią się tutaj.",
+    "newMessages": "Nowe wiadomości",
+    "seen": "Wyświetlono",
+    "newBelow_one": "{{count}} nowa wiadomość",
+    "newBelow_other": "{{count}} nowej wiadomości",
+    "newBelow_few": "{{count}} nowe wiadomości",
+    "newBelow_many": "{{count}} nowych wiadomości"
   },
   "attendee": {
     "accepted": "Weźmie udział",
