@@ -19,6 +19,16 @@ overrides:
 # at lint time on the repository's own glob patterns, never on input from a user, and nothing of it
 # reaches the built app. There is no patched braces release, and the latest @next/eslint-plugin-next
 # (16.3.8) still pins fast-glob 3.3.1. Drop this once either moves.
+#
+# GHSA-86w9-cpqp-85rv (node-forge <= 1.4.0, RSA PKCS#1 v1.5 signature verification) and
+# GHSA-w5hq-g745-h8pq (uuid < 11.1.1, missing bounds check with a caller-provided buffer): dev only,
+# both through the Expo CLI of apps/mobile (node-forge in @expo/cli itself, uuid 7 through xcode in
+# @expo/config-plugins, which the CLI runs to generate native projects). They run on a developer's
+# machine and never reach the app's bundle (Metro bundles the app's own code) nor the API image
+# (its web stage installs only `@ruchoir/web...`). node-forge has no patched release, and xcode pins
+# uuid 7. Drop these once the Expo CLI moves past them.
 auditConfig:
   ignoreGhsas:
     - GHSA-vfj7-8cjw-p6xm
+    - GHSA-86w9-cpqp-85rv
+    - GHSA-w5hq-g745-h8pq
