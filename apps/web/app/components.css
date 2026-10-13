@@ -3722,13 +3722,6 @@ button.wc-mhead__title {
 .wc-office__frame--hidden {
   opacity: 0;
 }
-.wc-office__cover {
-  position: absolute;
-  inset: 0;
-  justify-content: center;
-  max-width: none;
-  background: var(--surface);
-}
 .wc-office__frame {
   flex: 1;
   width: 100%;
@@ -3748,6 +3741,14 @@ button.wc-mhead__title {
 }
 .wc-office__note strong {
   color: var(--text-strong);
+}
+/* After the note it is drawn as, so its full width wins over the note's column. */
+.wc-office__cover {
+  position: absolute;
+  inset: 0;
+  justify-content: center;
+  max-width: none;
+  background: var(--surface);
 }
 
 /* The image viewer: the picture on a dark backdrop, the controls in small floating bars. The
