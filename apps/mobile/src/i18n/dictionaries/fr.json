@@ -104,7 +104,26 @@
     "someone": "Quelqu'un",
     "deleted": "Message supprimé",
     "edited": "(modifié)",
-    "image": "Image"
+    "image": "Image",
+    "sentAt": "Envoyé {{at}}",
+    "pin": "Épingler",
+    "unpin": "Désépingler",
+    "pinnedTag": "Épinglé",
+    "delete": "Supprimer le message",
+    "reactWith": "Réagir {{emoji}}",
+    "react": "Réagir",
+    "reactionCount": "Réaction {{emoji}}, {{count}}",
+    "copy": "Copier le texte",
+    "copied": "Texte copié",
+    "edit": "Modifier",
+    "pinnedDone": "Message épinglé",
+    "unpinnedDone": "Message désépinglé",
+    "deleteTitle": "Supprimer ce message ?",
+    "deleteText": "Tout le monde verra « Message supprimé » à sa place.",
+    "deleteFailed": "Le message n’a pas pu être supprimé.",
+    "actionFailed": "Cela n’a pas pu être enregistré.",
+    "reactionFailed": "Réaction non enregistrée",
+    "moreReactions": "Plus de réactions"
   },
   "common": {
     "back": "Retour",
@@ -162,7 +181,15 @@
     "sharedIn": "Partagé dans le canal",
     "invited_one": "{{count}} invité",
     "invited_other": "{{count}} invités",
-    "files": "Fichiers partagés"
+    "files": "Fichiers partagés",
+    "yes": "Oui, je serai là",
+    "no": "Non",
+    "going": "Vous y serez",
+    "notGoing": "Vous n’y serez pas",
+    "maybe": "Peut-être",
+    "change": "Modifier ma réponse",
+    "allDates": "Pour toutes les dates",
+    "answerFailed": "Réponse non enregistrée, réessayez."
   },
   "files": {
     "search": "Rechercher un fichier",
@@ -230,5 +257,18 @@
     "editFailed": "Modification non enregistrée",
     "editFailedText": "Le message garde son ancien texte. Vous pouvez réessayer.",
     "ok": "OK"
+  },
+  "emoji": {
+    "search": "Rechercher un emoji",
+    "none": "Aucun emoji",
+    "smileys": "Émotions",
+    "gestures": "Gestes",
+    "hearts": "Cœurs",
+    "nature": "Nature",
+    "food": "Nourriture",
+    "travel": "Voyage",
+    "activities": "Activités",
+    "objects": "Objets",
+    "symbols": "Symboles"
   }
 }

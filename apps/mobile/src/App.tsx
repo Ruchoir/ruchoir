@@ -10,6 +10,7 @@ import { SignInScreen } from "./screens/auth/SignInScreen";
 import { BootScreen } from "./screens/boot/BootScreen";
 import { SessionProvider, useSession } from "./session/SessionProvider";
 import { SpaceProvider } from "./space/SpaceProvider";
+import { ToastProvider } from "./ui/Toast";
 import { fontFiles } from "./theme/fonts";
 import { useTheme } from "./theme/useTheme";
 
@@ -41,7 +42,9 @@ function Root() {
         <RealtimeProvider>
           <OutboxProvider>
             <SpaceProvider>
-              <RootNavigator />
+              <ToastProvider>
+                <RootNavigator />
+              </ToastProvider>
             </SpaceProvider>
           </OutboxProvider>
         </RealtimeProvider>

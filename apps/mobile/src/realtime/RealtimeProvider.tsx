@@ -12,6 +12,11 @@ import { AppState } from "react-native";
 
 export type RealtimeEvent =
   | { type: "message"; change: "created" | "updated" | "deleted"; conversationId: string; message: ApiMessage }
+  /** A change I made, drawn before the server confirms it (a reaction, a pin, an edit): screens only. */
+  | { type: "patched"; conversationId: string; message: ApiMessage }
+  /** Someone's reaction added or removed. Mine are already on screen. */
+  | { type: "reaction"; conversationId: string; messageId: string; emoji: string; userId: string; added: boolean }
+  | { type: "pinned"; conversationId: string; messageId: string; pinned: boolean }
   | { type: "notification" }
   | { type: "readCursor"; conversationId: string; userId: string; lastReadMessageId: string }
   | { type: "typing"; conversationId: string; userId: string }
@@ -54,6 +59,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         onMessageCreated: (conversationId, message) => emit({ type: "message", change: "created", conversationId, message }),
         onMessageUpdated: (conversationId, message) => emit({ type: "message", change: "updated", conversationId, message }),
         onMessageDeleted: (conversationId, message) => emit({ type: "message", change: "deleted", conversationId, message }),
+        onReaction: (conversationId, r) => emit({ type: "reaction", conversationId, ...r }),
+        onPinned: (conversationId, messageId, pinned) => emit({ type: "pinned", conversationId, messageId, pinned }),
         onNotification: () => emit({ type: "notification" }),
         onReadCursor: (conversationId, userId, lastReadMessageId) =>
           emit({ type: "readCursor", conversationId, userId, lastReadMessageId }),

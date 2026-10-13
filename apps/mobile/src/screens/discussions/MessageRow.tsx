@@ -1,7 +1,8 @@
 import { absoluteUrl, fileDownloadUrl, type ApiMessage, type SystemEvent } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
-import { CalendarDays } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
+import { Pin } from "lucide-react-native";
 import { memo } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
@@ -14,6 +15,9 @@ import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
 import { FileCard } from "../../ui/FileCard";
 import { Text } from "../../ui/Text";
+import { EventCardView } from "./EventCardView";
+import { LinkCard } from "./LinkCard";
+import { ReactionPills } from "./ReactionPills";
 import { RichText } from "./RichText";
 
 const EVENT_TEXT: Record<SystemEvent, ReturnType<typeof key>> = {
@@ -49,6 +53,13 @@ type Props = {
   pending?: "sending" | "failed";
   onRetry?: () => void;
   onDiscard?: () => void;
+  /** The reader, for the answer to an event they are invited to. */
+  myUserId?: string;
+  /** A long press: the message's sheet. */
+  onLongPress?: () => void;
+  /** A tap on a reaction pill, and on `+` beside them. */
+  onReact?: (emoji: string) => void;
+  onAddReaction?: () => void;
 };
 
 /** One message of a conversation (mockup 13). */
@@ -61,6 +72,10 @@ export const MessageRow = memo(function MessageRow({
   pending,
   onRetry,
   onDiscard,
+  myUserId,
+  onLongPress,
+  onReact,
+  onAddReaction,
 }: Props) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
@@ -68,11 +83,21 @@ export const MessageRow = memo(function MessageRow({
   const navigation = useNavigation();
 
   if (m.kind === "system") {
-    return (
+    const line = (
       <Text variant="small" tone="muted" style={styles.system}>
         {m.system ? t(EVENT_TEXT[m.system.event], { who: m.system.actor || t("message.someone"), detail: m.system.detail ?? "" }) : m.body}
       </Text>
     );
+    // An event shared in the channel: the notice, then the card to open it and answer.
+    if (m.eventCard && m.system?.event === "calendar_event_posted") {
+      return (
+        <View style={styles.systemCard}>
+          {line}
+          <EventCardView message={m} myUserId={myUserId} />
+        </View>
+      );
+    }
+    return line;
   }
 
   const images = m.images ?? (m.image ? [m.image] : []);
@@ -92,17 +117,29 @@ export const MessageRow = memo(function MessageRow({
         }
       : null;
 
+  const actions = !pending && !m.deleted && onLongPress ? onLongPress : undefined;
+
   return (
     <Pressable
-      disabled={!unsent}
+      disabled={!unsent && !actions}
       onPress={unsent?.onPress}
-      onLongPress={unsent?.onLongPress}
+      onLongPress={
+        unsent?.onLongPress ??
+        (actions
+          ? () => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              actions();
+            }
+          : undefined)
+      }
+      delayLongPress={350}
       accessibilityHint={unsent ? t("compose.failed") : undefined}
-      style={[
+      style={({ pressed }) => [
         styles.row,
         mentionsMe && { backgroundColor: s.mention },
         !head && styles.continued,
         pending === "sending" && styles.sending,
+        pressed && actions && { backgroundColor: s.pressed },
       ]}
     >
       <View style={styles.gutter}>{head ? <Avatar name={m.author} src={avatar} size={36} /> : null}</View>
@@ -115,7 +152,10 @@ export const MessageRow = memo(function MessageRow({
             <Text variant="tiny" tone="muted">
               {timeOf(m.createdAt, locale, timeZone)}
             </Text>
+            {m.pinned ? <PinnedTag /> : null}
           </View>
+        ) : m.pinned ? (
+          <PinnedTag />
         ) : null}
         {m.deleted ? (
           <Text tone="muted" style={styles.italic}>
@@ -124,6 +164,7 @@ export const MessageRow = memo(function MessageRow({
         ) : m.body ? (
           <RichText body={m.body} mentionNames={mentionNames} />
         ) : null}
+        {!m.deleted && m.link ? <LinkCard link={m.link} /> : null}
         {!m.deleted &&
           images.map((img, i) =>
             img.src ? (
@@ -158,29 +199,9 @@ export const MessageRow = memo(function MessageRow({
               }
             />
           ))}
-        {!m.deleted && m.eventCard ? (
-          <Pressable
-            onPress={() => navigation.navigate("eventSummary", { eventId: m.eventCard!.eventId, recurrenceId: m.eventCard!.recurrenceId })}
-            style={({ pressed }) => [styles.event, { borderColor: c.ink, backgroundColor: c.surface }, pressed && { opacity: 0.7 }]}
-          >
-            <View style={[styles.eventIcon, { backgroundColor: c.sky }]}>
-              <CalendarDays size={18} color={c.onPastel} />
-            </View>
-            <View style={styles.main}>
-              <Text variant="smallStrong" numberOfLines={1}>
-                {m.eventCard.title}
-              </Text>
-              <Text variant="tiny" tone="muted">
-                {new Intl.DateTimeFormat(locale, {
-                  timeZone,
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  ...(m.eventCard.allDay ? {} : { hour: "2-digit", minute: "2-digit" }),
-                }).format(new Date(m.eventCard.start))}
-              </Text>
-            </View>
-          </Pressable>
+        {!m.deleted && m.eventCard ? <EventCardView message={m} myUserId={myUserId} /> : null}
+        {!m.deleted && m.reactions?.length && onReact && onAddReaction ? (
+          <ReactionPills reactions={m.reactions} onToggle={onReact} onAdd={onAddReaction} />
         ) : null}
         {m.edited && !m.deleted ? (
           <Text variant="tiny" tone="muted">
@@ -201,6 +222,19 @@ export const MessageRow = memo(function MessageRow({
   );
 });
 
+function PinnedTag() {
+  const { t } = useTranslation();
+  const { c } = useTheme();
+  return (
+    <View style={styles.pinned}>
+      <Pin size={12} color={c.muted} />
+      <Text variant="tiny" tone="muted">
+        {t("message.pinnedTag")}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
   continued: { paddingTop: 2 },
@@ -211,7 +245,7 @@ const styles = StyleSheet.create({
   author: { flexShrink: 1 },
   italic: { fontStyle: "italic" },
   system: { textAlign: "center", paddingHorizontal: 24, paddingVertical: 8 },
+  systemCard: { paddingHorizontal: 16, paddingBottom: 8, alignItems: "center" },
+  pinned: { flexDirection: "row", alignItems: "center", gap: 3 },
   image: { width: "100%", maxWidth: 300, borderRadius: radius.m, borderWidth: hairline },
-  event: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: radius.m, borderWidth: 2, maxWidth: 320 },
-  eventIcon: { width: 36, height: 36, borderRadius: radius.s, alignItems: "center", justifyContent: "center" },
 });

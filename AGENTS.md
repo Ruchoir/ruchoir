@@ -138,7 +138,7 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | typst / typst-pdf / typst-layout (calendar printing) | 0.15.1 | `apps/api/Cargo.toml` |
 | Expo SDK / React Native / React (mobile) | 57 / 0.86.3 / 19.2.3 | `apps/mobile/package.json` |
 | React Navigation (native-stack, bottom-tabs) | 7 | `apps/mobile/package.json` |
-| expo-secure-store, -image, -file-system, -sharing, -web-browser, -localization, -font, -haptics | the SDK 57 versions | `apps/mobile/package.json` |
+| expo-secure-store, -image, -file-system, -sharing, -web-browser, -localization, -font, -haptics, -clipboard | the SDK 57 versions | `apps/mobile/package.json` |
 | react-native-screens / -safe-area-context / -svg / -webview | 4.26 / 5.7 / 15.15.4 / 13.16.1 | `apps/mobile/package.json` |
 | lucide-react-native / @dicebear (mobile) | 1.55 / 10 | `apps/mobile/package.json` |
 

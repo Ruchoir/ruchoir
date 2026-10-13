@@ -104,7 +104,26 @@
     "someone": "Jemand",
     "deleted": "Nachricht gelöscht",
     "edited": "(bearbeitet)",
-    "image": "Bild"
+    "image": "Bild",
+    "sentAt": "Gesendet {{at}}",
+    "pin": "Anheften",
+    "unpin": "Lösen",
+    "pinnedTag": "Angeheftet",
+    "delete": "Nachricht löschen",
+    "reactWith": "Mit {{emoji}} reagieren",
+    "react": "Reagieren",
+    "reactionCount": "Reaktion {{emoji}}, {{count}}",
+    "copy": "Text kopieren",
+    "copied": "Text kopiert",
+    "edit": "Bearbeiten",
+    "pinnedDone": "Nachricht angeheftet",
+    "unpinnedDone": "Nachricht gelöst",
+    "deleteTitle": "Diese Nachricht löschen?",
+    "deleteText": "Alle sehen an ihrer Stelle „Nachricht gelöscht“.",
+    "deleteFailed": "Die Nachricht konnte nicht gelöscht werden.",
+    "actionFailed": "Das konnte nicht gespeichert werden.",
+    "reactionFailed": "Reaktion nicht gespeichert",
+    "moreReactions": "Weitere Reaktionen"
   },
   "common": {
     "back": "Zurück",
@@ -162,7 +181,15 @@
     "sharedIn": "Im Kanal geteilt",
     "invited_one": "{{count}} Gast",
     "invited_other": "{{count}} Gäste",
-    "files": "Geteilte Dateien"
+    "files": "Geteilte Dateien",
+    "yes": "Ja, ich bin dabei",
+    "no": "Nein",
+    "going": "Sie sind dabei",
+    "notGoing": "Sie sind nicht dabei",
+    "maybe": "Vielleicht",
+    "change": "Antwort ändern",
+    "allDates": "Für alle Termine",
+    "answerFailed": "Antwort nicht gespeichert, bitte erneut versuchen."
   },
   "files": {
     "search": "Datei suchen",
@@ -230,5 +257,18 @@
     "editFailed": "Änderung nicht gespeichert",
     "editFailedText": "Die Nachricht behält ihren bisherigen Text. Sie können es erneut versuchen.",
     "ok": "OK"
+  },
+  "emoji": {
+    "search": "Emoji suchen",
+    "none": "Kein Emoji",
+    "smileys": "Emotionen",
+    "gestures": "Gesten",
+    "hearts": "Herzen",
+    "nature": "Natur",
+    "food": "Essen",
+    "travel": "Reisen",
+    "activities": "Aktivitäten",
+    "objects": "Gegenstände",
+    "symbols": "Symbole"
   }
 }

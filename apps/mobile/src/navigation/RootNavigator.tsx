@@ -3,6 +3,8 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { AccountSheet } from "../screens/account/AccountSheet";
 import { ConversationScreen } from "../screens/discussions/ConversationScreen";
+import { EmojiPickerSheet } from "../screens/discussions/EmojiPickerSheet";
+import { MessageActionSheet } from "../screens/discussions/MessageActionSheet";
 import { EventSummarySheet } from "../screens/agenda/EventSummarySheet";
 import { FileViewerScreen } from "../screens/files/FileViewerScreen";
 import { FolderScreen } from "../screens/files/FolderScreen";
@@ -40,6 +42,8 @@ export function RootNavigator() {
         <Stack.Screen name="eventSummary" component={EventSummarySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
+        <Stack.Screen name="messageActions" component={MessageActionSheet} options={sheet} />
+        <Stack.Screen name="emojiPicker" component={EmojiPickerSheet} options={{ ...sheet, sheetAllowedDetents: [0.7, 1] }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

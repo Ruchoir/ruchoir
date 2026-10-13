@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { toggleReaction } from "../src/logic/reactions.ts";
+import { applyReactionDelta, toggleReaction } from "../src/logic/reactions.ts";
 
 const ME = "Théo Vilain";
 
@@ -24,4 +24,16 @@ test("two_quick_taps_end_where_they_started", () => {
   const start = [{ emoji: "👍", count: 2, users: ["Léa", "Hugo"] }];
   const twice = toggleReaction(toggleReaction(start, "👍", ME), "👍", ME);
   assert.deepEqual(twice, [{ emoji: "👍", count: 2, mine: false, users: ["Léa", "Hugo"] }]);
+});
+
+test("someone_elses_reaction_adds_their_name", () => {
+  const after = applyReactionDelta([{ emoji: "👍", count: 1, mine: true, users: [ME] }], "👍", true, "Léa");
+  assert.deepEqual(after, [{ emoji: "👍", count: 2, mine: true, users: [ME, "Léa"] }]);
+  assert.deepEqual(applyReactionDelta(undefined, "🎉", true, "Léa"), [{ emoji: "🎉", count: 1, users: ["Léa"] }]);
+});
+
+test("someone_elses_removal_drops_an_empty_pill", () => {
+  assert.deepEqual(applyReactionDelta([{ emoji: "🎉", count: 1, users: ["Léa"] }], "🎉", false, "Léa"), []);
+  const kept = applyReactionDelta([{ emoji: "👍", count: 2, mine: true, users: [ME, "Léa"] }], "👍", false, "Léa");
+  assert.deepEqual(kept, [{ emoji: "👍", count: 1, mine: true, users: [ME] }]);
 });

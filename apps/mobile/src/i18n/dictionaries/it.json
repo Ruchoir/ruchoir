@@ -105,7 +105,26 @@
     "someone": "Qualcuno",
     "deleted": "Messaggio eliminato",
     "edited": "(modificato)",
-    "image": "Immagine"
+    "image": "Immagine",
+    "sentAt": "Inviato {{at}}",
+    "pin": "Fissa",
+    "unpin": "Non fissare più",
+    "pinnedTag": "Fissato",
+    "delete": "Elimina il messaggio",
+    "reactWith": "Reagisci {{emoji}}",
+    "react": "Reagisci",
+    "reactionCount": "Reazione {{emoji}}, {{count}}",
+    "copy": "Copia il testo",
+    "copied": "Testo copiato",
+    "edit": "Modifica",
+    "pinnedDone": "Messaggio fissato",
+    "unpinnedDone": "Messaggio non più fissato",
+    "deleteTitle": "Eliminare questo messaggio?",
+    "deleteText": "Tutti vedranno «Messaggio eliminato» al suo posto.",
+    "deleteFailed": "Non è stato possibile eliminare il messaggio.",
+    "actionFailed": "Non è stato possibile salvarlo.",
+    "reactionFailed": "Reazione non salvata",
+    "moreReactions": "Altre reazioni"
   },
   "common": {
     "back": "Indietro",
@@ -165,7 +184,15 @@
     "invited_one": "{{count}} invitato",
     "invited_other": "{{count}} invitati",
     "files": "File condivisi",
-    "invited_many": "{{count}} invitati"
+    "invited_many": "{{count}} invitati",
+    "yes": "Sì, ci sarò",
+    "no": "No",
+    "going": "Ci sarai",
+    "notGoing": "Non ci sarai",
+    "maybe": "Forse",
+    "change": "Cambia risposta",
+    "allDates": "Per tutte le date",
+    "answerFailed": "Risposta non salvata, riprova."
   },
   "files": {
     "search": "Cerca un file",
@@ -235,5 +262,18 @@
     "editFailed": "Modifica non salvata",
     "editFailedText": "Il messaggio mantiene il testo precedente. Puoi riprovare.",
     "ok": "OK"
+  },
+  "emoji": {
+    "search": "Cerca un emoji",
+    "none": "Nessun emoji",
+    "smileys": "Emozioni",
+    "gestures": "Gesti",
+    "hearts": "Cuori",
+    "nature": "Natura",
+    "food": "Cibo",
+    "travel": "Viaggi",
+    "activities": "Attività",
+    "objects": "Oggetti",
+    "symbols": "Simboli"
   }
 }

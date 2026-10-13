@@ -104,7 +104,26 @@
     "someone": "Someone",
     "deleted": "Message deleted",
     "edited": "(edited)",
-    "image": "Image"
+    "image": "Image",
+    "sentAt": "Sent {{at}}",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "pinnedTag": "Pinned",
+    "delete": "Delete the message",
+    "reactWith": "React with {{emoji}}",
+    "react": "React",
+    "reactionCount": "Reaction {{emoji}}, {{count}}",
+    "copy": "Copy text",
+    "copied": "Text copied",
+    "edit": "Edit",
+    "pinnedDone": "Message pinned",
+    "unpinnedDone": "Message unpinned",
+    "deleteTitle": "Delete this message?",
+    "deleteText": "Everyone will see “Message deleted” in its place.",
+    "deleteFailed": "The message could not be deleted.",
+    "actionFailed": "That could not be saved.",
+    "reactionFailed": "Reaction not saved",
+    "moreReactions": "More reactions"
   },
   "common": {
     "back": "Back",
@@ -162,7 +181,15 @@
     "sharedIn": "Shared in the channel",
     "invited_one": "{{count}} guest",
     "invited_other": "{{count}} guests",
-    "files": "Shared files"
+    "files": "Shared files",
+    "yes": "Yes, I’ll be there",
+    "no": "No",
+    "going": "You’re going",
+    "notGoing": "You’re not going",
+    "maybe": "Maybe",
+    "change": "Change my answer",
+    "allDates": "For every date",
+    "answerFailed": "Answer not saved, try again."
   },
   "files": {
     "search": "Search for a file",
@@ -230,5 +257,18 @@
     "editFailed": "Edit not saved",
     "editFailedText": "The message keeps its previous text. You can try again.",
     "ok": "OK"
+  },
+  "emoji": {
+    "search": "Search an emoji",
+    "none": "No emoji",
+    "smileys": "Smileys",
+    "gestures": "Gestures",
+    "hearts": "Hearts",
+    "nature": "Nature",
+    "food": "Food",
+    "travel": "Travel",
+    "activities": "Activities",
+    "objects": "Objects",
+    "symbols": "Symbols"
   }
 }

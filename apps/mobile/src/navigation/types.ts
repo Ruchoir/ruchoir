@@ -1,3 +1,4 @@
+import type { ApiMessage } from "@ruchoir/client";
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParams = {
@@ -17,6 +18,9 @@ export type RootParams = {
   /** A file to show: a space file, a message's attachment or an event's, by its download URL. */
   fileViewer: { file: ViewerFile };
   eventSummary: { eventId: string; recurrenceId?: string };
+  /** A message's long-press sheet; `channelId` is set in a channel (pinning needs it). */
+  messageActions: { conversationId: string; channelId?: string; message: ApiMessage };
+  emojiPicker: { conversationId: string; message: ApiMessage };
   spaceSheet: undefined;
   accountSheet: undefined;
 };

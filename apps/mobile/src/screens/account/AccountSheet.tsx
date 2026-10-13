@@ -4,9 +4,9 @@ import { StyleSheet, View } from "react-native";
 import { key, useTranslation } from "../../i18n";
 import { useSession } from "../../session/SessionProvider";
 import { selfPresence } from "../../session/presence";
-import { radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
+import { ActionRow } from "../../ui/ActionRow";
 import { Button } from "../../ui/Button";
 import { Sheet } from "../../ui/Sheet";
 import { Text } from "../../ui/Text";
@@ -24,7 +24,7 @@ const PRESENCE_TEXT = {
  */
 export function AccountSheet() {
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const { c } = useTheme();
   const session = useSession();
   if (session.state.kind !== "signedIn") return null;
   const { user, server } = session.state;
@@ -41,13 +41,8 @@ export function AccountSheet() {
           </Text>
         </View>
       </View>
-      <Row icon={<CircleCheck size={20} color={c.onPastel} />} tint={c.mint} title={t(PRESENCE_TEXT[presence])} subtitle={t("account.status")} />
-      <Row
-        icon={<Server size={20} color={c.ink} />}
-        tint={s.sunken}
-        title={server.replace(/^https:\/\//, "")}
-        subtitle={t("signIn.server")}
-      />
+      <ActionRow icon={CircleCheck} tint={c.mint} title={t(PRESENCE_TEXT[presence])} subtitle={t("account.status")} />
+      <ActionRow icon={Server} title={server.replace(/^https:\/\//, "")} subtitle={t("signIn.server")} />
       <Button
         variant="secondary"
         label={t("account.signOut")}
@@ -59,26 +54,8 @@ export function AccountSheet() {
   );
 }
 
-function Row({ icon, tint, title, subtitle }: { icon: React.ReactNode; tint: string; title: string; subtitle: string }) {
-  return (
-    <View style={styles.row}>
-      <View style={[styles.tile, { backgroundColor: tint }]}>{icon}</View>
-      <View style={styles.flex}>
-        <Text variant="bodyStrong" numberOfLines={1}>
-          {title}
-        </Text>
-        <Text variant="tiny" tone="muted">
-          {subtitle}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   who: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 8 },
   flex: { flex: 1, minWidth: 0 },
-  row: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 8 },
-  tile: { width: 40, height: 40, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
   signOut: { marginTop: 12 },
 });

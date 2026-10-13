@@ -106,7 +106,26 @@
     "someone": "Ktoś",
     "deleted": "Wiadomość usunięta",
     "edited": "(edytowano)",
-    "image": "Obraz"
+    "image": "Obraz",
+    "sentAt": "Wysłano {{at}}",
+    "pin": "Przypnij",
+    "unpin": "Odepnij",
+    "pinnedTag": "Przypięte",
+    "delete": "Usuń wiadomość",
+    "reactWith": "Zareaguj {{emoji}}",
+    "react": "Zareaguj",
+    "reactionCount": "Reakcja {{emoji}}, {{count}}",
+    "copy": "Kopiuj tekst",
+    "copied": "Skopiowano tekst",
+    "edit": "Edytuj",
+    "pinnedDone": "Wiadomość przypięta",
+    "unpinnedDone": "Wiadomość odpięta",
+    "deleteTitle": "Usunąć tę wiadomość?",
+    "deleteText": "Wszyscy zobaczą w jej miejscu „Wiadomość usunięta”.",
+    "deleteFailed": "Nie udało się usunąć wiadomości.",
+    "actionFailed": "Nie udało się tego zapisać.",
+    "reactionFailed": "Nie zapisano reakcji",
+    "moreReactions": "Więcej reakcji"
   },
   "common": {
     "back": "Wstecz",
@@ -168,7 +187,15 @@
     "invited_other": "{{count}} gości",
     "files": "Udostępnione pliki",
     "invited_few": "{{count}} gości",
-    "invited_many": "{{count}} gości"
+    "invited_many": "{{count}} gości",
+    "yes": "Tak, będę",
+    "no": "Nie",
+    "going": "Bierzesz udział",
+    "notGoing": "Nie bierzesz udziału",
+    "maybe": "Może",
+    "change": "Zmień odpowiedź",
+    "allDates": "Dla wszystkich terminów",
+    "answerFailed": "Nie zapisano odpowiedzi, spróbuj ponownie."
   },
   "files": {
     "search": "Szukaj pliku",
@@ -240,5 +267,18 @@
     "editFailed": "Nie zapisano zmiany",
     "editFailedText": "Wiadomość zachowuje poprzednią treść. Możesz spróbować ponownie.",
     "ok": "OK"
+  },
+  "emoji": {
+    "search": "Szukaj emoji",
+    "none": "Brak emoji",
+    "smileys": "Emocje",
+    "gestures": "Gesty",
+    "hearts": "Serca",
+    "nature": "Natura",
+    "food": "Jedzenie",
+    "travel": "Podróże",
+    "activities": "Aktywności",
+    "objects": "Przedmioty",
+    "symbols": "Symbole"
   }
 }

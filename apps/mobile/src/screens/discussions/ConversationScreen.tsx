@@ -8,13 +8,15 @@ import {
   type ApiMessage,
   type Channel,
 } from "@ruchoir/client";
-import { useRoute, type RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { Archive, CalendarDays, FileText, MessageSquare } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Composer, type Editing } from "../../compose/Composer";
+import { useEditRequests } from "../../compose/requests";
+import { useReact } from "../../compose/useReact";
 import { useOutbox } from "../../compose/useOutbox";
 import { useTypingUsers } from "../../compose/useTyping";
 
@@ -24,6 +26,7 @@ import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { dayKey, daysBetween } from "../../logic/format";
 import { arrivedIds, pendingRows } from "../../logic/outbox";
+import { applyReactionDelta } from "../../logic/reactions";
 import type { RootParams } from "../../navigation/types";
 import { mergeMessages } from "../../realtime/merge";
 import { useRealtimeEvent } from "../../realtime/RealtimeProvider";
@@ -87,6 +90,7 @@ export function ConversationScreen() {
           <Messages
             conversationId={params.conversationId}
             title={params.title}
+            channelId={params.channelId}
             channel={params.channelId ? (channel ?? null) : undefined}
             channels={channels.data ?? []}
             onJoined={channels.reload}
@@ -105,6 +109,7 @@ export function ConversationScreen() {
 type MessagesProps = {
   conversationId: string;
   title: string;
+  channelId?: string;
   /** The channel, for a channel (null while it loads); undefined for a private conversation. */
   channel: Channel | null | undefined;
   channels: Channel[];
@@ -112,13 +117,15 @@ type MessagesProps = {
   members: ReturnType<typeof useSpaceMembers>;
 };
 
-function Messages({ conversationId, title, channel, channels, onJoined, members }: MessagesProps) {
+function Messages({ conversationId, title, channelId, channel, channels, onJoined, members }: MessagesProps) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale, timeZone } = useLocale();
   const { state } = useSession();
   const me = state.kind === "signedIn" ? state.user : null;
   const outbox = useOutbox();
+  const navigation = useNavigation();
+  const react = useReact();
   const list = useRef<FlatList<Row>>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const first = useLoad(`messages:${conversationId}`, (signal) => getChannelMessages(conversationId, {}, signal));
@@ -129,12 +136,37 @@ function Messages({ conversationId, title, channel, channels, onJoined, members 
   const messages = useMemo(() => mergeMessages(first.data?.messages ?? [], extra.messages), [first.data, extra.messages]);
   const nextBefore = extra.nextBefore ?? first.data?.nextBefore;
 
-  // Live: a message here is merged in; an edit or a deletion replaces the copy on screen.
+  // Change one message on screen from its latest copy (the live one if there is one).
+  const firstPage = first.data?.messages;
+  const patch = useCallback(
+    (id: string, change: (m: ApiMessage) => ApiMessage) =>
+      setExtra((prev) => {
+        const current = prev.messages.find((m) => m.id === id) ?? firstPage?.find((m) => m.id === id);
+        return current ? { ...prev, messages: mergeMessages(prev.messages, [change(current)]) } : prev;
+      }),
+    [firstPage],
+  );
+
+  // Live: a message here is merged in, and an edit, a deletion, a reaction or a pin changes the copy
+  // on screen. My own changes arrive as patches, before the server confirms them.
   useRealtimeEvent((event) => {
     if (event.type === "message" && event.conversationId === conversationId) {
       setExtra((prev) => ({ ...prev, messages: mergeMessages(prev.messages, [event.message]) }));
+    } else if (event.type === "patched" && event.conversationId === conversationId) {
+      patch(event.message.id, () => event.message);
+    } else if (event.type === "reaction" && event.conversationId === conversationId && event.userId !== me?.id) {
+      const name = members.list.find((m) => m.userId === event.userId)?.name ?? t("message.someone");
+      patch(event.messageId, (m) => {
+        const reactions = applyReactionDelta(m.reactions, event.emoji, event.added, name);
+        return { ...m, reactions: reactions.length > 0 ? reactions : undefined };
+      });
+    } else if (event.type === "pinned" && event.conversationId === conversationId) {
+      patch(event.messageId, (m) => ({ ...m, pinned: event.pinned || undefined }));
     }
   });
+
+  // "Edit" in the message's sheet puts its text back in the composer.
+  useEditRequests(conversationId, (request) => setEditing({ id: request.id, body: request.body }));
 
   // My messages on their way. One that already arrived (live, or after a lost answer) is done.
   const mine = useMemo(
@@ -295,6 +327,10 @@ function Messages({ conversationId, title, channel, channels, onJoined, members 
               pending={local?.state}
               onRetry={local ? () => outbox.retry(local.localId) : undefined}
               onDiscard={local ? () => outbox.drop(local.localId) : undefined}
+              myUserId={me?.id}
+              onLongPress={() => navigation.navigate("messageActions", { conversationId, channelId, message: item.message })}
+              onReact={(emoji) => react(conversationId, item.message, emoji)}
+              onAddReaction={() => navigation.navigate("emojiPicker", { conversationId, message: item.message })}
             />
           );
         }}
