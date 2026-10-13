@@ -2,6 +2,16 @@
   "brand": {
     "tagline": "Un alveare per tutto il tuo lavoro."
   },
+  "authPreview": {
+    "nameA": "Alice",
+    "nameB": "Bruno",
+    "channelProjects": "progetti",
+    "channelNews": "annunci",
+    "messageA": "Fissiamo la riunione di inizio giovedì?",
+    "messageB": "Sì, alle 18. Creo l'evento.",
+    "eventTitle": "Riunione di inizio",
+    "eventWhen": "Giovedì, 18:00"
+  },
   "login": {
     "title": "Accedi",
     "subtitle": "Accedi al tuo spazio di lavoro.",
