@@ -34,7 +34,7 @@ export function EventCardRow({
       ]}
     >
       <View style={[styles.bar, { backgroundColor: color }]} />
-      <Text variant="small" style={styles.time}>
+      <Text variant="small" numberOfLines={1} adjustsFontSizeToFit style={styles.time}>
         {time}
       </Text>
       <View style={styles.text}>
@@ -54,6 +54,6 @@ export function EventCardRow({
 const styles = StyleSheet.create({
   card: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 12, paddingRight: 12, paddingLeft: 16, borderRadius: radius.m, borderWidth: hairline, overflow: "hidden" },
   bar: { position: "absolute", left: 6, top: 10, bottom: 10, width: 3, borderRadius: 2 },
-  time: { fontFamily: fonts.mono, width: 44, paddingTop: 1 },
+  time: { fontFamily: fonts.mono, width: 58, paddingTop: 1 },
   text: { flex: 1, minWidth: 0, gap: 2 },
 });

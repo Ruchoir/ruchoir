@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", gap: 4 },
   flex: { flex: 1 },
   arrow: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  cell: { flex: 1, minHeight: 50, alignItems: "center", justifyContent: "center", gap: 3, borderRadius: radius.m, borderWidth: hairline, borderColor: "transparent" },
+  cell: { flex: 1, alignSelf: "stretch", minHeight: 50, alignItems: "center", justifyContent: "center", gap: 3, borderRadius: radius.m, borderWidth: hairline, borderColor: "transparent" },
   dots: { flexDirection: "row", gap: 3, height: 5 },
   dot: { width: 5, height: 5, borderRadius: 3 },
 });
