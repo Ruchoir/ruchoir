@@ -2,6 +2,16 @@
   "brand": {
     "tagline": "Una colmena para todo tu trabajo."
   },
+  "authPreview": {
+    "nameA": "Alicia",
+    "nameB": "Bruno",
+    "channelProjects": "proyectos",
+    "channelNews": "anuncios",
+    "messageA": "¿Fijamos la reunión de inicio el jueves?",
+    "messageB": "Sí, a las 18:00. Creo el evento.",
+    "eventTitle": "Reunión de inicio",
+    "eventWhen": "Jueves, 18:00"
+  },
   "login": {
     "title": "Iniciar sesión",
     "subtitle": "Inicia sesión en tu espacio de trabajo.",

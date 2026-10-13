@@ -2,6 +2,16 @@
   "brand": {
     "tagline": "Une ruche pour tout votre travail."
   },
+  "authPreview": {
+    "nameA": "Alice",
+    "nameB": "Bruno",
+    "channelProjects": "projets",
+    "channelNews": "annonces",
+    "messageA": "On cale la réunion de rentrée jeudi ?",
+    "messageB": "Oui, 18 h. Je pose l'événement.",
+    "eventTitle": "Réunion de rentrée",
+    "eventWhen": "Jeudi, 18:00"
+  },
   "login": {
     "title": "Connexion",
     "subtitle": "Connectez-vous à votre espace de travail.",

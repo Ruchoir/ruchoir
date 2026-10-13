@@ -3928,3 +3928,250 @@ button.wc-mhead__title {
     opacity: 1;
   }
 }
+
+/* --- Authentication layout ------------------------------------------------------------------------
+   Two halves on a wide screen: a showcase on the accent-tinted canvas (brand, a drawn preview of the
+   app, where the data lives) and the form on the plain surface. Below 900px the showcase folds into
+   a compact brand header over the form. */
+.wc-auth {
+  flex: 1;
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 45fr) minmax(0, 55fr);
+  background: var(--surface-canvas);
+}
+.wc-auth__aside {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 56px;
+  padding: 72px clamp(32px, 5vw, 72px) 96px;
+  background: color-mix(in srgb, var(--acc) 26%, var(--surface-canvas));
+  border-right: var(--border-width) solid var(--border-subtle);
+}
+[data-theme$="-dark"] .wc-auth__aside {
+  background: color-mix(in srgb, var(--acc) 12%, var(--surface-canvas));
+}
+.wc-auth__aside > .wc-auth__hosting {
+  position: absolute;
+  left: clamp(32px, 5vw, 72px);
+  bottom: 32px;
+}
+/* The honeycomb: a hexagon outline tiled as a mask over the ink, so it follows every theme. */
+.wc-auth__aside::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  opacity: 0.07;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100' viewBox='0 0 56 100'%3E%3Cpath d='M28 66 0 50V16L28 0l28 16v34L28 66v34M28 0v0' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E")
+    0 0 / 56px 100px;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100' viewBox='0 0 56 100'%3E%3Cpath d='M28 66 0 50V16L28 0l28 16v34L28 66v34M28 0v0' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/svg%3E")
+    0 0 / 56px 100px;
+  pointer-events: none;
+}
+.wc-auth__aside > :not(.wc-auth__hosting) {
+  position: relative;
+}
+.wc-auth__side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 48px 24px;
+  background: var(--surface);
+}
+.wc-auth__form {
+  width: min(380px, 100%);
+}
+.wc-auth__footer {
+  width: min(380px, 100%);
+  padding-top: 18px;
+  border-top: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.wc-auth__brand {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.wc-auth__brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wc-auth__mark {
+  width: 40px;
+  height: 40px;
+  display: block;
+}
+.wc-auth__wordmark {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--text-strong);
+}
+.wc-auth__tagline {
+  max-width: 16ch;
+  font-size: clamp(26px, 2.6vw, 36px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-strong);
+}
+.wc-auth__hosting {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.wc-auth__brand--compact,
+.wc-auth__hosting--compact {
+  display: none;
+}
+
+/* The preview: a small window of the app, drawn like a sticker on the page. */
+.wc-authpv {
+  position: relative;
+  align-self: center;
+  width: min(460px, 100%);
+  background: var(--surface);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: 8px 8px 0 var(--bee);
+  transform: rotate(-1.5deg);
+  font-size: 12px;
+  color: var(--text-body);
+}
+.wc-authpv__bar {
+  display: flex;
+  gap: 5px;
+  padding: 9px 12px;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+.wc-authpv__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--line-strong);
+}
+.wc-authpv__body {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  min-height: 200px;
+}
+.wc-authpv__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  background: var(--surface-canvas);
+  border-right: var(--border-width) solid var(--border-subtle);
+  border-bottom-left-radius: var(--radius-lg);
+}
+.wc-authpv__chan {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.wc-authpv__chan--on {
+  background: var(--surface-selected);
+  color: var(--text-strong);
+  font-weight: 600;
+}
+.wc-authpv__feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px 16px;
+}
+.wc-authpv__msg {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.wc-authpv__author {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.wc-authpv__text {
+  line-height: 1.4;
+}
+.wc-authpv__reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 5px;
+  padding: 1px 7px;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-mention);
+  font-size: 11px;
+  color: var(--text-strong);
+}
+.wc-authpv__event {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-left: 34px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--sun) 30%, var(--surface));
+  color: var(--on-pastel);
+}
+[data-theme$="-dark"] .wc-authpv__event {
+  background: color-mix(in srgb, var(--sun) 16%, var(--surface));
+  color: var(--text-strong);
+}
+.wc-authpv__event-title {
+  font-weight: 600;
+}
+.wc-authpv__event-when {
+  font-size: 11px;
+  opacity: 0.8;
+}
+.wc-authpv__bee {
+  position: absolute;
+  right: -34px;
+  bottom: -40px;
+  width: 84px;
+  height: auto;
+  transform: rotate(8deg);
+}
+
+@media (max-width: 899px) {
+  .wc-auth {
+    grid-template-columns: 1fr;
+  }
+  .wc-auth__aside {
+    display: none;
+  }
+  .wc-auth__side {
+    justify-content: flex-start;
+    padding-top: 40px;
+  }
+  .wc-auth__brand--compact {
+    display: flex;
+    align-items: center;
+    text-align: center;
+  }
+  .wc-auth__brand--compact .wc-auth__tagline {
+    max-width: none;
+    font-size: var(--text-xs);
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+  .wc-auth__hosting--compact {
+    display: block;
+    text-align: center;
+  }
+}

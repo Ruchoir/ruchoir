@@ -2,6 +2,16 @@
   "brand": {
     "tagline": "Jeden ul dla całej Twojej pracy."
   },
+  "authPreview": {
+    "nameA": "Alicja",
+    "nameB": "Bartek",
+    "channelProjects": "projekty",
+    "channelNews": "ogłoszenia",
+    "messageA": "Ustalamy spotkanie startowe na czwartek?",
+    "messageB": "Tak, o 18:00. Dodam wydarzenie.",
+    "eventTitle": "Spotkanie startowe",
+    "eventWhen": "Czwartek, 18:00"
+  },
   "login": {
     "title": "Zaloguj się",
     "subtitle": "Zaloguj się do swojej przestrzeni roboczej.",
