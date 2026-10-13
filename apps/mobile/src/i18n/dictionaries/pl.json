@@ -53,6 +53,33 @@
     "retry": "Spróbuj ponownie"
   },
   "account": {
-    "signOut": "Wyloguj się"
+    "signOut": "Wyloguj się",
+    "open": "Moje konto",
+    "status": "Twój status"
+  },
+  "presence": {
+    "online": "Dostępny",
+    "away": "Zaraz wracam",
+    "busy": "Zajęty",
+    "offline": "Niedostępny"
+  },
+  "tabs": {
+    "today": "Dzisiaj",
+    "discussions": "Rozmowy",
+    "agenda": "Kalendarz",
+    "files": "Pliki"
+  },
+  "spaces": {
+    "title": "Przestrzenie",
+    "current": "Otwarta przestrzeń",
+    "switchLabel": "Zmień przestrzeń, bieżąca przestrzeń: {{name}}",
+    "unread_one": "{{count}} nieprzeczytana wiadomość",
+    "unread_other": "{{count}} nieprzeczytanej wiadomości",
+    "unread_few": "{{count}} nieprzeczytane wiadomości",
+    "unread_many": "{{count}} nieprzeczytanych wiadomości"
+  },
+  "load": {
+    "offline": "Brak połączenia",
+    "failed": "Nie udało się wczytać."
   }
 }

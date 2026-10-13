@@ -53,6 +53,32 @@
     "retry": "Reintentar"
   },
   "account": {
-    "signOut": "Cerrar sesión"
+    "signOut": "Cerrar sesión",
+    "open": "Mi cuenta",
+    "status": "Su estado"
+  },
+  "presence": {
+    "online": "En línea",
+    "away": "Ausente",
+    "busy": "Ocupado",
+    "offline": "Desconectado"
+  },
+  "tabs": {
+    "today": "Hoy",
+    "discussions": "Conversaciones",
+    "agenda": "Agenda",
+    "files": "Archivos"
+  },
+  "spaces": {
+    "title": "Espacios",
+    "current": "Espacio abierto",
+    "switchLabel": "Cambiar de espacio, espacio actual: {{name}}",
+    "unread_one": "{{count}} mensaje sin leer",
+    "unread_other": "{{count}} mensajes sin leer",
+    "unread_many": "{{count}} mensajes sin leer"
+  },
+  "load": {
+    "offline": "Sin conexión",
+    "failed": "No se ha podido cargar."
   }
 }

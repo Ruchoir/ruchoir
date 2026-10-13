@@ -53,6 +53,31 @@
     "retry": "Erneut versuchen"
   },
   "account": {
-    "signOut": "Abmelden"
+    "signOut": "Abmelden",
+    "open": "Mein Konto",
+    "status": "Ihr Status"
+  },
+  "presence": {
+    "online": "Online",
+    "away": "Abwesend",
+    "busy": "Beschäftigt",
+    "offline": "Offline"
+  },
+  "tabs": {
+    "today": "Heute",
+    "discussions": "Unterhaltungen",
+    "agenda": "Kalender",
+    "files": "Dateien"
+  },
+  "spaces": {
+    "title": "Bereiche",
+    "current": "Geöffneter Bereich",
+    "switchLabel": "Bereich wechseln, aktueller Bereich: {{name}}",
+    "unread_one": "{{count}} ungelesene Nachricht",
+    "unread_other": "{{count}} ungelesene Nachrichten"
+  },
+  "load": {
+    "offline": "Keine Verbindung",
+    "failed": "Laden fehlgeschlagen."
   }
 }

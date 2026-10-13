@@ -53,6 +53,31 @@
     "retry": "Try again"
   },
   "account": {
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "open": "My account",
+    "status": "Your status"
+  },
+  "presence": {
+    "online": "Online",
+    "away": "Away",
+    "busy": "Busy",
+    "offline": "Offline"
+  },
+  "tabs": {
+    "today": "Today",
+    "discussions": "Conversations",
+    "agenda": "Calendar",
+    "files": "Files"
+  },
+  "spaces": {
+    "title": "Spaces",
+    "current": "Open now",
+    "switchLabel": "Switch space, current space: {{name}}",
+    "unread_one": "{{count}} unread message",
+    "unread_other": "{{count}} unread messages"
+  },
+  "load": {
+    "offline": "No connection",
+    "failed": "Loading failed."
   }
 }
