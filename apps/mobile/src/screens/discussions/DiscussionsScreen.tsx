@@ -124,7 +124,7 @@ export function ConversationRow({ item, onPress }: { item: ConversationItem; onP
     ? null
     : p.notice
       ? p.notice.event
-        ? t(SYSTEM_TEXT[p.notice.event], { who: p.notice.who ?? t("message.someone"), detail: p.text })
+        ? t(SYSTEM_TEXT[p.notice.event], { who: p.notice.who?.split(" ")[0] ?? t("message.someone"), detail: p.text })
         : p.text || null
       : p.mine
         ? t("discussions.you", { text: said })

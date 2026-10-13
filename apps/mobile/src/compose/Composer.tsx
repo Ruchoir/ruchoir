@@ -69,7 +69,10 @@ export function Composer(props: Props) {
   // The parent remounts the composer when the draft or the edited message changes (its `key`).
   const [text, setText] = useState(() => (editing ? editing.body : outbox.draft(draftKey)));
   const [cursor, setCursor] = useState(text.length);
-  const [forced, setForced] = useState<{ start: number; end: number } | undefined>(undefined);
+  // An edit starts with the cursor after the message's text, ready to add to it.
+  const [forced, setForced] = useState<{ start: number; end: number } | undefined>(() =>
+    editing ? { start: editing.body.length, end: editing.body.length } : undefined,
+  );
   const input = useRef<TextInput>(null);
 
   const token = useMemo(() => activeToken(text, cursor), [text, cursor]);
