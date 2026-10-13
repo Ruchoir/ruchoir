@@ -1,55 +1,46 @@
 "use client";
 
-import { type CSSProperties, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useTranslation } from "@/lib/i18n";
+import { AuthPreview } from "./AuthPreview";
 
-const styles: Record<string, CSSProperties> = {
-  root: {
-    flex: 1,
-    minHeight: "100%",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 20,
-    padding: "40px 24px",
-    background: "var(--surface-sunken)",
-  },
-  brand: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8 },
-  mark: { width: 48, height: 48, display: "block" },
-  wordmark: {
-    fontSize: "var(--text-2xl)",
-    fontWeight: 600,
-    letterSpacing: "-0.03em",
-    color: "var(--text-strong)",
-  },
-  tagline: { fontSize: "var(--text-xs)", color: "var(--text-muted)" },
-  card: {
-    width: "min(400px, 100%)",
-    background: "var(--surface-raised)",
-    border: "2px solid var(--ink)",
-    borderRadius: "var(--radius-lg)",
-    boxShadow: "var(--shadow-dialog)",
-    padding: "28px 28px 24px",
-  },
-  footer: { fontSize: "var(--text-2xs)", color: "var(--text-subtle)", textAlign: "center" },
-};
+function Brand({ compact = false }: { compact?: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <div className={`wc-auth__brand${compact ? " wc-auth__brand--compact" : ""}`}>
+      <div className="wc-auth__brand-row">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/ruchoir-mark.png" alt="" className="wc-auth__mark" />
+        <span className="wc-auth__wordmark">
+          Ruchoir<span style={{ color: "var(--brand)" }}>.</span>
+        </span>
+      </div>
+      <div className="wc-auth__tagline">{t("brand.tagline")}</div>
+    </div>
+  );
+}
 
-/** Shared centered layout for the sign-in and sign-up screens: wordmark, a card, and a footer note. */
+/**
+ * Shared layout of every authentication screen. On a wide screen it is two halves: a showcase on
+ * the left (the brand, a drawn preview of the app, where the data lives) and the form on the right,
+ * on the plain surface. Below 900px the showcase folds into a compact brand header over the form
+ * (rules in components.css, under `.wc-auth`).
+ */
 export function AuthShell({ children, footer }: { children: ReactNode; footer?: ReactNode }) {
   const { t } = useTranslation();
   return (
-    <div style={styles.root}>
-      <div style={styles.brand}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/brand/ruchoir-mark.png" alt="" style={styles.mark} />
-        <div style={styles.wordmark}>
-          Ruchoir<span style={{ color: "var(--brand)" }}>.</span>
-        </div>
-        <div style={styles.tagline}>{t("brand.tagline")}</div>
+    <div className="wc-auth">
+      <aside className="wc-auth__aside">
+        <Brand />
+        <AuthPreview />
+        <div className="wc-auth__hosting">{t("login.hosting")}</div>
+      </aside>
+      <div className="wc-auth__side">
+        <Brand compact />
+        <main className="wc-auth__form">{children}</main>
+        {footer ? <div className="wc-auth__footer">{footer}</div> : null}
+        <div className="wc-auth__hosting wc-auth__hosting--compact">{t("login.hosting")}</div>
       </div>
-      <main style={styles.card}>{children}</main>
-      {footer ? <div style={styles.footer}>{footer}</div> : null}
     </div>
   );
 }

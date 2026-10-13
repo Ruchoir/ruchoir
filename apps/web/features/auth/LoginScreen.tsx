@@ -37,7 +37,7 @@ export type LoginScreenProps = {
   pending?: boolean;
 };
 
-/** The sign-in screen: a centered card, faithful to common team-app login patterns. */
+/** The sign-in screen: the form half of the shared authentication layout. */
 export function LoginScreen({
   onSubmit,
   onCreateAccount,
@@ -72,7 +72,6 @@ export function LoginScreen({
           >
             {t("login.createAccount")}
           </a>
-          <div style={{ marginTop: 10, color: "var(--text-subtle)" }}>{t("login.hosting")}</div>
         </>
       }
     >

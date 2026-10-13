@@ -2,6 +2,16 @@
   "brand": {
     "tagline": "Ein Bienenstock für Ihre gesamte Arbeit."
   },
+  "authPreview": {
+    "nameA": "Alice",
+    "nameB": "Ben",
+    "channelProjects": "projekte",
+    "channelNews": "neuigkeiten",
+    "messageA": "Legen wir das Auftakttreffen auf Donnerstag?",
+    "messageB": "Ja, 18 Uhr. Ich trage den Termin ein.",
+    "eventTitle": "Auftakttreffen",
+    "eventWhen": "Donnerstag, 18:00"
+  },
   "login": {
     "title": "Anmelden",
     "subtitle": "Melden Sie sich in Ihrem Arbeitsbereich an.",

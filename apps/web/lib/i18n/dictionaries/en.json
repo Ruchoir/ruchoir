@@ -2,6 +2,16 @@
   "brand": {
     "tagline": "One hive for all your work."
   },
+  "authPreview": {
+    "nameA": "Alice",
+    "nameB": "Ben",
+    "channelProjects": "projects",
+    "channelNews": "news",
+    "messageA": "Shall we set the kickoff meeting for Thursday?",
+    "messageB": "Yes, 6 pm. I'll add the event.",
+    "eventTitle": "Kickoff meeting",
+    "eventWhen": "Thursday, 6:00 PM"
+  },
   "login": {
     "title": "Sign in",
     "subtitle": "Sign in to your workspace.",
