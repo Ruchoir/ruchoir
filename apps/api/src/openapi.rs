@@ -223,6 +223,8 @@ use utoipa::OpenApi;
         crate::admin::InstanceSettingsPatch,
         crate::auth::routes::LoginRequest,
         crate::auth::routes::UserSummary,
+        crate::auth::routes::NativeSession,
+        crate::auth::session::Delivery,
         crate::auth::routes::MfaStateResponse,
         crate::auth::routes::PasskeySummary,
         crate::auth::routes::DisableTotpRequest,

@@ -5,7 +5,7 @@
 //! here are the contract the web client calls.
 
 use axum::extract::{Path, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -20,7 +20,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use super::cookie::{clear_session_cookie, session_cookie, SESSION_COOKIE};
+use super::cookie::{clear_session_cookie, session_cookie};
 use super::error::AuthError;
 use super::extract::AuthSession;
 use super::tokens::{self, TokenPurpose};
@@ -59,6 +59,19 @@ pub struct RegisterRequest {
 pub struct LoginRequest {
     pub email: String,
     pub password: String,
+    /// How the session is handed over: the cookie (default, browsers) or the id itself (`token`,
+    /// native apps only; a browser asking for one is refused with `token_from_browser`).
+    #[serde(default)]
+    pub session_delivery: session::Delivery,
+}
+
+/// A session opened for a native app: the account, plus the id the app keeps in its keychain and
+/// sends back as `Authorization: Bearer`.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NativeSession {
+    #[serde(flatten)]
+    pub user: UserSummary,
+    pub session_token: String,
 }
 
 /// A request that carries an email address (verification resend, reset request).
@@ -451,7 +464,8 @@ async fn invitation_proves(state: &AppState, token: Option<&str>, email: &str) -
     tag = "auth",
     request_body = LoginRequest,
     responses(
-        (status = 200, description = "Authenticated", body = UserSummary),
+        (status = 200, description = "Authenticated (a cookie, or `session_token` when asked for one)", body = NativeSession),
+        (status = 400, description = "A browser asked for a token"),
         (status = 401, description = "Invalid credentials"),
         (status = 403, description = "Account locked or email not verified"),
         (status = 429, description = "Too many attempts")
@@ -459,9 +473,14 @@ async fn invitation_proves(state: &AppState, token: Option<&str>, email: &str) -
 )]
 pub async fn login(
     State(state): State<AppState>,
+    headers: HeaderMap,
     jar: CookieJar,
     Json(body): Json<LoginRequest>,
 ) -> Result<Response, AuthError> {
+    // Settled before the password is even looked at: the answer must not depend on the account.
+    if body.session_delivery == session::Delivery::Token && session::from_browser(&headers) {
+        return Err(AuthError::TokenFromBrowser);
+    }
     let email = body.email.trim().to_lowercase();
 
     // Refuse early if this account is in an anti-bruteforce cooldown. Keyed by the submitted email
@@ -507,7 +526,7 @@ pub async fn login(
     // MFA step-up: an enforced account completes a second factor before any session is issued.
     if user.mfa_enforced {
         let methods = available_methods(&state, user.id).await?;
-        let mfa_token = mfa::start_pending(&state.valkey, user.id).await?;
+        let mfa_token = mfa::start_pending(&state.valkey, user.id, body.session_delivery).await?;
         return Ok(Json(MfaRequired {
             mfa_required: true,
             methods,
@@ -516,12 +535,31 @@ pub async fn login(
         .into_response());
     }
 
+    issue_session(&state, jar, user, body.session_delivery).await
+}
+
+/// Open a session for a signed-in account and hand it over the way it was asked for.
+async fn issue_session(
+    state: &AppState,
+    jar: CookieJar,
+    user: users::Model,
+    delivery: session::Delivery,
+) -> Result<Response, AuthError> {
     let session_id = session::create(&state.valkey, &state.config, user.id).await?;
-    let jar = jar.add(session_cookie(
-        session_id,
-        state.config.session_idle_ttl_secs,
-    ));
-    Ok((jar, Json(UserSummary::from(user))).into_response())
+    match delivery {
+        session::Delivery::Cookie => {
+            let jar = jar.add(session_cookie(
+                session_id,
+                state.config.session_idle_ttl_secs,
+            ));
+            Ok((jar, Json(UserSummary::from(user))).into_response())
+        }
+        session::Delivery::Token => Ok(Json(NativeSession {
+            user: UserSummary::from(user),
+            session_token: session_id,
+        })
+        .into_response()),
+    }
 }
 
 /// Revoke the current session and clear the cookie.
@@ -533,10 +571,11 @@ pub async fn login(
 )]
 pub async fn logout(
     State(state): State<AppState>,
+    headers: HeaderMap,
     jar: CookieJar,
 ) -> Result<(StatusCode, CookieJar), AuthError> {
-    if let Some(cookie) = jar.get(SESSION_COOKIE) {
-        session::delete(&state.valkey, cookie.value()).await?;
+    if let Some(id) = session::presented_id(&headers) {
+        session::delete(&state.valkey, &id).await?;
     }
     Ok((StatusCode::NO_CONTENT, jar.add(clear_session_cookie())))
 }
@@ -573,10 +612,11 @@ pub async fn current_session(
 )]
 pub async fn logout_all(
     State(state): State<AppState>,
+    headers: HeaderMap,
     jar: CookieJar,
 ) -> Result<(StatusCode, CookieJar), AuthError> {
-    if let Some(cookie) = jar.get(SESSION_COOKIE) {
-        if let Some(record) = session::get(&state.valkey, cookie.value()).await? {
+    if let Some(id) = session::presented_id(&headers) {
+        if let Some(record) = session::get(&state.valkey, &id).await? {
             session::delete_all(&state.valkey, record.user_id).await?;
         }
     }
@@ -1253,7 +1293,7 @@ pub async fn passkey_register_finish(
     tag = "auth",
     request_body = MfaCodeRequest,
     responses(
-        (status = 200, description = "Authenticated", body = UserSummary),
+        (status = 200, description = "Authenticated (a cookie, or `session_token` for a token login)", body = NativeSession),
         (status = 400, description = "Incorrect code"),
         (status = 401, description = "No pending step-up")
     )
@@ -1294,7 +1334,7 @@ pub async fn totp_verify(
     tag = "auth",
     request_body = MfaCodeRequest,
     responses(
-        (status = 200, description = "Authenticated", body = UserSummary),
+        (status = 200, description = "Authenticated (a cookie, or `session_token` for a token login)", body = NativeSession),
         (status = 400, description = "Incorrect code"),
         (status = 401, description = "No pending step-up")
     )
@@ -1370,25 +1410,25 @@ pub async fn passkey_authenticate_finish(
     complete_mfa_login(&state, jar, &body.mfa_token, user_id).await
 }
 
-/// Complete a login after a successful second factor: consume the pending token, open a session.
+/// Complete a login after a successful second factor: consume the pending token, open a session
+/// delivered the way the password step asked for it.
 async fn complete_mfa_login(
     state: &AppState,
     jar: CookieJar,
     mfa_token: &str,
     user_id: Uuid,
 ) -> Result<Response, AuthError> {
+    let delivery = mfa::resolve_pending_delivery(&state.valkey, mfa_token)
+        .await?
+        .map(|(_, delivery)| delivery)
+        .ok_or(AuthError::InvalidToken)?;
     mfa::consume_pending(&state.valkey, mfa_token).await?;
     let user = users::Entity::find_by_id(user_id)
         .one(&state.db)
         .await
         .map_err(|_| AuthError::Internal)?
         .ok_or(AuthError::Unauthorized)?;
-    let session_id = session::create(&state.valkey, &state.config, user_id).await?;
-    let jar = jar.add(session_cookie(
-        session_id,
-        state.config.session_idle_ttl_secs,
-    ));
-    Ok((jar, Json(UserSummary::from(user))).into_response())
+    issue_session(state, jar, user, delivery).await
 }
 
 /// The second-factor methods a user currently has available.

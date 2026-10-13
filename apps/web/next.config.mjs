@@ -18,6 +18,8 @@ const nextConfig = {
   trailingSlash: true,
   // The static export cannot use the server image optimizer.
   images: { unoptimized: true },
+  // The API client is a workspace package shipped as TypeScript source, shared with the mobile app.
+  transpilePackages: ["@ruchoir/client"],
 };
 
 export default nextConfig;

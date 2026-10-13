@@ -1,0 +1,24 @@
+{
+  "name": "@ruchoir/client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Ruchoir API client shared by the web and mobile apps: types, transport, calls, realtime.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./api": "./src/api.ts",
+    "./calendar": "./src/calendar.ts",
+    "./config": "./src/config.ts",
+    "./fileType": "./src/fileType.ts",
+    "./http": "./src/http.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "test": "node --test 'test/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

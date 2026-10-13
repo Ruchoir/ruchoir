@@ -35,6 +35,7 @@
 | API | Rust (axum, tokio) |
 | Real-time | WebSocket with SSE fallback |
 | Web | Next.js, React, TypeScript, Tailwind CSS (static export, served by the API) |
+| Mobile | Expo and React Native, iOS and Android (in progress; no hosted Expo service) |
 | Data | PostgreSQL, Valkey |
 | Object storage | Garage (S3-compatible) |
 | Auth | Native in the API (argon2id, server sessions, TOTP, passkeys) |
@@ -58,6 +59,8 @@ docker compose up
 ```
 apps/api/                Rust backend (axum/tokio)
 apps/web/                Next.js frontend
+apps/mobile/             Expo app for iOS and Android
+packages/client/         API client shared by the web and mobile apps
 packages/importer/       Import tooling (Nextcloud, Mattermost, Slack, Teams)
 packages/design-system/  Shared React components and design tokens
 migrations/              Versioned SQL migrations
@@ -68,6 +71,8 @@ docs/                    Technical documentation
 
 - Backend: `cargo fmt`, `cargo clippy`, `cargo test` in `apps/api/`.
 - Web: `pnpm lint`, `pnpm test`, `pnpm build` in `apps/web/`.
+- Mobile: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm i18n:check` in `apps/mobile/`; the shared
+  client's tests with `pnpm test` in `packages/client/`.
 - Responsive audit: `pnpm audit:responsive` in `apps/web/` (against a running dev server) sweeps the
   UI across a wide viewport matrix and reports layout breakage. See
   [`apps/web/tools/responsive-audit/README.md`](apps/web/tools/responsive-audit/README.md).

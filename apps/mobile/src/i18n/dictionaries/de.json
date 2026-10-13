@@ -1,0 +1,209 @@
+{
+  "field": {
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen"
+  },
+  "signIn": {
+    "submit": "Anmelden",
+    "server": "Server",
+    "change": "Ändern",
+    "serverField": "Serveradresse Ihrer Organisation",
+    "serverPlaceholder": "ruchoir.meine-firma.de",
+    "serverHint": "Ihre IT-Abteilung hat sie Ihnen mitgeteilt.",
+    "email": "E-Mail-Adresse",
+    "emailPlaceholder": "sie@beispiel.de",
+    "password": "Passwort",
+    "passwordPlaceholder": "Ihr Passwort",
+    "forgot": "Passwort vergessen?",
+    "noAccount": "Noch kein Konto?",
+    "createAccount": "Konto erstellen",
+    "expired": "Ihre Sitzung ist beendet. Bitte melden Sie sich erneut an."
+  },
+  "auth": {
+    "error": {
+      "empty": "Geben Sie die Adresse Ihres Servers ein.",
+      "insecure": "Diese Adresse ist nicht verschlüsselt (http). Ruchoir verbindet sich nur über https.",
+      "invalid": "Das sieht nicht nach einer Serveradresse aus.",
+      "unreachable": "Der Server ist nicht erreichbar. Prüfen Sie die Adresse und Ihre Verbindung.",
+      "notRuchoir": "Das scheint kein Ruchoir-Server zu sein.",
+      "outdated": "Dieser Ruchoir-Server muss aktualisiert werden, um die App zuzulassen.",
+      "invalidCredentials": "E-Mail-Adresse oder Passwort falsch.",
+      "tooManyAttempts": "Zu viele Versuche. Versuchen Sie es in einigen Minuten erneut.",
+      "emailNotVerified": "Bestätigen Sie zuerst Ihre E-Mail-Adresse über den erhaltenen Link.",
+      "accountLocked": "Dieses Konto ist gesperrt. Wenden Sie sich an die Administration Ihres Servers.",
+      "invalidCode": "Falscher Code.",
+      "invalidToken": "Die Überprüfung ist abgelaufen. Melden Sie sich erneut an.",
+      "passkeyOnly": "Dieses Konto wird mit einem Passkey bestätigt, den die App noch nicht unterstützt. Fügen Sie auf der Website eine Authenticator-App hinzu.",
+      "unknown": "Ein Fehler ist aufgetreten. Versuchen Sie es erneut."
+    }
+  },
+  "mfa": {
+    "title": "Zweistufige Überprüfung",
+    "totpIntro": "Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.",
+    "totpField": "Bestätigungscode",
+    "recoveryIntro": "Geben Sie einen Ihrer Wiederherstellungscodes ein.",
+    "recoveryField": "Wiederherstellungscode",
+    "submit": "Überprüfen",
+    "useRecovery": "Wiederherstellungscode verwenden",
+    "useTotp": "Authenticator-App verwenden",
+    "back": "Zurück zur Anmeldung"
+  },
+  "boot": {
+    "offline": "Ihr Server ist im Moment nicht erreichbar.",
+    "retry": "Erneut versuchen"
+  },
+  "account": {
+    "signOut": "Abmelden",
+    "open": "Mein Konto",
+    "status": "Ihr Status"
+  },
+  "presence": {
+    "online": "Online",
+    "away": "Abwesend",
+    "busy": "Beschäftigt",
+    "offline": "Offline"
+  },
+  "tabs": {
+    "discussions": "Unterhaltungen",
+    "agenda": "Kalender",
+    "files": "Dateien"
+  },
+  "spaces": {
+    "title": "Bereiche",
+    "current": "Geöffneter Bereich",
+    "switchLabel": "Bereich wechseln, aktueller Bereich: {{name}}",
+    "unread_one": "{{count}} ungelesene Nachricht",
+    "unread_other": "{{count}} ungelesene Nachrichten",
+    "none": "Sie gehören noch keinem Bereich an.",
+    "noneHint": "Nehmen Sie eine Einladung an oder erstellen Sie auf der Website einen Bereich; er erscheint dann hier."
+  },
+  "load": {
+    "offline": "Keine Verbindung",
+    "failed": "Laden fehlgeschlagen."
+  },
+  "system": {
+    "memberJoined": "{{who}} ist dem Bereich beigetreten.",
+    "memberLeft": "{{who}} hat den Bereich verlassen.",
+    "memberRemoved": "{{who}} wurde aus dem Bereich entfernt.",
+    "channelJoined": "{{who}} ist dem Kanal beigetreten.",
+    "channelLeft": "{{who}} hat den Kanal verlassen.",
+    "channelRemoved": "{{who}} wurde aus dem Kanal entfernt.",
+    "channelCreated": "Der Kanal wurde erstellt.",
+    "channelRenamed": "{{who}} hat den Kanal in #{{detail}} umbenannt.",
+    "channelTopicChanged": "{{who}} hat das Thema des Kanals geändert: {{detail}}",
+    "channelTopicCleared": "{{who}} hat das Thema des Kanals entfernt.",
+    "channelMadePrivate": "{{who}} hat den Kanal privat gemacht.",
+    "channelMadePublic": "{{who}} hat den Kanal öffentlich gemacht.",
+    "channelArchived": "{{who}} hat den Kanal archiviert.",
+    "channelUnarchived": "{{who}} hat den Kanal wiederhergestellt.",
+    "channelAccessChanged": "{{who}} hat geändert, wer auf den Kanal zugreifen kann.",
+    "calendarEventPosted": "{{who}} hat „{{detail}}“ geplant.",
+    "calendarEventChanged": "{{who}} hat Zeit oder Ort von „{{detail}}“ geändert.",
+    "calendarEventCancelled": "{{who}} hat „{{detail}}“ abgesagt."
+  },
+  "message": {
+    "someone": "Jemand",
+    "deleted": "Nachricht gelöscht",
+    "edited": "(bearbeitet)",
+    "image": "Bild"
+  },
+  "common": {
+    "back": "Zurück",
+    "close": "Schließen"
+  },
+  "time": {
+    "today": "Heute",
+    "yesterday": "Gestern"
+  },
+  "agenda": {
+    "allDay": "Ganztägig",
+    "list": "Liste",
+    "week": "Woche",
+    "month": "Monat",
+    "todayLabel": "Heute · {{day}}",
+    "weekOf": "Woche vom {{from}}. bis {{to}}",
+    "previous": "Vorheriger Zeitraum",
+    "next": "Nächster Zeitraum",
+    "nothingSoon": "Nichts geplant",
+    "nothingThatDay": "An diesem Tag ist nichts geplant",
+    "nothingSoonHint": "Keine Termine in den nächsten 30 Tagen."
+  },
+  "discussions": {
+    "filterAll": "Alle",
+    "filterUnread": "Ungelesen",
+    "filterGroups": "Gruppen",
+    "filterPeople": "Personen",
+    "search": "Person oder Gruppe suchen…",
+    "noMatch": "Keine passende Unterhaltung",
+    "empty": "Hier gibt es keine Unterhaltungen",
+    "you": "Sie: {{text}}",
+    "by": "{{who}}: {{text}}",
+    "group": "Gruppe",
+    "emptyHint": "Die Kanäle, denen Sie folgen, und Ihre Direktnachrichten erscheinen hier."
+  },
+  "conversation": {
+    "messages": "Nachrichten",
+    "people_one": "{{count}} Person",
+    "people_other": "{{count}} Personen",
+    "empty": "Noch keine Nachrichten",
+    "writingSoon": "Schreiben kommt bald in die App.",
+    "noFiles": "Hier wurden keine Dateien geteilt",
+    "noEvents": "Keine anstehenden Termine",
+    "emptyHint": "Die Nachrichten dieser Unterhaltung erscheinen hier, live.",
+    "noFilesHint": "An Nachrichten dieser Unterhaltung angehängte Dateien erscheinen hier.",
+    "noEventsHint": "In diesem Kanal geteilte Termine erscheinen hier."
+  },
+  "attendee": {
+    "accepted": "Nimmt teil",
+    "tentative": "Nimmt vielleicht teil",
+    "declined": "Nimmt nicht teil",
+    "needsAction": "Noch keine Antwort"
+  },
+  "event": {
+    "sharedIn": "Im Kanal geteilt",
+    "invited_one": "{{count}} Gast",
+    "invited_other": "{{count}} Gäste",
+    "files": "Geteilte Dateien"
+  },
+  "files": {
+    "search": "Datei suchen",
+    "noMatch": "Keine passende Datei",
+    "recent": "Zuletzt geändert",
+    "atRoot": "Im Bereich",
+    "empty": "Keine Dateien in diesem Bereich",
+    "folderEmpty": "Dieser Ordner ist leer",
+    "emptyHint": "Dateien, die dem Bereich hinzugefügt werden, erscheinen hier.",
+    "folderEmptyHint": "Dateien in diesem Ordner erscheinen hier.",
+    "today": "heute",
+    "yesterday": "gestern"
+  },
+  "viewer": {
+    "share": "Teilen oder öffnen in…",
+    "noPreview": "Für diesen Dateityp ist hier keine Vorschau möglich."
+  },
+  "today": {
+    "hello": "Hallo {{name}}",
+    "now": "Jetzt ansehen",
+    "mentioned": "{{who}} hat Sie erwähnt",
+    "replied": "{{who}} hat Ihnen geantwortet",
+    "wrote": "{{who}} hat Ihnen geschrieben",
+    "broadcast": "{{who}} hat an den ganzen Kanal geschrieben",
+    "quote": "„{{text}}“",
+    "inChannel": "Kanal {{name}}",
+    "direct": "Direktnachricht",
+    "open": "Öffnen",
+    "ongoing": "läuft",
+    "inMinutes_one": "in {{count}} Min.",
+    "inMinutes_other": "in {{count}} Min.",
+    "inHours_one": "in {{count}} Std.",
+    "inHours_other": "in {{count}} Std.",
+    "newFile": "Neues Dokument",
+    "calm": "Im Moment nichts Dringendes",
+    "recent": "Letzte Unterhaltungen",
+    "seeAll": "Alle anzeigen",
+    "calmHint": "Nachrichten, die auf Sie warten, Ihr nächster Termin und neue Dateien erscheinen hier."
+  },
+  "search": {
+    "tryAnother": "Versuchen Sie es mit einem anderen Wort."
+  }
+}

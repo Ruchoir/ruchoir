@@ -21,7 +21,7 @@ pub mod throttle;
 pub mod tokens;
 pub mod totp;
 
-mod password;
+pub(crate) mod password;
 
 /// Re-exported so other modules (the dev seed, the `bootstrap` subcommand, a file's public link) can
 /// hash and check a password and hold it to the same policy without reaching into the private

@@ -1,7 +1,10 @@
 import type { CSSProperties } from "react";
 import { type AvatarKind, avatarDataUri } from "@/lib/avatar";
 
-export type Presence = "online" | "away" | "busy" | "offline";
+// One definition, the shared client's: the server computes presence and the client names it.
+import type { Presence } from "@ruchoir/client/types";
+
+export type { Presence };
 
 export type AvatarProps = {
   name?: string;

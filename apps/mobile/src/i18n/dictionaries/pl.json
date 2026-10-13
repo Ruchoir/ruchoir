@@ -1,0 +1,219 @@
+{
+  "field": {
+    "showPassword": "Pokaż hasło",
+    "hidePassword": "Ukryj hasło"
+  },
+  "signIn": {
+    "submit": "Zaloguj się",
+    "server": "Serwer",
+    "change": "Zmień",
+    "serverField": "Adres serwera Twojej organizacji",
+    "serverPlaceholder": "ruchoir.moja-firma.pl",
+    "serverHint": "Otrzymasz go od działu IT.",
+    "email": "Adres e-mail",
+    "emailPlaceholder": "ty@przyklad.pl",
+    "password": "Hasło",
+    "passwordPlaceholder": "Twoje hasło",
+    "forgot": "Nie pamiętasz hasła?",
+    "noAccount": "Nie masz jeszcze konta?",
+    "createAccount": "Utwórz konto",
+    "expired": "Sesja wygasła. Zaloguj się ponownie."
+  },
+  "auth": {
+    "error": {
+      "empty": "Podaj adres swojego serwera.",
+      "insecure": "Ten adres nie jest szyfrowany (http). Ruchoir łączy się wyłącznie przez https.",
+      "invalid": "To nie wygląda na adres serwera.",
+      "unreachable": "Nie można połączyć się z serwerem. Sprawdź adres i połączenie.",
+      "notRuchoir": "Ten serwer nie wygląda na serwer Ruchoir.",
+      "outdated": "Ten serwer Ruchoir wymaga aktualizacji, aby obsługiwać aplikację.",
+      "invalidCredentials": "Nieprawidłowy adres e-mail lub hasło.",
+      "tooManyAttempts": "Zbyt wiele prób. Spróbuj ponownie za kilka minut.",
+      "emailNotVerified": "Najpierw potwierdź adres e-mail, korzystając z otrzymanego linku.",
+      "accountLocked": "To konto jest zablokowane. Skontaktuj się z administratorem serwera.",
+      "invalidCode": "Nieprawidłowy kod.",
+      "invalidToken": "Weryfikacja wygasła. Zaloguj się ponownie.",
+      "passkeyOnly": "To konto weryfikuje się kluczem dostępu, którego aplikacja jeszcze nie obsługuje. Dodaj aplikację uwierzytelniającą na stronie internetowej.",
+      "unknown": "Wystąpił błąd. Spróbuj ponownie."
+    }
+  },
+  "mfa": {
+    "title": "Weryfikacja dwuetapowa",
+    "totpIntro": "Wpisz 6-cyfrowy kod z aplikacji uwierzytelniającej.",
+    "totpField": "Kod weryfikacyjny",
+    "recoveryIntro": "Wpisz jeden z kodów odzyskiwania.",
+    "recoveryField": "Kod odzyskiwania",
+    "submit": "Zweryfikuj",
+    "useRecovery": "Użyj kodu odzyskiwania",
+    "useTotp": "Użyj aplikacji uwierzytelniającej",
+    "back": "Wróć do logowania"
+  },
+  "boot": {
+    "offline": "W tej chwili nie można połączyć się z serwerem.",
+    "retry": "Spróbuj ponownie"
+  },
+  "account": {
+    "signOut": "Wyloguj się",
+    "open": "Moje konto",
+    "status": "Twój status"
+  },
+  "presence": {
+    "online": "Dostępny",
+    "away": "Zaraz wracam",
+    "busy": "Zajęty",
+    "offline": "Niedostępny"
+  },
+  "tabs": {
+    "discussions": "Rozmowy",
+    "agenda": "Kalendarz",
+    "files": "Pliki"
+  },
+  "spaces": {
+    "title": "Przestrzenie",
+    "current": "Otwarta przestrzeń",
+    "switchLabel": "Zmień przestrzeń, bieżąca przestrzeń: {{name}}",
+    "unread_one": "{{count}} nieprzeczytana wiadomość",
+    "unread_other": "{{count}} nieprzeczytanej wiadomości",
+    "unread_few": "{{count}} nieprzeczytane wiadomości",
+    "unread_many": "{{count}} nieprzeczytanych wiadomości",
+    "none": "Nie należysz jeszcze do żadnej przestrzeni.",
+    "noneHint": "Przyjmij zaproszenie lub utwórz przestrzeń na stronie internetowej; pojawi się tutaj."
+  },
+  "load": {
+    "offline": "Brak połączenia",
+    "failed": "Nie udało się wczytać."
+  },
+  "system": {
+    "memberJoined": "{{who}} dołączył(a) do przestrzeni.",
+    "memberLeft": "{{who}} opuścił(a) przestrzeń.",
+    "memberRemoved": "{{who}} został usunięty z przestrzeni.",
+    "channelJoined": "{{who}} dołączył(a) do kanału.",
+    "channelLeft": "{{who}} opuścił(a) kanał.",
+    "channelRemoved": "{{who}} został usunięty z kanału.",
+    "channelCreated": "Kanał został utworzony.",
+    "channelRenamed": "{{who}} zmienił(a) nazwę kanału na #{{detail}}.",
+    "channelTopicChanged": "{{who}} zmienił(a) temat kanału: {{detail}}",
+    "channelTopicCleared": "{{who}} usunął(-ęła) temat kanału.",
+    "channelMadePrivate": "{{who}} ustawił(a) kanał jako prywatny.",
+    "channelMadePublic": "{{who}} ustawił(a) kanał jako publiczny.",
+    "channelArchived": "{{who}} zarchiwizował(a) kanał.",
+    "channelUnarchived": "{{who}} przywrócił(a) kanał z archiwum.",
+    "channelAccessChanged": "{{who}} zmienił(a), kto ma dostęp do kanału.",
+    "calendarEventPosted": "{{who}} zaplanował(a) „{{detail}}”.",
+    "calendarEventChanged": "{{who}} zmienił(a) godzinę lub miejsce „{{detail}}”.",
+    "calendarEventCancelled": "{{who}} odwołał(a) „{{detail}}”."
+  },
+  "message": {
+    "someone": "Ktoś",
+    "deleted": "Wiadomość usunięta",
+    "edited": "(edytowano)",
+    "image": "Obraz"
+  },
+  "common": {
+    "back": "Wstecz",
+    "close": "Zamknij"
+  },
+  "time": {
+    "today": "Dzisiaj",
+    "yesterday": "Wczoraj"
+  },
+  "agenda": {
+    "allDay": "Cały dzień",
+    "list": "Lista",
+    "week": "Tydzień",
+    "month": "Miesiąc",
+    "todayLabel": "Dzisiaj · {{day}}",
+    "weekOf": "Tydzień od {{from}} do {{to}}",
+    "previous": "Poprzedni okres",
+    "next": "Następny okres",
+    "nothingSoon": "Nic nie zaplanowano",
+    "nothingThatDay": "Tego dnia nic nie zaplanowano",
+    "nothingSoonHint": "Brak wydarzeń w ciągu najbliższych 30 dni."
+  },
+  "discussions": {
+    "filterAll": "Wszystko",
+    "filterUnread": "Nieprzeczytane",
+    "filterGroups": "Grupy",
+    "filterPeople": "Osoby",
+    "search": "Szukaj osoby lub grupy…",
+    "noMatch": "Brak pasujących rozmów",
+    "empty": "Brak rozmów",
+    "you": "Ty: {{text}}",
+    "by": "{{who}}: {{text}}",
+    "group": "Grupa",
+    "emptyHint": "Obserwowane kanały i wiadomości prywatne pojawią się tutaj."
+  },
+  "conversation": {
+    "messages": "Wiadomości",
+    "people_one": "{{count}} osoba",
+    "people_other": "{{count}} osoby",
+    "empty": "Nie ma jeszcze wiadomości",
+    "writingSoon": "Pisanie wkrótce pojawi się w aplikacji.",
+    "noFiles": "Nie udostępniono tu żadnych plików",
+    "noEvents": "Brak nadchodzących wydarzeń",
+    "people_few": "{{count}} osoby",
+    "people_many": "{{count}} osób",
+    "emptyHint": "Wiadomości z tej rozmowy pojawią się tutaj na bieżąco.",
+    "noFilesHint": "Pliki dołączone do wiadomości w tej rozmowie pojawią się tutaj.",
+    "noEventsHint": "Wydarzenia udostępnione na tym kanale pojawią się tutaj."
+  },
+  "attendee": {
+    "accepted": "Weźmie udział",
+    "tentative": "Może weźmie udział",
+    "declined": "Nie weźmie udziału",
+    "needsAction": "Jeszcze bez odpowiedzi"
+  },
+  "event": {
+    "sharedIn": "Udostępnione na kanale",
+    "invited_one": "{{count}} gość",
+    "invited_other": "{{count}} gości",
+    "files": "Udostępnione pliki",
+    "invited_few": "{{count}} gości",
+    "invited_many": "{{count}} gości"
+  },
+  "files": {
+    "search": "Szukaj pliku",
+    "noMatch": "Brak pasujących plików",
+    "recent": "Ostatnie",
+    "atRoot": "W przestrzeni",
+    "empty": "Brak plików w tej przestrzeni",
+    "folderEmpty": "Ten folder jest pusty",
+    "emptyHint": "Pliki dodane do przestrzeni pojawią się tutaj.",
+    "folderEmptyHint": "Pliki umieszczone w tym folderze pojawią się tutaj.",
+    "today": "dzisiaj",
+    "yesterday": "wczoraj"
+  },
+  "viewer": {
+    "share": "Udostępnij lub otwórz w…",
+    "noPreview": "Nie można tu wyświetlić podglądu tego typu pliku."
+  },
+  "today": {
+    "hello": "Dzień dobry, {{name}}",
+    "now": "Do sprawdzenia teraz",
+    "mentioned": "{{who}} wspomina o Tobie",
+    "replied": "{{who}} odpowiada Ci",
+    "wrote": "{{who}} pisze do Ciebie",
+    "broadcast": "{{who}} pisze do całego kanału",
+    "quote": "„{{text}}”",
+    "inChannel": "Kanał {{name}}",
+    "direct": "Wiadomość prywatna",
+    "open": "Otwórz",
+    "ongoing": "trwa",
+    "inMinutes_one": "za {{count}} min",
+    "inMinutes_other": "za {{count}} min",
+    "inHours_one": "za {{count}} godz.",
+    "inHours_other": "za {{count}} godz.",
+    "newFile": "Nowy dokument",
+    "calm": "Na razie nic pilnego",
+    "recent": "Ostatnie rozmowy",
+    "seeAll": "Zobacz wszystko",
+    "inMinutes_few": "za {{count}} min",
+    "inMinutes_many": "za {{count}} min",
+    "inHours_few": "za {{count}} godz.",
+    "inHours_many": "za {{count}} godz.",
+    "calmHint": "Czekające wiadomości, najbliższe spotkanie i nowe pliki pojawią się tutaj."
+  },
+  "search": {
+    "tryAnother": "Spróbuj innego słowa."
+  }
+}

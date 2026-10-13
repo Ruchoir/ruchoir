@@ -1,0 +1,35 @@
+# AGENTS.md - packages/client
+
+`@ruchoir/client`: the Ruchoir API client the web (`apps/web`) and the mobile app (`apps/mobile`)
+share. See the root `AGENTS.md` for project-wide rules.
+
+## What lives here
+
+- `config.ts`: where requests go and how they prove who is asking. The defaults are the web's
+  (relative same-origin calls, the session cookie, `credentials: "same-origin"`); the app calls
+  `configureClient({ baseUrl, authorization, sessionDelivery: "token", openSocket, onUnauthorized })`.
+- `http.ts`: the transport (`apiRequest` and the verbs, `ApiError`, `apiErrorCode`). A 401 calls
+  `onUnauthorized` before throwing.
+- `api.ts`, `calendar.ts`: every call and the mapping of the Rust DTOs to the front shapes;
+  `types.ts`: those shapes; `fileType.ts`: a file's family from its name.
+- `index.ts` exports everything; each module is also reachable on its own path
+  (`@ruchoir/client/api`, `/calendar`, `/types`, `/http`, `/config`, `/fileType`).
+
+## Rules
+
+- **No browser global at module level, no React.** Code here runs in a browser and in React Native.
+  `window.location` is read only when no base URL is set (the web), `EventSource` only where it
+  exists. What only a browser can do (WebAuthn) stays in `apps/web/lib/data`.
+- **URLs are built from `apiBase()` / `apiOrigin()`**, never written as `/api/v1/...`: on the phone
+  they must be absolute.
+- **Raw `fetch` and `XMLHttpRequest` calls spread `authInit()`**, so an upload carries the bearer too.
+- Shipped as TypeScript source (`exports` point at `src`): Next compiles it (`transpilePackages`),
+  Metro and Node's type stripping read it as is. Relative imports carry their `.ts` extension, and
+  only erasable syntax is allowed (`erasableSyntaxOnly`).
+
+## Checks
+
+```bash
+pnpm --filter @ruchoir/client test        # node --test, fetch stubbed
+pnpm --filter @ruchoir/client typecheck
+```

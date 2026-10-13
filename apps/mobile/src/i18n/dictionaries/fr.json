@@ -1,0 +1,209 @@
+{
+  "field": {
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe"
+  },
+  "signIn": {
+    "submit": "Se connecter",
+    "server": "Serveur",
+    "change": "Changer",
+    "serverField": "Adresse du serveur de votre organisation",
+    "serverPlaceholder": "ruchoir.mon-entreprise.fr",
+    "serverHint": "Votre service informatique vous l’a communiquée.",
+    "email": "Adresse e-mail",
+    "emailPlaceholder": "vous@exemple.fr",
+    "password": "Mot de passe",
+    "passwordPlaceholder": "Votre mot de passe",
+    "forgot": "Mot de passe oublié ?",
+    "noAccount": "Pas encore de compte ?",
+    "createAccount": "Créer un compte",
+    "expired": "Votre session a pris fin. Reconnectez-vous."
+  },
+  "auth": {
+    "error": {
+      "empty": "Indiquez l’adresse de votre serveur.",
+      "insecure": "Cette adresse n’est pas chiffrée (http). Ruchoir ne s’y connecte qu’en https.",
+      "invalid": "Cette adresse ne ressemble pas à celle d’un serveur.",
+      "unreachable": "Impossible de joindre le serveur. Vérifiez l’adresse et votre connexion.",
+      "notRuchoir": "Ce serveur ne semble pas être un serveur Ruchoir.",
+      "outdated": "Ce serveur Ruchoir doit être mis à jour pour accepter l’application.",
+      "invalidCredentials": "Adresse e-mail ou mot de passe incorrect.",
+      "tooManyAttempts": "Trop de tentatives. Réessayez dans quelques minutes.",
+      "emailNotVerified": "Confirmez d’abord votre adresse e-mail grâce au lien reçu.",
+      "accountLocked": "Ce compte est bloqué. Contactez l’administrateur de votre serveur.",
+      "invalidCode": "Code incorrect.",
+      "invalidToken": "La vérification a expiré. Reconnectez-vous.",
+      "passkeyOnly": "Ce compte se vérifie avec une clé d’accès, pas encore disponible dans l’application. Ajoutez une application d’authentification depuis le site web.",
+      "unknown": "Une erreur est survenue. Réessayez."
+    }
+  },
+  "mfa": {
+    "title": "Vérification en deux étapes",
+    "totpIntro": "Saisissez le code à 6 chiffres de votre application d’authentification.",
+    "totpField": "Code de vérification",
+    "recoveryIntro": "Saisissez l’un de vos codes de secours.",
+    "recoveryField": "Code de secours",
+    "submit": "Vérifier",
+    "useRecovery": "Utiliser un code de secours",
+    "useTotp": "Utiliser l’application d’authentification",
+    "back": "Revenir à la connexion"
+  },
+  "boot": {
+    "offline": "Impossible de joindre votre serveur pour l’instant.",
+    "retry": "Réessayer"
+  },
+  "account": {
+    "signOut": "Se déconnecter",
+    "open": "Mon compte",
+    "status": "Votre statut"
+  },
+  "presence": {
+    "online": "En ligne",
+    "away": "Absent",
+    "busy": "Occupé",
+    "offline": "Hors ligne"
+  },
+  "tabs": {
+    "discussions": "Discussions",
+    "agenda": "Agenda",
+    "files": "Fichiers"
+  },
+  "spaces": {
+    "title": "Espaces",
+    "current": "Espace ouvert",
+    "switchLabel": "Changer d’espace, espace actuel : {{name}}",
+    "unread_one": "{{count}} message non lu",
+    "unread_other": "{{count}} messages non lus",
+    "none": "Vous ne faites encore partie d’aucun espace.",
+    "noneHint": "Acceptez une invitation ou créez un espace depuis le site web ; il apparaîtra ici."
+  },
+  "load": {
+    "offline": "Hors connexion",
+    "failed": "Le chargement a échoué."
+  },
+  "system": {
+    "memberJoined": "{{who}} a rejoint l'espace.",
+    "memberLeft": "{{who}} a quitté l'espace.",
+    "memberRemoved": "{{who}} a été retiré de l'espace.",
+    "channelJoined": "{{who}} a rejoint le canal.",
+    "channelLeft": "{{who}} a quitté le canal.",
+    "channelRemoved": "{{who}} a été retiré du canal.",
+    "channelCreated": "Le canal a été créé.",
+    "channelRenamed": "{{who}} a renommé le canal en #{{detail}}.",
+    "channelTopicChanged": "{{who}} a changé le sujet du canal : {{detail}}",
+    "channelTopicCleared": "{{who}} a retiré le sujet du canal.",
+    "channelMadePrivate": "{{who}} a rendu le canal privé.",
+    "channelMadePublic": "{{who}} a rendu le canal public.",
+    "channelArchived": "{{who}} a archivé le canal.",
+    "channelUnarchived": "{{who}} a désarchivé le canal.",
+    "channelAccessChanged": "{{who}} a changé qui peut accéder au canal.",
+    "calendarEventPosted": "{{who}} a planifié « {{detail}} ».",
+    "calendarEventChanged": "{{who}} a changé l'heure ou le lieu de « {{detail}} ».",
+    "calendarEventCancelled": "{{who}} a annulé « {{detail}} »."
+  },
+  "message": {
+    "someone": "Quelqu'un",
+    "deleted": "Message supprimé",
+    "edited": "(modifié)",
+    "image": "Image"
+  },
+  "common": {
+    "back": "Retour",
+    "close": "Fermer"
+  },
+  "time": {
+    "today": "Aujourd’hui",
+    "yesterday": "Hier"
+  },
+  "agenda": {
+    "allDay": "Journée",
+    "list": "Liste",
+    "week": "Semaine",
+    "month": "Mois",
+    "todayLabel": "Aujourd’hui · {{day}}",
+    "weekOf": "Semaine du {{from}} au {{to}}",
+    "previous": "Période précédente",
+    "next": "Période suivante",
+    "nothingSoon": "Rien de prévu",
+    "nothingThatDay": "Rien de prévu ce jour-là",
+    "nothingSoonHint": "Aucun événement dans les 30 prochains jours."
+  },
+  "discussions": {
+    "filterAll": "Tout",
+    "filterUnread": "Non lus",
+    "filterGroups": "Groupes",
+    "filterPeople": "Personnes",
+    "search": "Rechercher une personne, un groupe…",
+    "noMatch": "Aucune discussion ne correspond",
+    "empty": "Aucune discussion ici",
+    "you": "Vous : {{text}}",
+    "by": "{{who}} : {{text}}",
+    "group": "Groupe",
+    "emptyHint": "Les canaux que vous suivez et vos messages privés apparaîtront ici."
+  },
+  "conversation": {
+    "messages": "Messages",
+    "people_one": "{{count}} personne",
+    "people_other": "{{count}} personnes",
+    "empty": "Pas encore de message",
+    "writingSoon": "L’écriture arrive bientôt dans l’application.",
+    "noFiles": "Aucun fichier partagé ici",
+    "noEvents": "Aucun événement à venir",
+    "emptyHint": "Les messages de cette conversation apparaîtront ici, en direct.",
+    "noFilesHint": "Les fichiers joints aux messages de cette conversation apparaîtront ici.",
+    "noEventsHint": "Les événements partagés dans ce canal apparaîtront ici."
+  },
+  "attendee": {
+    "accepted": "Participe",
+    "tentative": "Participera peut-être",
+    "declined": "Ne participe pas",
+    "needsAction": "N'a pas encore répondu"
+  },
+  "event": {
+    "sharedIn": "Partagé dans le canal",
+    "invited_one": "{{count}} invité",
+    "invited_other": "{{count}} invités",
+    "files": "Fichiers partagés"
+  },
+  "files": {
+    "search": "Rechercher un fichier",
+    "noMatch": "Aucun fichier ne correspond",
+    "recent": "Récents",
+    "atRoot": "Dans l’espace",
+    "empty": "Aucun fichier dans cet espace",
+    "folderEmpty": "Ce dossier est vide",
+    "emptyHint": "Les fichiers déposés dans l’espace apparaîtront ici.",
+    "folderEmptyHint": "Les fichiers rangés dans ce dossier apparaîtront ici.",
+    "today": "aujourd’hui",
+    "yesterday": "hier"
+  },
+  "viewer": {
+    "share": "Partager ou ouvrir dans…",
+    "noPreview": "Pas d’aperçu possible ici pour ce type de fichier."
+  },
+  "today": {
+    "hello": "Bonjour {{name}}",
+    "now": "À voir maintenant",
+    "mentioned": "{{who}} vous a mentionné",
+    "replied": "{{who}} vous a répondu",
+    "wrote": "{{who}} vous a écrit",
+    "broadcast": "{{who}} a écrit à tout le canal",
+    "quote": "« {{text}} »",
+    "inChannel": "Canal {{name}}",
+    "direct": "Message privé",
+    "open": "Ouvrir",
+    "ongoing": "en cours",
+    "inMinutes_one": "dans {{count}} min",
+    "inMinutes_other": "dans {{count}} min",
+    "inHours_one": "dans {{count}} h",
+    "inHours_other": "dans {{count}} h",
+    "newFile": "Nouveau document",
+    "calm": "Rien d’urgent pour l’instant",
+    "recent": "Conversations récentes",
+    "seeAll": "Tout voir",
+    "calmHint": "Les messages qui vous attendent, le prochain rendez-vous et les nouveaux fichiers apparaîtront ici."
+  },
+  "search": {
+    "tryAnother": "Essayez avec un autre mot."
+  }
+}

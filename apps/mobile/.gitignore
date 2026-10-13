@@ -1,0 +1,5 @@
+# Expo's local state and the bundle `pnpm bundle:ios` writes to check the build.
+.expo/
+dist-check/
+# The development server address (EXPO_PUBLIC_DEFAULT_SERVER) stays on the machine.
+.env.local

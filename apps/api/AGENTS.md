@@ -41,8 +41,9 @@ context and takes precedence here.
   skipped. The second space is owned by someone other than the demo account and left unread on
   purpose: it is the one the workspace rail has something to show for.
 - `src/auth/`     - the auth core: password hashing (argon2id) + policy with an offline breach
-  check, opaque Valkey sessions, the `__Host-` session cookie, the `AuthSession` extractor
-  (authorization guard), per-account anti-bruteforce throttle, SMTP mailer + single-use email
+  check, opaque Valkey sessions, the `__Host-` session cookie (and, for the native apps, the same
+  session as a bearer token, never handed to a request that carries `Origin` or `Sec-Fetch-Site`:
+  ADR 0005), the `AuthSession` extractor (authorization guard, cookie first, then bearer), per-account anti-bruteforce throttle, SMTP mailer + single-use email
   tokens (verification / reset; **an invitation addressed to the registering address activates the
   account outright**, since delivery to that mailbox is the same proof a confirmation email would
   collect, while a shareable link proves nothing about an address and changes nothing), MFA (TOTP with AES-GCM-encrypted secrets, WebAuthn passkeys,

@@ -1,0 +1,214 @@
+{
+  "field": {
+    "showPassword": "Mostra la password",
+    "hidePassword": "Nascondi la password"
+  },
+  "signIn": {
+    "submit": "Accedi",
+    "server": "Server",
+    "change": "Cambia",
+    "serverField": "Indirizzo del server della vostra organizzazione",
+    "serverPlaceholder": "ruchoir.mia-azienda.it",
+    "serverHint": "Ve l’ha comunicato il vostro servizio informatico.",
+    "email": "Indirizzo e-mail",
+    "emailPlaceholder": "voi@esempio.it",
+    "password": "Password",
+    "passwordPlaceholder": "La vostra password",
+    "forgot": "Password dimenticata?",
+    "noAccount": "Non avete ancora un account?",
+    "createAccount": "Crea un account",
+    "expired": "La sessione è terminata. Accedete di nuovo."
+  },
+  "auth": {
+    "error": {
+      "empty": "Indicate l’indirizzo del vostro server.",
+      "insecure": "Questo indirizzo non è cifrato (http). Ruchoir si connette solo in https.",
+      "invalid": "Non sembra l’indirizzo di un server.",
+      "unreachable": "Impossibile raggiungere il server. Controllate l’indirizzo e la connessione.",
+      "notRuchoir": "Questo server non sembra un server Ruchoir.",
+      "outdated": "Questo server Ruchoir deve essere aggiornato per accettare l’app.",
+      "invalidCredentials": "Indirizzo e-mail o password errati.",
+      "tooManyAttempts": "Troppi tentativi. Riprovate tra qualche minuto.",
+      "emailNotVerified": "Confermate prima il vostro indirizzo e-mail con il link ricevuto.",
+      "accountLocked": "Questo account è bloccato. Contattate l’amministratore del vostro server.",
+      "invalidCode": "Codice errato.",
+      "invalidToken": "La verifica è scaduta. Accedete di nuovo.",
+      "passkeyOnly": "Questo account si verifica con una passkey, non ancora disponibile nell’app. Aggiungete un’app di autenticazione dal sito web.",
+      "unknown": "Si è verificato un errore. Riprovate."
+    }
+  },
+  "mfa": {
+    "title": "Verifica in due passaggi",
+    "totpIntro": "Inserite il codice a 6 cifre della vostra app di autenticazione.",
+    "totpField": "Codice di verifica",
+    "recoveryIntro": "Inserite uno dei vostri codici di recupero.",
+    "recoveryField": "Codice di recupero",
+    "submit": "Verifica",
+    "useRecovery": "Usa un codice di recupero",
+    "useTotp": "Usa l’app di autenticazione",
+    "back": "Torna all’accesso"
+  },
+  "boot": {
+    "offline": "Al momento il vostro server non è raggiungibile.",
+    "retry": "Riprova"
+  },
+  "account": {
+    "signOut": "Esci",
+    "open": "Il mio account",
+    "status": "Il vostro stato"
+  },
+  "presence": {
+    "online": "Online",
+    "away": "Assente",
+    "busy": "Occupato",
+    "offline": "Non in linea"
+  },
+  "tabs": {
+    "discussions": "Conversazioni",
+    "agenda": "Agenda",
+    "files": "File"
+  },
+  "spaces": {
+    "title": "Spazi",
+    "current": "Spazio aperto",
+    "switchLabel": "Cambia spazio, spazio attuale: {{name}}",
+    "unread_one": "{{count}} messaggio non letto",
+    "unread_other": "{{count}} messaggi non letti",
+    "unread_many": "{{count}} messaggi non letti",
+    "none": "Non fate ancora parte di alcuno spazio.",
+    "noneHint": "Accettate un invito o create uno spazio dal sito web; comparirà qui."
+  },
+  "load": {
+    "offline": "Nessuna connessione",
+    "failed": "Caricamento non riuscito."
+  },
+  "system": {
+    "memberJoined": "{{who}} si è unito allo spazio.",
+    "memberLeft": "{{who}} ha lasciato lo spazio.",
+    "memberRemoved": "{{who}} è stato rimosso dallo spazio.",
+    "channelJoined": "{{who}} si è unito al canale.",
+    "channelLeft": "{{who}} ha lasciato il canale.",
+    "channelRemoved": "{{who}} è stato rimosso dal canale.",
+    "channelCreated": "Il canale è stato creato.",
+    "channelRenamed": "{{who}} ha rinominato il canale in #{{detail}}.",
+    "channelTopicChanged": "{{who}} ha cambiato l'argomento del canale: {{detail}}",
+    "channelTopicCleared": "{{who}} ha rimosso l'argomento del canale.",
+    "channelMadePrivate": "{{who}} ha reso privato il canale.",
+    "channelMadePublic": "{{who}} ha reso pubblico il canale.",
+    "channelArchived": "{{who}} ha archiviato il canale.",
+    "channelUnarchived": "{{who}} ha ripristinato il canale dall'archivio.",
+    "channelAccessChanged": "{{who}} ha cambiato chi può accedere al canale.",
+    "calendarEventPosted": "{{who}} ha pianificato «{{detail}}».",
+    "calendarEventChanged": "{{who}} ha cambiato l'ora o il luogo di «{{detail}}».",
+    "calendarEventCancelled": "{{who}} ha annullato «{{detail}}»."
+  },
+  "message": {
+    "someone": "Qualcuno",
+    "deleted": "Messaggio eliminato",
+    "edited": "(modificato)",
+    "image": "Immagine"
+  },
+  "common": {
+    "back": "Indietro",
+    "close": "Chiudi"
+  },
+  "time": {
+    "today": "Oggi",
+    "yesterday": "Ieri"
+  },
+  "agenda": {
+    "allDay": "Tutto il giorno",
+    "list": "Elenco",
+    "week": "Settimana",
+    "month": "Mese",
+    "todayLabel": "Oggi · {{day}}",
+    "weekOf": "Settimana dal {{from}} al {{to}}",
+    "previous": "Periodo precedente",
+    "next": "Periodo successivo",
+    "nothingSoon": "Niente in programma",
+    "nothingThatDay": "Niente in programma quel giorno",
+    "nothingSoonHint": "Nessun evento nei prossimi 30 giorni."
+  },
+  "discussions": {
+    "filterAll": "Tutto",
+    "filterUnread": "Non letti",
+    "filterGroups": "Gruppi",
+    "filterPeople": "Persone",
+    "search": "Cerca una persona, un gruppo…",
+    "noMatch": "Nessuna conversazione corrisponde",
+    "empty": "Nessuna conversazione qui",
+    "you": "Voi: {{text}}",
+    "by": "{{who}}: {{text}}",
+    "group": "Gruppo",
+    "emptyHint": "I canali che seguite e i vostri messaggi privati compariranno qui."
+  },
+  "conversation": {
+    "messages": "Messaggi",
+    "people_one": "{{count}} persona",
+    "people_other": "{{count}} persone",
+    "empty": "Ancora nessun messaggio",
+    "writingSoon": "Presto si potrà scrivere dall’app.",
+    "noFiles": "Nessun file condiviso qui",
+    "noEvents": "Nessun evento in programma",
+    "people_many": "{{count}} persone",
+    "emptyHint": "I messaggi di questa conversazione compariranno qui, in diretta.",
+    "noFilesHint": "I file allegati ai messaggi di questa conversazione compariranno qui.",
+    "noEventsHint": "Gli eventi condivisi in questo canale compariranno qui."
+  },
+  "attendee": {
+    "accepted": "Partecipa",
+    "tentative": "Forse partecipa",
+    "declined": "Non partecipa",
+    "needsAction": "Non ha ancora risposto"
+  },
+  "event": {
+    "sharedIn": "Condiviso nel canale",
+    "invited_one": "{{count}} invitato",
+    "invited_other": "{{count}} invitati",
+    "files": "File condivisi",
+    "invited_many": "{{count}} invitati"
+  },
+  "files": {
+    "search": "Cerca un file",
+    "noMatch": "Nessun file corrisponde",
+    "recent": "Recenti",
+    "atRoot": "Nello spazio",
+    "empty": "Nessun file in questo spazio",
+    "folderEmpty": "Questa cartella è vuota",
+    "emptyHint": "I file aggiunti allo spazio compariranno qui.",
+    "folderEmptyHint": "I file messi in questa cartella compariranno qui.",
+    "today": "oggi",
+    "yesterday": "ieri"
+  },
+  "viewer": {
+    "share": "Condividi o apri in…",
+    "noPreview": "Questo tipo di file non si può visualizzare qui."
+  },
+  "today": {
+    "hello": "Ciao {{name}}",
+    "now": "Da vedere ora",
+    "mentioned": "{{who}} vi ha menzionato",
+    "replied": "{{who}} vi ha risposto",
+    "wrote": "{{who}} vi ha scritto",
+    "broadcast": "{{who}} ha scritto a tutto il canale",
+    "quote": "«{{text}}»",
+    "inChannel": "Canale {{name}}",
+    "direct": "Messaggio privato",
+    "open": "Apri",
+    "ongoing": "in corso",
+    "inMinutes_one": "tra {{count}} min",
+    "inMinutes_other": "tra {{count}} min",
+    "inHours_one": "tra {{count}} h",
+    "inHours_other": "tra {{count}} h",
+    "newFile": "Nuovo documento",
+    "calm": "Niente di urgente per ora",
+    "recent": "Conversazioni recenti",
+    "seeAll": "Vedi tutto",
+    "inMinutes_many": "tra {{count}} min",
+    "inHours_many": "tra {{count}} h",
+    "calmHint": "I messaggi che vi aspettano, il prossimo appuntamento e i nuovi file compariranno qui."
+  },
+  "search": {
+    "tryAnother": "Provate con un’altra parola."
+  }
+}

@@ -17,9 +17,14 @@ FROM node:24-bookworm-slim AS web
 WORKDIR /build
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+# Every workspace manifest, so the frozen lockfile matches; only the web and the packages it uses
+# are installed (`@ruchoir/web...`), so the mobile app's React Native tree never enters the image.
 COPY apps/web/package.json ./apps/web/package.json
+COPY apps/mobile/package.json ./apps/mobile/package.json
+COPY packages/client/package.json ./packages/client/package.json
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+    pnpm install --frozen-lockfile --filter "@ruchoir/web..."
+COPY packages/client ./packages/client
 COPY apps/web ./apps/web
 RUN --mount=type=cache,target=/build/apps/web/.next/cache \
     pnpm --filter @ruchoir/web build

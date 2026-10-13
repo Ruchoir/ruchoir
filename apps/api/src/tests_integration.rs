@@ -11422,3 +11422,6 @@ mod calendar_tests;
 
 /// Bringing Nextcloud calendars over, kept in their own file; they reuse the import helpers above.
 mod import_calendar_tests;
+
+/// Bearer sessions for the native apps, kept in their own file; they reuse the helpers above.
+mod native_sessions_tests;

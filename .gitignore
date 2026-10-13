@@ -19,7 +19,7 @@
 !.env.example
 
 # Dependencies and build output (filled in as the stack lands).
-/node_modules/
+node_modules/
 /target/
 /.next/
 /dist/

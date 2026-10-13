@@ -14,6 +14,11 @@ use fred::types::Expiration;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use axum::http::{header, HeaderMap};
+use axum_extra::extract::cookie::CookieJar;
+use utoipa::ToSchema;
+
+use super::cookie::SESSION_COOKIE;
 use super::error::AuthError;
 use crate::config::Config;
 
@@ -28,6 +33,45 @@ pub struct SessionRecord {
     pub created_at: i64,
     pub last_seen_at: i64,
     pub mfa_level: String,
+}
+
+/// How a new session reaches its holder.
+///
+/// A browser gets the id in the `__Host-` cookie, which its scripts cannot read. A native app has no
+/// such jar it controls, so it receives the id itself, keeps it in the device's keychain and sends it
+/// back as `Authorization: Bearer`. The session behind both is the same record, with the same limits.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, ToSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum Delivery {
+    #[default]
+    Cookie,
+    Token,
+}
+
+/// The session id a request presents: the cookie when there is one, else a bearer token.
+///
+/// Anything that is not a plain `Bearer <id>` with an id made of letters and digits presents no
+/// session at all, so a malformed header is a 401 rather than a strange Valkey key.
+pub fn presented_id(headers: &HeaderMap) -> Option<String> {
+    if let Some(cookie) = CookieJar::from_headers(headers).get(SESSION_COOKIE) {
+        return Some(cookie.value().to_owned());
+    }
+    let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
+    let (scheme, id) = value.split_once(' ')?;
+    let id = id.trim();
+    let plausible =
+        !id.is_empty() && id.len() <= 128 && id.bytes().all(|b| b.is_ascii_alphanumeric());
+    (scheme.eq_ignore_ascii_case("bearer") && plausible).then(|| id.to_owned())
+}
+
+/// Whether a request was sent by a browser.
+///
+/// Browsers name where a write comes from, in `Sec-Fetch-Site` and, on every POST, in `Origin`; a
+/// native HTTP client sends neither. This is what keeps a session token out of a page's reach: a
+/// script running in the web app could otherwise ask for one and carry it away, where the cookie it
+/// rides on can never leave the browser.
+pub fn from_browser(headers: &HeaderMap) -> bool {
+    headers.contains_key("sec-fetch-site") || headers.contains_key(header::ORIGIN)
 }
 
 /// Create a new session for a user and return its opaque id.
