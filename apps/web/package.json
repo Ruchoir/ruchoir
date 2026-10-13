@@ -17,6 +17,7 @@
   "dependencies": {
     "@dicebear/core": "^10.7.0",
     "@dicebear/styles": "^10.6.0",
+    "@ruchoir/client": "workspace:*",
     "emoji-regex": "^10.6.0",
     "flag-icons": "^7.5.0",
     "highlight.js": "^11.12.0",

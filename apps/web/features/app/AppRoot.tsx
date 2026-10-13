@@ -2342,7 +2342,7 @@ function AppShell() {
     setAuthPending(true);
     try {
       const verify = method === "totp" ? verifyTotp : verifyRecoveryCode;
-      await enterApp(await verify(mfaChallenge.mfaToken, code));
+      await enterApp((await verify(mfaChallenge.mfaToken, code)).user);
     } catch (err) {
       // An expired or already-spent challenge cannot be retried: start the sign-in over.
       if (apiErrorCode(err) === "invalid_token") {
