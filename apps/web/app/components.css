@@ -807,6 +807,19 @@
   color: var(--text-subtle);
   text-decoration: line-through;
 }
+/* Messages that mention the current user, one after the other: one washed block, not a stack of
+   cards. The corners that touch are squared (see MessageRow). */
+.wc-msg-mention {
+  border-radius: var(--radius-md);
+}
+.wc-msg-mention + .wc-msg-mention {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.wc-msg-mention:has(+ .wc-msg-mention) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
 .wc-mention {
   color: var(--text-strong);
   background: color-mix(in srgb, var(--acc) 45%, transparent);
@@ -3722,13 +3735,6 @@ button.wc-mhead__title {
 .wc-office__frame--hidden {
   opacity: 0;
 }
-.wc-office__cover {
-  position: absolute;
-  inset: 0;
-  justify-content: center;
-  max-width: none;
-  background: var(--surface);
-}
 .wc-office__frame {
   flex: 1;
   width: 100%;
@@ -3748,6 +3754,14 @@ button.wc-mhead__title {
 }
 .wc-office__note strong {
   color: var(--text-strong);
+}
+/* After the note it is drawn as, so its full width wins over the note's column. */
+.wc-office__cover {
+  position: absolute;
+  inset: 0;
+  justify-content: center;
+  max-width: none;
+  background: var(--surface);
 }
 
 /* The image viewer: the picture on a dark backdrop, the controls in small floating bars. The
