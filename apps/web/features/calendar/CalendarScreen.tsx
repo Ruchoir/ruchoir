@@ -173,7 +173,7 @@ export function CalendarScreen({
     });
   };
   const { calendars, occurrences: read, failed, reload, setCalendars } =
-    useCalendarData(range, !invitationsHidden);
+    useCalendarData(range, !invitationsHidden, viewerId);
   // A busy block says "Busy" where a title would be, and does not open.
   const busyWord = t("presence.busy");
   const occurrences = useMemo(
