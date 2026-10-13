@@ -18,6 +18,36 @@ rules; this file holds what is particular to the app.
 - Colours come from `src/theme/tokens.ts`, a copy of `apps/web/app/tokens.css` kept honest by
   `test/tokens.test.ts`.
 
+## Layout
+
+```
+src/App.tsx            fonts, session, then the signed-in navigator
+src/session/           instance choice (server.ts), the session reducer (machine.ts), Keychain store
+src/api/instance.ts    configures @ruchoir/client for the chosen instance (bearer, socket headers)
+src/realtime/          one socket for the session; screens subscribe and refetch on resync
+src/space/             the space on screen, remembered between launches
+src/data/              useLoad (requests per screen), useReloadOn (live refetch), members, useNow
+src/logic/             pure functions, tested by Node: conversations, inline Markdown, agenda, today
+src/navigation/        root stack (pushed screens, sheets) and the four tabs
+src/screens/           auth, today, discussions, agenda, files, account, space
+src/ui/                design-system pieces: Text, Button, TextField, Avatar, Chips, Segmented...
+src/theme/             tokens.ts (copy of tokens.css), IBM Plex, useTheme
+src/i18n/              i18next and the six dictionaries
+```
+
+## Gotchas
+
+- **Route names are lower camel case** (`today`, `fileViewer`): the i18n audit reads a capitalised
+  single word as prose.
+- **The audit only sees literal keys**: `t("a.b")` or `key("a.b")`. A key chosen at run time goes
+  through a table of `key(...)` (see `session/failureText.ts`), and a ternary is written
+  `cond ? t("a") : t("b")`, never `t(cond ? "a" : "b")`.
+- **No `Date.now()` or `new Date()` for "now" in render** where the lint can see it: `useNow()`.
+- **`useLoad` keys name what is loaded** (`"conversations:<space>"`); a new key never shows the old
+  key's data, which is what keeps a space switch from painting the previous space.
+- **Seeded files of the dev database have no bytes** in the dev object store: opening one answers
+  404 there, on the web as well. Upload a file to test the viewer.
+
 ## Checks
 
 ```bash

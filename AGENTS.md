@@ -11,7 +11,8 @@ to Slack, Mattermost and Nextcloud: a single professional workspace combining re
 messaging and file sharing. Its signature feature is a zero-loss import tool that migrates an
 existing Nextcloud or Mattermost instance into Ruchoir in under two minutes.
 
-Web interface only for now. The core is open source under **AGPLv3**.
+A web interface, and iOS and Android apps in progress (`apps/mobile`, Expo; see ADR 0005). The core
+is open source under **AGPLv3**.
 
 ## Golden rules (read first)
 
@@ -29,6 +30,9 @@ Web interface only for now. The core is open source under **AGPLv3**.
    for the whole instance, and carries no content at all: see `docs/adr/0001-web-push.md` before
    touching it, and do not widen it (no content in a push, only the constant encrypted marker; no
    other runtime service on the same grounds).
+   **Expo and React Native** (US-governed) are accepted as libraries, like React and Next.js, but no
+   hosted Expo service is ever used (no EAS Build, Update, Submit or push, no Expo account), and the
+   Expo CLI always runs with `EXPO_NO_TELEMETRY=1`: see `docs/adr/0005-native-apps.md`.
 3. **English only** for everything in the repo: code, identifiers, comments, docs, commits,
    branches, issues, PRs.
 4. **Document thoroughly**, following current industry best practices (module docs, docstrings,
@@ -49,6 +53,10 @@ Web interface only for now. The core is open source under **AGPLv3**.
 - **Frontend:** Next.js + React + TypeScript + Tailwind CSS, built as a **static export** (no SSR,
   no Server Actions, no Next API routes). **No Node in production:** the static bundle is served by
   the Rust API. Next.js is a build tool only.
+- **Mobile:** Expo (React Native) for iOS and Android, `apps/mobile`, with React Navigation. It talks
+  to any instance through the shared `@ruchoir/client` (`packages/client`, also the web's API client)
+  and holds its session as a bearer token in the Keychain (ADR 0005). Developed in Expo Go against the
+  dev instance; native builds (passkeys, push, widgets) come later and never through EAS.
 - **Database:** PostgreSQL (source of truth) + Valkey (presence, real-time pub/sub, cache, sessions).
   Valkey (Linux Foundation, BSD-3) is the key-value store; it speaks the Redis protocol (RESP), so
   the usual Rust clients work unchanged. Chosen over Redis for neutral governance (2026-08-29).
@@ -126,6 +134,11 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | hyper-util / http-body-util (office relay client) | 0.1 / 0.1 | `apps/api/Cargo.toml` |
 | tokio-tungstenite (office relay socket) | 0.29 | `apps/api/Cargo.toml` |
 | typst / typst-pdf / typst-layout (calendar printing) | 0.15.1 | `apps/api/Cargo.toml` |
+| Expo SDK / React Native / React (mobile) | 57 / 0.86.3 / 19.2.3 | `apps/mobile/package.json` |
+| React Navigation (native-stack, bottom-tabs) | 7 | `apps/mobile/package.json` |
+| expo-secure-store, -image, -file-system, -sharing, -web-browser, -localization, -font | the SDK 57 versions | `apps/mobile/package.json` |
+| react-native-screens / -safe-area-context / -svg / -webview | 4.26 / 5.7 / 15.15.4 / 13.16.1 | `apps/mobile/package.json` |
+| lucide-react-native / @dicebear (mobile) | 1.55 / 10 | `apps/mobile/package.json` |
 
 ## Languages
 
@@ -168,6 +181,8 @@ to it, and a new screen is written translated from the start.
 apps/api/            Rust backend (axum/tokio)            - has its own AGENTS.md
                      incl. `src/office/`, live office editing (WOPI host, sessions, relay)
 apps/web/            Next.js frontend                     - has its own AGENTS.md
+apps/mobile/         Expo app (iOS, Android)              - has its own AGENTS.md
+packages/client/     API client shared by web and mobile  - has its own AGENTS.md
 packages/importer/   Export scripts + import adapters     - has its own AGENTS.md
 packages/design-system/  React components + design tokens - has its own AGENTS.md
 migrations/          Versioned SeaORM migrations (Rust crate `ruchoir-migration`)
@@ -217,6 +232,9 @@ terminates TLS for that instance, rather than exposing its port:
 - **Rust:** `cargo fmt --all --check`, `cargo clippy --all-targets --all-features -- -D warnings`,
   `cargo test --all-features` (run before every PR; CI enforces them).
 - **Web:** package manager `pnpm`; `pnpm --filter @ruchoir/web lint` and `... build`.
+- **Mobile:** `pnpm --filter @ruchoir/mobile typecheck`, `... lint`, `... test`, `... i18n:check`, and
+  `CI=1 pnpm --filter @ruchoir/mobile bundle:ios` to prove Metro bundles the app; the shared client's
+  tests with `pnpm --filter @ruchoir/client test`.
 - **Dependencies:** `scripts/check-deps.sh` for an outdated + security-audit sweep.
 - **Design adherence:** the design system ships an oxlint config
   (`packages/design-system/_adherence.oxlintrc.json`) - run it to enforce design-token usage.
@@ -228,8 +246,9 @@ terminates TLS for that instance, rather than exposing its port:
   It also serves the frontend's static bundle; there is a single production service.
 - The Rust API never trusts the client: every request is authenticated and authorized server-side.
 - **Auth:** fully owned by the Rust API. Passwords are argon2id; sessions are opaque server-side
-  records in Valkey delivered as `httpOnly`+`Secure`+`SameSite` cookies. The frontend holds no auth
-  secret. Define argon2id params, session lifetime and the WebAuthn flow before broad work.
+  records in Valkey delivered as `httpOnly`+`Secure`+`SameSite` cookies. The web frontend holds no
+  auth secret. A native app gets the same session as a bearer token (`session_delivery: "token"`),
+  refused to any request a browser sent (ADR 0005), and keeps it in the Keychain. Define argon2id params, session lifetime and the WebAuthn flow before broad work.
 - **Storage:** all file operations go through the S3 abstraction; the backend (Garage by default)
   is interchangeable and never hard-coded.
 - **Fonts:** self-host IBM Plex Sans/Mono (OFL) via local `@font-face`. Never depend on Google Fonts.

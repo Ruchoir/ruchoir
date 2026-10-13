@@ -92,6 +92,24 @@ the sign-up endpoint enforces, so the first account is not the weakest one on th
 
 Everyone else joins through an invitation from inside the app; there is no second bootstrap.
 
+## The mobile app (Expo)
+
+The app is `apps/mobile` (ADR 0005). It talks to any instance, so it runs against a development
+instance like the web does; nothing of Expo's hosted services is used.
+
+1. Install Expo Go on the phone (App Store or Play Store). No Expo account.
+2. Give the app a default server for development, in `apps/mobile/.env.local` (never committed):
+   `EXPO_PUBLIC_DEFAULT_SERVER=https://your-dev-instance`. The instance must run an API with native
+   sessions (`GET /api/v1/instance` answers `"native_sessions": true`).
+3. Start Metro: `cd apps/mobile && pnpm start` (telemetry off). On the same network, scan the QR
+   code with the camera. To reach Metro from anywhere, put it behind a reverse proxy with TLS and
+   start it with `EXPO_OFFLINE=1 EXPO_PACKAGER_PROXY_URL=https://your-metro-host npx expo start
+   --localhost`; then open `exps://your-metro-host` in Expo Go. Refuse the debugging endpoints at the
+   proxy (`/inspector`, `/json`, `/debugger-frontend`, `/open-debugger`, `/open-stack-frame`,
+   `/open-url`, `/_expo/debugger`, `/events`): Expo Go does not need them.
+4. Checks: `pnpm --filter @ruchoir/mobile typecheck`, `lint`, `test`, `i18n:check`, and
+   `CI=1 pnpm --filter @ruchoir/mobile bundle:ios`, which bundles the app without a phone.
+
 ## Quality gates
 
 ```bash

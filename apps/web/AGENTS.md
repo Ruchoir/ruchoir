@@ -81,11 +81,16 @@ scripting.
 
 ## Data seam (real API)
 
-Screens read domain data only through the seam in `lib/data`. Two layers back it:
-- `lib/data/http.ts` is the one sovereign fetch client: same-origin, relative paths, the session
+Screens read domain data only through the seam in `lib/data`. Since 2026-10-13 the client itself is
+the workspace package `@ruchoir/client` (`packages/client`), shared with the mobile app; `lib/data`
+re-exports it at the paths screens have always imported (`api`, `http`, `types`, `calendar`, and
+`lib/fileType`), and `lib/data/api.ts` only reports the locale and adds the WebAuthn calls
+(`passkeys.ts`), which need the browser. Two layers back it:
+- `http.ts` is the one sovereign fetch client: same-origin, relative paths, the session
   cookie sent automatically, and a typed `ApiError` carrying the HTTP status. The strict CSP
-  (`connect-src 'self'`) forbids any cross-origin call, so every path is API-relative.
-- `lib/data/api.ts` maps the Rust DTOs (snake_case, UUIDs, RFC 3339, raw byte sizes) to the front
+  (`connect-src 'self'`) forbids any cross-origin call, so every path is API-relative (the mobile
+  app configures an origin and a bearer instead; the web never does).
+- `api.ts` maps the Rust DTOs (snake_case, UUIDs, RFC 3339, raw byte sizes) to the front
   shapes in `lib/data/types.ts`. It backs auth/session, the space bootstrap
   (`/me/spaces` -> channels/DMs/members/presence/profiles/files), the message operations, files,
   search, the notification feed and the realtime channel (`connectRealtime`).
