@@ -306,5 +306,56 @@
     "title": "Thread",
     "in": "in {{name}}",
     "noReplies": "No replies yet"
+  },
+  "newMessage": {
+    "title": "New message",
+    "person": "Write to a person",
+    "personHint": "Private conversation",
+    "group": "Create a group",
+    "groupHint": "For a team or a project",
+    "invite": "Invite someone",
+    "inviteHint": "By e-mail or link"
+  },
+  "people": {
+    "title": "Write to…",
+    "search": "Search for a person",
+    "none": "Nobody matches",
+    "write": "Write",
+    "writeTo": "Write to {{name}}",
+    "failed": "The conversation could not be opened.",
+    "writeGroup_one": "Write to {{count}} person",
+    "writeGroup_other": "Write to {{count}} people"
+  },
+  "group": {
+    "name": "Group name",
+    "namePlaceholder": "Client projects",
+    "handle": "It will be called {{handle}}",
+    "taken": "A channel already has this name.",
+    "topic": "Topic (optional)",
+    "topicPlaceholder": "What is this group for?",
+    "access": "Who can join",
+    "open": "The whole space",
+    "openHint": "Anyone can find and join it.",
+    "private": "By invitation",
+    "privateHint": "Only the people added see it.",
+    "members": "People to add",
+    "create": "Create",
+    "failed": "The group could not be created.",
+    "membersFailed": "The group is created, but some people could not be added."
+  },
+  "invite": {
+    "member": "Member",
+    "guest": "Guest",
+    "memberHint": "A member sees every open channel of the space.",
+    "guestHint": "A guest sees only the channels they are added to.",
+    "send": "Send the invitation",
+    "sent": "Invitation sent to {{email}}",
+    "notEmailed": "The e-mail could not go out. Share this link instead.",
+    "or": "or",
+    "link": "Share a link",
+    "linkHint": "Anyone with the link can join the space.",
+    "shareMessage": "Join the space {{space}} on Ruchoir: {{url}}",
+    "failed": "The invitation could not be created.",
+    "invalidEmail": "This address does not look valid."
   }
 }

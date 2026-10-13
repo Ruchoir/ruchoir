@@ -21,6 +21,7 @@ import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
+import { NewMessageButton } from "./NewMessageButton";
 
 const FILTERS = [
   { key: "all", label: key("discussions.filterAll") },
@@ -106,7 +107,10 @@ export function DiscussionsScreen() {
             }
           />
         )}
+        // Room under the last row for the floating button.
+        contentContainerStyle={styles.list}
       />
+      <NewMessageButton onPress={() => navigation.navigate("newMessage")} />
     </TabScreen>
   );
 }
@@ -161,6 +165,7 @@ export function ConversationRow({ item, onPress }: { item: ConversationItem; onP
 }
 
 const styles = StyleSheet.create({
+  list: { paddingBottom: 88 },
   top: { gap: 12, paddingBottom: 8 },
   row: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingVertical: 10, alignItems: "flex-start" },
   single: { alignItems: "center" },

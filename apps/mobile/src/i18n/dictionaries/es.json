@@ -314,5 +314,57 @@
     "title": "Hilo",
     "in": "en {{name}}",
     "noReplies": "Todavía no hay respuestas"
+  },
+  "newMessage": {
+    "title": "Nuevo mensaje",
+    "person": "Escribir a una persona",
+    "personHint": "Conversación privada",
+    "group": "Crear un grupo",
+    "groupHint": "Para un equipo o un proyecto",
+    "invite": "Invitar a alguien",
+    "inviteHint": "Por correo o enlace"
+  },
+  "people": {
+    "title": "Escribir a…",
+    "search": "Buscar a una persona",
+    "none": "Nadie coincide",
+    "write": "Escribir",
+    "writeTo": "Escribir a {{name}}",
+    "failed": "No se ha podido abrir la conversación.",
+    "writeGroup_one": "Escribir a {{count}} persona",
+    "writeGroup_other": "Escribir a {{count}} personas",
+    "writeGroup_many": "Escribir a {{count}} personas"
+  },
+  "group": {
+    "name": "Nombre del grupo",
+    "namePlaceholder": "Proyectos de clientes",
+    "handle": "Se llamará {{handle}}",
+    "taken": "Ya hay un canal con este nombre.",
+    "topic": "Tema (opcional)",
+    "topicPlaceholder": "¿Para qué sirve este grupo?",
+    "access": "Quién puede unirse",
+    "open": "Todo el espacio",
+    "openHint": "Cualquiera puede encontrarlo y unirse.",
+    "private": "Por invitación",
+    "privateHint": "Solo lo ven las personas añadidas.",
+    "members": "Personas que añadir",
+    "create": "Crear",
+    "failed": "No se ha podido crear el grupo.",
+    "membersFailed": "El grupo se ha creado, pero no se ha podido añadir a algunas personas."
+  },
+  "invite": {
+    "member": "Miembro",
+    "guest": "Invitado",
+    "memberHint": "Un miembro ve todos los canales abiertos del espacio.",
+    "guestHint": "Un invitado solo ve los canales a los que se le añade.",
+    "send": "Enviar la invitación",
+    "sent": "Invitación enviada a {{email}}",
+    "notEmailed": "No se pudo enviar el correo. Comparta este enlace en su lugar.",
+    "or": "o",
+    "link": "Compartir un enlace",
+    "linkHint": "Cualquiera que tenga el enlace puede unirse al espacio.",
+    "shareMessage": "Únase al espacio {{space}} en Ruchoir: {{url}}",
+    "failed": "No se ha podido crear la invitación.",
+    "invalidEmail": "Esta dirección no parece válida."
   }
 }

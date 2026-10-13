@@ -306,5 +306,56 @@
     "title": "Thread",
     "in": "in {{name}}",
     "noReplies": "Noch keine Antworten"
+  },
+  "newMessage": {
+    "title": "Neue Nachricht",
+    "person": "Einer Person schreiben",
+    "personHint": "Private Unterhaltung",
+    "group": "Gruppe erstellen",
+    "groupHint": "Für ein Team oder ein Projekt",
+    "invite": "Jemanden einladen",
+    "inviteHint": "Per E-Mail oder Link"
+  },
+  "people": {
+    "title": "Schreiben an…",
+    "search": "Person suchen",
+    "none": "Niemand passt",
+    "write": "Schreiben",
+    "writeTo": "{{name}} schreiben",
+    "failed": "Die Unterhaltung konnte nicht geöffnet werden.",
+    "writeGroup_one": "{{count}} Person schreiben",
+    "writeGroup_other": "{{count}} Personen schreiben"
+  },
+  "group": {
+    "name": "Name der Gruppe",
+    "namePlaceholder": "Kundenprojekte",
+    "handle": "Sie heißt dann {{handle}}",
+    "taken": "Ein Kanal trägt diesen Namen bereits.",
+    "topic": "Thema (optional)",
+    "topicPlaceholder": "Wofür ist diese Gruppe da?",
+    "access": "Wer beitreten kann",
+    "open": "Der ganze Bereich",
+    "openHint": "Alle können ihn finden und beitreten.",
+    "private": "Auf Einladung",
+    "privateHint": "Nur hinzugefügte Personen sehen ihn.",
+    "members": "Personen hinzufügen",
+    "create": "Erstellen",
+    "failed": "Die Gruppe konnte nicht erstellt werden.",
+    "membersFailed": "Die Gruppe ist erstellt, aber einige Personen konnten nicht hinzugefügt werden."
+  },
+  "invite": {
+    "member": "Mitglied",
+    "guest": "Gast",
+    "memberHint": "Ein Mitglied sieht alle offenen Kanäle des Bereichs.",
+    "guestHint": "Ein Gast sieht nur die Kanäle, zu denen er hinzugefügt wird.",
+    "send": "Einladung senden",
+    "sent": "Einladung an {{email}} gesendet",
+    "notEmailed": "Die E-Mail konnte nicht gesendet werden. Teilen Sie stattdessen diesen Link.",
+    "or": "oder",
+    "link": "Link teilen",
+    "linkHint": "Alle mit dem Link können dem Bereich beitreten.",
+    "shareMessage": "Treten Sie dem Bereich {{space}} auf Ruchoir bei: {{url}}",
+    "failed": "Die Einladung konnte nicht erstellt werden.",
+    "invalidEmail": "Diese Adresse scheint ungültig zu sein."
   }
 }

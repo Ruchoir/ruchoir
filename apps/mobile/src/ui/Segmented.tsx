@@ -1,14 +1,24 @@
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { hairline, radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
 import { Text } from "./Text";
 
 /** A segmented control (mockups 15 to 17): a sunken track, the chosen part raised in the accent. */
-export function Segmented<K extends string>({ options, value, onChange }: { options: { key: K; label: string }[]; value: K; onChange: (key: K) => void }) {
+export function Segmented<K extends string>({
+  options,
+  value,
+  onChange,
+  style,
+}: {
+  options: { key: K; label: string }[];
+  value: K;
+  onChange: (key: K) => void;
+  style?: StyleProp<ViewStyle>;
+}) {
   const { c, s } = useTheme();
   return (
-    <View style={[styles.track, { backgroundColor: s.sunken }]}>
+    <View style={[styles.track, { backgroundColor: s.sunken }, style]}>
       {options.map(({ key, label }) => {
         const on = key === value;
         return (

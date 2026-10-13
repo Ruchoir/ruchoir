@@ -306,5 +306,56 @@
     "title": "Fil de discussion",
     "in": "dans {{name}}",
     "noReplies": "Pas encore de réponse"
+  },
+  "newMessage": {
+    "title": "Nouveau message",
+    "person": "Écrire à une personne",
+    "personHint": "Conversation privée",
+    "group": "Créer un groupe",
+    "groupHint": "Pour une équipe ou un projet",
+    "invite": "Inviter quelqu’un",
+    "inviteHint": "Par e-mail ou lien"
+  },
+  "people": {
+    "title": "Écrire à…",
+    "search": "Rechercher une personne",
+    "none": "Personne ne correspond",
+    "write": "Écrire",
+    "writeTo": "Écrire à {{name}}",
+    "failed": "La conversation n’a pas pu s’ouvrir.",
+    "writeGroup_one": "Écrire à {{count}} personne",
+    "writeGroup_other": "Écrire à {{count}} personnes"
+  },
+  "group": {
+    "name": "Nom du groupe",
+    "namePlaceholder": "Projets clients",
+    "handle": "Il s’appellera {{handle}}",
+    "taken": "Un canal porte déjà ce nom.",
+    "topic": "Sujet (facultatif)",
+    "topicPlaceholder": "À quoi sert ce groupe ?",
+    "access": "Qui peut le rejoindre",
+    "open": "Tout l’espace",
+    "openHint": "Chacun peut le trouver et le rejoindre.",
+    "private": "Sur invitation",
+    "privateHint": "Seules les personnes ajoutées le voient.",
+    "members": "Personnes à ajouter",
+    "create": "Créer",
+    "failed": "Le groupe n’a pas pu être créé.",
+    "membersFailed": "Le groupe est créé, mais certaines personnes n’ont pas pu être ajoutées."
+  },
+  "invite": {
+    "member": "Membre",
+    "guest": "Invité",
+    "memberHint": "Un membre voit tous les canaux ouverts de l’espace.",
+    "guestHint": "Un invité ne voit que les canaux où on l’ajoute.",
+    "send": "Envoyer l’invitation",
+    "sent": "Invitation envoyée à {{email}}",
+    "notEmailed": "L’e-mail n’a pas pu partir. Partagez plutôt ce lien.",
+    "or": "ou",
+    "link": "Partager un lien",
+    "linkHint": "Toute personne qui a le lien peut rejoindre l’espace.",
+    "shareMessage": "Rejoignez l’espace {{space}} sur Ruchoir : {{url}}",
+    "failed": "L’invitation n’a pas pu être créée.",
+    "invalidEmail": "Cette adresse ne semble pas valide."
   }
 }

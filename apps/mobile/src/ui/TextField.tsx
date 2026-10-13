@@ -15,10 +15,11 @@ import { Text } from "./Text";
 export function TextField({
   label,
   hint,
+  error,
   secret,
   ...input
-}: TextInputProps & { label: string; hint?: string; secret?: boolean }) {
-  const { c } = useTheme();
+}: TextInputProps & { label: string; hint?: string; error?: string; secret?: boolean }) {
+  const { c, s } = useTheme();
   const { t } = useTranslation();
   const [shown, setShown] = useState(false);
   const Icon = shown ? EyeOff : Eye;
@@ -33,7 +34,7 @@ export function TextField({
           secureTextEntry={secret && !shown}
           style={[
             styles.input,
-            { borderColor: c.controlLine, backgroundColor: c.surface, color: c.ink },
+            { borderColor: error ? s.danger : c.controlLine, backgroundColor: c.surface, color: c.ink },
             secret && styles.withEye,
           ]}
         />
@@ -48,7 +49,11 @@ export function TextField({
           </Pressable>
         )}
       </View>
-      {hint ? (
+      {error ? (
+        <Text variant="tiny" tone="danger" accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      ) : hint ? (
         <Text variant="tiny" tone="muted">
           {hint}
         </Text>

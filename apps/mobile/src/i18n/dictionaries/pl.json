@@ -322,5 +322,58 @@
     "title": "Wątek",
     "in": "w {{name}}",
     "noReplies": "Brak odpowiedzi"
+  },
+  "newMessage": {
+    "title": "Nowa wiadomość",
+    "person": "Napisz do osoby",
+    "personHint": "Prywatna rozmowa",
+    "group": "Utwórz grupę",
+    "groupHint": "Dla zespołu lub projektu",
+    "invite": "Zaproś kogoś",
+    "inviteHint": "E-mailem lub linkiem"
+  },
+  "people": {
+    "title": "Napisz do…",
+    "search": "Szukaj osoby",
+    "none": "Nikt nie pasuje",
+    "write": "Napisz",
+    "writeTo": "Napisz do {{name}}",
+    "failed": "Nie udało się otworzyć rozmowy.",
+    "writeGroup_one": "Napisz do {{count}} osoby",
+    "writeGroup_other": "Napisz do {{count}} osoby",
+    "writeGroup_few": "Napisz do {{count}} osób",
+    "writeGroup_many": "Napisz do {{count}} osób"
+  },
+  "group": {
+    "name": "Nazwa grupy",
+    "namePlaceholder": "Projekty klientów",
+    "handle": "Będzie się nazywać {{handle}}",
+    "taken": "Kanał o tej nazwie już istnieje.",
+    "topic": "Temat (opcjonalnie)",
+    "topicPlaceholder": "Do czego służy ta grupa?",
+    "access": "Kto może dołączyć",
+    "open": "Cała przestrzeń",
+    "openHint": "Każdy może go znaleźć i dołączyć.",
+    "private": "Na zaproszenie",
+    "privateHint": "Widzą go tylko dodane osoby.",
+    "members": "Osoby do dodania",
+    "create": "Utwórz",
+    "failed": "Nie udało się utworzyć grupy.",
+    "membersFailed": "Grupa została utworzona, ale nie udało się dodać niektórych osób."
+  },
+  "invite": {
+    "member": "Członek",
+    "guest": "Gość",
+    "memberHint": "Członek widzi wszystkie otwarte kanały przestrzeni.",
+    "guestHint": "Gość widzi tylko kanały, do których zostanie dodany.",
+    "send": "Wyślij zaproszenie",
+    "sent": "Wysłano zaproszenie do {{email}}",
+    "notEmailed": "Nie udało się wysłać e-maila. Udostępnij zamiast tego ten link.",
+    "or": "lub",
+    "link": "Udostępnij link",
+    "linkHint": "Każdy, kto ma link, może dołączyć do przestrzeni.",
+    "shareMessage": "Dołącz do przestrzeni {{space}} w Ruchoir: {{url}}",
+    "failed": "Nie udało się utworzyć zaproszenia.",
+    "invalidEmail": "Ten adres wygląda na nieprawidłowy."
   }
 }

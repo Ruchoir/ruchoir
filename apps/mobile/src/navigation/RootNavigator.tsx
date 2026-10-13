@@ -5,7 +5,11 @@ import { AttachSheet } from "../compose/AttachSheet";
 import { AccountSheet } from "../screens/account/AccountSheet";
 import { ConversationScreen } from "../screens/discussions/ConversationScreen";
 import { EmojiPickerSheet } from "../screens/discussions/EmojiPickerSheet";
+import { InviteScreen } from "../screens/discussions/InviteScreen";
 import { MessageActionSheet } from "../screens/discussions/MessageActionSheet";
+import { NewConversationScreen } from "../screens/discussions/NewConversationScreen";
+import { NewGroupScreen } from "../screens/discussions/NewGroupScreen";
+import { NewMessageSheet } from "../screens/discussions/NewMessageSheet";
 import { SpaceFilePicker } from "../screens/discussions/SpaceFilePicker";
 import { ThreadScreen } from "../screens/discussions/ThreadScreen";
 import { EventSummarySheet } from "../screens/agenda/EventSummarySheet";
@@ -50,6 +54,10 @@ export function RootNavigator() {
         <Stack.Screen name="emojiPicker" component={EmojiPickerSheet} options={{ ...sheet, sheetAllowedDetents: [0.7, 1] }} />
         <Stack.Screen name="attachSheet" component={AttachSheet} options={sheet} />
         <Stack.Screen name="spaceFilePicker" component={SpaceFilePicker} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
+        <Stack.Screen name="newMessage" component={NewMessageSheet} options={sheet} />
+        <Stack.Screen name="newConversation" component={NewConversationScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="newGroup" component={NewGroupScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="invite" component={InviteScreen} options={{ presentation: "modal" }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

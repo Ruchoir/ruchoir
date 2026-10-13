@@ -42,6 +42,11 @@ export type RootParams = {
     inThread?: boolean;
     message: ApiMessage;
   };
+  /** "New message" and what it leads to: a conversation with people, a group, an invitation. */
+  newMessage: undefined;
+  newConversation: undefined;
+  newGroup: undefined;
+  invite: undefined;
   /** A thread: its root message, in its conversation. */
   thread: { conversationId: string; channelId?: string; rootId: string; title: string; root?: ApiMessage };
   emojiPicker: { conversationId: string; message: ApiMessage };
