@@ -2,7 +2,7 @@
 # and deploys it. Nothing else builds or deploys: merging to main runs the checks in ci.yml only.
 #
 # The server never builds and holds no source: it receives the image from the registry and, from
-# here, a small bundle (docker-compose.yml, the office editor's mounted files, the backup and restore
+# here, a small bundle (docker-compose.yml, Garage's and the office editor's mounted files, the backup and restore
 # scripts) through the `deploy` account, whose key can run infra/deploy/ruchoir-deploy and nothing
 # else. See docs/deployment.md, "Releasing".
 #
@@ -67,7 +67,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Bundle what the server needs besides the image
-        run: tar -czf bundle.tar.gz docker-compose.yml infra/office infra/deploy scripts/backup.sh scripts/restore.sh
+        run: tar -czf bundle.tar.gz docker-compose.yml infra/garage infra/office infra/deploy scripts/backup.sh scripts/restore.sh
 
       - name: Deploy through the deploy account
         env:

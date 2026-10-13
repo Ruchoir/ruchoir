@@ -8,7 +8,7 @@
 #   ssh deploy@<server> v1.2.3 < bundle.tar.gz
 #
 # The bundle is what a release needs on the server besides its image and .env: docker-compose.yml,
-# the office editor's mounted files, and the backup and restore scripts. No source code travels.
+# Garage's configuration, the office editor's mounted files, and the backup and restore scripts. No source code travels.
 #
 # Steps: check the version, unpack the bundle into a staging directory and check what it holds,
 # take a backup (the API paused a moment), install the bundle's files, point .env at the release's
@@ -45,9 +45,9 @@ trap 'rm -rf "$work"' EXIT
 head -c "$((MAX_BUNDLE_BYTES + 1))" > "$work/bundle.tar.gz"
 [ "$(stat -c %s "$work/bundle.tar.gz")" -le "$MAX_BUNDLE_BYTES" ] || { echo "bundle too large" >&2; exit 1; }
 tar -tzf "$work/bundle.tar.gz" > "$work/list"
-if grep -vE '^(\./)?(docker-compose\.yml|infra/(office|deploy)(/[A-Za-z0-9._/-]*)?|scripts/(backup|restore)\.sh|scripts/?)$' "$work/list" | grep -q .; then
+if grep -vE '^(\./)?(docker-compose\.yml|infra/(garage|office|deploy)(/[A-Za-z0-9._/-]*)?|scripts/(backup|restore)\.sh|scripts/?)$' "$work/list" | grep -q .; then
   echo "the bundle holds files a release may not place:" >&2
-  grep -vE '^(\./)?(docker-compose\.yml|infra/(office|deploy)(/[A-Za-z0-9._/-]*)?|scripts/(backup|restore)\.sh|scripts/?)$' "$work/list" >&2
+  grep -vE '^(\./)?(docker-compose\.yml|infra/(garage|office|deploy)(/[A-Za-z0-9._/-]*)?|scripts/(backup|restore)\.sh|scripts/?)$' "$work/list" >&2
   exit 1
 fi
 if grep -qE '(^|/)\.\.(/|$)' "$work/list"; then echo "path escapes the bundle" >&2; exit 1; fi
@@ -73,7 +73,7 @@ scripts/backup.sh
 
 echo "installing the release's files"
 install -m 0644 "$work/stage/docker-compose.yml" docker-compose.yml
-for dir in infra/office infra/deploy; do
+for dir in infra/garage infra/office infra/deploy; do
   if [ -d "$work/stage/$dir" ]; then
     mkdir -p "$dir"
     cp -R "$work/stage/$dir/." "$dir/"
