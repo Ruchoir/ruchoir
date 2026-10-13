@@ -375,5 +375,30 @@
     "shareMessage": "Dołącz do przestrzeni {{space}} w Ruchoir: {{url}}",
     "failed": "Nie udało się utworzyć zaproszenia.",
     "invalidEmail": "Ten adres wygląda na nieprawidłowy."
+  },
+  "details": {
+    "title": "Szczegóły",
+    "open": "Szczegóły rozmowy",
+    "notifications": "Powiadomienia",
+    "levelDefault": "Domyślnie",
+    "levelDefaultHint": "Jak ustawiono dla przestrzeni",
+    "levelAll": "Wszystkie wiadomości",
+    "levelAllHint": "Każda nowa wiadomość",
+    "levelMentions": "Tylko wzmianki",
+    "levelMentionsHint": "Gdy ktoś Cię wspomni",
+    "levelNone": "Nic",
+    "levelNoneHint": "Brak powiadomień",
+    "mute": "Wycisz",
+    "muteHint": "Żadnych powiadomień z tej rozmowy",
+    "pinned": "Przypięte wiadomości",
+    "noPinned": "Brak przypiętych wiadomości",
+    "members": "Członkowie",
+    "roleOwner": "Właściciel",
+    "roleAdmin": "Administrator",
+    "saveFailed": "Nie zapisano ustawienia",
+    "membersCount_one": "{{count}} członek",
+    "membersCount_other": "{{count}} członka",
+    "membersCount_few": "{{count}} członkowie",
+    "membersCount_many": "{{count}} członków"
   }
 }

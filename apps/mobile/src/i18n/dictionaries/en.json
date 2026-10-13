@@ -357,5 +357,28 @@
     "shareMessage": "Join the space {{space}} on Ruchoir: {{url}}",
     "failed": "The invitation could not be created.",
     "invalidEmail": "This address does not look valid."
+  },
+  "details": {
+    "title": "Details",
+    "open": "Conversation details",
+    "notifications": "Notifications",
+    "levelDefault": "Default",
+    "levelDefaultHint": "As set for the space",
+    "levelAll": "All messages",
+    "levelAllHint": "Every new message",
+    "levelMentions": "Mentions only",
+    "levelMentionsHint": "When you are mentioned",
+    "levelNone": "Nothing",
+    "levelNoneHint": "No notifications",
+    "mute": "Mute",
+    "muteHint": "No more notifications from this conversation",
+    "pinned": "Pinned messages",
+    "noPinned": "No pinned messages",
+    "members": "Members",
+    "roleOwner": "Owner",
+    "roleAdmin": "Admin",
+    "saveFailed": "Setting not saved",
+    "membersCount_one": "{{count}} member",
+    "membersCount_other": "{{count}} members"
   }
 }

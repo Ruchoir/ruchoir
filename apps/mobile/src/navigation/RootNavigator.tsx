@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { AttachSheet } from "../compose/AttachSheet";
 import { AccountSheet } from "../screens/account/AccountSheet";
+import { ConversationDetails } from "../screens/discussions/ConversationDetails";
 import { ConversationScreen } from "../screens/discussions/ConversationScreen";
 import { EmojiPickerSheet } from "../screens/discussions/EmojiPickerSheet";
 import { InviteScreen } from "../screens/discussions/InviteScreen";
@@ -45,6 +46,7 @@ export function RootNavigator() {
         <Stack.Screen name="tabs" component={Tabs} />
         <Stack.Screen name="conversation" component={ConversationScreen} />
         <Stack.Screen name="thread" component={ThreadScreen} />
+        <Stack.Screen name="conversationDetails" component={ConversationDetails} />
         <Stack.Screen name="folder" component={FolderScreen} />
         <Stack.Screen name="fileViewer" component={FileViewerScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="eventSummary" component={EventSummarySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />

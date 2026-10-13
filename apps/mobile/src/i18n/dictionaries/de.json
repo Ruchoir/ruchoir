@@ -357,5 +357,28 @@
     "shareMessage": "Treten Sie dem Bereich {{space}} auf Ruchoir bei: {{url}}",
     "failed": "Die Einladung konnte nicht erstellt werden.",
     "invalidEmail": "Diese Adresse scheint ungültig zu sein."
+  },
+  "details": {
+    "title": "Details",
+    "open": "Details der Unterhaltung",
+    "notifications": "Benachrichtigungen",
+    "levelDefault": "Standard",
+    "levelDefaultHint": "Wie für den Bereich eingestellt",
+    "levelAll": "Alle Nachrichten",
+    "levelAllHint": "Jede neue Nachricht",
+    "levelMentions": "Nur Erwähnungen",
+    "levelMentionsHint": "Wenn Sie erwähnt werden",
+    "levelNone": "Nichts",
+    "levelNoneHint": "Keine Benachrichtigungen",
+    "mute": "Stummschalten",
+    "muteHint": "Keine Benachrichtigungen mehr aus dieser Unterhaltung",
+    "pinned": "Angeheftete Nachrichten",
+    "noPinned": "Keine angehefteten Nachrichten",
+    "members": "Mitglieder",
+    "roleOwner": "Eigentümer",
+    "roleAdmin": "Administrator",
+    "saveFailed": "Einstellung nicht gespeichert",
+    "membersCount_one": "{{count}} Mitglied",
+    "membersCount_other": "{{count}} Mitglieder"
   }
 }

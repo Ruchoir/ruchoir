@@ -9,7 +9,7 @@ import {
   type Channel,
 } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { Archive, ArrowDown, CalendarDays, Check, FileText, MessageSquare } from "lucide-react-native";
+import { Archive, ArrowDown, CalendarDays, Check, FileText, Info, MessageSquare } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -89,12 +89,27 @@ export function ConversationScreen() {
   const subtitle = channelMembers.data ? t("conversation.people", { count: channelMembers.data.length }) : undefined;
   const channels = useLoad(current ? `channels:${current.id}` : null, (signal) => getChannels(current!.id, signal));
   const channel = params.channelId ? channels.data?.find((ch) => ch.id === params.channelId) : undefined;
+  const navigation = useNavigation();
+  const openDetails = () =>
+    navigation.navigate("conversationDetails", { conversationId: params.conversationId, channelId: params.channelId, title: params.title });
 
   return (
     <SafeAreaView edges={["top"]} style={styles.fill}>
       <BackHeader
         title={params.title}
         subtitle={subtitle}
+        onPressTitle={openDetails}
+        trailing={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("details.open")}
+            hitSlop={6}
+            onPress={openDetails}
+            style={({ pressed }) => [styles.info, pressed && { opacity: 0.6 }]}
+          >
+            <Info size={24} color={c.ink} />
+          </Pressable>
+        }
         leading={<Avatar name={params.title} kind={params.channelId ? "workspace" : "person"} src={params.channelId ? undefined : members.avatarOf(params.title)} size={36} />}
       />
       <View style={[styles.tabs, { borderBottomColor: c.line }]}>
@@ -405,6 +420,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  info: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   tabs: { paddingBottom: 8, borderBottomWidth: hairline },
   more: { padding: 16 },
   day: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },

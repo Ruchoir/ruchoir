@@ -357,5 +357,28 @@
     "shareMessage": "Rejoignez l’espace {{space}} sur Ruchoir : {{url}}",
     "failed": "L’invitation n’a pas pu être créée.",
     "invalidEmail": "Cette adresse ne semble pas valide."
+  },
+  "details": {
+    "title": "Détails",
+    "open": "Détails de la conversation",
+    "notifications": "Notifications",
+    "levelDefault": "Par défaut",
+    "levelDefaultHint": "Comme réglé pour l’espace",
+    "levelAll": "Tous les messages",
+    "levelAllHint": "Chaque nouveau message",
+    "levelMentions": "Mentions seulement",
+    "levelMentionsHint": "Quand on vous mentionne",
+    "levelNone": "Rien",
+    "levelNoneHint": "Aucune notification",
+    "mute": "Mettre en sourdine",
+    "muteHint": "Plus aucune notification de cette conversation",
+    "pinned": "Messages épinglés",
+    "noPinned": "Aucun message épinglé",
+    "members": "Membres",
+    "roleOwner": "Propriétaire",
+    "roleAdmin": "Administrateur",
+    "saveFailed": "Réglage non enregistré",
+    "membersCount_one": "{{count}} membre",
+    "membersCount_other": "{{count}} membres"
   }
 }

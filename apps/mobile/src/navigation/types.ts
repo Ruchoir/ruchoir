@@ -47,6 +47,8 @@ export type RootParams = {
   newConversation: undefined;
   newGroup: undefined;
   invite: undefined;
+  /** A conversation's details: its topic, my notifications, its pinned messages, its people. */
+  conversationDetails: { conversationId: string; channelId?: string; title: string };
   /** A thread: its root message, in its conversation. */
   thread: { conversationId: string; channelId?: string; rootId: string; title: string; root?: ApiMessage };
   emojiPicker: { conversationId: string; message: ApiMessage };
