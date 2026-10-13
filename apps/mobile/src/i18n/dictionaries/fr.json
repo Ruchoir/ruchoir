@@ -1,5 +1,58 @@
 {
-  "app": {
-    "loading": "Chargement…"
+  "field": {
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe"
+  },
+  "signIn": {
+    "submit": "Se connecter",
+    "server": "Serveur",
+    "change": "Changer",
+    "serverField": "Adresse du serveur de votre organisation",
+    "serverPlaceholder": "ruchoir.mon-entreprise.fr",
+    "serverHint": "Votre service informatique vous l’a communiquée.",
+    "email": "Adresse e-mail",
+    "emailPlaceholder": "vous@exemple.fr",
+    "password": "Mot de passe",
+    "passwordPlaceholder": "Votre mot de passe",
+    "forgot": "Mot de passe oublié ?",
+    "noAccount": "Pas encore de compte ?",
+    "createAccount": "Créer un compte",
+    "expired": "Votre session a pris fin. Reconnectez-vous."
+  },
+  "auth": {
+    "error": {
+      "empty": "Indiquez l’adresse de votre serveur.",
+      "insecure": "Cette adresse n’est pas chiffrée (http). Ruchoir ne s’y connecte qu’en https.",
+      "invalid": "Cette adresse ne ressemble pas à celle d’un serveur.",
+      "unreachable": "Impossible de joindre le serveur. Vérifiez l’adresse et votre connexion.",
+      "notRuchoir": "Ce serveur ne semble pas être un serveur Ruchoir.",
+      "outdated": "Ce serveur Ruchoir doit être mis à jour pour accepter l’application.",
+      "invalidCredentials": "Adresse e-mail ou mot de passe incorrect.",
+      "tooManyAttempts": "Trop de tentatives. Réessayez dans quelques minutes.",
+      "emailNotVerified": "Confirmez d’abord votre adresse e-mail grâce au lien reçu.",
+      "accountLocked": "Ce compte est bloqué. Contactez l’administrateur de votre serveur.",
+      "invalidCode": "Code incorrect.",
+      "invalidToken": "La vérification a expiré. Reconnectez-vous.",
+      "passkeyOnly": "Ce compte se vérifie avec une clé d’accès, pas encore disponible dans l’application. Ajoutez une application d’authentification depuis le site web.",
+      "unknown": "Une erreur est survenue. Réessayez."
+    }
+  },
+  "mfa": {
+    "title": "Vérification en deux étapes",
+    "totpIntro": "Saisissez le code à 6 chiffres de votre application d’authentification.",
+    "totpField": "Code de vérification",
+    "recoveryIntro": "Saisissez l’un de vos codes de secours.",
+    "recoveryField": "Code de secours",
+    "submit": "Vérifier",
+    "useRecovery": "Utiliser un code de secours",
+    "useTotp": "Utiliser l’application d’authentification",
+    "back": "Revenir à la connexion"
+  },
+  "boot": {
+    "offline": "Impossible de joindre votre serveur pour l’instant.",
+    "retry": "Réessayer"
+  },
+  "account": {
+    "signOut": "Se déconnecter"
   }
 }

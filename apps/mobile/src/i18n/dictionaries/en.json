@@ -1,5 +1,58 @@
 {
-  "app": {
-    "loading": "Loading…"
+  "field": {
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
+  },
+  "signIn": {
+    "submit": "Sign in",
+    "server": "Server",
+    "change": "Change",
+    "serverField": "Your organisation's server address",
+    "serverPlaceholder": "ruchoir.my-company.com",
+    "serverHint": "Your IT team will have given it to you.",
+    "email": "Email address",
+    "emailPlaceholder": "you@example.com",
+    "password": "Password",
+    "passwordPlaceholder": "Your password",
+    "forgot": "Forgot your password?",
+    "noAccount": "No account yet?",
+    "createAccount": "Create an account",
+    "expired": "Your session has ended. Please sign in again."
+  },
+  "auth": {
+    "error": {
+      "empty": "Enter your server's address.",
+      "insecure": "This address is not encrypted (http). Ruchoir only connects over https.",
+      "invalid": "This does not look like a server address.",
+      "unreachable": "The server cannot be reached. Check the address and your connection.",
+      "notRuchoir": "This does not seem to be a Ruchoir server.",
+      "outdated": "This Ruchoir server needs an update before it accepts the app.",
+      "invalidCredentials": "Incorrect email address or password.",
+      "tooManyAttempts": "Too many attempts. Try again in a few minutes.",
+      "emailNotVerified": "Confirm your email address first, with the link you received.",
+      "accountLocked": "This account is locked. Contact your server's administrator.",
+      "invalidCode": "Incorrect code.",
+      "invalidToken": "The verification has expired. Sign in again.",
+      "passkeyOnly": "This account is verified with a passkey, which the app does not support yet. Add an authenticator app from the website.",
+      "unknown": "Something went wrong. Try again."
+    }
+  },
+  "mfa": {
+    "title": "Two-step verification",
+    "totpIntro": "Enter the 6-digit code from your authenticator app.",
+    "totpField": "Verification code",
+    "recoveryIntro": "Enter one of your recovery codes.",
+    "recoveryField": "Recovery code",
+    "submit": "Verify",
+    "useRecovery": "Use a recovery code",
+    "useTotp": "Use the authenticator app",
+    "back": "Back to sign-in"
+  },
+  "boot": {
+    "offline": "Your server cannot be reached right now.",
+    "retry": "Try again"
+  },
+  "account": {
+    "signOut": "Sign out"
   }
 }

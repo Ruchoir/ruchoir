@@ -113,8 +113,18 @@ export function semantic(p: Palette, dark: boolean) {
     selected: mix(p.acc, p.surface, 0.22),
     mention: mix(p.acc, p.bg, 0.12),
     accSoft: mix(p.acc, p.surface, 0.45),
+    /** `--surface-sunken` (`--grey-50`): the well a server row or a segmented control sits in. */
+    sunken: dark ? "#23262e" : "#eef0f3",
+    /** `--text-link`: the accent deepened towards the ink by day, the accent itself by night. */
+    link: dark ? p.acc : mix(p.acc, p.ink, 0.4),
+    disabledText: dark ? "#6b717d" : "#9aa1ad",
+    /** `--action-ghost-bg-active`. */
+    pressed: dark ? "#ffffff1c" : "#15171c1a",
     danger: dark ? p.peach : "#c2303f",
+    dangerBg: mix(p.peach, p.surface, dark ? 0.14 : 0.25),
     success: dark ? p.mint : p.mintInk,
+    successBg: mix(p.mint, p.surface, dark ? 0.14 : 0.18),
     shadow: dark ? "#000000" : p.ink,
+    scrim: dark ? "rgba(0,0,0,0.66)" : "rgba(21,23,28,0.45)",
   };
 }

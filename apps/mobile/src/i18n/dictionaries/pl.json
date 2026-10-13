@@ -1,5 +1,58 @@
 {
-  "app": {
-    "loading": "Wczytywanie…"
+  "field": {
+    "showPassword": "Pokaż hasło",
+    "hidePassword": "Ukryj hasło"
+  },
+  "signIn": {
+    "submit": "Zaloguj się",
+    "server": "Serwer",
+    "change": "Zmień",
+    "serverField": "Adres serwera Twojej organizacji",
+    "serverPlaceholder": "ruchoir.moja-firma.pl",
+    "serverHint": "Otrzymasz go od działu IT.",
+    "email": "Adres e-mail",
+    "emailPlaceholder": "ty@przyklad.pl",
+    "password": "Hasło",
+    "passwordPlaceholder": "Twoje hasło",
+    "forgot": "Nie pamiętasz hasła?",
+    "noAccount": "Nie masz jeszcze konta?",
+    "createAccount": "Utwórz konto",
+    "expired": "Sesja wygasła. Zaloguj się ponownie."
+  },
+  "auth": {
+    "error": {
+      "empty": "Podaj adres swojego serwera.",
+      "insecure": "Ten adres nie jest szyfrowany (http). Ruchoir łączy się wyłącznie przez https.",
+      "invalid": "To nie wygląda na adres serwera.",
+      "unreachable": "Nie można połączyć się z serwerem. Sprawdź adres i połączenie.",
+      "notRuchoir": "Ten serwer nie wygląda na serwer Ruchoir.",
+      "outdated": "Ten serwer Ruchoir wymaga aktualizacji, aby obsługiwać aplikację.",
+      "invalidCredentials": "Nieprawidłowy adres e-mail lub hasło.",
+      "tooManyAttempts": "Zbyt wiele prób. Spróbuj ponownie za kilka minut.",
+      "emailNotVerified": "Najpierw potwierdź adres e-mail, korzystając z otrzymanego linku.",
+      "accountLocked": "To konto jest zablokowane. Skontaktuj się z administratorem serwera.",
+      "invalidCode": "Nieprawidłowy kod.",
+      "invalidToken": "Weryfikacja wygasła. Zaloguj się ponownie.",
+      "passkeyOnly": "To konto weryfikuje się kluczem dostępu, którego aplikacja jeszcze nie obsługuje. Dodaj aplikację uwierzytelniającą na stronie internetowej.",
+      "unknown": "Wystąpił błąd. Spróbuj ponownie."
+    }
+  },
+  "mfa": {
+    "title": "Weryfikacja dwuetapowa",
+    "totpIntro": "Wpisz 6-cyfrowy kod z aplikacji uwierzytelniającej.",
+    "totpField": "Kod weryfikacyjny",
+    "recoveryIntro": "Wpisz jeden z kodów odzyskiwania.",
+    "recoveryField": "Kod odzyskiwania",
+    "submit": "Zweryfikuj",
+    "useRecovery": "Użyj kodu odzyskiwania",
+    "useTotp": "Użyj aplikacji uwierzytelniającej",
+    "back": "Wróć do logowania"
+  },
+  "boot": {
+    "offline": "W tej chwili nie można połączyć się z serwerem.",
+    "retry": "Spróbuj ponownie"
+  },
+  "account": {
+    "signOut": "Wyloguj się"
   }
 }

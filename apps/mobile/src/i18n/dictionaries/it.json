@@ -1,5 +1,58 @@
 {
-  "app": {
-    "loading": "Caricamento…"
+  "field": {
+    "showPassword": "Mostra la password",
+    "hidePassword": "Nascondi la password"
+  },
+  "signIn": {
+    "submit": "Accedi",
+    "server": "Server",
+    "change": "Cambia",
+    "serverField": "Indirizzo del server della vostra organizzazione",
+    "serverPlaceholder": "ruchoir.mia-azienda.it",
+    "serverHint": "Ve l’ha comunicato il vostro servizio informatico.",
+    "email": "Indirizzo e-mail",
+    "emailPlaceholder": "voi@esempio.it",
+    "password": "Password",
+    "passwordPlaceholder": "La vostra password",
+    "forgot": "Password dimenticata?",
+    "noAccount": "Non avete ancora un account?",
+    "createAccount": "Crea un account",
+    "expired": "La sessione è terminata. Accedete di nuovo."
+  },
+  "auth": {
+    "error": {
+      "empty": "Indicate l’indirizzo del vostro server.",
+      "insecure": "Questo indirizzo non è cifrato (http). Ruchoir si connette solo in https.",
+      "invalid": "Non sembra l’indirizzo di un server.",
+      "unreachable": "Impossibile raggiungere il server. Controllate l’indirizzo e la connessione.",
+      "notRuchoir": "Questo server non sembra un server Ruchoir.",
+      "outdated": "Questo server Ruchoir deve essere aggiornato per accettare l’app.",
+      "invalidCredentials": "Indirizzo e-mail o password errati.",
+      "tooManyAttempts": "Troppi tentativi. Riprovate tra qualche minuto.",
+      "emailNotVerified": "Confermate prima il vostro indirizzo e-mail con il link ricevuto.",
+      "accountLocked": "Questo account è bloccato. Contattate l’amministratore del vostro server.",
+      "invalidCode": "Codice errato.",
+      "invalidToken": "La verifica è scaduta. Accedete di nuovo.",
+      "passkeyOnly": "Questo account si verifica con una passkey, non ancora disponibile nell’app. Aggiungete un’app di autenticazione dal sito web.",
+      "unknown": "Si è verificato un errore. Riprovate."
+    }
+  },
+  "mfa": {
+    "title": "Verifica in due passaggi",
+    "totpIntro": "Inserite il codice a 6 cifre della vostra app di autenticazione.",
+    "totpField": "Codice di verifica",
+    "recoveryIntro": "Inserite uno dei vostri codici di recupero.",
+    "recoveryField": "Codice di recupero",
+    "submit": "Verifica",
+    "useRecovery": "Usa un codice di recupero",
+    "useTotp": "Usa l’app di autenticazione",
+    "back": "Torna all’accesso"
+  },
+  "boot": {
+    "offline": "Al momento il vostro server non è raggiungibile.",
+    "retry": "Riprova"
+  },
+  "account": {
+    "signOut": "Esci"
   }
 }

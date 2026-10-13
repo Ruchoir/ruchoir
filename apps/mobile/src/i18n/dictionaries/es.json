@@ -1,5 +1,58 @@
 {
-  "app": {
-    "loading": "Cargando…"
+  "field": {
+    "showPassword": "Mostrar la contraseña",
+    "hidePassword": "Ocultar la contraseña"
+  },
+  "signIn": {
+    "submit": "Iniciar sesión",
+    "server": "Servidor",
+    "change": "Cambiar",
+    "serverField": "Dirección del servidor de su organización",
+    "serverPlaceholder": "ruchoir.mi-empresa.es",
+    "serverHint": "Se la ha facilitado su servicio informático.",
+    "email": "Correo electrónico",
+    "emailPlaceholder": "usted@ejemplo.es",
+    "password": "Contraseña",
+    "passwordPlaceholder": "Su contraseña",
+    "forgot": "¿Ha olvidado la contraseña?",
+    "noAccount": "¿Aún no tiene cuenta?",
+    "createAccount": "Crear una cuenta",
+    "expired": "Su sesión ha terminado. Vuelva a iniciar sesión."
+  },
+  "auth": {
+    "error": {
+      "empty": "Indique la dirección de su servidor.",
+      "insecure": "Esta dirección no está cifrada (http). Ruchoir solo se conecta por https.",
+      "invalid": "Esto no parece la dirección de un servidor.",
+      "unreachable": "No se puede acceder al servidor. Compruebe la dirección y su conexión.",
+      "notRuchoir": "Este servidor no parece ser un servidor Ruchoir.",
+      "outdated": "Este servidor Ruchoir debe actualizarse para aceptar la aplicación.",
+      "invalidCredentials": "Correo electrónico o contraseña incorrectos.",
+      "tooManyAttempts": "Demasiados intentos. Vuelva a intentarlo en unos minutos.",
+      "emailNotVerified": "Confirme primero su correo electrónico con el enlace recibido.",
+      "accountLocked": "Esta cuenta está bloqueada. Contacte con el administrador de su servidor.",
+      "invalidCode": "Código incorrecto.",
+      "invalidToken": "La verificación ha caducado. Vuelva a iniciar sesión.",
+      "passkeyOnly": "Esta cuenta se verifica con una llave de acceso, aún no disponible en la aplicación. Añada una aplicación de autenticación desde el sitio web.",
+      "unknown": "Se ha producido un error. Vuelva a intentarlo."
+    }
+  },
+  "mfa": {
+    "title": "Verificación en dos pasos",
+    "totpIntro": "Introduzca el código de 6 cifras de su aplicación de autenticación.",
+    "totpField": "Código de verificación",
+    "recoveryIntro": "Introduzca uno de sus códigos de recuperación.",
+    "recoveryField": "Código de recuperación",
+    "submit": "Verificar",
+    "useRecovery": "Usar un código de recuperación",
+    "useTotp": "Usar la aplicación de autenticación",
+    "back": "Volver al inicio de sesión"
+  },
+  "boot": {
+    "offline": "Ahora mismo no se puede acceder a su servidor.",
+    "retry": "Reintentar"
+  },
+  "account": {
+    "signOut": "Cerrar sesión"
   }
 }

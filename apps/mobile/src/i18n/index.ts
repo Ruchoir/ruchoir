@@ -28,6 +28,14 @@ declare module "i18next" {
 export type Locale = "fr" | "en" | "es" | "de" | "it" | "pl";
 export type DictKey = ParseKeys;
 
+/**
+ * Name a key for a table to hold (a code's message, a tab's label). Written `key("…")` so the audit
+ * sees it as used, and checked against the dictionary like any `t("…")`.
+ */
+export function key<K extends DictKey>(name: K): K {
+  return name;
+}
+
 const resources: Record<Locale, { translation: Dictionary }> = {
   fr: { translation: fr },
   en: { translation: en satisfies Dictionary },
