@@ -168,7 +168,12 @@
     "you": "Ty: {{text}}",
     "by": "{{who}}: {{text}}",
     "group": "Grupa",
-    "emptyHint": "Obserwowane kanały i wiadomości prywatne pojawią się tutaj."
+    "emptyHint": "Obserwowane kanały i wiadomości prywatne pojawią się tutaj.",
+    "files": "Załącznik",
+    "groupOf_one": "Grupa · {{count}} osoba",
+    "groupOf_other": "Grupa · {{count}} osoby",
+    "groupOf_few": "Grupa · {{count}} osoby",
+    "groupOf_many": "Grupa · {{count}} osób"
   },
   "conversation": {
     "messages": "Wiadomości",
@@ -257,8 +262,6 @@
     "tryAnother": "Spróbuj innego słowa."
   },
   "compose": {
-    "placeholderChannel": "Napisz w #{{name}}…",
-    "placeholderPerson": "Napisz do {{name}}…",
     "send": "Wyślij",
     "save": "Zapisz",
     "add": "Dodaj do wiadomości",
@@ -281,7 +284,8 @@
     "editFailed": "Nie zapisano zmiany",
     "editFailedText": "Wiadomość zachowuje poprzednią treść. Możesz spróbować ponownie.",
     "ok": "OK",
-    "placeholderThread": "Odpowiedz w wątku…"
+    "placeholderThread": "Odpowiedz w wątku…",
+    "placeholder": "Napisz wiadomość…"
   },
   "emoji": {
     "search": "Szukaj emoji",

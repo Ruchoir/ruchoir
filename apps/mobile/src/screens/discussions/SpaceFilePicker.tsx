@@ -63,7 +63,9 @@ export function SpaceFilePicker() {
   return (
     <View style={[styles.fill, { backgroundColor: c.surface }]}>
       <View style={styles.head}>
-        <Text variant="heading">{t("attach.space")}</Text>
+        <Text variant="heading" style={styles.title}>
+          {t("attach.space")}
+        </Text>
         <SearchField value={query} onChange={setQuery} placeholder={t("files.search")} />
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
@@ -130,7 +132,8 @@ export function SpaceFilePicker() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  head: { paddingHorizontal: 16, paddingTop: 24, paddingBottom: 8, gap: 12 },
+  head: { paddingTop: 24, paddingBottom: 8, gap: 12 },
+  title: { paddingHorizontal: 16 },
   back: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
   grow: { flex: 1 },
   section: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },

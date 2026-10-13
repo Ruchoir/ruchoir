@@ -8,7 +8,7 @@
 import type { Channel, Member } from "@ruchoir/client";
 import * as Haptics from "expo-haptics";
 import { PenLine, Plus, Send } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -70,6 +70,7 @@ export function Composer(props: Props) {
   const [text, setText] = useState(() => (editing ? editing.body : outbox.draft(draftKey)));
   const [cursor, setCursor] = useState(text.length);
   const [forced, setForced] = useState<{ start: number; end: number } | undefined>(undefined);
+  const input = useRef<TextInput>(null);
 
   const token = useMemo(() => activeToken(text, cursor), [text, cursor]);
   const suggestions = useMemo<Suggestion[]>(() => {
@@ -113,6 +114,8 @@ export function Composer(props: Props) {
     change(next.text);
     setCursor(next.cursor);
     setForced({ start: next.cursor, end: next.cursor });
+    // Writing goes on after the name, with the keyboard where it was.
+    input.current?.focus();
   };
 
   const files = editing ? undefined : props.attachments;
@@ -176,6 +179,7 @@ export function Composer(props: Props) {
           </Pressable>
         ) : null}
         <TextInput
+          ref={input}
           value={text}
           onChangeText={change}
           onSelectionChange={(e) => {

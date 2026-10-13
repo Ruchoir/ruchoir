@@ -55,7 +55,9 @@ export function EmojiPickerSheet() {
   return (
     <View style={[styles.fill, { backgroundColor: c.surface }]}>
       <View style={styles.head}>
-        <Text variant="heading">{t("message.react")}</Text>
+        <Text variant="heading" style={styles.gutter}>
+          {t("message.react")}
+        </Text>
         <SearchField value={query} onChange={setQuery} placeholder={t("emoji.search")} />
         {query.trim() ? null : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabs}>
@@ -113,9 +115,10 @@ export function EmojiPickerSheet() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  head: { paddingHorizontal: 16, paddingTop: 24, gap: 12 },
+  head: { paddingTop: 24, gap: 12 },
+  gutter: { paddingHorizontal: 16 },
   tabsScroll: { flexGrow: 0 },
-  tabs: { gap: 4 },
+  tabs: { gap: 4, paddingHorizontal: 16 },
   tab: { width: 44, height: 44, borderRadius: radius.m, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
   tabGlyph: { fontSize: 22, lineHeight: 28 },
   grid: { paddingHorizontal: 16 },

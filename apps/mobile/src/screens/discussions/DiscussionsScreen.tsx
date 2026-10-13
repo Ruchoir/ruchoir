@@ -1,4 +1,4 @@
-import { getChannelMessages, getChannels, getDirectMessages } from "@ruchoir/client";
+import { getChannels, getDirectMessages } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { MessageSquare, SearchX, Users } from "lucide-react-native";
 import { useMemo, useState } from "react";
@@ -22,6 +22,7 @@ import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
 import { NewMessageButton } from "./NewMessageButton";
+import { SYSTEM_TEXT } from "./systemText";
 
 const FILTERS = [
   { key: "all", label: key("discussions.filterAll") },
@@ -31,17 +32,12 @@ const FILTERS = [
 ] as const;
 
 /**
- * The space's conversations (mockup 12). Channels carry no preview of their own, so the latest
- * message of each is read alongside; the list refreshes itself as messages arrive.
+ * The space's conversations (mockup 12): channels and direct conversations, each with its latest
+ * message as the lists carry it. The list refreshes itself as messages arrive.
  */
 export async function loadConversations(spaceId: string, signal: AbortSignal): Promise<ConversationItem[]> {
   const [channels, dms] = await Promise.all([getChannels(spaceId, signal), getDirectMessages(spaceId, signal)]);
-  const mine = channels.filter((c) => c.member !== false);
-  const pages = await Promise.all(
-    mine.map((c) => getChannelMessages(c.id, { limit: 1 }, signal).catch(() => ({ messages: [] }))),
-  );
-  const latest = Object.fromEntries(mine.map((c, i) => [c.id, pages[i].messages[pages[i].messages.length - 1]]));
-  return buildConversations(channels, dms, latest);
+  return buildConversations(channels, dms);
 }
 
 export function DiscussionsScreen() {
@@ -120,18 +116,26 @@ export function ConversationRow({ item, onPress }: { item: ConversationItem; onP
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
   const stamp = item.at ? listStamp(item.at, new Date(), locale, timeZone) : null;
-  const preview = item.preview
-    ? item.preview.mine
-      ? t("discussions.you", { text: item.preview.text })
-      : item.preview.author
-        ? t("discussions.by", { who: item.preview.author.split(" ")[0], text: item.preview.text })
-        : item.preview.text
-    : null;
+  const p = item.preview;
+  // What was said (or, a message of files only, that it carried files), then by whom; a notice is
+  // a sentence of its own ("Alice shared an event: Planning").
+  const said = p ? (p.files ? t("discussions.files") : p.text) : "";
+  const preview = !p
+    ? null
+    : p.notice
+      ? p.notice.event
+        ? t(SYSTEM_TEXT[p.notice.event], { who: p.notice.who ?? t("message.someone"), detail: p.text })
+        : p.text || null
+      : p.mine
+        ? t("discussions.you", { text: said })
+        : p.author
+          ? t("discussions.by", { who: p.author.split(" ")[0], text: said })
+          : said;
 
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.row, !preview && item.kind !== "group" && styles.single, pressed && { backgroundColor: c.line }]}
+      style={({ pressed }) => [styles.row, !preview && item.kind === "person" && styles.single, pressed && { backgroundColor: c.line }]}
     >
       <Avatar name={item.name} kind={item.kind === "person" ? "person" : "workspace"} size={44} presence={item.kind === "person" ? item.presence : undefined} />
       <View style={styles.body}>
@@ -151,11 +155,11 @@ export function ConversationRow({ item, onPress }: { item: ConversationItem; onP
           </Text>
           <Badge count={item.unread} tone={item.kind === "channel" ? "accent" : "ink"} />
         </View>
-        {item.kind === "group" ? (
+        {item.kind !== "person" ? (
           <View style={styles.meta}>
             <Users size={12} color={c.muted} />
             <Text variant="tiny" tone="muted">
-              {t("discussions.group")}
+              {item.members !== undefined ? t("discussions.groupOf", { count: item.members }) : t("discussions.group")}
             </Text>
           </View>
         ) : null}

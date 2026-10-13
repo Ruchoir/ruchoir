@@ -164,7 +164,10 @@
     "you": "Sie: {{text}}",
     "by": "{{who}}: {{text}}",
     "group": "Gruppe",
-    "emptyHint": "Die Kanäle, denen Sie folgen, und Ihre Direktnachrichten erscheinen hier."
+    "emptyHint": "Die Kanäle, denen Sie folgen, und Ihre Direktnachrichten erscheinen hier.",
+    "files": "Anhang",
+    "groupOf_one": "Gruppe · {{count}} Person",
+    "groupOf_other": "Gruppe · {{count}} Personen"
   },
   "conversation": {
     "messages": "Nachrichten",
@@ -243,8 +246,6 @@
     "tryAnother": "Versuchen Sie es mit einem anderen Wort."
   },
   "compose": {
-    "placeholderChannel": "In #{{name}} schreiben…",
-    "placeholderPerson": "An {{name}} schreiben…",
     "send": "Senden",
     "save": "Speichern",
     "add": "Zur Nachricht hinzufügen",
@@ -267,7 +268,8 @@
     "editFailed": "Änderung nicht gespeichert",
     "editFailedText": "Die Nachricht behält ihren bisherigen Text. Sie können es erneut versuchen.",
     "ok": "OK",
-    "placeholderThread": "Im Thread antworten…"
+    "placeholderThread": "Im Thread antworten…",
+    "placeholder": "Nachricht schreiben…"
   },
   "emoji": {
     "search": "Emoji suchen",

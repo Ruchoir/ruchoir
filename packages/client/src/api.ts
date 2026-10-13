@@ -28,6 +28,7 @@ import type {
   InlineImage,
   Invitation,
   InvitationPreview,
+  LastMessage,
   InvitationStatus,
   Message,
   MessageAttachment,
@@ -91,7 +92,12 @@ type ChannelDto = {
   member: boolean;
   unread: number;
   allowed_roles?: string[];
+  member_count?: number;
+  last_message?: LastMessageDto;
 };
+
+/** A conversation's latest message (or, in a channel, notice) for a list's preview line. */
+type LastMessageDto = { excerpt: string; mine: boolean; created_at: string; author?: string; system_event?: string };
 
 type DirectMessageDto = {
   id: string;
@@ -102,7 +108,7 @@ type DirectMessageDto = {
   unread: number;
   notify_level?: string;
   muted?: boolean;
-  last_message?: { excerpt: string; mine: boolean; created_at: string };
+  last_message?: LastMessageDto;
 };
 
 type PresenceDto = { user_id: string; presence: string };
@@ -661,6 +667,20 @@ function toChannel(dto: ChannelDto): Channel {
     member: dto.member,
     allowedRoles: dto.allowed_roles,
     notify: toConversationNotify(dto.notify_level, dto.muted),
+    memberCount: dto.member_count,
+    lastMessage: dto.last_message ? toLastMessage(dto.last_message) : undefined,
+  };
+}
+
+/** A preview line from the wire; a notice the client cannot word keeps its detail only. */
+function toLastMessage(dto: LastMessageDto): LastMessage {
+  return {
+    excerpt: dto.excerpt,
+    mine: dto.mine,
+    at: dto.created_at,
+    author: dto.author,
+    notice: dto.system_event ? true : undefined,
+    systemEvent: isSystemEvent(dto.system_event) ? dto.system_event : undefined,
   };
 }
 
@@ -1063,9 +1083,7 @@ function toDirectMessage(dto: DirectMessageDto): DirectMessage {
     bot: dto.bot || undefined,
     userId: dto.user_id,
     notify: toConversationNotify(dto.notify_level, dto.muted),
-    lastMessage: dto.last_message
-      ? { excerpt: dto.last_message.excerpt, mine: dto.last_message.mine, at: dto.last_message.created_at }
-      : undefined,
+    lastMessage: dto.last_message ? toLastMessage(dto.last_message) : undefined,
   };
 }
 

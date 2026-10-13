@@ -166,7 +166,11 @@
     "you": "Voi: {{text}}",
     "by": "{{who}}: {{text}}",
     "group": "Gruppo",
-    "emptyHint": "I canali che seguite e i vostri messaggi privati compariranno qui."
+    "emptyHint": "I canali che seguite e i vostri messaggi privati compariranno qui.",
+    "files": "Allegato",
+    "groupOf_one": "Gruppo · {{count}} persona",
+    "groupOf_other": "Gruppo · {{count}} persone",
+    "groupOf_many": "Gruppo · {{count}} persone"
   },
   "conversation": {
     "messages": "Messaggi",
@@ -250,8 +254,6 @@
     "tryAnother": "Provate con un’altra parola."
   },
   "compose": {
-    "placeholderChannel": "Scrivi in #{{name}}…",
-    "placeholderPerson": "Scrivi a {{name}}…",
     "send": "Invia",
     "save": "Salva",
     "add": "Aggiungi al messaggio",
@@ -274,7 +276,8 @@
     "editFailed": "Modifica non salvata",
     "editFailedText": "Il messaggio mantiene il testo precedente. Potete riprovare.",
     "ok": "OK",
-    "placeholderThread": "Rispondi nella discussione…"
+    "placeholderThread": "Rispondi nella discussione…",
+    "placeholder": "Scrivi un messaggio…"
   },
   "emoji": {
     "search": "Cerca un emoji",

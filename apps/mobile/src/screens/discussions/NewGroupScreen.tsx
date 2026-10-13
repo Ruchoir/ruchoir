@@ -120,9 +120,7 @@ export function NewGroupScreen() {
             <Text variant="smallStrong" style={styles.gutter}>
               {t("group.members")}
             </Text>
-            <View style={styles.gutter}>
-              <SearchField value={query} onChange={setQuery} placeholder={t("people.search")} />
-            </View>
+            <SearchField value={query} onChange={setQuery} placeholder={t("people.search")} />
             <PeopleList people={people} query={query} selected={chosen} onToggle={toggle} />
           </View>
         </ScrollView>

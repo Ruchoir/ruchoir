@@ -399,7 +399,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
           key={edit.editing ? `edit:${edit.editing.id}` : conversationId}
           conversationId={conversationId}
           draftKey={conversationId}
-          placeholder={channel !== undefined ? t("compose.placeholderChannel", { name: title }) : t("compose.placeholderPerson", { name: title })}
+          placeholder={t("compose.placeholder")}
           people={members.list}
           channels={channels}
           broadcasts={channel !== undefined}

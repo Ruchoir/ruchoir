@@ -121,6 +121,10 @@ export type Channel = {
   allowedRoles?: string[];
   /** How much this channel notifies the signed-in user, as stored on their membership. */
   notify?: ConversationNotify;
+  /** How many people have joined it. */
+  memberCount?: number;
+  /** The latest thing said or done in it, for a list's preview line. */
+  lastMessage?: LastMessage;
 };
 
 /**
@@ -148,8 +152,22 @@ export type DirectMessage = {
   lastMessage?: LastMessage;
 };
 
-/** The start of a conversation's latest message, who wrote it (the reader or not) and when (RFC 3339). */
-export type LastMessage = { excerpt: string; mine: boolean; at: string };
+/**
+ * The start of a conversation's latest message, who wrote it (the reader or not) and when (RFC 3339).
+ *
+ * In a channel where nothing was said since, it can be a notice instead (`notice`): the channel was
+ * created, an event was shared. `excerpt` is then the notice's one detail, `author` who did it, and
+ * `systemEvent` what happened when this client knows how to say it.
+ */
+export type LastMessage = {
+  excerpt: string;
+  mine: boolean;
+  at: string;
+  /** The author's display name; absent when the account is gone or a notice has nobody behind it. */
+  author?: string;
+  notice?: boolean;
+  systemEvent?: SystemEvent;
+};
 
 export type Profile = {
   name: string;

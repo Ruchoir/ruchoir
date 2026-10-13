@@ -90,6 +90,6 @@ export function NewConversationScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
-  search: { paddingHorizontal: 16, paddingBottom: 8 },
+  search: { paddingBottom: 8 },
   foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
 });

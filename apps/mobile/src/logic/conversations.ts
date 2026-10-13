@@ -2,11 +2,24 @@
  * The Discussions list (mockup 12): channels and direct conversations in one list, with the filters
  * of the mockup and a search over names.
  */
-import type { Channel, DirectMessage, Message } from "@ruchoir/client";
+import type { Channel, DirectMessage, LastMessage, SystemEvent } from "@ruchoir/client";
 
 import { plainExcerpt } from "./inline.ts";
 
 export type ConversationFilter = "all" | "unread" | "groups" | "people";
+
+/**
+ * The second line of a row: what was said and by whom; or, for a channel where nobody wrote since,
+ * what happened there (`notice`, worded by the screen with `who` and the detail in `text`); or that
+ * the last message was only files (`files`, its text empty).
+ */
+export type Preview = {
+  author?: string;
+  text: string;
+  mine: boolean;
+  notice?: { event?: SystemEvent; who?: string };
+  files?: true;
+};
 
 export type ConversationItem = {
   id: string;
@@ -16,35 +29,48 @@ export type ConversationItem = {
   unread: number;
   /** When the last message was written, for the order and the time on the row. */
   at?: string;
-  preview?: { author?: string; text: string; mine: boolean };
+  preview?: Preview;
+  /** How many people are in a channel ("Group · 8 people"). */
+  members?: number;
   /** The other person, for a one-to-one conversation. */
   userId?: string;
   presence?: DirectMessage["presence"];
 };
 
+/** A list's preview line from a conversation's latest message, as the server hands it over. */
+function toPreview(last: LastMessage | undefined, withAuthor: boolean): Preview | undefined {
+  if (!last) return undefined;
+  if (last.notice) {
+    const notice: Preview["notice"] = {};
+    if (last.systemEvent) notice.event = last.systemEvent;
+    if (last.author) notice.who = last.author;
+    return { text: plainExcerpt(last.excerpt), mine: false, notice };
+  }
+  const text = plainExcerpt(last.excerpt);
+  const preview: Preview = withAuthor && last.author ? { author: last.author, text, mine: last.mine } : { text, mine: last.mine };
+  // A message is text or files: no text means it carried only files.
+  if (!text) preview.files = true;
+  return preview;
+}
+
 /**
- * Channels the person is in (with their latest message, fetched apart since the channel list carries
- * none) and their direct conversations (which carry their own preview).
+ * Channels the person is in and their direct conversations, each with its latest message as the
+ * server gives it in the lists: one request each, whatever the number of conversations.
  */
-export function buildConversations(
-  channels: Channel[],
-  dms: DirectMessage[],
-  latest: Record<string, Pick<Message, "author" | "body" | "createdAt" | "kind"> | undefined>,
-): ConversationItem[] {
+export function buildConversations(channels: Channel[], dms: DirectMessage[]): ConversationItem[] {
   const fromChannels = channels
     .filter((c) => c.member !== false)
     .map((c): ConversationItem => {
-      const last = latest[c.id];
-      // A system line ("the channel was created") has no words of anyone's to preview.
-      const text = last && last.kind !== "system" ? plainExcerpt(last.body) : "";
-      return {
+      const item: ConversationItem = {
         id: c.id,
         kind: "channel",
         name: c.name,
         unread: c.unread,
-        at: last?.createdAt,
-        preview: text ? { author: last!.author, text, mine: false } : undefined,
+        at: c.lastMessage?.at,
+        preview: toPreview(c.lastMessage, true),
       };
+      if (c.memberCount !== undefined) item.members = c.memberCount;
+      return item;
     });
   const fromDms = dms.map(
     (d): ConversationItem => ({
@@ -53,7 +79,8 @@ export function buildConversations(
       name: d.name,
       unread: d.unread,
       at: d.lastMessage?.at,
-      preview: d.lastMessage ? { text: d.lastMessage.excerpt, mine: d.lastMessage.mine } : undefined,
+      // In a group conversation, who said it matters; with one person, it is them or me.
+      preview: toPreview(d.lastMessage, !d.userId),
       userId: d.userId,
       presence: d.presence,
     }),

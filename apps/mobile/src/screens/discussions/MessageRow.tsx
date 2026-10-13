@@ -1,4 +1,4 @@
-import { absoluteUrl, fileDownloadUrl, type ApiMessage, type SystemEvent } from "@ruchoir/client";
+import { absoluteUrl, fileDownloadUrl, type ApiMessage } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
@@ -7,7 +7,7 @@ import { memo } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { authHeadersFor } from "../../api/instance";
-import { key, useTranslation } from "../../i18n";
+import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { listStamp, timeOf } from "../../logic/format";
 import { hairline, radius } from "../../theme/tokens";
@@ -19,27 +19,8 @@ import { EventCardView } from "./EventCardView";
 import { LinkCard } from "./LinkCard";
 import { ReactionPills } from "./ReactionPills";
 import { RichText } from "./RichText";
+import { SYSTEM_TEXT } from "./systemText";
 
-const EVENT_TEXT: Record<SystemEvent, ReturnType<typeof key>> = {
-  member_joined: key("system.memberJoined"),
-  member_left: key("system.memberLeft"),
-  member_removed: key("system.memberRemoved"),
-  channel_joined: key("system.channelJoined"),
-  channel_left: key("system.channelLeft"),
-  channel_removed: key("system.channelRemoved"),
-  channel_created: key("system.channelCreated"),
-  channel_renamed: key("system.channelRenamed"),
-  channel_topic_changed: key("system.channelTopicChanged"),
-  channel_topic_cleared: key("system.channelTopicCleared"),
-  channel_made_private: key("system.channelMadePrivate"),
-  channel_made_public: key("system.channelMadePublic"),
-  channel_archived: key("system.channelArchived"),
-  channel_unarchived: key("system.channelUnarchived"),
-  channel_access_changed: key("system.channelAccessChanged"),
-  calendar_event_posted: key("system.calendarEventPosted"),
-  calendar_event_changed: key("system.calendarEventChanged"),
-  calendar_event_cancelled: key("system.calendarEventCancelled"),
-};
 
 type Props = {
   message: ApiMessage;
@@ -91,7 +72,7 @@ export const MessageRow = memo(function MessageRow({
   if (m.kind === "system") {
     const line = (
       <Text variant="small" tone="muted" style={styles.system}>
-        {m.system ? t(EVENT_TEXT[m.system.event], { who: m.system.actor || t("message.someone"), detail: m.system.detail ?? "" }) : m.body}
+        {m.system ? t(SYSTEM_TEXT[m.system.event], { who: m.system.actor || t("message.someone"), detail: m.system.detail ?? "" }) : m.body}
       </Text>
     );
     // An event shared in the channel: the notice, then the card to open it and answer.

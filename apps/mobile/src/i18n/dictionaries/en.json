@@ -164,7 +164,10 @@
     "you": "You: {{text}}",
     "by": "{{who}}: {{text}}",
     "group": "Group",
-    "emptyHint": "The channels you follow and your direct messages will show up here."
+    "emptyHint": "The channels you follow and your direct messages will show up here.",
+    "files": "Attachment",
+    "groupOf_one": "Group · {{count}} person",
+    "groupOf_other": "Group · {{count}} people"
   },
   "conversation": {
     "messages": "Messages",
@@ -243,8 +246,6 @@
     "tryAnother": "Try another word."
   },
   "compose": {
-    "placeholderChannel": "Write in #{{name}}…",
-    "placeholderPerson": "Write to {{name}}…",
     "send": "Send",
     "save": "Save",
     "add": "Add to the message",
@@ -267,7 +268,8 @@
     "editFailed": "Edit not saved",
     "editFailedText": "The message keeps its previous text. You can try again.",
     "ok": "OK",
-    "placeholderThread": "Reply in the thread…"
+    "placeholderThread": "Reply in the thread…",
+    "placeholder": "Write a message…"
   },
   "emoji": {
     "search": "Search an emoji",
