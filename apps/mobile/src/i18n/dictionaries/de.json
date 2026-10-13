@@ -49,8 +49,7 @@
     "back": "Zurück zur Anmeldung"
   },
   "boot": {
-    "offline": "Ihr Server ist im Moment nicht erreichbar.",
-    "retry": "Erneut versuchen"
+    "offline": "Ihr Server ist im Moment nicht erreichbar."
   },
   "account": {
     "signOut": "Abmelden",
@@ -109,7 +108,8 @@
   },
   "common": {
     "back": "Zurück",
-    "close": "Schließen"
+    "close": "Schließen",
+    "retry": "Erneut versuchen"
   },
   "time": {
     "today": "Heute",
@@ -146,7 +146,6 @@
     "people_one": "{{count}} Person",
     "people_other": "{{count}} Personen",
     "empty": "Noch keine Nachrichten",
-    "writingSoon": "Schreiben kommt bald in die App.",
     "noFiles": "Hier wurden keine Dateien geteilt",
     "noEvents": "Keine anstehenden Termine",
     "emptyHint": "Die Nachrichten dieser Unterhaltung erscheinen hier, live.",
@@ -205,5 +204,31 @@
   },
   "search": {
     "tryAnother": "Versuchen Sie es mit einem anderen Wort."
+  },
+  "compose": {
+    "placeholderChannel": "In #{{name}} schreiben…",
+    "placeholderPerson": "An {{name}} schreiben…",
+    "send": "Senden",
+    "save": "Speichern",
+    "add": "Zur Nachricht hinzufügen",
+    "editing": "Nachricht wird bearbeitet",
+    "typingOne": "{{name}} schreibt…",
+    "typingTwo": "{{a}} und {{b}} schreiben…",
+    "typingMany": "Mehrere Personen schreiben…",
+    "sending": "Wird gesendet…",
+    "failed": "Nicht gesendet · Zum Wiederholen tippen",
+    "unsentTitle": "Nachricht nicht gesendet",
+    "unsentText": "Sie konnte nicht gesendet werden. Sie können es erneut versuchen oder sie löschen.",
+    "delete": "Löschen",
+    "cancel": "Abbrechen",
+    "broadcastChannel": "Benachrichtigt alle Mitglieder des Kanals",
+    "broadcastHere": "Benachrichtigt nur die gerade Verbundenen",
+    "archived": "Dieser Kanal ist archiviert: Hier wird nicht mehr geschrieben.",
+    "notMember": "Treten Sie dem Kanal bei, um darin zu schreiben.",
+    "join": "Beitreten",
+    "joinFailed": "Dem Kanal konnte gerade nicht beigetreten werden.",
+    "editFailed": "Änderung nicht gespeichert",
+    "editFailedText": "Die Nachricht behält ihren bisherigen Text. Sie können es erneut versuchen.",
+    "ok": "OK"
   }
 }

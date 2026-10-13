@@ -3,7 +3,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { CalendarDays } from "lucide-react-native";
 import { memo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { authHeadersFor } from "../../api/instance";
 import { key, useTranslation } from "../../i18n";
@@ -45,10 +45,23 @@ type Props = {
   mentionsMe: boolean;
   avatar?: string;
   mentionNames: string[];
+  /** A message of mine still in the outbox: going out, or failed and waiting to be retried. */
+  pending?: "sending" | "failed";
+  onRetry?: () => void;
+  onDiscard?: () => void;
 };
 
-/** One message of a conversation (mockup 13), read-only. */
-export const MessageRow = memo(function MessageRow({ message: m, head, mentionsMe, avatar, mentionNames }: Props) {
+/** One message of a conversation (mockup 13). */
+export const MessageRow = memo(function MessageRow({
+  message: m,
+  head,
+  mentionsMe,
+  avatar,
+  mentionNames,
+  pending,
+  onRetry,
+  onDiscard,
+}: Props) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -65,8 +78,33 @@ export const MessageRow = memo(function MessageRow({ message: m, head, mentionsM
   const images = m.images ?? (m.image ? [m.image] : []);
   const files = m.attachments ?? (m.attachment ? [m.attachment] : []);
 
+  // A message that did not go: a tap sends it again, a long press offers to give up on it.
+  const unsent =
+    pending === "failed"
+      ? {
+          onPress: onRetry,
+          onLongPress: () =>
+            Alert.alert(t("compose.unsentTitle"), t("compose.unsentText"), [
+              { text: t("common.retry"), onPress: onRetry },
+              { text: t("compose.delete"), style: "destructive", onPress: onDiscard },
+              { text: t("compose.cancel"), style: "cancel" },
+            ]),
+        }
+      : null;
+
   return (
-    <View style={[styles.row, mentionsMe && { backgroundColor: s.mention }, !head && styles.continued]}>
+    <Pressable
+      disabled={!unsent}
+      onPress={unsent?.onPress}
+      onLongPress={unsent?.onLongPress}
+      accessibilityHint={unsent ? t("compose.failed") : undefined}
+      style={[
+        styles.row,
+        mentionsMe && { backgroundColor: s.mention },
+        !head && styles.continued,
+        pending === "sending" && styles.sending,
+      ]}
+    >
       <View style={styles.gutter}>{head ? <Avatar name={m.author} src={avatar} size={36} /> : null}</View>
       <View style={styles.main}>
         {head ? (
@@ -149,14 +187,24 @@ export const MessageRow = memo(function MessageRow({ message: m, head, mentionsM
             {t("message.edited")}
           </Text>
         ) : null}
+        {pending === "sending" ? (
+          <Text variant="tiny" tone="muted">
+            {t("compose.sending")}
+          </Text>
+        ) : pending === "failed" ? (
+          <Text variant="tiny" tone="danger">
+            {t("compose.failed")}
+          </Text>
+        ) : null}
       </View>
-    </View>
+    </Pressable>
   );
 });
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
   continued: { paddingTop: 2 },
+  sending: { opacity: 0.55 },
   gutter: { width: 36 },
   main: { flex: 1, minWidth: 0, gap: 6 },
   head: { flexDirection: "row", alignItems: "baseline", gap: 8 },

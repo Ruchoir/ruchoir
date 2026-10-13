@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { RootNavigator } from "./navigation/RootNavigator";
+import { OutboxProvider } from "./compose/useOutbox";
 import { RealtimeProvider } from "./realtime/RealtimeProvider";
 import { MfaScreen } from "./screens/auth/MfaScreen";
 import { SignInScreen } from "./screens/auth/SignInScreen";
@@ -38,9 +39,11 @@ function Root() {
     case "signedIn":
       return (
         <RealtimeProvider>
-          <SpaceProvider>
-            <RootNavigator />
-          </SpaceProvider>
+          <OutboxProvider>
+            <SpaceProvider>
+              <RootNavigator />
+            </SpaceProvider>
+          </OutboxProvider>
         </RealtimeProvider>
       );
   }

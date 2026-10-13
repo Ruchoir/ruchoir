@@ -49,8 +49,7 @@
     "back": "Volver al inicio de sesión"
   },
   "boot": {
-    "offline": "Ahora mismo no se puede acceder a su servidor.",
-    "retry": "Reintentar"
+    "offline": "Ahora mismo no se puede acceder a su servidor."
   },
   "account": {
     "signOut": "Cerrar sesión",
@@ -110,7 +109,8 @@
   },
   "common": {
     "back": "Atrás",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "retry": "Reintentar"
   },
   "time": {
     "today": "Hoy",
@@ -147,7 +147,6 @@
     "people_one": "{{count}} persona",
     "people_other": "{{count}} personas",
     "empty": "Todavía no hay mensajes",
-    "writingSoon": "Pronto podrá escribir desde la aplicación.",
     "noFiles": "No se ha compartido ningún archivo aquí",
     "noEvents": "No hay eventos próximos",
     "people_many": "{{count}} personas",
@@ -210,5 +209,31 @@
   },
   "search": {
     "tryAnother": "Pruebe con otra palabra."
+  },
+  "compose": {
+    "placeholderChannel": "Escribir en #{{name}}…",
+    "placeholderPerson": "Escribir a {{name}}…",
+    "send": "Enviar",
+    "save": "Guardar",
+    "add": "Añadir al mensaje",
+    "editing": "Editando el mensaje",
+    "typingOne": "{{name}} está escribiendo…",
+    "typingTwo": "{{a}} y {{b}} están escribiendo…",
+    "typingMany": "Varias personas están escribiendo…",
+    "sending": "Enviando…",
+    "failed": "No enviado · Toca para reintentar",
+    "unsentTitle": "Mensaje no enviado",
+    "unsentText": "No se pudo enviar. Puedes reintentarlo o eliminarlo.",
+    "delete": "Eliminar",
+    "cancel": "Cancelar",
+    "broadcastChannel": "Avisa a todos los miembros del canal",
+    "broadcastHere": "Avisa solo a quienes están conectados",
+    "archived": "Este canal está archivado: ya no se escribe en él.",
+    "notMember": "Únete al canal para escribir en él.",
+    "join": "Unirse",
+    "joinFailed": "No se ha podido unir al canal por ahora.",
+    "editFailed": "Edición no guardada",
+    "editFailedText": "El mensaje conserva su texto anterior. Puedes reintentarlo.",
+    "ok": "OK"
   }
 }

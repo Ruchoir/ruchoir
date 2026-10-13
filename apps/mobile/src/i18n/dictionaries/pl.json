@@ -49,8 +49,7 @@
     "back": "Wróć do logowania"
   },
   "boot": {
-    "offline": "W tej chwili nie można połączyć się z serwerem.",
-    "retry": "Spróbuj ponownie"
+    "offline": "W tej chwili nie można połączyć się z serwerem."
   },
   "account": {
     "signOut": "Wyloguj się",
@@ -111,7 +110,8 @@
   },
   "common": {
     "back": "Wstecz",
-    "close": "Zamknij"
+    "close": "Zamknij",
+    "retry": "Spróbuj ponownie"
   },
   "time": {
     "today": "Dzisiaj",
@@ -148,7 +148,6 @@
     "people_one": "{{count}} osoba",
     "people_other": "{{count}} osoby",
     "empty": "Nie ma jeszcze wiadomości",
-    "writingSoon": "Pisanie wkrótce pojawi się w aplikacji.",
     "noFiles": "Nie udostępniono tu żadnych plików",
     "noEvents": "Brak nadchodzących wydarzeń",
     "people_few": "{{count}} osoby",
@@ -215,5 +214,31 @@
   },
   "search": {
     "tryAnother": "Spróbuj innego słowa."
+  },
+  "compose": {
+    "placeholderChannel": "Napisz w #{{name}}…",
+    "placeholderPerson": "Napisz do {{name}}…",
+    "send": "Wyślij",
+    "save": "Zapisz",
+    "add": "Dodaj do wiadomości",
+    "editing": "Edycja wiadomości",
+    "typingOne": "{{name}} pisze…",
+    "typingTwo": "{{a}} i {{b}} piszą…",
+    "typingMany": "Kilka osób pisze…",
+    "sending": "Wysyłanie…",
+    "failed": "Nie wysłano · Dotknij, aby ponowić",
+    "unsentTitle": "Wiadomość nie została wysłana",
+    "unsentText": "Nie udało się jej wysłać. Możesz spróbować ponownie lub ją usunąć.",
+    "delete": "Usuń",
+    "cancel": "Anuluj",
+    "broadcastChannel": "Powiadamia wszystkich członków kanału",
+    "broadcastHere": "Powiadamia tylko osoby połączone",
+    "archived": "Ten kanał jest zarchiwizowany: nie można już w nim pisać.",
+    "notMember": "Dołącz do kanału, aby w nim pisać.",
+    "join": "Dołącz",
+    "joinFailed": "Nie udało się teraz dołączyć do kanału.",
+    "editFailed": "Nie zapisano zmiany",
+    "editFailedText": "Wiadomość zachowuje poprzednią treść. Możesz spróbować ponownie.",
+    "ok": "OK"
   }
 }

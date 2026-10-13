@@ -49,8 +49,7 @@
     "back": "Back to sign-in"
   },
   "boot": {
-    "offline": "Your server cannot be reached right now.",
-    "retry": "Try again"
+    "offline": "Your server cannot be reached right now."
   },
   "account": {
     "signOut": "Sign out",
@@ -109,7 +108,8 @@
   },
   "common": {
     "back": "Back",
-    "close": "Close"
+    "close": "Close",
+    "retry": "Try again"
   },
   "time": {
     "today": "Today",
@@ -146,7 +146,6 @@
     "people_one": "{{count}} person",
     "people_other": "{{count}} people",
     "empty": "No messages yet",
-    "writingSoon": "Writing is coming to the app soon.",
     "noFiles": "No files shared here",
     "noEvents": "No upcoming events",
     "emptyHint": "Messages in this conversation will show up here, live.",
@@ -205,5 +204,31 @@
   },
   "search": {
     "tryAnother": "Try another word."
+  },
+  "compose": {
+    "placeholderChannel": "Write in #{{name}}…",
+    "placeholderPerson": "Write to {{name}}…",
+    "send": "Send",
+    "save": "Save",
+    "add": "Add to the message",
+    "editing": "Editing the message",
+    "typingOne": "{{name}} is writing…",
+    "typingTwo": "{{a}} and {{b}} are writing…",
+    "typingMany": "Several people are writing…",
+    "sending": "Sending…",
+    "failed": "Not sent · Tap to retry",
+    "unsentTitle": "Message not sent",
+    "unsentText": "It could not go out. You can try again or delete it.",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "broadcastChannel": "Notifies every member of the channel",
+    "broadcastHere": "Notifies only the people connected",
+    "archived": "This channel is archived: nobody writes here any more.",
+    "notMember": "Join the channel to write in it.",
+    "join": "Join",
+    "joinFailed": "The channel could not be joined just now.",
+    "editFailed": "Edit not saved",
+    "editFailedText": "The message keeps its previous text. You can try again.",
+    "ok": "OK"
   }
 }

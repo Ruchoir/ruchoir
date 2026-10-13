@@ -49,8 +49,7 @@
     "back": "Revenir à la connexion"
   },
   "boot": {
-    "offline": "Impossible de joindre votre serveur pour l’instant.",
-    "retry": "Réessayer"
+    "offline": "Impossible de joindre votre serveur pour l’instant."
   },
   "account": {
     "signOut": "Se déconnecter",
@@ -109,7 +108,8 @@
   },
   "common": {
     "back": "Retour",
-    "close": "Fermer"
+    "close": "Fermer",
+    "retry": "Réessayer"
   },
   "time": {
     "today": "Aujourd’hui",
@@ -146,7 +146,6 @@
     "people_one": "{{count}} personne",
     "people_other": "{{count}} personnes",
     "empty": "Pas encore de message",
-    "writingSoon": "L’écriture arrive bientôt dans l’application.",
     "noFiles": "Aucun fichier partagé ici",
     "noEvents": "Aucun événement à venir",
     "emptyHint": "Les messages de cette conversation apparaîtront ici, en direct.",
@@ -205,5 +204,31 @@
   },
   "search": {
     "tryAnother": "Essayez avec un autre mot."
+  },
+  "compose": {
+    "placeholderChannel": "Écrire dans #{{name}}…",
+    "placeholderPerson": "Écrire à {{name}}…",
+    "send": "Envoyer",
+    "save": "Enregistrer",
+    "add": "Ajouter au message",
+    "editing": "Modification du message",
+    "typingOne": "{{name}} écrit…",
+    "typingTwo": "{{a}} et {{b}} écrivent…",
+    "typingMany": "Plusieurs personnes écrivent…",
+    "sending": "Envoi…",
+    "failed": "Non envoyé · Toucher pour réessayer",
+    "unsentTitle": "Message non envoyé",
+    "unsentText": "Il n’a pas pu partir. Vous pouvez réessayer ou le supprimer.",
+    "delete": "Supprimer",
+    "cancel": "Annuler",
+    "broadcastChannel": "Prévient tous les membres du canal",
+    "broadcastHere": "Prévient seulement les membres connectés",
+    "archived": "Ce canal est archivé : on n’y écrit plus.",
+    "notMember": "Rejoignez le canal pour y écrire.",
+    "join": "Rejoindre",
+    "joinFailed": "Impossible de rejoindre le canal pour le moment.",
+    "editFailed": "Modification non enregistrée",
+    "editFailedText": "Le message garde son ancien texte. Vous pouvez réessayer.",
+    "ok": "OK"
   }
 }

@@ -49,8 +49,7 @@
     "back": "Torna all’accesso"
   },
   "boot": {
-    "offline": "Al momento il vostro server non è raggiungibile.",
-    "retry": "Riprova"
+    "offline": "Al momento il vostro server non è raggiungibile."
   },
   "account": {
     "signOut": "Esci",
@@ -110,7 +109,8 @@
   },
   "common": {
     "back": "Indietro",
-    "close": "Chiudi"
+    "close": "Chiudi",
+    "retry": "Riprova"
   },
   "time": {
     "today": "Oggi",
@@ -147,7 +147,6 @@
     "people_one": "{{count}} persona",
     "people_other": "{{count}} persone",
     "empty": "Ancora nessun messaggio",
-    "writingSoon": "Presto si potrà scrivere dall’app.",
     "noFiles": "Nessun file condiviso qui",
     "noEvents": "Nessun evento in programma",
     "people_many": "{{count}} persone",
@@ -210,5 +209,31 @@
   },
   "search": {
     "tryAnother": "Provate con un’altra parola."
+  },
+  "compose": {
+    "placeholderChannel": "Scrivi in #{{name}}…",
+    "placeholderPerson": "Scrivi a {{name}}…",
+    "send": "Invia",
+    "save": "Salva",
+    "add": "Aggiungi al messaggio",
+    "editing": "Modifica del messaggio",
+    "typingOne": "{{name}} sta scrivendo…",
+    "typingTwo": "{{a}} e {{b}} stanno scrivendo…",
+    "typingMany": "Più persone stanno scrivendo…",
+    "sending": "Invio…",
+    "failed": "Non inviato · Tocca per riprovare",
+    "unsentTitle": "Messaggio non inviato",
+    "unsentText": "Non è stato possibile inviarlo. Puoi riprovare o eliminarlo.",
+    "delete": "Elimina",
+    "cancel": "Annulla",
+    "broadcastChannel": "Avvisa tutti i membri del canale",
+    "broadcastHere": "Avvisa solo chi è connesso",
+    "archived": "Questo canale è archiviato: non ci si scrive più.",
+    "notMember": "Unisciti al canale per scriverci.",
+    "join": "Unisciti",
+    "joinFailed": "Al momento non è possibile unirsi al canale.",
+    "editFailed": "Modifica non salvata",
+    "editFailedText": "Il messaggio mantiene il testo precedente. Puoi riprovare.",
+    "ok": "OK"
   }
 }
