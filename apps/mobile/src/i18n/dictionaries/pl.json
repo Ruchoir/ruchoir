@@ -33,7 +33,7 @@
       "accountLocked": "To konto jest zablokowane. Skontaktuj się z administratorem serwera.",
       "invalidCode": "Nieprawidłowy kod.",
       "invalidToken": "Weryfikacja wygasła. Zaloguj się ponownie.",
-      "passkeyOnly": "To konto weryfikuje się kluczem dostępu, którego aplikacja jeszcze nie obsługuje. Dodaj aplikację uwierzytelniającą na stronie internetowej.",
+      "passkeyOnly": "To konto jest weryfikowane kluczem dostępu, którego ta wersja aplikacji nie potrafi użyć. Zainstaluj aplikację Ruchoir, aby się zalogować.",
       "unknown": "Wystąpił błąd. Spróbuj ponownie.",
       "emailTaken": "Konto z tym adresem już istnieje. Zaloguj się albo użyj opcji „Nie pamiętam hasła”.",
       "weakPassword": "To hasło jest za krótkie: co najmniej 12 znaków.",
@@ -49,7 +49,10 @@
     "submit": "Zweryfikuj",
     "useRecovery": "Użyj kodu odzyskiwania",
     "useTotp": "Użyj aplikacji uwierzytelniającej",
-    "back": "Wróć do logowania"
+    "back": "Wróć do logowania",
+    "usePasskey": "Użyj klucza dostępu",
+    "passkeyHint": "Otwiera się w przeglądarce: wpisz ponownie hasło, a potem potwierdź Face ID lub odciskiem palca.",
+    "passkeyIntro": "To konto jest weryfikowane kluczem dostępu."
   },
   "boot": {
     "offline": "W tej chwili nie można połączyć się z serwerem."
@@ -1009,7 +1012,7 @@
     "removePasskeyText": "To urządzenie nie będzie już mogło logować cię bez hasła.",
     "remove": "Usuń",
     "passkeyRemoved": "Klucz dostępu usunięty",
-    "passkeysPhone": "Aby dodać klucz dostępu, na razie użyj strony internetowej.",
+    "passkeysPhone": "Klucz dostępu dodaje się w oknie przeglądarki, gdzie telefon prosi o Face ID, odcisk palca lub swój kod.",
     "sessions": "Sesje",
     "sessionsDesc": "Jeśli inne urządzenie pozostało zalogowane, odetnij wszystko: każda sesja zostanie zamknięta, także ta.",
     "signOutEverywhere": "Wyloguj wszędzie",
@@ -1020,7 +1023,10 @@
     "lockBiometrics": "Blokuj odciskiem palca lub twarzą",
     "lockPasscode": "Blokuj kodem telefonu",
     "lockHint": "Wymagane przy otwieraniu i po minucie poza aplikacją.",
-    "lockUnavailable": "Skonfiguruj Face ID lub kod w ustawieniach telefonu."
+    "lockUnavailable": "Skonfiguruj Face ID lub kod w ustawieniach telefonu.",
+    "addPasskey": "Dodaj klucz dostępu",
+    "passkeyAdded": "Dodano klucz dostępu",
+    "addPasskeyFailed": "Nie udało się otworzyć dodawania klucza dostępu. Spróbuj ponownie."
   },
   "status": {
     "auto": "Dostępny",

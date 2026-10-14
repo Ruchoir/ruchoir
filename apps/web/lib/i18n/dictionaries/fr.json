@@ -1749,5 +1749,16 @@
     "failed": "Réponse impossible pour le moment, réessayez plus tard.",
     "footer": "Ruchoir, l'espace de travail de l'équipe qui vous invite.",
     "files": "Documents joints"
+  },
+  "handoff": {
+    "signInNote": "Connexion pour l’appli Ruchoir de ce téléphone",
+    "consentTitle": "Autoriser l’appli Ruchoir ?",
+    "consentBody": "L’appli Ruchoir de ce téléphone pourra utiliser le compte {{name}} ({{email}}), comme si vous vous y connectiez.",
+    "passkeyTitle": "Ajouter une clé d’accès",
+    "passkeyBody": "Pour le compte {{email}}. Votre téléphone vous demandera Face ID, votre empreinte ou son code.",
+    "doneTitle": "C’est fait",
+    "doneBody": "Vous pouvez revenir dans l’appli Ruchoir.",
+    "goneTitle": "Lien expiré",
+    "goneBody": "Ce lien n’est plus valable. Recommencez depuis l’appli Ruchoir."
   }
 }

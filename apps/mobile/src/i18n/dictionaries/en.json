@@ -33,7 +33,7 @@
       "accountLocked": "This account is locked. Contact your server's administrator.",
       "invalidCode": "Incorrect code.",
       "invalidToken": "The verification has expired. Sign in again.",
-      "passkeyOnly": "This account is verified with a passkey, which the app does not support yet. Add an authenticator app from the website.",
+      "passkeyOnly": "This account is verified with a passkey, which this version of the app cannot use. Install the Ruchoir app to sign in.",
       "unknown": "Something went wrong. Try again.",
       "emailTaken": "An account already exists with this address. Sign in, or use “Forgot password”.",
       "weakPassword": "This password is too short: at least 12 characters.",
@@ -49,7 +49,10 @@
     "submit": "Verify",
     "useRecovery": "Use a recovery code",
     "useTotp": "Use the authenticator app",
-    "back": "Back to sign-in"
+    "back": "Back to sign-in",
+    "usePasskey": "Use a passkey",
+    "passkeyHint": "Opens in the browser: type your password again, then confirm with Face ID or your fingerprint.",
+    "passkeyIntro": "This account is verified with a passkey."
   },
   "boot": {
     "offline": "Your server cannot be reached right now."
@@ -917,7 +920,7 @@
     "removePasskeyText": "This device will no longer sign you in without a password.",
     "remove": "Remove",
     "passkeyRemoved": "Passkey removed",
-    "passkeysPhone": "To add a passkey, use the website for now.",
+    "passkeysPhone": "A passkey is added in a browser window, where the phone asks for Face ID, the fingerprint or its passcode.",
     "sessions": "Sessions",
     "sessionsDesc": "If another device stayed signed in, cut everything: every session ends, this one included.",
     "signOutEverywhere": "Sign out everywhere",
@@ -928,7 +931,10 @@
     "lockBiometrics": "Lock with fingerprint or face",
     "lockPasscode": "Lock with the phone's passcode",
     "lockHint": "Asked when the app opens, and after a minute away from it.",
-    "lockUnavailable": "Set up Face ID or a passcode in the phone's settings."
+    "lockUnavailable": "Set up Face ID or a passcode in the phone's settings.",
+    "addPasskey": "Add a passkey",
+    "passkeyAdded": "Passkey added",
+    "addPasskeyFailed": "Could not open adding a passkey. Try again."
   },
   "status": {
     "auto": "Available",

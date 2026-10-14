@@ -1,7 +1,7 @@
 import { getMfaState, logoutEverywhere, removePasskey, generateRecoveryCodes } from "@ruchoir/client";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { KeyRound, ListChecks, Lock, LogOut, ShieldCheck, Trash2 } from "lucide-react-native";
+import { KeyRound, ListChecks, Lock, LogOut, Plus, ShieldCheck, Trash2 } from "lucide-react-native";
 import { useCallback } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { addPasskeyThroughBrowser, canUseBrowserHandoff } from "../../auth/browser";
 import { useAppLock } from "../../lock/AppLock";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
@@ -23,8 +24,8 @@ import { Section } from "./Section";
 
 /**
  * Security, as the web's: the password, two-factor authentication and its recovery codes, the
- * passkeys (removable here; adding one needs the native build of a later version), and signing out of
- * every device. Plus what only a phone has: locking the app with Face ID (`lock/AppLock`).
+ * passkeys (added through the instance's web page, `auth/browser.ts`; removable here), and signing
+ * out of every device. Plus what only a phone has: locking the app with Face ID (`lock/AppLock`).
  */
 export function SecurityScreen() {
   const { t } = useTranslation();
@@ -84,6 +85,18 @@ export function SecurityScreen() {
     ]);
 
   const lock = useAppLock();
+  const server = session.state.kind === "signedIn" ? session.state.server : null;
+  const addPasskey = () => {
+    if (!server) return;
+    addPasskeyThroughBrowser(server).then(
+      (added) => {
+        if (!added) return;
+        toast(t("security.passkeyAdded"), "success");
+        reload();
+      },
+      () => toast(t("security.addPasskeyFailed"), "failure"),
+    );
+  };
   const lockTitle = {
     faceId: t("security.lockFaceId"),
     touchId: t("security.lockTouchId"),
@@ -138,7 +151,7 @@ export function SecurityScreen() {
             </>
           )}
         </Section>
-        {state && state.passkeys.length > 0 ? (
+        {state && (state.passkeys.length > 0 || canUseBrowserHandoff()) ? (
           <Section label={t("security.passkeys")}>
             {state.passkeys.map((key) => {
               const label = key.label ?? t("security.passkeyLabel");
@@ -157,9 +170,14 @@ export function SecurityScreen() {
                 />
               );
             })}
-            <Text variant="small" tone="muted">
-              {t("security.passkeysPhone")}
-            </Text>
+            {canUseBrowserHandoff() ? (
+              <>
+                <ActionRow icon={Plus} tint={c.violet} title={t("security.addPasskey")} onPress={addPasskey} />
+                <Text variant="small" tone="muted">
+                  {t("security.passkeysPhone")}
+                </Text>
+              </>
+            ) : null}
           </Section>
         ) : null}
         <Section label={t("security.lockSection")}>

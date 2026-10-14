@@ -337,6 +337,34 @@ export async function logout(): Promise<void> {
   await apiPost<void>("/auth/logout");
 }
 
+// --- Handing a session between the instance's web page and the native app (ADR 0005, step 6f) ---
+
+/**
+ * `POST /auth/native/code`: from the instance's web page, signed in, a single-use code for the app
+ * (two minutes), bound to the challenge the app chose (the SHA-256 of its verifier, hex).
+ */
+export async function createNativeCode(challenge: string): Promise<string> {
+  return (await apiPost<{ code: string }>("/auth/native/code", { challenge })).code;
+}
+
+/**
+ * `POST /auth/native/exchange`: the app trades that code and its verifier for a session of its own.
+ * Refused to a browser, as a token sign-in is.
+ */
+export async function exchangeNativeCode(code: string, verifier: string): Promise<SignedIn> {
+  return toSignedIn(await apiPost<SignedInDto>("/auth/native/exchange", { code, verifier }));
+}
+
+/** `POST /auth/web/handoff`: from the app, signed in, a single-use code the web page redeems. */
+export async function createWebHandoff(): Promise<string> {
+  return (await apiPost<{ code: string }>("/auth/web/handoff")).code;
+}
+
+/** `POST /auth/web/redeem`: the page the app opened becomes signed in (a cookie) as that account. */
+export async function redeemWebHandoff(code: string): Promise<SessionUser> {
+  return toSessionUser(await apiPost<UserSummaryDto>("/auth/web/redeem", { code }));
+}
+
 // --- Account security (second factors, password) ---
 
 /** One registered passkey, as the account screen lists them. */

@@ -10,6 +10,7 @@ pub mod cookie;
 pub mod crypto;
 pub mod error;
 pub mod extract;
+pub mod handoff;
 pub mod mail_text;
 pub mod mailer;
 pub mod mfa;
