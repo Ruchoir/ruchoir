@@ -30,12 +30,13 @@ export type RootParams = {
   folder: { folderId: string; name: string };
   /** A file to show: a space file, a message's attachment or an event's, by its download URL. */
   fileViewer: { file: ViewerFile };
-  eventSummary: { eventId: string; recurrenceId?: string };
+  /** An event opened; `start` is where the occurrence was shown (a date of a series is found near it). */
+  eventSummary: { eventId: string; recurrenceId?: string; start?: string };
   /**
    * The event form: a new event on `day` (linked to `channelId` when planned from a channel), or the
    * event `eventId` changed (the date `recurrenceId` of a series).
    */
-  eventForm: { day?: string; channelId?: string; eventId?: string; recurrenceId?: string };
+  eventForm: { day?: string; channelId?: string; eventId?: string; recurrenceId?: string; start?: string };
   /** The event form's sheets, each on the form's draft (`formKey`, see `draftStore`). */
   eventCalendar: { formKey: string };
   /** A date or time of the form; `until` is the day a custom repetition stops. */
@@ -43,6 +44,9 @@ export type RootParams = {
   eventRepeat: { formKey: string };
   eventInvitees: { formKey: string };
   eventChannel: { formKey: string };
+  eventZone: { formKey: string };
+  /** The scope of a change to a date of a series, handed back to `key` (see `scope.ts`). */
+  eventScope: { key: string; title: string; action: "edit" | "delete" };
   eventRule: { formKey: string };
   /** The form's reminders (`formKey`), or one's own reminders for the event `eventId`, saved at once. */
   eventReminders: { formKey: string; eventId?: undefined } | { eventId: string; formKey?: undefined };

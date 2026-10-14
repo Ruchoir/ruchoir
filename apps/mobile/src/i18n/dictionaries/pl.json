@@ -303,7 +303,17 @@
     "freeDuring": "{{name}}: wolne o tej porze",
     "noChannel": "Brak kanału",
     "inviteChannel": "Zaproś cały kanał",
-    "filesFailed": "Nie udało się wysłać pliku. Spróbuj ponownie."
+    "filesFailed": "Nie udało się wysłać pliku. Spróbuj ponownie.",
+    "deleteConfirm": "Usunąć „{{title}}”?",
+    "scopeIntro": "To wydarzenie się powtarza.",
+    "scopeThis": "Tylko to wydarzenie",
+    "scopeThisHint": "Pozostałe się nie zmieniają.",
+    "scopeFollowing": "To i następne",
+    "scopeFollowingHint": "Wcześniejsze pozostają bez zmian.",
+    "scopeAll": "Cała seria",
+    "scopeAllHint": "Łącznie z minionymi datami.",
+    "scopeEditTitle": "Edytuj „{{title}}”",
+    "scopeDeleteTitle": "Usuń „{{title}}”"
   },
   "discussions": {
     "filterAll": "Wszystko",
@@ -398,7 +408,14 @@
     "addFile": "Dodaj plik",
     "channelFirstTitle": "Najpierw wybierz kanał",
     "channelFirstText": "Wydarzenie z własnego kalendarza nie ma własnej przestrzeni: plik z telefonu trafia do przestrzeni jego kanału.",
-    "filesMax": "Najwyżej 20 plików."
+    "filesMax": "Najwyżej 20 plików.",
+    "deleteEvent": "Usuń wydarzenie",
+    "deleted": "Usunięto wydarzenie",
+    "deleteFailed": "Nie usunięto wydarzenia. Spróbuj ponownie.",
+    "gone": "To wydarzenie już nie istnieje.",
+    "forbidden": "Nie możesz już zmienić tego wydarzenia.",
+    "timeZone": "Strefa czasowa",
+    "searchZone": "Szukaj strefy czasowej"
   },
   "files": {
     "search": "Szukaj pliku",

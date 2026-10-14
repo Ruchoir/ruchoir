@@ -45,7 +45,7 @@ export function ConversationAgenda({ channelId }: { channelId: string }) {
               title={item.title}
               meta={item.location}
               color={c.sky}
-              onPress={() => navigation.navigate("eventSummary", { eventId: item.eventId, recurrenceId: item.recurrenceId })}
+              onPress={() => navigation.navigate("eventSummary", { eventId: item.eventId, recurrenceId: item.recurrenceId, start: item.start })}
             />
           ))}
         </View>

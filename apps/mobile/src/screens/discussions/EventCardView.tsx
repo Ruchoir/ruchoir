@@ -73,7 +73,7 @@ export function EventCardView({ message: m, myUserId }: { message: ApiMessage; m
     <View style={styles.wrap}>
       <Pressable
         accessibilityRole="button"
-        onPress={() => navigation.navigate("eventSummary", { eventId: card.eventId, recurrenceId: card.recurrenceId })}
+        onPress={() => navigation.navigate("eventSummary", { eventId: card.eventId, recurrenceId: card.recurrenceId, start: card.start })}
         style={({ pressed }) => [styles.card, { borderColor: c.ink, backgroundColor: c.surface }, pressed && { opacity: 0.7 }]}
       >
         <View style={[styles.icon, { backgroundColor: c.sky }]}>

@@ -216,7 +216,7 @@ function EventTile({ occurrence: o, now }: { occurrence: Occurrence; now: number
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => navigation.navigate("eventSummary", { eventId: o.eventId, recurrenceId: o.recurrenceId })}
+      onPress={() => navigation.navigate("eventSummary", { eventId: o.eventId, recurrenceId: o.recurrenceId, start: o.start })}
       style={({ pressed }) => [styles.tile, { borderColor: c.line, backgroundColor: c.surface }, pressed && { opacity: 0.7 }]}
     >
       <View style={[styles.tileIcon, { backgroundColor: c.sky }]}>

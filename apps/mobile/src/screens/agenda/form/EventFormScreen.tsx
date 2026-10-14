@@ -1,14 +1,26 @@
 /**
- * "New event" (mockup 19): a full-screen form, the band in the chosen calendar's colour with the
- * title and the calendar, then when, and what goes with it. Its draft lives in `draftStore` under a
+ * "New event" (mockup 19), or "Edit event" from its summary: a full-screen form, the band in the
+ * chosen calendar's colour with the title and the calendar, then when, and what goes with it. A change
+ * to a date of a series asks first whether it is for that date, the following ones or all of them. Its draft lives in `draftStore` under a
  * key of its own, so the sheets it opens (calendar, pickers...) read and change it; closing with
  * something typed asks first, and a failure keeps everything typed.
  */
-import { createEvent, listCalendars, listLinkableChannels, searchInvitees, type Calendar, type SpaceFile } from "@ruchoir/client";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import {
+  createEvent,
+  isApiError,
+  listCalendars,
+  listLinkableChannels,
+  searchInvitees,
+  setEventMe,
+  updateEvent,
+  type Calendar,
+  type EditScope,
+  type SpaceFile,
+} from "@ruchoir/client";
+import { StackActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { remindersLabel } from "@ruchoir/client/calendarLogic";
-import { Bell, ChevronDown, ChevronRight, FileText, MapPin, MessageSquare, Paperclip, Repeat, UserPlus, Users } from "lucide-react-native";
+import { Bell, ChevronDown, ChevronRight, FileText, Globe, MapPin, MessageSquare, Paperclip, Repeat, UserPlus, Users } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, TextInput, View } from "react-native";
 
@@ -18,7 +30,7 @@ import { useTranslation } from "../../../i18n";
 import { useSharedT } from "../../../i18n/sharedT";
 import { useLocale } from "../../../i18n/useLocale";
 import { dayKey } from "../../../logic/format";
-import { isDirty, newDraft, toInput, type DraftError, type EventDraft } from "../../../logic/eventForm";
+import { draftFromEvent, isDirty, newDraft, toInput, wholeSeriesInput, type DraftError, type EventDraft } from "../../../logic/eventForm";
 import type { RootParams } from "../../../navigation/types";
 import { useSession } from "../../../session/SessionProvider";
 import { useSpace } from "../../../space/SpaceProvider";
@@ -33,6 +45,7 @@ import { Text } from "../../../ui/Text";
 import { useToast } from "../../../ui/Toast";
 import { calendarColor } from "../calendarColor";
 import { calendarLabel } from "../calendarLabel";
+import { loadOccurrence } from "../loadOccurrence";
 import { closeDraft, openDraft, readDraft, updateDraft, useDraft } from "./draftStore";
 import { Availability } from "./Availability";
 import { ClashLine } from "./ClashLine";
@@ -41,6 +54,7 @@ import { EventFiles } from "./EventFiles";
 import { InviteeChips } from "./InviteeChips";
 import { inheritedReminders } from "./RemindersSheet";
 import { repeatLabel } from "./repeat";
+import { useScopeRequests } from "./scope";
 import { MAX_EVENT_FILES, useEventUploads } from "./useEventUploads";
 import { WhenRows } from "./WhenRows";
 
@@ -59,6 +73,11 @@ export function EventFormScreen() {
   const me = state.kind === "signedIn" ? state.user : null;
   const [formKey] = useState(() => `event-form-${++forms}`);
   const calendars = useLoad("calendars", (signal) => listCalendars(signal));
+  // The event changed, and the date of it opened.
+  const editing = useLoad(params.eventId ? `edit:${params.eventId}:${params.recurrenceId ?? ""}` : null, (signal) =>
+    loadOccurrence(params.eventId!, params.recurrenceId, params.start, signal),
+  );
+  const edit = editing.data;
   const draft = useDraft(formKey);
   const initial = useRef<EventDraft | null>(null);
   const saved = useRef(false);
@@ -105,19 +124,16 @@ export function EventFormScreen() {
     }
   };
 
-  // The draft opens once the calendars are known (the first one is the person's own).
+  // The draft opens once the calendars are known (a new event goes to the person's own), and the
+  // event, for a change.
   useEffect(() => {
-    if (!calendars.data || initial.current) return;
-    const fresh = newDraft({
-      day: params.day ?? dayKey(new Date(), timeZone),
-      now: new Date(),
-      timeZone,
-      calendars: calendars.data,
-      channelId: params.channelId,
-    });
+    if (!calendars.data || initial.current || (params.eventId && !edit)) return;
+    const fresh = edit
+      ? draftFromEvent(edit.occurrence, edit.event, timeZone)
+      : newDraft({ day: params.day ?? dayKey(new Date(), timeZone), now: new Date(), timeZone, calendars: calendars.data, channelId: params.channelId });
     initial.current = fresh;
     openDraft(formKey, fresh);
-  }, [calendars.data, formKey, params.day, params.channelId, timeZone]);
+  }, [calendars.data, edit, formKey, params.eventId, params.day, params.channelId, timeZone]);
   useEffect(() => () => closeDraft(formKey), [formKey]);
 
   // Leaving with something typed asks first; leaving after saving does not.
@@ -142,35 +158,68 @@ export function EventFormScreen() {
   const calendar: Calendar | undefined = calendars.data?.find((cal) => cal.id === draft?.calendarId);
   const band = mix(calendarColor(calendar?.color, c), c.surface, 0.45);
 
-  const save = async () => {
+  // A date of a series: its calendar is the series', and a change asks for its scope.
+  const seriesDate = !!(edit?.event.isRecurring && edit.occurrence.recurrenceId);
+
+  /** Close the form, and the summary it was opened from (it shows what was). */
+  const done = (message: "saved" | "gone") => {
+    saved.current = true;
+    const routes = navigation.getState().routes;
+    navigation.dispatch(StackActions.pop(edit && routes[routes.length - 2]?.name === "eventSummary" ? 2 : 1));
+    toast(message === "saved" ? t("eventForm.saved") : t("eventForm.gone"));
+  };
+
+  const save = async (scope?: EditScope) => {
     if (!draft) return;
-    const body = toInput(draft, false);
+    const body = toInput(draft, !!edit);
     if ("error" in body) {
       setError(body.error);
       return;
     }
     setError(null);
+    if (seriesDate && !scope) {
+      navigation.navigate("eventScope", { key: formKey, title: draft.title.trim(), action: "edit" });
+      return;
+    }
     setBusy(true);
     setFailed(false);
     try {
-      await createEvent(draft.calendarId, body);
-      saved.current = true;
-      navigation.goBack();
-      toast(t("eventForm.saved"));
-    } catch {
-      setFailed(true);
+      if (!edit) {
+        await createEvent(draft.calendarId, body);
+      } else if (!edit.event.isRecurring || !scope || scope === "all") {
+        await updateEvent(edit.event.eventId, wholeSeriesInput(body, edit.occurrence, edit.event, draft.calendarId, draft.tz), "all");
+      } else {
+        await updateEvent(edit.event.eventId, body, scope, edit.occurrence.recurrenceId);
+      }
+      // Back to the calendar's reminders: a change of one's own setting, not of the event.
+      if (edit && draft.remindersTouched && draft.reminders === undefined) await setEventMe(edit.event.eventId, "default");
+      done("saved");
+    } catch (err) {
+      if (edit && isApiError(err, 404)) {
+        done("gone");
+        return;
+      }
       setBusy(false);
+      if (edit && isApiError(err, 403)) toast(t("eventForm.forbidden"));
+      else setFailed(true);
     }
   };
+  useScopeRequests(formKey, (scope) => void save(scope));
 
   const errorText = (which: DraftError) =>
     error !== which ? undefined : which === "titleRequired" ? t("calendar.titleRequired") : t("calendar.endBeforeStart");
 
   return (
     <View style={[styles.fill, { backgroundColor: c.surface }]}>
-      <SheetHeader title={t("calendar.newEvent")} onClose={() => navigation.goBack()} />
+      <SheetHeader title={edit || params.eventId ? t("calendar.editEvent") : t("calendar.newEvent")} onClose={() => navigation.goBack()} />
       {!draft ? (
-        <LoadState error={calendars.error} onRetry={calendars.reload} />
+        <LoadState
+          error={calendars.error ?? editing.error}
+          onRetry={() => {
+            calendars.reload();
+            editing.reload();
+          }}
+        />
       ) : (
         <KeyboardForm
           keyboardDismissMode="on-drag"
@@ -182,7 +231,12 @@ export function EventFormScreen() {
                   {t("eventForm.saveFailed")}
                 </Text>
               ) : null}
-              <Button label={t("eventForm.save")} busy={busy} disabled={!draft.calendarId || uploads.uploading} onPress={() => void save()} />
+              <Button
+                label={edit ? t("compose.save") : t("eventForm.save")}
+                busy={busy}
+                disabled={!draft.calendarId || uploads.uploading}
+                onPress={() => void save()}
+              />
             </View>
           }
         >
@@ -193,7 +247,7 @@ export function EventFormScreen() {
               placeholder={t("calendar.eventTitlePlaceholder")}
               placeholderTextColor={mix(c.onPastel, band, 0.55)}
               accessibilityLabel={t("calendar.eventTitle")}
-              autoFocus
+              autoFocus={!params.eventId}
               autoCapitalize="sentences"
               maxLength={500}
               returnKeyType="done"
@@ -208,6 +262,8 @@ export function EventFormScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${t("eventForm.chooseCalendar")} ${calendar.name}`}
+                accessibilityState={{ disabled: seriesDate }}
+                disabled={seriesDate}
                 onPress={() => navigation.navigate("eventCalendar", { formKey })}
                 style={({ pressed }) => [styles.calendar, { borderColor: c.onPastel }, pressed && { opacity: 0.6 }]}
               >
@@ -215,12 +271,25 @@ export function EventFormScreen() {
                 <Text variant="smallStrong" numberOfLines={1} style={[styles.calendarName, { color: c.onPastel }]}>
                   {[calendarLabel(calendar, spaces.data ?? []).sub, calendar.name].filter(Boolean).join(" · ")}
                 </Text>
-                <ChevronDown size={16} color={c.onPastel} />
+                {seriesDate ? null : <ChevronDown size={16} color={c.onPastel} />}
               </Pressable>
             ) : null}
           </View>
           <WhenRows formKey={formKey} draft={draft} error={errorText("endBeforeStart")} />
-          <ClashLine draft={draft} calendars={calendars.data ?? []} busyNames={showAvailability ? busyNames : []} />
+          {!draft.allDay && draft.tz !== timeZone ? (
+            <FormRow icon={Globe} tint={c.sky} label={t("eventForm.timeZone")} onPress={() => navigation.navigate("eventZone", { formKey })}>
+              <View style={styles.choice}>
+                <View style={styles.grow}>
+                  <Text variant="tiny" tone="muted">
+                    {t("eventForm.timeZone")}
+                  </Text>
+                  <Text variant="body">{draft.tz.replace(/_/g, " ")}</Text>
+                </View>
+                <ChevronRight size={18} color={c.muted} />
+              </View>
+            </FormRow>
+          ) : null}
+          <ClashLine draft={draft} calendars={calendars.data ?? []} busyNames={showAvailability ? busyNames : []} eventId={params.eventId} />
           <FormRow icon={Repeat} tint={c.lime} label={t("calendar.repeat")} onPress={() => navigation.navigate("eventRepeat", { formKey })}>
             <View style={styles.choice}>
               <Text variant="body" style={styles.grow}>
@@ -267,6 +336,7 @@ export function EventFormScreen() {
                   ...(me ? [{ userId: me.id, name: t("calendar.me") }] : []),
                   ...draft.attendees.flatMap((a) => (a.userId && a.userId !== me?.id ? [{ userId: a.userId, name: a.name }] : [])),
                 ]}
+                eventId={params.eventId}
                 onBusy={setBusyNames}
               />
             ) : null}
@@ -293,7 +363,11 @@ export function EventFormScreen() {
                   {t("eventForm.shareInChannel")}
                 </Text>
                 <Text variant="bodyStrong" tone={draft.channelId ? "strong" : "muted"}>
-                  {draft.channelId ? (linkable.data?.find((ch) => ch.id === draft.channelId)?.name ?? "…") : t("calendar.noChannel")}
+                  {draft.channelId
+                    ? (linkable.data?.find((ch) => ch.id === draft.channelId)?.name ??
+                      (edit?.event.channel?.id === draft.channelId ? edit.event.channel?.name : undefined) ??
+                      "…")
+                    : t("calendar.noChannel")}
                 </Text>
               </View>
               <ChevronRight size={18} color={c.muted} />

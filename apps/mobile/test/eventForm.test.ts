@@ -7,6 +7,7 @@ import {
   defaultCalendarId,
   draftFromEvent,
   newDraft,
+  occurrenceOf,
   phoneFilesNeedChannel,
   setWhen,
   toInput,
@@ -216,4 +217,16 @@ test("phone_files_of_a_personal_event_need_a_channel", () => {
   assert.equal(phoneFilesNeedChannel(SPACE, null), false);
   // Someone's calendar shared with the person has no space either.
   assert.equal(phoneFilesNeedChannel(SHARED, null), true);
+});
+
+test("a_date_of_a_series_is_drawn_from_its_series", () => {
+  const series = event(occurrence({ isRecurring: true }), { rrule: "FREQ=WEEKLY;BYDAY=WE" });
+  const date = occurrenceOf(series, "2026-10-21T09:00:00Z");
+  assert.equal(date.recurrenceId, "2026-10-21T09:00:00Z");
+  assert.equal(date.start, "2026-10-21T09:00:00Z");
+  assert.equal(date.end, "2026-10-21T10:00:00.000Z");
+  const days = event(occurrence({ isRecurring: true, allDay: true, start: "2026-10-14", end: "2026-10-16" }));
+  const day = occurrenceOf(days, "2026-10-21");
+  assert.equal(day.start, "2026-10-21");
+  assert.equal(day.end, "2026-10-23");
 });

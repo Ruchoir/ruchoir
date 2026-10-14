@@ -42,7 +42,7 @@ export function DayEvents({ day, today, items, data }: { day: string; today: str
           title={o.title}
           meta={o.location}
           color={calendarColor(data.calendars.get(o.calendarId)?.color, c)}
-          onPress={() => navigation.navigate("eventSummary", { eventId: o.eventId, recurrenceId: o.recurrenceId })}
+          onPress={() => navigation.navigate("eventSummary", { eventId: o.eventId, recurrenceId: o.recurrenceId, start: o.start })}
         />
       ))}
     </View>

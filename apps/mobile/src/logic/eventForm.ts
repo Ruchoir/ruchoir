@@ -261,6 +261,17 @@ export function wholeSeriesInput(body: EventInput, occurrence: Occurrence, event
   return whole;
 }
 
+/** The date `recurrenceId` of a series as the series draws it, for when that date is not found as
+ *  itself (a calendar the person sees through an invitation only). */
+export function occurrenceOf(event: CalendarEvent, recurrenceId: string): Occurrence {
+  if (event.allDay) {
+    const start = recurrenceId.slice(0, 10);
+    return { ...event, recurrenceId, start, end: addDays(start, dayDiff(event.start, event.end)) };
+  }
+  const length = Date.parse(event.end) - Date.parse(event.start);
+  return { ...event, recurrenceId, start: recurrenceId, end: new Date(Date.parse(recurrenceId) + length).toISOString() };
+}
+
 /** Whether a file of the phone has nowhere to go yet: an event of a calendar without a space (the
  *  person's own, or someone's shared one) puts it in its channel's space, so it needs a channel. */
 export function phoneFilesNeedChannel(calendar: Pick<Calendar, "spaceId"> | undefined, channelId: string | null): boolean {

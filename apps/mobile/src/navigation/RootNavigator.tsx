@@ -22,6 +22,8 @@ import { InviteesScreen } from "../screens/agenda/form/InviteesScreen";
 import { PickerSheet } from "../screens/agenda/form/PickerSheet";
 import { RemindersSheet } from "../screens/agenda/form/RemindersSheet";
 import { RepeatSheet } from "../screens/agenda/form/RepeatSheet";
+import { ScopeSheet } from "../screens/agenda/form/ScopeSheet";
+import { TimeZoneSheet } from "../screens/agenda/form/TimeZoneSheet";
 import { FileViewerScreen } from "../screens/files/FileViewerScreen";
 import { FolderScreen } from "../screens/files/FolderScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
@@ -65,6 +67,8 @@ export function RootNavigator() {
         <Stack.Screen name="eventRule" component={CustomRuleScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="eventInvitees" component={InviteesScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="eventChannel" component={ChannelSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
+        <Stack.Screen name="eventZone" component={TimeZoneSheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
+        <Stack.Screen name="eventScope" component={ScopeSheet} options={sheet} />
         <Stack.Screen name="eventReminders" component={RemindersSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />

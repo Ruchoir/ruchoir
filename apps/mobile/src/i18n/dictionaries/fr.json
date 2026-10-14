@@ -265,7 +265,17 @@
     "freeDuring": "{{name}} est libre à ce moment",
     "noChannel": "Aucun canal",
     "inviteChannel": "Inviter tout le canal",
-    "filesFailed": "Le fichier n'a pas pu être envoyé. Réessayez."
+    "filesFailed": "Le fichier n'a pas pu être envoyé. Réessayez.",
+    "deleteConfirm": "Supprimer « {{title}} » ?",
+    "scopeIntro": "Cet événement se répète.",
+    "scopeThis": "Cet événement seulement",
+    "scopeThisHint": "Les autres ne bougent pas.",
+    "scopeFollowing": "Celui-ci et les suivants",
+    "scopeFollowingHint": "Les précédents restent tels quels.",
+    "scopeAll": "Toute la série",
+    "scopeAllHint": "Y compris les dates passées.",
+    "scopeEditTitle": "Modifier « {{title}} »",
+    "scopeDeleteTitle": "Supprimer « {{title}} »"
   },
   "discussions": {
     "filterAll": "Tout",
@@ -348,7 +358,14 @@
     "addFile": "Ajouter un fichier",
     "channelFirstTitle": "Choisissez d’abord un canal",
     "channelFirstText": "Un événement de votre agenda n’a pas d’espace à lui : un fichier du téléphone est rangé dans l’espace de son canal.",
-    "filesMax": "20 fichiers au plus."
+    "filesMax": "20 fichiers au plus.",
+    "deleteEvent": "Supprimer l’événement",
+    "deleted": "Événement supprimé",
+    "deleteFailed": "L’événement n’a pas été supprimé. Réessayez.",
+    "gone": "Cet événement n’existe plus.",
+    "forbidden": "Vous ne pouvez plus modifier cet événement.",
+    "timeZone": "Fuseau horaire",
+    "searchZone": "Rechercher un fuseau"
   },
   "files": {
     "search": "Rechercher un fichier",

@@ -265,7 +265,17 @@
     "freeDuring": "{{name}} ist zu dieser Zeit frei",
     "noChannel": "Kein Kanal",
     "inviteChannel": "Ganzen Kanal einladen",
-    "filesFailed": "Die Datei konnte nicht gesendet werden. Bitte erneut versuchen."
+    "filesFailed": "Die Datei konnte nicht gesendet werden. Bitte erneut versuchen.",
+    "deleteConfirm": "„{{title}}“ löschen?",
+    "scopeIntro": "Dieser Termin wiederholt sich.",
+    "scopeThis": "Nur dieser Termin",
+    "scopeThisHint": "Die anderen bleiben unverändert.",
+    "scopeFollowing": "Dieser und alle folgenden",
+    "scopeFollowingHint": "Die früheren bleiben, wie sie sind.",
+    "scopeAll": "Die ganze Serie",
+    "scopeAllHint": "Auch vergangene Termine.",
+    "scopeEditTitle": "„{{title}}“ bearbeiten",
+    "scopeDeleteTitle": "„{{title}}“ löschen"
   },
   "discussions": {
     "filterAll": "Alle",
@@ -348,7 +358,14 @@
     "addFile": "Datei hinzufügen",
     "channelFirstTitle": "Wählen Sie zuerst einen Kanal",
     "channelFirstText": "Ein Termin Ihres eigenen Kalenders hat keinen eigenen Bereich: Eine Datei vom Telefon wird im Bereich seines Kanals abgelegt.",
-    "filesMax": "Höchstens 20 Dateien."
+    "filesMax": "Höchstens 20 Dateien.",
+    "deleteEvent": "Termin löschen",
+    "deleted": "Termin gelöscht",
+    "deleteFailed": "Der Termin wurde nicht gelöscht. Versuchen Sie es erneut.",
+    "gone": "Diesen Termin gibt es nicht mehr.",
+    "forbidden": "Sie können diesen Termin nicht mehr ändern.",
+    "timeZone": "Zeitzone",
+    "searchZone": "Zeitzone suchen"
   },
   "files": {
     "search": "Datei suchen",

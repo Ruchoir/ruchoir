@@ -265,7 +265,17 @@
     "freeDuring": "{{name}} is free then",
     "noChannel": "No channel",
     "inviteChannel": "Invite the whole channel",
-    "filesFailed": "The file could not be sent. Try again."
+    "filesFailed": "The file could not be sent. Try again.",
+    "deleteConfirm": "Delete “{{title}}”?",
+    "scopeIntro": "This event repeats.",
+    "scopeThis": "This event only",
+    "scopeThisHint": "The others do not move.",
+    "scopeFollowing": "This and the following ones",
+    "scopeFollowingHint": "The earlier ones stay as they are.",
+    "scopeAll": "The whole series",
+    "scopeAllHint": "Past dates included.",
+    "scopeEditTitle": "Edit “{{title}}”",
+    "scopeDeleteTitle": "Delete “{{title}}”"
   },
   "discussions": {
     "filterAll": "All",
@@ -348,7 +358,14 @@
     "addFile": "Add a file",
     "channelFirstTitle": "Choose a channel first",
     "channelFirstText": "An event of your own calendar has no space of its own: a file from the phone goes to its channel’s space.",
-    "filesMax": "20 files at most."
+    "filesMax": "20 files at most.",
+    "deleteEvent": "Delete the event",
+    "deleted": "Event deleted",
+    "deleteFailed": "The event was not deleted. Try again.",
+    "gone": "This event no longer exists.",
+    "forbidden": "You can no longer change this event.",
+    "timeZone": "Time zone",
+    "searchZone": "Search a time zone"
   },
   "files": {
     "search": "Search for a file",
