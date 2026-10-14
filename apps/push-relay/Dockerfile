@@ -17,11 +17,13 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cargo build --release -p ruchoir-push-relay \
     && cp target/release/ruchoir-push-relay /usr/local/bin/ruchoir-push-relay
 
+# User and group 10002, fixed: the keys' directory on the host is given to that group.
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 10002 --user-group relay
+    && groupadd --system --gid 10002 relay \
+    && useradd --system --uid 10002 --gid 10002 relay
 COPY --from=build /usr/local/bin/ruchoir-push-relay /usr/local/bin/ruchoir-push-relay
 ENV RELAY_BIND=0.0.0.0:8080 \
     RUST_LOG=info
