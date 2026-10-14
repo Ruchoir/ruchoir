@@ -7,8 +7,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { RootNavigator } from "./navigation/RootNavigator";
 import { OutboxProvider } from "./compose/useOutbox";
 import { RealtimeProvider } from "./realtime/RealtimeProvider";
+import { AuthNavigator } from "./navigation/AuthNavigator";
 import { MfaScreen } from "./screens/auth/MfaScreen";
-import { SignInScreen } from "./screens/auth/SignInScreen";
 import { BootScreen } from "./screens/boot/BootScreen";
 import { SessionProvider, useSession } from "./session/SessionProvider";
 import { SpaceProvider } from "./space/SpaceProvider";
@@ -48,7 +48,7 @@ function Root() {
       return <BootScreen offline={session.offlineAtBoot} onRetry={session.retryBoot} />;
     case "needsServer":
     case "signedOut":
-      return <SignInScreen />;
+      return <AuthNavigator />;
     case "mfa":
       return <MfaScreen />;
     case "signedIn":

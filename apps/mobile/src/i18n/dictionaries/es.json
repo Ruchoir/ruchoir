@@ -34,7 +34,10 @@
       "invalidCode": "Código incorrecto.",
       "invalidToken": "La verificación ha caducado. Vuelva a iniciar sesión.",
       "passkeyOnly": "Esta cuenta se verifica con una llave de acceso, aún no disponible en la aplicación. Añada una aplicación de autenticación desde el sitio web.",
-      "unknown": "Se ha producido un error. Vuelva a intentarlo."
+      "unknown": "Se ha producido un error. Vuelva a intentarlo.",
+      "emailTaken": "Ya existe una cuenta con esta dirección. Inicie sesión o use «Contraseña olvidada».",
+      "weakPassword": "Esta contraseña es demasiado corta: al menos 12 caracteres.",
+      "breachedPassword": "Esta contraseña aparece en filtraciones de datos conocidas. Elija otra."
     }
   },
   "mfa": {
@@ -745,5 +748,79 @@
     "unfavourite": "Quitar de favoritos",
     "favourites": "Canales favoritos",
     "directMessages": "Mensajes directos"
+  },
+  "welcome": {
+    "title": "Su equipo, en un solo lugar",
+    "body": "Mensajes, agenda y archivos. Sencillo, europeo y seguro.",
+    "start": "Empezar",
+    "haveAccount": "Ya tengo una cuenta"
+  },
+  "tutorial": {
+    "skip": "Omitir",
+    "next": "Siguiente",
+    "done": "Terminar",
+    "page": "Página {{page}} de {{total}}",
+    "todayTitle": "Ruchoir le dice qué hacer",
+    "todayText": "Las preguntas que le esperan, la próxima reunión y los documentos nuevos, nada más abrir.",
+    "discussionsTitle": "Escriba a un grupo o a una persona",
+    "discussionsText": "Todas sus conversaciones en una sola lista. Responda a una pregunta con un toque.",
+    "agendaTitle": "Planifique sin esfuerzo",
+    "agendaText": "Cree una cita e invite a sus compañeros, o a personas externas por correo electrónico.",
+    "filesTitle": "Sus documentos le acompañan",
+    "filesText": "Fotos, escaneos y archivos, compartidos con su equipo y a mano en todas partes."
+  },
+  "signUp": {
+    "subtitle": "En menos de un minuto.",
+    "name": "Nombre y apellidos",
+    "namePlaceholder": "Camille Roux",
+    "passwordPlaceholder": "Elija una contraseña",
+    "rule": "Al menos 12 caracteres",
+    "terms": "Acepto las condiciones de uso y la política de privacidad.",
+    "submit": "Crear mi cuenta",
+    "haveAccount": "¿Ya tiene una cuenta?",
+    "noMail": "Este servidor no envía correos: una cuenta nueva no puede confirmarse en él. Pida una invitación a su administrador."
+  },
+  "invitation": {
+    "title": "Enlace de invitación",
+    "intro": "Pegue el enlace recibido por correo o en un mensaje: indica el servidor y el espacio de su equipo.",
+    "field": "Enlace",
+    "placeholder": "https://…/invite?token=…",
+    "paste": "Pegar",
+    "unreadable": "Este texto no es un enlace de invitación de Ruchoir.",
+    "otherServer": "Esta invitación es para otro servidor ({{host}}). Para unirse, cierre la sesión y cree una cuenta desde este enlace.",
+    "expired": "Esta invitación ya no es válida. Pida una nueva a la persona que le invitó.",
+    "joining": "Se une a {{space}}",
+    "invitedBy": "Invitación de {{name}}",
+    "remove": "Quitar la invitación",
+    "have": "Tengo un enlace de invitación",
+    "haveHint": "Para unirse directamente a su equipo",
+    "check": "Comprobar el enlace"
+  },
+  "verify": {
+    "title": "Revise su correo",
+    "sentTo": "Hemos enviado un enlace y un código a",
+    "instructions": "Toque el enlace para activar su cuenta y vuelva aquí. También puede introducir el código.",
+    "openMail": "Abrir mi correo",
+    "codeLabel": "Código recibido por correo",
+    "codeSubmit": "Validar el código",
+    "codeWrong": "Este código no coincide o ha caducado. Compruébelo o pida un nuevo enlace.",
+    "resend": "Reenviar el enlace",
+    "resendIn": "Reenviar el enlace en {{seconds}} s",
+    "resent": "Un nuevo enlace y un nuevo código están en camino."
+  },
+  "forgot": {
+    "title": "Contraseña olvidada",
+    "intro": "Indique su dirección: le enviaremos un enlace para elegir una nueva contraseña.",
+    "send": "Recibir un enlace",
+    "sentBody": "Si existe una cuenta con {{email}}, se acaba de enviar un enlace. Ábralo para elegir una nueva contraseña y vuelva a iniciar sesión.",
+    "useRecovery": "Tengo un código de recuperación",
+    "useLink": "Recibir un enlace en su lugar",
+    "recoveryIntro": "Un código de recuperación sustituye al enlace: lo recibió al activar la verificación en dos pasos.",
+    "newPassword": "Nueva contraseña",
+    "recoverySubmit": "Cambiar la contraseña",
+    "recoveredTitle": "Contraseña cambiada",
+    "recovered": "Inicie sesión con su nueva contraseña.",
+    "failed": "Este código de recuperación no corresponde a esta dirección, o la contraseña fue rechazada.",
+    "noMail": "Este servidor no envía correos: use un código de recuperación o pida a su administrador un enlace de restablecimiento."
   }
 }

@@ -12,6 +12,8 @@ export type ViewerFile = { id: string; name: string; url: string; mime?: string;
 
 export type RootParams = {
   tabs: NavigatorScreenParams<TabParams>;
+  /** The tutorial again, from Help. */
+  tutorial: { replay: true };
   /**
    * A channel or a direct conversation; `channelId` is set for a channel (its agenda tab needs it).
    * `unread` is how many messages were new when it was opened, which places the "New messages" line;
@@ -104,3 +106,23 @@ declare global {
     interface RootParamList extends RootParams {}
   }
 }
+
+/** An invitation read from a pasted link and previewed: where it leads, and who sent it. */
+export type InvitationChoice = {
+  token: string;
+  spaceName: string;
+  invitedBy?: string;
+  /** The address it was sent to, when it names one. */
+  email?: string;
+};
+
+/** The screens before signing in (`AuthNavigator`). */
+export type AuthParams = {
+  welcome: undefined;
+  tutorial: { replay?: boolean } | undefined;
+  signIn: undefined;
+  signUp: { invitation?: InvitationChoice } | undefined;
+  invitationLink: undefined;
+  verifyEmail: undefined;
+  forgotPassword: { email?: string } | undefined;
+};

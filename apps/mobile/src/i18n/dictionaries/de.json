@@ -34,7 +34,10 @@
       "invalidCode": "Falscher Code.",
       "invalidToken": "Die Überprüfung ist abgelaufen. Melden Sie sich erneut an.",
       "passkeyOnly": "Dieses Konto wird mit einem Passkey bestätigt, den die App noch nicht unterstützt. Fügen Sie auf der Website eine Authenticator-App hinzu.",
-      "unknown": "Ein Fehler ist aufgetreten. Versuchen Sie es erneut."
+      "unknown": "Ein Fehler ist aufgetreten. Versuchen Sie es erneut.",
+      "emailTaken": "Mit dieser Adresse existiert bereits ein Konto. Melden Sie sich an oder nutzen Sie „Passwort vergessen“.",
+      "weakPassword": "Dieses Passwort ist zu kurz: mindestens 12 Zeichen.",
+      "breachedPassword": "Dieses Passwort taucht in bekannten Datenlecks auf. Wählen Sie ein anderes."
     }
   },
   "mfa": {
@@ -700,5 +703,79 @@
     "unfavourite": "Aus Favoriten entfernen",
     "favourites": "Favorisierte Kanäle",
     "directMessages": "Direktnachrichten"
+  },
+  "welcome": {
+    "title": "Ihr Team an einem Ort",
+    "body": "Nachrichten, Kalender und Dateien. Einfach, europäisch und sicher.",
+    "start": "Loslegen",
+    "haveAccount": "Ich habe bereits ein Konto"
+  },
+  "tutorial": {
+    "skip": "Überspringen",
+    "next": "Weiter zur nächsten Seite",
+    "done": "Fertig",
+    "page": "Seite {{page}} von {{total}}",
+    "todayTitle": "Ruchoir sagt Ihnen, was zu tun ist",
+    "todayText": "Die Fragen, die auf Sie warten, das nächste Treffen und neue Dokumente, gleich beim Öffnen.",
+    "discussionsTitle": "Schreiben Sie einer Gruppe oder einer Person",
+    "discussionsText": "Alle Ihre Unterhaltungen in einer Liste. Beantworten Sie eine Frage mit einem Tippen.",
+    "agendaTitle": "Mühelos planen",
+    "agendaText": "Erstellen Sie einen Termin und laden Sie Kollegen oder externe Personen per E-Mail ein.",
+    "filesTitle": "Ihre Dokumente begleiten Sie",
+    "filesText": "Fotos, Scans und Dateien, mit Ihrem Team geteilt und überall griffbereit."
+  },
+  "signUp": {
+    "subtitle": "In weniger als einer Minute.",
+    "name": "Vor- und Nachname",
+    "namePlaceholder": "Camille Roux",
+    "passwordPlaceholder": "Wählen Sie ein Passwort",
+    "rule": "Mindestens 12 Zeichen",
+    "terms": "Ich akzeptiere die Nutzungsbedingungen und die Datenschutzerklärung.",
+    "submit": "Mein Konto erstellen",
+    "haveAccount": "Schon ein Konto?",
+    "noMail": "Dieser Server versendet keine E-Mails: Ein neues Konto kann dort nicht bestätigt werden. Bitten Sie die Administration um eine Einladung."
+  },
+  "invitation": {
+    "title": "Einladungslink",
+    "intro": "Fügen Sie den Link ein, den Sie per E-Mail oder Nachricht erhalten haben: Er nennt den Server und den Bereich Ihres Teams.",
+    "field": "Link",
+    "placeholder": "https://…/invite?token=…",
+    "paste": "Einfügen",
+    "unreadable": "Dieser Text ist kein Ruchoir-Einladungslink.",
+    "otherServer": "Diese Einladung gilt für einen anderen Server ({{host}}). Um beizutreten, melden Sie sich ab und erstellen Sie über diesen Link ein Konto.",
+    "expired": "Diese Einladung ist nicht mehr gültig. Bitten Sie die einladende Person um eine neue.",
+    "joining": "Sie treten {{space}} bei",
+    "invitedBy": "Einladung von {{name}}",
+    "remove": "Einladung entfernen",
+    "have": "Ich habe einen Einladungslink",
+    "haveHint": "Um direkt Ihrem Team beizutreten",
+    "check": "Link prüfen"
+  },
+  "verify": {
+    "title": "Prüfen Sie Ihre E-Mails",
+    "sentTo": "Wir haben einen Link und einen Code gesendet an",
+    "instructions": "Tippen Sie auf den Link, um Ihr Konto zu aktivieren, und kehren Sie dann hierher zurück. Sie können auch den Code eingeben.",
+    "openMail": "Meine E-Mails öffnen",
+    "codeLabel": "Code aus der E-Mail",
+    "codeSubmit": "Code bestätigen",
+    "codeWrong": "Dieser Code stimmt nicht oder ist abgelaufen. Prüfen Sie ihn oder fordern Sie einen neuen Link an.",
+    "resend": "Link erneut senden",
+    "resendIn": "Link erneut senden in {{seconds}} s",
+    "resent": "Ein neuer Link und ein neuer Code sind unterwegs."
+  },
+  "forgot": {
+    "title": "Passwort vergessen",
+    "intro": "Geben Sie Ihre Adresse ein: Wir senden Ihnen einen Link, um ein neues Passwort zu wählen.",
+    "send": "Link erhalten",
+    "sentBody": "Falls ein Konto mit {{email}} existiert, wurde gerade ein Link dorthin gesendet. Öffnen Sie ihn, um ein neues Passwort zu wählen, und melden Sie sich dann an.",
+    "useRecovery": "Ich habe einen Wiederherstellungscode",
+    "useLink": "Lieber einen Link erhalten",
+    "recoveryIntro": "Ein Wiederherstellungscode ersetzt den Link: Sie haben ihn beim Einschalten der Zwei-Faktor-Authentifizierung erhalten.",
+    "newPassword": "Neues Passwort",
+    "recoverySubmit": "Passwort ändern",
+    "recoveredTitle": "Passwort geändert",
+    "recovered": "Melden Sie sich mit Ihrem neuen Passwort an.",
+    "failed": "Dieser Wiederherstellungscode passt nicht zu dieser Adresse, oder das Passwort wurde abgelehnt.",
+    "noMail": "Dieser Server versendet keine E-Mails: Verwenden Sie einen Wiederherstellungscode oder bitten Sie die Administration um einen Link zum Zurücksetzen."
   }
 }

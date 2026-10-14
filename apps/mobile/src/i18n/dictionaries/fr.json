@@ -34,7 +34,10 @@
       "invalidCode": "Code incorrect.",
       "invalidToken": "La vérification a expiré. Reconnectez-vous.",
       "passkeyOnly": "Ce compte se vérifie avec une clé d’accès, pas encore disponible dans l’application. Ajoutez une application d’authentification depuis le site web.",
-      "unknown": "Une erreur est survenue. Réessayez."
+      "unknown": "Une erreur est survenue. Réessayez.",
+      "emailTaken": "Un compte existe déjà avec cette adresse. Connectez-vous, ou utilisez « Mot de passe oublié ».",
+      "weakPassword": "Ce mot de passe est trop court : 12 caractères au moins.",
+      "breachedPassword": "Ce mot de passe figure dans des fuites de données connues. Choisissez-en un autre."
     }
   },
   "mfa": {
@@ -700,5 +703,79 @@
     "unfavourite": "Retirer des favoris",
     "favourites": "Canaux favoris",
     "directMessages": "Messages directs"
+  },
+  "welcome": {
+    "title": "Votre équipe, au même endroit",
+    "body": "Messages, agenda et fichiers. Simple, européen et sécurisé.",
+    "start": "Commencer",
+    "haveAccount": "J’ai déjà un compte"
+  },
+  "tutorial": {
+    "skip": "Passer",
+    "next": "Suivant",
+    "done": "Terminer",
+    "page": "Page {{page}} sur {{total}}",
+    "todayTitle": "Ruchoir vous dit quoi faire",
+    "todayText": "Les questions qui vous attendent, la prochaine réunion et les nouveaux documents, dès l’ouverture.",
+    "discussionsTitle": "Écrivez à un groupe ou à une personne",
+    "discussionsText": "Tous vos échanges dans une seule liste. Répondez à une question en un geste.",
+    "agendaTitle": "Planifiez sans effort",
+    "agendaText": "Créez un rendez-vous et invitez vos collègues, ou des personnes extérieures par e-mail.",
+    "filesTitle": "Vos documents vous suivent",
+    "filesText": "Photos, scans et fichiers, partagés avec votre équipe et accessibles partout."
+  },
+  "signUp": {
+    "subtitle": "En moins d’une minute.",
+    "name": "Prénom et nom",
+    "namePlaceholder": "Camille Roux",
+    "passwordPlaceholder": "Choisissez un mot de passe",
+    "rule": "Au moins 12 caractères",
+    "terms": "J’accepte les conditions d’utilisation et la politique de confidentialité.",
+    "submit": "Créer mon compte",
+    "haveAccount": "Déjà un compte ?",
+    "noMail": "Ce serveur n’envoie pas d’e-mails : un nouveau compte ne peut pas y être confirmé. Demandez une invitation à son administrateur."
+  },
+  "invitation": {
+    "title": "Lien d’invitation",
+    "intro": "Collez le lien reçu par e-mail ou par message : il indique le serveur et l’espace de votre équipe.",
+    "field": "Lien reçu",
+    "placeholder": "https://…/invite?token=…",
+    "paste": "Coller",
+    "unreadable": "Ce texte n’est pas un lien d’invitation Ruchoir.",
+    "otherServer": "Cette invitation est pour un autre serveur ({{host}}). Pour la rejoindre, déconnectez-vous puis créez un compte depuis ce lien.",
+    "expired": "Cette invitation n’est plus valable. Demandez-en une nouvelle à la personne qui vous a invité.",
+    "joining": "Vous rejoignez {{space}}",
+    "invitedBy": "Invitation de {{name}}",
+    "remove": "Retirer l’invitation",
+    "have": "J’ai un lien d’invitation",
+    "haveHint": "Pour rejoindre directement votre équipe",
+    "check": "Vérifier le lien"
+  },
+  "verify": {
+    "title": "Vérifiez vos e-mails",
+    "sentTo": "Nous avons envoyé un lien et un code à",
+    "instructions": "Touchez le lien pour activer votre compte, puis revenez ici. Vous pouvez aussi saisir le code.",
+    "openMail": "Ouvrir mes e-mails",
+    "codeLabel": "Code reçu par e-mail",
+    "codeSubmit": "Valider le code",
+    "codeWrong": "Ce code ne correspond pas, ou il a expiré. Vérifiez-le, ou demandez un nouveau lien.",
+    "resend": "Renvoyer le lien",
+    "resendIn": "Renvoyer le lien dans {{seconds}} s",
+    "resent": "Un nouveau lien et un nouveau code sont partis."
+  },
+  "forgot": {
+    "title": "Mot de passe oublié",
+    "intro": "Indiquez votre adresse : nous vous envoyons un lien pour choisir un nouveau mot de passe.",
+    "send": "Recevoir un lien",
+    "sentBody": "Si un compte existe avec {{email}}, un lien vient d’y être envoyé. Ouvrez-le pour choisir un nouveau mot de passe, puis revenez vous connecter.",
+    "useRecovery": "J’ai un code de secours",
+    "useLink": "Recevoir un lien plutôt",
+    "recoveryIntro": "Un code de secours remplace le lien : vous l’avez reçu en activant la double authentification.",
+    "newPassword": "Nouveau mot de passe",
+    "recoverySubmit": "Changer le mot de passe",
+    "recoveredTitle": "Mot de passe changé",
+    "recovered": "Connectez-vous avec votre nouveau mot de passe.",
+    "failed": "Ce code de secours ne correspond pas à cette adresse, ou le mot de passe est refusé.",
+    "noMail": "Ce serveur n’envoie pas d’e-mails : utilisez un code de secours, ou demandez à son administrateur un lien de réinitialisation."
   }
 }

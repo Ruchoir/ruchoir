@@ -34,7 +34,10 @@
       "invalidCode": "Codice errato.",
       "invalidToken": "La verifica è scaduta. Accedete di nuovo.",
       "passkeyOnly": "Questo account si verifica con una passkey, non ancora disponibile nell’app. Aggiungete un’app di autenticazione dal sito web.",
-      "unknown": "Si è verificato un errore. Riprovate."
+      "unknown": "Si è verificato un errore. Riprovate.",
+      "emailTaken": "Esiste già un account con questo indirizzo. Accedete o usate «Password dimenticata».",
+      "weakPassword": "Questa password è troppo corta: almeno 12 caratteri.",
+      "breachedPassword": "Questa password compare in violazioni di dati note. Sceglietene un’altra."
     }
   },
   "mfa": {
@@ -745,5 +748,79 @@
     "unfavourite": "Rimuovi dai preferiti",
     "favourites": "Canali preferiti",
     "directMessages": "Messaggi diretti"
+  },
+  "welcome": {
+    "title": "Il vostro team, in un solo posto",
+    "body": "Messaggi, agenda e file. Semplice, europeo e sicuro.",
+    "start": "Inizia",
+    "haveAccount": "Ho già un account"
+  },
+  "tutorial": {
+    "skip": "Salta",
+    "next": "Avanti",
+    "done": "Fine",
+    "page": "Pagina {{page}} di {{total}}",
+    "todayTitle": "Ruchoir vi dice cosa fare",
+    "todayText": "Le domande che vi aspettano, la prossima riunione e i nuovi documenti, appena aprite l’app.",
+    "discussionsTitle": "Scrivete a un gruppo o a una persona",
+    "discussionsText": "Tutte le vostre conversazioni in un’unica lista. Rispondete a una domanda con un tocco.",
+    "agendaTitle": "Pianificate senza fatica",
+    "agendaText": "Create un appuntamento e invitate i colleghi, o persone esterne via e-mail.",
+    "filesTitle": "I vostri documenti vi seguono",
+    "filesText": "Foto, scansioni e file, condivisi con il vostro team e a portata di mano ovunque."
+  },
+  "signUp": {
+    "subtitle": "In meno di un minuto.",
+    "name": "Nome e cognome",
+    "namePlaceholder": "Camille Roux",
+    "passwordPlaceholder": "Scegliete una password",
+    "rule": "Almeno 12 caratteri",
+    "terms": "Accetto le condizioni d’uso e l’informativa sulla privacy.",
+    "submit": "Crea il mio account",
+    "haveAccount": "Avete già un account?",
+    "noMail": "Questo server non invia e-mail: un nuovo account non può esservi confermato. Chiedete un invito al suo amministratore."
+  },
+  "invitation": {
+    "title": "Link di invito",
+    "intro": "Incollate il link ricevuto via e-mail o in un messaggio: indica il server e lo spazio del vostro team.",
+    "field": "Link",
+    "placeholder": "https://…/invite?token=…",
+    "paste": "Incolla",
+    "unreadable": "Questo testo non è un link di invito Ruchoir.",
+    "otherServer": "Questo invito è per un altro server ({{host}}). Per unirvi, disconnettetevi e create un account da questo link.",
+    "expired": "Questo invito non è più valido. Chiedetene uno nuovo alla persona che vi ha invitato.",
+    "joining": "State entrando in {{space}}",
+    "invitedBy": "Invito di {{name}}",
+    "remove": "Rimuovi l’invito",
+    "have": "Ho un link di invito",
+    "haveHint": "Per entrare subito nel vostro team",
+    "check": "Verifica il link"
+  },
+  "verify": {
+    "title": "Controllate la vostra e-mail",
+    "sentTo": "Abbiamo inviato un link e un codice a",
+    "instructions": "Toccate il link per attivare il vostro account, poi tornate qui. Potete anche inserire il codice.",
+    "openMail": "Apri la mia e-mail",
+    "codeLabel": "Codice ricevuto via e-mail",
+    "codeSubmit": "Conferma il codice",
+    "codeWrong": "Questo codice non corrisponde o è scaduto. Controllatelo o chiedete un nuovo link.",
+    "resend": "Invia di nuovo il link",
+    "resendIn": "Invia di nuovo il link tra {{seconds}} s",
+    "resent": "Un nuovo link e un nuovo codice sono in arrivo."
+  },
+  "forgot": {
+    "title": "Password dimenticata",
+    "intro": "Indicate il vostro indirizzo: vi invieremo un link per scegliere una nuova password.",
+    "send": "Ricevi un link",
+    "sentBody": "Se esiste un account con {{email}}, vi è appena stato inviato un link. Apritelo per scegliere una nuova password, poi tornate ad accedere.",
+    "useRecovery": "Ho un codice di recupero",
+    "useLink": "Ricevi invece un link",
+    "recoveryIntro": "Un codice di recupero sostituisce il link: l’avete ricevuto attivando l’autenticazione a due fattori.",
+    "newPassword": "Nuova password",
+    "recoverySubmit": "Cambia la password",
+    "recoveredTitle": "Password cambiata",
+    "recovered": "Accedete con la nuova password.",
+    "failed": "Questo codice di recupero non corrisponde a questo indirizzo, oppure la password è stata rifiutata.",
+    "noMail": "Questo server non invia e-mail: usate un codice di recupero o chiedete al suo amministratore un link di reimpostazione."
   }
 }

@@ -6,11 +6,14 @@
  */
 import {
   apiErrorCode,
+  confirmEmailVerificationCode,
   getInstanceCapabilities,
   getSession,
   isApiError,
   login,
   logout,
+  register as apiRegister,
+  requestEmailVerification,
   verifyRecoveryCode,
   verifyTotp,
   type MfaMethod,
@@ -38,6 +41,9 @@ export type FailureCode =
   | "account_locked"
   | "invalid_code"
   | "invalid_token"
+  | "email_taken"
+  | "weak_password"
+  | "breached_password"
   | "passkeyOnly"
   | "unknown";
 
@@ -50,8 +56,26 @@ export class AuthFailure extends Error {
 /** The second factors this app can complete. A passkey needs a native build (step 6). */
 const APP_METHODS: MfaMethod[] = ["totp", "recovery"];
 
+/** What a new account needs to be created. */
+export type SignUp = { name: string; email: string; password: string; invitationToken?: string };
+
 type SessionApi = {
   state: SessionState;
+  /**
+   * The address of an account just created and not confirmed yet. Its password waits beside it in
+   * memory only (never written), so the app can sign in by itself once the address is confirmed.
+   */
+  pendingSignUp: { email: string } | null;
+  /** Create an account: `"signedIn"` when it is active at once (an invitation to that address). */
+  register: (input: SignUp) => Promise<"verify" | "signedIn">;
+  /** Confirm the pending address with the e-mailed code, then sign in. */
+  confirmCode: (code: string) => Promise<void>;
+  resendVerification: () => Promise<void>;
+  /** Sign in quietly with the pending sign-up; false while the address is still unconfirmed. */
+  retryPendingSignIn: () => Promise<boolean>;
+  forgetPendingSignUp: () => void;
+  /** The invitation pasted at sign-up, handed once to whoever accepts it after sign-in. */
+  takePendingInvitation: () => string | null;
   /** True when the Keychain held a session but the instance could not be reached to check it. */
   offlineAtBoot: boolean;
   retryBoot: () => void;
@@ -74,6 +98,9 @@ function failureOf(err: unknown): AuthFailure {
     "account_locked",
     "invalid_code",
     "invalid_token",
+    "email_taken",
+    "weak_password",
+    "breached_password",
   ];
   if (code && (known as string[]).includes(code)) return new AuthFailure(code as FailureCode);
   return new AuthFailure(isApiError(err) ? "unknown" : "unreachable");
@@ -102,6 +129,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(sessionReducer, { kind: "booting" });
   const [offlineAtBoot, setOfflineAtBoot] = useState(false);
   const hasToken = useRef(false);
+  const pending = useRef<{ email: string; password: string } | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const invitation = useRef<string | null>(null);
 
   const holdToken = useCallback(async (token: string | null) => {
     hasToken.current = token !== null;
@@ -162,13 +192,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [holdToken, onUnauthorized],
   );
 
+  const forgetPendingSignUp = useCallback(() => {
+    pending.current = null;
+    setPendingEmail(null);
+  }, []);
+
   const signedIn = useCallback(
     async (user: SessionUser, token: string | undefined) => {
       if (!token) throw new AuthFailure("outdated");
       await holdToken(token);
+      forgetPendingSignUp();
       dispatch({ type: "authenticated", user });
     },
-    [holdToken],
+    [holdToken, forgetPendingSignUp],
   );
 
   const signIn = useCallback(
@@ -186,6 +222,69 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     [signedIn],
   );
+
+  const register = useCallback(
+    async ({ name, email, password, invitationToken }: SignUp) => {
+      const address = email.trim();
+      let result;
+      try {
+        result = await apiRegister(address, name.trim(), password, invitationToken);
+      } catch (err) {
+        throw failureOf(err);
+      }
+      invitation.current = invitationToken ?? null;
+      if (result.active) {
+        await signIn(address, password);
+        return "signedIn" as const;
+      }
+      pending.current = { email: address, password };
+      setPendingEmail(address);
+      return "verify" as const;
+    },
+    [signIn],
+  );
+
+  const retryPendingSignIn = useCallback(async () => {
+    const waiting = pending.current;
+    if (!waiting) return false;
+    try {
+      await signIn(waiting.email, waiting.password);
+      return true;
+    } catch {
+      // Still unconfirmed, or the network is away: the screen stays as it is.
+      return false;
+    }
+  }, [signIn]);
+
+  const confirmCode = useCallback(
+    async (code: string) => {
+      const waiting = pending.current;
+      if (!waiting) throw new AuthFailure("invalid_code");
+      try {
+        await confirmEmailVerificationCode(waiting.email, code);
+      } catch (err) {
+        throw failureOf(err);
+      }
+      await signIn(waiting.email, waiting.password);
+    },
+    [signIn],
+  );
+
+  const resendVerification = useCallback(async () => {
+    const waiting = pending.current;
+    if (!waiting) return;
+    try {
+      await requestEmailVerification(waiting.email);
+    } catch (err) {
+      throw failureOf(err);
+    }
+  }, []);
+
+  const takePendingInvitation = useCallback(() => {
+    const token = invitation.current;
+    invitation.current = null;
+    return token;
+  }, []);
 
   const verify = useCallback(
     async (method: "totp" | "recovery", code: string) => {
@@ -219,9 +318,18 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "changeServer" });
   }, [holdToken]);
 
+  const pendingSignUp = useMemo(() => (pendingEmail ? { email: pendingEmail } : null), [pendingEmail]);
+
   const api = useMemo<SessionApi>(
     () => ({
       state,
+      pendingSignUp,
+      register,
+      confirmCode,
+      resendVerification,
+      retryPendingSignIn,
+      forgetPendingSignUp,
+      takePendingInvitation,
       offlineAtBoot,
       retryBoot,
       chooseServer,
@@ -230,7 +338,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       verify,
       signOut,
     }),
-    [state, offlineAtBoot, retryBoot, chooseServer, changeServer, signIn, verify, signOut],
+    [
+      state,
+      pendingSignUp,
+      register,
+      confirmCode,
+      resendVerification,
+      retryPendingSignIn,
+      forgetPendingSignUp,
+      takePendingInvitation,
+      offlineAtBoot,
+      retryBoot,
+      chooseServer,
+      changeServer,
+      signIn,
+      verify,
+      signOut,
+    ],
   );
 
   return <SessionContext.Provider value={api}>{children}</SessionContext.Provider>;

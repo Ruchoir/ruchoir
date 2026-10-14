@@ -34,7 +34,10 @@
       "invalidCode": "Incorrect code.",
       "invalidToken": "The verification has expired. Sign in again.",
       "passkeyOnly": "This account is verified with a passkey, which the app does not support yet. Add an authenticator app from the website.",
-      "unknown": "Something went wrong. Try again."
+      "unknown": "Something went wrong. Try again.",
+      "emailTaken": "An account already exists with this address. Sign in, or use “Forgot password”.",
+      "weakPassword": "This password is too short: at least 12 characters.",
+      "breachedPassword": "This password appears in known data breaches. Choose another one."
     }
   },
   "mfa": {
@@ -700,5 +703,79 @@
     "unfavourite": "Remove from favourites",
     "favourites": "Favourite channels",
     "directMessages": "Direct messages"
+  },
+  "welcome": {
+    "title": "Your team, in one place",
+    "body": "Messages, calendar and files. Simple, European and secure.",
+    "start": "Get started",
+    "haveAccount": "I already have an account"
+  },
+  "tutorial": {
+    "skip": "Skip",
+    "next": "Next",
+    "done": "Done",
+    "page": "Page {{page}} of {{total}}",
+    "todayTitle": "Ruchoir tells you what to do",
+    "todayText": "The questions waiting for you, the next meeting and the new documents, as soon as you open it.",
+    "discussionsTitle": "Write to a group or to one person",
+    "discussionsText": "All your conversations in one list. Answer a question in one tap.",
+    "agendaTitle": "Plan without effort",
+    "agendaText": "Create a meeting and invite your colleagues, or people from outside by email.",
+    "filesTitle": "Your documents follow you",
+    "filesText": "Photos, scans and files, shared with your team and at hand everywhere."
+  },
+  "signUp": {
+    "subtitle": "In less than a minute.",
+    "name": "Full name",
+    "namePlaceholder": "Camille Roux",
+    "passwordPlaceholder": "Choose a password",
+    "rule": "At least 12 characters",
+    "terms": "I accept the terms of use and the privacy policy.",
+    "submit": "Create my account",
+    "haveAccount": "Already have an account?",
+    "noMail": "This server sends no email: a new account cannot be confirmed there. Ask its administrator for an invitation."
+  },
+  "invitation": {
+    "title": "Invitation link",
+    "intro": "Paste the link you received by email or in a message: it names your team's server and space.",
+    "field": "Link",
+    "placeholder": "https://…/invite?token=…",
+    "paste": "Paste",
+    "unreadable": "This is not a Ruchoir invitation link.",
+    "otherServer": "This invitation is for another server ({{host}}). To join it, sign out, then create an account from this link.",
+    "expired": "This invitation is no longer valid. Ask the person who invited you for a new one.",
+    "joining": "You are joining {{space}}",
+    "invitedBy": "Invited by {{name}}",
+    "remove": "Remove the invitation",
+    "have": "I have an invitation link",
+    "haveHint": "To join your team straight away",
+    "check": "Check the link"
+  },
+  "verify": {
+    "title": "Check your email",
+    "sentTo": "We sent a link and a code to",
+    "instructions": "Tap the link to activate your account, then come back here. You can also enter the code.",
+    "openMail": "Open my email",
+    "codeLabel": "Code from the email",
+    "codeSubmit": "Confirm the code",
+    "codeWrong": "This code does not match, or it has expired. Check it, or ask for a new link.",
+    "resend": "Send the link again",
+    "resendIn": "Send the link again in {{seconds}} s",
+    "resent": "A new link and a new code are on their way."
+  },
+  "forgot": {
+    "title": "Forgot password",
+    "intro": "Enter your address: we will send you a link to choose a new password.",
+    "send": "Send me a link",
+    "sentBody": "If an account exists for {{email}}, a link was just sent there. Open it to choose a new password, then come back to sign in.",
+    "useRecovery": "I have a recovery code",
+    "useLink": "Get a link instead",
+    "recoveryIntro": "A recovery code replaces the link: you received it when you turned on two-factor authentication.",
+    "newPassword": "New password",
+    "recoverySubmit": "Change the password",
+    "recoveredTitle": "Password changed",
+    "recovered": "Sign in with your new password.",
+    "failed": "This recovery code does not match this address, or the password was refused.",
+    "noMail": "This server sends no email: use a recovery code, or ask its administrator for a reset link."
   }
 }
