@@ -949,10 +949,17 @@ function appendPart(form: FormData, part: UploadPart): void {
 }
 
 /**
- * A multipart `POST` over `XMLHttpRequest`, for its upload progress: what {@link startAttachmentUpload}
- * and {@link startFileUpload} share. `map` reads the created resource from the answer.
+ * A multipart `POST` (or `PUT`) over `XMLHttpRequest`, for its upload progress: what
+ * {@link startAttachmentUpload}, {@link startFileUpload} and the images share. `map` reads the created
+ * resource from the answer.
  */
-function xhrUpload<T>(path: string, form: FormData, map: (body: unknown) => T, onProgress?: (sent: number) => void): UploadRequest<T> {
+function xhrUpload<T>(
+  path: string,
+  form: FormData,
+  map: (body: unknown) => T,
+  onProgress?: (sent: number) => void,
+  method: "POST" | "PUT" = "POST",
+): UploadRequest<T> {
   const xhr = new XMLHttpRequest();
   const done = new Promise<T>((resolve, reject) => {
     xhr.onload = () => {
@@ -972,7 +979,7 @@ function xhrUpload<T>(path: string, form: FormData, map: (body: unknown) => T, o
     xhr.onerror = () => reject(new ApiError(0, "network", null));
     xhr.onabort = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
   });
-  xhr.open("POST", `${apiBase()}${path}`);
+  xhr.open(method, `${apiBase()}${path}`);
   const auth = authInit();
   // Same-origin on the web, where the cookie goes anyway; an app presents its bearer and no cookie.
   xhr.withCredentials = false;
@@ -1005,7 +1012,7 @@ function toUploadedAttachment(dto: FileDto): MessageAttachment {
 
 /** `PUT /users/me/avatar`: replace the caller's own avatar (a file, or a photo of the phone); returns its new URL. */
 export async function setMyAvatar(file: UploadPart): Promise<string> {
-  return uploadImage(`${apiBase()}/users/me/avatar`, file);
+  return uploadImage("/users/me/avatar", file);
 }
 
 /** `DELETE /users/me/avatar`: fall back to the generated avatar. */
@@ -1015,7 +1022,7 @@ export async function clearMyAvatar(): Promise<void> {
 
 /** `PUT /spaces/{id}/icon`: replace a space's icon; owner or admin only. Returns its new URL. */
 export async function setSpaceIcon(spaceId: string, file: File): Promise<string> {
-  return uploadImage(`${apiBase()}/spaces/${spaceId}/icon`, file);
+  return uploadImage(`/spaces/${spaceId}/icon`, file);
 }
 
 /** `DELETE /spaces/{id}/icon`: fall back to the generated mark. */
@@ -1030,14 +1037,15 @@ export async function clearSpaceIcon(spaceId: string): Promise<void> {
  * here: an avatar is addressed by its owner's id, which never changes, and that version is what tells
  * the browser it is looking at a different picture.
  */
+/**
+ * `PUT` an image (an avatar, a space's icon) and read back its URL. Over `XMLHttpRequest` as every
+ * upload is: an Expo app's `fetch` cannot send a `{ uri, name, type }` part, the file of the phone
+ * that React Native's own networking reads from the device.
+ */
 async function uploadImage(path: string, file: UploadPart): Promise<string> {
   const form = new FormData();
-  // React Native's FormData reads a `{ uri, name, type }` part from the device itself.
   form.append("file", file as Blob);
-  const res = await fetch(path, { method: "PUT", ...authInit(), body: form });
-  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
-  const body = (await res.json()) as { url: string };
-  return body.url;
+  return xhrUpload(path, form, (body) => (body as { url: string }).url, undefined, "PUT").done;
 }
 
 /** `GET /spaces/{id}/channels`: the channels the caller can see in a space. */
