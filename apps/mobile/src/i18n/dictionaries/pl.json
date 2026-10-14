@@ -386,7 +386,8 @@
     "newBelow_one": "{{count}} nowa wiadomość",
     "newBelow_other": "{{count}} nowej wiadomości",
     "newBelow_few": "{{count}} nowe wiadomości",
-    "newBelow_many": "{{count}} nowych wiadomości"
+    "newBelow_many": "{{count}} nowych wiadomości",
+    "channelGone": "Ten kanał został usunięty."
   },
   "attendee": {
     "accepted": "Weźmie udział",

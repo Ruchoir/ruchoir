@@ -38,6 +38,8 @@ import { EmptyState, LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
 import { Toggle } from "../../ui/Toggle";
+import { useReloadOn } from "../../data/useReloadOn";
+import { affects } from "../../realtime/events";
 
 const LEVELS: { level: NotifyLevel; label: ReturnType<typeof key>; hint: ReturnType<typeof key> }[] = [
   { level: "default", label: key("details.levelDefault"), hint: key("details.levelDefaultHint") },
@@ -71,6 +73,12 @@ export function ConversationDetails() {
   // A channel lists its people; a private conversation's people are those who have a read cursor in it.
   const channelMembers = useLoad(channelId ? `channelMembers:${channelId}` : null, (signal) => listChannelMembers(channelId!, signal));
   const cursors = useLoad(channelId ? null : `read:${conversationId}`, (signal) => getReadCursors(conversationId, signal));
+  // What this page shows, as it changes elsewhere: the channel itself, its people, its pins, who read.
+  useReloadOn((e) => !!space && affects.channels(e, space), channels.reload);
+  useReloadOn((e) => !!space && affects.conversations(e, space), dms.reload);
+  useReloadOn((e) => !!channelId && affects.pins(e, channelId), pins.reload);
+  useReloadOn((e) => !!channelId && affects.channelMembers(e, channelId), channelMembers.reload);
+  useReloadOn((e) => e.type === "readCursor" && e.conversationId === conversationId, cursors.reload);
   const members = channelId
     ? channelMembers
     : {

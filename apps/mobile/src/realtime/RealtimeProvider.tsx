@@ -6,27 +6,13 @@
  * where iOS may have frozen the socket. Refetching rather than replaying deltas keeps one path for
  * "what is true now", and {@link mergeMessages} keeps a message that arrives both ways from showing twice.
  */
-import { connectRealtime, type ApiMessage, type MemberIdentity, type Presence, type RealtimeConnection } from "@ruchoir/client";
+import { connectRealtime, type RealtimeConnection } from "@ruchoir/client";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 
-export type RealtimeEvent =
-  | { type: "message"; change: "created" | "updated" | "deleted"; conversationId: string; message: ApiMessage }
-  /** A change I made, drawn before the server confirms it (a reaction, a pin, an edit): screens only. */
-  | { type: "patched"; conversationId: string; message: ApiMessage }
-  /** Someone's reaction added or removed. Mine are already on screen. */
-  | { type: "reaction"; conversationId: string; messageId: string; emoji: string; userId: string; added: boolean }
-  | { type: "pinned"; conversationId: string; messageId: string; pinned: boolean }
-  | { type: "notification" }
-  | { type: "readCursor"; conversationId: string; userId: string; lastReadMessageId: string }
-  | { type: "typing"; conversationId: string; userId: string }
-  | { type: "presence"; userId: string; presence: Presence }
-  /** Someone's name, title or photo changed (mine included, from any device). */
-  | { type: "member"; member: MemberIdentity }
-  | { type: "spaces" }
-  | { type: "channels"; spaceId?: string }
-  | { type: "calendar" }
-  | { type: "files"; spaceId: string };
+import { handlersFor, type RealtimeEvent } from "./events";
+
+export type { RealtimeEvent } from "./events";
 
 type Listener = (event: RealtimeEvent) => void;
 
@@ -55,29 +41,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const emit = actions.emit;
-    const open = () =>
-      connectRealtime({
-        onReconnect: () => setRevision((r) => r + 1),
-        onMessageCreated: (conversationId, message) => emit({ type: "message", change: "created", conversationId, message }),
-        onMessageUpdated: (conversationId, message) => emit({ type: "message", change: "updated", conversationId, message }),
-        onMessageDeleted: (conversationId, message) => emit({ type: "message", change: "deleted", conversationId, message }),
-        onReaction: (conversationId, r) => emit({ type: "reaction", conversationId, ...r }),
-        onPinned: (conversationId, messageId, pinned) => emit({ type: "pinned", conversationId, messageId, pinned }),
-        onNotification: () => emit({ type: "notification" }),
-        onReadCursor: (conversationId, userId, lastReadMessageId) =>
-          emit({ type: "readCursor", conversationId, userId, lastReadMessageId }),
-        onTyping: (conversationId, userId) => emit({ type: "typing", conversationId, userId }),
-        onPresence: (userId, presence) => emit({ type: "presence", userId, presence }),
-        onMemberUpdated: (member) => emit({ type: "member", member }),
-        onSpaceUpdated: () => emit({ type: "spaces" }),
-        onSpaceRemoved: () => emit({ type: "spaces" }),
-        onChannelCreated: () => emit({ type: "channels" }),
-        onChannelUpdated: () => emit({ type: "channels" }),
-        onChannelDeleted: (spaceId) => emit({ type: "channels", spaceId }),
-        onCalendarChanged: () => emit({ type: "calendar" }),
-        onFilesUpdated: (spaceId) => emit({ type: "files", spaceId }),
-        onFilesDeleted: (spaceId) => emit({ type: "files", spaceId }),
-      });
+    const open = () => connectRealtime(handlersFor(emit, () => setRevision((r) => r + 1)));
     connection.current = open();
     const subscription = AppState.addEventListener("change", (state) => {
       if (state !== "active") return;

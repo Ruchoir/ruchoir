@@ -330,7 +330,8 @@
     "newMessages": "Neue Nachrichten",
     "seen": "Gesehen",
     "newBelow_one": "{{count}} neue Nachricht",
-    "newBelow_other": "{{count}} neue Nachrichten"
+    "newBelow_other": "{{count}} neue Nachrichten",
+    "channelGone": "Dieser Kanal wurde gelöscht."
   },
   "attendee": {
     "accepted": "Nimmt teil",

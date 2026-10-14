@@ -35,6 +35,7 @@ import { dayKey, daysBetween } from "../../logic/format";
 import { seenMessageId } from "../../logic/receipts";
 import { countNewer, firstUnreadId } from "../../logic/unread";
 import type { RootParams } from "../../navigation/types";
+import { useReloadOn } from "../../data/useReloadOn";
 import { useRealtimeEvent } from "../../realtime/RealtimeProvider";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
@@ -49,6 +50,8 @@ import { Chips } from "../../ui/Chips";
 import { EmptyState, LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
 import { KeyboardArea } from "../../ui/KeyboardArea";
+import { useToast } from "../../ui/Toast";
+import { affects } from "../../realtime/events";
 import { ConversationAgenda } from "./ConversationAgenda";
 import { ConversationFiles } from "./ConversationFiles";
 import { useEditing, useLiveMessages, useMyMentions, useOutboxRows, useTypingLine } from "./feed";
@@ -95,14 +98,26 @@ export function ConversationScreen() {
       : undefined;
   const channels = useLoad(current ? `channels:${current.id}` : null, (signal) => getChannels(current!.id, signal));
   const channel = params.channelId ? channels.data?.find((ch) => ch.id === params.channelId) : undefined;
+  // A channel renamed elsewhere shows its new name.
+  const title = channel?.name ?? params.title;
   const navigation = useNavigation();
+  const toast = useToast();
+  // The channel and its people as they change elsewhere; a channel deleted while open says so and goes.
+  useReloadOn((e) => !!current && affects.channels(e, current.id), channels.reload);
+  useReloadOn((e) => !!params.channelId && affects.channelMembers(e, params.channelId), channelMembers.reload);
+  useRealtimeEvent((e) => {
+    if (e.type === "channels" && e.deleted && e.channelId === params.channelId) {
+      toast(t("conversation.channelGone"));
+      navigation.goBack();
+    }
+  });
   const openDetails = () =>
-    navigation.navigate("conversationDetails", { conversationId: params.conversationId, channelId: params.channelId, title: params.title });
+    navigation.navigate("conversationDetails", { conversationId: params.conversationId, channelId: params.channelId, title });
 
   return (
     <SafeAreaView edges={["top"]} style={styles.fill}>
       <BackHeader
-        title={params.title}
+        title={title}
         subtitle={subtitle}
         onPressTitle={openDetails}
         trailing={

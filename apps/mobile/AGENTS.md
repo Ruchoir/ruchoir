@@ -191,3 +191,10 @@ CI=1 pnpm --filter @ruchoir/mobile bundle:ios   # proves Metro resolves and bund
   `useTheme` takes the accent and mode from them, `Text` and `TextField` scale with the text size, and a
   forced day or night is also handed to the system (`Appearance.setColorScheme`) so its own controls
   follow. The notifications are the account's, on the server, as the web's.
+- **Every list on screen follows the live events.** `realtime/events.ts` relays every event the
+  server pushes and the app draws (`handlersFor`, tested), and `affects` says which events change
+  each kind of list (a space's conversations, people, channels; a channel's people; a conversation's
+  pins). A new `useLoad` that shows server data gets its `useReloadOn` with that rule, or with the
+  event that changes it (`calendar`, `files`). Who is online is laid over the rows as heard
+  (`withLivePresence`), not reloaded. Check against the dev instance with two seeded accounts, one
+  listening through `@ruchoir/client`, the other acting.

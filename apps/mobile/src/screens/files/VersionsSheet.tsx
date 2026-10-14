@@ -6,6 +6,7 @@ import { History, RotateCcw } from "lucide-react-native";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { useLoad } from "../../data/useLoad";
+import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { fileSize } from "../../logic/format";
@@ -36,6 +37,8 @@ export function VersionsSheet() {
   const file = params.file;
   const manage = canManage(file, me, current?.role);
   const versions = useLoad(`versions:${file.id}`, (signal) => getVersions(file.id!, signal));
+  // A version sent from elsewhere while the history is open joins it.
+  useReloadOn((e) => e.type === "files", versions.reload);
   const when = (iso: string) => new Intl.DateTimeFormat(locale, { timeZone, day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
   const open = (v: FileVersion) =>

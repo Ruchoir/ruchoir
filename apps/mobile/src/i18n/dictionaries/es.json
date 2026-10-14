@@ -358,7 +358,8 @@
     "seen": "Visto",
     "newBelow_one": "{{count}} mensaje nuevo",
     "newBelow_other": "{{count}} mensajes nuevos",
-    "newBelow_many": "{{count}} mensajes nuevos"
+    "newBelow_many": "{{count}} mensajes nuevos",
+    "channelGone": "Este canal se ha eliminado."
   },
   "attendee": {
     "accepted": "Asiste",

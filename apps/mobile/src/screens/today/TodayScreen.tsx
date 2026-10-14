@@ -16,6 +16,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-n
 import { useLoad } from "../../data/useLoad";
 import { useNow } from "../../data/useNow";
 import { useReloadOn } from "../../data/useReloadOn";
+import { affects } from "../../realtime/events";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { addDays } from "../../logic/agenda";
@@ -72,10 +73,8 @@ export function TodayScreen() {
     recent.reload();
     conversations.reload();
   };
-  useReloadOn((e) => e.type === "notification" || e.type === "message" || e.type === "readCursor", () => {
-    notifications.reload();
-    conversations.reload();
-  });
+  useReloadOn((e) => e.type === "notification" || e.type === "message" || e.type === "readCursor", notifications.reload);
+  useReloadOn((e) => !!space && affects.conversations(e, space), conversations.reload);
   useReloadOn((e) => e.type === "calendar", events.reload);
   useReloadOn((e) => e.type === "files", recent.reload);
 

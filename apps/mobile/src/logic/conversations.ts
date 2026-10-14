@@ -117,3 +117,12 @@ export function listConversations(items: ConversationItem[], filter: Conversatio
       return a.name.localeCompare(b.name);
     });
 }
+
+/**
+ * The rows with the presence heard live since they were loaded (`presence` events): who is online
+ * changes without a message, so it is laid over the list rather than reloaded with it.
+ */
+export function withLivePresence(items: ConversationItem[], live: Record<string, ConversationItem["presence"]>): ConversationItem[] {
+  if (Object.keys(live).length === 0) return items;
+  return items.map((item) => (item.userId && live[item.userId] ? { ...item, presence: live[item.userId] } : item));
+}

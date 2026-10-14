@@ -330,7 +330,8 @@
     "newMessages": "Nouveaux messages",
     "seen": "Vu",
     "newBelow_one": "{{count}} nouveau message",
-    "newBelow_other": "{{count}} nouveaux messages"
+    "newBelow_other": "{{count}} nouveaux messages",
+    "channelGone": "Ce canal a été supprimé."
   },
   "attendee": {
     "accepted": "Participe",

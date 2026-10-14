@@ -2,13 +2,14 @@ import { getSpaceMembers, type Member } from "@ruchoir/client";
 import { useMemo } from "react";
 
 import { useLoad } from "./useLoad";
+import { affects } from "../realtime/events";
 import { useReloadOn } from "./useReloadOn";
 
 /** The people of a space: who wrote what, their pictures, and the names a mention can take. */
 export function useSpaceMembers(spaceId: string | undefined) {
   const members = useLoad(spaceId ? `members:${spaceId}` : null, (signal) => getSpaceMembers(spaceId!, signal));
-  // A new photo or name shows at once, not at the next launch.
-  useReloadOn((e) => e.type === "member", members.reload, 300);
+  // A new photo or name shows at once, not at the next launch; so does someone joining or leaving.
+  useReloadOn((e) => !!spaceId && affects.members(e, spaceId), members.reload, 300);
   const list = members.data;
   return useMemo(() => {
     const byName = new Map<string, Member>();

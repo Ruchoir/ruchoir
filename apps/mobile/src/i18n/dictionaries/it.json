@@ -358,7 +358,8 @@
     "seen": "Visualizzato",
     "newBelow_one": "{{count}} nuovo messaggio",
     "newBelow_other": "{{count}} nuovi messaggi",
-    "newBelow_many": "{{count}} nuovi messaggi"
+    "newBelow_many": "{{count}} nuovi messaggi",
+    "channelGone": "Questo canale è stato eliminato."
   },
   "attendee": {
     "accepted": "Partecipa",

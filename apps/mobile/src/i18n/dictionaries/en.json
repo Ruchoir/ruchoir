@@ -330,7 +330,8 @@
     "newMessages": "New messages",
     "seen": "Seen",
     "newBelow_one": "{{count}} new message",
-    "newBelow_other": "{{count}} new messages"
+    "newBelow_other": "{{count}} new messages",
+    "channelGone": "This channel was deleted."
   },
   "attendee": {
     "accepted": "Going",
