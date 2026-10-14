@@ -6,7 +6,7 @@
   "license": "AGPL-3.0-only",
   "main": "index.ts",
   "scripts": {
-    "start": "EXPO_NO_TELEMETRY=1 expo start",
+    "start": "EXPO_NO_TELEMETRY=1 expo start --go",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "node --test 'test/**/*.test.ts'",

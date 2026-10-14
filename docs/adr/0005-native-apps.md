@@ -1,6 +1,6 @@
 # ADR 0005: Native apps with Expo, no hosted services, bearer sessions
 
-- Status: accepted
+- Status: accepted, amended 2026-10-14 (builds, see the end)
 - Date: 2026-10-13
 
 ## Context
@@ -27,7 +27,8 @@ Navigation, a community project, rather than `expo-router`, at equal function. N
 from Software Mansion (Kraków, Poland) where possible.
 
 **No hosted Expo service in what is built or shipped.** No EAS Build, Update, Submit or push
-service. Native builds are made on our own machines, and nothing an installed app does talks to Expo.
+service. Native builds are made on GitHub's runners (amended 2026-10-14, below), and nothing an
+installed app does talks to Expo.
 The Expo CLI always runs with `EXPO_NO_TELEMETRY=1`.
 
 **One exception, for development only (2026-10-13).** Expo Go on a physical iPhone opens a project
@@ -43,8 +44,8 @@ other way to run the app on an iPhone. So, for development and only there:
   still off.
 
 What crosses is the app's configuration and a request for a certificate, from a developer's machine;
-no user, no message, no file. It ends when native builds replace Expo Go (a Mac, or Android, where
-Expo Go has no such check), and must not grow into builds, updates or push.
+no user, no message, no file. It must not grow into builds, updates or push. It was meant to end
+with native builds; it stays, since Expo Go remains the everyday tool (amended 2026-10-14, below).
 
 **One API client for both apps.** `apps/web/lib/data` moved to the workspace package
 `@ruchoir/client`. The web keeps its defaults (relative same-origin calls, the cookie); the app sets
@@ -81,3 +82,34 @@ come with later steps.
   versions of `AGENTS.md`.
 - A change to how sessions are delivered must keep the browser refusal: it is what keeps the web's
   cookie the only way a page can hold a session.
+
+## Amendment, 2026-10-14: how the apps are built and installed (step 6b)
+
+**Builds run on GitHub Actions**, the iPhone on GitHub's macOS runner and Android on its Linux runner
+(`.github/workflows/mobile-build.yml`, `docs/mobile-builds.md`). The team has no Mac; GitHub already
+builds the server's release images, and its runners are free for a public repository. Rejected: a
+rented Mac mini (Apple's licence imposes a 24-hour minimum lease, and Xcode would be reinstalled each
+time) and EAS Build (a hosted Expo service, which this ADR excludes). The workflow runs on demand only
+(its button, or the label `app-build` on a pull request of this repository) and never for a fork.
+
+**What is built is a development build** (`expo-dev-client`): Ruchoir itself with Expo's development
+launcher, which opens Metro. It carries what Expo Go cannot host (biometrics, push, widgets,
+passkeys, a native scanner) and is rebuilt only when something native changes.
+
+**The iPhone build reaches the phone through App Store Connect and TestFlight**, internal testing
+only, the only channel Apple allows without a Mac or registered devices. Apple signs it: the archive
+is made unsigned, then Xcode's cloud signing, authenticated by an App Store Connect team key with the
+Admin role, signs it at export, so no certificate is stored anywhere. The upload goes through the App
+Store Connect API's build uploads, with the same key: Xcode's own upload, through Apple's content
+delivery service, refused that key ("Cannot verify client's JWT headers") while the API accepted it.
+The key and its identifiers are repository secrets set by the account holder. Android's debug APK is
+an artifact of the run, for an emulator; Google Play comes with the store releases.
+
+**Expo Go stays the everyday tool**, by the team's choice: a JavaScript change shows at once, without
+a build. The development exception above therefore stays, and Metro starts in Expo Go mode
+(`expo start --go`), which the development build opens too. A native library that Expo Go lacks is
+reached only where present, so the rest of the app still opens in Expo Go.
+
+Apple (App Store Connect, TestFlight) and GitHub are US services. Neither sees a user, a message or a
+file: they receive the app's code, which is public, and Apple distributes it, as it will distribute
+the store release. Golden rule 2 is about what an installed app talks to, and that does not change.
