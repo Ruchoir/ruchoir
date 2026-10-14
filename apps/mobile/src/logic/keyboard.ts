@@ -8,6 +8,8 @@
  * without the offset of the sheet it is in, which under-raised the group form by that offset.
  */
 export function areaPadding(keyboardHeight: number, safeBottom: number): number {
+  // Run on the UI thread too, frame by frame as the keyboard moves (see `ui/KeyboardArea`).
+  "worklet";
   return keyboardHeight > 0 ? keyboardHeight : safeBottom;
 }
 

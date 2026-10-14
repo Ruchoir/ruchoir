@@ -98,7 +98,9 @@ src/i18n/              i18next and the six dictionaries
   trap: use `ui/KeyboardArea`, not `KeyboardAvoidingView`. It must run to the bottom of its screen
   and rises by the keyboard's whole height, measuring nothing (a view's place in the window is
   reported without the offset of the sheet it is in); give it `safeBottom` rather than wrapping it
-  in a `SafeAreaView` with a bottom edge.
+  in a `SafeAreaView` with a bottom edge. Its height comes from Reanimated's `useAnimatedKeyboard`,
+  frame by frame on the UI thread, so whatever it holds moves with the keyboard; a function run there
+  (`areaPadding`) starts with the `"worklet"` directive.
 - **Every field stays in sight above the keyboard.** A form is a `KeyboardScroll` inside a
   `KeyboardArea` (with its footer button, which then rises too); `TextField` and `SearchField` ask
   it to scroll them into view when they take the focus. A list under a search field gets

@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 import { PenLine, Plus, Send } from "lucide-react-native";
 import { useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
+import Animated, { useAnimatedKeyboard, useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTranslation } from "../i18n";
@@ -21,7 +22,6 @@ import { Text } from "../ui/Text";
 import { MentionSuggestions, type Suggestion } from "./MentionSuggestions";
 import { PendingFiles } from "./PendingFiles";
 import type { Attachments } from "./useAttachments";
-import { useKeyboardShown } from "./useKeyboardShown";
 import { useOutbox } from "./useOutbox";
 import { useTypingSignal } from "./useTyping";
 
@@ -63,7 +63,11 @@ export function Composer(props: Props) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const insets = useSafeAreaInsets();
-  const keyboard = useKeyboardShown();
+  // The bar keeps clear of the home indicator while the keyboard is down, and that room melts away
+  // frame by frame as the keyboard rises, so nothing jumps.
+  const keyboard = useAnimatedKeyboard();
+  const bottom = insets.bottom;
+  const barBottom = useAnimatedStyle(() => ({ paddingBottom: Math.max(8, bottom - keyboard.height.value) }));
   const outbox = useOutbox();
   const signalTyping = useTypingSignal(conversationId);
   // The parent remounts the composer when the draft or the edited message changes (its `key`).
@@ -170,7 +174,7 @@ export function Composer(props: Props) {
         </View>
       ) : null}
       {files ? <PendingFiles attachments={files} /> : null}
-      <View style={[styles.bar, { paddingBottom: keyboard ? 8 : Math.max(insets.bottom, 8) }]}>
+      <Animated.View style={[styles.bar, barBottom]}>
         {props.onAttach && !editing ? (
           <Pressable
             accessibilityRole="button"
@@ -212,7 +216,7 @@ export function Composer(props: Props) {
         >
           {files?.uploading ? <ActivityIndicator color={c.ink} /> : <Send size={20} color={ready ? c.onInk : c.ink} />}
         </Pressable>
-      </View>
+      </Animated.View>
     </View>
   );
 }
