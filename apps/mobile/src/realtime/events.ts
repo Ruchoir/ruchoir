@@ -20,8 +20,17 @@ export type RealtimeEvent =
   | { type: "presence"; userId: string; presence: Presence }
   /** My spaces changed: renamed, left, removed, or my role in one. */
   | { type: "spaces" }
-  /** A space's channels changed; `channelId` names the one, `deleted` when it is gone. */
-  | { type: "channels"; spaceId?: string; channelId?: string; deleted?: true }
+  /**
+   * A space's channels changed; `channelId` names the one, `deleted` when it is gone, `membership`
+   * when someone's place in it changed (mine included, from another device or by a moderator).
+   */
+  | {
+      type: "channels";
+      spaceId?: string;
+      channelId?: string;
+      deleted?: true;
+      membership?: { userId: string; change: "joined" | "left" | "removed" | "role" };
+    }
   /** Someone joined or left a space, or their role changed there. */
   | { type: "members"; spaceId: string; userId: string }
   /** Someone's name, title or photo changed (mine included, from any device). */
@@ -55,11 +64,16 @@ export function handlersFor(emit: (event: RealtimeEvent) => void, onReconnect: (
     onChannelCreated: (channel) => emit({ type: "channels", spaceId: channel.spaceId, channelId: channel.id }),
     onChannelUpdated: (channel) => emit({ type: "channels", spaceId: channel.spaceId, channelId: channel.id }),
     onChannelDeleted: (spaceId, channelId) => emit({ type: "channels", spaceId, channelId, deleted: true }),
+    onChannelMembership: ({ spaceId, channelId, userId, change }) =>
+      emit({ type: "channels", spaceId, channelId, membership: { userId, change } }),
     onCalendarChanged: () => emit({ type: "calendar" }),
     onFilesUpdated: (spaceId) => emit({ type: "files", spaceId }),
     onFilesDeleted: (spaceId) => emit({ type: "files", spaceId }),
   };
 }
+
+/** The channel notices that say its roster changed: the web refreshes its member panel on them too. */
+const ROSTER_NOTICES = ["channel_joined", "channel_left", "channel_removed"];
 
 /** A space's channels event, unless it names another space. */
 const inSpace = (event: { spaceId?: string }, spaceId: string) => !event.spaceId || event.spaceId === spaceId;
@@ -79,7 +93,12 @@ export const affects = {
   channels: (e: RealtimeEvent, spaceId: string) => e.type === "channels" && inSpace(e, spaceId),
   /** The people of a channel: a face or a name, or the channel itself changed. */
   channelMembers: (e: RealtimeEvent, channelId: string) =>
-    e.type === "member" || e.type === "members" || (e.type === "channels" && e.channelId === channelId),
-  /** A conversation's pinned messages. */
-  pins: (e: RealtimeEvent, conversationId: string) => e.type === "pinned" && e.conversationId === conversationId,
+    e.type === "member" ||
+    e.type === "members" ||
+    (e.type === "channels" && e.channelId === channelId) ||
+    (e.type === "message" && e.conversationId === channelId && ROSTER_NOTICES.includes(e.message.system?.event ?? "")),
+  /** A conversation's pinned messages: pinned, unpinned, or one of them edited or deleted. */
+  pins: (e: RealtimeEvent, conversationId: string) =>
+    (e.type === "pinned" && e.conversationId === conversationId) ||
+    (e.type === "message" && e.conversationId === conversationId && e.change !== "created"),
 };

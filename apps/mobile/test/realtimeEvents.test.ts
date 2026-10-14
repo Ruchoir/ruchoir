@@ -88,3 +88,36 @@ test("each_list_hears_what_changes_it", () => {
   assert.ok(affects.pins({ type: "pinned", conversationId: "c1", messageId: "m", pinned: true }, "c1"));
   assert.ok(!affects.pins({ type: "pinned", conversationId: "c2", messageId: "m", pinned: true }, "c1"));
 });
+
+test("a_place_in_a_channel_is_relayed_and_moves_its_roster", () => {
+  const { out, handlers } = relay();
+  handlers.onChannelMembership!({ spaceId: "s1", channelId: "c1", userId: "u2", change: "removed" });
+  assert.deepEqual(out, [{ type: "channels", spaceId: "s1", channelId: "c1", membership: { userId: "u2", change: "removed" } }]);
+  assert.ok(affects.channelMembers(out[0], "c1"));
+  assert.ok(affects.conversations(out[0], "s1"));
+  // The channel's own notice of an arrival or a departure moves its roster too, as on the web.
+  const notice = (event: string): RealtimeEvent => ({
+    type: "message",
+    change: "created",
+    conversationId: "c1",
+    message: { id: "m", system: { event } } as never,
+  });
+  assert.ok(affects.channelMembers(notice("channel_joined"), "c1"));
+  assert.ok(affects.channelMembers(notice("channel_removed"), "c1"));
+  assert.ok(!affects.channelMembers(notice("channel_renamed"), "c1"));
+  assert.ok(!affects.channelMembers({ ...notice("channel_joined"), conversationId: "c2" } as RealtimeEvent, "c1"));
+});
+
+test("a_pinned_message_edited_or_deleted_moves_the_pins", () => {
+  const changed = (change: "created" | "updated" | "deleted", conversationId = "c1"): RealtimeEvent => ({
+    type: "message",
+    change,
+    conversationId,
+    message: { id: "m" } as never,
+  });
+  assert.ok(affects.pins(changed("updated"), "c1"));
+  assert.ok(affects.pins(changed("deleted"), "c1"));
+  // A new message is never pinned yet; another conversation's never concerns these pins.
+  assert.ok(!affects.pins(changed("created"), "c1"));
+  assert.ok(!affects.pins(changed("updated", "c2"), "c1"));
+});

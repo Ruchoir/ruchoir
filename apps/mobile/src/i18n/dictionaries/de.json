@@ -331,7 +331,10 @@
     "seen": "Gesehen",
     "newBelow_one": "{{count}} neue Nachricht",
     "newBelow_other": "{{count}} neue Nachrichten",
-    "channelGone": "Dieser Kanal wurde gelöscht."
+    "channelGone": "Dieser Kanal wurde gelöscht.",
+    "removedFromChannel": "Sie wurden aus diesem Kanal entfernt.",
+    "pinned": "Angeheftet",
+    "noPinnedHint": "Heften Sie eine wichtige Nachricht in der Unterhaltung an: Sie erscheint hier."
   },
   "attendee": {
     "accepted": "Nimmt teil",
@@ -691,7 +694,6 @@
     "levelNoneHint": "Keine Benachrichtigungen",
     "mute": "Stummschalten",
     "muteHint": "Keine Benachrichtigungen mehr aus dieser Unterhaltung",
-    "pinned": "Angeheftete Nachrichten",
     "noPinned": "Keine angehefteten Nachrichten",
     "members": "Mitglieder",
     "roleOwner": "Eigentümer",

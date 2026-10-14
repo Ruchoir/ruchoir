@@ -331,7 +331,10 @@
     "seen": "Seen",
     "newBelow_one": "{{count}} new message",
     "newBelow_other": "{{count}} new messages",
-    "channelGone": "This channel was deleted."
+    "channelGone": "This channel was deleted.",
+    "removedFromChannel": "You were removed from this channel.",
+    "pinned": "Pinned",
+    "noPinnedHint": "Pin an important message in the conversation: it shows up here."
   },
   "attendee": {
     "accepted": "Going",
@@ -691,7 +694,6 @@
     "levelNoneHint": "No notifications",
     "mute": "Mute",
     "muteHint": "No more notifications from this conversation",
-    "pinned": "Pinned messages",
     "noPinned": "No pinned messages",
     "members": "Members",
     "roleOwner": "Owner",

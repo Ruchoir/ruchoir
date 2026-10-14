@@ -78,6 +78,8 @@ export type RootParams = {
     title: string;
     draftKey: string;
     inThread?: boolean;
+    /** Opened from a list away from the composer (the pinned tab): no "Edit" there. */
+    fromList?: boolean;
     message: ApiMessage;
   };
   /** "New message" and what it leads to: a conversation with people, a group, an invitation. */

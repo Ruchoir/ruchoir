@@ -9,7 +9,7 @@ import {
   type Channel,
 } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { Archive, ArrowDown, CalendarDays, Check, FileText, Info, MessageSquare } from "lucide-react-native";
+import { Archive, ArrowDown, CalendarDays, Check, FileText, Info, MessageSquare, Pin } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -54,14 +54,17 @@ import { useToast } from "../../ui/Toast";
 import { affects } from "../../realtime/events";
 import { ConversationAgenda } from "./ConversationAgenda";
 import { ConversationFiles } from "./ConversationFiles";
+import { ConversationPins } from "./ConversationPins";
 import { useEditing, useLiveMessages, useMyMentions, useOutboxRows, useTypingLine } from "./feed";
 import { MessageRow } from "./MessageRow";
 
-type Pane = "messages" | "files" | "agenda";
+type Pane = "messages" | "files" | "pinned" | "agenda";
+/** The tabs of a conversation; the pinned messages and the agenda belong to a channel only. */
 const PANES = [
-  { key: "messages", label: key("conversation.messages"), icon: MessageSquare },
-  { key: "files", label: key("tabs.files"), icon: FileText },
-  { key: "agenda", label: key("tabs.agenda"), icon: CalendarDays },
+  { key: "messages", label: key("conversation.messages"), icon: MessageSquare, channelOnly: false },
+  { key: "files", label: key("tabs.files"), icon: FileText, channelOnly: false },
+  { key: "pinned", label: key("conversation.pinned"), icon: Pin, channelOnly: true },
+  { key: "agenda", label: key("tabs.agenda"), icon: CalendarDays, channelOnly: true },
 ] as const;
 
 /** Two messages by one person less than five minutes apart read as one block. */
@@ -105,9 +108,15 @@ export function ConversationScreen() {
   // The channel and its people as they change elsewhere; a channel deleted while open says so and goes.
   useReloadOn((e) => !!current && affects.channels(e, current.id), channels.reload);
   useReloadOn((e) => !!params.channelId && affects.channelMembers(e, params.channelId), channelMembers.reload);
+  const session = useSession();
+  const myId = session.state.kind === "signedIn" ? session.state.user.id : null;
   useRealtimeEvent((e) => {
-    if (e.type === "channels" && e.deleted && e.channelId === params.channelId) {
+    if (e.type !== "channels" || !params.channelId || e.channelId !== params.channelId) return;
+    if (e.deleted) {
       toast(t("conversation.channelGone"));
+      navigation.goBack();
+    } else if (e.membership?.change === "removed" && e.membership.userId === myId) {
+      toast(t("conversation.removedFromChannel"));
       navigation.goBack();
     }
   });
@@ -147,7 +156,7 @@ export function ConversationScreen() {
       />
       <View style={[styles.tabs, { borderBottomColor: c.line }]}>
       <Chips
-        chips={PANES.filter((p) => p.key !== "agenda" || params.channelId).map((p) => ({ key: p.key, label: t(p.label), icon: p.icon }))}
+        chips={PANES.filter((p) => !p.channelOnly || params.channelId).map((p) => ({ key: p.key, label: t(p.label), icon: p.icon }))}
         value={pane}
         onChange={setPane}
       />
@@ -167,6 +176,8 @@ export function ConversationScreen() {
           />
         ) : pane === "files" ? (
           <ConversationFiles conversationId={params.conversationId} />
+        ) : pane === "pinned" ? (
+          <ConversationPins channelId={params.channelId!} title={title} />
         ) : (
           <ConversationAgenda channelId={params.channelId!} />
         )}

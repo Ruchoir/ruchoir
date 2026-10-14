@@ -7,7 +7,6 @@
 import {
   getChannels,
   getDirectMessages,
-  getPinnedMessages,
   getReadCursors,
   listChannelMembers,
   saveConversationNotify,
@@ -16,7 +15,7 @@ import {
   type NotifyLevel,
 } from "@ruchoir/client";
 import { useRoute, type RouteProp } from "@react-navigation/native";
-import { Check, Pin } from "lucide-react-native";
+import { Check } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,9 +23,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
-import { useLocale } from "../../i18n/useLocale";
-import { plainExcerpt } from "../../logic/inline";
-import { listStamp } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
@@ -34,7 +30,7 @@ import { useTheme } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Avatar } from "../../ui/Avatar";
 import { BackHeader } from "../../ui/BackHeader";
-import { EmptyState, LoadState } from "../../ui/States";
+import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
 import { Toggle } from "../../ui/Toggle";
@@ -59,7 +55,6 @@ export function ConversationDetails() {
   const { conversationId, channelId, title } = params;
   const { t } = useTranslation();
   const { c, s } = useTheme();
-  const { locale, timeZone } = useLocale();
   const toast = useToast();
   const { current } = useSpace();
   const space = current?.id;
@@ -69,14 +64,12 @@ export function ConversationDetails() {
   const dms = useLoad(space && !channelId ? `dms:${space}` : null, (signal) => getDirectMessages(space!, signal));
   const channel = channels.data?.find((ch) => ch.id === channelId);
   const dm = dms.data?.find((d) => d.id === conversationId);
-  const pins = useLoad(channelId ? `pins:${channelId}` : null, (signal) => getPinnedMessages(channelId!, signal));
   // A channel lists its people; a private conversation's people are those who have a read cursor in it.
   const channelMembers = useLoad(channelId ? `channelMembers:${channelId}` : null, (signal) => listChannelMembers(channelId!, signal));
   const cursors = useLoad(channelId ? null : `read:${conversationId}`, (signal) => getReadCursors(conversationId, signal));
-  // What this page shows, as it changes elsewhere: the channel itself, its people, its pins, who read.
+  // What this page shows, as it changes elsewhere: the channel itself, its people, who read.
   useReloadOn((e) => !!space && affects.channels(e, space), channels.reload);
   useReloadOn((e) => !!space && affects.conversations(e, space), dms.reload);
-  useReloadOn((e) => !!channelId && affects.pins(e, channelId), pins.reload);
   useReloadOn((e) => !!channelId && affects.channelMembers(e, channelId), channelMembers.reload);
   useReloadOn((e) => e.type === "readCursor" && e.conversationId === conversationId, cursors.reload);
   const members = channelId
@@ -164,38 +157,6 @@ export function ConversationDetails() {
             )}
           </Section>
 
-          {channelId ? (
-            <Section label={t("details.pinned")}>
-              {!pins.data ? (
-                <LoadState error={pins.error} onRetry={pins.reload} />
-              ) : pins.data.length === 0 ? (
-                <EmptyState size="compact" icon={Pin} title={t("details.noPinned")} />
-              ) : (
-                pins.data.map((m) => {
-                  const stamp = listStamp(m.createdAt, new Date(), locale, timeZone);
-                  return (
-                    <View key={m.id} style={styles.pin}>
-                      <Avatar name={m.author} src={people.avatarOf(m.author)} size={32} />
-                      <View style={styles.grow}>
-                        <View style={styles.pinHead}>
-                          <Text variant="smallStrong" numberOfLines={1} style={styles.shrink}>
-                            {m.author}
-                          </Text>
-                          <Text variant="tiny" tone="muted">
-                            {stamp.kind === "yesterday" ? t("time.yesterday") : stamp.text}
-                          </Text>
-                        </View>
-                        <Text variant="small" tone="body" numberOfLines={3}>
-                          {m.deleted ? t("message.deleted") : plainExcerpt(m.body)}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </Section>
-          ) : null}
-
           <Section label={members.data ? t("details.membersCount", { count: members.data.length }) : t("details.members")}>
             {!members.data ? (
               <LoadState error={members.error} onRetry={members.reload} />
@@ -246,8 +207,6 @@ const styles = StyleSheet.create({
   section: { gap: 8 },
   card: { borderWidth: hairline, borderRadius: radius.l, paddingHorizontal: 12, paddingVertical: 4 },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-  pin: { flexDirection: "row", gap: 10, paddingVertical: 10 },
-  pinHead: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   grow: { flex: 1, minWidth: 0, gap: 2 },
   shrink: { flexShrink: 1 },
   role: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.s, overflow: "hidden" },

@@ -359,7 +359,10 @@
     "newBelow_one": "{{count}} nuovo messaggio",
     "newBelow_other": "{{count}} nuovi messaggi",
     "newBelow_many": "{{count}} nuovi messaggi",
-    "channelGone": "Questo canale è stato eliminato."
+    "channelGone": "Questo canale è stato eliminato.",
+    "removedFromChannel": "Siete stati rimossi da questo canale.",
+    "pinned": "Fissati",
+    "noPinnedHint": "Fissate un messaggio importante nella conversazione: lo ritroverete qui."
   },
   "attendee": {
     "accepted": "Partecipa",
@@ -735,7 +738,6 @@
     "levelNoneHint": "Nessuna notifica",
     "mute": "Silenzia",
     "muteHint": "Nessuna notifica da questa conversazione",
-    "pinned": "Messaggi fissati",
     "noPinned": "Nessun messaggio fissato",
     "members": "Membri",
     "roleOwner": "Proprietario",

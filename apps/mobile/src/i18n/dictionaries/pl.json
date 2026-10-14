@@ -387,7 +387,10 @@
     "newBelow_other": "{{count}} nowej wiadomości",
     "newBelow_few": "{{count}} nowe wiadomości",
     "newBelow_many": "{{count}} nowych wiadomości",
-    "channelGone": "Ten kanał został usunięty."
+    "channelGone": "Ten kanał został usunięty.",
+    "removedFromChannel": "Usunięto cię z tego kanału.",
+    "pinned": "Przypięte",
+    "noPinnedHint": "Przypnij ważną wiadomość w rozmowie: pojawi się tutaj."
   },
   "attendee": {
     "accepted": "Weźmie udział",
@@ -779,7 +782,6 @@
     "levelNoneHint": "Brak powiadomień",
     "mute": "Wycisz",
     "muteHint": "Żadnych powiadomień z tej rozmowy",
-    "pinned": "Przypięte wiadomości",
     "noPinned": "Brak przypiętych wiadomości",
     "members": "Członkowie",
     "roleOwner": "Właściciel",
