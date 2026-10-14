@@ -105,14 +105,19 @@ instance like the web does; nothing of Expo's hosted services is used.
    the Expo CLI signs it. Create a free Expo account and a project on expo.dev, sign in with
    `npx expo login` on the development machine and in Expo Go on the phone, and put the project's
    id in `apps/mobile/.env.local` as `EXPO_DEV_PROJECT_ID=...`. Android and simulators need none of it.
-4. Start Metro: `cd apps/mobile && pnpm start` (telemetry off). On the same network, scan the QR
-   code with the camera. To reach Metro from anywhere, put it behind a reverse proxy with TLS and
-   start it with `EXPO_NO_TELEMETRY=1 EXPO_PACKAGER_PROXY_URL=https://your-metro-host npx expo start
-   --localhost`; then open `exps://your-metro-host` in Expo Go. Refuse the debugging endpoints at the
-   proxy (`/inspector`, `/json`, `/debugger-frontend`, `/open-debugger`, `/open-stack-frame`,
-   `/open-url`, `/_expo/debugger`, `/events`): Expo Go does not need them.
+4. Start Metro: `cd apps/mobile && pnpm start` (telemetry off, Expo Go mode). On the same network,
+   scan the QR code with the camera. To reach Metro from anywhere, put it behind a reverse proxy with
+   TLS and start it with `EXPO_NO_TELEMETRY=1 EXPO_PACKAGER_PROXY_URL=https://your-metro-host npx expo
+   start --localhost --go`; then open `exps://your-metro-host` in Expo Go. Refuse the debugging
+   endpoints at the proxy (`/inspector`, `/json`, `/debugger-frontend`, `/open-debugger`,
+   `/open-stack-frame`, `/open-url`, `/_expo/debugger`, `/events`): Expo Go does not need them.
 5. Checks: `pnpm --filter @ruchoir/mobile typecheck`, `lint`, `test`, `i18n:check`, and
    `CI=1 pnpm --filter @ruchoir/mobile bundle:ios`, which bundles the app without a phone.
+
+Expo Go is the everyday tool. For the big test phases, and for what Expo Go cannot host (biometrics,
+push, widgets, passkeys, a native scanner), the app is built as a development build on GitHub's
+runners and installed from TestFlight on an iPhone or as an APK on an Android emulator; it opens the
+same Metro. See `docs/mobile-builds.md`.
 
 ## Quality gates
 

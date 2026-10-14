@@ -6,7 +6,7 @@
   "license": "AGPL-3.0-only",
   "main": "index.ts",
   "scripts": {
-    "start": "EXPO_NO_TELEMETRY=1 expo start",
+    "start": "EXPO_NO_TELEMETRY=1 expo start --go",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "node --test 'test/**/*.test.ts'",
@@ -24,6 +24,7 @@
     "expo": "~57.0.27",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.21",
+    "expo-dev-client": "~57.0.20",
     "expo-document-picker": "~57.0.3",
     "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.4",
