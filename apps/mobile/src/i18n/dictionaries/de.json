@@ -921,7 +921,14 @@
     "sessions": "Sitzungen",
     "sessionsDesc": "Wenn ein anderes Gerät angemeldet geblieben ist, trennen Sie alles: Jede Sitzung wird beendet, auch diese.",
     "signOutEverywhere": "Überall abmelden",
-    "signOutFailed": "Abmeldung fehlgeschlagen"
+    "signOutFailed": "Abmeldung fehlgeschlagen",
+    "lockSection": "Sperre",
+    "lockFaceId": "Mit Face ID sperren",
+    "lockTouchId": "Mit Touch ID sperren",
+    "lockBiometrics": "Mit Fingerabdruck oder Gesicht sperren",
+    "lockPasscode": "Mit dem Code des Telefons sperren",
+    "lockHint": "Abgefragt beim Öffnen und nach einer Minute außerhalb der App.",
+    "lockUnavailable": "Richte Face ID oder einen Code in den Einstellungen des Telefons ein."
   },
   "status": {
     "auto": "Verfügbar",
@@ -1001,5 +1008,12 @@
     "revoke": "Widerrufen",
     "revoked": "Einladung widerrufen",
     "revokeFailed": "Einladung nicht widerrufen"
+  },
+  "lock": {
+    "title": "Ruchoir ist gesperrt",
+    "prompt": "Ruchoir entsperren",
+    "unlock": "Entsperren",
+    "unlockFaceId": "Mit Face ID entsperren",
+    "unlockTouchId": "Mit Touch ID entsperren"
   }
 }

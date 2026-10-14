@@ -1,7 +1,7 @@
 import { getMfaState, logoutEverywhere, removePasskey, generateRecoveryCodes } from "@ruchoir/client";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { KeyRound, ListChecks, LogOut, ShieldCheck, Trash2 } from "lucide-react-native";
+import { KeyRound, ListChecks, Lock, LogOut, ShieldCheck, Trash2 } from "lucide-react-native";
 import { useCallback } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,6 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { useAppLock } from "../../lock/AppLock";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useTheme } from "../../theme/useTheme";
@@ -16,13 +17,14 @@ import { ActionRow } from "../../ui/ActionRow";
 import { BackHeader } from "../../ui/BackHeader";
 import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
+import { Toggle } from "../../ui/Toggle";
 import { useToast } from "../../ui/Toast";
 import { Section } from "./Section";
 
 /**
  * Security, as the web's: the password, two-factor authentication and its recovery codes, the
  * passkeys (removable here; adding one needs the native build of a later version), and signing out of
- * every device.
+ * every device. Plus what only a phone has: locking the app with Face ID (`lock/AppLock`).
  */
 export function SecurityScreen() {
   const { t } = useTranslation();
@@ -80,6 +82,14 @@ export function SecurityScreen() {
           ),
       },
     ]);
+
+  const lock = useAppLock();
+  const lockTitle = {
+    faceId: t("security.lockFaceId"),
+    touchId: t("security.lockTouchId"),
+    biometrics: t("security.lockBiometrics"),
+    passcode: t("security.lockPasscode"),
+  }[lock.kind ?? "faceId"];
 
   const state = mfa.data;
   return (
@@ -152,6 +162,22 @@ export function SecurityScreen() {
             </Text>
           </Section>
         ) : null}
+        <Section label={t("security.lockSection")}>
+          <ActionRow
+            icon={Lock}
+            tint={lock.enabled ? c.mint : s.sunken}
+            title={lockTitle}
+            subtitle={lock.kind ? t("security.lockHint") : t("security.lockUnavailable")}
+            trailing={
+              <Toggle
+                value={lock.enabled}
+                disabled={!lock.kind}
+                onValueChange={(on) => void lock.setEnabled(on)}
+                accessibilityLabel={lockTitle}
+              />
+            }
+          />
+        </Section>
         <Section label={t("security.sessions")}>
           <ActionRow icon={LogOut} danger title={t("security.signOutEverywhere")} subtitle={t("security.sessionsDesc")} onPress={everywhere} />
         </Section>

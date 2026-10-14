@@ -1,6 +1,7 @@
 {
   "ios": {
     "NSCameraUsageDescription": "Ruchoir utilise l’appareil photo pour que vous puissiez envoyer une photo dans un message.",
-    "NSPhotoLibraryUsageDescription": "Ruchoir ouvre vos photos pour que vous puissiez les joindre à un message."
+    "NSPhotoLibraryUsageDescription": "Ruchoir ouvre vos photos pour que vous puissiez les joindre à un message.",
+    "NSFaceIDUsageDescription": "Ruchoir utilise Face ID pour se déverrouiller, quand vous avez activé le verrouillage."
   }
 }

@@ -1,6 +1,7 @@
 {
   "ios": {
     "NSCameraUsageDescription": "Ruchoir uses the camera so you can send a photo in a message.",
-    "NSPhotoLibraryUsageDescription": "Ruchoir opens your photos so you can attach them to a message."
+    "NSPhotoLibraryUsageDescription": "Ruchoir opens your photos so you can attach them to a message.",
+    "NSFaceIDUsageDescription": "Ruchoir uses Face ID to unlock, when you have turned the lock on."
   }
 }

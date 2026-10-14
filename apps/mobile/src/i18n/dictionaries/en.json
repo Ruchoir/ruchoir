@@ -921,7 +921,14 @@
     "sessions": "Sessions",
     "sessionsDesc": "If another device stayed signed in, cut everything: every session ends, this one included.",
     "signOutEverywhere": "Sign out everywhere",
-    "signOutFailed": "Sign-out failed"
+    "signOutFailed": "Sign-out failed",
+    "lockSection": "Lock",
+    "lockFaceId": "Lock with Face ID",
+    "lockTouchId": "Lock with Touch ID",
+    "lockBiometrics": "Lock with fingerprint or face",
+    "lockPasscode": "Lock with the phone's passcode",
+    "lockHint": "Asked when the app opens, and after a minute away from it.",
+    "lockUnavailable": "Set up Face ID or a passcode in the phone's settings."
   },
   "status": {
     "auto": "Available",
@@ -1001,5 +1008,12 @@
     "revoke": "Revoke",
     "revoked": "Invitation revoked",
     "revokeFailed": "Invitation not revoked"
+  },
+  "lock": {
+    "title": "Ruchoir is locked",
+    "prompt": "Unlock Ruchoir",
+    "unlock": "Unlock",
+    "unlockFaceId": "Unlock with Face ID",
+    "unlockTouchId": "Unlock with Touch ID"
   }
 }

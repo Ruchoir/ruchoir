@@ -967,7 +967,14 @@
     "sessions": "Sessioni",
     "sessionsDesc": "Se un altro dispositivo è rimasto connesso, chiudete tutto: ogni sessione viene chiusa, compresa questa.",
     "signOutEverywhere": "Disconnetti ovunque",
-    "signOutFailed": "Disconnessione non riuscita"
+    "signOutFailed": "Disconnessione non riuscita",
+    "lockSection": "Blocco",
+    "lockFaceId": "Blocca con Face ID",
+    "lockTouchId": "Blocca con Touch ID",
+    "lockBiometrics": "Blocca con impronta o volto",
+    "lockPasscode": "Blocca con il codice del telefono",
+    "lockHint": "Richiesto all’apertura e dopo un minuto fuori dall’app.",
+    "lockUnavailable": "Configura Face ID o un codice nelle impostazioni del telefono."
   },
   "status": {
     "auto": "Disponibile",
@@ -1050,5 +1057,12 @@
     "revoke": "Revoca",
     "revoked": "Invito revocato",
     "revokeFailed": "Invito non revocato"
+  },
+  "lock": {
+    "title": "Ruchoir è bloccato",
+    "prompt": "Sblocca Ruchoir",
+    "unlock": "Sblocca",
+    "unlockFaceId": "Sblocca con Face ID",
+    "unlockTouchId": "Sblocca con Touch ID"
   }
 }
