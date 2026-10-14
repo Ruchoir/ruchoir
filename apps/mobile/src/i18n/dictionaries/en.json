@@ -513,7 +513,9 @@
     "noFavouritesText": "Add a file or folder to your favourites from its ⋯ menu to find it here.",
     "nothingShared": "Nothing has been shared with you",
     "nothingSharedText": "Files people send you in your channels and direct messages show here.",
-    "sentBy": "sent by {{name}}"
+    "sentBy": "sent by {{name}}",
+    "noRootFiles": "No file at the root",
+    "noRootFilesText": "Files kept in folders are in their folders, above."
   },
   "viewer": {
     "share": "Share or open in…",

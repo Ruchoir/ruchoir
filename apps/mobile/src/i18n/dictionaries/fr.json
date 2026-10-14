@@ -513,7 +513,9 @@
     "noFavouritesText": "Ajoutez un fichier ou un dossier aux favoris depuis son menu ⋯ pour le retrouver ici.",
     "nothingShared": "Rien n'a été partagé avec vous",
     "nothingSharedText": "Les fichiers que l'on vous envoie dans vos canaux et vos messages directs apparaissent ici.",
-    "sentBy": "envoyé par {{name}}"
+    "sentBy": "envoyé par {{name}}",
+    "noRootFiles": "Aucun fichier à la racine",
+    "noRootFilesText": "Les fichiers rangés dans des dossiers sont dans leurs dossiers, au-dessus."
   },
   "viewer": {
     "share": "Partager ou ouvrir dans…",

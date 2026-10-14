@@ -550,7 +550,9 @@
     "noFavouritesText": "Aggiungi un file o una cartella ai preferiti dal suo menu ⋯ per ritrovarlo qui.",
     "nothingShared": "Nulla è stato condiviso con te",
     "nothingSharedText": "I file che ti inviano nei tuoi canali e messaggi diretti appaiono qui.",
-    "sentBy": "inviato da {{name}}"
+    "sentBy": "inviato da {{name}}",
+    "noRootFiles": "Nessun file nella radice",
+    "noRootFilesText": "I file nelle cartelle sono nelle loro cartelle, qui sopra."
   },
   "viewer": {
     "share": "Condividi o apri in…",

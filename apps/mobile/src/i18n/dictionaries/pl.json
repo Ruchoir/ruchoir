@@ -587,7 +587,9 @@
     "noFavouritesText": "Dodaj plik lub folder do ulubionych z jego menu ⋯, aby znaleźć go tutaj.",
     "nothingShared": "Nic ci nie udostępniono",
     "nothingSharedText": "Pliki wysyłane ci w kanałach i wiadomościach bezpośrednich pojawiają się tutaj.",
-    "sentBy": "wysłał(a) {{name}}"
+    "sentBy": "wysłał(a) {{name}}",
+    "noRootFiles": "Brak plików w katalogu głównym",
+    "noRootFilesText": "Pliki w folderach są w swoich folderach, powyżej."
   },
   "viewer": {
     "share": "Udostępnij lub otwórz w…",

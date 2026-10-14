@@ -43,14 +43,14 @@ export function FilesScreen() {
 
   const space = current?.id;
   const root = useLoad(space ? `root:${space}` : null, (signal) => getFolder(space!, undefined, signal));
-  const [view, setView] = useState<FilesView | "trash">("recent");
+  const [view, setView] = useState<FilesView | "root" | "trash">("recent");
   // The trash stays loaded once seen, so coming back to it does not blink through its loading.
   const [trashSeen, setTrashSeen] = useState(false);
-  const choose = (next: FilesView | "trash") => {
+  const choose = (next: FilesView | "root" | "trash") => {
     if (next === "trash") setTrashSeen(true);
     setView(next);
   };
-  const listed = useLoad(space && view !== "trash" ? `view:${space}:${view}` : null, (signal) => getFilesView(space!, view as FilesView, signal), {
+  const listed = useLoad(space && view !== "trash" && view !== "root" ? `view:${space}:${view}` : null, (signal) => getFilesView(space!, view as FilesView, signal), {
     keep: space,
   });
   const found = useLoad(space && debounced ? `search:${space}:${debounced}` : null, (signal) => searchFiles(space!, debounced, signal));
@@ -108,7 +108,6 @@ export function FilesScreen() {
         ) : (
           <>
             {folders.length ? <FolderTiles folders={folders} /> : null}
-            {files.length ? <Section title={t("files.atRoot")} rows={files.map((file) => ({ file }))} /> : null}
             {/* The web's views, always there; the trash is the last of them. */}
             <Chips chips={VIEWS.map((v) => ({ key: v.key, label: t(v.label), icon: v.icon }))} value={view} onChange={choose} />
             {trashSeen ? (
@@ -116,7 +115,19 @@ export function FilesScreen() {
                 <TrashList />
               </View>
             ) : null}
-            {view === "trash" ? null : !listed.data ? (
+            {view === "trash" ? null : view === "root" ? (
+              files.length ? (
+                <View>
+                  {files.map((f, i) => (
+                    <FileRow key={f.id ?? i} file={f} />
+                  ))}
+                </View>
+              ) : folders.length ? (
+                <EmptyState icon={FolderOpen} title={t("files.noRootFiles")} text={t("files.noRootFilesText")} />
+              ) : (
+                <EmptyState icon={FolderOpen} title={t("files.empty")} text={t("files.emptyHint")} />
+              )
+            ) : !listed.data ? (
               <LoadState error={listed.error} onRetry={listed.reload} />
             ) : listed.data.length ? (
               <View>
@@ -147,6 +158,7 @@ export function FilesScreen() {
 
 const VIEWS = [
   { key: "recent", label: key("files.recent"), icon: Clock },
+  { key: "root", label: key("files.atRoot"), icon: Folder },
   { key: "starred", label: key("files.favourites"), icon: Star },
   { key: "shared", label: key("files.sharedWithMe"), icon: Inbox },
   { key: "trash", label: key("files.trash"), icon: Trash2 },
@@ -179,19 +191,6 @@ function FolderTiles({ folders }: { folders: SpaceFile[] }) {
             {folder.name}
           </Text>
         </Pressable>
-      ))}
-    </View>
-  );
-}
-
-function Section({ title, rows }: { title: string; rows: { file: SpaceFile; path?: string }[] }) {
-  return (
-    <View>
-      <Text variant="small" tone="muted" style={styles.section}>
-        {title}
-      </Text>
-      {rows.map((r, i) => (
-        <FileRow key={r.file.id ?? i} file={r.file} path={r.path} />
       ))}
     </View>
   );
