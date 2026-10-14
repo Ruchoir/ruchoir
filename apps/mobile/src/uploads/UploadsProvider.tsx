@@ -17,6 +17,7 @@ import {
   markSending,
   markSent,
   nextToSend,
+  progressDue,
   remove as removeItem,
   retry as retryItem,
   type Choice,
@@ -60,6 +61,14 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
   }, []);
   const folders = useRef(new Map<string, { existing: Existing[]; label: string }>());
   const aborts = useRef(new Map<string, () => void>());
+  // When each file's progress was last told: the screens hear it four times a second at most.
+  const told = useRef(new Map<string, number>());
+
+  // Signed out (this provider goes with the session): what is still going stops there.
+  useEffect(() => {
+    const running = aborts.current;
+    return () => running.forEach((abort) => abort());
+  }, []);
 
   // One at a time: the first waiting file goes once nothing else is going.
   useEffect(() => {
@@ -67,7 +76,12 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
     if (!item) return;
     commit((q) => markSending(q, item.key));
     const part = { uri: item.file.uri, name: item.name, type: item.file.mime };
-    const onProgress = (sent: number) => commit((q) => markSent(q, item.key, sent));
+    const onProgress = (sent: number) => {
+      const now = Date.now();
+      if (!progressDue(told.current.get(item.key), now)) return;
+      told.current.set(item.key, now);
+      commit((q) => markSent(q, item.key, sent));
+    };
     const request = item.replaceFileId
       ? startFileVersionUpload(item.replaceFileId, part, onProgress)
       : startFileUpload(item.spaceId, part, item.folderId, onProgress);
@@ -81,7 +95,10 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
           commit((q) => markFailed(q, item.key, error));
         },
       )
-      .finally(() => aborts.current.delete(item.key));
+      .finally(() => {
+        aborts.current.delete(item.key);
+        told.current.delete(item.key);
+      });
   }, [queue, commit]);
 
   // All gone: say so, and forget what is done (what failed stays, to be retried or removed).
@@ -105,7 +122,8 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
       answer: (key, choice, forAll) => {
         const item = current.current.find((i) => i.key === key);
         if (!item) return;
-        commit((q) => answerQueue(q, key, choice, forAll, folders.current.get(folderKey(item))?.existing ?? []));
+        // Each file against its own folder's entries, when the answer is for all of them.
+        commit((q) => answerQueue(q, key, choice, forAll, (i) => folders.current.get(folderKey(i))?.existing ?? []));
       },
       retry: (key) => commit((q) => retryItem(q, key)),
       remove: (key) => {

@@ -57,9 +57,17 @@ export function nextQuestion(queue: QueueItem[]): QueueItem | undefined {
 
 /**
  * The answer about `key`'s name, and with `forAll` about every other one asking. "Replace" makes a
- * new version of the entry of that name when the person may manage it, else it keeps both.
+ * new version of the entry of that name when the person may manage it, else it keeps both. Each file
+ * is weighed against its own folder's entries (`existing`, a list for one folder or a lookup).
  */
-export function answer(queue: QueueItem[], key: string, choice: Choice, forAll: boolean, existing: Existing[]): QueueItem[] {
+export function answer(
+  queue: QueueItem[],
+  key: string,
+  choice: Choice,
+  forAll: boolean,
+  existing: Existing[] | ((item: QueueItem) => Existing[]),
+): QueueItem[] {
+  const entriesOf = typeof existing === "function" ? existing : () => existing;
   const answered = new Set(forAll ? queue.filter((i) => i.state === "asking").map((i) => i.key) : [key]);
   let out = queue;
   for (const item of queue) {
@@ -68,11 +76,12 @@ export function answer(queue: QueueItem[], key: string, choice: Choice, forAll: 
       out = out.filter((i) => i.key !== item.key);
       continue;
     }
-    const same = choice === "replace" ? existing.find((e) => isTaken(item.file.name, [e.name])) : undefined;
+    const theirs = entriesOf(item);
+    const same = choice === "replace" ? theirs.find((e) => isTaken(item.file.name, [e.name])) : undefined;
     const next: Partial<QueueItem> =
       same?.manage
         ? { name: same.name, replaceFileId: same.id, state: "waiting" }
-        : { name: uniqueName(item.file.name, takenFor(out, item, existing, item.key)), state: "waiting" };
+        : { name: uniqueName(item.file.name, takenFor(out, item, theirs, item.key)), state: "waiting" };
     out = out.map((i) => (i.key === item.key ? { ...i, ...next } : i));
   }
   return out;
@@ -119,4 +128,9 @@ export function progress(queue: QueueItem[]): { count: number; sent: number; tot
     total: going.reduce((n, i) => n + (i.file.size ?? 0), 0),
     failed: queue.filter((i) => i.state === "failed").length,
   };
+}
+
+/** Whether a file's progress is worth telling the screens again: four times a second at most. */
+export function progressDue(lastAt: number | undefined, now: number, interval = 250): boolean {
+  return lastAt === undefined || now - lastAt >= interval;
 }

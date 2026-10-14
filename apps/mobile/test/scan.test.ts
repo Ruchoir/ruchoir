@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { scanHtml, scanName, scanPageSize } from "../src/logic/scan.ts";
+import { leaveScan, scanHtml, scanName, scanPageSize } from "../src/logic/scan.ts";
 
 test("pages_shrink_to_1600_on_their_long_side", () => {
   assert.deepEqual(scanPageSize(4032, 3024), { width: 1600, height: 1200 });
@@ -28,4 +28,13 @@ test("scan_name_says_when", () => {
   // 13:40 UTC is 15:40 in Paris in October.
   assert.equal(scanName(new Date("2026-10-14T13:40:00Z"), "Europe/Paris", fr), "Scan 14-10-2026 15h40");
   assert.equal(scanName(new Date("2026-01-05T08:05:00Z"), "Europe/Paris", fr), "Scan 05-01-2026 09h05");
+});
+
+test("leaving_after_save_is_not_held", () => {
+  // Saved: the screen goes, even while its button still spins.
+  assert.equal(leaveScan({ done: true, busy: true, pages: 2 }), "leave");
+  // Making the PDF: closing waits for it.
+  assert.equal(leaveScan({ done: false, busy: true, pages: 2 }), "stay");
+  assert.equal(leaveScan({ done: false, busy: false, pages: 2 }), "ask");
+  assert.equal(leaveScan({ done: false, busy: false, pages: 0 }), "leave");
 });

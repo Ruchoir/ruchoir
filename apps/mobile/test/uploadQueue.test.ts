@@ -12,6 +12,7 @@ import {
   nextQuestion,
   nextToSend,
   progress,
+  progressDue,
   retry,
   type Existing,
   type QueueItem,
@@ -114,4 +115,27 @@ test("progress_counts_bytes", () => {
   q = markDone(q, "k1");
   q = markFailed(markSending(q, "k2"), "k2", "tooLarge");
   assert.deepEqual(progress(q), { count: 1, sent: 0, total: 0, failed: 1 });
+});
+
+test("for_all_resolves_each_folder_against_its_own_entries", () => {
+  const inA: Existing[] = [{ id: "a1", name: "devis.pdf", manage: true }];
+  const inB: Existing[] = [{ id: "b1", name: "photo.jpg", manage: true }];
+  const nextKey = keys();
+  let q = enqueue([], [file("devis.pdf")], { spaceId: "s1", folderId: "A" }, inA, nextKey);
+  q = enqueue(q, [file("photo.jpg"), file("devis.pdf")], { spaceId: "s1", folderId: "B" }, inB, nextKey);
+  // B's "devis.pdf" is free in B: it does not ask.
+  assert.deepEqual(states(q), ["asking", "asking", "waiting"]);
+  const byFolder = (item: QueueItem) => (item.folderId === "A" ? inA : inB);
+  const replaced = answer(q, "k1", "replace", true, byFolder);
+  assert.equal(replaced[0].replaceFileId, "a1");
+  assert.equal(replaced[1].replaceFileId, "b1");
+  // Keep both in B is free against B's names, not A's.
+  const kept = answer(q, "k1", "keepBoth", true, byFolder);
+  assert.deepEqual(names(kept), ["devis (1).pdf", "photo (1).jpg", "devis.pdf"]);
+});
+
+test("progress_is_told_four_times_a_second_at_most", () => {
+  assert.equal(progressDue(undefined, 1000), true);
+  assert.equal(progressDue(1000, 1100), false);
+  assert.equal(progressDue(1000, 1250), true);
 });

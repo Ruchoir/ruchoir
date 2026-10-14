@@ -41,3 +41,13 @@ export function scanName(now: Date, timeZone: string, say: (vars: Record<string,
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return say({ day: part("day"), month: part("month"), year: part("year"), hour: part("hour"), minute: part("minute") });
 }
+
+/**
+ * What closing the scan does: it goes once saved (the button may still spin), waits while the PDF is
+ * being made, asks when pages were taken, else goes.
+ */
+export function leaveScan(o: { done: boolean; busy: boolean; pages: number }): "leave" | "stay" | "ask" {
+  if (o.done) return "leave";
+  if (o.busy) return "stay";
+  return o.pages > 0 ? "ask" : "leave";
+}

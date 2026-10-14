@@ -20,7 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { cameraAllowed } from "../../compose/pick";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
-import { scanHtml, scanName, scanPageSize } from "../../logic/scan";
+import { leaveScan, scanHtml, scanName, scanPageSize } from "../../logic/scan";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
@@ -85,11 +85,10 @@ export function ScanScreen() {
   useEffect(
     () =>
       navigation.addListener("beforeRemove", (e) => {
-        if (done.current || pages.length === 0 || busy) {
-          if (busy) e.preventDefault();
-          return;
-        }
+        const choice = leaveScan({ done: done.current, busy, pages: pages.length });
+        if (choice === "leave") return;
         e.preventDefault();
+        if (choice === "stay") return;
         Alert.alert(t("files.scanDiscardTitle"), t("files.scanDiscardText"), [
           { text: t("eventForm.keepEditing"), style: "cancel" },
           { text: t("eventForm.discard"), style: "destructive", onPress: () => navigation.dispatch(e.data.action) },
