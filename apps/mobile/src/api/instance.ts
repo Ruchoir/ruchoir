@@ -39,7 +39,7 @@ export function authHeadersFor(url: string): Record<string, string> {
   return isInstanceUrl(url, origin) ? authHeaders() : {};
 }
 
-export function connectTo(instance: string, onUnauthorized: () => void): void {
+export function connectTo(instance: string, onUnauthorized: (code?: string) => void): void {
   origin = instance;
   forgetUploadLimit();
   configureClient({

@@ -19,8 +19,12 @@ export type ClientOptions = {
   locale: () => string;
   /** Open the realtime socket. A native app passes one that carries the bearer header. */
   openSocket: (url: string) => WebSocket;
-  /** Called once per request answered 401, before the error is thrown (a native app signs out). */
-  onUnauthorized: () => void;
+  /**
+   * Called once per request answered 401, before the error is thrown (a native app signs out), with
+   * the API's error code: `invalid_credentials` is a wrong password typed to confirm an action, not a
+   * session that ended.
+   */
+  onUnauthorized: (code?: string) => void;
 };
 
 const DEFAULTS: ClientOptions = {
