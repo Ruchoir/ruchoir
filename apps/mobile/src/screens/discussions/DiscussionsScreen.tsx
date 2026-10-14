@@ -68,6 +68,9 @@ export function DiscussionsScreen() {
     <TabScreen>
       <FlatList
         data={items}
+        // While searching, the last rows can still be scrolled above the keyboard.
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(c) => c.id}
         refreshControl={<RefreshControl refreshing={false} onRefresh={conversations.reload} />}
         ListHeaderComponent={

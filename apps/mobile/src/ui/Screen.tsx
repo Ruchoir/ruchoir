@@ -1,23 +1,25 @@
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme } from "../theme/useTheme";
+import { KeyboardArea } from "./KeyboardArea";
+import { KeyboardScroll } from "./KeyboardScroll";
 
 /** A full screen on the canvas colour, inside the safe area, scrolling and clear of the keyboard. */
 export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
   const { c } = useTheme();
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: c.bg }]} edges={["top", "bottom"]}>
-      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardArea style={styles.fill}>
         {scroll ? (
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <KeyboardScroll style={styles.fill} contentContainerStyle={styles.content}>
             {children}
-          </ScrollView>
+          </KeyboardScroll>
         ) : (
           children
         )}
-      </KeyboardAvoidingView>
+      </KeyboardArea>
     </SafeAreaView>
   );
 }

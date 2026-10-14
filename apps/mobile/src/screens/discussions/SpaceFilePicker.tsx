@@ -66,6 +66,7 @@ export function SpaceFilePicker() {
     <ScrollView
       style={{ backgroundColor: c.surface }}
       stickyHeaderIndices={[0]}
+      automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}

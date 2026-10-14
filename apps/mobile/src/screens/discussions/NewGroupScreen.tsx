@@ -2,12 +2,12 @@
  * "Create a group": a channel of the space. Its name is shown as it will be written (`#projets-
  * clients`), it is open to the whole space or on invitation, and people can be added at once.
  */
-import { addChannelMembers, createChannel, getChannels, inviteToChannel, type Member } from "@ruchoir/client";
+import { addChannelMembers, createChannel, getChannels, inviteToChannel } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
-import { X } from "lucide-react-native";
+import { ChevronRight, UserPlus, X } from "lucide-react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSpaceMembers } from "../../data/members";
@@ -20,15 +20,16 @@ import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
+import { AvatarStack } from "../../ui/AvatarStack";
 import { Button } from "../../ui/Button";
-import { SearchField } from "../../ui/SearchField";
 import { Segmented } from "../../ui/Segmented";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
 import { useToast } from "../../ui/Toast";
 import { KeyboardArea } from "../../ui/KeyboardArea";
-import { PeopleList } from "./PeopleList";
+import { KeyboardScroll } from "../../ui/KeyboardScroll";
+import { PeoplePickerModal } from "./PeoplePickerModal";
 
 type Access = "public" | "private";
 
@@ -47,7 +48,7 @@ export function NewGroupScreen() {
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
   const [access, setAccess] = useState<Access>("public");
-  const [query, setQuery] = useState("");
+  const [picking, setPicking] = useState(false);
   const [chosen, setChosen] = useState<string[]>([]);
   // People from outside, by address: invited as guests who see this group only.
   const [address, setAddress] = useState("");
@@ -67,8 +68,7 @@ export function NewGroupScreen() {
     setOutsiders((prev) => addAddress(prev, address));
     setAddress("");
   };
-  const toggle = (member: Member) =>
-    setChosen((prev) => (prev.includes(member.userId) ? prev.filter((id) => id !== member.userId) : [...prev, member.userId]));
+  const chosenMembers = chosen.flatMap((id) => people.filter((m) => m.userId === id));
 
   const create = async () => {
     if (!space || !handle || taken) return;
@@ -106,7 +106,9 @@ export function NewGroupScreen() {
     <SafeAreaView edges={["bottom"]} style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("newMessage.group")} onClose={() => navigation.goBack()} />
       <KeyboardArea style={styles.fill}>
-        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.form}>
+        {/* Short enough to fit on one screen: the name, who can join, the people (picked in a
+            sheet of their own), people from outside, and the optional topic last. */}
+        <KeyboardScroll style={styles.fill} keyboardDismissMode="on-drag" contentContainerStyle={styles.form}>
           <View style={styles.gutter}>
             <TextField
               label={t("group.name")}
@@ -136,16 +138,33 @@ export function NewGroupScreen() {
               {access === "public" ? t("group.openHint") : t("group.privateHint")}
             </Text>
           </View>
-          <View style={styles.gutter}>
-            <TextField label={t("group.topic")} placeholder={t("group.topicPlaceholder")} value={topic} onChangeText={setTopic} />
-          </View>
           {access === "private" ? (
-            <View style={styles.block}>
-              <Text variant="smallStrong" style={styles.gutter}>
-                {t("group.members")}
-              </Text>
-              <SearchField value={query} onChange={setQuery} placeholder={t("people.search")} />
-              <PeopleList people={people} query={query} selected={chosen} onToggle={toggle} />
+            <View style={[styles.block, styles.gutter]}>
+              <Text variant="smallStrong">{t("group.members")}</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setPicking(true)}
+                style={({ pressed }) => [styles.pick, { borderColor: c.controlLine, backgroundColor: c.surface }, pressed && { opacity: 0.7 }]}
+              >
+                {chosenMembers.length > 0 ? (
+                  <AvatarStack size={36} people={chosenMembers.map((m) => ({ name: m.name, avatarUrl: m.avatarUrl }))} />
+                ) : (
+                  <View style={[styles.pickTile, { backgroundColor: s.sunken }]}>
+                    <UserPlus size={18} color={c.ink} />
+                  </View>
+                )}
+                <View style={styles.grow}>
+                  <Text variant="bodyStrong">
+                    {chosen.length > 0 ? t("group.picked", { count: chosen.length }) : t("group.pickPeople")}
+                  </Text>
+                  {chosenMembers.length > 0 ? (
+                    <Text variant="tiny" tone="muted" numberOfLines={1}>
+                      {chosenMembers.map((m) => m.name).join(", ")}
+                    </Text>
+                  ) : null}
+                </View>
+                <ChevronRight size={18} color={c.muted} />
+              </Pressable>
             </View>
           ) : null}
           <View style={[styles.block, styles.gutter]}>
@@ -191,7 +210,10 @@ export function NewGroupScreen() {
               </View>
             ) : null}
           </View>
-        </ScrollView>
+          <View style={styles.gutter}>
+            <TextField label={t("group.topic")} placeholder={t("group.topicPlaceholder")} value={topic} onChangeText={setTopic} />
+          </View>
+        </KeyboardScroll>
         <View style={[styles.foot, { borderTopColor: c.line }]}>
           {failed ? (
             <Text variant="small" tone="danger">
@@ -201,6 +223,18 @@ export function NewGroupScreen() {
           <Button label={t("group.create")} disabled={!handle || taken} busy={busy} onPress={() => void create()} />
         </View>
       </KeyboardArea>
+      {picking ? (
+        <PeoplePickerModal
+          title={t("group.members")}
+          people={people}
+          selected={chosen}
+          onDone={(ids) => {
+            setChosen(ids);
+            setPicking(false);
+          }}
+          onClose={() => setPicking(false)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -218,4 +252,6 @@ const styles = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   chip: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%", paddingLeft: 10, paddingRight: 8, paddingVertical: 6, borderRadius: radius.l },
   chipText: { flexShrink: 1 },
+  pick: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56, paddingHorizontal: 12, paddingVertical: 8, borderWidth: hairline, borderRadius: radius.m },
+  pickTile: { width: 36, height: 36, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
 });

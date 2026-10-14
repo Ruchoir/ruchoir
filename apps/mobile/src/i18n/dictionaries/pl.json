@@ -383,7 +383,13 @@
     "invitesSent_few": "Wysłano {{count}} zaproszenia",
     "invitesSent_many": "Wysłano {{count}} zaproszeń",
     "invitesFailed_few": "Nie udało się wysłać {{count}} zaproszeń",
-    "invitesFailed_many": "Nie udało się wysłać {{count}} zaproszeń"
+    "invitesFailed_many": "Nie udało się wysłać {{count}} zaproszeń",
+    "pickPeople": "Wybierz osoby",
+    "pickDone": "Gotowe",
+    "picked_one": "Wybrano {{count}} osobę",
+    "picked_other": "Wybrano {{count}} osoby",
+    "picked_few": "Wybrano {{count}} osoby",
+    "picked_many": "Wybrano {{count}} osób"
   },
   "invite": {
     "member": "Członek",

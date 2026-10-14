@@ -7,7 +7,7 @@ import { createInvitation } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { CircleCheck, Link } from "lucide-react-native";
 import { useState } from "react";
-import { ScrollView, Share, StyleSheet, View } from "react-native";
+import { Share, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTranslation } from "../../i18n";
@@ -21,6 +21,7 @@ import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
 import { KeyboardArea } from "../../ui/KeyboardArea";
+import { KeyboardScroll } from "../../ui/KeyboardScroll";
 
 type Role = "member" | "guest";
 
@@ -82,7 +83,7 @@ export function InviteScreen() {
     <SafeAreaView edges={["bottom"]} style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("newMessage.invite")} onClose={() => navigation.goBack()} />
       <KeyboardArea style={styles.fill}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
+        <KeyboardScroll style={styles.fill} contentContainerStyle={styles.form}>
           <View style={styles.block}>
             <Segmented
               style={styles.flush}
@@ -149,7 +150,7 @@ export function InviteScreen() {
               {t("invite.linkHint")}
             </Text>
           </View>
-        </ScrollView>
+        </KeyboardScroll>
       </KeyboardArea>
     </SafeAreaView>
   );

@@ -355,7 +355,11 @@
     "invitesSent_one": "{{count}} invitation envoyée",
     "invitesSent_other": "{{count}} invitations envoyées",
     "invitesFailed_one": "{{count}} invitation n’a pas pu partir",
-    "invitesFailed_other": "{{count}} invitations n’ont pas pu partir"
+    "invitesFailed_other": "{{count}} invitations n’ont pas pu partir",
+    "pickPeople": "Choisir des personnes",
+    "pickDone": "Valider",
+    "picked_one": "{{count}} personne choisie",
+    "picked_other": "{{count}} personnes choisies"
   },
   "invite": {
     "member": "Membre",

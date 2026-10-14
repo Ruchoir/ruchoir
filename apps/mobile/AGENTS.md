@@ -96,6 +96,11 @@ src/i18n/              i18next and the six dictionaries
   (react-native-screens lays it out absolutely, without a bottom), so a `flex: 1` root with a fixed
   head and a list filling the rest draws the list under the head. The keyboard has the same kind of
   trap: use `ui/KeyboardArea`, which measures itself in the window, not `KeyboardAvoidingView`.
+- **Every field stays in sight above the keyboard.** A form is a `KeyboardScroll` inside a
+  `KeyboardArea` (with its footer button, which then rises too); `TextField` and `SearchField` ask
+  it to scroll them into view when they take the focus. A list under a search field gets
+  `automaticallyAdjustKeyboardInsets`, so its last rows can still be scrolled above the keyboard. A
+  long list of people is a `PeopleList` (a `FlatList`), never rows mapped inside a form.
 - **Thread replies never enter a feed.** `screens/discussions/feed.ts` keeps a conversation's and a
   thread's messages live; a reply moves the count under its root once (`replyDelta`).
 - **Seeded files of the dev database have no bytes** in the dev object store: opening one answers

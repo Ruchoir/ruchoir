@@ -355,7 +355,11 @@
     "invitesSent_one": "{{count}} invitation sent",
     "invitesSent_other": "{{count}} invitations sent",
     "invitesFailed_one": "{{count}} invitation could not go out",
-    "invitesFailed_other": "{{count}} invitations could not go out"
+    "invitesFailed_other": "{{count}} invitations could not go out",
+    "pickPeople": "Choose people",
+    "pickDone": "Done",
+    "picked_one": "{{count}} person chosen",
+    "picked_other": "{{count}} people chosen"
   },
   "invite": {
     "member": "Member",

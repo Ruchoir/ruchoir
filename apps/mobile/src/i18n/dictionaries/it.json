@@ -369,7 +369,12 @@
     "invitesSent_many": "{{count}} inviti inviati",
     "invitesFailed_one": "{{count}} invito non è partito",
     "invitesFailed_other": "{{count}} inviti non sono partiti",
-    "invitesFailed_many": "{{count}} inviti non sono partiti"
+    "invitesFailed_many": "{{count}} inviti non sono partiti",
+    "pickPeople": "Scegli le persone",
+    "pickDone": "Fatto",
+    "picked_one": "{{count}} persona scelta",
+    "picked_other": "{{count}} persone scelte",
+    "picked_many": "{{count}} persone scelte"
   },
   "invite": {
     "member": "Membro",
