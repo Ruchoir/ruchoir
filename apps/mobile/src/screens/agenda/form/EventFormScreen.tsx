@@ -23,7 +23,6 @@ import { remindersLabel } from "@ruchoir/client/calendarLogic";
 import { Bell, ChevronDown, ChevronRight, FileText, Globe, MapPin, MessageSquare, Paperclip, Repeat, UserPlus, Users } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAttachRequests } from "../../../compose/requests";
 import { useLoad } from "../../../data/useLoad";
@@ -39,6 +38,7 @@ import { fonts } from "../../../theme/fonts";
 import { hairline, mix } from "../../../theme/tokens";
 import { useTheme } from "../../../theme/useTheme";
 import { Button } from "../../../ui/Button";
+import { FullScreen } from "../../../ui/FullScreen";
 import { KeyboardForm } from "../../../ui/KeyboardForm";
 import { SheetHeader } from "../../../ui/SheetHeader";
 import { LoadState } from "../../../ui/States";
@@ -227,7 +227,7 @@ export function EventFormScreen() {
   return (
     // Full screen, so that a swipe cannot close it past the question above: clear of the status bar
     // here, of the home indicator in `KeyboardForm`.
-    <SafeAreaView edges={["top"]} style={[styles.fill, { backgroundColor: c.surface }]}>
+    <FullScreen color={c.surface} bottom={false}>
       <SheetHeader title={edit || params.eventId ? t("calendar.editEvent") : t("calendar.newEvent")} onClose={() => navigation.goBack()} />
       {!draft ? (
         <LoadState
@@ -436,7 +436,7 @@ export function EventFormScreen() {
           </FormRow>
         </KeyboardForm>
       )}
-    </SafeAreaView>
+    </FullScreen>
   );
 }
 

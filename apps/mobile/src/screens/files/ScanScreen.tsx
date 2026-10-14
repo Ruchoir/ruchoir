@@ -15,7 +15,6 @@ import * as Print from "expo-print";
 import { Plus, X } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { cameraAllowed } from "../../compose/pick";
 import { useTranslation } from "../../i18n";
@@ -27,6 +26,7 @@ import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
+import { FullScreen } from "../../ui/FullScreen";
 import { KeyboardForm } from "../../ui/KeyboardForm";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
@@ -131,7 +131,7 @@ export function ScanScreen() {
   };
 
   return (
-    <SafeAreaView edges={["top"]} style={[styles.fill, { backgroundColor: c.surface }]}>
+    <FullScreen color={c.surface} bottom={false}>
       <SheetHeader title={t("files.scanTitle")} onClose={() => navigation.goBack()} />
       <KeyboardForm
         keyboardDismissMode="on-drag"
@@ -175,7 +175,7 @@ export function ScanScreen() {
           <TextField label={t("files.scanNameLabel")} value={name} onChangeText={setName} autoCapitalize="sentences" returnKeyType="done" maxLength={200} />
         </View>
       </KeyboardForm>
-    </SafeAreaView>
+    </FullScreen>
   );
 }
 

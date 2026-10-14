@@ -5,7 +5,6 @@ import * as Sharing from "expo-sharing";
 import { Image } from "expo-image";
 import { Ellipsis, Share, X } from "lucide-react-native";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import { useLoad } from "../../data/useLoad";
@@ -18,6 +17,7 @@ import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FileIcon } from "../../ui/FileIcon";
 import { LoadState } from "../../ui/States";
+import { FullScreen } from "../../ui/FullScreen";
 import { Text } from "../../ui/Text";
 
 /**
@@ -42,7 +42,7 @@ export function FileViewerScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.fill, { backgroundColor: c.bg }]}>
+    <FullScreen color={c.bg}>
       <View style={[styles.bar, { borderBottomColor: c.line }]}>
         <Pressable accessibilityRole="button" accessibilityLabel={t("common.close")} onPress={() => navigation.goBack()} style={styles.icon}>
           <X size={24} color={c.ink} />
@@ -85,7 +85,7 @@ export function FileViewerScreen() {
           <Button label={t("viewer.share")} onPress={share} />
         </View>
       )}
-    </SafeAreaView>
+    </FullScreen>
   );
 }
 
