@@ -95,7 +95,10 @@ src/i18n/              i18next and the six dictionaries
   with `stickyHeaderIndices={[0]}`). On iOS a `formSheet`'s content has no set height
   (react-native-screens lays it out absolutely, without a bottom), so a `flex: 1` root with a fixed
   head and a list filling the rest draws the list under the head. The keyboard has the same kind of
-  trap: use `ui/KeyboardArea`, which measures itself in the window, not `KeyboardAvoidingView`.
+  trap: use `ui/KeyboardArea`, not `KeyboardAvoidingView`. It must run to the bottom of its screen
+  and rises by the keyboard's whole height, measuring nothing (a view's place in the window is
+  reported without the offset of the sheet it is in); give it `safeBottom` rather than wrapping it
+  in a `SafeAreaView` with a bottom edge.
 - **Every field stays in sight above the keyboard.** A form is a `KeyboardScroll` inside a
   `KeyboardArea` (with its footer button, which then rises too); `TextField` and `SearchField` ask
   it to scroll them into view when they take the focus. A list under a search field gets

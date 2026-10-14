@@ -8,7 +8,6 @@ import { ChevronRight, UserPlus, X } from "lucide-react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
@@ -103,9 +102,9 @@ export function NewGroupScreen() {
   };
 
   return (
-    <SafeAreaView edges={["bottom"]} style={[styles.fill, { backgroundColor: c.surface }]}>
+    <View style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("newMessage.group")} onClose={() => navigation.goBack()} />
-      <KeyboardArea style={styles.fill}>
+      <KeyboardArea style={styles.fill} safeBottom>
         {/* Short enough to fit on one screen: the name, who can join, the people (picked in a
             sheet of their own), people from outside, and the optional topic last. */}
         <KeyboardScroll style={styles.fill} keyboardDismissMode="on-drag" contentContainerStyle={styles.form}>
@@ -235,7 +234,7 @@ export function NewGroupScreen() {
           onClose={() => setPicking(false)}
         />
       ) : null}
-    </SafeAreaView>
+    </View>
   );
 }
 

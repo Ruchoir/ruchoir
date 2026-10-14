@@ -10,8 +10,8 @@ import { KeyboardScroll } from "./KeyboardScroll";
 export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
   const { c } = useTheme();
   return (
-    <SafeAreaView style={[styles.fill, { backgroundColor: c.bg }]} edges={["top", "bottom"]}>
-      <KeyboardArea style={styles.fill}>
+    <SafeAreaView style={[styles.fill, { backgroundColor: c.bg }]} edges={["top"]}>
+      <KeyboardArea style={styles.fill} safeBottom>
         {scroll ? (
           <KeyboardScroll style={styles.fill} contentContainerStyle={styles.content}>
             {children}

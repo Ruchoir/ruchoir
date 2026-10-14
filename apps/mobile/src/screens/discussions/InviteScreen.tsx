@@ -8,7 +8,6 @@ import { useNavigation } from "@react-navigation/native";
 import { CircleCheck, Link } from "lucide-react-native";
 import { useState } from "react";
 import { Share, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTranslation } from "../../i18n";
 import { isEmail } from "../../logic/email";
@@ -80,9 +79,9 @@ export function InviteScreen() {
   };
 
   return (
-    <SafeAreaView edges={["bottom"]} style={[styles.fill, { backgroundColor: c.surface }]}>
+    <View style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("newMessage.invite")} onClose={() => navigation.goBack()} />
-      <KeyboardArea style={styles.fill}>
+      <KeyboardArea style={styles.fill} safeBottom>
         <KeyboardScroll style={styles.fill} contentContainerStyle={styles.form}>
           <View style={styles.block}>
             <Segmented
@@ -152,7 +151,7 @@ export function InviteScreen() {
           </View>
         </KeyboardScroll>
       </KeyboardArea>
-    </SafeAreaView>
+    </View>
   );
 }
 

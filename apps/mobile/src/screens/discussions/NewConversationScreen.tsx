@@ -7,7 +7,6 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSpaceMembers } from "../../data/members";
 import { useTranslation } from "../../i18n";
@@ -69,13 +68,13 @@ export function NewConversationScreen() {
         : t("people.writeGroup", { count: chosen.length });
 
   return (
-    <SafeAreaView edges={["bottom"]} style={[styles.fill, { backgroundColor: c.surface }]}>
+    <View style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("people.title")} onClose={() => navigation.goBack()} />
       <View style={styles.search}>
         <SearchField value={query} onChange={setQuery} placeholder={t("people.search")} />
       </View>
       {/* The list and its button above the keyboard while searching. */}
-      <KeyboardArea style={styles.fill}>
+      <KeyboardArea style={styles.fill} safeBottom>
         <PeopleList style={styles.fill} people={people} query={query} selected={chosen.map((m) => m.userId)} onToggle={toggle} />
         <View style={[styles.foot, { borderTopColor: c.line }]}>
           {failed ? (
@@ -86,7 +85,7 @@ export function NewConversationScreen() {
           <Button label={label} disabled={chosen.length === 0} busy={busy} onPress={() => void write()} />
         </View>
       </KeyboardArea>
-    </SafeAreaView>
+    </View>
   );
 }
 

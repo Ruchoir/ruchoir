@@ -5,7 +5,6 @@
 import type { Member } from "@ruchoir/client";
 import { useState } from "react";
 import { Modal, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTranslation } from "../../i18n";
 import { hairline } from "../../theme/tokens";
@@ -38,18 +37,18 @@ export function PeoplePickerModal({
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView edges={["bottom"]} style={[styles.fill, { backgroundColor: c.surface }]}>
+      <View style={[styles.fill, { backgroundColor: c.surface }]}>
         <SheetHeader title={title} onClose={onClose} />
         <View style={styles.search}>
           <SearchField value={query} onChange={setQuery} placeholder={t("people.search")} />
         </View>
-        <KeyboardArea style={styles.fill}>
+        <KeyboardArea style={styles.fill} safeBottom>
           <PeopleList style={styles.fill} people={people} query={query} selected={picked} onToggle={toggle} />
           <View style={[styles.foot, { borderTopColor: c.line }]}>
             <Button label={t("group.pickDone")} onPress={() => onDone(picked)} />
           </View>
         </KeyboardArea>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
