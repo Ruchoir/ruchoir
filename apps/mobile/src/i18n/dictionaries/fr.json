@@ -845,7 +845,10 @@
     "agendaView": "Vue à l’ouverture",
     "weekStart": "Premier jour de la semaine",
     "duration": "Durée d’un nouvel événement",
-    "onThisPhone": "L’apparence, la langue et l’agenda sont réglés pour ce téléphone. Les notifications valent pour tous vos appareils."
+    "onThisPhone": "L’apparence, la langue et l’agenda sont réglés pour ce téléphone. Les notifications valent pour tous vos appareils.",
+    "minutes": "{{n}} min",
+    "hours": "{{n}} h",
+    "hoursMinutes": "{{h}} h {{m}}"
   },
   "profile": {
     "title": "Poste",

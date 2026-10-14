@@ -890,7 +890,10 @@
     "agendaView": "Vista all’apertura",
     "weekStart": "Primo giorno della settimana",
     "duration": "Durata di un nuovo evento",
-    "onThisPhone": "Aspetto, lingua e agenda valgono per questo telefono. Le notifiche valgono per tutti i vostri dispositivi."
+    "onThisPhone": "Aspetto, lingua e agenda valgono per questo telefono. Le notifiche valgono per tutti i vostri dispositivi.",
+    "minutes": "{{n}} min",
+    "hours": "{{n}} h",
+    "hoursMinutes": "{{h}} h {{m}} min"
   },
   "profile": {
     "title": "Ruolo",

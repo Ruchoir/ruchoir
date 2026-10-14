@@ -845,7 +845,10 @@
     "agendaView": "Ansicht beim Öffnen",
     "weekStart": "Erster Tag der Woche",
     "duration": "Dauer eines neuen Termins",
-    "onThisPhone": "Darstellung, Sprache und Kalender gelten für dieses Telefon. Benachrichtigungen gelten für alle Ihre Geräte."
+    "onThisPhone": "Darstellung, Sprache und Kalender gelten für dieses Telefon. Benachrichtigungen gelten für alle Ihre Geräte.",
+    "minutes": "{{n}} Min.",
+    "hours": "{{n}} Std.",
+    "hoursMinutes": "{{h}} Std. {{m}} Min."
   },
   "profile": {
     "title": "Position",

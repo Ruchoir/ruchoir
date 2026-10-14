@@ -1,7 +1,7 @@
-import { StyleSheet, Switch, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
-import { useTheme } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
+import { Toggle } from "../../ui/Toggle";
 
 /** A setting that is on or off: its name, a line saying what it does, and the switch. */
 export function ToggleRow({
@@ -17,7 +17,6 @@ export function ToggleRow({
   onChange: (value: boolean) => void;
   disabled?: boolean;
 }) {
-  const { c, s } = useTheme();
   return (
     <View style={[styles.row, disabled && styles.off]}>
       <View style={styles.text}>
@@ -28,11 +27,10 @@ export function ToggleRow({
           </Text>
         ) : null}
       </View>
-      <Switch
+      <Toggle
         value={value}
         onValueChange={onChange}
         disabled={disabled}
-        trackColor={{ true: c.ink, false: s.sunken }}
         accessibilityLabel={title}
       />
     </View>

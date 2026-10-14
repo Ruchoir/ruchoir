@@ -18,7 +18,7 @@ import {
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import { Check, Pin } from "lucide-react-native";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Switch, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSpaceMembers } from "../../data/members";
@@ -37,6 +37,7 @@ import { BackHeader } from "../../ui/BackHeader";
 import { EmptyState, LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
+import { Toggle } from "../../ui/Toggle";
 
 const LEVELS: { level: NotifyLevel; label: ReturnType<typeof key>; hint: ReturnType<typeof key> }[] = [
   { level: "default", label: key("details.levelDefault"), hint: key("details.levelDefaultHint") },
@@ -145,10 +146,9 @@ export function ConversationDetails() {
                 title={t("details.mute")}
                 subtitle={t("details.muteHint")}
                 trailing={
-                  <Switch
+                  <Toggle
                     value={notify.muted}
                     onValueChange={(muted) => save({ ...notify, muted })}
-                    trackColor={{ true: c.ink, false: s.sunken }}
                     accessibilityLabel={t("details.mute")}
                   />
                 }

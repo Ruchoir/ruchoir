@@ -1,16 +1,23 @@
 /**
  * A short line at the bottom of the screen that confirms or reports something done elsewhere ("Text
  * copied", "Reaction not saved"), then fades. One at a time: a new one replaces the last.
+ *
+ * On iOS it is drawn in a window of its own (`FullWindowOverlay`): a modal or a sheet is a native
+ * screen above the app's view, and a toast drawn in that view stayed hidden under it.
  */
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { AccessibilityInfo, Animated, StyleSheet, View } from "react-native";
+import { createContext, Fragment, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { AccessibilityInfo, Animated, Platform, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FullWindowOverlay } from "react-native-screens";
 
 import { radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
 import { Text } from "./Text";
 
 const SHOWN_MS = 2400;
+
+/** Above every modal and sheet on iOS; Android draws its modals in the app's own view. */
+const Above = Platform.OS === "ios" ? FullWindowOverlay : Fragment;
 
 const ToastContext = createContext<(text: string) => void>(() => {});
 
@@ -41,11 +48,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <View style={styles.fill}>
         {children}
         {toast ? (
-          <Animated.View pointerEvents="none" style={[styles.toast, { bottom: insets.bottom + 96, opacity, backgroundColor: c.ink }]}>
-            <Text variant="smallStrong" tone="onInk">
-              {toast.text}
-            </Text>
-          </Animated.View>
+          <Above>
+            <Animated.View pointerEvents="none" style={[styles.toast, { bottom: insets.bottom + 96, opacity, backgroundColor: c.ink }]}>
+              <Text variant="smallStrong" tone="onInk">
+                {toast.text}
+              </Text>
+            </Animated.View>
+          </Above>
         ) : null}
       </View>
     </ToastContext.Provider>

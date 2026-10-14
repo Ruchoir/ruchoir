@@ -890,7 +890,10 @@
     "agendaView": "Vista al abrir",
     "weekStart": "Primer día de la semana",
     "duration": "Duración de un evento nuevo",
-    "onThisPhone": "La apariencia, el idioma y la agenda se ajustan para este teléfono. Las notificaciones valen para todos sus dispositivos."
+    "onThisPhone": "La apariencia, el idioma y la agenda se ajustan para este teléfono. Las notificaciones valen para todos sus dispositivos.",
+    "minutes": "{{n}} min",
+    "hours": "{{n}} h",
+    "hoursMinutes": "{{h}} h {{m}} min"
   },
   "profile": {
     "title": "Puesto",

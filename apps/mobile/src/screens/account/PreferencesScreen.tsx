@@ -9,7 +9,7 @@ import { deviceLocale, key, useTranslation } from "../../i18n";
 import { LANGUAGE_NAMES } from "../../i18n/languages";
 import { useLocale } from "../../i18n/useLocale";
 import type { RootParams } from "../../navigation/types";
-import { AGENDA_VIEWS, DURATIONS, MODES, TEXT_SIZES, WEEK_STARTS, type TextSize, type ThemeMode } from "../../prefs/prefs";
+import { AGENDA_VIEWS, DURATIONS, durationLabel, MODES, TEXT_SIZES, WEEK_STARTS, type TextSize, type ThemeMode } from "../../prefs/prefs";
 import { setPrefs, usePrefs } from "../../prefs/store";
 import { ACCENTS, type Accent } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
@@ -57,9 +57,12 @@ export function PreferencesScreen() {
     const name = weekday.format(new Date(Date.UTC(2026, 5, 14 + n, 12)));
     return name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
   };
-  const minutes = new Intl.NumberFormat(locale, { style: "unit", unit: "minute", unitDisplay: "short" });
-  const hours = new Intl.NumberFormat(locale, { style: "unit", unit: "hour", unitDisplay: "short" });
-  const length = (m: number) => (m % 60 === 0 ? hours.format(m / 60) : minutes.format(m));
+  const length = (m: number) =>
+    durationLabel(m, {
+      minutes: (n) => t("prefs.minutes", { n }),
+      hours: (n) => t("prefs.hours", { n }),
+      hoursMinutes: (h, min) => t("prefs.hoursMinutes", { h, m: min }),
+    });
 
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: c.bg }]} edges={["top"]}>

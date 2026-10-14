@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 
 import { useTranslation } from "../../i18n";
+import { allTimeZones } from "../../logic/timeZones";
 import type { RootParams } from "../../navigation/types";
 import { useTheme } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
@@ -22,13 +23,7 @@ export function ZonePicker() {
   const { t } = useTranslation();
   const { c } = useTheme();
   const [query, setQuery] = useState("");
-  const zones = useMemo(() => {
-    try {
-      return Intl.supportedValuesOf("timeZone");
-    } catch {
-      return [];
-    }
-  }, []);
+  const zones = useMemo(() => allTimeZones(), []);
   const all = [...new Set([params.current, ...zones])];
   const q = query.trim().toLowerCase().replace(/\s+/g, "_");
   const shown = (q ? all.filter((z) => z.toLowerCase().includes(q)) : all).slice(0, SHOWN);

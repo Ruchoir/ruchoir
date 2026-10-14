@@ -845,7 +845,10 @@
     "agendaView": "View when opening",
     "weekStart": "First day of the week",
     "duration": "Length of a new event",
-    "onThisPhone": "Appearance, language and calendar are set for this phone. Notifications apply to all your devices."
+    "onThisPhone": "Appearance, language and calendar are set for this phone. Notifications apply to all your devices.",
+    "minutes": "{{n}} min",
+    "hours": "{{n}} h",
+    "hoursMinutes": "{{h}} h {{m}} min"
   },
   "profile": {
     "title": "Job title",

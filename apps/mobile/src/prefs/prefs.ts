@@ -74,3 +74,17 @@ export function parsePrefs(raw: string | null): Prefs {
 export function textScale(size: TextSize): number {
   return { s: 0.9, m: 1, l: 1.12, xl: 1.25 }[size];
 }
+
+/**
+ * A length in minutes as it is read: minutes under an hour, hours, or both. Written here rather than
+ * with `Intl.NumberFormat`'s units, which the phone's JavaScript engine turned into seconds.
+ */
+export function durationLabel(
+  minutes: number,
+  words: { minutes: (n: number) => string; hours: (n: number) => string; hoursMinutes: (h: number, m: number) => string },
+): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return words.minutes(m);
+  return m === 0 ? words.hours(h) : words.hoursMinutes(h, m);
+}

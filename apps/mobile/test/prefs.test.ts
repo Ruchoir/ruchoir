@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { DEFAULT_PREFS, DURATIONS, parsePrefs, textScale } from "../src/prefs/prefs.ts";
+import { DEFAULT_PREFS, DURATIONS, durationLabel, parsePrefs, textScale } from "../src/prefs/prefs.ts";
 
 test("nothing_stored_gives_the_defaults", () => {
   assert.deepEqual(parsePrefs(null), DEFAULT_PREFS);
@@ -27,4 +27,14 @@ test("the_text_grows_with_its_size", () => {
   assert.equal(textScale("m"), 1);
   assert.ok(textScale("s") < 1);
   assert.ok(textScale("l") > 1 && textScale("xl") > textScale("l"));
+});
+
+test("a_length_reads_in_hours_and_minutes", () => {
+  const words = {
+    minutes: (n: number) => `${n} min`,
+    hours: (n: number) => `${n} h`,
+    hoursMinutes: (h: number, m: number) => `${h} h ${m}`,
+  };
+  // Never in seconds: the phone's own unit formatting turned an hour into "3 600 s".
+  assert.deepEqual(DURATIONS.map((m) => durationLabel(m, words)), ["15 min", "30 min", "45 min", "1 h", "1 h 30", "2 h"]);
 });

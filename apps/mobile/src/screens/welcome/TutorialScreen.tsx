@@ -3,13 +3,13 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { ChevronLeft } from "lucide-react-native";
 import { useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTranslation } from "../../i18n";
 import type { AuthParams, RootParams } from "../../navigation/types";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
+import { FullScreen } from "../../ui/FullScreen";
 import { Text } from "../../ui/Text";
 import { Sticker } from "./Sticker";
 import { TUTORIAL } from "./tutorial";
@@ -35,7 +35,8 @@ export function TutorialScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.fill, { backgroundColor: c.bg }]} edges={["top", "bottom"]}>
+    // Seen again from Help it is a full-screen modal, where the live safe area reads zero.
+    <FullScreen color={c.bg}>
       <View style={styles.top}>
         <Pressable
           accessibilityRole="button"
@@ -86,12 +87,11 @@ export function TutorialScreen() {
           onPress={() => (last ? finish() : turn(page + 1))}
         />
       </View>
-    </SafeAreaView>
+    </FullScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingRight: 16, minHeight: 52 },
   back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   page: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 14 },

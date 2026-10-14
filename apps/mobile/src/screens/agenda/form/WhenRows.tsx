@@ -2,7 +2,7 @@ import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CalendarDays, Clock, Sun } from "lucide-react-native";
-import { Platform, Pressable, StyleSheet, Switch, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../../i18n";
 import { useLocale } from "../../../i18n/useLocale";
@@ -14,6 +14,7 @@ import { Text } from "../../../ui/Text";
 import { updateDraft } from "./draftStore";
 import { FormRow } from "./FormRow";
 import { clockLabel, fromPicked, longDay, mediumDay, uses24h, whenDate } from "./when";
+import { Toggle } from "../../../ui/Toggle";
 
 /**
  * When the event happens (mockup 19, as the phone's calendar lays it out): its start and its end, each
@@ -22,7 +23,7 @@ import { clockLabel, fromPicked, longDay, mediumDay, uses24h, whenDate } from ".
  */
 export function WhenRows({ formKey, draft, error }: { formKey: string; draft: EventDraft; error?: string }) {
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const { c } = useTheme();
   const { locale } = useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const pick = (field: WhenField) => {
@@ -93,10 +94,9 @@ export function WhenRows({ formKey, draft, error }: { formKey: string; draft: Ev
           <Text variant="body" style={styles.flex}>
             {t("calendar.allDayEvent")}
           </Text>
-          <Switch
+          <Toggle
             value={draft.allDay}
             onValueChange={(allDay) => updateDraft(formKey, (d) => ({ ...d, allDay }))}
-            trackColor={{ true: c.ink, false: s.sunken }}
             accessibilityLabel={t("calendar.allDayEvent")}
           />
         </View>
