@@ -2,6 +2,6 @@
   "ios": {
     "NSCameraUsageDescription": "Ruchoir usa la fotocamera perché possiate inviare una foto in un messaggio.",
     "NSPhotoLibraryUsageDescription": "Ruchoir apre le vostre foto perché possiate allegarle a un messaggio.",
-    "NSFaceIDUsageDescription": "Ruchoir usa Face ID per sbloccarsi, quando hai attivato il blocco."
+    "NSFaceIDUsageDescription": "Ruchoir usa Face ID per sbloccarsi, quando avete attivato il blocco."
   }
 }

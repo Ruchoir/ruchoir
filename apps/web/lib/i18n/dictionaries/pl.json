@@ -1857,5 +1857,16 @@
     "failed": "Nie udało się zapisać odpowiedzi, spróbuj później.",
     "footer": "Ruchoir, przestrzeń pracy zespołu, który Cię zaprasza.",
     "files": "Załączone dokumenty"
+  },
+  "handoff": {
+    "signInNote": "Logowanie do aplikacji Ruchoir na tym telefonie",
+    "consentTitle": "Zezwolić aplikacji Ruchoir?",
+    "consentBody": "Aplikacja Ruchoir na tym telefonie będzie mogła używać konta {{name}} ({{email}}), tak jakbyś się do niego zalogował.",
+    "passkeyTitle": "Dodaj klucz dostępu",
+    "passkeyBody": "Dla konta {{email}}. Telefon poprosi o Face ID, odcisk palca lub swój kod.",
+    "doneTitle": "Gotowe",
+    "doneBody": "Możesz wrócić do aplikacji Ruchoir.",
+    "goneTitle": "Link wygasł",
+    "goneBody": "Ten link jest już nieważny. Zacznij od nowa w aplikacji Ruchoir."
   }
 }

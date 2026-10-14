@@ -1723,5 +1723,16 @@
     "failed": "Ihre Antwort konnte gerade nicht gespeichert werden, versuchen Sie es später erneut.",
     "footer": "Ruchoir, der Arbeitsbereich des Teams, das Sie einlädt.",
     "files": "Angehängte Dokumente"
+  },
+  "handoff": {
+    "signInNote": "Anmeldung für die Ruchoir-App auf diesem Telefon",
+    "consentTitle": "Ruchoir-App zulassen?",
+    "consentBody": "Die Ruchoir-App auf diesem Telefon kann das Konto {{name}} ({{email}}) nutzen, als hätten Sie sich dort angemeldet.",
+    "passkeyTitle": "Passkey hinzufügen",
+    "passkeyBody": "Für das Konto {{email}}. Ihr Telefon fragt nach Face ID, Ihrem Fingerabdruck oder seinem Code.",
+    "doneTitle": "Erledigt",
+    "doneBody": "Sie können zur Ruchoir-App zurückkehren.",
+    "goneTitle": "Link abgelaufen",
+    "goneBody": "Dieser Link ist nicht mehr gültig. Beginnen Sie erneut in der Ruchoir-App."
   }
 }

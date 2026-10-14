@@ -77,6 +77,7 @@ import {
   verifyTotp,
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
+import { authMessage } from "@/features/auth/authMessage";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
 import { fileUrl, readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
@@ -391,34 +392,6 @@ function applyReactionDelta(map: MessageMap, conv: string, r: RealtimeReaction):
  */
 type AuthStage = "login" | "signup" | "mfa" | "forgot" | "reset" | "verify" | "invite" | "onboarding" | "app";
 
-/**
- * French copy for each authentication failure the API can report. The API answers with a
- * machine-readable code (`{ "error": "email_taken", … }`) plus an English message meant for
- * operators; the client owns what the user reads.
- */
-const AUTH_MESSAGES: Record<string, TranslationKey> = {
-  invalid_credentials: key("error.invalidCredentials"),
-  unauthorized: key("error.sessionExpired"),
-  email_taken: key("error.emailTaken"),
-  weak_password: key("error.passwordShort"),
-  breached_password: key("error.passwordBreached"),
-  account_locked: key("error.accountLocked"),
-  too_many_attempts: key("error.tooManyAttempts"),
-  email_not_verified: key("error.confirmEmailFirst"),
-  invalid_token: key("error.invalidLink"),
-  invalid_code: key("error.wrongCode"),
-};
-
-/**
- * The dictionary key for a failed auth request: the mapped code, else the caller's fallback key.
- *
- * Keys rather than sentences, so the table can be built at module load and the text looked up where
- * it is shown.
- */
-function authMessage(err: unknown, fallbackKey: TranslationKey): TranslationKey {
-  const code = apiErrorCode(err);
-  return (code && AUTH_MESSAGES[code]) || fallbackKey;
-}
 
 /**
  * Client root of the app shell. Holds the authentication stage, the navigation state and the domain

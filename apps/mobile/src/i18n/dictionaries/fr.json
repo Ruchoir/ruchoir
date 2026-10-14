@@ -33,7 +33,7 @@
       "accountLocked": "Ce compte est bloqué. Contactez l’administrateur de votre serveur.",
       "invalidCode": "Code incorrect.",
       "invalidToken": "La vérification a expiré. Reconnectez-vous.",
-      "passkeyOnly": "Ce compte se vérifie avec une clé d’accès, pas encore disponible dans l’application. Ajoutez une application d’authentification depuis le site web.",
+      "passkeyOnly": "Ce compte se vérifie avec une clé d’accès, que cette version de l’application ne sait pas utiliser. Installez l’application Ruchoir pour vous connecter.",
       "unknown": "Une erreur est survenue. Réessayez.",
       "emailTaken": "Un compte existe déjà avec cette adresse. Connectez-vous, ou utilisez « Mot de passe oublié ».",
       "weakPassword": "Ce mot de passe est trop court : 12 caractères au moins.",
@@ -49,7 +49,10 @@
     "submit": "Vérifier",
     "useRecovery": "Utiliser un code de secours",
     "useTotp": "Utiliser l’application d’authentification",
-    "back": "Revenir à la connexion"
+    "back": "Revenir à la connexion",
+    "usePasskey": "Utiliser une clé d’accès",
+    "passkeyHint": "S’ouvre dans le navigateur : saisissez à nouveau votre mot de passe, puis confirmez avec Face ID ou votre empreinte.",
+    "passkeyIntro": "Ce compte se vérifie avec une clé d’accès."
   },
   "boot": {
     "offline": "Impossible de joindre votre serveur pour l’instant."
@@ -917,7 +920,7 @@
     "removePasskeyText": "Cet appareil ne pourra plus vous connecter sans mot de passe.",
     "remove": "Retirer",
     "passkeyRemoved": "Clé d’accès retirée",
-    "passkeysPhone": "Pour ajouter une clé d’accès, passez par le site web pour l’instant.",
+    "passkeysPhone": "Une clé d’accès s’ajoute dans une fenêtre du navigateur, où le téléphone demande Face ID, l’empreinte ou son code.",
     "sessions": "Sessions",
     "sessionsDesc": "Si un autre appareil est resté connecté, coupez tout : chaque session est fermée, y compris celle-ci.",
     "signOutEverywhere": "Tout déconnecter",
@@ -928,7 +931,10 @@
     "lockBiometrics": "Verrouiller avec l’empreinte ou le visage",
     "lockPasscode": "Verrouiller avec le code du téléphone",
     "lockHint": "Demandé à l’ouverture, et après une minute hors de l’appli.",
-    "lockUnavailable": "Configurez Face ID ou un code dans les réglages du téléphone."
+    "lockUnavailable": "Configurez Face ID ou un code dans les réglages du téléphone.",
+    "addPasskey": "Ajouter une clé d’accès",
+    "passkeyAdded": "Clé d’accès ajoutée",
+    "addPasskeyFailed": "Impossible d’ouvrir l’ajout d’une clé d’accès. Réessayez."
   },
   "status": {
     "auto": "Disponible",

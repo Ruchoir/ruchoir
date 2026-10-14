@@ -24,7 +24,9 @@ use super::cookie::{clear_session_cookie, session_cookie};
 use super::error::AuthError;
 use super::extract::AuthSession;
 use super::tokens::{self, TokenPurpose};
-use super::{crypto, mail_text, mfa, passkey, password, recovery, session, throttle, totp};
+use super::{
+    crypto, handoff, mail_text, mfa, passkey, password, recovery, session, throttle, totp,
+};
 use crate::entities::{
     recovery_codes, space_invitations, totp_secrets, users, webauthn_credentials,
 };
@@ -72,6 +74,31 @@ pub struct NativeSession {
     #[serde(flatten)]
     pub user: UserSummary,
     pub session_token: String,
+}
+
+/// The app's challenge, for a native code: the SHA-256 of a verifier only the app holds, hex.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NativeCodeRequest {
+    pub challenge: String,
+}
+
+/// A single-use code handed between the web page and the app (two minutes).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct HandoffCode {
+    pub code: String,
+}
+
+/// A native code, and the verifier its challenge was made from.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct NativeExchangeRequest {
+    pub code: String,
+    pub verifier: String,
+}
+
+/// A web handoff code, redeemed by the page the app opened.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct WebRedeemRequest {
+    pub code: String,
 }
 
 /// A request that carries an email address (verification resend, reset request).
@@ -292,6 +319,10 @@ pub fn router() -> Router<AppState> {
             "/mfa/passkey/authenticate/finish",
             post(passkey_authenticate_finish),
         )
+        .route("/native/code", post(native_code))
+        .route("/native/exchange", post(native_exchange))
+        .route("/web/handoff", post(web_handoff))
+        .route("/web/redeem", post(web_redeem))
         .route("/oidc/providers", get(oidc_providers))
         .route("/oidc/{provider}/start", get(oidc_not_implemented))
         .route("/oidc/{provider}/callback", get(oidc_not_implemented))
@@ -569,6 +600,126 @@ async fn issue_session(
         })
         .into_response()),
     }
+}
+
+/// The account a handoff code names, if it may still open a session: neither locked nor waiting
+/// for its address to be confirmed, nor gone.
+async fn active_user(state: &AppState, user_id: Uuid) -> Result<users::Model, AuthError> {
+    let user = users::Entity::find_by_id(user_id)
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .ok_or(AuthError::InvalidToken)?;
+    match user.status.as_str() {
+        "active" => Ok(user),
+        "locked" => Err(AuthError::AccountLocked),
+        _ => Err(AuthError::InvalidToken),
+    }
+}
+
+/// Mint a single-use code for the native app, from the instance's web page once signed in.
+///
+/// Bound to the app's challenge: the code alone, seen in the redirect to the app, opens nothing.
+/// See `handoff` for the whole exchange.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/native/code",
+    tag = "auth",
+    request_body = NativeCodeRequest,
+    responses(
+        (status = 200, description = "A code for the app, valid two minutes", body = HandoffCode),
+        (status = 400, description = "Not a challenge"),
+        (status = 401, description = "Not authenticated")
+    )
+)]
+pub async fn native_code(
+    State(state): State<AppState>,
+    auth: AuthSession,
+    Json(body): Json<NativeCodeRequest>,
+) -> Result<Json<HandoffCode>, AuthError> {
+    if !handoff::plausible_challenge(&body.challenge) {
+        return Err(AuthError::InvalidToken);
+    }
+    let code = handoff::issue_native_code(&state.valkey, auth.user_id, &body.challenge).await?;
+    Ok(Json(HandoffCode { code }))
+}
+
+/// Trade a native code and its verifier for a session of the app's own (a bearer token).
+///
+/// Refused to a browser, as a token sign-in is: a page must never be able to carry a session away.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/native/exchange",
+    tag = "auth",
+    request_body = NativeExchangeRequest,
+    responses(
+        (status = 200, description = "The app's session", body = NativeSession),
+        (status = 400, description = "Unknown, used or expired code, wrong verifier, or a browser"),
+        (status = 403, description = "Account locked")
+    )
+)]
+pub async fn native_exchange(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    jar: CookieJar,
+    Json(body): Json<NativeExchangeRequest>,
+) -> Result<Response, AuthError> {
+    if session::from_browser(&headers) {
+        return Err(AuthError::TokenFromBrowser);
+    }
+    let Some((user_id, challenge)) =
+        handoff::take_native_code(&state.valkey, body.code.trim()).await?
+    else {
+        return Err(AuthError::InvalidToken);
+    };
+    if !handoff::verifier_matches(&body.verifier, &challenge) {
+        return Err(AuthError::InvalidToken);
+    }
+    let user = active_user(&state, user_id).await?;
+    issue_session(&state, jar, user, session::Delivery::Token).await
+}
+
+/// Mint a single-use code that opens a short browser session for the same account, so the page
+/// the app opens (to add a passkey) is already signed in.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/web/handoff",
+    tag = "auth",
+    responses(
+        (status = 200, description = "A code for the page, valid two minutes", body = HandoffCode),
+        (status = 401, description = "Not authenticated")
+    )
+)]
+pub async fn web_handoff(
+    State(state): State<AppState>,
+    auth: AuthSession,
+) -> Result<Json<HandoffCode>, AuthError> {
+    let code = handoff::issue_web_handoff(&state.valkey, auth.user_id).await?;
+    Ok(Json(HandoffCode { code }))
+}
+
+/// Redeem a web handoff code: the page gets a session cookie for the account.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/web/redeem",
+    tag = "auth",
+    request_body = WebRedeemRequest,
+    responses(
+        (status = 200, description = "Signed in (cookie)", body = UserSummary),
+        (status = 400, description = "Unknown, used or expired code"),
+        (status = 403, description = "Account locked")
+    )
+)]
+pub async fn web_redeem(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Json(body): Json<WebRedeemRequest>,
+) -> Result<Response, AuthError> {
+    let Some(user_id) = handoff::take_web_handoff(&state.valkey, body.code.trim()).await? else {
+        return Err(AuthError::InvalidToken);
+    };
+    let user = active_user(&state, user_id).await?;
+    issue_session(&state, jar, user, session::Delivery::Cookie).await
 }
 
 /// Revoke the current session and clear the cookie.

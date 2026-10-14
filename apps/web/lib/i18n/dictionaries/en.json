@@ -1723,5 +1723,16 @@
     "failed": "Could not save your answer just now, try again later.",
     "footer": "Ruchoir, the workspace of the team inviting you.",
     "files": "Attached documents"
+  },
+  "handoff": {
+    "signInNote": "Signing in the Ruchoir app on this phone",
+    "consentTitle": "Allow the Ruchoir app?",
+    "consentBody": "The Ruchoir app on this phone will be able to use the account {{name}} ({{email}}), as if you signed in to it.",
+    "passkeyTitle": "Add a passkey",
+    "passkeyBody": "For the account {{email}}. Your phone will ask for Face ID, your fingerprint or its passcode.",
+    "doneTitle": "Done",
+    "doneBody": "You can go back to the Ruchoir app.",
+    "goneTitle": "Link expired",
+    "goneBody": "This link is no longer valid. Start again from the Ruchoir app."
   }
 }

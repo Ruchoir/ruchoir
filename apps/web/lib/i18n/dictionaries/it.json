@@ -1790,5 +1790,16 @@
     "failed": "Non è stato possibile salvare la risposta, riprova più tardi.",
     "footer": "Ruchoir, lo spazio di lavoro del team che ti invita.",
     "files": "Documenti allegati"
+  },
+  "handoff": {
+    "signInNote": "Accesso per l’app Ruchoir di questo telefono",
+    "consentTitle": "Autorizzare l’app Ruchoir?",
+    "consentBody": "L’app Ruchoir di questo telefono potrà usare l’account {{name}} ({{email}}), come se vi accedessi.",
+    "passkeyTitle": "Aggiungi una passkey",
+    "passkeyBody": "Per l’account {{email}}. Il telefono ti chiederà Face ID, l’impronta o il suo codice.",
+    "doneTitle": "Fatto",
+    "doneBody": "Puoi tornare all’app Ruchoir.",
+    "goneTitle": "Link scaduto",
+    "goneBody": "Questo link non è più valido. Ricomincia dall’app Ruchoir."
   }
 }
