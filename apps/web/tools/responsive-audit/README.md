@@ -102,6 +102,7 @@ PORT=46789 pnpm --dir apps/web audit:responsive
 | `--fail-on <lvl>` | Exit non-zero on `critical` (default), `major`, or `none`. Used to gate CI.    |
 | `--themes <t,...>`| Sweep these themes (`sky`, `mint`, `violet`, `pink`, each also with `-dark`). Default `sky`.|
 | `--all-themes`    | Shorthand for every shipped theme.                                            |
+| `--concurrency <n>` | Themes audited side by side, each in its own browser context. Default 1; CI uses 4. |
 | `--fail-rules <r,...>` | Exit non-zero if any finding matches these rules, whatever the severity.  |
 
 Examples:

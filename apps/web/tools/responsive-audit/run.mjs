@@ -20,6 +20,7 @@
  *   --state <id,...>  keep only these states (e.g. files,login)
  *   --themes <t,...>  sweep these themes (sky,mint,violet,pink and each with -dark); default sky only
  *   --all-themes      shorthand for every shipped theme
+ *   --concurrency <n> themes audited side by side, each in its own browser context (default 1)
  *   --fail-rules <r,...>  exit non-zero if any finding matches these rules (e.g. low-contrast,icon-contrast)
  *   --quick           shorthand for --tag quick (a fast, representative subset)
  *   --reload          reload the page for each viewport instead of resizing in place (slower, stricter)
@@ -47,7 +48,7 @@ function defaultUrl() {
 }
 
 function parseArgs(argv) {
-  const args = { url: defaultUrl(), out: path.join(HERE, "report"), tags: [], states: [], themes: [], failRules: [], reload: false, headed: false, failOn: "critical" };
+  const args = { url: defaultUrl(), out: path.join(HERE, "report"), tags: [], states: [], themes: [], failRules: [], reload: false, headed: false, failOn: "critical", concurrency: 1 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--url") args.url = argv[++i];
@@ -61,6 +62,7 @@ function parseArgs(argv) {
     else if (a === "--reload") args.reload = true;
     else if (a === "--headed") args.headed = true;
     else if (a === "--fail-on") args.failOn = argv[++i]; // critical (default) | major | none
+    else if (a === "--concurrency") args.concurrency = Math.max(1, Number.parseInt(argv[++i], 10) || 1);
   }
   // Default to the base theme only, so the existing responsive job is unaffected.
   if (args.themes.length === 0) args.themes = ["sky"];
@@ -104,6 +106,36 @@ async function discoverBreakpoints(page) {
   });
 }
 
+/**
+ * Wait until the page has stopped moving: its size unchanged over two frames and no finite animation
+ * or transition still running (a spinner that turns forever does not count), at most `maxMs`.
+ *
+ * A fixed pause was enough with one page at a time, but with several themes audited side by side the
+ * app (React in development, on a shared CPU) can take longer to re-render after a resize or a theme
+ * change, and a probe taken mid-way reported overflows and faded icons that were never there.
+ */
+function settle(page, maxMs = 1500) {
+  return page.evaluate(async (max) => {
+    const until = performance.now() + max;
+    // A frame, or 50 ms if frames do not come: never waits forever.
+    const frame = () => new Promise((done) => { requestAnimationFrame(() => done()); setTimeout(done, 50); });
+    const moving = () =>
+      document.getAnimations().some((a) => a.playState === "running" && Number.isFinite(a.effect?.getComputedTiming().endTime ?? Infinity));
+    const shape = () => {
+      const root = document.documentElement;
+      return `${root.scrollWidth}x${root.scrollHeight}:${document.body?.childElementCount ?? 0}:${document.querySelectorAll("*").length}`;
+    };
+    let last = "";
+    while (performance.now() < until) {
+      await frame();
+      await frame();
+      const now = shape();
+      if (now === last && !moving()) return;
+      last = now;
+    }
+  }, maxMs);
+}
+
 function sanitize(s) {
   return s.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
 }
@@ -130,59 +162,69 @@ async function main() {
   await mkdir(shotsDir, { recursive: true });
 
   const browser = await chromium.launch({ headless: !args.headed });
-  const context = await browser.newContext();
-  await context.addInitScript(CLS_INIT);
-  const page = await context.newPage();
-
-  // Per-run error capture.
-  let consoleErrors = [];
-  let pageErrors = [];
-  page.on("console", (msg) => {
-    if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 300));
-  });
-  page.on("pageerror", (err) => pageErrors.push(String(err.message || err).slice(0, 300)));
+  const probeUrl = (query) => `${args.url.replace(/\/$/, "")}/?${query}`;
 
   // Reach the app once to discover breakpoints and build the viewport matrix.
-  const probeUrl = (query) => `${args.url.replace(/\/$/, "")}/?${query}`;
-  await page.setViewportSize({ width: 1440, height: 900 });
+  const first = await browser.newPage();
+  await first.setViewportSize({ width: 1440, height: 900 });
   try {
-    await page.goto(probeUrl("stage=app&view=channel&channel=general"), { waitUntil: "networkidle", timeout: 30000 });
+    await first.goto(probeUrl("stage=app&view=channel&channel=general"), { waitUntil: "networkidle", timeout: 30000 });
   } catch (e) {
     console.error(`\nCannot reach ${args.url}. Start the dev server first: pnpm --dir apps/web dev\n(${e.message})`);
     await browser.close();
     process.exit(2);
   }
-  const breakpoints = await discoverBreakpoints(page);
+  const breakpoints = await discoverBreakpoints(first);
+  await first.close();
   const viewports = filterViewports(buildViewports(breakpoints), args.tags);
 
   console.log(
     `Audit: ${states.length} states x ${viewports.length} viewports = ${states.length * viewports.length} combinations` +
-      (breakpoints.length ? ` (breakpoints: ${breakpoints.join(", ")})` : " (no width breakpoints found)")
+      (breakpoints.length ? ` (breakpoints: ${breakpoints.join(", ")})` : " (no width breakpoints found)") +
+      (args.themes.length > 1 ? `, ${args.themes.length} themes, ${Math.min(args.concurrency, args.themes.length)} at a time` : "")
   );
 
-  const runs = [];
   let done = 0;
   const multiTheme = args.themes.length > 1;
   const total = args.themes.length * states.length * viewports.length;
 
-  // Persist the theme the way the app itself does (the `theme` setting in localStorage), so the
-  // SettingsProvider applies it authoritatively on the next load. Setting data-theme directly is not
-  // enough: the provider's mount effect re-asserts the stored theme after hydration and would clobber
-  // a bare attribute set, silently probing the wrong theme.
-  const seedTheme = (theme) =>
-    page.evaluate((t) => {
-      try {
-        const k = "ruchoir.settings";
-        const s = JSON.parse(localStorage.getItem(k) || "{}");
-        s.theme = t;
-        localStorage.setItem(k, JSON.stringify(s));
-      } catch {}
-      document.documentElement.dataset.theme = t;
-    }, theme);
+  /**
+   * One theme's sweep, in a browser context of its own: its localStorage holds that theme alone, so
+   * several themes can be audited side by side without one clobbering another's setting.
+   */
+  async function auditTheme(theme) {
+    const context = await browser.newContext();
+    await context.addInitScript(CLS_INIT);
+    const page = await context.newPage();
+    const runs = [];
 
-  for (const theme of args.themes) {
-    // Seed on the currently-loaded page; localStorage persists across the same-origin navigations
-    // below, so every subsequent goto boots into this theme.
+    // Per-run error capture.
+    let consoleErrors = [];
+    let pageErrors = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") consoleErrors.push(msg.text().slice(0, 300));
+    });
+    page.on("pageerror", (err) => pageErrors.push(String(err.message || err).slice(0, 300)));
+
+    // Persist the theme the way the app itself does (the `theme` setting in localStorage), so the
+    // SettingsProvider applies it authoritatively on the next load. Setting data-theme directly is not
+    // enough: the provider's mount effect re-asserts the stored theme after hydration and would clobber
+    // a bare attribute set, silently probing the wrong theme.
+    const seedTheme = (t) =>
+      page.evaluate((th) => {
+        try {
+          const k = "ruchoir.settings";
+          const s = JSON.parse(localStorage.getItem(k) || "{}");
+          s.theme = th;
+          localStorage.setItem(k, JSON.stringify(s));
+        } catch {}
+        document.documentElement.dataset.theme = th;
+      }, t);
+
+    // Land on the origin first, so the theme is stored before the first state loads; localStorage
+    // persists across the same-origin navigations below, so every subsequent goto boots into it.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(probeUrl("stage=app&view=channel&channel=general"), { waitUntil: "networkidle", timeout: 30000 });
     await seedTheme(theme);
     for (const state of states) {
       if (!args.reload) {
@@ -203,7 +245,7 @@ async function main() {
           if (state.waitFor) await page.waitForSelector(state.waitFor, { timeout: 5000 }).catch(() => {});
         }
         await seedTheme(theme); // re-assert after any (re)navigation, so every probe sees this theme
-        await page.waitForTimeout(140); // let layout settle after the resize
+        await settle(page); // let layout and transitions finish after the resize
         await page.evaluate(() => (window.__wcCls = 0));
         await page.waitForTimeout(60);
 
@@ -234,7 +276,21 @@ async function main() {
       }
       process.stdout.write(`  ${multiTheme ? theme + "/" : ""}${state.id}: done (${done}/${total})\n`);
     }
+    await context.close();
+    return runs;
   }
+
+  // A small pool: `concurrency` themes at a time, the report kept in the order the themes were asked.
+  const byTheme = new Array(args.themes.length);
+  let nextTheme = 0;
+  const worker = async () => {
+    while (nextTheme < args.themes.length) {
+      const i = nextTheme++;
+      byTheme[i] = await auditTheme(args.themes[i]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(args.concurrency, args.themes.length) }, worker));
+  const runs = byTheme.flat();
 
   await browser.close();
 
