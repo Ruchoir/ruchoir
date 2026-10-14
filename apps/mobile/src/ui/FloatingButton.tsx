@@ -1,14 +1,15 @@
-import { SquarePen } from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 import { Pressable, StyleSheet } from "react-native";
 
-import { useTranslation } from "../../i18n";
-import { radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
-import { Text } from "../../ui/Text";
+import { radius } from "../theme/tokens";
+import { useTheme } from "../theme/useTheme";
+import { Text } from "./Text";
 
-/** "New message", floating over Discussions (mockup 12): the surface, edged and offset in the accent. */
-export function NewMessageButton({ onPress }: { onPress: () => void }) {
-  const { t } = useTranslation();
+/**
+ * The action of a tab, floating over its bottom right ("New message" over Discussions, mockup 12;
+ * "New event" over the Agenda, mockup 15): the surface, edged and offset in the accent.
+ */
+export function FloatingButton({ icon: Icon, label, onPress }: { icon: LucideIcon; label: string; onPress: () => void }) {
   const { c } = useTheme();
   return (
     <Pressable
@@ -20,8 +21,8 @@ export function NewMessageButton({ onPress }: { onPress: () => void }) {
         pressed && styles.pressed,
       ]}
     >
-      <SquarePen size={20} color={c.ink} />
-      <Text variant="bodyStrong">{t("newMessage.title")}</Text>
+      <Icon size={20} color={c.ink} />
+      <Text variant="bodyStrong">{label}</Text>
     </Pressable>
   );
 }

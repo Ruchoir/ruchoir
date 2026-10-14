@@ -1,4 +1,7 @@
 import { listCalendars, listOccurrences, type Calendar, type Occurrence } from "@ruchoir/client";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { CalendarPlus } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 
@@ -8,7 +11,9 @@ import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { rangeForView, type AgendaView } from "../../logic/agenda";
 import { dayKey } from "../../logic/format";
+import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
+import { FloatingButton } from "../../ui/FloatingButton";
 import { Segmented } from "../../ui/Segmented";
 import { LoadState } from "../../ui/States";
 import { NoSpace } from "../../ui/NoSpace";
@@ -24,11 +29,17 @@ const VIEWS = [
   { key: "month", label: key("agenda.month") },
 ] as const;
 
-export type AgendaData = { occurrences: Occurrence[]; calendars: Map<string, Calendar> };
+export type AgendaData = {
+  occurrences: Occurrence[];
+  calendars: Map<string, Calendar>;
+  /** Whether the person may write in any calendar: "New event" shows then. */
+  canCreate: boolean;
+};
 
 /**
  * The agenda (mockups 15 to 17): the person's own calendars and the space's, in a list of what is
- * coming, a week or a month. Read-only in this step: no "New event" button.
+ * coming, a week or a month. "New event" starts on the day looked at: today in the list, the day
+ * chosen in a week or a month.
  */
 export function AgendaScreen() {
   const { t } = useTranslation();
@@ -38,13 +49,16 @@ export function AgendaScreen() {
   const today = dayKey(new Date(), timeZone);
   const [anchor, setAnchor] = useState(today);
   const range = rangeForView(view, anchor);
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
+  // The day chosen in the week or the month (they say it); the list starts new events today.
+  const [chosen, setChosen] = useState(today);
 
   const data = useLoad(current ? `agenda:${current.id}:${range.from}:${range.to}` : null, async (signal): Promise<AgendaData> => {
     const all = await listCalendars(signal);
     // What a person sees here: their own calendars and the space's, minus the ones they hid.
     const shown = all.filter((cal) => !cal.hidden && (!cal.spaceId || cal.spaceId === current!.id));
     const occurrences = shown.length ? await listOccurrences(range.from, range.to, shown.map((cal) => cal.id), signal) : [];
-    return { occurrences, calendars: new Map(shown.map((cal) => [cal.id, cal])) };
+    return { occurrences, calendars: new Map(shown.map((cal) => [cal.id, cal])), canCreate: all.some((cal) => cal.canWriteEvents) };
   });
   useReloadOn((e) => e.type === "calendar", data.reload);
 
@@ -66,20 +80,28 @@ export function AgendaScreen() {
         />
         <View style={styles.body}>
           {view === "week" ? (
-            <WeekView anchor={anchor} today={today} data={data.data} onAnchor={setAnchor} />
+            <WeekView anchor={anchor} today={today} data={data.data} onAnchor={setAnchor} onChosen={setChosen} />
           ) : view === "month" ? (
-            <MonthView anchor={anchor} today={today} data={data.data} onAnchor={setAnchor} />
+            <MonthView anchor={anchor} today={today} data={data.data} onAnchor={setAnchor} onChosen={setChosen} />
           ) : data.data ? (
             <ListView data={data.data} today={today} />
           ) : null}
           {!data.data ? <LoadState error={data.error} onRetry={data.reload} /> : null}
         </View>
       </ScrollView>
+      {data.data?.canCreate ? (
+        <FloatingButton
+          icon={CalendarPlus}
+          label={t("calendar.newEvent")}
+          onPress={() => navigation.navigate("eventForm", { day: view === "list" ? today : chosen })}
+        />
+      ) : null}
     </TabScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { paddingBottom: 24, gap: 12, flexGrow: 1 },
+  // Room under the last event for the floating button.
+  page: { paddingBottom: 96, gap: 12, flexGrow: 1 },
   body: { paddingHorizontal: 16, gap: 12, flexGrow: 1 },
 });

@@ -167,6 +167,17 @@ export function withEndTime(d: EventDraft, next: string): EventDraft {
   return { ...d, endTime: next, endDay: minutesOf(next) <= minutesOf(d.startTime) ? addDays(d.startDay, 1) : d.startDay };
 }
 
+/** The date and time fields a picker sets. */
+export type WhenField = "startDay" | "endDay" | "startTime" | "endTime";
+
+/** A picked date or time, through the rule of its field. */
+export function setWhen(d: EventDraft, field: WhenField, value: string): EventDraft {
+  if (field === "startDay") return withStartDay(d, value);
+  if (field === "startTime") return withStartTime(d, value);
+  if (field === "endTime") return withEndTime(d, value);
+  return { ...d, endDay: value };
+}
+
 /** The instants the event covers (a whole day from the midnights of its zone); `null` when its end is
  *  not after its start. */
 export function draftSpan(d: EventDraft): { start: string; end: string } | null {

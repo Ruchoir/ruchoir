@@ -7,6 +7,7 @@ import {
   defaultCalendarId,
   draftFromEvent,
   newDraft,
+  setWhen,
   toInput,
   wholeSeriesInput,
   withEndTime,
@@ -195,4 +196,15 @@ test("whole_series_keeps_the_series_values_left_untouched", () => {
   assert.equal(whole.title, "Réunion");
   assert.equal(whole.location, "Salle Atlas");
   assert.equal(whole.calendarId, "space");
+});
+
+test("set_when_routes_each_field_to_its_rule", () => {
+  const d = { ...draft(), startTime: "11:00", endTime: "12:00" };
+  assert.equal(setWhen(d, "startDay", "2026-10-16").endDay, "2026-10-16");
+  assert.equal(setWhen(d, "startTime", "15:00").endTime, "16:00");
+  assert.equal(setWhen(d, "endTime", "10:00").endDay, "2026-10-15");
+  const allDay = { ...d, allDay: true };
+  const longer = setWhen(allDay, "endDay", "2026-10-17");
+  assert.equal(longer.endDay, "2026-10-17");
+  assert.equal(longer.startDay, "2026-10-14");
 });

@@ -1,5 +1,5 @@
 import { CalendarDays } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
@@ -14,7 +14,20 @@ import { DayEvents, useDayLabel } from "./DayEvents";
 import { DayCell, PeriodHeader, useWeekLetters } from "./PeriodGrid";
 
 /** A week (mockup 16): its seven days with their dots, and the chosen day's events under them. */
-export function WeekView({ anchor, today, data, onAnchor }: { anchor: string; today: string; data?: AgendaData; onAnchor: (day: string) => void }) {
+export function WeekView({
+  anchor,
+  today,
+  data,
+  onAnchor,
+  onChosen,
+}: {
+  anchor: string;
+  today: string;
+  data?: AgendaData;
+  onAnchor: (day: string) => void;
+  /** Told the day chosen, where a new event starts. */
+  onChosen?: (day: string) => void;
+}) {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -23,6 +36,7 @@ export function WeekView({ anchor, today, data, onAnchor }: { anchor: string; to
   const week = weekOf(anchor);
   const [selected, setSelected] = useState(week.includes(today) ? today : week[0]);
   const chosen = week.includes(selected) ? selected : week[0];
+  useEffect(() => onChosen?.(chosen), [chosen, onChosen]);
   const byDay = useMemo(() => new Map(groupByDay(data?.occurrences ?? [], timeZone).map((d) => [d.day, d.items])), [data, timeZone]);
   const short = new Intl.DateTimeFormat(locale, { timeZone: "UTC", day: "numeric", month: "long" });
   const title = t("agenda.weekOf", {

@@ -1,6 +1,6 @@
 import { getChannels, getDirectMessages, type Member } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
-import { Lock, MessageCircle, MessageSquare, SearchX, Users } from "lucide-react-native";
+import { Lock, MessageCircle, MessageSquare, SearchX, SquarePen, Users } from "lucide-react-native";
 import { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 
@@ -18,12 +18,12 @@ import { AvatarStack } from "../../ui/AvatarStack";
 import { Badge } from "../../ui/Badge";
 import { Chips } from "../../ui/Chips";
 import { SearchField } from "../../ui/SearchField";
+import { FloatingButton } from "../../ui/FloatingButton";
 import { EmptyState, LoadState } from "../../ui/States";
 import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
-import { NewMessageButton } from "./NewMessageButton";
 import { SYSTEM_TEXT } from "./systemText";
 
 const FILTERS = [
@@ -114,7 +114,7 @@ export function DiscussionsScreen() {
         // Room under the last row for the floating button.
         contentContainerStyle={styles.list}
       />
-      <NewMessageButton onPress={() => navigation.navigate("newMessage")} />
+      <FloatingButton icon={SquarePen} label={t("newMessage.title")} onPress={() => navigation.navigate("newMessage")} />
     </TabScreen>
   );
 }

@@ -32,6 +32,14 @@ export type RootParams = {
   fileViewer: { file: ViewerFile };
   eventSummary: { eventId: string; recurrenceId?: string };
   /**
+   * The event form: a new event on `day` (linked to `channelId` when planned from a channel), or the
+   * event `eventId` changed (the date `recurrenceId` of a series).
+   */
+  eventForm: { day?: string; channelId?: string; eventId?: string; recurrenceId?: string };
+  /** The event form's sheets, each on the form's draft (`formKey`, see `draftStore`). */
+  eventCalendar: { formKey: string };
+  eventPicker: { formKey: string; field: "startDay" | "endDay" | "startTime" | "endTime" };
+  /**
    * A message's long-press sheet; `channelId` is set in a channel (pinning needs it), `draftKey` names
    * the composer an edit goes to, and `inThread` hides "Reply in thread" where that is where one is.
    */
