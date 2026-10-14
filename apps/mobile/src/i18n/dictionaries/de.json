@@ -318,7 +318,9 @@
     "privateGroupOf_one": "Privater Kanal · {{count}} Person",
     "privateGroupOf_other": "Privater Kanal · {{count}} Personen",
     "conversationOf_one": "Private Unterhaltung · {{count}} Person",
-    "conversationOf_other": "Private Unterhaltung · {{count}} Personen"
+    "conversationOf_other": "Private Unterhaltung · {{count}} Personen",
+    "pick": "Wählen Sie eine Unterhaltung",
+    "pickHint": "Sie öffnet sich hier, neben der Liste."
   },
   "conversation": {
     "messages": "Nachrichten",

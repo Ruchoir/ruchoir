@@ -37,12 +37,14 @@ export function appConfig(env: Env): ExpoConfig {
     slug: "ruchoir",
     scheme: "ruchoir",
     version: "0.1.0",
-    orientation: "portrait",
+    // Every orientation for tablets (an iPad app must take all four); phones are held upright at
+    // launch (src/App.tsx).
+    orientation: "default",
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
     ios: {
       bundleIdentifier: "com.ruchoir.app",
-      supportsTablet: false,
+      supportsTablet: true,
       ...(build ? { buildNumber: String(build) } : {}),
       // HTTPS and the system's cryptography only, so App Store Connect does not ask about export
       // compliance for every build.

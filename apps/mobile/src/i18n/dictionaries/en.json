@@ -318,7 +318,9 @@
     "privateGroupOf_one": "Private channel · {{count}} person",
     "privateGroupOf_other": "Private channel · {{count}} people",
     "conversationOf_one": "Private conversation · {{count}} person",
-    "conversationOf_other": "Private conversation · {{count}} people"
+    "conversationOf_other": "Private conversation · {{count}} people",
+    "pick": "Pick a conversation",
+    "pickHint": "It opens here, next to the list."
   },
   "conversation": {
     "messages": "Messages",

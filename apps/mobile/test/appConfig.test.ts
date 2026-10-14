@@ -52,3 +52,11 @@ test("the_three_android_widgets_are_declared", () => {
   const names = (plugin[1] as { widgets: { name: string }[] }).widgets.map((w) => w.name);
   assert.deepEqual(names, ["RuchoirAgenda", "RuchoirDiscussions", "RuchoirShortcuts"]);
 });
+
+test("tablets_are_supported_in_every_orientation", () => {
+  // An iPad app must take all four for multitasking (App Store Connect refuses it otherwise); phones
+  // are held upright at launch (App.tsx).
+  const config = appConfig({});
+  assert.equal(config.ios?.supportsTablet, true);
+  assert.equal(config.orientation, "default");
+});

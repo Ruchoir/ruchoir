@@ -55,6 +55,7 @@ import { SpaceNotifySheet } from "../screens/space/SpaceNotifySheet";
 import { SpaceSettingsScreen } from "../screens/space/SpaceSettingsScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
 import { NotificationsIntroScreen } from "../screens/account/NotificationsIntroScreen";
+import { useWide } from "../layout/useWide";
 import { usePhonePush } from "../push/usePhonePush";
 import { useAppLinks } from "./useAppLinks";
 import { TutorialScreen } from "../screens/welcome/TutorialScreen";
@@ -77,6 +78,7 @@ export function RootNavigator() {
   const theme = useNavigationTheme();
   const push = usePhonePush(rootNavigation);
   const links = useAppLinks(rootNavigation);
+  const wide = useWide();
   const onReady = () => {
     push.onReady();
     links.onReady();
@@ -93,7 +95,8 @@ export function RootNavigator() {
         <Stack.Screen name="folder" component={FolderScreen} />
         <Stack.Screen name="fileViewer" component={FileViewerScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="eventSummary" component={EventSummarySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
-        <Stack.Screen name="eventForm" component={EventFormScreen} options={{ presentation: "fullScreenModal" }} />
+        {/* The form takes the whole phone; on a tablet it is a sheet in the middle, the agenda around it. */}
+        <Stack.Screen name="eventForm" component={EventFormScreen} options={{ presentation: wide ? "modal" : "fullScreenModal" }} />
         <Stack.Screen name="eventCalendar" component={CalendarSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="eventPicker" component={PickerSheet} options={sheet} />
         <Stack.Screen name="eventRepeat" component={RepeatSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />

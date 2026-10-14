@@ -370,7 +370,9 @@
     "conversationOf_one": "Prywatna rozmowa · {{count}} osoba",
     "conversationOf_other": "Prywatna rozmowa · {{count}} osoby",
     "conversationOf_few": "Prywatna rozmowa · {{count}} osoby",
-    "conversationOf_many": "Prywatna rozmowa · {{count}} osób"
+    "conversationOf_many": "Prywatna rozmowa · {{count}} osób",
+    "pick": "Wybierz rozmowę",
+    "pickHint": "Otworzy się tutaj, obok listy."
   },
   "conversation": {
     "messages": "Wiadomości",

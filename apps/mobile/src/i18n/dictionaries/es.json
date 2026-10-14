@@ -344,7 +344,9 @@
     "privateGroupOf_many": "Canal privado · {{count}} personas",
     "conversationOf_one": "Conversación privada · {{count}} persona",
     "conversationOf_other": "Conversación privada · {{count}} personas",
-    "conversationOf_many": "Conversación privada · {{count}} personas"
+    "conversationOf_many": "Conversación privada · {{count}} personas",
+    "pick": "Elija una conversación",
+    "pickHint": "Se abrirá aquí, junto a la lista."
   },
   "conversation": {
     "messages": "Mensajes",

@@ -18,21 +18,25 @@ export function BackHeader({
   leading,
   trailing,
   onPressTitle,
+  back = true,
 }: {
   title: string;
   subtitle?: string;
   leading?: ReactNode;
   trailing?: ReactNode;
   onPressTitle?: () => void;
+  back?: boolean;
 }) {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c } = useTheme();
   return (
-    <View style={styles.row}>
-      <Pressable accessibilityRole="button" accessibilityLabel={t("common.back")} onPress={() => navigation.goBack()} style={styles.back}>
-        <ChevronLeft size={26} color={c.ink} />
-      </Pressable>
+    <View style={[styles.row, !back && styles.alone]}>
+      {back ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={t("common.back")} onPress={() => navigation.goBack()} style={styles.back}>
+          <ChevronLeft size={26} color={c.ink} />
+        </Pressable>
+      ) : null}
       <Pressable
         disabled={!onPressTitle}
         onPress={onPressTitle}
@@ -58,6 +62,7 @@ export function BackHeader({
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, paddingVertical: 6, minHeight: 56 },
+  alone: { paddingLeft: 16 },
   back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   who: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
   text: { flex: 1, minWidth: 0 },
