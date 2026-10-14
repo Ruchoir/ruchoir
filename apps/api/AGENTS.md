@@ -60,7 +60,11 @@ context and takes precedence here.
   `invitations` is how anyone but a space's creator gets in: an invitation is a durable, listable and
   revocable row (unlike the fire-and-forget Valkey tokens of the auth core) holding only the SHA-256
   digest of its token, addressed to one email or open as a shareable link, and accepting one joins the
-  space plus its configured default channel so the arrival is live at once. A default channel is
+  space plus its configured default channel so the arrival is live at once. An invitation may instead
+  name one channel (`channel_id`, `POST /channels/{id}/invitations`): whoever runs that channel (its
+  creator is its owner) may bring one person from outside into it, always addressed, single-use and
+  as a guest, and accepting it joins that channel rather than the default one, so the guest sees the
+  group they were invited to and nothing else. A default channel is
   one public, active, unrestricted channel per space, chosen and changed by its administrators,
   publishes `member.joined`
   to the space and writes a `member_joined` system message into that channel in the same transaction

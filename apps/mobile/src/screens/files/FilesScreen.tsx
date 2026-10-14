@@ -51,6 +51,7 @@ export function FilesScreen() {
     <TabScreen>
       <ScrollView
         contentContainerStyle={styles.page}
+        automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl

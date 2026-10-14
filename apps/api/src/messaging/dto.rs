@@ -235,6 +235,9 @@ pub struct DirectMessageDto {
     /// `None` for a group DM (no single counterpart to track).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user_id: Option<Uuid>,
+    /// Everyone in the conversation but the caller, in the order of `name`: a client draws a group's
+    /// faces from them and counts its people.
+    pub participant_ids: Vec<Uuid>,
     /// Whether the sole counterpart is a bot account.
     pub bot: bool,
     pub unread: i64,
@@ -730,6 +733,13 @@ pub struct InvitationPreviewDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub email: Option<String>,
     pub role: String,
+}
+
+/// Invite someone from outside into one group, as a guest who sees that group only.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct ChannelInvitationRequest {
+    /// Address to send it to.
+    pub email: String,
 }
 
 /// Create an invitation into a space.

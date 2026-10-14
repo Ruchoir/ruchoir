@@ -173,7 +173,16 @@
     "groupOf_one": "Grupa · {{count}} osoba",
     "groupOf_other": "Grupa · {{count}} osoby",
     "groupOf_few": "Grupa · {{count}} osoby",
-    "groupOf_many": "Grupa · {{count}} osób"
+    "groupOf_many": "Grupa · {{count}} osób",
+    "privateGroup": "Grupa prywatna",
+    "privateGroupOf_one": "Grupa prywatna · {{count}} osoba",
+    "privateGroupOf_other": "Grupa prywatna · {{count}} osoby",
+    "privateGroupOf_few": "Grupa prywatna · {{count}} osoby",
+    "privateGroupOf_many": "Grupa prywatna · {{count}} osób",
+    "conversationOf_one": "Prywatna rozmowa · {{count}} osoba",
+    "conversationOf_other": "Prywatna rozmowa · {{count}} osoby",
+    "conversationOf_few": "Prywatna rozmowa · {{count}} osoby",
+    "conversationOf_many": "Prywatna rozmowa · {{count}} osób"
   },
   "conversation": {
     "messages": "Wiadomości",
@@ -363,7 +372,24 @@
     "members": "Osoby do dodania",
     "create": "Utwórz",
     "failed": "Nie udało się utworzyć grupy.",
-    "membersFailed": "Grupa została utworzona, ale nie udało się dodać niektórych osób."
+    "membersFailed": "Grupa została utworzona, ale nie udało się dodać niektórych osób.",
+    "externals": "Zaproś osoby z zewnątrz",
+    "externalsHint": "Otrzymają e-mail i zobaczą tylko tę grupę.",
+    "addExternal": "Dodaj",
+    "invitesSent_one": "Wysłano {{count}} zaproszenie",
+    "invitesSent_other": "Wysłano {{count}} zaproszenia",
+    "invitesFailed_one": "Nie udało się wysłać {{count}} zaproszenia",
+    "invitesFailed_other": "Nie udało się wysłać {{count}} zaproszeń",
+    "invitesSent_few": "Wysłano {{count}} zaproszenia",
+    "invitesSent_many": "Wysłano {{count}} zaproszeń",
+    "invitesFailed_few": "Nie udało się wysłać {{count}} zaproszeń",
+    "invitesFailed_many": "Nie udało się wysłać {{count}} zaproszeń",
+    "pickPeople": "Wybierz osoby",
+    "pickDone": "Gotowe",
+    "picked_one": "Wybrano {{count}} osobę",
+    "picked_other": "Wybrano {{count}} osoby",
+    "picked_few": "Wybrano {{count}} osoby",
+    "picked_many": "Wybrano {{count}} osób"
   },
   "invite": {
     "member": "Członek",

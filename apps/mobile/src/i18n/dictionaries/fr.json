@@ -167,7 +167,12 @@
     "emptyHint": "Les canaux que vous suivez et vos messages privés apparaîtront ici.",
     "files": "Pièce jointe",
     "groupOf_one": "Groupe · {{count}} personne",
-    "groupOf_other": "Groupe · {{count}} personnes"
+    "groupOf_other": "Groupe · {{count}} personnes",
+    "privateGroup": "Groupe privé",
+    "privateGroupOf_one": "Groupe privé · {{count}} personne",
+    "privateGroupOf_other": "Groupe privé · {{count}} personnes",
+    "conversationOf_one": "Conversation privée · {{count}} personne",
+    "conversationOf_other": "Conversation privée · {{count}} personnes"
   },
   "conversation": {
     "messages": "Messages",
@@ -343,7 +348,18 @@
     "members": "Personnes à ajouter",
     "create": "Créer",
     "failed": "Le groupe n’a pas pu être créé.",
-    "membersFailed": "Le groupe est créé, mais certaines personnes n’ont pas pu être ajoutées."
+    "membersFailed": "Le groupe est créé, mais certaines personnes n’ont pas pu être ajoutées.",
+    "externals": "Inviter des personnes externes",
+    "externalsHint": "Elles reçoivent un e-mail et ne voient que ce groupe.",
+    "addExternal": "Ajouter",
+    "invitesSent_one": "{{count}} invitation envoyée",
+    "invitesSent_other": "{{count}} invitations envoyées",
+    "invitesFailed_one": "{{count}} invitation n’a pas pu partir",
+    "invitesFailed_other": "{{count}} invitations n’ont pas pu partir",
+    "pickPeople": "Choisir des personnes",
+    "pickDone": "Valider",
+    "picked_one": "{{count}} personne choisie",
+    "picked_other": "{{count}} personnes choisies"
   },
   "invite": {
     "member": "Membre",

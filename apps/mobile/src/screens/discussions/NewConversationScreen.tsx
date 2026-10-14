@@ -6,8 +6,7 @@ import { createDm, type Member } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet, View } from "react-native";
 
 import { useSpaceMembers } from "../../data/members";
 import { useTranslation } from "../../i18n";
@@ -17,6 +16,7 @@ import { useSpace } from "../../space/SpaceProvider";
 import { hairline } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
+import { KeyboardArea } from "../../ui/KeyboardArea";
 import { SearchField } from "../../ui/SearchField";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
@@ -68,23 +68,24 @@ export function NewConversationScreen() {
         : t("people.writeGroup", { count: chosen.length });
 
   return (
-    <SafeAreaView edges={["bottom"]} style={[styles.fill, { backgroundColor: c.surface }]}>
+    <View style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("people.title")} onClose={() => navigation.goBack()} />
       <View style={styles.search}>
         <SearchField value={query} onChange={setQuery} placeholder={t("people.search")} />
       </View>
-      <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-        <PeopleList people={people} query={query} selected={chosen.map((m) => m.userId)} onToggle={toggle} />
-      </ScrollView>
-      <View style={[styles.foot, { borderTopColor: c.line }]}>
-        {failed ? (
-          <Text variant="small" tone="danger">
-            {t("people.failed")}
-          </Text>
-        ) : null}
-        <Button label={label} disabled={chosen.length === 0} busy={busy} onPress={() => void write()} />
-      </View>
-    </SafeAreaView>
+      {/* The list and its button above the keyboard while searching. */}
+      <KeyboardArea style={styles.fill} safeBottom>
+        <PeopleList style={styles.fill} people={people} query={query} selected={chosen.map((m) => m.userId)} onToggle={toggle} />
+        <View style={[styles.foot, { borderTopColor: c.line }]}>
+          {failed ? (
+            <Text variant="small" tone="danger">
+              {t("people.failed")}
+            </Text>
+          ) : null}
+          <Button label={label} disabled={chosen.length === 0} busy={busy} onPress={() => void write()} />
+        </View>
+      </KeyboardArea>
+    </View>
   );
 }
 

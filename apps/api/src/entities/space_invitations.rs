@@ -26,6 +26,9 @@ pub struct Model {
     pub expires_at: Option<TimeDateTimeWithTimeZone>,
     pub revoked_at: Option<TimeDateTimeWithTimeZone>,
     pub created_at: TimeDateTimeWithTimeZone,
+    /// The group the invitee joins on acceptance, instead of the space's default channel; `None`
+    /// for an invitation into the space at large.
+    pub channel_id: Option<Uuid>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

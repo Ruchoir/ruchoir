@@ -167,7 +167,12 @@
     "emptyHint": "The channels you follow and your direct messages will show up here.",
     "files": "Attachment",
     "groupOf_one": "Group · {{count}} person",
-    "groupOf_other": "Group · {{count}} people"
+    "groupOf_other": "Group · {{count}} people",
+    "privateGroup": "Private group",
+    "privateGroupOf_one": "Private group · {{count}} person",
+    "privateGroupOf_other": "Private group · {{count}} people",
+    "conversationOf_one": "Private conversation · {{count}} person",
+    "conversationOf_other": "Private conversation · {{count}} people"
   },
   "conversation": {
     "messages": "Messages",
@@ -343,7 +348,18 @@
     "members": "People to add",
     "create": "Create",
     "failed": "The group could not be created.",
-    "membersFailed": "The group is created, but some people could not be added."
+    "membersFailed": "The group is created, but some people could not be added.",
+    "externals": "Invite people from outside",
+    "externalsHint": "They get an e-mail and see this group only.",
+    "addExternal": "Add",
+    "invitesSent_one": "{{count}} invitation sent",
+    "invitesSent_other": "{{count}} invitations sent",
+    "invitesFailed_one": "{{count}} invitation could not go out",
+    "invitesFailed_other": "{{count}} invitations could not go out",
+    "pickPeople": "Choose people",
+    "pickDone": "Done",
+    "picked_one": "{{count}} person chosen",
+    "picked_other": "{{count}} people chosen"
   },
   "invite": {
     "member": "Member",

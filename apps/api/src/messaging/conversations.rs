@@ -348,6 +348,7 @@ pub async fn list_dms(
             name,
             is_group: dm.is_group,
             user_id,
+            participant_ids: counterparts.iter().map(|u| u.id).collect(),
             bot,
             unread,
             notify_level: participation.notification_level.clone(),

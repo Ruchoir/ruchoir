@@ -95,6 +95,7 @@ export function EmojiPickerSheet() {
       numColumns={columns}
       keyExtractor={(emoji) => emoji}
       stickyHeaderIndices={[0]}
+      automaticallyAdjustKeyboardInsets
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       columnWrapperStyle={styles.row}

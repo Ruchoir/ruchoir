@@ -104,6 +104,7 @@ type DirectMessageDto = {
   name: string;
   is_group: boolean;
   user_id?: string;
+  participant_ids?: string[];
   bot: boolean;
   unread: number;
   notify_level?: string;
@@ -861,6 +862,16 @@ export async function createInvitation(
   return { invitation: toInvitation(dto), url: dto.url, emailed: dto.emailed };
 }
 
+/**
+ * `POST /channels/{id}/invitations`: bring someone from outside into one group, as a guest who sees
+ * that group only. For whoever runs the channel (its creator is its owner), not only the space's
+ * administrators.
+ */
+export async function inviteToChannel(channelId: string, email: string): Promise<CreatedInvitation> {
+  const dto = await apiPost<CreatedInvitationDto>(`/channels/${channelId}/invitations`, { email });
+  return { invitation: toInvitation(dto), url: dto.url, emailed: dto.emailed };
+}
+
 /** `GET /spaces/{id}/invitations`: what is outstanding, newest first. Owner/admin only. */
 export async function getInvitations(spaceId: string, signal?: AbortSignal): Promise<Invitation[]> {
   const rows = await apiGet<InvitationDto[]>(`/spaces/${spaceId}/invitations`, signal);
@@ -1082,6 +1093,7 @@ function toDirectMessage(dto: DirectMessageDto): DirectMessage {
     unread: dto.unread,
     bot: dto.bot || undefined,
     userId: dto.user_id,
+    participantIds: dto.participant_ids,
     notify: toConversationNotify(dto.notify_level, dto.muted),
     lastMessage: dto.last_message ? toLastMessage(dto.last_message) : undefined,
   };

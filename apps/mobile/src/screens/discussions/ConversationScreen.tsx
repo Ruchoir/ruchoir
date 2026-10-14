@@ -42,6 +42,7 @@ import { fonts } from "../../theme/fonts";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
+import { AvatarStack } from "../../ui/AvatarStack";
 import { BackHeader } from "../../ui/BackHeader";
 import { Button } from "../../ui/Button";
 import { Chips } from "../../ui/Chips";
@@ -85,7 +86,13 @@ export function ConversationScreen() {
   const channelMembers = useLoad(params.channelId ? `channelMembers:${params.channelId}` : null, (signal) =>
     listChannelMembers(params.channelId!, signal),
   );
-  const subtitle = channelMembers.data ? t("conversation.people", { count: channelMembers.data.length }) : undefined;
+  // A private conversation with several people says so under its name, the others' faces beside it.
+  const group = !params.channelId && params.participants && params.participants.length > 1 ? params.participants : null;
+  const subtitle = channelMembers.data
+    ? t("conversation.people", { count: channelMembers.data.length })
+    : group
+      ? t("discussions.conversationOf", { count: group.length + 1 })
+      : undefined;
   const channels = useLoad(current ? `channels:${current.id}` : null, (signal) => getChannels(current!.id, signal));
   const channel = params.channelId ? channels.data?.find((ch) => ch.id === params.channelId) : undefined;
   const navigation = useNavigation();
@@ -109,7 +116,19 @@ export function ConversationScreen() {
             <Info size={24} color={c.ink} />
           </Pressable>
         }
-        leading={<Avatar name={params.title} kind={params.channelId ? "workspace" : "person"} src={params.channelId ? undefined : members.avatarOf(params.title)} size={36} />}
+        leading={
+          group ? (
+            <AvatarStack
+              size={36}
+              people={group.map((id) => {
+                const member = members.list.find((m) => m.userId === id);
+                return { name: member?.name ?? "", avatarUrl: member?.avatarUrl };
+              })}
+            />
+          ) : (
+            <Avatar name={params.title} kind={params.channelId ? "workspace" : "person"} src={params.channelId ? undefined : members.avatarOf(params.title)} size={36} />
+          )
+        }
       />
       <View style={[styles.tabs, { borderBottomColor: c.line }]}>
       <Chips

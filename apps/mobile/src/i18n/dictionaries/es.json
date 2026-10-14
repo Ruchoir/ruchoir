@@ -170,7 +170,14 @@
     "files": "Archivo adjunto",
     "groupOf_one": "Grupo · {{count}} persona",
     "groupOf_other": "Grupo · {{count}} personas",
-    "groupOf_many": "Grupo · {{count}} personas"
+    "groupOf_many": "Grupo · {{count}} personas",
+    "privateGroup": "Grupo privado",
+    "privateGroupOf_one": "Grupo privado · {{count}} persona",
+    "privateGroupOf_other": "Grupo privado · {{count}} personas",
+    "privateGroupOf_many": "Grupo privado · {{count}} personas",
+    "conversationOf_one": "Conversación privada · {{count}} persona",
+    "conversationOf_other": "Conversación privada · {{count}} personas",
+    "conversationOf_many": "Conversación privada · {{count}} personas"
   },
   "conversation": {
     "messages": "Mensajes",
@@ -353,7 +360,21 @@
     "members": "Personas que añadir",
     "create": "Crear",
     "failed": "No se ha podido crear el grupo.",
-    "membersFailed": "El grupo se ha creado, pero no se ha podido añadir a algunas personas."
+    "membersFailed": "El grupo se ha creado, pero no se ha podido añadir a algunas personas.",
+    "externals": "Invitar a personas externas",
+    "externalsHint": "Reciben un correo y solo ven este grupo.",
+    "addExternal": "Añadir",
+    "invitesSent_one": "{{count}} invitación enviada",
+    "invitesSent_other": "{{count}} invitaciones enviadas",
+    "invitesSent_many": "{{count}} invitaciones enviadas",
+    "invitesFailed_one": "{{count}} invitación no se ha podido enviar",
+    "invitesFailed_other": "{{count}} invitaciones no se han podido enviar",
+    "invitesFailed_many": "{{count}} invitaciones no se han podido enviar",
+    "pickPeople": "Elegir personas",
+    "pickDone": "Listo",
+    "picked_one": "{{count}} persona elegida",
+    "picked_other": "{{count}} personas elegidas",
+    "picked_many": "{{count}} personas elegidas"
   },
   "invite": {
     "member": "Miembro",

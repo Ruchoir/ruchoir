@@ -24,6 +24,8 @@ export type RootParams = {
     members?: number;
     unread?: number;
     kind?: "channel" | "person" | "group";
+    /** The others in a private conversation with several people, for the faces in its head. */
+    participants?: string[];
   };
   folder: { folderId: string; name: string };
   /** A file to show: a space file, a message's attachment or an event's, by its download URL. */

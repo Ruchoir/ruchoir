@@ -146,6 +146,8 @@ export type DirectMessage = {
   bot?: boolean;
   /** The counterpart's user id for a 1:1 DM (for presence overlay); absent for a group. */
   userId?: string;
+  /** The others in the conversation (never the reader), for a group's faces and its size. */
+  participantIds?: string[];
   /** How much this conversation notifies the signed-in user. */
   notify?: ConversationNotify;
   /** The latest message, for the preview line of a conversation list; absent while nothing was said. */

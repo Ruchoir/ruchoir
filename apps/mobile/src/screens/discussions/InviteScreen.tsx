@@ -7,10 +7,10 @@ import { createInvitation } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { CircleCheck, Link } from "lucide-react-native";
 import { useState } from "react";
-import { ScrollView, Share, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Share, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
+import { isEmail } from "../../logic/email";
 import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
@@ -20,10 +20,9 @@ import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
 import { KeyboardArea } from "../../ui/KeyboardArea";
+import { KeyboardScroll } from "../../ui/KeyboardScroll";
 
 type Role = "member" | "guest";
-
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function InviteScreen() {
   const navigation = useNavigation();
@@ -46,7 +45,7 @@ export function InviteScreen() {
   const sendEmail = async () => {
     const address = email.trim();
     if (!current) return;
-    if (!EMAIL.test(address)) {
+    if (!isEmail(address)) {
       setError(t("invite.invalidEmail"));
       return;
     }
@@ -80,10 +79,10 @@ export function InviteScreen() {
   };
 
   return (
-    <SafeAreaView edges={["bottom"]} style={[styles.fill, { backgroundColor: c.surface }]}>
+    <View style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("newMessage.invite")} onClose={() => navigation.goBack()} />
-      <KeyboardArea style={styles.fill}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
+      <KeyboardArea style={styles.fill} safeBottom>
+        <KeyboardScroll style={styles.fill} contentContainerStyle={styles.form}>
           <View style={styles.block}>
             <Segmented
               style={styles.flush}
@@ -150,9 +149,9 @@ export function InviteScreen() {
               {t("invite.linkHint")}
             </Text>
           </View>
-        </ScrollView>
+        </KeyboardScroll>
       </KeyboardArea>
-    </SafeAreaView>
+    </View>
   );
 }
 
