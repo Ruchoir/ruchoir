@@ -13,7 +13,7 @@ import { rangeForView, type AgendaView } from "../../logic/agenda";
 import { dayKey } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
-import { FloatingButton } from "../../ui/FloatingButton";
+import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { Segmented } from "../../ui/Segmented";
 import { LoadState } from "../../ui/States";
 import { NoSpace } from "../../ui/NoSpace";
@@ -50,6 +50,7 @@ export function AgendaScreen() {
   const [anchor, setAnchor] = useState(today);
   const range = rangeForView(view, anchor);
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
+  const floating = useFloatingScroll();
   // The day chosen in the week or the month (they say it); the list starts new events today.
   const [chosen, setChosen] = useState(today);
 
@@ -68,7 +69,7 @@ export function AgendaScreen() {
 
   return (
     <TabScreen>
-      <ScrollView contentContainerStyle={styles.page}>
+      <ScrollView contentContainerStyle={styles.page} onScroll={floating.onScroll} scrollEventThrottle={floating.scrollEventThrottle}>
         <TabHeader title={t("tabs.agenda")} />
         <Segmented
           options={options}
@@ -91,6 +92,7 @@ export function AgendaScreen() {
       </ScrollView>
       {data.data?.canCreate ? (
         <FloatingButton
+          compact={floating.compact}
           icon={CalendarPlus}
           label={t("calendar.newEvent")}
           onPress={() => navigation.navigate("eventForm", { day: view === "list" ? today : chosen })}

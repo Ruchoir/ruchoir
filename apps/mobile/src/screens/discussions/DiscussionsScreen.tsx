@@ -18,7 +18,7 @@ import { AvatarStack } from "../../ui/AvatarStack";
 import { Badge } from "../../ui/Badge";
 import { Chips } from "../../ui/Chips";
 import { SearchField } from "../../ui/SearchField";
-import { FloatingButton } from "../../ui/FloatingButton";
+import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { EmptyState, LoadState } from "../../ui/States";
 import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
@@ -48,6 +48,7 @@ export function DiscussionsScreen() {
   const { current, status } = useSpace();
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [query, setQuery] = useState("");
+  const floating = useFloatingScroll();
   const conversations = useLoad(current ? `conversations:${current.id}` : null, (signal) =>
     loadConversations(current!.id, signal),
   );
@@ -67,6 +68,8 @@ export function DiscussionsScreen() {
   return (
     <TabScreen>
       <FlatList
+        onScroll={floating.onScroll}
+        scrollEventThrottle={floating.scrollEventThrottle}
         data={items}
         // While searching, the last rows can still be scrolled above the keyboard.
         automaticallyAdjustKeyboardInsets
@@ -114,7 +117,7 @@ export function DiscussionsScreen() {
         // Room under the last row for the floating button.
         contentContainerStyle={styles.list}
       />
-      <FloatingButton icon={SquarePen} label={t("newMessage.title")} onPress={() => navigation.navigate("newMessage")} />
+      <FloatingButton compact={floating.compact} icon={SquarePen} label={t("newMessage.title")} onPress={() => navigation.navigate("newMessage")} />
     </TabScreen>
   );
 }

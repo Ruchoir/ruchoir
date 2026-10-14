@@ -13,7 +13,7 @@ import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Chips } from "../../ui/Chips";
-import { FloatingButton } from "../../ui/FloatingButton";
+import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { SearchField } from "../../ui/SearchField";
 import { EmptyState, LoadState } from "../../ui/States";
 import { NoSpace } from "../../ui/NoSpace";
@@ -33,6 +33,7 @@ export function FilesScreen() {
   const { c } = useTheme();
   const { current, status } = useSpace();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
+  const floating = useFloatingScroll();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   useEffect(() => {
@@ -64,6 +65,8 @@ export function FilesScreen() {
     <TabScreen>
       <ScrollView
         contentContainerStyle={styles.page}
+        onScroll={floating.onScroll}
+        scrollEventThrottle={floating.scrollEventThrottle}
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -98,18 +101,24 @@ export function FilesScreen() {
           <>
             {folders.length ? <FolderTiles folders={folders} /> : null}
             {files.length ? <Section title={t("files.atRoot")} rows={files.map((file) => ({ file }))} /> : null}
-            {!folders.length && !files.length ? <EmptyState icon={FolderOpen} title={t("files.empty")} text={t("files.emptyHint")} /> : null}
-            <Chips chips={VIEWS.map((v) => ({ key: v.key, label: t(v.label), icon: v.icon }))} value={view} onChange={setView} />
-            {!listed.data ? (
-              <LoadState error={listed.error} onRetry={listed.reload} />
-            ) : listed.data.length ? (
-              <View>
-                {listed.data.slice(0, 30).map((e, i) => (
-                  <FileRow key={e.file.id ?? i} file={e.file} line={view === "shared" ? sharedLine(e) : undefined} path={pathOf(e)} />
-                ))}
-              </View>
+            {!folders.length && !files.length ? (
+              // An empty space says it once; its views have nothing to show either.
+              <EmptyState icon={FolderOpen} title={t("files.empty")} text={t("files.emptyHint")} />
             ) : (
-              <EmptyState size="compact" icon={EMPTY[view].icon} title={t(EMPTY[view].title)} text={t(EMPTY[view].text)} />
+              <>
+                <Chips chips={VIEWS.map((v) => ({ key: v.key, label: t(v.label), icon: v.icon }))} value={view} onChange={setView} />
+                {!listed.data ? (
+                  <LoadState error={listed.error} onRetry={listed.reload} />
+                ) : listed.data.length ? (
+                  <View>
+                    {listed.data.slice(0, 30).map((e, i) => (
+                      <FileRow key={e.file.id ?? i} file={e.file} line={view === "shared" ? sharedLine(e) : undefined} path={pathOf(e)} />
+                    ))}
+                  </View>
+                ) : (
+                  <EmptyState size="compact" icon={EMPTY[view].icon} title={t(EMPTY[view].title)} text={t(EMPTY[view].text)} />
+                )}
+              </>
             )}
             <Pressable
               accessibilityRole="button"
@@ -127,6 +136,7 @@ export function FilesScreen() {
       </ScrollView>
       {current ? (
         <FloatingButton
+          compact={floating.compact}
           icon={Upload}
           label={t("eventForm.addFile")}
           onPress={() => navigation.navigate("filesAdd", { spaceId: current.id, folderName: current.name })}

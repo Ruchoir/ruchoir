@@ -13,7 +13,7 @@ import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { useTheme } from "../../theme/useTheme";
 import { BackHeader } from "../../ui/BackHeader";
-import { FloatingButton } from "../../ui/FloatingButton";
+import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { EmptyState, LoadState } from "../../ui/States";
 import { useToast } from "../../ui/Toast";
 import { FileRow } from "./FileRow";
@@ -23,6 +23,7 @@ import { UploadStrip } from "./UploadStrip";
 export function FolderScreen() {
   const { params } = useRoute<RouteProp<RootParams, "folder">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
+  const floating = useFloatingScroll();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { current } = useSpace();
@@ -52,6 +53,8 @@ export function FolderScreen() {
         <LoadState error={listing.error} onRetry={listing.reload} />
       ) : (
         <FlatList
+          onScroll={floating.onScroll}
+          scrollEventThrottle={floating.scrollEventThrottle}
           data={entries}
           keyExtractor={(f, i) => f.id ?? String(i)}
           renderItem={({ item }) => <FileRow file={item} path={listing.data?.breadcrumb.map((b) => b.name).join(" / ")} />}
@@ -62,6 +65,7 @@ export function FolderScreen() {
       )}
       {current ? (
         <FloatingButton
+          compact={floating.compact}
           icon={Upload}
           label={t("eventForm.addFile")}
           onPress={() => navigation.navigate("filesAdd", { spaceId: current.id, folderId: params.folderId, folderName: params.name })}
