@@ -261,6 +261,8 @@ export type MessageActionHandlers = {
 type MenuDialog = "settings" | "notifications" | "addpeople" | "leave" | null;
 
 export type ChannelScreenProps = {
+  /** Moves when someone's place in this channel changed live (a role writes no notice): its roster is fetched again. */
+  rosterVersion?: number;
   channel: Channel;
   /** Set when the open conversation is a direct message rather than a channel. */
   dm?: DirectMessage | null;
@@ -413,6 +415,7 @@ function useDayHeading(): (at: string) => string {
 }
 
 export function ChannelScreen({
+  rosterVersion = 0,
   channel,
   dm,
   messages,
@@ -520,7 +523,7 @@ export function ChannelScreen({
     return () => {
       active = false;
     };
-  }, [channel.id, isDm, membershipMoves, myUserId]);
+  }, [channel.id, isDm, membershipMoves, myUserId, rosterVersion]);
 
   // Derived, not reset in the effect: a roster still carrying the previous channel's id is simply
   // not this channel's answer yet, which is the same thing as not having one.

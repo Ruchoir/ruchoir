@@ -282,6 +282,7 @@ use utoipa::OpenApi;
         crate::messaging::dto::SetDefaultChannelRequest,
         crate::messaging::dto::ChannelOrderRequest,
         crate::messaging::dto::ChannelsReorderedDto,
+        crate::messaging::dto::ChannelMembershipDto,
         crate::files::images::ImageRef,
         crate::messaging::dto::UpdateProfileRequest,
         crate::messaging::dto::SendMessageRequest,

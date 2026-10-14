@@ -584,7 +584,8 @@
     "deleteNameMismatch": "To nie jest nazwa kanału.",
     "deleted": "Kanał usunięty",
     "deletedElsewhere": "Kanał #{{name}} został usunięty.",
-    "details": "Szczegóły kanału"
+    "details": "Szczegóły kanału",
+    "removedElsewhere": "Usunięto cię z kanału #{{name}}."
   },
   "role": {
     "member": "Członek",

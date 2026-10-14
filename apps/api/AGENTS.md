@@ -190,7 +190,10 @@ context and takes precedence here.
   departure events: `member.left`, the counterpart of `member.joined` for the roster, and
   `space.removed`, which says "this space is no longer yours" to the person who left it and to
   everyone when it is deleted, carrying a `deleted` flag because the client does the same thing
-  either way and only the sentence differs), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
+  either way and only the sentence differs, plus `channel.membership`, someone joining, leaving or
+  removed from a channel or their role there changing, sent to that person on every device (the
+  channel's notice no longer reaches a removed member, nor someone's other devices) and, for a role,
+  to the channel's members), `hub` (the local connection registry plus the Valkey pub/sub bridge; a single
   `SubscriberClient` on `rt:fanout`, delivery gated by a publish-time audience), `presence`
   (ephemeral heartbeat + the persistent `users.manual_presence` override; **its audience is frozen at
   connect time**, computed from the space co-members the user had when their socket opened, so any

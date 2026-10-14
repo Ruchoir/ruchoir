@@ -11807,3 +11807,103 @@ async fn the_link_spends_the_code() {
     refused_as_invalid_code(confirm_code(&app, &email, &code).await).await;
     assert_eq!(account_status(&app, id).await, "active");
 }
+
+// --- A change of membership, told to the person it concerns on every device, and a role to the channel ---
+
+async fn set_channel_role(db: &DatabaseConnection, channel_id: Uuid, user_id: Uuid, role: &str) {
+    let mut row = channel_members::Entity::find_by_id((channel_id, user_id))
+        .one(db)
+        .await
+        .expect("query")
+        .expect("membership")
+        .into_active_model();
+    row.role = Set(role.to_owned());
+    row.update(db).await.expect("role");
+}
+
+fn assert_membership(event: &Value, fx: &Fixture, channel_id: Uuid, user_id: Uuid, change: &str) {
+    assert_eq!(event["payload"]["space_id"], fx.space_id.to_string());
+    assert_eq!(event["payload"]["channel_id"], channel_id.to_string());
+    assert_eq!(event["payload"]["user_id"], user_id.to_string());
+    assert_eq!(event["payload"]["change"], change);
+}
+
+#[tokio::test]
+async fn a_removed_member_is_told_on_every_device() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    set_channel_role(&app.db, fx.private_channel, fx.alice, "owner").await;
+    add_channel_member(&app.db, fx.private_channel, fx.bob).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let mut bob_ws = app.connect_ws(&bob).await;
+
+    let response = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/channels/{}/members/{}", fx.private_channel, fx.bob),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("remove");
+    assert_eq!(response.status(), 204);
+
+    // Nothing else would tell them: they are no longer in the audience of the channel's notice.
+    let event = wait_for_type(&mut bob_ws, "channel.membership").await;
+    assert_membership(&event, &fx, fx.private_channel, fx.bob, "removed");
+}
+
+#[tokio::test]
+async fn leaving_and_joining_reach_my_other_devices() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let mut other_device = app.connect_ws(&app.cookie_for(fx.bob).await).await;
+    let path = format!("/api/v1/channels/{}/membership", fx.public_channel);
+
+    let left = app
+        .req(reqwest::Method::DELETE, &path, &bob)
+        .send()
+        .await
+        .expect("leave");
+    assert_eq!(left.status(), 204);
+    let event = wait_for_type(&mut other_device, "channel.membership").await;
+    assert_membership(&event, &fx, fx.public_channel, fx.bob, "left");
+
+    let joined = app
+        .req(reqwest::Method::PUT, &path, &bob)
+        .send()
+        .await
+        .expect("join");
+    assert_eq!(joined.status(), 204);
+    let event = wait_for_type(&mut other_device, "channel.membership").await;
+    assert_membership(&event, &fx, fx.public_channel, fx.bob, "joined");
+}
+
+#[tokio::test]
+async fn a_role_change_reaches_the_channel() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    set_channel_role(&app.db, fx.public_channel, fx.alice, "owner").await;
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let alice = app.cookie_for(fx.alice).await;
+    // Carol is in the channel and sees its roster: she has to see the new role too.
+    let mut carol_ws = app.connect_ws(&app.cookie_for(fx.carol).await).await;
+
+    let response = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{}/members/{}", fx.public_channel, fx.bob),
+            &alice,
+        )
+        .json(&json!({ "role": "admin" }))
+        .send()
+        .await
+        .expect("role");
+    assert_eq!(response.status(), 200);
+
+    let event = wait_for_type(&mut carol_ws, "channel.membership").await;
+    assert_membership(&event, &fx, fx.public_channel, fx.bob, "role");
+    assert_eq!(event["payload"]["role"], "admin");
+}

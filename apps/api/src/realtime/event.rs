@@ -122,6 +122,18 @@ impl RealtimeEnvelope {
         Self::global("channels.reordered", payload)
     }
 
+    /// Someone's place in a channel changed: they joined, left or were removed, or their role there
+    /// changed.
+    ///
+    /// The channel's own notice already tells the people who are in it of an arrival or a departure;
+    /// this one reaches whom the notice cannot: the person concerned on every one of their devices
+    /// (a removed member is no longer in the notice's audience, and someone who leaves from one
+    /// device has others still showing them in). A role change, which writes no notice, goes to the
+    /// channel's members as well.
+    pub fn channel_membership(payload: impl Serialize) -> Self {
+        Self::global("channel.membership", payload)
+    }
+
     /// Someone is typing in a conversation (ephemeral, never stored).
     pub fn typing(conversation_id: Uuid, payload: impl Serialize) -> Self {
         Self::conversation("typing", conversation_id, payload)

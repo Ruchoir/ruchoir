@@ -2701,6 +2701,19 @@ export type MemberIdentity = Omit<Member, "role">;
  */
 export type SpaceIdentity = { id: string; name: string; slug: string; iconUrl?: string; defaultChannelId?: string };
 
+/**
+ * Someone's place in a channel changed, pushed live to them on every device, and for a role to the
+ * channel's members: the channel's notice already tells the others of an arrival or a departure.
+ */
+export type ChannelMembership = {
+  spaceId: string;
+  channelId: string;
+  userId: string;
+  change: "joined" | "left" | "removed" | "role";
+  /** The new role, for a `role` change. */
+  role?: string;
+};
+
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
   /**
@@ -2732,6 +2745,8 @@ export type RealtimeHandlers = {
   onSpaceUpdated?: (space: SpaceIdentity) => void;
   /** A space's administrators put its channels in a new order: re-read that space's list. */
   onChannelsReordered?: (spaceId: string) => void;
+  /** Someone joined, left or was removed from a channel, or their role there changed. */
+  onChannelMembership?: (change: ChannelMembership) => void;
   /**
    * A space stopped being the user's. The reason is what the sentence is drawn from: `left` (from
    * here or another tab, so they already know), `deleted` (its owner ended it), `removed` (somebody
@@ -2779,6 +2794,7 @@ const REALTIME_EVENTS = [
   "space.updated",
   "space.removed",
   "channels.reordered",
+  "channel.membership",
   "presence",
   "notification.created",
   "typing",
@@ -2910,6 +2926,15 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       }
       case "channels.reordered":
         handlers.onChannelsReordered?.(String(payload.space_id));
+        break;
+      case "channel.membership":
+        handlers.onChannelMembership?.({
+          spaceId: String(payload.space_id),
+          channelId: String(payload.channel_id),
+          userId: String(payload.user_id),
+          change: payload.change as ChannelMembership["change"],
+          role: typeof payload.role === "string" ? payload.role : undefined,
+        });
         break;
       case "space.updated": {
         handlers.onSpaceUpdated?.({

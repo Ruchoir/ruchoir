@@ -730,6 +730,7 @@ pub async fn join_channel(
         // Only on a real arrival: re-pressing "join" on a channel you are already in announces
         // nothing, the same rule the space invitation follows.
         write_channel_notice(&state, channel_id, Some(session.user_id), JOINED_EVENT).await;
+        announce_membership(&state, &channel, session.user_id, "joined", None).await;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -993,6 +994,7 @@ pub async fn update_channel_member_role(
     let mut active = target.into_active_model();
     active.role = Set(wanted.clone());
     active.update(&state.db).await?;
+    announce_membership(&state, &channel, user_id, "role", Some(wanted.clone())).await;
     Ok(Json(ChannelMemberRoleDto {
         channel_id,
         user_id,
@@ -1075,6 +1077,7 @@ pub async fn remove_channel_member(
         .exec(&state.db)
         .await?;
     write_channel_notice(&state, channel_id, Some(user_id), REMOVED_EVENT).await;
+    announce_membership(&state, &channel, user_id, "removed", None).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1147,8 +1150,50 @@ pub async fn leave_channel(
     // something to leave: this endpoint is idempotent, and a second press says nothing.
     if membership.is_some() {
         write_channel_notice(&state, channel_id, Some(session.user_id), LEFT_EVENT).await;
+        announce_membership(&state, &channel, session.user_id, "left", None).await;
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Tell the person whose place in a channel changed, on all their devices, and for a role change the
+/// channel's members too (see `RealtimeEnvelope::channel_membership`). Best effort, like the notice:
+/// the change itself is already written.
+async fn announce_membership(
+    state: &AppState,
+    channel: &channels::Model,
+    user_id: Uuid,
+    change: &'static str,
+    role: Option<String>,
+) {
+    let mut audience = vec![user_id];
+    if change == "role" {
+        match channel_members::Entity::find()
+            .filter(channel_members::Column::ChannelId.eq(channel.id))
+            .all(&state.db)
+            .await
+        {
+            Ok(members) => audience.extend(
+                members
+                    .into_iter()
+                    .map(|m| m.user_id)
+                    .filter(|id| *id != user_id),
+            ),
+            Err(error) => {
+                tracing::warn!(%error, "could not read a channel's members to announce a role")
+            }
+        }
+    }
+    let payload = super::dto::ChannelMembershipDto {
+        space_id: channel.space_id,
+        channel_id: channel.id,
+        user_id,
+        change,
+        role,
+    };
+    state
+        .hub
+        .publish(audience, RealtimeEnvelope::channel_membership(&payload))
+        .await;
 }
 
 /// Who should learn that a channel exists: every member of the space for a public (or archived)
