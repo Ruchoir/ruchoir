@@ -1,4 +1,4 @@
-import { listCalendars } from "@ruchoir/client";
+import { getEvent, listCalendars, setEventMe } from "@ruchoir/client";
 import { customMinutes, MAX_REMINDERS, presetReminders, reminderLabel, remindersLabel, type ReminderUnit } from "@ruchoir/client/calendarLogic";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import { Bell, CalendarDays, Plus, SlidersHorizontal, SquarePen, X } from "lucide-react-native";
@@ -14,7 +14,9 @@ import { ActionRow } from "../../../ui/ActionRow";
 import { Button } from "../../../ui/Button";
 import { Segmented } from "../../../ui/Segmented";
 import { Sheet } from "../../../ui/Sheet";
+import { LoadState } from "../../../ui/States";
 import { Text } from "../../../ui/Text";
+import { useToast } from "../../../ui/Toast";
 import { updateDraft, useDraft } from "./draftStore";
 import { Stepper } from "./Stepper";
 
@@ -137,11 +139,54 @@ export function RemindersEditor({
   );
 }
 
-/** The reminders of the event form's draft. */
+/** The reminders of the event form's draft, or one's own for an event (saved at once). */
 export function RemindersSheet() {
   const { params } = useRoute<RouteProp<RootParams, "eventReminders">>();
+  return params.eventId ? <OwnReminders eventId={params.eventId} /> : <DraftReminders formKey={params.formKey ?? ""} />;
+}
+
+/**
+ * One's own reminders for an event, which anyone who sees it may set, whether or not they may
+ * change it: each change is saved at once, and a failure puts back what was there.
+ */
+function OwnReminders({ eventId }: { eventId: string }) {
   const { t } = useTranslation();
-  const formKey = params.formKey ?? "";
+  const toast = useToast();
+  const loaded = useLoad(`reminders:${eventId}`, async (signal) => {
+    const [event, calendars] = await Promise.all([getEvent(eventId, signal), listCalendars(signal)]);
+    return { event, calendar: calendars.find((cal) => cal.id === event.calendarId) };
+  });
+  // `null` until changed here; `undefined` follows the calendar's.
+  const [value, setValue] = useState<number[] | undefined | null>(null);
+  if (!loaded.data) {
+    return (
+      <Sheet>
+        <LoadState error={loaded.error} onRetry={loaded.reload} />
+      </Sheet>
+    );
+  }
+  const { event, calendar } = loaded.data;
+  return (
+    <Sheet>
+      <Text variant="heading">{t("calendar.myReminder")}</Text>
+      <RemindersEditor
+        value={value === null ? event.myOwnReminders : value}
+        inherited={inheritedReminders(calendar, event.allDay)}
+        allDay={event.allDay}
+        onChange={(next) => {
+          setValue(next);
+          setEventMe(eventId, next ?? "default").catch(() => {
+            setValue(null);
+            toast(t("eventForm.saveFailed"));
+          });
+        }}
+      />
+    </Sheet>
+  );
+}
+
+function DraftReminders({ formKey }: { formKey: string }) {
+  const { t } = useTranslation();
   const draft = useDraft(formKey);
   const calendars = useLoad("calendars", (signal) => listCalendars(signal));
   if (!draft) return null;

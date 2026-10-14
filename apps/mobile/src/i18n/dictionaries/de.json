@@ -275,7 +275,21 @@
     "scopeAll": "Die ganze Serie",
     "scopeAllHint": "Auch vergangene Termine.",
     "scopeEditTitle": "„{{title}}“ bearbeiten",
-    "scopeDeleteTitle": "„{{title}}“ löschen"
+    "scopeDeleteTitle": "„{{title}}“ löschen",
+    "answer": {
+      "accepted": "Ja"
+    },
+    "yourAnswer": "Ihre Antwort",
+    "answerThisDate": "Für diesen Termin",
+    "countAccepted_one": "{{count}} Ja",
+    "countAccepted_other": "{{count}} Ja",
+    "countTentative_one": "{{count}} Vielleicht",
+    "countTentative_other": "{{count}} Vielleicht",
+    "countDeclined_one": "{{count}} Nein",
+    "countDeclined_other": "{{count}} Nein",
+    "countWaiting_one": "{{count}} ausstehend",
+    "countWaiting_other": "{{count}} ausstehend",
+    "organizedBy": "Organisiert von {{name}}"
   },
   "discussions": {
     "filterAll": "Alle",

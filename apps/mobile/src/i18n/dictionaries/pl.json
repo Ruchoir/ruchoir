@@ -313,7 +313,29 @@
     "scopeAll": "Cała seria",
     "scopeAllHint": "Łącznie z minionymi datami.",
     "scopeEditTitle": "Edytuj „{{title}}”",
-    "scopeDeleteTitle": "Usuń „{{title}}”"
+    "scopeDeleteTitle": "Usuń „{{title}}”",
+    "answer": {
+      "accepted": "Tak"
+    },
+    "yourAnswer": "Twoja odpowiedź",
+    "answerThisDate": "Dla tego terminu",
+    "countAccepted_one": "{{count}} tak",
+    "countAccepted_few": "{{count}} tak",
+    "countAccepted_many": "{{count}} tak",
+    "countAccepted_other": "{{count}} tak",
+    "countTentative_one": "{{count}} może",
+    "countTentative_few": "{{count}} może",
+    "countTentative_many": "{{count}} może",
+    "countTentative_other": "{{count}} może",
+    "countDeclined_one": "{{count}} nie",
+    "countDeclined_few": "{{count}} nie",
+    "countDeclined_many": "{{count}} nie",
+    "countDeclined_other": "{{count}} nie",
+    "countWaiting_one": "{{count}} oczekuje",
+    "countWaiting_few": "{{count}} oczekuje",
+    "countWaiting_many": "{{count}} oczekuje",
+    "countWaiting_other": "{{count}} oczekuje",
+    "organizedBy": "Organizuje: {{name}}"
   },
   "discussions": {
     "filterAll": "Wszystko",

@@ -294,7 +294,25 @@
     "scopeAll": "Toda la serie",
     "scopeAllHint": "Incluidas las fechas pasadas.",
     "scopeEditTitle": "Editar «{{title}}»",
-    "scopeDeleteTitle": "Eliminar «{{title}}»"
+    "scopeDeleteTitle": "Eliminar «{{title}}»",
+    "answer": {
+      "accepted": "Sí"
+    },
+    "yourAnswer": "Tu respuesta",
+    "answerThisDate": "Para esta fecha",
+    "countAccepted_one": "{{count}} sí",
+    "countAccepted_many": "{{count}} sí",
+    "countAccepted_other": "{{count}} sí",
+    "countTentative_one": "{{count}} quizá",
+    "countTentative_many": "{{count}} quizá",
+    "countTentative_other": "{{count}} quizá",
+    "countDeclined_one": "{{count}} no",
+    "countDeclined_many": "{{count}} no",
+    "countDeclined_other": "{{count}} no",
+    "countWaiting_one": "{{count}} pendiente",
+    "countWaiting_many": "{{count}} pendientes",
+    "countWaiting_other": "{{count}} pendientes",
+    "organizedBy": "Organizado por {{name}}"
   },
   "discussions": {
     "filterAll": "Todo",
