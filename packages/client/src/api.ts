@@ -1025,8 +1025,8 @@ export async function clearMyAvatar(): Promise<void> {
   await apiDelete<void>("/users/me/avatar");
 }
 
-/** `PUT /spaces/{id}/icon`: replace a space's icon; owner or admin only. Returns its new URL. */
-export async function setSpaceIcon(spaceId: string, file: File): Promise<string> {
+/** `PUT /spaces/{id}/icon`: replace a space's icon (a file, or a photo of the phone); returns its new URL. */
+export async function setSpaceIcon(spaceId: string, file: UploadPart): Promise<string> {
   return uploadImage(`/spaces/${spaceId}/icon`, file);
 }
 
