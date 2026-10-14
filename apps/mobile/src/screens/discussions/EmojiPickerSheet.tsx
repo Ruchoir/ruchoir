@@ -56,7 +56,7 @@ export function EmojiPickerSheet() {
   // fixed head beside a list that fills the rest leaves the list drawn under the head.
   const head = (
     <View style={[styles.head, { backgroundColor: c.surface }]}>
-      <Text variant="heading" style={styles.gutter}>
+      <Text variant="heading" style={styles.title}>
         {t("message.react")}
       </Text>
       <SearchField value={query} onChange={setQuery} placeholder={t("emoji.search")} />
@@ -121,6 +121,8 @@ export function EmojiPickerSheet() {
 const styles = StyleSheet.create({
   head: { paddingTop: 24, paddingBottom: 4, gap: 12 },
   gutter: { paddingHorizontal: 16 },
+  // A little air between the sheet's title and its search field.
+  title: { paddingHorizontal: 16, marginBottom: 6 },
   tabsScroll: { flexGrow: 0 },
   tabs: { gap: 4, paddingHorizontal: 16 },
   tab: { width: 44, height: 44, borderRadius: radius.m, borderWidth: hairline, alignItems: "center", justifyContent: "center" },

@@ -140,7 +140,8 @@ export function SpaceFilePicker() {
 
 const styles = StyleSheet.create({
   head: { paddingTop: 24, paddingBottom: 8, gap: 12 },
-  title: { paddingHorizontal: 16 },
+  // A little air between the sheet's title and its search field.
+  title: { paddingHorizontal: 16, marginBottom: 6 },
   back: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
   grow: { flex: 1 },
   section: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
