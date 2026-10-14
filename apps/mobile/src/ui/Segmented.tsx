@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "rea
 
 import { hairline, radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
+import { feel } from "./haptics";
 import { Text } from "./Text";
 
 /** A segmented control (mockups 15 to 17): a sunken track, the chosen part raised in the accent. */
@@ -26,7 +27,10 @@ export function Segmented<K extends string>({
             key={key}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
-            onPress={() => onChange(key)}
+            onPress={() => {
+              if (!on) feel("choice");
+              onChange(key);
+            }}
             style={[styles.part, on && { backgroundColor: c.acc, borderColor: c.ink }]}
           >
             <Text variant={on ? "smallStrong" : "small"} style={{ color: on ? c.onPastel : c.ink }}>

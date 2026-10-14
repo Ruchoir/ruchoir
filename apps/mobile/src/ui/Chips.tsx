@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet } from "react-native";
 
 import { hairline } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
+import { feel } from "./haptics";
 import { Text } from "./Text";
 
 export type Chip<K extends string> = { key: K; label: string; icon?: LucideIcon; count?: number };
@@ -22,7 +23,10 @@ export function Chips<K extends string>({ chips, value, onChange }: { chips: Chi
             key={key}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
-            onPress={() => onChange(key)}
+            onPress={() => {
+              if (!on) feel("choice");
+              onChange(key);
+            }}
             style={[styles.chip, { borderColor: on ? c.ink : c.lineStrong, backgroundColor: on ? s.selected : c.surface }]}
           >
             {Icon ? <Icon size={16} color={c.ink} /> : null}
