@@ -30,8 +30,12 @@ export type ConversationItem = {
   /** When the last message was written, for the order and the time on the row. */
   at?: string;
   preview?: Preview;
-  /** How many people are in a channel ("Group · 8 people"). */
+  /** How many people are in it, the reader included ("Group · 8 people"). */
   members?: number;
+  /** A channel only the people invited see. */
+  private?: true;
+  /** The others in a private conversation with several people, whose faces stand for it. */
+  participants?: string[];
   /** The other person, for a one-to-one conversation. */
   userId?: string;
   presence?: DirectMessage["presence"];
@@ -70,10 +74,11 @@ export function buildConversations(channels: Channel[], dms: DirectMessage[]): C
         preview: toPreview(c.lastMessage, true),
       };
       if (c.memberCount !== undefined) item.members = c.memberCount;
+      if (c.type === "private") item.private = true;
       return item;
     });
-  const fromDms = dms.map(
-    (d): ConversationItem => ({
+  const fromDms = dms.map((d): ConversationItem => {
+    const item: ConversationItem = {
       id: d.id,
       kind: d.userId ? "person" : "group",
       name: d.name,
@@ -83,8 +88,13 @@ export function buildConversations(channels: Channel[], dms: DirectMessage[]): C
       preview: toPreview(d.lastMessage, !d.userId),
       userId: d.userId,
       presence: d.presence,
-    }),
-  );
+    };
+    if (!d.userId && d.participantIds?.length) {
+      item.participants = d.participantIds;
+      item.members = d.participantIds.length + 1;
+    }
+    return item;
+  });
   return [...fromChannels, ...fromDms];
 }
 
@@ -96,8 +106,9 @@ export function listConversations(items: ConversationItem[], filter: Conversatio
   return items
     .filter((c) => {
       if (filter === "unread" && c.unread === 0) return false;
-      if (filter === "groups" && c.kind === "person") return false;
-      if (filter === "people" && c.kind !== "person") return false;
+      // Groups are the channels; people are the private conversations, with one person or several.
+      if (filter === "groups" && c.kind !== "channel") return false;
+      if (filter === "people" && c.kind === "channel") return false;
       return !q || fold(c.name).includes(q);
     })
     .sort((a, b) => {

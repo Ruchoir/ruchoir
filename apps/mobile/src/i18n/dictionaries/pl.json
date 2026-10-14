@@ -173,7 +173,16 @@
     "groupOf_one": "Grupa · {{count}} osoba",
     "groupOf_other": "Grupa · {{count}} osoby",
     "groupOf_few": "Grupa · {{count}} osoby",
-    "groupOf_many": "Grupa · {{count}} osób"
+    "groupOf_many": "Grupa · {{count}} osób",
+    "privateGroup": "Grupa prywatna",
+    "privateGroupOf_one": "Grupa prywatna · {{count}} osoba",
+    "privateGroupOf_other": "Grupa prywatna · {{count}} osoby",
+    "privateGroupOf_few": "Grupa prywatna · {{count}} osoby",
+    "privateGroupOf_many": "Grupa prywatna · {{count}} osób",
+    "conversationOf_one": "Prywatna rozmowa · {{count}} osoba",
+    "conversationOf_other": "Prywatna rozmowa · {{count}} osoby",
+    "conversationOf_few": "Prywatna rozmowa · {{count}} osoby",
+    "conversationOf_many": "Prywatna rozmowa · {{count}} osób"
   },
   "conversation": {
     "messages": "Wiadomości",

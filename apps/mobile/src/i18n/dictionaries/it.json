@@ -170,7 +170,14 @@
     "files": "Allegato",
     "groupOf_one": "Gruppo · {{count}} persona",
     "groupOf_other": "Gruppo · {{count}} persone",
-    "groupOf_many": "Gruppo · {{count}} persone"
+    "groupOf_many": "Gruppo · {{count}} persone",
+    "privateGroup": "Gruppo privato",
+    "privateGroupOf_one": "Gruppo privato · {{count}} persona",
+    "privateGroupOf_other": "Gruppo privato · {{count}} persone",
+    "privateGroupOf_many": "Gruppo privato · {{count}} persone",
+    "conversationOf_one": "Conversazione privata · {{count}} persona",
+    "conversationOf_other": "Conversazione privata · {{count}} persone",
+    "conversationOf_many": "Conversazione privata · {{count}} persone"
   },
   "conversation": {
     "messages": "Messaggi",

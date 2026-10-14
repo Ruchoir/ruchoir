@@ -34,7 +34,7 @@ import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
-import { ConversationRow, loadConversations } from "../discussions/DiscussionsScreen";
+import { ConversationRow, loadConversations, useMemberOf } from "../discussions/DiscussionsScreen";
 
 const SPOKEN_TITLE = {
   mention: key("today.mentioned"),
@@ -66,6 +66,7 @@ export function TodayScreen() {
   });
   const recent = useLoad(space ? `recent:${space}` : null, (signal) => getFilesView(space!, "recent", signal));
   const conversations = useLoad(space ? `conversations:${space}` : null, (signal) => loadConversations(space!, signal));
+  const memberOf = useMemberOf(space);
   const reloadAll = () => {
     notifications.reload();
     events.reload();
@@ -139,6 +140,7 @@ export function TodayScreen() {
           <ConversationRow
             key={item.id}
             item={item}
+            memberOf={memberOf}
             onPress={() =>
               navigation.navigate("conversation", {
                 conversationId: item.id,
@@ -146,6 +148,7 @@ export function TodayScreen() {
                 channelId: item.kind === "channel" ? item.id : undefined,
                 unread: item.unread,
                 kind: item.kind,
+                participants: item.participants,
               })
             }
           />

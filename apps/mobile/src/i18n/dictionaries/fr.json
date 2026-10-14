@@ -167,7 +167,12 @@
     "emptyHint": "Les canaux que vous suivez et vos messages privés apparaîtront ici.",
     "files": "Pièce jointe",
     "groupOf_one": "Groupe · {{count}} personne",
-    "groupOf_other": "Groupe · {{count}} personnes"
+    "groupOf_other": "Groupe · {{count}} personnes",
+    "privateGroup": "Groupe privé",
+    "privateGroupOf_one": "Groupe privé · {{count}} personne",
+    "privateGroupOf_other": "Groupe privé · {{count}} personnes",
+    "conversationOf_one": "Conversation privée · {{count}} personne",
+    "conversationOf_other": "Conversation privée · {{count}} personnes"
   },
   "conversation": {
     "messages": "Messages",

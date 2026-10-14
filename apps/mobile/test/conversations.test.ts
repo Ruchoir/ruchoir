@@ -25,9 +25,10 @@ test("unread_keeps_only_unread", () => {
   assert.deepEqual(ids(listConversations(ITEMS, "unread", "")), ["c1", "d1"]);
 });
 
-test("groups_are_channels_and_group_messages_people_are_one_to_one", () => {
-  assert.deepEqual(ids(listConversations(ITEMS, "groups", "")), ["c1", "c2", "d2", "c3"]);
-  assert.deepEqual(ids(listConversations(ITEMS, "people", "")), ["d1"]);
+test("groups_are_channels_and_people_are_private_conversations", () => {
+  // A private conversation with several people is still a conversation with people, not a room.
+  assert.deepEqual(ids(listConversations(ITEMS, "groups", "")), ["c1", "c2", "c3"]);
+  assert.deepEqual(ids(listConversations(ITEMS, "people", "")), ["d1", "d2"]);
 });
 
 test("query_ignores_case_and_accents", () => {
@@ -90,4 +91,20 @@ test("a_message_with_only_files_says_so_and_an_empty_history_gives_no_preview", 
   assert.deepEqual(files.preview, { author: "Théo", text: "", mine: true, files: true });
   assert.equal(empty.preview, undefined);
   assert.equal(empty.at, undefined);
+});
+
+test("a_channel_on_invitation_and_a_private_group_conversation_say_so", () => {
+  const built = buildConversations(
+    [
+      { id: "c1", name: "Équipe", unread: 0, member: true, type: "public", memberCount: 8 } as never,
+      { id: "c2", name: "Direction", unread: 0, member: true, type: "private", memberCount: 3 } as never,
+    ],
+    [{ id: "d2", name: "Hugo, Sophie", unread: 0, participantIds: ["u3", "u4"], presence: "offline" } as never],
+  );
+  assert.equal(built[0].private, undefined);
+  assert.equal(built[1].private, true);
+  assert.equal(built[2].kind, "group");
+  assert.deepEqual(built[2].participants, ["u3", "u4"]);
+  // The others and the reader.
+  assert.equal(built[2].members, 3);
 });

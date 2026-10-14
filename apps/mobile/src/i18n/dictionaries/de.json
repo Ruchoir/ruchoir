@@ -167,7 +167,12 @@
     "emptyHint": "Die Kanäle, denen Sie folgen, und Ihre Direktnachrichten erscheinen hier.",
     "files": "Anhang",
     "groupOf_one": "Gruppe · {{count}} Person",
-    "groupOf_other": "Gruppe · {{count}} Personen"
+    "groupOf_other": "Gruppe · {{count}} Personen",
+    "privateGroup": "Private Gruppe",
+    "privateGroupOf_one": "Private Gruppe · {{count}} Person",
+    "privateGroupOf_other": "Private Gruppe · {{count}} Personen",
+    "conversationOf_one": "Private Unterhaltung · {{count}} Person",
+    "conversationOf_other": "Private Unterhaltung · {{count}} Personen"
   },
   "conversation": {
     "messages": "Nachrichten",

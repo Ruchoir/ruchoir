@@ -857,6 +857,56 @@ async fn a_direct_message_list_previews_the_latest_message() {
     assert_eq!(seen_by_bob["mine"], true);
 }
 
+#[tokio::test]
+async fn a_group_conversation_lists_who_is_in_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let dm: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/dm", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "user_ids": [fx.bob, fx.carol] }))
+        .send()
+        .await
+        .expect("dm")
+        .json()
+        .await
+        .expect("json");
+    let dms: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/dms", fx.space_id),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("dms")
+        .json()
+        .await
+        .expect("json");
+    let row = dms
+        .as_array()
+        .expect("list")
+        .iter()
+        .find(|d| d["id"] == dm["id"])
+        .expect("the conversation");
+    assert_eq!(row["is_group"], true);
+    // The others, never the reader: their faces stand for the conversation on a phone's list.
+    let mut ids: Vec<String> = row["participant_ids"]
+        .as_array()
+        .expect("participants")
+        .iter()
+        .map(|v| v.as_str().expect("id").to_owned())
+        .collect();
+    ids.sort();
+    let mut expected = vec![fx.bob.to_string(), fx.carol.to_string()];
+    expected.sort();
+    assert_eq!(ids, expected);
+}
+
 /// One channel of `GET /spaces/{id}/channels`, as `cookie` sees it.
 async fn channel_row(
     app: &TestApp,

@@ -1,9 +1,10 @@
-import { getChannels, getDirectMessages } from "@ruchoir/client";
+import { getChannels, getDirectMessages, type Member } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
-import { MessageSquare, SearchX, Users } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { Lock, MessageCircle, MessageSquare, SearchX, Users } from "lucide-react-native";
+import { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 
+import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
@@ -13,6 +14,7 @@ import { listStamp } from "../../logic/format";
 import { useSpace } from "../../space/SpaceProvider";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
+import { AvatarStack } from "../../ui/AvatarStack";
 import { Badge } from "../../ui/Badge";
 import { Chips } from "../../ui/Chips";
 import { SearchField } from "../../ui/SearchField";
@@ -49,6 +51,7 @@ export function DiscussionsScreen() {
   const conversations = useLoad(current ? `conversations:${current.id}` : null, (signal) =>
     loadConversations(current!.id, signal),
   );
+  const memberOf = useMemberOf(current?.id);
 
   // A new message moves a conversation up and changes its preview.
   useReloadOn((e) => e.type === "message" || e.type === "readCursor" || e.type === "channels", conversations.reload);
@@ -92,6 +95,7 @@ export function DiscussionsScreen() {
         renderItem={({ item }) => (
           <ConversationRow
             item={item}
+            memberOf={memberOf}
             onPress={() =>
               navigation.navigate("conversation", {
                 conversationId: item.id,
@@ -99,6 +103,7 @@ export function DiscussionsScreen() {
                 channelId: item.kind === "channel" ? item.id : undefined,
                 unread: item.unread,
                 kind: item.kind,
+                participants: item.participants,
               })
             }
           />
@@ -111,7 +116,22 @@ export function DiscussionsScreen() {
   );
 }
 
-export function ConversationRow({ item, onPress }: { item: ConversationItem; onPress: () => void }) {
+/** The space's people by id, for the faces of a private conversation with several of them. */
+export function useMemberOf(spaceId: string | undefined): (userId: string) => Member | undefined {
+  const members = useSpaceMembers(spaceId);
+  const byId = useMemo(() => new Map(members.list.map((m) => [m.userId, m])), [members.list]);
+  return useCallback((userId: string) => byId.get(userId), [byId]);
+}
+
+export function ConversationRow({
+  item,
+  onPress,
+  memberOf,
+}: {
+  item: ConversationItem;
+  onPress: () => void;
+  memberOf?: (userId: string) => Member | undefined;
+}) {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -137,7 +157,16 @@ export function ConversationRow({ item, onPress }: { item: ConversationItem; onP
       onPress={onPress}
       style={({ pressed }) => [styles.row, !preview && item.kind === "person" && styles.single, pressed && { backgroundColor: c.line }]}
     >
-      <Avatar name={item.name} kind={item.kind === "person" ? "person" : "workspace"} size={44} presence={item.kind === "person" ? item.presence : undefined} />
+      {item.kind === "group" && item.participants ? (
+        <AvatarStack
+          people={item.participants.map((id) => {
+            const member = memberOf?.(id);
+            return { name: member?.name ?? "", avatarUrl: member?.avatarUrl };
+          })}
+        />
+      ) : (
+        <Avatar name={item.name} kind={item.kind === "person" ? "person" : "workspace"} size={44} presence={item.kind === "person" ? item.presence : undefined} />
+      )}
       <View style={styles.body}>
         <View style={styles.line}>
           <Text variant="bodyStrong" numberOfLines={1} style={styles.name}>
@@ -155,11 +184,26 @@ export function ConversationRow({ item, onPress }: { item: ConversationItem; onP
           </Text>
           <Badge count={item.unread} tone={item.kind === "channel" ? "accent" : "ink"} />
         </View>
-        {item.kind !== "person" ? (
+        {/* What it is: a group (a channel, with a lock when it is on invitation) or a private
+            conversation with several people; a conversation with one person needs no line. */}
+        {item.kind === "channel" ? (
           <View style={styles.meta}>
-            <Users size={12} color={c.muted} />
+            {item.private ? <Lock size={12} color={c.muted} /> : <Users size={12} color={c.muted} />}
             <Text variant="tiny" tone="muted">
-              {item.members !== undefined ? t("discussions.groupOf", { count: item.members }) : t("discussions.group")}
+              {item.private
+                ? item.members !== undefined
+                  ? t("discussions.privateGroupOf", { count: item.members })
+                  : t("discussions.privateGroup")
+                : item.members !== undefined
+                  ? t("discussions.groupOf", { count: item.members })
+                  : t("discussions.group")}
+            </Text>
+          </View>
+        ) : item.kind === "group" ? (
+          <View style={styles.meta}>
+            <MessageCircle size={12} color={c.muted} />
+            <Text variant="tiny" tone="muted">
+              {item.members !== undefined ? t("discussions.conversationOf", { count: item.members }) : t("newMessage.personHint")}
             </Text>
           </View>
         ) : null}

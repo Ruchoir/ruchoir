@@ -167,7 +167,12 @@
     "emptyHint": "The channels you follow and your direct messages will show up here.",
     "files": "Attachment",
     "groupOf_one": "Group · {{count}} person",
-    "groupOf_other": "Group · {{count}} people"
+    "groupOf_other": "Group · {{count}} people",
+    "privateGroup": "Private group",
+    "privateGroupOf_one": "Private group · {{count}} person",
+    "privateGroupOf_other": "Private group · {{count}} people",
+    "conversationOf_one": "Private conversation · {{count}} person",
+    "conversationOf_other": "Private conversation · {{count}} people"
   },
   "conversation": {
     "messages": "Messages",

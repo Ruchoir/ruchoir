@@ -104,6 +104,7 @@ type DirectMessageDto = {
   name: string;
   is_group: boolean;
   user_id?: string;
+  participant_ids?: string[];
   bot: boolean;
   unread: number;
   notify_level?: string;
@@ -1082,6 +1083,7 @@ function toDirectMessage(dto: DirectMessageDto): DirectMessage {
     unread: dto.unread,
     bot: dto.bot || undefined,
     userId: dto.user_id,
+    participantIds: dto.participant_ids,
     notify: toConversationNotify(dto.notify_level, dto.muted),
     lastMessage: dto.last_message ? toLastMessage(dto.last_message) : undefined,
   };
