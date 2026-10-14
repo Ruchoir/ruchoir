@@ -13,6 +13,7 @@ import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
+import { feel } from "../../ui/haptics";
 import { KeyboardForm } from "../../ui/KeyboardForm";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
@@ -50,8 +51,11 @@ export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
     setBusy(true);
     setFailed(false);
     try {
-      enter(await acceptInvitation(invitation.token));
+      const space = await acceptInvitation(invitation.token);
+      feel("success");
+      enter(space);
     } catch {
+      feel("failure");
       setFailed(true);
     } finally {
       setBusy(false);
@@ -62,8 +66,11 @@ export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
     setBusy(true);
     setFailed(false);
     try {
-      enter(await createSpace(name.trim()));
+      const space = await createSpace(name.trim());
+      feel("success");
+      enter(space);
     } catch {
+      feel("failure");
       setFailed(true);
     } finally {
       setBusy(false);

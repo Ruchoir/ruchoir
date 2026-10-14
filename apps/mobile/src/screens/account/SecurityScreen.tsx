@@ -45,7 +45,7 @@ export function SecurityScreen() {
         onPress: () =>
           void generateRecoveryCodes().then(
             (codes) => navigation.navigate("recoveryCodes", { codes }),
-            () => toast(t("security.generateFailed")),
+            () => toast(t("security.generateFailed"), "failure"),
           ),
       },
     ]);
@@ -62,7 +62,7 @@ export function SecurityScreen() {
               toast(t("security.passkeyRemoved"));
               reload();
             },
-            () => toast(t("load.failed")),
+            () => toast(t("load.failed"), "failure"),
           ),
       },
     ]);
@@ -76,7 +76,7 @@ export function SecurityScreen() {
         onPress: () =>
           void logoutEverywhere().then(
             () => session.signOut(),
-            () => toast(t("security.signOutFailed")),
+            () => toast(t("security.signOutFailed"), "failure"),
           ),
       },
     ]);

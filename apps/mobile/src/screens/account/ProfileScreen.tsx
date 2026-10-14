@@ -15,6 +15,7 @@ import { ActionRow } from "../../ui/ActionRow";
 import { Avatar } from "../../ui/Avatar";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
+import { feel } from "../../ui/haptics";
 import { KeyboardForm } from "../../ui/KeyboardForm";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { LoadState } from "../../ui/States";
@@ -79,7 +80,7 @@ export function ProfileScreen() {
       setAvatar(url);
       session.updateUser({ avatarUrl: url });
     } catch {
-      toast(t("profile.photoFailed"));
+      toast(t("profile.photoFailed"), "failure");
     } finally {
       setPhotoBusy(false);
     }
@@ -92,7 +93,7 @@ export function ProfileScreen() {
       setAvatar(undefined);
       session.updateUser({ avatarUrl: undefined });
     } catch {
-      toast(t("profile.photoFailed"));
+      toast(t("profile.photoFailed"), "failure");
     } finally {
       setPhotoBusy(false);
     }
@@ -111,9 +112,10 @@ export function ProfileScreen() {
         timezone: form.zone,
       });
       session.updateUser({ name: saved.name, timezone: saved.timezone });
-      toast(t("profile.saved"));
+      toast(t("profile.saved"), "success");
       navigation.goBack();
     } catch {
+      feel("failure");
       setFailed(true);
     } finally {
       setBusy(false);

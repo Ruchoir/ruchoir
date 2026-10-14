@@ -51,7 +51,14 @@ show. What every screen keeps:
 - **A tab's own action floats** at its bottom right: `FloatingButton` (`ui/FloatingButton.tsx`),
   "New message" over Discussions, "New event" over the Agenda. Its list keeps 96 of room under it.
 - **Confirmations and failures elsewhere** go through `useToast()` ("Texte copié", "Réaction non
-  enregistrée"); a question that needs an answer is an `Alert`.
+  enregistrée"); a question that needs an answer is an `Alert`. A toast reporting a failure passes
+  `"failure"` (`toast(text, "failure")`), one closing something long the person submitted `"success"`.
+- **Haptics come from `feel()`** (`ui/haptics.ts`), never from `expo-haptics` directly: one feel per
+  kind of moment, the table in `logic/haptics.ts` (Apple's and Android's documented meanings; Android
+  uses the system's haptic constants, never the vibrator). `menu` for a long press that opens
+  something, `choice` when a choice changes (`Segmented`, `Chips` and `Toggle` play theirs), `refresh`,
+  `send`, and `success` / `failure` / `warning` for outcomes. Never on scrolling, tabs, opening a
+  screen, copying, typing, a one-tap action whose toast is enough, live events, or the camera.
 - Check a change against the mockup side by side before calling it done (`docs/specs/mobile/mockups`).
 
 ## Layout

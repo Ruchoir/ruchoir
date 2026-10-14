@@ -90,7 +90,7 @@ export function EventSummarySheet() {
       navigation.goBack();
       toast(t("eventForm.deleted"));
     } catch {
-      toast(t("eventForm.deleteFailed"));
+      toast(t("eventForm.deleteFailed"), "failure");
     }
   };
   useScopeRequests(deleteKey, (scope) => void remove(scope));
@@ -121,7 +121,7 @@ export function EventSummarySheet() {
       () => loaded.reload(),
       () => {
         setAnswered(undefined);
-        toast(t("event.answerFailed"));
+        toast(t("event.answerFailed"), "failure");
       },
     );
   };

@@ -11,6 +11,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 
 import { outboxReducer, type OutboxItem } from "../logic/outbox";
 import { useRealtimeActions } from "../realtime/RealtimeProvider";
+import { feel } from "../ui/haptics";
 
 export type OutgoingMessage = {
   conversationId: string;
@@ -62,7 +63,10 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
           emit({ type: "message", change: "created", conversationId: item.conversationId, message: { ...message, fresh: true } });
           dispatch({ type: "sent", localId: item.localId });
         },
-        () => dispatch({ type: "failed", localId: item.localId }),
+        () => {
+          feel("failure");
+          dispatch({ type: "failed", localId: item.localId });
+        },
       );
     },
     [emit],

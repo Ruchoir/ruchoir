@@ -21,6 +21,7 @@ import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { AvatarStack } from "../../ui/AvatarStack";
 import { Button } from "../../ui/Button";
+import { feel } from "../../ui/haptics";
 import { Segmented } from "../../ui/Segmented";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
@@ -76,6 +77,7 @@ export function NewGroupScreen() {
     try {
       channel = await createChannel(space, { name: name.trim(), type: access, topic: topic.trim() || undefined });
     } catch {
+      feel("failure");
       setFailed(true);
       setBusy(false);
       return;
@@ -95,9 +97,10 @@ export function NewGroupScreen() {
     const unsent = invited.filter((r) => r.status === "rejected").length;
     navigation.goBack();
     navigation.navigate("conversation", { conversationId: channel.id, title: channel.name, channelId: channel.id, kind: "channel" });
-    if (!everyone) toast(t("group.membersFailed"));
-    else if (unsent > 0) toast(t("group.invitesFailed", { count: unsent }));
-    else if (addresses.length > 0) toast(t("group.invitesSent", { count: addresses.length }));
+    if (!everyone) toast(t("group.membersFailed"), "failure");
+    else if (unsent > 0) toast(t("group.invitesFailed", { count: unsent }), "failure");
+    else if (addresses.length > 0) toast(t("group.invitesSent", { count: addresses.length }), "success");
+    else feel("success");
   };
 
   return (

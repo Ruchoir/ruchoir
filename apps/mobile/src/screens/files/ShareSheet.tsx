@@ -45,7 +45,7 @@ export function ShareSheet() {
           navigation.goBack();
           void downloadToCache({ id: file.id!, name: file.name, url: fileDownloadUrl(file.id!), mime: file.mimeType, sizeBytes: file.sizeBytes })
             .then((uri) => Sharing.shareAsync(uri, { mimeType: file.mimeType, dialogTitle: file.name }))
-            .catch(() => toast(t("files.actionFailed")));
+            .catch(() => toast(t("files.actionFailed"), "failure"));
         }}
       />
       {manage && caps.data?.publicLinks ? (

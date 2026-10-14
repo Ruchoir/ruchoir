@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "../../i18n";
 import { hairline } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
+import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 
 /**
@@ -31,7 +32,11 @@ export function ReactionPills({
           accessibilityLabel={t("message.reactionCount", { emoji: r.emoji, count: r.count })}
           accessibilityState={{ selected: !!r.mine }}
           onPress={() => onToggle(r.emoji)}
-          onLongPress={() => (r.users?.length ? Alert.alert(r.emoji, r.users.join(", ")) : undefined)}
+          onLongPress={() => {
+            if (!r.users?.length) return;
+            feel("menu");
+            Alert.alert(r.emoji, r.users.join(", "));
+          }}
           style={({ pressed }) => [
             styles.pill,
             r.mine ? { backgroundColor: s.selected, borderColor: c.ink } : { backgroundColor: c.surface, borderColor: c.line },

@@ -4,6 +4,9 @@
  *
  * On iOS it is drawn in a window of its own (`FullWindowOverlay`): a modal or a sheet is a native
  * screen above the app's view, and a toast drawn in that view stayed hidden under it.
+ *
+ * A toast that reports an outcome carries its haptic (`feel`), so what is seen and what is felt come
+ * together: "failure" for something that did not work, "success" for something long that did.
  */
 import { createContext, Fragment, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, Platform, StyleSheet, View } from "react-native";
@@ -12,6 +15,7 @@ import { FullWindowOverlay } from "react-native-screens";
 
 import { radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
+import { feel, type Feel } from "./haptics";
 import { Text } from "./Text";
 
 const SHOWN_MS = 2400;
@@ -19,7 +23,12 @@ const SHOWN_MS = 2400;
 /** Above every modal and sheet on iOS; Android draws its modals in the app's own view. */
 const Above = Platform.OS === "ios" ? FullWindowOverlay : Fragment;
 
-const ToastContext = createContext<(text: string) => void>(() => {});
+/** The feels a toast may carry: outcomes only. */
+export type ToastFeel = Extract<Feel, "success" | "failure" | "warning">;
+
+type ShowToast = (text: string, feel?: ToastFeel) => void;
+
+const ToastContext = createContext<ShowToast>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { c } = useTheme();
@@ -27,7 +36,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
   const [opacity] = useState(() => new Animated.Value(0));
 
-  const show = useCallback((text: string) => {
+  const show = useCallback<ShowToast>((text, outcome) => {
+    if (outcome) feel(outcome);
     setToast((prev) => ({ text, id: (prev?.id ?? 0) + 1 }));
     AccessibilityInfo.announceForAccessibility(text);
   }, []);
@@ -61,8 +71,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Show a toast. */
-export function useToast(): (text: string) => void {
+/** Show a toast, with the haptic of its outcome when it reports one. */
+export function useToast(): ShowToast {
   return useContext(ToastContext);
 }
 

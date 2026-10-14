@@ -55,7 +55,7 @@ export function SpaceGate() {
       },
       () => {
         if (!current) return;
-        toast(t("joinSpace.joinFailed"));
+        toast(t("joinSpace.joinFailed"), "failure");
         setSettled(true);
       },
     );

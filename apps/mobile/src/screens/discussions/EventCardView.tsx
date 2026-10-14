@@ -15,6 +15,7 @@ import { useLocale } from "../../i18n/useLocale";
 import { timeOf } from "../../logic/format";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
+import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 import { AnswerButtons, type Answer } from "../agenda/AnswerButtons";
 
@@ -44,6 +45,7 @@ export function EventCardView({ message: m, myUserId }: { message: ApiMessage; m
     setStatus(next);
     setFailed(false);
     respondToEvent(card.eventId, next).catch(() => {
+      feel("failure");
       setStatus(before);
       setFailed(true);
     });

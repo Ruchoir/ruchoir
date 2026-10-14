@@ -55,7 +55,7 @@ export function NotificationPrefs() {
     setChanged(next);
     saveNotificationPreferences(next).catch(() => {
       setChanged(before);
-      toast(t("details.saveFailed"));
+      toast(t("details.saveFailed"), "failure");
     });
   };
 

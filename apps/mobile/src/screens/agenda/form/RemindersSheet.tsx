@@ -177,7 +177,7 @@ function OwnReminders({ eventId }: { eventId: string }) {
           setValue(next);
           setEventMe(eventId, next ?? "default").catch(() => {
             setValue(null);
-            toast(t("eventForm.saveFailed"));
+            toast(t("eventForm.saveFailed"), "failure");
           });
         }}
       />

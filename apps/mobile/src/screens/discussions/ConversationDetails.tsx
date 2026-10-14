@@ -90,7 +90,7 @@ export function ConversationDetails() {
     setChosen(next);
     saveConversationNotify(conversationId, next).catch(() => {
       setChosen(before);
-      toast(t("details.saveFailed"));
+      toast(t("details.saveFailed"), "failure");
     });
   };
 

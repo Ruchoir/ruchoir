@@ -14,6 +14,7 @@ import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Chips } from "../../ui/Chips";
 import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
+import { feel } from "../../ui/haptics";
 import { SearchField } from "../../ui/SearchField";
 import { EmptyState, LoadState } from "../../ui/States";
 import { TabHeader } from "../../ui/TabHeader";
@@ -79,6 +80,7 @@ export function FilesScreen() {
           <RefreshControl
             refreshing={false}
             onRefresh={() => {
+              feel("refresh");
               root.reload();
               listed.reload();
             }}
@@ -181,7 +183,14 @@ function FolderTiles({ folders }: { folders: SpaceFile[] }) {
           key={folder.id}
           accessibilityRole="button"
           onPress={() => openEntry(navigation, folder)}
-          onLongPress={current ? () => navigation.navigate("fileMenu", { file: folder, spaceId: current.id }) : undefined}
+          onLongPress={
+            current
+              ? () => {
+                  feel("menu");
+                  navigation.navigate("fileMenu", { file: folder, spaceId: current.id });
+                }
+              : undefined
+          }
           style={({ pressed }) => [styles.tile, { borderColor: c.lineStrong, backgroundColor: c.surface }, pressed && { opacity: 0.6 }]}
         >
           <Folder size={20} color={c.ink} />

@@ -58,7 +58,7 @@ export function EntryMenu() {
       close();
       void downloadToCache({ id: file.id!, name: file.name, url: fileDownloadUrl(file.id!), mime: file.mimeType, sizeBytes: file.sizeBytes })
         .then((uri) => Sharing.shareAsync(uri, { mimeType: file.mimeType, dialogTitle: file.name }))
-        .catch(() => toast(t("files.actionFailed")));
+        .catch(() => toast(t("files.actionFailed"), "failure"));
     },
     star: () => {
       close();
@@ -69,7 +69,7 @@ export function EntryMenu() {
           emit({ type: "files", spaceId: params.spaceId });
           toast(next ? t("files.favoured") : t("files.unfavoured"));
         },
-        () => toast(t("files.actionFailed")),
+        () => toast(t("files.actionFailed"), "failure"),
       );
     },
     rename: () =>
@@ -100,7 +100,7 @@ export function EntryMenu() {
             close();
             deleteFile(file.id!).then(
               () => toast(t("files.trashedOne")),
-              () => toast(t("files.deleteFailed")),
+              () => toast(t("files.deleteFailed"), "failure"),
             );
           },
         },

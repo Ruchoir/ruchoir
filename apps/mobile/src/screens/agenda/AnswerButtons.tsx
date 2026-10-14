@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "../../i18n";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
+import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 
 export type Answer = Exclude<AttendeeStatus, "needs_action">;
@@ -28,7 +29,10 @@ export function AnswerButtons({ value, disabled, onAnswer }: { value?: AttendeeS
             accessibilityRole="button"
             accessibilityState={{ selected: on, disabled }}
             disabled={disabled}
-            onPress={() => onAnswer(status)}
+            onPress={() => {
+              if (!on) feel("choice");
+              onAnswer(status);
+            }}
             style={({ pressed }) => [
               styles.answer,
               { borderColor: on ? c.ink : c.controlLine, backgroundColor: on ? color : c.surface },

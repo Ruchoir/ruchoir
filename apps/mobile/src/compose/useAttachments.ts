@@ -22,6 +22,7 @@ import { useTranslation } from "../i18n";
 import { useLocale } from "../i18n/useLocale";
 import { splitBySize } from "../logic/attachments";
 import { fileSize } from "../logic/format";
+import { feel } from "../ui/haptics";
 
 /** A file of the phone, as a picker hands it over. */
 export type LocalFile = { uri: string; name: string; mime: string; size?: number; width?: number; height?: number };
@@ -68,6 +69,7 @@ export function useAttachments(conversationId: string) {
           (attachment) => update(file.key, { state: "ready", sent: file.size, attachment }),
           (err: unknown) => {
             if (err instanceof Error && err.name === "AbortError") return;
+            feel("failure");
             update(file.key, { state: "failed", tooLarge: isApiError(err, 413) });
           },
         )

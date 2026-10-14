@@ -56,7 +56,7 @@ export function VersionsSheet() {
               versions.reload();
               toast(t("files.versionRestored", { number: v.number }));
             },
-            () => toast(t("files.versionRestoreFailed")),
+            () => toast(t("files.versionRestoreFailed"), "failure"),
           ),
       },
     ]);

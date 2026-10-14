@@ -70,7 +70,7 @@ export function MessageActionSheet() {
       () => toast(pinned ? t("message.pinnedDone") : t("message.unpinnedDone")),
       () => {
         emit({ type: "patched", conversationId, message: m });
-        toast(t("message.actionFailed"));
+        toast(t("message.actionFailed"), "failure");
       },
     );
   };
@@ -86,7 +86,7 @@ export function MessageActionSheet() {
           emit({ type: "patched", conversationId, message: { ...m, deleted: true } });
           deleteMessage(m.id).catch(() => {
             emit({ type: "patched", conversationId, message: m });
-            toast(t("message.deleteFailed"));
+            toast(t("message.deleteFailed"), "failure");
           });
         },
       },

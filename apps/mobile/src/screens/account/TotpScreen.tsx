@@ -16,6 +16,7 @@ import { radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
+import { feel } from "../../ui/haptics";
 import { KeyboardForm } from "../../ui/KeyboardForm";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { LoadState } from "../../ui/States";
@@ -63,11 +64,12 @@ function TurnOn() {
     try {
       await confirmTotp(code);
     } catch {
+      feel("failure");
       setWrong(true);
       setBusy(false);
       return;
     }
-    toast(t("security.mfaEnabled"));
+    toast(t("security.mfaEnabled"), "success");
     // Straight to the codes: they can only be shown now, and they are what saves a lost phone.
     const codes = await generateRecoveryCodes().catch(() => null);
     if (codes) navigation.replace("recoveryCodes", { codes });
@@ -101,7 +103,7 @@ function TurnOn() {
                 variant="secondary"
                 label={t("security.openAuthenticator")}
                 icon={<ExternalLink size={18} color={c.ink} />}
-                onPress={() => void Linking.openURL(enrolment.otpauthUrl).catch(() => toast(t("security.noAuthenticator")))}
+                onPress={() => void Linking.openURL(enrolment.otpauthUrl).catch(() => toast(t("security.noAuthenticator"), "failure"))}
               />
               {secret ? (
                 <View style={[styles.secret, { backgroundColor: c.surface, borderColor: c.line }]}>
@@ -158,9 +160,10 @@ function TurnOff() {
     setError(null);
     try {
       await disableTotp(password);
-      toast(t("security.mfaDisabled"));
+      toast(t("security.mfaDisabled"), "success");
       navigation.goBack();
     } catch (err) {
+      feel("failure");
       setError(isApiError(err, 401) ? "wrong" : "other");
       setBusy(false);
     }
