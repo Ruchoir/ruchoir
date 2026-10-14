@@ -2,7 +2,7 @@ import { canManage } from "@ruchoir/client/filesLogic";
 import { getFolder } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Camera, FileText, Image as ImageIcon, Paperclip } from "lucide-react-native";
+import { Camera, FileText, FolderPlus, Image as ImageIcon, Paperclip } from "lucide-react-native";
 import { Alert } from "react-native";
 
 import { uploadLimit } from "../../api/limits";
@@ -71,6 +71,13 @@ export function AddSheet() {
         title={t("files.scanTitle")}
         subtitle={t("files.scanHint")}
         onPress={() => navigation.replace("scan", { spaceId: params.spaceId, folderId: params.folderId, folderName: params.folderName })}
+      />
+      <ActionRow
+        icon={FolderPlus}
+        tint={c.sun}
+        title={t("files.newFolder")}
+        subtitle={t("files.newFolderHint")}
+        onPress={() => navigation.replace("fileName", { mode: "create", spaceId: params.spaceId, folderId: params.folderId })}
       />
     </Sheet>
   );

@@ -1,7 +1,8 @@
-import { getFolder } from "@ruchoir/client";
+import { getFolder, isApiError } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { FolderOpen, Upload } from "lucide-react-native";
+import { useEffect } from "react";
 import { FlatList, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -14,6 +15,7 @@ import { useTheme } from "../../theme/useTheme";
 import { BackHeader } from "../../ui/BackHeader";
 import { FloatingButton } from "../../ui/FloatingButton";
 import { EmptyState, LoadState } from "../../ui/States";
+import { useToast } from "../../ui/Toast";
 import { FileRow } from "./FileRow";
 import { UploadStrip } from "./UploadStrip";
 
@@ -24,7 +26,20 @@ export function FolderScreen() {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { current } = useSpace();
-  const listing = useLoad(current ? `folder:${params.folderId}` : null, (signal) => getFolder(current!.id, params.folderId, signal));
+  const toast = useToast();
+  // A folder deleted meanwhile reads as `null`: the screen says so and goes back.
+  const listing = useLoad(current ? `folder:${params.folderId}` : null, (signal) =>
+    getFolder(current!.id, params.folderId, signal).catch((err: unknown) => {
+      if (isApiError(err, 404)) return null;
+      throw err;
+    }),
+  );
+  const gone = listing.data === null;
+  useEffect(() => {
+    if (!gone) return;
+    toast(t("files.folderGone"));
+    navigation.goBack();
+  }, [gone, navigation, t, toast]);
   useReloadOn((e) => e.type === "files", listing.reload);
   const entries = [...(listing.data?.entries ?? [])].sort(
     (a, b) => Number(b.kind === "folder") - Number(a.kind === "folder") || a.name.localeCompare(b.name),
@@ -39,7 +54,7 @@ export function FolderScreen() {
         <FlatList
           data={entries}
           keyExtractor={(f, i) => f.id ?? String(i)}
-          renderItem={({ item }) => <FileRow file={item} />}
+          renderItem={({ item }) => <FileRow file={item} path={listing.data?.breadcrumb.map((b) => b.name).join(" / ")} />}
           ListEmptyComponent={<EmptyState icon={FolderOpen} title={t("files.folderEmpty")} text={t("files.folderEmptyHint")} />}
           ListHeaderComponent={current ? <UploadStrip spaceId={current.id} /> : null}
           contentContainerStyle={styles.list}

@@ -488,7 +488,38 @@
     "scanName": "Skan {{day}}-{{month}}-{{year}} {{hour}}.{{minute}}",
     "scanFailed": "Nie udało się utworzyć PDF. Spróbuj ponownie.",
     "scanDiscardTitle": "Odrzucić skan?",
-    "scanDiscardText": "Zrobione strony zostaną utracone."
+    "scanDiscardText": "Zrobione strony zostaną utracone.",
+    "folderCreated": "Folder utworzony",
+    "folderFailed": "Nie udało się utworzyć folderu",
+    "renamed": "Zmieniono nazwę",
+    "renameFailed": "Nie udało się zmienić nazwy",
+    "newFolder": "Nowy folder",
+    "folderName": "Nazwa folderu",
+    "rename": "Zmień nazwę",
+    "size": "Rozmiar",
+    "location": "Lokalizacja",
+    "created": "Utworzono",
+    "modified": "Zmodyfikowano",
+    "modifiedOnBy": "{{when}}, przez {{who}}",
+    "version": "Wersja",
+    "typeFolder": "Folder",
+    "importedFrom": "Zaimportowano z {{source}}",
+    "trashedOne": "Przeniesiono do kosza",
+    "newFolderHint": "Aby uporządkować pliki",
+    "create": "Utwórz folder",
+    "nameEmpty": "Podaj nazwę.",
+    "nameUsed": "Ta nazwa jest tu już zajęta.",
+    "deleteConfirm": "Przenieść „{{name}}” do kosza?",
+    "deleteFailed": "Nie udało się usunąć",
+    "favoured": "Dodano do ulubionych",
+    "unfavoured": "Usunięto z ulubionych",
+    "actionFailed": "Nie udało się. Spróbuj ponownie.",
+    "folderGone": "Ten folder już nie istnieje.",
+    "type": "Typ",
+    "root": "W katalogu głównym przestrzeni",
+    "more": "Działania dla {{name}}",
+    "name": "Nazwa",
+    "source": "Źródło"
   },
   "viewer": {
     "share": "Udostępnij lub otwórz w…",
@@ -683,5 +714,9 @@
     "membersCount_other": "{{count}} członka",
     "membersCount_few": "{{count}} członkowie",
     "membersCount_many": "{{count}} członków"
+  },
+  "sidebar": {
+    "favourite": "Dodaj do ulubionych",
+    "unfavourite": "Usuń z ulubionych"
   }
 }

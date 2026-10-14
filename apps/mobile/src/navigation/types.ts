@@ -1,4 +1,4 @@
-import type { ApiMessage } from "@ruchoir/client";
+import type { ApiMessage, SpaceFile } from "@ruchoir/client";
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParams = {
@@ -29,7 +29,8 @@ export type RootParams = {
   };
   folder: { folderId: string; name: string };
   /** A file to show: a space file, a message's attachment or an event's, by its download URL. */
-  fileViewer: { file: ViewerFile };
+  /** `entry` and `path` for a space file, whose menu the viewer offers. */
+  fileViewer: { file: ViewerFile; entry?: SpaceFile; path?: string };
   /** An event opened; `start` is where the occurrence was shown (a date of a series is found near it). */
   eventSummary: { eventId: string; recurrenceId?: string; start?: string };
   /**
@@ -83,6 +84,10 @@ export type RootParams = {
   uploads: undefined;
   /** "Scan a document" into a folder of a space. */
   scan: { spaceId: string; folderId?: string; folderName: string };
+  /** An entry's menu and what it opens; `path` is where the entry sits ("Clients / 2026"). */
+  fileMenu: { file: SpaceFile; spaceId: string; path?: string };
+  fileName: { mode: "create" | "rename"; spaceId: string; folderId?: string; fileId?: string; name?: string };
+  fileDetails: { file: SpaceFile; spaceId: string; path?: string };
   uploadConflict: undefined;
   spaceSheet: undefined;
   accountSheet: undefined;

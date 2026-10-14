@@ -73,7 +73,10 @@ export function FilesScreen() {
         {debounced ? (
           found.data ? (
             found.data.length ? (
-              found.data.map((entry) => <FileRow key={entry.file.id} file={entry.file} line={entry.path.map((p) => p.name).join(" / ") || undefined} />)
+              found.data.map((entry) => {
+                const path = entry.path.map((p) => p.name).join(" / ") || undefined;
+                return <FileRow key={entry.file.id} file={entry.file} line={path} path={path} />;
+              })
             ) : (
               <EmptyState size="compact" icon={SearchX} title={t("files.noMatch")} text={t("search.tryAnother")} />
             )
@@ -85,8 +88,13 @@ export function FilesScreen() {
         ) : (
           <>
             {folders.length ? <FolderTiles folders={folders} /> : null}
-            {files.length ? <Section title={t("files.atRoot")} files={files} /> : null}
-            {recent.data?.length ? <Section title={t("files.recent")} files={recent.data.slice(0, 20).map((e) => e.file)} /> : null}
+            {files.length ? <Section title={t("files.atRoot")} rows={files.map((file) => ({ file }))} /> : null}
+            {recent.data?.length ? (
+              <Section
+                title={t("files.recent")}
+                rows={recent.data.slice(0, 20).map((e) => ({ file: e.file, path: e.path.map((p) => p.name).join(" / ") || undefined }))}
+              />
+            ) : null}
             {!folders.length && !files.length ? <EmptyState icon={FolderOpen} title={t("files.empty")} text={t("files.emptyHint")} /> : null}
           </>
         )}
@@ -105,6 +113,7 @@ export function FilesScreen() {
 function FolderTiles({ folders }: { folders: SpaceFile[] }) {
   const { c } = useTheme();
   const navigation = useNavigation<NavigationProp<RootParams>>();
+  const { current } = useSpace();
   return (
     <View style={styles.grid}>
       {folders.map((folder) => (
@@ -112,6 +121,7 @@ function FolderTiles({ folders }: { folders: SpaceFile[] }) {
           key={folder.id}
           accessibilityRole="button"
           onPress={() => openEntry(navigation, folder)}
+          onLongPress={current ? () => navigation.navigate("fileMenu", { file: folder, spaceId: current.id }) : undefined}
           style={({ pressed }) => [styles.tile, { borderColor: c.lineStrong, backgroundColor: c.surface }, pressed && { opacity: 0.6 }]}
         >
           <Folder size={20} color={c.ink} />
@@ -124,14 +134,14 @@ function FolderTiles({ folders }: { folders: SpaceFile[] }) {
   );
 }
 
-function Section({ title, files }: { title: string; files: SpaceFile[] }) {
+function Section({ title, rows }: { title: string; rows: { file: SpaceFile; path?: string }[] }) {
   return (
     <View>
       <Text variant="small" tone="muted" style={styles.section}>
         {title}
       </Text>
-      {files.map((f, i) => (
-        <FileRow key={f.id ?? i} file={f} />
+      {rows.map((r, i) => (
+        <FileRow key={r.file.id ?? i} file={r.file} path={r.path} />
       ))}
     </View>
   );

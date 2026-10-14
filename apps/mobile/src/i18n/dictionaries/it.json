@@ -455,7 +455,38 @@
     "scanName": "Scansione {{day}}-{{month}}-{{year}} {{hour}}.{{minute}}",
     "scanFailed": "Non è stato possibile creare il PDF. Riprova.",
     "scanDiscardTitle": "Annullare la scansione?",
-    "scanDiscardText": "Le pagine scattate andranno perse."
+    "scanDiscardText": "Le pagine scattate andranno perse.",
+    "folderCreated": "Cartella creata",
+    "folderFailed": "Impossibile creare la cartella",
+    "renamed": "Rinominato",
+    "renameFailed": "Impossibile rinominare",
+    "newFolder": "Nuova cartella",
+    "folderName": "Nome della cartella",
+    "rename": "Rinomina",
+    "size": "Dimensione",
+    "location": "Posizione",
+    "created": "Creato",
+    "modified": "Modificato",
+    "modifiedOnBy": "{{when}}, da {{who}}",
+    "version": "Versione",
+    "typeFolder": "Cartella",
+    "importedFrom": "Importato da {{source}}",
+    "trashedOne": "Spostato nel cestino",
+    "newFolderHint": "Per ordinare i tuoi file",
+    "create": "Crea la cartella",
+    "nameEmpty": "Dai un nome.",
+    "nameUsed": "Questo nome è già usato qui.",
+    "deleteConfirm": "Spostare «{{name}}» nel cestino?",
+    "deleteFailed": "Impossibile eliminare",
+    "favoured": "Aggiunto ai preferiti",
+    "unfavoured": "Rimosso dai preferiti",
+    "actionFailed": "Non ha funzionato. Riprova.",
+    "folderGone": "Questa cartella non esiste più.",
+    "type": "Tipo",
+    "root": "Nella radice dello spazio",
+    "more": "Azioni su {{name}}",
+    "name": "Nome",
+    "source": "Origine"
   },
   "viewer": {
     "share": "Condividi o apri in…",
@@ -642,5 +673,9 @@
     "membersCount_one": "{{count}} membro",
     "membersCount_other": "{{count}} membri",
     "membersCount_many": "{{count}} membri"
+  },
+  "sidebar": {
+    "favourite": "Aggiungi ai preferiti",
+    "unfavourite": "Rimuovi dai preferiti"
   }
 }

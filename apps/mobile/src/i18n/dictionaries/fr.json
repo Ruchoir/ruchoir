@@ -422,7 +422,38 @@
     "scanName": "Scan {{day}}-{{month}}-{{year}} {{hour}}h{{minute}}",
     "scanFailed": "Le PDF n’a pas pu être créé. Réessayez.",
     "scanDiscardTitle": "Abandonner le scan ?",
-    "scanDiscardText": "Les pages prises seront perdues."
+    "scanDiscardText": "Les pages prises seront perdues.",
+    "folderCreated": "Dossier créé",
+    "folderFailed": "Création du dossier impossible",
+    "renamed": "Renommé",
+    "renameFailed": "Renommage impossible",
+    "newFolder": "Nouveau dossier",
+    "folderName": "Nom du dossier",
+    "rename": "Renommer",
+    "size": "Taille",
+    "location": "Emplacement",
+    "created": "Créé",
+    "modified": "Modifié",
+    "modifiedOnBy": "{{when}}, par {{who}}",
+    "version": "Version",
+    "typeFolder": "Dossier",
+    "importedFrom": "Importé depuis {{source}}",
+    "trashedOne": "Placé dans la corbeille",
+    "newFolderHint": "Pour ranger vos fichiers",
+    "create": "Créer le dossier",
+    "nameEmpty": "Donnez un nom.",
+    "nameUsed": "Ce nom est déjà pris ici.",
+    "deleteConfirm": "Placer « {{name}} » dans la corbeille ?",
+    "deleteFailed": "Suppression impossible",
+    "favoured": "Ajouté aux favoris",
+    "unfavoured": "Retiré des favoris",
+    "actionFailed": "Ça n’a pas marché. Réessayez.",
+    "folderGone": "Ce dossier n’existe plus.",
+    "type": "Type",
+    "root": "À la racine de l’espace",
+    "more": "Actions sur {{name}}",
+    "name": "Nom",
+    "source": "Source"
   },
   "viewer": {
     "share": "Partager ou ouvrir dans…",
@@ -601,5 +632,9 @@
     "saveFailed": "Réglage non enregistré",
     "membersCount_one": "{{count}} membre",
     "membersCount_other": "{{count}} membres"
+  },
+  "sidebar": {
+    "favourite": "Ajouter aux favoris",
+    "unfavourite": "Retirer des favoris"
   }
 }

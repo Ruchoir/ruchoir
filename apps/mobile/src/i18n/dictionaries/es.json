@@ -455,7 +455,38 @@
     "scanName": "Escaneo {{day}}-{{month}}-{{year}} {{hour}}.{{minute}}",
     "scanFailed": "No se ha podido crear el PDF. Inténtelo de nuevo.",
     "scanDiscardTitle": "¿Descartar el escaneo?",
-    "scanDiscardText": "Se perderán las páginas tomadas."
+    "scanDiscardText": "Se perderán las páginas tomadas.",
+    "folderCreated": "Carpeta creada",
+    "folderFailed": "No se ha podido crear la carpeta",
+    "renamed": "Renombrado",
+    "renameFailed": "No se ha podido renombrar",
+    "newFolder": "Nueva carpeta",
+    "folderName": "Nombre de la carpeta",
+    "rename": "Renombrar",
+    "size": "Tamaño",
+    "location": "Ubicación",
+    "created": "Creado",
+    "modified": "Modificado",
+    "modifiedOnBy": "{{when}}, por {{who}}",
+    "version": "Versión",
+    "typeFolder": "Carpeta",
+    "importedFrom": "Importado de {{source}}",
+    "trashedOne": "Movido a la papelera",
+    "newFolderHint": "Para ordenar sus archivos",
+    "create": "Crear la carpeta",
+    "nameEmpty": "Ponga un nombre.",
+    "nameUsed": "Este nombre ya se usa aquí.",
+    "deleteConfirm": "¿Mover «{{name}}» a la papelera?",
+    "deleteFailed": "No se ha podido eliminar",
+    "favoured": "Añadido a favoritos",
+    "unfavoured": "Quitado de favoritos",
+    "actionFailed": "No ha funcionado. Inténtelo de nuevo.",
+    "folderGone": "Esta carpeta ya no existe.",
+    "type": "Tipo",
+    "root": "En la raíz del espacio",
+    "more": "Acciones sobre {{name}}",
+    "name": "Nombre",
+    "source": "Origen"
   },
   "viewer": {
     "share": "Compartir o abrir en…",
@@ -642,5 +673,9 @@
     "membersCount_one": "{{count}} miembro",
     "membersCount_other": "{{count}} miembros",
     "membersCount_many": "{{count}} miembros"
+  },
+  "sidebar": {
+    "favourite": "Añadir a favoritos",
+    "unfavourite": "Quitar de favoritos"
   }
 }

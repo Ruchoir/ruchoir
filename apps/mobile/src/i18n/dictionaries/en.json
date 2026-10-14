@@ -422,7 +422,38 @@
     "scanName": "Scan {{year}}-{{month}}-{{day}} {{hour}}.{{minute}}",
     "scanFailed": "The PDF could not be made. Try again.",
     "scanDiscardTitle": "Discard the scan?",
-    "scanDiscardText": "The pages taken will be lost."
+    "scanDiscardText": "The pages taken will be lost.",
+    "folderCreated": "Folder created",
+    "folderFailed": "Could not create the folder",
+    "renamed": "Renamed",
+    "renameFailed": "Could not rename",
+    "newFolder": "New folder",
+    "folderName": "Folder name",
+    "rename": "Rename",
+    "size": "Size",
+    "location": "Location",
+    "created": "Created",
+    "modified": "Modified",
+    "modifiedOnBy": "{{when}}, by {{who}}",
+    "version": "Version",
+    "typeFolder": "Folder",
+    "importedFrom": "Imported from {{source}}",
+    "trashedOne": "Moved to the trash",
+    "newFolderHint": "To sort your files",
+    "create": "Create the folder",
+    "nameEmpty": "Give it a name.",
+    "nameUsed": "This name is already taken here.",
+    "deleteConfirm": "Move “{{name}}” to the trash?",
+    "deleteFailed": "Could not delete",
+    "favoured": "Added to favourites",
+    "unfavoured": "Removed from favourites",
+    "actionFailed": "That did not work. Try again.",
+    "folderGone": "This folder no longer exists.",
+    "type": "Kind",
+    "root": "At the space’s root",
+    "more": "Actions on {{name}}",
+    "name": "Name",
+    "source": "Source"
   },
   "viewer": {
     "share": "Share or open in…",
@@ -601,5 +632,9 @@
     "saveFailed": "Setting not saved",
     "membersCount_one": "{{count}} member",
     "membersCount_other": "{{count}} members"
+  },
+  "sidebar": {
+    "favourite": "Add to favourites",
+    "unfavourite": "Remove from favourites"
   }
 }

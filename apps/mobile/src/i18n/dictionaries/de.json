@@ -422,7 +422,38 @@
     "scanName": "Scan {{day}}.{{month}}.{{year}} {{hour}}.{{minute}}",
     "scanFailed": "Das PDF konnte nicht erstellt werden. Versuchen Sie es erneut.",
     "scanDiscardTitle": "Scan verwerfen?",
-    "scanDiscardText": "Die aufgenommenen Seiten gehen verloren."
+    "scanDiscardText": "Die aufgenommenen Seiten gehen verloren.",
+    "folderCreated": "Ordner erstellt",
+    "folderFailed": "Ordner konnte nicht erstellt werden",
+    "renamed": "Umbenannt",
+    "renameFailed": "Umbenennen nicht möglich",
+    "newFolder": "Neuer Ordner",
+    "folderName": "Name des Ordners",
+    "rename": "Umbenennen",
+    "size": "Größe",
+    "location": "Speicherort",
+    "created": "Erstellt",
+    "modified": "Geändert",
+    "modifiedOnBy": "{{when}}, von {{who}}",
+    "version": "Version",
+    "typeFolder": "Ordner",
+    "importedFrom": "Importiert aus {{source}}",
+    "trashedOne": "In den Papierkorb verschoben",
+    "newFolderHint": "Um Ihre Dateien zu ordnen",
+    "create": "Ordner erstellen",
+    "nameEmpty": "Geben Sie einen Namen ein.",
+    "nameUsed": "Dieser Name ist hier schon vergeben.",
+    "deleteConfirm": "„{{name}}“ in den Papierkorb legen?",
+    "deleteFailed": "Löschen nicht möglich",
+    "favoured": "Zu Favoriten hinzugefügt",
+    "unfavoured": "Aus Favoriten entfernt",
+    "actionFailed": "Das hat nicht geklappt. Versuchen Sie es erneut.",
+    "folderGone": "Diesen Ordner gibt es nicht mehr.",
+    "type": "Art",
+    "root": "Im Hauptordner des Bereichs",
+    "more": "Aktionen für {{name}}",
+    "name": "Name",
+    "source": "Quelle"
   },
   "viewer": {
     "share": "Teilen oder öffnen in…",
@@ -601,5 +632,9 @@
     "saveFailed": "Einstellung nicht gespeichert",
     "membersCount_one": "{{count}} Mitglied",
     "membersCount_other": "{{count}} Mitglieder"
+  },
+  "sidebar": {
+    "favourite": "Zu Favoriten hinzufügen",
+    "unfavourite": "Aus Favoriten entfernen"
   }
 }
