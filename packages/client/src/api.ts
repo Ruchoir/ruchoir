@@ -923,8 +923,20 @@ export function startAttachmentUpload(
   part: UploadPart,
   onProgress?: (sent: number) => void,
 ): UploadRequest<MessageAttachment> {
+  const form = new FormData();
+  // Multipart, with the boundary set by the platform. React Native's `FormData` takes the
+  // `{ uri, name, type }` shape for a file on the device; the DOM's type only knows `Blob`.
+  form.append("file", part as Blob);
+  return xhrUpload(`/conversations/${conversationId}/attachments`, form, (body) => toUploadedAttachment(body as FileDto), onProgress);
+}
+
+/**
+ * A multipart `POST` over `XMLHttpRequest`, for its upload progress: what {@link startAttachmentUpload}
+ * and {@link startFileUpload} share. `map` reads the created resource from the answer.
+ */
+function xhrUpload<T>(path: string, form: FormData, map: (body: unknown) => T, onProgress?: (sent: number) => void): UploadRequest<T> {
   const xhr = new XMLHttpRequest();
-  const done = new Promise<MessageAttachment>((resolve, reject) => {
+  const done = new Promise<T>((resolve, reject) => {
     xhr.onload = () => {
       let body: unknown = null;
       try {
@@ -933,7 +945,7 @@ export function startAttachmentUpload(
         body = xhr.responseText;
       }
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(toUploadedAttachment(body as FileDto));
+        resolve(map(body));
         return;
       }
       if (xhr.status === 401) clientOptions().onUnauthorized();
@@ -942,16 +954,12 @@ export function startAttachmentUpload(
     xhr.onerror = () => reject(new ApiError(0, "network", null));
     xhr.onabort = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
   });
-  xhr.open("POST", `${apiBase()}/conversations/${conversationId}/attachments`);
+  xhr.open("POST", `${apiBase()}${path}`);
   const auth = authInit();
   // Same-origin on the web, where the cookie goes anyway; an app presents its bearer and no cookie.
   xhr.withCredentials = false;
   for (const [name, value] of Object.entries(auth.headers)) xhr.setRequestHeader(name, value);
   if (onProgress) xhr.upload.onprogress = (event) => onProgress(event.loaded);
-  const form = new FormData();
-  // Multipart, with the boundary set by the platform. React Native's `FormData` takes the
-  // `{ uri, name, type }` shape for a file on the device; the DOM's type only knows `Blob`.
-  form.append("file", part as Blob);
   xhr.send(form);
   return { done, abort: () => xhr.abort() };
 }
@@ -2076,6 +2084,24 @@ export async function uploadFile(spaceId: string, file: File, parentId?: string)
   });
   if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
   return toSpaceFile((await res.json()) as FileDto);
+}
+
+/**
+ * `POST /spaces/{id}/files`, as {@link uploadFile}, for a file of the phone (`UploadPart`) and with its
+ * progress: a photo sent to a space's files over a weak network has to show how far it is. Rejects as
+ * {@link startAttachmentUpload} does (413: larger than the instance allows).
+ */
+export function startFileUpload(
+  spaceId: string,
+  part: UploadPart,
+  folderId?: string,
+  onProgress?: (sent: number) => void,
+): UploadRequest<SpaceFile> {
+  const form = new FormData();
+  form.append("file", part as Blob);
+  // `folder_id`, as `uploadFile` explains.
+  if (folderId) form.append("folder_id", folderId);
+  return xhrUpload(`/spaces/${spaceId}/files`, form, (body) => toSpaceFile(body as FileDto), onProgress);
 }
 
 /**

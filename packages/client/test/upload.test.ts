@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { configureClient, resetClientForTests, startAttachmentUpload } from "../src/index.ts";
+import { configureClient, resetClientForTests, startAttachmentUpload, startFileUpload } from "../src/index.ts";
 
 /** A stand-in for XMLHttpRequest that records what is sent and answers when told to. */
 class FakeXhr {
@@ -67,6 +67,37 @@ test("an_upload_reports_its_progress", () => {
 
 test("a_refused_upload_rejects_with_its_status", async () => {
   const request = startAttachmentUpload("c1", new Blob(["x"]));
+  FakeXhr.last.answer(413, { error: "too_large" });
+  await assert.rejects(request.done, (err: { status: number }) => err.status === 413);
+});
+
+test("file_upload_sends_the_part_and_folder_id", async () => {
+  configureClient({ baseUrl: "https://a.test", authorization: () => "Bearer t1" });
+  const part = { uri: "file:///photo.jpg", name: "photo.jpg", type: "image/jpeg" };
+  const request = startFileUpload("s1", part, "f1");
+  const xhr = FakeXhr.last;
+  assert.equal(xhr.method, "POST");
+  assert.equal(xhr.url, "https://a.test/api/v1/spaces/s1/files");
+  assert.equal(xhr.headers.authorization, "Bearer t1");
+  const form = xhr.body as FormData;
+  assert.equal(form.get("folder_id"), "f1");
+  assert.ok(form.has("file"));
+  xhr.answer(201, { id: "n1", name: "photo.jpg", size_bytes: 5, kind: "image", is_folder: false });
+  const file = await request.done;
+  assert.equal(file.id, "n1");
+  assert.equal(file.name, "photo.jpg");
+});
+
+test("file_upload_reports_progress", () => {
+  const seen: number[] = [];
+  startFileUpload("s1", new Blob(["x"]), undefined, (sent) => seen.push(sent));
+  FakeXhr.last.upload.onprogress?.({ loaded: 7 });
+  assert.deepEqual(seen, [7]);
+  assert.equal((FakeXhr.last.body as FormData).has("folder_id"), false);
+});
+
+test("file_upload_413_rejects_with_its_status", async () => {
+  const request = startFileUpload("s1", new Blob(["x"]));
   FakeXhr.last.answer(413, { error: "too_large" });
   await assert.rejects(request.done, (err: { status: number }) => err.status === 413);
 });
