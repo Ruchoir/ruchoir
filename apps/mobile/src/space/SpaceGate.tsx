@@ -1,8 +1,9 @@
-import { acceptInvitation } from "@ruchoir/client";
+import { acceptInvitation, getUserProfile } from "@ruchoir/client";
 import { useEffect, useState } from "react";
 
 import { useTranslation } from "../i18n";
 import { RootNavigator } from "../navigation/RootNavigator";
+import { useRealtimeEvent } from "../realtime/RealtimeProvider";
 import { BootScreen } from "../screens/boot/BootScreen";
 import { JoinSpaceScreen } from "../screens/space/JoinSpaceScreen";
 import { useSession } from "../session/SessionProvider";
@@ -22,6 +23,25 @@ export function SpaceGate() {
   // Taken once: the session hands the pending invitation to a single taker.
   const [invitation] = useState(() => session.takePendingInvitation());
   const [settled, setSettled] = useState(invitation === null);
+  const me = session.state.kind === "signedIn" ? session.state.user.id : null;
+  const { updateUser } = session;
+
+  // My photo is not in the session's answer: read it once from my profile, then keep it current from
+  // the live changes, mine on another device included.
+  useEffect(() => {
+    if (!me) return;
+    let current = true;
+    getUserProfile(me).then(
+      (profile) => current && updateUser({ avatarUrl: profile.avatarUrl }),
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, [me, updateUser]);
+  useRealtimeEvent((event) => {
+    if (event.type === "member" && event.member.userId === me) updateUser({ name: event.member.name, avatarUrl: event.member.avatarUrl });
+  });
 
   useEffect(() => {
     if (!invitation) return;

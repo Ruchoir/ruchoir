@@ -199,6 +199,11 @@ export type SessionUser = {
   timezone?: string;
   /** The language the account is recorded as reading in; absent until the first sign-in writes it. */
   locale?: string;
+  /**
+   * The account's photo. Not in the session's answer: an app fills it from the profile, and keeps it
+   * current from `member.updated`. Absent means the generated face.
+   */
+  avatarUrl?: string;
 };
 
 /**

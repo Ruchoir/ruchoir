@@ -58,7 +58,7 @@ export function TabHeader({ title, overline, children }: { title: string; overli
           onPress={() => navigation.navigate("accountSheet")}
           style={styles.me}
         >
-          <Avatar name={user.name} size={36} presence={selfPresence(user.presenceChoice)} />
+          <Avatar name={user.name} src={user.avatarUrl} size={36} presence={selfPresence(user.presenceChoice)} />
         </Pressable>
       ) : null}
     </View>

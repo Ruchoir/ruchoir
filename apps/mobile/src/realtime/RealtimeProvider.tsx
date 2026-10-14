@@ -6,7 +6,7 @@
  * where iOS may have frozen the socket. Refetching rather than replaying deltas keeps one path for
  * "what is true now", and {@link mergeMessages} keeps a message that arrives both ways from showing twice.
  */
-import { connectRealtime, type ApiMessage, type Presence, type RealtimeConnection } from "@ruchoir/client";
+import { connectRealtime, type ApiMessage, type MemberIdentity, type Presence, type RealtimeConnection } from "@ruchoir/client";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 
@@ -21,6 +21,8 @@ export type RealtimeEvent =
   | { type: "readCursor"; conversationId: string; userId: string; lastReadMessageId: string }
   | { type: "typing"; conversationId: string; userId: string }
   | { type: "presence"; userId: string; presence: Presence }
+  /** Someone's name, title or photo changed (mine included, from any device). */
+  | { type: "member"; member: MemberIdentity }
   | { type: "spaces" }
   | { type: "channels"; spaceId?: string }
   | { type: "calendar" }
@@ -66,6 +68,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           emit({ type: "readCursor", conversationId, userId, lastReadMessageId }),
         onTyping: (conversationId, userId) => emit({ type: "typing", conversationId, userId }),
         onPresence: (userId, presence) => emit({ type: "presence", userId, presence }),
+        onMemberUpdated: (member) => emit({ type: "member", member }),
         onSpaceUpdated: () => emit({ type: "spaces" }),
         onSpaceRemoved: () => emit({ type: "spaces" }),
         onChannelCreated: () => emit({ type: "channels" }),

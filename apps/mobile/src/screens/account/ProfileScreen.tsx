@@ -75,7 +75,9 @@ export function ProfileScreen() {
     const asset = result.assets[0];
     setPhotoBusy(true);
     try {
-      setAvatar(await setMyAvatar({ uri: asset.uri, name: "avatar.jpg", type: asset.mimeType ?? "image/jpeg" }));
+      const url = await setMyAvatar({ uri: asset.uri, name: "avatar.jpg", type: asset.mimeType ?? "image/jpeg" });
+      setAvatar(url);
+      session.updateUser({ avatarUrl: url });
     } catch {
       toast(t("profile.photoFailed"));
     } finally {
@@ -88,6 +90,7 @@ export function ProfileScreen() {
     try {
       await clearMyAvatar();
       setAvatar(undefined);
+      session.updateUser({ avatarUrl: undefined });
     } catch {
       toast(t("profile.photoFailed"));
     } finally {

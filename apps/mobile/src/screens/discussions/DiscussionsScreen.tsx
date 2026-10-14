@@ -169,7 +169,13 @@ export function ConversationRow({
           })}
         />
       ) : (
-        <Avatar name={item.name} kind={item.kind === "person" ? "person" : "workspace"} size={44} presence={item.kind === "person" ? item.presence : undefined} />
+        <Avatar
+          name={item.name}
+          kind={item.kind === "person" ? "person" : "workspace"}
+          src={item.kind === "person" && item.userId ? memberOf?.(item.userId)?.avatarUrl : undefined}
+          size={44}
+          presence={item.kind === "person" ? item.presence : undefined}
+        />
       )}
       <View style={styles.body}>
         <View style={styles.line}>

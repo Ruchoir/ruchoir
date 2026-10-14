@@ -35,7 +35,7 @@ export function AccountSheet() {
   return (
     <Sheet>
       <View style={styles.who}>
-        <Avatar name={user.name} size={48} presence={presence} />
+        <Avatar name={user.name} src={user.avatarUrl} size={48} presence={presence} />
         <View style={styles.flex}>
           <Text variant="heading">{user.name}</Text>
           <Text variant="small" tone="muted" numberOfLines={1}>
