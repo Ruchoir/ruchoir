@@ -10,8 +10,9 @@
  * - on Android, the background task of `push/background.ts` does, and draws local notifications.
  *
  * Both need the instance's address and the session token while the app itself is not running, so
- * a copy is kept apart (`SHARED`): in the keychain group shared with the extension on iOS, readable
- * after the first unlock so a notification can be read while the phone is locked.
+ * a copy is kept apart (`SHARED`): in the keychain group shared with the extensions on iOS (the
+ * notification service and the widgets), readable after the first unlock so a notification can be
+ * read while the phone is locked. It is written at every start signed in, and goes at sign-out.
  *
  * Expo Go cannot receive pushes for this app: there, notifications are unavailable.
  */
@@ -49,7 +50,8 @@ export async function phonePushState(): Promise<PhonePush> {
   return status === "granted" && (await SecureStore.getItemAsync(DEVICE)) ? "on" : "off";
 }
 
-async function shareSession(): Promise<void> {
+/** Hand the extensions (notifications, widgets) the instance and the session token. */
+export async function shareSession(): Promise<void> {
   const session = currentSession();
   if (!session) return;
   await SecureStore.setItemAsync(SHARED_SERVER, session.origin, SHARED);

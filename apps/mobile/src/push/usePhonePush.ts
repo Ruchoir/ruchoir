@@ -3,7 +3,8 @@
  *
  * - a tap on a notification opens what it is about (`push/tap.ts`), the app's space switched first,
  *   also when the tap is what launched the app;
- * - at every start, a phone whose notifications are on is registered again (`refreshPhonePush`);
+ * - at every start, the session handed to the extensions (notifications, widgets), and a phone whose
+ *   notifications are on registered again (`refreshPhonePush`);
  * - once, the first time, the invitation to turn them on (mockup 08, `notificationsIntro`);
  * - while the app is in front, nothing is drawn by the system: the app shows what arrives itself.
  */
@@ -16,7 +17,8 @@ import { Platform } from "react-native";
 import type { RootParams } from "../navigation/types";
 import { useSpace } from "../space/SpaceProvider";
 import { WAKE_TASK } from "./background";
-import { phonePushAvailable, phonePushState, refreshPhonePush } from "./phone";
+import { phonePushAvailable, phonePushState, refreshPhonePush, shareSession } from "./phone";
+import { refreshWidgets } from "../widgets";
 import { tapTarget } from "./tap";
 
 /** Set once the invitation was shown on this phone, whatever the answer. */
@@ -54,6 +56,10 @@ export function usePhonePush(navigation: NavigationContainerRefWithCurrent<RootP
   );
 
   useEffect(() => {
+    // The widgets read it too, notifications on or not: drawn again once it is there.
+    void shareSession()
+      .then(refreshWidgets)
+      .catch(() => {});
     if (!phonePushAvailable()) return;
     const respond = (response: Notifications.NotificationResponse) => {
       const id = response.notification.request.identifier;

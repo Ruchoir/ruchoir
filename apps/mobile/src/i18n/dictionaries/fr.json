@@ -1034,8 +1034,17 @@
     "introTitle": "Ne manquez rien d’important",
     "introBody": "Ruchoir vous prévient quand on vous écrit, vous mentionne ou vous invite à un rendez-vous. Vous réglez le reste dans les préférences.",
     "introSampleFrom": "Léa Martin · Équipe",
-    "introSampleWhen": "maintenant",
     "introSample": "@Camille, tu peux confirmer ta présence jeudi ?",
     "later": "Plus tard"
+  },
+  "widgets": {
+    "next": "Prochain",
+    "allDay": "Toute la journée",
+    "now": "maintenant",
+    "signIn": "Ouvrez Ruchoir pour vous connecter",
+    "unreachable": "Serveur injoignable",
+    "unread_one": "{{count}} non lu",
+    "unread_other": "{{count}} non lus",
+    "allRead": "Tout est lu"
   }
 }

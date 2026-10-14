@@ -1034,8 +1034,17 @@
     "introTitle": "Don't miss anything important",
     "introBody": "Ruchoir lets you know when someone writes to you, mentions you or invites you to a meeting. You set the rest in the preferences.",
     "introSampleFrom": "Léa Martin · Team",
-    "introSampleWhen": "now",
     "introSample": "@Camille, can you confirm you'll be there on Thursday?",
     "later": "Later"
+  },
+  "widgets": {
+    "next": "Next",
+    "allDay": "All day",
+    "now": "now",
+    "signIn": "Open Ruchoir to sign in",
+    "unreachable": "Server unreachable",
+    "unread_one": "{{count}} unread",
+    "unread_other": "{{count}} unread",
+    "allRead": "All caught up"
   }
 }

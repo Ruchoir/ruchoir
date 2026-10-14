@@ -48,6 +48,7 @@
     "react": "19.2.3",
     "react-i18next": "^17.0.13",
     "react-native": "0.86.3",
+    "react-native-android-widget": "0.22.1",
     "react-native-document-scanner-plugin": "2.0.4",
     "react-native-keyboard-controller": "1.21.9",
     "react-native-reanimated": "4.5.1",

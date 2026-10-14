@@ -26,6 +26,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 import { connectTo, setSessionToken } from "../api/instance";
 import { canUseBrowserHandoff, signInThroughBrowser } from "../auth/browser";
 import { disablePhonePush } from "../push/phone";
+import { refreshWidgets } from "../widgets";
 import { clearDownloads } from "../files/cache";
 import { sessionReducer, type SessionState } from "./machine";
 import { normalizeServer } from "./server";
@@ -358,6 +359,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     await holdToken(null);
     clearDownloads();
+    // The widgets say "sign in" rather than the last account's agenda.
+    void refreshWidgets();
     dispatch({ type: "signedOut" });
   }, [holdToken]);
 

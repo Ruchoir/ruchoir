@@ -45,9 +45,10 @@ anywhere. The archive is unsigned because Xcode's automatic signing would first 
 profile, which Apple only makes for a team with a registered device.
 
 The app embeds extensions written in Swift (`apps/mobile/targets/`, added at prebuild by
-@bacons/apple-targets): today the notification service (ADR 0006). Before the export,
+@bacons/apple-targets): the notification service (ADR 0006) and the widgets. Before the export,
 `.github/scripts/register-app-ids.mjs` makes sure Apple knows every bundle id the build signs
-(`com.ruchoir.app`, `com.ruchoir.app.notifications`) and the push capability. Each extension is signed
+(`com.ruchoir.app`, `com.ruchoir.app.notifications`, `com.ruchoir.app.widgets`) and the push
+capability. Each extension is signed
 ad hoc with its own entitlements, `$(AppIdentifierPrefix)` expanded with the team id (Xcode, not
 signing, did not), then the app.
 

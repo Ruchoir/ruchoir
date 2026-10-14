@@ -1132,8 +1132,19 @@
     "introTitle": "Nie przegap niczego ważnego",
     "introBody": "Ruchoir da ci znać, gdy ktoś do ciebie napisze, wspomni o tobie lub zaprosi cię na spotkanie. Resztę ustawisz w preferencjach.",
     "introSampleFrom": "Léa Martin · Zespół",
-    "introSampleWhen": "teraz",
     "introSample": "@Camille, możesz potwierdzić, że będziesz w czwartek?",
     "later": "Później"
+  },
+  "widgets": {
+    "next": "Następne",
+    "allDay": "Cały dzień",
+    "now": "teraz",
+    "signIn": "Otwórz Ruchoir, aby się zalogować",
+    "unreachable": "Serwer nieosiągalny",
+    "unread_one": "{{count}} nieprzeczytana",
+    "unread_few": "{{count}} nieprzeczytane",
+    "unread_many": "{{count}} nieprzeczytanych",
+    "unread_other": "{{count}} nieprzeczytanej",
+    "allRead": "Wszystko przeczytane"
   }
 }

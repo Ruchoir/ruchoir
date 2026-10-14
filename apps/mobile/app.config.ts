@@ -74,6 +74,46 @@ export function appConfig(env: Env): ExpoConfig {
       "@bacons/apple-targets",
       // No `fetch` background mode on the iPhone, which the task manager adds and nothing uses.
       "./plugins/no-background-fetch",
+      // The Android widgets (src/widgets/android.tsx), drawn every half hour and when placed.
+      [
+        "react-native-android-widget",
+        {
+          widgets: [
+            {
+              name: "RuchoirAgenda",
+              label: "Agenda",
+              description: "Le prochain rendez-vous",
+              minWidth: "110dp",
+              minHeight: "110dp",
+              targetCellWidth: 2,
+              targetCellHeight: 2,
+              resizeMode: "horizontal|vertical",
+              updatePeriodMillis: 1_800_000,
+            },
+            {
+              name: "RuchoirDiscussions",
+              label: "Discussions",
+              description: "Les messages non lus",
+              minWidth: "250dp",
+              minHeight: "110dp",
+              targetCellWidth: 4,
+              targetCellHeight: 2,
+              resizeMode: "horizontal|vertical",
+              updatePeriodMillis: 1_800_000,
+            },
+            {
+              name: "RuchoirShortcuts",
+              label: "Raccourcis",
+              description: "Message, événement, agenda, fichiers",
+              minWidth: "250dp",
+              minHeight: "40dp",
+              targetCellWidth: 4,
+              targetCellHeight: 1,
+              resizeMode: "horizontal",
+            },
+          ],
+        },
+      ],
       // The Face ID lock (Security): the prompt's reason, in the six languages, comes from locales/.
       ["expo-local-authentication", { faceIDPermission: "Ruchoir uses Face ID to unlock, when you have turned the lock on." }],
       // Photos are picked through the system picker and the camera takes stills only: no microphone.

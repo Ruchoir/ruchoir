@@ -1083,8 +1083,18 @@
     "introTitle": "Non perdete nulla di importante",
     "introBody": "Ruchoir vi avvisa quando qualcuno vi scrive, vi menziona o vi invita a un appuntamento. Il resto lo regolate nelle preferenze.",
     "introSampleFrom": "Léa Martin · Squadra",
-    "introSampleWhen": "ora",
     "introSample": "@Camille, puoi confermare che ci sei giovedì?",
     "later": "Più tardi"
+  },
+  "widgets": {
+    "next": "Prossimo",
+    "allDay": "Tutto il giorno",
+    "now": "ora",
+    "signIn": "Aprite Ruchoir per accedere",
+    "unreachable": "Server irraggiungibile",
+    "unread_one": "{{count}} non letto",
+    "unread_many": "{{count}} non letti",
+    "unread_other": "{{count}} non letti",
+    "allRead": "Tutto letto"
   }
 }

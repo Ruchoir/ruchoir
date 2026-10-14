@@ -56,6 +56,7 @@ import { SpaceSettingsScreen } from "../screens/space/SpaceSettingsScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
 import { NotificationsIntroScreen } from "../screens/account/NotificationsIntroScreen";
 import { usePhonePush } from "../push/usePhonePush";
+import { useAppLinks } from "./useAppLinks";
 import { TutorialScreen } from "../screens/welcome/TutorialScreen";
 import { useNavigationTheme } from "./navigationTheme";
 import { Tabs } from "./Tabs";
@@ -75,10 +76,15 @@ function JoinSpaceModal() {
 export function RootNavigator() {
   const theme = useNavigationTheme();
   const push = usePhonePush(rootNavigation);
+  const links = useAppLinks(rootNavigation);
+  const onReady = () => {
+    push.onReady();
+    links.onReady();
+  };
   const sheet = { presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true, headerShown: false } as const;
 
   return (
-    <NavigationContainer theme={theme} ref={rootNavigation} onReady={push.onReady}>
+    <NavigationContainer theme={theme} ref={rootNavigation} onReady={onReady}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="tabs" component={Tabs} />
         <Stack.Screen name="conversation" component={ConversationScreen} />

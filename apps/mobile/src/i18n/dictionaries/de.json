@@ -1034,8 +1034,17 @@
     "introTitle": "Verpassen Sie nichts Wichtiges",
     "introBody": "Ruchoir sagt Ihnen Bescheid, wenn man Ihnen schreibt, Sie erwähnt oder zu einem Termin einlädt. Den Rest stellen Sie in den Einstellungen ein.",
     "introSampleFrom": "Léa Martin · Team",
-    "introSampleWhen": "jetzt",
     "introSample": "@Camille, kannst du bestätigen, dass du am Donnerstag dabei bist?",
     "later": "Später"
+  },
+  "widgets": {
+    "next": "Nächster",
+    "allDay": "Ganztägig",
+    "now": "jetzt",
+    "signIn": "Öffnen Sie Ruchoir, um sich anzumelden",
+    "unreachable": "Server nicht erreichbar",
+    "unread_one": "{{count}} ungelesen",
+    "unread_other": "{{count}} ungelesen",
+    "allRead": "Alles gelesen"
   }
 }
