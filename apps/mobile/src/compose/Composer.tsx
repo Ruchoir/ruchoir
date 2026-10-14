@@ -10,10 +10,10 @@ import * as Haptics from "expo-haptics";
 import { PenLine, Plus, Send } from "lucide-react-native";
 import { useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
-import Animated, { useAnimatedKeyboard, useAnimatedStyle } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTranslation } from "../i18n";
+import { composerRoom } from "../logic/keyboard";
 import { activeToken, broadcastsFor, fold, insertToken, matchPeople } from "../logic/mentions";
 import { fonts } from "../theme/fonts";
 import { hairline, radius } from "../theme/tokens";
@@ -63,11 +63,9 @@ export function Composer(props: Props) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const insets = useSafeAreaInsets();
-  // The bar keeps clear of the home indicator while the keyboard is down, and that room melts away
-  // frame by frame as the keyboard rises, so nothing jumps.
-  const keyboard = useAnimatedKeyboard();
-  const bottom = insets.bottom;
-  const barBottom = useAnimatedStyle(() => ({ paddingBottom: Math.max(8, bottom - keyboard.height.value) }));
+  // The bar keeps clear of the home indicator; with the keyboard up, its `KeyboardArea` (`composer`)
+  // lets that room go behind the keyboard, so it changes no size as the keyboard moves.
+  const barBottom = { paddingBottom: composerRoom(insets.bottom) };
   const outbox = useOutbox();
   const signalTyping = useTypingSignal(conversationId);
   // The parent remounts the composer when the draft or the edited message changes (its `key`).
@@ -174,7 +172,7 @@ export function Composer(props: Props) {
         </View>
       ) : null}
       {files ? <PendingFiles attachments={files} /> : null}
-      <Animated.View style={[styles.bar, barBottom]}>
+      <View style={[styles.bar, barBottom]}>
         {props.onAttach && !editing ? (
           <Pressable
             accessibilityRole="button"
@@ -216,7 +214,7 @@ export function Composer(props: Props) {
         >
           {files?.uploading ? <ActivityIndicator color={c.ink} /> : <Send size={20} color={ready ? c.onInk : c.ink} />}
         </Pressable>
-      </Animated.View>
+      </View>
     </View>
   );
 }
