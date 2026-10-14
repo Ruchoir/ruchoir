@@ -44,6 +44,13 @@ API key: Apple creates and keeps the distribution certificate, so no certificate
 anywhere. The archive is unsigned because Xcode's automatic signing would first ask for a development
 profile, which Apple only makes for a team with a registered device.
 
+The app embeds extensions written in Swift (`apps/mobile/targets/`, added at prebuild by
+@bacons/apple-targets): today the notification service (ADR 0006). Before the export,
+`.github/scripts/register-app-ids.mjs` makes sure Apple knows every bundle id the build signs
+(`com.ruchoir.app`, `com.ruchoir.app.notifications`) and the push capability. Each extension is signed
+ad hoc with its own entitlements, `$(AppIdentifierPrefix)` expanded with the team id (Xcode, not
+signing, did not), then the app.
+
 The `.ipa` is uploaded by `.github/scripts/upload-to-app-store.mjs` through the App Store Connect
 API's build uploads, with the same key, and the job waits until App Store Connect has taken it in (a
 refused build fails the job with Apple's reasons). Xcode's own upload is not used: its content
@@ -83,6 +90,10 @@ changes: the distribution certificate belongs to the team, not to the key.
    host, `https://...`), or pick it from the recent ones.
 
 ## Android
+
+Notifications need the Firebase project's `google-services.json` at build time: the whole file in
+the repository's Actions secrets as `GOOGLE_SERVICES_JSON` (`docs/push-relay.md`). Without it the APK
+builds, with a warning, and cannot be reached by notifications.
 
 The job builds a debug APK for `arm64-v8a` and `x86_64` (an emulator on an Apple Silicon Mac or on a
 PC), signed with the debug key, and keeps it 14 days as the run's artifact

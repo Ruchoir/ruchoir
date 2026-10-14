@@ -100,6 +100,8 @@ async fn boot_with(
     config.database_url = database_url;
     config.valkey_url = valkey_url;
     config.auto_migrate = false;
+    // Never the publisher's relay from a test: the phone tests start one of their own.
+    config.push_relay_url = None;
     // Short presence TTL so an offline transition is observable quickly in tests.
     config.presence_ttl_secs = 5;
     // An import directory, so the tests of the server-side path exercise the real guard instead of
@@ -11679,6 +11681,9 @@ mod import_calendar_tests;
 
 /// Bearer sessions for the native apps, kept in their own file; they reuse the helpers above.
 mod native_sessions_tests;
+
+/// The phones woken through the push relay (ADR 0006), kept in their own file.
+mod phone_push_tests;
 
 // --- The six-digit code sent next to the verification link ---
 

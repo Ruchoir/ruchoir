@@ -365,6 +365,21 @@ export async function redeemWebHandoff(code: string): Promise<SessionUser> {
   return toSessionUser(await apiPost<UserSummaryDto>("/auth/web/redeem", { code }));
 }
 
+// --- Phone notifications (ADR 0006) ---
+
+/**
+ * `PUT /push/devices`: remember this phone for the signed-in account, or refresh it (the app does
+ * at every start while notifications are allowed). A 409 means the instance keeps phones out.
+ */
+export async function registerPushDevice(platform: "ios" | "android", token: string): Promise<void> {
+  await apiPut<void>("/push/devices", { platform, token });
+}
+
+/** `DELETE /push/devices`: forget this phone (signing out, or notifications turned off here). */
+export async function forgetPushDevice(token: string): Promise<void> {
+  await apiRequest<void>("DELETE", "/push/devices", { json: { token } });
+}
+
 // --- Account security (second factors, password) ---
 
 /** One registered passkey, as the account screen lists them. */

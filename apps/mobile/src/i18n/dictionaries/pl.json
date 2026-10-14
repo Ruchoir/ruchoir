@@ -1119,5 +1119,21 @@
     "unlock": "Odblokuj",
     "unlockFaceId": "Odblokuj za pomocą Face ID",
     "unlockTouchId": "Odblokuj za pomocą Touch ID"
+  },
+  "push": {
+    "section": "Na tym telefonie",
+    "thisPhone": "Powiadomienia na tym telefonie",
+    "thisPhoneText": "Wiadomości, wzmianki i przypomnienia docierają nawet przy zamkniętej aplikacji. Ich treść nie przechodzi ani przez Apple, ani przez Google: telefon prosi o nią twój serwer.",
+    "unavailable": "Dostępne w aplikacji Ruchoir, nie w Expo Go.",
+    "deniedTitle": "Powiadomienia odrzucone",
+    "deniedText": "Są wyłączone w ustawieniach telefonu.",
+    "enabled": "Powiadomienia włączone",
+    "failed": "Nie udało się włączyć powiadomień. Spróbuj ponownie.",
+    "introTitle": "Nie przegap niczego ważnego",
+    "introBody": "Ruchoir da ci znać, gdy ktoś do ciebie napisze, wspomni o tobie lub zaprosi cię na spotkanie. Resztę ustawisz w preferencjach.",
+    "introSampleFrom": "Léa Martin · Zespół",
+    "introSampleWhen": "teraz",
+    "introSample": "@Camille, możesz potwierdzić, że będziesz w czwartek?",
+    "later": "Później"
   }
 }

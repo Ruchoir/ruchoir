@@ -1021,5 +1021,21 @@
     "unlock": "Déverrouiller",
     "unlockFaceId": "Déverrouiller avec Face ID",
     "unlockTouchId": "Déverrouiller avec Touch ID"
+  },
+  "push": {
+    "section": "Sur ce téléphone",
+    "thisPhone": "Notifications sur ce téléphone",
+    "thisPhoneText": "Les messages, mentions et rappels arrivent même appli fermée. Leur contenu ne passe ni par Apple ni par Google : le téléphone le demande à votre serveur.",
+    "unavailable": "Disponible dans l’application Ruchoir, pas dans Expo Go.",
+    "deniedTitle": "Notifications refusées",
+    "deniedText": "Elles sont désactivées dans les réglages du téléphone.",
+    "enabled": "Notifications activées",
+    "failed": "Impossible d’activer les notifications. Réessayez.",
+    "introTitle": "Ne manquez rien d’important",
+    "introBody": "Ruchoir vous prévient quand on vous écrit, vous mentionne ou vous invite à un rendez-vous. Vous réglez le reste dans les préférences.",
+    "introSampleFrom": "Léa Martin · Équipe",
+    "introSampleWhen": "maintenant",
+    "introSample": "@Camille, tu peux confirmer ta présence jeudi ?",
+    "later": "Plus tard"
   }
 }

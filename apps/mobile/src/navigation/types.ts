@@ -124,6 +124,8 @@ export type RootParams = {
   /** The current space's default channel (owner and admins). */
   spaceDefaultChannel: undefined;
   accountSheet: undefined;
+  /** "Don't miss anything important" (mockup 08), once after signing in. */
+  notificationsIntro: undefined;
 };
 
 declare global {

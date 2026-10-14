@@ -7,6 +7,7 @@
 //! - [`prefs`]: the notification preferences, held server-side so the server can obey them.
 //! - [`push`], [`vapid`] and [`ece`]: Web Push to browsers that subscribed (ADR 0001), carrying a
 //!   constant encrypted marker and never any content.
+//! - [`phone`]: the phone apps, woken through the publisher's relay (ADR 0006), also without content.
 //! - [`email`]: the digest of what is still unread after a while, through the instance's own relay.
 //!
 //! All three read the same rule ([`prefs::allows`]) so the app, the phone and the mailbox agree on
@@ -14,6 +15,7 @@
 
 pub mod ece;
 pub mod email;
+pub mod phone;
 pub mod prefs;
 pub mod push;
 pub mod vapid;
@@ -42,6 +44,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/api/v1/push/subscription",
             put(push::subscribe).delete(push::unsubscribe),
+        )
+        .route(
+            "/api/v1/push/devices",
+            put(phone::register).delete(phone::unregister),
         )
         .route("/api/v1/push/pending", get(push::pending))
         .route("/api/v1/push/test", post(push::test))

@@ -290,6 +290,13 @@ pub struct PushItemDto {
     pub event_id: Option<Uuid>,
     pub title: String,
     pub body: String,
+    /// The channel the message is in (absent for a private conversation): what a phone opens on a
+    /// tap, named as its list names it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_name: Option<String>,
+    /// Who it comes from, when someone does.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_name: Option<String>,
     /// RFC 3339.
     pub created_at: String,
 }
@@ -408,6 +415,8 @@ pub async fn pending(
             event_id: None,
             title: "Ruchoir".to_owned(),
             body: mail_text::push_test_body(locale).to_owned(),
+            channel_name: None,
+            actor_name: None,
             created_at: crate::messaging::dto::rfc3339(now),
         });
     }
@@ -434,6 +443,8 @@ pub async fn pending(
                 event_id: dto.event_id,
                 title,
                 body,
+                channel_name: dto.channel_name,
+                actor_name: dto.actor_name,
                 created_at: dto.created_at,
             }
         });
@@ -444,7 +455,8 @@ pub async fn pending(
     }))
 }
 
-/// Announce freshly created notifications to their recipients' browsers, in the background.
+/// Announce freshly created notifications to their recipients' browsers and phones, in the
+/// background.
 ///
 /// Called after the transaction that created them has committed. Never fails the request that
 /// caused them: a push that cannot be sent is logged, and the inbox has the notification anyway.
@@ -480,7 +492,13 @@ async fn deliver(state: &AppState, rows: Vec<notifications::Model>) -> Result<()
             .filter(push_subscriptions::Column::UserId.eq(user_id))
             .all(&state.db)
             .await?;
-        if subscriptions.is_empty() {
+        // The person's phones, woken through the publisher's relay (ADR 0006) on the same rules.
+        let phones = if state.config.push_relay_url.is_some() {
+            super::phone::devices(&state.db, user_id, now).await?
+        } else {
+            Vec::new()
+        };
+        if subscriptions.is_empty() && phones.is_empty() {
             continue;
         }
         let Some(user) = users::Entity::find_by_id(user_id).one(&state.db).await? else {
@@ -519,6 +537,12 @@ async fn deliver(state: &AppState, rows: Vec<notifications::Model>) -> Result<()
             "normal"
         };
 
+        for phone in phones {
+            super::phone::wake(state, phone).await;
+        }
+        if subscriptions.is_empty() {
+            continue;
+        }
         if keys.is_none() {
             keys = Some(vapid::keys(state).await?);
         }

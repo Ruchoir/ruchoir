@@ -1021,5 +1021,21 @@
     "unlock": "Unlock",
     "unlockFaceId": "Unlock with Face ID",
     "unlockTouchId": "Unlock with Touch ID"
+  },
+  "push": {
+    "section": "On this phone",
+    "thisPhone": "Notifications on this phone",
+    "thisPhoneText": "Messages, mentions and reminders arrive even with the app closed. Their content goes through neither Apple nor Google: the phone asks your server for it.",
+    "unavailable": "Available in the Ruchoir app, not in Expo Go.",
+    "deniedTitle": "Notifications refused",
+    "deniedText": "They are turned off in the phone's settings.",
+    "enabled": "Notifications on",
+    "failed": "Could not turn notifications on. Try again.",
+    "introTitle": "Don't miss anything important",
+    "introBody": "Ruchoir lets you know when someone writes to you, mentions you or invites you to a meeting. You set the rest in the preferences.",
+    "introSampleFrom": "Léa Martin · Team",
+    "introSampleWhen": "now",
+    "introSample": "@Camille, can you confirm you'll be there on Thursday?",
+    "later": "Later"
   }
 }

@@ -1021,5 +1021,21 @@
     "unlock": "Entsperren",
     "unlockFaceId": "Mit Face ID entsperren",
     "unlockTouchId": "Mit Touch ID entsperren"
+  },
+  "push": {
+    "section": "Auf diesem Telefon",
+    "thisPhone": "Benachrichtigungen auf diesem Telefon",
+    "thisPhoneText": "Nachrichten, Erwähnungen und Erinnerungen kommen auch bei geschlossener App an. Ihr Inhalt geht weder über Apple noch über Google: Das Telefon fragt Ihren Server danach.",
+    "unavailable": "In der Ruchoir-App verfügbar, nicht in Expo Go.",
+    "deniedTitle": "Benachrichtigungen abgelehnt",
+    "deniedText": "Sie sind in den Einstellungen des Telefons ausgeschaltet.",
+    "enabled": "Benachrichtigungen aktiviert",
+    "failed": "Die Benachrichtigungen ließen sich nicht aktivieren. Versuchen Sie es erneut.",
+    "introTitle": "Verpassen Sie nichts Wichtiges",
+    "introBody": "Ruchoir sagt Ihnen Bescheid, wenn man Ihnen schreibt, Sie erwähnt oder zu einem Termin einlädt. Den Rest stellen Sie in den Einstellungen ein.",
+    "introSampleFrom": "Léa Martin · Team",
+    "introSampleWhen": "jetzt",
+    "introSample": "@Camille, kannst du bestätigen, dass du am Donnerstag dabei bist?",
+    "later": "Später"
   }
 }
