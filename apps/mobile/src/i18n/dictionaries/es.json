@@ -368,12 +368,8 @@
     "invited_other": "{{count}} invitados",
     "files": "Archivos compartidos",
     "invited_many": "{{count}} invitados",
-    "yes": "Sí, allí estaré",
     "no": "No",
-    "going": "Asistirá",
-    "notGoing": "No asistirá",
     "maybe": "Quizá",
-    "change": "Cambiar mi respuesta",
     "allDates": "Para todas las fechas",
     "answerFailed": "Respuesta no guardada, vuelva a intentarlo."
   },

@@ -397,12 +397,8 @@
     "files": "Udostępnione pliki",
     "invited_few": "{{count}} gości",
     "invited_many": "{{count}} gości",
-    "yes": "Tak, będę",
     "no": "Nie",
-    "going": "Bierzesz udział",
-    "notGoing": "Nie bierzesz udziału",
     "maybe": "Może",
-    "change": "Zmień odpowiedź",
     "allDates": "Dla wszystkich terminów",
     "answerFailed": "Nie zapisano odpowiedzi, spróbuj ponownie."
   },

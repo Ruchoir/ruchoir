@@ -339,12 +339,8 @@
     "invited_one": "{{count}} guest",
     "invited_other": "{{count}} guests",
     "files": "Shared files",
-    "yes": "Yes, I’ll be there",
     "no": "No",
-    "going": "You’re going",
-    "notGoing": "You’re not going",
     "maybe": "Maybe",
-    "change": "Change my answer",
     "allDates": "For every date",
     "answerFailed": "Answer not saved, try again."
   },

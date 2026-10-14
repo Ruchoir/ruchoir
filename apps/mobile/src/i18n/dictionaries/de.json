@@ -339,12 +339,8 @@
     "invited_one": "{{count}} Gast",
     "invited_other": "{{count}} Gäste",
     "files": "Geteilte Dateien",
-    "yes": "Ja, ich bin dabei",
     "no": "Nein",
-    "going": "Sie sind dabei",
-    "notGoing": "Sie sind nicht dabei",
     "maybe": "Vielleicht",
-    "change": "Antwort ändern",
     "allDates": "Für alle Termine",
     "answerFailed": "Antwort nicht gespeichert, bitte erneut versuchen."
   },
