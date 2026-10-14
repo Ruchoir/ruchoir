@@ -15,8 +15,46 @@ permissions:
   contents: read
 
 jobs:
+  # What a pull request touches decides what runs: a change to the phone app alone does not wait on
+  # the Rust suite or the web audits. A job skipped this way reports as passed to the required checks.
+  # Every push to main runs everything.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.diff.outputs.rust }}
+      web: ${{ steps.diff.outputs.web }}
+      mobile: ${{ steps.diff.outputs.mobile }}
+      deps: ${{ steps.diff.outputs.deps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The merge commit and its first parent, the base it is compared with.
+          fetch-depth: 2
+      - id: diff
+        name: Sort the changed files
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            for area in rust web mobile deps; do echo "$area=true" >> "$GITHUB_OUTPUT"; done
+            exit 0
+          fi
+          git diff --name-only HEAD^1 HEAD > changed.txt
+          cat changed.txt
+          touches() { grep -qE "$1" changed.txt && echo true || echo false; }
+          # A change to the workflow runs everything; the JavaScript workspace's own files concern
+          # both apps.
+          wf='^\.github/workflows/'
+          js='^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.nvmrc)$'
+          echo "rust=$(touches "^(apps/api/|packages/importer/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)|$wf")" >> "$GITHUB_OUTPUT"
+          echo "web=$(touches "^(apps/web/|packages/client/)|$js|$wf")" >> "$GITHUB_OUTPUT"
+          # The phone app's translation check is the web's i18n audit tool.
+          echo "mobile=$(touches "^(apps/mobile/|packages/client/|apps/web/tools/i18n-audit/)|$js|$wf")" >> "$GITHUB_OUTPUT"
+          echo "deps=$(touches "^(Cargo\.lock|pnpm-lock\.yaml)$|$wf")" >> "$GITHUB_OUTPUT"
+
   api:
     name: API (Rust)
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     # The end-to-end tests boot the real router against a real database and cache. Without these
     # they skip themselves and the suite still reports success, which is worse than having no tests
@@ -44,6 +82,18 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # The import chain's producer runs against a real MariaDB (see the import steps below).
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: ruchoir
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
       # Installs the toolchain pinned in rust-toolchain.toml (with rustfmt + clippy).
@@ -56,7 +106,10 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: cargo-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          # Debug builds only (the release build has a cache of its own); a change of the lockfile
+          # starts from the last cache rather than from nothing.
+          key: cargo-debug-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-debug-${{ runner.os }}-
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
@@ -66,11 +119,67 @@ jobs:
           RUCHOIR_TEST_DATABASE_URL: postgres://ruchoir:ruchoir@localhost:5432/ruchoir_test
           VALKEY_TEST_URL: redis://localhost:6379
         run: cargo test --all-features
+      # The import is the product's signature feature, and its risky half is SQL against a real
+      # database. Every defect the Nextcloud producer has had was invisible until a database
+      # answered: a client speaking utf8mb3 and destroying every emoji, a CAST MariaDB does not
+      # support, a filter that silently dropped guests. So the producer runs here for real. It lives
+      # in this job because it needs the API binary, which reuses the tests' compiled dependencies
+      # here rather than being built from nothing in a job of its own.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install a MariaDB client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mariadb-client
+      - name: Check the import scripts parse
+        run: |
+          bash -n packages/importer/export-nextcloud.sh
+          python3 -m py_compile packages/importer/convert-mattermost.py \
+            packages/importer/convert-slack.py packages/importer/validate-archive.py
+      - name: Build the API, for the archive checker inside it
+        # The contract has two implementations and they have twice reached opposite verdicts on the
+        # same archive, each time letting a broken export through the checker beside the producer.
+        # The cross-check needs the real one, so it is built here rather than skipped. Same features
+        # as the tests, so the dependencies they compiled are reused.
+        run: cargo build -p ruchoir-api --all-features
+      - name: Test the import chain
+        # The two REQUIRE flags make a skipped test a failure: a suite that quietly skips its only
+        # end-to-end test, or the only thing keeping the two checkers honest, reports green over an
+        # untested feature.
+        env:
+          RUCHOIR_TEST_MARIADB: host=127.0.0.1,port=3306,user=root,password=ruchoir
+          RUCHOIR_TEST_REQUIRE_MARIADB: '1'
+          RUCHOIR_TEST_REQUIRE_RUST_CHECKER: '1'
+        working-directory: packages/importer/tests
+        run: python3 -m unittest discover --verbose
+
+  # The optimised build takes six minutes and fails only where the debug one already does, so pull
+  # requests skip it; main still proves it builds, with a cache of its own so the pull requests'
+  # cache stays small.
+  api-release:
+    name: API release build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Rust
+        run: rustup show
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-release-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: cargo-release-${{ runner.os }}-
       - name: Build (release)
         run: cargo build --release -p ruchoir-api
 
   web:
     name: Web (Next.js static export)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,6 +193,12 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Lint
         run: pnpm --filter @ruchoir/web lint
+      # Fails on user-visible text typed into a component rather than translated, on a formatting
+      # call with a language written into it, on one sentence held under two keys, and on any
+      # disagreement between the six dictionaries. An untranslated string ships in French to
+      # everyone and reports nothing.
+      - name: Translations (six languages)
+        run: pnpm --filter @ruchoir/web i18n:check
       - name: Build (static export)
         run: pnpm --filter @ruchoir/web build
 
@@ -92,6 +207,8 @@ jobs:
   # green "Web" tells nobody whether it ran.
   mobile:
     name: Mobile app (Expo) and shared API client
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     env:
       # The Expo CLI reports anonymous usage by default; Ruchoir never sends it (ADR 0005).
@@ -119,67 +236,15 @@ jobs:
       - name: Bundle for iOS (Metro, no native build)
         run: CI=1 pnpm --filter @ruchoir/mobile bundle:ios
 
-  translations:
-    name: Translations (six languages)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - name: Enable corepack (pnpm)
-        run: corepack enable
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      # Fails on user-visible text typed into a component rather than translated, on a formatting
-      # call with a language written into it, on one sentence held under two keys, and on any
-      # disagreement between the six dictionaries. An untranslated string ships in French to
-      # everyone and reports nothing.
-      - name: Check
-        run: pnpm --filter @ruchoir/web i18n:check
-
-  responsive:
-    name: Responsive audit (web)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-      - name: Enable corepack (pnpm)
-        run: corepack enable
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Install Chromium for Playwright
-        run: pnpm --filter @ruchoir/web exec playwright install --with-deps chromium
-      - name: Start dev server
-        # The audit reaches each screen via the dev deep-link, which only exists in development,
-        # so it must run against `next dev` (not the production static export).
-        run: pnpm --filter @ruchoir/web dev &
-      - name: Wait for the dev server
-        run: |
-          for i in $(seq 1 60); do
-            if curl -sf -o /dev/null http://localhost:3000/; then echo "up"; exit 0; fi
-            sleep 2
-          done
-          echo "dev server did not start" >&2; exit 1
-      - name: Run responsive audit (fails on critical overflow or JS error)
-        run: pnpm --filter @ruchoir/web audit:responsive -- --quick --fail-on critical
-      - name: Upload report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: responsive-audit-report
-          path: apps/web/tools/responsive-audit/report/
-          if-no-files-found: ignore
-
-  a11y:
-    name: Accessibility audit (all themes)
+  audits:
+    name: Web audits (responsive and accessibility)
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     # Required: the cross-theme audit is green (contrast, accessible names, icons, and the screen-reader
-    # structure checks all pass on all four themes), so a regression on any --fail-rules blocks the PR.
+    # structure checks all pass on every theme), so a regression on any --fail-rules blocks the PR. It
+    # is also the responsive audit: the base theme over the quick widths, failing on a critical overflow
+    # or a JS error, is part of its sweep, so that audit no longer runs on its own.
     steps:
       - uses: actions/checkout@v4
       - name: Set up Node
@@ -202,70 +267,25 @@ jobs:
             sleep 2
           done
           echo "dev server did not start" >&2; exit 1
-      - name: Run accessibility audit (all four themes)
-        # Fails on the hard a11y blockers: unnamed controls, illegible icons/text, unreachable dialogs,
-        # and the screen-reader structure checks (language, landmarks, headings, ARIA integrity).
-        run: pnpm --filter @ruchoir/web audit:a11y -- --quick --fail-rules accessible-name,icon-contrast,img-alt,low-contrast,dialog-overflows-viewport,html-lang,landmark-main,heading-order,aria-hidden-focusable,aria-ref-broken,duplicate-id,dialog-name
+      - name: Run the audit (every theme, four at a time)
+        # Fails on a critical overflow or a JS error, and on the hard a11y blockers: unnamed controls,
+        # illegible icons/text, unreachable dialogs, and the screen-reader structure checks (language,
+        # landmarks, headings, ARIA integrity). The themes run side by side, each in its own browser
+        # context, on the runner's four cores.
+        run: pnpm --filter @ruchoir/web audit:a11y -- --quick --concurrency 4 --fail-rules accessible-name,icon-contrast,img-alt,low-contrast,dialog-overflows-viewport,html-lang,landmark-main,heading-order,aria-hidden-focusable,aria-ref-broken,duplicate-id,dialog-name
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: a11y-audit-report
+          name: web-audit-report
           path: apps/web/tools/responsive-audit/report/
           if-no-files-found: ignore
 
-  importer:
-    name: Import chain (producers and archive contract)
-    runs-on: ubuntu-latest
-    # The import is the product's signature feature, and its risky half is SQL against a real
-    # database. Every defect the Nextcloud producer has had was invisible until a database
-    # answered: a client speaking utf8mb3 and destroying every emoji, a CAST MariaDB does not
-    # support, a filter that silently dropped guests. So the producer runs here for real.
-    services:
-      mariadb:
-        image: mariadb:11.4
-        env:
-          MARIADB_ROOT_PASSWORD: ruchoir
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "healthcheck.sh --connect --innodb_initialized"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install a MariaDB client
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mariadb-client
-      - name: Check the scripts parse
-        run: |
-          bash -n packages/importer/export-nextcloud.sh
-          python3 -m py_compile packages/importer/convert-mattermost.py \
-            packages/importer/convert-slack.py packages/importer/validate-archive.py
-      - name: Set up Rust
-        run: rustup show
-      - name: Build the API, for the checker inside it
-        # The contract has two implementations and they have twice reached opposite verdicts on the
-        # same archive, each time letting a broken export through the checker beside the producer.
-        # The cross-check needs the real one, so it is built here rather than skipped.
-        run: cargo build -p ruchoir-api
-      - name: Test the import chain
-        # The two REQUIRE flags make a skipped test a failure: a suite that quietly skips its only
-        # end-to-end test, or the only thing keeping the two checkers honest, reports green over an
-        # untested feature.
-        env:
-          RUCHOIR_TEST_MARIADB: host=127.0.0.1,port=3306,user=root,password=ruchoir
-          RUCHOIR_TEST_REQUIRE_MARIADB: '1'
-          RUCHOIR_TEST_REQUIRE_RUST_CHECKER: '1'
-        working-directory: packages/importer/tests
-        run: python3 -m unittest discover --verbose
-
   audit:
     name: Security audit (informational)
+    needs: changes
+    # The lockfiles changed, or main moved (new advisories appear without any change of ours).
+    if: needs.changes.outputs.deps == 'true'
     runs-on: ubuntu-latest
     # Day-one advisories in deep transitive deps should not block the whole pipeline.
     # Tighten to required once the dependency tree is triaged during hardening.
@@ -274,6 +294,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Rust
         run: rustup show
+      # cargo-audit took two minutes to compile on every run: kept between runs, renewed each month.
+      - name: This month
+        id: month
+        run: echo "month=$(date +%Y-%m)" >> "$GITHUB_OUTPUT"
+      - name: Cache cargo-audit
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-${{ runner.os }}-${{ steps.month.outputs.month }}
       - name: cargo audit
         # RUSTSEC-2026-0235 (rkyv 0.7 out-of-bounds read on Rc/Arc archives): transitive only, via
         # rust_decimal's rkyv feature that sea-orm's default features pull in through sea-query. The
@@ -298,7 +327,7 @@ jobs:
         # There is no fixed release on the rsa 0.9 line. Remove this ignore once rsa ships a
         # constant-time fix, or once rPGP no longer pulls it in.
         run: |
-          cargo install cargo-audit --locked
+          command -v cargo-audit >/dev/null || cargo install cargo-audit --locked
           cargo audit --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195 --ignore RUSTSEC-2023-0071
       - name: Set up Node
         uses: actions/setup-node@v4
