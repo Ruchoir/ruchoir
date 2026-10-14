@@ -303,6 +303,8 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         ListFooterComponent={older.loading ? <ActivityIndicator color={c.ink} style={styles.more} /> : null}
+        // The list is inverted: its header is its bottom, some air between the last message and the bar.
+        ListHeaderComponent={<View style={styles.end} />}
         renderItem={({ item }) => {
           if (item.kind === "unread") {
             return (
@@ -422,6 +424,7 @@ const styles = StyleSheet.create({
   info: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   tabs: { paddingBottom: 8, borderBottomWidth: hairline },
   more: { padding: 16 },
+  end: { height: 12 },
   day: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
   rule: { flex: 1, height: hairline },
   unread: { fontFamily: fonts.sansSemibold },

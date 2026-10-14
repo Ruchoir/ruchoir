@@ -89,6 +89,8 @@ export function ThreadScreen() {
         ) : (
           <FlatList
             inverted
+            // The list is inverted: its header is its bottom, some air between the last reply and the bar.
+            ListHeaderComponent={<View style={styles.end} />}
             data={rows}
             keyExtractor={(row) => (row.kind === "count" ? "count" : row.message.id)}
             keyboardDismissMode="interactive"
@@ -155,6 +157,7 @@ export function ThreadScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  end: { height: 12 },
   count: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
   rule: { flex: 1, height: hairline },
 });
