@@ -121,3 +121,11 @@ test("version_upload_reports_progress", () => {
   FakeXhr.last.upload.onprogress?.({ loaded: 3 });
   assert.deepEqual(seen, [3]);
 });
+
+test("a_phone_file_name_goes_apart_so_spaces_stay_spaces", () => {
+  // React Native writes the part's file name percent-encoded ("a%20b.pdf"): the name field is read first.
+  startFileUpload("s1", { uri: "file:///x", name: "Devis client (1).pdf", type: "application/pdf" });
+  assert.equal((FakeXhr.last.body as FormData).get("name"), "Devis client (1).pdf");
+  startAttachmentUpload("c1", { uri: "file:///y", name: "photo de vacances.jpg", type: "image/jpeg" });
+  assert.equal((FakeXhr.last.body as FormData).get("name"), "photo de vacances.jpg");
+});

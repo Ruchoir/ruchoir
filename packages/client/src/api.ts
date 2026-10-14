@@ -926,8 +926,17 @@ export function startAttachmentUpload(
   const form = new FormData();
   // Multipart, with the boundary set by the platform. React Native's `FormData` takes the
   // `{ uri, name, type }` shape for a file on the device; the DOM's type only knows `Blob`.
-  form.append("file", part as Blob);
+  appendPart(form, part);
   return xhrUpload(`/conversations/${conversationId}/attachments`, form, (body) => toUploadedAttachment(body as FileDto), onProgress);
+}
+
+/**
+ * The file part, and for a file of the phone its name in a field of its own: React Native writes a
+ * part's file name percent-encoded ("Devis%20client.pdf"), and the API reads `name` first.
+ */
+function appendPart(form: FormData, part: UploadPart): void {
+  if (!(part instanceof Blob)) form.append("name", part.name);
+  form.append("file", part as Blob);
 }
 
 /**
@@ -2098,7 +2107,7 @@ export function startFileUpload(
   onProgress?: (sent: number) => void,
 ): UploadRequest<SpaceFile> {
   const form = new FormData();
-  form.append("file", part as Blob);
+  appendPart(form, part);
   // `folder_id`, as `uploadFile` explains.
   if (folderId) form.append("folder_id", folderId);
   return xhrUpload(`/spaces/${spaceId}/files`, form, (body) => toSpaceFile(body as FileDto), onProgress);

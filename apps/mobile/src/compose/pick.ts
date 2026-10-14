@@ -7,6 +7,7 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { Alert, Linking } from "react-native";
 
+import { pickedName } from "../logic/fileName";
 import type { LocalFile } from "./useAttachments";
 
 type Say = (key: "attach.cameraDenied" | "attach.cameraDeniedText" | "compose.cancel" | "attach.openSettings") => string;
@@ -17,7 +18,7 @@ export function fromAsset(asset: ImagePicker.ImagePickerAsset): LocalFile {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "_").slice(0, 15);
   return {
     uri: asset.uri,
-    name: asset.fileName ?? `${video ? "VID" : "IMG"}_${stamp}.${video ? "mp4" : "jpg"}`,
+    name: asset.fileName ? pickedName(asset.fileName) : `${video ? "VID" : "IMG"}_${stamp}.${video ? "mp4" : "jpg"}`,
     mime: asset.mimeType ?? (video ? "video/mp4" : "image/jpeg"),
     size: asset.fileSize,
     width: asset.width,
@@ -58,5 +59,5 @@ export async function pickFromCamera(t: Say): Promise<LocalFile[]> {
 export async function pickDocuments(multiple = true): Promise<LocalFile[]> {
   const result = await DocumentPicker.getDocumentAsync({ multiple, copyToCacheDirectory: true });
   if (result.canceled) return [];
-  return result.assets.map((a) => ({ uri: a.uri, name: a.name, mime: a.mimeType ?? "application/octet-stream", size: a.size }));
+  return result.assets.map((a) => ({ uri: a.uri, name: pickedName(a.name), mime: a.mimeType ?? "application/octet-stream", size: a.size }));
 }
