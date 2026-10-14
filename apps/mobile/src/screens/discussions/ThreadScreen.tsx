@@ -4,7 +4,7 @@
  */
 import { getChannels, getReplies, type ApiMessage } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -83,6 +83,24 @@ export function ThreadScreen() {
     return out;
   }, [messages, outbox.pending, rootId]);
 
+  // A reply asked for (from a channel's pinned tab): scrolled to once it is loaded, and lit a moment.
+  const list = useRef<FlatList<Row>>(null);
+  const [flash, setFlash] = useState(params.focusId ?? null);
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!params.focusId || focused.current) return;
+    const index = rows.findIndex((row) => row.kind === "message" && row.message.id === params.focusId);
+    if (index < 0) return;
+    focused.current = true;
+    list.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+  }, [rows, params.focusId]);
+  const shown = !!replies.data;
+  useEffect(() => {
+    if (!flash || !shown) return;
+    const timer = setTimeout(() => setFlash(null), 2000);
+    return () => clearTimeout(timer);
+  }, [flash, shown]);
+
   return (
     <SafeAreaView edges={["top"]} style={styles.fill}>
       <BackHeader title={t("thread.title")} subtitle={t("thread.in", { name: channelId ? `#${title}` : title })} />
@@ -91,11 +109,16 @@ export function ThreadScreen() {
           <LoadState error={replies.error} onRetry={replies.reload} />
         ) : (
           <FlatList
+            ref={list}
             inverted
             // The list is inverted: its header is its bottom, some air between the last reply and the bar.
             ListHeaderComponent={<View style={styles.end} />}
             data={rows}
             keyExtractor={(row) => (row.kind === "count" ? "count" : row.message.id)}
+            onScrollToIndexFailed={(info) => {
+              list.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
+              setTimeout(() => list.current?.scrollToIndex({ index: info.index, viewPosition: 0.5, animated: false }), 120);
+            }}
             keyboardDismissMode="interactive"
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => {
@@ -128,6 +151,7 @@ export function ThreadScreen() {
                   }
                   onReact={(emoji) => react(conversationId, m, emoji)}
                   onAddReaction={() => navigation.navigate("emojiPicker", { conversationId, message: m })}
+                  highlighted={flash === m.id}
                 />
               );
             }}

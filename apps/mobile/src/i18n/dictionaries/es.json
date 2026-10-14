@@ -362,7 +362,8 @@
     "channelGone": "Este canal se ha eliminado.",
     "removedFromChannel": "Le han retirado de este canal.",
     "pinned": "Fijados",
-    "noPinnedHint": "Fije un mensaje importante en la conversación: aparecerá aquí."
+    "noPinnedHint": "Fije un mensaje importante en la conversación: aparecerá aquí.",
+    "messageNotFound": "No se encuentra el mensaje"
   },
   "attendee": {
     "accepted": "Asiste",

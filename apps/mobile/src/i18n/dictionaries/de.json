@@ -334,7 +334,8 @@
     "channelGone": "Dieser Kanal wurde gelöscht.",
     "removedFromChannel": "Sie wurden aus diesem Kanal entfernt.",
     "pinned": "Angeheftet",
-    "noPinnedHint": "Heften Sie eine wichtige Nachricht in der Unterhaltung an: Sie erscheint hier."
+    "noPinnedHint": "Heften Sie eine wichtige Nachricht in der Unterhaltung an: Sie erscheint hier.",
+    "messageNotFound": "Nachricht nicht gefunden"
   },
   "attendee": {
     "accepted": "Nimmt teil",
