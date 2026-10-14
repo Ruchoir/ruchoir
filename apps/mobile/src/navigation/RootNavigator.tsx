@@ -24,8 +24,11 @@ import { RemindersSheet } from "../screens/agenda/form/RemindersSheet";
 import { RepeatSheet } from "../screens/agenda/form/RepeatSheet";
 import { ScopeSheet } from "../screens/agenda/form/ScopeSheet";
 import { TimeZoneSheet } from "../screens/agenda/form/TimeZoneSheet";
+import { AddSheet } from "../screens/files/AddSheet";
+import { ConflictSheet } from "../screens/files/ConflictSheet";
 import { FileViewerScreen } from "../screens/files/FileViewerScreen";
 import { FolderScreen } from "../screens/files/FolderScreen";
+import { UploadsSheet } from "../screens/files/UploadsSheet";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
 import { fonts } from "../theme/fonts";
 import { useTheme } from "../theme/useTheme";
@@ -70,6 +73,9 @@ export function RootNavigator() {
         <Stack.Screen name="eventZone" component={TimeZoneSheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="eventScope" component={ScopeSheet} options={sheet} />
         <Stack.Screen name="eventReminders" component={RemindersSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
+        <Stack.Screen name="filesAdd" component={AddSheet} options={sheet} />
+        <Stack.Screen name="uploads" component={UploadsSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
+        <Stack.Screen name="uploadConflict" component={ConflictSheet} options={sheet} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
         <Stack.Screen name="messageActions" component={MessageActionSheet} options={sheet} />

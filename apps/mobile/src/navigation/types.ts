@@ -77,6 +77,11 @@ export type RootParams = {
   attachSheet: { draftKey: string; title?: string; spaceId?: string };
   /** A space's files to pick from: `spaceId`'s, else the current space's. */
   spaceFilePicker: { draftKey: string; spaceId?: string };
+  /** "Add a file" into a folder of a space (its root without `folderId`), named for the questions. */
+  filesAdd: { spaceId: string; folderId?: string; folderName: string };
+  /** The files on their way, and the question about a name already taken. */
+  uploads: undefined;
+  uploadConflict: undefined;
   spaceSheet: undefined;
   accountSheet: undefined;
 };

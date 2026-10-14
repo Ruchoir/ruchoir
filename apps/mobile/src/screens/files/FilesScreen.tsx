@@ -1,6 +1,7 @@
 import { getFilesView, getFolder, searchFiles, type SpaceFile } from "@ruchoir/client";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
-import { Folder, FolderOpen, SearchX } from "lucide-react-native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Folder, FolderOpen, SearchX, Upload } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
@@ -11,6 +12,7 @@ import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
+import { FloatingButton } from "../../ui/FloatingButton";
 import { SearchField } from "../../ui/SearchField";
 import { EmptyState, LoadState } from "../../ui/States";
 import { NoSpace } from "../../ui/NoSpace";
@@ -18,14 +20,16 @@ import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
 import { FileRow, openEntry } from "./FileRow";
+import { UploadStrip } from "./UploadStrip";
 
 /**
  * The space's files (mockup 20): a search, the folders at the root as tiles, the files at the root,
- * and what changed recently. Read-only in this step: no "Add a file".
+ * and what changed recently. "Add a file" puts files at the space's root.
  */
 export function FilesScreen() {
   const { t } = useTranslation();
   const { current, status } = useSpace();
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   useEffect(() => {
@@ -65,6 +69,7 @@ export function FilesScreen() {
       >
         <TabHeader title={t("tabs.files")} />
         <SearchField value={query} onChange={setQuery} placeholder={t("files.search")} />
+        {space ? <UploadStrip spaceId={space} /> : null}
         {debounced ? (
           found.data ? (
             found.data.length ? (
@@ -86,6 +91,13 @@ export function FilesScreen() {
           </>
         )}
       </ScrollView>
+      {current ? (
+        <FloatingButton
+          icon={Upload}
+          label={t("eventForm.addFile")}
+          onPress={() => navigation.navigate("filesAdd", { spaceId: current.id, folderName: current.name })}
+        />
+      ) : null}
     </TabScreen>
   );
 }
@@ -126,7 +138,8 @@ function Section({ title, files }: { title: string; files: SpaceFile[] }) {
 }
 
 const styles = StyleSheet.create({
-  page: { paddingBottom: 24, gap: 12, flexGrow: 1 },
+  // Room under the last row for the floating button.
+  page: { paddingBottom: 96, gap: 12, flexGrow: 1 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16 },
   tile: {
     flexBasis: "47%",
