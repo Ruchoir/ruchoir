@@ -26,13 +26,16 @@ import { ScopeSheet } from "../screens/agenda/form/ScopeSheet";
 import { TimeZoneSheet } from "../screens/agenda/form/TimeZoneSheet";
 import { AddSheet } from "../screens/files/AddSheet";
 import { ConflictSheet } from "../screens/files/ConflictSheet";
+import { ConversationPicker } from "../screens/files/ConversationPicker";
 import { DetailsSheet } from "../screens/files/DetailsSheet";
 import { EntryMenu } from "../screens/files/EntryMenu";
 import { FileViewerScreen } from "../screens/files/FileViewerScreen";
 import { FolderScreen } from "../screens/files/FolderScreen";
+import { LinksSheet } from "../screens/files/LinksSheet";
 import { MovePicker } from "../screens/files/MovePicker";
 import { NameSheet } from "../screens/files/NameSheet";
 import { ScanScreen } from "../screens/files/ScanScreen";
+import { ShareSheet } from "../screens/files/ShareSheet";
 import { UploadsSheet } from "../screens/files/UploadsSheet";
 import { VersionsSheet } from "../screens/files/VersionsSheet";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
@@ -88,6 +91,9 @@ export function RootNavigator() {
         <Stack.Screen name="fileDetails" component={DetailsSheet} options={sheet} />
         <Stack.Screen name="fileMove" component={MovePicker} options={{ presentation: "modal" }} />
         <Stack.Screen name="fileVersions" component={VersionsSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
+        <Stack.Screen name="fileShare" component={ShareSheet} options={sheet} />
+        <Stack.Screen name="fileSendTo" component={ConversationPicker} options={{ presentation: "modal" }} />
+        <Stack.Screen name="fileLinks" component={LinksSheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
         <Stack.Screen name="messageActions" component={MessageActionSheet} options={sheet} />

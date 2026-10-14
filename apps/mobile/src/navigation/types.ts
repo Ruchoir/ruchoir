@@ -90,6 +90,9 @@ export type RootParams = {
   fileDetails: { file: SpaceFile; spaceId: string; path?: string };
   fileMove: { file: SpaceFile; spaceId: string };
   fileVersions: { file: SpaceFile; spaceId: string };
+  fileShare: { file: SpaceFile; spaceId: string };
+  fileSendTo: { file: SpaceFile; spaceId: string };
+  fileLinks: { file: SpaceFile };
   uploadConflict: undefined;
   spaceSheet: undefined;
   accountSheet: undefined;

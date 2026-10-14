@@ -131,7 +131,8 @@
     "replyInThread": "Rispondi in una discussione",
     "lastAt": "ultima alle {{time}}",
     "lastYesterday": "ultima ieri",
-    "lastOn": "ultima il {{date}}"
+    "lastOn": "ultima il {{date}}",
+    "copyLink": "Copia il link"
   },
   "common": {
     "back": "Indietro",
@@ -499,7 +500,40 @@
     "restoreVersion": "Ripristina la versione {{number}}",
     "versionRestored": "Versione {{number}} ripristinata",
     "versionRestoreFailed": "Impossibile ripristinare la versione",
-    "restore": "Ripristina"
+    "restore": "Ripristina",
+    "share": "Condividi",
+    "shareTitle": "Condividi «{{name}}»",
+    "sendToConversation": "Invia in una conversazione",
+    "shareNote": "Messaggio (facoltativo)",
+    "shareNotePlaceholder": "Due parole per accompagnare il file",
+    "sentTo": "Inviato in {{name}}",
+    "sendFailed": "Impossibile inviare",
+    "publicLinks": "Link pubblici",
+    "publicLinksHint": "Chiunque abbia il link può scaricare questo file, senza un account Ruchoir.",
+    "publicLinksOff": "I link pubblici sono disattivati su questa istanza.",
+    "linkExpiry": "Scadenza",
+    "linkNoEnd": "Senza scadenza",
+    "linkDays_one": "{{count}} giorno",
+    "linkDays_other": "{{count}} giorni",
+    "linkDays_many": "{{count}} giorni",
+    "linkPasswordPlaceholder": "Facoltativa",
+    "revokeLink": "Elimina questo link",
+    "linkCreateFailed": "Impossibile creare il link",
+    "linkRevoked": "Link eliminato: non funziona più",
+    "linkRevokeFailed": "Impossibile eliminare il link",
+    "linkExpired": "Scaduto",
+    "linkUntil": "Fino al {{date}}",
+    "linkWithPassword": "con password",
+    "linkDownloads_one": "{{count}} download",
+    "linkDownloads_other": "{{count}} download",
+    "linkDownloads_many": "{{count}} download",
+    "findConversation": "Cerca un canale o una persona",
+    "noConversation": "Nessuna conversazione corrisponde.",
+    "createLink": "Crea un link",
+    "linkCopied": "Link copiato",
+    "revokeConfirm": "Eliminare questo link? Smetterà di funzionare.",
+    "noLinks": "Ancora nessun link",
+    "linkCopyFailed": "Impossibile copiare: seleziona il link a mano"
   },
   "viewer": {
     "share": "Condividi o apri in…",
@@ -689,6 +723,8 @@
   },
   "sidebar": {
     "favourite": "Aggiungi ai preferiti",
-    "unfavourite": "Rimuovi dai preferiti"
+    "unfavourite": "Rimuovi dai preferiti",
+    "favourites": "Canali preferiti",
+    "directMessages": "Messaggi diretti"
   }
 }

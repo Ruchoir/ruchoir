@@ -131,7 +131,8 @@
     "replyInThread": "Responder en un hilo",
     "lastAt": "última a las {{time}}",
     "lastYesterday": "última ayer",
-    "lastOn": "última el {{date}}"
+    "lastOn": "última el {{date}}",
+    "copyLink": "Copiar el enlace"
   },
   "common": {
     "back": "Atrás",
@@ -499,7 +500,40 @@
     "restoreVersion": "Restaurar la versión {{number}}",
     "versionRestored": "Versión {{number}} restaurada",
     "versionRestoreFailed": "No se pudo restaurar la versión",
-    "restore": "Restaurar"
+    "restore": "Restaurar",
+    "share": "Compartir",
+    "shareTitle": "Compartir «{{name}}»",
+    "sendToConversation": "Enviar a una conversación",
+    "shareNote": "Mensaje (opcional)",
+    "shareNotePlaceholder": "Unas palabras para acompañar el archivo",
+    "sentTo": "Enviado a {{name}}",
+    "sendFailed": "No se pudo enviar",
+    "publicLinks": "Enlaces públicos",
+    "publicLinksHint": "Cualquiera que tenga el enlace puede descargar este archivo, sin cuenta de Ruchoir.",
+    "publicLinksOff": "Los enlaces públicos están desactivados en esta instancia.",
+    "linkExpiry": "Caducidad",
+    "linkNoEnd": "Sin caducidad",
+    "linkDays_one": "{{count}} día",
+    "linkDays_other": "{{count}} días",
+    "linkDays_many": "{{count}} días",
+    "linkPasswordPlaceholder": "Opcional",
+    "revokeLink": "Eliminar este enlace",
+    "linkCreateFailed": "No se pudo crear el enlace",
+    "linkRevoked": "Enlace eliminado: ya no funciona",
+    "linkRevokeFailed": "No se pudo eliminar el enlace",
+    "linkExpired": "Caducado",
+    "linkUntil": "Hasta el {{date}}",
+    "linkWithPassword": "con contraseña",
+    "linkDownloads_one": "{{count}} descarga",
+    "linkDownloads_other": "{{count}} descargas",
+    "linkDownloads_many": "{{count}} descargas",
+    "findConversation": "Buscar un canal o una persona",
+    "noConversation": "Ninguna conversación coincide.",
+    "createLink": "Crear un enlace",
+    "linkCopied": "Enlace copiado",
+    "revokeConfirm": "¿Eliminar este enlace? Dejará de funcionar.",
+    "noLinks": "Todavía no hay enlaces",
+    "linkCopyFailed": "No se pudo copiar: selecciona el enlace a mano"
   },
   "viewer": {
     "share": "Compartir o abrir en…",
@@ -689,6 +723,8 @@
   },
   "sidebar": {
     "favourite": "Añadir a favoritos",
-    "unfavourite": "Quitar de favoritos"
+    "unfavourite": "Quitar de favoritos",
+    "favourites": "Canales favoritos",
+    "directMessages": "Mensajes directos"
   }
 }

@@ -129,7 +129,8 @@
     "replyInThread": "Reply in a thread",
     "lastAt": "last at {{time}}",
     "lastYesterday": "last yesterday",
-    "lastOn": "last on {{date}}"
+    "lastOn": "last on {{date}}",
+    "copyLink": "Copy the link"
   },
   "common": {
     "back": "Back",
@@ -466,7 +467,38 @@
     "restoreVersion": "Restore version {{number}}",
     "versionRestored": "Version {{number}} restored",
     "versionRestoreFailed": "Could not restore the version",
-    "restore": "Restore"
+    "restore": "Restore",
+    "share": "Share",
+    "shareTitle": "Share “{{name}}”",
+    "sendToConversation": "Send in a conversation",
+    "shareNote": "Message (optional)",
+    "shareNotePlaceholder": "A word to go with the file",
+    "sentTo": "Sent in {{name}}",
+    "sendFailed": "Could not send",
+    "publicLinks": "Public links",
+    "publicLinksHint": "Anyone with the link can download this file, without a Ruchoir account.",
+    "publicLinksOff": "Public links are turned off on this instance.",
+    "linkExpiry": "Expiry",
+    "linkNoEnd": "No expiry",
+    "linkDays_one": "{{count}} day",
+    "linkDays_other": "{{count}} days",
+    "linkPasswordPlaceholder": "Optional",
+    "revokeLink": "Delete this link",
+    "linkCreateFailed": "Could not create the link",
+    "linkRevoked": "Link deleted: it no longer works",
+    "linkRevokeFailed": "Could not delete the link",
+    "linkExpired": "Expired",
+    "linkUntil": "Until {{date}}",
+    "linkWithPassword": "with a password",
+    "linkDownloads_one": "{{count}} download",
+    "linkDownloads_other": "{{count}} downloads",
+    "findConversation": "Find a channel or a person",
+    "noConversation": "No conversation matches.",
+    "createLink": "Create a link",
+    "linkCopied": "Link copied",
+    "revokeConfirm": "Delete this link? It will stop working.",
+    "noLinks": "No link yet",
+    "linkCopyFailed": "Could not copy: select the link by hand"
   },
   "viewer": {
     "share": "Share or open in…",
@@ -648,6 +680,8 @@
   },
   "sidebar": {
     "favourite": "Add to favourites",
-    "unfavourite": "Remove from favourites"
+    "unfavourite": "Remove from favourites",
+    "favourites": "Favourite channels",
+    "directMessages": "Direct messages"
   }
 }

@@ -3,7 +3,7 @@ import { actionsFor, canManage, type ActionId } from "@ruchoir/client/filesLogic
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Sharing from "expo-sharing";
-import { FileUp, FolderInput, FolderOpen, History, Info, PencilLine, Share as ShareIcon, Star, StarOff, Trash2, type LucideIcon } from "lucide-react-native";
+import { FileUp, FolderInput, FolderOpen, History, Info, PencilLine, Send, Share as ShareIcon, Star, StarOff, Trash2, type LucideIcon } from "lucide-react-native";
 import { Alert, StyleSheet, View } from "react-native";
 
 import { uploadLimit } from "../../api/limits";
@@ -68,6 +68,7 @@ export function EntryMenu() {
     },
     rename: () =>
       navigation.replace("fileName", { mode: "rename", spaceId: params.spaceId, folderId: file.parentFolderId, fileId: file.id, name: file.name }),
+    share: () => navigation.replace("fileShare", { file, spaceId: params.spaceId }),
     move: () => navigation.replace("fileMove", { file, spaceId: params.spaceId }),
     newVersion: () =>
       void pickDocuments(false).then(async (picked) => {
@@ -103,6 +104,7 @@ export function EntryMenu() {
     open: { icon: FolderOpen, tint: c.sky, title: t("today.open") },
     download: { icon: ShareIcon, tint: c.violet, title: t("viewer.share") },
     star: file.starred ? { icon: StarOff, tint: c.sun, title: t("sidebar.unfavourite") } : { icon: Star, tint: c.sun, title: t("sidebar.favourite") },
+    share: { icon: Send, tint: c.pink, title: t("files.share") },
     rename: { icon: PencilLine, tint: c.mint, title: t("files.rename") },
     move: { icon: FolderInput, tint: c.mint, title: t("files.move") },
     newVersion: { icon: FileUp, tint: c.peach, title: t("files.uploadNewVersion") },

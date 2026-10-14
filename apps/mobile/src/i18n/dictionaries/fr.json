@@ -129,7 +129,8 @@
     "replyInThread": "Répondre dans un fil",
     "lastAt": "dernière à {{time}}",
     "lastYesterday": "dernière hier",
-    "lastOn": "dernière le {{date}}"
+    "lastOn": "dernière le {{date}}",
+    "copyLink": "Copier le lien"
   },
   "common": {
     "back": "Retour",
@@ -466,7 +467,38 @@
     "restoreVersion": "Restaurer la version {{number}}",
     "versionRestored": "Version {{number}} restaurée",
     "versionRestoreFailed": "Restauration de la version impossible",
-    "restore": "Restaurer"
+    "restore": "Restaurer",
+    "share": "Partager",
+    "shareTitle": "Partager « {{name}} »",
+    "sendToConversation": "Envoyer dans une conversation",
+    "shareNote": "Message (facultatif)",
+    "shareNotePlaceholder": "Un mot pour accompagner le fichier",
+    "sentTo": "Envoyé dans {{name}}",
+    "sendFailed": "Envoi impossible",
+    "publicLinks": "Liens publics",
+    "publicLinksHint": "Toute personne qui a le lien peut télécharger ce fichier, sans compte Ruchoir.",
+    "publicLinksOff": "Les liens publics sont désactivés sur cette instance.",
+    "linkExpiry": "Expiration",
+    "linkNoEnd": "Sans expiration",
+    "linkDays_one": "{{count}} jour",
+    "linkDays_other": "{{count}} jours",
+    "linkPasswordPlaceholder": "Facultatif",
+    "revokeLink": "Supprimer ce lien",
+    "linkCreateFailed": "Création du lien impossible",
+    "linkRevoked": "Lien supprimé : il ne fonctionne plus",
+    "linkRevokeFailed": "Suppression du lien impossible",
+    "linkExpired": "Expiré",
+    "linkUntil": "Jusqu'au {{date}}",
+    "linkWithPassword": "avec mot de passe",
+    "linkDownloads_one": "{{count}} téléchargement",
+    "linkDownloads_other": "{{count}} téléchargements",
+    "findConversation": "Chercher un canal ou une personne",
+    "noConversation": "Aucune conversation ne correspond.",
+    "createLink": "Créer un lien",
+    "linkCopied": "Lien copié",
+    "revokeConfirm": "Supprimer ce lien ? Il ne fonctionnera plus.",
+    "noLinks": "Aucun lien pour l’instant",
+    "linkCopyFailed": "Copie impossible : sélectionnez le lien à la main"
   },
   "viewer": {
     "share": "Partager ou ouvrir dans…",
@@ -648,6 +680,8 @@
   },
   "sidebar": {
     "favourite": "Ajouter aux favoris",
-    "unfavourite": "Retirer des favoris"
+    "unfavourite": "Retirer des favoris",
+    "favourites": "Canaux favoris",
+    "directMessages": "Messages directs"
   }
 }

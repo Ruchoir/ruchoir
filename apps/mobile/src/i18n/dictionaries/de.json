@@ -129,7 +129,8 @@
     "replyInThread": "In einem Thread antworten",
     "lastAt": "letzte um {{time}}",
     "lastYesterday": "letzte gestern",
-    "lastOn": "letzte am {{date}}"
+    "lastOn": "letzte am {{date}}",
+    "copyLink": "Link kopieren"
   },
   "common": {
     "back": "Zurück",
@@ -466,7 +467,38 @@
     "restoreVersion": "Version {{number}} wiederherstellen",
     "versionRestored": "Version {{number}} wiederhergestellt",
     "versionRestoreFailed": "Version konnte nicht wiederhergestellt werden",
-    "restore": "Wiederherstellen"
+    "restore": "Wiederherstellen",
+    "share": "Teilen",
+    "shareTitle": "„{{name}}“ teilen",
+    "sendToConversation": "In einer Unterhaltung senden",
+    "shareNote": "Nachricht (optional)",
+    "shareNotePlaceholder": "Ein paar Worte zur Datei",
+    "sentTo": "Gesendet in {{name}}",
+    "sendFailed": "Senden nicht möglich",
+    "publicLinks": "Öffentliche Links",
+    "publicLinksHint": "Jeder mit dem Link kann diese Datei herunterladen, ohne Ruchoir-Konto.",
+    "publicLinksOff": "Öffentliche Links sind auf dieser Instanz deaktiviert.",
+    "linkExpiry": "Ablauf",
+    "linkNoEnd": "Kein Ablauf",
+    "linkDays_one": "{{count}} Tag",
+    "linkDays_other": "{{count}} Tage",
+    "linkPasswordPlaceholder": "Optional",
+    "revokeLink": "Diesen Link löschen",
+    "linkCreateFailed": "Link konnte nicht erstellt werden",
+    "linkRevoked": "Link gelöscht: Er funktioniert nicht mehr",
+    "linkRevokeFailed": "Link konnte nicht gelöscht werden",
+    "linkExpired": "Abgelaufen",
+    "linkUntil": "Bis {{date}}",
+    "linkWithPassword": "mit Passwort",
+    "linkDownloads_one": "{{count}} Download",
+    "linkDownloads_other": "{{count}} Downloads",
+    "findConversation": "Kanal oder Person suchen",
+    "noConversation": "Keine Unterhaltung passt.",
+    "createLink": "Link erstellen",
+    "linkCopied": "Link kopiert",
+    "revokeConfirm": "Diesen Link löschen? Er funktioniert dann nicht mehr.",
+    "noLinks": "Noch kein Link",
+    "linkCopyFailed": "Kopieren nicht möglich: Link von Hand markieren"
   },
   "viewer": {
     "share": "Teilen oder öffnen in…",
@@ -648,6 +680,8 @@
   },
   "sidebar": {
     "favourite": "Zu Favoriten hinzufügen",
-    "unfavourite": "Aus Favoriten entfernen"
+    "unfavourite": "Aus Favoriten entfernen",
+    "favourites": "Favorisierte Kanäle",
+    "directMessages": "Direktnachrichten"
   }
 }
