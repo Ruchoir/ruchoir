@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { configureClient, resetClientForTests, startAttachmentUpload, startFileUpload } from "../src/index.ts";
+import { configureClient, resetClientForTests, startAttachmentUpload, startFileUpload, startFileVersionUpload } from "../src/index.ts";
 
 /** A stand-in for XMLHttpRequest that records what is sent and answers when told to. */
 class FakeXhr {
@@ -100,4 +100,24 @@ test("file_upload_413_rejects_with_its_status", async () => {
   const request = startFileUpload("s1", new Blob(["x"]));
   FakeXhr.last.answer(413, { error: "too_large" });
   await assert.rejects(request.done, (err: { status: number }) => err.status === 413);
+});
+
+test("version_upload_goes_to_the_file", async () => {
+  configureClient({ baseUrl: "https://a.test", authorization: () => "Bearer t1" });
+  const request = startFileVersionUpload("f9", { uri: "file:///devis.pdf", name: "devis.pdf", type: "application/pdf" });
+  const xhr = FakeXhr.last;
+  assert.equal(xhr.method, "POST");
+  assert.equal(xhr.url, "https://a.test/api/v1/files/f9/versions");
+  assert.equal(xhr.headers.authorization, "Bearer t1");
+  assert.ok((xhr.body as FormData).has("file"));
+  xhr.answer(201, { id: "f9", name: "devis.pdf", size_bytes: 9, kind: "file-text", is_folder: false, version_no: 2 });
+  const file = await request.done;
+  assert.equal(file.id, "f9");
+});
+
+test("version_upload_reports_progress", () => {
+  const seen: number[] = [];
+  startFileVersionUpload("f9", new Blob(["x"]), (sent) => seen.push(sent));
+  FakeXhr.last.upload.onprogress?.({ loaded: 3 });
+  assert.deepEqual(seen, [3]);
 });

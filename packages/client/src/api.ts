@@ -2123,6 +2123,16 @@ export async function uploadFileVersion(fileId: string, file: File): Promise<Spa
   return toSpaceFile((await res.json()) as FileDto);
 }
 
+/**
+ * `POST /files/{id}/versions`, as {@link uploadFileVersion}, for a file of the phone (`UploadPart`) and
+ * with its progress, as {@link startFileUpload} does.
+ */
+export function startFileVersionUpload(fileId: string, part: UploadPart, onProgress?: (sent: number) => void): UploadRequest<SpaceFile> {
+  const form = new FormData();
+  form.append("file", part as Blob);
+  return xhrUpload(`/files/${fileId}/versions`, form, (body) => toSpaceFile(body as FileDto), onProgress);
+}
+
 // --- Trash and versions ---
 
 type TrashEntryDto = {
