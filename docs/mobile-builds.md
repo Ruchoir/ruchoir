@@ -1,9 +1,11 @@
 # Building the phone apps
 
-The phone apps run as a **development build**: Ruchoir itself with Expo's development launcher
-(`expo-dev-client`), which opens the JavaScript from a Metro server, the way Expo Go did. JavaScript
-changes reach the phone through Metro as before; a new build is needed only when something native
-changes (a native library added or upgraded, `app.config.ts`, an Expo SDK upgrade).
+**Expo Go stays the everyday tool**: it opens a JavaScript change at once and needs no build
+(`docs/development.md`). For the big test phases, and for what Expo Go cannot host (biometrics,
+push, widgets, passkeys, a native scanner), the app is built as a **development build**: Ruchoir
+itself with Expo's development launcher (`expo-dev-client`), which opens the same Metro server.
+JavaScript still reaches it through Metro; a new build is needed only when something native changes
+(a native library added or upgraded, `app.config.ts`, an Expo SDK upgrade).
 
 Builds are made by GitHub Actions (`.github/workflows/mobile-build.yml`), on GitHub's macOS runner for
 the iPhone and its Linux runner for Android, free for a public repository (ADR 0005). Nothing of
