@@ -91,6 +91,11 @@ src/i18n/              i18next and the six dictionaries
   it: it emits a `patched` realtime event for what it changed, or asks through `compose/requests.ts`
   (edit a message, add files) keyed by the composer's `draftKey` (`<conversation>` or
   `thread:<root>`).
+- **A sheet's root is one scroll view** (`Sheet`, or a `ScrollView`/`FlatList` whose head is pinned
+  with `stickyHeaderIndices={[0]}`). On iOS a `formSheet`'s content has no set height
+  (react-native-screens lays it out absolutely, without a bottom), so a `flex: 1` root with a fixed
+  head and a list filling the rest draws the list under the head. The keyboard has the same kind of
+  trap: use `ui/KeyboardArea`, which measures itself in the window, not `KeyboardAvoidingView`.
 - **Thread replies never enter a feed.** `screens/discussions/feed.ts` keeps a conversation's and a
   thread's messages live; a reply moves the count under its root once (`replyDelta`).
 - **Seeded files of the dev database have no bytes** in the dev object store: opening one answers

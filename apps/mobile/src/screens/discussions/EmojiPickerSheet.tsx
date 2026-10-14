@@ -52,14 +52,16 @@ export function EmojiPickerSheet() {
     [query, category, locale],
   );
 
-  return (
-    <View style={[styles.fill, { backgroundColor: c.surface }]}>
-      <View style={styles.head}>
-        <Text variant="heading" style={styles.gutter}>
-          {t("message.react")}
-        </Text>
-        <SearchField value={query} onChange={setQuery} placeholder={t("emoji.search")} />
-        {query.trim() ? null : (
+  // One list as the sheet's root, its head pinned: on iOS a sheet's content has no set height, so a
+  // fixed head beside a list that fills the rest leaves the list drawn under the head.
+  const head = (
+    <View style={[styles.head, { backgroundColor: c.surface }]}>
+      <Text variant="heading" style={styles.gutter}>
+        {t("message.react")}
+      </Text>
+      <SearchField value={query} onChange={setQuery} placeholder={t("emoji.search")} />
+      {query.trim() ? null : (
+        <>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabs}>
             {EMOJI_CATEGORIES.map((cat) => {
               const on = cat.id === category;
@@ -77,52 +79,53 @@ export function EmojiPickerSheet() {
               );
             })}
           </ScrollView>
-        )}
-      </View>
-      <FlatList
-        key={columns}
-        data={shown}
-        numColumns={columns}
-        keyExtractor={(emoji) => emoji}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        contentContainerStyle={[styles.grid, { paddingBottom: insets.bottom + 16 }]}
-        ListHeaderComponent={
-          query.trim() ? null : (
-            <Text variant="label" tone="muted" style={styles.section}>
-              {t(LABELS[category])}
-            </Text>
-          )
-        }
-        ListEmptyComponent={<EmptyState size="compact" icon={SearchX} title={t("emoji.none")} />}
-        renderItem={({ item }) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("message.reactWith", { emoji: item })}
-            onPress={() => {
-              react(params.conversationId, params.message, item);
-              navigation.goBack();
-            }}
-            style={({ pressed }) => [styles.cell, pressed && { backgroundColor: s.pressed }]}
-          >
-            <Text style={styles.glyph}>{item}</Text>
-          </Pressable>
-        )}
-      />
+          <Text variant="label" tone="muted" style={styles.gutter}>
+            {t(LABELS[category])}
+          </Text>
+        </>
+      )}
     </View>
+  );
+
+  return (
+    <FlatList
+      key={columns}
+      style={{ backgroundColor: c.surface }}
+      data={shown}
+      numColumns={columns}
+      keyExtractor={(emoji) => emoji}
+      stickyHeaderIndices={[0]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      columnWrapperStyle={styles.row}
+      contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+      ListHeaderComponent={head}
+      ListEmptyComponent={<EmptyState size="compact" icon={SearchX} title={t("emoji.none")} />}
+      renderItem={({ item }) => (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("message.reactWith", { emoji: item })}
+          onPress={() => {
+            react(params.conversationId, params.message, item);
+            navigation.goBack();
+          }}
+          style={({ pressed }) => [styles.cell, pressed && { backgroundColor: s.pressed }]}
+        >
+          <Text style={styles.glyph}>{item}</Text>
+        </Pressable>
+      )}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  head: { paddingTop: 24, gap: 12 },
+  head: { paddingTop: 24, paddingBottom: 4, gap: 12 },
   gutter: { paddingHorizontal: 16 },
   tabsScroll: { flexGrow: 0 },
   tabs: { gap: 4, paddingHorizontal: 16 },
   tab: { width: 44, height: 44, borderRadius: radius.m, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
   tabGlyph: { fontSize: 22, lineHeight: 28 },
-  grid: { paddingHorizontal: 16 },
-  section: { paddingTop: 12, paddingBottom: 4 },
+  row: { paddingHorizontal: 16 },
   cell: { width: CELL, height: CELL, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
   glyph: { fontSize: 28, lineHeight: 34 },
 });

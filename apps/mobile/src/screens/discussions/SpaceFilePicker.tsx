@@ -60,15 +60,23 @@ export function SpaceFilePicker() {
   const folders = entries.filter((f) => f.kind === "folder");
   const files = entries.filter((f) => f.kind !== "folder");
 
+  // One scroll view as the sheet's root, its head pinned: on iOS a sheet's content has no set height,
+  // so a fixed head beside a list that fills the rest leaves the list drawn under the head.
   return (
-    <View style={[styles.fill, { backgroundColor: c.surface }]}>
-      <View style={styles.head}>
+    <ScrollView
+      style={{ backgroundColor: c.surface }}
+      stickyHeaderIndices={[0]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
+    >
+      <View style={[styles.head, { backgroundColor: c.surface }]}>
         <Text variant="heading" style={styles.title}>
           {t("attach.space")}
         </Text>
         <SearchField value={query} onChange={setQuery} placeholder={t("files.search")} />
       </View>
-      <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
+      <View>
         {debounced ? (
           found.data ? (
             found.data.length ? (
@@ -125,13 +133,12 @@ export function SpaceFilePicker() {
             )}
           </>
         )}
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
   head: { paddingTop: 24, paddingBottom: 8, gap: 12 },
   title: { paddingHorizontal: 16 },
   back: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
