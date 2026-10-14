@@ -1,4 +1,4 @@
-import { NavigationContainer } from "@react-navigation/native";
+import { createNavigationContainerRef, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { AttachSheet } from "../compose/AttachSheet";
@@ -54,12 +54,17 @@ import { MemberSheet } from "../screens/space/MemberSheet";
 import { SpaceNotifySheet } from "../screens/space/SpaceNotifySheet";
 import { SpaceSettingsScreen } from "../screens/space/SpaceSettingsScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
+import { NotificationsIntroScreen } from "../screens/account/NotificationsIntroScreen";
+import { usePhonePush } from "../push/usePhonePush";
 import { TutorialScreen } from "../screens/welcome/TutorialScreen";
 import { useNavigationTheme } from "./navigationTheme";
 import { Tabs } from "./Tabs";
 import type { RootParams } from "./types";
 
 const Stack = createNativeStackNavigator<RootParams>();
+
+/** The root navigation, for what opens a screen from outside one (a tapped notification). */
+const rootNavigation = createNavigationContainerRef<RootParams>();
 
 /** "Create or join a space", from the space sheet. */
 function JoinSpaceModal() {
@@ -69,10 +74,11 @@ function JoinSpaceModal() {
 /** The signed-in app: the tabs, the screens pushed over them, and the sheets. */
 export function RootNavigator() {
   const theme = useNavigationTheme();
+  const push = usePhonePush(rootNavigation);
   const sheet = { presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true, headerShown: false } as const;
 
   return (
-    <NavigationContainer theme={theme}>
+    <NavigationContainer theme={theme} ref={rootNavigation} onReady={push.onReady}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="tabs" component={Tabs} />
         <Stack.Screen name="conversation" component={ConversationScreen} />
@@ -106,6 +112,7 @@ export function RootNavigator() {
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="joinSpace" component={JoinSpaceModal} options={{ presentation: "modal" }} />
         <Stack.Screen name="spaceSettings" component={SpaceSettingsScreen} />
+        <Stack.Screen name="notificationsIntro" component={NotificationsIntroScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="spaceMember" component={MemberSheet} options={sheet} />
         <Stack.Screen name="spaceDelete" component={DeleteSpaceScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="spaceNotify" component={SpaceNotifySheet} options={sheet} />

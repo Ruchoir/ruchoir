@@ -130,6 +130,9 @@ pub struct Config {
     /// ever sends a push to one of these, so a subscription cannot turn it into a way to reach
     /// arbitrary URLs. The default is the push services of the major browsers.
     pub push_allowed_hosts: Vec<String>,
+    /// The publisher's push relay that wakes the phone apps (`RUCHOIR_PUSH_RELAY_URL`, ADR 0006).
+    /// `None` (set to empty) keeps phones out of notifications on this instance.
+    pub push_relay_url: Option<String>,
     /// How long, in seconds, an unread notification waits before the email fallback considers it.
     /// `0` turns the fallback off.
     pub notify_email_delay_secs: i64,
@@ -198,6 +201,9 @@ pub fn host_of(url: &str) -> Option<String> {
     };
     (!host.is_empty()).then(|| host.to_ascii_lowercase())
 }
+
+/// The publisher's relay for the phone apps (ADR 0006), served under the project's website.
+pub const DEFAULT_PUSH_RELAY_URL: &str = "https://ruchoir.com/push";
 
 /// The push services of the major browsers: Chrome, Edge (and other Chromium browsers) through
 /// Google's, Firefox through Mozilla's, Safari through Apple's, legacy Edge through Microsoft's.
@@ -372,6 +378,15 @@ impl Config {
                 .map(|host| host.trim().to_ascii_lowercase())
                 .filter(|host| !host.is_empty())
                 .collect();
+        // An http(s) address: https for the publisher's relay, plain http for one on the same
+        // private network (a development stack). Anything else is refused.
+        let push_relay_url = match env_or("RUCHOIR_PUSH_RELAY_URL", DEFAULT_PUSH_RELAY_URL).trim() {
+            "" => None,
+            url if url.starts_with("https://") || url.starts_with("http://") => {
+                Some(url.trim_end_matches('/').to_owned())
+            }
+            _ => return Err(ConfigError::Invalid("RUCHOIR_PUSH_RELAY_URL")),
+        };
         let notify_email_delay_secs: i64 = env_or("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS", "900")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS"))?;
@@ -463,6 +478,7 @@ impl Config {
             public_links,
             thumbnail_max_px,
             push_allowed_hosts,
+            push_relay_url,
             notify_email_delay_secs,
             unfurl_enabled,
             unfurl_deny_hosts,

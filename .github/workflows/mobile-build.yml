@@ -83,7 +83,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Generate the native project
         working-directory: apps/mobile
-        # Also installs the CocoaPods.
+        # Also installs the CocoaPods. The team id names who the extensions are made for.
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: npx expo prebuild --platform ios
       - name: Archive
         # Unsigned: Xcode's automatic signing would ask for a development profile, which Apple only
@@ -98,14 +100,39 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
       - name: Sign ad hoc
         # The export re-signs everything for the App Store, but it takes the entitlements from the
-        # signature it finds: an unsigned app would lose them. Nested code first, the app last.
+        # signature it finds: an unsigned app would lose them. Xcode did not sign, so it did not
+        # expand `$(AppIdentifierPrefix)` either: done here with the team id. Nested code first (the
+        # frameworks, then each extension with its own entitlements), the app last.
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           app="$RUNNER_TEMP/Ruchoir.xcarchive/Products/Applications/Ruchoir.app"
-          if [ -d "$app/Frameworks" ]; then
-            find "$app/Frameworks" -maxdepth 1 \( -name '*.framework' -o -name '*.dylib' \) \
-              -exec codesign --force --sign - {} \;
+          expand() { sed "s/\$(AppIdentifierPrefix)/$TEAM_ID./g" "$1" > "$2"; }
+          sign_frameworks() {
+            if [ -d "$1/Frameworks" ]; then
+              find "$1/Frameworks" -maxdepth 1 \( -name '*.framework' -o -name '*.dylib' \) \
+                -exec codesign --force --sign - {} \;
+            fi
+          }
+          sign_frameworks "$app"
+          if [ -d "$app/PlugIns" ]; then
+            for extension in "$app"/PlugIns/*.appex; do
+              name=$(basename "$extension" .appex)
+              sign_frameworks "$extension"
+              expand "apps/mobile/ios/.targets/$name/generated.entitlements" "$RUNNER_TEMP/$name.entitlements"
+              codesign --force --sign - --entitlements "$RUNNER_TEMP/$name.entitlements" "$extension"
+            done
           fi
-          codesign --force --sign - --entitlements apps/mobile/ios/Ruchoir/Ruchoir.entitlements "$app"
+          expand apps/mobile/ios/Ruchoir/Ruchoir.entitlements "$RUNNER_TEMP/Ruchoir.entitlements"
+          codesign --force --sign - --entitlements "$RUNNER_TEMP/Ruchoir.entitlements" "$app"
+          codesign -d --entitlements - "$app"
+      - name: Register the bundle ids
+        # The app and its extensions, and the push capability, known to Apple before the export
+        # asks for their profiles.
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: KEY_PATH="$RUNNER_TEMP/AuthKey_$APPLE_API_KEY_ID.p8" node .github/scripts/register-app-ids.mjs
       - name: Sign for the App Store
         # Apple creates and keeps the distribution certificate itself (cloud signing): nothing to
         # store here but the API key. The upload is a step of its own: Xcode's content delivery
@@ -182,6 +209,18 @@ jobs:
         run: corepack enable
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: The Firebase project's file
+        # What Android needs to receive pushes (ADR 0006); without it the app builds and simply
+        # cannot be reached by notifications.
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > "$RUNNER_TEMP/google-services.json"
+            echo "GOOGLE_SERVICES_FILE=$RUNNER_TEMP/google-services.json" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No GOOGLE_SERVICES_JSON secret: this APK will not receive notifications."
+          fi
       - name: Generate the native project
         working-directory: apps/mobile
         run: npx expo prebuild --platform android

@@ -25,6 +25,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useReducer,
 
 import { connectTo, setSessionToken } from "../api/instance";
 import { canUseBrowserHandoff, signInThroughBrowser } from "../auth/browser";
+import { disablePhonePush } from "../push/phone";
 import { clearDownloads } from "../files/cache";
 import { sessionReducer, type SessionState } from "./machine";
 import { normalizeServer } from "./server";
@@ -348,6 +349,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [state, signedIn]);
 
   const signOut = useCallback(async () => {
+    // While the session still opens the door: the instance forgets this phone (ADR 0006).
+    await disablePhonePush();
     try {
       await logout();
     } catch {

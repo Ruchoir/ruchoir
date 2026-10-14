@@ -1070,5 +1070,21 @@
     "unlock": "Desbloquear",
     "unlockFaceId": "Desbloquear con Face ID",
     "unlockTouchId": "Desbloquear con Touch ID"
+  },
+  "push": {
+    "section": "En este teléfono",
+    "thisPhone": "Notificaciones en este teléfono",
+    "thisPhoneText": "Los mensajes, menciones y recordatorios llegan incluso con la aplicación cerrada. Su contenido no pasa por Apple ni por Google: el teléfono se lo pide a su servidor.",
+    "unavailable": "Disponible en la aplicación Ruchoir, no en Expo Go.",
+    "deniedTitle": "Notificaciones rechazadas",
+    "deniedText": "Están desactivadas en los ajustes del teléfono.",
+    "enabled": "Notificaciones activadas",
+    "failed": "No se han podido activar las notificaciones. Inténtelo de nuevo.",
+    "introTitle": "No se pierda nada importante",
+    "introBody": "Ruchoir le avisa cuando le escriben, le mencionan o le invitan a una cita. El resto lo ajusta en las preferencias.",
+    "introSampleFrom": "Léa Martin · Equipo",
+    "introSampleWhen": "ahora",
+    "introSample": "@Camille, ¿puedes confirmar que vienes el jueves?",
+    "later": "Más tarde"
   }
 }

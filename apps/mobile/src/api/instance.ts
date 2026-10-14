@@ -26,6 +26,11 @@ export function setSessionToken(value: string | null): void {
   token = value;
 }
 
+/** The session token and the instance, for what runs beside the client (phone notifications). */
+export function currentSession(): { token: string; origin: string } | null {
+  return token && origin ? { token, origin } : null;
+}
+
 /** The header that proves who is asking, for the requests the client does not make itself. */
 export function authHeaders(): Record<string, string> {
   return token ? { authorization: `Bearer ${token}` } : {};

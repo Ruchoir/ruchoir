@@ -2,7 +2,7 @@
 # The Rust API is the single production service (it also serves the static web bundle).
 [workspace]
 resolver = "2"
-members = ["apps/api", "migrations"]
+members = ["apps/api", "apps/push-relay", "migrations"]
 
 [workspace.package]
 edition = "2021"
