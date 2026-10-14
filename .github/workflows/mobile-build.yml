@@ -60,12 +60,6 @@ jobs:
           node-version-file: .nvmrc
       - name: Enable corepack (pnpm)
         run: corepack enable
-      - name: Install
-        run: pnpm install --frozen-lockfile
-      - name: Generate the native project
-        working-directory: apps/mobile
-        # Also installs the CocoaPods.
-        run: npx expo prebuild --platform ios
       - name: Write the App Store Connect key
         env:
           KEY: ${{ secrets.APPLE_API_KEY_P8 }}
@@ -77,6 +71,20 @@ jobs:
           fi
           umask 077
           printf '%s\n' "$KEY" > "$RUNNER_TEMP/AuthKey_$KEY_ID.p8"
+      - name: Check the App Store Connect key
+        # A minute instead of the whole build to learn that a secret is wrong.
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+          BUNDLE_ID: com.ruchoir.app
+        run: KEY_PATH="$RUNNER_TEMP/AuthKey_$APPLE_API_KEY_ID.p8" node .github/scripts/check-app-store-key.mjs
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Generate the native project
+        working-directory: apps/mobile
+        # Also installs the CocoaPods.
+        run: npx expo prebuild --platform ios
       - name: Archive
         # Unsigned: Xcode's automatic signing would ask for a development profile, which Apple only
         # makes for a team with a registered device, and the team has none. The Debug configuration
@@ -147,7 +155,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Set up Java
         # React Native's Gradle plugin asks for the Java 17 toolchain.
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
