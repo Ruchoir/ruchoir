@@ -269,7 +269,19 @@
       "hours": "horas antes",
       "days": "días antes",
       "weeks": "semanas antes"
-    }
+    },
+    "attendees": "Invitados",
+    "inviteByEmail": "Invitar a {{email}} por correo",
+    "clash_one": "Coincide con «{{title}}» ({{where}}, {{when}})",
+    "clash_many": "Coincide con {{count}} eventos: {{titles}}",
+    "clash_other": "Coincide con {{count}} eventos: {{titles}}",
+    "busyPeople": "Ya ocupados a esa hora: {{names}}",
+    "findSlot": "Buscar un hueco",
+    "noSlot": "Ningún hueco en que todos estén libres en los próximos 14 días.",
+    "me": "Yo",
+    "availability": "Disponibilidad",
+    "busyDuring": "{{name}} ya tiene algo a esa hora",
+    "freeDuring": "{{name}} está libre a esa hora"
   },
   "discussions": {
     "filterAll": "Todo",
@@ -349,7 +361,10 @@
     "pickDate": "Elegir la fecha",
     "pickTime": "Elegir la hora",
     "less": "Menos",
-    "more": "Más"
+    "more": "Más",
+    "addInvitees": "Añadir invitados",
+    "searchPeople": "Nombre o dirección de correo",
+    "inviteNote": "Los invitados reciben la invitación en Ruchoir, o por correo si no tienen cuenta."
   },
   "files": {
     "search": "Buscar un archivo",

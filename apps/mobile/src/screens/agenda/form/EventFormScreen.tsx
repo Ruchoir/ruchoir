@@ -8,7 +8,7 @@ import { createEvent, listCalendars, type Calendar } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { remindersLabel } from "@ruchoir/client/calendarLogic";
-import { Bell, ChevronDown, ChevronRight, FileText, MapPin, Repeat } from "lucide-react-native";
+import { Bell, ChevronDown, ChevronRight, FileText, MapPin, Repeat, UserPlus } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, TextInput, View } from "react-native";
 
@@ -19,6 +19,7 @@ import { useLocale } from "../../../i18n/useLocale";
 import { dayKey } from "../../../logic/format";
 import { isDirty, newDraft, toInput, type DraftError, type EventDraft } from "../../../logic/eventForm";
 import type { RootParams } from "../../../navigation/types";
+import { useSession } from "../../../session/SessionProvider";
 import { useSpace } from "../../../space/SpaceProvider";
 import { fonts } from "../../../theme/fonts";
 import { hairline, mix } from "../../../theme/tokens";
@@ -32,7 +33,10 @@ import { useToast } from "../../../ui/Toast";
 import { calendarColor } from "../calendarColor";
 import { calendarLabel } from "../calendarLabel";
 import { closeDraft, openDraft, readDraft, updateDraft, useDraft } from "./draftStore";
+import { Availability } from "./Availability";
+import { ClashLine } from "./ClashLine";
 import { FormRow } from "./FormRow";
+import { InviteeChips } from "./InviteeChips";
 import { inheritedReminders } from "./RemindersSheet";
 import { repeatLabel } from "./repeat";
 import { WhenRows } from "./WhenRows";
@@ -48,6 +52,9 @@ export function EventFormScreen() {
   const say = useSharedT();
   const toast = useToast();
   const { spaces } = useSpace();
+  const { state } = useSession();
+  const me = state.kind === "signedIn" ? state.user : null;
+  const [busyNames, setBusyNames] = useState<string[]>([]);
   const [formKey] = useState(() => `event-form-${++forms}`);
   const calendars = useLoad("calendars", (signal) => listCalendars(signal));
   const draft = useDraft(formKey);
@@ -89,6 +96,8 @@ export function EventFormScreen() {
     [navigation, formKey, t],
   );
 
+  // Who is free, for a timed event with someone of the instance invited.
+  const showAvailability = !!draft && !draft.allDay && draft.attendees.some((a) => a.userId && a.userId !== me?.id);
   const calendar: Calendar | undefined = calendars.data?.find((cal) => cal.id === draft?.calendarId);
   const band = mix(calendarColor(calendar?.color, c), c.surface, 0.45);
 
@@ -170,6 +179,7 @@ export function EventFormScreen() {
             ) : null}
           </View>
           <WhenRows formKey={formKey} draft={draft} error={errorText("endBeforeStart")} />
+          <ClashLine draft={draft} calendars={calendars.data ?? []} busyNames={showAvailability ? busyNames : []} />
           <FormRow icon={Repeat} tint={c.lime} label={t("calendar.repeat")} onPress={() => navigation.navigate("eventRepeat", { formKey })}>
             <View style={styles.choice}>
               <Text variant="body" style={styles.grow}>
@@ -187,6 +197,38 @@ export function EventFormScreen() {
               </Text>
               <ChevronRight size={18} color={c.muted} />
             </View>
+          </FormRow>
+          <FormRow icon={UserPlus} tint={c.sun} align="start">
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate("eventInvitees", { formKey })}
+              style={({ pressed }) => [styles.choice, pressed && { opacity: 0.6 }]}
+            >
+              <Text variant="body" tone={draft.attendees.length ? "strong" : "muted"} style={styles.grow}>
+                {draft.attendees.length ? t("calendar.attendees") : t("eventForm.addInvitees")}
+              </Text>
+              <ChevronRight size={18} color={c.muted} />
+            </Pressable>
+            {draft.attendees.length > 0 ? (
+              <>
+                <InviteeChips formKey={formKey} attendees={draft.attendees} />
+                <Text variant="tiny" tone="muted">
+                  {t("eventForm.inviteNote")}
+                </Text>
+              </>
+            ) : null}
+            {showAvailability ? (
+              <Availability
+                formKey={formKey}
+                draft={draft}
+                me={me?.id}
+                people={[
+                  ...(me ? [{ userId: me.id, name: t("calendar.me") }] : []),
+                  ...draft.attendees.flatMap((a) => (a.userId && a.userId !== me?.id ? [{ userId: a.userId, name: a.name }] : [])),
+                ]}
+                onBusy={setBusyNames}
+              />
+            ) : null}
           </FormRow>
           <FormRow icon={MapPin} tint={c.mint}>
             <TextInput

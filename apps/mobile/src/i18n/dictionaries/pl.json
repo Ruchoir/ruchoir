@@ -287,7 +287,20 @@
       "hours": "godzin przed",
       "days": "dni przed",
       "weeks": "tygodni przed"
-    }
+    },
+    "attendees": "Goście",
+    "inviteByEmail": "Zaproś {{email}} e-mailem",
+    "clash_one": "Nakłada się na „{{title}}” ({{where}}, {{when}})",
+    "clash_few": "Nakłada się na {{count}} wydarzenia: {{titles}}",
+    "clash_many": "Nakłada się na {{count}} wydarzeń: {{titles}}",
+    "clash_other": "Nakłada się na {{count}} wydarzenia: {{titles}}",
+    "busyPeople": "Już zajęci o tej porze: {{names}}",
+    "findSlot": "Znajdź termin",
+    "noSlot": "Brak terminu, w którym wszyscy są wolni w ciągu najbliższych 14 dni.",
+    "me": "Ja",
+    "availability": "Dostępność",
+    "busyDuring": "{{name}}: już zajęte o tej porze",
+    "freeDuring": "{{name}}: wolne o tej porze"
   },
   "discussions": {
     "filterAll": "Wszystko",
@@ -373,7 +386,10 @@
     "pickDate": "Wybierz datę",
     "pickTime": "Wybierz godzinę",
     "less": "Mniej",
-    "more": "Więcej"
+    "more": "Więcej",
+    "addInvitees": "Dodaj gości",
+    "searchPeople": "Imię lub adres e-mail",
+    "inviteNote": "Goście otrzymują zaproszenie w Ruchoir lub e-mailem, jeśli nie mają konta."
   },
   "files": {
     "search": "Szukaj pliku",

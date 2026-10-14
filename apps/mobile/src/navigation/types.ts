@@ -41,6 +41,7 @@ export type RootParams = {
   /** A date or time of the form; `until` is the day a custom repetition stops. */
   eventPicker: { formKey: string; field: "startDay" | "endDay" | "startTime" | "endTime" | "until" };
   eventRepeat: { formKey: string };
+  eventInvitees: { formKey: string };
   eventRule: { formKey: string };
   /** The form's reminders (`formKey`), or one's own reminders for the event `eventId`, saved at once. */
   eventReminders: { formKey: string; eventId?: undefined } | { eventId: string; formKey?: undefined };

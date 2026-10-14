@@ -17,6 +17,7 @@ import { EventSummarySheet } from "../screens/agenda/EventSummarySheet";
 import { CalendarSheet } from "../screens/agenda/form/CalendarSheet";
 import { CustomRuleScreen } from "../screens/agenda/form/CustomRuleScreen";
 import { EventFormScreen } from "../screens/agenda/form/EventFormScreen";
+import { InviteesScreen } from "../screens/agenda/form/InviteesScreen";
 import { PickerSheet } from "../screens/agenda/form/PickerSheet";
 import { RemindersSheet } from "../screens/agenda/form/RemindersSheet";
 import { RepeatSheet } from "../screens/agenda/form/RepeatSheet";
@@ -61,6 +62,7 @@ export function RootNavigator() {
         <Stack.Screen name="eventPicker" component={PickerSheet} options={sheet} />
         <Stack.Screen name="eventRepeat" component={RepeatSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="eventRule" component={CustomRuleScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="eventInvitees" component={InviteesScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="eventReminders" component={RemindersSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />

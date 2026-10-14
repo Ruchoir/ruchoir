@@ -251,7 +251,18 @@
       "hours": "hours before",
       "days": "days before",
       "weeks": "weeks before"
-    }
+    },
+    "attendees": "Guests",
+    "inviteByEmail": "Invite {{email}} by email",
+    "clash_one": "Overlaps “{{title}}” ({{where}}, {{when}})",
+    "clash_other": "Overlaps {{count}} events: {{titles}}",
+    "busyPeople": "Already busy then: {{names}}",
+    "findSlot": "Find a time",
+    "noSlot": "No time when everyone is free in the next 14 days.",
+    "me": "Me",
+    "availability": "Availability",
+    "busyDuring": "{{name}} already has something then",
+    "freeDuring": "{{name}} is free then"
   },
   "discussions": {
     "filterAll": "All",
@@ -325,7 +336,10 @@
     "pickDate": "Choose the date",
     "pickTime": "Choose the time",
     "less": "Fewer",
-    "more": "More"
+    "more": "More",
+    "addInvitees": "Add guests",
+    "searchPeople": "Name or email address",
+    "inviteNote": "Guests get the invitation in Ruchoir, or by email if they have no account."
   },
   "files": {
     "search": "Search for a file",
