@@ -11679,3 +11679,131 @@ mod import_calendar_tests;
 
 /// Bearer sessions for the native apps, kept in their own file; they reuse the helpers above.
 mod native_sessions_tests;
+
+// --- The six-digit code sent next to the verification link ---
+
+/// A fresh pending account, as registration leaves it: its id and address.
+async fn pending_account(app: &TestApp) -> (Uuid, String) {
+    let email = format!("code-{}@example.test", Uuid::new_v4().simple());
+    let response = register(app, &email, "Camille Roux", None).await;
+    assert_eq!(response.status(), 201);
+    let body: Value = response.json().await.expect("user");
+    let id = Uuid::parse_str(body["id"].as_str().expect("id")).expect("uuid");
+    (id, email)
+}
+
+async fn confirm_code(app: &TestApp, email: &str, code: &str) -> reqwest::Response {
+    app.http
+        .post(format!("{}/api/v1/auth/verify-email/code", app.base))
+        .json(&json!({ "email": email, "code": code }))
+        .send()
+        .await
+        .expect("confirm code")
+}
+
+async fn account_status(app: &TestApp, id: Uuid) -> String {
+    users::Entity::find_by_id(id)
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("user")
+        .status
+}
+
+async fn refused_as_invalid_code(response: reqwest::Response) {
+    assert_eq!(response.status(), 400);
+    let body: Value = response.json().await.expect("error body");
+    assert_eq!(body["error"], "invalid_code");
+}
+
+#[tokio::test]
+async fn a_code_confirms_a_pending_address() {
+    let Some(app) = boot().await else { return };
+    let (id, email) = pending_account(&app).await;
+    let code = crate::auth::tokens::issue_code(&app.valkey, id, 3600)
+        .await
+        .expect("code");
+    assert_eq!(account_status(&app, id).await, "pending");
+
+    // Typed the way the email groups it, with the address in capitals.
+    let typed = format!("{} {}", &code[..3], &code[3..]);
+    let response = confirm_code(&app, &email.to_uppercase(), &typed).await;
+
+    assert_eq!(response.status(), 204);
+    assert_eq!(account_status(&app, id).await, "active");
+    // Spent: the same code does nothing more.
+    refused_as_invalid_code(confirm_code(&app, &email, &code).await).await;
+}
+
+#[tokio::test]
+async fn five_wrong_codes_spend_it() {
+    let Some(app) = boot().await else { return };
+    let (id, email) = pending_account(&app).await;
+    let code = crate::auth::tokens::issue_code(&app.valkey, id, 3600)
+        .await
+        .expect("code");
+    let wrong = if code == "000000" { "111111" } else { "000000" };
+
+    for _ in 0..crate::auth::tokens::CODE_TRIES {
+        refused_as_invalid_code(confirm_code(&app, &email, wrong).await).await;
+    }
+    // The right code comes too late: it was spent by the wrong ones.
+    refused_as_invalid_code(confirm_code(&app, &email, &code).await).await;
+    assert_eq!(account_status(&app, id).await, "pending");
+}
+
+#[tokio::test]
+async fn an_unknown_address_answers_like_a_wrong_code() {
+    let Some(app) = boot().await else { return };
+    let email = format!("nobody-{}@example.test", Uuid::new_v4().simple());
+    refused_as_invalid_code(confirm_code(&app, &email, "123456").await).await;
+}
+
+#[tokio::test]
+async fn a_resent_email_replaces_the_code() {
+    let Some(app) = boot().await else { return };
+    let (id, email) = pending_account(&app).await;
+    let first = crate::auth::tokens::issue_code(&app.valkey, id, 3600)
+        .await
+        .expect("code");
+    let second = loop {
+        let next = crate::auth::tokens::issue_code(&app.valkey, id, 3600)
+            .await
+            .expect("code");
+        if next != first {
+            break next;
+        }
+    };
+
+    refused_as_invalid_code(confirm_code(&app, &email, &first).await).await;
+    assert_eq!(confirm_code(&app, &email, &second).await.status(), 204);
+}
+
+#[tokio::test]
+async fn the_link_spends_the_code() {
+    let Some(app) = boot().await else { return };
+    let (id, email) = pending_account(&app).await;
+    let code = crate::auth::tokens::issue_code(&app.valkey, id, 3600)
+        .await
+        .expect("code");
+    let token = crate::auth::tokens::issue(
+        &app.valkey,
+        crate::auth::tokens::TokenPurpose::VerifyEmail,
+        id,
+        3600,
+    )
+    .await
+    .expect("token");
+
+    let response = app
+        .http
+        .post(format!("{}/api/v1/auth/verify-email/confirm", app.base))
+        .json(&json!({ "token": token }))
+        .send()
+        .await
+        .expect("confirm link");
+    assert_eq!(response.status(), 204);
+
+    refused_as_invalid_code(confirm_code(&app, &email, &code).await).await;
+    assert_eq!(account_status(&app, id).await, "active");
+}
