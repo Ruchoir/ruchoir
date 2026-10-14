@@ -138,6 +138,11 @@ src/i18n/              i18next and the six dictionaries
   mapped inside a form.
 - **Thread replies never enter a feed.** `screens/discussions/feed.ts` keeps a conversation's and a
   thread's messages live; a reply moves the count under its root once (`replyDelta`).
+- **Taking the reader to a message** (a tap in the pinned tab) goes through the conversation's
+  `focus`: the feed fetches older pages until it holds it (`logic/seek.ts`, pages of 100, 30 at most),
+  scrolls it to the middle and lights it (`highlighted`, `ui/Flash.tsx`), then lets the focus go so
+  coming back to the tab does not jump again. A reply is reached through its root, then its thread
+  (`focusId`). There is no endpoint for one message or for "around a message".
 - **Seeded files of the dev database have no bytes** in the dev object store: opening one answers
   404 there, on the web as well. Upload a file to test the viewer.
 - **A form whose sheets change it keeps its draft outside itself.** The event form opens its draft in

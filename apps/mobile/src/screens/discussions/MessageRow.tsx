@@ -13,6 +13,7 @@ import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
 import { FileCard } from "../../ui/FileCard";
+import { Flash } from "../../ui/Flash";
 import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 import { EventCardView } from "./EventCardView";
@@ -45,6 +46,8 @@ type Props = {
   onOpenThread?: () => void;
   /** Faces for the people who replied, by name. */
   avatarOf?: (name: string) => string | undefined;
+  /** The message someone was just taken to: it lights up a moment. */
+  highlighted?: boolean;
 };
 
 /** One message of a conversation (mockup 13). */
@@ -63,6 +66,7 @@ export const MessageRow = memo(function MessageRow({
   onAddReaction,
   onOpenThread,
   avatarOf,
+  highlighted,
 }: Props) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
@@ -131,6 +135,7 @@ export const MessageRow = memo(function MessageRow({
         pressed && actions && { backgroundColor: s.pressed },
       ]}
     >
+      {highlighted ? <Flash /> : null}
       <View style={styles.gutter}>{head ? <Avatar name={m.author} src={avatar} size={36} /> : null}</View>
       <View style={styles.main}>
         {head ? (

@@ -334,7 +334,8 @@
     "channelGone": "This channel was deleted.",
     "removedFromChannel": "You were removed from this channel.",
     "pinned": "Pinned",
-    "noPinnedHint": "Pin an important message in the conversation: it shows up here."
+    "noPinnedHint": "Pin an important message in the conversation: it shows up here.",
+    "messageNotFound": "Message not found"
   },
   "attendee": {
     "accepted": "Going",

@@ -390,7 +390,8 @@
     "channelGone": "Ten kanał został usunięty.",
     "removedFromChannel": "Usunięto cię z tego kanału.",
     "pinned": "Przypięte",
-    "noPinnedHint": "Przypnij ważną wiadomość w rozmowie: pojawi się tutaj."
+    "noPinnedHint": "Przypnij ważną wiadomość w rozmowie: pojawi się tutaj.",
+    "messageNotFound": "Nie znaleziono wiadomości"
   },
   "attendee": {
     "accepted": "Weźmie udział",

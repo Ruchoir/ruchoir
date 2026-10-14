@@ -89,8 +89,8 @@ export type RootParams = {
   invite: undefined;
   /** A conversation's details: its topic, my notifications, its pinned messages, its people. */
   conversationDetails: { conversationId: string; channelId?: string; title: string };
-  /** A thread: its root message, in its conversation. */
-  thread: { conversationId: string; channelId?: string; rootId: string; title: string; root?: ApiMessage };
+  /** A thread: its root message, in its conversation; `focusId` a reply to take the reader to. */
+  thread: { conversationId: string; channelId?: string; rootId: string; title: string; root?: ApiMessage; focusId?: string };
   emojiPicker: { conversationId: string; message: ApiMessage };
   /** "Add to the message", for the composer whose draft is `draftKey`. */
   attachSheet: { draftKey: string; title?: string; spaceId?: string };

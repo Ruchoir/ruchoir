@@ -1,4 +1,4 @@
-import { getPinnedMessages } from "@ruchoir/client";
+import { getPinnedMessages, type ApiMessage } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pin } from "lucide-react-native";
@@ -17,15 +17,16 @@ import { affects } from "../../realtime/events";
 import { useSpace } from "../../space/SpaceProvider";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
+import { feel } from "../../ui/haptics";
 import { EmptyState, LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
 
 /**
  * A channel's pinned messages, a tab of the conversation as its files are. Followed live (pinned,
- * unpinned, edited, deleted); a tap opens the message's own menu, to unpin it, copy it or answer it
- * in its thread.
+ * unpinned, edited, deleted); a tap takes the reader to the message in the conversation (`onOpen`),
+ * a long press opens its own menu, to unpin it, copy it or answer it in its thread.
  */
-export function ConversationPins({ channelId, title }: { channelId: string; title: string }) {
+export function ConversationPins({ channelId, title, onOpen }: { channelId: string; title: string; onOpen: (message: ApiMessage) => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -47,7 +48,9 @@ export function ConversationPins({ channelId, title }: { channelId: string; titl
         return (
           <Pressable
             accessibilityRole="button"
-            onPress={() =>
+            onPress={() => onOpen(m)}
+            onLongPress={() => {
+              feel("menu");
               navigation.navigate("messageActions", {
                 conversationId: channelId,
                 channelId,
@@ -55,8 +58,9 @@ export function ConversationPins({ channelId, title }: { channelId: string; titl
                 draftKey: channelId,
                 fromList: true,
                 message: m,
-              })
-            }
+              });
+            }}
+            delayLongPress={350}
             style={({ pressed }) => [styles.pin, pressed && { backgroundColor: c.line }]}
           >
             <Avatar name={m.author} src={people.avatarOf(m.author)} size={36} />

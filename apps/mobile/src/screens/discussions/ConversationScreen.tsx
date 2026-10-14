@@ -33,6 +33,7 @@ import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { dayKey, daysBetween } from "../../logic/format";
 import { seenMessageId } from "../../logic/receipts";
+import { seekMessage } from "../../logic/seek";
 import { countNewer, firstUnreadId } from "../../logic/unread";
 import type { RootParams } from "../../navigation/types";
 import { useReloadOn } from "../../data/useReloadOn";
@@ -78,6 +79,9 @@ type Row =
 
 const isInFeed = (m: ApiMessage) => !m.parentId;
 
+/** A message of the feed to take the reader to; `replyId` when what was asked for is one of its replies. */
+type Focus = { id: string; replyId?: string; n: number };
+
 /** How far up (in points) the reader has to be for new messages to be announced rather than seen. */
 const AWAY = 240;
 
@@ -89,6 +93,14 @@ export function ConversationScreen() {
   const { current } = useSpace();
   const members = useSpaceMembers(current?.id);
   const [pane, setPane] = useState<Pane>("messages");
+  // A message asked for from the pinned tab: the feed takes the reader there (its root, for a reply),
+  // then lets go of it, so coming back to the messages later does not jump again.
+  const [focus, setFocus] = useState<Focus | null>(null);
+  const focusTaken = useCallback(() => setFocus(null), []);
+  const openPinned = (m: ApiMessage) => {
+    setFocus((prev) => ({ id: m.parentId ?? m.id, replyId: m.parentId ? m.id : undefined, n: (prev?.n ?? 0) + 1 }));
+    setPane("messages");
+  };
   const channelMembers = useLoad(params.channelId ? `channelMembers:${params.channelId}` : null, (signal) =>
     listChannelMembers(params.channelId!, signal),
   );
@@ -173,11 +185,13 @@ export function ConversationScreen() {
             channels={channels.data ?? []}
             onJoined={channels.reload}
             members={members}
+            focus={focus}
+            onFocusTaken={focusTaken}
           />
         ) : pane === "files" ? (
           <ConversationFiles conversationId={params.conversationId} />
         ) : pane === "pinned" ? (
-          <ConversationPins channelId={params.channelId!} title={title} />
+          <ConversationPins channelId={params.channelId!} title={title} onOpen={openPinned} />
         ) : (
           <ConversationAgenda channelId={params.channelId!} />
         )}
@@ -197,9 +211,11 @@ type MessagesProps = {
   channels: Channel[];
   onJoined: () => void;
   members: ReturnType<typeof useSpaceMembers>;
+  focus: Focus | null;
+  onFocusTaken: () => void;
 };
 
-function Messages({ conversationId, title, channelId, unread, oneToOne, channel, channels, onJoined, members }: MessagesProps) {
+function Messages({ conversationId, title, channelId, unread, oneToOne, channel, channels, onJoined, members, focus, onFocusTaken }: MessagesProps) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -306,14 +322,86 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
     return out;
   }, [messages, pending, timeZone, seenId, anchor]);
 
-  // Open at the "New messages" line when it is further up than the first screen.
+  // Where a scroll to a row puts it: the unread line at the top of the screen, a message asked for in
+  // the middle. Read again when the row was not drawn yet (`onScrollToIndexFailed`).
+  const scrollPosition = useRef(1);
+
+  // Open at the "New messages" line when it is further up than the first screen, unless the reader
+  // came for a given message.
   const opened = useRef(false);
   const unreadIndex = rows.findIndex((row) => row.kind === "unread");
+  const cameFor = focus !== null;
   useEffect(() => {
     if (opened.current || rows.length === 0) return;
     opened.current = true;
+    if (cameFor) return;
     if (unreadIndex > 6) list.current?.scrollToIndex({ index: unreadIndex, viewPosition: 1, animated: false });
-  }, [rows.length, unreadIndex]);
+  }, [rows.length, unreadIndex, cameFor]);
+
+  // Taken to a message from the pinned tab: scrolled to and lit, once older pages are fetched when it
+  // is further up than what is loaded; a reply opens its thread over its root.
+  const toast = useToast();
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [seeking, setSeeking] = useState(false);
+  const wanted = useRef<Focus | null>(null);
+  const handled = useRef(0);
+  const seek = useCallback(
+    async (target: Focus) => {
+      handled.current = target.n;
+      wanted.current = target;
+      onFocusTaken();
+      setSeeking(true);
+      setOlder((prev) => ({ ...prev, loading: true }));
+      const result = await seekMessage((before) => getChannelMessages(conversationId, { before, limit: 100 }), nextBefore, target.id).catch(
+        () => null,
+      );
+      if (!alive.current) return;
+      setSeeking(false);
+      setOlder((prev) => ({ nextBefore: result ? result.nextBefore : prev.nextBefore, loading: false }));
+      if (result) add(result.messages);
+      if (result?.found) return;
+      wanted.current = null;
+      toast(result ? t("conversation.messageNotFound") : t("load.failed"), "failure");
+    },
+    [conversationId, nextBefore, add, toast, t, onFocusTaken],
+  );
+  useEffect(() => {
+    if (!first.data) return;
+    if (focus && focus.n !== handled.current) {
+      if (!rows.some((row) => row.kind === "message" && row.message.id === focus.id)) {
+        // Further up than what is loaded: fetched first, started out of the effect.
+        const timer = setTimeout(() => void seek(focus), 0);
+        return () => clearTimeout(timer);
+      }
+      handled.current = focus.n;
+      wanted.current = focus;
+      onFocusTaken();
+    }
+    const want = wanted.current;
+    if (!want) return;
+    const index = rows.findIndex((row) => row.kind === "message" && row.message.id === want.id);
+    const row = rows[index];
+    if (row?.kind !== "message") return;
+    wanted.current = null;
+    scrollPosition.current = 0.5;
+    list.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+    setFlash(want.id);
+    if (want.replyId) {
+      navigation.navigate("thread", { conversationId, channelId, rootId: want.id, title, root: row.message, focusId: want.replyId });
+    }
+  }, [focus, rows, first.data, seek, navigation, conversationId, channelId, title, onFocusTaken]);
+  useEffect(() => {
+    if (!flash) return;
+    const timer = setTimeout(() => setFlash(null), 2000);
+    return () => clearTimeout(timer);
+  }, [flash]);
 
   const today = dayKey(new Date(), timeZone);
 
@@ -341,7 +429,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
         scrollEventThrottle={64}
         onScrollToIndexFailed={(info) => {
           list.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: false });
-          setTimeout(() => list.current?.scrollToIndex({ index: info.index, viewPosition: 1, animated: false }), 120);
+          setTimeout(() => list.current?.scrollToIndex({ index: info.index, viewPosition: scrollPosition.current, animated: false }), 120);
         }}
         onEndReached={() => void loadOlder()}
         onEndReachedThreshold={0.4}
@@ -412,10 +500,16 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
               avatarOf={members.avatarOf}
               onReact={(emoji) => react(conversationId, item.message, emoji)}
               onAddReaction={() => navigation.navigate("emojiPicker", { conversationId, message: item.message })}
+              highlighted={flash === item.message.id}
             />
           );
         }}
       />
+      {seeking ? (
+        <View style={[styles.seeking, { backgroundColor: c.surface, borderColor: c.line, shadowColor: s.shadow }]}>
+          <ActivityIndicator color={c.ink} />
+        </View>
+      ) : null}
       {newBelow > 0 ? (
         <Pressable
           accessibilityRole="button"
@@ -484,6 +578,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: radius.l,
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  // Fetching older pages for a message asked for: a round badge at the top of the feed.
+  seeking: {
+    position: "absolute",
+    top: 12,
+    alignSelf: "center",
+    padding: 10,
+    borderRadius: radius.l,
+    borderWidth: hairline,
     shadowOpacity: 0.18,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
