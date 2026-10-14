@@ -75,9 +75,7 @@
     "current": "Geöffneter Bereich",
     "switchLabel": "Bereich wechseln, aktueller Bereich: {{name}}",
     "unread_one": "{{count}} ungelesene Nachricht",
-    "unread_other": "{{count}} ungelesene Nachrichten",
-    "none": "Sie gehören noch keinem Bereich an.",
-    "noneHint": "Nehmen Sie eine Einladung an oder erstellen Sie auf der Website einen Bereich; er erscheint dann hier."
+    "unread_other": "{{count}} ungelesene Nachrichten"
   },
   "load": {
     "offline": "Keine Verbindung",
@@ -712,7 +710,7 @@
   },
   "tutorial": {
     "skip": "Überspringen",
-    "next": "Weiter zur nächsten Seite",
+    "next": "Weiter",
     "done": "Fertig",
     "page": "Seite {{page}} von {{total}}",
     "todayTitle": "Ruchoir sagt Ihnen, was zu tun ist",
@@ -777,5 +775,23 @@
     "recovered": "Melden Sie sich mit Ihrem neuen Passwort an.",
     "failed": "Dieser Wiederherstellungscode passt nicht zu dieser Adresse, oder das Passwort wurde abgelehnt.",
     "noMail": "Dieser Server versendet keine E-Mails: Verwenden Sie einen Wiederherstellungscode oder bitten Sie die Administration um einen Link zum Zurücksetzen."
+  },
+  "joinSpace": {
+    "title": "Treten Sie Ihrem Team bei",
+    "subtitle": "Ein Bereich bringt die Menschen zusammen, mit denen Sie arbeiten.",
+    "modalTitle": "Bereich erstellen oder beitreten",
+    "rowHint": "Mit einem Einladungslink",
+    "joinTitle": "Ich habe eine Einladung erhalten",
+    "joinText": "Einem bestehenden Bereich beitreten",
+    "createTitle": "Bereich erstellen",
+    "createText": "Für Ihr Team, Ihr Unternehmen oder Ihren Verein",
+    "name": "Name des Bereichs",
+    "namePlaceholder": "Atelier Lumen",
+    "nameHint": "Der Name Ihres Teams, Ihres Unternehmens oder Ihres Vereins.",
+    "create": "Den Bereich erstellen",
+    "join": "{{space}} beitreten",
+    "otherLink": "Einen anderen Link verwenden",
+    "joinFailed": "Beitritt nicht möglich. Die Einladung ist vielleicht abgelaufen oder war für eine andere Adresse bestimmt.",
+    "createFailed": "Der Bereich konnte nicht erstellt werden. Prüfen Sie den Namen und versuchen Sie es erneut."
   }
 }

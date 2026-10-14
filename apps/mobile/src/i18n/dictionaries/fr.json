@@ -75,9 +75,7 @@
     "current": "Espace ouvert",
     "switchLabel": "Changer d’espace, espace actuel : {{name}}",
     "unread_one": "{{count}} message non lu",
-    "unread_other": "{{count}} messages non lus",
-    "none": "Vous ne faites encore partie d’aucun espace.",
-    "noneHint": "Acceptez une invitation ou créez un espace depuis le site web ; il apparaîtra ici."
+    "unread_other": "{{count}} messages non lus"
   },
   "load": {
     "offline": "Hors connexion",
@@ -777,5 +775,23 @@
     "recovered": "Connectez-vous avec votre nouveau mot de passe.",
     "failed": "Ce code de secours ne correspond pas à cette adresse, ou le mot de passe est refusé.",
     "noMail": "Ce serveur n’envoie pas d’e-mails : utilisez un code de secours, ou demandez à son administrateur un lien de réinitialisation."
+  },
+  "joinSpace": {
+    "title": "Rejoignez votre équipe",
+    "subtitle": "Un espace réunit les personnes avec qui vous travaillez.",
+    "modalTitle": "Créer ou rejoindre un espace",
+    "rowHint": "Avec un lien d’invitation",
+    "joinTitle": "J’ai reçu une invitation",
+    "joinText": "Rejoindre un espace qui existe déjà",
+    "createTitle": "Créer un espace",
+    "createText": "Pour votre équipe, entreprise ou association",
+    "name": "Nom de l’espace",
+    "namePlaceholder": "Atelier Lumen",
+    "nameHint": "Le nom de votre équipe, de votre entreprise ou de votre association.",
+    "create": "Créer l’espace",
+    "join": "Rejoindre {{space}}",
+    "otherLink": "Utiliser un autre lien",
+    "joinFailed": "Impossible de rejoindre cet espace. L’invitation a peut-être expiré, ou elle était destinée à une autre adresse.",
+    "createFailed": "Impossible de créer l’espace. Vérifiez le nom et réessayez."
   }
 }

@@ -14,6 +14,8 @@ export type RootParams = {
   tabs: NavigatorScreenParams<TabParams>;
   /** The tutorial again, from Help. */
   tutorial: { replay: true };
+  /** Create or join a space, from the space sheet. */
+  joinSpace: undefined;
   /**
    * A channel or a direct conversation; `channelId` is set for a channel (its agenda tab needs it).
    * `unread` is how many messages were new when it was opened, which places the "New messages" line;

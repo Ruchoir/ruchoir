@@ -75,9 +75,7 @@
     "current": "Open now",
     "switchLabel": "Switch space, current space: {{name}}",
     "unread_one": "{{count}} unread message",
-    "unread_other": "{{count}} unread messages",
-    "none": "You are not in any space yet.",
-    "noneHint": "Accept an invitation or create a space on the website; it will show here."
+    "unread_other": "{{count}} unread messages"
   },
   "load": {
     "offline": "No connection",
@@ -777,5 +775,23 @@
     "recovered": "Sign in with your new password.",
     "failed": "This recovery code does not match this address, or the password was refused.",
     "noMail": "This server sends no email: use a recovery code, or ask its administrator for a reset link."
+  },
+  "joinSpace": {
+    "title": "Join your team",
+    "subtitle": "A space brings together the people you work with.",
+    "modalTitle": "Create or join a space",
+    "rowHint": "With an invitation link",
+    "joinTitle": "I received an invitation",
+    "joinText": "Join a space that already exists",
+    "createTitle": "Create a space",
+    "createText": "For your team, company or association",
+    "name": "Space name",
+    "namePlaceholder": "Atelier Lumen",
+    "nameHint": "The name of your team, company or association.",
+    "create": "Create the space",
+    "join": "Join {{space}}",
+    "otherLink": "Use another link",
+    "joinFailed": "This space could not be joined. The invitation may have expired, or it was meant for another address.",
+    "createFailed": "The space could not be created. Check the name and try again."
   }
 }

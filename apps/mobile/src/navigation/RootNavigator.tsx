@@ -38,12 +38,19 @@ import { ScanScreen } from "../screens/files/ScanScreen";
 import { ShareSheet } from "../screens/files/ShareSheet";
 import { UploadsSheet } from "../screens/files/UploadsSheet";
 import { VersionsSheet } from "../screens/files/VersionsSheet";
+import { JoinSpaceScreen } from "../screens/space/JoinSpaceScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
+import { TutorialScreen } from "../screens/welcome/TutorialScreen";
 import { useNavigationTheme } from "./navigationTheme";
 import { Tabs } from "./Tabs";
 import type { RootParams } from "./types";
 
 const Stack = createNativeStackNavigator<RootParams>();
+
+/** "Create or join a space", from the space sheet. */
+function JoinSpaceModal() {
+  return <JoinSpaceScreen />;
+}
 
 /** The signed-in app: the tabs, the screens pushed over them, and the sheets. */
 export function RootNavigator() {
@@ -83,6 +90,8 @@ export function RootNavigator() {
         <Stack.Screen name="fileSendTo" component={ConversationPicker} options={{ presentation: "modal" }} />
         <Stack.Screen name="fileLinks" component={LinksSheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
+        <Stack.Screen name="joinSpace" component={JoinSpaceModal} options={{ presentation: "modal" }} />
+        <Stack.Screen name="tutorial" component={TutorialScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
         <Stack.Screen name="messageActions" component={MessageActionSheet} options={sheet} />
         <Stack.Screen name="emojiPicker" component={EmojiPickerSheet} options={{ ...sheet, sheetAllowedDetents: [0.7, 1] }} />

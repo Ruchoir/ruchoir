@@ -76,9 +76,7 @@
     "switchLabel": "Cambia spazio, spazio attuale: {{name}}",
     "unread_one": "{{count}} messaggio non letto",
     "unread_other": "{{count}} messaggi non letti",
-    "unread_many": "{{count}} messaggi non letti",
-    "none": "Non fate ancora parte di alcuno spazio.",
-    "noneHint": "Accettate un invito o create uno spazio dal sito web; comparirà qui."
+    "unread_many": "{{count}} messaggi non letti"
   },
   "load": {
     "offline": "Nessuna connessione",
@@ -822,5 +820,23 @@
     "recovered": "Accedete con la nuova password.",
     "failed": "Questo codice di recupero non corrisponde a questo indirizzo, oppure la password è stata rifiutata.",
     "noMail": "Questo server non invia e-mail: usate un codice di recupero o chiedete al suo amministratore un link di reimpostazione."
+  },
+  "joinSpace": {
+    "title": "Entrate nel vostro team",
+    "subtitle": "Uno spazio riunisce le persone con cui lavorate.",
+    "modalTitle": "Crea o unisciti a uno spazio",
+    "rowHint": "Con un link di invito",
+    "joinTitle": "Ho ricevuto un invito",
+    "joinText": "Entrare in uno spazio che esiste già",
+    "createTitle": "Crea uno spazio",
+    "createText": "Per il vostro team, azienda o associazione",
+    "name": "Nome dello spazio",
+    "namePlaceholder": "Atelier Lumen",
+    "nameHint": "Il nome del vostro team, della vostra azienda o della vostra associazione.",
+    "create": "Crea lo spazio",
+    "join": "Entra in {{space}}",
+    "otherLink": "Usa un altro link",
+    "joinFailed": "Impossibile entrare in questo spazio. L’invito potrebbe essere scaduto o destinato a un altro indirizzo.",
+    "createFailed": "Impossibile creare lo spazio. Controllate il nome e riprovate."
   }
 }

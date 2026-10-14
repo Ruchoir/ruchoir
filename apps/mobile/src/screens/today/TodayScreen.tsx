@@ -30,7 +30,6 @@ import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { EmptyState } from "../../ui/States";
 import { FileIcon } from "../../ui/FileIcon";
-import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
@@ -53,7 +52,7 @@ export function TodayScreen() {
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { state } = useSession();
-  const { current, status } = useSpace();
+  const { current } = useSpace();
   const space = current?.id;
   const now = useNow();
   const today = dayKey(new Date(now), timeZone);
@@ -100,7 +99,6 @@ export function TodayScreen() {
   const mention = cards.find((card) => card.kind === "mention");
   const small = cards.filter((card) => card.kind !== "mention");
 
-  if (status === "none") return <NoSpace title={t("time.today")} />;
 
   return (
     <TabScreen>

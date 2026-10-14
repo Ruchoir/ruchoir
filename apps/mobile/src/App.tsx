@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { RootNavigator } from "./navigation/RootNavigator";
 import { OutboxProvider } from "./compose/useOutbox";
 import { RealtimeProvider } from "./realtime/RealtimeProvider";
 import { AuthNavigator } from "./navigation/AuthNavigator";
 import { MfaScreen } from "./screens/auth/MfaScreen";
 import { BootScreen } from "./screens/boot/BootScreen";
 import { SessionProvider, useSession } from "./session/SessionProvider";
+import { SpaceGate } from "./space/SpaceGate";
 import { SpaceProvider } from "./space/SpaceProvider";
 import { ToastProvider } from "./ui/Toast";
 import { UploadsProvider } from "./uploads/UploadsProvider";
@@ -58,7 +58,7 @@ function Root() {
             <SpaceProvider>
               <ToastProvider>
                 <UploadsProvider>
-                  <RootNavigator />
+                  <SpaceGate />
                 </UploadsProvider>
               </ToastProvider>
             </SpaceProvider>

@@ -20,7 +20,6 @@ import { Chips } from "../../ui/Chips";
 import { SearchField } from "../../ui/SearchField";
 import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { EmptyState, LoadState } from "../../ui/States";
-import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
@@ -45,7 +44,7 @@ export async function loadConversations(spaceId: string, signal: AbortSignal): P
 export function DiscussionsScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
-  const { current, status } = useSpace();
+  const { current } = useSpace();
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [query, setQuery] = useState("");
   const floating = useFloatingScroll();
@@ -63,7 +62,6 @@ export function DiscussionsScreen() {
   );
   const unreadCount = conversations.data?.filter((c) => c.unread > 0).length ?? 0;
 
-  if (status === "none") return <NoSpace title={t("tabs.discussions")} />;
 
   return (
     <TabScreen>

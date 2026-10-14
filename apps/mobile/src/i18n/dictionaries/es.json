@@ -76,9 +76,7 @@
     "switchLabel": "Cambiar de espacio, espacio actual: {{name}}",
     "unread_one": "{{count}} mensaje sin leer",
     "unread_other": "{{count}} mensajes sin leer",
-    "unread_many": "{{count}} mensajes sin leer",
-    "none": "Todavía no forma parte de ningún espacio.",
-    "noneHint": "Acepte una invitación o cree un espacio desde el sitio web; aparecerá aquí."
+    "unread_many": "{{count}} mensajes sin leer"
   },
   "load": {
     "offline": "Sin conexión",
@@ -822,5 +820,23 @@
     "recovered": "Inicie sesión con su nueva contraseña.",
     "failed": "Este código de recuperación no corresponde a esta dirección, o la contraseña fue rechazada.",
     "noMail": "Este servidor no envía correos: use un código de recuperación o pida a su administrador un enlace de restablecimiento."
+  },
+  "joinSpace": {
+    "title": "Únase a su equipo",
+    "subtitle": "Un espacio reúne a las personas con las que trabaja.",
+    "modalTitle": "Crear o unirse a un espacio",
+    "rowHint": "Con un enlace de invitación",
+    "joinTitle": "He recibido una invitación",
+    "joinText": "Unirse a un espacio que ya existe",
+    "createTitle": "Crear un espacio",
+    "createText": "Para su equipo, empresa o asociación",
+    "name": "Nombre del espacio",
+    "namePlaceholder": "Atelier Lumen",
+    "nameHint": "El nombre de su equipo, de su empresa o de su asociación.",
+    "create": "Crear el espacio",
+    "join": "Unirse a {{space}}",
+    "otherLink": "Usar otro enlace",
+    "joinFailed": "No se ha podido unir a este espacio. Puede que la invitación haya caducado o que fuera para otra dirección.",
+    "createFailed": "No se ha podido crear el espacio. Compruebe el nombre y vuelva a intentarlo."
   }
 }

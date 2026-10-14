@@ -77,9 +77,7 @@
     "unread_one": "{{count}} nieprzeczytana wiadomość",
     "unread_other": "{{count}} nieprzeczytanej wiadomości",
     "unread_few": "{{count}} nieprzeczytane wiadomości",
-    "unread_many": "{{count}} nieprzeczytanych wiadomości",
-    "none": "Nie należysz jeszcze do żadnej przestrzeni.",
-    "noneHint": "Przyjmij zaproszenie lub utwórz przestrzeń na stronie internetowej; pojawi się tutaj."
+    "unread_many": "{{count}} nieprzeczytanych wiadomości"
   },
   "load": {
     "offline": "Brak połączenia",
@@ -867,5 +865,23 @@
     "recovered": "Zaloguj się nowym hasłem.",
     "failed": "Ten kod odzyskiwania nie pasuje do tego adresu albo hasło zostało odrzucone.",
     "noMail": "Ten serwer nie wysyła e-maili: użyj kodu odzyskiwania albo poproś administratora o link do zresetowania hasła."
+  },
+  "joinSpace": {
+    "title": "Dołącz do zespołu",
+    "subtitle": "Przestrzeń łączy osoby, z którymi pracujesz.",
+    "modalTitle": "Utwórz przestrzeń lub dołącz do niej",
+    "rowHint": "Za pomocą linku z zaproszeniem",
+    "joinTitle": "Dostałem zaproszenie",
+    "joinText": "Dołącz do istniejącej przestrzeni",
+    "createTitle": "Utwórz przestrzeń",
+    "createText": "Dla zespołu, firmy lub stowarzyszenia",
+    "name": "Nazwa przestrzeni",
+    "namePlaceholder": "Atelier Lumen",
+    "nameHint": "Nazwa twojego zespołu, firmy lub stowarzyszenia.",
+    "create": "Utwórz tę przestrzeń",
+    "join": "Dołącz do {{space}}",
+    "otherLink": "Użyj innego linku",
+    "joinFailed": "Nie udało się dołączyć do tej przestrzeni. Zaproszenie mogło wygasnąć albo było przeznaczone dla innego adresu.",
+    "createFailed": "Nie udało się utworzyć przestrzeni. Sprawdź nazwę i spróbuj ponownie."
   }
 }

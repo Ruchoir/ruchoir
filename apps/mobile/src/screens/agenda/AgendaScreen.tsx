@@ -16,7 +16,6 @@ import { useSpace } from "../../space/SpaceProvider";
 import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { Segmented } from "../../ui/Segmented";
 import { LoadState } from "../../ui/States";
-import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { ListView } from "./ListView";
@@ -45,7 +44,7 @@ export type AgendaData = {
 export function AgendaScreen() {
   const { t } = useTranslation();
   const { timeZone } = useLocale();
-  const { current, status } = useSpace();
+  const { current } = useSpace();
   const prefs = usePrefs();
   const [view, setView] = useState<AgendaView>(prefs.agendaView);
   const today = dayKey(new Date(), timeZone);
@@ -67,7 +66,6 @@ export function AgendaScreen() {
 
   const options = useMemo(() => VIEWS.map((v) => ({ key: v.key, label: t(v.label) })), [t]);
 
-  if (status === "none") return <NoSpace title={t("tabs.agenda")} />;
 
   return (
     <TabScreen>

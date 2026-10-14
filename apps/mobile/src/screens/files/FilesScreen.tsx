@@ -16,7 +16,6 @@ import { Chips } from "../../ui/Chips";
 import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { SearchField } from "../../ui/SearchField";
 import { EmptyState, LoadState } from "../../ui/States";
-import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
@@ -31,7 +30,7 @@ import { UploadStrip } from "./UploadStrip";
  */
 export function FilesScreen() {
   const { t } = useTranslation();
-  const { current, status } = useSpace();
+  const { current } = useSpace();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const floating = useFloatingScroll();
   const [query, setQuery] = useState("");
@@ -67,7 +66,6 @@ export function FilesScreen() {
   const folders = root.data?.entries.filter((f) => f.kind === "folder") ?? [];
   const files = root.data?.entries.filter((f) => f.kind !== "folder") ?? [];
 
-  if (status === "none") return <NoSpace title={t("tabs.files")} />;
 
   return (
     <TabScreen>
