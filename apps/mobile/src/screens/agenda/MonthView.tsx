@@ -5,6 +5,7 @@ import { StyleSheet, View } from "react-native";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { groupByDay, monthGrid, shiftAnchor } from "../../logic/agenda";
+import { usePrefs } from "../../prefs/store";
 import { useTheme } from "../../theme/useTheme";
 import { EmptyState } from "../../ui/States";
 import { Text } from "../../ui/Text";
@@ -34,7 +35,8 @@ export function MonthView({
   const letters = useWeekLetters();
   const dayLabel = useDayLabel();
   const month = anchor.slice(0, 7);
-  const grid = monthGrid(month);
+  const { weekStart } = usePrefs();
+  const grid = monthGrid(month, weekStart);
   const [selected, setSelected] = useState(today.startsWith(month) ? today : `${month}-01`);
   const chosen = selected.startsWith(month) ? selected : `${month}-01`;
   useEffect(() => onChosen?.(chosen), [chosen, onChosen]);

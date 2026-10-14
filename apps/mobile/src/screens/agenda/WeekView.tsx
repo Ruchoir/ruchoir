@@ -5,6 +5,7 @@ import { StyleSheet, View } from "react-native";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { groupByDay, shiftAnchor, weekOf } from "../../logic/agenda";
+import { usePrefs } from "../../prefs/store";
 import { useTheme } from "../../theme/useTheme";
 import { EmptyState } from "../../ui/States";
 import { Text } from "../../ui/Text";
@@ -33,7 +34,8 @@ export function WeekView({
   const { locale, timeZone } = useLocale();
   const letters = useWeekLetters();
   const dayLabel = useDayLabel();
-  const week = weekOf(anchor);
+  const { weekStart } = usePrefs();
+  const week = weekOf(anchor, weekStart);
   const [selected, setSelected] = useState(week.includes(today) ? today : week[0]);
   const chosen = week.includes(selected) ? selected : week[0];
   useEffect(() => onChosen?.(chosen), [chosen, onChosen]);
@@ -51,7 +53,7 @@ export function WeekView({
         onMove={(direction) => {
           const next = shiftAnchor("week", anchor, direction);
           onAnchor(next);
-          setSelected(weekOf(next)[0]);
+          setSelected(weekOf(next, weekStart)[0]);
         }}
       />
       <View style={styles.row}>

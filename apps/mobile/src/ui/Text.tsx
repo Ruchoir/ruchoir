@@ -1,5 +1,7 @@
 import { Text as RNText, type TextProps, type TextStyle } from "react-native";
 
+import { textScale } from "../prefs/prefs";
+import { usePrefs } from "../prefs/store";
 import { fonts } from "../theme/fonts";
 import { useTheme } from "../theme/useTheme";
 
@@ -32,6 +34,9 @@ export function Text({
   ...props
 }: TextProps & { variant?: TextVariant; tone?: Tone }) {
   const { c, s } = useTheme();
+  const scale = textScale(usePrefs().textSize);
+  const base = VARIANTS[variant];
+  const sized = scale === 1 ? base : { ...base, fontSize: base.fontSize * scale, lineHeight: Math.round(base.lineHeight * scale) };
   const color = {
     strong: c.ink,
     body: c.body,
@@ -41,5 +46,5 @@ export function Text({
     onInk: c.onInk,
     onPastel: c.onPastel,
   }[tone];
-  return <RNText {...props} style={[VARIANTS[variant], { color }, style]} />;
+  return <RNText {...props} style={[sized, { color }, style]} />;
 }

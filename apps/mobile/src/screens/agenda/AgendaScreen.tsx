@@ -22,6 +22,7 @@ import { TabScreen } from "../../ui/TabScreen";
 import { ListView } from "./ListView";
 import { MonthView } from "./MonthView";
 import { WeekView } from "./WeekView";
+import { usePrefs } from "../../prefs/store";
 
 const VIEWS = [
   { key: "list", label: key("agenda.list") },
@@ -45,10 +46,11 @@ export function AgendaScreen() {
   const { t } = useTranslation();
   const { timeZone } = useLocale();
   const { current, status } = useSpace();
-  const [view, setView] = useState<AgendaView>("list");
+  const prefs = usePrefs();
+  const [view, setView] = useState<AgendaView>(prefs.agendaView);
   const today = dayKey(new Date(), timeZone);
   const [anchor, setAnchor] = useState(today);
-  const range = rangeForView(view, anchor);
+  const range = rangeForView(view, anchor, prefs.weekStart);
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const floating = useFloatingScroll();
   // The day chosen in the week or the month (they say it); the list starts new events today.

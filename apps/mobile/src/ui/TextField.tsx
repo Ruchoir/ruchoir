@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
 
 import { useTranslation } from "../i18n";
+import { textScale } from "../prefs/prefs";
+import { usePrefs } from "../prefs/store";
 import { fonts } from "../theme/fonts";
 import { hairline, radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
@@ -22,6 +24,7 @@ export function TextField({
   const { c, s } = useTheme();
   const { t } = useTranslation();
   const [shown, setShown] = useState(false);
+  const scale = textScale(usePrefs().textSize);
   const Icon = shown ? EyeOff : Eye;
 
   return (
@@ -36,6 +39,7 @@ export function TextField({
             styles.input,
             { borderColor: error ? s.danger : c.controlLine, backgroundColor: c.surface, color: c.ink },
             secret && styles.withEye,
+            scale !== 1 && { fontSize: 16 * scale, minHeight: Math.round(52 * scale) },
           ]}
         />
         {secret && (
@@ -65,7 +69,7 @@ export function TextField({
 const styles = StyleSheet.create({
   field: { gap: 6 },
   input: {
-    height: 52,
+    minHeight: 52,
     paddingHorizontal: 14,
     borderRadius: radius.m,
     borderWidth: hairline,
