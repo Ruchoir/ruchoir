@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 
 import { fabCompact } from "../logic/fab";
 import { radius } from "../theme/tokens";
@@ -16,30 +15,27 @@ import { Text } from "./Text";
  */
 export function FloatingButton({ icon: Icon, label, onPress, compact = false }: { icon: LucideIcon; label: string; onPress: () => void; compact?: boolean }) {
   const { c } = useTheme();
+  // No layout animation: one runs again each time the screen comes back (a tab, a view) and made
+  // the button blink. It changes form at once.
   return (
-    // The frame animates its width; the press inside keeps its pressed look.
-    <Animated.View layout={LinearTransition.duration(180)} style={[styles.frame, compact && styles.roundFrame]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.fab,
-          compact && styles.round,
-          { backgroundColor: c.surface, borderColor: c.acc, shadowColor: c.acc },
-          pressed && styles.pressed,
-        ]}
-      >
-        <Icon size={20} color={c.ink} />
-        {compact ? null : (
-          <Animated.View entering={FadeIn.duration(140)} exiting={FadeOut.duration(80)}>
-            <Text variant="bodyStrong" numberOfLines={1}>
-              {label}
-            </Text>
-          </Animated.View>
-        )}
-      </Pressable>
-    </Animated.View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.fab,
+        compact && styles.round,
+        { backgroundColor: c.surface, borderColor: c.acc, shadowColor: c.acc },
+        pressed && styles.pressed,
+      ]}
+    >
+      <Icon size={20} color={c.ink} />
+      {compact ? null : (
+        <Text variant="bodyStrong" numberOfLines={1}>
+          {label}
+        </Text>
+      )}
+    </Pressable>
   );
 }
 
@@ -51,9 +47,10 @@ export function useFloatingScroll() {
 }
 
 const styles = StyleSheet.create({
-  frame: { position: "absolute", right: 16, bottom: 16 },
-  roundFrame: { width: 56 },
   fab: {
+    position: "absolute",
+    right: 16,
+    bottom: 16,
     height: 56,
     paddingHorizontal: 18,
     flexDirection: "row",

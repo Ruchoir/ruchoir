@@ -60,7 +60,7 @@ export function AgendaScreen() {
     const shown = all.filter((cal) => !cal.hidden && (!cal.spaceId || cal.spaceId === current!.id));
     const occurrences = shown.length ? await listOccurrences(range.from, range.to, shown.map((cal) => cal.id), signal) : [];
     return { occurrences, calendars: new Map(shown.map((cal) => [cal.id, cal])), canCreate: all.some((cal) => cal.canWriteEvents) };
-  });
+  }, { keep: current?.id });
   useReloadOn((e) => e.type === "calendar", data.reload);
 
   const options = useMemo(() => VIEWS.map((v) => ({ key: v.key, label: t(v.label) })), [t]);

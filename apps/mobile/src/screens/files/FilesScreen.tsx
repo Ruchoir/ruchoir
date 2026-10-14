@@ -44,7 +44,15 @@ export function FilesScreen() {
   const space = current?.id;
   const root = useLoad(space ? `root:${space}` : null, (signal) => getFolder(space!, undefined, signal));
   const [view, setView] = useState<FilesView | "trash">("recent");
-  const listed = useLoad(space && view !== "trash" ? `view:${space}:${view}` : null, (signal) => getFilesView(space!, view as FilesView, signal));
+  // The trash stays loaded once seen, so coming back to it does not blink through its loading.
+  const [trashSeen, setTrashSeen] = useState(false);
+  const choose = (next: FilesView | "trash") => {
+    if (next === "trash") setTrashSeen(true);
+    setView(next);
+  };
+  const listed = useLoad(space && view !== "trash" ? `view:${space}:${view}` : null, (signal) => getFilesView(space!, view as FilesView, signal), {
+    keep: space,
+  });
   const found = useLoad(space && debounced ? `search:${space}:${debounced}` : null, (signal) => searchFiles(space!, debounced, signal));
   useReloadOn((e) => e.type === "files" && e.spaceId === space, () => {
     root.reload();
@@ -102,10 +110,13 @@ export function FilesScreen() {
             {folders.length ? <FolderTiles folders={folders} /> : null}
             {files.length ? <Section title={t("files.atRoot")} rows={files.map((file) => ({ file }))} /> : null}
             {/* The web's views, always there; the trash is the last of them. */}
-            <Chips chips={VIEWS.map((v) => ({ key: v.key, label: t(v.label), icon: v.icon }))} value={view} onChange={setView} />
-            {view === "trash" ? (
-              <TrashList />
-            ) : !listed.data ? (
+            <Chips chips={VIEWS.map((v) => ({ key: v.key, label: t(v.label), icon: v.icon }))} value={view} onChange={choose} />
+            {trashSeen ? (
+              <View style={view === "trash" ? undefined : styles.hidden}>
+                <TrashList />
+              </View>
+            ) : null}
+            {view === "trash" ? null : !listed.data ? (
               <LoadState error={listed.error} onRetry={listed.reload} />
             ) : listed.data.length ? (
               <View>
@@ -189,6 +200,7 @@ function Section({ title, rows }: { title: string; rows: { file: SpaceFile; path
 const styles = StyleSheet.create({
   // Room under the last row for the floating button.
   page: { paddingBottom: 96, gap: 12, flexGrow: 1 },
+  hidden: { display: "none" },
 
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16 },
   tile: {
