@@ -12,6 +12,7 @@ import { pickDocuments } from "../../compose/pick";
 import { entryOf } from "../../files/entry";
 import { downloadToCache } from "../../files/download";
 import { useTranslation } from "../../i18n";
+import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { useLocale } from "../../i18n/useLocale";
 import { fileSize } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
@@ -46,6 +47,7 @@ export function EntryMenu() {
   const manage = canManage(file, me, current?.role);
   const close = () => navigation.goBack();
   const uploads = useUploads();
+  const { emit } = useRealtimeActions();
 
   const run: Partial<Record<ActionId, () => void>> = {
     open: () => {
@@ -62,7 +64,11 @@ export function EntryMenu() {
       close();
       const next = !file.starred;
       setStarred(file.id!, next).then(
-        () => toast(next ? t("files.favoured") : t("files.unfavoured")),
+        () => {
+          // Favourites are the person's own: no one else is told, so the screens are, here.
+          emit({ type: "files", spaceId: params.spaceId });
+          toast(next ? t("files.favoured") : t("files.unfavoured"));
+        },
         () => toast(t("files.actionFailed")),
       );
     },

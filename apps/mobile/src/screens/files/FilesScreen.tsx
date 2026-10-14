@@ -1,17 +1,18 @@
-import { getFilesView, getFolder, searchFiles, type SpaceFile } from "@ruchoir/client";
+import { getFilesView, getFolder, searchFiles, type FilesView, type SpaceFile, type ViewEntry } from "@ruchoir/client";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Folder, FolderOpen, SearchX, Upload } from "lucide-react-native";
+import { ChevronRight, Clock, Folder, FolderOpen, Inbox, SearchX, Star, Trash2, Upload } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
-import { useTranslation } from "../../i18n";
+import { key, useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
+import { Chips } from "../../ui/Chips";
 import { FloatingButton } from "../../ui/FloatingButton";
 import { SearchField } from "../../ui/SearchField";
 import { EmptyState, LoadState } from "../../ui/States";
@@ -24,10 +25,12 @@ import { UploadStrip } from "./UploadStrip";
 
 /**
  * The space's files (mockup 20): a search, the folders at the root as tiles, the files at the root,
- * and what changed recently. "Add a file" puts files at the space's root.
+ * and, as the web's views, what changed recently, the person's favourites and what was sent to them
+ * in conversations; the trash at the bottom. "Add a file" puts files at the space's root.
  */
 export function FilesScreen() {
   const { t } = useTranslation();
+  const { c } = useTheme();
   const { current, status } = useSpace();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const [query, setQuery] = useState("");
@@ -39,13 +42,19 @@ export function FilesScreen() {
 
   const space = current?.id;
   const root = useLoad(space ? `root:${space}` : null, (signal) => getFolder(space!, undefined, signal));
-  const recent = useLoad(space ? `recent:${space}` : null, (signal) => getFilesView(space!, "recent", signal));
+  const [view, setView] = useState<FilesView>("recent");
+  const listed = useLoad(space ? `view:${space}:${view}` : null, (signal) => getFilesView(space!, view, signal));
   const found = useLoad(space && debounced ? `search:${space}:${debounced}` : null, (signal) => searchFiles(space!, debounced, signal));
   useReloadOn((e) => e.type === "files" && e.spaceId === space, () => {
     root.reload();
-    recent.reload();
+    listed.reload();
   });
 
+  /** Where a shared file was sent, and by whom. */
+  const sharedLine = (e: ViewEntry) =>
+    [e.sharedIn?.name ? (e.sharedIn.kind === "channel" ? `#${e.sharedIn.name}` : e.sharedIn.name) : null, e.sharedBy ? t("files.sentBy", { name: e.sharedBy }) : null]
+      .filter(Boolean)
+      .join(" · ") || undefined;
   const folders = root.data?.entries.filter((f) => f.kind === "folder") ?? [];
   const files = root.data?.entries.filter((f) => f.kind !== "folder") ?? [];
 
@@ -62,7 +71,7 @@ export function FilesScreen() {
             refreshing={false}
             onRefresh={() => {
               root.reload();
-              recent.reload();
+              listed.reload();
             }}
           />
         }
@@ -89,13 +98,30 @@ export function FilesScreen() {
           <>
             {folders.length ? <FolderTiles folders={folders} /> : null}
             {files.length ? <Section title={t("files.atRoot")} rows={files.map((file) => ({ file }))} /> : null}
-            {recent.data?.length ? (
-              <Section
-                title={t("files.recent")}
-                rows={recent.data.slice(0, 20).map((e) => ({ file: e.file, path: e.path.map((p) => p.name).join(" / ") || undefined }))}
-              />
-            ) : null}
             {!folders.length && !files.length ? <EmptyState icon={FolderOpen} title={t("files.empty")} text={t("files.emptyHint")} /> : null}
+            <Chips chips={VIEWS.map((v) => ({ key: v.key, label: t(v.label), icon: v.icon }))} value={view} onChange={setView} />
+            {!listed.data ? (
+              <LoadState error={listed.error} onRetry={listed.reload} />
+            ) : listed.data.length ? (
+              <View>
+                {listed.data.slice(0, 30).map((e, i) => (
+                  <FileRow key={e.file.id ?? i} file={e.file} line={view === "shared" ? sharedLine(e) : undefined} path={pathOf(e)} />
+                ))}
+              </View>
+            ) : (
+              <EmptyState size="compact" icon={EMPTY[view].icon} title={t(EMPTY[view].title)} text={t(EMPTY[view].text)} />
+            )}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate("trash")}
+              style={({ pressed }) => [styles.trash, { borderTopColor: c.line }, pressed && { opacity: 0.6 }]}
+            >
+              <Trash2 size={18} color={c.body} />
+              <Text variant="body" style={styles.grow}>
+                {t("files.trash")}
+              </Text>
+              <ChevronRight size={18} color={c.muted} />
+            </Pressable>
           </>
         )}
       </ScrollView>
@@ -109,6 +135,20 @@ export function FilesScreen() {
     </TabScreen>
   );
 }
+
+const VIEWS = [
+  { key: "recent", label: key("files.recent"), icon: Clock },
+  { key: "starred", label: key("files.favourites"), icon: Star },
+  { key: "shared", label: key("files.sharedWithMe"), icon: Inbox },
+] as const;
+
+const EMPTY = {
+  recent: { icon: Clock, title: key("files.noRecent"), text: key("files.noRecentText") },
+  starred: { icon: Star, title: key("files.noFavourites"), text: key("files.noFavouritesText") },
+  shared: { icon: Inbox, title: key("files.nothingShared"), text: key("files.nothingSharedText") },
+} as const;
+
+const pathOf = (e: ViewEntry) => e.path.map((p) => p.name).join(" / ") || undefined;
 
 function FolderTiles({ folders }: { folders: SpaceFile[] }) {
   const { c } = useTheme();
@@ -150,6 +190,8 @@ function Section({ title, rows }: { title: string; rows: { file: SpaceFile; path
 const styles = StyleSheet.create({
   // Room under the last row for the floating button.
   page: { paddingBottom: 96, gap: 12, flexGrow: 1 },
+  grow: { flex: 1 },
+  trash: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16 },
   tile: {
     flexBasis: "47%",

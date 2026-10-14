@@ -93,6 +93,8 @@ export type RootParams = {
   fileShare: { file: SpaceFile; spaceId: string };
   fileSendTo: { file: SpaceFile; spaceId: string };
   fileLinks: { file: SpaceFile };
+  /** The current space's trash. */
+  trash: undefined;
   uploadConflict: undefined;
   spaceSheet: undefined;
   accountSheet: undefined;

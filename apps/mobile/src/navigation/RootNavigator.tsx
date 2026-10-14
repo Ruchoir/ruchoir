@@ -36,6 +36,7 @@ import { MovePicker } from "../screens/files/MovePicker";
 import { NameSheet } from "../screens/files/NameSheet";
 import { ScanScreen } from "../screens/files/ScanScreen";
 import { ShareSheet } from "../screens/files/ShareSheet";
+import { TrashScreen } from "../screens/files/TrashScreen";
 import { UploadsSheet } from "../screens/files/UploadsSheet";
 import { VersionsSheet } from "../screens/files/VersionsSheet";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
@@ -70,6 +71,7 @@ export function RootNavigator() {
         <Stack.Screen name="thread" component={ThreadScreen} />
         <Stack.Screen name="conversationDetails" component={ConversationDetails} />
         <Stack.Screen name="folder" component={FolderScreen} />
+        <Stack.Screen name="trash" component={TrashScreen} />
         <Stack.Screen name="fileViewer" component={FileViewerScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="eventSummary" component={EventSummarySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="eventForm" component={EventFormScreen} options={{ presentation: "fullScreenModal" }} />
