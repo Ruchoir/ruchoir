@@ -140,6 +140,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const pending = useRef<{ email: string; password: string } | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const invitation = useRef<string | null>(null);
+  /** The instance the client talks to once a choice has been checked: where a failed one goes back. */
+  const connected = useRef<string | null>(null);
 
   const holdToken = useCallback(async (token: string | null) => {
     hasToken.current = token !== null;
@@ -160,6 +162,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Reading the Keychain and checking the session happen outside React; their result is applied in
   // the callback, which is the one place the boot sets state.
   const applyBoot = useCallback((boot: Boot) => {
+    connected.current = boot.server;
     if (boot.offline) return setOfflineAtBoot(true);
     hasToken.current = boot.user !== null;
     // A token the instance no longer honours is forgotten, not kept for the next launch.
@@ -185,15 +188,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const check = normalizeServer(input);
       if (!check.ok) throw new AuthFailure(check.reason);
       connectTo(check.origin, onUnauthorized);
+      // A server that is refused leaves the client where it was, so the screen and the requests
+      // still name the same instance.
+      const refuse = (code: FailureCode) => {
+        if (connected.current) connectTo(connected.current, onUnauthorized);
+        return new AuthFailure(code);
+      };
       let caps;
       try {
         caps = await getInstanceCapabilities();
       } catch (err) {
-        throw new AuthFailure(isApiError(err) ? "notRuchoir" : "unreachable");
+        throw refuse(isApiError(err) ? "notRuchoir" : "unreachable");
       }
       // A web page answering 200 is not an instance: a Ruchoir always says whether it can send mail.
-      if (typeof caps.emailDelivery !== "boolean") throw new AuthFailure("notRuchoir");
-      if (!caps.nativeSessions) throw new AuthFailure("outdated");
+      if (typeof caps.emailDelivery !== "boolean") throw refuse("notRuchoir");
+      if (!caps.nativeSessions) throw refuse("outdated");
+      connected.current = check.origin;
       await store.setServer(check.origin);
       await holdToken(null);
       dispatch({ type: "serverChosen", server: check.origin });
