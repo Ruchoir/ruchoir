@@ -75,7 +75,7 @@ export function LoadState({ error, onRetry }: { error: { offline: boolean } | nu
       <Text variant="heading" style={styles.text}>
         {error.offline ? t("load.offline") : t("load.failed")}
       </Text>
-      <Button variant="secondary" size="md" label={t("boot.retry")} onPress={onRetry} />
+      <Button variant="secondary" size="md" label={t("common.retry")} onPress={onRetry} />
     </View>
   );
 }

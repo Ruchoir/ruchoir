@@ -6,14 +6,20 @@
  * where iOS may have frozen the socket. Refetching rather than replaying deltas keeps one path for
  * "what is true now", and {@link mergeMessages} keeps a message that arrives both ways from showing twice.
  */
-import { connectRealtime, type ApiMessage, type Presence } from "@ruchoir/client";
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { connectRealtime, type ApiMessage, type Presence, type RealtimeConnection } from "@ruchoir/client";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 
 export type RealtimeEvent =
   | { type: "message"; change: "created" | "updated" | "deleted"; conversationId: string; message: ApiMessage }
+  /** A change I made, drawn before the server confirms it (a reaction, a pin, an edit): screens only. */
+  | { type: "patched"; conversationId: string; message: ApiMessage }
+  /** Someone's reaction added or removed. Mine are already on screen. */
+  | { type: "reaction"; conversationId: string; messageId: string; emoji: string; userId: string; added: boolean }
+  | { type: "pinned"; conversationId: string; messageId: string; pinned: boolean }
   | { type: "notification" }
-  | { type: "readCursor"; conversationId: string }
+  | { type: "readCursor"; conversationId: string; userId: string; lastReadMessageId: string }
+  | { type: "typing"; conversationId: string; userId: string }
   | { type: "presence"; userId: string; presence: Presence }
   | { type: "spaces" }
   | { type: "channels"; spaceId?: string }
@@ -22,23 +28,43 @@ export type RealtimeEvent =
 
 type Listener = (event: RealtimeEvent) => void;
 
+type Actions = {
+  /** Tell the others in a conversation that I am writing. */
+  sendTyping: (conversationId: string) => void;
+  /** Deliver an event to every screen as if it came from the server (a message I just sent). */
+  emit: (event: RealtimeEvent) => void;
+};
+
 const RevisionContext = createContext(0);
 const BusContext = createContext<Set<Listener> | null>(null);
+const ActionsContext = createContext<Actions>({ sendTyping: () => {}, emit: () => {} });
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [revision, setRevision] = useState(0);
   const [listeners] = useState(() => new Set<Listener>());
+  const connection = useRef<RealtimeConnection | null>(null);
+  const actions = useMemo<Actions>(
+    () => ({
+      sendTyping: (conversationId) => connection.current?.sendTyping(conversationId),
+      emit: (event) => listeners.forEach((listen) => listen(event)),
+    }),
+    [listeners],
+  );
 
   useEffect(() => {
-    const emit = (event: RealtimeEvent) => listeners.forEach((listen) => listen(event));
+    const emit = actions.emit;
     const open = () =>
       connectRealtime({
         onReconnect: () => setRevision((r) => r + 1),
         onMessageCreated: (conversationId, message) => emit({ type: "message", change: "created", conversationId, message }),
         onMessageUpdated: (conversationId, message) => emit({ type: "message", change: "updated", conversationId, message }),
         onMessageDeleted: (conversationId, message) => emit({ type: "message", change: "deleted", conversationId, message }),
+        onReaction: (conversationId, r) => emit({ type: "reaction", conversationId, ...r }),
+        onPinned: (conversationId, messageId, pinned) => emit({ type: "pinned", conversationId, messageId, pinned }),
         onNotification: () => emit({ type: "notification" }),
-        onReadCursor: (conversationId) => emit({ type: "readCursor", conversationId }),
+        onReadCursor: (conversationId, userId, lastReadMessageId) =>
+          emit({ type: "readCursor", conversationId, userId, lastReadMessageId }),
+        onTyping: (conversationId, userId) => emit({ type: "typing", conversationId, userId }),
         onPresence: (userId, presence) => emit({ type: "presence", userId, presence }),
         onSpaceUpdated: () => emit({ type: "spaces" }),
         onSpaceRemoved: () => emit({ type: "spaces" }),
@@ -49,23 +75,26 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         onFilesUpdated: (spaceId) => emit({ type: "files", spaceId }),
         onFilesDeleted: (spaceId) => emit({ type: "files", spaceId }),
       });
-    let connection = open();
+    connection.current = open();
     const subscription = AppState.addEventListener("change", (state) => {
       if (state !== "active") return;
-      connection.close();
-      connection = open();
+      connection.current?.close();
+      connection.current = open();
       setRevision((r) => r + 1);
     });
     return () => {
       subscription.remove();
-      connection.close();
+      connection.current?.close();
+      connection.current = null;
     };
-  }, [listeners]);
+  }, [actions]);
 
   return (
-    <BusContext.Provider value={listeners}>
-      <RevisionContext.Provider value={revision}>{children}</RevisionContext.Provider>
-    </BusContext.Provider>
+    <ActionsContext.Provider value={actions}>
+      <BusContext.Provider value={listeners}>
+        <RevisionContext.Provider value={revision}>{children}</RevisionContext.Provider>
+      </BusContext.Provider>
+    </ActionsContext.Provider>
   );
 }
 
@@ -89,4 +118,9 @@ export function useRealtimeEvent(listener: Listener): void {
       bus.delete(relay);
     };
   }, [bus]);
+}
+
+/** Send the typing signal, or deliver a local event to every screen. */
+export function useRealtimeActions(): Actions {
+  return useContext(ActionsContext);
 }

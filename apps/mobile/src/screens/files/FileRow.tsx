@@ -21,8 +21,11 @@ export function openEntry(navigation: NavigationProp<RootParams>, file: SpaceFil
     });
 }
 
-/** A file or a folder in a list (mockup 20): its icon, its name, who touched it last and when. */
-export function FileRow({ file, line }: { file: SpaceFile; line?: string }) {
+/**
+ * A file or a folder in a list (mockup 20): its icon, its name, who touched it last and when. A tap
+ * opens it, unless the list does something else with it (`onPress`: the file picker attaches it).
+ */
+export function FileRow({ file, line, onPress }: { file: SpaceFile; line?: string; onPress?: () => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -41,7 +44,7 @@ export function FileRow({ file, line }: { file: SpaceFile; line?: string }) {
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => openEntry(navigation, file)}
+      onPress={onPress ?? (() => openEntry(navigation, file))}
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: c.line }]}
     >
       <FileIcon name={file.name} mime={file.mimeType} folder={folder} />

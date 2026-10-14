@@ -1,8 +1,18 @@
 import { DarkTheme, DefaultTheme, NavigationContainer, type Theme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
+import { AttachSheet } from "../compose/AttachSheet";
 import { AccountSheet } from "../screens/account/AccountSheet";
+import { ConversationDetails } from "../screens/discussions/ConversationDetails";
 import { ConversationScreen } from "../screens/discussions/ConversationScreen";
+import { EmojiPickerSheet } from "../screens/discussions/EmojiPickerSheet";
+import { InviteScreen } from "../screens/discussions/InviteScreen";
+import { MessageActionSheet } from "../screens/discussions/MessageActionSheet";
+import { NewConversationScreen } from "../screens/discussions/NewConversationScreen";
+import { NewGroupScreen } from "../screens/discussions/NewGroupScreen";
+import { NewMessageSheet } from "../screens/discussions/NewMessageSheet";
+import { SpaceFilePicker } from "../screens/discussions/SpaceFilePicker";
+import { ThreadScreen } from "../screens/discussions/ThreadScreen";
 import { EventSummarySheet } from "../screens/agenda/EventSummarySheet";
 import { FileViewerScreen } from "../screens/files/FileViewerScreen";
 import { FolderScreen } from "../screens/files/FolderScreen";
@@ -35,11 +45,21 @@ export function RootNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="tabs" component={Tabs} />
         <Stack.Screen name="conversation" component={ConversationScreen} />
+        <Stack.Screen name="thread" component={ThreadScreen} />
+        <Stack.Screen name="conversationDetails" component={ConversationDetails} />
         <Stack.Screen name="folder" component={FolderScreen} />
         <Stack.Screen name="fileViewer" component={FileViewerScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="eventSummary" component={EventSummarySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
+        <Stack.Screen name="messageActions" component={MessageActionSheet} options={sheet} />
+        <Stack.Screen name="emojiPicker" component={EmojiPickerSheet} options={{ ...sheet, sheetAllowedDetents: [0.7, 1] }} />
+        <Stack.Screen name="attachSheet" component={AttachSheet} options={sheet} />
+        <Stack.Screen name="spaceFilePicker" component={SpaceFilePicker} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
+        <Stack.Screen name="newMessage" component={NewMessageSheet} options={sheet} />
+        <Stack.Screen name="newConversation" component={NewConversationScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="newGroup" component={NewGroupScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="invite" component={InviteScreen} options={{ presentation: "modal" }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

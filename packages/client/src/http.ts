@@ -125,7 +125,7 @@ export function apiDelete<T>(path: string, signal?: AbortSignal): Promise<T> {
  * `{ error, message }` (or similar); fall back to a generic line keyed on the status when it does
  * not, so an unexpected shape never surfaces as `[object Object]`.
  */
-function apiErrorMessage(body: unknown, status: number): string {
+export function apiErrorMessage(body: unknown, status: number): string {
   if (body && typeof body === "object") {
     const rec = body as Record<string, unknown>;
     for (const key of ["message", "error", "detail"]) {

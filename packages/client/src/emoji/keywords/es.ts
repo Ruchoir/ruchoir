@@ -1,4 +1,5 @@
-{
+/** Search keywords in es, generated from the Unicode CLDR annotations (`apps/web/scripts/build-emoji-keywords.mjs`). */
+export const KEYWORDS_ES: Record<string, string> = {
  "👍": "pulgar hacia arriba arriba mano pulgar señal",
  "❤️": "corazón rojo corazón emoción rojo",
  "😂": "cara llorando de risa cara felicidad lágrima risa",
@@ -514,4 +515,4 @@
  "👑": "corona accesorios complementos reina rey",
  "💎": "piedra preciosa diamante gema joya piedra preciosa",
  "🏁": "bandera de cuadros bandera carreras cuadros deporte motor"
-}
+};

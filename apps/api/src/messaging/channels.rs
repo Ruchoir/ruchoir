@@ -352,6 +352,9 @@ pub async fn create_channel(
     // The channel's own history says it was created, the way every seeded channel already did and
     // no real one ever did.
     write_channel_notice(&state, channel_id, None, CREATED_EVENT).await;
+    let member_count = super::conversations::channel_member_count(&state.db, channel_id).await?;
+    let last_message =
+        super::conversations::preview(&state.db, channel_id, session.user_id, true).await?;
     Ok((
         StatusCode::CREATED,
         Json(ChannelDto {
@@ -366,6 +369,8 @@ pub async fn create_channel(
             member: true,
             unread: 0,
             allowed_roles,
+            member_count,
+            last_message,
         }),
     ))
 }
@@ -526,6 +531,9 @@ pub async fn update_channel(
         allowed_roles: super::authz::channel_allowed_roles(&state.db, channel_id)
             .await?
             .map(|roles| roles.into_iter().collect()),
+        member_count: super::conversations::channel_member_count(&state.db, channel_id).await?,
+        last_message: super::conversations::preview(&state.db, channel_id, session.user_id, true)
+            .await?,
     }))
 }
 

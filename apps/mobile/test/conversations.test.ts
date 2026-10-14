@@ -39,28 +39,55 @@ test("most_recent_first_and_silent_ones_last", () => {
   assert.deepEqual(ids(listConversations(ITEMS, "all", "")), ["c1", "d1", "c2", "d2", "c3"]);
 });
 
-test("a_channel_previews_its_latest_message_and_a_dm_its_own", () => {
+test("channels_and_conversations_carry_their_own_preview", () => {
   const built = buildConversations(
     [
-      { id: "c1", name: "Équipe", unread: 2, member: true } as never,
+      {
+        id: "c1",
+        name: "Équipe",
+        unread: 2,
+        member: true,
+        memberCount: 8,
+        lastMessage: { excerpt: "**Le planning** est en ligne", mine: false, at: "2026-10-13T10:00:00Z", author: "Léa Martin" },
+      } as never,
       { id: "c9", name: "Not mine", unread: 0, member: false } as never,
     ],
     [{ id: "d1", name: "Léa Martin", unread: 0, userId: "u2", presence: "online", lastMessage: { excerpt: "À demain", mine: true, at: "2026-10-13T08:00:00Z" } } as never],
-    { c1: { author: "Léa Martin", body: "**Le planning** est en ligne", createdAt: "2026-10-13T10:00:00Z" } as never },
   );
   assert.deepEqual(ids(built), ["c1", "d1"]);
   assert.deepEqual(built[0].preview, { author: "Léa Martin", text: "Le planning est en ligne", mine: false });
   assert.equal(built[0].at, "2026-10-13T10:00:00Z");
+  assert.equal(built[0].members, 8);
   assert.deepEqual(built[1].preview, { text: "À demain", mine: true });
   assert.equal(built[1].kind, "person");
 });
 
-test("a_system_message_or_an_empty_body_gives_no_preview", () => {
+test("a_channel_where_nobody_wrote_previews_what_happened_last", () => {
   const [built] = buildConversations(
-    [{ id: "c1", name: "général", unread: 0, member: true } as never],
+    [
+      {
+        id: "c1",
+        name: "général",
+        unread: 0,
+        member: true,
+        lastMessage: { excerpt: "Repro salon", mine: false, at: "2026-10-03T08:57:38Z", author: "Alice", notice: true, systemEvent: "calendar_event_posted" },
+      } as never,
+    ],
     [],
-    { c1: { author: "", body: "", kind: "system", createdAt: "2026-10-03T08:57:38Z" } as never },
   );
-  assert.equal(built.preview, undefined);
+  assert.deepEqual(built.preview, { text: "Repro salon", mine: false, notice: { event: "calendar_event_posted", who: "Alice" } });
   assert.equal(built.at, "2026-10-03T08:57:38Z");
+});
+
+test("a_message_with_only_files_says_so_and_an_empty_history_gives_no_preview", () => {
+  const [files, empty] = buildConversations(
+    [
+      { id: "c1", name: "a", unread: 0, member: true, lastMessage: { excerpt: "", mine: true, at: "2026-10-03T08:00:00Z", author: "Théo" } } as never,
+      { id: "c2", name: "b", unread: 0, member: true } as never,
+    ],
+    [],
+  );
+  assert.deepEqual(files.preview, { author: "Théo", text: "", mine: true, files: true });
+  assert.equal(empty.preview, undefined);
+  assert.equal(empty.at, undefined);
 });

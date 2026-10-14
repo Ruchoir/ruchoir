@@ -1,11 +1,12 @@
 import { useNavigation } from "@react-navigation/native";
 import { Check } from "lucide-react-native";
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
 import { useSpace } from "../../space/SpaceProvider";
 import { radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
+import { ActionRow } from "../../ui/ActionRow";
 import { Avatar } from "../../ui/Avatar";
 import { Sheet } from "../../ui/Sheet";
 import { LoadState } from "../../ui/States";
@@ -27,38 +28,25 @@ export function SpaceSheet() {
       {spaces.data?.map((space) => {
         const selected = space.id === current?.id;
         return (
-          <Pressable
+          <ActionRow
             key={space.id}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
+            selected={selected}
             onPress={() => {
               select(space.id);
               navigation.goBack();
             }}
-            style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}
-          >
-            {selected ? (
-              <View style={[styles.check, { backgroundColor: c.sky }]}>
-                <Check size={20} color={c.onPastel} />
-              </View>
-            ) : (
-              <Avatar name={space.name} src={space.iconUrl} kind="workspace" size={40} />
-            )}
-            <View style={styles.flex}>
-              <Text variant="bodyStrong" numberOfLines={1}>
-                {space.name}
-              </Text>
-              {selected ? (
-                <Text variant="tiny" tone="muted">
-                  {t("spaces.current")}
-                </Text>
-              ) : space.unread > 0 ? (
-                <Text variant="tiny" tone="muted">
-                  {t("spaces.unread", { count: space.unread })}
-                </Text>
-              ) : null}
-            </View>
-          </Pressable>
+            leading={
+              selected ? (
+                <View style={[styles.check, { backgroundColor: c.sky }]}>
+                  <Check size={20} color={c.onPastel} />
+                </View>
+              ) : (
+                <Avatar name={space.name} src={space.iconUrl} kind="workspace" size={40} />
+              )
+            }
+            title={space.name}
+            subtitle={selected ? t("spaces.current") : space.unread > 0 ? t("spaces.unread", { count: space.unread }) : undefined}
+          />
         );
       })}
     </Sheet>
@@ -67,7 +55,5 @@ export function SpaceSheet() {
 
 const styles = StyleSheet.create({
   title: { marginBottom: 6 },
-  row: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 8 },
   check: { width: 40, height: 40, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  flex: { flex: 1, minWidth: 0 },
 });

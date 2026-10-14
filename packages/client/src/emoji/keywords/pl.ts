@@ -1,4 +1,5 @@
-{
+/** Search keywords in pl, generated from the Unicode CLDR annotations (`apps/web/scripts/build-emoji-keywords.mjs`). */
+export const KEYWORDS_PL: Record<string, string> = {
  "👍": "kciuk w górę brawo kciuk lubię lubię to ok okej podoba mi się ręka tak w porządku zgoda",
  "❤️": "czerwone serce czerwone kocham miłość serce",
  "😂": "twarz ze łzami radości absurd buźka haha hehe lol płacz wesoły łza łzy łzy radości śmiech śmieszne",
@@ -514,4 +515,4 @@
  "👑": "korona król królowa",
  "💎": "kamień szlachetny diament kamień klejnot miłość szlachetny",
  "🏁": "flaga w szachownicę flaga flaga w kratkę sport wyścigi"
-}
+};

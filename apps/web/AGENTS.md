@@ -505,7 +505,7 @@ usage with the design-system oxlint config.
   the ~5GB, then runs `scripts/prepare-emoji.mjs`, which emits `sprite.svg` + curated `animated/*.png`
   + `manifest.json`) into `public/emoji/` (dev, gitignored) or a dir behind the API's
   `RUCHOIR_EMOJI_DIR` (prod). Fallback chain per emoji: animated (reactions, opt-in) -> static
-  (sprite) -> native. Emoji picker data/keywords live in `lib/emoji.ts`.
+  (sprite) -> native. Emoji picker data and keywords live in `@ruchoir/client/emoji` (shared with the mobile app); `lib/emoji.ts` adds the category labels and searches in the interface language.
 - **User settings** live in `features/app/settings.tsx` (`SettingsProvider` + `useSettings`,
   persisted to localStorage): theme, typeface, text size, notification prefs, account security,
   emoji animation, the simulated pack-present flag, keyboard-shortcut bindings, and the dragged

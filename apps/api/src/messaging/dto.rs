@@ -199,6 +199,12 @@ pub struct ChannelDto {
     /// admits everyone, which is every channel until somebody says otherwise.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allowed_roles: Option<Vec<String>>,
+    /// How many people have joined the channel ("Group · 8 people" on a phone's list).
+    pub member_count: u64,
+    /// The latest thing said or done in the channel, for the preview line of a conversation list.
+    /// Absent while its history is empty.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_message: Option<LastMessageDto>,
 }
 
 /// A channel's shared facts, pushed in real time when one is created or changed.
@@ -243,16 +249,26 @@ pub struct DirectMessageDto {
 }
 
 /// The latest message of a conversation, as a list of conversations shows it: the start of what was
-/// said, who said it and when. A reply in a thread is not it, nor a system notice: what a list
-/// previews is the conversation itself.
+/// said, who said it and when. A reply in a thread is not it: what a list previews is the
+/// conversation itself. Nor, in a direct conversation, a system notice; a channel where nothing
+/// was said since can preview one (it was created, an event was shared), but never somebody coming
+/// or going, which is no news of the conversation.
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct LastMessageDto {
-    /// The first characters of the body, raw markdown (the client flattens it for one line).
+    /// The first characters of the body, raw markdown (the client flattens it for one line). For a
+    /// notice, its one detail (an event's title, a channel's new name), possibly empty.
     pub excerpt: String,
     /// Whether the caller wrote it, so the list can say "You: ...".
     pub mine: bool,
     /// Sent at, RFC 3339.
     pub created_at: String,
+    /// The author's display name ("Léa: ..."); for a notice, who did what it says. Absent when the
+    /// account is gone or the notice has nobody behind it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
+    /// Set when it is a notice rather than a message: what happened, which the client words.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_event: Option<String>,
 }
 
 /// A user's effective presence as seen by others.

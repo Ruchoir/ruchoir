@@ -212,6 +212,8 @@ pub async fn list_channels(
         }
         let favorite = membership.as_ref().map(|m| m.favorite).unwrap_or(false);
         let unread = unread_count(&state.db, channel.id, session.user_id).await?;
+        let member_count = channel_member_count(&state.db, channel.id).await?;
+        let last_message = preview(&state.db, channel.id, session.user_id, true).await?;
         let allowed_roles = super::authz::channel_allowed_roles(&state.db, channel.id)
             .await?
             .map(|roles| roles.into_iter().collect());
@@ -229,6 +231,8 @@ pub async fn list_channels(
             member: membership.is_some(),
             unread,
             allowed_roles,
+            member_count,
+            last_message,
         });
     }
     Ok(Json(out))
@@ -338,13 +342,7 @@ pub async fn list_dms(
         let bot = counterparts.len() == 1 && counterparts[0].is_bot;
         let user_id = (counterparts.len() == 1).then(|| counterparts[0].id);
         let unread = unread_count(&state.db, dm.id, session.user_id).await?;
-        let last_message = last_message(&state.db, dm.id)
-            .await?
-            .map(|m| LastMessageDto {
-                excerpt: excerpt(&m.body),
-                mine: m.author_id == Some(session.user_id),
-                created_at: super::dto::rfc3339(m.created_at),
-            });
+        let last_message = preview(&state.db, dm.id, session.user_id, false).await?;
         out.push(DirectMessageDto {
             id: dm.id,
             name,
@@ -375,19 +373,72 @@ fn excerpt(body: &str) -> String {
     }
 }
 
-/// The latest message of a conversation: not a reply in a thread, not a system notice, not deleted.
-async fn last_message(
+/// Notices about somebody coming or going. A list's preview skips them: "Camille joined" is no news
+/// of what is being said there.
+const MEMBERSHIP_EVENTS: [&str; 6] = [
+    "member_joined",
+    "member_left",
+    "member_removed",
+    "channel_joined",
+    "channel_left",
+    "channel_removed",
+];
+
+/// The preview line of a conversation list: its latest message, not a reply in a thread, not
+/// deleted. `with_notices` lets a channel's other notices count (it was created, an event was
+/// shared, it was renamed), so a channel where nobody wrote still says what happened in it last; a
+/// direct conversation previews messages only.
+pub(super) async fn preview(
     db: &DatabaseConnection,
     conversation_id: Uuid,
-) -> Result<Option<messages::Model>, ApiError> {
-    Ok(messages::Entity::find()
+    viewer: Uuid,
+    with_notices: bool,
+) -> Result<Option<LastMessageDto>, ApiError> {
+    let said = if with_notices {
+        Condition::any()
+            .add(messages::Column::Kind.ne("system"))
+            .add(messages::Column::SystemEvent.is_null())
+            .add(messages::Column::SystemEvent.is_not_in(MEMBERSHIP_EVENTS))
+    } else {
+        Condition::all().add(messages::Column::Kind.ne("system"))
+    };
+    let Some(message) = messages::Entity::find()
         .filter(messages::Column::ConversationId.eq(conversation_id))
         .filter(messages::Column::ParentMessageId.is_null())
         .filter(messages::Column::DeletedAt.is_null())
-        .filter(messages::Column::Kind.ne("system"))
+        .filter(said)
         .order_by_desc(messages::Column::CreatedAt)
         .order_by_desc(messages::Column::Id)
         .one(db)
+        .await?
+    else {
+        return Ok(None);
+    };
+    let author = match message.author_id {
+        Some(id) => users::Entity::find_by_id(id)
+            .one(db)
+            .await?
+            .map(|u| u.display_name),
+        None => None,
+    };
+    let notice = message.kind == "system";
+    Ok(Some(LastMessageDto {
+        excerpt: excerpt(&message.body),
+        mine: !notice && message.author_id == Some(viewer),
+        created_at: super::dto::rfc3339(message.created_at),
+        author,
+        system_event: if notice { message.system_event } else { None },
+    }))
+}
+
+/// How many people have joined a channel.
+pub(super) async fn channel_member_count(
+    db: &DatabaseConnection,
+    channel_id: Uuid,
+) -> Result<u64, ApiError> {
+    Ok(channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .count(db)
         .await?)
 }
 

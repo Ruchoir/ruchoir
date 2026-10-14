@@ -17,7 +17,7 @@ export function BootScreen({ offline, onRetry }: { offline?: boolean; onRetry?: 
           <Text tone="body" style={styles.message}>
             {t("boot.offline")}
           </Text>
-          <Button variant="secondary" size="md" label={t("boot.retry")} onPress={() => onRetry?.()} />
+          <Button variant="secondary" size="md" label={t("common.retry")} onPress={() => onRetry?.()} />
         </>
       ) : (
         <ActivityIndicator color={c.ink} />

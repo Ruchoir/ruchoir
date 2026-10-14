@@ -857,6 +857,114 @@ async fn a_direct_message_list_previews_the_latest_message() {
     assert_eq!(seen_by_bob["mine"], true);
 }
 
+/// One channel of `GET /spaces/{id}/channels`, as `cookie` sees it.
+async fn channel_row(
+    app: &TestApp,
+    space_id: Uuid,
+    cookie: &str,
+    pick: impl Fn(&Value) -> bool,
+) -> Value {
+    let channels: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space_id}/channels"),
+            cookie,
+        )
+        .send()
+        .await
+        .expect("channels")
+        .json()
+        .await
+        .expect("json");
+    channels
+        .as_array()
+        .expect("list")
+        .iter()
+        .find(|c| pick(c))
+        .cloned()
+        .expect("the channel")
+}
+
+#[tokio::test]
+async fn a_channel_list_previews_the_latest_message_and_counts_its_people() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let general = fx.public_channel.to_string();
+    let is_general = |c: &Value| c["id"] == general.as_str();
+
+    // Nothing in it yet: nothing to preview, and the two people who joined it.
+    let row = channel_row(&app, fx.space_id, &alice, is_general).await;
+    assert!(row.get("last_message").is_none());
+    assert_eq!(row["member_count"], 2);
+
+    let post = format!("/api/v1/conversations/{}/messages", fx.public_channel);
+    let latest: Value = app
+        .req(reqwest::Method::POST, &post, &bob)
+        .json(&json!({ "body": "Bonjour à tous" }))
+        .send()
+        .await
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    // A reply in a thread is not the channel's latest word, and someone arriving says nothing either.
+    app.req(reqwest::Method::POST, &post, &alice)
+        .json(&json!({ "body": "dans le fil", "parent_message_id": latest["id"] }))
+        .send()
+        .await
+        .expect("reply");
+    let joined = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/channels/{}/membership", fx.public_channel),
+            &carol,
+        )
+        .send()
+        .await
+        .expect("join");
+    assert!(joined.status().is_success());
+
+    let row = channel_row(&app, fx.space_id, &alice, is_general).await;
+    let preview = &row["last_message"];
+    assert_eq!(preview["excerpt"], "Bonjour à tous");
+    assert_eq!(preview["author"], "bob");
+    assert_eq!(preview["mine"], false);
+    assert_eq!(preview["created_at"], latest["created_at"]);
+    assert!(preview.get("system_event").is_none());
+    assert_eq!(row["member_count"], 3);
+    let row = channel_row(&app, fx.space_id, &bob, is_general).await;
+    assert_eq!(row["last_message"]["mine"], true);
+}
+
+#[tokio::test]
+async fn a_channel_nobody_wrote_in_previews_what_happened_last() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &alice,
+        )
+        .json(&json!({ "name": "Projets clients", "type": "public" }))
+        .send()
+        .await
+        .expect("create");
+    assert_eq!(created.status(), 201);
+    let channel: Value = created.json().await.expect("json");
+    assert_eq!(channel["member_count"], 1);
+
+    let id = channel["id"].as_str().expect("id").to_owned();
+    let row = channel_row(&app, fx.space_id, &alice, |c| c["id"] == id.as_str()).await;
+    // Its history only says it was created: that is what its line says, worded by the client.
+    assert_eq!(row["last_message"]["system_event"], "channel_created");
+    assert_eq!(row["member_count"], 1);
+}
+
 #[tokio::test]
 async fn creating_a_space_starts_it_with_an_owner_and_a_channel() {
     let Some(app) = boot().await else { return };

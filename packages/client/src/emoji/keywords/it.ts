@@ -1,4 +1,5 @@
-{
+/** Search keywords in it, generated from the Unicode CLDR annotations (`apps/web/scripts/build-emoji-keywords.mjs`). */
+export const KEYWORDS_IT: Record<string, string> = {
  "👍": "pollice in su +1 bene capito certo dito d’accordo mi piace ok perfetto sì va bene",
  "❤️": "cuore rosso amore cuore cuoricino emozione rosso",
  "😂": "faccina con lacrime di gioia ahahaha che ridere contentissimo contento faccina faccina che piange dal ridere felice felicissimo felicità gioia lacrima lacrime di gioia lol piangere dal ridere ridere risata rofl",
@@ -514,4 +515,4 @@
  "👑": "corona abbigliamento famiglia reale medioevo principe principessa re regale regina vincere",
  "💎": "gemma diamante fidanzamento gioiello per sempre pietra preziosa romanticismo romantico soldi",
  "🏁": "bandiera a scacchi bandiera circuito corsa gara podio scacchi sport vittoria"
-}
+};
