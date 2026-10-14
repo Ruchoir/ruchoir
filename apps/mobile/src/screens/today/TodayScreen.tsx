@@ -216,16 +216,16 @@ function EventTile({ occurrence: o, now }: { occurrence: Occurrence; now: number
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => navigation.navigate("eventSummary", { eventId: o.eventId, recurrenceId: o.recurrenceId })}
+      onPress={() => navigation.navigate("eventSummary", { eventId: o.eventId, recurrenceId: o.recurrenceId, start: o.start })}
       style={({ pressed }) => [styles.tile, { borderColor: c.line, backgroundColor: c.surface }, pressed && { opacity: 0.7 }]}
     >
       <View style={[styles.tileIcon, { backgroundColor: c.sky }]}>
         <CalendarDays size={18} color={c.onPastel} />
       </View>
-      <Text variant="bodyStrong" numberOfLines={2}>
+      <Text variant="bodyStrong" numberOfLines={1}>
         {o.title}
       </Text>
-      <Text variant="small" tone="body">{`${timeOf(o.start, locale, timeZone)} · ${when}`}</Text>
+      <Text variant="small" tone="body" numberOfLines={1}>{`${timeOf(o.start, locale, timeZone)} · ${when}`}</Text>
     </Pressable>
   );
 }
@@ -246,8 +246,11 @@ function FileTile({ file }: { file: SpaceFile }) {
       style={({ pressed }) => [styles.tile, { borderColor: c.line, backgroundColor: c.surface }, pressed && { opacity: 0.7 }]}
     >
       <FileIcon name={file.name} mime={file.mimeType} size={32} />
-      <Text variant="bodyStrong">{t("today.newFile")}</Text>
-      <Text variant="small" tone="body" numberOfLines={2}>
+      <Text variant="bodyStrong" numberOfLines={1}>
+        {t("today.newFile")}
+      </Text>
+      {/* Cut in the middle, so its extension still says what it is. */}
+      <Text variant="small" tone="body" numberOfLines={1} ellipsizeMode="middle">
         {file.name}
       </Text>
     </Pressable>
@@ -275,7 +278,8 @@ const styles = StyleSheet.create({
   mentionIcon: { width: 44, height: 44, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
   open: { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: 2 },
   pair: { flexDirection: "row", gap: 12 },
-  tile: { flex: 1, gap: 8, padding: 14, borderRadius: radius.l, borderWidth: hairline },
+  // Two small cards side by side (mockup 09): a tile, a title and one line, each on one line.
+  tile: { flex: 1, minWidth: 0, gap: 6, padding: 12, borderRadius: radius.l, borderWidth: hairline },
   tileIcon: { width: 32, height: 32, borderRadius: radius.s, alignItems: "center", justifyContent: "center" },
   calm: { borderRadius: radius.l, borderWidth: hairline },
 });

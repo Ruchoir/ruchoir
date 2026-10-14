@@ -32,9 +32,11 @@ import ts from "typescript";
 const WEB_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
 /** Where each app keeps its sources, its dictionaries and (the web only) its translation debt. */
+/** The calendar logic both apps share speaks through their dictionaries: each app is audited with it. */
+const SHARED_CALENDAR = "../../packages/client/src/calendarLogic";
 const APPS = {
-  web: { root: WEB_ROOT, scan: ["app", "components", "features", "lib"], dict: "lib/i18n/dictionaries", debt: "tools/i18n-audit/untranslated.json" },
-  mobile: { root: resolve(WEB_ROOT, "../mobile"), scan: ["src"], dict: "src/i18n/dictionaries", debt: null },
+  web: { root: WEB_ROOT, scan: ["app", "components", "features", "lib", SHARED_CALENDAR], dict: "lib/i18n/dictionaries", debt: "tools/i18n-audit/untranslated.json" },
+  mobile: { root: resolve(WEB_ROOT, "../mobile"), scan: ["src", SHARED_CALENDAR], dict: "src/i18n/dictionaries", debt: null },
 };
 const appArg = process.argv.indexOf("--app");
 const APP = APPS[appArg >= 0 ? process.argv[appArg + 1] : "web"];

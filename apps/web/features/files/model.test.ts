@@ -2,9 +2,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  actionsFor,
-  blockedMoveTargets,
-  canManage,
   filterEntries,
   middleTruncate,
   rangeBetween,
@@ -59,39 +56,12 @@ test("filter ignores case and accents", () => {
   assert.equal(filterEntries(rows, "").length, 2);
 });
 
-test("manage rights follow the server: owner, or owner/admin of the space", () => {
-  assert.equal(canManage({ ownerId: "me" }, "me", "member"), true);
-  assert.equal(canManage({ ownerId: "other" }, "me", "member"), false);
-  assert.equal(canManage({ ownerId: "other" }, "me", "admin"), true);
-  assert.equal(canManage({ ownerId: "other" }, "me", "owner"), true);
-  assert.equal(canManage({ ownerId: "other" }, "me", "guest"), false);
-  assert.equal(canManage({}, "me", "member"), false);
-  assert.equal(canManage({ ownerId: undefined }, undefined, "member"), false);
-});
-
-test("actions with manage rights, in the order of the menu", () => {
-  assert.deepEqual(actionsFor(entry({ name: "a.txt" }), true), ["open", "download", "share", "star", "rename", "move", "newVersion", "versions", "details", "delete"]);
-  assert.deepEqual(actionsFor(entry({ name: "F", isFolder: true }), true), ["open", "star", "rename", "move", "details", "delete"]);
-});
-
-test("actions without manage rights", () => {
-  assert.deepEqual(actionsFor(entry({ name: "a.txt" }), false), ["open", "download", "share", "star", "versions", "details"]);
-  assert.deepEqual(actionsFor(entry({ name: "F", isFolder: true }), false), ["open", "star", "details"]);
-  // An entry the API cannot address has nothing to act on but its details.
-  assert.deepEqual(actionsFor(entry({ name: "ghost", id: undefined }), true), ["details"]);
-});
-
 test("range selection uses visible order, in either direction", () => {
   const order = ["a", "b", "c", "d", "e"];
   assert.deepEqual(rangeBetween(order, "b", "d"), ["b", "c", "d"]);
   assert.deepEqual(rangeBetween(order, "d", "b"), ["b", "c", "d"]);
   // An anchor filtered out of view: the range starts from the target alone.
   assert.deepEqual(rangeBetween(order, "zz", "c"), ["c"]);
-});
-
-test("move targets exclude every folder being moved", () => {
-  const blocked = blockedMoveTargets([entry({ name: "F", id: "f", isFolder: true }), entry({ name: "x.txt", id: "x" })]);
-  assert.deepEqual([...blocked], ["f"]);
 });
 
 test("middle truncation keeps the extension", () => {

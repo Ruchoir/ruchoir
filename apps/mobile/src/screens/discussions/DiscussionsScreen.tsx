@@ -1,6 +1,6 @@
 import { getChannels, getDirectMessages, type Member } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
-import { Lock, MessageCircle, MessageSquare, SearchX, Users } from "lucide-react-native";
+import { Lock, MessageCircle, MessageSquare, SearchX, SquarePen, Users } from "lucide-react-native";
 import { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 
@@ -18,12 +18,12 @@ import { AvatarStack } from "../../ui/AvatarStack";
 import { Badge } from "../../ui/Badge";
 import { Chips } from "../../ui/Chips";
 import { SearchField } from "../../ui/SearchField";
+import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { EmptyState, LoadState } from "../../ui/States";
 import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
-import { NewMessageButton } from "./NewMessageButton";
 import { SYSTEM_TEXT } from "./systemText";
 
 const FILTERS = [
@@ -48,6 +48,7 @@ export function DiscussionsScreen() {
   const { current, status } = useSpace();
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [query, setQuery] = useState("");
+  const floating = useFloatingScroll();
   const conversations = useLoad(current ? `conversations:${current.id}` : null, (signal) =>
     loadConversations(current!.id, signal),
   );
@@ -67,6 +68,8 @@ export function DiscussionsScreen() {
   return (
     <TabScreen>
       <FlatList
+        onScroll={floating.onScroll}
+        scrollEventThrottle={floating.scrollEventThrottle}
         data={items}
         // While searching, the last rows can still be scrolled above the keyboard.
         automaticallyAdjustKeyboardInsets
@@ -114,7 +117,7 @@ export function DiscussionsScreen() {
         // Room under the last row for the floating button.
         contentContainerStyle={styles.list}
       />
-      <NewMessageButton onPress={() => navigation.navigate("newMessage")} />
+      <FloatingButton compact={floating.compact} icon={SquarePen} label={t("newMessage.title")} onPress={() => navigation.navigate("newMessage")} />
     </TabScreen>
   );
 }
@@ -181,12 +184,15 @@ export function ConversationRow({
             </Text>
           ) : null}
         </View>
-        <View style={styles.line}>
-          <Text variant="small" tone={item.unread > 0 ? "strong" : "muted"} numberOfLines={1} style={styles.name}>
-            {preview ?? ""}
-          </Text>
-          <Badge count={item.unread} tone={item.kind === "channel" ? "accent" : "ink"} />
-        </View>
+        {/* Nothing said yet: no empty line under the name. */}
+        {preview || item.unread > 0 ? (
+          <View style={styles.line}>
+            <Text variant="small" tone={item.unread > 0 ? "strong" : "muted"} numberOfLines={1} style={styles.name}>
+              {preview ?? ""}
+            </Text>
+            <Badge count={item.unread} tone={item.kind === "channel" ? "accent" : "ink"} />
+          </View>
+        ) : null}
         {/* What it is: a group (a channel, with a lock when it is on invitation) or a private
             conversation with several people; a conversation with one person needs no line. */}
         {item.kind === "channel" ? (

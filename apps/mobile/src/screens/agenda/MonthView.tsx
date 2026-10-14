@@ -1,5 +1,5 @@
 import { CalendarDays } from "lucide-react-native";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
@@ -14,7 +14,20 @@ import { DayEvents, useDayLabel } from "./DayEvents";
 import { DayCell, PeriodHeader, useWeekLetters } from "./PeriodGrid";
 
 /** A month (mockup 17): the grid with each day's dots, and the chosen day's events under it. */
-export function MonthView({ anchor, today, data, onAnchor }: { anchor: string; today: string; data?: AgendaData; onAnchor: (day: string) => void }) {
+export function MonthView({
+  anchor,
+  today,
+  data,
+  onAnchor,
+  onChosen,
+}: {
+  anchor: string;
+  today: string;
+  data?: AgendaData;
+  onAnchor: (day: string) => void;
+  /** Told the day chosen, where a new event starts. */
+  onChosen?: (day: string) => void;
+}) {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -24,6 +37,7 @@ export function MonthView({ anchor, today, data, onAnchor }: { anchor: string; t
   const grid = monthGrid(month);
   const [selected, setSelected] = useState(today.startsWith(month) ? today : `${month}-01`);
   const chosen = selected.startsWith(month) ? selected : `${month}-01`;
+  useEffect(() => onChosen?.(chosen), [chosen, onChosen]);
   const byDay = useMemo(() => new Map(groupByDay(data?.occurrences ?? [], timeZone).map((d) => [d.day, d.items])), [data, timeZone]);
   const name = new Intl.DateTimeFormat(locale, { timeZone: "UTC", month: "long", year: "numeric" }).format(new Date(`${month}-15T12:00:00Z`));
 

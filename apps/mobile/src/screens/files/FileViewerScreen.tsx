@@ -1,21 +1,23 @@
 import { fileFamily } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Sharing from "expo-sharing";
 import { Image } from "expo-image";
-import { Share, X } from "lucide-react-native";
+import { Ellipsis, Share, X } from "lucide-react-native";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import { useLoad } from "../../data/useLoad";
 import { downloadToCache } from "../../files/download";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
+import { useSpace } from "../../space/SpaceProvider";
 import { hairline } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FileIcon } from "../../ui/FileIcon";
 import { LoadState } from "../../ui/States";
+import { FullScreen } from "../../ui/FullScreen";
 import { Text } from "../../ui/Text";
 
 /**
@@ -26,8 +28,10 @@ import { Text } from "../../ui/Text";
 export function FileViewerScreen() {
   const { params } = useRoute<RouteProp<RootParams, "fileViewer">>();
   const { file } = params;
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
+  const { current } = useSpace();
+  const entry = params.entry;
   const { c } = useTheme();
   const local = useLoad(`download:${file.id}:${file.url}`, (signal) => downloadToCache(file, signal));
   const family = fileFamily(file.name, file.mime);
@@ -38,7 +42,7 @@ export function FileViewerScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.fill, { backgroundColor: c.bg }]}>
+    <FullScreen color={c.bg}>
       <View style={[styles.bar, { borderBottomColor: c.line }]}>
         <Pressable accessibilityRole="button" accessibilityLabel={t("common.close")} onPress={() => navigation.goBack()} style={styles.icon}>
           <X size={24} color={c.ink} />
@@ -49,6 +53,16 @@ export function FileViewerScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel={t("viewer.share")} disabled={!local.data} onPress={share} style={styles.icon}>
           <Share size={22} color={local.data ? c.ink : c.muted} />
         </Pressable>
+        {entry && current ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("files.more", { name: file.name })}
+            onPress={() => navigation.navigate("fileMenu", { file: entry, spaceId: current.id, path: params.path })}
+            style={styles.icon}
+          >
+            <Ellipsis size={22} color={c.ink} />
+          </Pressable>
+        ) : null}
       </View>
       {!local.data ? (
         <LoadState error={local.error} onRetry={local.reload} />
@@ -71,7 +85,7 @@ export function FileViewerScreen() {
           <Button label={t("viewer.share")} onPress={share} />
         </View>
       )}
-    </SafeAreaView>
+    </FullScreen>
   );
 }
 

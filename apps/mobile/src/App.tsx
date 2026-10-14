@@ -12,6 +12,7 @@ import { BootScreen } from "./screens/boot/BootScreen";
 import { SessionProvider, useSession } from "./session/SessionProvider";
 import { SpaceProvider } from "./space/SpaceProvider";
 import { ToastProvider } from "./ui/Toast";
+import { UploadsProvider } from "./uploads/UploadsProvider";
 import { fontFiles } from "./theme/fonts";
 import { useTheme } from "./theme/useTheme";
 
@@ -47,7 +48,9 @@ function Root() {
           <OutboxProvider>
             <SpaceProvider>
               <ToastProvider>
-                <RootNavigator />
+                <UploadsProvider>
+                  <RootNavigator />
+                </UploadsProvider>
               </ToastProvider>
             </SpaceProvider>
           </OutboxProvider>

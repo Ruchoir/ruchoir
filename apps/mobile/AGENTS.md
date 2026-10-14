@@ -48,6 +48,8 @@ show. What every screen keeps:
 - **A form that slides up** (people picker, new group, invitation) is a `modal` screen with
   `SheetHeader` (its title and a close button); a choice among a few things is a `formSheet` of
   `ActionRow`s.
+- **A tab's own action floats** at its bottom right: `FloatingButton` (`ui/FloatingButton.tsx`),
+  "New message" over Discussions, "New event" over the Agenda. Its list keeps 96 of room under it.
 - **Confirmations and failures elsewhere** go through `useToast()` ("Texte copié", "Réaction non
   enregistrée"); a question that needs an answer is an `Alert`.
 - Check a change against the mockup side by side before calling it done (`docs/specs/mobile/mockups`).
@@ -61,11 +63,17 @@ src/api/instance.ts    configures @ruchoir/client for the chosen instance (beare
 src/realtime/          one socket for the session; screens subscribe and refetch on resync; local
                        "patched" events carry my own changes (a reaction, a pin, an edit) to every screen
 src/compose/           the composer (mentions, files, edit mode), the outbox and drafts (above the
-                       screens), typing, attach sheet, and the request bus sheets use to reach a composer
+                       screens), typing, attach sheet, the phone's pickers (pick.ts), and the request bus
+                       sheets use to reach a composer
+src/uploads/           the files on their way to a space, above the screens (UploadsProvider)
+src/files/             the files tab's helpers: downloads to the cache, the shared rules' Entry
 src/space/             the space on screen, remembered between launches
 src/data/              useLoad (requests per screen), useReloadOn (live refetch), members, useNow
 src/logic/             pure functions, tested by Node: conversations, inline Markdown, agenda, today,
-                       mentions, outbox, unread, reactions, receipts, threads, attachments, handle
+                       mentions, outbox, unread, reactions, receipts, threads, attachments, handle,
+                       eventForm (the event form as data), availability, uploadQueue, scan
+src/screens/agenda/form/  the event form, its sheets (calendar, date and time pickers, repeat, custom
+                       rule, reminders, people, channel, time zone, series scope) and its draft store
 src/navigation/        root stack (pushed screens, sheets) and the four tabs
 src/screens/           auth, today, discussions, agenda, files, account, space
 src/ui/                design-system pieces: Text, Button, TextField, Avatar, Chips, Segmented...
@@ -119,6 +127,34 @@ src/i18n/              i18next and the six dictionaries
   thread's messages live; a reply moves the count under its root once (`replyDelta`).
 - **Seeded files of the dev database have no bytes** in the dev object store: opening one answers
   404 there, on the web as well. Upload a file to test the viewer.
+- **A form whose sheets change it keeps its draft outside itself.** The event form opens its draft in
+  `screens/agenda/form/draftStore.ts` under a `formKey` it hands to every sheet it opens (each sheet is
+  a screen of the root stack, as all sheets are); the sheets read it with `useDraft` and change it with
+  `updateDraft`, and the form closes it when it goes. A choice a sheet hands back to the screen under
+  it (the scope of a change to a series) goes through a small listener bus, as the composer's
+  requests do (`form/scope.ts`, `compose/requests.ts`).
+- **Dates and times come from the phone's own pickers** (`@react-native-community/datetimepicker`, the
+  version Expo Go ships): in a sheet on iOS (`PickerSheet`, `inline` for a day, `spinner` for a time),
+  as the system's dialog on Android (`DateTimePickerAndroid.open`). A picker works on the phone's
+  clock: `form/when.ts` hands it a day at noon and a time on a fixed day, and reads the same local
+  fields back, so no time zone shifts them. The draft keeps the event's own zone (`tz`).
+- **The calendar's logic is the web's** (`@ruchoir/client/calendarLogic`: time in a zone, rules and
+  their phrases, reminders and their words). Its keys are looked up in this app's dictionaries too:
+  `useSharedT()` hands it `t`, and the audit scans it with the app.
+
+- **Uploads to a space live above the screens.** `uploads/UploadsProvider.tsx` holds the queue
+  (`logic/uploadQueue.ts`) and sends one file at a time (`startFileUpload`, or
+  `startFileVersionUpload` for a new version), so leaving a folder does not stop them; the lists
+  reload through the live `files` event. A name already taken asks first (`ConflictSheet`, the web's
+  replace / keep both / skip); the strip (`UploadStrip`) and the uploads sheet show the rest. Expo Go
+  has no background upload: leaving the app stops what is going, which then reads as failed.
+- **A scanned document is photos made into a PDF on the phone** (`ScanScreen`: `expo-image-manipulator`
+  shrinks each page, `expo-print` lays them on A4 sheets through `logic/scan.ts`'s HTML). Expo Go has
+  no document scanner (edges, perspective); the real one waits for the native app.
+- **A file's menu is the web's** (`EntryMenu`, the shared `actionsFor` and `canManage`): its sheets
+  are routes given the `SpaceFile` itself (`fileMenu`, `fileName`, `fileMove`, `fileVersions`,
+  `fileShare`, `fileSendTo`, `fileLinks`, `fileDetails`). A favourite is not broadcast: the menu emits
+  a local `files` event so the lists show it.
 
 ## Checks
 

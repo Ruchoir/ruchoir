@@ -38,6 +38,8 @@ export function RemindersField({
   inherited?: number[];
 }) {
   const { t } = useTranslation();
+  // The shared labels ask for any key; the web's `t` knows its own.
+  const say = (key: string, vars?: Record<string, string | number>) => t(key as Parameters<typeof t>[0], vars);
   const [custom, setCustom] = useState(false);
   const [count, setCount] = useState("1");
   const [unit, setUnit] = useState<ReminderUnit>("hours");
@@ -46,7 +48,7 @@ export function RemindersField({
     return (
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, minWidth: 0 }}>
         <span style={{ fontSize: "var(--text-sm)", color: "var(--text-body)" }}>
-          {t("calendar.reminderFollowsCalendar", { label: remindersLabel(inherited ?? [], t, allDay) })}
+          {t("calendar.reminderFollowsCalendar", { label: remindersLabel(inherited ?? [], say, allDay) })}
         </span>
         <Button type="button" size="sm" variant="ghost" iconLeft="square-pen" onClick={() => onChange([...(inherited ?? [])])}>
           {t("calendar.reminderPersonalize")}
@@ -73,11 +75,11 @@ export function RemindersField({
         {shown.map((m) => (
           <span key={m} style={chip}>
             <Icon name="bell" size={12} />
-            {reminderLabel(m, t, allDay)}
+            {reminderLabel(m, say, allDay)}
             <IconButton
               icon="x"
               size="sm"
-              label={t("calendar.reminderRemove", { label: reminderLabel(m, t, allDay) })}
+              label={t("calendar.reminderRemove", { label: reminderLabel(m, say, allDay) })}
               onClick={() => onChange(value.filter((k) => k !== m))}
             />
           </span>
@@ -99,7 +101,7 @@ export function RemindersField({
               }}
               options={[
                 { value: "", label: `+ ${t("calendar.addReminder")}` },
-                ...offered.map((m) => ({ value: String(m), label: reminderLabel(m, t, allDay) })),
+                ...offered.map((m) => ({ value: String(m), label: reminderLabel(m, say, allDay) })),
                 { value: "custom", label: t("calendar.customReminder") },
               ]}
               style={{ width: "100%" }}

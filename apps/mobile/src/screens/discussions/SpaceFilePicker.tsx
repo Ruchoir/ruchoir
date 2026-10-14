@@ -30,7 +30,7 @@ export function SpaceFilePicker() {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { current } = useSpace();
-  const space = current?.id;
+  const space = params.spaceId ?? current?.id;
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [path, setPath] = useState<{ id: string; name: string }[]>([]);

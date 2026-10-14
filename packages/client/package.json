@@ -8,6 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
+    "./calendarLogic": "./src/calendarLogic/index.ts",
+    "./filesLogic": "./src/filesLogic/index.ts",
     "./calendar": "./src/calendar.ts",
     "./config": "./src/config.ts",
     "./emoji": "./src/emoji/index.ts",

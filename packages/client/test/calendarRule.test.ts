@@ -1,7 +1,7 @@
-// Run with `pnpm --filter @ruchoir/web test` (Node's own runner, types stripped by Node).
+// Run with `pnpm --filter @ruchoir/client test` (Node's own runner, types stripped by Node).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildRule, parseRule, presetOf, presetRule } from "./rule.ts";
+import { buildRule, parseRule, presetOf, presetRule } from "../src/calendarLogic/rule.ts";
 
 /** The end of a day in UTC, as a timed rule's UNTIL needs it; Paris for these tests. */
 const parisEnd = (day: string) => {
