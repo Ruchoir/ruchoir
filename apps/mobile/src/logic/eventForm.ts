@@ -33,6 +33,8 @@ export type EventDraft = {
   /** For a whole day, the last day (included). */
   endDay: string;
   endTime: string;
+  /** The end day was picked by the person: an end time no longer moves it. */
+  endDayChosen: boolean;
   tz: string;
   preset: Preset | "imported";
   custom: RuleForm;
@@ -96,6 +98,7 @@ export function newDraft(o: {
     startTime: hhmm(start),
     endDay: start + duration >= 1440 ? addDays(o.day, 1) : o.day,
     endTime: hhmm(start + duration),
+    endDayChosen: false,
     tz: o.timeZone,
     preset: "none",
     custom: formFor(null, o.day),
@@ -131,6 +134,8 @@ export function draftFromEvent(occurrence: Occurrence, event: CalendarEvent, tim
     calendarId: occurrence.calendarId,
     allDay: occurrence.allDay,
     ...when,
+    // An event of several days was given its end day; one past midnight is the usual overnight.
+    endDayChosen: dayDiff(when.startDay, when.endDay) > 1,
     tz: zone,
     preset: rule && !parseRule(rule) ? "imported" : presetOf(rule, when.startDay),
     custom: formFor(rule, when.startDay),
@@ -161,9 +166,12 @@ export function withStartTime(d: EventDraft, next: string): EventDraft {
   return { ...d, startTime: next, endDay: addDays(d.startDay, Math.floor(end / 1440)), endTime: hhmm(end) };
 }
 
-/** Another end time: within a day of the start, an end at or before the start runs past midnight. */
+/**
+ * Another end time: within a day of the start, an end at or before the start runs past midnight;
+ * an end day the person picked stays as it is.
+ */
 export function withEndTime(d: EventDraft, next: string): EventDraft {
-  if (dayDiff(d.startDay, d.endDay) > 1) return { ...d, endTime: next };
+  if (d.endDayChosen || dayDiff(d.startDay, d.endDay) > 1) return { ...d, endTime: next };
   return { ...d, endTime: next, endDay: minutesOf(next) <= minutesOf(d.startTime) ? addDays(d.startDay, 1) : d.startDay };
 }
 
@@ -175,7 +183,7 @@ export function setWhen(d: EventDraft, field: WhenField, value: string): EventDr
   if (field === "startDay") return withStartDay(d, value);
   if (field === "startTime") return withStartTime(d, value);
   if (field === "endTime") return withEndTime(d, value);
-  return { ...d, endDay: value };
+  return { ...d, endDay: value, endDayChosen: true };
 }
 
 /** The instants the event covers (a whole day from the midnights of its zone); `null` when its end is

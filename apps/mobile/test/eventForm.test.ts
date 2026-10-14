@@ -240,3 +240,23 @@ test("leaving_the_form_waits_for_a_save_in_flight", () => {
   assert.equal(leaveForm({ saved: false, saving: false, dirty: false }), "leave");
   assert.equal(leaveForm({ saved: true, saving: false, dirty: true }), "leave");
 });
+
+test("a_chosen_end_day_stays_when_the_end_time_changes", () => {
+  const d = setWhen({ ...draft(), startTime: "10:00", endTime: "11:00" }, "endDay", "2026-10-16");
+  assert.equal(d.endDayChosen, true);
+  assert.equal(withEndTime(d, "12:00").endDay, "2026-10-16");
+  assert.equal(withEndTime(d, "09:00").endDay, "2026-10-16");
+});
+
+test("timed_events_may_span_days", () => {
+  const d = setWhen({ ...draft(), title: "Salon", startTime: "10:00", endTime: "11:00" }, "endDay", "2026-10-16");
+  const input = toInput(withEndTime(d, "12:00"), false);
+  assert.ok(!("error" in input));
+  assert.equal(input.start, "2026-10-14T08:00:00.000Z");
+  assert.equal(input.end, "2026-10-16T10:00:00.000Z");
+});
+
+test("an_end_day_before_the_start_is_an_error", () => {
+  const d = setWhen({ ...draft(), title: "Point" }, "endDay", "2026-10-13");
+  assert.deepEqual(toInput(d, false), { error: "endBeforeStart" });
+});

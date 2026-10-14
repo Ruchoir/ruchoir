@@ -31,6 +31,14 @@ export function longDay(day: string, locale: string): string {
   return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
 }
 
+/** "Mer. 14 oct. 2026": a day short enough to sit beside its time on one line. */
+export function mediumDay(day: string, locale: string): string {
+  const text = new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(
+    new Date(`${day}T12:00:00Z`),
+  );
+  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+}
+
 /** A wall time as the language writes it: "09:05", "9:05 AM". */
 export function clockLabel(value: string, locale: string): string {
   const minutes = minutesOf(value);

@@ -1,7 +1,7 @@
 import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ArrowRight, CalendarDays, ChevronDown, Clock, Sun } from "lucide-react-native";
+import { CalendarDays, Clock, Sun } from "lucide-react-native";
 import { Platform, Pressable, StyleSheet, Switch, View } from "react-native";
 
 import { useTranslation } from "../../../i18n";
@@ -13,12 +13,12 @@ import { useTheme } from "../../../theme/useTheme";
 import { Text } from "../../../ui/Text";
 import { updateDraft } from "./draftStore";
 import { FormRow } from "./FormRow";
-import { clockLabel, fromPicked, longDay, uses24h, whenDate } from "./when";
+import { clockLabel, fromPicked, longDay, mediumDay, uses24h, whenDate } from "./when";
 
 /**
- * When the event happens (mockup 19): its day (a start and an end day for a whole day, or an event
- * ending another day), its start and end times, and the whole-day switch. Each value opens the
- * phone's own picker: in a sheet on iOS, as the system's dialog on Android.
+ * When the event happens (mockup 19, as the phone's calendar lays it out): its start and its end, each
+ * a day and (a timed event) a time, so an event may end another day; and the whole-day switch. Each
+ * value opens the phone's own picker: in a sheet on iOS, as the system's dialog on Android.
  */
 export function WhenRows({ formKey, draft, error }: { formKey: string; draft: EventDraft; error?: string }) {
   const { t } = useTranslation();
@@ -40,66 +40,54 @@ export function WhenRows({ formKey, draft, error }: { formKey: string; draft: Ev
       },
     });
   };
-  const severalDays = draft.allDay || draft.endDay !== draft.startDay;
-  const dateLine = (field: "startDay" | "endDay", label?: string) => (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${label ?? t("eventForm.pickDate")} ${longDay(draft[field], locale)}`}
-      onPress={() => pick(field)}
-      style={({ pressed }) => [styles.dateLine, pressed && { opacity: 0.6 }]}
-    >
-      {label ? (
-        <Text variant="small" tone="muted" style={styles.dateLabel}>
+  /** One end of the event: its label, its day, and (a timed event) its time, as the phone's calendar shows them. */
+  const end = (which: "start" | "end") => {
+    const dayField = which === "start" ? "startDay" : "endDay";
+    const timeField = which === "start" ? "startTime" : "endTime";
+    const label = which === "start" ? t("eventForm.start") : t("eventForm.end");
+    return (
+      <View style={styles.line}>
+        <Text variant="smallStrong" tone="muted" style={styles.label}>
           {label}
         </Text>
-      ) : null}
-      <Text variant="body" style={styles.flex} numberOfLines={1}>
-        {longDay(draft[field], locale)}
-      </Text>
-      <ChevronDown size={18} color={c.muted} />
-    </Pressable>
-  );
-  const timeBox = (field: "startTime" | "endTime", label: string) => (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${label} ${clockLabel(draft[field], locale)}`}
-      onPress={() => pick(field)}
-      style={({ pressed }) => [styles.box, { borderColor: c.controlLine, backgroundColor: c.surface }, pressed && { opacity: 0.6 }]}
-    >
-      <Text variant="tiny" tone="muted">
-        {label}
-      </Text>
-      <Text variant="label" style={styles.clock}>
-        {clockLabel(draft[field], locale)}
-      </Text>
-    </Pressable>
-  );
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${label} ${longDay(draft[dayField], locale)}`}
+          onPress={() => pick(dayField)}
+          style={({ pressed }) => [styles.day, { borderColor: c.controlLine, backgroundColor: c.surface }, pressed && { opacity: 0.6 }]}
+        >
+          <Text variant="body" numberOfLines={1}>
+            {mediumDay(draft[dayField], locale)}
+          </Text>
+        </Pressable>
+        {!draft.allDay ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${label} ${clockLabel(draft[timeField], locale)}`}
+            onPress={() => pick(timeField)}
+            style={({ pressed }) => [styles.box, { borderColor: c.controlLine, backgroundColor: c.surface }, pressed && { opacity: 0.6 }]}
+          >
+            <Text variant="label" style={styles.clock}>
+              {clockLabel(draft[timeField], locale)}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  };
   return (
     <>
-      <FormRow icon={CalendarDays} tint={c.sky} align={severalDays ? "start" : "center"}>
-        {severalDays ? (
-          <>
-            {dateLine("startDay", t("eventForm.from"))}
-            {dateLine("endDay", t("eventForm.to"))}
-          </>
-        ) : (
-          dateLine("startDay")
-        )}
+      <FormRow icon={CalendarDays} tint={c.sky}>
+        {end("start")}
       </FormRow>
-      {!draft.allDay ? (
-        <FormRow icon={Clock} tint={c.violet}>
-          <View style={styles.times}>
-            {timeBox("startTime", t("eventForm.start"))}
-            <ArrowRight size={16} color={c.muted} />
-            {timeBox("endTime", t("eventForm.end"))}
-          </View>
-          {error ? (
-            <Text variant="small" tone="danger">
-              {error}
-            </Text>
-          ) : null}
-        </FormRow>
-      ) : null}
+      <FormRow icon={Clock} tint={c.violet}>
+        {end("end")}
+        {error ? (
+          <Text variant="small" tone="danger">
+            {error}
+          </Text>
+        ) : null}
+      </FormRow>
       <FormRow icon={Sun} tint={c.sun}>
         <View style={styles.switchLine}>
           <Text variant="body" style={styles.flex}>
@@ -112,11 +100,6 @@ export function WhenRows({ formKey, draft, error }: { formKey: string; draft: Ev
             accessibilityLabel={t("calendar.allDayEvent")}
           />
         </View>
-        {draft.allDay && error ? (
-          <Text variant="small" tone="danger">
-            {error}
-          </Text>
-        ) : null}
       </FormRow>
     </>
   );
@@ -124,10 +107,10 @@ export function WhenRows({ formKey, draft, error }: { formKey: string; draft: Ev
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  dateLine: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 32 },
-  dateLabel: { minWidth: 28 },
-  times: { flexDirection: "row", alignItems: "center", gap: 8 },
-  box: { flex: 1, borderWidth: hairline, borderRadius: radius.m, paddingHorizontal: 12, paddingVertical: 6 },
+  line: { flexDirection: "row", alignItems: "center", gap: 8 },
+  label: { width: 40 },
+  day: { flex: 1, minHeight: 40, justifyContent: "center", borderWidth: hairline, borderRadius: radius.m, paddingHorizontal: 12 },
+  box: { minWidth: 76, minHeight: 40, alignItems: "center", justifyContent: "center", borderWidth: hairline, borderRadius: radius.m, paddingHorizontal: 10 },
   clock: { fontSize: 17, lineHeight: 22 },
   switchLine: { flexDirection: "row", alignItems: "center", gap: 12 },
 });

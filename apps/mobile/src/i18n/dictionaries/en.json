@@ -358,8 +358,6 @@
     "keepEditing": "Keep editing",
     "start": "Start",
     "end": "End",
-    "from": "From",
-    "to": "To",
     "chooseCalendar": "Put in the calendar",
     "pickDate": "Choose the date",
     "pickTime": "Choose the time",
