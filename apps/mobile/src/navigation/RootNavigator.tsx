@@ -28,6 +28,7 @@ import { AddSheet } from "../screens/files/AddSheet";
 import { ConflictSheet } from "../screens/files/ConflictSheet";
 import { FileViewerScreen } from "../screens/files/FileViewerScreen";
 import { FolderScreen } from "../screens/files/FolderScreen";
+import { ScanScreen } from "../screens/files/ScanScreen";
 import { UploadsSheet } from "../screens/files/UploadsSheet";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
 import { fonts } from "../theme/fonts";
@@ -76,6 +77,7 @@ export function RootNavigator() {
         <Stack.Screen name="filesAdd" component={AddSheet} options={sheet} />
         <Stack.Screen name="uploads" component={UploadsSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="uploadConflict" component={ConflictSheet} options={sheet} />
+        <Stack.Screen name="scan" component={ScanScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
         <Stack.Screen name="messageActions" component={MessageActionSheet} options={sheet} />

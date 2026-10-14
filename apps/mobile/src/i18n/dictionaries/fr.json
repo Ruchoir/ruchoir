@@ -413,7 +413,16 @@
     "uploadingCount_other": "Envoi de {{count}} fichiers… {{percent}} %",
     "uploadsFailed_one": "{{count}} envoi a échoué · Toucher pour voir",
     "uploadsFailed_other": "{{count}} envois ont échoué · Toucher pour voir",
-    "nameTaken": "Nom déjà pris · Toucher pour choisir"
+    "nameTaken": "Nom déjà pris · Toucher pour choisir",
+    "scanTitle": "Scanner un document",
+    "scanHint": "Avec l’appareil photo, enregistré en PDF",
+    "addPage": "Ajouter une page",
+    "page": "Page {{n}}",
+    "scanNameLabel": "Nom du document",
+    "scanName": "Scan {{day}}-{{month}}-{{year}} {{hour}}h{{minute}}",
+    "scanFailed": "Le PDF n’a pas pu être créé. Réessayez.",
+    "scanDiscardTitle": "Abandonner le scan ?",
+    "scanDiscardText": "Les pages prises seront perdues."
   },
   "viewer": {
     "share": "Partager ou ouvrir dans…",

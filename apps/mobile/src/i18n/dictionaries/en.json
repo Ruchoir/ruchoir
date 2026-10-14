@@ -413,7 +413,16 @@
     "uploadingCount_other": "Sending {{count}} files… {{percent}}%",
     "uploadsFailed_one": "{{count}} upload failed · Tap to see",
     "uploadsFailed_other": "{{count}} uploads failed · Tap to see",
-    "nameTaken": "Name already taken · Tap to choose"
+    "nameTaken": "Name already taken · Tap to choose",
+    "scanTitle": "Scan a document",
+    "scanHint": "With the camera, saved as a PDF",
+    "addPage": "Add a page",
+    "page": "Page {{n}}",
+    "scanNameLabel": "Document name",
+    "scanName": "Scan {{year}}-{{month}}-{{day}} {{hour}}.{{minute}}",
+    "scanFailed": "The PDF could not be made. Try again.",
+    "scanDiscardTitle": "Discard the scan?",
+    "scanDiscardText": "The pages taken will be lost."
   },
   "viewer": {
     "share": "Share or open in…",

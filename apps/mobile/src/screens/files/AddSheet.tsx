@@ -2,7 +2,7 @@ import { canManage } from "@ruchoir/client/filesLogic";
 import { getFolder } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Camera, Image as ImageIcon, Paperclip } from "lucide-react-native";
+import { Camera, FileText, Image as ImageIcon, Paperclip } from "lucide-react-native";
 import { Alert } from "react-native";
 
 import { uploadLimit } from "../../api/limits";
@@ -65,6 +65,13 @@ export function AddSheet() {
       <ActionRow icon={ImageIcon} tint={c.sky} title={t("attach.gallery")} subtitle={t("attach.galleryHint")} onPress={() => void pickFromGallery().then(hand)} />
       <ActionRow icon={Camera} tint={c.peach} title={t("attach.camera")} subtitle={t("attach.cameraHint")} onPress={() => void pickFromCamera(t).then(hand)} />
       <ActionRow icon={Paperclip} tint={c.violet} title={t("attach.document")} subtitle={t("attach.documentHint")} onPress={() => void pickDocuments().then(hand)} />
+      <ActionRow
+        icon={FileText}
+        tint={c.mint}
+        title={t("files.scanTitle")}
+        subtitle={t("files.scanHint")}
+        onPress={() => navigation.replace("scan", { spaceId: params.spaceId, folderId: params.folderId, folderName: params.folderName })}
+      />
     </Sheet>
   );
 }

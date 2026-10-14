@@ -413,7 +413,16 @@
     "uploadingCount_other": "{{count}} Dateien werden gesendet… {{percent}} %",
     "uploadsFailed_one": "{{count}} Upload fehlgeschlagen · Tippen zum Ansehen",
     "uploadsFailed_other": "{{count}} Uploads fehlgeschlagen · Tippen zum Ansehen",
-    "nameTaken": "Name bereits vergeben · Tippen zum Wählen"
+    "nameTaken": "Name bereits vergeben · Tippen zum Wählen",
+    "scanTitle": "Dokument scannen",
+    "scanHint": "Mit der Kamera, als PDF gespeichert",
+    "addPage": "Seite hinzufügen",
+    "page": "Seite {{n}}",
+    "scanNameLabel": "Name des Dokuments",
+    "scanName": "Scan {{day}}.{{month}}.{{year}} {{hour}}.{{minute}}",
+    "scanFailed": "Das PDF konnte nicht erstellt werden. Versuchen Sie es erneut.",
+    "scanDiscardTitle": "Scan verwerfen?",
+    "scanDiscardText": "Die aufgenommenen Seiten gehen verloren."
   },
   "viewer": {
     "share": "Teilen oder öffnen in…",

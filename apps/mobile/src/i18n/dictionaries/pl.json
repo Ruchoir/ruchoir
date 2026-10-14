@@ -479,7 +479,16 @@
     "uploadingCount_few": "Wysyłanie {{count}} plików… {{percent}}%",
     "uploadingCount_many": "Wysyłanie {{count}} plików… {{percent}}%",
     "uploadsFailed_few": "{{count}} wysyłania nie powiodły się · Dotknij, aby zobaczyć",
-    "uploadsFailed_many": "{{count}} wysyłań nie powiodło się · Dotknij, aby zobaczyć"
+    "uploadsFailed_many": "{{count}} wysyłań nie powiodło się · Dotknij, aby zobaczyć",
+    "scanTitle": "Zeskanuj dokument",
+    "scanHint": "Aparatem, zapisany jako PDF",
+    "addPage": "Dodaj stronę",
+    "page": "Strona {{n}}",
+    "scanNameLabel": "Nazwa dokumentu",
+    "scanName": "Skan {{day}}-{{month}}-{{year}} {{hour}}.{{minute}}",
+    "scanFailed": "Nie udało się utworzyć PDF. Spróbuj ponownie.",
+    "scanDiscardTitle": "Odrzucić skan?",
+    "scanDiscardText": "Zrobione strony zostaną utracone."
   },
   "viewer": {
     "share": "Udostępnij lub otwórz w…",

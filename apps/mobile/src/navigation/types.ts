@@ -81,6 +81,8 @@ export type RootParams = {
   filesAdd: { spaceId: string; folderId?: string; folderName: string };
   /** The files on their way, and the question about a name already taken. */
   uploads: undefined;
+  /** "Scan a document" into a folder of a space. */
+  scan: { spaceId: string; folderId?: string; folderName: string };
   uploadConflict: undefined;
   spaceSheet: undefined;
   accountSheet: undefined;

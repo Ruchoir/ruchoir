@@ -446,7 +446,16 @@
     "nameTaken": "Nome già usato · Tocca per scegliere",
     "uploaded_many": "{{count}} file inviati",
     "uploadingCount_many": "Invio di {{count}} file… {{percent}}%",
-    "uploadsFailed_many": "{{count}} invii non riusciti · Tocca per vedere"
+    "uploadsFailed_many": "{{count}} invii non riusciti · Tocca per vedere",
+    "scanTitle": "Scansiona un documento",
+    "scanHint": "Con la fotocamera, salvato in PDF",
+    "addPage": "Aggiungi una pagina",
+    "page": "Pagina {{n}}",
+    "scanNameLabel": "Nome del documento",
+    "scanName": "Scansione {{day}}-{{month}}-{{year}} {{hour}}.{{minute}}",
+    "scanFailed": "Non è stato possibile creare il PDF. Riprova.",
+    "scanDiscardTitle": "Annullare la scansione?",
+    "scanDiscardText": "Le pagine scattate andranno perse."
   },
   "viewer": {
     "share": "Condividi o apri in…",
