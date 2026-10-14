@@ -95,22 +95,26 @@ src/i18n/              i18next and the six dictionaries
   with `stickyHeaderIndices={[0]}`). On iOS a `formSheet`'s content has no set height
   (react-native-screens lays it out absolutely, without a bottom), so a `flex: 1` root with a fixed
   head and a list filling the rest draws the list under the head. The keyboard has the same kind of
-  trap: use `ui/KeyboardArea`, not `KeyboardAvoidingView`. It must run to the bottom of its screen
-  and rises by the keyboard's whole height, measuring nothing (a view's place in the window is
-  reported without the offset of the sheet it is in); give it `safeBottom` rather than wrapping it
-  in a `SafeAreaView` with a bottom edge. Its height comes from react-native-keyboard-controller
+  trap: use `ui/KeyboardArea` (a chat, a list) or `ui/KeyboardForm` (a form), not
+  `KeyboardAvoidingView`. A `KeyboardArea` must run to the bottom of its screen and rises by the
+  keyboard's whole height, measuring nothing (a view's place in the window, as React Native reports
+  it, leaves out the offset of the sheet it is in); give it `safeBottom` rather than wrapping it in a
+  `SafeAreaView` with a bottom edge. Its height comes from react-native-keyboard-controller
   (`useKeyboardHandler`, under the `KeyboardProvider` of `App.tsx`), which reads the keyboard's real
   position at every frame, so whatever it holds moves with the keyboard; a function run there
   (`areaPlacement`) starts with the `"worklet"` directive. Not Reanimated's `useAnimatedKeyboard`: it
-  guesses the keyboard's position from a curve, and the composer trailed iOS 26's keyboard. A chat's area is a `composer` one that
-  `slide`s while its list shows: it moves with the keyboard and takes its new size only once the
-  keyboard rests. Never resize a list at every frame: each frame re-renders it, Reanimated holds its
-  own updates while React commits, and the composer falls behind the keyboard.
-- **Every field stays in sight above the keyboard.** A form is a `KeyboardScroll` inside a
-  `KeyboardArea` (with its footer button, which then rises too); `TextField` and `SearchField` ask
-  it to scroll them into view when they take the focus. A list under a search field gets
-  `automaticallyAdjustKeyboardInsets`, so its last rows can still be scrolled above the keyboard. A
-  long list of people is a `PeopleList` (a `FlatList`), never rows mapped inside a form.
+  guesses the keyboard's position from a curve, and the composer trailed iOS 26's keyboard. A chat's
+  area is a `composer` one that `slide`s while its list shows: it moves with the keyboard and takes
+  its new size only once the keyboard rests. Never resize a list at every frame: each frame
+  re-renders it, Reanimated holds its own updates while React commits, and the composer falls
+  behind the keyboard.
+- **Every field stays in sight above the keyboard.** A form is a `KeyboardForm`, its button passed
+  as its `footer`: the library's `KeyboardAwareScrollView` scrolls the focused field up along with
+  the keyboard, frame by frame, and the footer rides on the keyboard. Never scroll to a field once
+  the keyboard has risen (`keyboardDidShow`): the field stays behind the keyboard until then. A list
+  under a search field gets `automaticallyAdjustKeyboardInsets`, so its last rows can still be
+  scrolled above the keyboard. A long list of people is a `PeopleList` (a `FlatList`), never rows
+  mapped inside a form.
 - **Thread replies never enter a feed.** `screens/discussions/feed.ts` keeps a conversation's and a
   thread's messages live; a reply moves the count under its root once (`replyDelta`).
 - **Seeded files of the dev database have no bytes** in the dev object store: opening one answers

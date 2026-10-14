@@ -4,22 +4,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme } from "../theme/useTheme";
 import { KeyboardArea } from "./KeyboardArea";
-import { KeyboardScroll } from "./KeyboardScroll";
+import { KeyboardForm } from "./KeyboardForm";
 
 /** A full screen on the canvas colour, inside the safe area, scrolling and clear of the keyboard. */
 export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
   const { c } = useTheme();
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: c.bg }]} edges={["top"]}>
-      <KeyboardArea style={styles.fill} safeBottom>
-        {scroll ? (
-          <KeyboardScroll style={styles.fill} contentContainerStyle={styles.content}>
-            {children}
-          </KeyboardScroll>
-        ) : (
-          children
-        )}
-      </KeyboardArea>
+      {scroll ? (
+        <KeyboardForm contentContainerStyle={styles.content}>{children}</KeyboardForm>
+      ) : (
+        <KeyboardArea style={styles.fill} safeBottom>
+          {children}
+        </KeyboardArea>
+      )}
     </SafeAreaView>
   );
 }
