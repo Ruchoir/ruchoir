@@ -47,7 +47,7 @@ export function HelpSheet() {
       navigation.goBack();
       navigation.navigate("conversation", { conversationId, title: name, kind: "person" });
     } catch {
-      toast(t("load.failed"));
+      toast(t("load.failed"), "failure");
     }
   };
 

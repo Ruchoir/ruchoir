@@ -43,7 +43,7 @@ export function TrashList() {
             : t("files.restoredInto", { folder: entry.originalFolderName ?? current?.name ?? "" }),
         );
       },
-      () => toast(t("files.restoreFailed")),
+      () => toast(t("files.restoreFailed"), "failure"),
     );
   const empty = () => {
     const count = trash.data?.length ?? 0;
@@ -55,7 +55,7 @@ export function TrashList() {
         onPress: () =>
           void emptyTrash(space!).then(
             () => trash.reload(),
-            () => toast(t("files.actionFailed")),
+            () => toast(t("files.actionFailed"), "failure"),
           ),
       },
     ]);

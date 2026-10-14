@@ -29,6 +29,7 @@ import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
+import { feel } from "../../ui/haptics";
 import { EmptyState } from "../../ui/States";
 import { FileIcon } from "../../ui/FileIcon";
 import { TabHeader } from "../../ui/TabHeader";
@@ -73,6 +74,10 @@ export function TodayScreen() {
     recent.reload();
     conversations.reload();
   };
+  const pulled = () => {
+    feel("refresh");
+    reloadAll();
+  };
   useReloadOn((e) => e.type === "notification" || e.type === "message" || e.type === "readCursor", notifications.reload);
   useReloadOn((e) => !!space && affects.conversations(e, space), conversations.reload);
   useReloadOn((e) => e.type === "calendar", events.reload);
@@ -101,7 +106,7 @@ export function TodayScreen() {
 
   return (
     <TabScreen>
-      <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={false} onRefresh={reloadAll} />}>
+      <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={false} onRefresh={pulled} />}>
         <TabHeader overline={date.charAt(0).toLocaleUpperCase(locale) + date.slice(1)} title={t("today.hello", { name: firstName })} />
         <View style={styles.section}>
           <Text variant="heading" style={styles.sectionTitle}>

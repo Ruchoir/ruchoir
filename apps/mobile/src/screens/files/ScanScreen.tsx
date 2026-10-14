@@ -27,6 +27,7 @@ import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FullScreen } from "../../ui/FullScreen";
+import { feel } from "../../ui/haptics";
 import { KeyboardForm } from "../../ui/KeyboardForm";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
@@ -122,11 +123,14 @@ export function ScanScreen() {
         params.folderName,
       );
       done.current = true;
-      if (asks) navigation.replace("uploadConflict");
+      if (asks) {
+        feel("warning");
+        navigation.replace("uploadConflict");
+      }
       else navigation.goBack();
     } catch {
       setBusy(false);
-      toast(t("files.scanFailed"));
+      toast(t("files.scanFailed"), "failure");
     }
   };
 

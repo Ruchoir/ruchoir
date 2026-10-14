@@ -7,6 +7,7 @@ import { useSession } from "../../session/SessionProvider";
 import type { Palette } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
+import { feel } from "../../ui/haptics";
 import { Sheet } from "../../ui/Sheet";
 import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
@@ -41,10 +42,11 @@ export function StatusSheet() {
   const pick = (choice: PresenceChoice) => {
     navigation.goBack();
     if (choice === current) return;
+    feel("choice");
     session.updateUser({ presenceChoice: choice });
     setMyPresence(choice).catch(() => {
       session.updateUser({ presenceChoice: current });
-      toast(t("status.failed"));
+      toast(t("status.failed"), "failure");
     });
   };
 

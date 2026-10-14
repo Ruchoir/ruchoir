@@ -13,6 +13,7 @@ import { AuthFailure, useSession } from "../../session/SessionProvider";
 import { useTheme } from "../../theme/useTheme";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
+import { feel } from "../../ui/haptics";
 import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
@@ -58,7 +59,9 @@ export function VerifyEmailScreen() {
     setError(null);
     try {
       await session.confirmCode(code);
+      feel("success");
     } catch (err) {
+      feel("failure");
       setError(err instanceof AuthFailure ? err : new AuthFailure("unknown"));
     } finally {
       setBusy(false);
@@ -72,6 +75,7 @@ export function VerifyEmailScreen() {
       setResent(true);
       setSentAt(Date.now());
     } catch (err) {
+      feel("failure");
       setError(err instanceof AuthFailure ? err : new AuthFailure("unknown"));
     }
   };

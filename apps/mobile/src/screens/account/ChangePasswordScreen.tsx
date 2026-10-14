@@ -9,6 +9,7 @@ import { AuthFailure, useSession } from "../../session/SessionProvider";
 import { useTheme } from "../../theme/useTheme";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
+import { feel } from "../../ui/haptics";
 import { KeyboardForm } from "../../ui/KeyboardForm";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
@@ -35,9 +36,10 @@ export function ChangePasswordScreen() {
     setError(null);
     try {
       await session.changePassword(current, next);
-      toast(t("security.passwordChanged"));
+      toast(t("security.passwordChanged"), "success");
       if (navigation.canGoBack()) navigation.goBack();
     } catch (err) {
+      feel("failure");
       setError(err instanceof AuthFailure ? err : new AuthFailure("unknown"));
       setBusy(false);
     }

@@ -25,6 +25,7 @@ import {
   type QueueItem,
   type UploadTarget,
 } from "../logic/uploadQueue";
+import { feel } from "../ui/haptics";
 import { useToast } from "../ui/Toast";
 
 type UploadsApi = {
@@ -92,6 +93,7 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
         (err: unknown) => {
           if (err instanceof Error && err.name === "AbortError") return;
           const error = isApiError(err, 413) ? "tooLarge" : isApiError(err, 403) ? "forbidden" : "network";
+          feel("failure");
           commit((q) => markFailed(q, item.key, error));
         },
       )
@@ -107,7 +109,7 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
     const done = queue.filter((i) => i.state === "done");
     if (done.length === 0) return;
     commit((q) => q.filter((i) => i.state !== "done"));
-    toast(t("files.uploaded", { count: done.length }));
+    toast(t("files.uploaded", { count: done.length }), "success");
   }, [queue, commit, t, toast]);
 
   const api = useMemo<UploadsApi>(

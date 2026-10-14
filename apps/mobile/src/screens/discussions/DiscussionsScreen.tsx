@@ -19,6 +19,7 @@ import { Avatar } from "../../ui/Avatar";
 import { AvatarStack } from "../../ui/AvatarStack";
 import { Badge } from "../../ui/Badge";
 import { Chips } from "../../ui/Chips";
+import { feel } from "../../ui/haptics";
 import { SearchField } from "../../ui/SearchField";
 import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { EmptyState, LoadState } from "../../ui/States";
@@ -59,6 +60,10 @@ export function DiscussionsScreen() {
   // its row. Who is online moves without any of that: it is laid over the rows as it is heard.
   const spaceId = current?.id ?? "";
   useReloadOn((e) => affects.conversations(e, spaceId), conversations.reload);
+  const pulled = () => {
+    feel("refresh");
+    conversations.reload();
+  };
   const [presence, setPresence] = useState<Record<string, ConversationItem["presence"]>>({});
   useRealtimeEvent((e) => {
     if (e.type === "presence") setPresence((now) => ({ ...now, [e.userId]: e.presence }));
@@ -81,7 +86,7 @@ export function DiscussionsScreen() {
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         keyExtractor={(c) => c.id}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={conversations.reload} />}
+        refreshControl={<RefreshControl refreshing={false} onRefresh={pulled} />}
         ListHeaderComponent={
           <View style={styles.top}>
             <TabHeader title={t("tabs.discussions")} />

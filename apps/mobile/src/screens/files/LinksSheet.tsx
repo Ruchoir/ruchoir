@@ -44,7 +44,7 @@ export function LinksSheet() {
   const copy = (link: FileLink) =>
     void Clipboard.setStringAsync(link.url).then(
       () => toast(t("files.linkCopied")),
-      () => toast(t("files.linkCopyFailed")),
+      () => toast(t("files.linkCopyFailed"), "failure"),
     );
   const revoke = (link: FileLink) =>
     Alert.alert(t("files.revokeConfirm"), undefined, [
@@ -58,7 +58,7 @@ export function LinksSheet() {
               links.reload();
               toast(t("files.linkRevoked"));
             },
-            () => toast(t("files.linkRevokeFailed")),
+            () => toast(t("files.linkRevokeFailed"), "failure"),
           ),
       },
     ]);
@@ -71,7 +71,7 @@ export function LinksSheet() {
       links.reload();
       copy(link);
     } catch {
-      toast(t("files.linkCreateFailed"));
+      toast(t("files.linkCreateFailed"), "failure");
     } finally {
       setBusy(false);
     }

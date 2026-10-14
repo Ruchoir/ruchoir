@@ -60,7 +60,7 @@ export function ConversationPicker() {
       toast(t("files.sentTo", { name: label(chosen) }));
     } catch {
       setBusy(false);
-      toast(t("files.sendFailed"));
+      toast(t("files.sendFailed"), "failure");
     }
   };
 

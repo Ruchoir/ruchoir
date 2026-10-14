@@ -10,6 +10,7 @@ import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { useTheme } from "../../theme/useTheme";
 import { FileIcon } from "../../ui/FileIcon";
+import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 
 /** Open what a row stands for: a folder is browsed, a file is shown (with its menu, as a space file). */
@@ -51,7 +52,14 @@ export function FileRow({ file, line, path, onPress }: { file: SpaceFile; line?:
     <Pressable
       accessibilityRole="button"
       onPress={onPress ?? (() => openEntry(navigation, file, path))}
-      onLongPress={menu}
+      onLongPress={
+        menu
+          ? () => {
+              feel("menu");
+              menu();
+            }
+          : undefined
+      }
       style={({ pressed }) => [styles.row, pressed && { backgroundColor: c.line }]}
     >
       <FileIcon name={file.name} mime={file.mimeType} folder={folder} />

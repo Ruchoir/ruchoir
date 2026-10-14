@@ -6,7 +6,6 @@
  * unsent message is the conversation's draft, kept while the app runs.
  */
 import type { Channel, Member } from "@ruchoir/client";
-import * as Haptics from "expo-haptics";
 import { PenLine, Plus, Send } from "lucide-react-native";
 import { useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
@@ -18,6 +17,7 @@ import { activeToken, broadcastsFor, fold, insertToken, matchPeople } from "../l
 import { fonts } from "../theme/fonts";
 import { hairline, radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
+import { feel } from "../ui/haptics";
 import { Text } from "../ui/Text";
 import { MentionSuggestions, type Suggestion } from "./MentionSuggestions";
 import { PendingFiles } from "./PendingFiles";
@@ -135,7 +135,7 @@ export function Composer(props: Props) {
       props.onSaveEdit?.(editing.id, body);
       return;
     }
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    feel("send");
     outbox.send({
       conversationId,
       body,

@@ -39,6 +39,7 @@ import { hairline, mix } from "../../../theme/tokens";
 import { useTheme } from "../../../theme/useTheme";
 import { Button } from "../../../ui/Button";
 import { FullScreen } from "../../../ui/FullScreen";
+import { feel } from "../../../ui/haptics";
 import { KeyboardForm } from "../../../ui/KeyboardForm";
 import { SheetHeader } from "../../../ui/SheetHeader";
 import { LoadState } from "../../../ui/States";
@@ -130,7 +131,7 @@ export function EventFormScreen() {
         return { ...d, attendees: [...d.attendees, ...fresh.map((p) => ({ key: p.userId, userId: p.userId, name: p.name }))], attendeesTouched: true };
       });
     } catch {
-      toast(t("load.failed"));
+      toast(t("load.failed"), "failure");
     } finally {
       setInvitingAll(false);
     }
@@ -179,7 +180,8 @@ export function EventFormScreen() {
     saved.current = true;
     const routes = navigation.getState().routes;
     navigation.dispatch(StackActions.pop(edit && routes[routes.length - 2]?.name === "eventSummary" ? 2 : 1));
-    toast(message === "saved" ? t("eventForm.saved") : t("eventForm.gone"));
+    if (message === "saved") toast(t("eventForm.saved"), "success");
+    else toast(t("eventForm.gone"), "failure");
   };
 
   const save = async (scope?: EditScope) => {
@@ -217,8 +219,11 @@ export function EventFormScreen() {
         return;
       }
       setBusy(false);
-      if (edit && isApiError(err, 403)) toast(t("eventForm.forbidden"));
-      else setFailed(true);
+      if (edit && isApiError(err, 403)) toast(t("eventForm.forbidden"), "failure");
+      else {
+        feel("failure");
+        setFailed(true);
+      }
     }
   };
   useScopeRequests(formKey, (scope) => void save(scope));

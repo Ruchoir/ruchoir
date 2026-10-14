@@ -18,6 +18,7 @@ import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
 import { useTheme } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
+import { feel } from "../../ui/haptics";
 import { Sheet } from "../../ui/Sheet";
 import { Text } from "../../ui/Text";
 import { useUploads } from "../../uploads/UploadsProvider";
@@ -55,7 +56,10 @@ export function AddSheet() {
     const entries = folder.data?.entries ?? (await getFolder(params.spaceId, params.folderId).then((f) => f.entries, () => []));
     const existing = entries.flatMap((e) => (e.id ? [{ id: e.id, name: e.name, manage: canManage(e, me, current?.role) }] : []));
     const asks = uploads.add(accepted, target, existing, params.folderName);
-    if (asks) navigation.replace("uploadConflict");
+    if (asks) {
+      feel("warning");
+      navigation.replace("uploadConflict");
+    }
     else navigation.goBack();
   };
 

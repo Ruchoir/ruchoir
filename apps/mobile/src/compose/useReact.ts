@@ -6,13 +6,13 @@
  * does. A refusal puts the message back as it was before the tap and says so.
  */
 import { addReaction, removeReaction, type ApiMessage } from "@ruchoir/client";
-import * as Haptics from "expo-haptics";
 import { useCallback } from "react";
 
 import { useTranslation } from "../i18n";
 import { toggleReaction } from "../logic/reactions";
 import { useRealtimeActions } from "../realtime/RealtimeProvider";
 import { useSession } from "../session/SessionProvider";
+import { feel } from "../ui/haptics";
 import { useToast } from "../ui/Toast";
 
 const queues = new Map<string, Promise<void>>();
@@ -46,10 +46,10 @@ export function useReact(): (conversationId: string, message: ApiMessage, emoji:
       const wasMine = !!message.reactions?.find((r) => r.emoji === emoji)?.mine;
       const reactions = toggleReaction(message.reactions, emoji, myName);
       emit({ type: "patched", conversationId, message: { ...message, reactions: reactions.length > 0 ? reactions : undefined } });
-      void Haptics.selectionAsync();
+      feel("choice");
       sendReaction(message.id, emoji, !wasMine).catch(() => {
         emit({ type: "patched", conversationId, message });
-        toast(t("message.reactionFailed"));
+        toast(t("message.reactionFailed"), "failure");
       });
     },
     [emit, myName, t, toast],

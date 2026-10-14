@@ -1,7 +1,6 @@
 import { absoluteUrl, fileDownloadUrl, type ApiMessage } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
 import { Pin } from "lucide-react-native";
 import { memo } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
@@ -14,6 +13,7 @@ import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
 import { FileCard } from "../../ui/FileCard";
+import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 import { EventCardView } from "./EventCardView";
 import { LinkCard } from "./LinkCard";
@@ -95,12 +95,14 @@ export const MessageRow = memo(function MessageRow({
     pending === "failed"
       ? {
           onPress: onRetry,
-          onLongPress: () =>
+          onLongPress: () => {
+            feel("menu");
             Alert.alert(t("compose.unsentTitle"), t("compose.unsentText"), [
               { text: t("common.retry"), onPress: onRetry },
               { text: t("compose.delete"), style: "destructive", onPress: onDiscard },
               { text: t("compose.cancel"), style: "cancel" },
-            ]),
+            ]);
+          },
         }
       : null;
 
@@ -114,7 +116,7 @@ export const MessageRow = memo(function MessageRow({
         unsent?.onLongPress ??
         (actions
           ? () => {
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              feel("menu");
               actions();
             }
           : undefined)
