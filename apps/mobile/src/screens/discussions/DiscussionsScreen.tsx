@@ -184,12 +184,15 @@ export function ConversationRow({
             </Text>
           ) : null}
         </View>
-        <View style={styles.line}>
-          <Text variant="small" tone={item.unread > 0 ? "strong" : "muted"} numberOfLines={1} style={styles.name}>
-            {preview ?? ""}
-          </Text>
-          <Badge count={item.unread} tone={item.kind === "channel" ? "accent" : "ink"} />
-        </View>
+        {/* Nothing said yet: no empty line under the name. */}
+        {preview || item.unread > 0 ? (
+          <View style={styles.line}>
+            <Text variant="small" tone={item.unread > 0 ? "strong" : "muted"} numberOfLines={1} style={styles.name}>
+              {preview ?? ""}
+            </Text>
+            <Badge count={item.unread} tone={item.kind === "channel" ? "accent" : "ink"} />
+          </View>
+        ) : null}
         {/* What it is: a group (a channel, with a lock when it is on invitation) or a private
             conversation with several people; a conversation with one person needs no line. */}
         {item.kind === "channel" ? (

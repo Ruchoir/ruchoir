@@ -1,7 +1,7 @@
 import { getFilesView, getFolder, searchFiles, type FilesView, type SpaceFile, type ViewEntry } from "@ruchoir/client";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ChevronRight, Clock, Folder, FolderOpen, Inbox, SearchX, Star, Trash2, Upload } from "lucide-react-native";
+import { Clock, Folder, FolderOpen, Inbox, SearchX, Star, Trash2, Upload } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
@@ -21,6 +21,7 @@ import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
 import { FileRow, openEntry } from "./FileRow";
+import { TrashList } from "./TrashList";
 import { UploadStrip } from "./UploadStrip";
 
 /**
@@ -30,7 +31,6 @@ import { UploadStrip } from "./UploadStrip";
  */
 export function FilesScreen() {
   const { t } = useTranslation();
-  const { c } = useTheme();
   const { current, status } = useSpace();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const floating = useFloatingScroll();
@@ -43,8 +43,8 @@ export function FilesScreen() {
 
   const space = current?.id;
   const root = useLoad(space ? `root:${space}` : null, (signal) => getFolder(space!, undefined, signal));
-  const [view, setView] = useState<FilesView>("recent");
-  const listed = useLoad(space ? `view:${space}:${view}` : null, (signal) => getFilesView(space!, view, signal));
+  const [view, setView] = useState<FilesView | "trash">("recent");
+  const listed = useLoad(space && view !== "trash" ? `view:${space}:${view}` : null, (signal) => getFilesView(space!, view as FilesView, signal));
   const found = useLoad(space && debounced ? `search:${space}:${debounced}` : null, (signal) => searchFiles(space!, debounced, signal));
   useReloadOn((e) => e.type === "files" && e.spaceId === space, () => {
     root.reload();
@@ -101,36 +101,24 @@ export function FilesScreen() {
           <>
             {folders.length ? <FolderTiles folders={folders} /> : null}
             {files.length ? <Section title={t("files.atRoot")} rows={files.map((file) => ({ file }))} /> : null}
-            {!folders.length && !files.length ? (
-              // An empty space says it once; its views have nothing to show either.
+            {/* The web's views, always there; the trash is the last of them. */}
+            <Chips chips={VIEWS.map((v) => ({ key: v.key, label: t(v.label), icon: v.icon }))} value={view} onChange={setView} />
+            {view === "trash" ? (
+              <TrashList />
+            ) : !listed.data ? (
+              <LoadState error={listed.error} onRetry={listed.reload} />
+            ) : listed.data.length ? (
+              <View>
+                {listed.data.slice(0, 30).map((e, i) => (
+                  <FileRow key={e.file.id ?? i} file={e.file} line={view === "shared" ? sharedLine(e) : undefined} path={pathOf(e)} />
+                ))}
+              </View>
+            ) : view === "recent" && !folders.length && !files.length ? (
+              // An empty space says it once, here, rather than "nothing recent" under it.
               <EmptyState icon={FolderOpen} title={t("files.empty")} text={t("files.emptyHint")} />
             ) : (
-              <>
-                <Chips chips={VIEWS.map((v) => ({ key: v.key, label: t(v.label), icon: v.icon }))} value={view} onChange={setView} />
-                {!listed.data ? (
-                  <LoadState error={listed.error} onRetry={listed.reload} />
-                ) : listed.data.length ? (
-                  <View>
-                    {listed.data.slice(0, 30).map((e, i) => (
-                      <FileRow key={e.file.id ?? i} file={e.file} line={view === "shared" ? sharedLine(e) : undefined} path={pathOf(e)} />
-                    ))}
-                  </View>
-                ) : (
-                  <EmptyState size="compact" icon={EMPTY[view].icon} title={t(EMPTY[view].title)} text={t(EMPTY[view].text)} />
-                )}
-              </>
+              <EmptyState icon={EMPTY[view].icon} title={t(EMPTY[view].title)} text={t(EMPTY[view].text)} />
             )}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigation.navigate("trash")}
-              style={({ pressed }) => [styles.trash, { borderTopColor: c.line }, pressed && { opacity: 0.6 }]}
-            >
-              <Trash2 size={18} color={c.body} />
-              <Text variant="body" style={styles.grow}>
-                {t("files.trash")}
-              </Text>
-              <ChevronRight size={18} color={c.muted} />
-            </Pressable>
           </>
         )}
       </ScrollView>
@@ -150,6 +138,7 @@ const VIEWS = [
   { key: "recent", label: key("files.recent"), icon: Clock },
   { key: "starred", label: key("files.favourites"), icon: Star },
   { key: "shared", label: key("files.sharedWithMe"), icon: Inbox },
+  { key: "trash", label: key("files.trash"), icon: Trash2 },
 ] as const;
 
 const EMPTY = {
@@ -200,8 +189,7 @@ function Section({ title, rows }: { title: string; rows: { file: SpaceFile; path
 const styles = StyleSheet.create({
   // Room under the last row for the floating button.
   page: { paddingBottom: 96, gap: 12, flexGrow: 1 },
-  grow: { flex: 1 },
-  trash: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 8, paddingHorizontal: 16, paddingVertical: 14, borderTopWidth: 1 },
+
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16 },
   tile: {
     flexBasis: "47%",

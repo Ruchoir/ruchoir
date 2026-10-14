@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react-native";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import Animated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 
-import { fabStep } from "../logic/fab";
+import { fabCompact } from "../logic/fab";
 import { radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
 import { Text } from "./Text";
@@ -11,8 +11,8 @@ import { Text } from "./Text";
 /**
  * The action of a tab, floating over its bottom right ("New message" over Discussions, mockup 12;
  * "New event" over the Agenda, mockup 15; "Add a file" over the Files): the surface, edged and
- * offset in the accent. `compact` shrinks it to its icon while the list scrolls down, so it hides
- * less of what is read (`useFloatingScroll`); its label stays its accessible name.
+ * offset in the accent. `compact` shrinks it to its icon while the list is away from its top, so it
+ * hides less of what is read (`useFloatingScroll`); its label stays its accessible name.
  */
 export function FloatingButton({ icon: Icon, label, onPress, compact = false }: { icon: LucideIcon; label: string; onPress: () => void; compact?: boolean }) {
   const { c } = useTheme();
@@ -46,11 +46,7 @@ export function FloatingButton({ icon: Icon, label, onPress, compact = false }: 
 /** Whether a list's floating button is shrunk, and the scroll handler that decides it (`logic/fab.ts`). */
 export function useFloatingScroll() {
   const [compact, setCompact] = useState(false);
-  const state = useRef({ compact: false, anchor: 0 });
-  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    state.current = fabStep(state.current, e.nativeEvent.contentOffset.y);
-    setCompact(state.current.compact);
-  }, []);
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => setCompact(fabCompact(e.nativeEvent.contentOffset.y)), []);
   return { compact, onScroll, scrollEventThrottle: 16 } as const;
 }
 
