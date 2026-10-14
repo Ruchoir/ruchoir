@@ -3,8 +3,11 @@ import { actionsFor, canManage, type ActionId } from "@ruchoir/client/filesLogic
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Sharing from "expo-sharing";
-import { FolderOpen, Info, PencilLine, Share as ShareIcon, Star, StarOff, Trash2, type LucideIcon } from "lucide-react-native";
+import { FileUp, FolderInput, FolderOpen, History, Info, PencilLine, Share as ShareIcon, Star, StarOff, Trash2, type LucideIcon } from "lucide-react-native";
 import { Alert, StyleSheet, View } from "react-native";
+
+import { uploadLimit } from "../../api/limits";
+import { pickDocuments } from "../../compose/pick";
 
 import { entryOf } from "../../files/entry";
 import { downloadToCache } from "../../files/download";
@@ -21,6 +24,7 @@ import { FileIcon } from "../../ui/FileIcon";
 import { Sheet } from "../../ui/Sheet";
 import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
+import { useUploads } from "../../uploads/UploadsProvider";
 import { openEntry } from "./FileRow";
 
 /**
@@ -41,6 +45,7 @@ export function EntryMenu() {
   const entry = entryOf(file);
   const manage = canManage(file, me, current?.role);
   const close = () => navigation.goBack();
+  const uploads = useUploads();
 
   const run: Partial<Record<ActionId, () => void>> = {
     open: () => {
@@ -63,6 +68,20 @@ export function EntryMenu() {
     },
     rename: () =>
       navigation.replace("fileName", { mode: "rename", spaceId: params.spaceId, folderId: file.parentFolderId, fileId: file.id, name: file.name }),
+    move: () => navigation.replace("fileMove", { file, spaceId: params.spaceId }),
+    newVersion: () =>
+      void pickDocuments(false).then(async (picked) => {
+        const chosen = picked[0];
+        if (!chosen) return;
+        const limit = await uploadLimit();
+        if (limit !== undefined && chosen.size !== undefined && chosen.size > limit) {
+          Alert.alert(t("attach.tooLargeTitle", { count: 1 }), t("attach.tooLargeText", { names: chosen.name, limit: fileSize(limit, locale) }));
+          return;
+        }
+        uploads.addVersion(chosen, { spaceId: params.spaceId, folderId: file.parentFolderId }, { id: file.id!, name: file.name });
+        close();
+      }),
+    versions: () => navigation.replace("fileVersions", { file, spaceId: params.spaceId }),
     details: () => navigation.replace("fileDetails", { file, spaceId: params.spaceId, path: params.path }),
     delete: () =>
       Alert.alert(t("files.deleteConfirm", { name: file.name }), undefined, [
@@ -85,6 +104,9 @@ export function EntryMenu() {
     download: { icon: ShareIcon, tint: c.violet, title: t("viewer.share") },
     star: file.starred ? { icon: StarOff, tint: c.sun, title: t("sidebar.unfavourite") } : { icon: Star, tint: c.sun, title: t("sidebar.favourite") },
     rename: { icon: PencilLine, tint: c.mint, title: t("files.rename") },
+    move: { icon: FolderInput, tint: c.mint, title: t("files.move") },
+    newVersion: { icon: FileUp, tint: c.peach, title: t("files.uploadNewVersion") },
+    versions: { icon: History, title: t("files.versions") },
     details: { icon: Info, title: t("details.title") },
   };
   const actions = actionsFor(entry, manage).filter((a) => a !== "delete" && run[a] && look[a]);

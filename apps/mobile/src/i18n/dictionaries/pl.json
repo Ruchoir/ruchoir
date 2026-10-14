@@ -519,7 +519,20 @@
     "root": "W katalogu głównym przestrzeni",
     "more": "Działania dla {{name}}",
     "name": "Nazwa",
-    "source": "Źródło"
+    "source": "Źródło",
+    "moved": "Element przeniesiony",
+    "moveHere": "Przenieś tutaj",
+    "move": "Przenieś",
+    "moveOne": "Przenieś „{{name}}”",
+    "uploadNewVersion": "Prześlij nową wersję",
+    "versions": "Wersje",
+    "noVersions": "Brak zapisanych wersji.",
+    "versionNumber": "Wersja {{number}}",
+    "versionCurrent": "bieżąca",
+    "restoreVersion": "Przywróć wersję {{number}}",
+    "versionRestored": "Przywrócono wersję {{number}}",
+    "versionRestoreFailed": "Nie udało się przywrócić wersji",
+    "restore": "Przywróć"
   },
   "viewer": {
     "share": "Udostępnij lub otwórz w…",

@@ -486,7 +486,20 @@
     "root": "Nella radice dello spazio",
     "more": "Azioni su {{name}}",
     "name": "Nome",
-    "source": "Origine"
+    "source": "Origine",
+    "moved": "Elemento spostato",
+    "moveHere": "Sposta qui",
+    "move": "Sposta",
+    "moveOne": "Sposta «{{name}}»",
+    "uploadNewVersion": "Carica una nuova versione",
+    "versions": "Versioni",
+    "noVersions": "Nessuna versione salvata.",
+    "versionNumber": "Versione {{number}}",
+    "versionCurrent": "attuale",
+    "restoreVersion": "Ripristina la versione {{number}}",
+    "versionRestored": "Versione {{number}} ripristinata",
+    "versionRestoreFailed": "Impossibile ripristinare la versione",
+    "restore": "Ripristina"
   },
   "viewer": {
     "share": "Condividi o apri in…",

@@ -486,7 +486,20 @@
     "root": "En la raíz del espacio",
     "more": "Acciones sobre {{name}}",
     "name": "Nombre",
-    "source": "Origen"
+    "source": "Origen",
+    "moved": "Elemento movido",
+    "moveHere": "Mover aquí",
+    "move": "Mover",
+    "moveOne": "Mover «{{name}}»",
+    "uploadNewVersion": "Subir una nueva versión",
+    "versions": "Versiones",
+    "noVersions": "No hay versiones guardadas.",
+    "versionNumber": "Versión {{number}}",
+    "versionCurrent": "actual",
+    "restoreVersion": "Restaurar la versión {{number}}",
+    "versionRestored": "Versión {{number}} restaurada",
+    "versionRestoreFailed": "No se pudo restaurar la versión",
+    "restore": "Restaurar"
   },
   "viewer": {
     "share": "Compartir o abrir en…",

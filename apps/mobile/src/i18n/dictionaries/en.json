@@ -453,7 +453,20 @@
     "root": "At the space’s root",
     "more": "Actions on {{name}}",
     "name": "Name",
-    "source": "Source"
+    "source": "Source",
+    "moved": "Item moved",
+    "moveHere": "Move here",
+    "move": "Move",
+    "moveOne": "Move “{{name}}”",
+    "uploadNewVersion": "Upload a new version",
+    "versions": "Versions",
+    "noVersions": "No versions saved.",
+    "versionNumber": "Version {{number}}",
+    "versionCurrent": "current",
+    "restoreVersion": "Restore version {{number}}",
+    "versionRestored": "Version {{number}} restored",
+    "versionRestoreFailed": "Could not restore the version",
+    "restore": "Restore"
   },
   "viewer": {
     "share": "Share or open in…",

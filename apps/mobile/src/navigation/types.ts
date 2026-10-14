@@ -88,6 +88,8 @@ export type RootParams = {
   fileMenu: { file: SpaceFile; spaceId: string; path?: string };
   fileName: { mode: "create" | "rename"; spaceId: string; folderId?: string; fileId?: string; name?: string };
   fileDetails: { file: SpaceFile; spaceId: string; path?: string };
+  fileMove: { file: SpaceFile; spaceId: string };
+  fileVersions: { file: SpaceFile; spaceId: string };
   uploadConflict: undefined;
   spaceSheet: undefined;
   accountSheet: undefined;

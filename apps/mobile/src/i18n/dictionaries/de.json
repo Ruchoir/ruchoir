@@ -453,7 +453,20 @@
     "root": "Im Hauptordner des Bereichs",
     "more": "Aktionen für {{name}}",
     "name": "Name",
-    "source": "Quelle"
+    "source": "Quelle",
+    "moved": "Element verschoben",
+    "moveHere": "Hierher verschieben",
+    "move": "Verschieben",
+    "moveOne": "„{{name}}“ verschieben",
+    "uploadNewVersion": "Neue Version hochladen",
+    "versions": "Versionen",
+    "noVersions": "Keine Versionen gespeichert.",
+    "versionNumber": "Version {{number}}",
+    "versionCurrent": "aktuell",
+    "restoreVersion": "Version {{number}} wiederherstellen",
+    "versionRestored": "Version {{number}} wiederhergestellt",
+    "versionRestoreFailed": "Version konnte nicht wiederhergestellt werden",
+    "restore": "Wiederherstellen"
   },
   "viewer": {
     "share": "Teilen oder öffnen in…",
