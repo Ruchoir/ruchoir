@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { COMPOSER_GAP, areaPadding, areaPlacement, composerRoom, revealOffset } from "../src/logic/keyboard.ts";
+import { COMPOSER_GAP, areaPadding, areaPlacement, composerRoom } from "../src/logic/keyboard.ts";
 
 // An iPhone 12 mini: a keyboard of 336 points, a home indicator area of 34.
 
@@ -46,17 +46,4 @@ test("a_chat_is_laid_out_above_the_keyboard_once_it_rests", () => {
 
 test("an_area_that_does_not_slide_is_laid_out_at_every_frame", () => {
   assert.deepEqual(areaPlacement(200, 34, 0, false, true), { padding: 200, shift: 0 });
-});
-
-test("a_field_under_the_keyboard_scrolls_up_into_sight", () => {
-  // The form shows 200..450 in the window; the field sits at 500..552, the form scrolled by 40.
-  assert.equal(revealOffset({ y: 500, height: 52 }, { y: 200, height: 250 }, 40), 40 + (552 + 16 - 450));
-});
-
-test("a_field_above_the_visible_part_scrolls_down_into_sight", () => {
-  assert.equal(revealOffset({ y: 150, height: 52 }, { y: 200, height: 250 }, 300), 300 - (200 - (150 - 16)));
-});
-
-test("a_field_already_in_sight_does_not_move", () => {
-  assert.equal(revealOffset({ y: 260, height: 52 }, { y: 200, height: 250 }, 40), null);
 });

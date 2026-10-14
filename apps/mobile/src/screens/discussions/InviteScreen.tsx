@@ -19,8 +19,7 @@ import { Segmented } from "../../ui/Segmented";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
-import { KeyboardArea } from "../../ui/KeyboardArea";
-import { KeyboardScroll } from "../../ui/KeyboardScroll";
+import { KeyboardForm } from "../../ui/KeyboardForm";
 
 type Role = "member" | "guest";
 
@@ -81,8 +80,7 @@ export function InviteScreen() {
   return (
     <View style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("newMessage.invite")} onClose={() => navigation.goBack()} />
-      <KeyboardArea style={styles.fill} safeBottom>
-        <KeyboardScroll style={styles.fill} contentContainerStyle={styles.form}>
+      <KeyboardForm contentContainerStyle={styles.form}>
           <View style={styles.block}>
             <Segmented
               style={styles.flush}
@@ -149,8 +147,7 @@ export function InviteScreen() {
               {t("invite.linkHint")}
             </Text>
           </View>
-        </KeyboardScroll>
-      </KeyboardArea>
+      </KeyboardForm>
     </View>
   );
 }

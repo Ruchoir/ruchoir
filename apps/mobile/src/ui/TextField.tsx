@@ -6,7 +6,6 @@ import { useTranslation } from "../i18n";
 import { fonts } from "../theme/fonts";
 import { hairline, radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
-import { useRevealField } from "./KeyboardScroll";
 import { Text } from "./Text";
 
 /**
@@ -22,7 +21,6 @@ export function TextField({
 }: TextInputProps & { label: string; hint?: string; error?: string; secret?: boolean }) {
   const { c, s } = useTheme();
   const { t } = useTranslation();
-  const reveal = useRevealField();
   const [shown, setShown] = useState(false);
   const Icon = shown ? EyeOff : Eye;
 
@@ -33,10 +31,6 @@ export function TextField({
         <TextInput
           placeholderTextColor={c.muted}
           {...input}
-          onFocus={(event) => {
-            input.onFocus?.(event);
-            reveal();
-          }}
           secureTextEntry={secret && !shown}
           style={[
             styles.input,

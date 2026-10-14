@@ -26,8 +26,7 @@ import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
 import { useToast } from "../../ui/Toast";
-import { KeyboardArea } from "../../ui/KeyboardArea";
-import { KeyboardScroll } from "../../ui/KeyboardScroll";
+import { KeyboardForm } from "../../ui/KeyboardForm";
 import { PeoplePickerModal } from "./PeoplePickerModal";
 
 type Access = "public" | "private";
@@ -104,10 +103,23 @@ export function NewGroupScreen() {
   return (
     <View style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("newMessage.group")} onClose={() => navigation.goBack()} />
-      <KeyboardArea style={styles.fill} safeBottom>
-        {/* Short enough to fit on one screen: the name, who can join, the people (picked in a
-            sheet of their own), people from outside, and the optional topic last. */}
-        <KeyboardScroll style={styles.fill} keyboardDismissMode="on-drag" contentContainerStyle={styles.form}>
+      {/* Short enough to fit on one screen: the name, who can join, the people (picked in a sheet
+          of their own), people from outside, and the optional topic last. */}
+      <KeyboardForm
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={styles.form}
+        footer={
+          // Opaque: it rides on the keyboard, over the bottom of the form.
+          <View style={[styles.foot, { borderTopColor: c.line, backgroundColor: c.surface }]}>
+            {failed ? (
+              <Text variant="small" tone="danger">
+                {t("group.failed")}
+              </Text>
+            ) : null}
+            <Button label={t("group.create")} disabled={!handle || taken} busy={busy} onPress={() => void create()} />
+          </View>
+        }
+      >
           <View style={styles.gutter}>
             <TextField
               label={t("group.name")}
@@ -212,16 +224,7 @@ export function NewGroupScreen() {
           <View style={styles.gutter}>
             <TextField label={t("group.topic")} placeholder={t("group.topicPlaceholder")} value={topic} onChangeText={setTopic} />
           </View>
-        </KeyboardScroll>
-        <View style={[styles.foot, { borderTopColor: c.line }]}>
-          {failed ? (
-            <Text variant="small" tone="danger">
-              {t("group.failed")}
-            </Text>
-          ) : null}
-          <Button label={t("group.create")} disabled={!handle || taken} busy={busy} onPress={() => void create()} />
-        </View>
-      </KeyboardArea>
+      </KeyboardForm>
       {picking ? (
         <PeoplePickerModal
           title={t("group.members")}
