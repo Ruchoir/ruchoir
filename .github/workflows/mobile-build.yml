@@ -1,0 +1,171 @@
+name: Phone apps
+
+# Builds the development build of the phone apps (docs/mobile-builds.md): our own app with Expo's
+# development launcher, which opens Metro. On demand only, never on every pull request: the "Run
+# workflow" button, or the label `app-build` on a pull request of this repository to try a branch on
+# the phone before it is merged.
+#
+# - iPhone: GitHub's macOS runner builds it, Apple signs it at export through the App Store Connect
+#   API key, and it goes straight to TestFlight (internal testing only).
+# - Android: a debug APK for the emulator, kept as an artifact of the run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which app to build
+        type: choice
+        options: [both, ios, android]
+        default: both
+  pull_request:
+    types: [labeled]
+
+# One build per branch at a time, and never one cancelled half way through an upload.
+concurrency:
+  group: mobile-build-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # The Expo CLI reports anonymous usage by default; Ruchoir never sends it (ADR 0005).
+  EXPO_NO_TELEMETRY: "1"
+  # The build number Apple and Google see, read by app.config.ts: each run is above the last.
+  RUCHOIR_BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  ios:
+    name: iPhone (TestFlight)
+    # A pull request from a fork never receives the secrets, so it is not built at all.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.platform != 'android') ||
+      (github.event_name == 'pull_request' && github.event.label.name == 'app-build' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26
+        # Apple requires the iOS 26 SDK. The newest Xcode 26 on the image, by version.
+        run: |
+          xcode=$(printf '%s\n' /Applications/Xcode_26*.app | grep -E '/Xcode_26(\.[0-9]+)*\.app$' | sort -V | tail -1)
+          echo "Using $xcode"
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Generate the native project
+        working-directory: apps/mobile
+        # Also installs the CocoaPods.
+        run: npx expo prebuild --platform ios
+      - name: Write the App Store Connect key
+        env:
+          KEY: ${{ secrets.APPLE_API_KEY_P8 }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          if [ -z "$KEY" ] || [ -z "$KEY_ID" ]; then
+            echo "::error::The APPLE_* secrets are missing: see docs/mobile-builds.md."
+            exit 1
+          fi
+          umask 077
+          printf '%s\n' "$KEY" > "$RUNNER_TEMP/AuthKey_$KEY_ID.p8"
+      - name: Archive
+        # Unsigned: Xcode's automatic signing would ask for a development profile, which Apple only
+        # makes for a team with a registered device, and the team has none. The Debug configuration
+        # is where the development launcher lives.
+        working-directory: apps/mobile/ios
+        run: |
+          xcodebuild archive -quiet \
+            -workspace Ruchoir.xcworkspace -scheme Ruchoir -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Ruchoir.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Sign ad hoc
+        # The export re-signs everything for the App Store, but it takes the entitlements from the
+        # signature it finds: an unsigned app would lose them. Nested code first, the app last.
+        run: |
+          app="$RUNNER_TEMP/Ruchoir.xcarchive/Products/Applications/Ruchoir.app"
+          if [ -d "$app/Frameworks" ]; then
+            find "$app/Frameworks" -maxdepth 1 \( -name '*.framework' -o -name '*.dylib' \) \
+              -exec codesign --force --sign - {} \;
+          fi
+          codesign --force --sign - --entitlements apps/mobile/ios/Ruchoir/Ruchoir.entitlements "$app"
+      - name: Sign for the App Store and upload to TestFlight
+        # Apple creates and keeps the distribution certificate itself (cloud signing): nothing to
+        # store here but the API key.
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>testFlightInternalTestingOnly</key><true/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Ruchoir.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/AuthKey_$KEY_ID.p8" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"
+      - name: Remove the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP"/AuthKey_*.p8
+
+  android:
+    name: Android (emulator APK)
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.platform != 'ios') ||
+      (github.event_name == 'pull_request' && github.event.label.name == 'app-build' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java
+        # React Native's Gradle plugin asks for the Java 17 toolchain.
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Enable corepack (pnpm)
+        run: corepack enable
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Generate the native project
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android
+      - name: Build the debug APK
+        # An emulator runs x86_64 on a PC and arm64 on an Apple Silicon Mac; the 32-bit ones are left
+        # out to halve the build.
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleDebug --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ruchoir-dev-android-${{ github.run_number }}
+          path: apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          if-no-files-found: error
