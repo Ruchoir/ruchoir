@@ -5,7 +5,7 @@ import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../../i18n";
 import { useLocale } from "../../../i18n/useLocale";
-import { setWhen } from "../../../logic/eventForm";
+import { setWhen, type EventDraft } from "../../../logic/eventForm";
 import type { RootParams } from "../../../navigation/types";
 import { useTheme } from "../../../theme/useTheme";
 import { Button } from "../../../ui/Button";
@@ -13,6 +13,11 @@ import { Sheet } from "../../../ui/Sheet";
 import { Text } from "../../../ui/Text";
 import { readDraft, updateDraft } from "./draftStore";
 import { fromPicked, whenDate } from "./when";
+
+/** The day a custom repetition stops, or its start when it has none yet. */
+function untilDate(d: EventDraft): Date {
+  return whenDate({ ...d, startDay: d.custom.end.kind === "until" ? d.custom.end.date : d.startDay }, "startDay");
+}
 
 /**
  * The phone's own date or time picker for one field of the event form (iOS): the calendar of the
@@ -26,11 +31,17 @@ export function PickerSheet() {
   const { dark } = useTheme();
   const { locale } = useLocale();
   const draft = readDraft(params.formKey);
-  const day = params.field === "startDay" || params.field === "endDay";
-  const [value, setValue] = useState(() => (draft ? whenDate(draft, params.field) : new Date()));
+  const field = params.field;
+  const day = field !== "startTime" && field !== "endTime";
+  const [value, setValue] = useState(() => (!draft ? new Date() : field === "until" ? untilDate(draft) : whenDate(draft, field)));
   if (!draft) return null;
   const apply = () => {
-    updateDraft(params.formKey, (d) => setWhen(d, params.field, fromPicked(value, params.field)));
+    if (field === "until") {
+      const date = fromPicked(value, "startDay");
+      updateDraft(params.formKey, (d) => ({ ...d, custom: { ...d.custom, end: { kind: "until", date } }, preset: "custom", ruleTouched: true }));
+    } else {
+      updateDraft(params.formKey, (d) => setWhen(d, field, fromPicked(value, field)));
+    }
     navigation.goBack();
   };
   return (
@@ -43,7 +54,7 @@ export function PickerSheet() {
           display={day ? "inline" : "spinner"}
           locale={locale}
           themeVariant={dark ? "dark" : "light"}
-          minimumDate={params.field === "endDay" ? whenDate(draft, "startDay") : undefined}
+          minimumDate={field === "endDay" || field === "until" ? whenDate(draft, "startDay") : undefined}
           onChange={(_, next) => {
             if (next) setValue(next);
           }}

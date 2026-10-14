@@ -38,7 +38,12 @@ export type RootParams = {
   eventForm: { day?: string; channelId?: string; eventId?: string; recurrenceId?: string };
   /** The event form's sheets, each on the form's draft (`formKey`, see `draftStore`). */
   eventCalendar: { formKey: string };
-  eventPicker: { formKey: string; field: "startDay" | "endDay" | "startTime" | "endTime" };
+  /** A date or time of the form; `until` is the day a custom repetition stops. */
+  eventPicker: { formKey: string; field: "startDay" | "endDay" | "startTime" | "endTime" | "until" };
+  eventRepeat: { formKey: string };
+  eventRule: { formKey: string };
+  /** The form's reminders (`formKey`), or one's own reminders for the event `eventId`, saved at once. */
+  eventReminders: { formKey: string; eventId?: undefined } | { eventId: string; formKey?: undefined };
   /**
    * A message's long-press sheet; `channelId` is set in a channel (pinning needs it), `draftKey` names
    * the composer an edit goes to, and `inThread` hides "Reply in thread" where that is where one is.

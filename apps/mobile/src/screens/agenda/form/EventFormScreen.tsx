@@ -7,12 +7,14 @@
 import { createEvent, listCalendars, type Calendar } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { ChevronDown, FileText, MapPin } from "lucide-react-native";
+import { remindersLabel } from "@ruchoir/client/calendarLogic";
+import { Bell, ChevronDown, ChevronRight, FileText, MapPin, Repeat } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import { useLoad } from "../../../data/useLoad";
 import { useTranslation } from "../../../i18n";
+import { useSharedT } from "../../../i18n/sharedT";
 import { useLocale } from "../../../i18n/useLocale";
 import { dayKey } from "../../../logic/format";
 import { isDirty, newDraft, toInput, type DraftError, type EventDraft } from "../../../logic/eventForm";
@@ -31,6 +33,8 @@ import { calendarColor } from "../calendarColor";
 import { calendarLabel } from "../calendarLabel";
 import { closeDraft, openDraft, readDraft, updateDraft, useDraft } from "./draftStore";
 import { FormRow } from "./FormRow";
+import { inheritedReminders } from "./RemindersSheet";
+import { repeatLabel } from "./repeat";
 import { WhenRows } from "./WhenRows";
 
 let forms = 0;
@@ -40,7 +44,8 @@ export function EventFormScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c } = useTheme();
-  const { timeZone } = useLocale();
+  const { locale, timeZone } = useLocale();
+  const say = useSharedT();
   const toast = useToast();
   const { spaces } = useSpace();
   const [formKey] = useState(() => `event-form-${++forms}`);
@@ -165,6 +170,24 @@ export function EventFormScreen() {
             ) : null}
           </View>
           <WhenRows formKey={formKey} draft={draft} error={errorText("endBeforeStart")} />
+          <FormRow icon={Repeat} tint={c.lime} label={t("calendar.repeat")} onPress={() => navigation.navigate("eventRepeat", { formKey })}>
+            <View style={styles.choice}>
+              <Text variant="body" style={styles.grow}>
+                {repeatLabel(draft, locale, say, { none: t("calendar.repeatNone"), imported: t("calendar.importedRule") })}
+              </Text>
+              <ChevronRight size={18} color={c.muted} />
+            </View>
+          </FormRow>
+          <FormRow icon={Bell} tint={c.pink} label={t("calendar.myReminder")} onPress={() => navigation.navigate("eventReminders", { formKey })}>
+            <View style={styles.choice}>
+              <Text variant="body" style={styles.grow}>
+                {draft.reminders === undefined
+                  ? t("calendar.reminderFollowsCalendar", { label: remindersLabel(inheritedReminders(calendar, draft.allDay), say, draft.allDay) })
+                  : remindersLabel(draft.reminders, say, draft.allDay)}
+              </Text>
+              <ChevronRight size={18} color={c.muted} />
+            </View>
+          </FormRow>
           <FormRow icon={MapPin} tint={c.mint}>
             <TextInput
               value={draft.location}
@@ -196,6 +219,8 @@ export function EventFormScreen() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  grow: { flex: 1 },
+  choice: { flexDirection: "row", alignItems: "center", gap: 8 },
   form: { paddingBottom: 24 },
   band: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, gap: 10 },
   title: { fontFamily: fonts.sansBold, fontSize: 24, lineHeight: 30, paddingVertical: 4 },

@@ -15,8 +15,11 @@ import { SpaceFilePicker } from "../screens/discussions/SpaceFilePicker";
 import { ThreadScreen } from "../screens/discussions/ThreadScreen";
 import { EventSummarySheet } from "../screens/agenda/EventSummarySheet";
 import { CalendarSheet } from "../screens/agenda/form/CalendarSheet";
+import { CustomRuleScreen } from "../screens/agenda/form/CustomRuleScreen";
 import { EventFormScreen } from "../screens/agenda/form/EventFormScreen";
 import { PickerSheet } from "../screens/agenda/form/PickerSheet";
+import { RemindersSheet } from "../screens/agenda/form/RemindersSheet";
+import { RepeatSheet } from "../screens/agenda/form/RepeatSheet";
 import { FileViewerScreen } from "../screens/files/FileViewerScreen";
 import { FolderScreen } from "../screens/files/FolderScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
@@ -56,6 +59,9 @@ export function RootNavigator() {
         <Stack.Screen name="eventForm" component={EventFormScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="eventCalendar" component={CalendarSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="eventPicker" component={PickerSheet} options={sheet} />
+        <Stack.Screen name="eventRepeat" component={RepeatSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
+        <Stack.Screen name="eventRule" component={CustomRuleScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="eventReminders" component={RemindersSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
         <Stack.Screen name="messageActions" component={MessageActionSheet} options={sheet} />
