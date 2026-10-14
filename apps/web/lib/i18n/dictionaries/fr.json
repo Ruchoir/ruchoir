@@ -101,13 +101,16 @@
     "verifyingBody": "Nous validons votre lien de confirmation.",
     "doneTitle": "Adresse confirmée",
     "doneBody": "Votre compte est actif. Connectez-vous pour entrer dans votre espace.",
-    "sentBody": "Un lien de confirmation a été envoyé à {{email}}. Ouvrez-le pour activer votre compte, puis connectez-vous.",
+    "sentBody": "Un lien et un code de confirmation ont été envoyés à {{email}}. Ouvrez le lien ou saisissez le code ci-dessous pour activer votre compte.",
     "sentBodyNoAddress": "Un lien de confirmation a été envoyé. Ouvrez-le pour activer votre compte, puis connectez-vous.",
     "resentNotice": "Un nouveau lien vient d'être envoyé.",
     "resend": "Renvoyer le lien",
     "errorTitle": "Lien de confirmation invalide",
     "errorHint": "Indiquez votre adresse pour en recevoir un nouveau.",
-    "resentNeutral": "Si cette adresse correspond à un compte en attente, un nouveau lien vient d'être envoyé."
+    "resentNeutral": "Si cette adresse correspond à un compte en attente, un nouveau lien vient d'être envoyé.",
+    "codeLabel": "Code reçu par e-mail",
+    "codeSubmit": "Valider le code",
+    "codeWrong": "Ce code ne correspond pas, ou il a expiré. Vérifiez-le, ou demandez un nouveau lien."
   },
   "common": {
     "loading": "Chargement…",

@@ -101,13 +101,16 @@
     "verifyingBody": "Estamos comprobando tu enlace de confirmación.",
     "doneTitle": "Dirección confirmada",
     "doneBody": "Tu cuenta está activa. Inicia sesión para entrar en tu espacio.",
-    "sentBody": "Se ha enviado un enlace de confirmación a {{email}}. Ábrelo para activar tu cuenta y luego inicia sesión.",
+    "sentBody": "Hemos enviado un enlace y un código de confirmación a {{email}}. Abre el enlace o introduce el código aquí abajo para activar tu cuenta.",
     "sentBodyNoAddress": "Se ha enviado un enlace de confirmación. Ábrelo para activar tu cuenta y luego inicia sesión.",
     "resentNotice": "Acabamos de enviar un nuevo enlace.",
     "resend": "Volver a enviar el enlace",
     "errorTitle": "Enlace de confirmación no válido",
     "errorHint": "Indica tu dirección para recibir uno nuevo.",
-    "resentNeutral": "Si esa dirección corresponde a una cuenta pendiente, acabamos de enviar un nuevo enlace."
+    "resentNeutral": "Si esa dirección corresponde a una cuenta pendiente, acabamos de enviar un nuevo enlace.",
+    "codeLabel": "Código recibido por correo",
+    "codeSubmit": "Validar el código",
+    "codeWrong": "Este código no coincide o ha caducado. Compruébalo o pide un nuevo enlace."
   },
   "common": {
     "loading": "Cargando…",

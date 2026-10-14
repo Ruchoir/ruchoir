@@ -6,6 +6,7 @@ import {
   acceptInvitation,
   addReaction,
   confirmEmailVerification,
+  confirmEmailVerificationCode,
   confirmPasswordReset,
   connectRealtime,
   createChannel as apiCreateChannel,
@@ -492,6 +493,9 @@ function AppShell() {
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
   const [authError, setAuthError] = useState<TranslationKey | null>(null);
   const [authPending, setAuthPending] = useState(false);
+  /** The six-digit code typed on "check your inbox", refused or being checked. */
+  const [codeError, setCodeError] = useState<TranslationKey | null>(null);
+  const [codePending, setCodePending] = useState(false);
   /** True once a link (verification or reset) has been sent from the current screen. */
   const [authSent, setAuthSent] = useState(false);
 
@@ -2278,6 +2282,20 @@ function AppShell() {
     }
   };
 
+  /** Confirm the address with the code sent next to the link; the account can then sign in. */
+  const handleVerifyCode = async (code: string) => {
+    setCodePending(true);
+    setCodeError(null);
+    try {
+      await confirmEmailVerificationCode(pendingEmail, code);
+      setVerifyStatus("done");
+    } catch (err) {
+      setCodeError(isApiError(err, 400) ? key("verify.codeWrong") : key("error.serverUnreachable"));
+    } finally {
+      setCodePending(false);
+    }
+  };
+
   /** Request a password-reset link. The confirmation stays neutral: the API reveals nothing. */
   const handlePasswordResetRequest = async (email: string) => {
     setAuthPending(true);
@@ -3774,6 +3792,9 @@ function AppShell() {
             error={authError ? t(authError) : null}
             pending={authPending}
             resent={authSent}
+            onCode={(code) => void handleVerifyCode(code)}
+            codePending={codePending}
+            codeError={codeError ? t(codeError) : null}
           />
         ) : null}
         {/*

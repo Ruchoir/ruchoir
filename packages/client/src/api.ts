@@ -458,6 +458,15 @@ export async function confirmEmailVerification(token: string): Promise<void> {
   await apiPost<void>("/auth/verify-email/confirm", { token });
 }
 
+/**
+ * `POST /auth/verify-email/code`: activate the account with the six-digit code sent next to the link.
+ * Typed spaces and dashes are dropped. Every failure is the same `invalid_code`; five wrong codes
+ * spend it, and a resend brings a new one.
+ */
+export async function confirmEmailVerificationCode(email: string, code: string): Promise<void> {
+  await apiPost<void>("/auth/verify-email/code", { email: email.trim(), code: code.replace(/\D/g, "") });
+}
+
 /** `POST /auth/password-reset/request`: email a reset link. Always resolves (no account enumeration). */
 export async function requestPasswordReset(email: string): Promise<void> {
   await apiPost<void>("/auth/password-reset/request", { email, locale: currentLocale() });
@@ -994,8 +1003,8 @@ function toUploadedAttachment(dto: FileDto): MessageAttachment {
   };
 }
 
-/** `PUT /users/me/avatar`: replace the caller's own avatar; returns its new URL. */
-export async function setMyAvatar(file: File): Promise<string> {
+/** `PUT /users/me/avatar`: replace the caller's own avatar (a file, or a photo of the phone); returns its new URL. */
+export async function setMyAvatar(file: UploadPart): Promise<string> {
   return uploadImage(`${apiBase()}/users/me/avatar`, file);
 }
 
@@ -1021,9 +1030,10 @@ export async function clearSpaceIcon(spaceId: string): Promise<void> {
  * here: an avatar is addressed by its owner's id, which never changes, and that version is what tells
  * the browser it is looking at a different picture.
  */
-async function uploadImage(path: string, file: File): Promise<string> {
+async function uploadImage(path: string, file: UploadPart): Promise<string> {
   const form = new FormData();
-  form.append("file", file);
+  // React Native's FormData reads a `{ uri, name, type }` part from the device itself.
+  form.append("file", file as Blob);
   const res = await fetch(path, { method: "PUT", ...authInit(), body: form });
   if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
   const body = (await res.json()) as { url: string };
