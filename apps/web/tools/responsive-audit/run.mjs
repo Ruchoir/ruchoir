@@ -106,6 +106,36 @@ async function discoverBreakpoints(page) {
   });
 }
 
+/**
+ * Wait until the page has stopped moving: its size unchanged over two frames and no finite animation
+ * or transition still running (a spinner that turns forever does not count), at most `maxMs`.
+ *
+ * A fixed pause was enough with one page at a time, but with several themes audited side by side the
+ * app (React in development, on a shared CPU) can take longer to re-render after a resize or a theme
+ * change, and a probe taken mid-way reported overflows and faded icons that were never there.
+ */
+function settle(page, maxMs = 1500) {
+  return page.evaluate(async (max) => {
+    const until = performance.now() + max;
+    // A frame, or 50 ms if frames do not come: never waits forever.
+    const frame = () => new Promise((done) => { requestAnimationFrame(() => done()); setTimeout(done, 50); });
+    const moving = () =>
+      document.getAnimations().some((a) => a.playState === "running" && Number.isFinite(a.effect?.getComputedTiming().endTime ?? Infinity));
+    const shape = () => {
+      const root = document.documentElement;
+      return `${root.scrollWidth}x${root.scrollHeight}:${document.body?.childElementCount ?? 0}:${document.querySelectorAll("*").length}`;
+    };
+    let last = "";
+    while (performance.now() < until) {
+      await frame();
+      await frame();
+      const now = shape();
+      if (now === last && !moving()) return;
+      last = now;
+    }
+  }, maxMs);
+}
+
 function sanitize(s) {
   return s.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
 }
@@ -215,7 +245,7 @@ async function main() {
           if (state.waitFor) await page.waitForSelector(state.waitFor, { timeout: 5000 }).catch(() => {});
         }
         await seedTheme(theme); // re-assert after any (re)navigation, so every probe sees this theme
-        await page.waitForTimeout(140); // let layout settle after the resize
+        await settle(page); // let layout and transitions finish after the resize
         await page.evaluate(() => (window.__wcCls = 0));
         await page.waitForTimeout(60);
 
