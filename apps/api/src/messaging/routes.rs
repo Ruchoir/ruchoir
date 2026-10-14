@@ -123,6 +123,10 @@ pub fn router() -> Router<AppState> {
             put(channels::set_favorite),
         )
         .route(
+            "/api/v1/channels/{channel_id}/invitations",
+            post(invitations::invite_to_channel),
+        )
+        .route(
             "/api/v1/channels/{channel_id}/members",
             get(channels::list_channel_members).post(channels::add_channel_members),
         )

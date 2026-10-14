@@ -907,6 +907,102 @@ async fn a_group_conversation_lists_who_is_in_it() {
     assert_eq!(ids, expected);
 }
 
+#[tokio::test]
+async fn whoever_creates_a_group_can_bring_a_guest_into_it_and_only_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Bob is a plain member: creating a group makes him its owner, which is what lets him invite.
+    let bob = app.cookie_for(fx.bob).await;
+    let group: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &bob,
+        )
+        .json(&json!({ "name": "Chantier externe", "type": "private" }))
+        .send()
+        .await
+        .expect("create")
+        .json()
+        .await
+        .expect("json");
+    let group_id = group["id"].as_str().expect("id").to_owned();
+
+    let outsider = make_user(&app.db, "outsider").await;
+    let address = users::Entity::find_by_id(outsider)
+        .one(&app.db)
+        .await
+        .expect("user")
+        .expect("found")
+        .email;
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/channels/{group_id}/invitations"),
+            &bob,
+        )
+        .json(&json!({ "email": address }))
+        .send()
+        .await
+        .expect("invite");
+    assert_eq!(created.status(), 201);
+    let created: Value = created.json().await.expect("json");
+    assert_eq!(created["role"], "guest");
+    let url = created["url"].as_str().expect("url");
+    let token = url.split("token=").nth(1).expect("token").to_owned();
+
+    let guest = app.cookie_for(outsider).await;
+    let accepted = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/invitations/{token}/accept"),
+            &guest,
+        )
+        .send()
+        .await
+        .expect("accept");
+    assert!(accepted.status().is_success());
+
+    let membership = space_members::Entity::find_by_id((fx.space_id, outsider))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .expect("in the space");
+    assert_eq!(membership.role, "guest");
+    let group_uuid: Uuid = group_id.parse().expect("uuid");
+    // In the group they were invited to, and not in the space's default channel.
+    assert!(channel_members::Entity::find_by_id((group_uuid, outsider))
+        .one(&app.db)
+        .await
+        .expect("query")
+        .is_some());
+    assert!(
+        channel_members::Entity::find_by_id((fx.public_channel, outsider))
+            .one(&app.db)
+            .await
+            .expect("query")
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn a_member_cannot_invite_into_a_group_they_do_not_run() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let carol = app.cookie_for(fx.carol).await;
+    let refused = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/channels/{}/invitations", fx.public_channel),
+            &carol,
+        )
+        .json(&json!({ "email": "someone@example.test" }))
+        .send()
+        .await
+        .expect("invite");
+    assert_eq!(refused.status(), 403);
+}
+
 /// One channel of `GET /spaces/{id}/channels`, as `cookie` sees it.
 async fn channel_row(
     app: &TestApp,

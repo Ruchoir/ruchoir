@@ -735,6 +735,13 @@ pub struct InvitationPreviewDto {
     pub role: String,
 }
 
+/// Invite someone from outside into one group, as a guest who sees that group only.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct ChannelInvitationRequest {
+    /// Address to send it to.
+    pub email: String,
+}
+
 /// Create an invitation into a space.
 #[derive(Debug, Clone, Deserialize, ToSchema)]
 pub struct CreateInvitationRequest {

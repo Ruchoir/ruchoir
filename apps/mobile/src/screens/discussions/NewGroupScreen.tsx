@@ -2,21 +2,23 @@
  * "Create a group": a channel of the space. Its name is shown as it will be written (`#projets-
  * clients`), it is open to the whole space or on invitation, and people can be added at once.
  */
-import { addChannelMembers, createChannel, getChannels, type Member } from "@ruchoir/client";
+import { addChannelMembers, createChannel, getChannels, inviteToChannel, type Member } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
+import { X } from "lucide-react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
+import { addAddress, isEmail } from "../../logic/email";
 import { channelHandle } from "../../logic/handle";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline } from "../../theme/tokens";
+import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { SearchField } from "../../ui/SearchField";
@@ -33,7 +35,7 @@ type Access = "public" | "private";
 export function NewGroupScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const { c, s } = useTheme();
   const toast = useToast();
   const { state } = useSession();
   const me = state.kind === "signedIn" ? state.user : null;
@@ -47,11 +49,24 @@ export function NewGroupScreen() {
   const [access, setAccess] = useState<Access>("public");
   const [query, setQuery] = useState("");
   const [chosen, setChosen] = useState<string[]>([]);
+  // People from outside, by address: invited as guests who see this group only.
+  const [address, setAddress] = useState("");
+  const [outsiders, setOutsiders] = useState<string[]>([]);
+  const [addressError, setAddressError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
   const handle = channelHandle(name);
   const taken = !!handle && !!channels.data?.some((ch) => channelHandle(ch.name) === handle);
+  const addOutsider = () => {
+    if (!address.trim()) return;
+    if (!isEmail(address)) {
+      setAddressError(true);
+      return;
+    }
+    setOutsiders((prev) => addAddress(prev, address));
+    setAddress("");
+  };
   const toggle = (member: Member) =>
     setChosen((prev) => (prev.includes(member.userId) ? prev.filter((id) => id !== member.userId) : [...prev, member.userId]));
 
@@ -68,16 +83,23 @@ export function NewGroupScreen() {
       return;
     }
     let everyone = true;
-    if (chosen.length > 0) {
+    // People of the space are chosen only for a group on invitation: an open one is everyone's.
+    if (access === "private" && chosen.length > 0) {
       try {
         await addChannelMembers(channel.id, chosen);
       } catch {
         everyone = false;
       }
     }
+    // An address typed but not added yet is meant too.
+    const addresses = isEmail(address) ? addAddress(outsiders, address) : outsiders;
+    const invited = await Promise.allSettled(addresses.map((a) => inviteToChannel(channel.id, a)));
+    const unsent = invited.filter((r) => r.status === "rejected").length;
     navigation.goBack();
     navigation.navigate("conversation", { conversationId: channel.id, title: channel.name, channelId: channel.id, kind: "channel" });
     if (!everyone) toast(t("group.membersFailed"));
+    else if (unsent > 0) toast(t("group.invitesFailed", { count: unsent }));
+    else if (addresses.length > 0) toast(t("group.invitesSent", { count: addresses.length }));
   };
 
   return (
@@ -117,12 +139,57 @@ export function NewGroupScreen() {
           <View style={styles.gutter}>
             <TextField label={t("group.topic")} placeholder={t("group.topicPlaceholder")} value={topic} onChangeText={setTopic} />
           </View>
-          <View style={styles.block}>
-            <Text variant="smallStrong" style={styles.gutter}>
-              {t("group.members")}
-            </Text>
-            <SearchField value={query} onChange={setQuery} placeholder={t("people.search")} />
-            <PeopleList people={people} query={query} selected={chosen} onToggle={toggle} />
+          {access === "private" ? (
+            <View style={styles.block}>
+              <Text variant="smallStrong" style={styles.gutter}>
+                {t("group.members")}
+              </Text>
+              <SearchField value={query} onChange={setQuery} placeholder={t("people.search")} />
+              <PeopleList people={people} query={query} selected={chosen} onToggle={toggle} />
+            </View>
+          ) : null}
+          <View style={[styles.block, styles.gutter]}>
+            <Text variant="smallStrong">{t("group.externals")}</Text>
+            <View style={styles.addRow}>
+              <View style={styles.grow}>
+                <TextField
+                  label={t("signIn.email")}
+                  value={address}
+                  onChangeText={(text) => {
+                    setAddress(text);
+                    setAddressError(false);
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={addOutsider}
+                  error={addressError ? t("invite.invalidEmail") : undefined}
+                  hint={t("group.externalsHint")}
+                />
+              </View>
+              <Button variant="secondary" size="md" label={t("group.addExternal")} disabled={!address.trim()} onPress={addOutsider} style={styles.addButton} />
+            </View>
+            {outsiders.length > 0 ? (
+              <View style={styles.chips}>
+                {outsiders.map((a) => (
+                  <View key={a} style={[styles.chip, { backgroundColor: s.sunken }]}>
+                    <Text variant="small" numberOfLines={1} style={styles.chipText}>
+                      {a}
+                    </Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t("attach.remove", { name: a })}
+                      hitSlop={8}
+                      onPress={() => setOutsiders((prev) => prev.filter((x) => x !== a))}
+                    >
+                      <X size={14} color={c.ink} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </View>
         </ScrollView>
         <View style={[styles.foot, { borderTopColor: c.line }]}>
@@ -144,4 +211,11 @@ const styles = StyleSheet.create({
   gutter: { paddingHorizontal: 16 },
   block: { gap: 8 },
   foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
+  addRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  grow: { flex: 1 },
+  // Level with the field, under its label.
+  addButton: { marginTop: 24, height: 52 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  chip: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%", paddingLeft: 10, paddingRight: 8, paddingVertical: 6, borderRadius: radius.l },
+  chipText: { flexShrink: 1 },
 });

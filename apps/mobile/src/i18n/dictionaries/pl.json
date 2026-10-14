@@ -372,7 +372,18 @@
     "members": "Osoby do dodania",
     "create": "Utwórz",
     "failed": "Nie udało się utworzyć grupy.",
-    "membersFailed": "Grupa została utworzona, ale nie udało się dodać niektórych osób."
+    "membersFailed": "Grupa została utworzona, ale nie udało się dodać niektórych osób.",
+    "externals": "Zaproś osoby z zewnątrz",
+    "externalsHint": "Otrzymają e-mail i zobaczą tylko tę grupę.",
+    "addExternal": "Dodaj",
+    "invitesSent_one": "Wysłano {{count}} zaproszenie",
+    "invitesSent_other": "Wysłano {{count}} zaproszenia",
+    "invitesFailed_one": "Nie udało się wysłać {{count}} zaproszenia",
+    "invitesFailed_other": "Nie udało się wysłać {{count}} zaproszeń",
+    "invitesSent_few": "Wysłano {{count}} zaproszenia",
+    "invitesSent_many": "Wysłano {{count}} zaproszeń",
+    "invitesFailed_few": "Nie udało się wysłać {{count}} zaproszeń",
+    "invitesFailed_many": "Nie udało się wysłać {{count}} zaproszeń"
   },
   "invite": {
     "member": "Członek",

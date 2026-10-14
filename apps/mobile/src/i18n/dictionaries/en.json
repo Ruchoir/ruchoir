@@ -348,7 +348,14 @@
     "members": "People to add",
     "create": "Create",
     "failed": "The group could not be created.",
-    "membersFailed": "The group is created, but some people could not be added."
+    "membersFailed": "The group is created, but some people could not be added.",
+    "externals": "Invite people from outside",
+    "externalsHint": "They get an e-mail and see this group only.",
+    "addExternal": "Add",
+    "invitesSent_one": "{{count}} invitation sent",
+    "invitesSent_other": "{{count}} invitations sent",
+    "invitesFailed_one": "{{count}} invitation could not go out",
+    "invitesFailed_other": "{{count}} invitations could not go out"
   },
   "invite": {
     "member": "Member",

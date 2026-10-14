@@ -38,8 +38,8 @@ use crate::state::AppState;
 
 use super::authz::{ensure_space_admin, space_member_ids};
 use super::dto::{
-    rfc3339, CreateInvitationRequest, CreatedInvitationDto, InvitationDto, InvitationPreviewDto,
-    MemberDto, MemberJoinedDto, SpaceDto,
+    rfc3339, ChannelInvitationRequest, CreateInvitationRequest, CreatedInvitationDto,
+    InvitationDto, InvitationPreviewDto, MemberDto, MemberJoinedDto, SpaceDto,
 };
 use super::error::ApiError;
 use super::messages::hydrate_messages;
@@ -112,20 +112,105 @@ pub async fn create_invitation(
         None => None,
     };
 
+    let created = issue(
+        &state,
+        Issue {
+            space_id,
+            email,
+            role,
+            max_uses,
+            ttl_hours,
+            channel_id: None,
+            inviter: session.user_id,
+        },
+    )
+    .await?;
+    Ok((StatusCode::CREATED, Json(created)))
+}
+
+/// `POST /api/v1/channels/{channel_id}/invitations`: bring someone from outside into one group.
+///
+/// For whoever runs the channel (its owner, which creating it makes one, or a moderator, or the
+/// space's administrators), not only for the space's administrators: a person setting up a group
+/// with a client or a partner should not need to ask for it. What they can hand out is narrow on
+/// purpose: an addressed, single-use invitation, as a guest, who sees this channel and nothing else
+/// of the space until someone adds them elsewhere.
+#[utoipa::path(
+    post,
+    path = "/api/v1/channels/{channel_id}/invitations",
+    tag = "messaging",
+    params(("channel_id" = Uuid, Path, description = "Channel id")),
+    request_body = ChannelInvitationRequest,
+    responses(
+        (status = 201, description = "Invitation created; the link is returned once", body = CreatedInvitationDto),
+        (status = 400, description = "Invalid address, or the channel is archived"),
+        (status = 403, description = "Not someone who runs this channel")
+    )
+)]
+pub async fn invite_to_channel(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(channel_id): Path<Uuid>,
+    Json(body): Json<ChannelInvitationRequest>,
+) -> Result<(StatusCode, Json<CreatedInvitationDto>), ApiError> {
+    let channel = channels::Entity::find_by_id(channel_id)
+        .one(&state.db)
+        .await?
+        .ok_or(ApiError::Forbidden)?;
+    super::authz::ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
+    if !super::authz::is_channel_moderator(&state.db, channel_id, channel.space_id, session.user_id)
+        .await?
+    {
+        return Err(ApiError::Forbidden);
+    }
+    if channel.channel_type == "archived" {
+        return Err(ApiError::BadRequest("this channel is archived"));
+    }
+    let email = validate_email(body.email.trim())?.to_owned();
+    let created = issue(
+        &state,
+        Issue {
+            space_id: channel.space_id,
+            email: Some(email),
+            role: "guest",
+            max_uses: Some(1),
+            ttl_hours: DEFAULT_TTL_HOURS,
+            channel_id: Some(channel_id),
+            inviter: session.user_id,
+        },
+    )
+    .await?;
+    Ok((StatusCode::CREATED, Json(created)))
+}
+
+/// What an invitation is made of, once its caller has checked who may issue it.
+struct Issue {
+    space_id: Uuid,
+    email: Option<String>,
+    role: &'static str,
+    max_uses: Option<i32>,
+    ttl_hours: i64,
+    channel_id: Option<Uuid>,
+    inviter: Uuid,
+}
+
+/// Store an invitation, mail it when it is addressed, and hand back the one readable link.
+async fn issue(state: &AppState, issue: Issue) -> Result<CreatedInvitationDto, ApiError> {
     let raw = tokens::generate_token().map_err(|_| ApiError::Internal)?;
     let now = OffsetDateTime::now_utc();
     let record = space_invitations::ActiveModel {
         id: Set(Uuid::new_v4()),
-        space_id: Set(space_id),
+        space_id: Set(issue.space_id),
         token_hash: Set(tokens::digest(&raw)),
-        email: Set(email.clone()),
-        role: Set(role.to_owned()),
-        created_by: Set(Some(session.user_id)),
-        max_uses: Set(max_uses),
+        email: Set(issue.email.clone()),
+        role: Set(issue.role.to_owned()),
+        created_by: Set(Some(issue.inviter)),
+        max_uses: Set(issue.max_uses),
         uses: Set(0),
-        expires_at: Set(Some(now + Duration::hours(ttl_hours))),
+        expires_at: Set(Some(now + Duration::hours(issue.ttl_hours))),
         revoked_at: Set(None),
         created_at: Set(now),
+        channel_id: Set(issue.channel_id),
     }
     .insert(&state.db)
     .await?;
@@ -139,25 +224,22 @@ pub async fn create_invitation(
     // An instance with no relay logs the message instead of sending it, which is the right
     // behaviour in development but must never be reported as a delivery: the administrator would
     // stop watching for a link that nobody received.
-    let emailed = match &email {
+    let emailed = match &issue.email {
         // In the inviter's language: the recipient has no account yet, so nothing is known about
         // what they read, and the person who just typed their address presumably shares a working
         // language with them.
         Some(address) if state.mailer.can_send() => {
-            send_invitation_email(&state, address, space_id, &url, session.user_id).await
+            send_invitation_email(state, address, issue.space_id, &url, issue.inviter).await
         }
         _ => false,
     };
 
-    let inviter = display_name(&state, Some(session.user_id)).await?;
-    Ok((
-        StatusCode::CREATED,
-        Json(CreatedInvitationDto {
-            invitation: to_dto(&record, inviter, now),
-            url,
-            emailed,
-        }),
-    ))
+    let inviter = display_name(state, Some(issue.inviter)).await?;
+    Ok(CreatedInvitationDto {
+        invitation: to_dto(&record, inviter, now),
+        url,
+        emailed,
+    })
 }
 
 /// `GET /api/v1/spaces/{space_id}/invitations`: what is outstanding for this space.
@@ -322,9 +404,25 @@ pub async fn accept_invitation(
     // The arrival notice written into the channel, when there was a real arrival and the space has a
     // public channel to write it in. Published after the commit, like every other message.
     let mut notice: Option<messages::Model> = None;
+    // An invitation into one group lands there rather than in the space's default channel: a guest
+    // brought in for a group sees that group, not the space's main room.
+    let invited_channel = match record.channel_id {
+        Some(id) => channels::Entity::find_by_id(id)
+            .one(&state.db)
+            .await?
+            .filter(|channel| channel.space_id == record.space_id)
+            .map(|channel| channel.id),
+        None => None,
+    };
     let role = match existing {
-        // Already in: return the space unchanged, and do not spend a use.
-        Some(member) => member.role,
+        // Already in the space: nothing changes and no use is spent, except that an invitation into
+        // a group still lets them in it.
+        Some(member) => {
+            if let Some(channel) = invited_channel {
+                join_channel_if_absent(&state, channel, session.user_id).await?;
+            }
+            member.role
+        }
         None => {
             let now = OffsetDateTime::now_utc();
             let txn = state.db.begin().await?;
@@ -343,8 +441,12 @@ pub async fn accept_invitation(
             active.update(&txn).await?;
 
             // Joining the configured default channel makes a new space membership immediately
-            // live, regardless of which public channel happened to be created first.
-            let channel = super::spaces::default_channel(&txn, record.space_id).await?;
+            // live, regardless of which public channel happened to be created first; an
+            // invitation into a group joins that group instead.
+            let channel = match invited_channel {
+                Some(channel) => channel,
+                None => super::spaces::default_channel(&txn, record.space_id).await?,
+            };
             channel_members::ActiveModel {
                 channel_id: Set(channel),
                 user_id: Set(session.user_id),
@@ -549,6 +651,33 @@ fn is_usable(record: &space_invitations::Model, now: OffsetDateTime) -> bool {
 }
 
 /// The display name of an account, or `None` when it is gone (`created_by` is provenance only).
+/// Add someone already in the space to the group an invitation named, if they are not in it yet.
+async fn join_channel_if_absent(
+    state: &AppState,
+    channel_id: Uuid,
+    user_id: Uuid,
+) -> Result<(), ApiError> {
+    if channel_members::Entity::find_by_id((channel_id, user_id))
+        .one(&state.db)
+        .await?
+        .is_some()
+    {
+        return Ok(());
+    }
+    channel_members::ActiveModel {
+        channel_id: Set(channel_id),
+        user_id: Set(user_id),
+        role: Set("member".to_owned()),
+        notification_level: Set("default".to_owned()),
+        muted: Set(false),
+        favorite: Set(false),
+        joined_at: Set(OffsetDateTime::now_utc()),
+    }
+    .insert(&state.db)
+    .await?;
+    Ok(())
+}
+
 async fn display_name(state: &AppState, user_id: Option<Uuid>) -> Result<Option<String>, ApiError> {
     let Some(user_id) = user_id else {
         return Ok(None);

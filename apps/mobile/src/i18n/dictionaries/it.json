@@ -360,7 +360,16 @@
     "members": "Persone da aggiungere",
     "create": "Crea",
     "failed": "Non è stato possibile creare il gruppo.",
-    "membersFailed": "Il gruppo è stato creato, ma non è stato possibile aggiungere alcune persone."
+    "membersFailed": "Il gruppo è stato creato, ma non è stato possibile aggiungere alcune persone.",
+    "externals": "Invitare persone esterne",
+    "externalsHint": "Ricevono un’e-mail e vedono solo questo gruppo.",
+    "addExternal": "Aggiungi",
+    "invitesSent_one": "{{count}} invito inviato",
+    "invitesSent_other": "{{count}} inviti inviati",
+    "invitesSent_many": "{{count}} inviti inviati",
+    "invitesFailed_one": "{{count}} invito non è partito",
+    "invitesFailed_other": "{{count}} inviti non sono partiti",
+    "invitesFailed_many": "{{count}} inviti non sono partiti"
   },
   "invite": {
     "member": "Membro",

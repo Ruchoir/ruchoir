@@ -822,6 +822,7 @@ async fn invite_one(
         expires_at: Set(Some(now + time::Duration::days(14))),
         revoked_at: Set(None),
         created_at: Set(now),
+        channel_id: Set(None),
     }
     .insert(&state.db)
     .await

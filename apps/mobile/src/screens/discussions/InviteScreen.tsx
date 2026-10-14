@@ -11,6 +11,7 @@ import { ScrollView, Share, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTranslation } from "../../i18n";
+import { isEmail } from "../../logic/email";
 import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
@@ -22,8 +23,6 @@ import { TextField } from "../../ui/TextField";
 import { KeyboardArea } from "../../ui/KeyboardArea";
 
 type Role = "member" | "guest";
-
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function InviteScreen() {
   const navigation = useNavigation();
@@ -46,7 +45,7 @@ export function InviteScreen() {
   const sendEmail = async () => {
     const address = email.trim();
     if (!current) return;
-    if (!EMAIL.test(address)) {
+    if (!isEmail(address)) {
       setError(t("invite.invalidEmail"));
       return;
     }
