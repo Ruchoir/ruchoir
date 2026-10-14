@@ -63,12 +63,15 @@ src/api/instance.ts    configures @ruchoir/client for the chosen instance (beare
 src/realtime/          one socket for the session; screens subscribe and refetch on resync; local
                        "patched" events carry my own changes (a reaction, a pin, an edit) to every screen
 src/compose/           the composer (mentions, files, edit mode), the outbox and drafts (above the
-                       screens), typing, attach sheet, and the request bus sheets use to reach a composer
+                       screens), typing, attach sheet, the phone's pickers (pick.ts), and the request bus
+                       sheets use to reach a composer
+src/uploads/           the files on their way to a space, above the screens (UploadsProvider)
+src/files/             the files tab's helpers: downloads to the cache, the shared rules' Entry
 src/space/             the space on screen, remembered between launches
 src/data/              useLoad (requests per screen), useReloadOn (live refetch), members, useNow
 src/logic/             pure functions, tested by Node: conversations, inline Markdown, agenda, today,
                        mentions, outbox, unread, reactions, receipts, threads, attachments, handle,
-                       eventForm (the event form as data), availability
+                       eventForm (the event form as data), availability, uploadQueue, scan
 src/screens/agenda/form/  the event form, its sheets (calendar, date and time pickers, repeat, custom
                        rule, reminders, people, channel, time zone, series scope) and its draft store
 src/navigation/        root stack (pushed screens, sheets) and the four tabs
@@ -138,6 +141,20 @@ src/i18n/              i18next and the six dictionaries
 - **The calendar's logic is the web's** (`@ruchoir/client/calendarLogic`: time in a zone, rules and
   their phrases, reminders and their words). Its keys are looked up in this app's dictionaries too:
   `useSharedT()` hands it `t`, and the audit scans it with the app.
+
+- **Uploads to a space live above the screens.** `uploads/UploadsProvider.tsx` holds the queue
+  (`logic/uploadQueue.ts`) and sends one file at a time (`startFileUpload`, or
+  `startFileVersionUpload` for a new version), so leaving a folder does not stop them; the lists
+  reload through the live `files` event. A name already taken asks first (`ConflictSheet`, the web's
+  replace / keep both / skip); the strip (`UploadStrip`) and the uploads sheet show the rest. Expo Go
+  has no background upload: leaving the app stops what is going, which then reads as failed.
+- **A scanned document is photos made into a PDF on the phone** (`ScanScreen`: `expo-image-manipulator`
+  shrinks each page, `expo-print` lays them on A4 sheets through `logic/scan.ts`'s HTML). Expo Go has
+  no document scanner (edges, perspective); the real one waits for the native app.
+- **A file's menu is the web's** (`EntryMenu`, the shared `actionsFor` and `canManage`): its sheets
+  are routes given the `SpaceFile` itself (`fileMenu`, `fileName`, `fileMove`, `fileVersions`,
+  `fileShare`, `fileSendTo`, `fileLinks`, `fileDetails`). A favourite is not broadcast: the menu emits
+  a local `files` event so the lists show it.
 
 ## Checks
 

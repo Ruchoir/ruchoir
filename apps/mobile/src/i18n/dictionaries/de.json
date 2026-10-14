@@ -477,7 +477,6 @@
     "sendFailed": "Senden nicht möglich",
     "publicLinks": "Öffentliche Links",
     "publicLinksHint": "Jeder mit dem Link kann diese Datei herunterladen, ohne Ruchoir-Konto.",
-    "publicLinksOff": "Öffentliche Links sind auf dieser Instanz deaktiviert.",
     "linkExpiry": "Ablauf",
     "linkNoEnd": "Kein Ablauf",
     "linkDays_one": "{{count}} Tag",

@@ -510,7 +510,6 @@
     "sendFailed": "No se pudo enviar",
     "publicLinks": "Enlaces públicos",
     "publicLinksHint": "Cualquiera que tenga el enlace puede descargar este archivo, sin cuenta de Ruchoir.",
-    "publicLinksOff": "Los enlaces públicos están desactivados en esta instancia.",
     "linkExpiry": "Caducidad",
     "linkNoEnd": "Sin caducidad",
     "linkDays_one": "{{count}} día",

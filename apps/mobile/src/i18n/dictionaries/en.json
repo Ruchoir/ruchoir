@@ -477,7 +477,6 @@
     "sendFailed": "Could not send",
     "publicLinks": "Public links",
     "publicLinksHint": "Anyone with the link can download this file, without a Ruchoir account.",
-    "publicLinksOff": "Public links are turned off on this instance.",
     "linkExpiry": "Expiry",
     "linkNoEnd": "No expiry",
     "linkDays_one": "{{count}} day",

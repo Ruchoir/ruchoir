@@ -543,7 +543,6 @@
     "sendFailed": "Nie udało się wysłać",
     "publicLinks": "Linki publiczne",
     "publicLinksHint": "Każdy, kto ma link, może pobrać ten plik bez konta Ruchoir.",
-    "publicLinksOff": "Linki publiczne są wyłączone w tej instancji.",
     "linkExpiry": "Wygaśnięcie",
     "linkNoEnd": "Bez wygaśnięcia",
     "linkDays_one": "{{count}} dzień",
