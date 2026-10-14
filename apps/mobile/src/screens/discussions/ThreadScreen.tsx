@@ -14,6 +14,8 @@ import { useAttachments } from "../../compose/useAttachments";
 import { useReact } from "../../compose/useReact";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
+import { useReloadOn } from "../../data/useReloadOn";
+import { affects } from "../../realtime/events";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
@@ -44,6 +46,7 @@ export function ThreadScreen() {
   const { current } = useSpace();
   const members = useSpaceMembers(current?.id);
   const channels = useLoad(current ? `channels:${current.id}` : null, (signal) => getChannels(current!.id, signal));
+  useReloadOn((e) => !!current && affects.channels(e, current.id), channels.reload);
   const draftKey = `thread:${rootId}`;
 
   const replies = useLoad(`replies:${rootId}`, (signal) => getReplies(rootId, signal));

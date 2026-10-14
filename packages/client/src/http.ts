@@ -88,7 +88,7 @@ export async function apiRequest<T>(method: Method, path: string, opts: RequestO
   }
 
   if (!res.ok) {
-    if (res.status === 401) clientOptions().onUnauthorized();
+    if (res.status === 401) clientOptions().onUnauthorized(errorCodeOf(body));
     throw new ApiError(res.status, apiErrorMessage(body, res.status), body);
   }
   // An empty answer (204) is `undefined`, as documented above, not the `null` used for "no body".
@@ -134,4 +134,10 @@ export function apiErrorMessage(body: unknown, status: number): string {
   }
   if (typeof body === "string" && body) return body;
   return `HTTP ${status}`;
+}
+
+/** The API's machine-readable error code in an error body (`{ "error": "invalid_code", … }`). */
+function errorCodeOf(body: unknown): string | undefined {
+  if (body && typeof body === "object" && "error" in body && typeof body.error === "string") return body.error;
+  return undefined;
 }

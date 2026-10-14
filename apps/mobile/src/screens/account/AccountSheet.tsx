@@ -1,39 +1,41 @@
-import { CircleCheck, LogOut, Server } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { CircleCheck, LifeBuoy, LogOut, Server, Settings, Shield, Smile } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 
-import { key, useTranslation } from "../../i18n";
+import { useTranslation } from "../../i18n";
+import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { selfPresence } from "../../session/presence";
 import { useTheme } from "../../theme/useTheme";
-import { Avatar } from "../../ui/Avatar";
 import { ActionRow } from "../../ui/ActionRow";
+import { Avatar } from "../../ui/Avatar";
 import { Button } from "../../ui/Button";
 import { Sheet } from "../../ui/Sheet";
 import { Text } from "../../ui/Text";
-
-const PRESENCE_TEXT = {
-  online: key("presence.online"),
-  away: key("presence.away"),
-  busy: key("presence.busy"),
-  offline: key("presence.offline"),
-};
+import { STATUS_TEXT } from "./StatusSheet";
 
 /**
- * "My account" (mockup 11), as far as step 1 goes: who is signed in, how they show, on which server,
- * and signing out. Profile, preferences and help arrive with step 5.
+ * "My account" (mockup 11): who is signed in, then their status, profile, preferences, security and
+ * help, the server, and signing out. Each row opens its own screen or sheet in place of this one.
  */
 export function AccountSheet() {
   const { t } = useTranslation();
   const { c } = useTheme();
   const session = useSession();
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   if (session.state.kind !== "signedIn") return null;
   const { user, server } = session.state;
   const presence = selfPresence(user.presenceChoice);
+  const open = (route: "statusSheet" | "profile" | "preferences" | "security" | "help") => {
+    navigation.goBack();
+    navigation.navigate(route);
+  };
 
   return (
     <Sheet>
       <View style={styles.who}>
-        <Avatar name={user.name} size={48} presence={presence} />
+        <Avatar name={user.name} src={user.avatarUrl} size={48} presence={presence} />
         <View style={styles.flex}>
           <Text variant="heading">{user.name}</Text>
           <Text variant="small" tone="muted" numberOfLines={1}>
@@ -41,7 +43,29 @@ export function AccountSheet() {
           </Text>
         </View>
       </View>
-      <ActionRow icon={CircleCheck} tint={c.mint} title={t(PRESENCE_TEXT[presence])} subtitle={t("account.status")} />
+      <ActionRow
+        icon={CircleCheck}
+        tint={c.mint}
+        title={t(STATUS_TEXT[user.presenceChoice].title)}
+        subtitle={t("account.status")}
+        onPress={() => open("statusSheet")}
+      />
+      <ActionRow icon={Smile} tint={c.sky} title={t("account.profile")} onPress={() => open("profile")} />
+      <ActionRow
+        icon={Settings}
+        tint={c.violet}
+        title={t("account.preferences")}
+        subtitle={t("account.preferencesHint")}
+        onPress={() => open("preferences")}
+      />
+      <ActionRow
+        icon={Shield}
+        tint={c.peach}
+        title={t("account.security")}
+        subtitle={t("account.securityHint")}
+        onPress={() => open("security")}
+      />
+      <ActionRow icon={LifeBuoy} tint={c.sun} title={t("account.help")} onPress={() => open("help")} />
       <ActionRow icon={Server} title={server.replace(/^https:\/\//, "")} subtitle={t("signIn.server")} />
       <Button
         variant="secondary"

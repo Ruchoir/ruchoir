@@ -1,10 +1,11 @@
-import { Server } from "lucide-react-native";
-import * as WebBrowser from "expo-web-browser";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 
 import { DEFAULT_SERVER } from "../../config";
 import { useTranslation } from "../../i18n";
+import type { AuthParams } from "../../navigation/types";
 import { FAILURE_TEXT } from "../../session/failureText";
 import { AuthFailure, useSession } from "../../session/SessionProvider";
 import { hairline, radius } from "../../theme/tokens";
@@ -14,21 +15,22 @@ import { Button } from "../../ui/Button";
 import { Screen } from "../../ui/Screen";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
-
-/** What the person sees of an origin: its host. */
-const hostOf = (origin: string) => origin.replace(/^https:\/\//, "");
+import { AuthTop } from "./AuthTop";
+import { hostOf, ServerField } from "./ServerField";
 
 /**
  * Sign-in (mockup 04): the server row, the address and the password. The server is changed in place;
  * with none chosen yet, its field is open from the start.
  *
  * Face ID and "sign in with my organisation" are not offered: the first needs a native build (step 6),
- * the second does not exist in the API yet.
+ * the second does not exist in the API yet. "Create an account" and "Forgot password" open their own
+ * screens.
  */
 export function SignInScreen() {
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const { c } = useTheme();
   const session = useSession();
+  const navigation = useNavigation<NativeStackNavigationProp<AuthParams>>();
   const server = "server" in session.state ? session.state.server : null;
   const expired = session.state.kind === "signedOut" && session.state.reason === "expired";
 
@@ -55,13 +57,9 @@ export function SignInScreen() {
     }
   };
 
-  // The account pages live on the instance's own site until the app has them (step 5).
-  const openWeb = () => {
-    if (server) void WebBrowser.openBrowserAsync(`${server}/`);
-  };
-
   return (
     <Screen>
+      <AuthTop />
       <View style={styles.head}>
         <View style={[styles.markTile, { borderColor: c.lineStrong }]}>
           <Image source={require("../../../assets/mark.png")} style={[styles.mark, { tintColor: c.brand }]} />
@@ -71,32 +69,7 @@ export function SignInScreen() {
 
       {expired && !error ? <Banner tone="danger" text={t("signIn.expired")} /> : null}
 
-      {server && !editing ? (
-        <View style={[styles.serverRow, { backgroundColor: s.sunken }]}>
-          <Server size={18} color={c.ink} />
-          <View style={styles.serverText}>
-            <Text variant="tiny" tone="muted">
-              {t("signIn.server")}
-            </Text>
-            <Text variant="bodyStrong" numberOfLines={1}>
-              {hostOf(server)}
-            </Text>
-          </View>
-          <Button variant="ghost" size="sm" label={t("signIn.change")} onPress={() => setEditing(true)} />
-        </View>
-      ) : (
-        <TextField
-          label={t("signIn.serverField")}
-          hint={t("signIn.serverHint")}
-          placeholder={t("signIn.serverPlaceholder")}
-          value={serverDraft}
-          onChangeText={setServerDraft}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          textContentType="URL"
-        />
-      )}
+      <ServerField server={server} editing={editing} draft={serverDraft} onDraft={setServerDraft} onEdit={() => setEditing(true)} />
 
       <TextField
         label={t("signIn.email")}
@@ -119,7 +92,7 @@ export function SignInScreen() {
         autoComplete="current-password"
         onSubmitEditing={() => void submit()}
       />
-      {server ? <Button variant="link" label={t("signIn.forgot")} onPress={openWeb} /> : null}
+      <Button variant="link" label={t("signIn.forgot")} onPress={() => navigation.navigate("forgotPassword", { email: email.trim() || undefined })} />
 
       {error ? <Banner tone="danger" text={t(FAILURE_TEXT[error.code])} /> : null}
 
@@ -130,14 +103,12 @@ export function SignInScreen() {
         disabled={!email.trim() || !password || (!server && !serverDraft.trim())}
       />
 
-      {server ? (
-        <View style={styles.signup}>
-          <Text variant="small" tone="body">
-            {t("signIn.noAccount")}
-          </Text>
-          <Button variant="link" label={t("signIn.createAccount")} onPress={openWeb} style={styles.inlineLink} />
-        </View>
-      ) : null}
+      <View style={styles.signup}>
+        <Text variant="small" tone="body">
+          {t("signIn.noAccount")}
+        </Text>
+        <Button variant="link" label={t("signIn.createAccount")} onPress={() => navigation.navigate("signUp")} style={styles.inlineLink} />
+      </View>
     </Screen>
   );
 }
@@ -154,8 +125,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   mark: { width: 34, height: 34, marginTop: 4 },
-  serverRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: radius.m },
-  serverText: { flex: 1, minWidth: 0 },
   signup: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, paddingTop: 4 },
   inlineLink: { alignSelf: "center", paddingVertical: 0 },
 });

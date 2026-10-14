@@ -9,7 +9,9 @@ import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
-import { buildConversations, listConversations, type ConversationFilter, type ConversationItem } from "../../logic/conversations";
+import { buildConversations, listConversations, withLivePresence, type ConversationFilter, type ConversationItem } from "../../logic/conversations";
+import { affects } from "../../realtime/events";
+import { useRealtimeEvent } from "../../realtime/RealtimeProvider";
 import { listStamp } from "../../logic/format";
 import { useSpace } from "../../space/SpaceProvider";
 import { useTheme } from "../../theme/useTheme";
@@ -20,7 +22,6 @@ import { Chips } from "../../ui/Chips";
 import { SearchField } from "../../ui/SearchField";
 import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { EmptyState, LoadState } from "../../ui/States";
-import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
@@ -45,7 +46,7 @@ export async function loadConversations(spaceId: string, signal: AbortSignal): P
 export function DiscussionsScreen() {
   const { t } = useTranslation();
   const navigation = useNavigation();
-  const { current, status } = useSpace();
+  const { current } = useSpace();
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [query, setQuery] = useState("");
   const floating = useFloatingScroll();
@@ -54,16 +55,21 @@ export function DiscussionsScreen() {
   );
   const memberOf = useMemberOf(current?.id);
 
-  // A new message moves a conversation up and changes its preview.
-  useReloadOn((e) => e.type === "message" || e.type === "readCursor" || e.type === "channels", conversations.reload);
+  // A new message moves a conversation up and changes its preview; a channel, a name or a face changes
+  // its row. Who is online moves without any of that: it is laid over the rows as it is heard.
+  const spaceId = current?.id ?? "";
+  useReloadOn((e) => affects.conversations(e, spaceId), conversations.reload);
+  const [presence, setPresence] = useState<Record<string, ConversationItem["presence"]>>({});
+  useRealtimeEvent((e) => {
+    if (e.type === "presence") setPresence((now) => ({ ...now, [e.userId]: e.presence }));
+  });
 
   const items = useMemo(
-    () => (conversations.data ? listConversations(conversations.data, filter, query) : []),
-    [conversations.data, filter, query],
+    () => (conversations.data ? withLivePresence(listConversations(conversations.data, filter, query), presence) : []),
+    [conversations.data, filter, query, presence],
   );
   const unreadCount = conversations.data?.filter((c) => c.unread > 0).length ?? 0;
 
-  if (status === "none") return <NoSpace title={t("tabs.discussions")} />;
 
   return (
     <TabScreen>
@@ -171,7 +177,13 @@ export function ConversationRow({
           })}
         />
       ) : (
-        <Avatar name={item.name} kind={item.kind === "person" ? "person" : "workspace"} size={44} presence={item.kind === "person" ? item.presence : undefined} />
+        <Avatar
+          name={item.name}
+          kind={item.kind === "person" ? "person" : "workspace"}
+          src={item.kind === "person" && item.userId ? memberOf?.(item.userId)?.avatarUrl : undefined}
+          size={44}
+          presence={item.kind === "person" ? item.presence : undefined}
+        />
       )}
       <View style={styles.body}>
         <View style={styles.line}>

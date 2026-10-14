@@ -58,6 +58,7 @@ import { repeatLabel } from "./repeat";
 import { useScopeRequests } from "./scope";
 import { MAX_EVENT_FILES, useEventUploads } from "./useEventUploads";
 import { WhenRows } from "./WhenRows";
+import { usePrefs } from "../../../prefs/store";
 
 let forms = 0;
 
@@ -67,6 +68,7 @@ export function EventFormScreen() {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
+  const { duration } = usePrefs();
   const say = useSharedT();
   const toast = useToast();
   const { spaces } = useSpace();
@@ -140,10 +142,10 @@ export function EventFormScreen() {
     if (!calendars.data || initial.current || (params.eventId && !edit)) return;
     const fresh = edit
       ? draftFromEvent(edit.occurrence, edit.event, timeZone)
-      : newDraft({ day: params.day ?? dayKey(new Date(), timeZone), now: new Date(), timeZone, calendars: calendars.data, channelId: params.channelId });
+      : newDraft({ day: params.day ?? dayKey(new Date(), timeZone), now: new Date(), timeZone, calendars: calendars.data, channelId: params.channelId, duration });
     initial.current = fresh;
     openDraft(formKey, fresh);
-  }, [calendars.data, edit, formKey, params.eventId, params.day, params.channelId, timeZone]);
+  }, [calendars.data, edit, formKey, params.eventId, params.day, params.channelId, timeZone, duration]);
   useEffect(() => () => closeDraft(formKey), [formKey]);
 
   // Leaving with something typed asks first; leaving after saving does not.

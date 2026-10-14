@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildConversations, listConversations, type ConversationItem } from "../src/logic/conversations.ts";
+import { buildConversations, listConversations, withLivePresence, type ConversationItem } from "../src/logic/conversations.ts";
 
 const item = (over: Partial<ConversationItem>): ConversationItem => ({
   id: over.id ?? "x",
@@ -107,4 +107,15 @@ test("a_channel_on_invitation_and_a_private_group_conversation_say_so", () => {
   assert.deepEqual(built[2].participants, ["u3", "u4"]);
   // The others and the reader.
   assert.equal(built[2].members, 3);
+});
+
+test("presence_moves_live_on_a_persons_row", () => {
+  const items = [
+    { id: "d1", kind: "person", name: "Bob", userId: "u2", presence: "offline" },
+    { id: "c1", kind: "channel", name: "general" },
+  ] as never as Parameters<typeof withLivePresence>[0];
+  const shown = withLivePresence(items, { u2: "online" });
+  assert.equal(shown[0].presence, "online");
+  // Nothing heard: the rows are the ones loaded, untouched.
+  assert.equal(withLivePresence(items, {}), items);
 });

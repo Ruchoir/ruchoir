@@ -6,11 +6,15 @@
  */
 import {
   apiErrorCode,
+  changePassword as apiChangePassword,
+  confirmEmailVerificationCode,
   getInstanceCapabilities,
   getSession,
   isApiError,
   login,
   logout,
+  register as apiRegister,
+  requestEmailVerification,
   verifyRecoveryCode,
   verifyTotp,
   type MfaMethod,
@@ -38,6 +42,9 @@ export type FailureCode =
   | "account_locked"
   | "invalid_code"
   | "invalid_token"
+  | "email_taken"
+  | "weak_password"
+  | "breached_password"
   | "passkeyOnly"
   | "unknown";
 
@@ -50,8 +57,26 @@ export class AuthFailure extends Error {
 /** The second factors this app can complete. A passkey needs a native build (step 6). */
 const APP_METHODS: MfaMethod[] = ["totp", "recovery"];
 
+/** What a new account needs to be created. */
+export type SignUp = { name: string; email: string; password: string; invitationToken?: string };
+
 type SessionApi = {
   state: SessionState;
+  /**
+   * The address of an account just created and not confirmed yet. Its password waits beside it in
+   * memory only (never written), so the app can sign in by itself once the address is confirmed.
+   */
+  pendingSignUp: { email: string } | null;
+  /** Create an account: `"signedIn"` when it is active at once (an invitation to that address). */
+  register: (input: SignUp) => Promise<"verify" | "signedIn">;
+  /** Confirm the pending address with the e-mailed code, then sign in. */
+  confirmCode: (code: string) => Promise<void>;
+  resendVerification: () => Promise<void>;
+  /** Sign in quietly with the pending sign-up; false while the address is still unconfirmed. */
+  retryPendingSignIn: () => Promise<boolean>;
+  forgetPendingSignUp: () => void;
+  /** The invitation pasted at sign-up, handed once to whoever accepts it after sign-in. */
+  takePendingInvitation: () => string | null;
   /** True when the Keychain held a session but the instance could not be reached to check it. */
   offlineAtBoot: boolean;
   retryBoot: () => void;
@@ -60,6 +85,13 @@ type SessionApi = {
   signIn: (email: string, password: string) => Promise<void>;
   verify: (method: "totp" | "recovery", code: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** The account changed from this app: shown at once on every screen. */
+  updateUser: (patch: Partial<SessionUser>) => void;
+  /**
+   * Change the password. The server ends every session, this one included, so the app signs in again
+   * with the new password (a second factor, when the account has one, is asked as at sign-in).
+   */
+  changePassword: (current: string, next: string) => Promise<void>;
 };
 
 const SessionContext = createContext<SessionApi | null>(null);
@@ -74,6 +106,9 @@ function failureOf(err: unknown): AuthFailure {
     "account_locked",
     "invalid_code",
     "invalid_token",
+    "email_taken",
+    "weak_password",
+    "breached_password",
   ];
   if (code && (known as string[]).includes(code)) return new AuthFailure(code as FailureCode);
   return new AuthFailure(isApiError(err) ? "unknown" : "unreachable");
@@ -85,7 +120,7 @@ type Boot = { server: string | null; user: SessionUser | null; offline: boolean 
  * What the Keychain remembers, checked against the instance: the account when the session is still
  * good, none when it is not (401) or there was none, `offline` when the instance did not answer.
  */
-async function readStoredSession(onUnauthorized: () => void): Promise<Boot> {
+async function readStoredSession(onUnauthorized: (code?: string) => void): Promise<Boot> {
   const [server, token] = await Promise.all([store.getServer(), store.getToken()]);
   if (!server) return { server: null, user: null, offline: false };
   connectTo(server, onUnauthorized);
@@ -102,6 +137,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(sessionReducer, { kind: "booting" });
   const [offlineAtBoot, setOfflineAtBoot] = useState(false);
   const hasToken = useRef(false);
+  const pending = useRef<{ email: string; password: string } | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const invitation = useRef<string | null>(null);
+  /** The instance the client talks to once a choice has been checked: where a failed one goes back. */
+  const connected = useRef<string | null>(null);
 
   const holdToken = useCallback(async (token: string | null) => {
     hasToken.current = token !== null;
@@ -110,9 +150,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     else await store.clearToken();
   }, []);
 
-  // A 401 anywhere means the session is gone (expired, or ended from another device).
-  const onUnauthorized = useCallback(() => {
-    if (!hasToken.current) return;
+  // A 401 anywhere means the session is gone (expired, or ended from another device), except a wrong
+  // password typed to confirm an action (changing the password, turning off two-factor).
+  const onUnauthorized = useCallback((code?: string) => {
+    if (!hasToken.current || code === "invalid_credentials") return;
     void holdToken(null);
     clearDownloads();
     dispatch({ type: "unauthorized" });
@@ -121,6 +162,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Reading the Keychain and checking the session happen outside React; their result is applied in
   // the callback, which is the one place the boot sets state.
   const applyBoot = useCallback((boot: Boot) => {
+    connected.current = boot.server;
     if (boot.offline) return setOfflineAtBoot(true);
     hasToken.current = boot.user !== null;
     // A token the instance no longer honours is forgotten, not kept for the next launch.
@@ -146,15 +188,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const check = normalizeServer(input);
       if (!check.ok) throw new AuthFailure(check.reason);
       connectTo(check.origin, onUnauthorized);
+      // A server that is refused leaves the client where it was, so the screen and the requests
+      // still name the same instance.
+      const refuse = (code: FailureCode) => {
+        if (connected.current) connectTo(connected.current, onUnauthorized);
+        return new AuthFailure(code);
+      };
       let caps;
       try {
         caps = await getInstanceCapabilities();
       } catch (err) {
-        throw new AuthFailure(isApiError(err) ? "notRuchoir" : "unreachable");
+        throw refuse(isApiError(err) ? "notRuchoir" : "unreachable");
       }
       // A web page answering 200 is not an instance: a Ruchoir always says whether it can send mail.
-      if (typeof caps.emailDelivery !== "boolean") throw new AuthFailure("notRuchoir");
-      if (!caps.nativeSessions) throw new AuthFailure("outdated");
+      if (typeof caps.emailDelivery !== "boolean") throw refuse("notRuchoir");
+      if (!caps.nativeSessions) throw refuse("outdated");
+      connected.current = check.origin;
       await store.setServer(check.origin);
       await holdToken(null);
       dispatch({ type: "serverChosen", server: check.origin });
@@ -162,13 +211,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [holdToken, onUnauthorized],
   );
 
+  const forgetPendingSignUp = useCallback(() => {
+    pending.current = null;
+    setPendingEmail(null);
+  }, []);
+
   const signedIn = useCallback(
     async (user: SessionUser, token: string | undefined) => {
       if (!token) throw new AuthFailure("outdated");
       await holdToken(token);
+      forgetPendingSignUp();
       dispatch({ type: "authenticated", user });
     },
-    [holdToken],
+    [holdToken, forgetPendingSignUp],
   );
 
   const signIn = useCallback(
@@ -186,6 +241,69 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     },
     [signedIn],
   );
+
+  const register = useCallback(
+    async ({ name, email, password, invitationToken }: SignUp) => {
+      const address = email.trim();
+      let result;
+      try {
+        result = await apiRegister(address, name.trim(), password, invitationToken);
+      } catch (err) {
+        throw failureOf(err);
+      }
+      invitation.current = invitationToken ?? null;
+      if (result.active) {
+        await signIn(address, password);
+        return "signedIn" as const;
+      }
+      pending.current = { email: address, password };
+      setPendingEmail(address);
+      return "verify" as const;
+    },
+    [signIn],
+  );
+
+  const retryPendingSignIn = useCallback(async () => {
+    const waiting = pending.current;
+    if (!waiting) return false;
+    try {
+      await signIn(waiting.email, waiting.password);
+      return true;
+    } catch {
+      // Still unconfirmed, or the network is away: the screen stays as it is.
+      return false;
+    }
+  }, [signIn]);
+
+  const confirmCode = useCallback(
+    async (code: string) => {
+      const waiting = pending.current;
+      if (!waiting) throw new AuthFailure("invalid_code");
+      try {
+        await confirmEmailVerificationCode(waiting.email, code);
+      } catch (err) {
+        throw failureOf(err);
+      }
+      await signIn(waiting.email, waiting.password);
+    },
+    [signIn],
+  );
+
+  const resendVerification = useCallback(async () => {
+    const waiting = pending.current;
+    if (!waiting) return;
+    try {
+      await requestEmailVerification(waiting.email);
+    } catch (err) {
+      throw failureOf(err);
+    }
+  }, []);
+
+  const takePendingInvitation = useCallback(() => {
+    const token = invitation.current;
+    invitation.current = null;
+    return token;
+  }, []);
 
   const verify = useCallback(
     async (method: "totp" | "recovery", code: string) => {
@@ -214,14 +332,46 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "signedOut" });
   }, [holdToken]);
 
+  const updateUser = useCallback((patch: Partial<SessionUser>) => dispatch({ type: "userUpdated", patch }), []);
+
+  const changePassword = useCallback(
+    async (current: string, next: string) => {
+      if (state.kind !== "signedIn") return;
+      const email = state.user.email;
+      try {
+        await apiChangePassword(current, next);
+      } catch (err) {
+        throw failureOf(err);
+      }
+      // The old token is dead: forget it before anything answers 401 with it.
+      await holdToken(null);
+      try {
+        await signIn(email, next);
+      } catch {
+        clearDownloads();
+        dispatch({ type: "signedOut" });
+      }
+    },
+    [state, holdToken, signIn],
+  );
+
   const changeServer = useCallback(() => {
     void holdToken(null);
     dispatch({ type: "changeServer" });
   }, [holdToken]);
 
+  const pendingSignUp = useMemo(() => (pendingEmail ? { email: pendingEmail } : null), [pendingEmail]);
+
   const api = useMemo<SessionApi>(
     () => ({
       state,
+      pendingSignUp,
+      register,
+      confirmCode,
+      resendVerification,
+      retryPendingSignIn,
+      forgetPendingSignUp,
+      takePendingInvitation,
       offlineAtBoot,
       retryBoot,
       chooseServer,
@@ -229,8 +379,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signIn,
       verify,
       signOut,
+      updateUser,
+      changePassword,
     }),
-    [state, offlineAtBoot, retryBoot, chooseServer, changeServer, signIn, verify, signOut],
+    [
+      state,
+      pendingSignUp,
+      register,
+      confirmCode,
+      resendVerification,
+      retryPendingSignIn,
+      forgetPendingSignUp,
+      takePendingInvitation,
+      offlineAtBoot,
+      retryBoot,
+      chooseServer,
+      changeServer,
+      signIn,
+      verify,
+      signOut,
+      updateUser,
+      changePassword,
+    ],
   );
 
   return <SessionContext.Provider value={api}>{children}</SessionContext.Provider>;

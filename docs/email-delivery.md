@@ -6,6 +6,11 @@ configured, the API writes those messages to its log and the interface stops off
 would depend on one arriving (see [Deployment](deployment.md#email) for what an instance runs on in
 that state). This page is about the day you want the messages to actually leave the building.
 
+The address confirmation carries both a link and a six-digit code. The link opens the instance's
+site; the code is for a mailbox read somewhere else than where the link should land (the phone app,
+another computer), and is typed on the "check your inbox" screen of the web or the app. It lasts as
+long as the link, is spent by five wrong answers, and a new e-mail replaces it.
+
 There are two ways to get there, and the honest answer is that one of them is much harder than it
 looks.
 

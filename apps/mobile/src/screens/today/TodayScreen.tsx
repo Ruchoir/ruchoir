@@ -16,6 +16,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-n
 import { useLoad } from "../../data/useLoad";
 import { useNow } from "../../data/useNow";
 import { useReloadOn } from "../../data/useReloadOn";
+import { affects } from "../../realtime/events";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { addDays } from "../../logic/agenda";
@@ -30,7 +31,6 @@ import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { EmptyState } from "../../ui/States";
 import { FileIcon } from "../../ui/FileIcon";
-import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
@@ -53,7 +53,7 @@ export function TodayScreen() {
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { state } = useSession();
-  const { current, status } = useSpace();
+  const { current } = useSpace();
   const space = current?.id;
   const now = useNow();
   const today = dayKey(new Date(now), timeZone);
@@ -73,10 +73,8 @@ export function TodayScreen() {
     recent.reload();
     conversations.reload();
   };
-  useReloadOn((e) => e.type === "notification" || e.type === "message" || e.type === "readCursor", () => {
-    notifications.reload();
-    conversations.reload();
-  });
+  useReloadOn((e) => e.type === "notification" || e.type === "message" || e.type === "readCursor", notifications.reload);
+  useReloadOn((e) => !!space && affects.conversations(e, space), conversations.reload);
   useReloadOn((e) => e.type === "calendar", events.reload);
   useReloadOn((e) => e.type === "files", recent.reload);
 
@@ -100,7 +98,6 @@ export function TodayScreen() {
   const mention = cards.find((card) => card.kind === "mention");
   const small = cards.filter((card) => card.kind !== "mention");
 
-  if (status === "none") return <NoSpace title={t("time.today")} />;
 
   return (
     <TabScreen>

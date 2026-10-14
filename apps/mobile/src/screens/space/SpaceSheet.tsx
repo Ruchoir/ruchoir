@@ -1,8 +1,10 @@
 import { useNavigation } from "@react-navigation/native";
-import { Check } from "lucide-react-native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Check, Plus } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
+import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
@@ -12,11 +14,11 @@ import { Sheet } from "../../ui/Sheet";
 import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
 
-/** "Switch space" (mockup 10): every space with its unread count; creating or joining comes in step 5. */
+/** "Switch space" (mockup 10): every space with its unread count, then creating or joining one. */
 export function SpaceSheet() {
   const { t } = useTranslation();
-  const { c } = useTheme();
-  const navigation = useNavigation();
+  const { c, s } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { spaces, current, select } = useSpace();
 
   return (
@@ -49,6 +51,16 @@ export function SpaceSheet() {
           />
         );
       })}
+      <ActionRow
+        icon={Plus}
+        tint={s.sunken}
+        title={t("joinSpace.modalTitle")}
+        subtitle={t("joinSpace.rowHint")}
+        onPress={() => {
+          navigation.goBack();
+          navigation.navigate("joinSpace");
+        }}
+      />
     </Sheet>
   );
 }

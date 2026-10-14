@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { configureClient, resetClientForTests, startAttachmentUpload, startFileUpload, startFileVersionUpload } from "../src/index.ts";
+import { configureClient, resetClientForTests, setMyAvatar, startAttachmentUpload, startFileUpload, startFileVersionUpload } from "../src/index.ts";
 
 /** A stand-in for XMLHttpRequest that records what is sent and answers when told to. */
 class FakeXhr {
@@ -128,4 +128,16 @@ test("a_phone_file_name_goes_apart_so_spaces_stay_spaces", () => {
   assert.equal((FakeXhr.last.body as FormData).get("name"), "Devis client (1).pdf");
   startAttachmentUpload("c1", { uri: "file:///y", name: "photo de vacances.jpg", type: "image/jpeg" });
   assert.equal((FakeXhr.last.body as FormData).get("name"), "photo de vacances.jpg");
+});
+
+test("a_phone_photo_becomes_the_avatar_over_xhr", async () => {
+  // `fetch` in an Expo app cannot send a file named by its path on the phone; XHR can.
+  configureClient({ baseUrl: "https://a.test", authorization: () => "Bearer t1" });
+  const pending = setMyAvatar({ uri: "file:///photo.jpg", name: "avatar.jpg", type: "image/jpeg" });
+  const xhr = FakeXhr.last;
+  assert.equal(xhr.method, "PUT");
+  assert.equal(xhr.url, "https://a.test/api/v1/users/me/avatar");
+  assert.equal(xhr.headers.authorization, "Bearer t1");
+  xhr.answer(200, { url: "/api/v1/users/u1/avatar?v=2" });
+  assert.equal(await pending, "/api/v1/users/u1/avatar?v=2");
 });

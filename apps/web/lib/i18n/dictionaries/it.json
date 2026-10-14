@@ -101,13 +101,16 @@
     "verifyingBody": "Stiamo verificando il tuo link di conferma.",
     "doneTitle": "Indirizzo confermato",
     "doneBody": "Il tuo account è attivo. Accedi per entrare nel tuo spazio.",
-    "sentBody": "Un link di conferma è stato inviato a {{email}}. Aprilo per attivare l'account, poi accedi.",
+    "sentBody": "Abbiamo inviato un link e un codice di conferma a {{email}}. Apri il link o inserisci il codice qui sotto per attivare il tuo account.",
     "sentBodyNoAddress": "Un link di conferma è stato inviato. Aprilo per attivare l'account, poi accedi.",
     "resentNotice": "Un nuovo link è appena stato inviato.",
     "resend": "Invia di nuovo il link",
     "errorTitle": "Link di conferma non valido",
     "errorHint": "Indica il tuo indirizzo per riceverne uno nuovo.",
-    "resentNeutral": "Se questo indirizzo corrisponde a un account in attesa, un nuovo link è appena stato inviato."
+    "resentNeutral": "Se questo indirizzo corrisponde a un account in attesa, un nuovo link è appena stato inviato.",
+    "codeLabel": "Codice ricevuto via email",
+    "codeSubmit": "Conferma il codice",
+    "codeWrong": "Questo codice non corrisponde o è scaduto. Controllalo o chiedi un nuovo link."
   },
   "common": {
     "loading": "Caricamento…",
@@ -575,7 +578,8 @@
     "deleteNameMismatch": "Non è il nome del canale.",
     "deleted": "Canale eliminato",
     "deletedElsewhere": "Il canale #{{name}} è stato eliminato.",
-    "details": "Dettagli del canale"
+    "details": "Dettagli del canale",
+    "removedElsewhere": "Siete stati rimossi dal canale #{{name}}."
   },
   "role": {
     "member": "Membro",

@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { PALETTE_KEYS, tokens } from "../src/theme/tokens.ts";
+import { ACCENTS, PALETTE_KEYS, themeName, tokens } from "../src/theme/tokens.ts";
 
 const css = readFileSync(new URL("../../web/app/tokens.css", import.meta.url), "utf8");
 
@@ -37,4 +37,16 @@ test("light_palette_matches_tokens_css", () => {
 
 test("dark_palette_matches_tokens_css", () => {
   for (const key of PALETTE_KEYS) assert.equal(tokens["violet-dark"][key], resolve(violetDark, key), key);
+});
+
+test("every_accent_by_day_and_by_night_matches_tokens_css", () => {
+  for (const accent of ACCENTS) {
+    // Sky is the bare :root; the other accents only swap `--acc`.
+    const day = accent === "sky" ? root : { ...root, ...block(`[data-theme^="${accent}"]`) };
+    const night = { ...day, ...block('[data-theme$="-dark"]') };
+    for (const key of PALETTE_KEYS) {
+      assert.equal(tokens[themeName(accent, false)][key], resolve(day, key), `${accent} ${key}`);
+      assert.equal(tokens[themeName(accent, true)][key], resolve(night, key), `${accent}-dark ${key}`);
+    }
+  }
 });

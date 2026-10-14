@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { groupByDay, monthGrid, rangeForView, shiftAnchor, weekOf } from "../src/logic/agenda.ts";
+import { groupByDay, monthGrid, rangeForView, shiftAnchor, weekdayOrder, weekOf } from "../src/logic/agenda.ts";
 
 const PARIS = "Europe/Paris";
 const occ = (id: string, start: string, end: string, allDay = false) => ({ eventId: id, start, end, allDay }) as never;
@@ -68,4 +68,26 @@ test("moving_the_anchor_goes_by_the_view", () => {
   assert.equal(shiftAnchor("week", "2026-06-16", 1), "2026-06-23");
   assert.equal(shiftAnchor("month", "2026-01-31", 1), "2026-02-01");
   assert.equal(shiftAnchor("month", "2026-06-16", -1), "2026-05-01");
+});
+
+test("a_week_can_start_on_sunday_or_saturday", () => {
+  // 2026-10-14 is a Wednesday.
+  assert.equal(weekOf("2026-10-14")[0], "2026-10-12");
+  assert.equal(weekOf("2026-10-14", 0)[0], "2026-10-11");
+  assert.equal(weekOf("2026-10-14", 6)[0], "2026-10-10");
+  // A Sunday opens its own week when weeks start on Sunday, and closes it otherwise.
+  assert.equal(weekOf("2026-10-11", 0)[0], "2026-10-11");
+  assert.equal(weekOf("2026-10-11", 1)[0], "2026-10-05");
+  // What is fetched follows the week on screen.
+  assert.equal(rangeForView("week", "2026-10-14", 0).from, "2026-10-10T00:00:00Z");
+});
+
+test("a_month_grid_follows_the_first_day_of_the_week", () => {
+  // October 2026 begins on a Thursday.
+  assert.equal(monthGrid("2026-10")[0].indexOf("2026-10-01"), 3);
+  assert.equal(monthGrid("2026-10", 0)[0].indexOf("2026-10-01"), 4);
+  assert.equal(monthGrid("2026-10", 6)[0].indexOf("2026-10-01"), 5);
+  assert.deepEqual(weekdayOrder(0), [6, 0, 1, 2, 3, 4, 5]);
+  assert.deepEqual(weekdayOrder(1), [0, 1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(weekdayOrder(6), [5, 6, 0, 1, 2, 3, 4]);
 });

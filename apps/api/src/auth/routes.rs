@@ -90,6 +90,14 @@ pub struct TokenRequest {
     pub token: String,
 }
 
+/// Confirm an address with the code from the verification email.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct CodeConfirm {
+    pub email: String,
+    /// Six digits; spaces and other separators are ignored.
+    pub code: String,
+}
+
 /// Set a new password using a reset token.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct PasswordResetConfirm {
@@ -255,6 +263,7 @@ pub fn router() -> Router<AppState> {
         .route("/session", get(current_session))
         .route("/verify-email/request", post(verify_email_request))
         .route("/verify-email/confirm", post(verify_email_confirm))
+        .route("/verify-email/code", post(verify_email_code))
         .route("/password-reset/request", post(password_reset_request))
         .route("/password-reset/confirm", post(password_reset_confirm))
         .route("/password-reset/recovery", post(password_reset_recovery))
@@ -674,6 +683,50 @@ pub async fn verify_email_confirm(
         .map_err(|_| AuthError::Internal)?
         .ok_or(AuthError::InvalidToken)?;
 
+    // The code sent with the link is spent along with it.
+    tokens::drop_code(&state.valkey, user_id).await?;
+    activate(&state, user).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Confirm an email address with the six-digit code sent next to the link.
+///
+/// Every failure answers the same `invalid_code`, whether the address is unknown, already confirmed,
+/// or the code wrong, expired or spent, so the route says nothing about who has an account. Wrong
+/// answers are counted per account and spend the code (see [`tokens::CODE_TRIES`]); the per-IP rate
+/// limit applies on top.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/verify-email/code",
+    tag = "auth",
+    request_body = CodeConfirm,
+    responses(
+        (status = 204, description = "Email verified"),
+        (status = 400, description = "Wrong, expired or spent code")
+    )
+)]
+pub async fn verify_email_code(
+    State(state): State<AppState>,
+    Json(body): Json<CodeConfirm>,
+) -> Result<StatusCode, AuthError> {
+    let email = body.email.trim().to_lowercase();
+    let code: String = body.code.chars().filter(char::is_ascii_digit).collect();
+    let user = users::Entity::find()
+        .filter(users::Column::Email.eq(email))
+        .one(&state.db)
+        .await
+        .map_err(|_| AuthError::Internal)?
+        .filter(|user| user.status == "pending")
+        .ok_or(AuthError::InvalidCode)?;
+    if code.len() != 6 || !tokens::consume_code(&state.valkey, user.id, &code).await? {
+        return Err(AuthError::InvalidCode);
+    }
+    activate(&state, user).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Mark a confirmed account active.
+async fn activate(state: &AppState, user: users::Model) -> Result<(), AuthError> {
     let mut active = user.into_active_model();
     active.status = Set("active".to_string());
     active.updated_at = Set(OffsetDateTime::now_utc());
@@ -681,7 +734,7 @@ pub async fn verify_email_confirm(
         .update(&state.db)
         .await
         .map_err(|_| AuthError::Internal)?;
-    Ok(StatusCode::NO_CONTENT)
+    Ok(())
 }
 
 /// Request a password reset. Always responds `204`, whether or not the address exists, so it never
@@ -1540,11 +1593,19 @@ async fn send_verification_email(
         state.config.email_verification_ttl_secs,
     )
     .await?;
+    // The same e-mail carries a code, for a mailbox read elsewhere than where the link should open.
+    let code = tokens::issue_code(
+        &state.valkey,
+        user_id,
+        state.config.email_verification_ttl_secs,
+    )
+    .await?;
     let base = state.mailer.base_url.trim_end_matches('/');
     let link = format!("{base}/verify-email?token={token}");
     let hours = state.config.email_verification_ttl_secs / 3600;
     let locale = message_locale(state, user_id, page_locale).await;
-    let message = mail_text::verification(locale, &link, hours, &state.mailer.instance_name());
+    let message =
+        mail_text::verification(locale, &link, &code, hours, &state.mailer.instance_name());
     state.mailer.send(email, &message).await.map_err(|error| {
         // The relay says exactly what is wrong (bad credentials, an unverified sender domain,
         // a refused recipient) and swallowing it leaves an administrator with a bare 500 and

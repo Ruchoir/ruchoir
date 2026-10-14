@@ -57,8 +57,11 @@ show. What every screen keeps:
 ## Layout
 
 ```
-src/App.tsx            fonts, session, then the signed-in navigator
-src/session/           instance choice (server.ts), the session reducer (machine.ts), Keychain store
+src/App.tsx            fonts and preferences, session, then the signed-out stack or the space gate
+src/session/           instance choice (server.ts), the session reducer (machine.ts), Keychain store,
+                       sign-up and its pending confirmation (memory only), password change
+src/prefs/             the preferences kept on the phone (prefs.ts, tested) and their store (store.ts):
+                       accent, day or night, text size, language, agenda view, week start, event length
 src/api/instance.ts    configures @ruchoir/client for the chosen instance (bearer, socket headers)
 src/realtime/          one socket for the session; screens subscribe and refetch on resync; local
                        "patched" events carry my own changes (a reaction, a pin, an edit) to every screen
@@ -67,15 +70,18 @@ src/compose/           the composer (mentions, files, edit mode), the outbox and
                        sheets use to reach a composer
 src/uploads/           the files on their way to a space, above the screens (UploadsProvider)
 src/files/             the files tab's helpers: downloads to the cache, the shared rules' Entry
-src/space/             the space on screen, remembered between launches
+src/space/             the space on screen, remembered between launches; SpaceGate: the tabs, or
+                       "join or create a space" for an account in none
 src/data/              useLoad (requests per screen), useReloadOn (live refetch), members, useNow
 src/logic/             pure functions, tested by Node: conversations, inline Markdown, agenda, today,
                        mentions, outbox, unread, reactions, receipts, threads, attachments, handle,
-                       eventForm (the event form as data), availability, uploadQueue, scan
+                       eventForm (the event form as data), availability, uploadQueue, scan,
+                       invitationLink, signup (password rule, code), otpauth
 src/screens/agenda/form/  the event form, its sheets (calendar, date and time pickers, repeat, custom
                        rule, reminders, people, channel, time zone, series scope) and its draft store
-src/navigation/        root stack (pushed screens, sheets) and the four tabs
-src/screens/           auth, today, discussions, agenda, files, account, space
+src/navigation/        AuthNavigator (before sign-in), root stack (pushed screens, sheets), the four tabs
+src/screens/           welcome (and its tutorial), auth, today, discussions, agenda, files, account,
+                       space
 src/ui/                design-system pieces: Text, Button, TextField, Avatar, Chips, Segmented...
 src/theme/             tokens.ts (copy of tokens.css), IBM Plex, useTheme
 src/i18n/              i18next and the six dictionaries
@@ -165,3 +171,30 @@ pnpm --filter @ruchoir/mobile test
 pnpm --filter @ruchoir/mobile i18n:check
 CI=1 pnpm --filter @ruchoir/mobile bundle:ios   # proves Metro resolves and bundles the app
 ```
+- **Before sign-in the app is its own stack** (`navigation/AuthNavigator.tsx`, its own
+  `NavigationContainer`): welcome, tutorial, sign-in, sign-up, invitation link, "check your e-mails",
+  forgotten password. `App.tsx` renders it for `needsServer` and `signedOut` at the same place, so
+  choosing a server (which moves the session state) keeps the stack where it is. A `signedOut` with a
+  `reason` (an expired session, or back from the second factor) opens on sign-in, anything else on the
+  welcome. The second factor stays the `mfa` state's own screen.
+- **The password typed at sign-up lives in memory only** (`SessionProvider`'s pending sign-up), so the
+  app can sign in by itself when it comes back to the foreground after the link was followed, or once
+  the e-mailed code is accepted. It is dropped on sign-in or on leaving "check your e-mails"; a closed
+  app forgets it, and the person signs in by hand.
+- **An invitation link names its server.** `logic/invitationLink.ts` reads it; before sign-in the app
+  moves to that server (`chooseServer`), once signed in it refuses another server's link. One pasted at
+  sign-up is accepted by `SpaceGate` right after the first sign-in.
+- **A 401 is not always a dead session.** The client hands `onUnauthorized` the API's error code:
+  `invalid_credentials` is a wrong password typed to confirm an action (changing the password, turning
+  off two-factor) and must not sign the phone out.
+- **Preferences are read before the first screen** (`prefs/store.ts`, `loadPrefs` in `App.tsx`):
+  `useTheme` takes the accent and mode from them, `Text` and `TextField` scale with the text size, and a
+  forced day or night is also handed to the system (`Appearance.setColorScheme`) so its own controls
+  follow. The notifications are the account's, on the server, as the web's.
+- **Every list on screen follows the live events.** `realtime/events.ts` relays every event the
+  server pushes and the app draws (`handlersFor`, tested), and `affects` says which events change
+  each kind of list (a space's conversations, people, channels; a channel's people; a conversation's
+  pins). A new `useLoad` that shows server data gets its `useReloadOn` with that rule, or with the
+  event that changes it (`calendar`, `files`). Who is online is laid over the rows as heard
+  (`withLivePresence`), not reloaded. Check against the dev instance with two seeded accounts, one
+  listening through `@ruchoir/client`, the other acting.

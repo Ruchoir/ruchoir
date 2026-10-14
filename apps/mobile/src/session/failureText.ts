@@ -15,6 +15,9 @@ export const FAILURE_TEXT = {
   account_locked: key("auth.error.accountLocked"),
   invalid_code: key("auth.error.invalidCode"),
   invalid_token: key("auth.error.invalidToken"),
+  email_taken: key("auth.error.emailTaken"),
+  weak_password: key("auth.error.weakPassword"),
+  breached_password: key("auth.error.breachedPassword"),
   passkeyOnly: key("auth.error.passkeyOnly"),
   unknown: key("auth.error.unknown"),
 } satisfies Record<FailureCode, string>;

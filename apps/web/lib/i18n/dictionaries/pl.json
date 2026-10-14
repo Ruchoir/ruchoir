@@ -101,13 +101,16 @@
     "verifyingBody": "Sprawdzamy Twój link potwierdzający.",
     "doneTitle": "Adres potwierdzony",
     "doneBody": "Twoje konto jest aktywne. Zaloguj się, aby wejść do swojej przestrzeni.",
-    "sentBody": "Link potwierdzający został wysłany na adres {{email}}. Otwórz go, aby aktywować konto, a potem zaloguj się.",
+    "sentBody": "Wysłaliśmy link i kod potwierdzający na adres {{email}}. Otwórz link lub wpisz kod poniżej, aby aktywować konto.",
     "sentBodyNoAddress": "Link potwierdzający został wysłany. Otwórz go, aby aktywować konto, a potem zaloguj się.",
     "resentNotice": "Nowy link został właśnie wysłany.",
     "resend": "Wyślij link ponownie",
     "errorTitle": "Nieprawidłowy link potwierdzający",
     "errorHint": "Podaj swój adres, aby otrzymać nowy.",
-    "resentNeutral": "Jeśli ten adres odpowiada kontu oczekującemu na potwierdzenie, nowy link został właśnie wysłany."
+    "resentNeutral": "Jeśli ten adres odpowiada kontu oczekującemu na potwierdzenie, nowy link został właśnie wysłany.",
+    "codeLabel": "Kod z e-maila",
+    "codeSubmit": "Potwierdź kod",
+    "codeWrong": "Ten kod jest nieprawidłowy lub wygasł. Sprawdź go albo poproś o nowy link."
   },
   "common": {
     "loading": "Wczytywanie…",
@@ -581,7 +584,8 @@
     "deleteNameMismatch": "To nie jest nazwa kanału.",
     "deleted": "Kanał usunięty",
     "deletedElsewhere": "Kanał #{{name}} został usunięty.",
-    "details": "Szczegóły kanału"
+    "details": "Szczegóły kanału",
+    "removedElsewhere": "Usunięto cię z kanału #{{name}}."
   },
   "role": {
     "member": "Członek",

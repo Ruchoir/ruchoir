@@ -16,12 +16,12 @@ import { useSpace } from "../../space/SpaceProvider";
 import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { Segmented } from "../../ui/Segmented";
 import { LoadState } from "../../ui/States";
-import { NoSpace } from "../../ui/NoSpace";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { ListView } from "./ListView";
 import { MonthView } from "./MonthView";
 import { WeekView } from "./WeekView";
+import { usePrefs } from "../../prefs/store";
 
 const VIEWS = [
   { key: "list", label: key("agenda.list") },
@@ -44,11 +44,12 @@ export type AgendaData = {
 export function AgendaScreen() {
   const { t } = useTranslation();
   const { timeZone } = useLocale();
-  const { current, status } = useSpace();
-  const [view, setView] = useState<AgendaView>("list");
+  const { current } = useSpace();
+  const prefs = usePrefs();
+  const [view, setView] = useState<AgendaView>(prefs.agendaView);
   const today = dayKey(new Date(), timeZone);
   const [anchor, setAnchor] = useState(today);
-  const range = rangeForView(view, anchor);
+  const range = rangeForView(view, anchor, prefs.weekStart);
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const floating = useFloatingScroll();
   // The day chosen in the week or the month (they say it); the list starts new events today.
@@ -65,7 +66,6 @@ export function AgendaScreen() {
 
   const options = useMemo(() => VIEWS.map((v) => ({ key: v.key, label: t(v.label) })), [t]);
 
-  if (status === "none") return <NoSpace title={t("tabs.agenda")} />;
 
   return (
     <TabScreen>

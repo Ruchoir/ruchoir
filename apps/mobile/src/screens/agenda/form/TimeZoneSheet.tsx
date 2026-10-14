@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { StyleSheet } from "react-native";
 
 import { useTranslation } from "../../../i18n";
+import { allTimeZones } from "../../../logic/timeZones";
 import { useLocale } from "../../../i18n/useLocale";
 import type { RootParams } from "../../../navigation/types";
 import { useTheme } from "../../../theme/useTheme";
@@ -25,13 +26,7 @@ export function TimeZoneSheet() {
   const { timeZone } = useLocale();
   const draft = useDraft(params.formKey);
   const [query, setQuery] = useState("");
-  const zones = useMemo(() => {
-    try {
-      return Intl.supportedValuesOf("timeZone");
-    } catch {
-      return [];
-    }
-  }, []);
+  const zones = useMemo(() => allTimeZones(), []);
   if (!draft) return null;
   const all = [...new Set([draft.tz, timeZone, ...zones])];
   const q = query.trim().toLowerCase().replace(/\s+/g, "_");

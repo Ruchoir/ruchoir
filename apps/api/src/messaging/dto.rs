@@ -663,6 +663,19 @@ pub struct ChannelsReorderedDto {
     pub space_id: Uuid,
 }
 
+/// A change to someone's place in a channel (see `RealtimeEnvelope::channel_membership`).
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ChannelMembershipDto {
+    pub space_id: Uuid,
+    pub channel_id: Uuid,
+    pub user_id: Uuid,
+    /// `joined`, `left`, `removed` or `role`.
+    pub change: &'static str,
+    /// The new role, for a `role` change.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+}
+
 /// The channel administrators select for every newly invited person.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct SetDefaultChannelRequest {

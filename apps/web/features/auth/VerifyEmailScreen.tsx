@@ -35,6 +35,12 @@ export type VerifyEmailScreenProps = {
   pending?: boolean;
   /** True once a fresh link has been sent from this screen. */
   resent?: boolean;
+  /** Confirm with the six-digit code sent next to the link (shown when the address is known). */
+  onCode?: (code: string) => void;
+  /** True while a code is being checked. */
+  codePending?: boolean;
+  /** Why the code was refused. */
+  codeError?: string | null;
 };
 
 /**
@@ -50,9 +56,19 @@ export function VerifyEmailScreen({
   error,
   pending = false,
   resent = false,
+  onCode,
+  codePending = false,
+  codeError,
 }: VerifyEmailScreenProps) {
   const { t } = useTranslation();
   const [typedEmail, setTypedEmail] = useState(email ?? "");
+  const [code, setCode] = useState("");
+  const digits = code.replace(/\D/g, "");
+
+  const submitCode = (e: FormEvent) => {
+    e.preventDefault();
+    if (!codePending && digits.length === 6) onCode?.(digits);
+  };
 
   const resend = (e: FormEvent) => {
     e.preventDefault();
@@ -106,6 +122,24 @@ export function VerifyEmailScreen({
           </p>
           {resent ? (
             <p style={authStyles.notice} role="status">{t("verify.resentNotice")}</p>
+          ) : null}
+          {email && onCode ? (
+            <form style={{ ...authStyles.fields, width: "100%" }} onSubmit={submitCode}>
+              <Field label={t("verify.codeLabel")} htmlFor="verify-code" error={codeError ?? undefined}>
+                <Input
+                  id="verify-code"
+                  size="lg"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={7}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                />
+              </Field>
+              <Button variant="primary" size="lg" fullWidth type="submit" disabled={codePending || digits.length !== 6}>
+                {codePending ? t("common.verifying") : t("verify.codeSubmit")}
+              </Button>
+            </form>
           ) : null}
           <form style={styles.actions} onSubmit={resend}>
             <Button size="lg" fullWidth type="submit" iconLeft="refresh-cw" disabled={pending}>

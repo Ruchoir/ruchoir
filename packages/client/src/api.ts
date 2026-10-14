@@ -199,6 +199,11 @@ export type SessionUser = {
   timezone?: string;
   /** The language the account is recorded as reading in; absent until the first sign-in writes it. */
   locale?: string;
+  /**
+   * The account's photo. Not in the session's answer: an app fills it from the profile, and keeps it
+   * current from `member.updated`. Absent means the generated face.
+   */
+  avatarUrl?: string;
 };
 
 /**
@@ -456,6 +461,15 @@ export async function requestEmailVerification(email: string): Promise<void> {
 /** `POST /auth/verify-email/confirm`: activate the account behind an emailed token (single use). */
 export async function confirmEmailVerification(token: string): Promise<void> {
   await apiPost<void>("/auth/verify-email/confirm", { token });
+}
+
+/**
+ * `POST /auth/verify-email/code`: activate the account with the six-digit code sent next to the link.
+ * Typed spaces and dashes are dropped. Every failure is the same `invalid_code`; five wrong codes
+ * spend it, and a resend brings a new one.
+ */
+export async function confirmEmailVerificationCode(email: string, code: string): Promise<void> {
+  await apiPost<void>("/auth/verify-email/code", { email: email.trim(), code: code.replace(/\D/g, "") });
 }
 
 /** `POST /auth/password-reset/request`: email a reset link. Always resolves (no account enumeration). */
@@ -940,10 +954,17 @@ function appendPart(form: FormData, part: UploadPart): void {
 }
 
 /**
- * A multipart `POST` over `XMLHttpRequest`, for its upload progress: what {@link startAttachmentUpload}
- * and {@link startFileUpload} share. `map` reads the created resource from the answer.
+ * A multipart `POST` (or `PUT`) over `XMLHttpRequest`, for its upload progress: what
+ * {@link startAttachmentUpload}, {@link startFileUpload} and the images share. `map` reads the created
+ * resource from the answer.
  */
-function xhrUpload<T>(path: string, form: FormData, map: (body: unknown) => T, onProgress?: (sent: number) => void): UploadRequest<T> {
+function xhrUpload<T>(
+  path: string,
+  form: FormData,
+  map: (body: unknown) => T,
+  onProgress?: (sent: number) => void,
+  method: "POST" | "PUT" = "POST",
+): UploadRequest<T> {
   const xhr = new XMLHttpRequest();
   const done = new Promise<T>((resolve, reject) => {
     xhr.onload = () => {
@@ -963,7 +984,7 @@ function xhrUpload<T>(path: string, form: FormData, map: (body: unknown) => T, o
     xhr.onerror = () => reject(new ApiError(0, "network", null));
     xhr.onabort = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
   });
-  xhr.open("POST", `${apiBase()}${path}`);
+  xhr.open(method, `${apiBase()}${path}`);
   const auth = authInit();
   // Same-origin on the web, where the cookie goes anyway; an app presents its bearer and no cookie.
   xhr.withCredentials = false;
@@ -994,9 +1015,9 @@ function toUploadedAttachment(dto: FileDto): MessageAttachment {
   };
 }
 
-/** `PUT /users/me/avatar`: replace the caller's own avatar; returns its new URL. */
-export async function setMyAvatar(file: File): Promise<string> {
-  return uploadImage(`${apiBase()}/users/me/avatar`, file);
+/** `PUT /users/me/avatar`: replace the caller's own avatar (a file, or a photo of the phone); returns its new URL. */
+export async function setMyAvatar(file: UploadPart): Promise<string> {
+  return uploadImage("/users/me/avatar", file);
 }
 
 /** `DELETE /users/me/avatar`: fall back to the generated avatar. */
@@ -1006,7 +1027,7 @@ export async function clearMyAvatar(): Promise<void> {
 
 /** `PUT /spaces/{id}/icon`: replace a space's icon; owner or admin only. Returns its new URL. */
 export async function setSpaceIcon(spaceId: string, file: File): Promise<string> {
-  return uploadImage(`${apiBase()}/spaces/${spaceId}/icon`, file);
+  return uploadImage(`/spaces/${spaceId}/icon`, file);
 }
 
 /** `DELETE /spaces/{id}/icon`: fall back to the generated mark. */
@@ -1021,13 +1042,15 @@ export async function clearSpaceIcon(spaceId: string): Promise<void> {
  * here: an avatar is addressed by its owner's id, which never changes, and that version is what tells
  * the browser it is looking at a different picture.
  */
-async function uploadImage(path: string, file: File): Promise<string> {
+/**
+ * `PUT` an image (an avatar, a space's icon) and read back its URL. Over `XMLHttpRequest` as every
+ * upload is: an Expo app's `fetch` cannot send a `{ uri, name, type }` part, the file of the phone
+ * that React Native's own networking reads from the device.
+ */
+async function uploadImage(path: string, file: UploadPart): Promise<string> {
   const form = new FormData();
-  form.append("file", file);
-  const res = await fetch(path, { method: "PUT", ...authInit(), body: form });
-  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
-  const body = (await res.json()) as { url: string };
-  return body.url;
+  form.append("file", file as Blob);
+  return xhrUpload(path, form, (body) => (body as { url: string }).url, undefined, "PUT").done;
 }
 
 /** `GET /spaces/{id}/channels`: the channels the caller can see in a space. */
@@ -2678,6 +2701,19 @@ export type MemberIdentity = Omit<Member, "role">;
  */
 export type SpaceIdentity = { id: string; name: string; slug: string; iconUrl?: string; defaultChannelId?: string };
 
+/**
+ * Someone's place in a channel changed, pushed live to them on every device, and for a role to the
+ * channel's members: the channel's notice already tells the others of an arrival or a departure.
+ */
+export type ChannelMembership = {
+  spaceId: string;
+  channelId: string;
+  userId: string;
+  change: "joined" | "left" | "removed" | "role";
+  /** The new role, for a `role` change. */
+  role?: string;
+};
+
 /** Handlers the app wires to live events. All optional; unhandled event types are ignored. */
 export type RealtimeHandlers = {
   /**
@@ -2709,6 +2745,8 @@ export type RealtimeHandlers = {
   onSpaceUpdated?: (space: SpaceIdentity) => void;
   /** A space's administrators put its channels in a new order: re-read that space's list. */
   onChannelsReordered?: (spaceId: string) => void;
+  /** Someone joined, left or was removed from a channel, or their role there changed. */
+  onChannelMembership?: (change: ChannelMembership) => void;
   /**
    * A space stopped being the user's. The reason is what the sentence is drawn from: `left` (from
    * here or another tab, so they already know), `deleted` (its owner ended it), `removed` (somebody
@@ -2756,6 +2794,7 @@ const REALTIME_EVENTS = [
   "space.updated",
   "space.removed",
   "channels.reordered",
+  "channel.membership",
   "presence",
   "notification.created",
   "typing",
@@ -2887,6 +2926,15 @@ export function connectRealtime(handlers: RealtimeHandlers): RealtimeConnection 
       }
       case "channels.reordered":
         handlers.onChannelsReordered?.(String(payload.space_id));
+        break;
+      case "channel.membership":
+        handlers.onChannelMembership?.({
+          spaceId: String(payload.space_id),
+          channelId: String(payload.channel_id),
+          userId: String(payload.user_id),
+          change: payload.change as ChannelMembership["change"],
+          role: typeof payload.role === "string" ? payload.role : undefined,
+        });
         break;
       case "space.updated": {
         handlers.onSpaceUpdated?.({

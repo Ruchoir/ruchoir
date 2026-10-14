@@ -1,8 +1,17 @@
-import { DarkTheme, DefaultTheme, NavigationContainer, type Theme } from "@react-navigation/native";
+import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { AttachSheet } from "../compose/AttachSheet";
 import { AccountSheet } from "../screens/account/AccountSheet";
+import { ChangePasswordScreen } from "../screens/account/ChangePasswordScreen";
+import { HelpSheet } from "../screens/account/HelpSheet";
+import { LanguageSheet, PreferencesScreen } from "../screens/account/PreferencesScreen";
+import { ProfileScreen } from "../screens/account/ProfileScreen";
+import { RecoveryCodesScreen } from "../screens/account/RecoveryCodesScreen";
+import { SecurityScreen } from "../screens/account/SecurityScreen";
+import { StatusSheet } from "../screens/account/StatusSheet";
+import { TotpScreen } from "../screens/account/TotpScreen";
+import { ZonePicker } from "../screens/account/ZonePicker";
 import { ConversationDetails } from "../screens/discussions/ConversationDetails";
 import { ConversationScreen } from "../screens/discussions/ConversationScreen";
 import { EmojiPickerSheet } from "../screens/discussions/EmojiPickerSheet";
@@ -38,28 +47,23 @@ import { ScanScreen } from "../screens/files/ScanScreen";
 import { ShareSheet } from "../screens/files/ShareSheet";
 import { UploadsSheet } from "../screens/files/UploadsSheet";
 import { VersionsSheet } from "../screens/files/VersionsSheet";
+import { JoinSpaceScreen } from "../screens/space/JoinSpaceScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
-import { fonts } from "../theme/fonts";
-import { useTheme } from "../theme/useTheme";
+import { TutorialScreen } from "../screens/welcome/TutorialScreen";
+import { useNavigationTheme } from "./navigationTheme";
 import { Tabs } from "./Tabs";
 import type { RootParams } from "./types";
 
 const Stack = createNativeStackNavigator<RootParams>();
 
+/** "Create or join a space", from the space sheet. */
+function JoinSpaceModal() {
+  return <JoinSpaceScreen />;
+}
+
 /** The signed-in app: the tabs, the screens pushed over them, and the sheets. */
 export function RootNavigator() {
-  const { c, dark } = useTheme();
-  const base = dark ? DarkTheme : DefaultTheme;
-  const theme: Theme = {
-    ...base,
-    colors: { ...base.colors, primary: c.ink, background: c.bg, card: c.surface, text: c.ink, border: c.line, notification: c.alarm },
-    fonts: {
-      regular: { fontFamily: fonts.sans, fontWeight: "400" },
-      medium: { fontFamily: fonts.sansMedium, fontWeight: "500" },
-      bold: { fontFamily: fonts.sansSemibold, fontWeight: "600" },
-      heavy: { fontFamily: fonts.sansBold, fontWeight: "700" },
-    },
-  };
+  const theme = useNavigationTheme();
   const sheet = { presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true, headerShown: false } as const;
 
   return (
@@ -95,7 +99,19 @@ export function RootNavigator() {
         <Stack.Screen name="fileSendTo" component={ConversationPicker} options={{ presentation: "modal" }} />
         <Stack.Screen name="fileLinks" component={LinksSheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
+        <Stack.Screen name="joinSpace" component={JoinSpaceModal} options={{ presentation: "modal" }} />
+        <Stack.Screen name="tutorial" component={TutorialScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
+        <Stack.Screen name="statusSheet" component={StatusSheet} options={sheet} />
+        <Stack.Screen name="profile" component={ProfileScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="zonePicker" component={ZonePicker} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
+        <Stack.Screen name="preferences" component={PreferencesScreen} />
+        <Stack.Screen name="languageSheet" component={LanguageSheet} options={sheet} />
+        <Stack.Screen name="security" component={SecurityScreen} />
+        <Stack.Screen name="changePassword" component={ChangePasswordScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="totp" component={TotpScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="recoveryCodes" component={RecoveryCodesScreen} options={{ presentation: "modal", gestureEnabled: false }} />
+        <Stack.Screen name="help" component={HelpSheet} options={sheet} />
         <Stack.Screen name="messageActions" component={MessageActionSheet} options={sheet} />
         <Stack.Screen name="emojiPicker" component={EmojiPickerSheet} options={{ ...sheet, sheetAllowedDetents: [0.7, 1] }} />
         <Stack.Screen name="attachSheet" component={AttachSheet} options={sheet} />

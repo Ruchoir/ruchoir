@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { weekdayOrder } from "../../logic/agenda";
+import { usePrefs } from "../../prefs/store";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
@@ -26,12 +28,13 @@ export function PeriodHeader({ title, onMove }: { title: string; onMove: (direct
   );
 }
 
-/** The narrow weekday letters, Monday first ("L M M J V S D"). */
+/** The narrow weekday letters, from the first day of the week chosen ("L M M J V S D"). */
 export function useWeekLetters(): string[] {
   const { locale } = useLocale();
+  const { weekStart } = usePrefs();
   const format = new Intl.DateTimeFormat(locale, { timeZone: "UTC", weekday: "narrow" });
   // 2026-06-15 is a Monday.
-  return Array.from({ length: 7 }, (_, i) => format.format(new Date(Date.UTC(2026, 5, 15 + i, 12))));
+  return weekdayOrder(weekStart).map((i) => format.format(new Date(Date.UTC(2026, 5, 15 + i, 12))));
 }
 
 /**

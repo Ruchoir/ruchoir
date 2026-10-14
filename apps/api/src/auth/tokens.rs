@@ -93,6 +93,105 @@ pub fn generate_token() -> Result<String, AuthError> {
     Ok(to_hex(&bytes))
 }
 
+// --- The six-digit code sent next to the verification link ---
+//
+// A link is the way in from a mailbox read on the same device; a code is for everything else (the
+// e-mail read on a computer, an app the link does not open). Six digits are guessable where 256 bits
+// are not, so the code is kept per account rather than looked up by its own value, and it is spent
+// after `CODE_TRIES` wrong answers: the odds of guessing it stay at five in a million per e-mail.
+
+/// Wrong answers a code survives; the next one spends it.
+pub const CODE_TRIES: i64 = 5;
+
+fn code_key(user_id: Uuid) -> String {
+    format!("verify_code:{user_id}")
+}
+
+fn tries_key(user_id: Uuid) -> String {
+    format!("verify_code_tries:{user_id}")
+}
+
+/// Six decimal digits from the CSPRNG, each value equally likely.
+pub fn generate_code() -> Result<String, AuthError> {
+    // 4_294_000_000 is the largest multiple of 1_000_000 under 2^32: drawing again above it keeps
+    // every code equally likely.
+    loop {
+        let mut bytes = [0u8; 4];
+        getrandom::fill(&mut bytes).map_err(|_| AuthError::Internal)?;
+        let value = u32::from_le_bytes(bytes);
+        if value < 4_294_000_000 {
+            return Ok(format!("{:06}", value % 1_000_000));
+        }
+    }
+}
+
+/// Issue a fresh code for an account, replacing any earlier one and its count of wrong answers.
+pub async fn issue_code(valkey: &Pool, user_id: Uuid, ttl_secs: i64) -> Result<String, AuthError> {
+    let code = generate_code()?;
+    let _: () = valkey
+        .set(
+            code_key(user_id).as_str(),
+            digest(&code),
+            Some(Expiration::EX(ttl_secs)),
+            None,
+            false,
+        )
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    let _: () = valkey
+        .del(tries_key(user_id).as_str())
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    Ok(code)
+}
+
+/// Check a code. A match spends it; a wrong answer counts, and the one after the last allowed spends
+/// it too, so the person asks for a new e-mail.
+pub async fn consume_code(valkey: &Pool, user_id: Uuid, code: &str) -> Result<bool, AuthError> {
+    let key = code_key(user_id);
+    let stored: Option<String> = valkey
+        .get(key.as_str())
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    let Some(stored) = stored else {
+        return Ok(false);
+    };
+    let tries = tries_key(user_id);
+    let count: i64 = valkey
+        .incr(tries.as_str())
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    if count == 1 {
+        // The count lives as long as the code it counts for.
+        let ttl: i64 = valkey
+            .ttl(key.as_str())
+            .await
+            .map_err(|_| AuthError::Internal)?;
+        let _: () = valkey
+            .expire(tries.as_str(), ttl.max(1), None)
+            .await
+            .map_err(|_| AuthError::Internal)?;
+    }
+    if count > CODE_TRIES {
+        drop_code(valkey, user_id).await?;
+        return Ok(false);
+    }
+    if stored != digest(code) {
+        return Ok(false);
+    }
+    drop_code(valkey, user_id).await?;
+    Ok(true)
+}
+
+/// Forget an account's code (it was used, or the link confirmed the address first).
+pub async fn drop_code(valkey: &Pool, user_id: Uuid) -> Result<(), AuthError> {
+    let _: () = valkey
+        .del(vec![code_key(user_id), tries_key(user_id)])
+        .await
+        .map_err(|_| AuthError::Internal)?;
+    Ok(())
+}
+
 fn to_hex(bytes: &[u8]) -> String {
     use std::fmt::Write as _;
     let mut hex = String::with_capacity(bytes.len() * 2);
@@ -100,4 +199,20 @@ fn to_hex(bytes: &[u8]) -> String {
         let _ = write!(hex, "{byte:02x}");
     }
     hex
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_code_is_six_digits() {
+        let codes: Vec<String> = (0..200).map(|_| generate_code().expect("code")).collect();
+        for code in &codes {
+            assert_eq!(code.len(), 6, "{code}");
+            assert!(code.bytes().all(|b| b.is_ascii_digit()), "{code}");
+        }
+        // Drawn, not fixed: two hundred draws are not all the same.
+        assert!(codes.iter().any(|c| c != &codes[0]));
+    }
 }

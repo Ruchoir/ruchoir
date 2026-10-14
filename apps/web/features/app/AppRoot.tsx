@@ -6,6 +6,7 @@ import {
   acceptInvitation,
   addReaction,
   confirmEmailVerification,
+  confirmEmailVerificationCode,
   confirmPasswordReset,
   connectRealtime,
   createChannel as apiCreateChannel,
@@ -492,6 +493,9 @@ function AppShell() {
   // request is in flight. They are reset on each stage change so an error never leaks across screens.
   const [authError, setAuthError] = useState<TranslationKey | null>(null);
   const [authPending, setAuthPending] = useState(false);
+  /** The six-digit code typed on "check your inbox", refused or being checked. */
+  const [codeError, setCodeError] = useState<TranslationKey | null>(null);
+  const [codePending, setCodePending] = useState(false);
   /** True once a link (verification or reset) has been sent from the current screen. */
   const [authSent, setAuthSent] = useState(false);
 
@@ -607,6 +611,8 @@ function AppShell() {
   // anyway. The preference is read after mount, so the first frame uses its default, which is the
   // same value the shell used before this was configurable.
   const [panel, setPanel] = useState<ChannelPanel>("members");
+  /** Moves when someone's place in the open channel changes, so its roster is fetched again. */
+  const [rosterVersion, setRosterVersion] = useState(0);
   // True once the user closes the right panel by hand, so opening another conversation stops
   // auto-opening its default panel. Reset when they open a panel again.
   const [panelDismissed, setPanelDismissed] = useState(false);
@@ -1362,6 +1368,24 @@ function AppShell() {
               ? tRef.current("toast.spaceDeletedElsewhere", { name: gone.name })
               : tRef.current("toast.removedFromSpace", { name: gone.name }),
         });
+      },
+      onChannelMembership: ({ spaceId, channelId, userId, change }) => {
+        const { ws: activeWs, channels: current, channelId: openId, myId } = liveRef.current;
+        // A role writes no notice in the channel: the open channel's roster is fetched again here.
+        if (openId === channelId) setRosterVersion((v) => v + 1);
+        if (userId !== myId || spaceId !== activeWs) return;
+        const row = current.find((c) => c.id === channelId);
+        // Out of a private channel, from another device or by a moderator: it leaves this sidebar as
+        // it would on the next load, with a sentence when it was the one being read.
+        if ((change === "removed" || change === "left") && row?.type === "private") {
+          dropChannelRef.current(channelId);
+          if (openId === channelId && change === "removed") {
+            notifyRef.current?.({ tone: "info", title: tRef.current("channel.removedElsewhere", { name: row.name }) });
+          }
+          return;
+        }
+        // Joined, left a public one, or a new role: what this client holds about the space is stale.
+        void reloadSpaceRef.current(spaceId);
       },
       onMemberRoleChanged: (spaceId, userId, role) => {
         // Their own role in the space on screen: reload it. A role decides which channels, people
@@ -2275,6 +2299,20 @@ function AppShell() {
       setAuthError(key("error.sendFailed"));
     } finally {
       setAuthPending(false);
+    }
+  };
+
+  /** Confirm the address with the code sent next to the link; the account can then sign in. */
+  const handleVerifyCode = async (code: string) => {
+    setCodePending(true);
+    setCodeError(null);
+    try {
+      await confirmEmailVerificationCode(pendingEmail, code);
+      setVerifyStatus("done");
+    } catch (err) {
+      setCodeError(isApiError(err, 400) ? key("verify.codeWrong") : key("error.serverUnreachable"));
+    } finally {
+      setCodePending(false);
     }
   };
 
@@ -3774,6 +3812,9 @@ function AppShell() {
             error={authError ? t(authError) : null}
             pending={authPending}
             resent={authSent}
+            onCode={(code) => void handleVerifyCode(code)}
+            codePending={codePending}
+            codeError={codeError ? t(codeError) : null}
           />
         ) : null}
         {/*
@@ -4043,6 +4084,7 @@ function AppShell() {
       ) : null}
       {contentView === "channel" && channelId ? (
         <ChannelScreen
+          rosterVersion={rosterVersion}
           timeZone={viewerTimeZone}
           onOpenEvent={openCalendarEvent}
           onPlanEvent={() => planEventIn(channelId)}

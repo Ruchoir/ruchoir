@@ -101,13 +101,16 @@
     "verifyingBody": "We are checking your confirmation link.",
     "doneTitle": "Address confirmed",
     "doneBody": "Your account is active. Sign in to enter your space.",
-    "sentBody": "A confirmation link has been sent to {{email}}. Open it to activate your account, then sign in.",
+    "sentBody": "A confirmation link and code were sent to {{email}}. Open the link or enter the code below to activate your account.",
     "sentBodyNoAddress": "A confirmation link has been sent. Open it to activate your account, then sign in.",
     "resentNotice": "A new link has just been sent.",
     "resend": "Send the link again",
     "errorTitle": "Invalid confirmation link",
     "errorHint": "Enter your address to receive a new one.",
-    "resentNeutral": "If that address matches an account awaiting confirmation, a new link has just been sent."
+    "resentNeutral": "If that address matches an account awaiting confirmation, a new link has just been sent.",
+    "codeLabel": "Code from the email",
+    "codeSubmit": "Confirm the code",
+    "codeWrong": "This code does not match, or it has expired. Check it, or ask for a new link."
   },
   "common": {
     "loading": "Loading…",
@@ -569,7 +572,8 @@
     "deleteNameMismatch": "That is not the channel's name.",
     "deleted": "Channel deleted",
     "deletedElsewhere": "The channel #{{name}} was deleted.",
-    "details": "Channel details"
+    "details": "Channel details",
+    "removedElsewhere": "You were removed from #{{name}}."
   },
   "role": {
     "member": "Member",

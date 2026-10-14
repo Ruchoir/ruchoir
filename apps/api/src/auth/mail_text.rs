@@ -163,7 +163,7 @@ fn common(locale: Locale) -> Common {
 }
 
 /// Confirm a newly registered address.
-pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> Email {
+pub fn verification(locale: Locale, link: &str, code: &str, hours: i64, instance: &str) -> Email {
     let link = link.to_owned();
     let content = match locale {
         Locale::Fr => Content {
@@ -173,7 +173,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             paragraph: "Bienvenue sur Ruchoir. Il reste une étape : confirmer que cette adresse est bien la vôtre, pour activer votre compte.".to_owned(),
             button: "Confirmer mon adresse".to_owned(),
             link,
-            note: format!("Ce lien expire dans {hours} heures. Si vous n'avez pas créé de compte Ruchoir, ignorez ce message : aucun compte ne sera activé."),
+            note: format!("Ce lien et ce code expirent dans {hours} heures. Si vous n'avez pas créé de compte Ruchoir, ignorez ce message : aucun compte ne sera activé."),
             items: Vec::new(),
         },
         Locale::En => Content {
@@ -183,7 +183,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             paragraph: "Welcome to Ruchoir. One step left: confirm that this address is yours, to activate your account.".to_owned(),
             button: "Confirm my address".to_owned(),
             link,
-            note: format!("This link expires in {hours} hours. If you did not create a Ruchoir account, ignore this message: no account will be activated."),
+            note: format!("This link and this code expire in {hours} hours. If you did not create a Ruchoir account, ignore this message: no account will be activated."),
             items: Vec::new(),
         },
         Locale::Es => Content {
@@ -193,7 +193,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             paragraph: "Te damos la bienvenida a Ruchoir. Queda un paso: confirmar que esta dirección es tuya para activar tu cuenta.".to_owned(),
             button: "Confirmar mi dirección".to_owned(),
             link,
-            note: format!("Este enlace caduca en {hours} horas. Si no has creado ninguna cuenta de Ruchoir, ignora este mensaje: no se activará ninguna cuenta."),
+            note: format!("Este enlace y este código caducan en {hours} horas. Si no has creado ninguna cuenta de Ruchoir, ignora este mensaje: no se activará ninguna cuenta."),
             items: Vec::new(),
         },
         Locale::De => Content {
@@ -203,7 +203,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             paragraph: "Willkommen bei Ruchoir. Nur noch ein Schritt: Bestätigen Sie, dass diese Adresse Ihnen gehört, um Ihr Konto zu aktivieren.".to_owned(),
             button: "Adresse bestätigen".to_owned(),
             link,
-            note: format!("Dieser Link läuft in {hours} Stunden ab. Falls Sie kein Ruchoir-Konto erstellt haben, ignorieren Sie diese Nachricht: Es wird kein Konto aktiviert."),
+            note: format!("Dieser Link und dieser Code laufen in {hours} Stunden ab. Falls Sie kein Ruchoir-Konto erstellt haben, ignorieren Sie diese Nachricht: Es wird kein Konto aktiviert."),
             items: Vec::new(),
         },
         Locale::It => Content {
@@ -213,7 +213,7 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             paragraph: "Benvenuto su Ruchoir. Manca un passaggio: conferma che questo indirizzo è tuo per attivare il tuo account.".to_owned(),
             button: "Conferma il mio indirizzo".to_owned(),
             link,
-            note: format!("Questo link scade tra {hours} ore. Se non hai creato un account Ruchoir, ignora questo messaggio: nessun account verrà attivato."),
+            note: format!("Questo link e questo codice scadono tra {hours} ore. Se non hai creato un account Ruchoir, ignora questo messaggio: nessun account verrà attivato."),
             items: Vec::new(),
         },
         Locale::Pl => Content {
@@ -223,11 +223,32 @@ pub fn verification(locale: Locale, link: &str, hours: i64, instance: &str) -> E
             paragraph: "Witamy w Ruchoirze. Został jeden krok: potwierdź, że ten adres należy do Ciebie, aby aktywować konto.".to_owned(),
             button: "Potwierdź adres".to_owned(),
             link,
-            note: format!("Link wygasa za {hours} godz. Jeśli nie zakładałeś konta w Ruchoirze, zignoruj tę wiadomość: żadne konto nie zostanie aktywowane."),
+            note: format!("Link i kod wygasają za {hours} godz. Jeśli nie zakładałeś konta w Ruchoirze, zignoruj tę wiadomość: żadne konto nie zostanie aktywowane."),
             items: Vec::new(),
         },
     };
-    render(locale, &content, instance)
+    render_with_code(locale, &content, instance, Some(code))
+}
+
+/// The line that introduces the code under the verification link.
+fn code_label(locale: Locale) -> &'static str {
+    match locale {
+        Locale::Fr => "Ou saisissez ce code dans Ruchoir :",
+        Locale::En => "Or enter this code in Ruchoir:",
+        Locale::Es => "O introduce este código en Ruchoir:",
+        Locale::De => "Oder geben Sie diesen Code in Ruchoir ein:",
+        Locale::It => "Oppure inserisci questo codice in Ruchoir:",
+        Locale::Pl => "Albo wpisz ten kod w Ruchoirze:",
+    }
+}
+
+/// A six-digit code as two groups of three, the way it is read and typed back.
+fn grouped_code(code: &str) -> String {
+    if code.len() == 6 && code.is_ascii() {
+        format!("{} {}", &code[..3], &code[3..])
+    } else {
+        code.to_owned()
+    }
 }
 
 /// Hand back an account whose password was forgotten.
@@ -603,6 +624,16 @@ const FONT: &str = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe U
 
 /// Draw a message twice, as HTML and as plain text, from the same content.
 fn render(locale: Locale, content: &Content, instance: &str) -> Email {
+    render_with_code(locale, content, instance, None)
+}
+
+/// [`render`], with a code to type shown under the button (the address confirmation).
+fn render_with_code(
+    locale: Locale,
+    content: &Content,
+    instance: &str,
+    code: Option<&str>,
+) -> Email {
     let common = common(locale);
     let items_text: String = content
         .items
@@ -626,8 +657,11 @@ fn render(locale: Locale, content: &Content, instance: &str) -> Email {
     } else {
         format!("{} :\n{}\n\n", content.button, content.link)
     };
+    let code_text = code
+        .map(|code| format!("{}\n{}\n\n", code_label(locale), grouped_code(code)))
+        .unwrap_or_default();
     let text = format!(
-        "{heading}\n\n{paragraph}\n\n{action_text}{note}\n\n-- \nRuchoir. {tagline}\n{sent_by} {instance}",
+        "{heading}\n\n{paragraph}\n\n{action_text}{code_text}{note}\n\n-- \nRuchoir. {tagline}\n{sent_by} {instance}",
         heading = content.heading,
         paragraph = paragraph_text,
         note = content.note,
@@ -693,6 +727,17 @@ fn render(locale: Locale, content: &Content, instance: &str) -> Email {
             fallback = esc(common.fallback),
         )
     };
+    let code_html = code
+        .map(|code| {
+            format!(
+                r#"<p style="margin:0 0 8px 0;font-family:{FONT};font-size:13px;line-height:1.5;color:{MUTED};">{label}</p>
+<p style="margin:0 0 24px 0;font-family:'IBM Plex Mono', Menlo, Consolas, monospace;font-size:30px;line-height:1.2;font-weight:600;letter-spacing:0.08em;color:{INK};">{code}</p>
+"#,
+                label = esc(code_label(locale)),
+                code = esc(&grouped_code(code)),
+            )
+        })
+        .unwrap_or_default();
     let html = format!(
         r#"<!DOCTYPE html>
 <html lang="{lang}">
@@ -726,7 +771,7 @@ fn render(locale: Locale, content: &Content, instance: &str) -> Email {
 <h1 class="rc-title" style="margin:0 0 14px 0;font-family:{FONT};font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.01em;color:{INK};">{heading}</h1>
 <p style="margin:0 0 28px 0;font-family:{FONT};font-size:15px;line-height:1.6;color:{BODY};">{paragraph}</p>
 {items_html}
-{action_html}<p style="margin:0;padding-top:20px;border-top:1px solid {BORDER};font-family:{FONT};font-size:13px;line-height:1.55;color:{MUTED};">{note}</p>
+{action_html}{code_html}<p style="margin:0;padding-top:20px;border-top:1px solid {BORDER};font-family:{FONT};font-size:13px;line-height:1.55;color:{MUTED};">{note}</p>
 </td></tr>
 <tr><td align="center" style="padding:24px 16px 0 16px;font-family:{FONT};font-size:12px;line-height:1.6;color:{MUTED};">
 <span style="color:{INK};font-weight:600;">Ruchoir.</span> {tagline}<br>
@@ -943,6 +988,7 @@ pub async fn send_previews(config: &crate::config::Config, to: &str) -> Result<(
             verification(
                 locale,
                 &format!("{base}/verify-email?token=preview"),
+                "123456",
                 24,
                 &instance,
             ),
@@ -1167,7 +1213,13 @@ mod tests {
     fn every_message_carries_its_link_in_both_bodies() {
         for locale in ALL {
             for email in [
-                verification(locale, "https://x.test/v?token=LINK", 24, "x.test"),
+                verification(
+                    locale,
+                    "https://x.test/v?token=LINK",
+                    "042917",
+                    24,
+                    "x.test",
+                ),
                 password_reset(locale, "https://x.test/r?token=LINK", 30, "x.test"),
                 invitation(
                     locale,
@@ -1188,6 +1240,27 @@ mod tests {
             assert!(invite.subject.contains("SPACE"));
             assert!(invite.text.contains("Camille"));
         }
+    }
+
+    #[test]
+    fn the_verification_carries_its_code_in_both_bodies() {
+        for locale in ALL {
+            let email = verification(
+                locale,
+                "https://x.test/v?token=LINK",
+                "042917",
+                24,
+                "x.test",
+            );
+            // Grouped by three in both bodies, so it reads at a glance and types without a slip.
+            assert!(email.text.contains("042 917"), "{locale}");
+            assert!(email.html.contains("042 917"), "{locale}");
+            assert!(email.text.contains(code_label(locale)), "{locale}");
+            assert!(email.html.contains(&esc(code_label(locale))), "{locale}");
+        }
+        // Nothing else carries a code block.
+        let reset = password_reset(Locale::Fr, "https://x.test/r?token=LINK", 30, "x.test");
+        assert!(!reset.text.contains(code_label(Locale::Fr)));
     }
 
     #[test]

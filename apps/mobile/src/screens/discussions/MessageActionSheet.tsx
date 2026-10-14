@@ -29,7 +29,7 @@ import { useToast } from "../../ui/Toast";
 
 export function MessageActionSheet() {
   const { params } = useRoute<RouteProp<RootParams, "messageActions">>();
-  const { message: m, conversationId, channelId, draftKey, inThread } = params;
+  const { message: m, conversationId, channelId, draftKey, inThread, fromList } = params;
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c, s } = useTheme();
@@ -141,7 +141,7 @@ export function MessageActionSheet() {
         />
       ) : null}
       {m.body ? <ActionRow icon={Copy} tint={c.sky} title={t("message.copy")} onPress={copy} /> : null}
-      {own ? <ActionRow icon={PenLine} tint={c.violet} title={t("message.edit")} onPress={edit} /> : null}
+      {own && !fromList ? <ActionRow icon={PenLine} tint={c.violet} title={t("message.edit")} onPress={edit} /> : null}
       {canPin ? (
         <ActionRow icon={m.pinned ? PinOff : Pin} tint={c.sun} title={m.pinned ? t("message.unpin") : t("message.pin")} onPress={togglePin} />
       ) : null}

@@ -3,7 +3,8 @@
  *
  * - `booting`: reading the Keychain.
  * - `needsServer`: no instance chosen yet (or the person asked to change it).
- * - `signedOut`: an instance, no session; `reason: "expired"` when a 401 ended one.
+ * - `signedOut`: an instance, no session; `reason: "expired"` when a 401 ended one, `"signIn"` when
+ *   the person left the second factor for the password (both open the sign-in, not the welcome).
  * - `mfa`: the password passed, a second factor is asked for.
  * - `signedIn`: a session, and the account it belongs to.
  */
@@ -12,7 +13,7 @@ import type { MfaMethod, SessionUser } from "@ruchoir/client";
 export type SessionState =
   | { kind: "booting" }
   | { kind: "needsServer" }
-  | { kind: "signedOut"; server: string; reason?: "expired" }
+  | { kind: "signedOut"; server: string; reason?: "expired" | "signIn" }
   | { kind: "mfa"; server: string; mfaToken: string; methods: MfaMethod[] }
   | { kind: "signedIn"; server: string; user: SessionUser };
 
@@ -22,6 +23,8 @@ export type SessionEvent =
   | { type: "changeServer" }
   | { type: "mfaRequired"; mfaToken: string; methods: MfaMethod[] }
   | { type: "authenticated"; user: SessionUser }
+  /** The account changed from this app (name, status, zone): the screens show it at once. */
+  | { type: "userUpdated"; patch: Partial<SessionUser> }
   | { type: "unauthorized" }
   | { type: "signedOut" };
 
@@ -41,10 +44,13 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
       return server ? { kind: "mfa", server, mfaToken: event.mfaToken, methods: event.methods } : state;
     case "authenticated":
       return server ? { kind: "signedIn", server, user: event.user } : state;
+    case "userUpdated":
+      return state.kind === "signedIn" ? { ...state, user: { ...state.user, ...event.patch } } : state;
     case "unauthorized":
       // Only a live session can expire; anything else is already where a 401 would send it.
       return state.kind === "signedIn" ? { kind: "signedOut", server: state.server, reason: "expired" } : state;
     case "signedOut":
-      return server ? { kind: "signedOut", server } : { kind: "needsServer" };
+      if (!server) return { kind: "needsServer" };
+      return state.kind === "mfa" ? { kind: "signedOut", server, reason: "signIn" } : { kind: "signedOut", server };
   }
 }

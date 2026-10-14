@@ -64,6 +64,12 @@ void i18n.use(initReactI18next).init({
   returnNull: false,
 });
 
+/** Speak the language chosen in the preferences, or the phone's when none is (`null`). */
+export function applyLocale(locale: Locale | null) {
+  const next = locale ?? deviceLocale();
+  if (i18n.language !== next) void i18n.changeLanguage(next);
+}
+
 /** `t` and the active language, typed against the French dictionary. */
 export function useTranslation() {
   return useReactTranslation();

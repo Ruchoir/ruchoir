@@ -42,3 +42,12 @@ test("a_204_resolves_undefined", async () => {
   fakeFetch({ status: 204 });
   assert.equal(await apiRequest("POST", "/auth/logout"), undefined);
 });
+
+test("a_401_tells_why", async () => {
+  fakeFetch({ status: 401, body: { error: "invalid_credentials", message: "Invalid email or password." } });
+  const codes: (string | undefined)[] = [];
+  configureClient({ baseUrl: "https://a.test", onUnauthorized: (code) => codes.push(code) });
+  // A wrong current password is a 401 too, and says so: the session itself is fine.
+  await assert.rejects(apiRequest("POST", "/auth/password", {}));
+  assert.deepEqual(codes, ["invalid_credentials"]);
+});

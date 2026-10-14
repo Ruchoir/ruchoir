@@ -2,7 +2,7 @@ import { isTaken } from "@ruchoir/client/filesLogic";
 import { useNavigation } from "@react-navigation/native";
 import { Copy, FilePen, SkipForward } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { StyleSheet, Switch, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
 import { nextQuestion, type Choice } from "../../logic/uploadQueue";
@@ -11,6 +11,7 @@ import { ActionRow } from "../../ui/ActionRow";
 import { Sheet } from "../../ui/Sheet";
 import { Text } from "../../ui/Text";
 import { useUploads } from "../../uploads/UploadsProvider";
+import { Toggle } from "../../ui/Toggle";
 
 /**
  * A name already taken in the folder (the web's question): replace (a new version, for who may manage
@@ -19,7 +20,7 @@ import { useUploads } from "../../uploads/UploadsProvider";
  */
 export function ConflictSheet() {
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const { c } = useTheme();
   const navigation = useNavigation();
   const uploads = useUploads();
   const question = nextQuestion(uploads.queue);
@@ -47,7 +48,7 @@ export function ConflictSheet() {
           <Text variant="body" style={styles.grow}>
             {t("files.conflictForAll", { count: others })}
           </Text>
-          <Switch value={forAll} onValueChange={setForAll} trackColor={{ true: c.ink, false: s.sunken }} accessibilityLabel={t("files.conflictForAll", { count: others })} />
+          <Toggle value={forAll} onValueChange={setForAll} accessibilityLabel={t("files.conflictForAll", { count: others })} />
         </View>
       ) : null}
     </Sheet>

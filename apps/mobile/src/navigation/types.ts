@@ -12,6 +12,22 @@ export type ViewerFile = { id: string; name: string; url: string; mime?: string;
 
 export type RootParams = {
   tabs: NavigatorScreenParams<TabParams>;
+  /** The tutorial again, from Help. */
+  tutorial: { replay: true };
+  /** Create or join a space, from the space sheet. */
+  joinSpace: undefined;
+  /** My account's screens and sheets (mockup 11). */
+  statusSheet: undefined;
+  profile: undefined;
+  preferences: undefined;
+  languageSheet: undefined;
+  security: undefined;
+  help: undefined;
+  /** A time zone chosen for the form under it, handed back under `key` (`account/choice.ts`). */
+  zonePicker: { key: string; current: string };
+  changePassword: undefined;
+  totp: { mode: "enable" | "disable" };
+  recoveryCodes: { codes: string[] };
   /**
    * A channel or a direct conversation; `channelId` is set for a channel (its agenda tab needs it).
    * `unread` is how many messages were new when it was opened, which places the "New messages" line;
@@ -62,6 +78,8 @@ export type RootParams = {
     title: string;
     draftKey: string;
     inThread?: boolean;
+    /** Opened from a list away from the composer (the pinned tab): no "Edit" there. */
+    fromList?: boolean;
     message: ApiMessage;
   };
   /** "New message" and what it leads to: a conversation with people, a group, an invitation. */
@@ -104,3 +122,23 @@ declare global {
     interface RootParamList extends RootParams {}
   }
 }
+
+/** An invitation read from a pasted link and previewed: where it leads, and who sent it. */
+export type InvitationChoice = {
+  token: string;
+  spaceName: string;
+  invitedBy?: string;
+  /** The address it was sent to, when it names one. */
+  email?: string;
+};
+
+/** The screens before signing in (`AuthNavigator`). */
+export type AuthParams = {
+  welcome: undefined;
+  tutorial: { replay?: boolean } | undefined;
+  signIn: undefined;
+  signUp: { invitation?: InvitationChoice } | undefined;
+  invitationLink: undefined;
+  verifyEmail: undefined;
+  forgotPassword: { email?: string } | undefined;
+};

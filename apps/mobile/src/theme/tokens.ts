@@ -3,8 +3,8 @@
  *
  * A copy of the palette of `apps/web/app/tokens.css`, the one source of the design system's colours:
  * React Native cannot read CSS, so the values are repeated here and `test/tokens.test.ts` fails the
- * moment the two disagree. Only the violet accent ships in step 1 (the one the mockups are drawn
- * in); the other accents arrive with the preferences screen.
+ * moment the two disagree. The four accents of the web, by day and by night; violet, the one the
+ * mockups are drawn in, is the default.
  *
  * Kept free of React Native imports so Node's test runner can load it.
  */
@@ -38,7 +38,14 @@ export const PALETTE_KEYS = [
 
 export type PaletteKey = (typeof PALETTE_KEYS)[number];
 export type Palette = Record<PaletteKey, string>;
-export type ThemeName = "violet" | "violet-dark";
+/** The accents a person chooses among, as on the web. */
+export type Accent = "sky" | "mint" | "violet" | "pink";
+export const ACCENTS: Accent[] = ["sky", "mint", "violet", "pink"];
+export type ThemeName = Accent | `${Accent}-dark`;
+
+export function themeName(accent: Accent, dark: boolean): ThemeName {
+  return dark ? `${accent}-dark` : accent;
+}
 
 /** The pastels and reserved colours, identical by day and by night. */
 const PASTELS = {
@@ -58,34 +65,38 @@ const PASTELS = {
   onPastel: "#15171c",
 };
 
-export const tokens: Record<ThemeName, Palette> = {
-  violet: {
-    ...PASTELS,
-    bg: "#f6f7f9",
-    surface: "#fdfdfe",
-    line: "#e2e5ea",
-    lineStrong: "#cfd3da",
-    controlLine: "#7d8391",
-    ink: "#15171c",
-    body: "#2e323a",
-    muted: "#5a6070",
-    acc: PASTELS.violet,
-    onInk: "#ffffff",
-  },
-  "violet-dark": {
-    ...PASTELS,
-    bg: "#15171c",
-    surface: "#1d2027",
-    line: "#2e323a",
-    lineStrong: "#3f4450",
-    controlLine: "#7d8391",
-    ink: "#f6f7f9",
-    body: "#dfe2e7",
-    muted: "#a7adb8",
-    acc: PASTELS.violet,
-    onInk: "#15171c",
-  },
+/** The neutrals of a day screen and of a night screen; the accent is laid over them. */
+const DAY = {
+  ...PASTELS,
+  bg: "#f6f7f9",
+  surface: "#fdfdfe",
+  line: "#e2e5ea",
+  lineStrong: "#cfd3da",
+  controlLine: "#7d8391",
+  ink: "#15171c",
+  body: "#2e323a",
+  muted: "#5a6070",
+  onInk: "#ffffff",
 };
+const NIGHT = {
+  ...PASTELS,
+  bg: "#15171c",
+  surface: "#1d2027",
+  line: "#2e323a",
+  lineStrong: "#3f4450",
+  controlLine: "#7d8391",
+  ink: "#f6f7f9",
+  body: "#dfe2e7",
+  muted: "#a7adb8",
+  onInk: "#15171c",
+};
+
+export const tokens = Object.fromEntries(
+  ACCENTS.flatMap((accent) => [
+    [themeName(accent, false), { ...DAY, acc: PASTELS[accent] }],
+    [themeName(accent, true), { ...NIGHT, acc: PASTELS[accent] }],
+  ]),
+) as Record<ThemeName, Palette>;
 
 /** The design system's three radii and its hairline. */
 export const radius = { s: 6, m: 10, l: 16 } as const;
