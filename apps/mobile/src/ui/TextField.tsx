@@ -40,6 +40,7 @@ export function TextField({
             { borderColor: error ? s.danger : c.controlLine, backgroundColor: c.surface, color: c.ink },
             secret && styles.withEye,
             scale !== 1 && { fontSize: 16 * scale, minHeight: Math.round(52 * scale) },
+            input.multiline && styles.multiline,
           ]}
         />
         {secret && (
@@ -77,5 +78,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
   },
   withEye: { paddingRight: 52 },
+  multiline: { minHeight: 96, paddingTop: 14, paddingBottom: 14, textAlignVertical: "top" },
   eye: { position: "absolute", right: 4, top: 4, width: 44, height: 44, alignItems: "center", justifyContent: "center" },
 });

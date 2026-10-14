@@ -6,6 +6,7 @@
  */
 import {
   apiErrorCode,
+  changePassword as apiChangePassword,
   confirmEmailVerificationCode,
   getInstanceCapabilities,
   getSession,
@@ -84,6 +85,13 @@ type SessionApi = {
   signIn: (email: string, password: string) => Promise<void>;
   verify: (method: "totp" | "recovery", code: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** The account changed from this app: shown at once on every screen. */
+  updateUser: (patch: Partial<SessionUser>) => void;
+  /**
+   * Change the password. The server ends every session, this one included, so the app signs in again
+   * with the new password (a second factor, when the account has one, is asked as at sign-in).
+   */
+  changePassword: (current: string, next: string) => Promise<void>;
 };
 
 const SessionContext = createContext<SessionApi | null>(null);
@@ -112,7 +120,7 @@ type Boot = { server: string | null; user: SessionUser | null; offline: boolean 
  * What the Keychain remembers, checked against the instance: the account when the session is still
  * good, none when it is not (401) or there was none, `offline` when the instance did not answer.
  */
-async function readStoredSession(onUnauthorized: () => void): Promise<Boot> {
+async function readStoredSession(onUnauthorized: (code?: string) => void): Promise<Boot> {
   const [server, token] = await Promise.all([store.getServer(), store.getToken()]);
   if (!server) return { server: null, user: null, offline: false };
   connectTo(server, onUnauthorized);
@@ -140,9 +148,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     else await store.clearToken();
   }, []);
 
-  // A 401 anywhere means the session is gone (expired, or ended from another device).
-  const onUnauthorized = useCallback(() => {
-    if (!hasToken.current) return;
+  // A 401 anywhere means the session is gone (expired, or ended from another device), except a wrong
+  // password typed to confirm an action (changing the password, turning off two-factor).
+  const onUnauthorized = useCallback((code?: string) => {
+    if (!hasToken.current || code === "invalid_credentials") return;
     void holdToken(null);
     clearDownloads();
     dispatch({ type: "unauthorized" });
@@ -313,6 +322,29 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "signedOut" });
   }, [holdToken]);
 
+  const updateUser = useCallback((patch: Partial<SessionUser>) => dispatch({ type: "userUpdated", patch }), []);
+
+  const changePassword = useCallback(
+    async (current: string, next: string) => {
+      if (state.kind !== "signedIn") return;
+      const email = state.user.email;
+      try {
+        await apiChangePassword(current, next);
+      } catch (err) {
+        throw failureOf(err);
+      }
+      // The old token is dead: forget it before anything answers 401 with it.
+      await holdToken(null);
+      try {
+        await signIn(email, next);
+      } catch {
+        clearDownloads();
+        dispatch({ type: "signedOut" });
+      }
+    },
+    [state, holdToken, signIn],
+  );
+
   const changeServer = useCallback(() => {
     void holdToken(null);
     dispatch({ type: "changeServer" });
@@ -337,6 +369,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signIn,
       verify,
       signOut,
+      updateUser,
+      changePassword,
     }),
     [
       state,
@@ -354,6 +388,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signIn,
       verify,
       signOut,
+      updateUser,
+      changePassword,
     ],
   );
 

@@ -3,6 +3,15 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { AttachSheet } from "../compose/AttachSheet";
 import { AccountSheet } from "../screens/account/AccountSheet";
+import { ChangePasswordScreen } from "../screens/account/ChangePasswordScreen";
+import { HelpSheet } from "../screens/account/HelpSheet";
+import { LanguageSheet, PreferencesScreen } from "../screens/account/PreferencesScreen";
+import { ProfileScreen } from "../screens/account/ProfileScreen";
+import { RecoveryCodesScreen } from "../screens/account/RecoveryCodesScreen";
+import { SecurityScreen } from "../screens/account/SecurityScreen";
+import { StatusSheet } from "../screens/account/StatusSheet";
+import { TotpScreen } from "../screens/account/TotpScreen";
+import { ZonePicker } from "../screens/account/ZonePicker";
 import { ConversationDetails } from "../screens/discussions/ConversationDetails";
 import { ConversationScreen } from "../screens/discussions/ConversationScreen";
 import { EmojiPickerSheet } from "../screens/discussions/EmojiPickerSheet";
@@ -93,6 +102,16 @@ export function RootNavigator() {
         <Stack.Screen name="joinSpace" component={JoinSpaceModal} options={{ presentation: "modal" }} />
         <Stack.Screen name="tutorial" component={TutorialScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
+        <Stack.Screen name="statusSheet" component={StatusSheet} options={sheet} />
+        <Stack.Screen name="profile" component={ProfileScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="zonePicker" component={ZonePicker} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
+        <Stack.Screen name="preferences" component={PreferencesScreen} />
+        <Stack.Screen name="languageSheet" component={LanguageSheet} options={sheet} />
+        <Stack.Screen name="security" component={SecurityScreen} />
+        <Stack.Screen name="changePassword" component={ChangePasswordScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="totp" component={TotpScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="recoveryCodes" component={RecoveryCodesScreen} options={{ presentation: "modal", gestureEnabled: false }} />
+        <Stack.Screen name="help" component={HelpSheet} options={sheet} />
         <Stack.Screen name="messageActions" component={MessageActionSheet} options={sheet} />
         <Stack.Screen name="emojiPicker" component={EmojiPickerSheet} options={{ ...sheet, sheetAllowedDetents: [0.7, 1] }} />
         <Stack.Screen name="attachSheet" component={AttachSheet} options={sheet} />

@@ -23,6 +23,8 @@ export type SessionEvent =
   | { type: "changeServer" }
   | { type: "mfaRequired"; mfaToken: string; methods: MfaMethod[] }
   | { type: "authenticated"; user: SessionUser }
+  /** The account changed from this app (name, status, zone): the screens show it at once. */
+  | { type: "userUpdated"; patch: Partial<SessionUser> }
   | { type: "unauthorized" }
   | { type: "signedOut" };
 
@@ -42,6 +44,8 @@ export function sessionReducer(state: SessionState, event: SessionEvent): Sessio
       return server ? { kind: "mfa", server, mfaToken: event.mfaToken, methods: event.methods } : state;
     case "authenticated":
       return server ? { kind: "signedIn", server, user: event.user } : state;
+    case "userUpdated":
+      return state.kind === "signedIn" ? { ...state, user: { ...state.user, ...event.patch } } : state;
     case "unauthorized":
       // Only a live session can expire; anything else is already where a 401 would send it.
       return state.kind === "signedIn" ? { kind: "signedOut", server: state.server, reason: "expired" } : state;

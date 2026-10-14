@@ -16,6 +16,18 @@ export type RootParams = {
   tutorial: { replay: true };
   /** Create or join a space, from the space sheet. */
   joinSpace: undefined;
+  /** My account's screens and sheets (mockup 11). */
+  statusSheet: undefined;
+  profile: undefined;
+  preferences: undefined;
+  languageSheet: undefined;
+  security: undefined;
+  help: undefined;
+  /** A time zone chosen for the form under it, handed back under `key` (`account/choice.ts`). */
+  zonePicker: { key: string; current: string };
+  changePassword: undefined;
+  totp: { mode: "enable" | "disable" };
+  recoveryCodes: { codes: string[] };
   /**
    * A channel or a direct conversation; `channelId` is set for a channel (its agenda tab needs it).
    * `unread` is how many messages were new when it was opened, which places the "New messages" line;

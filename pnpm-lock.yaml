@@ -40,6 +40,9 @@ importers:
       expo-clipboard:
         specifier: ~57.0.2
         version: 57.0.2(expo@57.0.27)(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(react@19.2.3)
+      expo-constants:
+        specifier: ~57.0.21
+        version: 57.0.21(expo@57.0.27)(react-native@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.86.3(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.3)(supports-color@8.1.1))(supports-color@8.1.1)
       expo-document-picker:
         specifier: ~57.0.3
         version: 57.0.3(expo@57.0.27)

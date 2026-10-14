@@ -56,3 +56,12 @@ test("back_from_the_second_factor_returns_to_the_password", () => {
 test("signing_out_opens_the_welcome", () => {
   assert.deepEqual(sessionReducer(signedIn, { type: "signedOut" }), { kind: "signedOut", server: "https://a.test" });
 });
+
+test("a_profile_change_reaches_the_signed_in_account", () => {
+  const next = sessionReducer(signedIn, { type: "userUpdated", patch: { name: "Camille R.", timezone: "Europe/Rome" } });
+  assert.equal(next.kind === "signedIn" && next.user.name, "Camille R.");
+  assert.equal(next.kind === "signedIn" && next.user.timezone, "Europe/Rome");
+  // Nobody signed in: nothing to change.
+  const out: SessionState = { kind: "signedOut", server: "https://a.test" };
+  assert.equal(sessionReducer(out, { type: "userUpdated", patch: { name: "X" } }), out);
+});
