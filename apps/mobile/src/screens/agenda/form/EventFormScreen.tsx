@@ -23,6 +23,7 @@ import { remindersLabel } from "@ruchoir/client/calendarLogic";
 import { Bell, ChevronDown, ChevronRight, FileText, Globe, MapPin, MessageSquare, Paperclip, Repeat, UserPlus, Users } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAttachRequests } from "../../../compose/requests";
 import { useLoad } from "../../../data/useLoad";
@@ -224,7 +225,9 @@ export function EventFormScreen() {
     error !== which ? undefined : which === "titleRequired" ? t("calendar.titleRequired") : t("calendar.endBeforeStart");
 
   return (
-    <View style={[styles.fill, { backgroundColor: c.surface }]}>
+    // Full screen, so that a swipe cannot close it past the question above: clear of the status bar
+    // here, of the home indicator in `KeyboardForm`.
+    <SafeAreaView edges={["top"]} style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={edit || params.eventId ? t("calendar.editEvent") : t("calendar.newEvent")} onClose={() => navigation.goBack()} />
       {!draft ? (
         <LoadState
@@ -433,7 +436,7 @@ export function EventFormScreen() {
           </FormRow>
         </KeyboardForm>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
