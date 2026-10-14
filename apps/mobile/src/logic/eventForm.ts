@@ -278,6 +278,16 @@ export function phoneFilesNeedChannel(calendar: Pick<Calendar, "spaceId"> | unde
   return !!calendar && !calendar.spaceId && !channelId;
 }
 
+/**
+ * What closing the form does: nothing while a save is going (it may already have made the event, and
+ * a failure must still find the draft), ask when something was typed, else leave.
+ */
+export function leaveForm(o: { saved: boolean; saving: boolean; dirty: boolean }): "leave" | "stay" | "ask" {
+  if (o.saved) return "leave";
+  if (o.saving) return "stay";
+  return o.dirty ? "ask" : "leave";
+}
+
 /** Whether anything was changed since the form opened. */
 export function isDirty(d: EventDraft, initial: EventDraft): boolean {
   return JSON.stringify(d) !== JSON.stringify(initial);

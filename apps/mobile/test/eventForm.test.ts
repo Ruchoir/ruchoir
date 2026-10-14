@@ -6,6 +6,7 @@ import type { Calendar, CalendarEvent, Occurrence } from "@ruchoir/client";
 import {
   defaultCalendarId,
   draftFromEvent,
+  leaveForm,
   newDraft,
   occurrenceOf,
   phoneFilesNeedChannel,
@@ -229,4 +230,13 @@ test("a_date_of_a_series_is_drawn_from_its_series", () => {
   const day = occurrenceOf(days, "2026-10-21");
   assert.equal(day.start, "2026-10-21");
   assert.equal(day.end, "2026-10-23");
+});
+
+test("leaving_the_form_waits_for_a_save_in_flight", () => {
+  // A save going: closing does nothing until it answers (the event may already be made).
+  assert.equal(leaveForm({ saved: false, saving: true, dirty: true }), "stay");
+  assert.equal(leaveForm({ saved: false, saving: true, dirty: false }), "stay");
+  assert.equal(leaveForm({ saved: false, saving: false, dirty: true }), "ask");
+  assert.equal(leaveForm({ saved: false, saving: false, dirty: false }), "leave");
+  assert.equal(leaveForm({ saved: true, saving: false, dirty: true }), "leave");
 });

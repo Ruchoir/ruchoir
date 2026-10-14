@@ -30,7 +30,7 @@ import { useTranslation } from "../../../i18n";
 import { useSharedT } from "../../../i18n/sharedT";
 import { useLocale } from "../../../i18n/useLocale";
 import { dayKey } from "../../../logic/format";
-import { draftFromEvent, isDirty, newDraft, toInput, wholeSeriesInput, type DraftError, type EventDraft } from "../../../logic/eventForm";
+import { draftFromEvent, isDirty, leaveForm, newDraft, toInput, wholeSeriesInput, type DraftError, type EventDraft } from "../../../logic/eventForm";
 import type { RootParams } from "../../../navigation/types";
 import { useSession } from "../../../session/SessionProvider";
 import { useSpace } from "../../../space/SpaceProvider";
@@ -81,6 +81,15 @@ export function EventFormScreen() {
   const draft = useDraft(formKey);
   const initial = useRef<EventDraft | null>(null);
   const saved = useRef(false);
+  // A save in flight holds the form open; a form gone by then is told nothing.
+  const saving = useRef(false);
+  const alive = useRef(true);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
   const [error, setError] = useState<DraftError | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -141,10 +150,11 @@ export function EventFormScreen() {
     () =>
       navigation.addListener("beforeRemove", (e) => {
         const current = initial.current;
-        if (saved.current || !current) return;
         const now = readDraft(formKey);
-        if (!now || !isDirty(now, current)) return;
+        const choice = leaveForm({ saved: saved.current, saving: saving.current, dirty: !!current && !!now && isDirty(now, current) });
+        if (choice === "leave") return;
         e.preventDefault();
+        if (choice === "stay") return;
         Alert.alert(t("eventForm.discardTitle"), t("eventForm.discardText"), [
           { text: t("eventForm.keepEditing"), style: "cancel" },
           { text: t("eventForm.discard"), style: "destructive", onPress: () => navigation.dispatch(e.data.action) },
@@ -170,7 +180,7 @@ export function EventFormScreen() {
   };
 
   const save = async (scope?: EditScope) => {
-    if (!draft) return;
+    if (!draft || saving.current) return;
     const body = toInput(draft, !!edit);
     if ("error" in body) {
       setError(body.error);
@@ -183,6 +193,7 @@ export function EventFormScreen() {
     }
     setBusy(true);
     setFailed(false);
+    saving.current = true;
     try {
       if (!edit) {
         await createEvent(draft.calendarId, body);
@@ -193,8 +204,11 @@ export function EventFormScreen() {
       }
       // Back to the calendar's reminders: a change of one's own setting, not of the event.
       if (edit && draft.remindersTouched && draft.reminders === undefined) await setEventMe(edit.event.eventId, "default");
-      done("saved");
+      saving.current = false;
+      if (alive.current) done("saved");
     } catch (err) {
+      saving.current = false;
+      if (!alive.current) return;
       if (edit && isApiError(err, 404)) {
         done("gone");
         return;
