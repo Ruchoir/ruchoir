@@ -5,7 +5,7 @@
 import { getChannels, getReplies, type ApiMessage } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useCallback, useMemo } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
+import { FlatList, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Composer } from "../../compose/Composer";
@@ -23,6 +23,7 @@ import { useTheme } from "../../theme/useTheme";
 import { BackHeader } from "../../ui/BackHeader";
 import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
+import { KeyboardArea } from "../../ui/KeyboardArea";
 import { useEditing, useLiveMessages, useMyMentions, useOutboxRows, useTypingLine } from "./feed";
 import { MessageRow } from "./MessageRow";
 
@@ -82,7 +83,7 @@ export function ThreadScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.fill}>
       <BackHeader title={t("thread.title")} subtitle={t("thread.in", { name: channelId ? `#${title}` : title })} />
-      <KeyboardAvoidingView style={[styles.fill, { borderTopWidth: hairline, borderTopColor: c.line }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardArea style={[styles.fill, { borderTopWidth: hairline, borderTopColor: c.line }]}>
         {!replies.data ? (
           <LoadState error={replies.error} onRetry={replies.reload} />
         ) : (
@@ -147,7 +148,7 @@ export function ThreadScreen() {
             attachments={attachments}
           />
         ) : null}
-      </KeyboardAvoidingView>
+      </KeyboardArea>
     </SafeAreaView>
   );
 }

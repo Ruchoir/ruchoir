@@ -15,8 +15,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -49,6 +47,7 @@ import { Button } from "../../ui/Button";
 import { Chips } from "../../ui/Chips";
 import { EmptyState, LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
+import { KeyboardArea } from "../../ui/KeyboardArea";
 import { ConversationAgenda } from "./ConversationAgenda";
 import { ConversationFiles } from "./ConversationFiles";
 import { useEditing, useLiveMessages, useMyMentions, useOutboxRows, useTypingLine } from "./feed";
@@ -283,7 +282,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   const closed = channel?.type === "archived" ? "archived" : channel?.member === false ? "notMember" : null;
 
   return (
-    <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardArea style={styles.fill}>
       {rows.length === 0 ? (
         <EmptyState icon={MessageSquare} title={t("conversation.empty")} text={t("conversation.emptyHint")} />
       ) : (
@@ -414,7 +413,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
           attachments={attachments}
         />
       ) : null}
-    </KeyboardAvoidingView>
+    </KeyboardArea>
   );
 }
 

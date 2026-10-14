@@ -6,7 +6,7 @@ import { addChannelMembers, createChannel, getChannels, type Member } from "@ruc
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSpaceMembers } from "../../data/members";
@@ -25,6 +25,7 @@ import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
 import { useToast } from "../../ui/Toast";
+import { KeyboardArea } from "../../ui/KeyboardArea";
 import { PeopleList } from "./PeopleList";
 
 type Access = "public" | "private";
@@ -82,7 +83,7 @@ export function NewGroupScreen() {
   return (
     <SafeAreaView edges={["bottom"]} style={[styles.fill, { backgroundColor: c.surface }]}>
       <SheetHeader title={t("newMessage.group")} onClose={() => navigation.goBack()} />
-      <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardArea style={styles.fill}>
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={styles.form}>
           <View style={styles.gutter}>
             <TextField
@@ -132,7 +133,7 @@ export function NewGroupScreen() {
           ) : null}
           <Button label={t("group.create")} disabled={!handle || taken} busy={busy} onPress={() => void create()} />
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardArea>
     </SafeAreaView>
   );
 }
