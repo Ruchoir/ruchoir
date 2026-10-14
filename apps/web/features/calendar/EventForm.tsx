@@ -127,6 +127,8 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
   const [startDay, setStartDay] = useState(initial.startDay);
   const [startTime, setStartTime] = useState(initial.startTime);
   const [endDay, setEndDay] = useState(initial.endDay);
+  // An end day the person picked stays when the end time changes; an event of several days had one.
+  const [endDayChosen, setEndDayChosen] = useState(dayDiff(initial.startDay, initial.endDay) > 1);
   const [endTime, setEndTime] = useState(initial.endTime);
   const [tz, setTz] = useState(zone);
   const originalRule = event?.rrule ?? null;
@@ -372,8 +374,9 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
   const changeEndTime = (next: string) => {
     if (!next) return;
     setEndTime(next);
-    // Within a day of the start, an end before the start runs past midnight, to the next day.
-    if (dayDiff(startDay, endDay) <= 1) setEndDay(minutesOf(next) <= minutesOf(startTime) ? addDays(startDay, 1) : startDay);
+    // Within a day of the start, an end before the start runs past midnight, to the next day; an end
+    // day the person picked stays.
+    if (!endDayChosen && dayDiff(startDay, endDay) <= 1) setEndDay(minutesOf(next) <= minutesOf(startTime) ? addDays(startDay, 1) : startDay);
   };
   const field = (flex: string, input: ReactNode) => <div style={{ flex, minWidth: 0 }}>{input}</div>;
   const dateInput = (id: string, value: string, onChange: (v: string) => void, label: string, min?: string) =>
@@ -384,15 +387,25 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
   const timeInput = (id: string, value: string, onChange: (v: string) => void, label: string) =>
     field(compact ? "0 0 92px" : "0 0 112px", <Input id={id} type="time" size="sm" value={value} aria-label={label} onChange={(e) => onChange(e.target.value)} style={{ width: "100%", minWidth: 0 }} />);
 
-  /** When, on one line: the day and the start, then the end. The end's day shows only when it is not
-   *  the start's (and always for whole days). */
+  /** When: the start's day and time, then the end's day and time, so an event may end another day.
+   *  It wraps to two lines where the width is short. */
   const when = (
-    <div role="group" aria-label={t("calendar.when")} style={{ display: "flex", alignItems: "center", gap: compact ? 4 : 6, flexWrap: allDay || endDay !== startDay ? "wrap" : "nowrap" }}>
+    <div role="group" aria-label={t("calendar.when")} style={{ display: "flex", alignItems: "center", gap: compact ? 4 : 6, flexWrap: "wrap" }}>
       {dateInput("event-start-day", startDay, changeStartDay, t("prefs.from"))}
       {!allDay ? timeInput("event-start-time", startTime, changeStartTime, t("calendar.startTime")) : null}
       <Icon name="arrow-right" size={14} />
+      {dateInput(
+        "event-end-day",
+        endDay,
+        (v) => {
+          if (!v) return;
+          setEndDay(v);
+          setEndDayChosen(true);
+        },
+        t("prefs.to"),
+        startDay,
+      )}
       {!allDay ? timeInput("event-end-time", endTime, changeEndTime, t("calendar.endTime")) : null}
-      {allDay || endDay !== startDay ? dateInput("event-end-day", endDay, (v) => v && setEndDay(v), t("prefs.to"), startDay) : null}
     </div>
   );
 
