@@ -36,12 +36,19 @@ App Store Connect (same number): start a new run instead.
 
 ## iPhone
 
-The job archives the app **unsigned**, signs it ad hoc (which keeps its entitlements), then
-`xcodebuild -exportArchive` signs it for the App Store and uploads it in the same step. Signing goes
-through Xcode's cloud signing with the App Store Connect API key: Apple creates and keeps the
-distribution certificate, so no certificate or profile is stored anywhere. The archive is unsigned
-because Xcode's automatic signing would first ask for a development profile, which Apple only makes
-for a team with a registered device.
+The job first checks the key against App Store Connect (`.github/scripts/check-app-store-key.mjs`,
+a minute rather than a whole build to learn that a secret is wrong). It then archives the app
+**unsigned**, signs it ad hoc (which keeps its entitlements), and `xcodebuild -exportArchive` signs it
+for the App Store into an `.ipa`. Signing goes through Xcode's cloud signing with the App Store Connect
+API key: Apple creates and keeps the distribution certificate, so no certificate or profile is stored
+anywhere. The archive is unsigned because Xcode's automatic signing would first ask for a development
+profile, which Apple only makes for a team with a registered device.
+
+The `.ipa` is uploaded by `.github/scripts/upload-to-app-store.mjs` through the App Store Connect
+API's build uploads, with the same key, and the job waits until App Store Connect has taken it in (a
+refused build fails the job with Apple's reasons). Xcode's own upload is not used: its content
+delivery service refused, with "Cannot verify client's JWT headers", a team key that the API
+accepted.
 
 The build is marked for **internal testing only**: members of the Apple team install it from
 TestFlight, with no Beta App Review. App Store Connect takes 10 to 30 minutes to process it, then
@@ -91,8 +98,10 @@ before a store release.
 
 ## When a build fails
 
-- **iPhone, "No Accounts" or a provisioning error at export:** the key is not a team key with the
-  Admin role, or a secret holds something else (an extra space, a missing line of the `.p8`).
+- **iPhone, "Check the App Store Connect key" fails:** its message names the secret that is wrong, or
+  says the key is refused, revoked or not Admin.
+- **iPhone, "No Accounts" or a provisioning error at export, the check being green:** cloud signing
+  needs a team key with the Admin role.
 - **iPhone, "bundle version must be higher":** a run was re-run after its upload; start a new run.
 - **App Store Connect e-mails "ITMS-91053: Missing API declaration":** a library uses one of Apple's
   "required reason" APIs without declaring it. React Native gathers every library's own privacy

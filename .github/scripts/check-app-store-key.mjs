@@ -4,8 +4,7 @@
 //
 // Reads APPLE_TEAM_ID, APPLE_API_KEY_ID, APPLE_API_ISSUER_ID and KEY_PATH (the .p8 written by the
 // workflow) from the environment, and BUNDLE_ID.
-import { createPrivateKey, sign } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { ApiError, api, loadKey } from "./app-store-connect.mjs";
 
 const {
   APPLE_TEAM_ID: team = "",
@@ -35,7 +34,7 @@ if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(issue
 
 let key;
 try {
-  key = createPrivateKey(readFileSync(keyPath, "utf8"));
+  key = loadKey(keyPath);
   if (key.asymmetricKeyType !== "ec" || key.asymmetricKeyDetails?.namedCurve !== "prime256v1") {
     problems.push("APPLE_API_KEY_P8 is a private key, but not an App Store Connect one (P-256).");
   }
@@ -50,34 +49,22 @@ if (problems.length) {
   process.exit(1);
 }
 
-// A token as App Store Connect wants it: ES256, signature as raw r||s.
-const b64 = (value) => Buffer.from(value).toString("base64url");
-const now = Math.floor(Date.now() / 1000);
-const unsigned = `${b64(JSON.stringify({ alg: "ES256", kid: keyId, typ: "JWT" }))}.${b64(
-  JSON.stringify({ iss: issuer, iat: now, exp: now + 600, aud: "appstoreconnect-v1" }),
-)}`;
-const signature = sign("sha256", Buffer.from(unsigned), { key, dsaEncoding: "ieee-p1363" });
-const token = `${unsigned}.${b64(signature)}`;
-
-const url = `https://api.appstoreconnect.apple.com/v1/apps?filter[bundleId]=${encodeURIComponent(bundleId)}`;
-const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-const body = await response.json().catch(() => ({}));
-
-if (response.status === 401) {
-  console.log(
-    "::error::App Store Connect refuses the key. The key ID, the issuer ID and the .p8 must belong to the same team key, and that key must not be revoked (docs/mobile-builds.md).",
-  );
-  process.exit(1);
-}
-if (response.status === 403) {
-  console.log(
-    "::error::The key is known but not allowed: it must be a team key with the Admin role.",
-  );
-  process.exit(1);
-}
-if (!response.ok) {
-  const detail = body.errors?.[0]?.detail ?? "";
-  console.log(`::error::App Store Connect answered ${response.status}. ${detail}`);
+let body;
+try {
+  body = await api(key, "GET", `/v1/apps?filter[bundleId]=${encodeURIComponent(bundleId)}`);
+} catch (error) {
+  if (!(error instanceof ApiError)) throw error;
+  if (error.status === 401) {
+    console.log(
+      "::error::App Store Connect refuses the key. The key ID, the issuer ID and the .p8 must belong to the same team key, and that key must not be revoked (docs/mobile-builds.md).",
+    );
+  } else if (error.status === 403) {
+    console.log(
+      "::error::The key is known but not allowed: it must be a team key with the Admin role.",
+    );
+  } else {
+    console.log(`::error::${error.message}`);
+  }
   process.exit(1);
 }
 if (!body.data?.length) {
