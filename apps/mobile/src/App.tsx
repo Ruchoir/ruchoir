@@ -1,5 +1,6 @@
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { RootNavigator } from "./navigation/RootNavigator";
@@ -20,8 +21,11 @@ export default function App() {
   const { dark } = useTheme();
   return (
     <SafeAreaProvider>
-      <StatusBar style={dark ? "light" : "dark"} />
-      <SessionProvider>{fontsLoaded ? <Root /> : <BootScreen />}</SessionProvider>
+      {/* Where the keyboard is, frame by frame, for every `KeyboardArea` (see `ui/KeyboardArea`). */}
+      <KeyboardProvider>
+        <StatusBar style={dark ? "light" : "dark"} />
+        <SessionProvider>{fontsLoaded ? <Root /> : <BootScreen />}</SessionProvider>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }

@@ -98,9 +98,11 @@ src/i18n/              i18next and the six dictionaries
   trap: use `ui/KeyboardArea`, not `KeyboardAvoidingView`. It must run to the bottom of its screen
   and rises by the keyboard's whole height, measuring nothing (a view's place in the window is
   reported without the offset of the sheet it is in); give it `safeBottom` rather than wrapping it
-  in a `SafeAreaView` with a bottom edge. Its height comes from Reanimated's `useAnimatedKeyboard`,
-  frame by frame on the UI thread, so whatever it holds moves with the keyboard; a function run there
-  (`areaPlacement`) starts with the `"worklet"` directive. A chat's area is a `composer` one that
+  in a `SafeAreaView` with a bottom edge. Its height comes from react-native-keyboard-controller
+  (`useKeyboardHandler`, under the `KeyboardProvider` of `App.tsx`), which reads the keyboard's real
+  position at every frame, so whatever it holds moves with the keyboard; a function run there
+  (`areaPlacement`) starts with the `"worklet"` directive. Not Reanimated's `useAnimatedKeyboard`: it
+  guesses the keyboard's position from a curve, and the composer trailed iOS 26's keyboard. A chat's area is a `composer` one that
   `slide`s while its list shows: it moves with the keyboard and takes its new size only once the
   keyboard rests. Never resize a list at every frame: each frame re-renders it, Reanimated holds its
   own updates while React commits, and the composer falls behind the keyboard.
