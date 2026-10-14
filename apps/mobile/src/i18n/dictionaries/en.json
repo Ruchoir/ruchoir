@@ -262,7 +262,10 @@
     "me": "Me",
     "availability": "Availability",
     "busyDuring": "{{name}} already has something then",
-    "freeDuring": "{{name}} is free then"
+    "freeDuring": "{{name}} is free then",
+    "noChannel": "No channel",
+    "inviteChannel": "Invite the whole channel",
+    "filesFailed": "The file could not be sent. Try again."
   },
   "discussions": {
     "filterAll": "All",
@@ -339,7 +342,13 @@
     "more": "More",
     "addInvitees": "Add guests",
     "searchPeople": "Name or email address",
-    "inviteNote": "Guests get the invitation in Ruchoir, or by email if they have no account."
+    "inviteNote": "Guests get the invitation in Ruchoir, or by email if they have no account.",
+    "shareInChannel": "Share in the channel",
+    "chooseChannel": "Choose the channel",
+    "addFile": "Add a file",
+    "channelFirstTitle": "Choose a channel first",
+    "channelFirstText": "An event of your own calendar has no space of its own: a file from the phone goes to its channel’s space.",
+    "filesMax": "20 files at most."
   },
   "files": {
     "search": "Search for a file",

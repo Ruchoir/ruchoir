@@ -41,7 +41,9 @@ export function AttachSheet() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c } = useTheme();
-  const { current } = useSpace();
+  const { current, spaces } = useSpace();
+  // The space whose files are offered: the one asked for (an event's), else the current one.
+  const space = params.spaceId ? spaces.data?.find((w) => w.id === params.spaceId) : current;
 
   const hand = (files: LocalFile[]) => {
     if (files.length > 0) requestAttach({ draftKey: params.draftKey, kind: "local", files });
@@ -84,18 +86,18 @@ export function AttachSheet() {
   return (
     <Sheet>
       <Text variant="heading" style={styles.title}>
-        {t("compose.add")}
+        {params.title ?? t("compose.add")}
       </Text>
       <ActionRow icon={ImageIcon} tint={c.sky} title={t("attach.gallery")} subtitle={t("attach.galleryHint")} onPress={() => void fromGallery()} />
       <ActionRow icon={Camera} tint={c.peach} title={t("attach.camera")} subtitle={t("attach.cameraHint")} onPress={() => void fromCamera()} />
       <ActionRow icon={Paperclip} tint={c.violet} title={t("attach.document")} subtitle={t("attach.documentHint")} onPress={() => void fromFiles()} />
-      {current ? (
+      {space ? (
         <ActionRow
           icon={Folder}
           tint={c.mint}
           title={t("attach.space")}
-          subtitle={current.name}
-          onPress={() => navigation.replace("spaceFilePicker", { draftKey: params.draftKey })}
+          subtitle={space.name}
+          onPress={() => navigation.replace("spaceFilePicker", { draftKey: params.draftKey, spaceId: space.id })}
         />
       ) : null}
     </Sheet>

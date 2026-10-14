@@ -15,6 +15,7 @@ import { SpaceFilePicker } from "../screens/discussions/SpaceFilePicker";
 import { ThreadScreen } from "../screens/discussions/ThreadScreen";
 import { EventSummarySheet } from "../screens/agenda/EventSummarySheet";
 import { CalendarSheet } from "../screens/agenda/form/CalendarSheet";
+import { ChannelSheet } from "../screens/agenda/form/ChannelSheet";
 import { CustomRuleScreen } from "../screens/agenda/form/CustomRuleScreen";
 import { EventFormScreen } from "../screens/agenda/form/EventFormScreen";
 import { InviteesScreen } from "../screens/agenda/form/InviteesScreen";
@@ -63,6 +64,7 @@ export function RootNavigator() {
         <Stack.Screen name="eventRepeat" component={RepeatSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="eventRule" component={CustomRuleScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="eventInvitees" component={InviteesScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="eventChannel" component={ChannelSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="eventReminders" component={RemindersSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />

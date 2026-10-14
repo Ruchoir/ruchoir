@@ -4,14 +4,15 @@
  * key of its own, so the sheets it opens (calendar, pickers...) read and change it; closing with
  * something typed asks first, and a failure keeps everything typed.
  */
-import { createEvent, listCalendars, type Calendar } from "@ruchoir/client";
+import { createEvent, listCalendars, listLinkableChannels, searchInvitees, type Calendar, type SpaceFile } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { remindersLabel } from "@ruchoir/client/calendarLogic";
-import { Bell, ChevronDown, ChevronRight, FileText, MapPin, Repeat, UserPlus } from "lucide-react-native";
+import { Bell, ChevronDown, ChevronRight, FileText, MapPin, MessageSquare, Paperclip, Repeat, UserPlus, Users } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, TextInput, View } from "react-native";
 
+import { useAttachRequests } from "../../../compose/requests";
 import { useLoad } from "../../../data/useLoad";
 import { useTranslation } from "../../../i18n";
 import { useSharedT } from "../../../i18n/sharedT";
@@ -36,9 +37,11 @@ import { closeDraft, openDraft, readDraft, updateDraft, useDraft } from "./draft
 import { Availability } from "./Availability";
 import { ClashLine } from "./ClashLine";
 import { FormRow } from "./FormRow";
+import { EventFiles } from "./EventFiles";
 import { InviteeChips } from "./InviteeChips";
 import { inheritedReminders } from "./RemindersSheet";
 import { repeatLabel } from "./repeat";
+import { MAX_EVENT_FILES, useEventUploads } from "./useEventUploads";
 import { WhenRows } from "./WhenRows";
 
 let forms = 0;
@@ -54,7 +57,6 @@ export function EventFormScreen() {
   const { spaces } = useSpace();
   const { state } = useSession();
   const me = state.kind === "signedIn" ? state.user : null;
-  const [busyNames, setBusyNames] = useState<string[]>([]);
   const [formKey] = useState(() => `event-form-${++forms}`);
   const calendars = useLoad("calendars", (signal) => listCalendars(signal));
   const draft = useDraft(formKey);
@@ -63,6 +65,45 @@ export function EventFormScreen() {
   const [error, setError] = useState<DraftError | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [busyNames, setBusyNames] = useState<string[]>([]);
+  const uploads = useEventUploads(formKey, calendars.data);
+  const linkable = useLoad(draft ? `linkable:${draft.calendarId}` : null, (signal) => listLinkableChannels(draft!.calendarId, signal));
+  const [invitingAll, setInvitingAll] = useState(false);
+
+  const addSpaceFile = (file: SpaceFile) => {
+    const id = file.id;
+    if (!id) return;
+    updateDraft(formKey, (d) =>
+      d.files.some((f) => f.id === id) || d.files.length >= MAX_EVENT_FILES
+        ? d
+        : { ...d, files: [...d.files, { id, name: file.name, size: file.sizeBytes }], filesTouched: true },
+    );
+  };
+  // Files picked in the attach sheet: the phone's are uploaded, the space's join as they are.
+  useAttachRequests(`event:${formKey}`, (request) => {
+    if (request.kind === "local") {
+      void uploads.add(request.files);
+      return;
+    }
+    addSpaceFile(request.file);
+  });
+  /** Everyone of the channel who may be invited, added to the list (once each). */
+  const inviteChannel = async () => {
+    if (!draft?.channelId) return;
+    setInvitingAll(true);
+    try {
+      const people = await searchInvitees(draft.calendarId, "", undefined, draft.channelId);
+      updateDraft(formKey, (d) => {
+        const fresh = people.filter((p) => !d.attendees.some((a) => a.userId === p.userId));
+        if (fresh.length === 0) return d;
+        return { ...d, attendees: [...d.attendees, ...fresh.map((p) => ({ key: p.userId, userId: p.userId, name: p.name }))], attendeesTouched: true };
+      });
+    } catch {
+      toast(t("load.failed"));
+    } finally {
+      setInvitingAll(false);
+    }
+  };
 
   // The draft opens once the calendars are known (the first one is the person's own).
   useEffect(() => {
@@ -141,7 +182,7 @@ export function EventFormScreen() {
                   {t("eventForm.saveFailed")}
                 </Text>
               ) : null}
-              <Button label={t("eventForm.save")} busy={busy} disabled={!draft.calendarId} onPress={() => void save()} />
+              <Button label={t("eventForm.save")} busy={busy} disabled={!draft.calendarId || uploads.uploading} onPress={() => void save()} />
             </View>
           }
         >
@@ -241,7 +282,56 @@ export function EventFormScreen() {
               style={[styles.input, { color: c.ink }]}
             />
           </FormRow>
-          <FormRow icon={FileText} tint={c.peach} align="start">
+          <FormRow icon={MessageSquare} tint={c.pink} align="start">
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate("eventChannel", { formKey })}
+              style={({ pressed }) => [styles.choice, pressed && { opacity: 0.6 }]}
+            >
+              <View style={styles.grow}>
+                <Text variant="tiny" tone="muted">
+                  {t("eventForm.shareInChannel")}
+                </Text>
+                <Text variant="bodyStrong" tone={draft.channelId ? "strong" : "muted"}>
+                  {draft.channelId ? (linkable.data?.find((ch) => ch.id === draft.channelId)?.name ?? "…") : t("calendar.noChannel")}
+                </Text>
+              </View>
+              <ChevronRight size={18} color={c.muted} />
+            </Pressable>
+            {draft.channelId ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Users size={16} color={c.ink} />}
+                label={t("calendar.inviteChannel")}
+                busy={invitingAll}
+                onPress={() => void inviteChannel()}
+                style={styles.start}
+              />
+            ) : null}
+          </FormRow>
+          <FormRow icon={Paperclip} tint={c.peach} align="start">
+            <EventFiles
+              formKey={formKey}
+              draft={draft}
+              pending={uploads.pending}
+              onAdd={() =>
+                navigation.navigate("attachSheet", {
+                  draftKey: `event:${formKey}`,
+                  title: t("eventForm.addFile"),
+                  spaceId: calendar?.spaceId ?? linkable.data?.find((ch) => ch.id === draft.channelId)?.spaceId,
+                })
+              }
+              onRetry={(item) => void uploads.retry(item)}
+              onRemove={uploads.remove}
+            />
+            {uploads.pending.some((p) => p.failed) ? (
+              <Text variant="small" tone="danger">
+                {t("calendar.filesFailed")}
+              </Text>
+            ) : null}
+          </FormRow>
+          <FormRow icon={FileText} tint={c.sky} align="start">
             <TextInput
               value={draft.description}
               onChangeText={(description) => updateDraft(formKey, (d) => ({ ...d, description }))}
@@ -263,6 +353,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   grow: { flex: 1 },
   choice: { flexDirection: "row", alignItems: "center", gap: 8 },
+  start: { alignSelf: "flex-start" },
   form: { paddingBottom: 24 },
   band: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, gap: 10 },
   title: { fontFamily: fonts.sansBold, fontSize: 24, lineHeight: 30, paddingVertical: 4 },

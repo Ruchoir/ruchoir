@@ -261,6 +261,12 @@ export function wholeSeriesInput(body: EventInput, occurrence: Occurrence, event
   return whole;
 }
 
+/** Whether a file of the phone has nowhere to go yet: an event of a calendar without a space (the
+ *  person's own, or someone's shared one) puts it in its channel's space, so it needs a channel. */
+export function phoneFilesNeedChannel(calendar: Pick<Calendar, "spaceId"> | undefined, channelId: string | null): boolean {
+  return !!calendar && !calendar.spaceId && !channelId;
+}
+
 /** Whether anything was changed since the form opened. */
 export function isDirty(d: EventDraft, initial: EventDraft): boolean {
   return JSON.stringify(d) !== JSON.stringify(initial);

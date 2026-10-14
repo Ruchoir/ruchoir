@@ -262,7 +262,10 @@
     "me": "Ich",
     "availability": "Verfügbarkeit",
     "busyDuring": "{{name}} hat zu dieser Zeit schon etwas",
-    "freeDuring": "{{name}} ist zu dieser Zeit frei"
+    "freeDuring": "{{name}} ist zu dieser Zeit frei",
+    "noChannel": "Kein Kanal",
+    "inviteChannel": "Ganzen Kanal einladen",
+    "filesFailed": "Die Datei konnte nicht gesendet werden. Bitte erneut versuchen."
   },
   "discussions": {
     "filterAll": "Alle",
@@ -339,7 +342,13 @@
     "more": "Mehr",
     "addInvitees": "Gäste hinzufügen",
     "searchPeople": "Name oder E-Mail-Adresse",
-    "inviteNote": "Gäste erhalten die Einladung in Ruchoir oder per E-Mail, wenn sie kein Konto haben."
+    "inviteNote": "Gäste erhalten die Einladung in Ruchoir oder per E-Mail, wenn sie kein Konto haben.",
+    "shareInChannel": "Im Kanal teilen",
+    "chooseChannel": "Kanal wählen",
+    "addFile": "Datei hinzufügen",
+    "channelFirstTitle": "Wählen Sie zuerst einen Kanal",
+    "channelFirstText": "Ein Termin Ihres eigenen Kalenders hat keinen eigenen Bereich: Eine Datei vom Telefon wird im Bereich seines Kanals abgelegt.",
+    "filesMax": "Höchstens 20 Dateien."
   },
   "files": {
     "search": "Datei suchen",

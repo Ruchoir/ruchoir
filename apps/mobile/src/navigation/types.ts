@@ -42,6 +42,7 @@ export type RootParams = {
   eventPicker: { formKey: string; field: "startDay" | "endDay" | "startTime" | "endTime" | "until" };
   eventRepeat: { formKey: string };
   eventInvitees: { formKey: string };
+  eventChannel: { formKey: string };
   eventRule: { formKey: string };
   /** The form's reminders (`formKey`), or one's own reminders for the event `eventId`, saved at once. */
   eventReminders: { formKey: string; eventId?: undefined } | { eventId: string; formKey?: undefined };
@@ -69,8 +70,9 @@ export type RootParams = {
   thread: { conversationId: string; channelId?: string; rootId: string; title: string; root?: ApiMessage };
   emojiPicker: { conversationId: string; message: ApiMessage };
   /** "Add to the message", for the composer whose draft is `draftKey`. */
-  attachSheet: { draftKey: string };
-  spaceFilePicker: { draftKey: string };
+  attachSheet: { draftKey: string; title?: string; spaceId?: string };
+  /** A space's files to pick from: `spaceId`'s, else the current space's. */
+  spaceFilePicker: { draftKey: string; spaceId?: string };
   spaceSheet: undefined;
   accountSheet: undefined;
 };

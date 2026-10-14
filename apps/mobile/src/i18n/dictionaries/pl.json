@@ -300,7 +300,10 @@
     "me": "Ja",
     "availability": "Dostępność",
     "busyDuring": "{{name}}: już zajęte o tej porze",
-    "freeDuring": "{{name}}: wolne o tej porze"
+    "freeDuring": "{{name}}: wolne o tej porze",
+    "noChannel": "Brak kanału",
+    "inviteChannel": "Zaproś cały kanał",
+    "filesFailed": "Nie udało się wysłać pliku. Spróbuj ponownie."
   },
   "discussions": {
     "filterAll": "Wszystko",
@@ -389,7 +392,13 @@
     "more": "Więcej",
     "addInvitees": "Dodaj gości",
     "searchPeople": "Imię lub adres e-mail",
-    "inviteNote": "Goście otrzymują zaproszenie w Ruchoir lub e-mailem, jeśli nie mają konta."
+    "inviteNote": "Goście otrzymują zaproszenie w Ruchoir lub e-mailem, jeśli nie mają konta.",
+    "shareInChannel": "Udostępnij na kanale",
+    "chooseChannel": "Wybierz kanał",
+    "addFile": "Dodaj plik",
+    "channelFirstTitle": "Najpierw wybierz kanał",
+    "channelFirstText": "Wydarzenie z własnego kalendarza nie ma własnej przestrzeni: plik z telefonu trafia do przestrzeni jego kanału.",
+    "filesMax": "Najwyżej 20 plików."
   },
   "files": {
     "search": "Szukaj pliku",

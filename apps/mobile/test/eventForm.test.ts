@@ -7,6 +7,7 @@ import {
   defaultCalendarId,
   draftFromEvent,
   newDraft,
+  phoneFilesNeedChannel,
   setWhen,
   toInput,
   wholeSeriesInput,
@@ -207,4 +208,12 @@ test("set_when_routes_each_field_to_its_rule", () => {
   const longer = setWhen(allDay, "endDay", "2026-10-17");
   assert.equal(longer.endDay, "2026-10-17");
   assert.equal(longer.startDay, "2026-10-14");
+});
+
+test("phone_files_of_a_personal_event_need_a_channel", () => {
+  assert.equal(phoneFilesNeedChannel(OWN, null), true);
+  assert.equal(phoneFilesNeedChannel(OWN, "ch1"), false);
+  assert.equal(phoneFilesNeedChannel(SPACE, null), false);
+  // Someone's calendar shared with the person has no space either.
+  assert.equal(phoneFilesNeedChannel(SHARED, null), true);
 });
