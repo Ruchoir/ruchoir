@@ -13,6 +13,7 @@ import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTranslation } from "../i18n";
+import { composerRoom } from "../logic/keyboard";
 import { activeToken, broadcastsFor, fold, insertToken, matchPeople } from "../logic/mentions";
 import { fonts } from "../theme/fonts";
 import { hairline, radius } from "../theme/tokens";
@@ -21,7 +22,6 @@ import { Text } from "../ui/Text";
 import { MentionSuggestions, type Suggestion } from "./MentionSuggestions";
 import { PendingFiles } from "./PendingFiles";
 import type { Attachments } from "./useAttachments";
-import { useKeyboardShown } from "./useKeyboardShown";
 import { useOutbox } from "./useOutbox";
 import { useTypingSignal } from "./useTyping";
 
@@ -63,7 +63,9 @@ export function Composer(props: Props) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const insets = useSafeAreaInsets();
-  const keyboard = useKeyboardShown();
+  // The bar keeps clear of the home indicator; with the keyboard up, its `KeyboardArea` (`composer`)
+  // lets that room go behind the keyboard, so it changes no size as the keyboard moves.
+  const barBottom = { paddingBottom: composerRoom(insets.bottom) };
   const outbox = useOutbox();
   const signalTyping = useTypingSignal(conversationId);
   // The parent remounts the composer when the draft or the edited message changes (its `key`).
@@ -170,7 +172,7 @@ export function Composer(props: Props) {
         </View>
       ) : null}
       {files ? <PendingFiles attachments={files} /> : null}
-      <View style={[styles.bar, { paddingBottom: keyboard ? 8 : Math.max(insets.bottom, 8) }]}>
+      <View style={[styles.bar, barBottom]}>
         {props.onAttach && !editing ? (
           <Pressable
             accessibilityRole="button"

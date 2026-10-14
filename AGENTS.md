@@ -140,6 +140,8 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | React Navigation (native-stack, bottom-tabs) | 7 | `apps/mobile/package.json` |
 | expo-secure-store, -image, -file-system, -sharing, -web-browser, -localization, -font, -haptics, -clipboard, -image-picker, -document-picker | the SDK 57 versions | `apps/mobile/package.json` |
 | react-native-screens / -safe-area-context / -svg / -webview | 4.26 / 5.7 / 15.15.4 / 13.16.1 | `apps/mobile/package.json` |
+| react-native-reanimated / -worklets (UI-thread animations, Software Mansion, Poland) | 4.5.1 / 0.10.1 | `apps/mobile/package.json` |
+| react-native-keyboard-controller (keyboard-following; Kirill Zyusko, Warsaw, MIT, community) | 1.21.9 | `apps/mobile/package.json` |
 | lucide-react-native / @dicebear (mobile) | 1.55 / 10 | `apps/mobile/package.json` |
 
 ## Languages

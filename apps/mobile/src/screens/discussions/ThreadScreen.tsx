@@ -83,7 +83,7 @@ export function ThreadScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.fill}>
       <BackHeader title={t("thread.title")} subtitle={t("thread.in", { name: channelId ? `#${title}` : title })} />
-      <KeyboardArea style={[styles.fill, { borderTopWidth: hairline, borderTopColor: c.line }]}>
+      <KeyboardArea composer slide={!!replies.data} style={[styles.fill, { borderTopWidth: hairline, borderTopColor: c.line }]}>
         {!replies.data ? (
           <LoadState error={replies.error} onRetry={replies.reload} />
         ) : (

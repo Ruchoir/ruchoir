@@ -301,7 +301,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   const closed = channel?.type === "archived" ? "archived" : channel?.member === false ? "notMember" : null;
 
   return (
-    <KeyboardArea style={styles.fill}>
+    <KeyboardArea composer slide={rows.length > 0} style={styles.fill}>
       {rows.length === 0 ? (
         <EmptyState icon={MessageSquare} title={t("conversation.empty")} text={t("conversation.emptyHint")} />
       ) : (
