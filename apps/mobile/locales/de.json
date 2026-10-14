@@ -1,6 +1,7 @@
 {
   "ios": {
     "NSCameraUsageDescription": "Ruchoir verwendet die Kamera, damit Sie ein Foto in einer Nachricht senden können.",
-    "NSPhotoLibraryUsageDescription": "Ruchoir öffnet Ihre Fotos, damit Sie sie an eine Nachricht anhängen können."
+    "NSPhotoLibraryUsageDescription": "Ruchoir öffnet Ihre Fotos, damit Sie sie an eine Nachricht anhängen können.",
+    "NSFaceIDUsageDescription": "Ruchoir verwendet Face ID zum Entsperren, wenn du die Sperre aktiviert hast."
   }
 }

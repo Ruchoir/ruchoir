@@ -967,7 +967,14 @@
     "sessions": "Sesiones",
     "sessionsDesc": "Si otro dispositivo se quedó conectado, córtelo todo: se cierran todas las sesiones, también esta.",
     "signOutEverywhere": "Cerrar todas las sesiones",
-    "signOutFailed": "No se ha podido cerrar la sesión"
+    "signOutFailed": "No se ha podido cerrar la sesión",
+    "lockSection": "Bloqueo",
+    "lockFaceId": "Bloquear con Face ID",
+    "lockTouchId": "Bloquear con Touch ID",
+    "lockBiometrics": "Bloquear con la huella o el rostro",
+    "lockPasscode": "Bloquear con el código del teléfono",
+    "lockHint": "Se pide al abrir la app y tras un minuto fuera de ella.",
+    "lockUnavailable": "Configura Face ID o un código en los ajustes del teléfono."
   },
   "status": {
     "auto": "Disponible",
@@ -1050,5 +1057,12 @@
     "revoke": "Revocar",
     "revoked": "Invitación revocada",
     "revokeFailed": "Invitación no revocada"
+  },
+  "lock": {
+    "title": "Ruchoir está bloqueado",
+    "prompt": "Desbloquear Ruchoir",
+    "unlock": "Desbloquear",
+    "unlockFaceId": "Desbloquear con Face ID",
+    "unlockTouchId": "Desbloquear con Touch ID"
   }
 }

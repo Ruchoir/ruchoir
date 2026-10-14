@@ -5,6 +5,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { OutboxProvider } from "./compose/useOutbox";
+import { AppLock } from "./lock/AppLock";
 import { RealtimeProvider } from "./realtime/RealtimeProvider";
 import { AuthNavigator } from "./navigation/AuthNavigator";
 import { MfaScreen } from "./screens/auth/MfaScreen";
@@ -53,17 +54,19 @@ function Root() {
       return <MfaScreen />;
     case "signedIn":
       return (
-        <RealtimeProvider>
-          <OutboxProvider>
-            <SpaceProvider>
-              <ToastProvider>
-                <UploadsProvider>
-                  <SpaceGate />
-                </UploadsProvider>
-              </ToastProvider>
-            </SpaceProvider>
-          </OutboxProvider>
-        </RealtimeProvider>
+        <AppLock userId={session.state.user.id} onSignOut={() => void session.signOut()}>
+          <RealtimeProvider>
+            <OutboxProvider>
+              <SpaceProvider>
+                <ToastProvider>
+                  <UploadsProvider>
+                    <SpaceGate />
+                  </UploadsProvider>
+                </ToastProvider>
+              </SpaceProvider>
+            </OutboxProvider>
+          </RealtimeProvider>
+        </AppLock>
       );
   }
 }

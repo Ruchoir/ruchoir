@@ -921,7 +921,14 @@
     "sessions": "Sessions",
     "sessionsDesc": "Si un autre appareil est resté connecté, coupez tout : chaque session est fermée, y compris celle-ci.",
     "signOutEverywhere": "Tout déconnecter",
-    "signOutFailed": "Déconnexion impossible"
+    "signOutFailed": "Déconnexion impossible",
+    "lockSection": "Verrouillage",
+    "lockFaceId": "Verrouiller avec Face ID",
+    "lockTouchId": "Verrouiller avec Touch ID",
+    "lockBiometrics": "Verrouiller avec l’empreinte ou le visage",
+    "lockPasscode": "Verrouiller avec le code du téléphone",
+    "lockHint": "Demandé à l’ouverture, et après une minute hors de l’appli.",
+    "lockUnavailable": "Configurez Face ID ou un code dans les réglages du téléphone."
   },
   "status": {
     "auto": "Disponible",
@@ -1001,5 +1008,12 @@
     "revoke": "Révoquer",
     "revoked": "Invitation révoquée",
     "revokeFailed": "Invitation non révoquée"
+  },
+  "lock": {
+    "title": "Ruchoir est verrouillé",
+    "prompt": "Déverrouiller Ruchoir",
+    "unlock": "Déverrouiller",
+    "unlockFaceId": "Déverrouiller avec Face ID",
+    "unlockTouchId": "Déverrouiller avec Touch ID"
   }
 }

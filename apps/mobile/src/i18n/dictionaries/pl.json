@@ -1013,7 +1013,14 @@
     "sessions": "Sesje",
     "sessionsDesc": "Jeśli inne urządzenie pozostało zalogowane, odetnij wszystko: każda sesja zostanie zamknięta, także ta.",
     "signOutEverywhere": "Wyloguj wszędzie",
-    "signOutFailed": "Wylogowanie nie powiodło się"
+    "signOutFailed": "Wylogowanie nie powiodło się",
+    "lockSection": "Blokada",
+    "lockFaceId": "Blokuj za pomocą Face ID",
+    "lockTouchId": "Blokuj za pomocą Touch ID",
+    "lockBiometrics": "Blokuj odciskiem palca lub twarzą",
+    "lockPasscode": "Blokuj kodem telefonu",
+    "lockHint": "Wymagane przy otwieraniu i po minucie poza aplikacją.",
+    "lockUnavailable": "Skonfiguruj Face ID lub kod w ustawieniach telefonu."
   },
   "status": {
     "auto": "Dostępny",
@@ -1099,5 +1106,12 @@
     "revoke": "Unieważnij",
     "revoked": "Unieważniono zaproszenie",
     "revokeFailed": "Nie unieważniono zaproszenia"
+  },
+  "lock": {
+    "title": "Ruchoir jest zablokowany",
+    "prompt": "Odblokuj Ruchoir",
+    "unlock": "Odblokuj",
+    "unlockFaceId": "Odblokuj za pomocą Face ID",
+    "unlockTouchId": "Odblokuj za pomocą Touch ID"
   }
 }

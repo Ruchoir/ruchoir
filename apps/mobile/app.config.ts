@@ -57,6 +57,8 @@ export function appConfig(env: Env): ExpoConfig {
       "expo-font",
       "expo-localization",
       "expo-web-browser",
+      // The Face ID lock (Security): the prompt's reason, in the six languages, comes from locales/.
+      ["expo-local-authentication", { faceIDPermission: "Ruchoir uses Face ID to unlock, when you have turned the lock on." }],
       // Photos are picked through the system picker and the camera takes stills only: no microphone.
       [
         "expo-image-picker",
