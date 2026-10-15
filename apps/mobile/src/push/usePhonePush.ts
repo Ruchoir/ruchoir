@@ -9,7 +9,7 @@
  * - while the app is in front, nothing is drawn by the system: the app shows what arrives itself.
  */
 import type { NavigationContainerRefWithCurrent } from "@react-navigation/native";
-import * as Notifications from "expo-notifications";
+import type { NotificationResponse } from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useRef } from "react";
 import { Platform } from "react-native";
@@ -17,23 +17,22 @@ import { Platform } from "react-native";
 import type { RootParams } from "../navigation/types";
 import { useSpace } from "../space/SpaceProvider";
 import { WAKE_TASK } from "./background";
-import { phonePushAvailable, phonePushState, refreshPhonePush, shareSession } from "./phone";
+import { notifications } from "./native";
+import { phonePushState, refreshPhonePush, shareSession } from "./phone";
 import { refreshWidgets } from "../widgets";
 import { tapTarget } from "./tap";
 
 /** Set once the invitation was shown on this phone, whatever the answer. */
 const ASKED = "ruchoir.notificationsAsked";
 
-if (phonePushAvailable()) {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: false,
-      shouldShowList: false,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-    }),
-  });
-}
+notifications()?.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: false,
+    shouldShowList: false,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
 
 export function usePhonePush(navigation: NavigationContainerRefWithCurrent<RootParams>): { onReady: () => void } {
   const { select } = useSpace();
@@ -60,8 +59,9 @@ export function usePhonePush(navigation: NavigationContainerRefWithCurrent<RootP
     void shareSession()
       .then(refreshWidgets)
       .catch(() => {});
-    if (!phonePushAvailable()) return;
-    const respond = (response: Notifications.NotificationResponse) => {
+    const Notifications = notifications();
+    if (!Notifications) return;
+    const respond = (response: NotificationResponse) => {
       const id = response.notification.request.identifier;
       if (handled.current.has(id)) return;
       handled.current.add(id);
@@ -81,7 +81,7 @@ export function usePhonePush(navigation: NavigationContainerRefWithCurrent<RootP
       open(data);
       return;
     }
-    if (!phonePushAvailable()) return;
+    if (!notifications()) return;
     void (async () => {
       if (await SecureStore.getItemAsync(ASKED)) return;
       if ((await phonePushState()) !== "off") return;
