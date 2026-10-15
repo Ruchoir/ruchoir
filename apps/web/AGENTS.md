@@ -9,10 +9,11 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
   routes, no server-side image optimization. All server logic lives in the Rust API.
   Anything that needs a server goes through `fetch` to the API.
 - **No Node in production.** Next.js is a build tool; the output in `out/` is what ships.
-- **Self-hosted fonts.** IBM Plex Sans/Mono are served from `public/fonts/` as committed woff2
-  (latin subset, static per weight: Sans 400/500/600/700, Mono 400/500/600; OFL, see the README and
-  `OFL.txt` there). The `@font-face` rules are in `app/globals.css`, one per weight. Never load fonts
-  from Google Fonts or any external CDN. The browser-tab icon is `app/icon.png` (the Ruchoir mark);
+- **Self-hosted fonts.** IBM Plex Sans/Mono and OpenDyslexic ship with the design system, as
+  committed files in `packages/design-system/fonts/` (latin subset, static per weight: Sans
+  400/500/600/700, Mono 400/500/600; OFL, see the README and `OFL.txt` there). Their `@font-face` rules
+  are in `packages/design-system/styles/fonts.css`, with relative URLs, so the build bundles them under
+  `_next/static/media/`. Never load fonts from Google Fonts or any external CDN. The browser-tab icon is `app/icon.png` (the Ruchoir mark);
   the wordmark and login use `public/brand/ruchoir-mark.png`.
 - **CSP is strict** (`script-src 'self'`): any script or viewer must be same-origin, with no
   external request. The API reference is our own renderer at `public/docs/index.html`: a single
@@ -23,7 +24,8 @@ the root `AGENTS.md` for project-wide rules; this file adds app-specific context
 
 - Next.js (App Router) + React + TypeScript.
 - Tailwind CSS v4, **CSS-first**: theme tokens live in `app/globals.css` under `@theme`,
-  not in a JS config; the full token set is `app/tokens.css`. The palette is the Ruchoir design
+  not in a JS config; the full token set is the design system's
+  `packages/design-system/styles/tokens.css`. The palette is the Ruchoir design
   system's (see the root `AGENTS.md`): grey canvas, an ink accent, pastels, and a per-theme `--acc`.
   IBM Plex is the type family. Eight themes, `data-theme` on `<html>`: `sky` (the bare `:root`),
   `mint`, `violet`, `pink`, each also as `<accent>-dark`. A retired theme name (`ruchui`, `light`,
@@ -464,13 +466,20 @@ The UI shell was built first on mocked data, as an exploration ahead of the back
 mockups faithfully in React; do not copy prototype internals when they do not fit. Enforce token
 usage with the design-system oxlint config.
 
-- **Tokens** live in `app/tokens.css` (the full DS variable set as `:root` custom properties)
-  plus a brand subset mirrored in `app/globals.css` `@theme` for Tailwind utilities. Component
-  styles are in `app/components.css`, ported once into static CSS (the handoff injected them at
-  runtime; we do not, to stay static-export- and CSP-safe).
-- **Primitives** are in `components/ds/` (import from `@/components/ds`).
+- **The design system is a package**, `@ruchoir/design-system` (`packages/design-system`), shared
+  with Ruchoir Lab. `app/globals.css` imports its stylesheet (`@ruchoir/design-system/styles.css`:
+  tokens, fonts, component styles, flags) and then the app's own `app/components.css`, in that order.
+- **Tokens** live in `packages/design-system/styles/tokens.css` (the full DS variable set as `:root`
+  custom properties) plus a brand subset mirrored in `app/globals.css` `@theme` for Tailwind
+  utilities. Component styles are in `packages/design-system/styles/components.css`, ported once into
+  static CSS (the handoff injected them at runtime; we do not, to stay static-export- and CSP-safe).
+  `app/components.css` holds only what the screens draw around the components. A rule there that
+  styles a component from its context (`.wc-composer .wc-ibtn`) is written with the higher
+  specificity it already has: it comes after the package's rules, so it wins on equal terms too.
+- **Primitives** are in `packages/design-system/src/`; the app imports them from `@/components/ds`,
+  which re-exports the package and adds `FileIcon` (it draws the app's own Drive families).
 - **Icons: `lucide-react`** (ISC, community-governed), rendered as inline SVG via the map in
-  `components/ds/Icon.tsx`. The handoff's `Icon` loads Lucide from `unpkg.com` at runtime: do NOT
+  `packages/design-system/src/Icon.tsx`. The handoff's `Icon` loads Lucide from `unpkg.com` at runtime: do NOT
   copy that, it breaks sovereignty and the strict CSP. Likewise the handoff's `tokens/fonts.css`
   pulls IBM Plex from Google Fonts: ignore it, fonts are self-hosted (see above). Extend the icon
   map rather than reaching for a URL.
@@ -480,10 +489,10 @@ usage with the design-system oxlint config.
 - **App code** is organized as `features/<area>/` (screens) reading domain data only through the
   data seam `@/lib/data`, never from `lib/mock` directly (this is what lets us later swap mocks for the
   real API without touching views).
-- **Floating UI** (menus, emoji picker, profile card) uses `components/ds/Popover.tsx`: portaled to
+- **Floating UI** (menus, emoji picker, profile card) uses the design system's `Popover`: portaled to
   `body`, `position: fixed`, viewport-aware (flips/clamps so it never overflows). Do not hand-roll
   absolute-positioned popovers. Enter/exit animations go through `features/app/useMountAnimation.ts`
-  plus the `wc-pop` / `wc-dock--in|out` classes in `components.css` (all honour reduced motion).
+  plus the `wc-pop` / `wc-dock--in|out` classes in the design system's `components.css` (all honour reduced motion).
 - **Emoji** render through the `features/app/Emoji.tsx` component as same-origin Fluent assets when
   the self-hosted pack is present, falling back to the OS-native glyph otherwise. Never a remote
   emoji CDN. The component consults the pack manifest (`features/app/emojiManifest.ts`, fetched once
@@ -648,7 +657,7 @@ usage with the design-system oxlint config.
   checklist (create a channel, send a message, invite, import, profile) whose state persists in
   `settings.welcome` (`{ dismissed, done }`). Clicking a step runs the real action and ticks it off;
   the Help dialog's first link reopens it (`restartWelcome` in `AppRoot`).
-- **Empty / no-results states** all go through `components/ds/EmptyState.tsx` (icon, title,
+- **Empty / no-results states** all go through the design system's `EmptyState` (icon, title,
   description, optional action). `size="hero"` fills a whole view (icon in a soft badge); `size="compact"`
   suits popovers, side panels and search dropdowns. Do not hand-roll empty placeholders; reuse this so
   they stay consistent.
@@ -664,6 +673,6 @@ usage with the design-system oxlint config.
   (`(?:^|\s):`), so times like `10:30` do not trigger it. The toolbar's `@` and `#` buttons go through
   `insertTrigger`, which types the space the trigger needs when the caret is against a word: they went
   through `insertText` and opened nothing whenever the caret was not already at a token start, which
-  is most of the time. The `Popover` (`components/ds/Popover.tsx`)
+  is most of the time. The `Popover` (`packages/design-system/src/Popover.tsx`)
   measures before paint on every open render (and via a `ResizeObserver` for async resizes), so a
   shrinking/growing list stays anchored to the input with no stale-gap or flash.

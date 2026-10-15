@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-import { haptic } from "@/lib/haptics";
+import { haptic } from "./haptics";
 import { Icon, type IconName } from "./Icon";
 
 // Fingers on the glass, counted page-wide (capture, so nothing can hide a touch from it).

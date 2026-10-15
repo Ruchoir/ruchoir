@@ -1,7 +1,7 @@
 /**
  * Ruchoir's design tokens for the app.
  *
- * A copy of the palette of `apps/web/app/tokens.css`, the one source of the design system's colours:
+ * A copy of the palette of `packages/design-system/styles/tokens.css`, the one source of the design system's colours:
  * React Native cannot read CSS, so the values are repeated here and `test/tokens.test.ts` fails the
  * moment the two disagree. The four accents of the web, by day and by night; violet, the one the
  * mockups are drawn in, is the default.

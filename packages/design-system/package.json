@@ -1,0 +1,46 @@
+{
+  "name": "@ruchoir/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Ruchoir design system: tokens, typefaces and React components, shared by the web app and Ruchoir Lab.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./avatar": "./src/avatar.ts",
+    "./haptics": "./src/haptics.ts",
+    "./styles.css": "./styles/index.css",
+    "./tokens.css": "./styles/tokens.css",
+    "./fonts.css": "./styles/fonts.css",
+    "./components.css": "./styles/components.css"
+  },
+  "files": [
+    "src",
+    "styles",
+    "fonts"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dicebear/core": "^10.7.0",
+    "@dicebear/styles": "^10.6.0",
+    "flag-icons": "^7.5.0",
+    "lucide-react": "^1.37.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "typescript": "^6.0.3"
+  }
+}

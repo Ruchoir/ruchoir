@@ -10,7 +10,7 @@ French in full (all accented letters live in Latin-1), which keeps the payload s
 - `ibm-plex-sans-latin-{400,500,600,700}-normal.woff2`
 - `ibm-plex-mono-latin-{400,500,600}-normal.woff2`
 
-The matching `@font-face` rules are in `app/globals.css` (one per weight). Add a weight or the
+The matching `@font-face` rules are in `../styles/fonts.css` (one per weight). Add a weight or the
 `latin-ext` subset only if a glyph turns up missing.
 
 Provenance: the OFL binaries as repackaged by Fontsource's `@fontsource/ibm-plex-sans` and
@@ -20,7 +20,7 @@ redistribution, so these are committed directly. Do not fetch fonts at build tim
 ## OpenDyslexic (accessibility option)
 
 The appearance settings offer **OpenDyslexic** as a dyslexia-friendly typeface (also OFL, so it is
-self-hosted here exactly like IBM Plex). Its `@font-face` rules are already in `app/globals.css`,
+self-hosted here exactly like IBM Plex). Its `@font-face` rules are in `../styles/fonts.css`,
 expecting these two OpenType files in this folder:
 
 - `opendyslexic-400-normal.otf` (Regular)

@@ -1,18 +1,16 @@
 @import "tailwindcss";
-@import "./tokens.css";
-@import "./components.css";
 /*
- * Country flags, for the language menu (MIT, bundled: a self-hosted instance makes no outside
- * request). The stylesheet points at one SVG per region; only the handful a reader actually sees is
- * ever fetched, and which one is worked out from the language tag rather than listed by hand.
+ * The design system (packages/design-system): tokens, typefaces, component styles and flags. The
+ * app's own styles come after it, so a rule written around a component wins on equal terms.
  */
-@import "flag-icons/css/flag-icons.min.css";
+@import "@ruchoir/design-system/styles.css";
+@import "./components.css";
 
 /*
  * Design tokens (Tailwind v4 is CSS-first: theme values live here, not in a JS config).
- * The full token set lives in tokens.css; this @theme block mirrors the fonts and the few palette
- * colours a Tailwind utility is written against (bg-ink, text-danger, ...). IBM Plex Sans/Mono are the
- * type, as on the public site.
+ * The full token set lives in the design system's tokens.css; this @theme block mirrors the fonts
+ * and the few palette colours a Tailwind utility is written against (bg-ink, text-danger, ...). IBM
+ * Plex Sans/Mono are the type, as on the public site.
  */
 @theme {
   --font-sans: "IBM Plex Sans", "Helvetica Neue", Helvetica, sans-serif;
@@ -24,82 +22,6 @@
   --color-danger: var(--status-danger-fg);
 }
 
-/*
- * Self-hosted IBM Plex fonts (OFL, latin subset). Sovereignty rule: never load fonts from
- * Google Fonts or any external CDN. The woff2 binaries live in `public/fonts/` (see the README
- * and OFL.txt there). The latin subset covers French fully (all accents are in Latin-1). Only the
- * weights the UI uses are shipped: Sans 400/500/600/700, Mono 400/500/600.
- */
-@font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-latin-700-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Mono";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Mono";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Mono";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");
-}
-
-/*
- * OpenDyslexic (OFL, self-hosted like IBM Plex): a dyslexia-friendly typeface offered as an
- * accessibility option. Weighted bottoms and distinct letter shapes reduce letter swapping.
- * The woff2 binaries live in `public/fonts/` (see the README there). If they are absent the
- * "dyslexic" option simply falls back to the generic sans stack below.
- */
-@font-face {
-  font-family: "OpenDyslexic";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/opendyslexic-400-normal.otf") format("opentype");
-}
-@font-face {
-  font-family: "OpenDyslexic";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/fonts/opendyslexic-700-normal.otf") format("opentype");
-}
 
 /*
  * Typeface options (personal preference, applied as data-font on <html>). Overriding --font-sans
