@@ -88,6 +88,15 @@ const AWAY = 240;
 /** A conversation (mockup 13): its messages live, its files and, for a channel, its events. */
 export function ConversationScreen() {
   const { params } = useRoute<RouteProp<RootParams, "conversation">>();
+  return <ConversationView params={params} />;
+}
+
+/**
+ * The conversation itself, pushed (`ConversationScreen`) or beside the list on a tablet
+ * (`DiscussionsScreen`): there, `onClose` empties the pane where a pushed one goes back, and its head
+ * has no arrow. What it opens (a thread, a message's sheet, the details) goes over the whole app.
+ */
+export function ConversationView({ params, onClose }: { params: RootParams["conversation"]; onClose?: () => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { current } = useSpace();
@@ -122,14 +131,15 @@ export function ConversationScreen() {
   useReloadOn((e) => !!params.channelId && affects.channelMembers(e, params.channelId), channelMembers.reload);
   const session = useSession();
   const myId = session.state.kind === "signedIn" ? session.state.user.id : null;
+  const leave = onClose ?? (() => navigation.goBack());
   useRealtimeEvent((e) => {
     if (e.type !== "channels" || !params.channelId || e.channelId !== params.channelId) return;
     if (e.deleted) {
       toast(t("conversation.channelGone"));
-      navigation.goBack();
+      leave();
     } else if (e.membership?.change === "removed" && e.membership.userId === myId) {
       toast(t("conversation.removedFromChannel"));
-      navigation.goBack();
+      leave();
     }
   });
   const openDetails = () =>
@@ -140,6 +150,7 @@ export function ConversationScreen() {
       <BackHeader
         title={title}
         subtitle={subtitle}
+        back={!onClose}
         onPressTitle={openDetails}
         trailing={
           <Pressable

@@ -138,13 +138,14 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | typst / typst-pdf / typst-layout (calendar printing) | 0.15.1 | `apps/api/Cargo.toml` |
 | Expo SDK / React Native / React (mobile) | 57 / 0.86.3 / 19.2.3 | `apps/mobile/package.json` |
 | React Navigation (native-stack, bottom-tabs) | 7 | `apps/mobile/package.json` |
-| expo-secure-store, -image, -file-system, -sharing, -web-browser, -localization, -font, -haptics, -clipboard, -image-picker, -document-picker, -print, -image-manipulator (the last two make a scanned document's PDF on the phone), -constants (the app's version, in Help), -dev-client (the development build, `docs/mobile-builds.md`), -local-authentication (the Face ID lock), -crypto (the passkey sign-in's verifier), -notifications and -task-manager (phone notifications, ADR 0006) | the SDK 57 versions | `apps/mobile/package.json` |
+| expo-secure-store, -image, -file-system, -sharing, -web-browser, -localization, -font, -haptics, -clipboard, -image-picker, -document-picker, -print, -image-manipulator (the last two make a scanned document's PDF on the phone), -constants (the app's version, in Help), -dev-client (the development build, `docs/mobile-builds.md`), -local-authentication (the Face ID lock), -crypto (the passkey sign-in's verifier), -notifications and -task-manager (phone notifications, ADR 0006), -screen-orientation (phones upright, tablets every way) | the SDK 57 versions | `apps/mobile/package.json` |
 | react-native-screens / -safe-area-context / -svg / -webview | 4.26 / 5.7 / 15.15.4 / 13.16.1 | `apps/mobile/package.json` |
 | react-native-reanimated / -worklets (UI-thread animations, Software Mansion, Poland) | 4.5.1 / 0.10.1 | `apps/mobile/package.json` |
 | react-native-keyboard-controller (keyboard-following; Kirill Zyusko, Warsaw, MIT, community) | 1.21.9 | `apps/mobile/package.json` |
 | @react-native-community/datetimepicker (the phone's own date and time pickers; community organisation `react-native-datetimepicker`, MIT; the version Expo Go ships) | 9.1.0 | `apps/mobile/package.json` |
 | react-native-document-scanner-plugin (the document scanner: Apple's VisionKit, Google's ML Kit on Android; websitebeaver, MIT, community) | 2.0.4 | `apps/mobile/package.json` |
 | @bacons/apple-targets (the iPhone's Swift extensions under `apps/mobile/targets`, at prebuild; Evan Bacon, MIT, community; dev dependency) | 5.0.0 | `apps/mobile/package.json` |
+| react-native-android-widget (the Android home-screen widgets, drawn from a headless task; Stefan Aleksovski, MIT, community) | 0.22.1 | `apps/mobile/package.json` |
 | reqwest / jsonwebtoken (the push relay's HTTP/2 client, rustls + `ring`, and its APNs/FCM tokens on the RustCrypto backend) | 0.12 / 11.1.0 | `apps/push-relay/Cargo.toml` |
 | lucide-react-native / @dicebear (mobile) | 1.55 / 10 | `apps/mobile/package.json` |
 

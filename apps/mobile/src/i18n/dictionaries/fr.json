@@ -17,7 +17,8 @@
     "forgot": "Mot de passe oublié ?",
     "noAccount": "Pas encore de compte ?",
     "createAccount": "Créer un compte",
-    "expired": "Votre session a pris fin. Reconnectez-vous."
+    "expired": "Votre session a pris fin. Reconnectez-vous.",
+    "locked": "Le verrou de l’appli vous a déconnecté. Reconnectez-vous, puis choisissez un nouveau code PIN."
   },
   "auth": {
     "error": {
@@ -318,7 +319,9 @@
     "privateGroupOf_one": "Canal privé · {{count}} personne",
     "privateGroupOf_other": "Canal privé · {{count}} personnes",
     "conversationOf_one": "Conversation privée · {{count}} personne",
-    "conversationOf_other": "Conversation privée · {{count}} personnes"
+    "conversationOf_other": "Conversation privée · {{count}} personnes",
+    "pick": "Choisissez une discussion",
+    "pickHint": "Elle s’ouvrira ici, à côté de la liste."
   },
   "conversation": {
     "messages": "Messages",
@@ -929,12 +932,14 @@
     "lockFaceId": "Verrouiller avec Face ID",
     "lockTouchId": "Verrouiller avec Touch ID",
     "lockBiometrics": "Verrouiller avec l’empreinte ou le visage",
-    "lockPasscode": "Verrouiller avec le code du téléphone",
     "lockHint": "Demandé à l’ouverture, et après une minute hors de l’appli.",
-    "lockUnavailable": "Configurez Face ID ou un code dans les réglages du téléphone.",
     "addPasskey": "Ajouter une clé d’accès",
     "passkeyAdded": "Clé d’accès ajoutée",
-    "addPasskeyFailed": "Impossible d’ouvrir l’ajout d’une clé d’accès. Réessayez."
+    "addPasskeyFailed": "Impossible d’ouvrir l’ajout d’une clé d’accès. Réessayez.",
+    "lockPin": "Verrouiller avec un code PIN",
+    "lockBiometryHint": "Demandé à l’ouverture et après une minute hors de l’appli, avec votre code PIN en secours.",
+    "changePin": "Changer le code PIN",
+    "pinChanged": "Code PIN modifié"
   },
   "status": {
     "auto": "Disponible",
@@ -1020,7 +1025,25 @@
     "prompt": "Déverrouiller Ruchoir",
     "unlock": "Déverrouiller",
     "unlockFaceId": "Déverrouiller avec Face ID",
-    "unlockTouchId": "Déverrouiller avec Touch ID"
+    "unlockTouchId": "Déverrouiller avec Touch ID",
+    "usePin": "Saisir le code PIN",
+    "enterPin": "Saisissez votre code PIN",
+    "wrongPin_one": "Code incorrect. Il reste {{count}} essai.",
+    "wrongPin_other": "Code incorrect. Il reste {{count}} essais.",
+    "forgot": "Code PIN oublié ?",
+    "forgotBody": "Vous allez être déconnecté. Reconnectez-vous avec votre mot de passe, puis choisissez un nouveau code PIN.",
+    "verifyTitle": "Confirmez avec votre code PIN",
+    "choosePin": "Choisissez un code PIN",
+    "chooseNewPin": "Choisissez un nouveau code PIN",
+    "confirmPin": "Confirmez le code PIN",
+    "pinMismatch": "Les deux codes ne correspondent pas. Recommencez.",
+    "choosePinHint": "6 chiffres, demandés si la reconnaissance du visage ou de l’empreinte échoue.",
+    "choosePinAloneHint": "6 chiffres, demandés à chaque ouverture de Ruchoir.",
+    "resetHint": "Le verrou reste actif : choisissez le code qui remplace l’ancien.",
+    "noLock": "Continuer sans verrou",
+    "erase": "Effacer le dernier chiffre",
+    "typed_one": "{{count}} chiffre saisi sur {{total}}",
+    "typed_other": "{{count}} chiffres saisis sur {{total}}"
   },
   "push": {
     "section": "Sur ce téléphone",
@@ -1034,8 +1057,17 @@
     "introTitle": "Ne manquez rien d’important",
     "introBody": "Ruchoir vous prévient quand on vous écrit, vous mentionne ou vous invite à un rendez-vous. Vous réglez le reste dans les préférences.",
     "introSampleFrom": "Léa Martin · Équipe",
-    "introSampleWhen": "maintenant",
     "introSample": "@Camille, tu peux confirmer ta présence jeudi ?",
     "later": "Plus tard"
+  },
+  "widgets": {
+    "next": "Prochain",
+    "allDay": "Toute la journée",
+    "now": "maintenant",
+    "signIn": "Ouvrez Ruchoir pour vous connecter",
+    "unreachable": "Serveur injoignable",
+    "unread_one": "{{count}} non lu",
+    "unread_other": "{{count}} non lus",
+    "allRead": "Tout est lu"
   }
 }

@@ -11,6 +11,7 @@ const key = loadKey();
 const BUNDLES = [
   { identifier: "com.ruchoir.app", name: "Ruchoir", capabilities: ["PUSH_NOTIFICATIONS"] },
   { identifier: "com.ruchoir.app.notifications", name: "Ruchoir notifications", capabilities: [] },
+  { identifier: "com.ruchoir.app.widgets", name: "Ruchoir widgets", capabilities: [] },
 ];
 
 async function bundleId(identifier, name) {

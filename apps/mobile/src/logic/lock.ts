@@ -14,21 +14,31 @@ export function lockOnReturn(enabled: boolean, hiddenAt: number | null, now: num
   return enabled && hiddenAt !== null && now - hiddenAt > GRACE_MS;
 }
 
-/** What the phone unlocks with, as the settings and the lock screen name it. */
-export type BiometryKind = "faceId" | "touchId" | "biometrics" | "passcode";
+/** The phone's biometrics, as the settings and the lock screen name them. */
+export type BiometryKind = "faceId" | "touchId" | "biometrics";
 
 /** expo-local-authentication's `AuthenticationType` values. */
 const FINGERPRINT = 1;
 const FACE = 2;
 
+/** expo-local-authentication's `SecurityLevel` from which biometrics are set up (weak, then strong). */
+const BIOMETRIC_WEAK = 2;
+
 /**
  * The word for the phone's biometrics: Face ID or Touch ID on an iPhone; on Android, where a phone
- * may have several and the system picks, "fingerprint or face"; the passcode when there are none.
+ * may have several and the system picks, "fingerprint or face".
  */
 export function biometryKind(types: number[], os: "ios" | "android"): BiometryKind {
-  if (types.length === 0) return "passcode";
   if (os === "android") return "biometrics";
   if (types.includes(FACE)) return "faceId";
   if (types.includes(FINGERPRINT)) return "touchId";
   return "biometrics";
+}
+
+/**
+ * The biometrics the lock can ask for, from the phone's enrolled level: none (null) when they are not
+ * set up, and the lock is then the PIN alone. The phone's own passcode is never one of them.
+ */
+export function usableBiometry(level: number, types: number[], os: "ios" | "android"): BiometryKind | null {
+  return level >= BIOMETRIC_WEAK ? biometryKind(types, os) : null;
 }

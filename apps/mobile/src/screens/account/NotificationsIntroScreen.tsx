@@ -52,7 +52,7 @@ export function NotificationsIntroScreen() {
                 {t("push.introSampleFrom")}
               </Text>
               <Text variant="tiny" tone="muted">
-                {t("push.introSampleWhen")}
+                {t("widgets.now")}
               </Text>
             </View>
             <Text variant="small" tone="body">

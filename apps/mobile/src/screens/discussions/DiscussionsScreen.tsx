@@ -9,11 +9,14 @@ import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { useWide } from "../../layout/useWide";
 import { buildConversations, listConversations, withLivePresence, type ConversationFilter, type ConversationItem } from "../../logic/conversations";
 import { affects } from "../../realtime/events";
 import { useRealtimeEvent } from "../../realtime/RealtimeProvider";
 import { listStamp } from "../../logic/format";
+import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
+import { hairline } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
 import { AvatarStack } from "../../ui/AvatarStack";
@@ -26,6 +29,7 @@ import { EmptyState, LoadState } from "../../ui/States";
 import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
+import { ConversationView } from "./ConversationScreen";
 import { SYSTEM_TEXT } from "./systemText";
 
 const FILTERS = [
@@ -35,19 +39,25 @@ const FILTERS = [
   { key: "people", label: key("discussions.filterPeople") },
 ] as const;
 
-/**
- * The space's conversations (mockup 12): channels and direct conversations, each with its latest
- * message as the lists carry it. The list refreshes itself as messages arrive.
- */
+/** The space's channels and direct conversations, each with its latest message as the lists carry it. */
 export async function loadConversations(spaceId: string, signal: AbortSignal): Promise<ConversationItem[]> {
   const [channels, dms] = await Promise.all([getChannels(spaceId, signal), getDirectMessages(spaceId, signal)]);
   return buildConversations(channels, dms);
 }
 
+/**
+ * The space's conversations (mockup 12), refreshing themselves as messages arrive. On a wide window
+ * (a tablet) the list keeps the left and the conversation tapped opens beside it, rather than over it.
+ */
 export function DiscussionsScreen() {
   const { t } = useTranslation();
+  const { c } = useTheme();
   const navigation = useNavigation();
+  const wide = useWide();
   const { current } = useSpace();
+  // The conversation beside the list, in the space it was opened in: another space starts empty.
+  const [opened, setOpened] = useState<{ spaceId: string; params: RootParams["conversation"] } | null>(null);
+  const beside = wide && opened && opened.spaceId === current?.id ? opened.params : null;
   const [filter, setFilter] = useState<ConversationFilter>("all");
   const [query, setQuery] = useState("");
   const floating = useFloatingScroll();
@@ -74,9 +84,20 @@ export function DiscussionsScreen() {
     [conversations.data, filter, query, presence],
   );
   const unreadCount = conversations.data?.filter((c) => c.unread > 0).length ?? 0;
+  const open = (item: ConversationItem) => {
+    const params = {
+      conversationId: item.id,
+      title: item.name,
+      channelId: item.kind === "channel" ? item.id : undefined,
+      unread: item.unread,
+      kind: item.kind,
+      participants: item.participants,
+    };
+    if (wide && current) setOpened({ spaceId: current.id, params });
+    else navigation.navigate("conversation", params);
+  };
 
-
-  return (
+  const list = (
     <TabScreen>
       <FlatList
         onScroll={floating.onScroll}
@@ -110,26 +131,27 @@ export function DiscussionsScreen() {
           )
         }
         renderItem={({ item }) => (
-          <ConversationRow
-            item={item}
-            memberOf={memberOf}
-            onPress={() =>
-              navigation.navigate("conversation", {
-                conversationId: item.id,
-                title: item.name,
-                channelId: item.kind === "channel" ? item.id : undefined,
-                unread: item.unread,
-                kind: item.kind,
-                participants: item.participants,
-              })
-            }
-          />
+          <ConversationRow item={item} memberOf={memberOf} selected={beside?.conversationId === item.id} onPress={() => open(item)} />
         )}
+        extraData={beside?.conversationId}
         // Room under the last row for the floating button.
         contentContainerStyle={styles.list}
       />
       <FloatingButton compact={floating.compact} icon={SquarePen} label={t("newMessage.title")} onPress={() => navigation.navigate("newMessage")} />
     </TabScreen>
+  );
+  if (!wide) return list;
+  return (
+    <View style={[styles.split, { backgroundColor: c.bg }]}>
+      <View style={[styles.side, { borderRightColor: c.line }]}>{list}</View>
+      <View style={styles.pane}>
+        {beside ? (
+          <ConversationView key={beside.conversationId} params={beside} onClose={() => setOpened(null)} />
+        ) : (
+          <EmptyState icon={MessageSquare} title={t("discussions.pick")} text={t("discussions.pickHint")} />
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -144,13 +166,16 @@ export function ConversationRow({
   item,
   onPress,
   memberOf,
+  selected = false,
 }: {
   item: ConversationItem;
   onPress: () => void;
   memberOf?: (userId: string) => Member | undefined;
+  /** The one open beside the list (a tablet). */
+  selected?: boolean;
 }) {
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const { c, s } = useTheme();
   const { locale, timeZone } = useLocale();
   const stamp = item.at ? listStamp(item.at, new Date(), locale, timeZone) : null;
   const p = item.preview;
@@ -172,7 +197,13 @@ export function ConversationRow({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.row, !preview && item.kind === "person" && styles.single, pressed && { backgroundColor: c.line }]}
+      accessibilityState={{ selected }}
+      style={({ pressed }) => [
+        styles.row,
+        !preview && item.kind === "person" && styles.single,
+        selected && { backgroundColor: s.selected },
+        pressed && { backgroundColor: c.line },
+      ]}
     >
       {item.kind === "group" && item.participants ? (
         <AvatarStack
@@ -239,6 +270,9 @@ export function ConversationRow({
 }
 
 const styles = StyleSheet.create({
+  split: { flex: 1, flexDirection: "row" },
+  side: { width: 380, borderRightWidth: hairline },
+  pane: { flex: 1, justifyContent: "center" },
   list: { paddingBottom: 88 },
   top: { gap: 12, paddingBottom: 8 },
   row: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingVertical: 10, alignItems: "flex-start" },
