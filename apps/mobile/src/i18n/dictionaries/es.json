@@ -17,7 +17,8 @@
     "forgot": "¿Ha olvidado la contraseña?",
     "noAccount": "¿Aún no tiene cuenta?",
     "createAccount": "Crear una cuenta",
-    "expired": "Su sesión ha terminado. Vuelva a iniciar sesión."
+    "expired": "Su sesión ha terminado. Vuelva a iniciar sesión.",
+    "locked": "El bloqueo de la app ha cerrado su sesión. Vuelva a iniciar sesión y elija un PIN nuevo."
   },
   "auth": {
     "error": {
@@ -977,12 +978,14 @@
     "lockFaceId": "Bloquear con Face ID",
     "lockTouchId": "Bloquear con Touch ID",
     "lockBiometrics": "Bloquear con la huella o el rostro",
-    "lockPasscode": "Bloquear con el código del teléfono",
     "lockHint": "Se pide al abrir la app y tras un minuto fuera de ella.",
-    "lockUnavailable": "Configure Face ID o un código en los ajustes del teléfono.",
     "addPasskey": "Añadir una llave de acceso",
     "passkeyAdded": "Llave de acceso añadida",
-    "addPasskeyFailed": "No se ha podido abrir el alta de una llave de acceso. Inténtelo de nuevo."
+    "addPasskeyFailed": "No se ha podido abrir el alta de una llave de acceso. Inténtelo de nuevo.",
+    "lockPin": "Bloquear con un PIN",
+    "lockBiometryHint": "Se pide al abrir la app y tras un minuto fuera de ella, con su PIN como alternativa.",
+    "changePin": "Cambiar el PIN",
+    "pinChanged": "PIN cambiado"
   },
   "status": {
     "auto": "Disponible",
@@ -1071,7 +1074,27 @@
     "prompt": "Desbloquear Ruchoir",
     "unlock": "Desbloquear",
     "unlockFaceId": "Desbloquear con Face ID",
-    "unlockTouchId": "Desbloquear con Touch ID"
+    "unlockTouchId": "Desbloquear con Touch ID",
+    "usePin": "Introducir el PIN",
+    "enterPin": "Introduzca su PIN",
+    "wrongPin_one": "PIN incorrecto. Queda {{count}} intento.",
+    "wrongPin_many": "PIN incorrecto. Quedan {{count}} intentos.",
+    "wrongPin_other": "PIN incorrecto. Quedan {{count}} intentos.",
+    "forgot": "¿Ha olvidado el PIN?",
+    "forgotBody": "Se cerrará su sesión. Vuelva a iniciar sesión con su contraseña y elija un PIN nuevo.",
+    "verifyTitle": "Confirme con su PIN",
+    "choosePin": "Elija un PIN",
+    "chooseNewPin": "Elija un PIN nuevo",
+    "confirmPin": "Repita el PIN",
+    "pinMismatch": "Los dos PIN no coinciden. Empiece de nuevo.",
+    "choosePinHint": "6 cifras, que se piden si falla el reconocimiento facial o de huella.",
+    "choosePinAloneHint": "6 cifras, que se piden cada vez que se abre Ruchoir.",
+    "resetHint": "El bloqueo sigue activo: elija el PIN que sustituye al anterior.",
+    "noLock": "Continuar sin bloqueo",
+    "erase": "Borrar la última cifra",
+    "typed_one": "{{count}} de {{total}} cifras introducidas",
+    "typed_many": "{{count}} de {{total}} cifras introducidas",
+    "typed_other": "{{count}} de {{total}} cifras introducidas"
   },
   "push": {
     "section": "En este teléfono",

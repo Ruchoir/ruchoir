@@ -17,7 +17,8 @@
     "forgot": "Forgot your password?",
     "noAccount": "No account yet?",
     "createAccount": "Create an account",
-    "expired": "Your session has ended. Please sign in again."
+    "expired": "Your session has ended. Please sign in again.",
+    "locked": "The app lock signed you out. Sign in again, then choose a new PIN."
   },
   "auth": {
     "error": {
@@ -931,12 +932,14 @@
     "lockFaceId": "Lock with Face ID",
     "lockTouchId": "Lock with Touch ID",
     "lockBiometrics": "Lock with fingerprint or face",
-    "lockPasscode": "Lock with the phone's passcode",
     "lockHint": "Asked when the app opens, and after a minute away from it.",
-    "lockUnavailable": "Set up Face ID or a passcode in the phone's settings.",
     "addPasskey": "Add a passkey",
     "passkeyAdded": "Passkey added",
-    "addPasskeyFailed": "Could not open adding a passkey. Try again."
+    "addPasskeyFailed": "Could not open adding a passkey. Try again.",
+    "lockPin": "Lock with a PIN",
+    "lockBiometryHint": "Asked when the app opens and after a minute away from it, with your PIN as a fallback.",
+    "changePin": "Change PIN",
+    "pinChanged": "PIN changed"
   },
   "status": {
     "auto": "Available",
@@ -1022,7 +1025,25 @@
     "prompt": "Unlock Ruchoir",
     "unlock": "Unlock",
     "unlockFaceId": "Unlock with Face ID",
-    "unlockTouchId": "Unlock with Touch ID"
+    "unlockTouchId": "Unlock with Touch ID",
+    "usePin": "Enter PIN",
+    "enterPin": "Enter your PIN",
+    "wrongPin_one": "Wrong PIN. {{count}} try left.",
+    "wrongPin_other": "Wrong PIN. {{count}} tries left.",
+    "forgot": "Forgot your PIN?",
+    "forgotBody": "You will be signed out. Sign in again with your password, then choose a new PIN.",
+    "verifyTitle": "Confirm with your PIN",
+    "choosePin": "Choose a PIN",
+    "chooseNewPin": "Choose a new PIN",
+    "confirmPin": "Type the PIN again",
+    "pinMismatch": "The two PINs do not match. Start again.",
+    "choosePinHint": "6 digits, asked when face or fingerprint recognition fails.",
+    "choosePinAloneHint": "6 digits, asked each time Ruchoir opens.",
+    "resetHint": "The lock stays on: choose the PIN that replaces the old one.",
+    "noLock": "Continue without the lock",
+    "erase": "Delete the last digit",
+    "typed_one": "{{count}} of {{total}} digits typed",
+    "typed_other": "{{count}} of {{total}} digits typed"
   },
   "push": {
     "section": "On this phone",

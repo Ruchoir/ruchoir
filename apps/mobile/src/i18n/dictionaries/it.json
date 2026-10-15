@@ -17,7 +17,8 @@
     "forgot": "Password dimenticata?",
     "noAccount": "Non avete ancora un account?",
     "createAccount": "Crea un account",
-    "expired": "La sessione è terminata. Accedete di nuovo."
+    "expired": "La sessione è terminata. Accedete di nuovo.",
+    "locked": "Il blocco dell’app vi ha disconnessi. Accedete di nuovo, poi scegliete un nuovo PIN."
   },
   "auth": {
     "error": {
@@ -977,12 +978,14 @@
     "lockFaceId": "Blocca con Face ID",
     "lockTouchId": "Blocca con Touch ID",
     "lockBiometrics": "Blocca con impronta o volto",
-    "lockPasscode": "Blocca con il codice del telefono",
     "lockHint": "Richiesto all’apertura e dopo un minuto fuori dall’app.",
-    "lockUnavailable": "Configurate Face ID o un codice nelle impostazioni del telefono.",
     "addPasskey": "Aggiungi una passkey",
     "passkeyAdded": "Passkey aggiunta",
-    "addPasskeyFailed": "Impossibile aprire l’aggiunta di una passkey. Riprovate."
+    "addPasskeyFailed": "Impossibile aprire l’aggiunta di una passkey. Riprovate.",
+    "lockPin": "Blocca con un PIN",
+    "lockBiometryHint": "Richiesto all’apertura e dopo un minuto fuori dall’app, con il vostro PIN come riserva.",
+    "changePin": "Cambia il PIN",
+    "pinChanged": "PIN modificato"
   },
   "status": {
     "auto": "Disponibile",
@@ -1071,7 +1074,27 @@
     "prompt": "Sblocca Ruchoir",
     "unlock": "Sblocca",
     "unlockFaceId": "Sblocca con Face ID",
-    "unlockTouchId": "Sblocca con Touch ID"
+    "unlockTouchId": "Sblocca con Touch ID",
+    "usePin": "Inserire il PIN",
+    "enterPin": "Inserite il vostro PIN",
+    "wrongPin_one": "PIN errato. Resta {{count}} tentativo.",
+    "wrongPin_many": "PIN errato. Restano {{count}} tentativi.",
+    "wrongPin_other": "PIN errato. Restano {{count}} tentativi.",
+    "forgot": "PIN dimenticato?",
+    "forgotBody": "Verrete disconnessi. Accedete di nuovo con la vostra password, poi scegliete un nuovo PIN.",
+    "verifyTitle": "Confermate con il vostro PIN",
+    "choosePin": "Scegliete un PIN",
+    "chooseNewPin": "Scegliete un nuovo PIN",
+    "confirmPin": "Ripetete il PIN",
+    "pinMismatch": "I due PIN non corrispondono. Ricominciate.",
+    "choosePinHint": "6 cifre, richieste se il riconoscimento del volto o dell’impronta non riesce.",
+    "choosePinAloneHint": "6 cifre, richieste a ogni apertura di Ruchoir.",
+    "resetHint": "Il blocco resta attivo: scegliete il PIN che sostituisce il precedente.",
+    "noLock": "Continuare senza blocco",
+    "erase": "Cancella l’ultima cifra",
+    "typed_one": "{{count}} di {{total}} cifre inserite",
+    "typed_many": "{{count}} di {{total}} cifre inserite",
+    "typed_other": "{{count}} di {{total}} cifre inserite"
   },
   "push": {
     "section": "Su questo telefono",

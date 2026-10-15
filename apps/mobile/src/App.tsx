@@ -62,7 +62,7 @@ function Root() {
       return <MfaScreen />;
     case "signedIn":
       return (
-        <AppLock userId={session.state.user.id} onSignOut={() => void session.signOut()}>
+        <AppLock userId={session.state.user.id} onSignOut={(reason) => void session.signOut(reason)}>
           <RealtimeProvider>
             <OutboxProvider>
               <SpaceProvider>

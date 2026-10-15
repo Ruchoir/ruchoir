@@ -93,7 +93,8 @@ type SessionApi = {
    * passkey, `auth/browser.ts`). False when the person closed the page or declined.
    */
   signInInBrowser: () => Promise<boolean>;
-  signOut: () => Promise<void>;
+  /** Sign out; `"locked"` when the app lock does it (a forgotten PIN), which the sign-in then says. */
+  signOut: (reason?: "locked") => Promise<void>;
   /** The account changed from this app: shown at once on every screen. */
   updateUser: (patch: Partial<SessionUser>) => void;
   /**
@@ -349,7 +350,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return true;
   }, [state, signedIn]);
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (reason?: "locked") => {
     // While the session still opens the door: the instance forgets this phone (ADR 0006).
     await disablePhonePush();
     try {
@@ -361,7 +362,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     clearDownloads();
     // The widgets say "sign in" rather than the last account's agenda.
     void refreshWidgets();
-    dispatch({ type: "signedOut" });
+    dispatch({ type: "signedOut", reason });
   }, [holdToken]);
 
   const updateUser = useCallback((patch: Partial<SessionUser>) => dispatch({ type: "userUpdated", patch }), []);

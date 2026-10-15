@@ -17,7 +17,8 @@
     "forgot": "Nie pamiętasz hasła?",
     "noAccount": "Nie masz jeszcze konta?",
     "createAccount": "Utwórz konto",
-    "expired": "Sesja wygasła. Zaloguj się ponownie."
+    "expired": "Sesja wygasła. Zaloguj się ponownie.",
+    "locked": "Blokada aplikacji cię wylogowała. Zaloguj się ponownie, a potem wybierz nowy PIN."
   },
   "auth": {
     "error": {
@@ -1023,12 +1024,14 @@
     "lockFaceId": "Blokuj za pomocą Face ID",
     "lockTouchId": "Blokuj za pomocą Touch ID",
     "lockBiometrics": "Blokuj odciskiem palca lub twarzą",
-    "lockPasscode": "Blokuj kodem telefonu",
     "lockHint": "Wymagane przy otwieraniu i po minucie poza aplikacją.",
-    "lockUnavailable": "Skonfiguruj Face ID lub kod w ustawieniach telefonu.",
     "addPasskey": "Dodaj klucz dostępu",
     "passkeyAdded": "Dodano klucz dostępu",
-    "addPasskeyFailed": "Nie udało się otworzyć dodawania klucza dostępu. Spróbuj ponownie."
+    "addPasskeyFailed": "Nie udało się otworzyć dodawania klucza dostępu. Spróbuj ponownie.",
+    "lockPin": "Blokuj kodem PIN",
+    "lockBiometryHint": "Wymagane przy otwieraniu i po minucie poza aplikacją, z PIN-em jako zapasem.",
+    "changePin": "Zmień PIN",
+    "pinChanged": "PIN zmieniony"
   },
   "status": {
     "auto": "Dostępny",
@@ -1120,7 +1123,29 @@
     "prompt": "Odblokuj Ruchoir",
     "unlock": "Odblokuj",
     "unlockFaceId": "Odblokuj za pomocą Face ID",
-    "unlockTouchId": "Odblokuj za pomocą Touch ID"
+    "unlockTouchId": "Odblokuj za pomocą Touch ID",
+    "usePin": "Wpisz PIN",
+    "enterPin": "Wpisz swój PIN",
+    "wrongPin_one": "Błędny PIN. Została {{count}} próba.",
+    "wrongPin_few": "Błędny PIN. Zostały {{count}} próby.",
+    "wrongPin_many": "Błędny PIN. Zostało {{count}} prób.",
+    "wrongPin_other": "Błędny PIN. Zostało {{count}} próby.",
+    "forgot": "Nie pamiętasz PIN-u?",
+    "forgotBody": "Nastąpi wylogowanie. Zaloguj się ponownie hasłem, a potem wybierz nowy PIN.",
+    "verifyTitle": "Potwierdź swoim PIN-em",
+    "choosePin": "Wybierz PIN",
+    "chooseNewPin": "Wybierz nowy PIN",
+    "confirmPin": "Powtórz PIN",
+    "pinMismatch": "Kody PIN się nie zgadzają. Zacznij od nowa.",
+    "choosePinHint": "6 cyfr, wymaganych, gdy rozpoznawanie twarzy lub odcisku palca zawiedzie.",
+    "choosePinAloneHint": "6 cyfr, wymaganych przy każdym otwarciu Ruchoir.",
+    "resetHint": "Blokada pozostaje włączona: wybierz PIN, który zastąpi poprzedni.",
+    "noLock": "Kontynuuj bez blokady",
+    "erase": "Usuń ostatnią cyfrę",
+    "typed_one": "Wpisano {{count}} z {{total}} cyfr",
+    "typed_few": "Wpisano {{count}} z {{total}} cyfr",
+    "typed_many": "Wpisano {{count}} z {{total}} cyfr",
+    "typed_other": "Wpisano {{count}} z {{total}} cyfr"
   },
   "push": {
     "section": "Na tym telefonie",
