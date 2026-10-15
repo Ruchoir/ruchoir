@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 
 import { ACCENTS, PALETTE_KEYS, themeName, tokens } from "../src/theme/tokens.ts";
 
-const css = readFileSync(new URL("../../web/app/tokens.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("../../../packages/design-system/styles/tokens.css", import.meta.url), "utf8");
 
 /** The custom properties declared directly in the block that opens with `selector {`. */
 function block(selector: string): Record<string, string> {

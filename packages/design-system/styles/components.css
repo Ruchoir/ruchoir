@@ -1,0 +1,1482 @@
+/*
+ * Design-system component styles, ported verbatim (class names preserved) from the handoff into a
+ * static stylesheet, so a static export stays self-contained and CSP-safe. Markup lives in
+ * `../src/*.tsx`; these classes style it. Every rule here targets the components alone: what an app
+ * draws around them stays in that app.
+ */
+
+
+
+/* Avatar: outer wrapper is NOT clipped so the presence dot can sit on the edge. */
+.wc-av-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.wc-av {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--grey-100);
+  color: var(--on-pastel);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.wc-av--round {
+  border-radius: var(--radius-full);
+}
+.wc-av img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.wc-av__dot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  border-radius: var(--radius-full);
+  border: 1.5px solid var(--surface-chrome);
+  box-sizing: content-box;
+}
+
+/* Button */
+.wc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  border: var(--border-width-strong) solid transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+/* A filled action rises off the page under the pointer, onto an offset shadow, the way the public
+   site's buttons do; pressing puts it back down. Never on disabled buttons. */
+.wc-btn--primary:not(:disabled):hover,
+.wc-btn--danger:not(:disabled):hover {
+  transform: translate(-2px, -2px);
+}
+.wc-btn:not(:disabled):active {
+  transform: none;
+  box-shadow: none;
+}
+.wc-btn--link:not(:disabled):active {
+  transform: none;
+}
+.wc-btn--sm {
+  height: 34px;
+  padding: 0 var(--space-3);
+  font-size: 13.5px;
+}
+.wc-btn--md {
+  height: 40px;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+}
+.wc-btn--lg {
+  height: 46px;
+  padding: 0 var(--space-5);
+  font-size: var(--text-md);
+}
+.wc-btn--full {
+  width: 100%;
+}
+.wc-btn--primary {
+  background: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+  border-color: var(--action-primary-bg);
+}
+.wc-btn--primary:hover {
+  background: var(--action-primary-bg-hover);
+  box-shadow: var(--shadow-lift);
+}
+.wc-btn--primary:active {
+  background: var(--action-primary-bg-active);
+}
+.wc-btn--secondary {
+  background: var(--action-secondary-bg);
+  color: var(--action-secondary-fg);
+  border-color: var(--action-secondary-border);
+}
+.wc-btn--secondary:hover {
+  background: var(--action-secondary-bg-hover);
+}
+.wc-btn--secondary:active {
+  background: var(--action-secondary-bg-active);
+}
+.wc-btn--ghost {
+  background: transparent;
+  color: var(--action-ghost-fg);
+}
+.wc-btn--ghost:hover {
+  background: var(--action-ghost-bg-hover);
+}
+.wc-btn--ghost:active {
+  background: var(--action-ghost-bg-active);
+}
+.wc-btn--danger {
+  background: var(--action-danger-bg);
+  color: var(--action-danger-fg);
+  border-color: var(--ink);
+}
+.wc-btn--danger:hover {
+  background: var(--action-danger-bg-hover);
+  box-shadow: var(--shadow-popover);
+}
+.wc-btn--link {
+  color: var(--text-link);
+  text-decoration: none;
+  text-decoration-color: var(--acc);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.wc-btn--link {
+  background: transparent;
+  height: auto;
+  padding: 0;
+  border: 0;
+}
+.wc-btn--link:hover,
+.wc-btn--link:focus-visible {
+  color: var(--text-link-hover);
+  text-decoration-line: underline;
+}
+.wc-btn:disabled {
+  cursor: not-allowed;
+  background: var(--surface-disabled);
+  color: var(--text-disabled);
+  border-color: var(--border-default);
+  box-shadow: none;
+}
+.wc-btn--ghost:disabled,
+.wc-btn--link:disabled {
+  background: transparent;
+}
+.wc-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* IconButton */
+.wc-ibtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--action-ghost-fg);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    box-shadow 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+.wc-ibtn--sm {
+  width: 24px;
+  height: 24px;
+}
+.wc-ibtn--md {
+  width: 32px;
+  height: 32px;
+}
+.wc-ibtn--lg {
+  width: 40px;
+  height: 40px;
+}
+@media (hover: none) and (pointer: coarse) {
+  .wc-ibtn {
+    position: relative;
+  }
+  .wc-ibtn::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+@media (hover: hover) {
+  .wc-ibtn:hover {
+    background: var(--action-ghost-bg-hover);
+    color: var(--text-strong);
+  }
+}
+.wc-ibtn:not(:disabled):active {
+  background: var(--action-ghost-bg-active);
+  transform: scale(0.92);
+}
+.wc-ibtn--outlined {
+  border: var(--border-width-strong) solid var(--action-secondary-border);
+  background: var(--action-secondary-bg);
+}
+.wc-ibtn--outlined:hover {
+  background: var(--action-secondary-bg-hover);
+}
+.wc-ibtn--accent {
+  background: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+  border: var(--border-width-strong) solid var(--action-primary-bg);
+}
+.wc-ibtn--accent:not(:disabled):hover {
+  background: var(--action-primary-bg-hover);
+  color: var(--action-primary-fg);
+  box-shadow: 3px 3px 0 var(--bee);
+  transform: translate(-2px, -2px);
+}
+/* Pressed (a panel that is open): filled with the theme's pastel, which carries the dark ink. */
+.wc-ibtn[aria-pressed="true"] {
+  background: var(--acc);
+  color: var(--on-pastel);
+}
+/* Bare variant (channel header): subtle hover fill, no dark tooltip bar (tooltip is dynamic now). */
+.wc-ibtn--bare:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+.wc-ibtn--bare[aria-pressed="true"] {
+  background: var(--acc);
+  color: var(--on-pastel);
+}
+.wc-ibtn:disabled {
+  cursor: not-allowed;
+  color: var(--text-disabled);
+  background: transparent;
+}
+.wc-ibtn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Badge */
+.wc-badge {
+  animation: wc-badge-bump 400ms var(--ease-spring);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.wc-badge--neutral {
+  background: var(--line);
+  color: var(--text-body);
+}
+.wc-badge--strong {
+  /* High-contrast neutral: the ink, without the accent. */
+  background: var(--ink);
+  color: var(--on-ink);
+}
+/* Statuses are pastels, and a pastel carries the dark ink. */
+.wc-badge--success {
+  background: var(--mint);
+  color: var(--on-pastel);
+}
+.wc-badge--warning {
+  background: var(--sun);
+  color: var(--on-pastel);
+}
+.wc-badge--danger {
+  background: var(--peach);
+  color: var(--on-pastel);
+}
+/* Addressed to the reader: the peach of what is new, edged in ink so it holds on the rail and in the
+   sidebar alike, and read before a plain count. */
+.wc-badge--mention {
+  background: var(--peach);
+  color: var(--on-pastel);
+  box-shadow: inset 0 0 0 1.5px var(--on-pastel);
+}
+.wc-badge--dot {
+  min-width: 8px;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+}
+
+/* Tag */
+.wc-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.wc-tag--accent {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: var(--on-pastel);
+}
+.wc-tag--success {
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
+  color: var(--status-success-fg);
+}
+.wc-tag--warning {
+  background: var(--status-warning-bg);
+  border-color: var(--status-warning-border);
+  color: var(--status-warning-fg);
+}
+.wc-tag--danger {
+  background: var(--status-danger-bg);
+  border-color: var(--status-danger-border);
+  color: var(--status-danger-fg);
+}
+.wc-tag--info {
+  background: var(--status-info-bg);
+  border-color: var(--status-info-border);
+  color: var(--status-info-fg);
+}
+.wc-tag--mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+}
+.wc-tag__x {
+  display: inline-flex;
+  margin-right: -2px;
+  border: 0;
+  background: none;
+  padding: 2px;
+  border-radius: var(--radius-xs);
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.wc-tag__x:hover {
+  opacity: 1;
+  background: var(--alpha-ink-8);
+}
+
+/* Card */
+.wc-card {
+  background: var(--surface-card);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.wc-card--pad {
+  padding: var(--space-4);
+}
+.wc-card--interactive {
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+/* Under the pointer a card you can press rises onto an ink offset. */
+.wc-card--interactive:hover {
+  border-color: var(--ink);
+  box-shadow: var(--shadow-popover);
+  transform: translate(-2px, -2px);
+}
+.wc-card--interactive:active {
+  box-shadow: none;
+  transform: none;
+}
+.wc-card--selected {
+  border-color: var(--ink);
+  background: var(--surface-selected);
+}
+.wc-card--raised {
+  box-shadow: var(--shadow-popover);
+  border: var(--border-width-strong) solid var(--ink);
+}
+.wc-card--sunken {
+  background: var(--surface-sunken);
+  border-color: transparent;
+}
+.wc-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+.wc-card__title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+.wc-card__body {
+  padding: var(--space-4);
+}
+.wc-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+  background: var(--surface-canvas);
+}
+
+/* Textarea */
+.wc-ta {
+  display: block;
+  width: 100%;
+  background: var(--surface-canvas);
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  color: var(--text-strong);
+  resize: vertical;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+.wc-ta:hover {
+  border-color: var(--ink);
+}
+/* Focus: the ink edge, and a halo of the theme's pastel. */
+.wc-ta:focus {
+  outline: none;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 60%, transparent);
+}
+.wc-ta--seamless {
+  border-color: transparent;
+  background: transparent;
+  padding: 0;
+  resize: none;
+}
+.wc-ta--seamless:hover {
+  border-color: transparent;
+}
+.wc-ta--seamless:focus {
+  border-color: transparent;
+  box-shadow: none;
+}
+.wc-ta--invalid {
+  border-color: var(--status-danger-fg);
+}
+.wc-ta:disabled {
+  background: var(--surface-disabled);
+  color: var(--text-disabled);
+}
+
+/* Input */
+.wc-inp {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--surface-canvas);
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-2-5);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+.wc-inp--sm {
+  height: 34px;
+}
+.wc-inp--md {
+  height: 40px;
+}
+.wc-inp--lg {
+  height: 46px;
+}
+.wc-inp:hover {
+  border-color: var(--ink);
+}
+.wc-inp:focus-within {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 60%, transparent);
+}
+.wc-inp--invalid {
+  border-color: var(--status-danger-fg);
+}
+.wc-inp--invalid:focus-within {
+  box-shadow: 0 0 0 3px var(--status-danger-border);
+}
+.wc-inp--disabled {
+  background: var(--surface-disabled);
+  border-color: var(--border-subtle);
+}
+.wc-inp__ico {
+  color: var(--text-subtle);
+  flex: none;
+}
+.wc-inp input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-strong);
+  padding: 0;
+}
+.wc-inp--lg input {
+  font-size: var(--text-md);
+}
+.wc-inp input:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+.wc-inp__suffix {
+  font-size: var(--text-xs);
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+}
+
+/* Tabs */
+.wc-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+.wc-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: var(--space-2) 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.wc-tab:hover {
+  color: var(--text-strong);
+}
+.wc-tab::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: var(--border-width-strong);
+  background: transparent;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+.wc-tab--on {
+  color: var(--text-strong);
+}
+.wc-tab--on::after {
+  background: var(--ink);
+  height: 3px;
+}
+.wc-tab__n {
+  font-size: var(--text-xs);
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+/* A row of views wider than a phone: it scrolls sideways, each tab whole. */
+.wc-tabs--scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.wc-tabs--scroll::-webkit-scrollbar {
+  display: none;
+}
+.wc-tabs--scroll .wc-tab {
+  flex: none;
+  white-space: nowrap;
+}
+.wc-tabs--pills {
+  border-bottom: 0;
+  gap: var(--space-1);
+  padding: 3px;
+  background: var(--surface-canvas);
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-full);
+  display: inline-flex;
+}
+.wc-tabs--pills .wc-tab {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  height: 30px;
+  font-weight: var(--weight-semibold);
+  color: var(--text-body);
+}
+.wc-tabs--pills .wc-tab::after {
+  display: none;
+}
+.wc-tabs--pills .wc-tab--on {
+  background: var(--ink);
+  color: var(--on-ink);
+}
+/* A turning ring, for a control that is working. Drawn rather than imported: one element, one
+   border, no glyph to load. It borrows the colour of whatever it sits in, so it is legible on a
+   primary button and on a quiet one. */
+.wc-spinner {
+  display: inline-block;
+  flex: none;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  opacity: 0.75;
+  animation: wc-spin 620ms linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wc-spinner {
+    animation: none;
+  }
+}
+
+/* Motion: entrance/exit animations. Short, no bounce, respect reduced motion. */
+.wc-pop {
+  animation: wc-pop-in var(--duration-fast) var(--ease-out);
+  transform-origin: var(--wc-pop-origin, top left);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-pop {
+    animation: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Press feedback is motion too: keep buttons still under reduced-motion. Selectors must match the
+     specificity of the press rules above, or those would still win inside this media query. */
+  .wc-btn:not(:disabled):active,
+  .wc-ibtn:not(:disabled):active {
+    transform: none;
+  }
+}
+
+/* Tooltip */
+.wc-tt {
+  position: relative;
+  display: inline-flex;
+}
+.wc-tt__b {
+  position: absolute;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0;
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: var(--weight-medium);
+  line-height: 1.3;
+  padding: 5px var(--space-2);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.wc-tt:hover .wc-tt__b,
+.wc-tt:focus-within .wc-tt__b {
+  opacity: 1;
+}
+.wc-tt__b--top {
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.wc-tt__b--bottom {
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.wc-tt__b--left {
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.wc-tt__b--right {
+  left: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.wc-tt__k {
+  margin-left: var(--space-2);
+  color: color-mix(in srgb, var(--text-inverse) 65%, var(--surface-inverse));
+  font-family: var(--font-mono);
+}
+
+/* Checkbox */
+.wc-cb {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+.wc-cb input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.wc-cb__box {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: var(--border-width) solid var(--control-line);
+  border-radius: 4px;
+  background: var(--surface-card);
+  color: transparent;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.wc-cb:hover .wc-cb__box {
+  border-color: var(--ink);
+}
+.wc-cb input:checked + .wc-cb__box,
+.wc-cb input:indeterminate + .wc-cb__box {
+  background: var(--action-primary-bg);
+  border-color: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+}
+.wc-cb input:focus-visible + .wc-cb__box {
+  box-shadow: var(--focus-ring);
+}
+.wc-cb input:disabled + .wc-cb__box {
+  background: var(--surface-disabled);
+  border-color: var(--border-default);
+}
+/*
+ * Checked and disabled at once: still checked, and still the accent colour.
+ *
+ * The disabled rule came after the checked one and won, so a box that was ticked and then made
+ * read-only rendered empty and white: the interface said "no" where the state said "yes". It happens
+ * wherever a fact is shown as a checkbox nobody may change, which is the honest way to show one.
+ *
+ * It keeps the accent rather than going grey, because the state is what the reader is looking at;
+ * the reduced opacity is what says "not yours to change", and it says it without touching the two
+ * colours whose contrast was checked.
+ */
+.wc-cb input:disabled:checked + .wc-cb__box,
+.wc-cb input:disabled:indeterminate + .wc-cb__box {
+  background: var(--action-primary-bg);
+  border-color: var(--action-primary-bg);
+  color: var(--action-primary-fg);
+  opacity: 0.55;
+}
+.wc-cb--disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+.wc-cb__txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wc-cb__desc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Radio: the filled dot is drawn by thickening the ring border. */
+.wc-rd {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+.wc-rd input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.wc-rd__dot {
+  flex: none;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.wc-rd:hover .wc-rd__dot {
+  border-color: var(--ink);
+}
+.wc-rd input:checked + .wc-rd__dot {
+  border-color: var(--action-primary-bg);
+  border-width: 5px;
+}
+.wc-rd input:focus-visible + .wc-rd__dot {
+  box-shadow: var(--focus-ring);
+}
+.wc-rd input:disabled + .wc-rd__dot {
+  background: var(--surface-disabled);
+  border-color: var(--border-default);
+}
+.wc-rd--disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+.wc-rd__txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wc-rd__desc {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Switch */
+.wc-sw {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+.wc-sw input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.wc-sw__track {
+  flex: none;
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--line-strong);
+  transition: background-color var(--duration-base) var(--ease-out);
+}
+.wc-sw__track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: #ffffff;
+  transition: transform var(--duration-base) var(--ease-spring), background-color var(--duration-base) var(--ease-out);
+}
+.wc-sw input:checked + .wc-sw__track {
+  background: var(--ink);
+}
+.wc-sw input:checked + .wc-sw__track::after {
+  transform: translateX(18px);
+  background: var(--on-ink);
+}
+.wc-sw input:focus-visible + .wc-sw__track {
+  box-shadow: var(--focus-ring);
+}
+.wc-sw input:disabled + .wc-sw__track {
+  background: var(--line);
+}
+.wc-sw--disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+.wc-sw--rev {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* Select: styled wrapper around a native <select>. */
+.wc-sel {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  background: var(--surface-canvas);
+  border: var(--border-width) solid var(--control-line);
+  border-radius: var(--radius-sm);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+.wc-sel--sm {
+  height: 34px;
+}
+.wc-sel--md {
+  height: 40px;
+}
+.wc-sel--lg {
+  height: 46px;
+}
+.wc-sel:hover {
+  border-color: var(--ink);
+}
+.wc-sel:focus-within {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 60%, transparent);
+}
+.wc-sel select {
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-strong);
+  padding: 0 28px 0 10px;
+  cursor: pointer;
+}
+.wc-sel__chev {
+  position: absolute;
+  right: 8px;
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+.wc-sel--disabled {
+  background: var(--surface-disabled);
+}
+
+/* Field: label + hint/error around a control. */
+.wc-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+.wc-field__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-strong);
+}
+.wc-field__opt {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  color: var(--text-subtle);
+}
+.wc-field__hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+.wc-field__err {
+  font-size: var(--text-xs);
+  color: var(--status-danger-fg);
+}
+.wc-dlg__scrim {
+  position: fixed;
+  top: 0;
+  left: 0;
+  /* Compensated for the text-size zoom so the scrim fills the screen instead of overflowing it. */
+  width: var(--ui-vw, 100vw);
+  height: var(--ui-vh, 100dvh);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--scrim);
+}
+.wc-dlg {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(var(--ui-vh, 100dvh) - var(--space-6) * 2);
+  background: var(--surface-raised);
+  border: var(--border-width-strong) solid var(--ink);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog);
+  overflow: hidden;
+  animation: wc-dlg-in var(--duration-base) var(--ease-entrance);
+}
+.wc-dlg--sm {
+  max-width: 384px;
+}
+.wc-dlg--md {
+  max-width: 512px;
+}
+.wc-dlg--lg {
+  max-width: 680px;
+}
+/* Wide enough for a working surface, not a page: the import brings its own top bar and multi-step
+   body inside this shell, and reads as a large modal floating over the app rather than replacing it. */
+.wc-dlg--xl {
+  max-width: 1040px;
+  /* A fixed height rather than one that follows the content: the import's steps are of very
+     different lengths, and a dialog that grows and shrinks at every step makes its own bottom bar
+     jump. Capped for tall screens, so a short step does not float in a sea of empty space. */
+  height: min(860px, calc(var(--ui-vh, 100dvh) - var(--space-6) * 2));
+}
+.wc-dlg__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) var(--space-3);
+}
+.wc-dlg__ttl {
+  flex: 1;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-tight);
+  color: var(--text-strong);
+  /* A title over two lines splits evenly rather than leaving one word alone on the second. */
+  text-wrap: balance;
+}
+.wc-dlg__sub {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-regular);
+  color: var(--text-muted);
+}
+.wc-dlg__x {
+  flex: none;
+  border: 0;
+  background: none;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-subtle);
+  cursor: pointer;
+}
+.wc-dlg__x:hover {
+  background: var(--surface-hover);
+  color: var(--text-strong);
+}
+.wc-dlg__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-2) var(--space-5) var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+.wc-dlg__head,
+.wc-dlg__foot {
+  flex: none;
+}
+@media (max-width: 599px) {
+  .wc-dlg__scrim {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .wc-dlg,
+  .wc-dlg--sm,
+  .wc-dlg--md,
+  .wc-dlg--lg {
+    max-width: none;
+    max-height: calc(0.92 * var(--ui-vh, 100dvh));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    border-bottom: 0;
+    box-shadow: none;
+  }
+  /* The import is a working surface, not a confirmation: on a phone it takes the whole screen,
+     edge to edge, rather than sitting as a short sheet a multi-step flow would fight against. */
+  .wc-dlg--xl {
+    max-width: none;
+    max-height: var(--ui-vh, 100dvh);
+    height: var(--ui-vh, 100dvh);
+    border: 0;
+    border-radius: 0;
+  }
+}
+.wc-dlg__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: var(--border-width) solid var(--border-subtle);
+  background: var(--surface-canvas);
+}
+
+/* Several answers in a dialog's footer: a row, the first one apart on the left. On a phone (the
+   dialog is a bottom sheet) they stack full width, the last one, the main answer, on top. */
+.wc-dlg__choices {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.wc-dlg__gap {
+  flex: 1;
+}
+@media (max-width: 599px) {
+  .wc-dlg__choices {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .wc-dlg__choices > .wc-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .wc-dlg__gap {
+    display: none;
+  }
+}
+
+/* Read by a screen reader, not drawn. */
+.wc-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.wc-skel {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--surface-active);
+}
+.wc-skel--circle {
+  border-radius: var(--radius-full);
+}
+.wc-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--surface-hover), transparent);
+  animation: wc-skel-sheen 1.6s var(--ease-in-out) infinite;
+}
+/* Held back a moment: a load that answers quickly never flashes a placeholder. */
+.wc-skel-group {
+  animation: wc-fade-in var(--duration-base) var(--ease-out) 150ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-skel::after {
+    animation: none;
+  }
+  .wc-skel-group {
+    animation: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wc-badge {
+    animation: none;
+  }
+}
+
+/* A sticker (empty states): an icon on the theme's pastel, edged in ink, set a little askew. It
+   straightens under the pointer of whatever holds it. */
+.wc-sticker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: var(--border-width-strong) solid var(--ink);
+  border-radius: var(--radius-md);
+  background: var(--acc);
+  color: var(--on-pastel);
+  transform: rotate(-4deg);
+  transition: transform 200ms var(--ease-spring);
+}
+:hover > .wc-sticker {
+  transform: rotate(0deg) scale(1.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-sticker,
+  .wc-btn,
+  .wc-ibtn,
+  .wc-card--interactive {
+    transition: none;
+  }
+  :hover > .wc-sticker,
+  .wc-btn--primary:not(:disabled):hover,
+  .wc-btn--danger:not(:disabled):hover,
+  .wc-ibtn--accent:not(:disabled):hover,
+  .wc-card--interactive:hover {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Sheet (src/Sheet.tsx): the touch form of a menu, rising from the bottom edge. On a
+   wider screen it keeps a phone's width, centred, rather than stretching rows across a tablet.
+   --------------------------------------------------------------------------------------------- */
+.wc-sheet__scrim {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--ui-vw, 100vw);
+  height: var(--ui-vh, 100dvh);
+  z-index: 95;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: var(--scrim);
+  animation: wc-fade-in var(--duration-base) var(--ease-out);
+}
+.wc-sheet {
+  width: min(520px, 100%);
+  max-height: calc(0.88 * var(--ui-vh, 100dvh));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-raised);
+  border: var(--border-width-strong) solid var(--ink);
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  outline: none;
+  animation: wc-sheet-in 260ms var(--ease-entrance);
+}
+.wc-sheet__handle {
+  display: block;
+  width: 40px;
+  height: 4px;
+  margin: 2px auto 10px;
+  border-radius: var(--radius-full);
+  background: var(--line-strong);
+}
+.wc-sheet__title {
+  padding: 2px 6px 10px;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-strong);
+}
+.wc-sheet__group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  overflow: hidden;
+}
+.wc-sheet__group > .wc-sheet__item + .wc-sheet__item {
+  border-top: 1px solid var(--border-subtle);
+}
+/* A space being arranged: not a button, and a grip at its end that a finger drags without the list
+   scrolling under it. */
+.wc-sheet__item--arrange {
+  cursor: default;
+  gap: 8px;
+  background: var(--surface-raised);
+}
+.wc-sheet__grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -10px;
+  flex: none;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+
+.wc-sheet__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--text-md);
+  color: var(--text-body);
+  text-align: left;
+  cursor: pointer;
+}
+.wc-sheet__item > svg {
+  flex: none;
+  color: var(--text-muted);
+}
+.wc-sheet__item:active,
+.wc-sheet__item:hover {
+  background: var(--surface-hover);
+}
+.wc-sheet__item[aria-current="true"] {
+  background: color-mix(in srgb, var(--acc) 35%, transparent);
+  color: var(--text-strong);
+  font-weight: var(--weight-semibold);
+}
+.wc-sheet__item--danger,
+.wc-sheet__item--danger > svg {
+  color: var(--status-danger-fg);
+}
+.wc-sheet__item:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+.wc-sheet__label {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+}
+.wc-sheet__label > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wc-sheet__detail {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: var(--weight-regular);
+}
+/* Quick reactions at the head of a message's sheet: round targets a thumb can hit. */
+.wc-sheet__reacts {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 0 2px 12px;
+}
+.wc-sheet__react {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform 150ms var(--ease-spring);
+}
+.wc-sheet__react:active {
+  transform: scale(0.9);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wc-sheet,
+  .wc-sheet__scrim {
+    animation: none;
+  }
+}
+@media (max-width: 767px) {
+  .wc-dlg__scrim:has(.wc-dlg--search) {
+    padding: 0;
+    align-items: stretch;
+  }
+  .wc-dlg.wc-dlg--search {
+    max-width: none;
+    height: var(--ui-vh, 100dvh);
+    max-height: var(--ui-vh, 100dvh);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .wc-dlg--search .wc-dlg__body {
+    display: flex;
+    flex-direction: column;
+  }
+}
+@media (max-width: 599px) {
+  .wc-dlg {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* Calendar. A pill group whose choice wears the theme's accent rather than the ink: the view and the
+   filter, the two choices the calendar's screen keeps on show. */
+.wc-tabs--accent .wc-tab {
+  white-space: nowrap;
+}
+.wc-tabs--accent .wc-tab--on {
+  background: var(--acc);
+  color: var(--on-pastel);
+}
+@keyframes wc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes wc-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes wc-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes wc-dlg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes wc-skel-sheen {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes wc-badge-bump {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes wc-sheet-in {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}

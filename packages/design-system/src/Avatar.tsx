@@ -1,10 +1,12 @@
 import type { CSSProperties } from "react";
-import { type AvatarKind, avatarDataUri } from "@/lib/avatar";
+import { type AvatarKind, avatarDataUri } from "./avatar";
 
-// One definition, the shared client's: the server computes presence and the client names it.
-import type { Presence } from "@ruchoir/client/types";
-
-export type { Presence };
+/**
+ * What someone is, right now, as the server computes it. The same union as `Presence` in
+ * `@ruchoir/client/types`, written out here because this package depends on nothing of the app's:
+ * the two are structurally identical, so either can be passed where the other is expected.
+ */
+export type Presence = "online" | "away" | "busy" | "offline";
 
 export type AvatarProps = {
   name?: string;
