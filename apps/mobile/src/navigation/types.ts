@@ -113,6 +113,16 @@ export type RootParams = {
   fileLinks: { file: SpaceFile };
   uploadConflict: undefined;
   spaceSheet: undefined;
+  /** The current space's settings (owner and admins): general, members. */
+  spaceSettings: undefined;
+  /** A member of the current space: the roles the caller may give, removing them. */
+  spaceMember: { userId: string };
+  /** The current space's deletion, its name to type (owner). */
+  spaceDelete: undefined;
+  /** How much the current space notifies me. */
+  spaceNotify: undefined;
+  /** The current space's default channel (owner and admins). */
+  spaceDefaultChannel: undefined;
   accountSheet: undefined;
 };
 

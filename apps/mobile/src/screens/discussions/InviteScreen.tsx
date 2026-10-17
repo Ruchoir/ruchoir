@@ -1,25 +1,30 @@
 /**
  * "Invite someone", for a space's admins: an e-mail address that receives the invitation, or a link
  * to share through the phone's share sheet. Either brings a member, or a guest who sees only the
- * channels they are added to.
+ * channels they are added to. Under them, the invitations still waiting, each revocable, as in the
+ * web's invitation dialog.
  */
-import { createInvitation } from "@ruchoir/client";
+import { createInvitation, getInvitations, revokeInvitation } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
-import { CircleCheck, Link } from "lucide-react-native";
+import { CircleCheck, Link, Mail } from "lucide-react-native";
 import { useState } from "react";
 import { Share, StyleSheet, View } from "react-native";
 
+import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
+import { useLocale } from "../../i18n/useLocale";
 import { isEmail } from "../../logic/email";
 import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
+import { ActionRow } from "../../ui/ActionRow";
 import { Button } from "../../ui/Button";
 import { Segmented } from "../../ui/Segmented";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
 import { KeyboardForm } from "../../ui/KeyboardForm";
+import { useToast } from "../../ui/Toast";
 
 type Role = "member" | "guest";
 
@@ -35,6 +40,22 @@ export function InviteScreen() {
   const [sent, setSent] = useState<{ email: string; url?: string } | null>(null);
   // One link per role, made the first time it is asked for and shared again after.
   const [links, setLinks] = useState<Partial<Record<Role, string>>>({});
+  const { locale } = useLocale();
+  const toast = useToast();
+  const invitations = useLoad(current ? `invitations:${current.id}` : null, (signal) => getInvitations(current!.id, signal));
+  const waiting = invitations.data?.filter((inv) => inv.status === "active");
+  const day = (iso: string) => new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(new Date(iso));
+
+  const revoke = (id: string) => {
+    if (!current) return;
+    revokeInvitation(current.id, id).then(
+      () => {
+        toast(t("spaceAdmin.revoked"));
+        invitations.reload();
+      },
+      () => toast(t("spaceAdmin.revokeFailed"), "failure"),
+    );
+  };
 
   const share = (url: string) => {
     if (!current) return Promise.resolve();
@@ -54,6 +75,7 @@ export function InviteScreen() {
       const created = await createInvitation(current.id, { email: address, role });
       setSent({ email: address, url: created.emailed ? undefined : created.url });
       setEmail("");
+      invitations.reload();
     } catch {
       setError(t("invite.failed"));
     }
@@ -69,6 +91,7 @@ export function InviteScreen() {
       if (!url) {
         url = (await createInvitation(current.id, { role })).url;
         setLinks((prev) => ({ ...prev, [role]: url }));
+        invitations.reload();
       }
       await share(url);
     } catch {
@@ -147,6 +170,29 @@ export function InviteScreen() {
               {t("invite.linkHint")}
             </Text>
           </View>
+          {waiting && waiting.length > 0 ? (
+            <View>
+              <Text variant="label" tone="muted" style={styles.pendingLabel}>
+                {t("spaceAdmin.pending")}
+              </Text>
+              {waiting.map((inv) => (
+                <ActionRow
+                  key={inv.id}
+                  icon={inv.email ? Mail : Link}
+                  tint={s.sunken}
+                  title={inv.email ?? t("invitation.title")}
+                  subtitle={[
+                    inv.role === "guest" ? t("invite.guest") : t("invite.member"),
+                    inv.email ? null : t("spaceAdmin.uses", { count: inv.uses }),
+                    inv.expiresAt ? t("spaceAdmin.expires", { date: day(inv.expiresAt) }) : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  trailing={<Button variant="link" size="sm" label={t("spaceAdmin.revoke")} onPress={() => revoke(inv.id)} />}
+                />
+              ))}
+            </View>
+          ) : null}
       </KeyboardForm>
     </View>
   );
@@ -161,4 +207,5 @@ const styles = StyleSheet.create({
   grow: { flex: 1, gap: 4 },
   or: { flexDirection: "row", alignItems: "center", gap: 10 },
   rule: { flex: 1, height: hairline },
+  pendingLabel: { marginTop: 8, marginBottom: 2 },
 });

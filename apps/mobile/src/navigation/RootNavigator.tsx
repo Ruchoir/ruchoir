@@ -48,6 +48,11 @@ import { ShareSheet } from "../screens/files/ShareSheet";
 import { UploadsSheet } from "../screens/files/UploadsSheet";
 import { VersionsSheet } from "../screens/files/VersionsSheet";
 import { JoinSpaceScreen } from "../screens/space/JoinSpaceScreen";
+import { DefaultChannelSheet } from "../screens/space/DefaultChannelSheet";
+import { DeleteSpaceScreen } from "../screens/space/DeleteSpaceScreen";
+import { MemberSheet } from "../screens/space/MemberSheet";
+import { SpaceNotifySheet } from "../screens/space/SpaceNotifySheet";
+import { SpaceSettingsScreen } from "../screens/space/SpaceSettingsScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
 import { TutorialScreen } from "../screens/welcome/TutorialScreen";
 import { useNavigationTheme } from "./navigationTheme";
@@ -100,6 +105,11 @@ export function RootNavigator() {
         <Stack.Screen name="fileLinks" component={LinksSheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
         <Stack.Screen name="joinSpace" component={JoinSpaceModal} options={{ presentation: "modal" }} />
+        <Stack.Screen name="spaceSettings" component={SpaceSettingsScreen} />
+        <Stack.Screen name="spaceMember" component={MemberSheet} options={sheet} />
+        <Stack.Screen name="spaceDelete" component={DeleteSpaceScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="spaceNotify" component={SpaceNotifySheet} options={sheet} />
+        <Stack.Screen name="spaceDefaultChannel" component={DefaultChannelSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="tutorial" component={TutorialScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
         <Stack.Screen name="statusSheet" component={StatusSheet} options={sheet} />
