@@ -8,9 +8,9 @@ import {
   type Occurrence,
   type SpaceFile,
 } from "@ruchoir/client";
-import { useNavigation, type NavigationProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, type NavigationProp } from "@react-navigation/native";
 import { AtSign, CalendarDays, ChevronRight, Sparkles } from "lucide-react-native";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
 import { useLoad } from "../../data/useLoad";
@@ -82,6 +82,21 @@ export function TodayScreen() {
   useReloadOn((e) => !!space && affects.conversations(e, space), conversations.reload);
   useReloadOn((e) => e.type === "calendar", events.reload);
   useReloadOn((e) => e.type === "files", recent.reload);
+  // Coming back to the tab (from a conversation, another tab) reads the cards again: a live event
+  // missed while the socket was asleep must not leave a card read elsewhere, or hide a new one.
+  const shown = useRef(false);
+  const reloadNotifications = notifications.reload;
+  const reloadConversations = conversations.reload;
+  useFocusEffect(
+    useCallback(() => {
+      if (!shown.current) {
+        shown.current = true;
+        return;
+      }
+      reloadNotifications();
+      reloadConversations();
+    }, [reloadNotifications, reloadConversations]),
+  );
 
   const cards = useMemo(
     () =>

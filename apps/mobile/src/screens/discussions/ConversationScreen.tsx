@@ -29,6 +29,7 @@ import { useAttachments } from "../../compose/useAttachments";
 import { useReact } from "../../compose/useReact";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
+import { readNotificationsOf } from "../../data/readNotifications";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { dayKey, daysBetween } from "../../logic/format";
@@ -37,7 +38,7 @@ import { seekMessage } from "../../logic/seek";
 import { countNewer, firstUnreadId } from "../../logic/unread";
 import type { RootParams } from "../../navigation/types";
 import { useReloadOn } from "../../data/useReloadOn";
-import { useRealtimeEvent } from "../../realtime/RealtimeProvider";
+import { useRealtimeActions, useRealtimeEvent } from "../../realtime/RealtimeProvider";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
 import { fonts } from "../../theme/fonts";
@@ -234,6 +235,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   const me = state.kind === "signedIn" ? state.user : null;
   const navigation = useNavigation();
   const react = useReact();
+  const { emit } = useRealtimeActions();
   const list = useRef<FlatList<Row>>(null);
   const first = useLoad(`messages:${conversationId}`, (signal) => getChannelMessages(conversationId, {}, signal));
   // The feed holds no thread replies: they live in their thread, and move the count under their root.
@@ -259,10 +261,13 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   useEffect(() => {
     if (!newest || marked.current === newest) return;
     marked.current = newest;
-    void setReadCursor(conversationId, newest).catch(() => {
-      marked.current = null;
-    });
-  }, [conversationId, newest]);
+    void setReadCursor(conversationId, newest).then(
+      () => readNotificationsOf(conversationId, emit).catch(() => {}),
+      () => {
+        marked.current = null;
+      },
+    );
+  }, [conversationId, newest, emit]);
 
   const loadOlder = useCallback(async () => {
     if (!nextBefore || older.loading) return;
