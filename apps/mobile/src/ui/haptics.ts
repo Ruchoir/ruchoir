@@ -5,14 +5,17 @@
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 
-import { FEELS, type Feel } from "../logic/haptics";
+import { ANDROID_FALLBACK, FEELS, type Feel } from "../logic/haptics";
 
 export type { Feel };
 
 export function feel(f: Feel): void {
   const row = FEELS[f];
   if (Platform.OS === "android") {
-    Haptics.performAndroidHapticsAsync(row.android as Haptics.AndroidHaptics).catch(() => {});
+    // A constant newer than the phone's Android throws: the one every version has plays instead.
+    Haptics.performAndroidHapticsAsync(row.android as Haptics.AndroidHaptics).catch(() =>
+      Haptics.performAndroidHapticsAsync(ANDROID_FALLBACK as Haptics.AndroidHaptics).catch(() => {}),
+    );
     return;
   }
   const ios = row.ios;

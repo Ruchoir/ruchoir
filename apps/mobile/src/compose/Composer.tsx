@@ -131,11 +131,11 @@ export function Composer(props: Props) {
 
   const submit = () => {
     if (!ready) return;
+    feel("send");
     if (editing) {
       props.onSaveEdit?.(editing.id, body);
       return;
     }
-    feel("send");
     outbox.send({
       conversationId,
       body,
