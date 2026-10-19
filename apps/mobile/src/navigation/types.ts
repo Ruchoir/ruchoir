@@ -12,6 +12,8 @@ export type ViewerFile = { id: string; name: string; url: string; mime?: string;
 
 export type RootParams = {
   tabs: NavigatorScreenParams<TabParams>;
+  /** "Search in Ruchoir": the space's messages and files. */
+  search: undefined;
   /** The tutorial again, from Help. */
   tutorial: { replay: true };
   /** Create or join a space, from the space sheet. */
@@ -42,6 +44,8 @@ export type RootParams = {
     kind?: "channel" | "person" | "group";
     /** The others in a private conversation with several people, for the faces in its head. */
     participants?: string[];
+    /** A message to take the reader to (a search result): a reply's root, and the reply. */
+    focus?: { id: string; replyId?: string };
   };
   folder: { folderId: string; name: string };
   /** A file to show: a space file, a message's attachment or an event's, by its download URL. */

@@ -619,6 +619,12 @@
     "noPreview": "Nie można tu wyświetlić podglądu tego typu pliku."
   },
   "today": {
+    "seeAgenda": "Zobacz kalendarz",
+    "latestFiles": "Ostatnie pliki",
+    "noFiles": "Brak nowych plików.",
+    "willBeThere": "Tak, będę",
+    "openConversation": "Otwórz rozmowę",
+    "accepted": "Obecność potwierdzona",
     "hello": "Dzień dobry, {{name}}",
     "now": "Do sprawdzenia teraz",
     "mentioned": "{{who}} wspomina o Tobie",
@@ -645,6 +651,9 @@
     "calmHint": "Czekające wiadomości, najbliższe spotkanie i nowe pliki pojawią się tutaj."
   },
   "search": {
+    "nothing": "Brak wyników dla „{{query}}”",
+    "messages": "Wiadomości",
+    "everywhere": "Szukaj w Ruchoir",
     "tryAnother": "Spróbuj innego słowa."
   },
   "compose": {

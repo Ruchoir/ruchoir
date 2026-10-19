@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../i18n";
+import { useWide } from "../layout/useWide";
 import { useSession } from "../session/SessionProvider";
 import { selfPresence } from "../session/presence";
 import { useSpace } from "../space/SpaceProvider";
@@ -19,10 +20,10 @@ import { Text } from "./Text";
 export function TabHeader({ title, overline, children }: { title: string; overline?: string; children?: ReactNode }) {
   const navigation = useNavigation();
   const { t } = useTranslation();
-  const { c } = useTheme();
   const { state } = useSession();
-  const { current } = useSpace();
-  const user = state.kind === "signedIn" ? state.user : null;
+  // On a tablet the face sits at the bottom of the rail instead.
+  const wide = useWide();
+  const user = state.kind === "signedIn" && !wide ? state.user : null;
 
   return (
     <View style={styles.head}>
@@ -35,20 +36,7 @@ export function TabHeader({ title, overline, children }: { title: string; overli
         <Text variant="title" numberOfLines={1}>
           {title}
         </Text>
-        {current ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("spaces.switchLabel", { name: current.name })}
-            onPress={() => navigation.navigate("spaceSheet")}
-            style={({ pressed }) => [styles.space, pressed && { opacity: 0.6 }]}
-          >
-            <Avatar name={current.name} src={current.iconUrl} kind="workspace" size={24} />
-            <Text variant="bodyStrong" tone="body" numberOfLines={1} style={styles.spaceName}>
-              {current.name}
-            </Text>
-            <ChevronDown size={16} color={c.body} />
-          </Pressable>
-        ) : null}
+        <SpaceSwitch />
         {children}
       </View>
       {user ? (
@@ -62,6 +50,29 @@ export function TabHeader({ title, overline, children }: { title: string; overli
         </Pressable>
       ) : null}
     </View>
+  );
+}
+
+/** The space's mark, its name and a chevron, which open the space sheet (every tab's head). */
+export function SpaceSwitch() {
+  const navigation = useNavigation();
+  const { t } = useTranslation();
+  const { c } = useTheme();
+  const { current } = useSpace();
+  if (!current) return null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t("spaces.switchLabel", { name: current.name })}
+      onPress={() => navigation.navigate("spaceSheet")}
+      style={({ pressed }) => [styles.space, pressed && { opacity: 0.6 }]}
+    >
+      <Avatar name={current.name} src={current.iconUrl} kind="workspace" size={24} />
+      <Text variant="bodyStrong" tone="body" numberOfLines={1} style={styles.spaceName}>
+        {current.name}
+      </Text>
+      <ChevronDown size={16} color={c.body} />
+    </Pressable>
   );
 }
 

@@ -545,6 +545,12 @@
     "noPreview": "This kind of file cannot be previewed here."
   },
   "today": {
+    "seeAgenda": "See the agenda",
+    "latestFiles": "Latest files",
+    "noFiles": "No recent file.",
+    "willBeThere": "Yes, I’ll be there",
+    "openConversation": "Open the conversation",
+    "accepted": "Attendance confirmed",
     "hello": "Hello {{name}}",
     "now": "To look at now",
     "mentioned": "{{who}} mentioned you",
@@ -567,6 +573,9 @@
     "calmHint": "Messages waiting for you, your next meeting and new files will show up here."
   },
   "search": {
+    "nothing": "Nothing for “{{query}}”",
+    "messages": "Messages",
+    "everywhere": "Search in Ruchoir",
     "tryAnother": "Try another word."
   },
   "compose": {

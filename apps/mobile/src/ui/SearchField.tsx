@@ -11,12 +11,14 @@ export function SearchField({
   onChange,
   placeholder,
   style,
+  autoFocus,
 }: {
   value: string;
   onChange: (text: string) => void;
   placeholder: string;
   /** In a sheet, whose own padding already makes the gutter: `{ marginHorizontal: 0 }`. */
   style?: StyleProp<ViewStyle>;
+  autoFocus?: boolean;
 }) {
   const { c } = useTheme();
   return (
@@ -30,6 +32,7 @@ export function SearchField({
         autoCorrect={false}
         clearButtonMode="while-editing"
         returnKeyType="search"
+        autoFocus={autoFocus}
         style={[styles.input, { color: c.ink }]}
       />
     </View>

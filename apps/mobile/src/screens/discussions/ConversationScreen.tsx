@@ -106,7 +106,8 @@ export function ConversationView({ params, onClose }: { params: RootParams["conv
   const [pane, setPane] = useState<Pane>("messages");
   // A message asked for from the pinned tab: the feed takes the reader there (its root, for a reply),
   // then lets go of it, so coming back to the messages later does not jump again.
-  const [focus, setFocus] = useState<Focus | null>(null);
+  // A search result opens the conversation at its message.
+  const [focus, setFocus] = useState<Focus | null>(params.focus ? { ...params.focus, n: 1 } : null);
   const focusTaken = useCallback(() => setFocus(null), []);
   const openPinned = (m: ApiMessage) => {
     setFocus((prev) => ({ id: m.parentId ?? m.id, replyId: m.parentId ? m.id : undefined, n: (prev?.n ?? 0) + 1 }));

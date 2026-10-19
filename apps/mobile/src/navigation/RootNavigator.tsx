@@ -2,6 +2,7 @@ import { createNavigationContainerRef, NavigationContainer } from "@react-naviga
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { AttachSheet } from "../compose/AttachSheet";
+import { SearchScreen } from "../screens/search/SearchScreen";
 import { useDuplicateQuestions } from "../uploads/useDuplicateQuestions";
 import { AccountSheet } from "../screens/account/AccountSheet";
 import { ChangePasswordScreen } from "../screens/account/ChangePasswordScreen";
@@ -96,6 +97,7 @@ export function RootNavigator() {
         <Stack.Screen name="conversationDetails" component={ConversationDetails} />
         <Stack.Screen name="folder" component={FolderScreen} />
         <Stack.Screen name="fileViewer" component={FileViewerScreen} options={{ presentation: "fullScreenModal" }} />
+        <Stack.Screen name="search" component={SearchScreen} options={{ presentation: wide ? "modal" : "fullScreenModal" }} />
         <Stack.Screen name="eventSummary" component={EventSummarySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         {/* The form takes the whole phone; on a tablet it is a sheet in the middle, the agenda around it. */}
         <Stack.Screen name="eventForm" component={EventFormScreen} options={{ presentation: wide ? "modal" : "fullScreenModal" }} />

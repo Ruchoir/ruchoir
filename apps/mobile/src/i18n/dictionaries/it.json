@@ -582,6 +582,12 @@
     "noPreview": "Questo tipo di file non si può visualizzare qui."
   },
   "today": {
+    "seeAgenda": "Vedi l’agenda",
+    "latestFiles": "Ultimi file",
+    "noFiles": "Nessun file recente.",
+    "willBeThere": "Sì, ci sarò",
+    "openConversation": "Apri la conversazione",
+    "accepted": "Presenza confermata",
     "hello": "Ciao {{name}}",
     "now": "Da vedere ora",
     "mentioned": "{{who}} vi ha menzionato",
@@ -606,6 +612,9 @@
     "calmHint": "I messaggi che vi aspettano, il prossimo appuntamento e i nuovi file compariranno qui."
   },
   "search": {
+    "nothing": "Niente per «{{query}}»",
+    "messages": "Messaggi",
+    "everywhere": "Cerca in Ruchoir",
     "tryAnother": "Provate con un’altra parola."
   },
   "compose": {

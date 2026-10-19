@@ -545,6 +545,12 @@
     "noPreview": "Für diesen Dateityp ist hier keine Vorschau möglich."
   },
   "today": {
+    "seeAgenda": "Kalender ansehen",
+    "latestFiles": "Neueste Dateien",
+    "noFiles": "Keine neuen Dateien.",
+    "willBeThere": "Ja, ich bin dabei",
+    "openConversation": "Unterhaltung öffnen",
+    "accepted": "Teilnahme bestätigt",
     "hello": "Hallo {{name}}",
     "now": "Jetzt ansehen",
     "mentioned": "{{who}} hat Sie erwähnt",
@@ -567,6 +573,9 @@
     "calmHint": "Nachrichten, die auf Sie warten, Ihr nächster Termin und neue Dateien erscheinen hier."
   },
   "search": {
+    "nothing": "Nichts für „{{query}}“",
+    "messages": "Nachrichten",
+    "everywhere": "In Ruchoir suchen",
     "tryAnother": "Versuchen Sie es mit einem anderen Wort."
   },
   "compose": {
