@@ -38,7 +38,11 @@ export function biometryKind(types: number[], os: "ios" | "android"): BiometryKi
 /**
  * The biometrics the lock can ask for, from the phone's enrolled level: none (null) when they are not
  * set up, and the lock is then the PIN alone. The phone's own passcode is never one of them.
+ *
+ * `enrolled` (expo-local-authentication's `isEnrolledAsync`) counts biometrics the phone has paused
+ * after too many failures, which the level does not: without it, a paused Face ID read as no Face ID
+ * at all, and the lock stopped offering it until the phone's passcode woke it.
  */
-export function usableBiometry(level: number, types: number[], os: "ios" | "android"): BiometryKind | null {
-  return level >= BIOMETRIC_WEAK ? biometryKind(types, os) : null;
+export function usableBiometry(level: number, types: number[], os: "ios" | "android", enrolled = false): BiometryKind | null {
+  return level >= BIOMETRIC_WEAK || enrolled ? biometryKind(types, os) : null;
 }

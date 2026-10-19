@@ -64,13 +64,18 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
   const [failures, setFailureCount] = useState(0);
   const [locked, setLocked] = useState(false);
   const [away, setAway] = useState(false);
-  const [kind, setKind] = useState<BiometryKind | null>(null);
+  // Undefined until the phone has answered: the lock shows its plain face meanwhile, not the PIN.
+  const [kind, setKind] = useState<BiometryKind | null | undefined>(undefined);
+  // Face ID is on screen, or about to be: the lock shows its plain face, the PIN only once it fails.
+  const [facing, setFacing] = useState(false);
+  // The phone paused Face ID after too many failures (`lockout`): said on the PIN screen.
+  const [paused, setPaused] = useState(false);
   const [ask, setAsk] = useState<Ask | null>(null);
   const hiddenAt = useRef<number | null>(null);
   const enabledNow = useRef(false);
   const prompting = useRef(false);
   // The lock asks for Face ID by itself once each time it closes; after that, the key does.
-  const asked = useRef(false);
+  const [asked, setAsked] = useState(false);
 
   const choosePin = useCallback(
     (reason: "enable" | "change" | "reset" | "missing") => new Promise<string | null>((done) => setAsk({ kind: "setup", reason, done })),
@@ -100,21 +105,42 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
       },
       () => live && setFlag("off"),
     );
-    void Promise.all([LocalAuthentication.getEnrolledLevelAsync(), LocalAuthentication.supportedAuthenticationTypesAsync()]).then(
-      ([level, types]) => live && setKind(usableBiometry(level, types, Platform.OS === "android" ? "android" : "ios")),
-      () => live && setKind(null),
-    );
     return () => {
       live = false;
     };
   }, [userId, choosePin]);
+
+  // What the phone offers, read again each time the app comes to the front: biometrics turned on,
+  // off, or woken by the phone's passcode meanwhile.
+  useEffect(() => {
+    let live = true;
+    const read = () =>
+      void Promise.all([
+        LocalAuthentication.getEnrolledLevelAsync(),
+        LocalAuthentication.supportedAuthenticationTypesAsync(),
+        LocalAuthentication.isEnrolledAsync(),
+      ]).then(
+        ([level, types, enrolled]) => {
+          if (!live) return;
+          setKind(usableBiometry(level, types, Platform.OS === "android" ? "android" : "ios", enrolled));
+          if (level >= LocalAuthentication.SecurityLevel.BIOMETRIC_WEAK) setPaused(false);
+        },
+        () => live && setKind(null),
+      );
+    read();
+    const subscription = AppState.addEventListener("change", (state) => state === "active" && read());
+    return () => {
+      live = false;
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
       if (state === "active") {
         setAway(false);
         if (lockOnReturn(enabledNow.current, hiddenAt.current, Date.now())) {
-          asked.current = false;
+          setAsked(false);
           setLocked(true);
         }
         hiddenAt.current = null;
@@ -142,6 +168,7 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
           disableDeviceFallback: !passcode,
           ...(passcode ? {} : { fallbackLabel: t("lock.usePin") }),
         });
+        setPaused(!result.success && result.error === "lockout");
         return result.success;
       } catch {
         return false;
@@ -188,7 +215,10 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
 
   /** Opens the lock by Face ID; a lock from before the PIN then asks for one. */
   const unlockByBiometry = useCallback(async () => {
-    if (!(await authenticate(!hasPin))) return;
+    setFacing(true);
+    const ok = await authenticate(!hasPin);
+    setFacing(false);
+    if (!ok) return;
     rightAgain();
     setLocked(false);
     if (!hasPin) {
@@ -206,15 +236,15 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
 
   // Asks for Face ID at once when the lock closes and the app is in front; a cancel leaves the PIN.
   useEffect(() => {
-    if (!locked || away || asked.current || flag !== "on") return;
+    if (!locked || away || asked || flag !== "on" || kind === undefined) return;
     if (!kind && hasPin) return;
     // After this render: the prompt sets state once it answers.
     const timer = setTimeout(() => {
-      asked.current = true;
+      setAsked(true);
       void unlockByBiometry();
     }, 0);
     return () => clearTimeout(timer);
-  }, [locked, away, flag, kind, hasPin, unlockByBiometry]);
+  }, [locked, away, asked, flag, kind, hasPin, unlockByBiometry]);
 
   /** Face ID or the PIN, over the app, before changing the lock. */
   const verify = useCallback(async () => {
@@ -280,7 +310,10 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
     return () => subscription.remove();
   }, [locked, ask]);
 
-  const api = useMemo(() => ({ kind, enabled: flag === "on", setEnabled, changePin }), [kind, flag, setEnabled, changePin]);
+  const api = useMemo(() => ({ kind: kind ?? null, enabled: flag === "on", setEnabled, changePin }), [kind, flag, setEnabled, changePin]);
+  // The lock's plain face rather than the PIN while the phone has not said what it offers, while
+  // Face ID is about to ask or asking, and while the app is away.
+  const waitingFace = kind === undefined || facing || away || (!!kind && !asked && !paused);
   return (
     <LockContext.Provider value={api}>
       {children}
@@ -289,7 +322,7 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
         <Above>
           {ask.kind === "setup" ? (
             <ChoosePin
-              biometry={kind}
+              biometry={kind ?? null}
               reason={ask.reason}
               onDone={(pin) => finish(ask.done, pin)}
               onCancel={() => finish(ask.done, null)}
@@ -301,7 +334,8 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
               failures={failures}
               tryPin={tryPin}
               onRight={() => finish(ask.done, true)}
-              biometry={kind}
+              notice={paused ? t("lock.biometryPaused") : undefined}
+              biometry={kind ?? null}
               autoBiometry
               onBiometry={async () => {
                 if (await authenticate()) {
@@ -316,19 +350,22 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
       ) : null}
       {locked ? (
         <Above>
-          {hasPin ? (
+          {hasPin && waitingFace ? (
+            <Cover />
+          ) : hasPin ? (
             <CheckPin
               key="unlock"
               title={t("lock.enterPin")}
               failures={failures}
               tryPin={tryPin}
               onRight={() => setLocked(false)}
-              biometry={kind}
+              biometry={kind ?? null}
               onBiometry={() => void unlockByBiometry()}
+              notice={paused ? t("lock.biometryPaused") : undefined}
               action={{ label: t("lock.forgot"), onPress: forgot }}
             />
           ) : (
-            <BiometryLock kind={kind} onUnlock={() => void unlockByBiometry()} onSignOut={() => void forgetAndSignOut()} />
+            <BiometryLock kind={kind ?? null} onUnlock={() => void unlockByBiometry()} onSignOut={() => void forgetAndSignOut()} />
           )}
         </Above>
       ) : null}
@@ -354,6 +391,7 @@ function CheckPin({
   biometry,
   autoBiometry = false,
   onBiometry,
+  notice,
   action,
 }: {
   title: string;
@@ -364,6 +402,8 @@ function CheckPin({
   /** Ask for Face ID as soon as the screen opens (confirming an action; the lock asks by itself). */
   autoBiometry?: boolean;
   onBiometry: () => void;
+  /** Said under the title when no PIN was wrong yet: Face ID paused by the phone. */
+  notice?: string;
   action: { label: string; onPress: () => void };
 }) {
   const { t } = useTranslation();
@@ -395,7 +435,7 @@ function CheckPin({
   return (
     <PinScreen
       title={title}
-      message={failures > 0 ? t("lock.wrongPin", { count: failuresLeft(failures) }) : undefined}
+      message={failures > 0 ? t("lock.wrongPin", { count: failuresLeft(failures) }) : notice}
       error={failures > 0}
       entry={entry}
       onKey={(pressed) => void press(pressed)}

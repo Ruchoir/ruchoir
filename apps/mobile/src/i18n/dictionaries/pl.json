@@ -1125,6 +1125,7 @@
     "unlockFaceId": "Odblokuj za pomocą Face ID",
     "unlockTouchId": "Odblokuj za pomocą Touch ID",
     "usePin": "Wpisz PIN",
+    "biometryPaused": "Telefon wstrzymał rozpoznawanie po kilku nieudanych próbach. Odblokuj go jego kodem, aby je przywrócić.",
     "enterPin": "Wpisz swój PIN",
     "wrongPin_one": "Błędny PIN. Została {{count}} próba.",
     "wrongPin_few": "Błędny PIN. Zostały {{count}} próby.",

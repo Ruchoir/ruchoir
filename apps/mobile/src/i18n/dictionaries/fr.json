@@ -1027,6 +1027,7 @@
     "unlockFaceId": "Déverrouiller avec Face ID",
     "unlockTouchId": "Déverrouiller avec Touch ID",
     "usePin": "Saisir le code PIN",
+    "biometryPaused": "Le téléphone a mis la reconnaissance en pause après plusieurs échecs. Déverrouillez-le avec son code pour la réactiver.",
     "enterPin": "Saisissez votre code PIN",
     "wrongPin_one": "Code incorrect. Il reste {{count}} essai.",
     "wrongPin_other": "Code incorrect. Il reste {{count}} essais.",

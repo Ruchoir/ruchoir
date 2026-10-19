@@ -35,3 +35,9 @@ test("without_enrolled_biometrics_the_lock_is_the_pin_alone", () => {
   assert.equal(usableBiometry(3, [2], "ios"), "faceId");
   assert.equal(usableBiometry(2, [1, 2], "android"), "biometrics");
 });
+
+test("paused_biometrics_are_still_offered", () => {
+  // Face ID paused after failures: the level drops to the passcode, the phone still has it enrolled.
+  assert.equal(usableBiometry(1, [2], "ios", true), "faceId");
+  assert.equal(usableBiometry(1, [2], "ios", false), null);
+});

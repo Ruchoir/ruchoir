@@ -1076,6 +1076,7 @@
     "unlockFaceId": "Sblocca con Face ID",
     "unlockTouchId": "Sblocca con Touch ID",
     "usePin": "Inserire il PIN",
+    "biometryPaused": "Il telefono ha sospeso il riconoscimento dopo diversi tentativi falliti. Sbloccatelo con il suo codice per riattivarlo.",
     "enterPin": "Inserite il vostro PIN",
     "wrongPin_one": "PIN errato. Resta {{count}} tentativo.",
     "wrongPin_many": "PIN errato. Restano {{count}} tentativi.",

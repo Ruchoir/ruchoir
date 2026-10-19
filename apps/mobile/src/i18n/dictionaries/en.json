@@ -1027,6 +1027,7 @@
     "unlockFaceId": "Unlock with Face ID",
     "unlockTouchId": "Unlock with Touch ID",
     "usePin": "Enter PIN",
+    "biometryPaused": "The phone paused face and fingerprint recognition after several failed tries. Unlock it with its passcode to turn it back on.",
     "enterPin": "Enter your PIN",
     "wrongPin_one": "Wrong PIN. {{count}} try left.",
     "wrongPin_other": "Wrong PIN. {{count}} tries left.",

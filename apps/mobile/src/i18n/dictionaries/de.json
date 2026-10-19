@@ -1027,6 +1027,7 @@
     "unlockFaceId": "Mit Face ID entsperren",
     "unlockTouchId": "Mit Touch ID entsperren",
     "usePin": "PIN eingeben",
+    "biometryPaused": "Das Telefon hat die Gesichts- und Fingerabdruckerkennung nach mehreren Fehlversuchen pausiert. Entsperren Sie es mit seinem Code, um sie wieder zu aktivieren.",
     "enterPin": "Geben Sie Ihre PIN ein",
     "wrongPin_one": "Falsche PIN. Noch {{count}} Versuch.",
     "wrongPin_other": "Falsche PIN. Noch {{count}} Versuche.",
