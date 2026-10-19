@@ -689,6 +689,12 @@
     "invalidEmail": "Cette adresse ne semble pas valide."
   },
   "details": {
+    "delete": "Supprimer le canal",
+    "deleteHint": "Efface le canal, ses messages, ses fils et les fichiers déposés dedans, pour tout le monde.",
+    "deleteDefault": "C’est le canal par défaut de l’espace : choisissez-en un autre dans les réglages de l’espace avant de le supprimer.",
+    "deleteTitle": "Supprimer #{{name}} ?",
+    "deleted": "Canal supprimé",
+    "deleteFailed": "Le canal n’a pas pu être supprimé.",
     "title": "Détails",
     "open": "Détails de la conversation",
     "notifications": "Notifications",

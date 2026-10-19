@@ -30,6 +30,7 @@ import { useReact } from "../../compose/useReact";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { readNotificationsOf } from "../../data/readNotifications";
+import { deletedHere } from "./deletedHere";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { dayKey, daysBetween } from "../../logic/format";
@@ -136,6 +137,11 @@ export function ConversationView({ params, onClose }: { params: RootParams["conv
   useRealtimeEvent((e) => {
     if (e.type !== "channels" || !params.channelId || e.channelId !== params.channelId) return;
     if (e.deleted) {
+      // Deleted from this phone: the details page has already taken the person back to the list.
+      if (deletedHere.has(params.channelId)) {
+        onClose?.();
+        return;
+      }
       toast(t("conversation.channelGone"));
       leave();
     } else if (e.membership?.change === "removed" && e.membership.userId === myId) {

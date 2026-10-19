@@ -689,6 +689,12 @@
     "invalidEmail": "This address does not look valid."
   },
   "details": {
+    "delete": "Delete the channel",
+    "deleteHint": "Erases the channel, its messages, threads and the files uploaded into it, for everyone.",
+    "deleteDefault": "This is the space's default channel: choose another one in the space settings before deleting it.",
+    "deleteTitle": "Delete #{{name}}?",
+    "deleted": "Channel deleted",
+    "deleteFailed": "The channel could not be deleted.",
     "title": "Details",
     "open": "Conversation details",
     "notifications": "Notifications",

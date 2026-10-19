@@ -777,6 +777,12 @@
     "invalidEmail": "Ten adres wygląda na nieprawidłowy."
   },
   "details": {
+    "delete": "Usuń kanał",
+    "deleteHint": "Usuwa kanał, jego wiadomości, wątki i przesłane do niego pliki, dla wszystkich.",
+    "deleteDefault": "To domyślny kanał przestrzeni: przed usunięciem wybierz inny w ustawieniach przestrzeni.",
+    "deleteTitle": "Usunąć #{{name}}?",
+    "deleted": "Kanał usunięty",
+    "deleteFailed": "Nie udało się usunąć kanału.",
     "title": "Szczegóły",
     "open": "Szczegóły rozmowy",
     "notifications": "Powiadomienia",

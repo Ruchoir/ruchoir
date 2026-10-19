@@ -733,6 +733,12 @@
     "invalidEmail": "Questo indirizzo non sembra valido."
   },
   "details": {
+    "delete": "Elimina il canale",
+    "deleteHint": "Cancella il canale, i suoi messaggi, le discussioni e i file caricati al suo interno, per tutti.",
+    "deleteDefault": "È il canale predefinito dello spazio: scegline un altro nelle impostazioni dello spazio prima di eliminarlo.",
+    "deleteTitle": "Eliminare #{{name}}?",
+    "deleted": "Canale eliminato",
+    "deleteFailed": "Impossibile eliminare il canale.",
     "title": "Dettagli",
     "open": "Dettagli della conversazione",
     "notifications": "Notifiche",

@@ -689,6 +689,12 @@
     "invalidEmail": "Diese Adresse scheint ungültig zu sein."
   },
   "details": {
+    "delete": "Kanal löschen",
+    "deleteHint": "Löscht den Kanal, seine Nachrichten, Threads und die darin hochgeladenen Dateien, für alle.",
+    "deleteDefault": "Dies ist der Standardkanal des Bereichs: Wählen Sie in den Bereichseinstellungen einen anderen, bevor Sie ihn löschen.",
+    "deleteTitle": "#{{name}} löschen?",
+    "deleted": "Kanal gelöscht",
+    "deleteFailed": "Der Kanal konnte nicht gelöscht werden.",
     "title": "Details",
     "open": "Details der Unterhaltung",
     "notifications": "Benachrichtigungen",

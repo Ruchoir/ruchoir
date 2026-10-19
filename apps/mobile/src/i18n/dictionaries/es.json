@@ -733,6 +733,12 @@
     "invalidEmail": "Esta dirección no parece válida."
   },
   "details": {
+    "delete": "Eliminar el canal",
+    "deleteHint": "Borra el canal, sus mensajes, hilos y los archivos subidos en él, para todos.",
+    "deleteDefault": "Es el canal predeterminado del espacio: elija otro en los ajustes del espacio antes de eliminarlo.",
+    "deleteTitle": "¿Eliminar #{{name}}?",
+    "deleted": "Canal eliminado",
+    "deleteFailed": "No se ha podido eliminar el canal.",
     "title": "Detalles",
     "open": "Detalles de la conversación",
     "notifications": "Notificaciones",
