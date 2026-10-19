@@ -2,13 +2,14 @@ import { absoluteUrl, fileDownloadUrl, type ApiMessage } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { Pin } from "lucide-react-native";
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { authHeadersFor } from "../../api/instance";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { listStamp, timeOf } from "../../logic/format";
+import { thumbBox } from "../../logic/thumb";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
@@ -69,7 +70,7 @@ export const MessageRow = memo(function MessageRow({
   highlighted,
 }: Props) {
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const { s } = useTheme();
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation();
 
@@ -159,27 +160,9 @@ export const MessageRow = memo(function MessageRow({
           <RichText body={m.body} mentionNames={mentionNames} />
         ) : null}
         {!m.deleted && m.link ? <LinkCard link={m.link} /> : null}
-        {!m.deleted &&
-          images.map((img, i) =>
-            img.src ? (
-              <Pressable
-                key={img.fileId ?? i}
-                onPress={() =>
-                  img.fileId &&
-                  navigation.navigate("fileViewer", {
-                    file: { id: img.fileId, name: img.alt || t("message.image"), url: fileDownloadUrl(img.fileId), mime: "image/*" },
-                  })
-                }
-              >
-                <Image
-                  source={{ uri: absoluteUrl(img.src), headers: authHeadersFor(absoluteUrl(img.src)) }}
-                  accessibilityLabel={img.alt}
-                  style={[styles.image, { aspectRatio: img.width && img.height ? img.width / img.height : 4 / 3, borderColor: c.line }]}
-                  contentFit="cover"
-                />
-              </Pressable>
-            ) : null,
-          )}
+        {!m.deleted && images.length > 0 ? (
+          <Pictures images={images} />
+        ) : null}
         {!m.deleted &&
           files.map((f, i) => (
             <FileCard
@@ -254,6 +237,46 @@ function ReplyLine({ message: m, onPress, avatarOf }: { message: ApiMessage; onP
   );
 }
 
+/**
+ * A message's pictures, each whole in a box sized in points from the column's measured width
+ * (`thumbBox`); a tap opens it full screen.
+ */
+function Pictures({ images }: { images: NonNullable<ApiMessage["images"]> }) {
+  const { t } = useTranslation();
+  const { c } = useTheme();
+  const navigation = useNavigation();
+  const [column, setColumn] = useState(0);
+  return (
+    <View style={styles.pictures} onLayout={(e) => setColumn(e.nativeEvent.layout.width)}>
+      {column > 0
+        ? images.map((img, i) => {
+            if (!img.src) return null;
+            const box = thumbBox(column, img.width, img.height);
+            return (
+              <Pressable
+                key={img.fileId ?? i}
+                onPress={() =>
+                  img.fileId &&
+                  navigation.navigate("fileViewer", {
+                    file: { id: img.fileId, name: img.alt || t("message.image"), url: fileDownloadUrl(img.fileId), mime: "image/*" },
+                  })
+                }
+                style={box}
+              >
+                <Image
+                  source={{ uri: absoluteUrl(img.src), headers: authHeadersFor(absoluteUrl(img.src)) }}
+                  accessibilityLabel={img.alt}
+                  style={[styles.image, box, { borderColor: c.line }]}
+                  contentFit="contain"
+                />
+              </Pressable>
+            );
+          })
+        : null}
+    </View>
+  );
+}
+
 function PinnedTag() {
   const { t } = useTranslation();
   const { c } = useTheme();
@@ -284,5 +307,6 @@ const styles = StyleSheet.create({
   face: { borderWidth: 2, borderRadius: radius.s + 2 },
   faceOverlap: { marginLeft: -6 },
   shrink: { flexShrink: 1 },
-  image: { width: "100%", maxWidth: 300, borderRadius: radius.m, borderWidth: hairline },
+  pictures: { alignSelf: "stretch", gap: 6 },
+  image: { borderRadius: radius.m, borderWidth: hairline },
 });
