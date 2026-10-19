@@ -3,7 +3,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { Pin } from "lucide-react-native";
 import { memo, useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Keyboard, Pressable, StyleSheet, View } from "react-native";
 
 import { authHeadersFor } from "../../api/instance";
 import { useTranslation } from "../../i18n";
@@ -122,6 +122,9 @@ export const MessageRow = memo(function MessageRow({
         (actions
           ? () => {
               feel("menu");
+              // The keyboard goes down first: iOS hands the focus back to the composer as the sheet
+              // closes, and the keyboard came back up by itself, over a composer left behind it.
+              Keyboard.dismiss();
               actions();
             }
           : undefined)
@@ -178,7 +181,14 @@ export const MessageRow = memo(function MessageRow({
           ))}
         {!m.deleted && m.eventCard ? <EventCardView message={m} myUserId={myUserId} /> : null}
         {!m.deleted && m.reactions?.length && onReact && onAddReaction ? (
-          <ReactionPills reactions={m.reactions} onToggle={onReact} onAdd={onAddReaction} />
+          <ReactionPills
+            reactions={m.reactions}
+            onToggle={onReact}
+            onAdd={() => {
+              Keyboard.dismiss();
+              onAddReaction();
+            }}
+          />
         ) : null}
         {m.replies && onOpenThread ? <ReplyLine message={m} onPress={onOpenThread} avatarOf={avatarOf} /> : null}
         {m.edited && !m.deleted ? (
