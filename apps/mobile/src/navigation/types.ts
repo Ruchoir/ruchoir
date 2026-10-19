@@ -3,7 +3,8 @@ import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParams = {
   today: undefined;
-  discussions: undefined;
+  /** `open`: a conversation to show beside the list (a tablet, see `ConversationScreen`). */
+  discussions: { open?: RootParams["conversation"] } | undefined;
   agenda: undefined;
   files: undefined;
 };

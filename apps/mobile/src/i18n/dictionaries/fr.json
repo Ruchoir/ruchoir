@@ -324,6 +324,7 @@
     "pickHint": "Elle s’ouvrira ici, à côté de la liste."
   },
   "conversation": {
+    "backToList": "Retour aux discussions",
     "messages": "Messages",
     "people_one": "{{count}} personne",
     "people_other": "{{count}} personnes",

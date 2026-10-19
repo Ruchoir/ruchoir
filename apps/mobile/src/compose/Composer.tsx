@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTranslation } from "../i18n";
 import { composerRoom } from "../logic/keyboard";
+import { useTabletLayout } from "../layout/useWide";
 import { activeToken, broadcastsFor, fold, insertToken, matchPeople } from "../logic/mentions";
 import { fonts } from "../theme/fonts";
 import { hairline, radius } from "../theme/tokens";
@@ -62,6 +63,7 @@ export function Composer(props: Props) {
   const { conversationId, draftKey, parentId, people, channels, broadcasts, myUserId, editing } = props;
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const tablet = useTabletLayout();
   const insets = useSafeAreaInsets();
   // The bar keeps clear of the home indicator; with the keyboard up, its `KeyboardArea` (`composer`)
   // lets that room go behind the keyboard, so it changes no size as the keyboard moves.
@@ -151,7 +153,7 @@ export function Composer(props: Props) {
   };
 
   return (
-    <View style={[styles.box, { backgroundColor: c.surface, borderTopColor: c.line }]}>
+    <View style={[styles.box, { backgroundColor: c.surface, borderTopColor: c.line }, tablet && styles.boxTablet]}>
       <MentionSuggestions items={suggestions} onPick={pick} />
       {props.typing ? (
         <Text variant="tiny" tone="muted" numberOfLines={1} style={styles.typing}>
@@ -172,13 +174,18 @@ export function Composer(props: Props) {
         </View>
       ) : null}
       {files ? <PendingFiles attachments={files} /> : null}
-      <View style={[styles.bar, barBottom]}>
+      <View style={[styles.bar, barBottom, tablet && styles.barTablet]}>
         {props.onAttach && !editing ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("compose.add")}
             onPress={props.onAttach}
-            style={({ pressed }) => [styles.square, { borderColor: c.controlLine, borderWidth: hairline }, pressed && { backgroundColor: s.pressed }]}
+            style={({ pressed }) => [
+              styles.square,
+              tablet && styles.squareTablet,
+              { borderColor: tablet ? c.lineStrong : c.controlLine, borderWidth: hairline, backgroundColor: c.surface },
+              pressed && { backgroundColor: s.pressed },
+            ]}
           >
             <Plus size={22} color={c.ink} />
           </Pressable>
@@ -197,7 +204,7 @@ export function Composer(props: Props) {
           multiline
           autoFocus={!!editing}
           accessibilityLabel={props.placeholder}
-          style={[styles.field, { borderColor: c.controlLine, color: c.ink }]}
+          style={[styles.field, tablet && styles.fieldTablet, { borderColor: c.controlLine, color: c.ink }]}
         />
         <Pressable
           accessibilityRole="button"
@@ -207,12 +214,26 @@ export function Composer(props: Props) {
           onPress={submit}
           style={({ pressed }) => [
             styles.square,
+            tablet && styles.squareTablet,
+            tablet === "landscape" && styles.sendLabelled,
             { borderColor: c.ink, borderWidth: 2 },
             ready && { backgroundColor: c.ink },
             pressed && { opacity: 0.8 },
           ]}
         >
-          {files?.uploading ? <ActivityIndicator color={c.ink} /> : <Send size={20} color={ready ? c.onInk : c.ink} />}
+          {files?.uploading ? (
+            <ActivityIndicator color={c.ink} />
+          ) : (
+            <>
+              <Send size={tablet === "landscape" ? 18 : 20} color={ready ? c.onInk : c.ink} />
+              {/* A tablet held wide says it in words, as its mockup does. */}
+              {tablet === "landscape" ? (
+                <Text variant="bodyStrong" style={{ color: ready ? c.onInk : c.ink }}>
+                  {editing ? t("compose.save") : t("compose.send")}
+                </Text>
+              ) : null}
+            </>
+          )}
         </Pressable>
       </View>
     </View>
@@ -221,6 +242,12 @@ export function Composer(props: Props) {
 
 const styles = StyleSheet.create({
   box: { borderTopWidth: hairline },
+  // The tablet mockups' composer: 14 above, 20 aside, its row 820 wide at most, its controls 48 high.
+  boxTablet: { paddingHorizontal: 4 },
+  barTablet: { width: "100%", maxWidth: 820 + 40, alignSelf: "center", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingTop: 14 },
+  squareTablet: { width: 48, height: 48 },
+  sendLabelled: { width: "auto", flexDirection: "row", gap: 8, paddingHorizontal: 20 },
+  fieldTablet: { minHeight: 48, paddingTop: 13, paddingBottom: 13, paddingHorizontal: 16 },
   typing: { paddingHorizontal: 16, paddingTop: 6 },
   banner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
   grow: { flex: 1 },

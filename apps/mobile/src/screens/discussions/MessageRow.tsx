@@ -10,6 +10,7 @@ import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { listStamp, timeOf } from "../../logic/format";
 import { thumbBox } from "../../logic/thumb";
+import { useTabletLayout } from "../../layout/useWide";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
@@ -71,6 +72,7 @@ export const MessageRow = memo(function MessageRow({
 }: Props) {
   const { t } = useTranslation();
   const { s } = useTheme();
+  const tablet = useTabletLayout() !== null;
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation();
 
@@ -133,6 +135,7 @@ export const MessageRow = memo(function MessageRow({
       accessibilityHint={unsent ? t("compose.failed") : undefined}
       style={({ pressed }) => [
         styles.row,
+        tablet && styles.rowTablet,
         mentionsMe && { backgroundColor: s.mention },
         !head && styles.continued,
         pending === "sending" && styles.sending,
@@ -140,7 +143,7 @@ export const MessageRow = memo(function MessageRow({
       ]}
     >
       {highlighted ? <Flash /> : null}
-      <View style={styles.gutter}>{head ? <Avatar name={m.author} src={avatar} size={36} /> : null}</View>
+      <View style={[styles.gutter, tablet && styles.gutterTablet]}>{head ? <Avatar name={m.author} src={avatar} size={tablet ? 42 : 36} /> : null}</View>
       <View style={styles.main}>
         {head ? (
           <View style={styles.head}>
@@ -305,6 +308,9 @@ const styles = StyleSheet.create({
   continued: { paddingTop: 2 },
   sending: { opacity: 0.55 },
   gutter: { width: 36 },
+  // The tablet mockups' message: a face of 42, 14 beside it, 12 around, rounded.
+  rowTablet: { gap: 14, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 6, borderRadius: radius.m },
+  gutterTablet: { width: 42 },
   main: { flex: 1, minWidth: 0, gap: 6 },
   head: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   author: { flexShrink: 1 },

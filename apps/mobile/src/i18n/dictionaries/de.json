@@ -324,6 +324,7 @@
     "pickHint": "Sie öffnet sich hier, neben der Liste."
   },
   "conversation": {
+    "backToList": "Zurück zu den Unterhaltungen",
     "messages": "Nachrichten",
     "people_one": "{{count}} Person",
     "people_other": "{{count}} Personen",

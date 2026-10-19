@@ -376,6 +376,7 @@
     "pickHint": "Otworzy się tutaj, obok listy."
   },
   "conversation": {
+    "backToList": "Wróć do rozmów",
     "messages": "Wiadomości",
     "people_one": "{{count}} osoba",
     "people_other": "{{count}} osoby",

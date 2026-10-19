@@ -92,7 +92,8 @@ export function RootNavigator() {
     <NavigationContainer theme={theme} ref={rootNavigation} onReady={onReady}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="tabs" component={Tabs} />
-        <Stack.Screen name="conversation" component={ConversationScreen} />
+        {/* On a tablet it only hands over to the Discussions tab: nothing slides in. */}
+        <Stack.Screen name="conversation" component={ConversationScreen} options={{ animation: wide ? "none" : "default" }} />
         <Stack.Screen name="thread" component={ThreadScreen} />
         <Stack.Screen name="conversationDetails" component={ConversationDetails} />
         <Stack.Screen name="folder" component={FolderScreen} />

@@ -350,6 +350,7 @@
     "pickHint": "Si aprirà qui, accanto all’elenco."
   },
   "conversation": {
+    "backToList": "Torna alle conversazioni",
     "messages": "Messaggi",
     "people_one": "{{count}} persona",
     "people_other": "{{count}} persone",
