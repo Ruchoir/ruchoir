@@ -46,11 +46,11 @@ test("notifications_are_signed_for_production", () => {
   assert.equal((plugin[1] as { mode: string }).mode, "production");
 });
 
-test("the_three_android_widgets_are_declared", () => {
+test("the_four_android_widgets_are_declared", () => {
   const plugin = appConfig({}).plugins?.find((p) => Array.isArray(p) && p[0] === "react-native-android-widget");
   assert.ok(Array.isArray(plugin));
   const names = (plugin[1] as { widgets: { name: string }[] }).widgets.map((w) => w.name);
-  assert.deepEqual(names, ["RuchoirAgenda", "RuchoirDiscussions", "RuchoirShortcuts"]);
+  assert.deepEqual(names, ["RuchoirAgenda", "RuchoirDiscussions", "RuchoirShortcuts", "RuchoirReply"]);
 });
 
 test("tablets_are_supported_in_every_orientation", () => {

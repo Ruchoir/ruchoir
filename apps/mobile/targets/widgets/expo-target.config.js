@@ -22,6 +22,9 @@ module.exports = () => ({
     muted: { light: "#6b717d", dark: "#9aa1ad" },
     brand: "#c65d45",
   },
+  // The Ruchoir mark the widget mockups put in their heads, drawn as a template in the brand colour.
+  // Relative to this folder, where the plugin resolves it.
+  images: { mark: "../../assets/mark.png" },
   entitlements: {
     "keychain-access-groups": ["$(AppIdentifierPrefix)com.ruchoir.app.shared"],
   },

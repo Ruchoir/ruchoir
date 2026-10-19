@@ -1096,6 +1096,12 @@
     "later": "Later"
   },
   "widgets": {
+    "search": "Search",
+    "toAnswer": "To answer",
+    "yes": "Yes",
+    "invited": "{{who}} invites you: {{title}}",
+    "noConversation": "No conversation",
+    "you": "You",
     "next": "Next",
     "allDay": "All day",
     "now": "now",

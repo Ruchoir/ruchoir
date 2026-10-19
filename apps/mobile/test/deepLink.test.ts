@@ -6,6 +6,9 @@ import { linkTarget } from "../src/logic/deepLink.ts";
 test("the_widgets_shortcuts_open_their_screens", () => {
   assert.deepEqual(linkTarget("ruchoir://new-event"), { screen: "eventForm" });
   assert.deepEqual(linkTarget("ruchoir://agenda"), { screen: "tab", tab: "agenda" });
+  assert.deepEqual(linkTarget("ruchoir://add-file"), { screen: "addFile" });
+  assert.deepEqual(linkTarget("ruchoir://search"), { screen: "search" });
+  assert.deepEqual(linkTarget("ruchoir://event/e1?start=2026-06-16T12:00:00Z"), { screen: "event", eventId: "e1", start: "2026-06-16T12:00:00Z" });
   assert.deepEqual(linkTarget("ruchoir://discussions"), { screen: "tab", tab: "discussions" });
   assert.deepEqual(linkTarget("ruchoir://files"), { screen: "tab", tab: "files" });
   assert.deepEqual(linkTarget("ruchoir://new-message"), { screen: "newMessage" });

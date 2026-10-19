@@ -1096,6 +1096,12 @@
     "later": "Später"
   },
   "widgets": {
+    "search": "Suchen",
+    "toAnswer": "Zu beantworten",
+    "yes": "Ja",
+    "invited": "{{who}} lädt Sie ein: {{title}}",
+    "noConversation": "Keine Unterhaltung",
+    "you": "Sie",
     "next": "Nächster",
     "allDay": "Ganztägig",
     "now": "jetzt",

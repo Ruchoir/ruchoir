@@ -8,6 +8,12 @@
 export type LinkTarget =
   | { screen: "eventForm" }
   | { screen: "newMessage" }
+  /** "Add a file" (the Android shortcuts): to the current space's root. */
+  | { screen: "addFile" }
+  /** "Search" (the Android shortcuts): the whole space. */
+  | { screen: "search" }
+  /** An event (the widgets' rows). */
+  | { screen: "event"; eventId: string; start?: string }
   | { screen: "tab"; tab: "today" | "discussions" | "agenda" | "files" }
   | {
       screen: "conversation";
@@ -27,6 +33,12 @@ export function linkTarget(url: string): LinkTarget | null {
       return { screen: "eventForm" };
     case "new-message":
       return { screen: "newMessage" };
+    case "add-file":
+      return { screen: "addFile" };
+    case "search":
+      return { screen: "search" };
+    case "event":
+      return second ? { screen: "event", eventId: second, start: query.get("start") ?? undefined } : null;
     case "conversation": {
       if (!second) return null;
       const channel = query.get("channel") === "1";

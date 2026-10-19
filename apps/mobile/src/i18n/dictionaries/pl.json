@@ -1202,6 +1202,12 @@
     "later": "Później"
   },
   "widgets": {
+    "search": "Szukaj",
+    "toAnswer": "Do odpowiedzi",
+    "yes": "Tak",
+    "invited": "{{who}} zaprasza cię: {{title}}",
+    "noConversation": "Brak rozmów",
+    "you": "Ty",
     "next": "Następne",
     "allDay": "Cały dzień",
     "now": "teraz",

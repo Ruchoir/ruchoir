@@ -83,7 +83,7 @@ export function appConfig(env: Env): ExpoConfig {
           widgets: [
             {
               name: "RuchoirAgenda",
-              label: "Agenda",
+              label: "Prochain",
               description: "Le prochain rendez-vous",
               minWidth: "110dp",
               minHeight: "110dp",
@@ -95,7 +95,7 @@ export function appConfig(env: Env): ExpoConfig {
             {
               name: "RuchoirDiscussions",
               label: "Discussions",
-              description: "Les messages non lus",
+              description: "Les dernières conversations",
               minWidth: "250dp",
               minHeight: "110dp",
               targetCellWidth: 4,
@@ -106,12 +106,23 @@ export function appConfig(env: Env): ExpoConfig {
             {
               name: "RuchoirShortcuts",
               label: "Raccourcis",
-              description: "Message, événement, agenda, fichiers",
+              description: "Message, événement, fichier, recherche",
               minWidth: "250dp",
               minHeight: "40dp",
               targetCellWidth: 4,
               targetCellHeight: 1,
               resizeMode: "horizontal",
+            },
+            {
+              name: "RuchoirReply",
+              label: "À répondre",
+              description: "Qui attend une réponse",
+              minWidth: "110dp",
+              minHeight: "110dp",
+              targetCellWidth: 2,
+              targetCellHeight: 2,
+              resizeMode: "horizontal|vertical",
+              updatePeriodMillis: 1_800_000,
             },
           ],
         },

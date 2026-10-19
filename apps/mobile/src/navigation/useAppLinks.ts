@@ -11,7 +11,7 @@ import { useSpace } from "../space/SpaceProvider";
 import type { RootParams } from "./types";
 
 export function useAppLinks(navigation: NavigationContainerRefWithCurrent<RootParams>): { onReady: () => void } {
-  const { select } = useSpace();
+  const { select, current } = useSpace();
   const pending = useRef<string | null>(null);
 
   const follow = useCallback(
@@ -29,6 +29,15 @@ export function useAppLinks(navigation: NavigationContainerRefWithCurrent<RootPa
         case "newMessage":
           navigation.navigate("newMessage");
           return;
+        case "addFile":
+          if (current) navigation.navigate("filesAdd", { spaceId: current.id, folderName: current.name });
+          return;
+        case "search":
+          navigation.navigate("search");
+          return;
+        case "event":
+          navigation.navigate("eventSummary", { eventId: target.eventId, start: target.start });
+          return;
         case "tab":
           navigation.navigate("tabs", { screen: target.tab });
           return;
@@ -37,7 +46,7 @@ export function useAppLinks(navigation: NavigationContainerRefWithCurrent<RootPa
           navigation.navigate("conversation", target.params);
       }
     },
-    [navigation, select],
+    [navigation, select, current],
   );
 
   useEffect(() => {
