@@ -11977,6 +11977,16 @@ async fn a_reaction_tells_the_author_once_and_never_by_mail() {
         .expect("json");
     assert_eq!(feed["notifications"][0]["kind"], "reaction");
     assert_eq!(feed["notifications"][0]["emoji"], "👍");
+    // News, not a call for an answer: the space's count of what is addressed to her stays at zero.
+    let spaces: Value = app
+        .req(reqwest::Method::GET, "/api/v1/me/spaces", &alice)
+        .send()
+        .await
+        .expect("spaces")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(spaces[0]["mentions"], 0);
 
     // Another emoji, or the same one taken back and given again: nothing new.
     react(bob.clone(), reqwest::Method::PUT, "%E2%9D%A4%EF%B8%8F").await;
