@@ -1,0 +1,13 @@
+/*
+ * The whole design system in one import: tokens (palette, semantic tokens, the eight themes), the
+ * typefaces, the component styles and the flags, in the order they must cascade. An app that wants Tailwind
+ * imports it before this file.
+ */
+@import "./tokens.css";
+@import "./fonts.css";
+@import "./components.css";
+/*
+ * Country flags for `Flag` (MIT, bundled: a self-hosted instance makes no outside request). The
+ * stylesheet points at one SVG per region; only the handful a reader actually sees is ever fetched.
+ */
+@import "flag-icons/css/flag-icons.min.css";

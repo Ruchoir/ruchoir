@@ -167,21 +167,15 @@ importers:
 
   apps/web:
     dependencies:
-      '@dicebear/core':
-        specifier: ^10.7.0
-        version: 10.7.0
-      '@dicebear/styles':
-        specifier: ^10.6.0
-        version: 10.6.0
       '@ruchoir/client':
         specifier: workspace:*
         version: link:../../packages/client
+      '@ruchoir/design-system':
+        specifier: workspace:*
+        version: link:../../packages/design-system
       emoji-regex:
         specifier: ^10.6.0
         version: 10.6.0
-      flag-icons:
-        specifier: ^7.5.0
-        version: 7.5.0
       highlight.js:
         specifier: ^11.12.0
         version: 11.12.0
@@ -243,6 +237,40 @@ importers:
 
   packages/client:
     devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/design-system:
+    dependencies:
+      '@dicebear/core':
+        specifier: ^10.7.0
+        version: 10.7.0
+      '@dicebear/styles':
+        specifier: ^10.6.0
+        version: 10.6.0
+      flag-icons:
+        specifier: ^7.5.0
+        version: 7.5.0
+      lucide-react:
+        specifier: ^1.37.0
+        version: 1.37.0(react@19.2.8)
+    devDependencies:
+      '@types/node':
+        specifier: ^26.4.0
+        version: 26.4.0
+      '@types/react':
+        specifier: ^19.2.18
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: ^19.2.5
+        version: 19.2.5(@types/react@19.2.18)
+      react:
+        specifier: ^19.2.8
+        version: 19.2.8
+      react-dom:
+        specifier: ^19.2.8
+        version: 19.2.8(react@19.2.8)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

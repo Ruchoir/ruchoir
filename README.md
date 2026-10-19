@@ -62,7 +62,7 @@ apps/web/                Next.js frontend
 apps/mobile/             Expo app for iOS and Android
 packages/client/         API client shared by the web and mobile apps
 packages/importer/       Import tooling (Nextcloud, Mattermost, Slack, Teams)
-packages/design-system/  Shared React components and design tokens
+packages/design-system/  Design system: tokens, fonts, React components (web app, Ruchoir Lab)
 migrations/              Versioned SQL migrations
 docs/                    Technical documentation
 ```

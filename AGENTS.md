@@ -193,7 +193,7 @@ apps/web/            Next.js frontend                     - has its own AGENTS.m
 apps/mobile/         Expo app (iOS, Android)              - has its own AGENTS.md
 packages/client/     API client shared by web and mobile  - has its own AGENTS.md
 packages/importer/   Export scripts + import adapters     - has its own AGENTS.md
-packages/design-system/  React components + design tokens - has its own AGENTS.md
+packages/design-system/  @ruchoir/design-system: tokens, fonts, React components - own AGENTS.md
 migrations/          Versioned SeaORM migrations (Rust crate `ruchoir-migration`)
 docs/                Technical documentation (EN)
                      incl. `import-archive.md`, the archive format every importer reads
@@ -245,6 +245,7 @@ terminates TLS for that instance, rather than exposing its port:
   `CI=1 pnpm --filter @ruchoir/mobile bundle:ios` to prove Metro bundles the app; the shared client's
   tests with `pnpm --filter @ruchoir/client test`.
 - **Dependencies:** `scripts/check-deps.sh` for an outdated + security-audit sweep.
+- **Design system:** `pnpm --filter @ruchoir/design-system typecheck` (the web job runs it).
 - **Design adherence:** the design system ships an oxlint config
   (`packages/design-system/_adherence.oxlintrc.json`) - run it to enforce design-token usage.
 - Delegate code style to the linter/formatter, not to prose review.
@@ -302,10 +303,14 @@ The product is drawn with the Ruchoir design system, the same one as the public 
   mark and the point after the name only; the bee yellow (`--bee`) is the lift of a primary action;
   the alarm orange (`--alarm`) marks what is new.
 - **Themes:** eight, an accent (sky, mint, violet, pink) by day or by night (`<accent>-dark`). The
-  accent (`--acc`) paints what is selected and what is yours. See `apps/web/app/tokens.css`.
+  accent (`--acc`) paints what is selected and what is yours. See `packages/design-system/styles/tokens.css`.
 - **Shape:** 1.5px hairlines, radii 6/10/16, and hard offset shadows (`4px 4px 0` ink) instead of
   blurred ones. Section labels are set in the monospace face, in sentence case, after a short rule.
 - Typography: IBM Plex Sans (UI) and IBM Plex Mono (labels and code), self-hosted.
+- **Where it lives:** `packages/design-system` (`@ruchoir/design-system`): tokens, typefaces and the
+  React components with their stylesheet, depending on nothing of the app's. The web app consumes it
+  through the workspace; Ruchoir Lab (a separate repository) installs it as a git dependency pinned
+  to a tag. A change there reaches both: keep it backwards compatible, or tag and bump Lab with it.
 - Screen mockups are HTML/CSS/JS prototypes: recreate them faithfully in React; do not copy the
   prototype's internal structure when it does not fit.
 

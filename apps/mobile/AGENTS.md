@@ -27,7 +27,7 @@ rules; this file holds what is particular to the app.
   (`src/api/sameInstance.ts`); never pass `authHeaders()` to a URL that came from data.
 - Every string a person reads goes through i18n, French first, the five other languages complete
   (`pnpm --filter @ruchoir/mobile i18n:check`).
-- Colours come from `src/theme/tokens.ts`, a copy of `apps/web/app/tokens.css` kept honest by
+- Colours come from `src/theme/tokens.ts`, a copy of `packages/design-system/styles/tokens.css` kept honest by
   `test/tokens.test.ts`.
 
 ## Design consistency

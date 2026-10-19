@@ -244,7 +244,7 @@ export function Icon({ name, size = 16, title, className, style }: IconProps) {
   const Glyph = ICONS[name];
   if (!Glyph) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn(`Icon "${name}" is not registered in components/ds/Icon.tsx`);
+      console.warn(`Icon "${name}" is not registered in the design system's Icon.tsx`);
     }
     return null;
   }
