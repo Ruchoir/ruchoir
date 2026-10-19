@@ -165,7 +165,7 @@ struct AgendaView: View {
   /// "Today", or "Wed. 17".
   private func dayLabel(_ date: Date) -> String {
     if Calendar.current.isDateInToday(date) { return Words.today }
-    let text = date.formatted(.dateTime.weekday(.abbreviated).day())
+    let text = date.formatted(Date.FormatStyle.dateTime.weekday(.abbreviated).day().locale(Words.locale))
     return text.prefix(1).uppercased() + text.dropFirst()
   }
 
@@ -226,12 +226,12 @@ struct AgendaView: View {
   private var medium: some View {
     HStack(alignment: .top, spacing: 14) {
       VStack(alignment: .leading, spacing: 0) {
-        Text(entry.date.formatted(.dateTime.weekday(.wide)).uppercased())
+        Text(entry.date.formatted(Date.FormatStyle.dateTime.weekday(.wide).locale(Words.locale)).uppercased(with: Words.locale))
           .font(Face.sans(12, .bold))
           .foregroundStyle(look.danger)
           .lineLimit(1)
           .minimumScaleFactor(0.8)
-        Text(entry.date.formatted(.dateTime.day()))
+        Text(entry.date.formatted(Date.FormatStyle.dateTime.day().locale(Words.locale)))
           .font(Face.sans(44, .bold))
           .foregroundStyle(look.strong)
           .kerning(-1.3)
@@ -285,7 +285,7 @@ struct AgendaView: View {
     VStack(alignment: .leading, spacing: 12) {
       HStack(spacing: 8) {
         Mark(size: 22, color: look.mark)
-        Text("\(Words.agenda) · \(entry.date.formatted(.dateTime.month(.wide)))")
+        Text("\(Words.agenda) · \(entry.date.formatted(Date.FormatStyle.dateTime.month(.wide).locale(Words.locale)))")
           .font(Face.sans(15, .bold)).foregroundStyle(look.strong).lineLimit(1)
         Spacer(minLength: 4)
         if entry.events != nil {
@@ -306,9 +306,9 @@ struct AgendaView: View {
         ForEach(week, id: \.self) { day in
           let isToday = Calendar.current.isDate(day, inSameDayAs: entry.date)
           VStack(spacing: 2) {
-            Text(String(day.formatted(.dateTime.weekday(.narrow))))
+            Text(String(day.formatted(Date.FormatStyle.dateTime.weekday(.narrow).locale(Words.locale))))
               .font(Face.sans(10, .semibold)).opacity(0.8)
-            Text(day.formatted(.dateTime.day())).font(Face.sans(16, .bold))
+            Text(day.formatted(Date.FormatStyle.dateTime.day().locale(Words.locale))).font(Face.sans(16, .bold))
             Circle()
               .fill(hasEvents(day) ? (isToday ? look.onPastel : look.muted) : Color.clear)
               .frame(width: 5, height: 5)

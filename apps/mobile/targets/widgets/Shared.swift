@@ -76,11 +76,11 @@ enum Instant {
   static func api(_ date: Date) -> String { plain.string(from: date) }
 
   static func time(_ date: Date) -> String {
-    date.formatted(date: .omitted, time: .shortened)
+    date.formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(Words.locale))
   }
 
   static func weekday(_ date: Date) -> String {
-    date.formatted(.dateTime.weekday(.abbreviated).day())
+    date.formatted(Date.FormatStyle.dateTime.weekday(.abbreviated).day().locale(Words.locale))
   }
 }
 
@@ -216,6 +216,10 @@ enum Words {
   private static var language: String {
     String((Locale.preferredLanguages.first ?? "en").prefix(2))
   }
+
+  /// The phone's own language for dates and times: the extension's `Locale.current` is its bundle's,
+  /// English, which wrote "Mon 19" on a French phone.
+  static var locale: Locale { Locale(identifier: Locale.preferredLanguages.first ?? "en") }
 
   private static func pick(_ fr: String, _ en: String, _ es: String, _ de: String, _ it: String, _ pl: String) -> String {
     switch language {

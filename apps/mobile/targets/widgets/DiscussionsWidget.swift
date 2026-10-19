@@ -212,7 +212,7 @@ struct DiscussionsView: View {
   private func time(_ date: Date?) -> String {
     guard let date else { return "" }
     if Calendar.current.isDateInToday(date) { return Instant.time(date) }
-    return date.formatted(.dateTime.weekday(.abbreviated))
+    return date.formatted(Date.FormatStyle.dateTime.weekday(.abbreviated).locale(Words.locale))
   }
 
   private var medium: some View {
