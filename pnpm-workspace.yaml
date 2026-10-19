@@ -13,8 +13,15 @@ minimumReleaseAgeExclude:
 # brace-expansion 5.0.9 has three published denial-of-service advisories (fixed in 5.0.12). minimatch
 # 10 asks for ^5.0.8 and the lockfile kept the first match, which `pnpm update` will not move. Drop
 # this once the lockfile resolves to 5.0.12 or later by itself.
+#
+# @xmldom/xmldom 0.7.13 has a run of high advisories (XML injection on serialization, unbounded
+# recursion, quadratic attribute deduplication; fixed in 0.8.15). It comes through @bacons/xcode's
+# old @expo/plist, which @bacons/apple-targets runs at prebuild to write the iPhone extensions'
+# plists: build time only, never in the app. 0.8.15 is what the rest of the tree already uses.
+# Drop this once @bacons/xcode moves to a newer @expo/plist.
 overrides:
   "brace-expansion@>=5.0.0 <5.0.12": "5.0.12"
+  "@xmldom/xmldom@<0.8.15": "0.8.15"
 # GHSA-vfj7-8cjw-p6xm (braces <= 3.0.3, stack exhaustion on deeply nested brace patterns): dev only,
 # via eslint-config-next > @next/eslint-plugin-next > fast-glob 3.3.1 > micromatch > braces. It runs
 # at lint time on the repository's own glob patterns, never on input from a user, and nothing of it
