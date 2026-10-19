@@ -11912,3 +11912,164 @@ async fn a_role_change_reaches_the_channel() {
     assert_membership(&event, &fx, fx.public_channel, fx.bob, "role");
     assert_eq!(event["payload"]["role"], "admin");
 }
+
+/// Alice's notifications of one kind, as rows.
+async fn alice_rows(app: &TestApp, fx: &Fixture, kind: &str) -> Vec<notifications::Model> {
+    notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.alice))
+        .filter(notifications::Column::Kind.eq(kind))
+        .all(&app.db)
+        .await
+        .expect("query")
+}
+
+/// `who` posts `body` in the public channel and gets the message's id back.
+async fn post_in_general(app: &TestApp, fx: &Fixture, who: Uuid, body: &str) -> String {
+    let cookie = app.cookie_for(who).await;
+    let sent: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &cookie,
+        )
+        .json(&json!({ "body": body }))
+        .send()
+        .await
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    sent["id"].as_str().expect("id").to_owned()
+}
+
+#[tokio::test]
+async fn a_reaction_tells_the_author_once_and_never_by_mail() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Carol takes part in the channel too, to react or be named there.
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let message_id = post_in_general(&app, &fx, fx.alice, "le devis est prêt").await;
+    let react = |cookie: String, method: reqwest::Method, emoji: &'static str| {
+        let url = format!("/api/v1/messages/{message_id}/reactions/{emoji}");
+        let app = &app;
+        async move {
+            let response = app.req(method, &url, &cookie).send().await.expect("react");
+            assert_eq!(response.status(), 204);
+        }
+    };
+
+    // Bob reacts: Alice hears of it, with the emoji, and the mail fallback never takes it.
+    react(bob.clone(), reqwest::Method::PUT, "%F0%9F%91%8D").await;
+    let rows = alice_rows(&app, &fx, "reaction").await;
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].email_handled_at.is_some(), "never mailed");
+    let feed: Value = app
+        .req(reqwest::Method::GET, "/api/v1/notifications", &alice)
+        .send()
+        .await
+        .expect("feed")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(feed["notifications"][0]["kind"], "reaction");
+    assert_eq!(feed["notifications"][0]["emoji"], "👍");
+
+    // Another emoji, or the same one taken back and given again: nothing new.
+    react(bob.clone(), reqwest::Method::PUT, "%E2%9D%A4%EF%B8%8F").await;
+    react(bob.clone(), reqwest::Method::DELETE, "%F0%9F%91%8D").await;
+    react(bob.clone(), reqwest::Method::PUT, "%F0%9F%91%8D").await;
+    assert_eq!(alice_rows(&app, &fx, "reaction").await.len(), 1);
+
+    // Her own reaction says nothing to her.
+    react(alice.clone(), reqwest::Method::PUT, "%F0%9F%8E%89").await;
+    assert_eq!(alice_rows(&app, &fx, "reaction").await.len(), 1);
+
+    // Reactions turned off: Carol's says nothing either.
+    let path = "/api/v1/me/notification-preferences";
+    let mut prefs: Value = app
+        .req(reqwest::Method::GET, path, &alice)
+        .send()
+        .await
+        .expect("get")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(prefs["reactions"], true, "on by default");
+    assert_eq!(prefs["edits"], true, "on by default");
+    prefs["reactions"] = json!(false);
+    let saved = app
+        .req(reqwest::Method::PUT, path, &alice)
+        .json(&prefs)
+        .send()
+        .await
+        .expect("put");
+    assert_eq!(saved.status(), 200);
+    let carol = app.cookie_for(fx.carol).await;
+    react(carol, reqwest::Method::PUT, "%F0%9F%91%8D").await;
+    assert_eq!(alice_rows(&app, &fx, "reaction").await.len(), 1);
+}
+
+#[tokio::test]
+async fn an_edit_tells_everyone_its_message_notified() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Carol takes part in the channel too, to react or be named there.
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let message_id = post_in_general(&app, &fx, fx.bob, "@alice le devis est prêt").await;
+    let edit = |body: &'static str| {
+        let url = format!("/api/v1/messages/{message_id}");
+        let (app, bob) = (&app, bob.clone());
+        async move {
+            let response = app
+                .req(reqwest::Method::PATCH, &url, &bob)
+                .json(&json!({ "body": body }))
+                .send()
+                .await
+                .expect("edit");
+            assert_eq!(response.status(), 200);
+        }
+    };
+
+    // While the mention is still unread, an edit adds nothing: she will read the new text anyway.
+    edit("@alice le devis est prêt, version 2").await;
+    assert!(alice_rows(&app, &fx, "edited").await.is_empty());
+
+    // Once read, the next edit tells her it changed, and never by mail.
+    let mention = alice_rows(&app, &fx, "mention").await;
+    assert_eq!(mention.len(), 1);
+    let read = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/notifications/{}/read", mention[0].id),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("read");
+    assert_eq!(read.status(), 204);
+    // Carol is named for the first time: a mention of her own, not an edit.
+    edit("@alice @carol le devis est prêt, version 3").await;
+    let edited = alice_rows(&app, &fx, "edited").await;
+    assert_eq!(edited.len(), 1);
+    assert!(edited[0].email_handled_at.is_some(), "never mailed");
+    let carols: Vec<String> = notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.carol))
+        .all(&app.db)
+        .await
+        .expect("query")
+        .into_iter()
+        .map(|row| row.kind)
+        .collect();
+    assert_eq!(carols, vec!["mention".to_owned()]);
+    // The author is never told of their own edit.
+    let bobs = notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.bob))
+        .all(&app.db)
+        .await
+        .expect("query");
+    assert!(bobs.is_empty());
+}

@@ -443,6 +443,7 @@ pub async fn edit_message(
     let resolved =
         mentions::resolve_mentions(&state.db, session.user_id, &audience, text, &tokens).await?;
 
+    let parent_id = message.parent_message_id;
     let txn = state.db.begin().await?;
     let mut active = message.into_active_model();
     active.body = Set(text.to_owned());
@@ -499,26 +500,105 @@ pub async fn edit_message(
     }
     txn.commit().await?;
 
-    let dto = hydrate_messages(
-        &state.db,
-        session.user_id,
-        vec![load_message(&state.db, message_id).await?],
-    )
-    .await?
-    .pop()
-    .ok_or(ApiError::Internal)?;
+    let edited = load_message(&state.db, message_id).await?;
+    let dto = hydrate_messages(&state.db, session.user_id, vec![edited.clone()])
+        .await?
+        .pop()
+        .ok_or(ApiError::Internal)?;
 
     state
         .hub
         .publish(
-            audience,
+            audience.clone(),
             RealtimeEnvelope::message_updated(conversation_id, dto.clone()),
         )
         .await;
     // An edit may have changed, added or removed the link.
     super::unfurl::refresh(&state, message_id);
 
+    // Everyone the message notified hears that it changed, and whoever the new text names for the
+    // first time is told as a new message would tell them: who it would notify if sent now, by the
+    // same rule as `send_message`.
+    let addressed = edit_recipients(
+        &state,
+        &access,
+        &audience,
+        &resolved,
+        parent_id,
+        session.user_id,
+        conversation_id,
+    )
+    .await?;
+    if let Err(error) =
+        notifications::notify_edit(&state, &edited, session.user_id, &addressed).await
+    {
+        tracing::warn!(?error, "could not notify an edit");
+    }
+
     Ok(Json(dto))
+}
+
+/// Who an edited message would notify if it were sent now (see [`send_message`]): the people it
+/// names, the room for `@channel`, a private conversation's other people, the replied-to author, and
+/// in a channel (not a thread) those who hear about every message.
+#[allow(clippy::too_many_arguments)]
+async fn edit_recipients(
+    state: &AppState,
+    access: &authz::ConversationAccess,
+    audience: &[Uuid],
+    resolved: &[mentions::ResolvedMention],
+    parent_id: Option<Uuid>,
+    author_id: Uuid,
+    conversation_id: Uuid,
+) -> Result<Vec<(Uuid, &'static str)>, ApiError> {
+    let mention_ids: Vec<Uuid> = resolved
+        .iter()
+        .filter(|m| m.mention_type == "user")
+        .map(|m| m.user_id)
+        .collect();
+    let broadcast_ids: Vec<Uuid> = resolved
+        .iter()
+        .filter(|m| m.mention_type != "user")
+        .map(|m| m.user_id)
+        .collect();
+    let dm_recipients: Vec<Uuid> = if access.kind == ConversationKind::Direct {
+        audience
+            .iter()
+            .copied()
+            .filter(|user_id| *user_id != author_id)
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let reply_target = match parent_id {
+        Some(parent) => load_message(&state.db, parent).await?.author_id,
+        None => None,
+    };
+    let mut recipients = notifications::compute_recipients(
+        author_id,
+        &mention_ids,
+        &broadcast_ids,
+        &dm_recipients,
+        reply_target,
+    );
+    if access.kind == ConversationKind::Channel && parent_id.is_none() {
+        let others: Vec<Uuid> = audience
+            .iter()
+            .copied()
+            .filter(|user| *user != author_id && !recipients.iter().any(|(r, _)| r == user))
+            .collect();
+        for user in crate::notify::prefs::every_message_recipients(
+            &state.db,
+            access.space_id,
+            conversation_id,
+            &others,
+        )
+        .await?
+        {
+            recipients.push((user, "message"));
+        }
+    }
+    Ok(recipients)
 }
 
 /// `DELETE /api/v1/messages/{message_id}`: soft-delete a message (author or a channel moderator).

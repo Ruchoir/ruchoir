@@ -316,6 +316,26 @@ fn tray_text(locale: Locale, dto: &crate::messaging::dto::NotificationDto) -> (S
         .actor_name
         .clone()
         .unwrap_or_else(|| mail_text::someone(locale).to_owned());
+    // A reaction or an edit says what happened, then the message it is about, wherever it is.
+    if matches!(dto.kind.as_str(), "reaction" | "edited") {
+        let mut what = format!(
+            "{actor} {}",
+            mail_text::notification_verb(locale, &dto.kind)
+        );
+        if let Some(emoji) = &dto.emoji {
+            what = format!("{what} {emoji}");
+        }
+        let body = if dto.preview.is_empty() {
+            what
+        } else {
+            format!("{what}\n{}", dto.preview)
+        };
+        let title = match &dto.channel_name {
+            Some(channel) => format!("#{channel} · {}", dto.space_name),
+            None => format!("{actor} · {}", dto.space_name),
+        };
+        return (title, body);
+    }
     match &dto.channel_name {
         // A direct message: who wrote is the title, what they wrote the body.
         None => (format!("{actor} · {}", dto.space_name), dto.preview.clone()),

@@ -479,8 +479,9 @@ pub struct UpdateProfileRequest {
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct NotificationDto {
     pub id: Uuid,
-    /// `mention`, `broadcast`, `reply`, `dm`, `message`, `calendar_reminder`, or an invitation kind:
-    /// `calendar_invitation`, `calendar_update`, `calendar_cancel`, `calendar_declined`.
+    /// `mention`, `broadcast`, `reply`, `dm`, `message`, `reaction`, `edited`, `calendar_reminder`,
+    /// or an invitation kind: `calendar_invitation`, `calendar_update`, `calendar_cancel`,
+    /// `calendar_declined`.
     pub kind: String,
     /// The conversation a message notification is about; absent for a reminder.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -536,6 +537,9 @@ pub struct NotificationDto {
     /// list of.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_my_status: Option<String>,
+    /// The emoji someone reacted with, for a `reaction`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub emoji: Option<String>,
 }
 
 /// A page of notifications, newest first, with the caller's total unread count.

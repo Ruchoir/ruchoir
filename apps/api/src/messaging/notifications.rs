@@ -4,7 +4,7 @@
 //! and its notifications commit together), then pushed over the hub to each recipient. This module
 //! owns the recipient computation, the persistence helper, the DTO hydration and the read endpoints.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -21,6 +21,8 @@ use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
 use crate::entities::{messages, notifications, users};
+use crate::notify::prefs;
+use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
 
 use super::dto::{rfc3339, NotificationDto, NotificationPage};
@@ -117,6 +119,183 @@ pub async fn create_for_message(
         created.push(model);
     }
     Ok(created)
+}
+
+/// One notification row about a message, outside the sending transaction. `never_mailed` marks a
+/// kind the email fallback never sends (a reaction, an edit): it is filed as already handled there.
+#[allow(clippy::too_many_arguments)]
+async fn insert_about_message<C: ConnectionTrait>(
+    db: &C,
+    user_id: Uuid,
+    kind: &str,
+    conversation_id: Uuid,
+    message_id: Uuid,
+    actor_id: Uuid,
+    payload: Option<serde_json::Value>,
+    never_mailed: bool,
+) -> Result<notifications::Model, ApiError> {
+    let now = OffsetDateTime::now_utc();
+    Ok(notifications::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        user_id: Set(user_id),
+        kind: Set(kind.to_owned()),
+        conversation_id: Set(Some(conversation_id)),
+        message_id: Set(Some(message_id)),
+        event_id: Set(None),
+        occurrence_start: Set(None),
+        payload: Set(payload),
+        actor_id: Set(Some(actor_id)),
+        created_at: Set(now),
+        read_at: Set(None),
+        email_handled_at: Set(never_mailed.then_some(now)),
+    }
+    .insert(db)
+    .await?)
+}
+
+/// Whether `user_id` wants a `kind` about this conversation in the app and on their phone.
+async fn wanted_in_app(
+    state: &AppState,
+    user_id: Uuid,
+    kind: &str,
+    conversation_id: Uuid,
+) -> Result<bool, ApiError> {
+    let user_prefs = prefs::load(&state.db, user_id).await?;
+    let scopes = prefs::scopes(&state.db, user_id, &[conversation_id]).await?;
+    Ok(prefs::allows(
+        kind,
+        &user_prefs,
+        scopes.get(&conversation_id),
+        prefs::Delivery::App,
+    ))
+}
+
+/// Push fresh rows to their phones and browsers, then to each recipient's open sessions.
+async fn deliver(state: &AppState, rows: Vec<notifications::Model>) -> Result<(), ApiError> {
+    if rows.is_empty() {
+        return Ok(());
+    }
+    crate::notify::push::dispatch(state, &rows);
+    let targets: Vec<Uuid> = rows.iter().map(|row| row.user_id).collect();
+    let dtos = hydrate(&state.db, rows).await?;
+    for (user_id, dto) in targets.into_iter().zip(dtos) {
+        state
+            .hub
+            .publish(vec![user_id], RealtimeEnvelope::notification_created(dto))
+            .await;
+    }
+    Ok(())
+}
+
+/// Someone reacted to a message: its author hears of it, once per person and message (reacting
+/// again, or with another emoji, says nothing new), unless they reacted to their own message, or
+/// turned reactions off (or the conversation down).
+pub async fn notify_reaction(
+    state: &AppState,
+    message: &messages::Model,
+    actor_id: Uuid,
+    emoji: &str,
+) -> Result<(), ApiError> {
+    let Some(author_id) = message.author_id else {
+        return Ok(());
+    };
+    if author_id == actor_id || message.deleted_at.is_some() {
+        return Ok(());
+    }
+    let conversation_id = message.conversation_id;
+    // The author may have left the conversation since.
+    if super::authz::ensure_conversation_access(&state.db, conversation_id, author_id)
+        .await
+        .is_err()
+    {
+        return Ok(());
+    }
+    let already = notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(author_id))
+        .filter(notifications::Column::Kind.eq("reaction"))
+        .filter(notifications::Column::MessageId.eq(message.id))
+        .filter(notifications::Column::ActorId.eq(actor_id))
+        .one(&state.db)
+        .await?;
+    if already.is_some() || !wanted_in_app(state, author_id, "reaction", conversation_id).await? {
+        return Ok(());
+    }
+    let row = insert_about_message(
+        &state.db,
+        author_id,
+        "reaction",
+        conversation_id,
+        message.id,
+        actor_id,
+        Some(serde_json::json!({ "emoji": emoji })),
+        true,
+    )
+    .await?;
+    deliver(state, vec![row]).await
+}
+
+/// A message was edited: everyone it notified hears that it changed (`edited`), and anyone the new
+/// text addresses for the first time (a new mention) is notified as a new message would notify
+/// them. `addressed` is who the edited message would notify if it were sent now, by kind. Someone
+/// whose notification about it is still unread is left alone: they will read the new text anyway.
+pub async fn notify_edit(
+    state: &AppState,
+    message: &messages::Model,
+    author_id: Uuid,
+    addressed: &[(Uuid, &'static str)],
+) -> Result<(), ApiError> {
+    let earlier = notifications::Entity::find()
+        .filter(notifications::Column::MessageId.eq(message.id))
+        .all(&state.db)
+        .await?;
+    let told: HashSet<Uuid> = earlier.iter().map(|row| row.user_id).collect();
+    let unread: HashSet<Uuid> = earlier
+        .iter()
+        .filter(|row| row.read_at.is_none())
+        .map(|row| row.user_id)
+        .collect();
+
+    let mut wanted: Vec<(Uuid, &'static str)> = Vec::new();
+    for (user_id, kind) in addressed {
+        if told.contains(user_id) {
+            wanted.push((*user_id, "edited"));
+        } else {
+            wanted.push((*user_id, kind));
+        }
+    }
+    let mut was_told: Vec<Uuid> = told
+        .iter()
+        .copied()
+        .filter(|user_id| !addressed.iter().any(|(u, _)| u == user_id))
+        .collect();
+    was_told.sort();
+    wanted.extend(was_told.into_iter().map(|user_id| (user_id, "edited")));
+
+    let mut rows = Vec::new();
+    let mut seen = HashSet::new();
+    for (user_id, kind) in wanted {
+        if user_id == author_id || unread.contains(&user_id) || !seen.insert(user_id) {
+            continue;
+        }
+        let edited = kind == "edited";
+        if edited && !wanted_in_app(state, user_id, kind, message.conversation_id).await? {
+            continue;
+        }
+        rows.push(
+            insert_about_message(
+                &state.db,
+                user_id,
+                kind,
+                message.conversation_id,
+                message.id,
+                author_id,
+                None,
+                edited,
+            )
+            .await?,
+        );
+    }
+    deliver(state, rows).await
 }
 
 /// A short single-line plain-text excerpt of a message body.
@@ -232,6 +411,12 @@ pub async fn hydrate<C: ConnectionTrait>(
             calendar_name: None,
             event_changes: None,
             event_my_status: None,
+            emoji: r
+                .payload
+                .as_ref()
+                .and_then(|payload| payload.get("emoji"))
+                .and_then(|emoji| emoji.as_str())
+                .map(str::to_owned),
         }
     }));
     Ok(in_order(drawn, &order))

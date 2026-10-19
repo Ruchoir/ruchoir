@@ -96,12 +96,18 @@ pub async fn add_reaction(
                     ReactionEvent {
                         message_id,
                         conversation_id: message.conversation_id,
-                        emoji,
+                        emoji: emoji.clone(),
                         user_id: session.user_id,
                     },
                 ),
             )
             .await;
+        // The author hears of it; a failure there must not undo the reaction.
+        if let Err(error) =
+            super::notifications::notify_reaction(&state, &message, session.user_id, &emoji).await
+        {
+            tracing::warn!(?error, "could not notify a reaction");
+        }
     }
 
     Ok(StatusCode::NO_CONTENT)
