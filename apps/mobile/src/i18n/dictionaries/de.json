@@ -521,6 +521,7 @@
     "trashKept": "Elemente bleiben im Papierkorb, bis er geleert wird.",
     "trashEmpty": "Der Papierkorb ist leer",
     "trashEmptyText": "Was Sie löschen, landet hier und kann wiederhergestellt werden, solange es hier ist.",
+    "favourite": "Favorit",
     "favourites": "Favoriten",
     "noRecent": "Keine zuletzt geänderten Dateien",
     "noRecentText": "Im Bereich geänderte Dateien erscheinen hier, die neuesten zuerst.",

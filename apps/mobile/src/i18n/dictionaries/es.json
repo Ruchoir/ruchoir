@@ -558,6 +558,7 @@
     "trashKept": "Los elementos se quedan en la papelera hasta que se vacía.",
     "trashEmpty": "La papelera está vacía",
     "trashEmptyText": "Lo que eliminas llega aquí, y puede restaurarse mientras esté aquí.",
+    "favourite": "Favorito",
     "favourites": "Favoritos",
     "noRecent": "No hay archivos recientes",
     "noRecentText": "Los archivos modificados en el espacio aparecerán aquí, los más recientes primero.",

@@ -521,6 +521,7 @@
     "trashKept": "Les éléments restent dans la corbeille jusqu'à ce qu'elle soit vidée.",
     "trashEmpty": "La corbeille est vide",
     "trashEmptyText": "Ce que vous supprimez arrive ici, et peut être restauré tant qu'il y est.",
+    "favourite": "Favori",
     "favourites": "Favoris",
     "noRecent": "Aucun fichier récent",
     "noRecentText": "Les fichiers modifiés dans l'espace apparaîtront ici, les plus récents en premier.",

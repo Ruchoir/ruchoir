@@ -558,6 +558,7 @@
     "trashKept": "Gli elementi restano nel cestino finché non viene svuotato.",
     "trashEmpty": "Il cestino è vuoto",
     "trashEmptyText": "Ciò che elimini arriva qui, e può essere ripristinato finché è qui.",
+    "favourite": "Preferito",
     "favourites": "Preferiti",
     "noRecent": "Nessun file recente",
     "noRecentText": "I file modificati nello spazio appariranno qui, i più recenti per primi.",

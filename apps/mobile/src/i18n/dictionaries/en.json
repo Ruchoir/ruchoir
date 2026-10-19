@@ -521,6 +521,7 @@
     "trashKept": "Items stay in the trash until it is emptied.",
     "trashEmpty": "The trash is empty",
     "trashEmptyText": "What you delete lands here, and can be restored while it is here.",
+    "favourite": "Favourite",
     "favourites": "Favourites",
     "noRecent": "No recent files",
     "noRecentText": "Files changed in the space will show here, latest first.",

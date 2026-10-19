@@ -1,6 +1,6 @@
 import { fileDownloadUrl, type SpaceFile } from "@ruchoir/client";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
-import { ChevronRight, Ellipsis } from "lucide-react-native";
+import { ChevronRight, Ellipsis, Star } from "lucide-react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
@@ -64,9 +64,13 @@ export function FileRow({ file, line, path, onPress }: { file: SpaceFile; line?:
     >
       <FileIcon name={file.name} mime={file.mimeType} folder={folder} />
       <View style={styles.text}>
-        <Text variant="bodyStrong" numberOfLines={1}>
-          {file.name}
-        </Text>
+        <View style={styles.nameLine}>
+          <Text variant="bodyStrong" numberOfLines={1} style={styles.name}>
+            {file.name}
+          </Text>
+          {/* A favourite, as on the web: a small filled star beside the name. */}
+          {file.starred ? <Star size={13} color={c.bee} fill={c.bee} accessibilityLabel={t("files.favourite")} /> : null}
+        </View>
         {meta ? (
           <Text variant="tiny" tone="muted" numberOfLines={1}>
             {meta}
@@ -88,4 +92,6 @@ const styles = StyleSheet.create({
   more: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
   text: { flex: 1, minWidth: 0, gap: 2 },
+  nameLine: { flexDirection: "row", alignItems: "center", gap: 6 },
+  name: { flexShrink: 1 },
 });
