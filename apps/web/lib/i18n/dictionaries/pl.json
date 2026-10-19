@@ -238,6 +238,12 @@
     "attachment": "(załącznik)"
   },
   "notif": {
+    "reacted": "zareagował na Twoją wiadomość",
+    "edited": "edytował wiadomość",
+    "kindReactionsDesc": "Ktoś reaguje na jedną z Twoich wiadomości.",
+    "kindEdits": "Edytowane wiadomości",
+    "kindEditsDesc": "Wiadomość, o której Cię powiadomiono, zostaje edytowana.",
+    "neverByEmail": "Nigdy e-mailem",
     "title": "Powiadomienia",
     "nothingNew": "Nic nowego",
     "nothingNewText": "Twoje wzmianki, odpowiedzi i wiadomości bezpośrednie pojawią się tutaj.",

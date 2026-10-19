@@ -238,6 +238,12 @@
     "attachment": "(archivo adjunto)"
   },
   "notif": {
+    "reacted": "ha reaccionado a tu mensaje",
+    "edited": "ha editado un mensaje",
+    "kindReactionsDesc": "Alguien reacciona a uno de tus mensajes.",
+    "kindEdits": "Mensajes editados",
+    "kindEditsDesc": "Se edita un mensaje del que se te avisó.",
+    "neverByEmail": "Nunca por correo",
     "title": "Notificaciones",
     "nothingNew": "Nada nuevo",
     "nothingNewText": "Tus menciones, respuestas y mensajes directos aparecerán aquí.",

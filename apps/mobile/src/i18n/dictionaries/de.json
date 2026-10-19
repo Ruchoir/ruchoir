@@ -820,6 +820,10 @@
     "version": "Ruchoir {{version}}"
   },
   "notifPrefs": {
+    "reactions": "Reaktionen",
+    "reactionsText": "Jemand reagiert auf eine Ihrer Nachrichten.",
+    "edits": "Bearbeitete Nachrichten",
+    "editsText": "Eine Nachricht, über die Sie benachrichtigt wurden, wird bearbeitet.",
     "enabled": "Benachrichtigungen einschalten",
     "enabledText": "Solange dies aus ist, bleibt alles still.",
     "mentions": "Erwähnungen Ihres Namens",

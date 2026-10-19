@@ -19,11 +19,14 @@ import { ToggleRow } from "./ToggleRow";
 type Flag = { [K in keyof NotificationPreferences]: NotificationPreferences[K] extends boolean ? K : never }[keyof NotificationPreferences];
 
 /** The kinds, each with its switch in the app and its switch by e-mail, as the web's table lists them. */
-const KINDS: { title: ReturnType<typeof key>; text: ReturnType<typeof key>; app: Flag; email: Flag }[] = [
+const KINDS: { title: ReturnType<typeof key>; text: ReturnType<typeof key>; app: Flag; email?: Flag }[] = [
   { title: key("notifPrefs.mentions"), text: key("notifPrefs.mentionsText"), app: "mentions", email: "emailMentions" },
   { title: key("notifPrefs.broadcasts"), text: key("notifPrefs.broadcastsText"), app: "channelMentions", email: "emailBroadcasts" },
   { title: key("notifPrefs.replies"), text: key("notifPrefs.repliesText"), app: "replies", email: "emailReplies" },
   { title: key("sidebar.directMessages"), text: key("notifPrefs.directText"), app: "directMessages", email: "emailDirectMessages" },
+  // In the app and on the phone only: neither is ever worth an e-mail.
+  { title: key("notifPrefs.reactions"), text: key("notifPrefs.reactionsText"), app: "reactions" },
+  { title: key("notifPrefs.edits"), text: key("notifPrefs.editsText"), app: "edits" },
   { title: key("details.levelAllHint"), text: key("notifPrefs.messagesText"), app: "messages", email: "emailMessages" },
   { title: key("notifPrefs.reminders"), text: key("notifPrefs.remindersText"), app: "calendarReminders", email: "emailCalendarReminders" },
   { title: key("notifPrefs.invitations"), text: key("notifPrefs.invitationsText"), app: "calendarInvitations", email: "emailCalendarInvitations" },
@@ -158,15 +161,11 @@ export function NotificationPrefs() {
       </Section>
       <Section label={t("notifPrefs.byEmail")}>
         <ToggleRow title={t("notifPrefs.email")} text={t("notifPrefs.emailText")} value={prefs.email} onChange={(email) => save({ email })} />
-        {KINDS.map((kind) => (
-          <ToggleRow
-            key={kind.email}
-            title={t(kind.title)}
-            value={prefs[kind.email]}
-            onChange={(value) => save({ [kind.email]: value })}
-            disabled={!prefs.email}
-          />
-        ))}
+        {KINDS.map(({ title, email }) =>
+          email ? (
+            <ToggleRow key={email} title={t(title)} value={prefs[email]} onChange={(value) => save({ [email]: value })} disabled={!prefs.email} />
+          ) : null,
+        )}
       </Section>
     </>
   );

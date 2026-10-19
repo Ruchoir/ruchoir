@@ -865,6 +865,10 @@
     "version": "Ruchoir {{version}}"
   },
   "notifPrefs": {
+    "reactions": "Reazioni",
+    "reactionsText": "Qualcuno reagisce a uno dei vostri messaggi.",
+    "edits": "Messaggi modificati",
+    "editsText": "Viene modificato un messaggio di cui siete stati avvisati.",
     "enabled": "Attiva le notifiche",
     "enabledText": "Finché è disattivato, tutto resta in silenzio.",
     "mentions": "Menzioni del vostro nome",

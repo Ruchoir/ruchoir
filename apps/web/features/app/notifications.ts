@@ -21,7 +21,7 @@ import { key, type Translate, type TranslationKey } from "@/lib/i18n";
  * other. `message` is any other message, for someone who asked to hear about every one of them in
  * that conversation (its level, its space's, or their own default).
  */
-export type NotifKind = "mention" | "broadcast" | "reply" | "dm" | "message" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
+export type NotifKind = "mention" | "broadcast" | "reply" | "dm" | "message" | "reaction" | "edited" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
 
 /** Whether a kind is one of an invitation's: the invitation, a change, a cancellation, a refusal. */
 export function isInvitationKind(kind: NotifKind): boolean {
@@ -62,6 +62,8 @@ export type AppNotification = {
   read: boolean;
   /** A calendar reminder's event; its `channelId` and `messageId` are empty. */
   reminder?: ReminderInfo;
+  /** The emoji of a reaction to one of the reader's messages. */
+  emoji?: string;
 };
 
 /**
@@ -99,6 +101,9 @@ export type NotifPrefs = {
   channelMentions: boolean;
   replies: boolean;
   directMessages: boolean;
+  /** Someone reacted to my message; a message I was told about was edited. Never by email. */
+  reactions: boolean;
+  edits: boolean;
   messages: boolean;
   /** Suppress notifications during the configured quiet hours. */
   quietHours: boolean;
@@ -132,6 +137,8 @@ export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
   channelMentions: true,
   replies: true,
   directMessages: true,
+  reactions: true,
+  edits: true,
   messages: false,
   quietHours: false,
   quietFrom: "21:00",
@@ -171,6 +178,8 @@ const KIND_VERB: Record<NotifKind, TranslationKey> = {
   reply: key("notif.replied"),
   dm: key("notif.dm"),
   message: key("notif.wrote"),
+  reaction: key("notif.reacted"),
+  edited: key("notif.edited"),
   calendar_reminder: key("notif.reminder"),
   calendar_invitation: key("notif.invitation"),
   calendar_update: key("notif.invitationUpdate"),
@@ -188,7 +197,8 @@ const KIND_VERB: Record<NotifKind, TranslationKey> = {
 export function notifSummary(n: AppNotification, t: Translate): string {
   if (n.reminder && isInvitationKind(n.kind)) return t(KIND_VERB[n.kind], { actor: n.actor, title: n.reminder.title });
   if (n.reminder) return t(KIND_VERB.calendar_reminder, { title: n.reminder.title });
-  return `${n.actor} ${t(KIND_VERB[n.kind])}`;
+  const said = `${n.actor} ${t(KIND_VERB[n.kind])}`;
+  return n.kind === "reaction" && n.emoji ? `${said} ${n.emoji}` : said;
 }
 
 /**
@@ -216,6 +226,8 @@ export function passesPref(
     broadcast: prefs.channelMentions ?? true,
     reply: prefs.replies ?? true,
     dm: prefs.directMessages ?? true,
+    reaction: prefs.reactions ?? true,
+    edited: prefs.edits ?? true,
   };
   if (!wanted[n.kind]) return false;
   if (level === "mentions") return isMention(n.kind) || n.kind === "dm";

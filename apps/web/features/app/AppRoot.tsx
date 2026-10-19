@@ -361,6 +361,7 @@ function toAppNotification(
     createdAt: n.createdAt,
     read,
     reminder: n.reminder,
+    emoji: n.emoji,
   };
 }
 

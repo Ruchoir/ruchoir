@@ -910,6 +910,10 @@
     "version": "Ruchoir {{version}}"
   },
   "notifPrefs": {
+    "reactions": "Reakcje",
+    "reactionsText": "Ktoś reaguje na jedną z Twoich wiadomości.",
+    "edits": "Edytowane wiadomości",
+    "editsText": "Wiadomość, o której Cię powiadomiono, zostaje edytowana.",
     "enabled": "Włącz powiadomienia",
     "enabledText": "Gdy to jest wyłączone, wszystko milczy.",
     "mentions": "Wzmianki o tobie",

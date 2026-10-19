@@ -238,6 +238,12 @@
     "attachment": "(attachment)"
   },
   "notif": {
+    "reacted": "reacted to your message",
+    "edited": "edited a message",
+    "kindReactionsDesc": "Someone reacts to one of your messages.",
+    "kindEdits": "Edited messages",
+    "kindEditsDesc": "A message you were notified about is edited.",
+    "neverByEmail": "Never by email",
     "title": "Notifications",
     "nothingNew": "Nothing new",
     "nothingNewText": "Your mentions, replies and direct messages will appear here.",

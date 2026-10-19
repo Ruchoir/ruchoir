@@ -1747,6 +1747,8 @@ type NotificationDto = {
   calendar_name?: string;
   event_changes?: string[];
   event_my_status?: "needs_action" | "accepted" | "tentative" | "declined";
+  /** The emoji of a `reaction`. */
+  emoji?: string;
   actor_id?: string;
   actor_name?: string;
   preview: string;
@@ -1786,7 +1788,7 @@ export type ReminderInfo = {
 
 export type ApiNotification = {
   id: string;
-  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
+  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "reaction" | "edited" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
   conversationId: string;
   /** The space it happened in, so the inbox can be shown for the space on screen. */
   spaceId: string;
@@ -1805,6 +1807,8 @@ export type ApiNotification = {
   reminder?: ReminderInfo;
   /** For a calendar shared with the reader: its name. */
   calendarName?: string;
+  /** For a `reaction` to one of the reader's messages: the emoji. */
+  emoji?: string;
 };
 
 /** A page of the notification inbox, newest first, with the caller's total unread count. */
@@ -1819,6 +1823,8 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
     dto.kind === "reply" ||
     dto.kind === "dm" ||
     dto.kind === "message" ||
+    dto.kind === "reaction" ||
+    dto.kind === "edited" ||
     dto.kind.startsWith("calendar_")
       ? (dto.kind as ApiNotification["kind"])
       : "mention";
@@ -1847,6 +1853,7 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
         }
       : {}),
     ...(dto.kind === "calendar_shared" && dto.calendar_name ? { calendarName: dto.calendar_name } : {}),
+    ...(dto.kind === "reaction" && dto.emoji ? { emoji: dto.emoji } : {}),
     actor: dto.actor_name ?? "",
     preview: dto.preview,
     createdAt: dto.created_at,
@@ -1915,6 +1922,9 @@ export type NotificationPreferences = {
   channelMentions: boolean;
   replies: boolean;
   directMessages: boolean;
+  /** Someone reacted to my message; a message I was told about was edited. Never by mail. */
+  reactions: boolean;
+  edits: boolean;
   messages: boolean;
   quietHours: boolean;
   quietFrom: string;
@@ -1944,6 +1954,8 @@ const NOTIFICATION_FIELDS: [keyof NotificationPreferences, string][] = [
   ["channelMentions", "channel_mentions"],
   ["replies", "replies"],
   ["directMessages", "direct_messages"],
+  ["reactions", "reactions"],
+  ["edits", "edits"],
   ["messages", "messages"],
   ["quietHours", "quiet_hours"],
   ["quietFrom", "quiet_from"],
