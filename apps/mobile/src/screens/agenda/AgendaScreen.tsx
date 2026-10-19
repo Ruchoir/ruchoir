@@ -9,6 +9,7 @@ import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { useTabletLayout } from "../../layout/useWide";
 import { rangeForView, type AgendaView } from "../../logic/agenda";
 import { dayKey } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
@@ -20,6 +21,7 @@ import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { ListView } from "./ListView";
 import { MonthView } from "./MonthView";
+import { AgendaWide } from "./AgendaWide";
 import { WeekView } from "./WeekView";
 import { usePrefs } from "../../prefs/store";
 
@@ -65,6 +67,26 @@ export function AgendaScreen() {
   useReloadOn((e) => e.type === "calendar", data.reload);
 
   const options = useMemo(() => VIEWS.map((v) => ({ key: v.key, label: t(v.label) })), [t]);
+  const tablet = useTabletLayout();
+
+  if (tablet) {
+    return (
+      <AgendaWide
+        view={view}
+        onView={(next) => {
+          setView(next);
+          setAnchor(today);
+        }}
+        anchor={anchor}
+        onAnchor={setAnchor}
+        today={today}
+        data={data.data}
+        error={data.error}
+        reload={data.reload}
+        layout={tablet}
+      />
+    );
+  }
 
 
   return (

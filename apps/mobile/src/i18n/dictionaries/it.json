@@ -152,6 +152,9 @@
     "yesterday": "Ieri"
   },
   "agenda": {
+    "addThatDay": "Aggiungi quel giorno",
+    "more_one": "+{{count}} altro",
+    "more_other": "+{{count}} altri",
     "allDay": "Tutto il giorno",
     "list": "Elenco",
     "week": "Settimana",
