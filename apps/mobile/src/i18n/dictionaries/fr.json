@@ -403,7 +403,6 @@
     "sameFileTitle": "« {{name}} » est déjà là",
     "sameFileBody": "Le même fichier se trouve déjà dans « {{folder}} ».",
     "sameNameBody": "Un autre fichier porte déjà ce nom dans « {{folder}} ».",
-    "conflictRename": "Renommer",
     "conflictRenameHint": "Le garder à côté, sous un nom numéroté.",
     "mergedVersion": "Ce fichier était déjà dans l’espace : « {{name}} » en a une nouvelle version.",
     "alreadyThere": "Ce fichier est déjà dans l’espace : {{where}}",
@@ -582,7 +581,6 @@
   },
   "search": {
     "nothing": "Rien pour « {{query}} »",
-    "messages": "Messages",
     "everywhere": "Rechercher dans Ruchoir",
     "tryAnother": "Essayez avec un autre mot."
   },
@@ -1099,10 +1097,8 @@
   "widgets": {
     "search": "Rechercher",
     "toAnswer": "À répondre",
-    "yes": "Oui",
     "invited": "{{who}} vous invite : {{title}}",
     "noConversation": "Aucune conversation",
-    "you": "Vous",
     "next": "Prochain",
     "allDay": "Toute la journée",
     "now": "maintenant",

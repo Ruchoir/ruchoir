@@ -465,7 +465,6 @@
     "sameFileTitle": "„{{name}}” już tu jest",
     "sameFileBody": "Ten sam plik jest już w „{{folder}}”.",
     "sameNameBody": "Inny plik ma już tę nazwę w „{{folder}}”.",
-    "conflictRename": "Zmień nazwę",
     "conflictRenameHint": "Zachowaj obok, pod numerowaną nazwą.",
     "mergedVersion": "Ten plik był już w przestrzeni: „{{name}}” ma jego nową wersję.",
     "alreadyThere": "Ten plik jest już w przestrzeni: {{where}}",
@@ -664,7 +663,6 @@
   },
   "search": {
     "nothing": "Brak wyników dla „{{query}}”",
-    "messages": "Wiadomości",
     "everywhere": "Szukaj w Ruchoir",
     "tryAnother": "Spróbuj innego słowa."
   },
@@ -1205,10 +1203,8 @@
   "widgets": {
     "search": "Szukaj",
     "toAnswer": "Do odpowiedzi",
-    "yes": "Tak",
     "invited": "{{who}} zaprasza cię: {{title}}",
     "noConversation": "Brak rozmów",
-    "you": "Ty",
     "next": "Następne",
     "allDay": "Cały dzień",
     "now": "teraz",

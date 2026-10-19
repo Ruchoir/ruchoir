@@ -58,7 +58,7 @@ export function ConflictSheet() {
         <ActionRow icon={FilePen} tint={c.violet} title={t("files.conflictReplace")} subtitle={t("files.conflictReplaceHint")} onPress={() => choose("replace")} />
       ) : null}
       {offered.includes("keepBoth") ? (
-        <ActionRow icon={Copy} tint={c.mint} title={t("files.conflictRename")} subtitle={t("files.conflictRenameHint")} onPress={() => choose("keepBoth")} />
+        <ActionRow icon={Copy} tint={c.mint} title={t("files.rename")} subtitle={t("files.conflictRenameHint")} onPress={() => choose("keepBoth")} />
       ) : null}
       <ActionRow icon={SkipForward} title={t("files.conflictSkip")} onPress={() => choose("skip")} />
       {others > 0 ? (

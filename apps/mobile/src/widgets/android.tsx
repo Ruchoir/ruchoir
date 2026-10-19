@@ -211,7 +211,7 @@ function ReplyView({ p, note, message }: { p: WidgetPalette; note?: Note; messag
                   clickActionData={{ eventId: note.event_id, notificationId: note.id }}
                   style={{ flex: 1, height: 36, borderRadius: 18, backgroundColor: p.acc, alignItems: "center", justifyContent: "center" }}
                 >
-                  <TextWidget text={t("widgets.yes")} style={{ fontSize: 12.5, fontWeight: "700", color: p.onPastel }} />
+                  <TextWidget text={t("calendar.answer.accepted")} style={{ fontSize: 12.5, fontWeight: "700", color: p.onPastel }} />
                 </FlexWidget>
               ) : null}
               <FlexWidget
@@ -303,7 +303,7 @@ async function conversations(space: string): Promise<Row[] | null> {
   const [channels, directs] = await Promise.all([get<Channel[]>(`/spaces/${space}/channels`), get<Direct[]>(`/spaces/${space}/dms`)]);
   if (!channels && !directs) return null;
   const said = (who: string, text: string) => t("discussions.by", { who, text });
-  const you = t("widgets.you");
+  const you = t("spaceAdmin.you");
   return [
     ...(channels ?? []).filter((c) => c.member).map((c) => ({ ...c, channel: true })),
     ...(directs ?? []).map((d) => ({ ...d, channel: false })),

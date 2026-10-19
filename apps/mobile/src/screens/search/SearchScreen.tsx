@@ -74,7 +74,7 @@ export function SearchScreen() {
             {data.messages.length ? (
               <View style={styles.section}>
                 <Text variant="label" tone="muted" style={styles.label}>
-                  {t("search.messages")}
+                  {t("conversation.messages")}
                 </Text>
                 {data.messages.map((m) => {
                   const where = byId.get(m.conversationId);

@@ -16,6 +16,7 @@ export function calendarLabel(
 }
 
 /** The names the instance gives a person's own calendar, in each language, when it creates it. */
+// i18n-audit-ignore-next-line: the names the instance stores (calendar/authz.rs), matched, never shown.
 const PERSONAL_NAMES = new Set(["Personnel", "Personal", "Persönlich", "Personale", "Osobisty"]);
 
 /**

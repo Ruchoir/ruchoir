@@ -154,6 +154,7 @@
   "agenda": {
     "addThatDay": "Aggiungi quel giorno",
     "more_one": "+{{count}} altro",
+    "more_many": "+{{count}} altri",
     "more_other": "+{{count}} altri",
     "allDay": "Tutto il giorno",
     "list": "Elenco",
@@ -427,12 +428,12 @@
   },
   "files": {
     "entries_one": "{{count}} elemento",
+    "entries_many": "{{count}} elementi",
     "entries_other": "{{count}} elementi",
     "folders": "Cartelle",
     "sameFileTitle": "«{{name}}» è già qui",
     "sameFileBody": "Lo stesso file si trova già in «{{folder}}».",
     "sameNameBody": "Un altro file ha già questo nome in «{{folder}}».",
-    "conflictRename": "Rinomina",
     "conflictRenameHint": "Tenerlo accanto, con un nome numerato.",
     "mergedVersion": "Questo file era già nello spazio: «{{name}}» ne ha una nuova versione.",
     "alreadyThere": "Questo file è già nello spazio: {{where}}",
@@ -621,7 +622,6 @@
   },
   "search": {
     "nothing": "Niente per «{{query}}»",
-    "messages": "Messaggi",
     "everywhere": "Cerca in Ruchoir",
     "tryAnother": "Provate con un’altra parola."
   },
@@ -1150,10 +1150,8 @@
   "widgets": {
     "search": "Cerca",
     "toAnswer": "Da rispondere",
-    "yes": "Sì",
     "invited": "{{who}} vi invita: {{title}}",
     "noConversation": "Nessuna conversazione",
-    "you": "Voi",
     "next": "Prossimo",
     "allDay": "Tutto il giorno",
     "now": "ora",
