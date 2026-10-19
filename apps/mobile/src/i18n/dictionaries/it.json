@@ -425,6 +425,9 @@
     "searchZone": "Cerca un fuso orario"
   },
   "files": {
+    "entries_one": "{{count}} elemento",
+    "entries_other": "{{count}} elementi",
+    "folders": "Cartelle",
     "sameFileTitle": "«{{name}}» è già qui",
     "sameFileBody": "Lo stesso file si trova già in «{{folder}}».",
     "sameNameBody": "Un altro file ha già questo nome in «{{folder}}».",

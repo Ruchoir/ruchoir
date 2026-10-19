@@ -396,6 +396,9 @@
     "searchZone": "Search a time zone"
   },
   "files": {
+    "entries_one": "{{count}} item",
+    "entries_other": "{{count}} items",
+    "folders": "Folders",
     "sameFileTitle": "“{{name}}” is already here",
     "sameFileBody": "The same file is already in “{{folder}}”.",
     "sameNameBody": "Another file already has this name in “{{folder}}”.",

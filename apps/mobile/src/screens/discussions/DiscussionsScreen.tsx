@@ -147,6 +147,7 @@ export function DiscussionsScreen() {
               chips={FILTERS.map((f) => ({ key: f.key, label: t(f.label), count: f.key === "unread" ? unreadCount : undefined }))}
               value={filter}
               onChange={setFilter}
+              gutter={wide ? 20 : 16}
             />
           </View>
         }

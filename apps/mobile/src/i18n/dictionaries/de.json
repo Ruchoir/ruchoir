@@ -396,6 +396,9 @@
     "searchZone": "Zeitzone suchen"
   },
   "files": {
+    "entries_one": "{{count}} Element",
+    "entries_other": "{{count}} Elemente",
+    "folders": "Ordner",
     "sameFileTitle": "„{{name}}“ ist schon da",
     "sameFileBody": "Dieselbe Datei liegt bereits in „{{folder}}“.",
     "sameNameBody": "Eine andere Datei heißt in „{{folder}}“ bereits so.",

@@ -456,6 +456,11 @@
     "searchZone": "Szukaj strefy czasowej"
   },
   "files": {
+    "entries_one": "{{count}} element",
+    "entries_few": "{{count}} elementy",
+    "entries_many": "{{count}} elementów",
+    "entries_other": "{{count}} elementu",
+    "folders": "Foldery",
     "sameFileTitle": "„{{name}}” już tu jest",
     "sameFileBody": "Ten sam plik jest już w „{{folder}}”.",
     "sameNameBody": "Inny plik ma już tę nazwę w „{{folder}}”.",

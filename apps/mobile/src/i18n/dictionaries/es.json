@@ -425,6 +425,9 @@
     "searchZone": "Buscar una zona horaria"
   },
   "files": {
+    "entries_one": "{{count}} elemento",
+    "entries_other": "{{count}} elementos",
+    "folders": "Carpetas",
     "sameFileTitle": "«{{name}}» ya está aquí",
     "sameFileBody": "El mismo archivo ya está en «{{folder}}».",
     "sameNameBody": "Otro archivo ya tiene este nombre en «{{folder}}».",

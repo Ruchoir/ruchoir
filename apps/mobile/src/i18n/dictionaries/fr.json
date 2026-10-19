@@ -396,6 +396,9 @@
     "searchZone": "Rechercher un fuseau"
   },
   "files": {
+    "entries_one": "{{count}} élément",
+    "entries_other": "{{count}} éléments",
+    "folders": "Dossiers",
     "sameFileTitle": "« {{name}} » est déjà là",
     "sameFileBody": "Le même fichier se trouve déjà dans « {{folder}} ».",
     "sameNameBody": "Un autre fichier porte déjà ce nom dans « {{folder}} ».",
