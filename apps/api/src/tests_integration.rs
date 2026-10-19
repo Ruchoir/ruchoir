@@ -9938,7 +9938,9 @@ async fn a_listing_says_who_changed_a_file_last_and_how_full_a_folder_is() {
             .text("folder_id", folder.to_string())
             .part(
                 "file",
-                reqwest::multipart::Part::bytes(b"x".to_vec()).file_name(name.to_owned()),
+                // Bytes of its own: the same bytes twice would make one file of the two.
+                reqwest::multipart::Part::bytes(name.as_bytes().to_vec())
+                    .file_name(name.to_owned()),
             );
         let res = app
             .req(
@@ -11339,9 +11341,9 @@ async fn a_listing_names_each_files_editors() {
     let alice = app.cookie_for(fx.alice).await;
     let bob = app.cookie_for(fx.bob).await;
     let carol = app.cookie_for(fx.carol).await;
-    let plan = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
-    let budget = upload_bytes(&app, &alice, fx.space_id, "budget.xlsx", b"PK").await;
-    let quiet = upload_bytes(&app, &alice, fx.space_id, "quiet.pptx", b"PK").await;
+    let plan = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK-plan").await;
+    let budget = upload_bytes(&app, &alice, fx.space_id, "budget.xlsx", b"PK-budget").await;
+    let quiet = upload_bytes(&app, &alice, fx.space_id, "quiet.pptx", b"PK-quiet").await;
     assert_eq!(
         office_beat(&app, &bob, plan, reqwest::Method::POST, "t1").await,
         204
@@ -12072,4 +12074,104 @@ async fn an_edit_tells_everyone_its_message_notified() {
         .await
         .expect("query");
     assert!(bobs.is_empty());
+}
+
+/// Upload into the root of the space with an optional answer to a duplicate: the status and body.
+async fn upload_answering(
+    app: &TestApp,
+    cookie: &str,
+    space_id: Uuid,
+    name: &str,
+    bytes: &[u8],
+    answer: Option<&str>,
+) -> (u16, Value) {
+    let mut form = reqwest::multipart::Form::new()
+        .text("name", name.to_owned())
+        .part(
+            "file",
+            reqwest::multipart::Part::bytes(bytes.to_vec()).file_name(name.to_owned()),
+        );
+    if let Some(answer) = answer {
+        form = form.text("on_conflict", answer.to_owned());
+    }
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space_id}/files"),
+            cookie,
+        )
+        .multipart(form)
+        .send()
+        .await
+        .expect("upload");
+    let status = res.status().as_u16();
+    (status, res.json().await.expect("json"))
+}
+
+#[tokio::test]
+async fn the_space_keeps_no_duplicate_file() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let first = api_upload(&app, &alice, fx.space_id, None, "Devis.pdf", b"devis v1").await;
+
+    // The same name and the same bytes: refused, naming the file already there.
+    let (status, body) =
+        upload_answering(&app, &alice, fx.space_id, "devis.PDF", b"devis v1", None).await;
+    assert_eq!(status, 409);
+    assert_eq!(body["reason"], "same_file");
+    assert_eq!(body["existing"]["id"], first.to_string());
+    // Replacing it: the next version of that file, not a second one.
+    let (status, body) = upload_answering(
+        &app,
+        &alice,
+        fx.space_id,
+        "Devis.pdf",
+        b"devis v1",
+        Some("replace"),
+    )
+    .await;
+    assert_eq!(status, 201);
+    assert_eq!(body["id"], first.to_string());
+
+    // The same name, other bytes: refused until another name is chosen.
+    let (status, body) =
+        upload_answering(&app, &alice, fx.space_id, "Devis.pdf", b"devis v2", None).await;
+    assert_eq!(status, 409);
+    assert_eq!(body["reason"], "same_name");
+    let (status, body) = upload_answering(
+        &app,
+        &alice,
+        fx.space_id,
+        "Devis.pdf",
+        b"devis v2",
+        Some("keep_both"),
+    )
+    .await;
+    assert_eq!(status, 201);
+    assert_eq!(body["name"], "Devis (1).pdf");
+
+    // The same bytes under another name: the next version of the file that holds them.
+    let (status, body) = upload_answering(
+        &app,
+        &alice,
+        fx.space_id,
+        "Copie du devis.pdf",
+        b"devis v1",
+        None,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(body["merged"], "version");
+    assert_eq!(body["id"], first.to_string());
+    let files = files::Entity::find()
+        .filter(files::Column::SpaceId.eq(fx.space_id))
+        .filter(files::Column::Kind.ne("folder"))
+        .all(&app.db)
+        .await
+        .expect("query");
+    assert_eq!(files.len(), 2, "Devis.pdf and Devis (1).pdf, nothing else");
 }
