@@ -5,12 +5,12 @@ import { hairline, radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
 import { Text } from "./Text";
 
-type Variant = "primary" | "secondary" | "ghost" | "link";
+type Variant = "primary" | "secondary" | "ghost" | "link" | "danger";
 
 /**
- * The design system's button: the ink as primary, an ink outline as secondary, a bare ghost, and a
- * link. A primary button lifts onto a bee-yellow offset while pressed, as on the web; disabled is the
- * sunken grey.
+ * The design system's button: the ink as primary, an ink outline as secondary, a bare ghost, a link,
+ * and danger (the deep red by day, the peach by night) for what cannot be undone. A primary button
+ * lifts onto a bee-yellow offset while pressed, as on the web; disabled is the sunken grey.
  */
 export function Button({
   label,
@@ -36,7 +36,7 @@ export function Button({
   const height = { lg: 52, md: 40, sm: 34 }[size];
   const fg = off
     ? s.disabledText
-    : variant === "primary"
+    : variant === "primary" || variant === "danger"
       ? c.onInk
       : variant === "link"
         ? s.link
@@ -55,6 +55,8 @@ export function Button({
         variant === "link" ? styles.link : [styles.base, { height, paddingHorizontal: size === "sm" ? 12 : 20 }],
         variant === "primary" && { backgroundColor: c.ink, borderColor: c.ink },
         variant === "secondary" && { borderColor: c.ink },
+        variant === "danger" && { backgroundColor: s.danger, borderColor: s.danger },
+        variant === "danger" && pressed && { opacity: 0.85 },
         variant === "ghost" && pressed && { backgroundColor: s.pressed },
         variant === "secondary" && pressed && { backgroundColor: s.sunken },
         variant === "primary" && pressed && !off && styles.lifted,

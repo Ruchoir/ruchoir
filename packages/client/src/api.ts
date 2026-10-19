@@ -337,6 +337,49 @@ export async function logout(): Promise<void> {
   await apiPost<void>("/auth/logout");
 }
 
+// --- Handing a session between the instance's web page and the native app (ADR 0005, step 6f) ---
+
+/**
+ * `POST /auth/native/code`: from the instance's web page, signed in, a single-use code for the app
+ * (two minutes), bound to the challenge the app chose (the SHA-256 of its verifier, hex).
+ */
+export async function createNativeCode(challenge: string): Promise<string> {
+  return (await apiPost<{ code: string }>("/auth/native/code", { challenge })).code;
+}
+
+/**
+ * `POST /auth/native/exchange`: the app trades that code and its verifier for a session of its own.
+ * Refused to a browser, as a token sign-in is.
+ */
+export async function exchangeNativeCode(code: string, verifier: string): Promise<SignedIn> {
+  return toSignedIn(await apiPost<SignedInDto>("/auth/native/exchange", { code, verifier }));
+}
+
+/** `POST /auth/web/handoff`: from the app, signed in, a single-use code the web page redeems. */
+export async function createWebHandoff(): Promise<string> {
+  return (await apiPost<{ code: string }>("/auth/web/handoff")).code;
+}
+
+/** `POST /auth/web/redeem`: the page the app opened becomes signed in (a cookie) as that account. */
+export async function redeemWebHandoff(code: string): Promise<SessionUser> {
+  return toSessionUser(await apiPost<UserSummaryDto>("/auth/web/redeem", { code }));
+}
+
+// --- Phone notifications (ADR 0006) ---
+
+/**
+ * `PUT /push/devices`: remember this phone for the signed-in account, or refresh it (the app does
+ * at every start while notifications are allowed). A 409 means the instance keeps phones out.
+ */
+export async function registerPushDevice(platform: "ios" | "android", token: string): Promise<void> {
+  await apiPut<void>("/push/devices", { platform, token });
+}
+
+/** `DELETE /push/devices`: forget this phone (signing out, or notifications turned off here). */
+export async function forgetPushDevice(token: string): Promise<void> {
+  await apiRequest<void>("DELETE", "/push/devices", { json: { token } });
+}
+
 // --- Account security (second factors, password) ---
 
 /** One registered passkey, as the account screen lists them. */
@@ -1025,8 +1068,8 @@ export async function clearMyAvatar(): Promise<void> {
   await apiDelete<void>("/users/me/avatar");
 }
 
-/** `PUT /spaces/{id}/icon`: replace a space's icon; owner or admin only. Returns its new URL. */
-export async function setSpaceIcon(spaceId: string, file: File): Promise<string> {
+/** `PUT /spaces/{id}/icon`: replace a space's icon (a file, or a photo of the phone); returns its new URL. */
+export async function setSpaceIcon(spaceId: string, file: UploadPart): Promise<string> {
   return uploadImage(`/spaces/${spaceId}/icon`, file);
 }
 
@@ -1704,6 +1747,8 @@ type NotificationDto = {
   calendar_name?: string;
   event_changes?: string[];
   event_my_status?: "needs_action" | "accepted" | "tentative" | "declined";
+  /** The emoji of a `reaction`. */
+  emoji?: string;
   actor_id?: string;
   actor_name?: string;
   preview: string;
@@ -1743,7 +1788,7 @@ export type ReminderInfo = {
 
 export type ApiNotification = {
   id: string;
-  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
+  kind: "mention" | "broadcast" | "reply" | "dm" | "message" | "reaction" | "edited" | "calendar_reminder" | "calendar_invitation" | "calendar_update" | "calendar_cancel" | "calendar_declined" | "calendar_shared";
   conversationId: string;
   /** The space it happened in, so the inbox can be shown for the space on screen. */
   spaceId: string;
@@ -1762,6 +1807,8 @@ export type ApiNotification = {
   reminder?: ReminderInfo;
   /** For a calendar shared with the reader: its name. */
   calendarName?: string;
+  /** For a `reaction` to one of the reader's messages: the emoji. */
+  emoji?: string;
 };
 
 /** A page of the notification inbox, newest first, with the caller's total unread count. */
@@ -1776,6 +1823,8 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
     dto.kind === "reply" ||
     dto.kind === "dm" ||
     dto.kind === "message" ||
+    dto.kind === "reaction" ||
+    dto.kind === "edited" ||
     dto.kind.startsWith("calendar_")
       ? (dto.kind as ApiNotification["kind"])
       : "mention";
@@ -1804,6 +1853,7 @@ function toApiNotification(dto: NotificationDto): ApiNotification {
         }
       : {}),
     ...(dto.kind === "calendar_shared" && dto.calendar_name ? { calendarName: dto.calendar_name } : {}),
+    ...(dto.kind === "reaction" && dto.emoji ? { emoji: dto.emoji } : {}),
     actor: dto.actor_name ?? "",
     preview: dto.preview,
     createdAt: dto.created_at,
@@ -1872,6 +1922,9 @@ export type NotificationPreferences = {
   channelMentions: boolean;
   replies: boolean;
   directMessages: boolean;
+  /** Someone reacted to my message; a message I was told about was edited. Never by mail. */
+  reactions: boolean;
+  edits: boolean;
   messages: boolean;
   quietHours: boolean;
   quietFrom: string;
@@ -1901,6 +1954,8 @@ const NOTIFICATION_FIELDS: [keyof NotificationPreferences, string][] = [
   ["channelMentions", "channel_mentions"],
   ["replies", "replies"],
   ["directMessages", "direct_messages"],
+  ["reactions", "reactions"],
+  ["edits", "edits"],
   ["messages", "messages"],
   ["quietHours", "quiet_hours"],
   ["quietFrom", "quiet_from"],
@@ -2101,21 +2156,64 @@ export async function createFolder(spaceId: string, name: string, parentId?: str
   return toSpaceFile(dto);
 }
 
+/**
+ * A space keeps no duplicate (the server checks its whole tree): an upload of a name already in the
+ * folder is refused (`same_file` when the bytes are the same too, `same_name` otherwise) until it is
+ * sent again with an answer, and the same bytes elsewhere become the next version of the file that
+ * holds them (`merged` on the answer), or are refused (`same_content`) to someone who may not
+ * change that file.
+ */
+export type UploadDuplicate = {
+  reason: "same_file" | "same_name" | "same_content";
+  existing: SpaceFile;
+  /** The folders the existing file is in, from the space's root. */
+  path: string[];
+};
+
+/** Sent again after a duplicate: a new version of the file there, or a copy under a numbered name. */
+export type DuplicateAnswer = "replace" | "keep_both";
+
+/** An uploaded file; `merged` when the bytes became the next version of a file already there. */
+export type UploadedFile = SpaceFile & { merged?: boolean };
+
+/** The duplicate an upload was refused for, or null for any other failure. */
+export function uploadDuplicate(err: unknown): UploadDuplicate | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const body = err.body as { error?: string; reason?: UploadDuplicate["reason"]; existing?: FileDto; path?: string[] } | null;
+  if (body?.error !== "duplicate" || !body.reason || !body.existing) return null;
+  return { reason: body.reason, existing: toSpaceFile(body.existing), path: body.path ?? [] };
+}
+
+const toUploaded = (body: unknown): UploadedFile => {
+  const dto = body as FileDto & { merged?: string };
+  return { ...toSpaceFile(dto), ...(dto.merged === "version" ? { merged: true } : {}) };
+};
+
 /** `POST /spaces/{id}/files`: upload a file (multipart) into the root or a folder. */
-export async function uploadFile(spaceId: string, file: File, parentId?: string): Promise<SpaceFile> {
+export async function uploadFile(spaceId: string, file: File, parentId?: string, answer?: DuplicateAnswer): Promise<UploadedFile> {
   const form = new FormData();
   form.append("file", file);
   // `folder_id`, not `parent_folder_id`: the JSON endpoints use the latter, the multipart
   // upload uses the former, and sending the wrong one put every file in a folder at the root.
   if (parentId) form.append("folder_id", parentId);
+  if (answer) form.append("on_conflict", answer);
   // Multipart: let the browser set the boundary, so this call does not go through the JSON client.
   const res = await fetch(`${apiBase()}/spaces/${spaceId}/files`, {
     method: "POST",
     ...authInit(),
     body: form,
   });
-  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
-  return toSpaceFile((await res.json()) as FileDto);
+  if (!res.ok) {
+    const text = await res.text().catch(() => null);
+    let body: unknown = text;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      // Not JSON: kept as text.
+    }
+    throw new ApiError(res.status, `HTTP ${res.status}`, body);
+  }
+  return toUploaded(await res.json());
 }
 
 /**
@@ -2128,12 +2226,14 @@ export function startFileUpload(
   part: UploadPart,
   folderId?: string,
   onProgress?: (sent: number) => void,
-): UploadRequest<SpaceFile> {
+  answer?: DuplicateAnswer,
+): UploadRequest<UploadedFile> {
   const form = new FormData();
   appendPart(form, part);
   // `folder_id`, as `uploadFile` explains.
   if (folderId) form.append("folder_id", folderId);
-  return xhrUpload(`/spaces/${spaceId}/files`, form, (body) => toSpaceFile(body as FileDto), onProgress);
+  if (answer) form.append("on_conflict", answer);
+  return xhrUpload(`/spaces/${spaceId}/files`, form, toUploaded, onProgress);
 }
 
 /**
@@ -2472,7 +2572,7 @@ export function sendFile(
   target: { spaceId: string; folderId?: string; name: string; replaceFileId?: string },
   file: File,
   onProgress: (loaded: number) => void,
-): UploadRequest {
+): UploadRequest<UploadedFile> {
   const xhr = new XMLHttpRequest();
   const form = new FormData();
   form.append("file", file, target.name);
@@ -2485,17 +2585,24 @@ export function sendFile(
     // `folder_id`, as `uploadFile` explains.
     if (target.folderId) form.append("folder_id", target.folderId);
   }
-  const done = new Promise<SpaceFile>((resolve, reject) => {
+  const done = new Promise<UploadedFile>((resolve, reject) => {
     xhr.upload.onprogress = (e) => onProgress(e.loaded);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          resolve(toSpaceFile(JSON.parse(xhr.responseText) as FileDto));
+          resolve(toUploaded(JSON.parse(xhr.responseText)));
         } catch {
           reject(new ApiError(xhr.status, "unreadable answer", null));
         }
       } else {
-        reject(new ApiError(xhr.status, `HTTP ${xhr.status}`, xhr.responseText));
+        // JSON when the server says why (a duplicate names the file already there), text otherwise.
+        let body: unknown = xhr.responseText;
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          // Kept as text.
+        }
+        reject(new ApiError(xhr.status, `HTTP ${xhr.status}`, body));
       }
     };
     xhr.onerror = () => reject(new ApiError(0, "network", null));

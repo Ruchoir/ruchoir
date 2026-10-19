@@ -65,6 +65,10 @@ pub struct NotificationPrefs {
     pub channel_mentions: bool,
     pub replies: bool,
     pub direct_messages: bool,
+    /// Someone reacted to one of my messages; a message I was told about was edited. In the app and
+    /// by push only: neither is ever worth an email.
+    pub reactions: bool,
+    pub edits: bool,
     /// A notification for every message, not only the ones addressed to the person: the default
     /// for conversations left on `default` in spaces left on `default`. Off by default.
     pub messages: bool,
@@ -113,6 +117,8 @@ impl Default for NotificationPrefs {
             channel_mentions: true,
             replies: true,
             direct_messages: true,
+            reactions: true,
+            edits: true,
             messages: false,
             quiet_hours: false,
             quiet_from: "21:00".to_owned(),
@@ -267,6 +273,8 @@ pub fn allows(
         (Delivery::App, "broadcast") => prefs.channel_mentions,
         (Delivery::App, "reply") => prefs.replies,
         (Delivery::App, "dm") => prefs.direct_messages,
+        (Delivery::App, "reaction") => prefs.reactions,
+        (Delivery::App, "edited") => prefs.edits,
         (Delivery::Email, "mention") => prefs.email_mentions,
         (Delivery::Email, "broadcast") => prefs.email_broadcasts,
         (Delivery::Email, "reply") => prefs.email_replies,

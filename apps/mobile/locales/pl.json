@@ -1,6 +1,7 @@
 {
   "ios": {
     "NSCameraUsageDescription": "Ruchoir używa aparatu, aby można było wysłać zdjęcie w wiadomości.",
-    "NSPhotoLibraryUsageDescription": "Ruchoir otwiera zdjęcia, aby można było dołączyć je do wiadomości."
+    "NSPhotoLibraryUsageDescription": "Ruchoir otwiera zdjęcia, aby można było dołączyć je do wiadomości.",
+    "NSFaceIDUsageDescription": "Ruchoir używa Face ID do odblokowania, gdy włączysz blokadę."
   }
 }

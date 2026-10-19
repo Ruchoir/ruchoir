@@ -35,6 +35,15 @@ export type LoginScreenProps = {
   error?: string | null;
   /** True while a sign-in request is in flight, to disable the form. */
   pending?: boolean;
+  /** The address to start from (the one the app already had, on the page that signs the app in). */
+  initialEmail?: string;
+  /** A line above the title, saying what this sign-in is for. */
+  note?: string;
+  /**
+   * The sign-in alone, without creating an account, the forgotten password or the organisation's
+   * sign-in: for the page that signs the phone app in, where those would lead away from it.
+   */
+  minimal?: boolean;
 };
 
 /** The sign-in screen: the form half of the shared authentication layout. */
@@ -46,9 +55,12 @@ export function LoginScreen({
   onResendVerification,
   error,
   pending = false,
+  initialEmail = "",
+  note,
+  minimal = false,
 }: LoginScreenProps) {
   const { t } = useTranslation();
-  const [mail, setMail] = useState("");
+  const [mail, setMail] = useState(initialEmail);
   const [password, setPassword] = useState("");
 
   const submit = (e: FormEvent) => {
@@ -60,21 +72,24 @@ export function LoginScreen({
   return (
     <AuthShell
       footer={
-        <>
-          {t("login.noAccount")}{" "}
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              onCreateAccount();
-            }}
-            style={{ color: "var(--text-accent)", fontWeight: 500 }}
-          >
-            {t("login.createAccount")}
-          </a>
-        </>
+        minimal ? undefined : (
+          <>
+            {t("login.noAccount")}{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                onCreateAccount();
+              }}
+              style={{ color: "var(--text-accent)", fontWeight: 500 }}
+            >
+              {t("login.createAccount")}
+            </a>
+          </>
+        )
       }
     >
+      {note ? <p style={authStyles.subtitle}>{note}</p> : null}
       <h1 style={authStyles.title}>{t("login.title")}</h1>
       <p style={authStyles.subtitle}>{t("login.subtitle")}</p>
       <form style={authStyles.fields} onSubmit={submit}>
@@ -120,30 +135,36 @@ export function LoginScreen({
             ) : null}
           </div>
         ) : null}
-        <div style={styles.optionRow}>
-          <a
-            href="#"
-            style={{ fontSize: "var(--text-xs)" }}
-            onClick={(e) => {
-              e.preventDefault();
-              onForgotPassword();
-            }}
-          >
-            {t("login.forgotPassword")}
-          </a>
-        </div>
+        {minimal ? null : (
+          <div style={styles.optionRow}>
+            <a
+              href="#"
+              style={{ fontSize: "var(--text-xs)" }}
+              onClick={(e) => {
+                e.preventDefault();
+                onForgotPassword();
+              }}
+            >
+              {t("login.forgotPassword")}
+            </a>
+          </div>
+        )}
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={pending}>
           {pending ? t("login.submitting") : t("login.submit")}
         </Button>
       </form>
-      <div style={styles.divider}>
-        <span style={styles.dividerLine} />
-        <span style={styles.dividerLabel}>{t("common.or")}</span>
-        <span style={styles.dividerLine} />
-      </div>
-      <Button size="lg" fullWidth iconLeft="key-round" onClick={onSso} disabled={pending}>
-        {t("login.sso")}
-      </Button>
+      {minimal ? null : (
+        <>
+          <div style={styles.divider}>
+            <span style={styles.dividerLine} />
+            <span style={styles.dividerLabel}>{t("common.or")}</span>
+            <span style={styles.dividerLine} />
+          </div>
+          <Button size="lg" fullWidth iconLeft="key-round" onClick={onSso} disabled={pending}>
+            {t("login.sso")}
+          </Button>
+        </>
+      )}
     </AuthShell>
   );
 }

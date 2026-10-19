@@ -7,3 +7,5 @@ dist-check/
 # committed (docs/mobile-builds.md).
 /ios
 /android
+# Generated into each target by @bacons/apple-targets from its expo-target.config.js (colours).
+/targets/*/Assets.xcassets

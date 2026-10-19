@@ -5,12 +5,13 @@ import {
   listCalendars,
   listOccurrences,
   type ApiNotification,
+  type CalendarColor,
   type Occurrence,
   type SpaceFile,
 } from "@ruchoir/client";
-import { useNavigation, type NavigationProp } from "@react-navigation/native";
+import { useFocusEffect, useNavigation, type NavigationProp } from "@react-navigation/native";
 import { AtSign, CalendarDays, ChevronRight, Sparkles } from "lucide-react-native";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
 import { useLoad } from "../../data/useLoad";
@@ -19,6 +20,7 @@ import { useReloadOn } from "../../data/useReloadOn";
 import { affects } from "../../realtime/events";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { useWide } from "../../layout/useWide";
 import { addDays } from "../../logic/agenda";
 import { listConversations } from "../../logic/conversations";
 import { dayKey, timeOf } from "../../logic/format";
@@ -36,6 +38,7 @@ import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
 import { ConversationRow, loadConversations, useMemberOf } from "../discussions/DiscussionsScreen";
+import { TodayWide } from "./TodayWide";
 
 const SPOKEN_TITLE = {
   mention: key("today.mentioned"),
@@ -62,8 +65,11 @@ export function TodayScreen() {
   const notifications = useLoad("notifications", (signal) => getNotifications({ unread: true, limit: 30 }, signal));
   const events = useLoad(space ? `today:${space}:${today}` : null, async (signal) => {
     const calendars = (await listCalendars(signal)).filter((cal) => !cal.hidden && (!cal.spaceId || cal.spaceId === space));
-    if (!calendars.length) return [] as Occurrence[];
-    return listOccurrences(`${addDays(today, -1)}T00:00:00Z`, `${addDays(today, 2)}T00:00:00Z`, calendars.map((cal) => cal.id), signal);
+    // Each calendar's colour, which tints its events on a tablet.
+    const colors = new Map<string, CalendarColor | undefined>(calendars.map((cal) => [cal.id, cal.color]));
+    if (!calendars.length) return { occurrences: [] as Occurrence[], colors };
+    const occurrences = await listOccurrences(`${addDays(today, -1)}T00:00:00Z`, `${addDays(today, 2)}T00:00:00Z`, calendars.map((cal) => cal.id), signal);
+    return { occurrences, colors };
   });
   const recent = useLoad(space ? `recent:${space}` : null, (signal) => getFilesView(space!, "recent", signal));
   const conversations = useLoad(space ? `conversations:${space}` : null, (signal) => loadConversations(space!, signal));
@@ -82,13 +88,28 @@ export function TodayScreen() {
   useReloadOn((e) => !!space && affects.conversations(e, space), conversations.reload);
   useReloadOn((e) => e.type === "calendar", events.reload);
   useReloadOn((e) => e.type === "files", recent.reload);
+  // Coming back to the tab (from a conversation, another tab) reads the cards again: a live event
+  // missed while the socket was asleep must not leave a card read elsewhere, or hide a new one.
+  const shown = useRef(false);
+  const reloadNotifications = notifications.reload;
+  const reloadConversations = conversations.reload;
+  useFocusEffect(
+    useCallback(() => {
+      if (!shown.current) {
+        shown.current = true;
+        return;
+      }
+      reloadNotifications();
+      reloadConversations();
+    }, [reloadNotifications, reloadConversations]),
+  );
 
   const cards = useMemo(
     () =>
       space
         ? pickNowCards({
             notifications: notifications.data?.notifications ?? [],
-            occurrences: events.data ?? [],
+            occurrences: events.data?.occurrences ?? [],
             recentFiles: recent.data?.map((entry) => entry.file) ?? [],
             now: new Date(now),
             spaceId: space,
@@ -102,12 +123,51 @@ export function TodayScreen() {
   const date = new Intl.DateTimeFormat(locale, { timeZone, weekday: "long", day: "numeric", month: "long" }).format(new Date(now));
   const mention = cards.find((card) => card.kind === "mention");
   const small = cards.filter((card) => card.kind !== "mention");
+  const wide = useWide();
+  const openConversation = (item: (typeof latest)[number]) =>
+    navigation.navigate("conversation", {
+      conversationId: item.id,
+      title: item.name,
+      channelId: item.kind === "channel" ? item.id : undefined,
+      unread: item.unread,
+      kind: item.kind,
+      participants: item.participants,
+    });
+
+  if (wide) {
+    const todayEvents = (events.data?.occurrences ?? [])
+      .filter((o) => !o.allDay && !o.busy && dayKey(o.start, timeZone) === today && Date.parse(o.end) > now)
+      .sort((a, b) => a.start.localeCompare(b.start));
+    const files = (recent.data ?? [])
+      .map((entry) => entry.file)
+      .filter((f) => f.kind !== "folder")
+      .slice(0, 3);
+    return (
+      <TodayWide
+        date={date.charAt(0).toLocaleUpperCase(locale) + date.slice(1)}
+        hello={t("today.hello", { name: firstName })}
+        mention={mention?.kind === "mention" ? mention.notification : undefined}
+        mentionTitle={(n) => t(SPOKEN_TITLE[n.kind as keyof typeof SPOKEN_TITLE] ?? SPOKEN_TITLE.mention, { who: n.actor.split(/\s+/)[0] })}
+        events={todayEvents}
+        colors={events.data?.colors ?? new Map()}
+        files={files}
+        conversations={conversations.data ? listConversations(conversations.data, "all", "").slice(0, 5) : []}
+        memberOf={memberOf}
+        myUserId={state.kind === "signedIn" ? state.user.id : undefined}
+        onRefresh={pulled}
+        openConversation={openConversation}
+        openNotification={(n) =>
+          navigation.navigate("conversation", { conversationId: n.conversationId, title: n.channelName ?? n.actor, channelId: n.channelName ? n.conversationId : undefined })
+        }
+      />
+    );
+  }
 
 
   return (
     <TabScreen>
+      <TabHeader overline={date.charAt(0).toLocaleUpperCase(locale) + date.slice(1)} title={t("today.hello", { name: firstName })} />
       <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={false} onRefresh={pulled} />}>
-        <TabHeader overline={date.charAt(0).toLocaleUpperCase(locale) + date.slice(1)} title={t("today.hello", { name: firstName })} />
         <View style={styles.section}>
           <Text variant="heading" style={styles.sectionTitle}>
             {t("today.now")}
@@ -143,16 +203,7 @@ export function TodayScreen() {
             key={item.id}
             item={item}
             memberOf={memberOf}
-            onPress={() =>
-              navigation.navigate("conversation", {
-                conversationId: item.id,
-                title: item.name,
-                channelId: item.kind === "channel" ? item.id : undefined,
-                unread: item.unread,
-                kind: item.kind,
-                participants: item.participants,
-              })
-            }
+            onPress={() => openConversation(item)}
           />
         ))}
       </ScrollView>
@@ -260,7 +311,8 @@ function FileTile({ file }: { file: SpaceFile }) {
 }
 
 const styles = StyleSheet.create({
-  page: { paddingBottom: 24, gap: 8 },
+  // The tab's head stays above the page (it does not scroll away); the gap it had below it, here.
+  page: { paddingTop: 8, paddingBottom: 24, gap: 8 },
   section: { paddingHorizontal: 16, gap: 12, paddingTop: 8 },
   sectionTitle: { fontSize: 17 },
   sectionHead: { flexDirection: "row", alignItems: "center" },

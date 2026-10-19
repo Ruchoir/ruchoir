@@ -53,7 +53,7 @@ export function CalendarSheet() {
             {group.title}
           </Text>
           {group.items.map((cal) => {
-            const label = calendarLabel(cal, spaceList);
+            const label = calendarLabel(cal, spaceList, t("calendar.personal"));
             return (
               <ActionRow
                 key={cal.id}

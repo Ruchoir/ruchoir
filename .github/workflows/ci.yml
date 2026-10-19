@@ -45,7 +45,7 @@ jobs:
           # both apps.
           wf='^\.github/workflows/'
           js='^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.nvmrc)$'
-          echo "rust=$(touches "^(apps/api/|packages/importer/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)|$wf")" >> "$GITHUB_OUTPUT"
+          echo "rust=$(touches "^(apps/api/|apps/push-relay/|migrations/|packages/importer/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)|$wf")" >> "$GITHUB_OUTPUT"
           echo "web=$(touches "^(apps/web/|packages/client/|packages/design-system/)|$js|$wf")" >> "$GITHUB_OUTPUT"
           # The phone app's translation check is the web's i18n audit tool.
           echo "mobile=$(touches "^(apps/mobile/|packages/client/|packages/design-system/styles/tokens\.css$|apps/web/tools/i18n-audit/)|$js|$wf")" >> "$GITHUB_OUTPUT"

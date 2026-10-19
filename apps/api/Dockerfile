@@ -44,6 +44,8 @@ WORKDIR /build
 COPY rust-toolchain.toml Cargo.toml ./
 COPY Cargo.lock* ./
 COPY apps/api ./apps/api
+# Cargo loads every workspace member's manifest, the push relay's too (it is not compiled here).
+COPY apps/push-relay ./apps/push-relay
 COPY migrations ./migrations
 # The import screen serves these producers from the instance's own domain, so the API embeds them
 # at build (`include_str!` in `importer::scripts`). They live outside the crate, so the context has

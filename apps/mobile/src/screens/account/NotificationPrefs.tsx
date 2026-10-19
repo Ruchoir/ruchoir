@@ -1,11 +1,13 @@
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { getNotificationPreferences, saveNotificationPreferences, type NotificationPreferences } from "@ruchoir/client";
-import { useState } from "react";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useState } from "react";
+import { Alert, Linking, Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { disablePhonePush, enablePhonePush, phonePushState, type PhonePush } from "../../push/phone";
 import { radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { LoadState } from "../../ui/States";
@@ -17,11 +19,14 @@ import { ToggleRow } from "./ToggleRow";
 type Flag = { [K in keyof NotificationPreferences]: NotificationPreferences[K] extends boolean ? K : never }[keyof NotificationPreferences];
 
 /** The kinds, each with its switch in the app and its switch by e-mail, as the web's table lists them. */
-const KINDS: { title: ReturnType<typeof key>; text: ReturnType<typeof key>; app: Flag; email: Flag }[] = [
+const KINDS: { title: ReturnType<typeof key>; text: ReturnType<typeof key>; app: Flag; email?: Flag }[] = [
   { title: key("notifPrefs.mentions"), text: key("notifPrefs.mentionsText"), app: "mentions", email: "emailMentions" },
   { title: key("notifPrefs.broadcasts"), text: key("notifPrefs.broadcastsText"), app: "channelMentions", email: "emailBroadcasts" },
   { title: key("notifPrefs.replies"), text: key("notifPrefs.repliesText"), app: "replies", email: "emailReplies" },
   { title: key("sidebar.directMessages"), text: key("notifPrefs.directText"), app: "directMessages", email: "emailDirectMessages" },
+  // In the app and on the phone only: neither is ever worth an e-mail.
+  { title: key("notifPrefs.reactions"), text: key("notifPrefs.reactionsText"), app: "reactions" },
+  { title: key("notifPrefs.edits"), text: key("notifPrefs.editsText"), app: "edits" },
   { title: key("details.levelAllHint"), text: key("notifPrefs.messagesText"), app: "messages", email: "emailMessages" },
   { title: key("notifPrefs.reminders"), text: key("notifPrefs.remindersText"), app: "calendarReminders", email: "emailCalendarReminders" },
   { title: key("notifPrefs.invitations"), text: key("notifPrefs.invitationsText"), app: "calendarInvitations", email: "emailCalendarInvitations" },
@@ -35,9 +40,62 @@ const asDate = (hhmm: string) => {
 const asTime = (date: Date) => `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 
 /**
+ * Whether this phone receives notifications (ADR 0006): turning it on asks the system, then registers
+ * the phone with the instance; off forgets it there. Refused in the phone's settings, the switch
+ * leads there. Expo Go cannot receive them.
+ */
+function PhonePushRow() {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const [state, setState] = useState<PhonePush | null>(null);
+  const [busy, setBusy] = useState(false);
+  // Read again on coming back, the phone's settings having perhaps been changed meanwhile.
+  useFocusEffect(
+    useCallback(() => {
+      void phonePushState().then(setState);
+    }, []),
+  );
+  if (state === null) return null;
+  if (state === "unavailable") return <ToggleRow title={t("push.thisPhone")} text={t("push.unavailable")} value={false} disabled onChange={() => {}} />;
+
+  const change = async (on: boolean) => {
+    setBusy(true);
+    try {
+      if (!on) {
+        await disablePhonePush();
+        setState("off");
+        return;
+      }
+      const next = await enablePhonePush(true);
+      setState(next);
+      if (next === "denied") {
+        Alert.alert(t("push.deniedTitle"), t("push.deniedText"), [
+          { text: t("compose.cancel"), style: "cancel" },
+          { text: t("attach.openSettings"), onPress: () => void Linking.openSettings() },
+        ]);
+      }
+    } catch {
+      toast(t("push.failed"), "failure");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ToggleRow
+      title={t("push.thisPhone")}
+      text={state === "denied" ? t("push.deniedText") : t("push.thisPhoneText")}
+      value={state === "on"}
+      disabled={busy}
+      onChange={(on) => void change(on)}
+    />
+  );
+}
+
+/**
  * The account's notifications, the same settings as the web's (the server acts on them for every
  * device): which kinds reach the person in the app and by e-mail, and the quiet hours. Each switch is
- * saved at once and put back if the server refuses it.
+ * saved at once and put back if the server refuses it. First, whether this phone receives them.
  */
 export function NotificationPrefs() {
   const { t } = useTranslation();
@@ -70,6 +128,9 @@ export function NotificationPrefs() {
 
   return (
     <>
+      <Section label={t("push.section")}>
+        <PhonePushRow />
+      </Section>
       <Section label={t("details.notifications")}>
         <ToggleRow title={t("notifPrefs.enabled")} text={t("notifPrefs.enabledText")} value={prefs.enabled} onChange={(enabled) => save({ enabled })} />
         {KINDS.map((kind) => (
@@ -100,15 +161,11 @@ export function NotificationPrefs() {
       </Section>
       <Section label={t("notifPrefs.byEmail")}>
         <ToggleRow title={t("notifPrefs.email")} text={t("notifPrefs.emailText")} value={prefs.email} onChange={(email) => save({ email })} />
-        {KINDS.map((kind) => (
-          <ToggleRow
-            key={kind.email}
-            title={t(kind.title)}
-            value={prefs[kind.email]}
-            onChange={(value) => save({ [kind.email]: value })}
-            disabled={!prefs.email}
-          />
-        ))}
+        {KINDS.map(({ title, email }) =>
+          email ? (
+            <ToggleRow key={email} title={t(title)} value={prefs[email]} onChange={(value) => save({ [email]: value })} disabled={!prefs.email} />
+          ) : null,
+        )}
       </Section>
     </>
   );

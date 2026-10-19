@@ -13,6 +13,10 @@
  * rides on the keyboard (`KeyboardStickyView`), over the bottom of the form, which the keyboard
  * covers anyway; the focused field is kept above the footer (`bottomOffset`). The library places the
  * field from where the keyboard and the field really are on screen, a sheet's offset included.
+ *
+ * The room the form gains at its end while the keyboard is up is the keyboard's height plus the
+ * footer's (`extraKeyboardSpace`): with the keyboard's alone, the last field (a group's topic) could
+ * not scroll high enough and stayed under the footer.
  */
 import { useState, type ReactNode } from "react";
 import { StyleSheet, View, type ScrollViewProps } from "react-native";
@@ -36,6 +40,7 @@ export function KeyboardForm({
         keyboardShouldPersistTaps="handled"
         {...scroll}
         bottomOffset={footerHeight + FIELD_MARGIN}
+        extraKeyboardSpace={footer ? footerHeight + FIELD_MARGIN : 0}
       >
         {children}
       </KeyboardAwareScrollView>

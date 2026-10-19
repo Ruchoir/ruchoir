@@ -8,8 +8,8 @@ import {
   type ApiMessage,
   type Channel,
 } from "@ruchoir/client";
-import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { Archive, ArrowDown, CalendarDays, Check, FileText, Info, MessageSquare, Pin } from "lucide-react-native";
+import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
+import { Archive, ArrowDown, CalendarDays, Check, ChevronLeft, FileText, Info, MessageSquare, Pin } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -29,6 +29,9 @@ import { useAttachments } from "../../compose/useAttachments";
 import { useReact } from "../../compose/useReact";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
+import { useTabletLayout, useWide } from "../../layout/useWide";
+import { readNotificationsOf } from "../../data/readNotifications";
+import { deletedHere } from "./deletedHere";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { dayKey, daysBetween } from "../../logic/format";
@@ -37,7 +40,7 @@ import { seekMessage } from "../../logic/seek";
 import { countNewer, firstUnreadId } from "../../logic/unread";
 import type { RootParams } from "../../navigation/types";
 import { useReloadOn } from "../../data/useReloadOn";
-import { useRealtimeEvent } from "../../realtime/RealtimeProvider";
+import { useRealtimeActions, useRealtimeEvent } from "../../realtime/RealtimeProvider";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
 import { fonts } from "../../theme/fonts";
@@ -88,14 +91,35 @@ const AWAY = 240;
 /** A conversation (mockup 13): its messages live, its files and, for a channel, its events. */
 export function ConversationScreen() {
   const { params } = useRoute<RouteProp<RootParams, "conversation">>();
+  const wide = useWide();
+  const navigation = useNavigation<NavigationProp<RootParams>>();
+  // On a tablet a conversation opens in the Discussions tab, beside the list (the tablet mockups),
+  // wherever it was asked for: Today, a search, a notification, a link.
+  useEffect(() => {
+    if (!wide) return;
+    navigation.goBack();
+    navigation.navigate("tabs", { screen: "discussions", params: { open: params } });
+  }, [wide, navigation, params]);
+  if (wide) return null;
+  return <ConversationView params={params} />;
+}
+
+/**
+ * The conversation itself, pushed (`ConversationScreen`) or beside the list on a tablet
+ * (`DiscussionsScreen`): there, `onClose` empties the pane where a pushed one goes back, and its head
+ * has no arrow. What it opens (a thread, a message's sheet, the details) goes over the whole app.
+ */
+export function ConversationView({ params, onClose }: { params: RootParams["conversation"]; onClose?: () => void }) {
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const { c, s } = useTheme();
+  const tablet_ = useTabletLayout();
   const { current } = useSpace();
   const members = useSpaceMembers(current?.id);
   const [pane, setPane] = useState<Pane>("messages");
   // A message asked for from the pinned tab: the feed takes the reader there (its root, for a reply),
   // then lets go of it, so coming back to the messages later does not jump again.
-  const [focus, setFocus] = useState<Focus | null>(null);
+  // A search result opens the conversation at its message.
+  const [focus, setFocus] = useState<Focus | null>(params.focus ? { ...params.focus, n: 1 } : null);
   const focusTaken = useCallback(() => setFocus(null), []);
   const openPinned = (m: ApiMessage) => {
     setFocus((prev) => ({ id: m.parentId ?? m.id, replyId: m.parentId ? m.id : undefined, n: (prev?.n ?? 0) + 1 }));
@@ -122,24 +146,100 @@ export function ConversationScreen() {
   useReloadOn((e) => !!params.channelId && affects.channelMembers(e, params.channelId), channelMembers.reload);
   const session = useSession();
   const myId = session.state.kind === "signedIn" ? session.state.user.id : null;
+  const leave = onClose ?? (() => navigation.goBack());
   useRealtimeEvent((e) => {
     if (e.type !== "channels" || !params.channelId || e.channelId !== params.channelId) return;
     if (e.deleted) {
+      // Deleted from this phone: the details page has already taken the person back to the list.
+      if (deletedHere.has(params.channelId)) {
+        onClose?.();
+        return;
+      }
       toast(t("conversation.channelGone"));
-      navigation.goBack();
+      leave();
     } else if (e.membership?.change === "removed" && e.membership.userId === myId) {
       toast(t("conversation.removedFromChannel"));
-      navigation.goBack();
+      leave();
     }
   });
   const openDetails = () =>
     navigation.navigate("conversationDetails", { conversationId: params.conversationId, channelId: params.channelId, title });
 
+  const tablet = onClose ? tablet_ : null;
+  const panes = PANES.filter((p) => !p.channelOnly || params.channelId);
+  const face = group ? (
+    <AvatarStack
+      size={tablet ? 44 : 36}
+      people={group.map((id) => {
+        const member = members.list.find((m) => m.userId === id);
+        return { name: member?.name ?? "", avatarUrl: member?.avatarUrl };
+      })}
+    />
+  ) : (
+    <Avatar
+      name={params.title}
+      kind={params.channelId ? "workspace" : "person"}
+      src={params.channelId ? undefined : members.avatarOf(params.title)}
+      size={tablet ? 44 : 36}
+    />
+  );
+
   return (
     <SafeAreaView edges={["top"]} style={styles.fill}>
+      {tablet ? (
+        // The tablet mockups' head (02, 10): 76 high, a larger face and name; held wide, the panes as
+        // pills beside them; upright, the way back to the list first.
+        <View style={[styles.wideHead, { borderBottomColor: c.line, backgroundColor: c.surface, paddingLeft: tablet === "portrait" ? 12 : 28 }]}>
+          {tablet === "portrait" ? (
+            <Pressable accessibilityRole="button" accessibilityLabel={t("conversation.backToList")} onPress={onClose} style={({ pressed }) => [styles.wideBack, pressed && { opacity: 0.6 }]}>
+              <ChevronLeft size={24} color={c.ink} />
+              <Text style={[styles.wideBackText, { color: c.ink }]}>{t("tabs.discussions")}</Text>
+            </Pressable>
+          ) : null}
+          <Pressable accessibilityRole="button" onPress={openDetails} style={styles.wideWho}>
+            {face}
+            <View style={styles.wideTitles}>
+              <Text style={[styles.wideTitle, { color: c.ink }]} numberOfLines={1}>
+                {title}
+              </Text>
+              {subtitle ? (
+                <Text style={[styles.wideSub, { color: c.muted }]} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+          </Pressable>
+          {tablet === "landscape" ? (
+            <View style={styles.widePills}>
+              {panes.map((p) => {
+                const on = pane === p.key;
+                const Icon = p.icon;
+                return (
+                  <Pressable
+                    key={p.key}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: on }}
+                    onPress={() => setPane(p.key)}
+                    style={[styles.widePill, { borderColor: on ? c.ink : c.lineStrong, backgroundColor: on ? s.selected : c.surface }]}
+                  >
+                    <Icon size={16} color={c.ink} />
+                    <Text variant="smallStrong" style={{ color: c.ink }}>
+                      {t(p.label)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+          <Pressable accessibilityRole="button" accessibilityLabel={t("details.open")} onPress={openDetails} style={({ pressed }) => [styles.wideInfo, pressed && { opacity: 0.6 }]}>
+            <Info size={22} color={c.body} />
+          </Pressable>
+        </View>
+      ) : (
       <BackHeader
         title={title}
         subtitle={subtitle}
+        back={!onClose}
         onPressTitle={openDetails}
         trailing={
           <Pressable
@@ -152,27 +252,14 @@ export function ConversationScreen() {
             <Info size={24} color={c.ink} />
           </Pressable>
         }
-        leading={
-          group ? (
-            <AvatarStack
-              size={36}
-              people={group.map((id) => {
-                const member = members.list.find((m) => m.userId === id);
-                return { name: member?.name ?? "", avatarUrl: member?.avatarUrl };
-              })}
-            />
-          ) : (
-            <Avatar name={params.title} kind={params.channelId ? "workspace" : "person"} src={params.channelId ? undefined : members.avatarOf(params.title)} size={36} />
-          )
-        }
+        leading={face}
       />
-      <View style={[styles.tabs, { borderBottomColor: c.line }]}>
-      <Chips
-        chips={PANES.filter((p) => !p.channelOnly || params.channelId).map((p) => ({ key: p.key, label: t(p.label), icon: p.icon }))}
-        value={pane}
-        onChange={setPane}
-      />
-      </View>
+      )}
+      {tablet === "landscape" ? null : (
+        <View style={[styles.tabs, { borderBottomColor: c.line }]}>
+          <Chips chips={panes.map((p) => ({ key: p.key, label: t(p.label), icon: p.icon }))} value={pane} onChange={setPane} />
+        </View>
+      )}
       <View style={styles.fill}>
         {pane === "messages" ? (
           <Messages
@@ -218,11 +305,13 @@ type MessagesProps = {
 function Messages({ conversationId, title, channelId, unread, oneToOne, channel, channels, onJoined, members, focus, onFocusTaken }: MessagesProps) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const tabletLayout = useTabletLayout();
   const { locale, timeZone } = useLocale();
   const { state } = useSession();
   const me = state.kind === "signedIn" ? state.user : null;
   const navigation = useNavigation();
   const react = useReact();
+  const { emit } = useRealtimeActions();
   const list = useRef<FlatList<Row>>(null);
   const first = useLoad(`messages:${conversationId}`, (signal) => getChannelMessages(conversationId, {}, signal));
   // The feed holds no thread replies: they live in their thread, and move the count under their root.
@@ -248,10 +337,13 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   useEffect(() => {
     if (!newest || marked.current === newest) return;
     marked.current = newest;
-    void setReadCursor(conversationId, newest).catch(() => {
-      marked.current = null;
-    });
-  }, [conversationId, newest]);
+    void setReadCursor(conversationId, newest).then(
+      () => readNotificationsOf(conversationId, emit).catch(() => {}),
+      () => {
+        marked.current = null;
+      },
+    );
+  }, [conversationId, newest, emit]);
 
   const loadOlder = useCallback(async () => {
     if (!nextBefore || older.loading) return;
@@ -422,6 +514,8 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
       <View style={styles.fill}>
       <FlatList
         ref={list}
+        // A tablet reads in a column 820 wide at most, in the middle (the tablet mockups).
+        style={tabletLayout ? styles.wideColumn : undefined}
         inverted
         data={rows}
         keyExtractor={(row) => (row.kind === "day" ? `day:${row.day}` : row.kind === "message" ? row.message.id : row.kind)}
@@ -560,6 +654,18 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  // The tablet mockups' conversation head.
+  wideHead: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 76, paddingRight: 20, borderBottomWidth: hairline },
+  wideBack: { height: 44, flexDirection: "row", alignItems: "center", gap: 2, paddingLeft: 2, paddingRight: 8 },
+  wideBackText: { fontSize: 15, lineHeight: 20, fontFamily: fonts.sansSemibold },
+  wideWho: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 14 },
+  wideTitles: { flex: 1, minWidth: 0, gap: 2 },
+  wideTitle: { fontSize: 22, lineHeight: 28, fontFamily: fonts.sansBold, letterSpacing: -0.5 },
+  wideSub: { fontSize: 14, lineHeight: 19, fontFamily: fonts.sans },
+  widePills: { flexDirection: "row", gap: 8 },
+  widePill: { height: 36, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, borderRadius: 999, borderWidth: hairline },
+  wideInfo: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  wideColumn: { width: "100%", maxWidth: 820 + 32, alignSelf: "center" },
   info: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   tabs: { paddingBottom: 8, borderBottomWidth: hairline },
   more: { padding: 16 },

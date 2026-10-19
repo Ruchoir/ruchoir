@@ -47,6 +47,24 @@ function polish(text: string, locale: string): string {
   return locale.startsWith("pl") ? text.replace(/\b([Ww]) (?=[wWfF][^aeiouyąęóAEIOUYĄĘÓ\s])/g, "$1e ") : text;
 }
 
+/** "and" in the languages of the app, for an engine without `Intl.ListFormat`. */
+const AND: Record<string, string> = { fr: "et", en: "and", es: "y", de: "und", it: "e", pl: "i" };
+
+/**
+ * "lundi, mardi et vendredi". `Intl.ListFormat` where the engine has it; Hermes, which runs the
+ * phone apps, does not (`new Intl.ListFormat` throws "undefined cannot be used as a constructor"),
+ * so the same list is assembled by hand there: commas, then the language's "and" before the last.
+ */
+function joinList(items: string[], locale: string): string {
+  if (typeof Intl !== "undefined" && typeof Intl.ListFormat === "function") {
+    return new Intl.ListFormat(locale, { type: "conjunction" }).format(items);
+  }
+  if (items.length <= 1) return items.join("");
+  const and = AND[locale.slice(0, 2)] ?? "&";
+  const comma = locale.startsWith("en") && items.length > 2 ? "," : "";
+  return `${items.slice(0, -1).join(", ")}${comma} ${and} ${items[items.length - 1]}`;
+}
+
 export function rulePhrase(form: RuleForm, start: string, locale: string, t: Translate): string {
   return polish(phraseOf(form, start, locale, t), locale);
 }
@@ -65,8 +83,9 @@ function phraseOf(form: RuleForm, start: string, locale: string, t: Translate): 
         rule = t("calendar.rule.workdays");
         break;
       }
-      const days = new Intl.ListFormat(locale, { type: "conjunction" }).format(
+      const days = joinList(
         form.days.map((code) => t("calendar.rule.onDay", { day: dayName(code) })),
+        locale,
       );
       rule = t("calendar.rule.weekly", { count, days });
       break;

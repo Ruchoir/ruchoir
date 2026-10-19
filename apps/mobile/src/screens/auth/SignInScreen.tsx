@@ -32,7 +32,7 @@ export function SignInScreen() {
   const session = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<AuthParams>>();
   const server = "server" in session.state ? session.state.server : null;
-  const expired = session.state.kind === "signedOut" && session.state.reason === "expired";
+  const reason = session.state.kind === "signedOut" ? session.state.reason : undefined;
 
   const [editing, setEditing] = useState(server === null);
   const [serverDraft, setServerDraft] = useState(server ? hostOf(server) : (DEFAULT_SERVER ? hostOf(DEFAULT_SERVER) : ""));
@@ -67,7 +67,8 @@ export function SignInScreen() {
         <Text variant="display">{t("signIn.submit")}</Text>
       </View>
 
-      {expired && !error ? <Banner tone="danger" text={t("signIn.expired")} /> : null}
+      {reason === "expired" && !error ? <Banner tone="danger" text={t("signIn.expired")} /> : null}
+      {reason === "locked" && !error ? <Banner tone="danger" text={t("signIn.locked")} /> : null}
 
       <ServerField server={server} editing={editing} draft={serverDraft} onDraft={setServerDraft} onEdit={() => setEditing(true)} />
 

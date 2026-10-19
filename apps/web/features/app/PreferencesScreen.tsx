@@ -281,12 +281,15 @@ const KINDS: {
   label: TranslationKey;
   desc: TranslationKey;
   app: keyof NotifPrefs;
-  email: keyof NotifPrefs;
+  /** Absent for a kind never sent by email. */
+  email?: keyof NotifPrefs;
 }[] = [
   { label: key("notif.kindMentions"), desc: key("notif.kindMentionsDesc"), app: "mentions", email: "emailMentions" },
   { label: key("notif.kindBroadcasts"), desc: key("notif.kindBroadcastsDesc"), app: "channelMentions", email: "emailBroadcasts" },
   { label: key("notif.kindReplies"), desc: key("notif.kindRepliesDesc"), app: "replies", email: "emailReplies" },
   { label: key("sidebar.directMessages"), desc: key("notif.kindDmsDesc"), app: "directMessages", email: "emailDirectMessages" },
+  { label: key("message.reactions"), desc: key("notif.kindReactionsDesc"), app: "reactions" },
+  { label: key("notif.kindEdits"), desc: key("notif.kindEditsDesc"), app: "edits" },
   { label: key("notif.kindMessages"), desc: key("notif.kindMessagesDesc"), app: "messages", email: "emailMessages" },
   { label: key("notif.kindReminders"), desc: key("notif.kindRemindersDesc"), app: "calendarReminders", email: "emailCalendarReminders" },
   { label: key("notif.kindInvitations"), desc: key("notif.kindInvitationsDesc"), app: "calendarInvitations", email: "emailCalendarInvitations" },
@@ -361,12 +364,18 @@ function NotificationKinds() {
               />
             </span>
             <span role="cell" style={{ ...cell, opacity: notif.email ? 1 : 0.4 }}>
-              <Checkbox
-                checked={Boolean(notif[kind.email])}
-                disabled={!notif.email}
-                onChange={(e) => set(kind.email, e.target.checked)}
-                aria-label={`${t(kind.label)}, ${t("notif.columnEmail")}`}
-              />
+              {kind.email ? (
+                <Checkbox
+                  checked={Boolean(notif[kind.email])}
+                  disabled={!notif.email}
+                  onChange={(e) => set(kind.email!, e.target.checked)}
+                  aria-label={`${t(kind.label)}, ${t("notif.columnEmail")}`}
+                />
+              ) : (
+                <span aria-label={t("notif.neverByEmail")} title={t("notif.neverByEmail")} style={{ color: "var(--text-muted)" }}>
+                  -
+                </span>
+              )}
             </span>
           </div>
         ))}

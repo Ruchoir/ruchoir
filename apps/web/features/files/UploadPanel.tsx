@@ -98,14 +98,16 @@ function Row({ job, compact }: { job: UploadJob; compact: boolean }) {
         ? t("files.uploadForbidden")
         : job.failure === "network"
           ? t("files.uploadNetwork")
-          : t("files.uploadFailed");
+          : job.failure === "duplicate"
+            ? t("files.uploadDuplicate", { where: job.duplicateOf ?? job.name })
+            : t("files.uploadFailed");
   const status =
     job.status === "queued"
       ? t("files.uploadQueued")
       : job.status === "uploading"
         ? `${percent} % · ${formatBytes(job.size)}`
         : job.status === "done"
-          ? job.replaceFileId
+          ? job.replaceFileId || job.merged
             ? t("files.uploadDoneVersion")
             : t("files.uploadDone")
           : job.status === "cancelled"
@@ -138,7 +140,7 @@ function Row({ job, compact }: { job: UploadJob; compact: boolean }) {
         <IconButton icon="x" label={t("files.cancelUpload", { name: job.name })} size="sm" onClick={() => cancel(job.id)} style={size} />
       ) : job.status === "done" ? (
         <Icon name="check" size={16} style={{ flex: "none", color: "var(--status-success-fg, var(--text-accent))", margin: "0 8px" }} />
-      ) : job.failure === "tooLarge" ? null : (
+      ) : job.failure === "tooLarge" || job.failure === "duplicate" ? null : (
         <IconButton icon="refresh-cw" label={t("files.retryUpload", { name: job.name })} size="sm" onClick={() => retry(job.id)} style={size} />
       )}
     </div>

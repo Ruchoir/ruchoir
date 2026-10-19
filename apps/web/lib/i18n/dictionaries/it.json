@@ -238,6 +238,12 @@
     "attachment": "(allegato)"
   },
   "notif": {
+    "reacted": "ha reagito al tuo messaggio",
+    "edited": "ha modificato un messaggio",
+    "kindReactionsDesc": "Qualcuno reagisce a uno dei tuoi messaggi.",
+    "kindEdits": "Messaggi modificati",
+    "kindEditsDesc": "Viene modificato un messaggio di cui sei stato avvisato.",
+    "neverByEmail": "Mai via e-mail",
     "title": "Notifiche",
     "nothingNew": "Niente di nuovo",
     "nothingNewText": "Le tue menzioni, risposte e messaggi diretti appariranno qui.",
@@ -715,6 +721,7 @@
     "uploadTooLarge": "Troppo grande per essere caricato",
     "uploadForbidden": "Rifiutato: non hai questo permesso",
     "uploadNetwork": "Connessione interrotta",
+    "uploadDuplicate": "Già nello spazio: {{where}}",
     "uploadsLabel": "Caricamenti di file",
     "uploadsProgress": "{{done}} su {{total}} caricati",
     "uploadsCollapse": "Comprimi i caricamenti",
@@ -1790,5 +1797,16 @@
     "failed": "Non è stato possibile salvare la risposta, riprova più tardi.",
     "footer": "Ruchoir, lo spazio di lavoro del team che ti invita.",
     "files": "Documenti allegati"
+  },
+  "handoff": {
+    "signInNote": "Accesso per l’app Ruchoir di questo telefono",
+    "consentTitle": "Autorizzare l’app Ruchoir?",
+    "consentBody": "L’app Ruchoir di questo telefono potrà usare l’account {{name}} ({{email}}), come se vi accedessi.",
+    "passkeyTitle": "Aggiungi una passkey",
+    "passkeyBody": "Per l’account {{email}}. Il telefono ti chiederà Face ID, l’impronta o il suo codice.",
+    "doneTitle": "Fatto",
+    "doneBody": "Puoi tornare all’app Ruchoir.",
+    "goneTitle": "Link scaduto",
+    "goneBody": "Questo link non è più valido. Ricomincia dall’app Ruchoir."
   }
 }

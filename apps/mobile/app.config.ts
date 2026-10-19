@@ -28,25 +28,38 @@ function buildNumber(env: Env): number | undefined {
 export function appConfig(env: Env): ExpoConfig {
   const devProjectId = env.EXPO_DEV_PROJECT_ID?.trim();
   const build = buildNumber(env);
+  // Given by the build workflow only: the Apple team the extensions are made for, and the Firebase
+  // project's file Android needs to receive pushes (ADR 0006).
+  const appleTeamId = env.APPLE_TEAM_ID?.trim() || undefined;
+  const googleServicesFile = env.GOOGLE_SERVICES_FILE?.trim() || undefined;
   return {
     name: "Ruchoir",
     slug: "ruchoir",
     scheme: "ruchoir",
     version: "0.1.0",
-    orientation: "portrait",
+    // Every orientation for tablets (an iPad app must take all four); phones are held upright at
+    // launch (src/App.tsx).
+    orientation: "default",
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
     ios: {
       bundleIdentifier: "com.ruchoir.app",
-      supportsTablet: false,
+      supportsTablet: true,
       ...(build ? { buildNumber: String(build) } : {}),
       // HTTPS and the system's cryptography only, so App Store Connect does not ask about export
       // compliance for every build.
       config: { usesNonExemptEncryption: false },
+      ...(appleTeamId ? { appleTeamId } : {}),
+      entitlements: {
+        // Shared with the notification extension (`targets/notifications`), which reads the
+        // instance and the session token there to show what a push is about (ADR 0006).
+        "keychain-access-groups": ["$(AppIdentifierPrefix)com.ruchoir.app.shared"],
+      },
     },
     android: {
       package: "com.ruchoir.app",
       ...(build ? { versionCode: build } : {}),
+      ...(googleServicesFile ? { googleServicesFile } : {}),
       adaptiveIcon: {
         foregroundImage: "./assets/icon.png",
         backgroundColor: "#f6f7f9",
@@ -57,6 +70,65 @@ export function appConfig(env: Env): ExpoConfig {
       "expo-font",
       "expo-localization",
       "expo-web-browser",
+      // Phone notifications (ADR 0006): every build is signed for the App Store (TestFlight too).
+      ["expo-notifications", { mode: "production", icon: "./assets/notification-icon.png", color: "#c65d45" }],
+      // The iPhone extensions written in Swift, under targets/ (the notification service).
+      "@bacons/apple-targets",
+      // No `fetch` background mode on the iPhone, which the task manager adds and nothing uses.
+      "./plugins/no-background-fetch",
+      // The Android widgets (src/widgets/android.tsx), drawn every half hour and when placed.
+      [
+        "react-native-android-widget",
+        {
+          widgets: [
+            {
+              name: "RuchoirAgenda",
+              label: "Prochain",
+              description: "Le prochain rendez-vous",
+              minWidth: "110dp",
+              minHeight: "110dp",
+              targetCellWidth: 2,
+              targetCellHeight: 2,
+              resizeMode: "horizontal|vertical",
+              updatePeriodMillis: 1_800_000,
+            },
+            {
+              name: "RuchoirDiscussions",
+              label: "Discussions",
+              description: "Les dernières conversations",
+              minWidth: "250dp",
+              minHeight: "110dp",
+              targetCellWidth: 4,
+              targetCellHeight: 2,
+              resizeMode: "horizontal|vertical",
+              updatePeriodMillis: 1_800_000,
+            },
+            {
+              name: "RuchoirShortcuts",
+              label: "Raccourcis",
+              description: "Message, événement, fichier, recherche",
+              minWidth: "250dp",
+              minHeight: "40dp",
+              targetCellWidth: 4,
+              targetCellHeight: 1,
+              resizeMode: "horizontal",
+            },
+            {
+              name: "RuchoirReply",
+              label: "À répondre",
+              description: "Qui attend une réponse",
+              minWidth: "110dp",
+              minHeight: "110dp",
+              targetCellWidth: 2,
+              targetCellHeight: 2,
+              resizeMode: "horizontal|vertical",
+              updatePeriodMillis: 1_800_000,
+            },
+          ],
+        },
+      ],
+      // The Face ID lock (Security): the prompt's reason, in the six languages, comes from locales/.
+      ["expo-local-authentication", { faceIDPermission: "Ruchoir uses Face ID to unlock, when you have turned the lock on." }],
       // Photos are picked through the system picker and the camera takes stills only: no microphone.
       [
         "expo-image-picker",

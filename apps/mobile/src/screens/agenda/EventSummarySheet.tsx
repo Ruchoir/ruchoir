@@ -49,6 +49,22 @@ const STATUS_TEXT: Record<AttendeeStatus, ReturnType<typeof key>> = {
 export function EventSummarySheet() {
   const { params } = useRoute<RouteProp<RootParams, "eventSummary">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
+  return <EventSummary {...params} onClose={() => navigation.goBack()} />;
+}
+
+/**
+ * The summary itself: in its sheet on a phone, beside the month or the week on a tablet (`panel`,
+ * tablet mockup 03), where closing it shows the day's events again.
+ */
+export function EventSummary({
+  eventId,
+  recurrenceId,
+  start,
+  onClose,
+  panel = false,
+}: RootParams["eventSummary"] & { onClose: () => void; panel?: boolean }) {
+  const params = { eventId, recurrenceId, start };
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -87,7 +103,7 @@ export function EventSummarySheet() {
   const remove = async (scope: EditScope) => {
     try {
       await deleteEvent(params.eventId, scope, params.recurrenceId);
-      navigation.goBack();
+      onClose();
       toast(t("eventForm.deleted"));
     } catch {
       toast(t("eventForm.deleteFailed"), "failure");
@@ -105,7 +121,7 @@ export function EventSummarySheet() {
   const { event: e, occurrence: o } = loaded.data;
   const seriesDate = e.isRecurring && !!o.recurrenceId;
   const calendar = calendars.data?.find((cal) => cal.id === o.calendarId);
-  const label = calendar ? calendarLabel(calendar, spaces.data ?? []) : null;
+  const label = calendar ? calendarLabel(calendar, spaces.data ?? [], t("calendar.personal")) : null;
   const form = e.rrule ? parseRule(e.rrule) : null;
   const repeats = e.rrule
     ? form
@@ -155,10 +171,10 @@ export function EventSummarySheet() {
   });
   const date = dateFormat.format(new Date(o.allDay ? `${o.start.slice(0, 10)}T12:00:00Z` : o.start));
   const when = o.allDay ? t("agenda.allDay") : `${timeOf(o.start, locale, timeZone)} – ${timeOf(o.end, locale, timeZone)}`;
-  const band = mix(calendarColor(calendar?.color, c), c.surface, 0.45);
+  const band = mix(calendarColor(calendar?.color, c), c.surface, panel ? 0.4 : 0.45);
   return (
-    <ScrollView style={{ backgroundColor: c.surface }} contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-      <View style={[styles.band, { backgroundColor: band }]}>
+    <ScrollView style={{ backgroundColor: c.surface }} contentContainerStyle={{ paddingBottom: panel ? 20 : insets.bottom + 24 }}>
+      <View style={[styles.band, panel && styles.bandPanel, { backgroundColor: band }]}>
         <Text variant="title" style={[styles.title, { color: c.onPastel }]}>
           {o.title}
         </Text>
@@ -172,7 +188,7 @@ export function EventSummarySheet() {
             <Text variant="smallStrong">{t("message.edit")}</Text>
           </Pressable>
         ) : null}
-        <Pressable accessibilityRole="button" accessibilityLabel={t("common.close")} onPress={() => navigation.goBack()} style={styles.close}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("common.close")} onPress={onClose} style={styles.close}>
           <X size={22} color={c.onPastel} />
         </Pressable>
       </View>
@@ -325,6 +341,8 @@ function Row({ icon, tint, children }: { icon: ReactNode; tint: string; children
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   band: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 20, paddingTop: 28, paddingBottom: 18 },
+  // The tablet mockup's panel head: 18/10/16/20 around it.
+  bandPanel: { gap: 8, paddingTop: 18, paddingRight: 10, paddingBottom: 16 },
   title: { flex: 1, fontSize: 22, lineHeight: 28 },
   edit: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 12, borderRadius: radius.m, borderWidth: hairline, marginTop: -4 },
   close: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginTop: -6 },

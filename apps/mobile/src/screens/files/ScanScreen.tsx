@@ -1,10 +1,9 @@
 /**
- * "Scan a document": photos of its pages, taken one after the other, made into one PDF on the phone
- * (`logic/scan.ts`, `expo-print`) and sent like any file, into the folder the person is in. Expo Go
- * has no document scanner (edges, perspective): that waits for the native app.
+ * "Scan a document": its pages, made into one PDF on the phone (`logic/scan.ts`, `expo-print`) and
+ * sent like any file, into the folder the person is in. The pages come from the phone's own document
+ * scanner (edges and perspective found, `native/documentScanner.ts`) where the app has it; in Expo
+ * Go, or on an Android phone without Google Play services, from photos taken one after the other.
  */
-import { getFolder } from "@ruchoir/client";
-import { canManage } from "@ruchoir/client/filesLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { File } from "expo-file-system";
@@ -14,20 +13,18 @@ import * as ImagePicker from "expo-image-picker";
 import * as Print from "expo-print";
 import { Plus, X } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Image as NativeImage, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { cameraAllowed } from "../../compose/pick";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { leaveScan, scanHtml, scanName, scanPageSize } from "../../logic/scan";
+import { hasDocumentScanner, scanDocument } from "../../native/documentScanner";
 import type { RootParams } from "../../navigation/types";
-import { useSession } from "../../session/SessionProvider";
-import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FullScreen } from "../../ui/FullScreen";
-import { feel } from "../../ui/haptics";
 import { KeyboardForm } from "../../ui/KeyboardForm";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
@@ -47,9 +44,6 @@ export function ScanScreen() {
   const { c, s } = useTheme();
   const { timeZone } = useLocale();
   const toast = useToast();
-  const { current } = useSpace();
-  const { state } = useSession();
-  const me = state.kind === "signedIn" ? state.user.id : undefined;
   const uploads = useUploads();
   const [pages, setPages] = useState<Page[]>([]);
   const proposedName = () =>
@@ -59,7 +53,22 @@ export function ScanScreen() {
   const done = useRef(false);
   const started = useRef(false);
 
+  // The phone's scanner while it works; photos once it has failed here.
+  const scanner = useRef(hasDocumentScanner());
+
   const takePage = async () => {
+    if (scanner.current) {
+      const scanned = await scanDocument();
+      if (scanned !== null) {
+        if (scanned.length === 0) return false;
+        const sized = await Promise.all(
+          scanned.map(async (uri) => ({ uri, ...(await NativeImage.getSize(uri)) })),
+        );
+        setPages((prev) => [...prev, ...sized]);
+        return true;
+      }
+      scanner.current = false;
+    }
     if (!(await cameraAllowed(t))) return false;
     const result = await ImagePicker.launchCameraAsync({ quality: 0.85 });
     if (result.canceled) return false;
@@ -111,23 +120,13 @@ export function ScanScreen() {
       }
       const pdf = await Print.printToFileAsync({ html: scanHtml(shrunk), ...A4 });
       const fileName = `${name.trim() || proposedName()}.pdf`;
-      const entries = await getFolder(params.spaceId, params.folderId).then(
-        (f) => f.entries,
-        () => [],
-      );
-      const existing = entries.flatMap((e) => (e.id ? [{ id: e.id, name: e.name, manage: canManage(e, me, current?.role) }] : []));
-      const asks = uploads.add(
+      uploads.add(
         [{ uri: pdf.uri, name: fileName, mime: "application/pdf", size: new File(pdf.uri).size }],
         { spaceId: params.spaceId, folderId: params.folderId },
-        existing,
         params.folderName,
       );
       done.current = true;
-      if (asks) {
-        feel("warning");
-        navigation.replace("uploadConflict");
-      }
-      else navigation.goBack();
+      navigation.goBack();
     } catch {
       setBusy(false);
       toast(t("files.scanFailed"), "failure");

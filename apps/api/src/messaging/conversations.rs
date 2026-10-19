@@ -127,7 +127,8 @@ async fn unread_messages_by_space(
 }
 
 /// Unread notifications per space: the caller's inbox (mention, thread reply, direct message),
-/// grouped through the conversation each one points at.
+/// grouped through the conversation each one points at. A reaction or an edit is news, not a call
+/// for an answer: it is left out, or the Today tab's count stayed lit over nothing to answer.
 ///
 /// Deliberately the same rows the notification centre shows, so the rail's number can never drift
 /// from what opening the inbox will reveal.
@@ -138,7 +139,8 @@ async fn unread_notifications_by_space(
     let sql = "SELECT c.space_id AS space_id, COUNT(n.id) AS unread \
                  FROM notifications n \
                  JOIN conversations c ON c.id = n.conversation_id \
-                WHERE n.user_id = $1 AND n.read_at IS NULL AND n.kind <> 'message' \
+                WHERE n.user_id = $1 AND n.read_at IS NULL \
+                  AND n.kind NOT IN ('message', 'reaction', 'edited') \
                 GROUP BY c.space_id";
     count_by_space(db, sql, user_id, "unread").await
 }

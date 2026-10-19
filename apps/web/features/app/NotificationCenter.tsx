@@ -17,6 +17,8 @@ const KIND_ICON: Record<NotifKind, string> = {
   dm: "mail",
   // Any other message, for someone who asked to hear about every one: the channel's own mark.
   message: "hash",
+  reaction: "smile-plus",
+  edited: "square-pen",
   calendar_reminder: "calendar",
   calendar_invitation: "calendar-plus",
   calendar_update: "calendar",

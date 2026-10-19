@@ -2,6 +2,7 @@ import { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CalendarDays, Clock, Sun } from "lucide-react-native";
+import { useState } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../../i18n";
@@ -26,6 +27,7 @@ export function WhenRows({ formKey, draft, error }: { formKey: string; draft: Ev
   const { c } = useTheme();
   const { locale } = useLocale();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
+  const [labelWidth, setLabelWidth] = useState(0);
   const pick = (field: WhenField) => {
     if (Platform.OS === "ios") {
       navigation.navigate("eventPicker", { formKey, field });
@@ -48,7 +50,18 @@ export function WhenRows({ formKey, draft, error }: { formKey: string; draft: Ev
     const label = which === "start" ? t("eventForm.start") : t("eventForm.end");
     return (
       <View style={styles.line}>
-        <Text variant="smallStrong" tone="muted" style={styles.label}>
+        {/* As wide as the longer of the two words in the reader's language ("Początek"), so both
+            rows line up and neither word is cut. */}
+        <Text
+          variant="smallStrong"
+          tone="muted"
+          numberOfLines={1}
+          style={[styles.label, { minWidth: labelWidth }]}
+          onLayout={(e) => {
+            const width = Math.ceil(e.nativeEvent.layout.width);
+            setLabelWidth((now) => (width > now ? width : now));
+          }}
+        >
           {label}
         </Text>
         <Pressable
@@ -108,7 +121,7 @@ export function WhenRows({ formKey, draft, error }: { formKey: string; draft: Ev
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   line: { flexDirection: "row", alignItems: "center", gap: 8 },
-  label: { width: 40 },
+  label: { flexShrink: 0 },
   day: { flex: 1, minHeight: 40, justifyContent: "center", borderWidth: hairline, borderRadius: radius.m, paddingHorizontal: 12 },
   box: { minWidth: 76, minHeight: 40, alignItems: "center", justifyContent: "center", borderWidth: hairline, borderRadius: radius.m, paddingHorizontal: 10 },
   clock: { fontSize: 17, lineHeight: 22 },

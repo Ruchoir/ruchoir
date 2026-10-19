@@ -1,7 +1,10 @@
-import { NavigationContainer } from "@react-navigation/native";
+import { createNavigationContainerRef, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { AttachSheet } from "../compose/AttachSheet";
+import { SearchScreen } from "../screens/search/SearchScreen";
+import { useDuplicateQuestions } from "../uploads/useDuplicateQuestions";
+import { useWidgetLook } from "../widgets/share";
 import { AccountSheet } from "../screens/account/AccountSheet";
 import { ChangePasswordScreen } from "../screens/account/ChangePasswordScreen";
 import { HelpSheet } from "../screens/account/HelpSheet";
@@ -48,13 +51,25 @@ import { ShareSheet } from "../screens/files/ShareSheet";
 import { UploadsSheet } from "../screens/files/UploadsSheet";
 import { VersionsSheet } from "../screens/files/VersionsSheet";
 import { JoinSpaceScreen } from "../screens/space/JoinSpaceScreen";
+import { DefaultChannelSheet } from "../screens/space/DefaultChannelSheet";
+import { DeleteSpaceScreen } from "../screens/space/DeleteSpaceScreen";
+import { MemberSheet } from "../screens/space/MemberSheet";
+import { SpaceNotifySheet } from "../screens/space/SpaceNotifySheet";
+import { SpaceSettingsScreen } from "../screens/space/SpaceSettingsScreen";
 import { SpaceSheet } from "../screens/space/SpaceSheet";
+import { NotificationsIntroScreen } from "../screens/account/NotificationsIntroScreen";
+import { useWide } from "../layout/useWide";
+import { usePhonePush } from "../push/usePhonePush";
+import { useAppLinks } from "./useAppLinks";
 import { TutorialScreen } from "../screens/welcome/TutorialScreen";
 import { useNavigationTheme } from "./navigationTheme";
 import { Tabs } from "./Tabs";
 import type { RootParams } from "./types";
 
 const Stack = createNativeStackNavigator<RootParams>();
+
+/** The root navigation, for what opens a screen from outside one (a tapped notification). */
+const rootNavigation = createNavigationContainerRef<RootParams>();
 
 /** "Create or join a space", from the space sheet. */
 function JoinSpaceModal() {
@@ -64,19 +79,31 @@ function JoinSpaceModal() {
 /** The signed-in app: the tabs, the screens pushed over them, and the sheets. */
 export function RootNavigator() {
   const theme = useNavigationTheme();
+  const push = usePhonePush(rootNavigation);
+  const links = useAppLinks(rootNavigation);
+  useDuplicateQuestions(rootNavigation);
+  useWidgetLook();
+  const wide = useWide();
+  const onReady = () => {
+    push.onReady();
+    links.onReady();
+  };
   const sheet = { presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true, headerShown: false } as const;
 
   return (
-    <NavigationContainer theme={theme}>
+    <NavigationContainer theme={theme} ref={rootNavigation} onReady={onReady}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="tabs" component={Tabs} />
-        <Stack.Screen name="conversation" component={ConversationScreen} />
+        {/* On a tablet it only hands over to the Discussions tab: nothing slides in. */}
+        <Stack.Screen name="conversation" component={ConversationScreen} options={{ animation: wide ? "none" : "default" }} />
         <Stack.Screen name="thread" component={ThreadScreen} />
         <Stack.Screen name="conversationDetails" component={ConversationDetails} />
         <Stack.Screen name="folder" component={FolderScreen} />
         <Stack.Screen name="fileViewer" component={FileViewerScreen} options={{ presentation: "fullScreenModal" }} />
+        <Stack.Screen name="search" component={SearchScreen} options={{ presentation: wide ? "modal" : "fullScreenModal" }} />
         <Stack.Screen name="eventSummary" component={EventSummarySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
-        <Stack.Screen name="eventForm" component={EventFormScreen} options={{ presentation: "fullScreenModal" }} />
+        {/* The form takes the whole phone; on a tablet it is a sheet in the middle, the agenda around it. */}
+        <Stack.Screen name="eventForm" component={EventFormScreen} options={{ presentation: wide ? "modal" : "fullScreenModal" }} />
         <Stack.Screen name="eventCalendar" component={CalendarSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="eventPicker" component={PickerSheet} options={sheet} />
         <Stack.Screen name="eventRepeat" component={RepeatSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
@@ -98,8 +125,16 @@ export function RootNavigator() {
         <Stack.Screen name="fileShare" component={ShareSheet} options={sheet} />
         <Stack.Screen name="fileSendTo" component={ConversationPicker} options={{ presentation: "modal" }} />
         <Stack.Screen name="fileLinks" component={LinksSheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
-        <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
+        {/* As tall as its rows, like the other short sheets: at half the screen and then full, it
+            jumped and blinked as it opened and closed. */}
+        <Stack.Screen name="spaceSheet" component={SpaceSheet} options={sheet} />
         <Stack.Screen name="joinSpace" component={JoinSpaceModal} options={{ presentation: "modal" }} />
+        <Stack.Screen name="spaceSettings" component={SpaceSettingsScreen} />
+        <Stack.Screen name="notificationsIntro" component={NotificationsIntroScreen} options={{ presentation: "fullScreenModal" }} />
+        <Stack.Screen name="spaceMember" component={MemberSheet} options={sheet} />
+        <Stack.Screen name="spaceDelete" component={DeleteSpaceScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="spaceNotify" component={SpaceNotifySheet} options={sheet} />
+        <Stack.Screen name="spaceDefaultChannel" component={DefaultChannelSheet} options={{ ...sheet, sheetAllowedDetents: [0.6, 1] }} />
         <Stack.Screen name="tutorial" component={TutorialScreen} options={{ presentation: "fullScreenModal" }} />
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
         <Stack.Screen name="statusSheet" component={StatusSheet} options={sheet} />

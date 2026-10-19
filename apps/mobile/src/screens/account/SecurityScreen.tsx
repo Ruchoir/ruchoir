@@ -1,7 +1,7 @@
 import { getMfaState, logoutEverywhere, removePasskey, generateRecoveryCodes } from "@ruchoir/client";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { KeyRound, ListChecks, LogOut, ShieldCheck, Trash2 } from "lucide-react-native";
+import { KeyRound, ListChecks, Lock, LogOut, Plus, RectangleEllipsis, ShieldCheck, Trash2 } from "lucide-react-native";
 import { useCallback } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,6 +9,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
+import { addPasskeyThroughBrowser, canUseBrowserHandoff } from "../../auth/browser";
+import { useAppLock } from "../../lock/AppLock";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useTheme } from "../../theme/useTheme";
@@ -16,13 +18,14 @@ import { ActionRow } from "../../ui/ActionRow";
 import { BackHeader } from "../../ui/BackHeader";
 import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
+import { Toggle } from "../../ui/Toggle";
 import { useToast } from "../../ui/Toast";
 import { Section } from "./Section";
 
 /**
  * Security, as the web's: the password, two-factor authentication and its recovery codes, the
- * passkeys (removable here; adding one needs the native build of a later version), and signing out of
- * every device.
+ * passkeys (added through the instance's web page, `auth/browser.ts`; removable here), and signing
+ * out of every device. Plus what only a phone has: locking the app with Face ID and a PIN (`lock/AppLock`).
  */
 export function SecurityScreen() {
   const { t } = useTranslation();
@@ -81,6 +84,24 @@ export function SecurityScreen() {
       },
     ]);
 
+  const lock = useAppLock();
+  const server = session.state.kind === "signedIn" ? session.state.server : null;
+  const addPasskey = () => {
+    if (!server) return;
+    addPasskeyThroughBrowser(server).then(
+      (added) => {
+        if (!added) return;
+        toast(t("security.passkeyAdded"), "success");
+        reload();
+      },
+      () => toast(t("security.addPasskeyFailed"), "failure"),
+    );
+  };
+  const lockTitle = lock.kind
+    ? { faceId: t("security.lockFaceId"), touchId: t("security.lockTouchId"), biometrics: t("security.lockBiometrics") }[lock.kind]
+    : t("security.lockPin");
+  const changePin = () => void lock.changePin().then((changed) => changed && toast(t("security.pinChanged"), "success"));
+
   const state = mfa.data;
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: c.bg }]} edges={["top"]}>
@@ -128,7 +149,7 @@ export function SecurityScreen() {
             </>
           )}
         </Section>
-        {state && state.passkeys.length > 0 ? (
+        {state && (state.passkeys.length > 0 || canUseBrowserHandoff()) ? (
           <Section label={t("security.passkeys")}>
             {state.passkeys.map((key) => {
               const label = key.label ?? t("security.passkeyLabel");
@@ -147,11 +168,26 @@ export function SecurityScreen() {
                 />
               );
             })}
-            <Text variant="small" tone="muted">
-              {t("security.passkeysPhone")}
-            </Text>
+            {canUseBrowserHandoff() ? (
+              <>
+                <ActionRow icon={Plus} tint={c.violet} title={t("security.addPasskey")} onPress={addPasskey} />
+                <Text variant="small" tone="muted">
+                  {t("security.passkeysPhone")}
+                </Text>
+              </>
+            ) : null}
           </Section>
         ) : null}
+        <Section label={t("security.lockSection")}>
+          <ActionRow
+            icon={Lock}
+            tint={lock.enabled ? c.mint : s.sunken}
+            title={lockTitle}
+            subtitle={lock.kind ? t("security.lockBiometryHint") : t("security.lockHint")}
+            trailing={<Toggle value={lock.enabled} onValueChange={(on) => void lock.setEnabled(on)} accessibilityLabel={lockTitle} />}
+          />
+          {lock.enabled ? <ActionRow icon={RectangleEllipsis} tint={s.sunken} title={t("security.changePin")} onPress={changePin} /> : null}
+        </Section>
         <Section label={t("security.sessions")}>
           <ActionRow icon={LogOut} danger title={t("security.signOutEverywhere")} subtitle={t("security.sessionsDesc")} onPress={everywhere} />
         </Section>

@@ -238,6 +238,12 @@
     "attachment": "(pièce jointe)"
   },
   "notif": {
+    "reacted": "a réagi à votre message",
+    "edited": "a modifié un message",
+    "kindReactionsDesc": "Quelqu'un réagit à un de vos messages.",
+    "kindEdits": "Messages modifiés",
+    "kindEditsDesc": "Un message dont vous avez été prévenu est modifié.",
+    "neverByEmail": "Jamais par e-mail",
     "title": "Notifications",
     "nothingNew": "Rien de neuf",
     "nothingNewText": "Vos mentions, réponses et messages directs apparaîtront ici.",
@@ -702,6 +708,7 @@
     "uploadTooLarge": "Trop lourd pour être envoyé",
     "uploadForbidden": "Refusé : vous n'avez pas ce droit",
     "uploadNetwork": "Connexion interrompue",
+    "uploadDuplicate": "Déjà dans l'espace : {{where}}",
     "uploadsLabel": "Envois de fichiers",
     "uploadsProgress": "{{done}} sur {{total}} envoyés",
     "uploadsCollapse": "Réduire les envois",
@@ -1749,5 +1756,16 @@
     "failed": "Réponse impossible pour le moment, réessayez plus tard.",
     "footer": "Ruchoir, l'espace de travail de l'équipe qui vous invite.",
     "files": "Documents joints"
+  },
+  "handoff": {
+    "signInNote": "Connexion pour l’appli Ruchoir de ce téléphone",
+    "consentTitle": "Autoriser l’appli Ruchoir ?",
+    "consentBody": "L’appli Ruchoir de ce téléphone pourra utiliser le compte {{name}} ({{email}}), comme si vous vous y connectiez.",
+    "passkeyTitle": "Ajouter une clé d’accès",
+    "passkeyBody": "Pour le compte {{email}}. Votre téléphone vous demandera Face ID, votre empreinte ou son code.",
+    "doneTitle": "C’est fait",
+    "doneBody": "Vous pouvez revenir dans l’appli Ruchoir.",
+    "goneTitle": "Lien expiré",
+    "goneBody": "Ce lien n’est plus valable. Recommencez depuis l’appli Ruchoir."
   }
 }

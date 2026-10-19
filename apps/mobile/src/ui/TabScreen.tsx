@@ -5,10 +5,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../theme/useTheme";
 
 /** A tab's page: the canvas colour under the status bar; the tab bar handles the bottom edge. */
-export function TabScreen({ children }: { children: ReactNode }) {
+export function TabScreen({ children, color }: { children: ReactNode; color?: string }) {
   const { c } = useTheme();
   return (
-    <SafeAreaView edges={["top"]} style={[styles.fill, { backgroundColor: c.bg }]}>
+    <SafeAreaView edges={["top"]} style={[styles.fill, { backgroundColor: color ?? c.bg }]}>
       {children}
     </SafeAreaView>
   );

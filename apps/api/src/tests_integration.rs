@@ -100,6 +100,8 @@ async fn boot_with(
     config.database_url = database_url;
     config.valkey_url = valkey_url;
     config.auto_migrate = false;
+    // Never the publisher's relay from a test: the phone tests start one of their own.
+    config.push_relay_url = None;
     // Short presence TTL so an offline transition is observable quickly in tests.
     config.presence_ttl_secs = 5;
     // An import directory, so the tests of the server-side path exercise the real guard instead of
@@ -9936,7 +9938,9 @@ async fn a_listing_says_who_changed_a_file_last_and_how_full_a_folder_is() {
             .text("folder_id", folder.to_string())
             .part(
                 "file",
-                reqwest::multipart::Part::bytes(b"x".to_vec()).file_name(name.to_owned()),
+                // Bytes of its own: the same bytes twice would make one file of the two.
+                reqwest::multipart::Part::bytes(name.as_bytes().to_vec())
+                    .file_name(name.to_owned()),
             );
         let res = app
             .req(
@@ -11337,9 +11341,9 @@ async fn a_listing_names_each_files_editors() {
     let alice = app.cookie_for(fx.alice).await;
     let bob = app.cookie_for(fx.bob).await;
     let carol = app.cookie_for(fx.carol).await;
-    let plan = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK").await;
-    let budget = upload_bytes(&app, &alice, fx.space_id, "budget.xlsx", b"PK").await;
-    let quiet = upload_bytes(&app, &alice, fx.space_id, "quiet.pptx", b"PK").await;
+    let plan = upload_bytes(&app, &alice, fx.space_id, "plan.docx", b"PK-plan").await;
+    let budget = upload_bytes(&app, &alice, fx.space_id, "budget.xlsx", b"PK-budget").await;
+    let quiet = upload_bytes(&app, &alice, fx.space_id, "quiet.pptx", b"PK-quiet").await;
     assert_eq!(
         office_beat(&app, &bob, plan, reqwest::Method::POST, "t1").await,
         204
@@ -11680,6 +11684,9 @@ mod import_calendar_tests;
 /// Bearer sessions for the native apps, kept in their own file; they reuse the helpers above.
 mod native_sessions_tests;
 
+/// The phones woken through the push relay (ADR 0006), kept in their own file.
+mod phone_push_tests;
+
 // --- The six-digit code sent next to the verification link ---
 
 /// A fresh pending account, as registration leaves it: its id and address.
@@ -11906,4 +11913,275 @@ async fn a_role_change_reaches_the_channel() {
     let event = wait_for_type(&mut carol_ws, "channel.membership").await;
     assert_membership(&event, &fx, fx.public_channel, fx.bob, "role");
     assert_eq!(event["payload"]["role"], "admin");
+}
+
+/// Alice's notifications of one kind, as rows.
+async fn alice_rows(app: &TestApp, fx: &Fixture, kind: &str) -> Vec<notifications::Model> {
+    notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.alice))
+        .filter(notifications::Column::Kind.eq(kind))
+        .all(&app.db)
+        .await
+        .expect("query")
+}
+
+/// `who` posts `body` in the public channel and gets the message's id back.
+async fn post_in_general(app: &TestApp, fx: &Fixture, who: Uuid, body: &str) -> String {
+    let cookie = app.cookie_for(who).await;
+    let sent: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+            &cookie,
+        )
+        .json(&json!({ "body": body }))
+        .send()
+        .await
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    sent["id"].as_str().expect("id").to_owned()
+}
+
+#[tokio::test]
+async fn a_reaction_tells_the_author_once_and_never_by_mail() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Carol takes part in the channel too, to react or be named there.
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let message_id = post_in_general(&app, &fx, fx.alice, "le devis est prêt").await;
+    let react = |cookie: String, method: reqwest::Method, emoji: &'static str| {
+        let url = format!("/api/v1/messages/{message_id}/reactions/{emoji}");
+        let app = &app;
+        async move {
+            let response = app.req(method, &url, &cookie).send().await.expect("react");
+            assert_eq!(response.status(), 204);
+        }
+    };
+
+    // Bob reacts: Alice hears of it, with the emoji, and the mail fallback never takes it.
+    react(bob.clone(), reqwest::Method::PUT, "%F0%9F%91%8D").await;
+    let rows = alice_rows(&app, &fx, "reaction").await;
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].email_handled_at.is_some(), "never mailed");
+    let feed: Value = app
+        .req(reqwest::Method::GET, "/api/v1/notifications", &alice)
+        .send()
+        .await
+        .expect("feed")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(feed["notifications"][0]["kind"], "reaction");
+    assert_eq!(feed["notifications"][0]["emoji"], "👍");
+    // News, not a call for an answer: the space's count of what is addressed to her stays at zero.
+    let spaces: Value = app
+        .req(reqwest::Method::GET, "/api/v1/me/spaces", &alice)
+        .send()
+        .await
+        .expect("spaces")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(spaces[0]["mentions"], 0);
+
+    // Another emoji, or the same one taken back and given again: nothing new.
+    react(bob.clone(), reqwest::Method::PUT, "%E2%9D%A4%EF%B8%8F").await;
+    react(bob.clone(), reqwest::Method::DELETE, "%F0%9F%91%8D").await;
+    react(bob.clone(), reqwest::Method::PUT, "%F0%9F%91%8D").await;
+    assert_eq!(alice_rows(&app, &fx, "reaction").await.len(), 1);
+
+    // Her own reaction says nothing to her.
+    react(alice.clone(), reqwest::Method::PUT, "%F0%9F%8E%89").await;
+    assert_eq!(alice_rows(&app, &fx, "reaction").await.len(), 1);
+
+    // Reactions turned off: Carol's says nothing either.
+    let path = "/api/v1/me/notification-preferences";
+    let mut prefs: Value = app
+        .req(reqwest::Method::GET, path, &alice)
+        .send()
+        .await
+        .expect("get")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(prefs["reactions"], true, "on by default");
+    assert_eq!(prefs["edits"], true, "on by default");
+    prefs["reactions"] = json!(false);
+    let saved = app
+        .req(reqwest::Method::PUT, path, &alice)
+        .json(&prefs)
+        .send()
+        .await
+        .expect("put");
+    assert_eq!(saved.status(), 200);
+    let carol = app.cookie_for(fx.carol).await;
+    react(carol, reqwest::Method::PUT, "%F0%9F%91%8D").await;
+    assert_eq!(alice_rows(&app, &fx, "reaction").await.len(), 1);
+}
+
+#[tokio::test]
+async fn an_edit_tells_everyone_its_message_notified() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    // Carol takes part in the channel too, to react or be named there.
+    add_channel_member(&app.db, fx.public_channel, fx.carol).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let message_id = post_in_general(&app, &fx, fx.bob, "@alice le devis est prêt").await;
+    let edit = |body: &'static str| {
+        let url = format!("/api/v1/messages/{message_id}");
+        let (app, bob) = (&app, bob.clone());
+        async move {
+            let response = app
+                .req(reqwest::Method::PATCH, &url, &bob)
+                .json(&json!({ "body": body }))
+                .send()
+                .await
+                .expect("edit");
+            assert_eq!(response.status(), 200);
+        }
+    };
+
+    // While the mention is still unread, an edit adds nothing: she will read the new text anyway.
+    edit("@alice le devis est prêt, version 2").await;
+    assert!(alice_rows(&app, &fx, "edited").await.is_empty());
+
+    // Once read, the next edit tells her it changed, and never by mail.
+    let mention = alice_rows(&app, &fx, "mention").await;
+    assert_eq!(mention.len(), 1);
+    let read = app
+        .req(
+            reqwest::Method::PUT,
+            &format!("/api/v1/notifications/{}/read", mention[0].id),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("read");
+    assert_eq!(read.status(), 204);
+    // Carol is named for the first time: a mention of her own, not an edit.
+    edit("@alice @carol le devis est prêt, version 3").await;
+    let edited = alice_rows(&app, &fx, "edited").await;
+    assert_eq!(edited.len(), 1);
+    assert!(edited[0].email_handled_at.is_some(), "never mailed");
+    let carols: Vec<String> = notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.carol))
+        .all(&app.db)
+        .await
+        .expect("query")
+        .into_iter()
+        .map(|row| row.kind)
+        .collect();
+    assert_eq!(carols, vec!["mention".to_owned()]);
+    // The author is never told of their own edit.
+    let bobs = notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.bob))
+        .all(&app.db)
+        .await
+        .expect("query");
+    assert!(bobs.is_empty());
+}
+
+/// Upload into the root of the space with an optional answer to a duplicate: the status and body.
+async fn upload_answering(
+    app: &TestApp,
+    cookie: &str,
+    space_id: Uuid,
+    name: &str,
+    bytes: &[u8],
+    answer: Option<&str>,
+) -> (u16, Value) {
+    let mut form = reqwest::multipart::Form::new()
+        .text("name", name.to_owned())
+        .part(
+            "file",
+            reqwest::multipart::Part::bytes(bytes.to_vec()).file_name(name.to_owned()),
+        );
+    if let Some(answer) = answer {
+        form = form.text("on_conflict", answer.to_owned());
+    }
+    let res = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space_id}/files"),
+            cookie,
+        )
+        .multipart(form)
+        .send()
+        .await
+        .expect("upload");
+    let status = res.status().as_u16();
+    (status, res.json().await.expect("json"))
+}
+
+#[tokio::test]
+async fn the_space_keeps_no_duplicate_file() {
+    let store = Arc::new(crate::storage::S3Store::in_memory());
+    let Some(app) = boot_with(Some(store), |_| {}).await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let first = api_upload(&app, &alice, fx.space_id, None, "Devis.pdf", b"devis v1").await;
+
+    // The same name and the same bytes: refused, naming the file already there.
+    let (status, body) =
+        upload_answering(&app, &alice, fx.space_id, "devis.PDF", b"devis v1", None).await;
+    assert_eq!(status, 409);
+    assert_eq!(body["reason"], "same_file");
+    assert_eq!(body["existing"]["id"], first.to_string());
+    // Replacing it: the next version of that file, not a second one.
+    let (status, body) = upload_answering(
+        &app,
+        &alice,
+        fx.space_id,
+        "Devis.pdf",
+        b"devis v1",
+        Some("replace"),
+    )
+    .await;
+    assert_eq!(status, 201);
+    assert_eq!(body["id"], first.to_string());
+
+    // The same name, other bytes: refused until another name is chosen.
+    let (status, body) =
+        upload_answering(&app, &alice, fx.space_id, "Devis.pdf", b"devis v2", None).await;
+    assert_eq!(status, 409);
+    assert_eq!(body["reason"], "same_name");
+    let (status, body) = upload_answering(
+        &app,
+        &alice,
+        fx.space_id,
+        "Devis.pdf",
+        b"devis v2",
+        Some("keep_both"),
+    )
+    .await;
+    assert_eq!(status, 201);
+    assert_eq!(body["name"], "Devis (1).pdf");
+
+    // The same bytes under another name: the next version of the file that holds them.
+    let (status, body) = upload_answering(
+        &app,
+        &alice,
+        fx.space_id,
+        "Copie du devis.pdf",
+        b"devis v1",
+        None,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(body["merged"], "version");
+    assert_eq!(body["id"], first.to_string());
+    let files = files::Entity::find()
+        .filter(files::Column::SpaceId.eq(fx.space_id))
+        .filter(files::Column::Kind.ne("folder"))
+        .all(&app.db)
+        .await
+        .expect("query");
+    assert_eq!(files.len(), 2, "Devis.pdf and Devis (1).pdf, nothing else");
 }

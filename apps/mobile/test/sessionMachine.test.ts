@@ -65,3 +65,11 @@ test("a_profile_change_reaches_the_signed_in_account", () => {
   const out: SessionState = { kind: "signedOut", server: "https://a.test" };
   assert.equal(sessionReducer(out, { type: "userUpdated", patch: { name: "X" } }), out);
 });
+
+test("a_sign_out_forced_by_the_lock_opens_the_sign_in_and_says_why", () => {
+  assert.deepEqual(sessionReducer(signedIn, { type: "signedOut", reason: "locked" }), {
+    kind: "signedOut",
+    server: "https://a.test",
+    reason: "locked",
+  });
+});

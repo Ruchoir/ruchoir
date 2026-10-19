@@ -43,6 +43,9 @@ mod m20261011_000001_calendar_indexes;
 mod m20261011_000002_calendar_many_reminders;
 mod m20261011_000003_calendar_shares;
 mod m20261014_000001_channel_invitations;
+mod m20261015_000001_push_devices;
+mod m20261019_000001_reaction_and_edit_notifications;
+mod m20261019_000002_file_content_hash_index;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -88,6 +91,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20261011_000002_calendar_many_reminders::Migration),
             Box::new(m20261011_000003_calendar_shares::Migration),
             Box::new(m20261014_000001_channel_invitations::Migration),
+            Box::new(m20261015_000001_push_devices::Migration),
+            Box::new(m20261019_000001_reaction_and_edit_notifications::Migration),
+            Box::new(m20261019_000002_file_content_hash_index::Migration),
         ]
     }
 }

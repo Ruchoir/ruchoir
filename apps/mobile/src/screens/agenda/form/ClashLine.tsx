@@ -51,7 +51,7 @@ export function ClashLine({ draft, calendars, busyNames, eventId }: { draft: Eve
   const where = (o: Occurrence) => {
     const cal = calendars.find((k) => k.id === o.calendarId);
     if (!cal) return "";
-    const label = calendarLabel(cal, spaces.data ?? []);
+    const label = calendarLabel(cal, spaces.data ?? [], t("calendar.personal"));
     return [label.sub, label.main].filter(Boolean).join(" · ");
   };
   const when = (o: Occurrence) => (o.allDay ? t("agenda.allDay") : `${timeOf(o.start, locale, draft.tz)} - ${timeOf(o.end, locale, draft.tz)}`);

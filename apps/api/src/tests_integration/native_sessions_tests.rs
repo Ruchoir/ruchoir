@@ -235,3 +235,161 @@ async fn the_instance_announces_native_sessions() {
         .expect("json");
     assert_eq!(instance["native_sessions"], true);
 }
+
+// --- Handing a session between the web page and the app (step 6f) ---
+
+/// RFC 7636's example verifier, and its SHA-256 in hex: the challenge the app would send.
+const VERIFIER: &str = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+const CHALLENGE: &str = "13d31e961a1ad8ec2f16b10c4c982e0876a878ad6df144566ee1894acb70f9c3";
+
+/// `POST /auth/native/code` from a signed-in page (a bearer stands in for the cookie here).
+async fn native_code(app: &TestApp, token: &str, challenge: &str) -> reqwest::Response {
+    app.http
+        .post(format!("{}/api/v1/auth/native/code", app.base))
+        .bearer_auth(token)
+        .json(&json!({ "challenge": challenge }))
+        .send()
+        .await
+        .expect("native code")
+}
+
+async fn code_from(response: reqwest::Response) -> String {
+    assert_eq!(response.status(), 200);
+    let body: Value = response.json().await.expect("json");
+    body["code"].as_str().expect("a code").to_owned()
+}
+
+async fn exchange(app: &TestApp, code: &str, verifier: &str) -> reqwest::Response {
+    app.http
+        .post(format!("{}/api/v1/auth/native/exchange", app.base))
+        .json(&json!({ "code": code, "verifier": verifier }))
+        .send()
+        .await
+        .expect("exchange")
+}
+
+#[tokio::test]
+async fn a_native_code_and_its_verifier_open_a_session_of_the_app() {
+    let Some(app) = boot().await else { return };
+    let (id, email) = make_password_user(&app, false).await;
+    let page = token_for(&app, &email).await;
+    let code = code_from(native_code(&app, &page, CHALLENGE).await).await;
+
+    let response = exchange(&app, &code, VERIFIER).await;
+    assert_eq!(response.status(), 200);
+    assert!(response
+        .headers()
+        .get(reqwest::header::SET_COOKIE)
+        .is_none());
+    let body: Value = response.json().await.expect("json");
+    assert_eq!(body["id"], id.to_string());
+    let token = body["session_token"].as_str().expect("a token").to_owned();
+    assert_ne!(token, page, "the app gets a session of its own");
+    assert_eq!(session_status(&app, &format!("Bearer {token}")).await, 200);
+}
+
+#[tokio::test]
+async fn a_native_code_serves_once() {
+    let Some(app) = boot().await else { return };
+    let (_, email) = make_password_user(&app, false).await;
+    let page = token_for(&app, &email).await;
+    let code = code_from(native_code(&app, &page, CHALLENGE).await).await;
+
+    assert_eq!(exchange(&app, &code, VERIFIER).await.status(), 200);
+    assert_eq!(exchange(&app, &code, VERIFIER).await.status(), 400);
+}
+
+#[tokio::test]
+async fn the_wrong_verifier_opens_nothing_and_spends_the_code() {
+    let Some(app) = boot().await else { return };
+    let (_, email) = make_password_user(&app, false).await;
+    let page = token_for(&app, &email).await;
+    let code = code_from(native_code(&app, &page, CHALLENGE).await).await;
+
+    let wrong = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXK";
+    assert_eq!(exchange(&app, &code, wrong).await.status(), 400);
+    // Whoever saw the code gets one guess, and it is gone after it.
+    assert_eq!(exchange(&app, &code, VERIFIER).await.status(), 400);
+}
+
+#[tokio::test]
+async fn a_browser_cannot_exchange_a_native_code() {
+    let Some(app) = boot().await else { return };
+    let (_, email) = make_password_user(&app, false).await;
+    let page = token_for(&app, &email).await;
+    let code = code_from(native_code(&app, &page, CHALLENGE).await).await;
+
+    // The web app's own page, which `same_site_guard` lets through: the route itself must refuse.
+    let own_origin = app.config.public_origin();
+    let response = app
+        .http
+        .post(format!("{}/api/v1/auth/native/exchange", app.base))
+        .header(reqwest::header::ORIGIN, own_origin.as_str())
+        .json(&json!({ "code": code, "verifier": VERIFIER }))
+        .send()
+        .await
+        .expect("exchange");
+    assert_eq!(response.status(), 400);
+    let body: Value = response.json().await.expect("json");
+    assert_eq!(body["error"], "token_from_browser");
+    // Refused before the code was looked at: the app can still use it.
+    assert_eq!(exchange(&app, &code, VERIFIER).await.status(), 200);
+}
+
+#[tokio::test]
+async fn a_native_code_takes_a_challenge_and_a_session() {
+    let Some(app) = boot().await else { return };
+    let (_, email) = make_password_user(&app, false).await;
+    let page = token_for(&app, &email).await;
+
+    assert_eq!(native_code(&app, &page, "abc").await.status(), 400);
+    let anonymous = app
+        .http
+        .post(format!("{}/api/v1/auth/native/code", app.base))
+        .json(&json!({ "challenge": CHALLENGE }))
+        .send()
+        .await
+        .expect("native code");
+    assert_eq!(anonymous.status(), 401);
+}
+
+#[tokio::test]
+async fn a_web_handoff_opens_a_browser_session_once() {
+    let Some(app) = boot().await else { return };
+    let (_, email) = make_password_user(&app, false).await;
+    let token = token_for(&app, &email).await;
+
+    let code = code_from(
+        app.http
+            .post(format!("{}/api/v1/auth/web/handoff", app.base))
+            .bearer_auth(&token)
+            .send()
+            .await
+            .expect("handoff"),
+    )
+    .await;
+    let redeem = || {
+        app.http
+            .post(format!("{}/api/v1/auth/web/redeem", app.base))
+            .json(&json!({ "code": code }))
+            .send()
+    };
+    let response = redeem().await.expect("redeem");
+    assert_eq!(response.status(), 200);
+    let cookie = response
+        .headers()
+        .get(reqwest::header::SET_COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .expect("a session cookie")
+        .to_owned();
+    assert!(cookie.starts_with("__Host-"), "the hardened session cookie");
+    assert_eq!(redeem().await.expect("redeem").status(), 400);
+
+    let anonymous = app
+        .http
+        .post(format!("{}/api/v1/auth/web/handoff", app.base))
+        .send()
+        .await
+        .expect("handoff");
+    assert_eq!(anonymous.status(), 401);
+}

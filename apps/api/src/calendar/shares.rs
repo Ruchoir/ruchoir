@@ -348,6 +348,7 @@ pub async fn hydrate<C: ConnectionTrait>(
                 calendar_name: Some(payload.calendar_name),
                 event_changes: None,
                 event_my_status: None,
+                emoji: None,
             })
         })
         .collect())

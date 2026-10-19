@@ -1,11 +1,15 @@
 import { useFonts } from "expo-font";
+import * as ScreenOrientation from "expo-screen-orientation";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
+import { Dimensions } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { OutboxProvider } from "./compose/useOutbox";
+import { AppLock } from "./lock/AppLock";
 import { RealtimeProvider } from "./realtime/RealtimeProvider";
+import { isTablet } from "./layout/wide";
 import { AuthNavigator } from "./navigation/AuthNavigator";
 import { MfaScreen } from "./screens/auth/MfaScreen";
 import { BootScreen } from "./screens/boot/BootScreen";
@@ -27,6 +31,11 @@ export default function App() {
   const [prefsLoaded, setPrefsLoaded] = useState(false);
   useEffect(() => {
     void loadPrefs().finally(() => setPrefsLoaded(true));
+    // A tablet turns every way (`app.config.ts`); a phone stays upright, as the mockups are drawn.
+    const screen = Dimensions.get("screen");
+    if (!isTablet(screen.width, screen.height)) {
+      void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    }
   }, []);
   const { dark } = useTheme();
   return (
@@ -53,17 +62,19 @@ function Root() {
       return <MfaScreen />;
     case "signedIn":
       return (
-        <RealtimeProvider>
-          <OutboxProvider>
-            <SpaceProvider>
-              <ToastProvider>
-                <UploadsProvider>
-                  <SpaceGate />
-                </UploadsProvider>
-              </ToastProvider>
-            </SpaceProvider>
-          </OutboxProvider>
-        </RealtimeProvider>
+        <AppLock userId={session.state.user.id} onSignOut={(reason) => void session.signOut(reason)}>
+          <RealtimeProvider>
+            <OutboxProvider>
+              <SpaceProvider>
+                <ToastProvider>
+                  <UploadsProvider>
+                    <SpaceGate />
+                  </UploadsProvider>
+                </ToastProvider>
+              </SpaceProvider>
+            </OutboxProvider>
+          </RealtimeProvider>
+        </AppLock>
       );
   }
 }

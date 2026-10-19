@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from "lucide-react-native";
-import { useState } from "react";
+import { useState, type Ref } from "react";
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
 
 import { useTranslation } from "../i18n";
@@ -20,7 +20,7 @@ export function TextField({
   error,
   secret,
   ...input
-}: TextInputProps & { label: string; hint?: string; error?: string; secret?: boolean }) {
+}: TextInputProps & { label: string; hint?: string; error?: string; secret?: boolean; ref?: Ref<TextInput> }) {
   const { c, s } = useTheme();
   const { t } = useTranslation();
   const [shown, setShown] = useState(false);

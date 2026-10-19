@@ -46,7 +46,7 @@ import { LoadState } from "../../../ui/States";
 import { Text } from "../../../ui/Text";
 import { useToast } from "../../../ui/Toast";
 import { calendarColor } from "../calendarColor";
-import { calendarLabel } from "../calendarLabel";
+import { calendarLabel, calendarName } from "../calendarLabel";
 import { loadOccurrence } from "../loadOccurrence";
 import { closeDraft, openDraft, readDraft, updateDraft, useDraft } from "./draftStore";
 import { Availability } from "./Availability";
@@ -59,6 +59,7 @@ import { repeatLabel } from "./repeat";
 import { useScopeRequests } from "./scope";
 import { MAX_EVENT_FILES, useEventUploads } from "./useEventUploads";
 import { WhenRows } from "./WhenRows";
+import { textScale } from "../../../prefs/prefs";
 import { usePrefs } from "../../../prefs/store";
 
 let forms = 0;
@@ -69,7 +70,11 @@ export function EventFormScreen() {
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
-  const { duration } = usePrefs();
+  const { duration, textSize } = usePrefs();
+  // The typed lines follow the text size chosen in the app, as every other line does: left at their
+  // own size, they read smaller than the rest once the text is made larger.
+  const scale = textScale(textSize);
+  const scaled = scale === 1 ? null : { fontSize: 16 * scale, lineHeight: Math.round(21 * scale) };
   const say = useSharedT();
   const toast = useToast();
   const { spaces } = useSpace();
@@ -285,7 +290,7 @@ export function EventFormScreen() {
             {calendar ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${t("eventForm.chooseCalendar")} ${calendar.name}`}
+                accessibilityLabel={`${t("eventForm.chooseCalendar")} ${calendarName(calendar, t("calendar.personal"))}`}
                 accessibilityState={{ disabled: seriesDate }}
                 disabled={seriesDate}
                 onPress={() => navigation.navigate("eventCalendar", { formKey })}
@@ -293,7 +298,7 @@ export function EventFormScreen() {
               >
                 <View style={[styles.dot, { backgroundColor: calendarColor(calendar.color, c), borderColor: c.onPastel }]} />
                 <Text variant="smallStrong" numberOfLines={1} style={[styles.calendarName, { color: c.onPastel }]}>
-                  {[calendarLabel(calendar, spaces.data ?? []).sub, calendar.name].filter(Boolean).join(" · ")}
+                  {[calendarLabel(calendar, spaces.data ?? []).sub, calendarName(calendar, t("calendar.personal"))].filter(Boolean).join(" · ")}
                 </Text>
                 {seriesDate ? null : <ChevronDown size={16} color={c.onPastel} />}
               </Pressable>
@@ -373,7 +378,7 @@ export function EventFormScreen() {
               placeholderTextColor={c.muted}
               accessibilityLabel={t("calendar.location")}
               maxLength={500}
-              style={[styles.input, { color: c.ink }]}
+              style={[styles.input, scaled, { color: c.ink }]}
             />
           </FormRow>
           <FormRow icon={MessageSquare} tint={c.pink} align="start">
@@ -386,7 +391,7 @@ export function EventFormScreen() {
                 <Text variant="tiny" tone="muted">
                   {t("eventForm.shareInChannel")}
                 </Text>
-                <Text variant="bodyStrong" tone={draft.channelId ? "strong" : "muted"}>
+                <Text variant="body" tone={draft.channelId ? "strong" : "muted"}>
                   {draft.channelId
                     ? (linkable.data?.find((ch) => ch.id === draft.channelId)?.name ??
                       (edit?.event.channel?.id === draft.channelId ? edit.event.channel?.name : undefined) ??
@@ -438,7 +443,7 @@ export function EventFormScreen() {
               accessibilityLabel={t("calendar.notes")}
               maxLength={20000}
               multiline
-              style={[styles.input, styles.notes, { color: c.ink }]}
+              style={[styles.input, scaled, styles.notes, { color: c.ink }]}
             />
           </FormRow>
         </KeyboardForm>

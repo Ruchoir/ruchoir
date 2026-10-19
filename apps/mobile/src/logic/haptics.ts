@@ -5,7 +5,8 @@
  * menu opening under the finger, a message leaving), a selection tick while a choice changes, a
  * notification for the outcome of something the person waited for. On Android only the system's
  * haptic constants are used, never the vibrator: they follow the phone's setting and need no
- * permission. `ui/haptics.ts` plays them.
+ * permission; a constant the phone's Android is too old for falls back to `ANDROID_FALLBACK`, every
+ * version has it. `ui/haptics.ts` plays them. An iPad has no haptic engine: it never feels anything.
  */
 import type { AndroidHaptics, ImpactFeedbackStyle, NotificationFeedbackType } from "expo-haptics";
 
@@ -16,6 +17,9 @@ export type IosHaptic =
   | { kind: "selection" }
   | { kind: "notification"; type: `${NotificationFeedbackType}` };
 
+/** Played on Android when the feel's own constant is newer than the phone's system. */
+export const ANDROID_FALLBACK = "virtual-key" satisfies `${AndroidHaptics}`;
+
 /** What each feel plays; `ios: null` when the system already plays its own there. */
 export const FEELS: Record<Feel, { ios: IosHaptic | null; android: `${AndroidHaptics}` }> = {
   /** A long press that opens something. */
@@ -25,10 +29,10 @@ export const FEELS: Record<Feel, { ios: IosHaptic | null; android: `${AndroidHap
   /** A switch: on iOS `UISwitch` plays the system's haptic itself. */
   toggleOn: { ios: null, android: "toggle-on" },
   toggleOff: { ios: null, android: "toggle-off" },
-  /** A message leaving. */
-  send: { ios: { kind: "impact", style: "light" }, android: "confirm" },
+  /** A message leaving. Medium rather than light: a light tap went unnoticed on the iPhone. */
+  send: { ios: { kind: "impact", style: "medium" }, android: "confirm" },
   /** Pull to refresh, when it triggers. */
-  refresh: { ios: { kind: "impact", style: "light" }, android: "gesture-end" },
+  refresh: { ios: { kind: "impact", style: "medium" }, android: "gesture-end" },
   /** Something filled in and submitted that the server accepted after a wait. */
   success: { ios: { kind: "notification", type: "success" }, android: "confirm" },
   /** Something the person did that failed. */

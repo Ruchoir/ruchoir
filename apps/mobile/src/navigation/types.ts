@@ -3,7 +3,8 @@ import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParams = {
   today: undefined;
-  discussions: undefined;
+  /** `open`: a conversation to show beside the list (a tablet, see `ConversationScreen`). */
+  discussions: { open?: RootParams["conversation"] } | undefined;
   agenda: undefined;
   files: undefined;
 };
@@ -12,6 +13,8 @@ export type ViewerFile = { id: string; name: string; url: string; mime?: string;
 
 export type RootParams = {
   tabs: NavigatorScreenParams<TabParams>;
+  /** "Search in Ruchoir": the space's messages and files. */
+  search: undefined;
   /** The tutorial again, from Help. */
   tutorial: { replay: true };
   /** Create or join a space, from the space sheet. */
@@ -42,6 +45,8 @@ export type RootParams = {
     kind?: "channel" | "person" | "group";
     /** The others in a private conversation with several people, for the faces in its head. */
     participants?: string[];
+    /** A message to take the reader to (a search result): a reply's root, and the reply. */
+    focus?: { id: string; replyId?: string };
   };
   folder: { folderId: string; name: string };
   /** A file to show: a space file, a message's attachment or an event's, by its download URL. */
@@ -113,7 +118,19 @@ export type RootParams = {
   fileLinks: { file: SpaceFile };
   uploadConflict: undefined;
   spaceSheet: undefined;
+  /** The current space's settings (owner and admins): general, members. */
+  spaceSettings: undefined;
+  /** A member of the current space: the roles the caller may give, removing them. */
+  spaceMember: { userId: string };
+  /** The current space's deletion, its name to type (owner). */
+  spaceDelete: undefined;
+  /** How much the current space notifies me. */
+  spaceNotify: undefined;
+  /** The current space's default channel (owner and admins). */
+  spaceDefaultChannel: undefined;
   accountSheet: undefined;
+  /** "Don't miss anything important" (mockup 08), once after signing in. */
+  notificationsIntro: undefined;
 };
 
 declare global {

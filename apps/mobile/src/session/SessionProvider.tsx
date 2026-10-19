@@ -8,6 +8,7 @@ import {
   apiErrorCode,
   changePassword as apiChangePassword,
   confirmEmailVerificationCode,
+  exchangeNativeCode,
   getInstanceCapabilities,
   getSession,
   isApiError,
@@ -23,6 +24,9 @@ import {
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 
 import { connectTo, setSessionToken } from "../api/instance";
+import { canUseBrowserHandoff, signInThroughBrowser } from "../auth/browser";
+import { disablePhonePush } from "../push/phone";
+import { refreshWidgets } from "../widgets";
 import { clearDownloads } from "../files/cache";
 import { sessionReducer, type SessionState } from "./machine";
 import { normalizeServer } from "./server";
@@ -84,7 +88,13 @@ type SessionApi = {
   changeServer: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   verify: (method: "totp" | "recovery", code: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  /**
+   * Sign in on the instance's own web page, for a second factor the app cannot run itself (a
+   * passkey, `auth/browser.ts`). False when the person closed the page or declined.
+   */
+  signInInBrowser: () => Promise<boolean>;
+  /** Sign out; `"locked"` when the app lock does it (a forgotten PIN), which the sign-in then says. */
+  signOut: (reason?: "locked") => Promise<void>;
   /** The account changed from this app: shown at once on every screen. */
   updateUser: (patch: Partial<SessionUser>) => void;
   /**
@@ -140,6 +150,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const pending = useRef<{ email: string; password: string } | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const invitation = useRef<string | null>(null);
+  // The address last typed at sign-in, carried to the instance's page when it takes over.
+  const lastEmail = useRef("");
   /** The instance the client talks to once a choice has been checked: where a failed one goes back. */
   const connected = useRef<string | null>(null);
 
@@ -229,13 +241,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     async (email: string, password: string) => {
       let result;
+      lastEmail.current = email.trim();
       try {
         result = await login(email.trim(), password);
       } catch (err) {
         throw failureOf(err);
       }
       if (result.kind === "authenticated") return signedIn(result.user, result.sessionToken);
-      const methods = result.methods.filter((m) => APP_METHODS.includes(m));
+      // A passkey goes through the instance's page, where this build can reach it.
+      const reachable = canUseBrowserHandoff() ? [...APP_METHODS, "passkey"] : APP_METHODS;
+      const methods = result.methods.filter((m) => reachable.includes(m));
       if (methods.length === 0) throw new AuthFailure("passkeyOnly");
       dispatch({ type: "mfaRequired", mfaToken: result.mfaToken, methods });
     },
@@ -321,7 +336,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [signedIn, state],
   );
 
-  const signOut = useCallback(async () => {
+  const signInInBrowser = useCallback(async () => {
+    if (state.kind !== "mfa" && state.kind !== "signedOut") return false;
+    const handed = await signInThroughBrowser(state.server, lastEmail.current || undefined);
+    if (!handed) return false;
+    let done;
+    try {
+      done = await exchangeNativeCode(handed.code, handed.verifier);
+    } catch (err) {
+      throw failureOf(err);
+    }
+    await signedIn(done.user, done.sessionToken);
+    return true;
+  }, [state, signedIn]);
+
+  const signOut = useCallback(async (reason?: "locked") => {
+    // While the session still opens the door: the instance forgets this phone (ADR 0006).
+    await disablePhonePush();
     try {
       await logout();
     } catch {
@@ -329,7 +360,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
     await holdToken(null);
     clearDownloads();
-    dispatch({ type: "signedOut" });
+    // The widgets say "sign in" rather than the last account's agenda.
+    void refreshWidgets();
+    dispatch({ type: "signedOut", reason });
   }, [holdToken]);
 
   const updateUser = useCallback((patch: Partial<SessionUser>) => dispatch({ type: "userUpdated", patch }), []);
@@ -378,6 +411,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       changeServer,
       signIn,
       verify,
+      signInInBrowser,
       signOut,
       updateUser,
       changePassword,
@@ -397,6 +431,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       changeServer,
       signIn,
       verify,
+      signInInBrowser,
       signOut,
       updateUser,
       changePassword,

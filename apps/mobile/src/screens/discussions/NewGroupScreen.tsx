@@ -6,8 +6,8 @@ import { addChannelMembers, createChannel, getChannels, inviteToChannel } from "
 import { useNavigation } from "@react-navigation/native";
 import { ChevronRight, UserPlus, X } from "lucide-react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, StyleSheet, View, type TextInput } from "react-native";
 
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
@@ -45,6 +45,16 @@ export function NewGroupScreen() {
   const channels = useLoad(space ? `channels:${space}` : null, (signal) => getChannels(space!, signal));
   const people = members.list.filter((m) => m.userId !== me?.id && !m.bot);
   const [name, setName] = useState("");
+  // The name takes the focus once the sheet has finished rising: focused while it rose, the
+  // keyboard came up with it and the form measured its fields mid-flight, then jumped.
+  const nameField = useRef<TextInput>(null);
+  useEffect(
+    () =>
+      navigation.addListener("transitionEnd", (e) => {
+        if (!e.data.closing) nameField.current?.focus();
+      }),
+    [navigation],
+  );
   const [topic, setTopic] = useState("");
   const [access, setAccess] = useState<Access>("public");
   const [picking, setPicking] = useState(false);
@@ -129,7 +139,7 @@ export function NewGroupScreen() {
               placeholder={t("group.namePlaceholder")}
               value={name}
               onChangeText={setName}
-              autoFocus
+              ref={nameField}
               autoCapitalize="sentences"
               returnKeyType="next"
               error={taken ? t("group.taken") : undefined}

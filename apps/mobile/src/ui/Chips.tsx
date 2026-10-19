@@ -12,10 +12,21 @@ export type Chip<K extends string> = { key: K; label: string; icon?: LucideIcon;
  * A row of pills (the filters of mockup 12, the tabs of mockup 13): the chosen one tinted with the
  * accent and outlined in ink, the others outlined in grey.
  */
-export function Chips<K extends string>({ chips, value, onChange }: { chips: Chip<K>[]; value: K; onChange: (key: K) => void }) {
+export function Chips<K extends string>({
+  chips,
+  value,
+  onChange,
+  gutter = 16,
+}: {
+  chips: Chip<K>[];
+  value: K;
+  onChange: (key: K) => void;
+  /** The room on each side: a page with its own margin (a tablet) wants none. */
+  gutter?: number;
+}) {
   const { c, s } = useTheme();
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip} contentContainerStyle={styles.row}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip} contentContainerStyle={[styles.row, { paddingHorizontal: gutter }]}>
       {chips.map(({ key, label, icon: Icon, count }) => {
         const on = key === value;
         return (

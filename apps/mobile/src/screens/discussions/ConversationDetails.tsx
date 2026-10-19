@@ -2,9 +2,11 @@
  * A conversation's details (the ⓘ of mockup 13): its face, name and topic; how much it notifies me,
  * saved the moment it is chosen; its pinned messages, for a channel; and who is in it.
  *
- * Read-only otherwise: renaming, the topic and membership stay on the web for now.
+ * For the space's owner and administrators, deleting the channel, as the web offers them (not the
+ * space's default channel). Renaming, the topic and membership stay on the web for now.
  */
 import {
+  deleteChannel,
   getChannels,
   getDirectMessages,
   getReadCursors,
@@ -14,15 +16,16 @@ import {
   type Member,
   type NotifyLevel,
 } from "@ruchoir/client";
-import { useRoute, type RouteProp } from "@react-navigation/native";
-import { Check } from "lucide-react-native";
+import { StackActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import { Check, Trash2 } from "lucide-react-native";
 import { useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
+import { canAdminister } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { hairline, radius } from "../../theme/tokens";
@@ -36,6 +39,9 @@ import { useToast } from "../../ui/Toast";
 import { Toggle } from "../../ui/Toggle";
 import { useReloadOn } from "../../data/useReloadOn";
 import { affects } from "../../realtime/events";
+import { useRealtimeActions } from "../../realtime/RealtimeProvider";
+import { feel } from "../../ui/haptics";
+import { deletedHere } from "./deletedHere";
 
 const LEVELS: { level: NotifyLevel; label: ReturnType<typeof key>; hint: ReturnType<typeof key> }[] = [
   { level: "default", label: key("details.levelDefault"), hint: key("details.levelDefaultHint") },
@@ -97,6 +103,36 @@ export function ConversationDetails() {
   const other = dm?.userId ? people.list.find((m) => m.userId === dm.userId) : undefined;
   const loaded = channelId ? channels.data : dms.data;
   const subtitle = channel?.topic ?? other?.title;
+
+  const navigation = useNavigation();
+  const { emit } = useRealtimeActions();
+  const mayDelete = !!channelId && !!current && canAdminister(current.role);
+  const isDefault = !!channelId && current?.defaultChannelId === channelId;
+  const remove = () => {
+    if (!channelId || !space) return;
+    feel("warning");
+    Alert.alert(t("details.deleteTitle", { name: title }), t("details.deleteHint"), [
+      { text: t("compose.cancel"), style: "cancel" },
+      {
+        text: t("compose.delete"),
+        style: "destructive",
+        onPress: () => {
+          deletedHere.add(channelId);
+          deleteChannel(channelId).then(
+            () => {
+              toast(t("details.deleted"), "success");
+              navigation.dispatch(StackActions.popToTop());
+              emit({ type: "channels", spaceId: space, channelId, deleted: true });
+            },
+            () => {
+              deletedHere.delete(channelId);
+              toast(t("details.deleteFailed"), "failure");
+            },
+          );
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView edges={["top"]} style={[styles.fill, { backgroundColor: c.bg }]}>
@@ -181,6 +217,16 @@ export function ConversationDetails() {
               })
             )}
           </Section>
+
+          {mayDelete ? (
+            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.line }]}>
+              {isDefault ? (
+                <ActionRow icon={Trash2} title={t("details.delete")} subtitle={t("details.deleteDefault")} />
+              ) : (
+                <ActionRow icon={Trash2} danger title={t("details.delete")} subtitle={t("details.deleteHint")} onPress={remove} />
+              )}
+            </View>
+          ) : null}
         </ScrollView>
       )}
     </SafeAreaView>

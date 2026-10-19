@@ -58,6 +58,7 @@ pub mod space_notification_prefs;
 pub mod user_preferences;
 
 // Browsers that asked to be told about notifications while no Ruchoir page is open.
+pub mod push_devices;
 pub mod push_subscriptions;
 
 // What happened to the instance itself: backups taken, replacements run.
