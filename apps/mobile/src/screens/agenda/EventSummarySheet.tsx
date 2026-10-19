@@ -121,7 +121,7 @@ export function EventSummary({
   const { event: e, occurrence: o } = loaded.data;
   const seriesDate = e.isRecurring && !!o.recurrenceId;
   const calendar = calendars.data?.find((cal) => cal.id === o.calendarId);
-  const label = calendar ? calendarLabel(calendar, spaces.data ?? []) : null;
+  const label = calendar ? calendarLabel(calendar, spaces.data ?? [], t("calendar.personal")) : null;
   const form = e.rrule ? parseRule(e.rrule) : null;
   const repeats = e.rrule
     ? form

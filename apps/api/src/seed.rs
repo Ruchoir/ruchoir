@@ -153,7 +153,7 @@ async fn seed_atelier(txn: &DatabaseTransaction, users: &SeedUsers) -> Result<()
     // Flesh out the owner's profile so the profile card has representative data.
     users::ActiveModel {
         id: Set(users.admin),
-        title: Set(Some("Gerante de l'atelier".to_owned())),
+        title: Set(Some("Gérante de l’atelier".to_owned())),
         pronouns: Set(Some("elle".to_owned())),
         timezone: Set(Some("Europe/Paris".to_owned())),
         bio: Set(Some("Responsable de l'atelier et des annonces.".to_owned())),

@@ -65,7 +65,8 @@ export function SpaceSheet() {
       })}
       {current ? (
         <>
-          <Text variant="label" tone="muted" style={styles.section}>
+          {/* In the sheet's own typeface: the monospaced label read as another font. */}
+          <Text variant="smallStrong" tone="muted" style={styles.section}>
             {current.name}
           </Text>
           {canAdminister(current.role) ? (

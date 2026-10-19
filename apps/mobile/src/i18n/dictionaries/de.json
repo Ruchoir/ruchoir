@@ -166,6 +166,7 @@
     "nothingSoonHint": "Keine Termine in den nächsten 30 Tagen."
   },
   "calendar": {
+    "personal": "Persönlich",
     "rule": {
       "daily_one": "Jeden Tag",
       "daily_other": "Alle {{count}} Tage",

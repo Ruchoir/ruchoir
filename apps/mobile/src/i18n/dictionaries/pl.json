@@ -172,6 +172,7 @@
     "nothingSoonHint": "Brak wydarzeń w ciągu najbliższych 30 dni."
   },
   "calendar": {
+    "personal": "Osobisty",
     "rule": {
       "daily_one": "Codziennie",
       "daily_few": "Co {{count}} dni",

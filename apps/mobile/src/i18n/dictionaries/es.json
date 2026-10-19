@@ -168,6 +168,7 @@
     "nothingSoonHint": "Ningún evento en los próximos 30 días."
   },
   "calendar": {
+    "personal": "Personal",
     "rule": {
       "daily_one": "Todos los días",
       "daily_many": "Cada {{count}} días",
