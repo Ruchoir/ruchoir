@@ -734,6 +734,7 @@
     "uploadTooLarge": "Za duży, aby go przesłać",
     "uploadForbidden": "Odmowa: nie masz tego uprawnienia",
     "uploadNetwork": "Połączenie przerwane",
+    "uploadDuplicate": "Już jest w przestrzeni: {{where}}",
     "uploadsLabel": "Przesyłanie plików",
     "uploadsProgress": "Przesłano {{done}} z {{total}}",
     "uploadsCollapse": "Zwiń przesyłanie",

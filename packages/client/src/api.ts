@@ -2156,21 +2156,64 @@ export async function createFolder(spaceId: string, name: string, parentId?: str
   return toSpaceFile(dto);
 }
 
+/**
+ * A space keeps no duplicate (the server checks its whole tree): an upload of a name already in the
+ * folder is refused (`same_file` when the bytes are the same too, `same_name` otherwise) until it is
+ * sent again with an answer, and the same bytes elsewhere become the next version of the file that
+ * holds them (`merged` on the answer), or are refused (`same_content`) to someone who may not
+ * change that file.
+ */
+export type UploadDuplicate = {
+  reason: "same_file" | "same_name" | "same_content";
+  existing: SpaceFile;
+  /** The folders the existing file is in, from the space's root. */
+  path: string[];
+};
+
+/** Sent again after a duplicate: a new version of the file there, or a copy under a numbered name. */
+export type DuplicateAnswer = "replace" | "keep_both";
+
+/** An uploaded file; `merged` when the bytes became the next version of a file already there. */
+export type UploadedFile = SpaceFile & { merged?: boolean };
+
+/** The duplicate an upload was refused for, or null for any other failure. */
+export function uploadDuplicate(err: unknown): UploadDuplicate | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const body = err.body as { error?: string; reason?: UploadDuplicate["reason"]; existing?: FileDto; path?: string[] } | null;
+  if (body?.error !== "duplicate" || !body.reason || !body.existing) return null;
+  return { reason: body.reason, existing: toSpaceFile(body.existing), path: body.path ?? [] };
+}
+
+const toUploaded = (body: unknown): UploadedFile => {
+  const dto = body as FileDto & { merged?: string };
+  return { ...toSpaceFile(dto), ...(dto.merged === "version" ? { merged: true } : {}) };
+};
+
 /** `POST /spaces/{id}/files`: upload a file (multipart) into the root or a folder. */
-export async function uploadFile(spaceId: string, file: File, parentId?: string): Promise<SpaceFile> {
+export async function uploadFile(spaceId: string, file: File, parentId?: string, answer?: DuplicateAnswer): Promise<UploadedFile> {
   const form = new FormData();
   form.append("file", file);
   // `folder_id`, not `parent_folder_id`: the JSON endpoints use the latter, the multipart
   // upload uses the former, and sending the wrong one put every file in a folder at the root.
   if (parentId) form.append("folder_id", parentId);
+  if (answer) form.append("on_conflict", answer);
   // Multipart: let the browser set the boundary, so this call does not go through the JSON client.
   const res = await fetch(`${apiBase()}/spaces/${spaceId}/files`, {
     method: "POST",
     ...authInit(),
     body: form,
   });
-  if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
-  return toSpaceFile((await res.json()) as FileDto);
+  if (!res.ok) {
+    const text = await res.text().catch(() => null);
+    let body: unknown = text;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      // Not JSON: kept as text.
+    }
+    throw new ApiError(res.status, `HTTP ${res.status}`, body);
+  }
+  return toUploaded(await res.json());
 }
 
 /**
@@ -2183,12 +2226,14 @@ export function startFileUpload(
   part: UploadPart,
   folderId?: string,
   onProgress?: (sent: number) => void,
-): UploadRequest<SpaceFile> {
+  answer?: DuplicateAnswer,
+): UploadRequest<UploadedFile> {
   const form = new FormData();
   appendPart(form, part);
   // `folder_id`, as `uploadFile` explains.
   if (folderId) form.append("folder_id", folderId);
-  return xhrUpload(`/spaces/${spaceId}/files`, form, (body) => toSpaceFile(body as FileDto), onProgress);
+  if (answer) form.append("on_conflict", answer);
+  return xhrUpload(`/spaces/${spaceId}/files`, form, toUploaded, onProgress);
 }
 
 /**
@@ -2527,7 +2572,7 @@ export function sendFile(
   target: { spaceId: string; folderId?: string; name: string; replaceFileId?: string },
   file: File,
   onProgress: (loaded: number) => void,
-): UploadRequest {
+): UploadRequest<UploadedFile> {
   const xhr = new XMLHttpRequest();
   const form = new FormData();
   form.append("file", file, target.name);
@@ -2540,17 +2585,24 @@ export function sendFile(
     // `folder_id`, as `uploadFile` explains.
     if (target.folderId) form.append("folder_id", target.folderId);
   }
-  const done = new Promise<SpaceFile>((resolve, reject) => {
+  const done = new Promise<UploadedFile>((resolve, reject) => {
     xhr.upload.onprogress = (e) => onProgress(e.loaded);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
-          resolve(toSpaceFile(JSON.parse(xhr.responseText) as FileDto));
+          resolve(toUploaded(JSON.parse(xhr.responseText)));
         } catch {
           reject(new ApiError(xhr.status, "unreadable answer", null));
         }
       } else {
-        reject(new ApiError(xhr.status, `HTTP ${xhr.status}`, xhr.responseText));
+        // JSON when the server says why (a duplicate names the file already there), text otherwise.
+        let body: unknown = xhr.responseText;
+        try {
+          body = JSON.parse(xhr.responseText);
+        } catch {
+          // Kept as text.
+        }
+        reject(new ApiError(xhr.status, `HTTP ${xhr.status}`, body));
       }
     };
     xhr.onerror = () => reject(new ApiError(0, "network", null));

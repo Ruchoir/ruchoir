@@ -708,6 +708,7 @@
     "uploadTooLarge": "Zu groß zum Hochladen",
     "uploadForbidden": "Abgelehnt: Sie haben dieses Recht nicht",
     "uploadNetwork": "Verbindung unterbrochen",
+    "uploadDuplicate": "Schon im Bereich: {{where}}",
     "uploadsLabel": "Datei-Uploads",
     "uploadsProgress": "{{done}} von {{total}} hochgeladen",
     "uploadsCollapse": "Uploads einklappen",

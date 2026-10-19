@@ -708,6 +708,7 @@
     "uploadTooLarge": "Too large to upload",
     "uploadForbidden": "Refused: you do not have this right",
     "uploadNetwork": "Connection lost",
+    "uploadDuplicate": "Already in the space: {{where}}",
     "uploadsLabel": "File uploads",
     "uploadsProgress": "{{done}} of {{total}} uploaded",
     "uploadsCollapse": "Collapse uploads",

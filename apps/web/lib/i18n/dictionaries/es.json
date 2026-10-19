@@ -721,6 +721,7 @@
     "uploadTooLarge": "Demasiado grande para subirlo",
     "uploadForbidden": "Rechazado: no tienes este permiso",
     "uploadNetwork": "Conexión interrumpida",
+    "uploadDuplicate": "Ya está en el espacio: {{where}}",
     "uploadsLabel": "Subidas de archivos",
     "uploadsProgress": "{{done}} de {{total}} subidos",
     "uploadsCollapse": "Contraer las subidas",

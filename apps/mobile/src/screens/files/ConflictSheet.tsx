@@ -1,11 +1,10 @@
-import { isTaken } from "@ruchoir/client/filesLogic";
 import { useNavigation } from "@react-navigation/native";
 import { Copy, FilePen, SkipForward } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
-import { nextQuestion, type Choice } from "../../logic/uploadQueue";
+import { choicesFor, nextQuestion, type Choice } from "../../logic/uploadQueue";
 import { useTheme } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Sheet } from "../../ui/Sheet";
@@ -14,9 +13,11 @@ import { useUploads } from "../../uploads/UploadsProvider";
 import { Toggle } from "../../ui/Toggle";
 
 /**
- * A name already taken in the folder (the web's question): replace (a new version, for who may manage
- * that file), keep both ("Devis (1).pdf") or skip, and the same for the others when several collide.
- * It asks again for the next one, and goes once nothing asks.
+ * A duplicate the server refused (it checks the whole space): the same file already in the folder
+ * offers to replace it (a new version of it) or skip; the same name with other contents offers to
+ * keep both under a numbered name ("Devis (1).pdf") or skip; the same for the others when several
+ * collide alike. It asks again for the next one, goes once nothing asks, and closing it skips what
+ * still asks.
  */
 export function ConflictSheet() {
   const { t } = useTranslation();
@@ -28,20 +29,37 @@ export function ConflictSheet() {
   useEffect(() => {
     if (!question) navigation.goBack();
   }, [question, navigation]);
-  if (!question) return null;
-  const others = uploads.queue.filter((i) => i.state === "asking" && i.key !== question.key).length;
-  const same = uploads.existing(question).find((e) => isTaken(question.file.name, [e.name]));
+  // Swiped away: what still asks is skipped, or the sheet would come straight back.
+  const latest = useRef(uploads);
+  useEffect(() => {
+    latest.current = uploads;
+  });
+  useEffect(
+    () => () => {
+      for (const item of latest.current.queue) if (item.state === "asking") latest.current.answer(item.key, "skip", true);
+    },
+    [],
+  );
+  if (!question?.duplicate) return null;
+  const { reason, existing, path } = question.duplicate;
+  const offered = choicesFor(reason);
+  const others = uploads.queue.filter((i) => i.state === "asking" && i.key !== question.key && i.duplicate?.reason === reason).length;
   const choose = (choice: Choice) => uploads.answer(question.key, choice, forAll);
+  const folder = path.length ? path.join(" / ") : uploads.label(question);
   return (
     <Sheet>
-      <Text variant="heading">{t("files.conflictTitle", { name: question.file.name })}</Text>
-      <Text variant="small" tone="muted" style={styles.body}>
-        {t("files.conflictBody", { folder: uploads.label(question) })}
+      <Text variant="heading">
+        {reason === "same_file" ? t("files.sameFileTitle", { name: existing.name }) : t("files.conflictTitle", { name: question.name })}
       </Text>
-      {same?.manage ? (
+      <Text variant="small" tone="muted" style={styles.body}>
+        {reason === "same_file" ? t("files.sameFileBody", { folder }) : t("files.sameNameBody", { folder })}
+      </Text>
+      {offered.includes("replace") ? (
         <ActionRow icon={FilePen} tint={c.violet} title={t("files.conflictReplace")} subtitle={t("files.conflictReplaceHint")} onPress={() => choose("replace")} />
       ) : null}
-      <ActionRow icon={Copy} tint={c.mint} title={t("files.conflictKeepBoth")} onPress={() => choose("keepBoth")} />
+      {offered.includes("keepBoth") ? (
+        <ActionRow icon={Copy} tint={c.mint} title={t("files.conflictRename")} subtitle={t("files.conflictRenameHint")} onPress={() => choose("keepBoth")} />
+      ) : null}
       <ActionRow icon={SkipForward} title={t("files.conflictSkip")} onPress={() => choose("skip")} />
       {others > 0 ? (
         <View style={styles.forAll}>

@@ -392,6 +392,13 @@
     "searchZone": "Zeitzone suchen"
   },
   "files": {
+    "sameFileTitle": "„{{name}}“ ist schon da",
+    "sameFileBody": "Dieselbe Datei liegt bereits in „{{folder}}“.",
+    "sameNameBody": "Eine andere Datei heißt in „{{folder}}“ bereits so.",
+    "conflictRename": "Umbenennen",
+    "conflictRenameHint": "Daneben behalten, unter einem nummerierten Namen.",
+    "mergedVersion": "Diese Datei war schon im Bereich: „{{name}}“ hat eine neue Version davon.",
+    "alreadyThere": "Diese Datei ist schon im Bereich: {{where}}",
     "search": "Datei suchen",
     "noMatch": "Keine passende Datei",
     "recent": "Zuletzt geändert",

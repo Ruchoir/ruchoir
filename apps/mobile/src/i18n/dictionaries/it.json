@@ -421,6 +421,13 @@
     "searchZone": "Cerca un fuso orario"
   },
   "files": {
+    "sameFileTitle": "«{{name}}» è già qui",
+    "sameFileBody": "Lo stesso file si trova già in «{{folder}}».",
+    "sameNameBody": "Un altro file ha già questo nome in «{{folder}}».",
+    "conflictRename": "Rinomina",
+    "conflictRenameHint": "Tenerlo accanto, con un nome numerato.",
+    "mergedVersion": "Questo file era già nello spazio: «{{name}}» ne ha una nuova versione.",
+    "alreadyThere": "Questo file è già nello spazio: {{where}}",
     "search": "Cerca un file",
     "noMatch": "Nessun file corrisponde",
     "recent": "Recenti",

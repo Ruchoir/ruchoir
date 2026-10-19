@@ -10,15 +10,18 @@
  */
 
 import type { SpaceFile } from "@/lib/data";
-import { sendFile, type UploadRequest } from "@/lib/data/api";
+import { sendFile, uploadDuplicate, type UploadedFile, type UploadRequest } from "@/lib/data/api";
 import { isApiError } from "@/lib/data/http";
 
 /** How many files are sent at the same time. */
 const PARALLEL = 3;
 
 export type UploadStatus = "queued" | "uploading" | "done" | "failed" | "cancelled";
-/** Why a file did not go: too large, not allowed, the connection, or anything else. */
-export type UploadFailure = "tooLarge" | "forbidden" | "network" | "server";
+/**
+ * Why a file did not go: too large, not allowed, the connection, already in the space (the server
+ * keeps no duplicate, see `UploadDuplicate`), or anything else.
+ */
+export type UploadFailure = "tooLarge" | "forbidden" | "network" | "duplicate" | "server";
 
 export type UploadJob = {
   id: string;
@@ -33,9 +36,13 @@ export type UploadJob = {
   /** Bytes gone so far. */
   loaded: number;
   failure?: UploadFailure;
+  /** For a duplicate: where the file already there is ("Clients / Devis.pdf"). */
+  duplicateOf?: string;
+  /** The same bytes were already in the space: they became that file's next version. */
+  merged?: boolean;
 };
 
-type Entry = { job: UploadJob; file: File; request?: UploadRequest };
+type Entry = { job: UploadJob; file: File; request?: UploadRequest<UploadedFile> };
 
 let entries: Entry[] = [];
 let snapshot: UploadJob[] = [];
@@ -105,13 +112,16 @@ function start(entry: Entry) {
   emit();
   request.done
     .then((file) => {
-      update(job.id, { status: "done", loaded: job.size });
+      update(job.id, { status: "done", loaded: job.size, merged: file.merged });
       const finished = entries.find((e) => e.job.id === job.id)?.job;
       if (finished) for (const l of doneListeners) l(finished, file);
     })
     .catch((err) => {
       if (err instanceof DOMException && err.name === "AbortError") {
         update(job.id, { status: "cancelled" });
+      } else if (uploadDuplicate(err)) {
+        const duplicate = uploadDuplicate(err)!;
+        update(job.id, { status: "failed", failure: "duplicate", duplicateOf: [...duplicate.path, duplicate.existing.name].join(" / ") });
       } else {
         const failure: UploadFailure = isApiError(err, 413)
           ? "tooLarge"
@@ -142,7 +152,7 @@ export function cancelAll() {
 /** Send a file again after a failure or a cancellation (a file too large stays too large). */
 export function retry(id: string) {
   const entry = entries.find((e) => e.job.id === id);
-  if (!entry || entry.job.failure === "tooLarge") return;
+  if (!entry || entry.job.failure === "tooLarge" || entry.job.failure === "duplicate") return;
   if (entry.job.status !== "failed" && entry.job.status !== "cancelled") return;
   update(id, { status: "queued", loaded: 0, failure: undefined });
   pump();

@@ -421,6 +421,13 @@
     "searchZone": "Buscar una zona horaria"
   },
   "files": {
+    "sameFileTitle": "«{{name}}» ya está aquí",
+    "sameFileBody": "El mismo archivo ya está en «{{folder}}».",
+    "sameNameBody": "Otro archivo ya tiene este nombre en «{{folder}}».",
+    "conflictRename": "Cambiar el nombre",
+    "conflictRenameHint": "Conservarlo al lado, con un nombre numerado.",
+    "mergedVersion": "Este archivo ya estaba en el espacio: «{{name}}» tiene una nueva versión.",
+    "alreadyThere": "Este archivo ya está en el espacio: {{where}}",
     "search": "Buscar un archivo",
     "noMatch": "Ningún archivo coincide",
     "recent": "Recientes",

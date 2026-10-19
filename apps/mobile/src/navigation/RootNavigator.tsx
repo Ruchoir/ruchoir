@@ -2,6 +2,7 @@ import { createNavigationContainerRef, NavigationContainer } from "@react-naviga
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { AttachSheet } from "../compose/AttachSheet";
+import { useDuplicateQuestions } from "../uploads/useDuplicateQuestions";
 import { AccountSheet } from "../screens/account/AccountSheet";
 import { ChangePasswordScreen } from "../screens/account/ChangePasswordScreen";
 import { HelpSheet } from "../screens/account/HelpSheet";
@@ -78,6 +79,7 @@ export function RootNavigator() {
   const theme = useNavigationTheme();
   const push = usePhonePush(rootNavigation);
   const links = useAppLinks(rootNavigation);
+  useDuplicateQuestions(rootNavigation);
   const wide = useWide();
   const onReady = () => {
     push.onReady();

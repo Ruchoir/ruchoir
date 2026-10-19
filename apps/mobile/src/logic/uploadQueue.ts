@@ -1,9 +1,11 @@
 /**
- * Files of the phone on their way to a space, as data: each one waits, asks when its name is taken in
- * its folder (the web's "replace, keep both or skip"), goes, and is done or failed. One goes at a
- * time; the screens show the queue and the uploads provider sends what `nextToSend` gives.
+ * Files of the phone on their way to a space, as data: each one waits, goes, and is done or failed;
+ * one the server refuses as a duplicate asks (`asking`) and goes again with the answer. The server
+ * decides what a duplicate is, against the whole space (`UploadDuplicate`): the folder's list on the
+ * phone may not hold every file, an old one out of a "Recent" view for one. One goes at a time; the
+ * screens show the queue and the uploads provider sends what `nextToSend` gives.
  */
-import { isTaken, uniqueName } from "@ruchoir/client/filesLogic";
+import type { DuplicateAnswer, UploadDuplicate } from "@ruchoir/client";
 
 import type { LocalFile } from "../compose/useAttachments.ts";
 
@@ -21,28 +23,27 @@ export type QueueItem = {
   /** A new version of this file rather than a new file. */
   replaceFileId?: string;
   error?: "tooLarge" | "forbidden" | "network";
+  /** What the server found already there, while the item asks. */
+  duplicate?: UploadDuplicate;
+  /** The person's answer to it, sent with the file the next time. */
+  answer?: DuplicateAnswer;
 };
 
-/** An entry already in the target folder, and whether the person may replace it. */
-export type Existing = { id: string; name: string; manage: boolean };
-
+/**
+ * "Replace" (the file there gets a new version), "keep both" (a numbered name) or "skip". Which ones
+ * are offered depends on the duplicate: the same file offers replacing it, the same name with other
+ * contents offers another name (decided with Lilou, 2026-10-19).
+ */
 export type Choice = "replace" | "keepBoth" | "skip";
 
-const sameFolder = (a: UploadTarget, b: UploadTarget) => a.spaceId === b.spaceId && (a.folderId ?? "") === (b.folderId ?? "");
-
-/** The names taken in `target` for `self`: what is there, and what else is on its way there. */
-function takenFor(queue: QueueItem[], target: UploadTarget, existing: Existing[], self?: string): string[] {
-  return [...existing.map((e) => e.name), ...queue.filter((i) => i.key !== self && sameFolder(i, target)).map((i) => i.name)];
+/** What a duplicate of each reason offers, besides skipping it. */
+export function choicesFor(reason: UploadDuplicate["reason"]): Choice[] {
+  return reason === "same_file" ? ["replace", "skip"] : reason === "same_name" ? ["keepBoth", "skip"] : ["skip"];
 }
 
-/** Picked files into the queue for `target`: a free name waits its turn, a taken one asks first. */
-export function enqueue(queue: QueueItem[], picked: LocalFile[], target: UploadTarget, existing: Existing[], nextKey: () => string): QueueItem[] {
-  let out = queue;
-  for (const file of picked) {
-    const taken = isTaken(file.name, takenFor(out, target, existing));
-    out = [...out, { key: nextKey(), file, ...target, name: file.name, state: taken ? "asking" : "waiting", sent: 0 }];
-  }
-  return out;
+/** Picked files into the queue for `target`, each waiting its turn. */
+export function enqueue(queue: QueueItem[], picked: LocalFile[], target: UploadTarget, nextKey: () => string): QueueItem[] {
+  return [...queue, ...picked.map((file): QueueItem => ({ key: nextKey(), file, ...target, name: file.name, state: "waiting", sent: 0 }))];
 }
 
 /** A file of the phone as a new version of the entry `of`, under that entry's name. */
@@ -50,41 +51,31 @@ export function enqueueVersion(queue: QueueItem[], file: LocalFile, target: Uplo
   return [...queue, { key: nextKey(), file, ...target, name: of.name, state: "waiting", sent: 0, replaceFileId: of.id }];
 }
 
-/** The first file waiting for an answer about its name. */
+/** The server refused `key` as a duplicate: it asks. */
+export function markDuplicate(queue: QueueItem[], key: string, duplicate: UploadDuplicate): QueueItem[] {
+  return change(queue, key, { state: "asking", duplicate, sent: 0 });
+}
+
+/** The first file waiting for an answer about a duplicate. */
 export function nextQuestion(queue: QueueItem[]): QueueItem | undefined {
   return queue.find((i) => i.state === "asking");
 }
 
 /**
- * The answer about `key`'s name, and with `forAll` about every other one asking. "Replace" makes a
- * new version of the entry of that name when the person may manage it, else it keeps both. Each file
- * is weighed against its own folder's entries (`existing`, a list for one folder or a lookup).
+ * The answer about `key`, and with `forAll` about every other one asking for the same reason. A
+ * choice the duplicate does not offer skips it.
  */
-export function answer(
-  queue: QueueItem[],
-  key: string,
-  choice: Choice,
-  forAll: boolean,
-  existing: Existing[] | ((item: QueueItem) => Existing[]),
-): QueueItem[] {
-  const entriesOf = typeof existing === "function" ? existing : () => existing;
-  const answered = new Set(forAll ? queue.filter((i) => i.state === "asking").map((i) => i.key) : [key]);
-  let out = queue;
-  for (const item of queue) {
-    if (!answered.has(item.key) || item.state !== "asking") continue;
-    if (choice === "skip") {
-      out = out.filter((i) => i.key !== item.key);
-      continue;
-    }
-    const theirs = entriesOf(item);
-    const same = choice === "replace" ? theirs.find((e) => isTaken(item.file.name, [e.name])) : undefined;
-    const next: Partial<QueueItem> =
-      same?.manage
-        ? { name: same.name, replaceFileId: same.id, state: "waiting" }
-        : { name: uniqueName(item.file.name, takenFor(out, item, theirs, item.key)), state: "waiting" };
-    out = out.map((i) => (i.key === item.key ? { ...i, ...next } : i));
-  }
-  return out;
+export function answer(queue: QueueItem[], key: string, choice: Choice, forAll: boolean): QueueItem[] {
+  const asked = queue.find((i) => i.key === key);
+  if (!asked?.duplicate) return queue;
+  const reason = asked.duplicate.reason;
+  const answered = (i: QueueItem) =>
+    i.state === "asking" && (i.key === key || (forAll && i.duplicate?.reason === reason));
+  return queue.flatMap((i): QueueItem[] => {
+    if (!answered(i)) return [i];
+    if (choice === "skip" || !choicesFor(i.duplicate!.reason).includes(choice)) return [];
+    return [{ ...i, state: "waiting", duplicate: undefined, answer: choice === "replace" ? "replace" : "keep_both" }];
+  });
 }
 
 /** What goes next: the first waiting file, once nothing else is going. */

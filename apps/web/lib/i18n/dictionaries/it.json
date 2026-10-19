@@ -721,6 +721,7 @@
     "uploadTooLarge": "Troppo grande per essere caricato",
     "uploadForbidden": "Rifiutato: non hai questo permesso",
     "uploadNetwork": "Connessione interrotta",
+    "uploadDuplicate": "Già nello spazio: {{where}}",
     "uploadsLabel": "Caricamenti di file",
     "uploadsProgress": "{{done}} su {{total}} caricati",
     "uploadsCollapse": "Comprimi i caricamenti",

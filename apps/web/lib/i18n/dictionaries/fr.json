@@ -708,6 +708,7 @@
     "uploadTooLarge": "Trop lourd pour être envoyé",
     "uploadForbidden": "Refusé : vous n'avez pas ce droit",
     "uploadNetwork": "Connexion interrompue",
+    "uploadDuplicate": "Déjà dans l'espace : {{where}}",
     "uploadsLabel": "Envois de fichiers",
     "uploadsProgress": "{{done}} sur {{total}} envoyés",
     "uploadsCollapse": "Réduire les envois",

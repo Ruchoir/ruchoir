@@ -450,6 +450,13 @@
     "searchZone": "Szukaj strefy czasowej"
   },
   "files": {
+    "sameFileTitle": "„{{name}}” już tu jest",
+    "sameFileBody": "Ten sam plik jest już w „{{folder}}”.",
+    "sameNameBody": "Inny plik ma już tę nazwę w „{{folder}}”.",
+    "conflictRename": "Zmień nazwę",
+    "conflictRenameHint": "Zachowaj obok, pod numerowaną nazwą.",
+    "mergedVersion": "Ten plik był już w przestrzeni: „{{name}}” ma jego nową wersję.",
+    "alreadyThere": "Ten plik jest już w przestrzeni: {{where}}",
     "search": "Szukaj pliku",
     "noMatch": "Brak pasujących plików",
     "recent": "Ostatnie",
