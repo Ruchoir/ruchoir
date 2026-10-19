@@ -99,6 +99,7 @@ export function DiscussionsScreen() {
 
   const list = (
     <TabScreen>
+      <TabHeader title={t("tabs.discussions")} />
       <FlatList
         onScroll={floating.onScroll}
         scrollEventThrottle={floating.scrollEventThrottle}
@@ -110,7 +111,6 @@ export function DiscussionsScreen() {
         refreshControl={<RefreshControl refreshing={false} onRefresh={pulled} />}
         ListHeaderComponent={
           <View style={styles.top}>
-            <TabHeader title={t("tabs.discussions")} />
             <SearchField value={query} onChange={setQuery} placeholder={t("discussions.search")} />
             <Chips
               chips={FILTERS.map((f) => ({ key: f.key, label: t(f.label), count: f.key === "unread" ? unreadCount : undefined }))}
@@ -274,7 +274,8 @@ const styles = StyleSheet.create({
   side: { width: 380, borderRightWidth: hairline },
   pane: { flex: 1, justifyContent: "center" },
   list: { paddingBottom: 88 },
-  top: { gap: 12, paddingBottom: 8 },
+  // The tab's head stays above the list (it does not scroll away); the gap it had below it, here.
+  top: { gap: 12, paddingTop: 12, paddingBottom: 8 },
   row: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingVertical: 10, alignItems: "flex-start" },
   single: { alignItems: "center" },
   body: { flex: 1, minWidth: 0, gap: 2 },

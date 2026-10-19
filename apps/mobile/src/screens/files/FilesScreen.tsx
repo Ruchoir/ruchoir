@@ -70,6 +70,7 @@ export function FilesScreen() {
 
   return (
     <TabScreen>
+      <TabHeader title={t("tabs.files")} />
       <ScrollView
         contentContainerStyle={styles.page}
         onScroll={floating.onScroll}
@@ -87,7 +88,6 @@ export function FilesScreen() {
           />
         }
       >
-        <TabHeader title={t("tabs.files")} />
         <SearchField value={query} onChange={setQuery} placeholder={t("files.search")} />
         {space ? <UploadStrip spaceId={space} /> : null}
         {debounced ? (
@@ -205,7 +205,8 @@ function FolderTiles({ folders }: { folders: SpaceFile[] }) {
 
 const styles = StyleSheet.create({
   // Room under the last row for the floating button.
-  page: { paddingBottom: 96, gap: 12, flexGrow: 1 },
+  // The tab's head stays above the page (it does not scroll away); the gap it had below it, here.
+  page: { paddingTop: 12, paddingBottom: 96, gap: 12, flexGrow: 1 },
   hidden: { display: "none" },
 
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16 },

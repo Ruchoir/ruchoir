@@ -121,8 +121,8 @@ export function TodayScreen() {
 
   return (
     <TabScreen>
+      <TabHeader overline={date.charAt(0).toLocaleUpperCase(locale) + date.slice(1)} title={t("today.hello", { name: firstName })} />
       <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={false} onRefresh={pulled} />}>
-        <TabHeader overline={date.charAt(0).toLocaleUpperCase(locale) + date.slice(1)} title={t("today.hello", { name: firstName })} />
         <View style={styles.section}>
           <Text variant="heading" style={styles.sectionTitle}>
             {t("today.now")}
@@ -275,7 +275,8 @@ function FileTile({ file }: { file: SpaceFile }) {
 }
 
 const styles = StyleSheet.create({
-  page: { paddingBottom: 24, gap: 8 },
+  // The tab's head stays above the page (it does not scroll away); the gap it had below it, here.
+  page: { paddingTop: 8, paddingBottom: 24, gap: 8 },
   section: { paddingHorizontal: 16, gap: 12, paddingTop: 8 },
   sectionTitle: { fontSize: 17 },
   sectionHead: { flexDirection: "row", alignItems: "center" },

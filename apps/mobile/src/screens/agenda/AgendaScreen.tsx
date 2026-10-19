@@ -69,8 +69,8 @@ export function AgendaScreen() {
 
   return (
     <TabScreen>
+      <TabHeader title={t("tabs.agenda")} />
       <ScrollView contentContainerStyle={styles.page} onScroll={floating.onScroll} scrollEventThrottle={floating.scrollEventThrottle}>
-        <TabHeader title={t("tabs.agenda")} />
         <Segmented
           options={options}
           value={view}
@@ -104,6 +104,7 @@ export function AgendaScreen() {
 
 const styles = StyleSheet.create({
   // Room under the last event for the floating button.
-  page: { paddingBottom: 96, gap: 12, flexGrow: 1 },
+  // The tab's head stays above the page (it does not scroll away); the gap it had below it, here.
+  page: { paddingTop: 12, paddingBottom: 96, gap: 12, flexGrow: 1 },
   body: { paddingHorizontal: 16, gap: 12, flexGrow: 1 },
 });
