@@ -118,7 +118,9 @@ export function RootNavigator() {
         <Stack.Screen name="fileShare" component={ShareSheet} options={sheet} />
         <Stack.Screen name="fileSendTo" component={ConversationPicker} options={{ presentation: "modal" }} />
         <Stack.Screen name="fileLinks" component={LinksSheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
-        <Stack.Screen name="spaceSheet" component={SpaceSheet} options={{ ...sheet, sheetAllowedDetents: [0.5, 1] }} />
+        {/* As tall as its rows, like the other short sheets: at half the screen and then full, it
+            jumped and blinked as it opened and closed. */}
+        <Stack.Screen name="spaceSheet" component={SpaceSheet} options={sheet} />
         <Stack.Screen name="joinSpace" component={JoinSpaceModal} options={{ presentation: "modal" }} />
         <Stack.Screen name="spaceSettings" component={SpaceSettingsScreen} />
         <Stack.Screen name="notificationsIntro" component={NotificationsIntroScreen} options={{ presentation: "fullScreenModal" }} />
