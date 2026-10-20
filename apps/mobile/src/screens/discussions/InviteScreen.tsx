@@ -4,12 +4,12 @@
  * channels they are added to. Under them, the invitations still waiting, each revocable, as in the
  * web's invitation dialog.
  */
-import { createInvitation, getInvitations, revokeInvitation } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { CircleCheck, Link, Mail } from "lucide-react-native";
 import { useState } from "react";
 import { Share, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
@@ -29,6 +29,7 @@ import { useToast } from "../../ui/Toast";
 type Role = "member" | "guest";
 
 export function InviteScreen() {
+  const { createInvitation, getInvitations, revokeInvitation } = useApi();
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c, s } = useTheme();
@@ -179,7 +180,7 @@ export function InviteScreen() {
                 <ActionRow
                   key={inv.id}
                   icon={inv.email ? Mail : Link}
-                  tint={s.sunken}
+                 
                   title={inv.email ?? t("invitation.title")}
                   subtitle={[
                     inv.role === "guest" ? t("invite.guest") : t("invite.member"),

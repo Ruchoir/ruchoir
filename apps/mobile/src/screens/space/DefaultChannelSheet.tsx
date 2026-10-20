@@ -2,12 +2,12 @@
  * The current space's default channel, the one every newly invited person joins first: chosen among
  * its public channels, by its owner or an admin (the web's "default channel" setting).
  */
-import { getChannels, setDefaultChannel } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Check, Hash } from "lucide-react-native";
 import { useState } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useSpace } from "../../space/SpaceProvider";
@@ -20,6 +20,7 @@ import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
 
 export function DefaultChannelSheet() {
+  const { getChannels, setDefaultChannel } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const toast = useToast();

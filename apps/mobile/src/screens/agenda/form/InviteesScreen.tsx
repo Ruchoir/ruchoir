@@ -1,10 +1,11 @@
-import { searchInvitees, type Invitee } from "@ruchoir/client";
+import type { Invitee } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { Mail } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useApi } from "../../../api/useApi";
 import { useTranslation } from "../../../i18n";
 import { isEmail } from "../../../logic/email";
 import type { DraftAttendee } from "../../../logic/eventForm";
@@ -25,6 +26,7 @@ import { InviteeChips } from "./InviteeChips";
  * list sit on top, each removable.
  */
 export function InviteesScreen() {
+  const { searchInvitees } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "eventInvitees">>();
   const navigation = useNavigation();
   const { t } = useTranslation();
@@ -46,7 +48,7 @@ export function InviteesScreen() {
       clearTimeout(wait);
       abort.abort();
     };
-  }, [calendarId, text]);
+  }, [calendarId, searchInvitees, text]);
 
   if (!draft) return null;
   const add = (attendee: DraftAttendee) => {

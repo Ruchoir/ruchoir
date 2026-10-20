@@ -8,12 +8,13 @@
   "exports": {
     ".": "./src/index.ts",
     "./api": "./src/api.ts",
-    "./calendarLogic": "./src/calendarLogic/index.ts",
-    "./filesLogic": "./src/filesLogic/index.ts",
     "./calendar": "./src/calendar.ts",
+    "./calendarLogic": "./src/calendarLogic/index.ts",
+    "./client": "./src/client.ts",
     "./config": "./src/config.ts",
     "./emoji": "./src/emoji/index.ts",
     "./fileType": "./src/fileType.ts",
+    "./filesLogic": "./src/filesLogic/index.ts",
     "./http": "./src/http.ts",
     "./types": "./src/types.ts"
   },

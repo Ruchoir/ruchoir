@@ -38,7 +38,8 @@
       "unknown": "Something went wrong. Try again.",
       "emailTaken": "An account already exists with this address. Sign in, or use “Forgot password”.",
       "weakPassword": "This password is too short: at least 12 characters.",
-      "breachedPassword": "This password appears in known data breaches. Choose another one."
+      "breachedPassword": "This password appears in known data breaches. Choose another one.",
+      "alreadyAdded": "You are already signed in to this server on this phone."
     }
   },
   "mfa": {
@@ -67,7 +68,15 @@
     "preferencesHint": "Text size, theme, notifications",
     "profile": "My profile",
     "security": "Security",
-    "securityHint": "Password, two-factor authentication"
+    "securityHint": "Password, two-factor authentication",
+    "instances": "Instances",
+    "instanceShown": "On screen now",
+    "instanceSignedInAs": "Signed in as {{name}}",
+    "instanceSignedOut": "Signed out",
+    "signOutOf": "Sign out of {{host}}",
+    "removeInstance": "Remove from this phone",
+    "removeTitle": "Remove {{host}}?",
+    "removeText": "This phone signs out of it and forgets this server. You can add it again."
   },
   "presence": {
     "away": "Away"
@@ -82,7 +91,12 @@
     "current": "Open now",
     "switchLabel": "Switch space, current space: {{name}}",
     "unread_one": "{{count}} unread message",
-    "unread_other": "{{count}} unread messages"
+    "unread_other": "{{count}} unread messages",
+    "addInstance": "Add an instance",
+    "addInstanceHint": "Another Ruchoir server, on this phone",
+    "signInAgain": "Sign in again",
+    "signedOut": "Your session on this server has ended",
+    "tryAgain": "Tap to try again"
   },
   "load": {
     "offline": "No connection",

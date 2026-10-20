@@ -2,12 +2,13 @@
  * A thread: the message it answers on top, "3 replies", the replies, and the composer to answer in
  * it. Live like the conversation: a reply arriving shows here, and only here.
  */
-import { getChannels, getReplies, type ApiMessage } from "@ruchoir/client";
+import type { ApiMessage } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { Composer } from "../../compose/Composer";
 import { useAttachRequests } from "../../compose/requests";
 import { useAttachments } from "../../compose/useAttachments";
@@ -35,6 +36,7 @@ const RUN_GAP_MS = 5 * 60 * 1000;
 type Row = { kind: "message"; message: ApiMessage; head: boolean; root?: boolean } | { kind: "count"; count: number };
 
 export function ThreadScreen() {
+  const { getChannels, getReplies } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "thread">>();
   const { conversationId, channelId, rootId, title } = params;
   const { t } = useTranslation();

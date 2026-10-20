@@ -12,7 +12,7 @@
  * Expo Go on Android cannot be sent back to (Custom Tabs need the app's own link); iOS's session
  * catches the address itself, so it works there too.
  */
-import { createWebHandoff } from "@ruchoir/client";
+import type { RuchoirClient } from "@ruchoir/client";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
@@ -41,8 +41,8 @@ export async function signInThroughBrowser(server: string, email?: string): Prom
 }
 
 /** Add a passkey on the instance's page; true when the page says it was added. */
-export async function addPasskeyThroughBrowser(server: string): Promise<boolean> {
-  const code = await createWebHandoff();
+export async function addPasskeyThroughBrowser(api: RuchoirClient, server: string): Promise<boolean> {
+  const code = await api.createWebHandoff();
   const result = await WebBrowser.openAuthSessionAsync(passkeyUrl(server, code), PASSKEY_RETURN, {
     preferEphemeralSession: true,
   });

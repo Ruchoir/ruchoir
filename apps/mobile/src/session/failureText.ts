@@ -19,5 +19,6 @@ export const FAILURE_TEXT = {
   weak_password: key("auth.error.weakPassword"),
   breached_password: key("auth.error.breachedPassword"),
   passkeyOnly: key("auth.error.passkeyOnly"),
+  alreadyAdded: key("auth.error.alreadyAdded"),
   unknown: key("auth.error.unknown"),
 } satisfies Record<FailureCode, string>;

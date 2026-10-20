@@ -6,10 +6,11 @@
  * where iOS may have frozen the socket. Refetching rather than replaying deltas keeps one path for
  * "what is true now", and {@link mergeMessages} keeps a message that arrives both ways from showing twice.
  */
-import { connectRealtime, type RealtimeConnection } from "@ruchoir/client";
+import type { RealtimeConnection } from "@ruchoir/client";
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AppState } from "react-native";
 
+import { useApi } from "../api/useApi";
 import { handlersFor, type RealtimeEvent } from "./events";
 
 export type { RealtimeEvent } from "./events";
@@ -28,6 +29,7 @@ const BusContext = createContext<Set<Listener> | null>(null);
 const ActionsContext = createContext<Actions>({ sendTyping: () => {}, emit: () => {} });
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
+  const { connectRealtime } = useApi();
   const [revision, setRevision] = useState(0);
   const [listeners] = useState(() => new Set<Listener>());
   const connection = useRef<RealtimeConnection | null>(null);
@@ -54,7 +56,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       connection.current?.close();
       connection.current = null;
     };
-  }, [actions]);
+  }, [actions, connectRealtime]);
 
   return (
     <ActionsContext.Provider value={actions}>

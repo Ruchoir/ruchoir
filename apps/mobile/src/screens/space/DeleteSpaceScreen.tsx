@@ -3,12 +3,12 @@
  * then the space's name to type, as on the web. A screen rather than an alert, since an alert cannot
  * hold a text field on Android.
  */
-import { deleteSpace } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { nameConfirmed } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
@@ -22,6 +22,7 @@ import { TextField } from "../../ui/TextField";
 import { useToast } from "../../ui/Toast";
 
 export function DeleteSpaceScreen() {
+  const { deleteSpace } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const toast = useToast();

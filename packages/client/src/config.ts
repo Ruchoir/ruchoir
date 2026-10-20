@@ -6,6 +6,10 @@
  * anything else. Those are the defaults, so the web configures nothing but its locale. A native app
  * talks to whichever instance its person chose: it sets that origin, presents the session token it
  * keeps in the keychain as a bearer, and never sends a cookie.
+ *
+ * The module-level options belong to the default client, the one the web uses. An app that talks to
+ * several instances at once gives each its own options through `createClient` (`client.ts`); the
+ * `...Of(options)` helpers below are what both read.
  */
 
 export type ClientOptions = {
@@ -40,8 +44,7 @@ let options: ClientOptions = { ...DEFAULTS };
 
 /** Set some options; the others keep their current value. */
 export function configureClient(patch: Partial<ClientOptions>): void {
-  const baseUrl = patch.baseUrl === undefined ? options.baseUrl : patch.baseUrl.replace(/\/+$/, "");
-  options = { ...options, ...patch, baseUrl };
+  options = withOptions(patch, options);
 }
 
 /** Back to the defaults, between two tests. */
@@ -54,17 +57,17 @@ export function clientOptions(): ClientOptions {
   return options;
 }
 
-/** The versioned API root: `/api/v1` on the web, `https://host/api/v1` in an app. */
-export function apiBase(): string {
+/** The versioned API root of `options`: `/api/v1` on the web, `https://host/api/v1` in an app. */
+export function apiBaseOf(options: ClientOptions): string {
   return `${options.baseUrl}/api/v1`;
 }
 
 /**
- * The origin the API answers on: the configured one, else the page's own.
+ * The origin the API of `options` answers on: the configured one, else the page's own.
  *
  * Only the web reaches the fallback, and only in a browser, which is where `window` exists.
  */
-export function apiOrigin(): string {
+export function apiOriginOf(options: ClientOptions): string {
   return options.baseUrl || window.location.origin;
 }
 
@@ -73,7 +76,7 @@ export function apiOrigin(): string {
  * Relative on the web, where the page shares the API's origin; absolute in an app. A full URL, or a
  * `data:` one, is left as it is.
  */
-export function absoluteUrl(pathOrUrl: string): string {
+export function absoluteUrlOf(options: ClientOptions, pathOrUrl: string): string {
   return pathOrUrl.startsWith("/") ? `${options.baseUrl}${pathOrUrl}` : pathOrUrl;
 }
 
@@ -81,10 +84,38 @@ export function absoluteUrl(pathOrUrl: string): string {
  * What every raw `fetch` (an upload, a heartbeat) carries besides its body: the credentials mode and,
  * in an app, the bearer. `apiRequest` uses the same, so no request leaves without them.
  */
-export function authInit(): { credentials: RequestCredentials; headers: Record<string, string> } {
+export function authInitOf(options: ClientOptions): { credentials: RequestCredentials; headers: Record<string, string> } {
   const authorization = options.authorization();
   return {
     credentials: options.baseUrl ? "omit" : "same-origin",
     headers: authorization ? { authorization } : {},
   };
+}
+
+/** The options a client starts from: the defaults, with `patch` applied as `configureClient` does. */
+export function withOptions(patch: Partial<ClientOptions>, base: ClientOptions = DEFAULTS): ClientOptions {
+  const baseUrl = patch.baseUrl === undefined ? base.baseUrl : patch.baseUrl.replace(/\/+$/, "");
+  return { ...base, ...patch, baseUrl };
+}
+
+// The default client's helpers, over the options `configureClient` sets.
+
+/** The versioned API root: `/api/v1` on the web, `https://host/api/v1` in an app. */
+export function apiBase(): string {
+  return apiBaseOf(options);
+}
+
+/** The origin the API answers on (see {@link apiOriginOf}). */
+export function apiOrigin(): string {
+  return apiOriginOf(options);
+}
+
+/** A server path made usable from where the client runs (see {@link absoluteUrlOf}). */
+export function absoluteUrl(pathOrUrl: string): string {
+  return absoluteUrlOf(options, pathOrUrl);
+}
+
+/** The credentials and bearer of a raw `fetch` (see {@link authInitOf}). */
+export function authInit(): { credentials: RequestCredentials; headers: Record<string, string> } {
+  return authInitOf(options);
 }

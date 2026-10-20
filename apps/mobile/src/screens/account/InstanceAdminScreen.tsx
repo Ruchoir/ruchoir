@@ -6,20 +6,14 @@
  *
  * The API guards both; the entry is only offered to `isInstanceAdmin`.
  */
-import {
-  getInstanceSettings,
-  issuePasswordResetLink,
-  searchAccounts,
-  updateInstanceSettings,
-  type AdminUser,
-  type InstanceSettings,
-} from "@ruchoir/client";
+import type { AdminUser, InstanceSettings } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import { ShieldCheck } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Share, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { hairline, radius } from "../../theme/tokens";
@@ -35,6 +29,7 @@ import { Section } from "./Section";
 import { ToggleRow } from "./ToggleRow";
 
 export function InstanceAdminScreen() {
+  const { getInstanceSettings, issuePasswordResetLink, searchAccounts, updateInstanceSettings } = useApi();
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c, s } = useTheme();

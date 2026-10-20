@@ -1,4 +1,3 @@
-import { getFolder, updateFile } from "@ruchoir/client";
 import { blockedMoveTargets, isTaken } from "@ruchoir/client/filesLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { ChevronLeft, ChevronRight, Folder } from "lucide-react-native";
@@ -6,6 +5,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { entryOf } from "../../files/entry";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
@@ -25,6 +25,7 @@ import { useToast } from "../../ui/Toast";
  * moves it to the folder shown.
  */
 export function MovePicker() {
+  const { getFolder, updateFile } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "fileMove">>();
   const navigation = useNavigation();
   const { t } = useTranslation();

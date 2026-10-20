@@ -1,25 +1,27 @@
 /**
- * The signed-in app's side of phone notifications (ADR 0006), mounted once by `RootNavigator`:
+ * The signed-in app's side of phone notifications (ADR 0006), mounted by the active instance's
+ * `RootNavigator`:
  *
  * - a tap on a notification opens what it is about (`push/tap.ts`), the app's space switched first,
- *   also when the tap is what launched the app;
- * - at every start, the session handed to the extensions (notifications, widgets), and a phone whose
- *   notifications are on registered again (`refreshPhonePush`);
+ *   also when the tap is what launched the app: the accounts show its instance first and the tap
+ *   waits here for this navigation (`accounts/useLinkRouter`, ADR 0007);
  * - once, the first time, the invitation to turn them on (mockup 08, `notificationsIntro`);
  * - while the app is in front, nothing is drawn by the system: the app shows what arrives itself.
+ *
+ * Handing the sessions to the extensions and registering the phone with every instance happen in the
+ * accounts (`accounts/AccountsProvider`), whatever instance is on screen.
  */
 import type { NavigationContainerRefWithCurrent } from "@react-navigation/native";
-import type { NotificationResponse } from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import { Platform } from "react-native";
 
+import { onLink, takeLink } from "../accounts/pendingLink";
 import type { RootParams } from "../navigation/types";
 import { useSpace } from "../space/SpaceProvider";
 import { WAKE_TASK } from "./background";
 import { notifications } from "./native";
-import { phonePushState, refreshPhonePush, shareSession } from "./phone";
-import { refreshWidgets } from "../widgets";
+import { phonePushState } from "./phone";
 import { tapTarget } from "./tap";
 
 /** Set once the invitation was shown on this phone, whatever the answer. */
@@ -34,53 +36,31 @@ notifications()?.setNotificationHandler({
   }),
 });
 
-export function usePhonePush(navigation: NavigationContainerRefWithCurrent<RootParams>): { onReady: () => void } {
+export function usePhonePush(navigation: NavigationContainerRefWithCurrent<RootParams>, instanceId: string): { onReady: () => void } {
   const { select } = useSpace();
-  const pending = useRef<Record<string, unknown> | null>(null);
-  const handled = useRef(new Set<string>());
 
-  const open = useCallback(
-    (data: Record<string, unknown> | undefined) => {
-      const target = tapTarget(data);
-      if (!target) return;
-      if (!navigation.isReady()) {
-        pending.current = data ?? null;
-        return;
-      }
-      if (target.spaceId) select(target.spaceId);
-      if (target.screen === "conversation") navigation.navigate("conversation", target.params);
-      else navigation.navigate("tabs", { screen: "agenda" });
-    },
-    [navigation, select],
-  );
+  /** Open the tap waiting for this instance, once the navigation can; true when there was one. */
+  const openWaiting = useCallback(() => {
+    if (!navigation.isReady()) return false;
+    const link = takeLink(instanceId, "push");
+    if (link?.kind !== "push") return false;
+    const target = tapTarget(link.data);
+    if (!target) return true;
+    if (target.spaceId) select(target.spaceId);
+    if (target.screen === "conversation") navigation.navigate("conversation", target.params);
+    else navigation.navigate("tabs", { screen: "agenda" });
+    return true;
+  }, [navigation, instanceId, select]);
 
   useEffect(() => {
-    // The widgets read it too, notifications on or not: drawn again once it is there.
-    void shareSession()
-      .then(refreshWidgets)
-      .catch(() => {});
+    const unsubscribe = onLink(() => void openWaiting());
     const Notifications = notifications();
-    if (!Notifications) return;
-    const respond = (response: NotificationResponse) => {
-      const id = response.notification.request.identifier;
-      if (handled.current.has(id)) return;
-      handled.current.add(id);
-      open(response.notification.request.content.data);
-    };
-    void Notifications.getLastNotificationResponseAsync().then((response) => response && respond(response));
-    const subscription = Notifications.addNotificationResponseReceivedListener(respond);
-    void refreshPhonePush();
-    if (Platform.OS === "android") void Notifications.registerTaskAsync(WAKE_TASK).catch(() => {});
-    return () => subscription.remove();
-  }, [open]);
+    if (Notifications && Platform.OS === "android") void Notifications.registerTaskAsync(WAKE_TASK).catch(() => {});
+    return unsubscribe;
+  }, [openWaiting]);
 
   const onReady = useCallback(() => {
-    if (pending.current) {
-      const data = pending.current;
-      pending.current = null;
-      open(data);
-      return;
-    }
+    if (openWaiting()) return;
     if (!notifications()) return;
     void (async () => {
       if (await SecureStore.getItemAsync(ASKED)) return;
@@ -88,7 +68,7 @@ export function usePhonePush(navigation: NavigationContainerRefWithCurrent<RootP
       await SecureStore.setItemAsync(ASKED, "1");
       navigation.navigate("notificationsIntro");
     })();
-  }, [navigation, open]);
+  }, [navigation, openWaiting]);
 
   return { onReady };
 }

@@ -1,9 +1,10 @@
-import { listOccurrences, type Calendar, type Occurrence } from "@ruchoir/client";
+import type { Calendar, Occurrence } from "@ruchoir/client";
 import { clashes } from "@ruchoir/client/calendarLogic";
 import { AlertTriangle } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../../api/useApi";
 import { useTranslation } from "../../../i18n";
 import { useLocale } from "../../../i18n/useLocale";
 import { draftSpan, type EventDraft } from "../../../logic/eventForm";
@@ -20,6 +21,7 @@ import { calendarLabel } from "../calendarLabel";
  * the times stop moving.
  */
 export function ClashLine({ draft, calendars, busyNames, eventId }: { draft: EventDraft; calendars: Calendar[]; busyNames: string[]; eventId?: string }) {
+  const { listOccurrences } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale } = useLocale();
@@ -45,7 +47,7 @@ export function ClashLine({ draft, calendars, busyNames, eventId }: { draft: Eve
       clearTimeout(wait);
       abort.abort();
     };
-  }, [spanKey, ids, draft.tz, eventId]);
+  }, [spanKey, ids, draft.tz, eventId, listOccurrences]);
 
   if (found.length === 0 && busyNames.length === 0) return null;
   const where = (o: Occurrence) => {

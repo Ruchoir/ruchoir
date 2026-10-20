@@ -1,9 +1,9 @@
-import { createDm, getSpaceMembers, getUserProfile } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Constants from "expo-constants";
 import { GraduationCap, Info, MessageSquare } from "lucide-react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
@@ -23,6 +23,7 @@ const LOOKED_AT = 40;
  * administrator of the instance when the instance shows who they are (their profiles say so).
  */
 export function HelpSheet() {
+  const { createDm, getSpaceMembers, getUserProfile } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const toast = useToast();

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { tapData, tapTarget } from "../src/push/tap.ts";
+import { newestPending, tapData, tapTarget } from "../src/push/tap.ts";
 
 const message = {
   id: "n1",
@@ -51,4 +51,22 @@ test("anything_else_opens_nothing", () => {
   assert.equal(tapTarget({}), null);
   assert.equal(tapTarget(undefined), null);
   assert.equal(tapTarget({ conversation_id: 42 } as unknown as Record<string, unknown>), null);
+});
+
+test("the_newest_items_of_every_instance_come_first_each_with_its_instance", () => {
+  const at = (id: string, created_at: string) => ({ ...message, id, created_at });
+  const newest = newestPending(
+    [
+      { server: "https://a.test", items: [at("a1", "2026-10-15T08:00:00Z"), at("a2", "2026-10-15T10:00:00Z")] },
+      { server: "https://b.test", items: [at("b1", "2026-10-15T09:00:00Z")] },
+    ],
+    2,
+  );
+  assert.deepEqual(
+    newest.map((n) => [n.server, n.item.id]),
+    [
+      ["https://a.test", "a2"],
+      ["https://b.test", "b1"],
+    ],
+  );
 });

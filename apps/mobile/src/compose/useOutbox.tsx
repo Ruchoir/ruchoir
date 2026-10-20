@@ -6,9 +6,10 @@
  * live event once the server has it; a failure stays on screen, marked, until it is retried or
  * dropped. The rules are in `logic/outbox.ts`.
  */
-import { sendMessage, type InlineImage, type MessageAttachment } from "@ruchoir/client";
+import type { InlineImage, MessageAttachment } from "@ruchoir/client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, type ReactNode } from "react";
 
+import { useApi } from "../api/useApi";
 import { outboxReducer, type OutboxItem } from "../logic/outbox";
 import { useRealtimeActions } from "../realtime/RealtimeProvider";
 import { feel } from "../ui/haptics";
@@ -44,6 +45,7 @@ function localId(): string {
 }
 
 export function OutboxProvider({ children }: { children: ReactNode }) {
+  const { sendMessage } = useApi();
   const [items, dispatch] = useReducer(outboxReducer, []);
   const latest = useRef(items);
   useEffect(() => {
@@ -69,7 +71,7 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
         },
       );
     },
-    [emit],
+    [emit, sendMessage],
   );
 
   const send = useCallback(

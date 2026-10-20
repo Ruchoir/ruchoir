@@ -1,4 +1,3 @@
-import { getMfaState, logoutEverywhere, removePasskey, generateRecoveryCodes } from "@ruchoir/client";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { KeyRound, ListChecks, Lock, LogOut, Plus, RectangleEllipsis, ShieldCheck, Trash2 } from "lucide-react-native";
@@ -6,6 +5,7 @@ import { useCallback } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
@@ -28,6 +28,8 @@ import { Section } from "./Section";
  * out of every device. Plus what only a phone has: locking the app with Face ID and a PIN (`lock/AppLock`).
  */
 export function SecurityScreen() {
+  const api = useApi();
+  const { generateRecoveryCodes, getMfaState, logoutEverywhere, removePasskey } = api;
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale } = useLocale();
@@ -88,7 +90,7 @@ export function SecurityScreen() {
   const server = session.state.kind === "signedIn" ? session.state.server : null;
   const addPasskey = () => {
     if (!server) return;
-    addPasskeyThroughBrowser(server).then(
+    addPasskeyThroughBrowser(api, server).then(
       (added) => {
         if (!added) return;
         toast(t("security.passkeyAdded"), "success");
@@ -123,7 +125,7 @@ export function SecurityScreen() {
             <>
               <ActionRow
                 icon={ShieldCheck}
-                tint={state.totpEnabled ? c.mint : s.sunken}
+                tint={state.totpEnabled ? c.mint : undefined}
                 title={state.totpEnabled ? t("security.enabled") : t("security.disabled")}
                 subtitle={state.totpEnabled ? t("security.totpOn") : t("security.totpOff")}
                 trailing={
@@ -181,12 +183,12 @@ export function SecurityScreen() {
         <Section label={t("security.lockSection")}>
           <ActionRow
             icon={Lock}
-            tint={lock.enabled ? c.mint : s.sunken}
+            tint={lock.enabled ? c.mint : undefined}
             title={lockTitle}
             subtitle={lock.kind ? t("security.lockBiometryHint") : t("security.lockHint")}
             trailing={<Toggle value={lock.enabled} onValueChange={(on) => void lock.setEnabled(on)} accessibilityLabel={lockTitle} />}
           />
-          {lock.enabled ? <ActionRow icon={RectangleEllipsis} tint={s.sunken} title={t("security.changePin")} onPress={changePin} /> : null}
+          {lock.enabled ? <ActionRow icon={RectangleEllipsis} title={t("security.changePin")} onPress={changePin} /> : null}
         </Section>
         <Section label={t("security.sessions")}>
           <ActionRow icon={LogOut} danger title={t("security.signOutEverywhere")} subtitle={t("security.sessionsDesc")} onPress={everywhere} />

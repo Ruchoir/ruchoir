@@ -1,8 +1,8 @@
-import { listChannelEvents } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { CalendarDays } from "lucide-react-native";
 import { ScrollView, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
@@ -20,6 +20,7 @@ import { EventCardRow } from "../agenda/EventCardRow";
  * agenda's own list is, so the two read the same.
  */
 export function ConversationAgenda({ channelId }: { channelId: string }) {
+  const { listChannelEvents } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();

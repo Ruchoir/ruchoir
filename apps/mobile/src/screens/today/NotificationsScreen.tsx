@@ -1,21 +1,21 @@
 /**
- * "Notifications", from Today's bell: the account's inbox as the web's notification centre, unread
- * ones or all of them, newest first, older pages as the list runs out. A tap files it as read and
+ * "Notifications", from Today's bell: the inbox of every instance the phone is signed in to, as the
+ * web's notification centre, unread ones or all of them, newest first, older pages as the list runs
+ * out. A tap files it as read and
  * opens what it is about (the message in its conversation, or the event); "Mark all as read" files
  * them all at once.
  */
-import {
-  getNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
-  type ApiNotification,
-} from "@ruchoir/client";
+import type { ApiNotification } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { AtSign, Bell, CalendarDays, CheckCheck, MessageCircle, PenLine, Reply, Share2, SmilePlus } from "lucide-react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
+import { useAccounts } from "../../accounts/AccountsProvider";
+import { mergeInboxes, type InboxItem } from "../../accounts/inbox";
+import { queueLink } from "../../accounts/pendingLink";
+import { hostOf, unreadEverywhere } from "../../accounts/summary";
 import { useLoad } from "../../data/useLoad";
 import { useNow } from "../../data/useNow";
 import { useReloadOn } from "../../data/useReloadOn";
@@ -65,7 +65,13 @@ const ICON = {
   calendar_shared: Share2,
 } as const;
 
-/** Pages of the inbox, kept as they come: the first one reloads live, the older ones are appended. */
+/** One page cursor per instance, for the older pages fetched as the list runs out. */
+type Older = Record<string, { items: ApiNotification[]; next?: string }>;
+
+/**
+ * Pages of the inbox of every signed-in instance (ADR 0007), merged newest first
+ * (`accounts/inbox.ts`): the first pages reload live, the older ones are appended per instance.
+ */
 export function NotificationsScreen() {
   const { t } = useTranslation();
   const { c, s } = useTheme();
@@ -74,32 +80,75 @@ export function NotificationsScreen() {
   const toast = useToast();
   const { emit } = useRealtimeActions();
   const { current, select } = useSpace();
+  const accounts = useAccounts();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const [filter, setFilter] = useState<Filter>("unread");
-  const first = useLoad(`inbox:${filter}`, (signal) => getNotifications({ unread: filter === "unread", limit: 30 }, signal));
+  const signedIn = accounts.accounts.filter((a) => a.status.kind === "signedIn");
+  const several = signedIn.length > 1;
+  const clientOf = (instanceId: string) => signedIn.find((a) => a.id === instanceId)?.client;
+  const ids = signedIn.map((a) => a.id).join(" ");
+  const first = useLoad(`inbox:${filter}:${ids}`, (signal) =>
+    Promise.all(
+      signedIn.map(async (account) => {
+        // An instance that does not answer leaves the others' notifications on screen.
+        const page = await account.client.getNotifications({ unread: filter === "unread", limit: 30 }, signal).catch((err: unknown) => {
+          if (signedIn.length === 1) throw err;
+          return null;
+        });
+        return { instanceId: account.id, items: page?.notifications ?? [], next: page?.nextBefore };
+      }),
+    ),
+  );
   useReloadOn((e) => e.type === "notification", first.reload, 300);
-  const [older, setOlder] = useState<{ key: string; items: ApiNotification[]; next?: string; loading: boolean }>({ key: "", items: [], loading: false });
+  // Another instance's inbox moves through its summary, published by its own scope.
+  const elsewhere = unreadEverywhere(accounts.summaries, signedIn.filter((a) => a.id !== accounts.active?.id).map((a) => a.id));
+  const reloadFirst = first.reload;
+  useEffect(() => {
+    if (several) reloadFirst();
+  }, [elsewhere, several, reloadFirst]);
+  const [older, setOlder] = useState<{ key: string; feeds: Older; loading: boolean }>({ key: "", feeds: {}, loading: false });
   // Read here, ahead of the server's answer.
   const [readHere, setReadHere] = useState<Set<string>>(new Set());
 
-  const olderHere = older.key === `${filter}:${first.data?.notifications[0]?.id ?? ""}` ? older : null;
-  const items = [...(first.data?.notifications ?? []), ...(olderHere?.items ?? [])].map((n) => (readHere.has(n.id) ? { ...n, read: true } : n));
-  const next = olderHere ? olderHere.next : first.data?.nextBefore;
+  const pageKey = `${filter}:${(first.data ?? []).map((f) => f.items[0]?.id ?? "").join(",")}`;
+  const olderHere = older.key === pageKey ? older.feeds : {};
+  const feeds = (first.data ?? []).map((feed) => {
+    const more = olderHere[feed.instanceId];
+    return more ? { instanceId: feed.instanceId, items: [...feed.items, ...more.items], next: more.next } : feed;
+  });
+  const merged = mergeInboxes(feeds);
+  const items = merged.items.map((n) => (readHere.has(n.key) ? { ...n, read: true } : n));
   const anyUnread = items.some((n) => !n.read);
 
   const more = () => {
-    if (!next || olderHere?.loading || !first.data) return;
-    const pageKey = `${filter}:${first.data.notifications[0]?.id ?? ""}`;
-    setOlder((prev) => ({ ...(prev.key === pageKey ? prev : { items: [] }), key: pageKey, loading: true }));
-    getNotifications({ unread: filter === "unread", before: next, limit: 30 }).then(
-      (page) => setOlder((prev) => ({ key: pageKey, items: [...(prev.key === pageKey ? prev.items : []), ...page.notifications], next: page.nextBefore, loading: false })),
-      () => setOlder((prev) => ({ ...prev, loading: false })),
+    if (!merged.more || (older.key === pageKey && older.loading) || !first.data) return;
+    setOlder((prev) => ({ key: pageKey, feeds: prev.key === pageKey ? prev.feeds : {}, loading: true }));
+    void Promise.all(
+      feeds
+        .filter((feed) => feed.next)
+        .map(async (feed) => {
+          const page = await clientOf(feed.instanceId)
+            ?.getNotifications({ unread: filter === "unread", before: feed.next, limit: 30 })
+            .catch(() => null);
+          return { feed, page };
+        }),
+    ).then((pages) =>
+      setOlder((prev) => {
+        const base = prev.key === pageKey ? prev.feeds : {};
+        const next = { ...base };
+        for (const { feed, page } of pages) {
+          if (!page) continue;
+          const had = base[feed.instanceId]?.items ?? [];
+          next[feed.instanceId] = { items: [...had, ...page.notifications], next: page.nextBefore };
+        }
+        return { key: pageKey, feeds: next, loading: false };
+      }),
     );
   };
 
   const readAll = () => {
-    setReadHere(new Set(items.map((n) => n.id)));
-    markAllNotificationsRead().then(
+    setReadHere(new Set(items.map((n) => n.key)));
+    Promise.all(signedIn.map((account) => account.client.markAllNotificationsRead())).then(
       () => {
         toast(t("inbox.allMarked"));
         emit({ type: "notification" });
@@ -111,12 +160,26 @@ export function NotificationsScreen() {
     );
   };
 
-  const open = (n: ApiNotification) => {
+  const open = (n: InboxItem) => {
     if (!n.read) {
-      setReadHere((prev) => new Set(prev).add(n.id));
-      markNotificationRead(n.id).then(() => emit({ type: "notification" }), () => {});
+      setReadHere((prev) => new Set(prev).add(n.key));
+      clientOf(n.instanceId)
+        ?.markNotificationRead(n.id)
+        .then(() => emit({ type: "notification" }), () => {});
     }
     navigation.goBack();
+    // Another instance's: shown first, then what the notification is about, as a tap would.
+    if (n.instanceId !== accounts.active?.id) {
+      accounts.switchTo(n.instanceId, n.spaceId || undefined);
+      const data: Record<string, string> = {};
+      if (n.spaceId) data.space_id = n.spaceId;
+      if (n.conversationId) data.conversation_id = n.conversationId;
+      if (n.channelName) data.channel_name = n.channelName;
+      if (n.actor) data.actor_name = n.actor;
+      if (n.reminder) data.event_id = n.reminder.eventId;
+      queueLink(n.instanceId, { kind: "push", data });
+      return;
+    }
     if (n.reminder) {
       navigation.navigate("eventSummary", { eventId: n.reminder.eventId, recurrenceId: n.reminder.recurrenceId, start: n.reminder.start });
       return;
@@ -182,7 +245,7 @@ export function NotificationsScreen() {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={(n) => n.id}
+          keyExtractor={(n) => n.key}
           contentContainerStyle={styles.list}
           onEndReached={more}
           onEndReachedThreshold={0.5}
@@ -190,7 +253,10 @@ export function NotificationsScreen() {
           renderItem={({ item: n }) => {
             const Icon = n.kind.startsWith("calendar_") && n.kind !== "calendar_shared" ? CalendarDays : ICON[n.kind as keyof typeof ICON] ?? Bell;
             const stamp = listStamp(n.createdAt, new Date(now), locale, timeZone);
-            const where = n.reminder ? n.reminder.calendarName : n.channelName ? `#${n.channelName} · ${n.spaceName}` : n.spaceName || undefined;
+            const place = n.reminder ? n.reminder.calendarName : n.channelName ? `#${n.channelName} · ${n.spaceName}` : n.spaceName || undefined;
+            // With several instances, each item says which one it comes from.
+            const origin = several ? signedIn.find((a) => a.id === n.instanceId)?.origin : undefined;
+            const where = origin ? [place, hostOf(origin)].filter(Boolean).join(" · ") : place;
             return (
               <Pressable accessibilityRole="button" onPress={() => open(n)} style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}>
                 <View style={[styles.tile, { backgroundColor: n.read ? s.sunken : c.acc }]}>

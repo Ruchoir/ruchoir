@@ -38,7 +38,8 @@
       "unknown": "Ein Fehler ist aufgetreten. Versuchen Sie es erneut.",
       "emailTaken": "Mit dieser Adresse existiert bereits ein Konto. Melden Sie sich an oder nutzen Sie „Passwort vergessen“.",
       "weakPassword": "Dieses Passwort ist zu kurz: mindestens 12 Zeichen.",
-      "breachedPassword": "Dieses Passwort taucht in bekannten Datenlecks auf. Wählen Sie ein anderes."
+      "breachedPassword": "Dieses Passwort taucht in bekannten Datenlecks auf. Wählen Sie ein anderes.",
+      "alreadyAdded": "Sie sind auf diesem Telefon bereits bei diesem Server angemeldet."
     }
   },
   "mfa": {
@@ -67,7 +68,15 @@
     "preferencesHint": "Textgröße, Design, Benachrichtigungen",
     "profile": "Mein Profil",
     "security": "Sicherheit",
-    "securityHint": "Passwort, Zwei-Faktor-Authentifizierung"
+    "securityHint": "Passwort, Zwei-Faktor-Authentifizierung",
+    "instances": "Instanzen",
+    "instanceShown": "Gerade angezeigt",
+    "instanceSignedInAs": "Angemeldet als {{name}}",
+    "instanceSignedOut": "Abgemeldet",
+    "signOutOf": "Von {{host}} abmelden",
+    "removeInstance": "Von diesem Telefon entfernen",
+    "removeTitle": "{{host}} entfernen?",
+    "removeText": "Dieses Telefon meldet sich dort ab und vergisst diesen Server. Sie können ihn erneut hinzufügen."
   },
   "presence": {
     "away": "Abwesend"
@@ -82,7 +91,12 @@
     "current": "Geöffneter Bereich",
     "switchLabel": "Bereich wechseln, aktueller Bereich: {{name}}",
     "unread_one": "{{count}} ungelesene Nachricht",
-    "unread_other": "{{count}} ungelesene Nachrichten"
+    "unread_other": "{{count}} ungelesene Nachrichten",
+    "addInstance": "Instanz hinzufügen",
+    "addInstanceHint": "Ein weiterer Ruchoir-Server auf diesem Telefon",
+    "signInAgain": "Erneut anmelden",
+    "signedOut": "Ihre Sitzung auf diesem Server ist beendet",
+    "tryAgain": "Tippen, um es erneut zu versuchen"
   },
   "load": {
     "offline": "Keine Verbindung",

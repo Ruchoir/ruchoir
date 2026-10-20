@@ -38,7 +38,8 @@
       "unknown": "Se ha producido un error. Vuelva a intentarlo.",
       "emailTaken": "Ya existe una cuenta con esta dirección. Inicie sesión o use «Contraseña olvidada».",
       "weakPassword": "Esta contraseña es demasiado corta: al menos 12 caracteres.",
-      "breachedPassword": "Esta contraseña aparece en filtraciones de datos conocidas. Elija otra."
+      "breachedPassword": "Esta contraseña aparece en filtraciones de datos conocidas. Elija otra.",
+      "alreadyAdded": "Ya ha iniciado sesión en este servidor en este teléfono."
     }
   },
   "mfa": {
@@ -67,7 +68,15 @@
     "preferencesHint": "Tamaño del texto, tema, notificaciones",
     "profile": "Mi perfil",
     "security": "Seguridad",
-    "securityHint": "Contraseña, verificación en dos pasos"
+    "securityHint": "Contraseña, verificación en dos pasos",
+    "instances": "Instancias",
+    "instanceShown": "En pantalla ahora",
+    "instanceSignedInAs": "Sesión iniciada como {{name}}",
+    "instanceSignedOut": "Sesión cerrada",
+    "signOutOf": "Cerrar sesión en {{host}}",
+    "removeInstance": "Quitar de este teléfono",
+    "removeTitle": "¿Quitar {{host}}?",
+    "removeText": "Este teléfono cierra la sesión y olvida este servidor. Podrá añadirlo de nuevo."
   },
   "presence": {
     "away": "Ausente"
@@ -83,7 +92,12 @@
     "switchLabel": "Cambiar de espacio, espacio actual: {{name}}",
     "unread_one": "{{count}} mensaje sin leer",
     "unread_other": "{{count}} mensajes sin leer",
-    "unread_many": "{{count}} mensajes sin leer"
+    "unread_many": "{{count}} mensajes sin leer",
+    "addInstance": "Añadir una instancia",
+    "addInstanceHint": "Otro servidor Ruchoir, en este teléfono",
+    "signInAgain": "Volver a iniciar sesión",
+    "signedOut": "Su sesión en este servidor ha terminado",
+    "tryAgain": "Toque para reintentar"
   },
   "load": {
     "offline": "Sin conexión",

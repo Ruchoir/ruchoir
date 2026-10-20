@@ -1,10 +1,11 @@
-import { listCalendars, listOccurrences, type Calendar, type Occurrence } from "@ruchoir/client";
+import type { Calendar, Occurrence } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { CalendarPlus } from "lucide-react-native";
 import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
@@ -46,6 +47,7 @@ export type AgendaData = {
  * chosen in a week or a month.
  */
 export function AgendaScreen() {
+  const { listCalendars, listOccurrences } = useApi();
   const { t } = useTranslation();
   const { timeZone } = useLocale();
   const { current } = useSpace();

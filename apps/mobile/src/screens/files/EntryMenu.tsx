@@ -1,4 +1,3 @@
-import { deleteFile, fileDownloadUrl, setStarred } from "@ruchoir/client";
 import { actionsFor, canManage, type ActionId } from "@ruchoir/client/filesLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,6 +6,7 @@ import { FileUp, FolderInput, FolderOpen, History, Info, PencilLine, PencilRuler
 import { Alert, StyleSheet, View } from "react-native";
 
 import { uploadLimit } from "../../api/limits";
+import { useApi } from "../../api/useApi";
 import { pickDocuments } from "../../compose/pick";
 
 import { entryOf } from "../../files/entry";
@@ -34,6 +34,8 @@ import { openEntry } from "./FileRow";
  * may, in the web's order. Opened from a row's "⋯" or a long press, and from the viewer.
  */
 export function EntryMenu() {
+  const api = useApi();
+  const { deleteFile, fileDownloadUrl, setStarred } = api;
   const { params } = useRoute<RouteProp<RootParams, "fileMenu">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
@@ -57,11 +59,11 @@ export function EntryMenu() {
   const run: Partial<Record<ActionId, () => void>> = {
     open: () => {
       close();
-      openEntry(navigation, file, params.path);
+      openEntry(api, navigation, file, params.path);
     },
     download: () => {
       close();
-      void downloadToCache({ id: file.id!, name: file.name, url: fileDownloadUrl(file.id!), mime: file.mimeType, sizeBytes: file.sizeBytes })
+      void downloadToCache(api, { id: file.id!, name: file.name, url: fileDownloadUrl(file.id!), mime: file.mimeType, sizeBytes: file.sizeBytes })
         .then((uri) => Sharing.shareAsync(uri, { mimeType: file.mimeType, dialogTitle: file.name }))
         .catch(() => toast(t("files.actionFailed"), "failure"));
     },
@@ -85,7 +87,7 @@ export function EntryMenu() {
       void pickDocuments(false).then(async (picked) => {
         const chosen = picked[0];
         if (!chosen) return;
-        const limit = await uploadLimit();
+        const limit = await uploadLimit(api);
         if (limit !== undefined && chosen.size !== undefined && chosen.size > limit) {
           Alert.alert(t("attach.tooLargeTitle", { count: 1 }), t("attach.tooLargeText", { names: chosen.name, limit: fileSize(limit, locale) }));
           return;

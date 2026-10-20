@@ -5,18 +5,7 @@
  * key of its own, so the sheets it opens (calendar, pickers...) read and change it; closing with
  * something typed asks first, and a failure keeps everything typed.
  */
-import {
-  createEvent,
-  isApiError,
-  listCalendars,
-  listLinkableChannels,
-  searchInvitees,
-  setEventMe,
-  updateEvent,
-  type Calendar,
-  type EditScope,
-  type SpaceFile,
-} from "@ruchoir/client";
+import { isApiError, type Calendar, type EditScope, type SpaceFile } from "@ruchoir/client";
 import { StackActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { remindersLabel } from "@ruchoir/client/calendarLogic";
@@ -24,6 +13,7 @@ import { Bell, ChevronDown, ChevronRight, FileText, Globe, MapPin, MessageSquare
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, TextInput, View } from "react-native";
 
+import { useApi } from "../../../api/useApi";
 import { useAttachRequests } from "../../../compose/requests";
 import { useLoad } from "../../../data/useLoad";
 import { useTranslation } from "../../../i18n";
@@ -65,6 +55,8 @@ import { usePrefs } from "../../../prefs/store";
 let forms = 0;
 
 export function EventFormScreen() {
+  const api = useApi();
+  const { createEvent, listCalendars, listLinkableChannels, searchInvitees, setEventMe, updateEvent } = api;
   const { params } = useRoute<RouteProp<RootParams, "eventForm">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
@@ -84,7 +76,7 @@ export function EventFormScreen() {
   const calendars = useLoad("calendars", (signal) => listCalendars(signal));
   // The event changed, and the date of it opened.
   const editing = useLoad(params.eventId ? `edit:${params.eventId}:${params.recurrenceId ?? ""}` : null, (signal) =>
-    loadOccurrence(params.eventId!, params.recurrenceId, params.start, signal),
+    loadOccurrence(api, params.eventId!, params.recurrenceId, params.start, signal),
   );
   const edit = editing.data;
   const draft = useDraft(formKey);

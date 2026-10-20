@@ -38,7 +38,8 @@
       "unknown": "Wystąpił błąd. Spróbuj ponownie.",
       "emailTaken": "Konto z tym adresem już istnieje. Zaloguj się albo użyj opcji „Nie pamiętam hasła”.",
       "weakPassword": "To hasło jest za krótkie: co najmniej 12 znaków.",
-      "breachedPassword": "To hasło występuje w znanych wyciekach danych. Wybierz inne."
+      "breachedPassword": "To hasło występuje w znanych wyciekach danych. Wybierz inne.",
+      "alreadyAdded": "Jesteś już zalogowany na tym serwerze na tym telefonie."
     }
   },
   "mfa": {
@@ -67,7 +68,15 @@
     "preferencesHint": "Rozmiar tekstu, motyw, powiadomienia",
     "profile": "Mój profil",
     "security": "Bezpieczeństwo",
-    "securityHint": "Hasło, uwierzytelnianie dwuskładnikowe"
+    "securityHint": "Hasło, uwierzytelnianie dwuskładnikowe",
+    "instances": "Instancje",
+    "instanceShown": "Wyświetlana teraz",
+    "instanceSignedInAs": "Zalogowano jako {{name}}",
+    "instanceSignedOut": "Wylogowano",
+    "signOutOf": "Wyloguj się z {{host}}",
+    "removeInstance": "Usuń z tego telefonu",
+    "removeTitle": "Usunąć {{host}}?",
+    "removeText": "Ten telefon wyloguje się i zapomni ten serwer. Możesz dodać go ponownie."
   },
   "presence": {
     "away": "Zaraz wracam"
@@ -84,7 +93,12 @@
     "unread_one": "{{count}} nieprzeczytana wiadomość",
     "unread_other": "{{count}} nieprzeczytanej wiadomości",
     "unread_few": "{{count}} nieprzeczytane wiadomości",
-    "unread_many": "{{count}} nieprzeczytanych wiadomości"
+    "unread_many": "{{count}} nieprzeczytanych wiadomości",
+    "addInstance": "Dodaj instancję",
+    "addInstanceHint": "Kolejny serwer Ruchoir na tym telefonie",
+    "signInAgain": "Zaloguj się ponownie",
+    "signedOut": "Twoja sesja na tym serwerze wygasła",
+    "tryAgain": "Dotknij, aby spróbować ponownie"
   },
   "load": {
     "offline": "Brak połączenia",

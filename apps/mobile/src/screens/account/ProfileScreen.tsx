@@ -1,4 +1,4 @@
-import { clearMyAvatar, getUserProfile, setMyAvatar, updateMyProfile, type Profile } from "@ruchoir/client";
+import type { Profile } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
@@ -6,6 +6,7 @@ import { Globe } from "lucide-react-native";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
@@ -42,6 +43,7 @@ const formOf = (p: Profile): Form => ({
  * the rest with "Save".
  */
 export function ProfileScreen() {
+  const { clearMyAvatar, getUserProfile, setMyAvatar, updateMyProfile } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const toast = useToast();

@@ -3,12 +3,13 @@
  * give them (`grantableRoles`, the web's rule), handing the space over for its owner, and removing
  * them from the space. Both of the last ask first, in the web's words.
  */
-import { isApiError, removeMember, setMemberRole } from "@ruchoir/client";
+import { isApiError } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { Check, UserMinus } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { key, useTranslation } from "../../i18n";
 import { grantableRoles } from "../../logic/spaceRoles";
@@ -38,6 +39,7 @@ const ROLE_HINT: Record<string, ReturnType<typeof key> | undefined> = {
 };
 
 export function MemberSheet() {
+  const { removeMember, setMemberRole } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "spaceMember">>();
   const { t } = useTranslation();
   const { c } = useTheme();

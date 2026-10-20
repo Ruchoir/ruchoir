@@ -7,9 +7,11 @@
  * - `RuchoirReply` (2×2, "To answer"): who addressed the reader; an invitation is answered "Yes" there;
  * - `RuchoirDiscussions` (4×2): the space's latest conversations, and "New message".
  *
- * They read the instance and the session token the app shares (`push/phone.ts`), the space on screen
- * and the theme (`widgets/share.ts`), and ask the instance themselves, as the iPhone's widgets do
- * (`targets/widgets`). A tap opens the app on a `ruchoir://` link (`logic/deepLink.ts`).
+ * They read the instances and session tokens the app shares (`push/phone.ts`), the space on screen,
+ * its instance and the theme (`widgets/share.ts`), and ask the instances themselves, as the iPhone's
+ * widgets do (`targets/widgets`): "Next" and "To answer" over every instance (ADR 0007), the
+ * conversations of the space on screen. A tap opens the app on a `ruchoir://` link
+ * (`logic/deepLink.ts`).
  */
 import * as SecureStore from "expo-secure-store";
 import {
@@ -23,10 +25,11 @@ import {
 } from "react-native-android-widget";
 
 import i18n, { key, type DictKey } from "../i18n";
-import { SHARED, SHARED_SERVER, SHARED_TOKEN } from "../push/phone";
+import { SHARED, SHARED_ACCOUNTS } from "../push/phone";
+import { fromEvery, parseSharedAccounts, type SharedAccount } from "../push/shared";
 import { initials, mixHex, previewOf, startsIn, upcoming, widgetPalette, type WidgetPalette, type WireEvent, type WireLast } from "./data";
 import { glyph, type Glyph } from "./icons";
-import { SHARED_SPACE, SHARED_THEME } from "./keys";
+import { SHARED_SPACE, SHARED_SPACE_SERVER, SHARED_THEME } from "./keys";
 
 const mark = require("../../assets/mark.png");
 
@@ -40,16 +43,23 @@ type Note = {
   event_id?: string;
   event_title?: string;
   preview: string;
+  created_at?: string;
+  /** The instance it came from, added here: where "Yes" is answered. */
+  server?: string;
 };
-type Event = WireEvent & { event_id: string };
+type Event = WireEvent & { event_id: string; server?: string };
+
+/** `&server=...`, so a tap opens what came from another instance there (`logic/deepLink.ts`). */
+const serverParam = (server?: string) => (server ? `&server=${encodeURIComponent(server)}` : "");
 type Row = { id: string; name: string; channel: boolean; unread: number; at?: string; preview: string; space: string };
 
-async function get<T>(path: string, init?: { method: string; body: string }): Promise<T | null> {
-  const [server, token] = await Promise.all([
-    SecureStore.getItemAsync(SHARED_SERVER, SHARED),
-    SecureStore.getItemAsync(SHARED_TOKEN, SHARED),
-  ]);
-  if (!server || !token) return null;
+async function accounts(): Promise<SharedAccount[]> {
+  return parseSharedAccounts(await SecureStore.getItemAsync(SHARED_ACCOUNTS, SHARED).catch(() => null));
+}
+
+async function get<T>(account: SharedAccount | undefined, path: string, init?: { method: string; body: string }): Promise<T | null> {
+  if (!account) return null;
+  const { server, token } = account;
   try {
     const response = await fetch(`${server}/api/v1${path}`, {
       method: init?.method ?? "GET",
@@ -62,9 +72,6 @@ async function get<T>(path: string, init?: { method: string; body: string }): Pr
   }
 }
 
-async function signedIn(): Promise<boolean> {
-  return !!(await SecureStore.getItemAsync(SHARED_TOKEN, SHARED));
-}
 
 const t = (name: DictKey, options?: Record<string, unknown>): string => (options ? i18n.t(name, options) : i18n.t(name)) as string;
 
@@ -139,7 +146,7 @@ function ShortcutsView({ p }: { p: WidgetPalette }) {
 /** "Next": the next event on a tint of the accent. */
 function NextView({ p, event, message }: { p: WidgetPalette; event?: Event; message?: string }) {
   const now = new Date();
-  const uri = event ? `ruchoir://event/${event.event_id}?start=${encodeURIComponent(event.start)}` : "ruchoir://agenda";
+  const uri = event ? `ruchoir://event/${event.event_id}?start=${encodeURIComponent(event.start)}${serverParam(event.server)}` : "ruchoir://agenda";
   return (
     <Card p={p} uri={uri} background={mixHex(p.acc, p.surface, 0.34)}>
       <FlexWidget style={{ flexDirection: "row", alignItems: "center", flexGap: 6 }}>
@@ -190,9 +197,9 @@ function title(note: Note): string {
 /** "To answer": who addressed the reader; "Yes" for an invitation, "Open" for the rest. */
 function ReplyView({ p, note, message }: { p: WidgetPalette; note?: Note; message?: string }) {
   const open = note?.conversation_id
-    ? `ruchoir://conversation/${note.conversation_id}?title=${encodeURIComponent(note.channel_name ?? note.actor_name ?? "Ruchoir")}&channel=${note.channel_name ? "1" : "0"}`
+    ? `ruchoir://conversation/${note.conversation_id}?title=${encodeURIComponent(note.channel_name ?? note.actor_name ?? "Ruchoir")}&channel=${note.channel_name ? "1" : "0"}${serverParam(note.server)}`
     : note?.event_id
-      ? `ruchoir://event/${note.event_id}`
+      ? `ruchoir://event/${note.event_id}?${serverParam(note.server).slice(1)}`
       : "ruchoir://discussions";
   return (
     <Card p={p}>
@@ -208,7 +215,7 @@ function ReplyView({ p, note, message }: { p: WidgetPalette; note?: Note; messag
               {note.kind === "calendar_invitation" && note.event_id ? (
                 <FlexWidget
                   clickAction="ACCEPT"
-                  clickActionData={{ eventId: note.event_id, notificationId: note.id }}
+                  clickActionData={{ eventId: note.event_id, notificationId: note.id, server: note.server ?? "" }}
                   style={{ flex: 1, height: 36, borderRadius: 18, backgroundColor: p.acc, alignItems: "center", justifyContent: "center" }}
                 >
                   <TextWidget text={t("calendar.answer.accepted")} style={{ fontSize: 12.5, fontWeight: "700", color: p.onPastel }} />
@@ -297,10 +304,10 @@ async function palettes(): Promise<{ light: WidgetPalette; dark: WidgetPalette }
 }
 
 /** The space's conversations, most recent first. */
-async function conversations(space: string): Promise<Row[] | null> {
+async function conversations(account: SharedAccount, space: string): Promise<Row[] | null> {
   type Channel = { id: string; name: string; member: boolean; unread: number; last_message?: WireLast };
   type Direct = { id: string; name: string; unread: number; last_message?: WireLast };
-  const [channels, directs] = await Promise.all([get<Channel[]>(`/spaces/${space}/channels`), get<Direct[]>(`/spaces/${space}/dms`)]);
+  const [channels, directs] = await Promise.all([get<Channel[]>(account, `/spaces/${space}/channels`), get<Direct[]>(account, `/spaces/${space}/dms`)]);
   if (!channels && !directs) return null;
   const said = (who: string, text: string) => t("discussions.by", { who, text });
   const you = t("spaceAdmin.you");
@@ -314,7 +321,15 @@ async function conversations(space: string): Promise<Row[] | null> {
 
 /** What a widget shows now, in the app's theme; null for a widget this app does not know. */
 async function render(widgetName: string): Promise<WidgetRepresentation | null> {
-  const out = !(await signedIn());
+  const all = await accounts();
+  const out = all.length === 0;
+  // Asked of every instance: null when none of them answered.
+  const fromAll = async <T,>(path: string): Promise<T[] | null> => {
+    const answers = (await fromEvery(all, (account) => get<T[]>(account, path).then((rows) => rows && rows.map((row) => ({ ...row, server: account.server }))))).flatMap(
+      (a) => (a.value ? [a.value] : []),
+    );
+    return answers.length === 0 ? null : answers.flat();
+  };
   const { light, dark } = await palettes();
   const both = (draw: (p: WidgetPalette) => React.JSX.Element) => ({ light: draw(light), dark: draw(dark) });
   switch (widgetName) {
@@ -324,23 +339,36 @@ async function render(widgetName: string): Promise<WidgetRepresentation | null> 
       if (out) return both((p) => <NextView p={p} message={t("widgets.signIn")} />);
       const now = new Date();
       const to = new Date(now.getTime() + 7 * 86_400_000).toISOString();
-      const events = await get<Event[]>(`/calendar/occurrences?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(to)}`);
+      const events = await fromAll<Event>(`/calendar/occurrences?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(to)}`);
       const next = upcoming(events ?? [], now, 1)[0] as Event | undefined;
       return both((p) => <NextView p={p} event={next} message={events === null ? t("widgets.unreachable") : undefined} />);
     }
     case "RuchoirReply": {
       if (out) return both((p) => <ReplyView p={p} message={t("widgets.signIn")} />);
-      const page = await get<{ notifications: Note[] }>("/notifications?unread=true&limit=20");
+      const pages = await fromEvery(all, (account) =>
+        get<{ notifications: Note[] }>(account, "/notifications?unread=true&limit=20").then((page) =>
+          page ? page.notifications.map((n) => ({ ...n, server: account.server })) : null,
+        ),
+      );
+      const answered = pages.flatMap((a) => (a.value ? [a.value] : []));
       const asking = new Set(["mention", "reply", "dm", "broadcast", "calendar_invitation"]);
-      const note = page?.notifications.find((n) => asking.has(n.kind));
-      return both((p) => <ReplyView p={p} note={note} message={page === null ? t("widgets.unreachable") : undefined} />);
+      const note = answered
+        .flat()
+        .filter((n) => asking.has(n.kind))
+        .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))[0];
+      return both((p) => <ReplyView p={p} note={note} message={answered.length === 0 ? t("widgets.unreachable") : undefined} />);
     }
     case "RuchoirDiscussions": {
       if (out) return both((p) => <DiscussionsView p={p} rows={[]} message={t("widgets.signIn")} />);
-      const spaces = await get<{ id: string }[]>("/me/spaces");
-      const chosen = await SecureStore.getItemAsync(SHARED_SPACE, SHARED).catch(() => null);
+      // The space on screen, on its own instance.
+      const [server, chosen] = await Promise.all([
+        SecureStore.getItemAsync(SHARED_SPACE_SERVER, SHARED).catch(() => null),
+        SecureStore.getItemAsync(SHARED_SPACE, SHARED).catch(() => null),
+      ]);
+      const account = all.find((a) => a.server === server) ?? all[0];
+      const spaces = await get<{ id: string }[]>(account, "/me/spaces");
       const space = spaces?.find((s) => s.id === chosen)?.id ?? spaces?.[0]?.id;
-      const rows = space ? await conversations(space) : null;
+      const rows = space ? await conversations(account, space) : null;
       return both((p) => <DiscussionsView p={p} rows={(rows ?? []).slice(0, 3)} message={spaces === null || (space && rows === null) ? t("widgets.unreachable") : undefined} />);
     }
     default:
@@ -354,9 +382,11 @@ export async function widgetTaskHandler({ widgetInfo, widgetAction, clickAction,
   // "Yes" to an invitation, from "To answer": the answer goes, the notification is read, and the
   // widget draws what comes next.
   if (widgetAction === "WIDGET_CLICK" && clickAction === "ACCEPT" && typeof clickActionData?.eventId === "string") {
-    await get(`/events/${clickActionData.eventId}/response`, { method: "PUT", body: JSON.stringify({ status: "accepted" }) });
+    const all = await accounts();
+    const account = all.find((a) => a.server === clickActionData.server) ?? all[0];
+    await get(account, `/events/${clickActionData.eventId}/response`, { method: "PUT", body: JSON.stringify({ status: "accepted" }) });
     if (typeof clickActionData.notificationId === "string") {
-      await get(`/notifications/${clickActionData.notificationId}/read`, { method: "PUT", body: "{}" });
+      await get(account, `/notifications/${clickActionData.notificationId}/read`, { method: "PUT", body: "{}" });
     }
   }
   const shown = await render(widgetInfo.widgetName);

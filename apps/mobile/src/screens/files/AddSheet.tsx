@@ -5,6 +5,7 @@ import { Camera, FilePlus2, FileSpreadsheet, FileText, FolderPlus, Image as Imag
 import { Alert } from "react-native";
 
 import { uploadLimit } from "../../api/limits";
+import { useApi } from "../../api/useApi";
 import { pickDocuments, pickFromCamera, pickFromGallery } from "../../compose/pick";
 import type { LocalFile } from "../../compose/useAttachments";
 import { useOffice } from "../../files/office";
@@ -26,6 +27,7 @@ import { useUploads } from "../../uploads/UploadsProvider";
  * a name already taken there asks first.
  */
 export function AddSheet() {
+  const api = useApi();
   const { params } = useRoute<RouteProp<RootParams, "filesAdd">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
@@ -38,7 +40,7 @@ export function AddSheet() {
 
   const hand = async (picked: LocalFile[]) => {
     if (picked.length === 0) return;
-    const limit = await uploadLimit();
+    const limit = await uploadLimit(api);
     const { accepted, refused } = splitBySize(picked, limit);
     if (limit !== undefined && refused.length > 0) {
       Alert.alert(

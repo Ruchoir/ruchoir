@@ -1,36 +1,27 @@
 /**
- * The session, for every screen: where the app stands (`machine.ts`) and the actions that move it.
+ * The session, for every screen: where the person stands with an instance (`machine.ts`) and the
+ * actions that move it.
+ *
+ * Two providers answer `useSession()` (ADR 0007):
+ *
+ * - {@link SignInFlow}, around the screens before sign-in: signing in to an instance, creating an
+ *   account there, its second factor. It works on a candidate client of its own, pointed at the
+ *   address the person types, and hands the session it obtains to the accounts (`onSignedIn`): that
+ *   is how the first instance is added, and every other one.
+ * - each instance's scope (`accounts/InstanceScope`), inside the app: the account signed in there,
+ *   its sign-out and its password.
  *
  * Actions throw an {@link AuthFailure} whose `code` the screens turn into a sentence, so the wording
  * stays in the dictionaries and the logic stays here.
  */
-import {
-  apiErrorCode,
-  changePassword as apiChangePassword,
-  confirmEmailVerificationCode,
-  exchangeNativeCode,
-  getInstanceCapabilities,
-  getSession,
-  isApiError,
-  login,
-  logout,
-  register as apiRegister,
-  requestEmailVerification,
-  verifyRecoveryCode,
-  verifyTotp,
-  type MfaMethod,
-  type SessionUser,
-} from "@ruchoir/client";
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
+import { apiErrorCode, createClient, isApiError, type MfaMethod, type RuchoirClient, type SessionUser } from "@ruchoir/client";
+import { createContext, useCallback, useContext, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 
-import { connectTo, setSessionToken } from "../api/instance";
+import { ApiProvider } from "../api/useApi";
 import { canUseBrowserHandoff, signInThroughBrowser } from "../auth/browser";
-import { disablePhonePush } from "../push/phone";
-import { refreshWidgets } from "../widgets";
-import { clearDownloads } from "../files/cache";
+import i18n from "../i18n";
 import { sessionReducer, type SessionState } from "./machine";
 import { normalizeServer } from "./server";
-import { store } from "./store";
 
 /** Why an action failed, in the API's own codes where it gave one. */
 export type FailureCode =
@@ -50,6 +41,7 @@ export type FailureCode =
   | "weak_password"
   | "breached_password"
   | "passkeyOnly"
+  | "alreadyAdded"
   | "unknown";
 
 export class AuthFailure extends Error {
@@ -64,7 +56,7 @@ const APP_METHODS: MfaMethod[] = ["totp", "recovery"];
 /** What a new account needs to be created. */
 export type SignUp = { name: string; email: string; password: string; invitationToken?: string };
 
-type SessionApi = {
+export type SessionApi = {
   state: SessionState;
   /**
    * The address of an account just created and not confirmed yet. Its password waits beside it in
@@ -81,9 +73,6 @@ type SessionApi = {
   forgetPendingSignUp: () => void;
   /** The invitation pasted at sign-up, handed once to whoever accepts it after sign-in. */
   takePendingInvitation: () => string | null;
-  /** True when the Keychain held a session but the instance could not be reached to check it. */
-  offlineAtBoot: boolean;
-  retryBoot: () => void;
   chooseServer: (input: string) => Promise<void>;
   changeServer: () => void;
   signIn: (email: string, password: string) => Promise<void>;
@@ -102,9 +91,11 @@ type SessionApi = {
    * with the new password (a second factor, when the account has one, is asked as at sign-in).
    */
   changePassword: (current: string, next: string) => Promise<void>;
+  /** Leave the flow without signing in, when the app has another instance to go back to. */
+  cancel?: () => void;
 };
 
-const SessionContext = createContext<SessionApi | null>(null);
+export const SessionContext = createContext<SessionApi | null>(null);
 
 function failureOf(err: unknown): AuthFailure {
   if (err instanceof AuthFailure) return err;
@@ -124,91 +115,61 @@ function failureOf(err: unknown): AuthFailure {
   return new AuthFailure(isApiError(err) ? "unknown" : "unreachable");
 }
 
-type Boot = { server: string | null; user: SessionUser | null; offline: boolean };
+/** Where the flow starts: a fresh sign-in, or the instance whose session is to be renewed. */
+export type FlowStart = { server: string | null; reason?: "expired" | "locked" };
+
+type FlowProps = {
+  start: FlowStart;
+  /** Whether the phone already has this instance signed in, which adding again would duplicate. */
+  isSignedIn: (origin: string) => boolean;
+  /** The session obtained: the accounts keep it (the token is the instance's from now on). */
+  onSignedIn: (done: { origin: string; token: string; user: SessionUser; invitation: string | null }) => Promise<void>;
+  onCancel?: () => void;
+  children: ReactNode;
+};
 
 /**
- * What the Keychain remembers, checked against the instance: the account when the session is still
- * good, none when it is not (401) or there was none, `offline` when the instance did not answer.
+ * The sign-in flow: one candidate client, pointed at the address chosen, for every call made before
+ * a session exists (the instance's capabilities, sign-in, sign-up, second factor, password reset).
+ * The client is the same object throughout, so a screen holding its calls follows a change of
+ * address; it never carries a token.
  */
-async function readStoredSession(onUnauthorized: (code?: string) => void): Promise<Boot> {
-  const [server, token] = await Promise.all([store.getServer(), store.getToken()]);
-  if (!server) return { server: null, user: null, offline: false };
-  connectTo(server, onUnauthorized);
-  setSessionToken(token);
-  if (!token) return { server, user: null, offline: false };
-  try {
-    return { server, user: await getSession(), offline: false };
-  } catch (err) {
-    return isApiError(err, 401) ? { server, user: null, offline: false } : { server, user: null, offline: true };
-  }
-}
-
-export function SessionProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(sessionReducer, { kind: "booting" });
-  const [offlineAtBoot, setOfflineAtBoot] = useState(false);
-  const hasToken = useRef(false);
+export function SignInFlow({ start, isSignedIn, onSignedIn, onCancel, children }: FlowProps) {
+  const [state, dispatch] = useReducer(
+    sessionReducer,
+    start,
+    (from): SessionState => (from.server ? { kind: "signedOut", server: from.server, reason: from.reason } : { kind: "needsServer" }),
+  );
+  const [client] = useState<RuchoirClient>(() =>
+    createClient({
+      baseUrl: start.server ?? "",
+      sessionDelivery: "token",
+      locale: () => i18n.language,
+    }),
+  );
   const pending = useRef<{ email: string; password: string } | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const invitation = useRef<string | null>(null);
   // The address last typed at sign-in, carried to the instance's page when it takes over.
   const lastEmail = useRef("");
   /** The instance the client talks to once a choice has been checked: where a failed one goes back. */
-  const connected = useRef<string | null>(null);
-
-  const holdToken = useCallback(async (token: string | null) => {
-    hasToken.current = token !== null;
-    setSessionToken(token);
-    if (token) await store.setToken(token);
-    else await store.clearToken();
-  }, []);
-
-  // A 401 anywhere means the session is gone (expired, or ended from another device), except a wrong
-  // password typed to confirm an action (changing the password, turning off two-factor).
-  const onUnauthorized = useCallback((code?: string) => {
-    if (!hasToken.current || code === "invalid_credentials") return;
-    void holdToken(null);
-    clearDownloads();
-    dispatch({ type: "unauthorized" });
-  }, [holdToken]);
-
-  // Reading the Keychain and checking the session happen outside React; their result is applied in
-  // the callback, which is the one place the boot sets state.
-  const applyBoot = useCallback((boot: Boot) => {
-    connected.current = boot.server;
-    if (boot.offline) return setOfflineAtBoot(true);
-    hasToken.current = boot.user !== null;
-    // A token the instance no longer honours is forgotten, not kept for the next launch.
-    if (!boot.user) void holdToken(null);
-    dispatch({ type: "restored", server: boot.server, user: boot.user });
-  }, [holdToken]);
-
-  useEffect(() => {
-    let current = true;
-    void readStoredSession(onUnauthorized).then((boot) => current && applyBoot(boot));
-    return () => {
-      current = false;
-    };
-  }, [applyBoot, onUnauthorized]);
-
-  const retryBoot = useCallback(() => {
-    setOfflineAtBoot(false);
-    void readStoredSession(onUnauthorized).then(applyBoot);
-  }, [applyBoot, onUnauthorized]);
+  const connected = useRef<string | null>(start.server);
 
   const chooseServer = useCallback(
     async (input: string) => {
       const check = normalizeServer(input);
       if (!check.ok) throw new AuthFailure(check.reason);
-      connectTo(check.origin, onUnauthorized);
+      if (isSignedIn(check.origin)) throw new AuthFailure("alreadyAdded");
+      client.configure({ baseUrl: check.origin });
       // A server that is refused leaves the client where it was, so the screen and the requests
       // still name the same instance.
       const refuse = (code: FailureCode) => {
-        if (connected.current) connectTo(connected.current, onUnauthorized);
+        client.configure({ baseUrl: connected.current ?? "" });
         return new AuthFailure(code);
       };
       let caps;
       try {
-        caps = await getInstanceCapabilities();
+        caps = await client.getInstanceCapabilities();
       } catch (err) {
         throw refuse(isApiError(err) ? "notRuchoir" : "unreachable");
       }
@@ -216,11 +177,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (typeof caps.emailDelivery !== "boolean") throw refuse("notRuchoir");
       if (!caps.nativeSessions) throw refuse("outdated");
       connected.current = check.origin;
-      await store.setServer(check.origin);
-      await holdToken(null);
       dispatch({ type: "serverChosen", server: check.origin });
     },
-    [holdToken, onUnauthorized],
+    [client, isSignedIn],
   );
 
   const forgetPendingSignUp = useCallback(() => {
@@ -230,12 +189,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signedIn = useCallback(
     async (user: SessionUser, token: string | undefined) => {
-      if (!token) throw new AuthFailure("outdated");
-      await holdToken(token);
+      const origin = connected.current;
+      if (!token || !origin) throw new AuthFailure("outdated");
       forgetPendingSignUp();
-      dispatch({ type: "authenticated", user });
+      const handed = invitation.current;
+      invitation.current = null;
+      await onSignedIn({ origin, token, user, invitation: handed });
     },
-    [holdToken, forgetPendingSignUp],
+    [forgetPendingSignUp, onSignedIn],
   );
 
   const signIn = useCallback(
@@ -243,7 +204,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       let result;
       lastEmail.current = email.trim();
       try {
-        result = await login(email.trim(), password);
+        result = await client.login(email.trim(), password);
       } catch (err) {
         throw failureOf(err);
       }
@@ -254,7 +215,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (methods.length === 0) throw new AuthFailure("passkeyOnly");
       dispatch({ type: "mfaRequired", mfaToken: result.mfaToken, methods });
     },
-    [signedIn],
+    [client, signedIn],
   );
 
   const register = useCallback(
@@ -262,7 +223,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const address = email.trim();
       let result;
       try {
-        result = await apiRegister(address, name.trim(), password, invitationToken);
+        result = await client.register(address, name.trim(), password, invitationToken);
       } catch (err) {
         throw failureOf(err);
       }
@@ -275,7 +236,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setPendingEmail(address);
       return "verify" as const;
     },
-    [signIn],
+    [client, signIn],
   );
 
   const retryPendingSignIn = useCallback(async () => {
@@ -295,36 +256,33 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const waiting = pending.current;
       if (!waiting) throw new AuthFailure("invalid_code");
       try {
-        await confirmEmailVerificationCode(waiting.email, code);
+        await client.confirmEmailVerificationCode(waiting.email, code);
       } catch (err) {
         throw failureOf(err);
       }
       await signIn(waiting.email, waiting.password);
     },
-    [signIn],
+    [client, signIn],
   );
 
   const resendVerification = useCallback(async () => {
     const waiting = pending.current;
     if (!waiting) return;
     try {
-      await requestEmailVerification(waiting.email);
+      await client.requestEmailVerification(waiting.email);
     } catch (err) {
       throw failureOf(err);
     }
-  }, []);
+  }, [client]);
 
-  const takePendingInvitation = useCallback(() => {
-    const token = invitation.current;
-    invitation.current = null;
-    return token;
-  }, []);
+  // Handed to the accounts with the session instead (`onSignedIn`).
+  const takePendingInvitation = useCallback(() => null, []);
 
   const verify = useCallback(
     async (method: "totp" | "recovery", code: string) => {
       if (state.kind !== "mfa") return;
       try {
-        const done = await (method === "totp" ? verifyTotp : verifyRecoveryCode)(state.mfaToken, code.trim());
+        const done = await (method === "totp" ? client.verifyTotp : client.verifyRecoveryCode)(state.mfaToken, code.trim());
         await signedIn(done.user, done.sessionToken);
       } catch (err) {
         const failure = failureOf(err);
@@ -333,7 +291,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         throw failure;
       }
     },
-    [signedIn, state],
+    [client, signedIn, state],
   );
 
   const signInInBrowser = useCallback(async () => {
@@ -342,56 +300,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!handed) return false;
     let done;
     try {
-      done = await exchangeNativeCode(handed.code, handed.verifier);
+      done = await client.exchangeNativeCode(handed.code, handed.verifier);
     } catch (err) {
       throw failureOf(err);
     }
     await signedIn(done.user, done.sessionToken);
     return true;
-  }, [state, signedIn]);
+  }, [client, state, signedIn]);
 
-  const signOut = useCallback(async (reason?: "locked") => {
-    // While the session still opens the door: the instance forgets this phone (ADR 0006).
-    await disablePhonePush();
-    try {
-      await logout();
-    } catch {
-      // Signing out works offline too: the token is forgotten here whatever the server heard.
-    }
-    await holdToken(null);
-    clearDownloads();
-    // The widgets say "sign in" rather than the last account's agenda.
-    void refreshWidgets();
-    dispatch({ type: "signedOut", reason });
-  }, [holdToken]);
-
-  const updateUser = useCallback((patch: Partial<SessionUser>) => dispatch({ type: "userUpdated", patch }), []);
-
-  const changePassword = useCallback(
-    async (current: string, next: string) => {
-      if (state.kind !== "signedIn") return;
-      const email = state.user.email;
-      try {
-        await apiChangePassword(current, next);
-      } catch (err) {
-        throw failureOf(err);
-      }
-      // The old token is dead: forget it before anything answers 401 with it.
-      await holdToken(null);
-      try {
-        await signIn(email, next);
-      } catch {
-        clearDownloads();
-        dispatch({ type: "signedOut" });
-      }
-    },
-    [state, holdToken, signIn],
-  );
-
-  const changeServer = useCallback(() => {
-    void holdToken(null);
-    dispatch({ type: "changeServer" });
-  }, [holdToken]);
+  // Before a session, "sign out" is leaving the second factor for the password.
+  const signOut = useCallback(async () => dispatch({ type: "signedOut" }), []);
+  const updateUser = useCallback(() => {}, []);
+  const changePassword = useCallback(async () => {}, []);
+  const changeServer = useCallback(() => dispatch({ type: "changeServer" }), []);
 
   const pendingSignUp = useMemo(() => (pendingEmail ? { email: pendingEmail } : null), [pendingEmail]);
 
@@ -405,8 +326,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       retryPendingSignIn,
       forgetPendingSignUp,
       takePendingInvitation,
-      offlineAtBoot,
-      retryBoot,
       chooseServer,
       changeServer,
       signIn,
@@ -415,6 +334,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signOut,
       updateUser,
       changePassword,
+      cancel: onCancel,
     }),
     [
       state,
@@ -425,8 +345,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       retryPendingSignIn,
       forgetPendingSignUp,
       takePendingInvitation,
-      offlineAtBoot,
-      retryBoot,
       chooseServer,
       changeServer,
       signIn,
@@ -435,14 +353,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signOut,
       updateUser,
       changePassword,
+      onCancel,
     ],
   );
 
-  return <SessionContext.Provider value={api}>{children}</SessionContext.Provider>;
+  return (
+    <ApiProvider client={client}>
+      <SessionContext.Provider value={api}>{children}</SessionContext.Provider>
+    </ApiProvider>
+  );
 }
 
 export function useSession(): SessionApi {
   const api = useContext(SessionContext);
-  if (!api) throw new Error("useSession outside SessionProvider");
+  if (!api) throw new Error("useSession outside a session provider");
   return api;
 }

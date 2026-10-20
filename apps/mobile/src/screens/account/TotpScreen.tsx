@@ -1,4 +1,4 @@
-import { confirmTotp, disableTotp, enrollTotp, generateRecoveryCodes, isApiError } from "@ruchoir/client";
+import { isApiError } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Clipboard from "expo-clipboard";
@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Linking, StyleSheet, View } from "react-native";
 import { SvgXml } from "react-native-svg";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { groupedSecret, otpauthSecret } from "../../logic/otpauth";
 import { codeComplete, codeDigits } from "../../logic/signup";
@@ -35,6 +36,7 @@ export function TotpScreen() {
 }
 
 function TurnOn() {
+  const { confirmTotp, enrollTotp, generateRecoveryCodes } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const toast = useToast();
@@ -54,7 +56,7 @@ function TurnOn() {
     return () => {
       current = false;
     };
-  }, []);
+  }, [enrollTotp]);
 
   const secret = enrolment ? otpauthSecret(enrolment.otpauthUrl) : null;
 
@@ -147,6 +149,7 @@ function TurnOn() {
 }
 
 function TurnOff() {
+  const { disableTotp } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const toast = useToast();

@@ -3,12 +3,14 @@
 The phone apps are woken through Apple (APNs) and Google (FCM), and only the publisher of the apps
 may hold the keys that let a server push to them. So instances do not push to phones themselves: they
 ask the **push relay** (`apps/push-relay`), run by the publisher, to wake a device, and the relay
-sends a constant push. The phone then asks its own instance what to show. Why, and what crosses:
+sends a constant push. The phone then asks its instances what to show: the push does not say which
+one sent it, so a phone signed in to several asks each of them and shows the newest
+([ADR 0007](adr/0007-several-instances-in-the-apps.md)). Why, and what crosses:
 [ADR 0006](adr/0006-phone-push-relay.md).
 
 ```
 instance ── POST /v1/send {platform, token} ──▶ relay ── constant push ──▶ Apple / Google ──▶ phone
-phone ── GET /api/v1/push/pending (its own session) ──▶ instance ── what to show
+phone ── GET /api/v1/push/pending (its session there) ──▶ each of its instances ── what to show
 ```
 
 ## What it answers

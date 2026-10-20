@@ -16,6 +16,15 @@ struct Note: Decodable, Identifiable {
   let channel_name: String?
   let space_name: String
   let preview: String
+  let created_at: String?
+  /// The instance it comes from, set once read (ADR 0007).
+  var server: String? = nil
+
+  func from(_ server: String) -> Note {
+    var note = self
+    note.server = server
+    return note
+  }
 }
 
 private struct NotePage: Decodable {
@@ -95,14 +104,21 @@ struct DiscussionsProvider: TimelineProvider {
     guard Instance.signedIn else {
       return DiscussionsEntry(date: .now, unread: nil, notes: [], conversations: [], failed: false)
     }
+    // The unread count and the notes of every instance (ADR 0007); the conversations of the space on
+    // screen, on its own instance.
+    async let everySpace = Instance.everywhere("/me/spaces", as: [SpaceSummary].self)
+    async let pages = Instance.everywhere("/notifications?unread=true&limit=10", as: NotePage.self)
     async let spaces = Instance.get("/me/spaces", as: [SpaceSummary].self)
-    async let page = Instance.get("/notifications?unread=true&limit=10", as: NotePage.self)
-    guard let all = await spaces else {
+    guard let everywhere = await everySpace else {
       return DiscussionsEntry(date: .now, unread: 0, notes: [], conversations: [], failed: true)
     }
-    let unread = all.reduce(0) { $0 + ($1.unread ?? 0) }
+    let unread = everywhere.flatMap(\.value).reduce(0) { $0 + ($1.unread ?? 0) }
     let spoken: Set<String> = ["mention", "reply", "dm", "broadcast"]
-    let notes = (await page?.notifications ?? []).filter { spoken.contains($0.kind) }
+    let notes = (await pages ?? [])
+      .flatMap { answer in answer.value.notifications.map { $0.from(answer.server) } }
+      .filter { spoken.contains($0.kind) }
+      .sorted { ($0.created_at ?? "") > ($1.created_at ?? "") }
+    let all = await spaces ?? []
     // The space on screen in the app, else the first one.
     let space = Instance.space.flatMap { id in all.first { $0.id == id }?.id } ?? all.first?.id
     var conversations: [Conversation] = []

@@ -2,13 +2,13 @@
  * "Create a group": a channel of the space. Its name is shown as it will be written (`#projets-
  * clients`), it is open to the whole space or on invitation, and people can be added at once.
  */
-import { addChannelMembers, createChannel, getChannels, inviteToChannel } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { ChevronRight, UserPlus, X } from "lucide-react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, View, type TextInput } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
@@ -33,6 +33,7 @@ import { PeoplePickerModal } from "./PeoplePickerModal";
 type Access = "public" | "private";
 
 export function NewGroupScreen() {
+  const { addChannelMembers, createChannel, getChannels, inviteToChannel } = useApi();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c, s } = useTheme();

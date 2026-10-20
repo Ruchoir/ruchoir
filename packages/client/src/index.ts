@@ -10,3 +10,4 @@ export * from "./types.ts";
 export * from "./api.ts";
 export * from "./calendar.ts";
 export * from "./fileType.ts";
+export * from "./client.ts";

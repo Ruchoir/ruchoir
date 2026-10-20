@@ -6,8 +6,7 @@
  * (`apps/api/src/calendar/dto.rs`), renamed to the web's camelCase on the way in.
  */
 
-import { apiBase } from "./config.ts";
-import { apiDelete, apiGet, apiPatch, apiPost, apiPut, apiRequest } from "./http.ts";
+import { defaultTransport, type Transport } from "./http.ts";
 
 /** The palette's pastels a calendar may wear. */
 /** A palette pastel, or `accent`: the viewer's own theme accent (what a personal calendar wears). */
@@ -371,11 +370,6 @@ function eventBody(input: EventInput) {
   };
 }
 
-/** `GET /calendars`: every calendar the viewer sees, theirs first. */
-export async function listCalendars(signal?: AbortSignal): Promise<Calendar[]> {
-  return (await apiGet<CalendarDto[]>("/calendars", signal)).map(toCalendar);
-}
-
 type CalendarFields = {
   name: string;
   color: CalendarColor;
@@ -394,150 +388,10 @@ function calendarBody(fields: Partial<CalendarFields>) {
   };
 }
 
-/** A new calendar: the viewer's own, or a space's (its administrators). */
-export async function createCalendar(fields: CalendarFields, spaceId?: string): Promise<Calendar> {
-  const path = spaceId ? `/spaces/${spaceId}/calendars` : "/calendars";
-  return toCalendar(await apiPost<CalendarDto>(path, calendarBody(fields)));
-}
-
-export async function updateCalendar(id: string, fields: Partial<CalendarFields>): Promise<Calendar> {
-  return toCalendar(await apiPatch<CalendarDto>(`/calendars/${id}`, calendarBody(fields)));
-}
-
-/** Delete a calendar and its events, typing its name as a confirmation. */
-export async function deleteCalendar(id: string, confirmName: string): Promise<void> {
-  await apiRequest<void>("DELETE", `/calendars/${id}`, { json: { confirm_name: confirmName } });
-}
-
-/** The viewer's own settings for a calendar: shown or hidden, their reminders (`"default"` follows
- *  the calendar's again). */
-export async function setCalendarMe(id: string, me: { hidden?: boolean; reminders?: number[] | "default" }): Promise<void> {
-  await apiPut<void>(`/calendars/${id}/me`, {
-    hidden: me.hidden,
-    ...(me.reminders === "default" ? { reminder_default: true } : me.reminders !== undefined ? { reminders: me.reminders } : {}),
-  });
-}
-
-/** What happens in `[from, to)`, in the given calendars (every visible one by default), and the
- *  events seen through an invitation alone unless `invitations` is false. */
-export async function listOccurrences(
-  from: string,
-  to: string,
-  calendarIds?: string[],
-  signal?: AbortSignal,
-  invitations = true,
-): Promise<Occurrence[]> {
-  const params = new URLSearchParams({ from, to });
-  if (calendarIds && calendarIds.length > 0) params.set("calendars", calendarIds.join(","));
-  if (!invitations) params.set("invitations", "false");
-  return (await apiGet<OccurrenceDto[]>(`/calendar/occurrences?${params}`, signal)).map(toOccurrence);
-}
-
-/** Whom the viewer's calendar is shared with. */
-export async function listShares(calendarId: string, signal?: AbortSignal): Promise<Share[]> {
-  const rows = await apiGet<{ user_id: string; name: string; level: ShareLevel }[]>(`/calendars/${calendarId}/shares`, signal);
-  return rows.map((r) => ({ userId: r.user_id, name: r.name, level: r.level }));
-}
-
-/** Open the viewer's calendar to someone, or change how far. */
-export async function putShare(calendarId: string, userId: string, level: ShareLevel): Promise<void> {
-  await apiPut<void>(`/calendars/${calendarId}/shares/${userId}`, { level });
-}
-
-/** Take a share back. */
-export async function deleteShare(calendarId: string, userId: string): Promise<void> {
-  await apiDelete<void>(`/calendars/${calendarId}/shares/${userId}`);
-}
-
-/** The people the viewer has a space in common with, by name or address. */
-export async function shareCandidates(calendarId: string, query: string, signal?: AbortSignal): Promise<{ userId: string; name: string }[]> {
-  const params = new URLSearchParams({ q: query });
-  const rows = await apiGet<{ user_id: string; name: string }[]>(`/calendars/${calendarId}/share-candidates?${params}`, signal);
-  return rows.map((r) => ({ userId: r.user_id, name: r.name }));
-}
-
-/** Where the PDF of a view is read: the same calendars and invitations as the screen, from the
- *  viewer's first day of the week (0 for Sunday). */
-export function printUrl(view: "day" | "week" | "month" | "list" | "year", date: string, calendarIds: string[], invitations: boolean, weekStart: number): string {
-  const params = new URLSearchParams({ view, date, week_start: String(weekStart) });
-  if (calendarIds.length > 0) params.set("calendars", calendarIds.join(","));
-  if (!invitations) params.set("invitations", "false");
-  return `${apiBase()}/calendar/print?${params}`;
-}
-
-/** The events whose words hold `query`, each once: the coming ones on their next date, soonest
- *  first, then the past ones on their last, latest first. */
-export async function searchEvents(query: string, signal?: AbortSignal): Promise<Occurrence[]> {
-  const params = new URLSearchParams({ q: query });
-  return (await apiGet<OccurrenceDto[]>(`/calendar/search?${params}`, signal)).map(toOccurrence);
-}
-
-export async function getEvent(id: string, signal?: AbortSignal): Promise<CalendarEvent> {
-  return toEvent(await apiGet<EventDto>(`/events/${id}`, signal));
-}
-
-export async function createEvent(calendarId: string, input: EventInput): Promise<CalendarEvent> {
-  return toEvent(await apiPost<EventDto>(`/calendars/${calendarId}/events`, eventBody(input)));
-}
-
 function scopeQuery(scope: EditScope, recurrenceId?: string): string {
   const params = new URLSearchParams({ scope });
   if (recurrenceId) params.set("recurrence_id", recurrenceId);
   return params.toString();
-}
-
-/** Change one occurrence, the following ones, or the whole series. Answers the changed event (the new
- *  series for `following`). */
-export async function updateEvent(id: string, input: EventInput, scope: EditScope, recurrenceId?: string): Promise<CalendarEvent> {
-  return toEvent(await apiPatch<EventDto>(`/events/${id}?${scopeQuery(scope, recurrenceId)}`, eventBody(input)));
-}
-
-export async function deleteEvent(id: string, scope: EditScope, recurrenceId?: string): Promise<void> {
-  await apiDelete<void>(`/events/${id}?${scopeQuery(scope, recurrenceId)}`);
-}
-
-/** The viewer's own reminders for an event (its whole series); `"default"` follows their calendar
- *  setting again. */
-export async function setEventMe(id: string, reminders: number[] | "default"): Promise<void> {
-  await apiPut<void>(`/events/${id}/me`, reminders === "default" ? { reminder_default: true } : { reminders });
-}
-
-export async function listFeeds(signal?: AbortSignal): Promise<Feed[]> {
-  return (await apiGet<FeedDto[]>("/calendar/feeds", signal)).map(toFeed);
-}
-
-/** A new subscription address, for one calendar or (`null`) for all of them. Its URL is shown once. */
-export async function createFeed(calendarId: string | null): Promise<CreatedFeed> {
-  const dto = await apiPost<FeedDto>("/calendar/feeds", { calendar_id: calendarId });
-  return { ...toFeed(dto), url: dto.url ?? "" };
-}
-
-export async function revokeFeed(id: string): Promise<void> {
-  await apiDelete<void>(`/calendar/feeds/${id}`);
-}
-
-/** Answer an invitation, for the series or for one date of it. */
-export async function respondToEvent(id: string, status: Exclude<AttendeeStatus, "needs_action">, recurrenceId?: string): Promise<CalendarEvent> {
-  return toEvent(await apiPut<EventDto>(`/events/${id}/response`, { status, recurrence_id: recurrenceId }));
-}
-
-/** Who may be invited to an event of this calendar, matching `query`; with `channel`, only that
- *  channel's members (all of them for an empty query: "invite the whole channel"). */
-export async function searchInvitees(calendarId: string, query: string, signal?: AbortSignal, channel?: string): Promise<Invitee[]> {
-  const params = new URLSearchParams({ q: query });
-  if (channel) params.set("channel", channel);
-  const found = await apiGet<{ user_id: string; name: string }[]>(`/calendars/${calendarId}/invitees?${params}`, signal);
-  return found.map((p) => ({ userId: p.user_id, name: p.name }));
-}
-
-/** When some people are busy over `[from, to)` (31 days at most), leaving out `excludeEvent` (the one
- *  being moved). */
-export async function freeBusy(userIds: string[], from: string, to: string, signal?: AbortSignal, excludeEvent?: string): Promise<BusyTimes[]> {
-  const found = await apiRequest<{ user_id: string; busy: { start: string; end: string }[] }[]>("POST", "/calendar/freebusy", {
-    json: { users: userIds, from, to, exclude_event: excludeEvent },
-    signal,
-  });
-  return found.map((p) => ({ userId: p.user_id, busy: p.busy }));
 }
 
 type PublicInvitationDto = {
@@ -572,50 +426,217 @@ function toPublicInvitation(dto: PublicInvitationDto): PublicInvitation {
   };
 }
 
-/** Where someone invited by address downloads a file of the event, with their page's token. */
-export function invitationFileUrl(token: string, fileId: string): string {
-  return `${apiBase()}/public/invitation/${encodeURIComponent(token)}/files/${fileId}`;
+/** The calendar calls, bound to `transport` (see `createApi` in `api.ts`). */
+export function createCalendarApi(transport: Transport) {
+  const { apiRequest, apiGet, apiPost, apiPut, apiPatch, apiDelete, apiBase } = transport;
+
+  /** `GET /calendars`: every calendar the viewer sees, theirs first. */
+  async function listCalendars(signal?: AbortSignal): Promise<Calendar[]> {
+    return (await apiGet<CalendarDto[]>("/calendars", signal)).map(toCalendar);
+  }
+
+  /** A new calendar: the viewer's own, or a space's (its administrators). */
+  async function createCalendar(fields: CalendarFields, spaceId?: string): Promise<Calendar> {
+    const path = spaceId ? `/spaces/${spaceId}/calendars` : "/calendars";
+    return toCalendar(await apiPost<CalendarDto>(path, calendarBody(fields)));
+  }
+
+  async function updateCalendar(id: string, fields: Partial<CalendarFields>): Promise<Calendar> {
+    return toCalendar(await apiPatch<CalendarDto>(`/calendars/${id}`, calendarBody(fields)));
+  }
+
+  /** Delete a calendar and its events, typing its name as a confirmation. */
+  async function deleteCalendar(id: string, confirmName: string): Promise<void> {
+    await apiRequest<void>("DELETE", `/calendars/${id}`, { json: { confirm_name: confirmName } });
+  }
+
+  /** The viewer's own settings for a calendar: shown or hidden, their reminders (`"default"` follows
+   *  the calendar's again). */
+  async function setCalendarMe(id: string, me: { hidden?: boolean; reminders?: number[] | "default" }): Promise<void> {
+    await apiPut<void>(`/calendars/${id}/me`, {
+      hidden: me.hidden,
+      ...(me.reminders === "default" ? { reminder_default: true } : me.reminders !== undefined ? { reminders: me.reminders } : {}),
+    });
+  }
+
+  /** What happens in `[from, to)`, in the given calendars (every visible one by default), and the
+   *  events seen through an invitation alone unless `invitations` is false. */
+  async function listOccurrences(
+    from: string,
+    to: string,
+    calendarIds?: string[],
+    signal?: AbortSignal,
+    invitations = true,
+  ): Promise<Occurrence[]> {
+    const params = new URLSearchParams({ from, to });
+    if (calendarIds && calendarIds.length > 0) params.set("calendars", calendarIds.join(","));
+    if (!invitations) params.set("invitations", "false");
+    return (await apiGet<OccurrenceDto[]>(`/calendar/occurrences?${params}`, signal)).map(toOccurrence);
+  }
+
+  /** Whom the viewer's calendar is shared with. */
+  async function listShares(calendarId: string, signal?: AbortSignal): Promise<Share[]> {
+    const rows = await apiGet<{ user_id: string; name: string; level: ShareLevel }[]>(`/calendars/${calendarId}/shares`, signal);
+    return rows.map((r) => ({ userId: r.user_id, name: r.name, level: r.level }));
+  }
+
+  /** Open the viewer's calendar to someone, or change how far. */
+  async function putShare(calendarId: string, userId: string, level: ShareLevel): Promise<void> {
+    await apiPut<void>(`/calendars/${calendarId}/shares/${userId}`, { level });
+  }
+
+  /** Take a share back. */
+  async function deleteShare(calendarId: string, userId: string): Promise<void> {
+    await apiDelete<void>(`/calendars/${calendarId}/shares/${userId}`);
+  }
+
+  /** The people the viewer has a space in common with, by name or address. */
+  async function shareCandidates(calendarId: string, query: string, signal?: AbortSignal): Promise<{ userId: string; name: string }[]> {
+    const params = new URLSearchParams({ q: query });
+    const rows = await apiGet<{ user_id: string; name: string }[]>(`/calendars/${calendarId}/share-candidates?${params}`, signal);
+    return rows.map((r) => ({ userId: r.user_id, name: r.name }));
+  }
+
+  /** Where the PDF of a view is read: the same calendars and invitations as the screen, from the
+   *  viewer's first day of the week (0 for Sunday). */
+  function printUrl(view: "day" | "week" | "month" | "list" | "year", date: string, calendarIds: string[], invitations: boolean, weekStart: number): string {
+    const params = new URLSearchParams({ view, date, week_start: String(weekStart) });
+    if (calendarIds.length > 0) params.set("calendars", calendarIds.join(","));
+    if (!invitations) params.set("invitations", "false");
+    return `${apiBase()}/calendar/print?${params}`;
+  }
+
+  /** The events whose words hold `query`, each once: the coming ones on their next date, soonest
+   *  first, then the past ones on their last, latest first. */
+  async function searchEvents(query: string, signal?: AbortSignal): Promise<Occurrence[]> {
+    const params = new URLSearchParams({ q: query });
+    return (await apiGet<OccurrenceDto[]>(`/calendar/search?${params}`, signal)).map(toOccurrence);
+  }
+
+  async function getEvent(id: string, signal?: AbortSignal): Promise<CalendarEvent> {
+    return toEvent(await apiGet<EventDto>(`/events/${id}`, signal));
+  }
+
+  async function createEvent(calendarId: string, input: EventInput): Promise<CalendarEvent> {
+    return toEvent(await apiPost<EventDto>(`/calendars/${calendarId}/events`, eventBody(input)));
+  }
+
+  /** Change one occurrence, the following ones, or the whole series. Answers the changed event (the new
+   *  series for `following`). */
+  async function updateEvent(id: string, input: EventInput, scope: EditScope, recurrenceId?: string): Promise<CalendarEvent> {
+    return toEvent(await apiPatch<EventDto>(`/events/${id}?${scopeQuery(scope, recurrenceId)}`, eventBody(input)));
+  }
+
+  async function deleteEvent(id: string, scope: EditScope, recurrenceId?: string): Promise<void> {
+    await apiDelete<void>(`/events/${id}?${scopeQuery(scope, recurrenceId)}`);
+  }
+
+  /** The viewer's own reminders for an event (its whole series); `"default"` follows their calendar
+   *  setting again. */
+  async function setEventMe(id: string, reminders: number[] | "default"): Promise<void> {
+    await apiPut<void>(`/events/${id}/me`, reminders === "default" ? { reminder_default: true } : { reminders });
+  }
+
+  async function listFeeds(signal?: AbortSignal): Promise<Feed[]> {
+    return (await apiGet<FeedDto[]>("/calendar/feeds", signal)).map(toFeed);
+  }
+
+  /** A new subscription address, for one calendar or (`null`) for all of them. Its URL is shown once. */
+  async function createFeed(calendarId: string | null): Promise<CreatedFeed> {
+    const dto = await apiPost<FeedDto>("/calendar/feeds", { calendar_id: calendarId });
+    return { ...toFeed(dto), url: dto.url ?? "" };
+  }
+
+  async function revokeFeed(id: string): Promise<void> {
+    await apiDelete<void>(`/calendar/feeds/${id}`);
+  }
+
+  /** Answer an invitation, for the series or for one date of it. */
+  async function respondToEvent(id: string, status: Exclude<AttendeeStatus, "needs_action">, recurrenceId?: string): Promise<CalendarEvent> {
+    return toEvent(await apiPut<EventDto>(`/events/${id}/response`, { status, recurrence_id: recurrenceId }));
+  }
+
+  /** Who may be invited to an event of this calendar, matching `query`; with `channel`, only that
+   *  channel's members (all of them for an empty query: "invite the whole channel"). */
+  async function searchInvitees(calendarId: string, query: string, signal?: AbortSignal, channel?: string): Promise<Invitee[]> {
+    const params = new URLSearchParams({ q: query });
+    if (channel) params.set("channel", channel);
+    const found = await apiGet<{ user_id: string; name: string }[]>(`/calendars/${calendarId}/invitees?${params}`, signal);
+    return found.map((p) => ({ userId: p.user_id, name: p.name }));
+  }
+
+  /** When some people are busy over `[from, to)` (31 days at most), leaving out `excludeEvent` (the one
+   *  being moved). */
+  async function freeBusy(userIds: string[], from: string, to: string, signal?: AbortSignal, excludeEvent?: string): Promise<BusyTimes[]> {
+    const found = await apiRequest<{ user_id: string; busy: { start: string; end: string }[] }[]>("POST", "/calendar/freebusy", {
+      json: { users: userIds, from, to, exclude_event: excludeEvent },
+      signal,
+    });
+    return found.map((p) => ({ userId: p.user_id, busy: p.busy }));
+  }
+
+  /** Where someone invited by address downloads a file of the event, with their page's token. */
+  function invitationFileUrl(token: string, fileId: string): string {
+    return `${apiBase()}/public/invitation/${encodeURIComponent(token)}/files/${fileId}`;
+  }
+
+  /** The channels an event of this calendar may be linked to, by space then by name. */
+  async function listLinkableChannels(calendarId: string, signal?: AbortSignal): Promise<LinkableChannel[]> {
+    const found = await apiGet<{ id: string; name: string; space_id: string; space_name: string; private: boolean }[]>(
+      `/calendars/${calendarId}/channels`,
+      signal,
+    );
+    return found.map((c) => ({ id: c.id, name: c.name, spaceId: c.space_id, spaceName: c.space_name, private: c.private }));
+  }
+
+  /** A channel's next linked occurrences (three at most, within two months). */
+  async function listChannelEvents(channelId: string, signal?: AbortSignal): Promise<UpcomingEvent[]> {
+    const found = await apiGet<
+      { event_id: string; recurrence_id?: string | null; title: string; start: string; end: string; all_day: boolean; location?: string | null }[]
+    >(`/channels/${channelId}/events`, signal);
+    return found.map((u) => ({
+      eventId: u.event_id,
+      recurrenceId: opt(u.recurrence_id),
+      title: u.title,
+      start: u.start,
+      end: u.end,
+      allDay: u.all_day,
+      location: opt(u.location),
+    }));
+  }
+
+  /** Where files dropped for an event of this calendar go: its space's "Agenda" folder (for a personal
+   *  calendar, that of the linked channel's space). */
+  async function eventAttachmentFolder(calendarId: string, channelId?: string, signal?: AbortSignal): Promise<{ spaceId: string; folderId: string }> {
+    const query = channelId ? `?channel=${channelId}` : "";
+    const found = await apiGet<{ space_id: string; folder_id: string }>(`/calendars/${calendarId}/attachment-folder${query}`, signal);
+    return { spaceId: found.space_id, folderId: found.folder_id };
+  }
+
+  /** `GET /public/invitation/{token}`: no session needed. A `404` means it is no longer there. */
+  async function readInvitation(token: string, signal?: AbortSignal): Promise<PublicInvitation> {
+    return toPublicInvitation(await apiGet<PublicInvitationDto>(`/public/invitation/${encodeURIComponent(token)}`, signal));
+  }
+
+  /** Answer an invitation from its public page, for every date. */
+  async function answerInvitation(token: string, status: Exclude<AttendeeStatus, "needs_action">): Promise<PublicInvitation> {
+    return toPublicInvitation(await apiPost<PublicInvitationDto>(`/public/invitation/${encodeURIComponent(token)}`, { status }));
+  }
+
+  return {
+    listCalendars, createCalendar, updateCalendar, deleteCalendar, setCalendarMe, listOccurrences,
+    listShares, putShare, deleteShare, shareCandidates, printUrl, searchEvents, getEvent,
+    createEvent, updateEvent, deleteEvent, setEventMe, listFeeds, createFeed, revokeFeed,
+    respondToEvent, searchInvitees, freeBusy, invitationFileUrl, listLinkableChannels,
+    listChannelEvents, eventAttachmentFolder, readInvitation, answerInvitation,
+  };
 }
 
-/** The channels an event of this calendar may be linked to, by space then by name. */
-export async function listLinkableChannels(calendarId: string, signal?: AbortSignal): Promise<LinkableChannel[]> {
-  const found = await apiGet<{ id: string; name: string; space_id: string; space_name: string; private: boolean }[]>(
-    `/calendars/${calendarId}/channels`,
-    signal,
-  );
-  return found.map((c) => ({ id: c.id, name: c.name, spaceId: c.space_id, spaceName: c.space_name, private: c.private }));
-}
-
-/** A channel's next linked occurrences (three at most, within two months). */
-export async function listChannelEvents(channelId: string, signal?: AbortSignal): Promise<UpcomingEvent[]> {
-  const found = await apiGet<
-    { event_id: string; recurrence_id?: string | null; title: string; start: string; end: string; all_day: boolean; location?: string | null }[]
-  >(`/channels/${channelId}/events`, signal);
-  return found.map((u) => ({
-    eventId: u.event_id,
-    recurrenceId: opt(u.recurrence_id),
-    title: u.title,
-    start: u.start,
-    end: u.end,
-    allDay: u.all_day,
-    location: opt(u.location),
-  }));
-}
-
-/** Where files dropped for an event of this calendar go: its space's "Agenda" folder (for a personal
- *  calendar, that of the linked channel's space). */
-export async function eventAttachmentFolder(calendarId: string, channelId?: string, signal?: AbortSignal): Promise<{ spaceId: string; folderId: string }> {
-  const query = channelId ? `?channel=${channelId}` : "";
-  const found = await apiGet<{ space_id: string; folder_id: string }>(`/calendars/${calendarId}/attachment-folder${query}`, signal);
-  return { spaceId: found.space_id, folderId: found.folder_id };
-}
-
-/** `GET /public/invitation/{token}`: no session needed. A `404` means it is no longer there. */
-export async function readInvitation(token: string, signal?: AbortSignal): Promise<PublicInvitation> {
-  return toPublicInvitation(await apiGet<PublicInvitationDto>(`/public/invitation/${encodeURIComponent(token)}`, signal));
-}
-
-/** Answer an invitation from its public page, for every date. */
-export async function answerInvitation(token: string, status: Exclude<AttendeeStatus, "needs_action">): Promise<PublicInvitation> {
-  return toPublicInvitation(await apiPost<PublicInvitationDto>(`/public/invitation/${encodeURIComponent(token)}`, { status }));
-}
+/** The default client's calls, over the options `configureClient` sets: what the web uses. */
+export const {
+  listCalendars, createCalendar, updateCalendar, deleteCalendar, setCalendarMe, listOccurrences,
+  listShares, putShare, deleteShare, shareCandidates, printUrl, searchEvents, getEvent, createEvent,
+  updateEvent, deleteEvent, setEventMe, listFeeds, createFeed, revokeFeed, respondToEvent,
+  searchInvitees, freeBusy, invitationFileUrl, listLinkableChannels, listChannelEvents,
+  eventAttachmentFolder, readInvitation, answerInvitation,
+} = createCalendarApi(defaultTransport);

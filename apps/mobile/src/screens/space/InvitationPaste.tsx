@@ -1,8 +1,9 @@
-import { isApiError, previewInvitation } from "@ruchoir/client";
+import { isApiError } from "@ruchoir/client";
 import * as Clipboard from "expo-clipboard";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { key, useTranslation } from "../../i18n";
 import { parseInvitationLink } from "../../logic/invitationLink";
 import type { InvitationChoice } from "../../navigation/types";
@@ -33,6 +34,7 @@ export function InvitationPaste({
   switchServer: boolean;
   onResolved: (choice: InvitationChoice) => void;
 }) {
+  const { previewInvitation } = useApi();
   const { t } = useTranslation();
   const session = useSession();
   const [text, setText] = useState("");

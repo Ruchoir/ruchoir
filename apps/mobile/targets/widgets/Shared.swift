@@ -1,12 +1,19 @@
-// What both widgets share: the session the app hands over, the instance's answers, the words.
+// What both widgets share: the sessions the app hands over, the instances' answers, the words.
 
 import Foundation
 import Security
 import SwiftUI
 import WidgetKit
 
+/// A signed-in instance as the app hands it over: where to ask, and with which token.
+struct SharedAccount: Decodable {
+  let server: String
+  let token: String
+}
+
 /// The items the app writes with expo-secure-store (service `ruchoir.push`) in the keychain group it
-/// shares with its extensions (`src/push/phone.ts`).
+/// shares with its extensions (`src/push/phone.ts`): every signed-in instance (ADR 0007), the space
+/// on screen and its instance, the theme.
 enum SharedSession {
   private static func read(_ key: String) -> String? {
     let query: [String: Any] = [
@@ -25,19 +32,21 @@ enum SharedSession {
 
   static func value(_ key: String) -> String? { read(key) }
 
-  static var current: (server: String, token: String)? {
-    guard let server = read("push.server"), let token = read("push.token") else { return nil }
-    return (server, token)
+  /// Every signed-in instance; an entry that is not an `https://` address is left out.
+  static var accounts: [SharedAccount] {
+    guard let json = read("push.accounts"), let data = json.data(using: .utf8),
+      let list = try? JSONDecoder().decode([SharedAccount].self, from: data)
+    else { return [] }
+    return list.filter { $0.server.hasPrefix("https://") }
   }
 }
 
 enum Instance {
-  /// GET a path of the instance's API with the shared session; nil when signed out or unreachable.
-  static func get<T: Decodable>(_ path: String, as type: T.Type) async -> T? {
-    guard let session = SharedSession.current, let url = URL(string: session.server + "/api/v1" + path)
-    else { return nil }
+  /// GET a path of one instance's API with its session; nil when signed out or unreachable.
+  static func get<T: Decodable>(_ path: String, as type: T.Type, from account: SharedAccount) async -> T? {
+    guard let url = URL(string: account.server + "/api/v1" + path) else { return nil }
     var request = URLRequest(url: url, timeoutInterval: 15)
-    request.setValue("Bearer " + session.token, forHTTPHeaderField: "Authorization")
+    request.setValue("Bearer " + account.token, forHTTPHeaderField: "Authorization")
     request.setValue("application/json", forHTTPHeaderField: "Accept")
     guard let (data, response) = try? await URLSession.shared.data(for: request),
       (response as? HTTPURLResponse)?.statusCode == 200
@@ -45,7 +54,31 @@ enum Instance {
     return try? JSONDecoder().decode(T.self, from: data)
   }
 
-  static var signedIn: Bool { SharedSession.current != nil }
+  /// GET a path of the instance of the space on screen in the app.
+  static func get<T: Decodable>(_ path: String, as type: T.Type) async -> T? {
+    guard let account = onScreen else { return nil }
+    return await get(path, as: type, from: account)
+  }
+
+  /// The same path of every instance, each answer with its instance; nil when none answered. One
+  /// that is down or signed out never keeps the others from showing. Asked one after the other: a
+  /// phone holds a few instances, and a widget's timeline has the time.
+  static func everywhere<T: Decodable>(_ path: String, as type: T.Type) async -> [(server: String, value: T)]? {
+    var answers: [(server: String, value: T)] = []
+    for account in SharedSession.accounts {
+      if let value = await get(path, as: type, from: account) { answers.append((account.server, value)) }
+    }
+    return answers.isEmpty ? nil : answers
+  }
+
+  static var signedIn: Bool { !SharedSession.accounts.isEmpty }
+
+  /// The instance of the space on screen in the app (`src/widgets/share.ts`), else the first.
+  static var onScreen: SharedAccount? {
+    let accounts = SharedSession.accounts
+    let server = SharedSession.value("widget.server")
+    return accounts.first { $0.server == server } ?? accounts.first
+  }
 
   /// The space on screen in the app, and the theme chosen there (`src/widgets/share.ts`).
   static var space: String? { SharedSession.value("widget.space") }

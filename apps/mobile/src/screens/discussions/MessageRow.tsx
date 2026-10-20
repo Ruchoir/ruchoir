@@ -1,11 +1,11 @@
-import { absoluteUrl, fileDownloadUrl, type ApiMessage } from "@ruchoir/client";
+import type { ApiMessage } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { Pin } from "lucide-react-native";
 import { memo, useState } from "react";
 import { Alert, Keyboard, Pressable, StyleSheet, View } from "react-native";
 
-import { authHeadersFor } from "../../api/instance";
+import { authHeadersFor, useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { listStamp, timeOf } from "../../logic/format";
@@ -255,6 +255,8 @@ function ReplyLine({ message: m, onPress, avatarOf }: { message: ApiMessage; onP
  * (`thumbBox`); a tap opens it full screen.
  */
 function Pictures({ images }: { images: NonNullable<ApiMessage["images"]> }) {
+  const api = useApi();
+  const { absoluteUrl, fileDownloadUrl } = api;
   const { t } = useTranslation();
   const { c } = useTheme();
   const navigation = useNavigation();
@@ -277,7 +279,7 @@ function Pictures({ images }: { images: NonNullable<ApiMessage["images"]> }) {
                 style={box}
               >
                 <Image
-                  source={{ uri: absoluteUrl(img.src), headers: authHeadersFor(absoluteUrl(img.src)) }}
+                  source={{ uri: absoluteUrl(img.src), headers: authHeadersFor(api, absoluteUrl(img.src)) }}
                   accessibilityLabel={img.alt}
                   style={[styles.image, box, { borderColor: c.line }]}
                   contentFit="contain"

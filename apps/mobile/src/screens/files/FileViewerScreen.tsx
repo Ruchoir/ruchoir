@@ -7,6 +7,7 @@ import { Ellipsis, PencilRuler, Share, X } from "lucide-react-native";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { WebView } from "react-native-webview";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { downloadToCache } from "../../files/download";
 import { editAction, useOffice } from "../../files/office";
@@ -27,6 +28,7 @@ import { Text } from "../../ui/Text";
  * the phone cannot show here; and the office editor, for a document of a space it can edit.
  */
 export function FileViewerScreen() {
+  const api = useApi();
   const { params } = useRoute<RouteProp<RootParams, "fileViewer">>();
   const { file } = params;
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
@@ -34,7 +36,7 @@ export function FileViewerScreen() {
   const { current } = useSpace();
   const entry = params.entry;
   const { c } = useTheme();
-  const local = useLoad(`download:${file.id}:${file.url}`, (signal) => downloadToCache(file, signal));
+  const local = useLoad(`download:${file.id}:${file.url}`, (signal) => downloadToCache(api, file, signal));
   const family = fileFamily(file.name, file.mime);
   const inline = family === "image" || (Platform.OS === "ios" && ["pdf", "document", "spreadsheet", "presentation", "text"].includes(family));
 

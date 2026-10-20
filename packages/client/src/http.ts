@@ -9,7 +9,7 @@
  * like `/me/spaces` either way.
  */
 
-import { apiBase, authInit, clientOptions } from "./config.ts";
+import { absoluteUrlOf, apiBaseOf, apiOriginOf, authInitOf, clientOptions, type ClientOptions } from "./config.ts";
 
 /**
  * A failed API call. Carries the HTTP status so callers can branch (401 -> re-login, 404 -> gone)
@@ -47,9 +47,9 @@ export function apiErrorCode(err: unknown): string | null {
   return null;
 }
 
-type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+export type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
-type RequestOptions = {
+export type RequestOptions = {
   /** JSON request body. Serialised and sent with a `content-type: application/json` header. */
   json?: unknown;
   /** Abort signal, so a caller (or an unmounting screen) can cancel an in-flight request. */
@@ -57,68 +57,99 @@ type RequestOptions = {
 };
 
 /**
- * Perform a JSON API request and return the parsed body typed as `T`.
- *
- * Throws {@link ApiError} on any non-2xx response (with the status and parsed error body), and lets
- * network/abort errors propagate as the native `TypeError`/`AbortError` so callers can tell a
- * transport failure from an API rejection. A 204 (or empty body) resolves to `undefined`.
+ * How a client reaches its instance: the request helpers and URL builders, all reading one set of
+ * options. `createClient` builds one per instance; the module-level helpers below are the default
+ * client's, over the options `configureClient` sets.
  */
-export async function apiRequest<T>(method: Method, path: string, opts: RequestOptions = {}): Promise<T> {
-  const auth = authInit();
-  const res = await fetch(`${apiBase()}${path}`, {
-    method,
-    // Same-origin on the web (the API serves the bundle and sets the cookie); none in an app, which
-    // presents its bearer instead and never sends a cookie anywhere.
-    credentials: auth.credentials,
-    headers: opts.json === undefined ? auth.headers : { ...auth.headers, "content-type": "application/json" },
-    body: opts.json === undefined ? undefined : JSON.stringify(opts.json),
-    signal: opts.signal,
-  });
+export type Transport = {
+  /** The options this transport reads, current at each call. */
+  clientOptions: () => ClientOptions;
+  /**
+   * Perform a JSON API request and return the parsed body typed as `T`.
+   *
+   * Throws {@link ApiError} on any non-2xx response (with the status and parsed error body), and lets
+   * network/abort errors propagate as the native `TypeError`/`AbortError` so callers can tell a
+   * transport failure from an API rejection. A 204 (or empty body) resolves to `undefined`.
+   */
+  apiRequest: <T>(method: Method, path: string, opts?: RequestOptions) => Promise<T>;
+  apiGet: <T>(path: string, signal?: AbortSignal) => Promise<T>;
+  apiPost: <T>(path: string, json?: unknown, signal?: AbortSignal) => Promise<T>;
+  apiPut: <T>(path: string, json?: unknown, signal?: AbortSignal) => Promise<T>;
+  apiPatch: <T>(path: string, json?: unknown, signal?: AbortSignal) => Promise<T>;
+  apiDelete: <T>(path: string, signal?: AbortSignal) => Promise<T>;
+  apiBase: () => string;
+  apiOrigin: () => string;
+  absoluteUrl: (pathOrUrl: string) => string;
+  authInit: () => { credentials: RequestCredentials; headers: Record<string, string> };
+};
 
-  const text = await res.text();
-  let body: unknown = null;
-  if (text.length > 0) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      // A non-JSON body (e.g. an HTML error page from a misconfigured proxy): keep the raw text so
-      // the error carries something legible.
-      body = text;
+/** A transport over the options `getOptions` returns, read again at every call. */
+export function makeTransport(getOptions: () => ClientOptions): Transport {
+  async function apiRequest<T>(method: Method, path: string, opts: RequestOptions = {}): Promise<T> {
+    const options = getOptions();
+    const auth = authInitOf(options);
+    const res = await fetch(`${apiBaseOf(options)}${path}`, {
+      method,
+      // Same-origin on the web (the API serves the bundle and sets the cookie); none in an app, which
+      // presents its bearer instead and never sends a cookie anywhere.
+      credentials: auth.credentials,
+      headers: opts.json === undefined ? auth.headers : { ...auth.headers, "content-type": "application/json" },
+      body: opts.json === undefined ? undefined : JSON.stringify(opts.json),
+      signal: opts.signal,
+    });
+
+    const text = await res.text();
+    let body: unknown = null;
+    if (text.length > 0) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        // A non-JSON body (e.g. an HTML error page from a misconfigured proxy): keep the raw text so
+        // the error carries something legible.
+        body = text;
+      }
     }
+
+    if (!res.ok) {
+      // The options of the moment the answer came, so the instance that refused is the one told.
+      if (res.status === 401) options.onUnauthorized(errorCodeOf(body));
+      throw new ApiError(res.status, apiErrorMessage(body, res.status), body);
+    }
+    // An empty answer (204) is `undefined`, as documented above, not the `null` used for "no body".
+    return (text.length > 0 ? body : undefined) as T;
   }
 
-  if (!res.ok) {
-    if (res.status === 401) clientOptions().onUnauthorized(errorCodeOf(body));
-    throw new ApiError(res.status, apiErrorMessage(body, res.status), body);
-  }
-  // An empty answer (204) is `undefined`, as documented above, not the `null` used for "no body".
-  return (text.length > 0 ? body : undefined) as T;
+  return {
+    clientOptions: getOptions,
+    apiRequest,
+    apiGet: <T>(path: string, signal?: AbortSignal) => apiRequest<T>("GET", path, { signal }),
+    apiPost: <T>(path: string, json?: unknown, signal?: AbortSignal) => apiRequest<T>("POST", path, { json, signal }),
+    // Many PUT endpoints are bodyless toggles, hence the optional body.
+    apiPut: <T>(path: string, json?: unknown, signal?: AbortSignal) => apiRequest<T>("PUT", path, { json, signal }),
+    apiPatch: <T>(path: string, json?: unknown, signal?: AbortSignal) => apiRequest<T>("PATCH", path, { json, signal }),
+    apiDelete: <T>(path: string, signal?: AbortSignal) => apiRequest<T>("DELETE", path, { signal }),
+    apiBase: () => apiBaseOf(getOptions()),
+    apiOrigin: () => apiOriginOf(getOptions()),
+    absoluteUrl: (pathOrUrl) => absoluteUrlOf(getOptions(), pathOrUrl),
+    authInit: () => authInitOf(getOptions()),
+  };
 }
 
+/** The default client's transport: the options `configureClient` sets. */
+export const defaultTransport: Transport = makeTransport(clientOptions);
+
+/** Perform a JSON request with the default client (see {@link Transport.apiRequest}). */
+export const apiRequest = defaultTransport.apiRequest;
 /** GET helper. */
-export function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
-  return apiRequest<T>("GET", path, { signal });
-}
-
+export const apiGet = defaultTransport.apiGet;
 /** POST helper with a JSON body. */
-export function apiPost<T>(path: string, json?: unknown, signal?: AbortSignal): Promise<T> {
-  return apiRequest<T>("POST", path, { json, signal });
-}
-
+export const apiPost = defaultTransport.apiPost;
 /** PUT helper with an optional JSON body (many PUT endpoints are bodyless toggles). */
-export function apiPut<T>(path: string, json?: unknown, signal?: AbortSignal): Promise<T> {
-  return apiRequest<T>("PUT", path, { json, signal });
-}
-
+export const apiPut = defaultTransport.apiPut;
 /** PATCH helper with a JSON body. */
-export function apiPatch<T>(path: string, json?: unknown, signal?: AbortSignal): Promise<T> {
-  return apiRequest<T>("PATCH", path, { json, signal });
-}
-
+export const apiPatch = defaultTransport.apiPatch;
 /** DELETE helper. */
-export function apiDelete<T>(path: string, signal?: AbortSignal): Promise<T> {
-  return apiRequest<T>("DELETE", path, { signal });
-}
+export const apiDelete = defaultTransport.apiDelete;
 
 /**
  * Pull a human-readable message out of an API error body. The API returns problem details as

@@ -3,18 +3,20 @@
  * space list read again and the app back on its tabs, on the next space (or "join a space" when
  * none is left). The last owner is told why the server refuses (409), as on the web.
  */
-import { isApiError, leaveSpace, type Workspace } from "@ruchoir/client";
+import { isApiError, type Workspace } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useCallback } from "react";
 import { Alert } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
 import { useToast } from "../../ui/Toast";
 
 export function useLeaveSpace(): (space: Workspace) => void {
+  const { leaveSpace } = useApi();
   const { t } = useTranslation();
   const toast = useToast();
   const { spaces } = useSpace();
@@ -43,6 +45,6 @@ export function useLeaveSpace(): (space: Workspace) => void {
             ),
         },
       ]),
-    [t, toast, reload, navigation],
+    [t, leaveSpace, toast, reload, navigation],
   );
 }

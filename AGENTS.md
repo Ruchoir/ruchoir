@@ -259,6 +259,10 @@ terminates TLS for that instance, rather than exposing its port:
   records in Valkey delivered as `httpOnly`+`Secure`+`SameSite` cookies. The web frontend holds no
   auth secret. A native app gets the same session as a bearer token (`session_delivery: "token"`),
   refused to any request a browser sent (ADR 0005), and keeps it in the Keychain. Define argon2id params, session lifetime and the WebAuthn flow before broad work.
+- **Several instances at once, in the apps only** (ADR 0007): the phone (and the desktop app to
+  come) holds one `createClient` per instance and one token each; the web stays one instance per
+  tab, so no page ever holds a session for another instance. In `@ruchoir/client`, a call that
+  reaches an instance lives in its module's factory (`createApi`, `createCalendarApi`).
 - **Storage:** all file operations go through the S3 abstraction; the backend (Garage by default)
   is interchangeable and never hard-coded.
 - **Fonts:** self-host IBM Plex Sans/Mono (OFL) via local `@font-face`. Never depend on Google Fonts.

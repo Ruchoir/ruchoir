@@ -1,9 +1,10 @@
-import { fileDownloadUrl, search, type SearchMessage } from "@ruchoir/client";
+import type { SearchMessage } from "@ruchoir/client";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { SearchX } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
@@ -26,6 +27,8 @@ import { loadConversations } from "../discussions/DiscussionsScreen";
  * opens its conversation at it (a reply, its thread at it), a file opens.
  */
 export function SearchScreen() {
+  const api = useApi();
+  const { fileDownloadUrl, search } = api;
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -40,7 +43,7 @@ export function SearchScreen() {
   }, [query]);
   const hits = useLoad(space && debounced.length >= 2 ? `everywhere:${space}:${debounced}` : null, (signal) => search(space!, debounced, signal));
   // Where each message was said, by name.
-  const conversations = useLoad(space ? `conversations:${space}` : null, (signal) => loadConversations(space!, signal));
+  const conversations = useLoad(space ? `conversations:${space}` : null, (signal) => loadConversations(api, space!, signal));
   const byId = useMemo(() => new Map((conversations.data ?? []).map((item) => [item.id, item])), [conversations.data]);
 
   const open = (m: SearchMessage) => {

@@ -1,9 +1,10 @@
-import { freeBusy, type BusyTimes } from "@ruchoir/client";
+import type { BusyTimes } from "@ruchoir/client";
 import { addDays, freeSlots, localDay, localMinutes, zonedTime } from "@ruchoir/client/calendarLogic";
 import { Search } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../../api/useApi";
 import { useTranslation } from "../../../i18n";
 import { useLocale } from "../../../i18n/useLocale";
 import { busyDuring, placeOnStrip, stripWindow } from "../../../logic/availability";
@@ -42,6 +43,7 @@ export function Availability({
   /** The others busy during the event, whenever that changes. */
   onBusy: (names: string[]) => void;
 }) {
+  const { freeBusy } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale } = useLocale();
@@ -63,7 +65,7 @@ export function Availability({
       clearTimeout(wait);
       abort.abort();
     };
-  }, [ids, day, tz, eventId]);
+  }, [ids, day, tz, eventId, freeBusy]);
   const from = span ? Date.parse(span.start) : 0;
   const to = span ? Date.parse(span.end) : 0;
   const theirs = (userId: string) => busy?.find((b) => b.userId === userId)?.busy ?? [];

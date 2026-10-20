@@ -1,27 +1,23 @@
 /**
  * Follows the app's own `ruchoir://` links (`logic/deepLink.ts`): the widgets' shortcuts, also when
- * one is what launched the app. Mounted once by `RootNavigator`, beside the notifications' taps.
+ * one is what launched the app. The accounts catch them and hand them to the active instance's
+ * navigation (`accounts/useLinkRouter`); mounted by `RootNavigator`, beside the notifications' taps.
  */
 import type { NavigationContainerRefWithCurrent } from "@react-navigation/native";
-import { useCallback, useEffect, useRef } from "react";
-import { Linking } from "react-native";
+import { useCallback, useEffect } from "react";
 
+import { onLink, takeLink } from "../accounts/pendingLink";
 import { linkTarget } from "../logic/deepLink";
 import { useSpace } from "../space/SpaceProvider";
 import type { RootParams } from "./types";
 
-export function useAppLinks(navigation: NavigationContainerRefWithCurrent<RootParams>): { onReady: () => void } {
+export function useAppLinks(navigation: NavigationContainerRefWithCurrent<RootParams>, instanceId: string): { onReady: () => void } {
   const { select, current } = useSpace();
-  const pending = useRef<string | null>(null);
 
   const follow = useCallback(
     (url: string) => {
       const target = linkTarget(url);
       if (!target) return;
-      if (!navigation.isReady()) {
-        pending.current = url;
-        return;
-      }
       switch (target.screen) {
         case "eventForm":
           navigation.navigate("eventForm", {});
@@ -49,17 +45,16 @@ export function useAppLinks(navigation: NavigationContainerRefWithCurrent<RootPa
     [navigation, select, current],
   );
 
-  useEffect(() => {
-    void Linking.getInitialURL().then((url) => url && follow(url));
-    const subscription = Linking.addEventListener("url", ({ url }) => follow(url));
-    return () => subscription.remove();
-  }, [follow]);
+  /** Follow the link waiting for this instance, once the navigation can. */
+  const followWaiting = useCallback(() => {
+    if (!navigation.isReady()) return;
+    const link = takeLink(instanceId, "url");
+    if (link?.kind === "url") follow(link.url);
+  }, [navigation, instanceId, follow]);
 
-  const onReady = useCallback(() => {
-    const url = pending.current;
-    pending.current = null;
-    if (url) follow(url);
-  }, [follow]);
+  useEffect(() => onLink(followWaiting), [followWaiting]);
+
+  const onReady = followWaiting;
 
   return { onReady };
 }

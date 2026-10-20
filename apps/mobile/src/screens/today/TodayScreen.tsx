@@ -1,19 +1,10 @@
-import {
-  fileDownloadUrl,
-  getFilesView,
-  getNotifications,
-  listCalendars,
-  listOccurrences,
-  type ApiNotification,
-  type CalendarColor,
-  type Occurrence,
-  type SpaceFile,
-} from "@ruchoir/client";
+import type { ApiNotification, CalendarColor, Occurrence, SpaceFile } from "@ruchoir/client";
 import { useFocusEffect, useNavigation, type NavigationProp } from "@react-navigation/native";
 import { AtSign, CalendarDays, ChevronRight, Sparkles } from "lucide-react-native";
 import { useCallback, useMemo, useRef } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useNow } from "../../data/useNow";
 import { useReloadOn } from "../../data/useReloadOn";
@@ -53,6 +44,8 @@ const SPOKEN_TITLE = {
  * the day, a new file) and the latest conversations.
  */
 export function TodayScreen() {
+  const api = useApi();
+  const { getFilesView, getNotifications, listCalendars, listOccurrences } = api;
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -73,7 +66,7 @@ export function TodayScreen() {
     return { occurrences, colors };
   });
   const recent = useLoad(space ? `recent:${space}` : null, (signal) => getFilesView(space!, "recent", signal));
-  const conversations = useLoad(space ? `conversations:${space}` : null, (signal) => loadConversations(space!, signal));
+  const conversations = useLoad(space ? `conversations:${space}` : null, (signal) => loadConversations(api, space!, signal));
   const memberOf = useMemberOf(space);
   const reloadAll = () => {
     notifications.reload();
@@ -290,6 +283,7 @@ function EventTile({ occurrence: o, now }: { occurrence: Occurrence; now: number
 }
 
 function FileTile({ file }: { file: SpaceFile }) {
+  const { fileDownloadUrl } = useApi();
   const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { c } = useTheme();

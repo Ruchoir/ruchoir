@@ -1,9 +1,10 @@
-import { fileDownloadUrl, getChannelMessages, respondToEvent, type ApiNotification, type CalendarColor, type Member, type Occurrence, type SpaceFile } from "@ruchoir/client";
+import type { ApiNotification, CalendarColor, Member, Occurrence, SpaceFile } from "@ruchoir/client";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { AtSign, CalendarDays, CalendarPlus, Folder, Search, Sparkles } from "lucide-react-native";
 import { useEffect, useState, type ReactNode } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { dayStamp, timeOf } from "../../logic/format";
@@ -193,6 +194,7 @@ function Card({
  * from it, and an invitation it carries is answered from it ("Yes, I will be there").
  */
 function MentionCard({ n, title, myUserId, onOpen }: { n: ApiNotification; title: string; myUserId?: string; onOpen: () => void }) {
+  const { getChannelMessages, respondToEvent } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -210,7 +212,7 @@ function MentionCard({ n, title, myUserId, onOpen }: { n: ApiNotification; title
       () => {},
     );
     return () => controller.abort();
-  }, [n.conversationId, n.messageId, myUserId]);
+  }, [n.conversationId, n.messageId, myUserId, getChannelMessages]);
   const accept = () => {
     if (!event) return;
     setEvent({ ...event, status: "accepted" });
@@ -275,6 +277,7 @@ function EventRow({ occurrence: o, color }: { occurrence: Occurrence; color: str
 
 /** A latest file: its icon, its name, who touched it and when. */
 function FileRowWide({ file }: { file: SpaceFile }) {
+  const { fileDownloadUrl } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();

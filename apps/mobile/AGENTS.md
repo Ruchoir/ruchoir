@@ -20,11 +20,14 @@ rules; this file holds what is particular to the app.
   package scripts set it); a new script must too.
 - **No deployment hostname in the repository.** The development server comes from
   `apps/mobile/.env.local` (`EXPO_PUBLIC_DEFAULT_SERVER`, untracked).
-- The API is reached only through `@ruchoir/client` (`packages/client`), configured for the instance
-  the person chose. A session is a bearer token kept in the Keychain, never anywhere else.
-- **The token only travels to the instance.** An image or a download that the app fetches itself
-  takes its headers from `authHeadersFor(url)`, which gives nothing for another host
-  (`src/api/sameInstance.ts`); never pass `authHeaders()` to a URL that came from data.
+- The API is reached only through `@ruchoir/client` (`packages/client`). The app holds several
+  instances at once (ADR 0007), one client each: **a screen calls the API through `useApi()`**, the
+  client of the instance it belongs to (`src/api/useApi.ts`), never through the module-level calls,
+  which belong to the web's default client. A module outside a component takes the client as an
+  argument. A session is a bearer token kept in the Keychain, one per instance, never anywhere else.
+- **The token only travels to its instance.** An image or a download that the app fetches itself
+  takes its headers from `authHeadersFor(api, url)`, which gives nothing for another host
+  (`src/api/sameInstance.ts`); never pass `api.authInit()` headers to a URL that came from data.
 - Every string a person reads goes through i18n, French first, the five other languages complete
   (`pnpm --filter @ruchoir/mobile i18n:check`).
 - Colours come from `src/theme/tokens.ts`, a copy of `packages/design-system/styles/tokens.css` kept honest by
@@ -70,20 +73,27 @@ show. What every screen keeps:
 ## Layout
 
 ```
-src/App.tsx            fonts and preferences, session, then the signed-out stack or the space gate
-src/session/           instance choice (server.ts), the session reducer (machine.ts), Keychain store,
-                       sign-up and its pending confirmation (memory only), password change
+src/App.tsx            fonts and preferences, the accounts, then the sign-in flow or one scope per
+                       signed-in instance, the active one drawing the space gate
+src/accounts/          the instances (ADR 0007): registry and Keychain store (migration of the single-
+                       instance version), one client per instance (clients.ts), AccountsProvider
+                       (statuses, active instance, summaries, adding, signing out), InstanceScope (an
+                       instance's client, socket, outbox, uploads, spaces), the merged inbox, the
+                       router that opens a tapped notification or link on its instance
+src/session/           instance choice (server.ts), the session reducer (machine.ts), the sign-in flow
+                       over a candidate client (SignInFlow), sign-up and its pending confirmation
+                       (memory only)
 src/prefs/             the preferences kept on the phone (prefs.ts, tested) and their store (store.ts):
                        accent, day or night, text size, language, agenda view, week start, event length
-src/api/instance.ts    configures @ruchoir/client for the chosen instance (bearer, socket headers)
-src/realtime/          one socket for the session; screens subscribe and refetch on resync; local
+src/api/useApi.ts      the client of the instance a screen belongs to, and authHeadersFor
+src/realtime/          one socket per instance (in its scope); screens subscribe and refetch on resync; local
                        "patched" events carry my own changes (a reaction, a pin, an edit) to every screen
 src/compose/           the composer (mentions, files, edit mode), the outbox and drafts (above the
                        screens), typing, attach sheet, the phone's pickers (pick.ts), and the request bus
                        sheets use to reach a composer
 src/uploads/           the files on their way to a space, above the screens (UploadsProvider)
 src/files/             the files tab's helpers: downloads to the cache, the shared rules' Entry
-src/space/             the space on screen, remembered between launches; SpaceGate: the tabs, or
+src/space/             the space on screen, remembered per instance; SpaceGate: the tabs, or
                        "join or create a space" for an account in none
 src/data/              useLoad (requests per screen), useReloadOn (live refetch), members, useNow
 src/logic/             pure functions, tested by Node: conversations, inline Markdown, agenda, today,

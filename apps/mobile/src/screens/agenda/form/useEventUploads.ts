@@ -4,11 +4,12 @@
  * instance's limit is refused before it goes, with its name; an event of a personal calendar
  * without a channel has no space for it, and says to choose a channel first.
  */
-import { eventAttachmentFolder, isApiError, startFileUpload, type Calendar } from "@ruchoir/client";
+import { isApiError, type Calendar } from "@ruchoir/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import { uploadLimit } from "../../../api/limits";
+import { useApi } from "../../../api/useApi";
 import type { LocalFile } from "../../../compose/useAttachments";
 import { useTranslation } from "../../../i18n";
 import { useLocale } from "../../../i18n/useLocale";
@@ -25,6 +26,8 @@ export type PendingUpload = { key: string; file: LocalFile; sent: number; failed
 let uploads = 0;
 
 export function useEventUploads(formKey: string, calendars: Calendar[] | undefined) {
+  const api = useApi();
+  const { eventAttachmentFolder, startFileUpload } = api;
   const { t } = useTranslation();
   const { locale } = useLocale();
   const [pending, setPending] = useState<PendingUpload[]>([]);
@@ -65,7 +68,7 @@ export function useEventUploads(formKey: string, calendars: Calendar[] | undefin
         aborts.current.delete(item.key);
       }
     },
-    [formKey, t, update],
+    [eventAttachmentFolder, formKey, startFileUpload, t, update],
   );
 
   const add = useCallback(
@@ -77,7 +80,7 @@ export function useEventUploads(formKey: string, calendars: Calendar[] | undefin
         Alert.alert(t("eventForm.channelFirstTitle"), t("eventForm.channelFirstText"));
         return;
       }
-      const limit = await uploadLimit();
+      const limit = await uploadLimit(api);
       const { accepted, refused } = splitBySize(picked, limit);
       if (limit !== undefined && refused.length > 0) {
         Alert.alert(
@@ -92,7 +95,7 @@ export function useEventUploads(formKey: string, calendars: Calendar[] | undefin
       setPending((prev) => [...prev, ...items]);
       items.forEach((item) => void send(item));
     },
-    [calendars, formKey, locale, pending.length, send, t],
+    [api, calendars, formKey, locale, pending.length, send, t],
   );
 
   const remove = useCallback((key: string) => {

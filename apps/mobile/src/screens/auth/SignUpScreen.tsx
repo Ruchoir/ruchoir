@@ -1,10 +1,10 @@
-import { getInstanceCapabilities } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Check, Mail, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { DEFAULT_SERVER } from "../../config";
 import { useTranslation } from "../../i18n";
 import { passwordLongEnough } from "../../logic/signup";
@@ -28,6 +28,7 @@ import { hostOf, ServerField } from "./ServerField";
  * address. The password rule shown is the server's; it also refuses passwords known from breaches.
  */
 export function SignUpScreen() {
+  const { getInstanceCapabilities } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const session = useSession();
@@ -36,7 +37,9 @@ export function SignUpScreen() {
   const server = "server" in session.state ? session.state.server : null;
 
   const [editing, setEditing] = useState(server === null);
-  const [serverDraft, setServerDraft] = useState(server ? hostOf(server) : DEFAULT_SERVER ? hostOf(DEFAULT_SERVER) : "");
+  // Adding another instance from the app: the default one is most likely there already.
+  const offered = session.cancel ? null : DEFAULT_SERVER;
+  const [serverDraft, setServerDraft] = useState(server ? hostOf(server) : offered ? hostOf(offered) : "");
   const [name, setName] = useState("");
   const [email, setEmail] = useState(invitation?.email ?? "");
   const [password, setPassword] = useState("");
@@ -69,7 +72,7 @@ export function SignUpScreen() {
     return () => {
       current = false;
     };
-  }, [server, editing]);
+  }, [server, editing, getInstanceCapabilities]);
   const noMail = mail?.server === server && mail.delivers === false && !invitation;
 
   const longEnough = passwordLongEnough(password);

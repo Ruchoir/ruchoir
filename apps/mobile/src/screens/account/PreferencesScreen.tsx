@@ -1,10 +1,10 @@
-import { updateMyProfile } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Check, Languages } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { deviceLocale, key, useTranslation } from "../../i18n";
 import { LANGUAGE_NAMES } from "../../i18n/languages";
 import { useLocale } from "../../i18n/useLocale";
@@ -157,6 +157,7 @@ export function PreferencesScreen() {
 
 /** The language: the phone's, or one of the six, saved on the account too as the web does. */
 export function LanguageSheet() {
+  const { updateMyProfile } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const prefs = usePrefs();

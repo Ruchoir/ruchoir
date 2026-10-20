@@ -4,12 +4,13 @@
  * buttons (for every date of a series). A tap opens its summary. The answer shows at once and comes
  * back if the server refuses it.
  */
-import { getEvent, respondToEvent, type ApiMessage, type AttendeeStatus } from "@ruchoir/client";
+import type { ApiMessage, AttendeeStatus } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Clock, MapPin, Repeat } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { timeOf } from "../../logic/format";
@@ -20,6 +21,7 @@ import { Text } from "../../ui/Text";
 import { AnswerButtons, type Answer } from "../agenda/AnswerButtons";
 
 export function EventCardView({ message: m, myUserId }: { message: ApiMessage; myUserId?: string }) {
+  const { getEvent, respondToEvent } = useApi();
   const card = m.eventCard!;
   const navigation = useNavigation();
   const { t } = useTranslation();
@@ -38,7 +40,7 @@ export function EventCardView({ message: m, myUserId }: { message: ApiMessage; m
       () => {},
     );
     return () => abort.abort();
-  }, [m.fresh, card.myStatus, card.eventId, myUserId, organizer]);
+  }, [m.fresh, card.myStatus, card.eventId, myUserId, organizer, getEvent]);
 
   const answer = (next: Answer) => {
     const before = status;

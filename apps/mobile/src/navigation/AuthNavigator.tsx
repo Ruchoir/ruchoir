@@ -16,13 +16,13 @@ const Stack = createNativeStackNavigator<AuthParams>();
 
 /**
  * Everything before signing in: the welcome and its tutorial, sign-in, sign-up and its address
- * confirmation, and the forgotten password. A session that ended, or a person back from the second
- * factor, starts at sign-in; anyone else at the welcome.
+ * confirmation, and the forgotten password. A session that ended, a person back from the second
+ * factor, or one adding an instance from the app, starts at sign-in; anyone else at the welcome.
  */
 export function AuthNavigator() {
   const theme = useNavigationTheme();
-  const { state } = useSession();
-  const toSignIn = state.kind === "signedOut" && state.reason !== undefined;
+  const { state, cancel } = useSession();
+  const toSignIn = (state.kind === "signedOut" && state.reason !== undefined) || cancel !== undefined;
   return (
     <NavigationContainer theme={theme}>
       <Stack.Navigator initialRouteName={toSignIn ? "signIn" : "welcome"} screenOptions={{ headerShown: false }}>

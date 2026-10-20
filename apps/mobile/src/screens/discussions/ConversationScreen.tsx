@@ -1,13 +1,4 @@
-import {
-  getChannelMessages,
-  getChannels,
-  getReadCursors,
-  joinChannel,
-  listChannelMembers,
-  setReadCursor,
-  type ApiMessage,
-  type Channel,
-} from "@ruchoir/client";
+import type { ApiMessage, Channel } from "@ruchoir/client";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import { Archive, ArrowDown, CalendarDays, CheckCheck, ChevronLeft, FileText, Info, MessageSquare, Pin } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -23,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { Composer } from "../../compose/Composer";
 import { useAttachRequests } from "../../compose/requests";
 import { useAttachments } from "../../compose/useAttachments";
@@ -110,6 +102,7 @@ export function ConversationScreen() {
  * has no arrow. What it opens (a thread, a message's sheet, the details) goes over the whole app.
  */
 export function ConversationView({ params, onClose }: { params: RootParams["conversation"]; onClose?: () => void }) {
+  const { getChannels, listChannelMembers } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const tablet_ = useTabletLayout();
@@ -303,6 +296,8 @@ type MessagesProps = {
 };
 
 function Messages({ conversationId, title, channelId, unread, oneToOne, channel, channels, onJoined, members, focus, onFocusTaken }: MessagesProps) {
+  const api = useApi();
+  const { getChannelMessages, getReadCursors, joinChannel, setReadCursor } = api;
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const tabletLayout = useTabletLayout();
@@ -338,12 +333,12 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
     if (!newest || marked.current === newest) return;
     marked.current = newest;
     void setReadCursor(conversationId, newest).then(
-      () => readNotificationsOf(conversationId, emit).catch(() => {}),
+      () => readNotificationsOf(api, conversationId, emit).catch(() => {}),
       () => {
         marked.current = null;
       },
     );
-  }, [conversationId, newest, emit]);
+  }, [conversationId, newest, emit, setReadCursor, api]);
 
   const loadOlder = useCallback(async () => {
     if (!nextBefore || older.loading) return;
@@ -355,7 +350,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
     } catch {
       setOlder((prev) => ({ ...prev, loading: false }));
     }
-  }, [conversationId, nextBefore, older.loading, add]);
+  }, [nextBefore, older.loading, getChannelMessages, conversationId, add]);
 
   // Where the unread messages started when the conversation opened: the line stays there while reading.
   const [anchor, setAnchor] = useState<{ id: string | null } | null>(null);
@@ -470,7 +465,7 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
       wanted.current = null;
       toast(result ? t("conversation.messageNotFound") : t("load.failed"), "failure");
     },
-    [conversationId, nextBefore, add, toast, t, onFocusTaken],
+    [onFocusTaken, nextBefore, add, toast, t, getChannelMessages, conversationId],
   );
   useEffect(() => {
     if (!first.data) return;

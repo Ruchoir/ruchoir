@@ -1,10 +1,10 @@
-import { getEvent, listCalendars, setEventMe } from "@ruchoir/client";
 import { customMinutes, MAX_REMINDERS, presetReminders, reminderLabel, remindersLabel, type ReminderUnit } from "@ruchoir/client/calendarLogic";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import { Bell, CalendarDays, Plus, SlidersHorizontal, SquarePen, X } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../../api/useApi";
 import { useLoad } from "../../../data/useLoad";
 import { key, useTranslation } from "../../../i18n";
 import { useSharedT } from "../../../i18n/sharedT";
@@ -150,6 +150,7 @@ export function RemindersSheet() {
  * change it: each change is saved at once, and a failure puts back what was there.
  */
 function OwnReminders({ eventId }: { eventId: string }) {
+  const { getEvent, listCalendars, setEventMe } = useApi();
   const { t } = useTranslation();
   const toast = useToast();
   const loaded = useLoad(`reminders:${eventId}`, async (signal) => {
@@ -186,6 +187,7 @@ function OwnReminders({ eventId }: { eventId: string }) {
 }
 
 function DraftReminders({ formKey }: { formKey: string }) {
+  const { listCalendars } = useApi();
   const { t } = useTranslation();
   const draft = useDraft(formKey);
   const calendars = useLoad("calendars", (signal) => listCalendars(signal));
