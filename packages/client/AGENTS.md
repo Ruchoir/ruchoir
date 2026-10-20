@@ -5,12 +5,19 @@ share. See the root `AGENTS.md` for project-wide rules.
 
 ## What lives here
 
-- `config.ts`: where requests go and how they prove who is asking. The defaults are the web's
-  (relative same-origin calls, the session cookie, `credentials: "same-origin"`); the app calls
-  `configureClient({ baseUrl, authorization, sessionDelivery: "token", openSocket, onUnauthorized })`.
-- `http.ts`: the transport (`apiRequest` and the verbs, `ApiError`, `apiErrorCode`). A 401 calls
-  `onUnauthorized` before throwing.
-- `api.ts`, `calendar.ts`: every call and the mapping of the Rust DTOs to the front shapes;
+- `config.ts`: where requests go and how they prove who is asking (`ClientOptions`). The defaults
+  are the web's (relative same-origin calls, the session cookie, `credentials: "same-origin"`);
+  `configureClient` changes the **default client's** options.
+- `client.ts`: `createClient({ baseUrl, authorization, sessionDelivery: "token", openSocket,
+  onUnauthorized })`, a client for one instance with every call bound to its own options. The apps
+  hold one per instance (ADR 0007); the web never builds one.
+- `http.ts`: the transport (`makeTransport(getOptions)`: `apiRequest` and the verbs, `apiBase`,
+  `authInit`...; `ApiError`, `apiErrorCode`). A 401 calls the options' `onUnauthorized` before
+  throwing. The module-level `apiRequest` and verbs are the default client's.
+- `api.ts`, `calendar.ts`: every call and the mapping of the Rust DTOs to the front shapes. The calls
+  that reach an instance live in a factory (`createApi(transport)`, `createCalendarApi(transport)`)
+  and are re-exported at module level bound to the default transport; types and pure helpers stay
+  plain module exports;
   `types.ts`: those shapes; `fileType.ts`: a file's family from its name. Attachment uploads go
   through `startAttachmentUpload` (progress, abort), whose part is a `Blob` on the web or
   `{ uri, name, type }` on the phone.
@@ -27,8 +34,12 @@ share. See the root `AGENTS.md` for project-wide rules.
 - **No browser global at module level, no React.** Code here runs in a browser and in React Native.
   `window.location` is read only when no base URL is set (the web), `EventSource` only where it
   exists. What only a browser can do (WebAuthn) stays in `apps/web/lib/data`.
-- **URLs are built from `apiBase()` / `apiOrigin()`**, never written as `/api/v1/...`: on the phone
-  they must be absolute.
+- **A call that reaches an instance goes inside the factory** of its module (`createApi`,
+  `createCalendarApi`) and reads the transport's helpers, never the module-level ones: a module-level
+  call would always go to the default client, whatever client it was called from. Add its name to
+  the factory's return and to the default exports below it.
+- **URLs are built from `apiBase()` / `apiOrigin()`** (the transport's, inside a factory), never
+  written as `/api/v1/...`: on the phone they must be absolute.
 - **Raw `fetch` and `XMLHttpRequest` calls spread `authInit()`**, so an upload carries the bearer too.
 - Shipped as TypeScript source (`exports` point at `src`): Next compiles it (`transpilePackages`),
   Metro and Node's type stripping read it as is. Relative imports carry their `.ts` extension, and
