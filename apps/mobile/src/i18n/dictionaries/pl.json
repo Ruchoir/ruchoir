@@ -830,7 +830,35 @@
     "membersCount_one": "{{count}} członek",
     "membersCount_other": "{{count}} członka",
     "membersCount_few": "{{count}} członkowie",
-    "membersCount_many": "{{count}} członków"
+    "membersCount_many": "{{count}} członków",
+    "favouriteHint": "Na górze twoich rozmów",
+    "favouriteFailed": "Nie zapisano ulubionego",
+    "edit": "Edytuj kanał",
+    "editHint": "Nazwa, temat, dostęp, archiwizacja",
+    "addPeople": "Dodaj osoby",
+    "addPeopleHint": "Członkowie przestrzeni",
+    "added_one": "Dodano {{count}} osobę",
+    "added_few": "Dodano {{count}} osoby",
+    "added_many": "Dodano {{count}} osób",
+    "added_other": "Dodano {{count}} osoby",
+    "addFailed": "Nie udało się dodać osób.",
+    "inviteOutside": "Zaproś kogoś z zewnątrz",
+    "inviteOutsideHint": "E-mailem, jako gościa tylko tego kanału",
+    "leave": "Opuść kanał",
+    "leaveHint": "Nie będziesz już otrzymywać jego wiadomości",
+    "leaveTitle": "Opuścić #{{name}}?",
+    "leavePublic": "Możesz do niego wrócić w każdej chwili.",
+    "leavePrivate": "To kanał na zaproszenie: ktoś będzie musiał cię ponownie dodać.",
+    "left": "Opuszczono #{{name}}",
+    "leaveFailed": "Nie udało się opuścić kanału.",
+    "makeMember": "Ustaw jako członka",
+    "makeModerator": "Ustaw jako moderatora",
+    "makeOwner": "Ustaw jako właściciela",
+    "roleChanged": "Zmieniono rolę: {{name}}",
+    "roleFailed": "Nie udało się zmienić roli.",
+    "remove": "Usuń z kanału",
+    "removed": "Usunięto {{name}} z kanału",
+    "removeFailed": "Nie udało się usunąć osoby."
   },
   "sidebar": {
     "favourite": "Dodaj do ulubionych",
@@ -1215,5 +1243,18 @@
     "unread_many": "{{count}} nieprzeczytanych",
     "unread_other": "{{count}} nieprzeczytanej",
     "allRead": "Wszystko przeczytane"
+  },
+  "channelEdit": {
+    "saved": "Kanał zmieniony",
+    "failed": "Nie udało się zmienić kanału.",
+    "forbidden": "Tylko osoby zarządzające tym kanałem mogą go zmienić.",
+    "archive": "Zarchiwizuj kanał",
+    "archiveHint": "Nikt już w nim nie pisze, wszystko pozostaje do odczytu."
+  },
+  "channelInvite": {
+    "title": "Zaproś do #{{name}}",
+    "hint": "Osoba otrzyma jednorazowe zaproszenie, dołączy do przestrzeni jako gość i zobaczy tylko ten kanał.",
+    "forbidden": "Tylko osoby zarządzające tym kanałem mogą do niego zapraszać.",
+    "refused": "Adres odrzucony lub kanał zarchiwizowany."
   }
 }

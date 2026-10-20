@@ -1,6 +1,6 @@
 import { getChannels, getDirectMessages, type Member } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { Lock, MessageCircle, MessageSquare, SearchX, SquarePen, Users } from "lucide-react-native";
+import { Lock, MessageCircle, MessageSquare, SearchX, SquarePen, Star, Users } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 
@@ -283,6 +283,7 @@ export function ConversationRow({
           <Text variant="bodyStrong" numberOfLines={1} style={[styles.name, tablet && [styles.nameTablet, { fontFamily: item.unread > 0 ? fonts.sansBold : fonts.sansSemibold }]]}>
             {item.name}
           </Text>
+          {item.favourite ? <Star size={12} color={c.bee} fill={c.bee} accessibilityLabel={t("files.favourite")} /> : null}
           {stamp ? (
             <Text variant="tiny" tone="muted" style={tablet ? styles.timeTablet : undefined}>
               {stamp.kind === "yesterday" ? t("time.yesterday") : stamp.text}

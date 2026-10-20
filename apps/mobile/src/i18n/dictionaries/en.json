@@ -736,7 +736,33 @@
     "roleAdmin": "Admin",
     "saveFailed": "Setting not saved",
     "membersCount_one": "{{count}} member",
-    "membersCount_other": "{{count}} members"
+    "membersCount_other": "{{count}} members",
+    "favouriteHint": "At the top of your conversations",
+    "favouriteFailed": "Favourite not saved",
+    "edit": "Edit the channel",
+    "editHint": "Name, topic, access, archiving",
+    "addPeople": "Add people",
+    "addPeopleHint": "Members of the space",
+    "added_one": "{{count}} person added",
+    "added_other": "{{count}} people added",
+    "addFailed": "The people could not be added.",
+    "inviteOutside": "Invite someone from outside",
+    "inviteOutsideHint": "By e-mail, as a guest of this channel only",
+    "leave": "Leave the channel",
+    "leaveHint": "You will no longer get its messages",
+    "leaveTitle": "Leave #{{name}}?",
+    "leavePublic": "You can join it again whenever you like.",
+    "leavePrivate": "It is a channel on invitation: someone will have to add you back.",
+    "left": "You left #{{name}}",
+    "leaveFailed": "You could not leave the channel.",
+    "makeMember": "Make member",
+    "makeModerator": "Make moderator",
+    "makeOwner": "Make owner",
+    "roleChanged": "{{name}}'s role changed",
+    "roleFailed": "The role could not be changed.",
+    "remove": "Remove from the channel",
+    "removed": "{{name}} removed from the channel",
+    "removeFailed": "They could not be removed."
   },
   "sidebar": {
     "favourite": "Add to favourites",
@@ -1107,5 +1133,18 @@
     "unread_one": "{{count}} unread",
     "unread_other": "{{count}} unread",
     "allRead": "All caught up"
+  },
+  "channelEdit": {
+    "saved": "Channel updated",
+    "failed": "The channel could not be updated.",
+    "forbidden": "Only the people who run this channel can change it.",
+    "archive": "Archive the channel",
+    "archiveHint": "Nobody writes in it any more, everything stays readable."
+  },
+  "channelInvite": {
+    "title": "Invite to #{{name}}",
+    "hint": "They receive a single-use invitation, join the space as a guest and see this channel only.",
+    "forbidden": "Only the people who run this channel can invite to it.",
+    "refused": "Address refused, or the channel is archived."
   }
 }

@@ -89,7 +89,7 @@ src/data/              useLoad (requests per screen), useReloadOn (live refetch)
 src/logic/             pure functions, tested by Node: conversations, inline Markdown, agenda, today,
                        mentions, outbox, unread, reactions, receipts, threads, attachments, handle,
                        eventForm (the event form as data), availability, uploadQueue, scan,
-                       invitationLink, signup (password rule, code), otpauth
+                       invitationLink, signup (password rule, code), otpauth, channelRoles
 src/screens/agenda/form/  the event form, its sheets (calendar, date and time pickers, repeat, custom
                        rule, reminders, people, channel, time zone, series scope) and its draft store
 src/navigation/        AuthNavigator (before sign-in), root stack (pushed screens, sheets), the four tabs

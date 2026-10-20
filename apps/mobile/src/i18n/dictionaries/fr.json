@@ -736,7 +736,33 @@
     "roleAdmin": "Administrateur",
     "saveFailed": "Réglage non enregistré",
     "membersCount_one": "{{count}} membre",
-    "membersCount_other": "{{count}} membres"
+    "membersCount_other": "{{count}} membres",
+    "favouriteHint": "En tête de vos conversations",
+    "favouriteFailed": "Favori non enregistré",
+    "edit": "Modifier le canal",
+    "editHint": "Nom, sujet, accès, archivage",
+    "addPeople": "Ajouter des personnes",
+    "addPeopleHint": "Des membres de l’espace",
+    "added_one": "{{count}} personne ajoutée",
+    "added_other": "{{count}} personnes ajoutées",
+    "addFailed": "Les personnes n’ont pas pu être ajoutées.",
+    "inviteOutside": "Inviter quelqu’un de l’extérieur",
+    "inviteOutsideHint": "Par e-mail, en invité de ce canal seulement",
+    "leave": "Quitter le canal",
+    "leaveHint": "Vous ne recevrez plus ses messages",
+    "leaveTitle": "Quitter #{{name}} ?",
+    "leavePublic": "Vous pourrez le rejoindre à nouveau quand vous voudrez.",
+    "leavePrivate": "C’est un canal sur invitation : il faudra qu’on vous y ajoute pour revenir.",
+    "left": "Vous avez quitté #{{name}}",
+    "leaveFailed": "Vous n’avez pas pu quitter le canal.",
+    "makeMember": "Rendre membre",
+    "makeModerator": "Rendre modérateur",
+    "makeOwner": "Rendre propriétaire",
+    "roleChanged": "Rôle de {{name}} modifié",
+    "roleFailed": "Le rôle n’a pas pu être changé.",
+    "remove": "Retirer du canal",
+    "removed": "{{name}} retiré du canal",
+    "removeFailed": "La personne n’a pas pu être retirée."
   },
   "sidebar": {
     "favourite": "Ajouter aux favoris",
@@ -1107,5 +1133,18 @@
     "unread_one": "{{count}} non lu",
     "unread_other": "{{count}} non lus",
     "allRead": "Tout est lu"
+  },
+  "channelEdit": {
+    "saved": "Canal modifié",
+    "failed": "Le canal n’a pas pu être modifié.",
+    "forbidden": "Seules les personnes qui gèrent ce canal peuvent le modifier.",
+    "archive": "Archiver le canal",
+    "archiveHint": "Plus personne n’y écrit, tout reste lisible."
+  },
+  "channelInvite": {
+    "title": "Inviter dans #{{name}}",
+    "hint": "La personne reçoit une invitation à usage unique. Elle rejoint l’espace en invitée et ne voit que ce canal.",
+    "forbidden": "Seules les personnes qui gèrent ce canal peuvent y inviter.",
+    "refused": "Adresse refusée, ou canal archivé."
   }
 }

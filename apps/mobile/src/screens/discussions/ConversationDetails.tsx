@@ -2,22 +2,34 @@
  * A conversation's details (the ⓘ of mockup 13): its face, name and topic; how much it notifies me,
  * saved the moment it is chosen; its pinned messages, for a channel; and who is in it.
  *
- * For the space's owner and administrators, deleting the channel, as the web offers them (not the
- * space's default channel). Renaming, the topic and membership stay on the web for now.
+ * For a channel, what the web's channel menu and settings offer: keeping it among my favourites,
+ * editing it (name, topic, access, archiving), adding people of the space, inviting someone from
+ * outside, leaving it; for whoever runs it, a member's role and taking them out. For the space's owner
+ * and administrators, deleting the channel (not the space's default channel).
+ *
+ * My role in the channel is my own row of its people, and the space's owner and administrators count
+ * as its owner, which is how the API reads them. The ranks only decide what is offered; the API is
+ * the guard and a refusal is said.
  */
 import {
+  addChannelMembers,
   deleteChannel,
   getChannels,
   getDirectMessages,
   getReadCursors,
+  leaveChannel,
   listChannelMembers,
+  removeChannelMember,
   saveConversationNotify,
+  setChannelFavorite,
+  setChannelMemberRole,
   type ConversationNotify,
   type Member,
   type NotifyLevel,
 } from "@ruchoir/client";
 import { StackActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
-import { Check, Trash2 } from "lucide-react-native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { Check, LogOut, Mail, Pencil, Star, Trash2, UserPlus } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -41,7 +53,10 @@ import { useReloadOn } from "../../data/useReloadOn";
 import { affects } from "../../realtime/events";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { feel } from "../../ui/haptics";
+import { useSession } from "../../session/SessionProvider";
+import { channelRank, grantableChannelRoles } from "../../logic/channelRoles";
 import { deletedHere } from "./deletedHere";
+import { PeoplePickerModal } from "./PeoplePickerModal";
 
 const LEVELS: { level: NotifyLevel; label: ReturnType<typeof key>; hint: ReturnType<typeof key> }[] = [
   { level: "default", label: key("details.levelDefault"), hint: key("details.levelDefaultHint") },
@@ -54,6 +69,13 @@ const ROLE: Record<string, ReturnType<typeof key> | undefined> = {
   owner: key("details.roleOwner"),
   admin: key("details.roleAdmin"),
   guest: key("invite.guest"),
+};
+
+/** What a channel role is called when it is offered. */
+const CHANNEL_ROLE: Record<string, ReturnType<typeof key>> = {
+  member: key("details.makeMember"),
+  admin: key("details.makeModerator"),
+  owner: key("details.makeOwner"),
 };
 
 export function ConversationDetails() {
@@ -104,8 +126,107 @@ export function ConversationDetails() {
   const loaded = channelId ? channels.data : dms.data;
   const subtitle = channel?.topic ?? other?.title;
 
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { emit } = useRealtimeActions();
+  const { state } = useSession();
+  const me = state.kind === "signedIn" ? state.user.id : undefined;
+  const isChannel = !!channelId && !!channel;
+  const guest = current?.role === "guest";
+  const archived = channel?.type === "archived";
+  // The space's owner and admins run every channel; anyone else holds the role of their own row.
+  const myChannelRole = canAdminister(current?.role)
+    ? "owner"
+    : guest
+      ? "member"
+      : (channelMembers.data?.find((m) => m.userId === me)?.role ?? "member");
+  const runs = channelRank(myChannelRole) >= channelRank("admin");
+
+  const [fav, setFav] = useState<boolean | null>(null);
+  const favourite = fav ?? channel?.fav ?? false;
+  const toggleFavourite = (next: boolean) => {
+    if (!channelId) return;
+    setFav(next);
+    setChannelFavorite(channelId, next).then(
+      () => space && emit({ type: "channels", spaceId: space, channelId }),
+      () => {
+        setFav(!next);
+        toast(t("details.favouriteFailed"), "failure");
+      },
+    );
+  };
+
+  const [adding, setAdding] = useState(false);
+  const inChannel = new Set((channelMembers.data ?? []).map((m) => m.userId));
+  const addable = people.list.filter((m) => !m.bot && !inChannel.has(m.userId));
+  const add = (ids: string[]) => {
+    setAdding(false);
+    if (!channelId || ids.length === 0) return;
+    addChannelMembers(channelId, ids).then(
+      () => {
+        feel("success");
+        toast(t("details.added", { count: ids.length }), "success");
+        channelMembers.reload();
+      },
+      () => toast(t("details.addFailed"), "failure"),
+    );
+  };
+
+  const leave = () => {
+    if (!channelId || !space) return;
+    feel("warning");
+    Alert.alert(t("details.leaveTitle", { name: title }), channel?.type === "private" ? t("details.leavePrivate") : t("details.leavePublic"), [
+      { text: t("compose.cancel"), style: "cancel" },
+      {
+        text: t("spaceAdmin.leaveConfirm"),
+        style: "destructive",
+        onPress: () => {
+          leaveChannel(channelId).then(
+            () => {
+              toast(t("details.left", { name: title }));
+              navigation.dispatch(StackActions.popToTop());
+              if (me) emit({ type: "channels", spaceId: space, channelId, membership: { userId: me, change: "left" } });
+            },
+            () => toast(t("details.leaveFailed"), "failure"),
+          );
+        },
+      },
+    ]);
+  };
+
+  /** The role and the way out of a channel, for someone ranked below me in it. */
+  const manage = (m: Member) => {
+    if (!channelId) return;
+    const roles = grantableChannelRoles(myChannelRole, m.role).filter((role) => role !== m.role);
+    feel("menu");
+    Alert.alert(m.name, undefined, [
+      ...roles.map((role) => ({
+        text: t(CHANNEL_ROLE[role]!),
+        onPress: () => {
+          setChannelMemberRole(channelId, m.userId, role).then(
+            () => {
+              toast(t("details.roleChanged", { name: m.name }));
+              channelMembers.reload();
+            },
+            () => toast(t("details.roleFailed"), "failure"),
+          );
+        },
+      })),
+      {
+        text: t("details.remove"),
+        style: "destructive" as const,
+        onPress: () => {
+          removeChannelMember(channelId, m.userId).then(
+            () => {
+              toast(t("details.removed", { name: m.name }));
+              channelMembers.reload();
+            },
+            () => toast(t("details.removeFailed"), "failure"),
+          );
+        },
+      },
+      { text: t("compose.cancel"), style: "cancel" as const },
+    ]);
+  };
   const mayDelete = !!channelId && !!current && canAdminister(current.role);
   const isDefault = !!channelId && current?.defaultChannelId === channelId;
   const remove = () => {
@@ -159,6 +280,33 @@ export function ConversationDetails() {
             ) : null}
           </View>
 
+          {isChannel ? (
+            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.line }]}>
+              <ActionRow
+                icon={Star}
+                tint={c.sun}
+                title={t("files.favourite")}
+                subtitle={t("details.favouriteHint")}
+                trailing={<Toggle value={favourite} onValueChange={toggleFavourite} accessibilityLabel={t("files.favourite")} />}
+              />
+              {!guest ? (
+                <ActionRow icon={Pencil} title={t("details.edit")} subtitle={t("details.editHint")} onPress={() => navigation.navigate("channelEdit", { channelId: channelId! })} />
+              ) : null}
+              {runs && !archived && channel?.type === "private" ? (
+                <ActionRow icon={UserPlus} tint={c.pink} title={t("details.addPeople")} subtitle={t("details.addPeopleHint")} onPress={() => setAdding(true)} />
+              ) : null}
+              {runs && !archived ? (
+                <ActionRow
+                  icon={Mail}
+                  tint={c.pink}
+                  title={t("details.inviteOutside")}
+                  subtitle={t("details.inviteOutsideHint")}
+                  onPress={() => navigation.navigate("channelInvite", { channelId: channelId!, title })}
+                />
+              ) : null}
+            </View>
+          ) : null}
+
           <Section label={t("details.notifications")}>
             {channelId ? (
               LEVELS.map(({ level, label, hint }) => {
@@ -199,9 +347,12 @@ export function ConversationDetails() {
             ) : (
               members.data.map((m) => {
                 const role = ROLE[m.role];
+                const mayManage =
+                  isChannel && m.userId !== me && channelRank(m.role) < channelRank(myChannelRole) && channelRank(myChannelRole) >= channelRank("admin");
                 return (
                   <ActionRow
                     key={m.userId}
+                    onPress={mayManage ? () => manage(m) : undefined}
                     leading={<Avatar name={m.name} src={m.avatarUrl} kind={m.bot ? "bot" : "person"} size={40} />}
                     title={m.name}
                     subtitle={m.title}
@@ -218,6 +369,12 @@ export function ConversationDetails() {
             )}
           </Section>
 
+          {isChannel ? (
+            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.line }]}>
+              <ActionRow icon={LogOut} danger title={t("details.leave")} subtitle={t("details.leaveHint")} onPress={leave} />
+            </View>
+          ) : null}
+
           {mayDelete ? (
             <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.line }]}>
               {isDefault ? (
@@ -229,6 +386,9 @@ export function ConversationDetails() {
           ) : null}
         </ScrollView>
       )}
+      {adding ? (
+        <PeoplePickerModal title={t("details.addPeople")} people={addable} selected={[]} onDone={add} onClose={() => setAdding(false)} />
+      ) : null}
     </SafeAreaView>
   );
 }
