@@ -83,6 +83,16 @@ impl Desktop {
         let origin = self.list.lock().ok()?.get(id)?.origin.clone();
         Some((origin, self.vault.get(id)))
     }
+
+    /// The origin of the instance the interface shows.
+    pub fn active_origin(&self) -> Option<String> {
+        Some(self.list.lock().ok()?.active()?.origin.clone())
+    }
+
+    /// Forget an instance's session (a 401, or a sign-out from the interface).
+    pub fn forget_session(&self, id: &str) {
+        self.vault.forget(id);
+    }
 }
 
 /// Tell the interface the instance changed.
