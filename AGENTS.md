@@ -35,6 +35,11 @@ is open source under **AGPLv3**.
    and the Expo CLI always runs with `EXPO_NO_TELEMETRY=1`. The one exception is development only:
    an Expo account signs the manifests Expo Go needs on a physical iPhone, with the project id kept
    out of the repository: see `docs/adr/0005-native-apps.md`.
+   **Tauri** (the desktop app's toolkit) is governed by the Tauri Programme within The Commons
+   Conservancy (Netherlands): a European, neutral library, on the same footing as the others. The
+   installed desktop app talks to the instances the person adds and, for its updates, to Ruchoir's
+   own server only; its builds run on GitHub's runners, like the phone's. See
+   `docs/adr/0008-desktop-apps.md`.
 3. **English only** for everything in the repo: code, identifiers, comments, docs, commits,
    branches, issues, PRs.
 4. **Document thoroughly**, following current industry best practices (module docs, docstrings,
@@ -59,6 +64,12 @@ is open source under **AGPLv3**.
   to any instance through the shared `@ruchoir/client` (`packages/client`, also the web's API client)
   and holds its session as a bearer token in the Keychain (ADR 0005). Developed in Expo Go against the
   dev instance; native builds (passkeys, push, widgets) come later and never through EAS.
+- **Desktop:** Tauri 2 for Windows, macOS and Linux, `apps/desktop` (its own Cargo workspace). The
+  window shows the web export, built with `build:desktop`, served on the app's own protocol
+  (`ruchoir-app://localhost`), which forwards `/i/<instance-id>/api/v1/...` to that instance with its
+  bearer (kept in the system keychain by the Rust core, never seen by the interface). Sign-in goes
+  through the instance's `/n/` page and a `ruchoir://auth` link; one realtime socket per instance,
+  held by the core and relayed to the interface. ADR 0008, `docs/desktop.md`.
 - **Database:** PostgreSQL (source of truth) + Valkey (presence, real-time pub/sub, cache, sessions).
   Valkey (Linux Foundation, BSD-3) is the key-value store; it speaks the Redis protocol (RESP), so
   the usual Rust clients work unchanged. Chosen over Redis for neutral governance (2026-08-29).
@@ -148,6 +159,13 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | react-native-android-widget (the Android home-screen widgets, drawn from a headless task; Stefan Aleksovski, MIT, community) | 0.22.1 | `apps/mobile/package.json` |
 | reqwest / jsonwebtoken (the push relay's HTTP/2 client, rustls + `ring`, and its APNs/FCM tokens on the RustCrypto backend) | 0.12 / 11.1.0 | `apps/push-relay/Cargo.toml` |
 | lucide-react-native / @dicebear (mobile) | 1.55 / 10 | `apps/mobile/package.json` |
+| tauri / tauri-build (desktop; The Commons Conservancy, Netherlands) | 2.12.4 / 2.7.3 | `apps/desktop/src-tauri/Cargo.toml` |
+| tauri-plugin-deep-link / -single-instance / -window-state / -opener / -store (official Tauri plugins) | 2.6.2 / 2.5.4 / 2.5.0 / 2.7.2 / 2.5.0 | `apps/desktop/src-tauri/Cargo.toml` |
+| @tauri-apps/cli / @tauri-apps/api | 2.12.3 / 2.12.4 | `apps/desktop/package.json`, `apps/web/package.json` |
+| rust-ini (held below 0.21.2, which tauri-plugin-deep-link 2.6.2 does not build with on Linux) | 0.21.1 | `apps/desktop/Cargo.lock` |
+| keyring (system keychains; open-source-cooperative, community, MIT/Apache-2.0; `async-secret-service` over zbus, `crypto-rust`) | 3.6.3 | `apps/desktop/core/Cargo.toml` |
+| reqwest / tokio-tungstenite (desktop core: rustls + `ring`, the system's roots) | 0.12 / 0.29 | `apps/desktop/core/Cargo.toml` |
+| getrandom / sha2 / url (desktop core: ids, the sign-in verifier, origins) | 0.3 / 0.10 / 2 | `apps/desktop/core/Cargo.toml` |
 
 ## Languages
 
@@ -191,6 +209,7 @@ apps/api/            Rust backend (axum/tokio)            - has its own AGENTS.m
                      incl. `src/office/`, live office editing (WOPI host, sessions, relay)
 apps/web/            Next.js frontend                     - has its own AGENTS.md
 apps/mobile/         Expo app (iOS, Android)              - has its own AGENTS.md
+apps/desktop/        Tauri app (Windows, macOS, Linux), its own Cargo workspace (core/, src-tauri/, e2e/)
 packages/client/     API client shared by web and mobile  - has its own AGENTS.md
 packages/importer/   Export scripts + import adapters     - has its own AGENTS.md
 packages/design-system/  @ruchoir/design-system: tokens, fonts, React components - own AGENTS.md
@@ -244,6 +263,10 @@ terminates TLS for that instance, rather than exposing its port:
 - **Mobile:** `pnpm --filter @ruchoir/mobile typecheck`, `... lint`, `... test`, `... i18n:check`, and
   `CI=1 pnpm --filter @ruchoir/mobile bundle:ios` to prove Metro bundles the app; the shared client's
   tests with `pnpm --filter @ruchoir/client test`.
+- **Desktop:** in `apps/desktop`, `cargo fmt --all --check`, `cargo clippy -p ruchoir-desktop-core
+  --all-targets -- -D warnings`, `cargo test -p ruchoir-desktop-core` (the pull request check; needs
+  no WebKitGTK). The whole app (`cargo clippy --all-targets`, `pnpm tauri build`), the lightness
+  budget (`e2e/budget.sh`) and the end to end check (`e2e/run.sh`) are in `docs/desktop.md`.
 - **Dependencies:** `scripts/check-deps.sh` for an outdated + security-audit sweep.
 - **Design system:** `pnpm --filter @ruchoir/design-system typecheck` (the web job runs it).
 - **Design adherence:** the design system ships an oxlint config
