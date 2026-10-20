@@ -579,7 +579,13 @@
     "deleted": "Kanal gelöscht",
     "deletedElsewhere": "Der Kanal #{{name}} wurde gelöscht.",
     "details": "Kanaldetails",
-    "removedElsewhere": "Sie wurden aus dem Kanal #{{name}} entfernt."
+    "removedElsewhere": "Sie wurden aus dem Kanal #{{name}} entfernt.",
+    "inviteOutside": "Jemanden von außen einladen",
+    "inviteOutsideHint": "Per E-Mail: eine einmalige Einladung als Gast, der nur diesen Kanal sieht.",
+    "inviteForbidden": "Nur wer diesen Kanal verwaltet, kann dorthin einladen.",
+    "inviteRefused": "Adresse abgelehnt oder Kanal archiviert.",
+    "inviteFailed": "Die Einladung konnte nicht erstellt werden.",
+    "inviteNotEmailed": "Die E-Mail konnte nicht gesendet werden. Geben Sie der Person diesen Link:"
   },
   "role": {
     "member": "Mitglied",

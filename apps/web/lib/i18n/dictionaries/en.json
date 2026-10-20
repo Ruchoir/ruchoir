@@ -579,7 +579,13 @@
     "deleted": "Channel deleted",
     "deletedElsewhere": "The channel #{{name}} was deleted.",
     "details": "Channel details",
-    "removedElsewhere": "You were removed from #{{name}}."
+    "removedElsewhere": "You were removed from #{{name}}.",
+    "inviteOutside": "Invite someone from outside",
+    "inviteOutsideHint": "By e-mail: a single-use invitation, as a guest who sees this channel only.",
+    "inviteForbidden": "Only the people who run this channel can invite to it.",
+    "inviteRefused": "Address refused, or the channel is archived.",
+    "inviteFailed": "The invitation could not be created.",
+    "inviteNotEmailed": "The e-mail could not leave. Hand this link over to them:"
   },
   "role": {
     "member": "Member",

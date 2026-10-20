@@ -6,6 +6,7 @@ import type { Presence } from "@/components/ds";
 import { getAvatar } from "@/lib/data";
 import {
   addChannelMembers,
+  inviteToChannel,
   listChannelMembers,
   removeChannelMember,
   setChannelMemberRole,
@@ -16,6 +17,7 @@ import type { ChannelNotifPref, NotifLevel } from "../app/notifications";
 import type { Toast } from "../app/types";
 import { ChannelAccess } from "./ChannelAccess";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { isApiError } from "@/lib/data/http";
 
 /**
  * The roles a channel membership can hold, weakest first, with the label each is drawn as. The
@@ -495,6 +497,31 @@ export function AddPeopleDialog({
     };
   }, [channelId]);
 
+  // Someone from outside the space, by address: a single-use invitation as a guest who sees this
+  // channel only. The API lets whoever runs the channel issue it, and says so when it does not.
+  const [address, setAddress] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<TranslationKey | null>(null);
+  /** The link of an invitation whose e-mail did not leave: handed over by the person instead. */
+  const [unsent, setUnsent] = useState<string | null>(null);
+  const invite = async () => {
+    const email = address.trim();
+    if (!email || inviting) return;
+    setInviting(true);
+    setInviteError(null);
+    setUnsent(null);
+    try {
+      const created = await inviteToChannel(channelId, email);
+      setAddress("");
+      if (created.emailed) onNotify({ tone: "success", title: t("dialogs.inviteSent"), description: email });
+      else setUnsent(created.url);
+    } catch (err) {
+      setInviteError(isApiError(err, 403) ? key("channel.inviteForbidden") : isApiError(err, 400) ? key("channel.inviteRefused") : key("channel.inviteFailed"));
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const rows = people.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
   const added = [...(wanted ?? [])].filter((id) => !current?.has(id));
   const removed = [...(current ?? [])].filter((id) => !wanted?.has(id));
@@ -591,6 +618,54 @@ export function AddPeopleDialog({
               </label>
             );
           })}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 12, borderTop: "1px solid var(--border-subtle)" }}>
+          <Field
+            label={t("channel.inviteOutside")}
+            htmlFor="channel-invite"
+            hint={t("channel.inviteOutsideHint")}
+            error={inviteError ? t(inviteError) : undefined}
+          >
+            <div style={{ display: "flex", gap: 8 }}>
+              <Input
+                id="channel-invite"
+                type="email"
+                icon="mail"
+                placeholder={t("import.peopleEmailPlaceholder")}
+                value={address}
+                onChange={(e) => {
+                  setAddress(e.target.value);
+                  setInviteError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void invite();
+                  }
+                }}
+                style={{ flex: 1 }}
+              />
+              <Button iconLeft="send" disabled={inviting || !address.trim()} onClick={() => void invite()}>
+                {t("space.invite")}
+              </Button>
+            </div>
+          </Field>
+          {unsent ? (
+            <div role="status" style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: "var(--text-2xs)", color: "var(--text-body)" }}>
+              <span>{t("channel.inviteNotEmailed")}</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Input readOnly value={unsent} onFocus={(e) => e.currentTarget.select()} style={{ flex: 1 }} aria-label={t("dialogs.inviteLink")} />
+                <Button
+                  iconLeft="copy"
+                  onClick={() =>
+                    void navigator.clipboard?.writeText(unsent).then(() => onNotify({ tone: "success", title: t("admin.copiedToast") }))
+                  }
+                >
+                  {t("admin.copy")}
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </Dialog>
