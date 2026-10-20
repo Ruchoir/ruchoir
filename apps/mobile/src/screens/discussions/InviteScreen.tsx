@@ -180,7 +180,7 @@ export function InviteScreen() {
                 <ActionRow
                   key={inv.id}
                   icon={inv.email ? Mail : Link}
-                  tint={s.sunken}
+                 
                   title={inv.email ?? t("invitation.title")}
                   subtitle={[
                     inv.role === "guest" ? t("invite.guest") : t("invite.member"),

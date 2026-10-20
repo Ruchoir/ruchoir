@@ -74,7 +74,7 @@ export function SpaceSettingsScreen() {
 function General({ space }: { space: Workspace }) {
   const { clearSpaceIcon, getChannels, renameSpace, setSpaceIcon } = useApi();
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const { c } = useTheme();
   const toast = useToast();
   const session = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
@@ -165,7 +165,7 @@ function General({ space }: { space: Workspace }) {
       </Section>
 
       <Section label={t("spaceAdmin.serverAddress")}>
-        <ActionRow icon={Server} tint={s.sunken} title={server ?? ""} />
+        <ActionRow icon={Server} title={server ?? ""} />
         {canAdminister(space.role) ? (
           <ActionRow
             icon={Hash}

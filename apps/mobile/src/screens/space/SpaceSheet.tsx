@@ -29,7 +29,7 @@ import { useLeaveSpace } from "./useLeaveSpace";
  */
 export function SpaceSheet() {
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const { c } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { spaces, current, select } = useSpace();
   const accounts = useAccounts();
@@ -98,7 +98,7 @@ export function SpaceSheet() {
           <ActionRow icon={Bell} tint={c.sun} title={t("spaceAdmin.notifications")} onPress={() => open("spaceNotify")} />
           <ActionRow
             icon={LogOut}
-            tint={s.sunken}
+           
             title={t("spaceAdmin.leave")}
             danger
             onPress={() => {
@@ -109,10 +109,10 @@ export function SpaceSheet() {
           <View style={styles.gap} />
         </>
       ) : null}
-      <ActionRow icon={Server} tint={s.sunken} title={t("spaces.addInstance")} subtitle={t("spaces.addInstanceHint")} onPress={accounts.startAdd} />
+      <ActionRow icon={Server} title={t("spaces.addInstance")} subtitle={t("spaces.addInstanceHint")} onPress={accounts.startAdd} />
       <ActionRow
         icon={Plus}
-        tint={s.sunken}
+       
         title={t("joinSpace.modalTitle")}
         subtitle={t("joinSpace.rowHint")}
         onPress={() => {
@@ -168,16 +168,16 @@ function InstanceSection({
   onRetry: () => void;
 }) {
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const { c } = useTheme();
   return (
     <ApiProvider client={account.client}>
       <Text variant="smallStrong" tone="muted" style={styles.section} numberOfLines={1}>
         {hostOf(section.origin)}
       </Text>
       {section.state === "signedOut" ? (
-        <ActionRow icon={LogIn} tint={s.sunken} title={t("spaces.signInAgain")} subtitle={t("spaces.signedOut")} onPress={onSignIn} />
+        <ActionRow icon={LogIn} title={t("spaces.signInAgain")} subtitle={t("spaces.signedOut")} onPress={onSignIn} />
       ) : section.state === "offline" ? (
-        <ActionRow icon={WifiOff} tint={s.sunken} title={t("widgets.unreachable")} subtitle={t("spaces.tryAgain")} onPress={onRetry} />
+        <ActionRow icon={WifiOff} title={t("widgets.unreachable")} subtitle={t("spaces.tryAgain")} onPress={onRetry} />
       ) : section.spaces === null ? (
         <ActivityIndicator color={c.ink} style={styles.loading} />
       ) : (

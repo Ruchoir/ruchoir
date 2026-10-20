@@ -125,7 +125,7 @@ export function SecurityScreen() {
             <>
               <ActionRow
                 icon={ShieldCheck}
-                tint={state.totpEnabled ? c.mint : s.sunken}
+                tint={state.totpEnabled ? c.mint : undefined}
                 title={state.totpEnabled ? t("security.enabled") : t("security.disabled")}
                 subtitle={state.totpEnabled ? t("security.totpOn") : t("security.totpOff")}
                 trailing={
@@ -183,12 +183,12 @@ export function SecurityScreen() {
         <Section label={t("security.lockSection")}>
           <ActionRow
             icon={Lock}
-            tint={lock.enabled ? c.mint : s.sunken}
+            tint={lock.enabled ? c.mint : undefined}
             title={lockTitle}
             subtitle={lock.kind ? t("security.lockBiometryHint") : t("security.lockHint")}
             trailing={<Toggle value={lock.enabled} onValueChange={(on) => void lock.setEnabled(on)} accessibilityLabel={lockTitle} />}
           />
-          {lock.enabled ? <ActionRow icon={RectangleEllipsis} tint={s.sunken} title={t("security.changePin")} onPress={changePin} /> : null}
+          {lock.enabled ? <ActionRow icon={RectangleEllipsis} title={t("security.changePin")} onPress={changePin} /> : null}
         </Section>
         <Section label={t("security.sessions")}>
           <ActionRow icon={LogOut} danger title={t("security.signOutEverywhere")} subtitle={t("security.sessionsDesc")} onPress={everywhere} />
