@@ -8,7 +8,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use ruchoir_desktop_core::auth::{self, PendingSignIn};
-use ruchoir_desktop_core::instances::{normalise_origin, InstanceList, OriginError};
+use ruchoir_desktop_core::instances::{
+    check_instance, normalise_origin, CheckError, InstanceList, OriginError, CHECK_WITHIN,
+};
 use ruchoir_desktop_core::vault::TokenVault;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
@@ -127,19 +129,16 @@ pub async fn instance_add<R: Runtime>(
     address: String,
 ) -> Result<InstanceView, String> {
     let origin = normalise_origin(&address).map_err(origin_error)?;
-    let answer = desktop
-        .http
-        .get(format!("{origin}/api/v1/instance"))
-        .send()
+    check_instance(&desktop.http, &origin, CHECK_WITHIN)
         .await
-        .map_err(|_| "unreachable".to_string())?;
-    let body: serde_json::Value = answer.json().await.map_err(|_| "not_ruchoir".to_string())?;
-    match body.get("native_sessions").and_then(|v| v.as_bool()) {
-        Some(true) => {}
-        Some(false) => return Err("outdated".into()),
-        None if body.get("upload_max_bytes").is_some() => return Err("outdated".into()),
-        None => return Err("not_ruchoir".into()),
-    }
+        .map_err(|error| {
+            match error {
+                CheckError::Unreachable => "unreachable",
+                CheckError::NotRuchoir => "not_ruchoir",
+                CheckError::Outdated => "outdated",
+            }
+            .to_string()
+        })?;
     let host = origin.trim_start_matches("https://").to_string();
     {
         let mut list = desktop.list.lock().map_err(|_| "internal")?;

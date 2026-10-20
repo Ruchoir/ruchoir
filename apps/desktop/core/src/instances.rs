@@ -143,6 +143,51 @@ fn random_id() -> String {
     random_hex(16)
 }
 
+/// Why an address answering HTTPS is not an instance the app can use.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CheckError {
+    /// Nothing answered in time (down, wrong address, or a server that never replies).
+    Unreachable,
+    /// Something answered, but not a Ruchoir instance.
+    NotRuchoir,
+    /// A Ruchoir instance too old to give an app its own session.
+    Outdated,
+}
+
+/// How long the whole check may take before the app says the address cannot be reached.
+pub const CHECK_WITHIN: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// Ask `GET /api/v1/instance` whether `origin` is a Ruchoir instance with native sessions, within
+/// `within` for the whole exchange (connection, answer and body), so a server that accepts the
+/// request and never replies does not leave the person waiting.
+pub async fn check_instance(
+    http: &reqwest::Client,
+    origin: &str,
+    within: std::time::Duration,
+) -> Result<(), CheckError> {
+    let ask = async {
+        let answer = http
+            .get(format!("{origin}/api/v1/instance"))
+            .send()
+            .await
+            .map_err(|_| CheckError::Unreachable)?;
+        answer
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|_| CheckError::NotRuchoir)
+    };
+    let body = tokio::time::timeout(within, ask)
+        .await
+        .map_err(|_| CheckError::Unreachable)??;
+    match body.get("native_sessions").and_then(|v| v.as_bool()) {
+        Some(true) => Ok(()),
+        Some(false) => Err(CheckError::Outdated),
+        // An instance from before native sessions still announces its upload limit.
+        None if body.get("upload_max_bytes").is_some() => Err(CheckError::Outdated),
+        None => Err(CheckError::NotRuchoir),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
