@@ -43,6 +43,9 @@ unchanged. The security of an instance never depends on another one's.
   relay's push stays constant and does not say which instance sent it (ADR 0006 unchanged): the
   phone's extension asks every instance what is waiting and shows the newest, tagged with its
   instance so a tap opens it there.
+- **The app's icon counts the unread notifications of every instance**, as the bell does: set by the
+  app while it runs, and by the extension (and Android's background task) at each push, which asks
+  each instance its unread count (`GET /notifications?unread=true&limit=1`).
 - **Presence**: the app is online on every instance it is connected to.
 - **The API does not change.** Bearer sessions, the `/n/` native code, sockets without `Origin` and
   `push/pending` already exist.

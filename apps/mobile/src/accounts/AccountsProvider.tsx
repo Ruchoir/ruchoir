@@ -17,9 +17,11 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { AppState } from "react-native";
 
 import { clearDownloads } from "../files/cache";
+import { notifications } from "../push/native";
 import { forgetPhoneOn, refreshPhonePush, shareSessions } from "../push/phone";
 import { refreshWidgets } from "../widgets";
 import { InstanceClients } from "./clients";
+import { unreadEverywhere } from "./summary";
 import { addInstance, findByOrigin, removeInstance, setActive, setLastSpace, type InstanceEntry, type Registry } from "./registry";
 import { loadRegistry, newInstanceId, saveRegistry, tokens } from "./store";
 
@@ -178,6 +180,14 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
     // Only the set of signed-in instances matters here, not their accounts' details.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signedInKey, registry !== null]);
+
+  // The app's icon carries the unread notifications of every signed-in instance, as the bell does;
+  // the extensions keep it current while the app is closed (`push/background.ts`, `targets/`).
+  const unreadTotal = registry ? unreadEverywhere(summaries, signedIn.map((a) => a.id)) : null;
+  useEffect(() => {
+    if (unreadTotal === null) return;
+    void notifications()?.setBadgeCountAsync(unreadTotal).catch(() => {});
+  }, [unreadTotal]);
 
   // Back in front: an instance that could not be reached is tried again.
   const retryOffline = useCallback(() => {

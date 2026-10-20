@@ -7,7 +7,8 @@
 // newest item of all instead: its title and text, its conversation as the thread, and what the app
 // needs to open it on a tap, its instance included (under `body`, where expo-notifications reads a
 // remote notification's data). When no instance can be reached, or nothing is waiting any more, it
-// says only "New activity".
+// says only "New activity". It also asks each instance how many notifications are unread, and puts
+// the total on the app's icon, as the bell counts them.
 //
 // Whatever it shows, it then tells WidgetKit to read again: something new is waiting, and the home
 // screen's widgets would otherwise keep the old count until their own quarter hour (which iOS
@@ -56,10 +57,26 @@ final class NotificationService: UNNotificationServiceExtension {
         else { return }
         answers.add(account.server, pending)
       }.resume()
+      // The icon's count: this instance's unread notifications.
+      guard let inbox = URL(string: account.server + "/api/v1/notifications?unread=true&limit=1") else { continue }
+      var counting = URLRequest(url: inbox, timeoutInterval: 20)
+      counting.setValue("Bearer " + account.token, forHTTPHeaderField: "Authorization")
+      counting.setValue("application/json", forHTTPHeaderField: "Accept")
+      group.enter()
+      URLSession.shared.dataTask(with: counting) { data, response, _ in
+        defer { group.leave() }
+        guard
+          let http = response as? HTTPURLResponse, http.statusCode == 200,
+          let data,
+          let feed = try? JSONDecoder().decode(Feed.self, from: data)
+        else { return }
+        answers.count(feed.unread_count)
+      }.resume()
     }
     group.notify(queue: .global()) { [weak self] in
       defer { self?.finish() }
       guard let self, let content = self.content else { return }
+      if let unread = answers.unread { content.badge = NSNumber(value: unread) }
       let answered = answers.all
       let items = answered.flatMap { answer in answer.pending.items.map { (server: answer.server, item: $0) } }
       guard let newest = items.max(by: { $0.item.created_at < $1.item.created_at }) else { return }
@@ -110,10 +127,29 @@ private struct Pending: Decodable {
   }
 }
 
+/// `GET /api/v1/notifications?unread=true&limit=1`, the field used here.
+private struct Feed: Decodable {
+  let unread_count: Int
+}
+
 /// What the instances answered, gathered from URLSession's queue behind a lock.
 private final class Answers: @unchecked Sendable {
   private let lock = NSLock()
   private var list: [(server: String, pending: Pending)] = []
+  private var counted: Int?
+
+  func count(_ unread: Int) {
+    lock.lock()
+    counted = (counted ?? 0) + unread
+    lock.unlock()
+  }
+
+  /// The unread total of the instances that answered; nil when none did (the icon keeps its count).
+  var unread: Int? {
+    lock.lock()
+    defer { lock.unlock() }
+    return counted
+  }
 
   func add(_ server: String, _ pending: Pending) {
     lock.lock()

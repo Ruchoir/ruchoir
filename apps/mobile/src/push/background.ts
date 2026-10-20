@@ -2,7 +2,7 @@
  * Android: what a push wakes (ADR 0006). The relay's data message carries nothing but a wake-up, not
  * even which instance sent it; this task asks every instance the phone is signed in to what to show
  * (`GET /api/v1/push/pending`, as the browsers' service worker does, ADR 0007) and draws it as local
- * notifications, each carrying its instance for the tap. iOS does the same in its Notification Service Extension
+ * notifications, each carrying its instance for the tap, and sets the icon's count. iOS does the same in its Notification Service Extension
  * (`targets/notifications`), since a woken iPhone app runs no JavaScript.
  *
  * Defined at the top level of a module the entry imports (`index.ts`), as the task manager requires:
@@ -40,6 +40,15 @@ export async function showPending(): Promise<void> {
     answers.map((a) => ({ server: a.account.server, items: a.value.items })),
     3,
   );
+  // The icon's count: every instance's unread notifications, as the bell counts them.
+  const counts = await fromEvery(accounts, async ({ server, token }) => {
+    const response = await fetch(`${server}/api/v1/notifications?unread=true&limit=1`, {
+      headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+    });
+    if (!response.ok) throw new Error(String(response.status));
+    return ((await response.json()) as { unread_count?: number }).unread_count ?? 0;
+  });
+  if (counts.length > 0) await Notifications.setBadgeCountAsync(counts.reduce((sum, c) => sum + c.value, 0)).catch(() => false);
   // Oldest first, so the newest ends on top of the shade.
   for (const { server, item } of items.reverse()) {
     await Notifications.scheduleNotificationAsync({
