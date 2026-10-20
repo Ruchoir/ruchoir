@@ -142,7 +142,11 @@
     "lastAt": "ostatnia o {{time}}",
     "lastYesterday": "ostatnia wczoraj",
     "lastOn": "ostatnia {{date}}",
-    "copyLink": "Kopiuj link"
+    "copyLink": "Kopiuj link",
+    "save": "Zapisz wiadomość",
+    "unsave": "Usuń z zapisanych",
+    "savedDone": "Wiadomość zapisana",
+    "unsavedDone": "Usunięto z zapisanych"
   },
   "common": {
     "back": "Wstecz",
@@ -404,7 +408,11 @@
     "removedFromChannel": "Usunięto cię z tego kanału.",
     "pinned": "Przypięte",
     "noPinnedHint": "Przypnij ważną wiadomość w rozmowie: pojawi się tutaj.",
-    "messageNotFound": "Nie znaleziono wiadomości"
+    "messageNotFound": "Nie znaleziono wiadomości",
+    "readByEveryone": "Przeczytane przez wszystkich",
+    "readByOne": "Przeczytane przez: {{name}}",
+    "readByTwo": "Przeczytane przez: {{first}} i {{second}}",
+    "readBySome": "Przeczytane przez {{count}} z {{audience}}"
   },
   "attendee": {
     "accepted": "Weźmie udział",
@@ -1256,5 +1264,16 @@
     "hint": "Osoba otrzyma jednorazowe zaproszenie, dołączy do przestrzeni jako gość i zobaczy tylko ten kanał.",
     "forbidden": "Tylko osoby zarządzające tym kanałem mogą do niego zapraszać.",
     "refused": "Adres odrzucony lub kanał zarchiwizowany."
+  },
+  "saved": {
+    "title": "Zapisane wiadomości",
+    "hint": "Te, które trzymasz pod ręką",
+    "empty": "Nic nie zapisano",
+    "emptyText": "Zapisz wiadomość z jej menu (długie przytrzymanie), aby znaleźć ją tutaj.",
+    "removeTitle": "Usunąć tę wiadomość z zapisanych?",
+    "direct": "Wiadomość bezpośrednia"
+  },
+  "code": {
+    "text": "tekst"
   }
 }

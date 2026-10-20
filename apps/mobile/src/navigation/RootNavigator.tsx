@@ -20,6 +20,7 @@ import { ConversationScreen } from "../screens/discussions/ConversationScreen";
 import { EmojiPickerSheet } from "../screens/discussions/EmojiPickerSheet";
 import { ChannelEditScreen } from "../screens/discussions/ChannelEditScreen";
 import { ChannelInviteScreen } from "../screens/discussions/ChannelInviteScreen";
+import { SavedScreen } from "../screens/discussions/SavedScreen";
 import { InviteScreen } from "../screens/discussions/InviteScreen";
 import { MessageActionSheet } from "../screens/discussions/MessageActionSheet";
 import { NewConversationScreen } from "../screens/discussions/NewConversationScreen";
@@ -142,6 +143,7 @@ export function RootNavigator() {
         <Stack.Screen name="accountSheet" component={AccountSheet} options={sheet} />
         <Stack.Screen name="statusSheet" component={StatusSheet} options={sheet} />
         <Stack.Screen name="profile" component={ProfileScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="saved" component={SavedScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="zonePicker" component={ZonePicker} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         <Stack.Screen name="preferences" component={PreferencesScreen} />
         <Stack.Screen name="languageSheet" component={LanguageSheet} options={sheet} />

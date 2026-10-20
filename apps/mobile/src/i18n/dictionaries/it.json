@@ -140,7 +140,11 @@
     "lastAt": "ultima alle {{time}}",
     "lastYesterday": "ultima ieri",
     "lastOn": "ultima il {{date}}",
-    "copyLink": "Copia il link"
+    "copyLink": "Copia il link",
+    "save": "Salva il messaggio",
+    "unsave": "Rimuovi dai salvati",
+    "savedDone": "Messaggio salvato",
+    "unsavedDone": "Rimosso dai salvati"
   },
   "common": {
     "back": "Indietro",
@@ -375,7 +379,11 @@
     "removedFromChannel": "Siete stati rimossi da questo canale.",
     "pinned": "Fissati",
     "noPinnedHint": "Fissate un messaggio importante nella conversazione: lo ritroverete qui.",
-    "messageNotFound": "Messaggio non trovato"
+    "messageNotFound": "Messaggio non trovato",
+    "readByEveryone": "Letto da tutti",
+    "readByOne": "Letto da {{name}}",
+    "readByTwo": "Letto da {{first}} e {{second}}",
+    "readBySome": "Letto da {{count}} su {{audience}}"
   },
   "attendee": {
     "accepted": "Partecipa",
@@ -1201,5 +1209,16 @@
     "hint": "La persona riceve un invito monouso, entra nello spazio come ospite e vede solo questo canale.",
     "forbidden": "Solo chi gestisce questo canale può invitare.",
     "refused": "Indirizzo rifiutato, o canale archiviato."
+  },
+  "saved": {
+    "title": "Messaggi salvati",
+    "hint": "Quelli che tieni a portata di mano",
+    "empty": "Niente di salvato",
+    "emptyText": "Salva un messaggio dal suo menu (pressione lunga) per ritrovarlo qui.",
+    "removeTitle": "Rimuovere questo messaggio dai salvati?",
+    "direct": "Messaggio diretto"
+  },
+  "code": {
+    "text": "testo"
   }
 }

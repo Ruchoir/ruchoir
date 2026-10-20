@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { seenMessageId } from "../src/logic/receipts.ts";
+import { readReceipt, receiptWording, seenMessageId } from "../src/logic/receipts.ts";
 
 const m = (id: string, authorId: string) => ({ id, authorId });
 const FEED = [m("1", "u2"), m("2", "u1"), m("3", "u1")];
@@ -26,4 +26,21 @@ test("nothing_when_the_last_message_is_theirs", () => {
 
 test("my_own_cursor_does_not_count", () => {
   assert.equal(seenMessageId([{ userId: "u1", lastReadMessageId: "3" }], FEED, "u1"), null);
+});
+
+test("every_reader_who_reached_my_last_message", () => {
+  const cursors = [
+    { userId: "u2", lastReadMessageId: "3" },
+    { userId: "u3", lastReadMessageId: "2" },
+    { userId: "u4", lastReadMessageId: "3" },
+  ];
+  assert.deepEqual(readReceipt(cursors, FEED, "u1"), { id: "3", readers: ["u2", "u4"] });
+});
+
+test("the_wording_counts_against_the_audience", () => {
+  assert.equal(receiptWording(1, 1), "read");
+  assert.equal(receiptWording(4, 4), "everyone");
+  assert.equal(receiptWording(1, 4), "one");
+  assert.equal(receiptWording(2, 4), "two");
+  assert.equal(receiptWording(3, 5), "some");
 });

@@ -1,6 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { CircleCheck, LifeBuoy, LogOut, Server, Settings, Shield, Smile } from "lucide-react-native";
+import { Bookmark, CircleCheck, LifeBuoy, LogOut, Server, Settings, Shield, Smile } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
@@ -16,8 +16,8 @@ import { Text } from "../../ui/Text";
 import { STATUS_TEXT } from "./StatusSheet";
 
 /**
- * "My account" (mockup 11): who is signed in, then their status, profile, preferences, security and
- * help, the server, and signing out. Each row opens its own screen or sheet in place of this one.
+ * "My account" (mockup 11): who is signed in, then their status, profile, saved messages,
+ * preferences, security and help, the server, and signing out. Each row opens its own screen or sheet in place of this one.
  */
 export function AccountSheet() {
   const { t } = useTranslation();
@@ -27,7 +27,7 @@ export function AccountSheet() {
   if (session.state.kind !== "signedIn") return null;
   const { user, server } = session.state;
   const presence = selfPresence(user.presenceChoice);
-  const open = (route: "statusSheet" | "profile" | "preferences" | "security" | "help") => {
+  const open = (route: "statusSheet" | "profile" | "saved" | "preferences" | "security" | "help") => {
     navigation.goBack();
     navigation.navigate(route);
   };
@@ -51,6 +51,7 @@ export function AccountSheet() {
         onPress={() => open("statusSheet")}
       />
       <ActionRow icon={Smile} tint={c.sky} title={t("account.profile")} onPress={() => open("profile")} />
+      <ActionRow icon={Bookmark} tint={c.mint} title={t("saved.title")} subtitle={t("saved.hint")} onPress={() => open("saved")} />
       <ActionRow
         icon={Settings}
         tint={c.violet}

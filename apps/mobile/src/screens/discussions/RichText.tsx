@@ -6,6 +6,7 @@ import { fonts } from "../../theme/fonts";
 import { radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
+import { CodeBlock } from "./CodeBlock";
 
 /**
  * A message's body: lines, quotes, list items and code fences by line, and within a line the
@@ -13,14 +14,19 @@ import { Text } from "../../ui/Text";
  */
 export function RichText({ body, mentionNames }: { body: string; mentionNames: string[] }) {
   const { c, s } = useTheme();
-  const blocks: { kind: "line" | "quote" | "item" | "code"; text: string }[] = [];
+  const blocks: { kind: "line" | "quote" | "item" | "code"; text: string; lang?: string }[] = [];
   let fence: string[] | null = null;
+  let lang: string | undefined;
   for (const line of body.split("\n")) {
     if (line.trim().startsWith("```")) {
       if (fence) {
-        blocks.push({ kind: "code", text: fence.join("\n") });
+        blocks.push({ kind: "code", text: fence.join("\n"), lang });
         fence = null;
-      } else fence = [];
+      } else {
+        fence = [];
+        // The language written after the opening fence, if any.
+        lang = line.trim().slice(3).trim() || undefined;
+      }
       continue;
     }
     if (fence) fence.push(line);
@@ -28,17 +34,13 @@ export function RichText({ body, mentionNames }: { body: string; mentionNames: s
     else if (/^\s*([-*+]|\d+\.)\s+/.test(line)) blocks.push({ kind: "item", text: line.replace(/^\s*[-*+]\s+/, "• ") });
     else blocks.push({ kind: "line", text: line });
   }
-  if (fence) blocks.push({ kind: "code", text: fence.join("\n") });
+  if (fence) blocks.push({ kind: "code", text: fence.join("\n"), lang });
 
   return (
     <View style={styles.body}>
       {blocks.map((block, i) =>
         block.kind === "code" ? (
-          <View key={i} style={[styles.code, { backgroundColor: s.sunken }]}>
-            <Text variant="small" style={{ fontFamily: fonts.mono }}>
-              {block.text}
-            </Text>
-          </View>
+          <CodeBlock key={i} code={block.text} lang={block.lang} />
         ) : (
           <Text key={i} tone="strong" style={[styles.line, block.kind === "quote" && [styles.quote, { borderLeftColor: c.lineStrong, color: c.body }]]}>
             {parseInline(block.text, mentionNames).map((seg, j) => {
@@ -91,5 +93,4 @@ const styles = StyleSheet.create({
   mention: { fontFamily: fonts.sansSemibold, borderRadius: radius.s },
   italic: { fontStyle: "italic" },
   link: { textDecorationLine: "underline" },
-  code: { padding: 10, borderRadius: radius.s },
 });
