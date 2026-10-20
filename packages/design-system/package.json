@@ -10,7 +10,7 @@
   ],
   "exports": {
     ".": "./src/index.ts",
-    "./avatar": "./src/avatar.ts",
+    "./avatar": "./src/avatarImage.ts",
     "./haptics": "./src/haptics.ts",
     "./styles.css": "./styles/index.css",
     "./tokens.css": "./styles/tokens.css",

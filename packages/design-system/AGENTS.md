@@ -9,7 +9,8 @@ dependency pinned to a tag). See root `AGENTS.md` for project-wide rules.
 
 ```
 src/        the components (Button, Tag, Tabs, Dialog, Avatar...), index.ts re-exports them all;
-            avatar.ts (generated avatars) and haptics.ts (a tap under the finger) beside them
+            avatarImage.ts (generated avatars; not `avatar.ts`, which a case-insensitive disk takes
+            for `Avatar.tsx`) and haptics.ts (a tap under the finger) beside them
 styles/     tokens.css (palette, semantic tokens, the eight themes), fonts.css (@font-face and
             --font-sans / --font-mono), components.css (the `wc-*` classes), index.css (all of it,
             plus the flag-icons stylesheet `Flag` reads)
