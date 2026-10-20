@@ -1,4 +1,4 @@
-import { isApiError } from "@ruchoir/client";
+import { createClient, isApiError } from "@ruchoir/client";
 import * as Clipboard from "expo-clipboard";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -12,20 +12,19 @@ import { AuthFailure, useSession } from "../../session/SessionProvider";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
 import { TextField } from "../../ui/TextField";
-import { hostOf } from "../auth/ServerField";
 
 const PASTE_TEXT = {
   unreadable: key("invitation.unreadable"),
-  otherServer: key("invitation.otherServer"),
   expired: key("invitation.expired"),
 };
 
-type Failure = { kind: keyof typeof PASTE_TEXT; host?: string } | { kind: "auth"; failure: AuthFailure };
+type Failure = { kind: keyof typeof PASTE_TEXT } | { kind: "auth"; failure: AuthFailure };
 
 /**
  * Paste an invitation link, check it, and see what it leads to. Before sign-in (`switchServer`) a
  * link from another server moves the app to that server first, which is how someone invited learns
- * where their team is; once signed in, it can only be joined from the server in use.
+ * where their team is. Once signed in, a link from another server is checked with that server and
+ * comes back with its `origin`: joining it then goes through that instance (ADR 0007).
  */
 export function InvitationPaste({
   switchServer,
@@ -48,12 +47,17 @@ export function InvitationPaste({
     setBusy(true);
     setFailure(null);
     try {
-      if (link.origin !== server) {
-        if (!switchServer) return setFailure({ kind: "otherServer", host: hostOf(link.origin) });
-        await session.chooseServer(link.origin);
-      }
-      const preview = await previewInvitation(link.token);
-      onResolved({ token: link.token, spaceName: preview.spaceName, invitedBy: preview.invitedBy, email: preview.email });
+      const elsewhere = link.origin !== server && !switchServer;
+      if (link.origin !== server && switchServer) await session.chooseServer(link.origin);
+      // The preview needs no session: another instance's is asked of that instance directly.
+      const preview = elsewhere ? await createClient({ baseUrl: link.origin }).previewInvitation(link.token) : await previewInvitation(link.token);
+      onResolved({
+        token: link.token,
+        spaceName: preview.spaceName,
+        invitedBy: preview.invitedBy,
+        email: preview.email,
+        origin: elsewhere ? link.origin : undefined,
+      });
     } catch (err) {
       if (err instanceof AuthFailure) setFailure({ kind: "auth", failure: err });
       else if (isApiError(err, 404)) setFailure({ kind: "expired" });
@@ -88,7 +92,7 @@ export function InvitationPaste({
       {failure ? (
         <Banner
           tone="danger"
-          text={failure.kind === "auth" ? t(FAILURE_TEXT[failure.failure.code]) : t(PASTE_TEXT[failure.kind], { host: failure.host })}
+          text={failure.kind === "auth" ? t(FAILURE_TEXT[failure.failure.code]) : t(PASTE_TEXT[failure.kind])}
         />
       ) : null}
       <View style={styles.row}>

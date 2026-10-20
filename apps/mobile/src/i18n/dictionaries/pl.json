@@ -932,14 +932,15 @@
     "placeholder": "https://…/invite?token=…",
     "paste": "Wklej",
     "unreadable": "To nie jest link z zaproszeniem do Ruchoir.",
-    "otherServer": "To zaproszenie dotyczy innego serwera ({{host}}). Aby dołączyć, wyloguj się i utwórz konto z tego linku.",
     "expired": "To zaproszenie jest już nieważne. Poproś osobę, która cię zaprosiła, o nowe.",
     "joining": "Dołączasz do {{space}}",
     "invitedBy": "Zaproszenie od {{name}}",
     "remove": "Usuń zaproszenie",
     "have": "Mam link z zaproszeniem",
     "haveHint": "Aby od razu dołączyć do zespołu",
-    "check": "Sprawdź link"
+    "check": "Sprawdź link",
+    "onServer": "Na serwerze {{host}}",
+    "signInThere": "Na serwerze {{host}}: najpierw zalogujesz się tam, potem otworzy się przestrzeń."
   },
   "verify": {
     "title": "Sprawdź pocztę",

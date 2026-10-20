@@ -5,6 +5,9 @@ import { useContext, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useAccounts } from "../../accounts/AccountsProvider";
+import { invitationRoute } from "../../accounts/invitation";
+import { hostOf } from "../../accounts/summary";
 import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import type { InvitationChoice } from "../../navigation/types";
@@ -26,7 +29,8 @@ type Mode = "join" | "create";
 /**
  * Join or create a space (mockup 07). Shown instead of the tabs to an account in no space yet (the
  * `gate`, with a way to sign out), and as a modal from "Switch space". Either way the app then opens
- * in that space.
+ * in that space. An invitation to a space of another instance opens it there: at once when the phone
+ * is signed in there, else after signing in there or adding that instance (ADR 0007).
  */
 export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
   const { acceptInvitation, createSpace } = useApi();
@@ -34,6 +38,7 @@ export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
   const { c } = useTheme();
   const { spaces, select } = useSpace();
   const session = useSession();
+  const accounts = useAccounts();
   // The gate is drawn before any navigator exists: no navigation there, and nothing to go back to.
   const navigation = useContext(NavigationContext);
   const [mode, setMode] = useState<Mode>("join");
@@ -50,6 +55,12 @@ export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
 
   const join = async () => {
     if (!invitation) return;
+    if (invitation.origin) {
+      // The other instance's own gate accepts it, once the phone is signed in there.
+      if (!gate) navigation?.goBack();
+      accounts.openInvitation(invitation.origin, invitation.token);
+      return;
+    }
     setBusy(true);
     setFailed(false);
     try {
@@ -141,6 +152,13 @@ export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
               {invitation.invitedBy ? (
                 <Text variant="small" tone="body">
                   {t("invitation.invitedBy", { name: invitation.invitedBy })}
+                </Text>
+              ) : null}
+              {invitation.origin ? (
+                <Text variant="small" tone="muted">
+                  {invitationRoute(accounts.accounts, invitation.origin).kind === "switch"
+                    ? t("invitation.onServer", { host: hostOf(invitation.origin) })
+                    : t("invitation.signInThere", { host: hostOf(invitation.origin) })}
                 </Text>
               ) : null}
               <Button variant="link" label={t("joinSpace.otherLink")} onPress={() => setInvitation(null)} />

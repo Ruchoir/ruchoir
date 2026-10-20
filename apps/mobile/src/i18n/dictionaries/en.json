@@ -836,14 +836,15 @@
     "placeholder": "https://…/invite?token=…",
     "paste": "Paste",
     "unreadable": "This is not a Ruchoir invitation link.",
-    "otherServer": "This invitation is for another server ({{host}}). To join it, sign out, then create an account from this link.",
     "expired": "This invitation is no longer valid. Ask the person who invited you for a new one.",
     "joining": "You are joining {{space}}",
     "invitedBy": "Invited by {{name}}",
     "remove": "Remove the invitation",
     "have": "I have an invitation link",
     "haveHint": "To join your team straight away",
-    "check": "Check the link"
+    "check": "Check the link",
+    "onServer": "On the server {{host}}",
+    "signInThere": "On the server {{host}}: you will sign in there first, then the space opens."
   },
   "verify": {
     "title": "Check your email",

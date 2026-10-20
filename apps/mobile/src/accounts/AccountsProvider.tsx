@@ -21,6 +21,7 @@ import { notifications } from "../push/native";
 import { forgetPhoneOn, refreshPhonePush, shareSessions } from "../push/phone";
 import { refreshWidgets } from "../widgets";
 import { InstanceClients } from "./clients";
+import { invitationRoute } from "./invitation";
 import { unreadEverywhere } from "./summary";
 import { addInstance, findByOrigin, removeInstance, setActive, setLastSpace, type InstanceEntry, type Registry } from "./registry";
 import { loadRegistry, newInstanceId, saveRegistry, tokens } from "./store";
@@ -36,8 +37,11 @@ export type Account = InstanceEntry & { client: RuchoirClient; status: InstanceS
 /** What an instance shows outside its own screens. */
 export type Summary = { spaces: Workspace[]; unreadNotifications: number };
 
-/** Why the sign-in flow is on screen. */
-export type Flow = { kind: "add" } | { kind: "renew"; id: string };
+/**
+ * Why the sign-in flow is on screen. An invitation to a space of another instance can start it at
+ * that instance's address, and is accepted once signed in (`openInvitation`).
+ */
+export type Flow = { kind: "add"; server?: string; invitation?: string } | { kind: "renew"; id: string; invitation?: string };
 
 type AccountsApi = {
   booted: boolean;
@@ -59,6 +63,11 @@ type AccountsApi = {
   completeSignIn: (done: { origin: string; token: string; user: SessionUser; invitation: string | null }) => Promise<void>;
   /** The invitation pasted at sign-up on this instance, handed once. */
   takeInvitation: (id: string) => string | null;
+  /**
+   * Join a space of another instance: shown at once when the phone is signed in there (the space
+   * gate accepts the invitation), else after signing in there again or adding it.
+   */
+  openInvitation: (origin: string, token: string) => void;
   /** Sign out of one instance: it forgets this phone, the token goes, its downloads too. */
   signOutOf: (id: string, reason?: "locked") => Promise<void>;
   /** The app lock's last resort (a forgotten PIN): out of every instance. */
@@ -247,6 +256,18 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
     return token;
   }, []);
 
+  const openInvitation = useCallback(
+    (origin: string, token: string) => {
+      const route = invitationRoute(accounts, origin);
+      if (route.kind === "switch") {
+        invitations.current.set(route.id, token);
+        update((r) => setActive(r, route.id));
+      } else if (route.kind === "renew") setFlow({ kind: "renew", id: route.id, invitation: token });
+      else setFlow({ kind: "add", server: origin, invitation: token });
+    },
+    [accounts, update],
+  );
+
   const signOutOf = useCallback(
     async (id: string, reason?: "locked") => {
       const entry = registryRef.current?.instances.find((e) => e.id === id);
@@ -318,6 +339,7 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
       isSignedIn,
       completeSignIn,
       takeInvitation,
+      openInvitation,
       signOutOf,
       signOutEverywhere,
       remove,
@@ -341,6 +363,7 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
       isSignedIn,
       completeSignIn,
       takeInvitation,
+      openInvitation,
       signOutOf,
       signOutEverywhere,
       remove,

@@ -836,14 +836,15 @@
     "placeholder": "https://…/invite?token=…",
     "paste": "Einfügen",
     "unreadable": "Dieser Text ist kein Ruchoir-Einladungslink.",
-    "otherServer": "Diese Einladung gilt für einen anderen Server ({{host}}). Um beizutreten, melden Sie sich ab und erstellen Sie über diesen Link ein Konto.",
     "expired": "Diese Einladung ist nicht mehr gültig. Bitten Sie die einladende Person um eine neue.",
     "joining": "Sie treten {{space}} bei",
     "invitedBy": "Einladung von {{name}}",
     "remove": "Einladung entfernen",
     "have": "Ich habe einen Einladungslink",
     "haveHint": "Um direkt Ihrem Team beizutreten",
-    "check": "Link prüfen"
+    "check": "Link prüfen",
+    "onServer": "Auf dem Server {{host}}",
+    "signInThere": "Auf dem Server {{host}}: Sie melden sich zuerst dort an, dann öffnet sich der Bereich."
   },
   "verify": {
     "title": "Prüfen Sie Ihre E-Mails",

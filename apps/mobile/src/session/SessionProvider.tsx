@@ -125,6 +125,8 @@ type FlowProps = {
   /** The session obtained: the accounts keep it (the token is the instance's from now on). */
   onSignedIn: (done: { origin: string; token: string; user: SessionUser; invitation: string | null }) => Promise<void>;
   onCancel?: () => void;
+  /** An invitation to a space of this instance, accepted once signed in (and used at sign-up). */
+  invitation?: string;
   children: ReactNode;
 };
 
@@ -134,7 +136,7 @@ type FlowProps = {
  * The client is the same object throughout, so a screen holding its calls follows a change of
  * address; it never carries a token.
  */
-export function SignInFlow({ start, isSignedIn, onSignedIn, onCancel, children }: FlowProps) {
+export function SignInFlow({ start, isSignedIn, onSignedIn, onCancel, invitation: invited, children }: FlowProps) {
   const [state, dispatch] = useReducer(
     sessionReducer,
     start,
@@ -149,7 +151,7 @@ export function SignInFlow({ start, isSignedIn, onSignedIn, onCancel, children }
   );
   const pending = useRef<{ email: string; password: string } | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
-  const invitation = useRef<string | null>(null);
+  const invitation = useRef<string | null>(invited ?? null);
   // The address last typed at sign-in, carried to the instance's page when it takes over.
   const lastEmail = useRef("");
   /** The instance the client talks to once a choice has been checked: where a failed one goes back. */
@@ -223,11 +225,13 @@ export function SignInFlow({ start, isSignedIn, onSignedIn, onCancel, children }
       const address = email.trim();
       let result;
       try {
-        result = await client.register(address, name.trim(), password, invitationToken);
+        // The invitation the flow came with activates the account at once, as a pasted one does,
+        // when it was sent to that address.
+        result = await client.register(address, name.trim(), password, invitationToken ?? invitation.current ?? undefined);
       } catch (err) {
         throw failureOf(err);
       }
-      invitation.current = invitationToken ?? null;
+      invitation.current = invitationToken ?? invitation.current;
       if (result.active) {
         await signIn(address, password);
         return "signedIn" as const;
