@@ -167,3 +167,11 @@ async fn upstream_unreachable_is_502_not_signed_out() {
         Outcome::Normal
     );
 }
+
+#[test]
+fn signing_out_everywhere_forgets_token_too() {
+    assert_eq!(
+        outcome("/api/v1/auth/logout/all", &Method::POST, 204),
+        Outcome::LoggedOut
+    );
+}

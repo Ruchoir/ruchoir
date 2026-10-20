@@ -115,7 +115,7 @@ pub enum Outcome {
     Normal,
     /// The instance no longer knows the session: forget the token.
     SignedOut,
-    /// The person signed out from the interface: forget the token.
+    /// The person signed out from the interface (here, or everywhere): forget the token.
     LoggedOut,
 }
 
@@ -124,7 +124,8 @@ pub fn outcome(rest: &str, method: &Method, status: u16) -> Outcome {
     if status == 401 {
         return Outcome::SignedOut;
     }
-    if method == Method::POST && rest == "/api/v1/auth/logout" && (200..300).contains(&status) {
+    let signing_out = rest == "/api/v1/auth/logout" || rest == "/api/v1/auth/logout/all";
+    if method == Method::POST && signing_out && (200..300).contains(&status) {
         return Outcome::LoggedOut;
     }
     Outcome::Normal

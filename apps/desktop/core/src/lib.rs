@@ -22,5 +22,6 @@ pub fn http_client() -> reqwest::Client {
         .build()
         .expect("the HTTP client builds")
 }
+pub mod navigation;
 pub mod proxy;
 pub mod watcher;

@@ -28,6 +28,20 @@ fn app_url() -> tauri::Url {
     url.parse().expect("a constant URL")
 }
 
+/// Whether the window may follow a navigation; a link to another site is opened outside instead.
+fn leave_for<R: tauri::Runtime>(app: &tauri::AppHandle<R>, url: &tauri::Url) -> bool {
+    use ruchoir_desktop_core::navigation::{navigation, Navigation};
+    use tauri_plugin_opener::OpenerExt;
+    match navigation(url) {
+        Navigation::Stay => true,
+        Navigation::OpenOutside => {
+            let _ = app.opener().open_url(url.as_str(), None::<&str>);
+            false
+        }
+        Navigation::Refuse => false,
+    }
+}
+
 fn main() {
     // A small runtime: the app mostly waits on a few sockets (spec, "Lightness budget").
     let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -99,7 +113,19 @@ fn main() {
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::CustomProtocol(app_url()))
                     .title("Ruchoir")
                     .inner_size(1200.0, 800.0)
-                    .min_inner_size(360.0, 560.0);
+                    .min_inner_size(360.0, 560.0)
+                    // The window shows Ruchoir only: other sites open in the system browser.
+                    .on_navigation({
+                        let handle = app.handle().clone();
+                        move |url| leave_for(&handle, url)
+                    })
+                    .on_new_window({
+                        let handle = app.handle().clone();
+                        move |url, _| {
+                            leave_for(&handle, &url);
+                            tauri::webview::NewWindowResponse::Deny
+                        }
+                    });
             // Frameless with the interface's own title bar on Windows and Linux; on macOS the
             // system's traffic lights stay, drawn over the same bar.
             #[cfg(target_os = "macos")]
