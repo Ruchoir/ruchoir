@@ -585,7 +585,13 @@
     "deleted": "Canal eliminado",
     "deletedElsewhere": "El canal #{{name}} ha sido eliminado.",
     "details": "Detalles del canal",
-    "removedElsewhere": "Le han retirado del canal #{{name}}."
+    "removedElsewhere": "Le han retirado del canal #{{name}}.",
+    "inviteOutside": "Invitar a alguien de fuera",
+    "inviteOutsideHint": "Por correo: una invitación de un solo uso, como invitado que solo ve este canal.",
+    "inviteForbidden": "Solo quienes gestionan este canal pueden invitar a él.",
+    "inviteRefused": "Dirección rechazada, o canal archivado.",
+    "inviteFailed": "No se pudo crear la invitación.",
+    "inviteNotEmailed": "El correo no se pudo enviar. Pásale este enlace a la persona:"
   },
   "role": {
     "member": "Miembro",
