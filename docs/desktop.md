@@ -82,6 +82,11 @@ Xvfb it turns WebKit's DMA-BUF renderer off: without a GPU it falls back to soft
 desktop with a graphics card pays. Measured on 2026-10-20: 237 MB, 0.95 %. On real machines, read
 the memory in the task manager at each release.
 
+`e2e/budget-report.mjs` measures the same on Windows (the app and its WebView2 processes, private
+bytes) and macOS (the app and the WebKit services, resident size), and only reports: the `Desktop
+apps` workflow runs it after the Windows and macOS builds and writes the figures in the run's
+summary. Its runners have no GPU either, so the figures are an upper bound.
+
 ### The end to end check
 
 `e2e/run.sh` drives the app through `tauri-driver` (WebDriver): it adds an instance, signs in through

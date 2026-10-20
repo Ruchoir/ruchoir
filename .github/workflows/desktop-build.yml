@@ -6,7 +6,8 @@ name: Desktop apps
 #
 # - checks: the whole desktop workspace's clippy, a release build and the lightness budget on Linux.
 # - one build per system, unsigned for now (signing comes with the first release), kept as artifacts
-#   for a week. macOS is also launched once and photographed, since nobody on the team has a Mac.
+#   for a week. Windows and macOS report their memory and idle processor time; macOS is also
+#   launched once and photographed, since nobody on the team has a Mac.
 #
 # The end to end check (sign-in, relay) needs a Ruchoir instance and runs by hand on the development
 # server (docs/desktop.md).
@@ -135,6 +136,19 @@ jobs:
       - name: Build
         working-directory: apps/desktop
         run: pnpm tauri build ${{ matrix.args }}
+      - name: Lightness, measured (Windows and macOS)
+        # Reported, not enforced: these runners have no GPU, so the webview draws in software and the
+        # figures are an upper bound. Linux enforces the budget in the checks job; real machines are
+        # read by hand at each release.
+        if: runner.os != 'Linux'
+        continue-on-error: true
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            bin=apps/desktop/target/release/ruchoir-desktop.exe
+          else
+            bin=apps/desktop/target/universal-apple-darwin/release/ruchoir-desktop
+          fi
+          node apps/desktop/e2e/budget-report.mjs "$bin" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Launch once and photograph (macOS)
         if: runner.os == 'macOS'
         run: |
