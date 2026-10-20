@@ -884,14 +884,15 @@
     "placeholder": "https://…/invite?token=…",
     "paste": "Incolla",
     "unreadable": "Questo testo non è un link di invito Ruchoir.",
-    "otherServer": "Questo invito è per un altro server ({{host}}). Per unirvi, disconnettetevi e create un account da questo link.",
     "expired": "Questo invito non è più valido. Chiedetene uno nuovo alla persona che vi ha invitato.",
     "joining": "State entrando in {{space}}",
     "invitedBy": "Invito di {{name}}",
     "remove": "Rimuovi l’invito",
     "have": "Ho un link di invito",
     "haveHint": "Per entrare subito nel vostro team",
-    "check": "Verifica il link"
+    "check": "Verifica il link",
+    "onServer": "Sul server {{host}}",
+    "signInThere": "Sul server {{host}}: prima accederete lì, poi lo spazio si aprirà."
   },
   "verify": {
     "title": "Controllate la vostra e-mail",

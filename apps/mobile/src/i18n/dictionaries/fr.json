@@ -836,14 +836,15 @@
     "placeholder": "https://…/invite?token=…",
     "paste": "Coller",
     "unreadable": "Ce texte n’est pas un lien d’invitation Ruchoir.",
-    "otherServer": "Cette invitation est pour un autre serveur ({{host}}). Pour la rejoindre, déconnectez-vous puis créez un compte depuis ce lien.",
     "expired": "Cette invitation n’est plus valable. Demandez-en une nouvelle à la personne qui vous a invité.",
     "joining": "Vous rejoignez {{space}}",
     "invitedBy": "Invitation de {{name}}",
     "remove": "Retirer l’invitation",
     "have": "J’ai un lien d’invitation",
     "haveHint": "Pour rejoindre directement votre équipe",
-    "check": "Vérifier le lien"
+    "check": "Vérifier le lien",
+    "onServer": "Sur le serveur {{host}}",
+    "signInThere": "Sur le serveur {{host}} : vous vous y connecterez d’abord, puis l’espace s’ouvrira."
   },
   "verify": {
     "title": "Vérifiez vos e-mails",

@@ -159,6 +159,8 @@ export type InvitationChoice = {
   invitedBy?: string;
   /** The address it was sent to, when it names one. */
   email?: string;
+  /** Another instance than the one on screen, which it belongs to (ADR 0007). */
+  origin?: string;
 };
 
 /** The screens before signing in (`AuthNavigator`). */

@@ -67,11 +67,12 @@ function Root() {
     const renewing = flow?.kind === "renew" ? accounts.accounts.find((a) => a.id === flow.id) : flow ? undefined : accounts.accounts[0];
     const start: FlowStart = renewing
       ? { server: renewing.origin, reason: renewing.status.kind === "signedOut" ? (renewing.status.reason ?? "expired") : "expired" }
-      : { server: null };
+      : { server: flow?.kind === "add" ? (flow.server ?? null) : null };
     return (
       <SignInFlow
-        key={flow ? `${flow.kind}:${renewing?.id ?? ""}` : "first"}
+        key={flow ? `${flow.kind}:${renewing?.id ?? (flow.kind === "add" ? (flow.server ?? "") : "")}` : "first"}
         start={start}
+        invitation={flow?.invitation}
         isSignedIn={accounts.isSignedIn}
         onSignedIn={accounts.completeSignIn}
         onCancel={signedIn.length > 0 ? accounts.cancelFlow : undefined}
