@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ruchoir",
+  "identifier": "com.ruchoir.desktop",
+  "build": {
+    "frontendDist": "../../web/out",
+    "beforeBuildCommand": "pnpm --dir ../.. --filter @ruchoir/web build:desktop"
+  },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": false,
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost; frame-src https:; font-src 'self'",
+      "devCsp": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:3112; frame-src https:; font-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "dmg", "app", "appimage", "deb", "rpm"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "category": "Productivity",
+    "shortDescription": "Ruchoir",
+    "longDescription": "Ruchoir for Windows, macOS and Linux: the spaces of every Ruchoir instance you belong to.",
+    "license": "AGPL-3.0-only",
+    "linux": { "deb": { "depends": ["libwebkit2gtk-4.1-0"] } },
+    "macOS": { "minimumSystemVersion": "12.0" }
+  },
+  "plugins": {
+    "deep-link": { "desktop": { "schemes": ["ruchoir"] } }
+  }
+}

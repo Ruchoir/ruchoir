@@ -1,0 +1,7 @@
+# Pinned Rust toolchain for the whole workspace.
+# Keep in sync with the version table in AGENTS.md. Do not bump without an explicit decision.
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]
+targets = ["x86_64-unknown-linux-gnu"]
+profile = "minimal"

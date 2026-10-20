@@ -1,0 +1,11 @@
+[package]
+name = "ruchoir-desktop-core"
+description = "The desktop app's logic that needs no window: instances, tokens, sign-in, proxy rules, realtime."
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
