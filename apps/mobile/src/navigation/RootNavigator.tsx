@@ -46,6 +46,7 @@ import { ConversationPicker } from "../screens/files/ConversationPicker";
 import { DetailsSheet } from "../screens/files/DetailsSheet";
 import { EntryMenu } from "../screens/files/EntryMenu";
 import { FileViewerScreen } from "../screens/files/FileViewerScreen";
+import { OfficeEditorScreen } from "../screens/files/OfficeEditorScreen";
 import { FolderScreen } from "../screens/files/FolderScreen";
 import { LinksSheet } from "../screens/files/LinksSheet";
 import { MovePicker } from "../screens/files/MovePicker";
@@ -105,6 +106,7 @@ export function RootNavigator() {
         <Stack.Screen name="conversationDetails" component={ConversationDetails} />
         <Stack.Screen name="folder" component={FolderScreen} />
         <Stack.Screen name="fileViewer" component={FileViewerScreen} options={{ presentation: "fullScreenModal" }} />
+        <Stack.Screen name="officeEditor" component={OfficeEditorScreen} options={{ presentation: "fullScreenModal", gestureEnabled: false }} />
         <Stack.Screen name="search" component={SearchScreen} options={{ presentation: wide ? "modal" : "fullScreenModal" }} />
         <Stack.Screen name="eventSummary" component={EventSummarySheet} options={{ ...sheet, sheetAllowedDetents: [0.75, 1] }} />
         {/* The form takes the whole phone; on a tablet it is a sheet in the middle, the agenda around it. */}

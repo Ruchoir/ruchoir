@@ -3,7 +3,7 @@ import { actionsFor, canManage, type ActionId } from "@ruchoir/client/filesLogic
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Sharing from "expo-sharing";
-import { FileUp, FolderInput, FolderOpen, History, Info, PencilLine, Send, Share as ShareIcon, Star, StarOff, Trash2, type LucideIcon } from "lucide-react-native";
+import { FileUp, FolderInput, FolderOpen, History, Info, PencilLine, PencilRuler, Send, Share as ShareIcon, Star, StarOff, Trash2, type LucideIcon } from "lucide-react-native";
 import { Alert, StyleSheet, View } from "react-native";
 
 import { uploadLimit } from "../../api/limits";
@@ -11,6 +11,7 @@ import { pickDocuments } from "../../compose/pick";
 
 import { entryOf } from "../../files/entry";
 import { downloadToCache } from "../../files/download";
+import { editAction, useOffice } from "../../files/office";
 import { useTranslation } from "../../i18n";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { useLocale } from "../../i18n/useLocale";
@@ -48,6 +49,10 @@ export function EntryMenu() {
   const close = () => navigation.goBack();
   const uploads = useUploads();
   const { emit } = useRealtimeActions();
+
+  const office = useOffice();
+  const editing = file.kind === "folder" ? null : editAction(file.name, office);
+  const openEditor = () => navigation.replace("officeEditor", { fileId: file.id!, name: file.name, convert: editing === "convert" });
 
   const run: Partial<Record<ActionId, () => void>> = {
     open: () => {
@@ -132,6 +137,15 @@ export function EntryMenu() {
           </Text>
         </View>
       </View>
+      {editing ? (
+        <ActionRow
+          icon={PencilRuler}
+          tint={c.sky}
+          title={editing === "convert" ? t("office.convert") : t("office.openInEditor")}
+          subtitle={editing === "convert" ? t("office.convertHint") : undefined}
+          onPress={openEditor}
+        />
+      ) : null}
       {actions.map((a) => (
         <ActionRow key={a} icon={look[a]!.icon} tint={look[a]!.tint} title={look[a]!.title} onPress={run[a]} />
       ))}

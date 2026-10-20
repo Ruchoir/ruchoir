@@ -554,7 +554,12 @@
     "nothingSharedText": "Dateien, die man Ihnen in Ihren Kanälen und Direktnachrichten sendet, erscheinen hier.",
     "sentBy": "gesendet von {{name}}",
     "noRootFiles": "Keine Datei im Hauptordner",
-    "noRootFilesText": "Dateien in Ordnern liegen in ihren Ordnern, oben."
+    "noRootFilesText": "Dateien in Ordnern liegen in ihren Ordnern, oben.",
+    "eraseTitle": "„{{name}}“ endgültig löschen?",
+    "eraseBody": "Es kann nicht mehr wiederhergestellt werden.",
+    "eraseHint": "Lange drücken, um endgültig zu löschen",
+    "erased": "Endgültig gelöscht",
+    "eraseFailed": "Endgültiges Löschen nicht möglich"
   },
   "viewer": {
     "share": "Teilen oder öffnen in…",
@@ -1191,5 +1196,23 @@
     "allMarked": "Alles als gelesen markiert",
     "openUnread_one": "Benachrichtigungen, {{count}} ungelesen",
     "openUnread_other": "Benachrichtigungen, {{count}} ungelesen"
+  },
+  "office": {
+    "kindDocument": "Textdokument",
+    "kindSpreadsheet": "Tabelle",
+    "kindPresentation": "Präsentation",
+    "openInEditor": "Im Editor öffnen",
+    "convert": "Zum Bearbeiten umwandeln",
+    "opening": "Dokument wird geöffnet…",
+    "failed": "Öffnen nicht möglich",
+    "forbidden": "Sie haben keinen Zugriff auf dieses Dokument.",
+    "unsupported": "Dieses Format kann im Editor nicht geöffnet werden.",
+    "missing": "Dieses Dokument existiert nicht mehr.",
+    "conversionFailed": "Die Umwandlung ist nicht gelungen. Das Original ist unverändert.",
+    "unavailable": "Der Editor ist gerade nicht verfügbar.",
+    "editingNow": "Wird bearbeitet von {{names}}",
+    "createFailed": "Dokument konnte nicht erstellt werden",
+    "convertHint": "Das Original bleibt unverändert: Daneben wird eine bearbeitbare Kopie erstellt.",
+    "tryAgain": "Versuchen Sie es gleich noch einmal."
   }
 }

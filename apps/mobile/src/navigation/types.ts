@@ -1,4 +1,4 @@
-import type { ApiMessage, SpaceFile } from "@ruchoir/client";
+import type { ApiMessage, BlankKind, SpaceFile } from "@ruchoir/client";
 import type { NavigatorScreenParams } from "@react-navigation/native";
 
 export type TabParams = {
@@ -117,7 +117,9 @@ export type RootParams = {
   scan: { spaceId: string; folderId?: string; folderName: string };
   /** An entry's menu and what it opens; `path` is where the entry sits ("Clients / 2026"). */
   fileMenu: { file: SpaceFile; spaceId: string; path?: string };
-  fileName: { mode: "create" | "rename"; spaceId: string; folderId?: string; fileId?: string; name?: string };
+  fileName: { mode: "create" | "rename" | "document"; spaceId: string; folderId?: string; fileId?: string; name?: string; kind?: BlankKind };
+  /** A document in the office editor; `convert` makes a legacy format into an editable copy first. */
+  officeEditor: { fileId: string; name?: string; convert?: boolean };
   fileDetails: { file: SpaceFile; spaceId: string; path?: string };
   fileMove: { file: SpaceFile; spaceId: string };
   fileVersions: { file: SpaceFile; spaceId: string };
