@@ -1270,5 +1270,30 @@
     "createFailed": "Impossibile creare il documento",
     "convertHint": "L’originale resta com’è: accanto viene creata una copia modificabile.",
     "tryAgain": "Riprova tra un momento."
+  },
+  "admin": {
+    "screenTitle": "Amministrazione dell'istanza",
+    "accountsTitle": "Restituire l'accesso a un account",
+    "accountsIntro": "Per chi non riesce più ad accedere e non ha più codici di recupero. Il link glielo consegni tu, di persona o per un altro canale: non vedi mai la sua password, e quella attuale continua a funzionare finché non apre il link.",
+    "filterPlaceholder": "Nome o indirizzo e-mail",
+    "noMatch": "Nessun account corrisponde.",
+    "statusPending": "in attesa",
+    "statusLocked": "bloccato",
+    "issueLink": "Emetti un link",
+    "issueFailed": "Non è stato possibile emettere il link. Riprova.",
+    "linkFor": "Link per {{name}}",
+    "linkValidity": "Monouso, valido {{minutes}} minuti. Non sarà più mostrato dopo aver lasciato questa schermata.",
+    "settingsTitle": "Impostazioni dell'istanza",
+    "showAdmins": "Mostrare chi amministra l'istanza",
+    "showAdminsDescription": "Un contrassegno sul profilo degli amministratori. È ciò che permette a chi ha perso password e codici di recupero di sapere a chi rivolgersi. Disattivato, resta visibile solo agli amministratori stessi.",
+    "settingsSaveFailed": "Non è stato possibile salvare questa impostazione.",
+    "adminsShown": "Amministratori visibili",
+    "adminsHidden": "Amministratori nascosti",
+    "webPush": "Notifiche push",
+    "webPushDescription": "Avvisa i membri sui loro dispositivi quando Ruchoir è chiuso. Ognuno lo attiva per il proprio browser. Il segnale passa dal servizio di notifiche del produttore del browser (Google, Apple, Mozilla, Microsoft) senza alcun contenuto: né autore, né conversazione, né testo. Se disattivato, gli abbonamenti esistenti vengono dimenticati.",
+    "webPushOn": "Notifiche push attivate",
+    "webPushOff": "Notifiche push disattivate",
+    "hint": "Impostazioni dell’istanza, accesso agli account",
+    "issueConfirm": "Emettere un link di reimpostazione della password per {{name}}?"
   }
 }

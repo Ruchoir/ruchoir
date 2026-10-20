@@ -1,6 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Bookmark, CircleCheck, LifeBuoy, LogOut, Server, Settings, Shield, Smile } from "lucide-react-native";
+import { Bookmark, CircleCheck, LifeBuoy, LogOut, Server, Settings, Shield, ShieldCheck, Smile } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
@@ -27,7 +27,7 @@ export function AccountSheet() {
   if (session.state.kind !== "signedIn") return null;
   const { user, server } = session.state;
   const presence = selfPresence(user.presenceChoice);
-  const open = (route: "statusSheet" | "profile" | "saved" | "preferences" | "security" | "help") => {
+  const open = (route: "statusSheet" | "profile" | "saved" | "instanceAdmin" | "preferences" | "security" | "help") => {
     navigation.goBack();
     navigation.navigate(route);
   };
@@ -66,6 +66,9 @@ export function AccountSheet() {
         subtitle={t("account.securityHint")}
         onPress={() => open("security")}
       />
+      {user.isInstanceAdmin ? (
+        <ActionRow icon={ShieldCheck} tint={c.pink} title={t("admin.screenTitle")} subtitle={t("admin.hint")} onPress={() => open("instanceAdmin")} />
+      ) : null}
       <ActionRow icon={LifeBuoy} tint={c.sun} title={t("account.help")} onPress={() => open("help")} />
       <ActionRow icon={Server} title={server.replace(/^https:\/\//, "")} subtitle={t("signIn.server")} />
       <Button

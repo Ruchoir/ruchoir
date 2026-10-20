@@ -26,6 +26,8 @@ export type RootParams = {
   saved: undefined;
   /** The account's notifications, from Today's bell. */
   notifications: undefined;
+  /** The instance's settings and giving access back to an account, for an instance administrator. */
+  instanceAdmin: undefined;
   preferences: undefined;
   languageSheet: undefined;
   security: undefined;
