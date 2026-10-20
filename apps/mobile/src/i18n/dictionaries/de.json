@@ -736,7 +736,33 @@
     "roleAdmin": "Administrator",
     "saveFailed": "Einstellung nicht gespeichert",
     "membersCount_one": "{{count}} Mitglied",
-    "membersCount_other": "{{count}} Mitglieder"
+    "membersCount_other": "{{count}} Mitglieder",
+    "favouriteHint": "Oben in Ihren Unterhaltungen",
+    "favouriteFailed": "Favorit nicht gespeichert",
+    "edit": "Kanal bearbeiten",
+    "editHint": "Name, Thema, Zugang, Archivierung",
+    "addPeople": "Personen hinzufügen",
+    "addPeopleHint": "Mitglieder des Bereichs",
+    "added_one": "{{count}} Person hinzugefügt",
+    "added_other": "{{count}} Personen hinzugefügt",
+    "addFailed": "Die Personen konnten nicht hinzugefügt werden.",
+    "inviteOutside": "Jemanden von außen einladen",
+    "inviteOutsideHint": "Per E-Mail, als Gast nur dieses Kanals",
+    "leave": "Kanal verlassen",
+    "leaveHint": "Sie erhalten seine Nachrichten nicht mehr",
+    "leaveTitle": "#{{name}} verlassen?",
+    "leavePublic": "Sie können jederzeit wieder beitreten.",
+    "leavePrivate": "Dieser Kanal ist nur auf Einladung: Jemand muss Sie wieder hinzufügen.",
+    "left": "Sie haben #{{name}} verlassen",
+    "leaveFailed": "Sie konnten den Kanal nicht verlassen.",
+    "makeMember": "Zum Mitglied machen",
+    "makeModerator": "Zum Moderator machen",
+    "makeOwner": "Zum Eigentümer machen",
+    "roleChanged": "Rolle von {{name}} geändert",
+    "roleFailed": "Die Rolle konnte nicht geändert werden.",
+    "remove": "Aus dem Kanal entfernen",
+    "removed": "{{name}} aus dem Kanal entfernt",
+    "removeFailed": "Die Person konnte nicht entfernt werden."
   },
   "sidebar": {
     "favourite": "Zu Favoriten hinzufügen",
@@ -1107,5 +1133,18 @@
     "unread_one": "{{count}} ungelesen",
     "unread_other": "{{count}} ungelesen",
     "allRead": "Alles gelesen"
+  },
+  "channelEdit": {
+    "saved": "Kanal geändert",
+    "failed": "Der Kanal konnte nicht geändert werden.",
+    "forbidden": "Nur wer diesen Kanal verwaltet, kann ihn ändern.",
+    "archive": "Kanal archivieren",
+    "archiveHint": "Niemand schreibt mehr hinein, alles bleibt lesbar."
+  },
+  "channelInvite": {
+    "title": "In #{{name}} einladen",
+    "hint": "Die Person erhält eine einmalige Einladung, tritt dem Bereich als Gast bei und sieht nur diesen Kanal.",
+    "forbidden": "Nur wer diesen Kanal verwaltet, kann dorthin einladen.",
+    "refused": "Adresse abgelehnt oder Kanal archiviert."
   }
 }

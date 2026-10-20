@@ -34,6 +34,8 @@ export type ConversationItem = {
   members?: number;
   /** A channel only the people invited see. */
   private?: true;
+  /** A channel the person keeps among their favourites: listed first. */
+  favourite?: true;
   /** The others in a private conversation with several people, whose faces stand for it. */
   participants?: string[];
   /** The other person, for a one-to-one conversation. */
@@ -75,6 +77,7 @@ export function buildConversations(channels: Channel[], dms: DirectMessage[]): C
       };
       if (c.memberCount !== undefined) item.members = c.memberCount;
       if (c.type === "private") item.private = true;
+      if (c.fav) item.favourite = true;
       return item;
     });
   const fromDms = dms.map((d): ConversationItem => {
@@ -112,6 +115,8 @@ export function listConversations(items: ConversationItem[], filter: Conversatio
       return !q || fold(c.name).includes(q);
     })
     .sort((a, b) => {
+      // Favourites first, as the web's sidebar keeps them; each part newest first.
+      if (!!a.favourite !== !!b.favourite) return a.favourite ? -1 : 1;
       if (a.at && b.at) return b.at.localeCompare(a.at);
       if (a.at || b.at) return a.at ? -1 : 1;
       return a.name.localeCompare(b.name);

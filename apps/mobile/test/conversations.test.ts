@@ -40,6 +40,11 @@ test("most_recent_first_and_silent_ones_last", () => {
   assert.deepEqual(ids(listConversations(ITEMS, "all", "")), ["c1", "d1", "c2", "d2", "c3"]);
 });
 
+test("favourites_come_first_then_the_most_recent", () => {
+  const withFav = ITEMS.map((c) => (c.id === "c3" || c.id === "c2" ? { ...c, favourite: true as const } : c));
+  assert.deepEqual(ids(listConversations(withFav, "all", "")), ["c2", "c3", "c1", "d1", "d2"]);
+});
+
 test("channels_and_conversations_carry_their_own_preview", () => {
   const built = buildConversations(
     [

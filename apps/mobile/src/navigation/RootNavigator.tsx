@@ -18,6 +18,8 @@ import { ZonePicker } from "../screens/account/ZonePicker";
 import { ConversationDetails } from "../screens/discussions/ConversationDetails";
 import { ConversationScreen } from "../screens/discussions/ConversationScreen";
 import { EmojiPickerSheet } from "../screens/discussions/EmojiPickerSheet";
+import { ChannelEditScreen } from "../screens/discussions/ChannelEditScreen";
+import { ChannelInviteScreen } from "../screens/discussions/ChannelInviteScreen";
 import { InviteScreen } from "../screens/discussions/InviteScreen";
 import { MessageActionSheet } from "../screens/discussions/MessageActionSheet";
 import { NewConversationScreen } from "../screens/discussions/NewConversationScreen";
@@ -156,6 +158,8 @@ export function RootNavigator() {
         <Stack.Screen name="newConversation" component={NewConversationScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="newGroup" component={NewGroupScreen} options={{ presentation: "modal" }} />
         <Stack.Screen name="invite" component={InviteScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="channelEdit" component={ChannelEditScreen} options={{ presentation: "modal" }} />
+        <Stack.Screen name="channelInvite" component={ChannelInviteScreen} options={{ presentation: "modal" }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

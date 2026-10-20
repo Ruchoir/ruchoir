@@ -94,6 +94,10 @@ export type RootParams = {
   invite: undefined;
   /** A conversation's details: its topic, my notifications, its pinned messages, its people. */
   conversationDetails: { conversationId: string; channelId?: string; title: string };
+  /** A channel's name, topic, access and archiving. */
+  channelEdit: { channelId: string };
+  /** Invite someone from outside into one channel, as a guest. */
+  channelInvite: { channelId: string; title: string };
   /** A thread: its root message, in its conversation; `focusId` a reply to take the reader to. */
   thread: { conversationId: string; channelId?: string; rootId: string; title: string; root?: ApiMessage; focusId?: string };
   emojiPicker: { conversationId: string; message: ApiMessage };
