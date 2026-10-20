@@ -1,0 +1,163 @@
+name: Desktop apps
+
+# The desktop app for Windows, macOS and Linux (docs/desktop.md, ADR 0008). On demand only, never on
+# every pull request, the pipeline being heavy already: the "Run workflow" button, the label
+# `desktop-build` on a pull request of this repository, or a `desktop-v*` tag.
+#
+# - checks: the whole desktop workspace's clippy, a release build and the lightness budget on Linux.
+# - one build per system, unsigned for now (signing comes with the first release), kept as artifacts
+#   for a week. macOS is also launched once and photographed, since nobody on the team has a Mac.
+#
+# The end to end check (sign-in, relay) needs a Ruchoir instance and runs by hand on the development
+# server (docs/desktop.md).
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+  push:
+    tags: ["desktop-v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks and lightness budget (Linux)
+    # Never for a fork's pull request, and only for this label.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.label.name == 'desktop-build' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    concurrency:
+      group: desktop-checks-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            libsecret-1-dev xvfb dbus-x11 xdg-utils desktop-file-utils
+      - name: Set up Rust
+        working-directory: apps/desktop
+        run: rustup show
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/target
+          key: cargo-desktop-linux-${{ hashFiles('apps/desktop/Cargo.lock') }}
+          restore-keys: cargo-desktop-linux-
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile --filter "@ruchoir/web..." --filter "@ruchoir/desktop"
+      - name: Build the interface (desktop)
+        run: pnpm --filter @ruchoir/web build:desktop
+      - name: Clippy (whole desktop workspace)
+        working-directory: apps/desktop
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Release build
+        working-directory: apps/desktop
+        run: pnpm tauri build --no-bundle -c '{"build":{"beforeBuildCommand":""}}'
+      - name: Lightness budget
+        working-directory: apps/desktop
+        run: RUCHOIR_DESKTOP_BIN="$PWD/target/release/ruchoir-desktop" e2e/budget.sh
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-22.04
+            args: --bundles appimage,deb,rpm
+            artifacts: apps/desktop/target/release/bundle/
+          - name: Windows
+            os: windows-latest
+            args: --bundles nsis
+            artifacts: apps/desktop/target/release/bundle/nsis/
+          - name: macOS
+            os: macos-latest
+            args: --target universal-apple-darwin --bundles app,dmg
+            artifacts: apps/desktop/target/universal-apple-darwin/release/bundle/
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    concurrency:
+      group: desktop-build-${{ matrix.name }}-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: System libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
+            libsecret-1-dev
+      - name: Set up Rust
+        working-directory: apps/desktop
+        run: |
+          rustup show
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            rustup target add aarch64-apple-darwin x86_64-apple-darwin
+          fi
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/target
+          key: cargo-desktop-${{ runner.os }}-${{ hashFiles('apps/desktop/Cargo.lock') }}
+          restore-keys: cargo-desktop-${{ runner.os }}-
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Install
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile --filter "@ruchoir/web..." --filter "@ruchoir/desktop"
+      - name: Build
+        working-directory: apps/desktop
+        run: pnpm tauri build ${{ matrix.args }}
+      - name: Launch once and photograph (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          app=$(ls -d apps/desktop/target/universal-apple-darwin/release/bundle/macos/*.app | head -1)
+          "$app/Contents/MacOS/ruchoir-desktop" > launch.log 2>&1 &
+          pid=$!
+          sleep 20
+          screencapture -x desktop-macos.png || true
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "The app stopped within 20 seconds:"; cat launch.log; exit 1
+          fi
+          kill "$pid"
+      - name: Upload the screenshot (macOS)
+        if: runner.os == 'macOS' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-macos-screenshot
+          path: desktop-macos.png
+          retention-days: 7
+          if-no-files-found: ignore
+      - name: Upload the build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ruchoir-desktop-${{ matrix.name }}
+          path: ${{ matrix.artifacts }}
+          retention-days: 7

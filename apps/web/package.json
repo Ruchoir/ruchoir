@@ -7,9 +7,9 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "dev:desktop": "NEXT_PUBLIC_RUCHOIR_TARGET=desktop next dev -p 3112",
+    "dev:desktop": "node scripts/desktop.mjs dev",
     "build": "next build",
-    "build:desktop": "NEXT_PUBLIC_RUCHOIR_TARGET=desktop next build",
+    "build:desktop": "node scripts/desktop.mjs build",
     "lint": "eslint .",
     "audit:responsive": "node tools/responsive-audit/run.mjs",
     "audit:a11y": "node tools/responsive-audit/run.mjs --all-themes",

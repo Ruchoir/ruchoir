@@ -25,6 +25,7 @@ jobs:
       rust: ${{ steps.diff.outputs.rust }}
       web: ${{ steps.diff.outputs.web }}
       mobile: ${{ steps.diff.outputs.mobile }}
+      desktop: ${{ steps.diff.outputs.desktop }}
       deps: ${{ steps.diff.outputs.deps }}
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +36,7 @@ jobs:
         name: Sort the changed files
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            for area in rust web mobile deps; do echo "$area=true" >> "$GITHUB_OUTPUT"; done
+            for area in rust web mobile desktop deps; do echo "$area=true" >> "$GITHUB_OUTPUT"; done
             exit 0
           fi
           git diff --name-only HEAD^1 HEAD > changed.txt
@@ -49,7 +50,10 @@ jobs:
           echo "web=$(touches "^(apps/web/|packages/client/|packages/design-system/)|$js|$wf")" >> "$GITHUB_OUTPUT"
           # The phone app's translation check is the web's i18n audit tool.
           echo "mobile=$(touches "^(apps/mobile/|packages/client/|packages/design-system/styles/tokens\.css$|apps/web/tools/i18n-audit/)|$js|$wf")" >> "$GITHUB_OUTPUT"
-          echo "deps=$(touches "^(Cargo\.lock|pnpm-lock\.yaml)$|$wf")" >> "$GITHUB_OUTPUT"
+          # The desktop app's core alone: a web change never starts it (the desktop's own build of the
+          # interface is checked by the on-demand desktop workflow).
+          echo "desktop=$(touches "^apps/desktop/|$wf")" >> "$GITHUB_OUTPUT"
+          echo "deps=$(touches "^(Cargo\.lock|pnpm-lock\.yaml|apps/desktop/Cargo\.lock)$|$wf")" >> "$GITHUB_OUTPUT"
 
   api:
     name: API (Rust)
@@ -240,6 +244,38 @@ jobs:
       - name: Bundle for iOS (Metro, no native build)
         run: CI=1 pnpm --filter @ruchoir/mobile bundle:ios
 
+  # Light on purpose (the pipeline is heavy already): the desktop app's Tauri-free core only, which
+  # builds without WebKitGTK. The app itself, its end to end check, the lightness budget and the
+  # builds for the three systems are in the on-demand `desktop-build.yml`.
+  desktop:
+    name: Desktop core (Rust)
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v4
+      # Installs the toolchain pinned in apps/desktop/rust-toolchain.toml (with rustfmt + clippy).
+      - name: Set up Rust
+        run: rustup show
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            apps/desktop/target
+          key: cargo-desktop-core-${{ runner.os }}-${{ hashFiles('apps/desktop/Cargo.lock') }}
+          restore-keys: cargo-desktop-core-${{ runner.os }}-
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy -p ruchoir-desktop-core --all-targets -- -D warnings
+      - name: Test
+        run: cargo test -p ruchoir-desktop-core
+
   audits:
     name: Web audits (responsive and accessibility)
     needs: changes
@@ -333,6 +369,10 @@ jobs:
         run: |
           command -v cargo-audit >/dev/null || cargo install cargo-audit --locked
           cargo audit --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195 --ignore RUSTSEC-2023-0071
+      - name: cargo audit (desktop app)
+        # Its own workspace and lockfile (apps/desktop). Warnings only so far: unmaintained crates of
+        # the GTK and D-Bus stacks Tauri builds on.
+        run: cargo audit --file apps/desktop/Cargo.lock
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
