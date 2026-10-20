@@ -3,12 +3,13 @@
  * the web's saved view. A tap takes me to the message in its conversation (moving to its space when
  * it is another one); the bookmark is taken off from the message's own menu, or here with a long press.
  */
-import { getSavedMessages, setMessageSaved, type SavedMessage } from "@ruchoir/client";
+import type { SavedMessage } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Bookmark } from "lucide-react-native";
 import { Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useNow } from "../../data/useNow";
@@ -28,6 +29,7 @@ import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
 
 export function SavedScreen() {
+  const { getSavedMessages, setMessageSaved } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();

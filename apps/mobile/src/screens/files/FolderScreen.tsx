@@ -1,4 +1,4 @@
-import { getFolder, isApiError } from "@ruchoir/client";
+import { isApiError } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { FolderOpen, Upload } from "lucide-react-native";
@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { FlatList, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
@@ -21,6 +22,7 @@ import { UploadStrip } from "./UploadStrip";
 
 /** A folder's contents, folders first, as the web lists them; "Add a file" puts files in it. */
 export function FolderScreen() {
+  const { getFolder } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "folder">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const floating = useFloatingScroll();

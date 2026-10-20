@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { linkTarget } from "../src/logic/deepLink.ts";
+import { linkServer, linkTarget } from "../src/logic/deepLink.ts";
 
 test("the_widgets_shortcuts_open_their_screens", () => {
   assert.deepEqual(linkTarget("ruchoir://new-event"), { screen: "eventForm" });
@@ -30,4 +30,10 @@ test("the_sign_in_returns_and_anything_else_are_left_alone", () => {
   assert.equal(linkTarget("ruchoir://expo-development-client/?url=https%3A%2F%2Fx"), null);
   assert.equal(linkTarget("https://ruchoir.com/agenda"), null);
   assert.equal(linkTarget("ruchoir://conversation/"), null);
+});
+
+test("a_link_may_name_its_instance", () => {
+  assert.equal(linkServer("ruchoir://event/e1?start=x&server=https%3A%2F%2Fb.test"), "https://b.test");
+  assert.equal(linkServer("ruchoir://conversation/c1?title=T&server=http%3A%2F%2Fplain.test"), undefined);
+  assert.equal(linkServer("ruchoir://agenda"), undefined);
 });

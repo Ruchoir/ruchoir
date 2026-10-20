@@ -3,11 +3,12 @@
  * as a guest who sees this channel and nothing else of the space. For whoever runs the channel (its
  * owner, a moderator, the space's administrators), which the API checks.
  */
-import { inviteToChannel, isApiError } from "@ruchoir/client";
+import { isApiError } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useState } from "react";
 import { Share, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { isEmail } from "../../logic/email";
 import type { RootParams } from "../../navigation/types";
@@ -22,6 +23,7 @@ import { TextField } from "../../ui/TextField";
 import { useToast } from "../../ui/Toast";
 
 export function ChannelInviteScreen() {
+  const { inviteToChannel } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "channelInvite">>();
   const navigation = useNavigation();
   const { t } = useTranslation();

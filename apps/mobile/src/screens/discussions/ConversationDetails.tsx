@@ -11,22 +11,7 @@
  * as its owner, which is how the API reads them. The ranks only decide what is offered; the API is
  * the guard and a refusal is said.
  */
-import {
-  addChannelMembers,
-  deleteChannel,
-  getChannels,
-  getDirectMessages,
-  getReadCursors,
-  leaveChannel,
-  listChannelMembers,
-  removeChannelMember,
-  saveConversationNotify,
-  setChannelFavorite,
-  setChannelMemberRole,
-  type ConversationNotify,
-  type Member,
-  type NotifyLevel,
-} from "@ruchoir/client";
+import type { ConversationNotify, Member, NotifyLevel } from "@ruchoir/client";
 import { StackActions, useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Check, LogOut, Mail, Pencil, Star, Trash2, UserPlus } from "lucide-react-native";
@@ -34,6 +19,7 @@ import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
@@ -79,6 +65,7 @@ const CHANNEL_ROLE: Record<string, ReturnType<typeof key>> = {
 };
 
 export function ConversationDetails() {
+  const { addChannelMembers, deleteChannel, getChannels, getDirectMessages, getReadCursors, leaveChannel, listChannelMembers, removeChannelMember, saveConversationNotify, setChannelFavorite, setChannelMemberRole } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "conversationDetails">>();
   const { conversationId, channelId, title } = params;
   const { t } = useTranslation();

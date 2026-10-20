@@ -1,10 +1,11 @@
-import { getVersions, restoreVersion, versionDownloadUrl, type FileVersion } from "@ruchoir/client";
+import type { FileVersion } from "@ruchoir/client";
 import { canManage } from "@ruchoir/client/filesLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { History, RotateCcw } from "lucide-react-native";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
@@ -25,6 +26,7 @@ import { useToast } from "../../ui/Toast";
  * tap; who may manage the file brings an older one back, which becomes the newest.
  */
 export function VersionsSheet() {
+  const { getVersions, restoreVersion, versionDownloadUrl } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "fileVersions">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();

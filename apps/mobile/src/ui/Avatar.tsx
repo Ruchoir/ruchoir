@@ -6,13 +6,13 @@ import { Avatar as DiceAvatar, Style } from "@dicebear/core";
 import blobsDef from "@dicebear/styles/blobs.json";
 import cameoDef from "@dicebear/styles/cameo.json";
 import gazeDef from "@dicebear/styles/gaze.json";
-import { absoluteUrl, type Presence } from "@ruchoir/client";
+import type { Presence } from "@ruchoir/client";
 import { Image } from "expo-image";
 import { useMemo, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { SvgXml } from "react-native-svg";
 
-import { authHeadersFor } from "../api/instance";
+import { authHeadersFor, useApi } from "../api/useApi";
 import { radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
 
@@ -64,6 +64,8 @@ export function Avatar({
   kind?: AvatarKind;
   presence?: Presence;
 }) {
+  const api = useApi();
+  const { absoluteUrl } = api;
   const { c } = useTheme();
   const [failed, setFailed] = useState(false);
   const svg = useMemo(() => generated(name, kind), [name, kind]);
@@ -76,7 +78,7 @@ export function Avatar({
       <View style={[styles.frame, { width: size, height: size, borderRadius: corner, backgroundColor: c.line }]}>
         {showPhoto ? (
           <Image
-            source={{ uri: absoluteUrl(src), headers: authHeadersFor(absoluteUrl(src)) }}
+            source={{ uri: absoluteUrl(src), headers: authHeadersFor(api, absoluteUrl(src)) }}
             style={{ width: size, height: size }}
             contentFit="cover"
             onError={() => setFailed(true)}

@@ -1,9 +1,10 @@
-import { listLinkableChannels, type LinkableChannel } from "@ruchoir/client";
+import type { LinkableChannel } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { Check, Hash, Lock, MessageSquareOff } from "lucide-react-native";
 import { Fragment } from "react";
 import { StyleSheet } from "react-native";
 
+import { useApi } from "../../../api/useApi";
 import { useLoad } from "../../../data/useLoad";
 import { useTranslation } from "../../../i18n";
 import type { RootParams } from "../../../navigation/types";
@@ -16,6 +17,7 @@ import { updateDraft, useDraft } from "./draftStore";
 
 /** The channel the event is shared in: those its calendar may link to, by space, or none. */
 export function ChannelSheet() {
+  const { listLinkableChannels } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "eventChannel">>();
   const navigation = useNavigation();
   const { t } = useTranslation();

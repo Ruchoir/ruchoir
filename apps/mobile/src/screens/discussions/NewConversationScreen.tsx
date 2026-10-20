@@ -2,12 +2,13 @@
  * "Write to a person": the space's people, a search, and "Write". One person opens the conversation
  * with them (the existing one if there is one); several make a group conversation.
  */
-import { createDm, type Member } from "@ruchoir/client";
+import type { Member } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
@@ -23,6 +24,7 @@ import { Text } from "../../ui/Text";
 import { PeopleList } from "./PeopleList";
 
 export function NewConversationScreen() {
+  const { createDm } = useApi();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c } = useTheme();

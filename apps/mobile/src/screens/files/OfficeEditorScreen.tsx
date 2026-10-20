@@ -14,22 +14,14 @@
  * A legacy format is converted first (`convert`): the engine writes an editable copy, which is looked
  * for every few seconds and then opened instead, as on the web.
  */
-import {
-  endOfficeHeartbeat,
-  getConvertedCopy,
-  isApiError,
-  officeHeartbeat,
-  openOfficeSession,
-  type FileEditor,
-  type OfficeSession,
-  type SpaceFile,
-} from "@ruchoir/client";
+import { isApiError, type FileEditor, type OfficeSession, type SpaceFile } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { X } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
@@ -95,6 +87,7 @@ function formBody(session: OfficeSession): string {
 const newTab = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 export function OfficeEditorScreen() {
+  const { endOfficeHeartbeat, getConvertedCopy, officeHeartbeat, openOfficeSession } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "officeEditor">>();
   const navigation = useNavigation();
   const { t } = useTranslation();
@@ -108,7 +101,7 @@ export function OfficeEditorScreen() {
   const open = useCallback(
     (fileId: string, convert: boolean) =>
       openOfficeSession(fileId, { theme: dark ? "dark" : "light", accent, mode: convert ? "convert" : undefined, mobile: true }),
-    [dark, accent],
+    [openOfficeSession, dark, accent],
   );
 
   // Opened once: a change of theme while editing does not reload the document.
@@ -154,7 +147,7 @@ export function OfficeEditorScreen() {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [awaitingCopy, open, params.fileId]);
+  }, [awaitingCopy, getConvertedCopy, open, params.fileId]);
 
   const session = state.status === "ready" ? state.session : null;
   const editableId = session?.mode === "edit" ? (session.file.id ?? null) : null;
@@ -175,7 +168,7 @@ export function OfficeEditorScreen() {
       clearInterval(timer);
       if (!left.current) void endOfficeHeartbeat(editedId, tab);
     };
-  }, [editedId, tab]);
+  }, [editedId, endOfficeHeartbeat, officeHeartbeat, tab]);
 
   // Covered until the engine wears Ruchoir's colours, per session; never while a conversion runs.
   const [paintedFor, setPaintedFor] = useState<string | null>(null);
@@ -200,7 +193,7 @@ export function OfficeEditorScreen() {
       left.current = true;
       void endOfficeHeartbeat(editedId, tab).finally(done);
     } else done();
-  }, [editedId, emit, navigation, session, tab]);
+  }, [editedId, emit, endOfficeHeartbeat, navigation, session, tab]);
 
   const onMessage = (e: WebViewMessageEvent) => {
     try {

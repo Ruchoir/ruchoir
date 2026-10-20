@@ -3,9 +3,10 @@
  * leaving a folder does not stop them. One goes at a time, with its progress; the list then reloads
  * through the live `files` event. The queue itself is `logic/uploadQueue.ts`.
  */
-import { isApiError, startFileUpload, startFileVersionUpload, uploadDuplicate } from "@ruchoir/client";
+import { isApiError } from "@ruchoir/client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { useApi } from "../api/useApi";
 import type { LocalFile } from "../compose/useAttachments";
 import { useTranslation } from "../i18n";
 import {
@@ -49,6 +50,7 @@ let keys = 0;
 const nextKey = () => `upload-${++keys}`;
 
 export function UploadsProvider({ children }: { children: ReactNode }) {
+  const { startFileUpload, startFileVersionUpload, uploadDuplicate } = useApi();
   const { t } = useTranslation();
   const toast = useToast();
   const [queue, setQueue] = useState<QueueItem[]>([]);
@@ -116,7 +118,7 @@ export function UploadsProvider({ children }: { children: ReactNode }) {
         aborts.current.delete(item.key);
         told.current.delete(item.key);
       });
-  }, [queue, commit, t, toast]);
+  }, [queue, commit, t, toast, startFileVersionUpload, startFileUpload, uploadDuplicate]);
 
   // All gone: say so, and forget what is done (what failed stays, to be retried or removed).
   useEffect(() => {

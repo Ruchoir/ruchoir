@@ -2,12 +2,14 @@
  * What the instance's office editor opens, if it has one (`getInstanceCapabilities().office`), and
  * what it does with a given file: the web's `officeActionFor`.
  */
-import { getInstanceCapabilities, officeActionFor, type OfficeCapabilities } from "@ruchoir/client";
+import { officeActionFor, type OfficeCapabilities } from "@ruchoir/client";
 
+import { useApi } from "../api/useApi";
 import { useLoad } from "../data/useLoad";
 
 /** The editor's capabilities when it is on, else null (also while they load). */
 export function useOffice(): OfficeCapabilities | null {
+  const { getInstanceCapabilities } = useApi();
   const caps = useLoad("capabilities", (signal) => getInstanceCapabilities(signal));
   return caps.data?.office.enabled ? caps.data.office : null;
 }

@@ -83,10 +83,10 @@ function JoinSpaceModal() {
 }
 
 /** The signed-in app: the tabs, the screens pushed over them, and the sheets. */
-export function RootNavigator() {
+export function RootNavigator({ instanceId }: { instanceId: string }) {
   const theme = useNavigationTheme();
-  const push = usePhonePush(rootNavigation);
-  const links = useAppLinks(rootNavigation);
+  const push = usePhonePush(rootNavigation, instanceId);
+  const links = useAppLinks(rootNavigation, instanceId);
   useDuplicateQuestions(rootNavigation);
   useWidgetLook();
   useWidgetRefresh();

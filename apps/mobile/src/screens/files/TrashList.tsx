@@ -1,7 +1,8 @@
-import { emptyTrash, eraseFile, getInstanceCapabilities, getTrash, restoreFile, type TrashEntry } from "@ruchoir/client";
+import type { TrashEntry } from "@ruchoir/client";
 import { RotateCcw, Trash2 } from "lucide-react-native";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
@@ -23,6 +24,7 @@ import { useToast } from "../../ui/Toast";
  * long it keeps things is the instance's.
  */
 export function TrashList() {
+  const { emptyTrash, eraseFile, getInstanceCapabilities, getTrash, restoreFile } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale, timeZone } = useLocale();

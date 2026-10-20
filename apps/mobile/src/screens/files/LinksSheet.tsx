@@ -1,10 +1,11 @@
-import { createLink, listLinks, revokeLink, type FileLink } from "@ruchoir/client";
+import type { FileLink } from "@ruchoir/client";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import * as Clipboard from "expo-clipboard";
 import { Copy, Link, Trash2 } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
@@ -29,6 +30,7 @@ type Expiry = (typeof EXPIRIES)[number];
  * if wanted, copied as soon as it is made.
  */
 export function LinksSheet() {
+  const { createLink, listLinks, revokeLink } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "fileLinks">>();
   const { t } = useTranslation();
   const { c, s } = useTheme();

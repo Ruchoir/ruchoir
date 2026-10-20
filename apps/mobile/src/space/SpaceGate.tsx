@@ -1,6 +1,6 @@
-import { acceptInvitation, getUserProfile } from "@ruchoir/client";
 import { useEffect, useState } from "react";
 
+import { useApi } from "../api/useApi";
 import { useTranslation } from "../i18n";
 import { RootNavigator } from "../navigation/RootNavigator";
 import { useRealtimeEvent } from "../realtime/RealtimeProvider";
@@ -14,7 +14,8 @@ import { useSpace } from "./SpaceProvider";
  * What a signed-in person enters: the tabs, or "join or create a space" when the account is in none.
  * An invitation pasted at sign-up is accepted first, so the app opens in the space that invited them.
  */
-export function SpaceGate() {
+export function SpaceGate({ instanceId }: { instanceId: string }) {
+  const { acceptInvitation, getUserProfile } = useApi();
   const { t } = useTranslation();
   const toast = useToast();
   const session = useSession();
@@ -38,7 +39,7 @@ export function SpaceGate() {
     return () => {
       current = false;
     };
-  }, [me, updateUser]);
+  }, [getUserProfile, me, updateUser]);
   useRealtimeEvent((event) => {
     if (event.type === "member" && event.member.userId === me) updateUser({ name: event.member.name, avatarUrl: event.member.avatarUrl });
   });
@@ -62,9 +63,9 @@ export function SpaceGate() {
     return () => {
       current = false;
     };
-  }, [invitation, select, reload, toast, t]);
+  }, [invitation, select, reload, toast, t, acceptInvitation]);
 
   if (!settled) return <BootScreen />;
   if (status === "none") return <JoinSpaceScreen gate />;
-  return <RootNavigator />;
+  return <RootNavigator instanceId={instanceId} />;
 }

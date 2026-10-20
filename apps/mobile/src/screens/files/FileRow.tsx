@@ -1,8 +1,9 @@
-import { fileDownloadUrl, type SpaceFile } from "@ruchoir/client";
+import type { RuchoirClient, SpaceFile } from "@ruchoir/client";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import { ChevronRight, Ellipsis, Folder, Star } from "lucide-react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { dayStamp } from "../../logic/format";
@@ -16,12 +17,12 @@ import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 
 /** Open what a row stands for: a folder is browsed, a file is shown (with its menu, as a space file). */
-export function openEntry(navigation: Pick<NavigationProp<RootParams>, "navigate">, file: SpaceFile, path?: string): void {
+export function openEntry(api: RuchoirClient, navigation: Pick<NavigationProp<RootParams>, "navigate">, file: SpaceFile, path?: string): void {
   if (!file.id) return;
   if (file.kind === "folder") navigation.navigate("folder", { folderId: file.id, name: file.name });
   else
     navigation.navigate("fileViewer", {
-      file: { id: file.id, name: file.name, url: fileDownloadUrl(file.id), mime: file.mimeType, sizeBytes: file.sizeBytes },
+      file: { id: file.id, name: file.name, url: api.fileDownloadUrl(file.id), mime: file.mimeType, sizeBytes: file.sizeBytes },
       entry: file,
       path,
     });
@@ -33,6 +34,7 @@ export function openEntry(navigation: Pick<NavigationProp<RootParams>, "navigate
  * otherwise "⋯" and a long press open its menu. `path` is where it sits, for its details.
  */
 export function FileRow({ file, line, path, onPress }: { file: SpaceFile; line?: string; path?: string; onPress?: () => void }) {
+  const api = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -53,7 +55,7 @@ export function FileRow({ file, line, path, onPress }: { file: SpaceFile; line?:
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress ?? (() => openEntry(navigation, file, path))}
+      onPress={onPress ?? (() => openEntry(api, navigation, file, path))}
       onLongPress={
         menu
           ? () => {
@@ -106,6 +108,7 @@ const FOLDER_TINTS = ["sky", "mint", "violet", "sun", "pink", "peach"] as const;
  * A long press opens its menu.
  */
 export function FolderCard({ folder, index }: { folder: SpaceFile; index: number }) {
+  const api = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const navigation = useNavigation<NavigationProp<RootParams>>();
@@ -113,7 +116,7 @@ export function FolderCard({ folder, index }: { folder: SpaceFile; index: number
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => openEntry(navigation, folder)}
+      onPress={() => openEntry(api, navigation, folder)}
       onLongPress={
         current && folder.id
           ? () => {
@@ -141,6 +144,7 @@ export function FolderCard({ folder, index }: { folder: SpaceFile; index: number
 
 /** A file as a card (tablet mockup 06): its icon, its name, who touched it and when. */
 export function FileCardWide({ file, line, path }: { file: SpaceFile; line?: string; path?: string }) {
+  const api = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
@@ -152,7 +156,7 @@ export function FileCardWide({ file, line, path }: { file: SpaceFile; line?: str
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => openEntry(navigation, file, path)}
+      onPress={() => openEntry(api, navigation, file, path)}
       onLongPress={
         current && file.id
           ? () => {

@@ -3,11 +3,12 @@
  * is archived (read-only, nothing deleted), as the web's channel settings. The API decides who may
  * change what; a refusal is said, and the details reload from the live `channels` event.
  */
-import { getChannels, isApiError, updateChannel, type ChannelType } from "@ruchoir/client";
+import { isApiError, type ChannelType } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { channelHandle } from "../../logic/handle";
@@ -31,6 +32,7 @@ import { Toggle } from "../../ui/Toggle";
 type Access = "public" | "private";
 
 export function ChannelEditScreen() {
+  const { getChannels } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "channelEdit">>();
   const navigation = useNavigation();
   const { current } = useSpace();
@@ -52,6 +54,7 @@ export function ChannelEditScreen() {
 }
 
 function Form({ channelId, name: initialName, topic: initialTopic, type, taken }: { channelId: string; name: string; topic: string; type: ChannelType; taken: string[] }) {
+  const { updateChannel } = useApi();
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c } = useTheme();

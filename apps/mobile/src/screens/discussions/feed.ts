@@ -3,10 +3,11 @@
  * edit of one of mine, and who is writing. Each screen loads its own messages and draws its own
  * rows; these hooks keep them true.
  */
-import { editMessage, type ApiMessage, type Member, type SessionUser } from "@ruchoir/client";
+import type { ApiMessage, Member, SessionUser } from "@ruchoir/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import type { Editing } from "../../compose/Composer";
 import { useEditRequests } from "../../compose/requests";
 import { useOutbox } from "../../compose/useOutbox";
@@ -102,6 +103,7 @@ export function useOutboxRows(conversationId: string, parentId: string | undefin
  * old text comes back and the edit can resume.
  */
 export function useEditing(draftKey: string, messages: ApiMessage[], patch: (id: string, change: (m: ApiMessage) => ApiMessage) => void) {
+  const { editMessage } = useApi();
   const { t } = useTranslation();
   const [editing, setEditing] = useState<Editing | null>(null);
   useEditRequests(draftKey, (request) => setEditing({ id: request.id, body: request.body }));
@@ -124,7 +126,7 @@ export function useEditing(draftKey: string, messages: ApiMessage[], patch: (id:
         },
       );
     },
-    [messages, patch, t],
+    [editMessage, messages, patch, t],
   );
 
   return { editing, save, cancel: () => setEditing(null) };

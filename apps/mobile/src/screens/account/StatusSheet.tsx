@@ -1,7 +1,8 @@
-import { setMyPresence, type PresenceChoice } from "@ruchoir/client";
+import type { PresenceChoice } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Check, CircleCheck, CircleMinus, Clock, EyeOff, type LucideIcon } from "lucide-react-native";
 
+import { useApi } from "../../api/useApi";
 import { key, useTranslation } from "../../i18n";
 import { useSession } from "../../session/SessionProvider";
 import type { Palette } from "../../theme/tokens";
@@ -31,6 +32,7 @@ const CHOICES: PresenceChoice[] = ["auto", "away", "busy", "invisible"];
 
 /** The status the others see: chosen here, shown at once, put back if the server refuses it. */
 export function StatusSheet() {
+  const { setMyPresence } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const toast = useToast();

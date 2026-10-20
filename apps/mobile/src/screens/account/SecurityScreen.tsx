@@ -1,4 +1,3 @@
-import { getMfaState, logoutEverywhere, removePasskey, generateRecoveryCodes } from "@ruchoir/client";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { KeyRound, ListChecks, Lock, LogOut, Plus, RectangleEllipsis, ShieldCheck, Trash2 } from "lucide-react-native";
@@ -6,6 +5,7 @@ import { useCallback } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
@@ -28,6 +28,8 @@ import { Section } from "./Section";
  * out of every device. Plus what only a phone has: locking the app with Face ID and a PIN (`lock/AppLock`).
  */
 export function SecurityScreen() {
+  const api = useApi();
+  const { generateRecoveryCodes, getMfaState, logoutEverywhere, removePasskey } = api;
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const { locale } = useLocale();
@@ -88,7 +90,7 @@ export function SecurityScreen() {
   const server = session.state.kind === "signedIn" ? session.state.server : null;
   const addPasskey = () => {
     if (!server) return;
-    addPasskeyThroughBrowser(server).then(
+    addPasskeyThroughBrowser(api, server).then(
       (added) => {
         if (!added) return;
         toast(t("security.passkeyAdded"), "success");

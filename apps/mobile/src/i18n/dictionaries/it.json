@@ -38,7 +38,8 @@
       "unknown": "Si è verificato un errore. Riprovate.",
       "emailTaken": "Esiste già un account con questo indirizzo. Accedete o usate «Password dimenticata».",
       "weakPassword": "Questa password è troppo corta: almeno 12 caratteri.",
-      "breachedPassword": "Questa password compare in violazioni di dati note. Sceglietene un’altra."
+      "breachedPassword": "Questa password compare in violazioni di dati note. Sceglietene un’altra.",
+      "alreadyAdded": "Avete già effettuato l’accesso a questo server su questo telefono."
     }
   },
   "mfa": {
@@ -67,7 +68,15 @@
     "preferencesHint": "Dimensione del testo, tema, notifiche",
     "profile": "Il mio profilo",
     "security": "Sicurezza",
-    "securityHint": "Password, autenticazione a due fattori"
+    "securityHint": "Password, autenticazione a due fattori",
+    "instances": "Istanze",
+    "instanceShown": "Visualizzata ora",
+    "instanceSignedInAs": "Accesso effettuato come {{name}}",
+    "instanceSignedOut": "Disconnesso",
+    "signOutOf": "Esci da {{host}}",
+    "removeInstance": "Rimuovi da questo telefono",
+    "removeTitle": "Rimuovere {{host}}?",
+    "removeText": "Questo telefono esce e dimentica questo server. Potrete aggiungerlo di nuovo."
   },
   "presence": {
     "away": "Assente"
@@ -83,7 +92,12 @@
     "switchLabel": "Cambia spazio, spazio attuale: {{name}}",
     "unread_one": "{{count}} messaggio non letto",
     "unread_other": "{{count}} messaggi non letti",
-    "unread_many": "{{count}} messaggi non letti"
+    "unread_many": "{{count}} messaggi non letti",
+    "addInstance": "Aggiungi un’istanza",
+    "addInstanceHint": "Un altro server Ruchoir, su questo telefono",
+    "signInAgain": "Accedi di nuovo",
+    "signedOut": "La vostra sessione su questo server è terminata",
+    "tryAgain": "Tocca per riprovare"
   },
   "load": {
     "offline": "Nessuna connessione",

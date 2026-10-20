@@ -5,19 +5,12 @@
  * A file larger than the instance accepts is refused before anything is sent, by name and with the
  * limit. A file from the space's files is attached as itself: it is already there.
  */
-import {
-  filePreviewUrl,
-  fileDownloadUrl,
-  isApiError,
-  startAttachmentUpload,
-  type InlineImage,
-  type MessageAttachment,
-  type SpaceFile,
-} from "@ruchoir/client";
+import { isApiError, type InlineImage, type MessageAttachment, type SpaceFile } from "@ruchoir/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
 import { uploadLimit } from "../api/limits";
+import { useApi } from "../api/useApi";
 import { useTranslation } from "../i18n";
 import { useLocale } from "../i18n/useLocale";
 import { splitBySize } from "../logic/attachments";
@@ -48,6 +41,8 @@ let counter = 0;
 const nextKey = () => `f${++counter}`;
 
 export function useAttachments(conversationId: string) {
+  const api = useApi();
+  const { fileDownloadUrl, filePreviewUrl, startAttachmentUpload } = api;
   const { t } = useTranslation();
   const { locale } = useLocale();
   const [files, setFiles] = useState<PendingFile[]>([]);
@@ -75,12 +70,12 @@ export function useAttachments(conversationId: string) {
         )
         .finally(() => aborts.current.delete(file.key));
     },
-    [conversationId, update],
+    [conversationId, startAttachmentUpload, update],
   );
 
   const add = useCallback(
     async (picked: LocalFile[]) => {
-      const limit = await uploadLimit();
+      const limit = await uploadLimit(api);
       const { accepted: fitting, refused } = splitBySize(picked, limit);
       if (limit !== undefined && refused.length > 0) {
         Alert.alert(
@@ -105,7 +100,7 @@ export function useAttachments(conversationId: string) {
       setFiles((prev) => [...prev, ...accepted]);
       accepted.forEach(upload);
     },
-    [locale, t, upload],
+    [api, locale, t, upload],
   );
 
   const addSpaceFile = useCallback((file: SpaceFile) => {
@@ -134,7 +129,7 @@ export function useAttachments(conversationId: string) {
             },
           ],
     );
-  }, []);
+  }, [fileDownloadUrl, filePreviewUrl]);
 
   const remove = useCallback((key: string) => {
     aborts.current.get(key)?.();

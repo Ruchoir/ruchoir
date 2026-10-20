@@ -3,13 +3,21 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Bell } from "lucide-react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { useAccounts } from "../../accounts/AccountsProvider";
+import { unreadEverywhere } from "../../accounts/summary";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useTheme } from "../../theme/useTheme";
 import { Badge } from "../../ui/Badge";
 
-/** Today's bell: the notifications screen, with how many are unread. */
-export function InboxBell({ unread }: { unread: number }) {
+/**
+ * Today's bell: the notifications screen, with how many are unread on every instance (ADR 0007):
+ * `here` is the count of the instance on screen, live; the others' come from their summaries.
+ */
+export function InboxBell({ unread: here }: { unread: number }) {
+  const { accounts, active, summaries } = useAccounts();
+  const others = accounts.filter((a) => a.status.kind === "signedIn" && a.id !== active?.id).map((a) => a.id);
+  const unread = here + unreadEverywhere(summaries, others);
   const { t } = useTranslation();
   const { c } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();

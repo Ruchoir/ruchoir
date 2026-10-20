@@ -3,13 +3,14 @@
  * space, the recent files, and the folders to walk through. The file is attached as itself, nothing
  * is uploaded again.
  */
-import { getFilesView, getFolder, searchFiles, type SpaceFile } from "@ruchoir/client";
+import type { SpaceFile } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { ChevronLeft, FolderOpen, SearchX } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { requestAttach } from "../../compose/requests";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
@@ -24,6 +25,7 @@ import { FileRow } from "../files/FileRow";
 const RECENT = 5;
 
 export function SpaceFilePicker() {
+  const { getFilesView, getFolder, searchFiles } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "spaceFilePicker">>();
   const navigation = useNavigation();
   const { t } = useTranslation();

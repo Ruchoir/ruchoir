@@ -1,8 +1,10 @@
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Bookmark, CircleCheck, LifeBuoy, LogOut, Server, Settings, Shield, ShieldCheck, Smile } from "lucide-react-native";
-import { StyleSheet, View } from "react-native";
+import { Bookmark, CircleCheck, LifeBuoy, LogOut, Plus, Server, Settings, Shield, ShieldCheck, Smile } from "lucide-react-native";
+import { Alert, StyleSheet, View } from "react-native";
 
+import { useAccounts, type Account } from "../../accounts/AccountsProvider";
+import { hostOf } from "../../accounts/summary";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
@@ -16,13 +18,16 @@ import { Text } from "../../ui/Text";
 import { STATUS_TEXT } from "./StatusSheet";
 
 /**
- * "My account" (mockup 11): who is signed in, then their status, profile, saved messages,
- * preferences, security and help, the server, and signing out. Each row opens its own screen or sheet in place of this one.
+ * "My account" (mockup 11): who is signed in on the instance on screen, then their status, profile,
+ * saved messages, preferences, security and help; the instances the phone holds (ADR 0007), each to
+ * sign out of, remove or sign in again, and adding one; and signing out. Each row opens its own
+ * screen or sheet in place of this one.
  */
 export function AccountSheet() {
   const { t } = useTranslation();
   const { c } = useTheme();
   const session = useSession();
+  const accounts = useAccounts();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   if (session.state.kind !== "signedIn") return null;
   const { user, server } = session.state;
@@ -70,10 +75,24 @@ export function AccountSheet() {
         <ActionRow icon={ShieldCheck} tint={c.pink} title={t("admin.screenTitle")} subtitle={t("admin.hint")} onPress={() => open("instanceAdmin")} />
       ) : null}
       <ActionRow icon={LifeBuoy} tint={c.sun} title={t("account.help")} onPress={() => open("help")} />
-      <ActionRow icon={Server} title={server.replace(/^https:\/\//, "")} subtitle={t("signIn.server")} />
+      <Text variant="smallStrong" tone="muted" style={styles.section}>
+        {t("account.instances")}
+      </Text>
+      {accounts.accounts.map((account) => (
+        <InstanceRow key={account.id} account={account} shown={account.origin === server} />
+      ))}
+      <ActionRow
+        icon={Plus}
+        title={t("spaces.addInstance")}
+        subtitle={t("spaces.addInstanceHint")}
+        onPress={() => {
+          navigation.goBack();
+          accounts.startAdd();
+        }}
+      />
       <Button
         variant="secondary"
-        label={t("account.signOut")}
+        label={accounts.accounts.length > 1 ? t("account.signOutOf", { host: hostOf(server) }) : t("account.signOut")}
         icon={<LogOut size={18} color={c.ink} />}
         onPress={() => void session.signOut()}
         style={styles.signOut}
@@ -82,7 +101,45 @@ export function AccountSheet() {
   );
 }
 
+/**
+ * An instance the phone holds: its host and how things stand there. A tap offers what can be done
+ * with it: sign out of it or sign in again, or remove it from the phone.
+ */
+function InstanceRow({ account, shown }: { account: Account; shown: boolean }) {
+  const { t } = useTranslation();
+  const accounts = useAccounts();
+  const navigation = useNavigation();
+  const host = hostOf(account.origin);
+  const status = account.status;
+  const subtitle = shown
+    ? t("account.instanceShown")
+    : status.kind === "signedIn"
+      ? t("account.instanceSignedInAs", { name: status.user.name })
+      : t("account.instanceSignedOut");
+  const remove = () =>
+    Alert.alert(t("account.removeTitle", { host }), t("account.removeText"), [
+      { text: t("compose.cancel"), style: "cancel" },
+      { text: t("account.removeInstance"), style: "destructive", onPress: () => void accounts.remove(account.id) },
+    ]);
+  const manage = () =>
+    Alert.alert(host, undefined, [
+      status.kind === "signedIn"
+        ? { text: t("account.signOutOf", { host }), onPress: () => void accounts.signOutOf(account.id) }
+        : {
+            text: t("spaces.signInAgain"),
+            onPress: () => {
+              navigation.goBack();
+              accounts.renew(account.id);
+            },
+          },
+      { text: t("account.removeInstance"), style: "destructive", onPress: remove },
+      { text: t("compose.cancel"), style: "cancel" },
+    ]);
+  return <ActionRow icon={Server} title={host} subtitle={subtitle} onPress={manage} />;
+}
+
 const styles = StyleSheet.create({
+  section: { marginTop: 14, marginBottom: 2 },
   who: { flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 8 },
   flex: { flex: 1, minWidth: 0 },
   signOut: { marginTop: 12 },

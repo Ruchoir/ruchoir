@@ -1,10 +1,11 @@
-import { getFilesView, getFolder, searchFiles, type FilesView, type SpaceFile, type ViewEntry } from "@ruchoir/client";
+import type { FilesView, SpaceFile, ViewEntry } from "@ruchoir/client";
 import { useNavigation, type NavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Clock, Folder, FolderOpen, Inbox, SearchX, Star, Trash2, Upload } from "lucide-react-native";
 import { useEffect, useState, type ReactNode } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
@@ -32,6 +33,7 @@ import { UploadStrip } from "./UploadStrip";
  * in conversations; the trash at the bottom. "Add a file" puts files at the space's root.
  */
 export function FilesScreen() {
+  const { getFilesView, getFolder, searchFiles } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { current } = useSpace();
@@ -230,6 +232,7 @@ function Grid({ children }: { children: ReactNode[] }) {
 }
 
 function FolderTiles({ folders }: { folders: SpaceFile[] }) {
+  const api = useApi();
   const { c } = useTheme();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { current } = useSpace();
@@ -239,7 +242,7 @@ function FolderTiles({ folders }: { folders: SpaceFile[] }) {
         <Pressable
           key={folder.id}
           accessibilityRole="button"
-          onPress={() => openEntry(navigation, folder)}
+          onPress={() => openEntry(api, navigation, folder)}
           onLongPress={
             current
               ? () => {

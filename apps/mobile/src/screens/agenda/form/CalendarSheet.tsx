@@ -1,9 +1,10 @@
-import { listCalendars, type Calendar } from "@ruchoir/client";
+import type { Calendar } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { CalendarDays, Check } from "lucide-react-native";
 import { Fragment } from "react";
 import { StyleSheet } from "react-native";
 
+import { useApi } from "../../../api/useApi";
 import { useLoad } from "../../../data/useLoad";
 import { useReloadOn } from "../../../data/useReloadOn";
 import { useTranslation } from "../../../i18n";
@@ -23,6 +24,7 @@ import { updateDraft, useDraft } from "./draftStore";
  * the current space's, then the other spaces'. Each in its colour, the one chosen ticked.
  */
 export function CalendarSheet() {
+  const { listCalendars } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "eventCalendar">>();
   const navigation = useNavigation();
   const { t } = useTranslation();

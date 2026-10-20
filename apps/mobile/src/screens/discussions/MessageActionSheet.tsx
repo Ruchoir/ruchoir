@@ -6,13 +6,13 @@
  * Only what leads somewhere is offered: no row for something this person cannot do.
  */
 import { QUICK_REACTIONS } from "@ruchoir/client/emoji";
-import { deleteMessage, setMessagePinned, setMessageSaved } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Clipboard from "expo-clipboard";
 import { Bookmark, BookmarkX, Copy, MessageSquareReply, PenLine, Pin, PinOff, SmilePlus, Trash2 } from "lucide-react-native";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { requestEdit } from "../../compose/requests";
 import { useReact } from "../../compose/useReact";
 import { useTranslation } from "../../i18n";
@@ -29,6 +29,7 @@ import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
 
 export function MessageActionSheet() {
+  const { deleteMessage, setMessagePinned, setMessageSaved } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "messageActions">>();
   const { message: m, conversationId, channelId, draftKey, inThread, fromList } = params;
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();

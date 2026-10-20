@@ -1,9 +1,10 @@
-import { getInstanceCapabilities, isApiError, requestPasswordReset, resetPasswordWithRecoveryCode } from "@ruchoir/client";
+import { isApiError } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { passwordLongEnough } from "../../logic/signup";
 import type { AuthParams } from "../../navigation/types";
@@ -23,6 +24,7 @@ type Outcome = "sent" | "recovered" | null;
  * only. Neither answer says whether the address has an account.
  */
 export function ForgotPasswordScreen() {
+  const { getInstanceCapabilities, requestPasswordReset, resetPasswordWithRecoveryCode } = useApi();
   const { t } = useTranslation();
   const { state } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<AuthParams>>();
@@ -46,7 +48,7 @@ export function ForgotPasswordScreen() {
     return () => {
       current = false;
     };
-  }, [server]);
+  }, [getInstanceCapabilities, server]);
   const byCode = recovery || noMail;
 
   const submit = async () => {

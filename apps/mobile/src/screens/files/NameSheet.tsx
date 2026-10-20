@@ -1,10 +1,10 @@
-import { createBlankDocument, createFolder, getFolder, updateFile } from "@ruchoir/client";
 import { isTaken } from "@ruchoir/client/filesLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
@@ -21,6 +21,7 @@ import { useToast } from "../../ui/Toast";
  * made): empty or taken in the folder is said under the field.
  */
 export function NameSheet() {
+  const { createBlankDocument, createFolder, getFolder, updateFile } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "fileName">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();

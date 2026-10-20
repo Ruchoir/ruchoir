@@ -1,9 +1,11 @@
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import { getNotificationPreferences, isApiError, saveNotificationPreferences, sendPhoneTestPush, type NotificationPreferences } from "@ruchoir/client";
+import { isApiError, type NotificationPreferences } from "@ruchoir/client";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import { Alert, Linking, Platform, Pressable, StyleSheet, View } from "react-native";
 
+import { useSignedInClients } from "../../accounts/AccountsProvider";
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
@@ -46,6 +48,9 @@ const asTime = (date: Date) => `${String(date.getHours()).padStart(2, "0")}:${St
  * leads there. Expo Go cannot receive them.
  */
 function PhonePushRow() {
+  // The phone is one, its notifications cover every instance it is signed in to.
+  const clients = useSignedInClients();
+  const { sendPhoneTestPush } = useApi();
   const { t } = useTranslation();
   const toast = useToast();
   const [state, setState] = useState<PhonePush | null>(null);
@@ -63,11 +68,11 @@ function PhonePushRow() {
     setBusy(true);
     try {
       if (!on) {
-        await disablePhonePush();
+        await disablePhonePush(clients);
         setState("off");
         return;
       }
-      const next = await enablePhonePush(true);
+      const next = await enablePhonePush(true, clients);
       setState(next);
       if (next === "denied") {
         Alert.alert(t("push.deniedTitle"), t("push.deniedText"), [
@@ -114,6 +119,7 @@ function PhonePushRow() {
  * saved at once and put back if the server refuses it. First, whether this phone receives them.
  */
 export function NotificationPrefs() {
+  const { getNotificationPreferences, saveNotificationPreferences } = useApi();
   const { t } = useTranslation();
   const { locale } = useLocale();
   const toast = useToast();

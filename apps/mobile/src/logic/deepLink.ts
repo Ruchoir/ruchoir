@@ -59,3 +59,14 @@ export function linkTarget(url: string): LinkTarget | null {
     }
   }
 }
+
+/**
+ * The instance a link is about, when it names one (`server=https://...`): a widget that draws what
+ * comes from every instance says which each row belongs to (ADR 0007). Only an `https://` origin is
+ * taken; anything else leaves the link to the instance on screen.
+ */
+export function linkServer(url: string): string | undefined {
+  const query = /^ruchoir:\/\/\/?[^?#]*\?([^#]*)/.exec(url)?.[1];
+  const server = query ? new URLSearchParams(query).get("server") : null;
+  return server && /^https:\/\/[^/?#]+$/.test(server) ? server : undefined;
+}

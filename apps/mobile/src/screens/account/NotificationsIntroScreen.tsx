@@ -8,6 +8,7 @@ import { Bell } from "lucide-react-native";
 import { useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 
+import { useSignedInClients } from "../../accounts/AccountsProvider";
 import { useTranslation } from "../../i18n";
 import { enablePhonePush } from "../../push/phone";
 import { hairline, radius } from "../../theme/tokens";
@@ -20,6 +21,7 @@ import { useToast } from "../../ui/Toast";
 const mark = require("../../../assets/mark.png");
 
 export function NotificationsIntroScreen() {
+  const clients = useSignedInClients();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const toast = useToast();
@@ -29,7 +31,7 @@ export function NotificationsIntroScreen() {
   const enable = async () => {
     setBusy(true);
     try {
-      const state = await enablePhonePush(true);
+      const state = await enablePhonePush(true, clients);
       if (state === "on") toast(t("push.enabled"), "success");
     } catch {
       toast(t("push.failed"), "failure");

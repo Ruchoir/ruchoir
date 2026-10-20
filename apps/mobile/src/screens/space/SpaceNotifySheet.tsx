@@ -2,11 +2,12 @@
  * How much the current space notifies me, the web's "Space notifications": the four levels of a
  * conversation, saved the moment one is chosen. "Default" follows the account's preferences.
  */
-import { saveSpaceNotify, type NotifyLevel } from "@ruchoir/client";
+import type { NotifyLevel } from "@ruchoir/client";
 import { Check } from "lucide-react-native";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { key, useTranslation } from "../../i18n";
 import { useSpace } from "../../space/SpaceProvider";
 import { hairline } from "../../theme/tokens";
@@ -25,6 +26,7 @@ const LEVELS: { level: NotifyLevel; label: ReturnType<typeof key>; hint: ReturnT
 ];
 
 export function SpaceNotifySheet() {
+  const { saveSpaceNotify } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const toast = useToast();

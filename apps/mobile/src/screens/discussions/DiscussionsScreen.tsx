@@ -1,9 +1,10 @@
-import { getChannels, getDirectMessages, getSpacePresence, type Member } from "@ruchoir/client";
+import type { Member, RuchoirClient } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { Lock, MessageCircle, MessageSquare, SearchX, SquarePen, Star, Users } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
@@ -41,8 +42,8 @@ const FILTERS = [
 ] as const;
 
 /** The space's channels and direct conversations, each with its latest message as the lists carry it. */
-export async function loadConversations(spaceId: string, signal: AbortSignal): Promise<ConversationItem[]> {
-  const [channels, dms] = await Promise.all([getChannels(spaceId, signal), getDirectMessages(spaceId, signal)]);
+export async function loadConversations(api: RuchoirClient, spaceId: string, signal: AbortSignal): Promise<ConversationItem[]> {
+  const [channels, dms] = await Promise.all([api.getChannels(spaceId, signal), api.getDirectMessages(spaceId, signal)]);
   return buildConversations(channels, dms);
 }
 
@@ -51,6 +52,8 @@ export async function loadConversations(spaceId: string, signal: AbortSignal): P
  * (a tablet) the list keeps the left and the conversation tapped opens beside it, rather than over it.
  */
 export function DiscussionsScreen() {
+  const api = useApi();
+  const { getSpacePresence } = api;
   const { t } = useTranslation();
   const { c } = useTheme();
   const navigation = useNavigation();
@@ -75,7 +78,7 @@ export function DiscussionsScreen() {
   const [query, setQuery] = useState("");
   const floating = useFloatingScroll();
   const conversations = useLoad(current ? `conversations:${current.id}` : null, (signal) =>
-    loadConversations(current!.id, signal),
+    loadConversations(api, current!.id, signal),
   );
   const memberOf = useMemberOf(current?.id);
 

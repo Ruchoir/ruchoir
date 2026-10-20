@@ -1,10 +1,10 @@
-import { getInstanceCapabilities } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Check, Mail, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { DEFAULT_SERVER } from "../../config";
 import { useTranslation } from "../../i18n";
 import { passwordLongEnough } from "../../logic/signup";
@@ -28,6 +28,7 @@ import { hostOf, ServerField } from "./ServerField";
  * address. The password rule shown is the server's; it also refuses passwords known from breaches.
  */
 export function SignUpScreen() {
+  const { getInstanceCapabilities } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const session = useSession();
@@ -69,7 +70,7 @@ export function SignUpScreen() {
     return () => {
       current = false;
     };
-  }, [server, editing]);
+  }, [server, editing, getInstanceCapabilities]);
   const noMail = mail?.server === server && mail.delivers === false && !invitation;
 
   const longEnough = passwordLongEnough(password);

@@ -1,9 +1,9 @@
-import { absoluteUrl, type LinkPreview } from "@ruchoir/client";
+import type { LinkPreview } from "@ruchoir/client";
 import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { authHeadersFor } from "../../api/instance";
+import { authHeadersFor, useApi } from "../../api/useApi";
 import { hairline, radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
@@ -14,6 +14,8 @@ import { Text } from "../../ui/Text";
  * one. A tap opens the page.
  */
 export function LinkCard({ link }: { link: LinkPreview }) {
+  const api = useApi();
+  const { absoluteUrl } = api;
   const { c } = useTheme();
   const image = link.imageUrl ? absoluteUrl(link.imageUrl) : undefined;
   return (
@@ -40,7 +42,7 @@ export function LinkCard({ link }: { link: LinkPreview }) {
         ) : null}
         {image ? (
           <Image
-            source={{ uri: image, headers: authHeadersFor(image) }}
+            source={{ uri: image, headers: authHeadersFor(api, image) }}
             style={[
               styles.image,
               { aspectRatio: link.imageWidth && link.imageHeight ? Math.max(link.imageWidth / link.imageHeight, 1) : 1.91 },

@@ -12,8 +12,16 @@ struct AgendaEvent: Decodable, Identifiable {
   let all_day: Bool
   let start: String
   let end: String
+  /// The instance it comes from, set once read (ADR 0007): a tap opens it there.
+  var server: String? = nil
 
   var id: String { event_id + start }
+
+  func from(_ server: String) -> AgendaEvent {
+    var event = self
+    event.server = server
+    return event
+  }
   var startDate: Date? { Instant.parse(start) }
   var endDate: Date? { Instant.parse(end) }
 
@@ -34,7 +42,7 @@ struct AgendaEvent: Decodable, Identifiable {
   /// Its page in the app.
   var link: URL? {
     var parts = URLComponents(string: "ruchoir://event/\(event_id)")
-    parts?.queryItems = [URLQueryItem(name: "start", value: start)]
+    parts?.queryItems = [URLQueryItem(name: "start", value: start)] + (server.map { [URLQueryItem(name: "server", value: $0)] } ?? [])
     return parts?.url
   }
 }
@@ -87,12 +95,14 @@ struct AgendaProvider: TimelineProvider {
     // From the start of today, so the day's count holds what is over too, to a week on.
     let from = Calendar.current.startOfDay(for: now)
     let path = "/calendar/occurrences?from=\(Instant.api(from))&to=\(Instant.api(from.addingTimeInterval(8 * 86_400)))"
-    async let occurrences = Instance.get(path, as: [AgendaEvent].self)
-    async let calendars = Instance.get("/calendars", as: [CalendarInfo].self)
-    guard let all = await occurrences else {
+    // Every instance's events and calendars (ADR 0007), each event marked with its instance.
+    async let occurrences = Instance.everywhere(path, as: [AgendaEvent].self)
+    async let calendars = Instance.everywhere("/calendars", as: [CalendarInfo].self)
+    guard let answered = await occurrences else {
       return AgendaEntry(date: now, events: [], colors: [:], failed: true)
     }
-    let known = await calendars ?? []
+    let all = answered.flatMap { answer in answer.value.map { $0.from(answer.server) } }
+    let known = (await calendars ?? []).flatMap(\.value)
     let hidden = Set(known.filter { $0.hidden == true }.map(\.id))
     var colors: [String: String] = [:]
     for calendar in known { colors[calendar.id] = calendar.color }

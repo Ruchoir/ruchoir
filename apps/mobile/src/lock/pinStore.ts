@@ -1,5 +1,5 @@
 /**
- * What the lock keeps on this phone, per account, in the Keychain (`lock/AppLock.tsx`): whether it is
+ * What the lock keeps on this phone, under one name for the whole app, in the Keychain (`lock/AppLock.tsx`): whether it is
  * on (`logic/pin.ts`), the PIN, and the wrong PINs typed in a row. The PIN itself is never stored: a
  * random salt and the SHA-256 of salt and PIN, never copied into a backup or to another device. The
  * count of wrong PINs is kept there too, so closing the app does not start it over.
@@ -73,4 +73,22 @@ export async function turnOff(userId: string): Promise<void> {
 export async function resetPin(userId: string): Promise<void> {
   await Promise.all([SecureStore.deleteItemAsync(pinKey(userId), OPTIONS), SecureStore.deleteItemAsync(failuresKey(userId), OPTIONS)]);
   await SecureStore.setItemAsync(flagKey(userId), FLAG_RESET);
+}
+
+/**
+ * A lock kept per account before the app held several instances (ADR 0007) becomes the app's: the
+ * first of `candidates` with a lock on this phone gives it its flag, PIN and count, then forgets it.
+ */
+export async function adoptLock(target: string, candidates: string[]): Promise<void> {
+  if (await SecureStore.getItemAsync(flagKey(target))) return;
+  for (const id of candidates) {
+    const flag = await SecureStore.getItemAsync(flagKey(id));
+    if (!flag) continue;
+    const [pin, failures] = await Promise.all([SecureStore.getItemAsync(pinKey(id), OPTIONS), SecureStore.getItemAsync(failuresKey(id), OPTIONS)]);
+    if (pin) await SecureStore.setItemAsync(pinKey(target), pin, OPTIONS);
+    if (failures) await SecureStore.setItemAsync(failuresKey(target), failures, OPTIONS);
+    await SecureStore.setItemAsync(flagKey(target), flag);
+    await turnOff(id);
+    return;
+  }
 }

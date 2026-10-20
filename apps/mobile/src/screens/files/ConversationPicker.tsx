@@ -1,9 +1,9 @@
-import { getChannels, getDirectMessages, sendMessage } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { Hash, Lock, MessageSquareOff } from "lucide-react-native";
 import { Fragment, useState } from "react";
 import { StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { buildConversations, listConversations, type ConversationItem } from "../../logic/conversations";
@@ -27,6 +27,7 @@ import { useToast } from "../../ui/Toast";
  * attachment of a message there.
  */
 export function ConversationPicker() {
+  const { getChannels, getDirectMessages, sendMessage } = useApi();
   const { params } = useRoute<RouteProp<RootParams, "fileSendTo">>();
   const navigation = useNavigation();
   const { t } = useTranslation();

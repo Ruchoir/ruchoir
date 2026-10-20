@@ -25,7 +25,7 @@ import { Button } from "../ui/Button";
 import { feel } from "../ui/haptics";
 import { Text } from "../ui/Text";
 import { PinScreen } from "./PinPad";
-import { checkPin, readLock, resetPin, savePin, setFailures, turnOff, turnOn } from "./pinStore";
+import { adoptLock, checkPin, readLock, resetPin, savePin, setFailures, turnOff, turnOn } from "./pinStore";
 
 type LockApi = {
   /** The phone's biometrics; null when it has none set up, and the lock is the PIN alone. */
@@ -55,8 +55,23 @@ type Ask =
   | { kind: "setup"; reason: "enable" | "change" | "reset" | "missing"; done: (pin: string | null) => void }
   | { kind: "verify"; done: (ok: boolean) => void };
 
-export function AppLock({ userId, onSignOut, children }: { userId: string; onSignOut: (reason?: "locked") => void; children: ReactNode }) {
+/**
+ * `lockId` names the lock in the Keychain: one for the whole app since it holds several instances
+ * (ADR 0007). `legacyIds` are the accounts a lock may have been kept under before, adopted once.
+ */
+export function AppLock({
+  lockId: userId,
+  legacyIds,
+  onSignOut,
+  children,
+}: {
+  lockId: string;
+  legacyIds: string[];
+  onSignOut: (reason?: "locked") => void;
+  children: ReactNode;
+}) {
   const { t } = useTranslation();
+  const legacy = useRef(legacyIds);
   // Null until the Keychain has answered: the app stays covered meanwhile, so nothing shows before
   // a lock that is on.
   const [flag, setFlag] = useState<LockFlag | null>(null);
@@ -84,7 +99,10 @@ export function AppLock({ userId, onSignOut, children }: { userId: string; onSig
 
   useEffect(() => {
     let live = true;
-    void readLock(userId).then(
+    void adoptLock(userId, legacy.current)
+      .catch(() => {})
+      .then(() => readLock(userId))
+      .then(
       (stored) => {
         if (!live) return;
         enabledNow.current = stored.flag === "on";

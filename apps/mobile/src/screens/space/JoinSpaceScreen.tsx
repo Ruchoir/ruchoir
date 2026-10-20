@@ -1,10 +1,11 @@
-import { acceptInvitation, createSpace, type Workspace } from "@ruchoir/client";
+import type { Workspace } from "@ruchoir/client";
 import { NavigationContext } from "@react-navigation/native";
 import { Mail, Plus, type LucideIcon } from "lucide-react-native";
 import { useContext, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import type { InvitationChoice } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
@@ -28,6 +29,7 @@ type Mode = "join" | "create";
  * in that space.
  */
 export function JoinSpaceScreen({ gate = false }: { gate?: boolean }) {
+  const { acceptInvitation, createSpace } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { spaces, select } = useSpace();

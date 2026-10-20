@@ -1,18 +1,18 @@
 /**
  * The space on screen. Every tab reads it; the space sheet changes it.
  *
- * The last one chosen is remembered on the phone (it names nothing sensitive), so the app reopens
- * where it was left; the first space is the default.
+ * One per signed-in instance (its scope, ADR 0007). The last one chosen there is remembered on the
+ * phone with the instance (it names nothing sensitive), so the app reopens where it was left; the
+ * first space is the default.
  */
-import { getWorkspaces, type Workspace } from "@ruchoir/client";
-import * as SecureStore from "expo-secure-store";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { Workspace } from "@ruchoir/client";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 
+import { useApi } from "../api/useApi";
 import { useLoad, type Loaded } from "../data/useLoad";
 import { useReloadOn } from "../data/useReloadOn";
 import { spaceStatus } from "./status";
-
-const LAST_SPACE = "ruchoir.space";
+import { useAccounts } from "../accounts/AccountsProvider";
 
 type SpaceApi = {
   spaces: Loaded<Workspace[]>;
@@ -23,13 +23,13 @@ type SpaceApi = {
 
 const SpaceContext = createContext<SpaceApi | null>(null);
 
-export function SpaceProvider({ children }: { children: ReactNode }) {
+export function SpaceProvider({ instanceId, children }: { instanceId: string; children: ReactNode }) {
+  const { getWorkspaces } = useApi();
+  const { lastSpace, rememberSpace } = useAccounts();
   const spaces = useLoad("spaces", (signal) => getWorkspaces(signal));
-  const [chosen, setChosen] = useState<string | null>(null);
-
-  useEffect(() => {
-    void SecureStore.getItemAsync(LAST_SPACE).then((id) => id && setChosen((now) => now ?? id));
-  }, []);
+  // The registry is the one memory of the space chosen, so one picked from another instance's
+  // sheet (`switchTo`) and one picked here land the same way.
+  const chosen = lastSpace(instanceId) ?? null;
 
   // Unread counts move with every message and notification.
   useReloadOn(
@@ -38,10 +38,7 @@ export function SpaceProvider({ children }: { children: ReactNode }) {
     1200,
   );
 
-  const select = useCallback((id: string) => {
-    setChosen(id);
-    void SecureStore.setItemAsync(LAST_SPACE, id);
-  }, []);
+  const select = useCallback((id: string) => rememberSpace(instanceId, id), [instanceId, rememberSpace]);
 
   const list = spaces.data;
   const current = useMemo(() => list?.find((w) => w.id === chosen) ?? list?.[0] ?? null, [list, chosen]);

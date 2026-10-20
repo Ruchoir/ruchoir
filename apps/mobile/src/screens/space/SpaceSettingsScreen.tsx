@@ -6,7 +6,7 @@
  * - Members: who is in it, a search, an invitation, and each member the caller outranks opened in a
  *   sheet to change their role or remove them.
  */
-import { clearSpaceIcon, getChannels, getSpaceMembers, renameSpace, setSpaceIcon, type Workspace } from "@ruchoir/client";
+import type { Workspace } from "@ruchoir/client";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
@@ -15,6 +15,7 @@ import { useCallback, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
@@ -71,6 +72,7 @@ export function SpaceSettingsScreen() {
 }
 
 function General({ space }: { space: Workspace }) {
+  const { clearSpaceIcon, getChannels, renameSpace, setSpaceIcon } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const toast = useToast();
@@ -192,6 +194,7 @@ function General({ space }: { space: Workspace }) {
 }
 
 function Members({ space }: { space: Workspace }) {
+  const { getSpaceMembers } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
   const session = useSession();

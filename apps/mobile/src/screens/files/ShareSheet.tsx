@@ -1,10 +1,10 @@
-import { fileDownloadUrl, getInstanceCapabilities } from "@ruchoir/client";
 import { canManage } from "@ruchoir/client/filesLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Sharing from "expo-sharing";
 import { Link, MessageSquare, Share as ShareIcon } from "lucide-react-native";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { downloadToCache } from "../../files/download";
 import { useTranslation } from "../../i18n";
@@ -22,6 +22,8 @@ import { useToast } from "../../ui/Toast";
  * Ruchoir; to another app of the phone; and, for who manages it, public links for people outside.
  */
 export function ShareSheet() {
+  const api = useApi();
+  const { fileDownloadUrl, getInstanceCapabilities } = api;
   const { params } = useRoute<RouteProp<RootParams, "fileShare">>();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
@@ -43,7 +45,7 @@ export function ShareSheet() {
         title={t("viewer.share")}
         onPress={() => {
           navigation.goBack();
-          void downloadToCache({ id: file.id!, name: file.name, url: fileDownloadUrl(file.id!), mime: file.mimeType, sizeBytes: file.sizeBytes })
+          void downloadToCache(api, { id: file.id!, name: file.name, url: fileDownloadUrl(file.id!), mime: file.mimeType, sizeBytes: file.sizeBytes })
             .then((uri) => Sharing.shareAsync(uri, { mimeType: file.mimeType, dialogTitle: file.name }))
             .catch(() => toast(t("files.actionFailed"), "failure"));
         }}

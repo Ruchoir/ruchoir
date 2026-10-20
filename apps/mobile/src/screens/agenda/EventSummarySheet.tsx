@@ -1,4 +1,4 @@
-import { deleteEvent, fileDownloadUrl, listCalendars, respondToEvent, type AttendeeStatus, type EditScope } from "@ruchoir/client";
+import type { AttendeeStatus, EditScope } from "@ruchoir/client";
 import { localDay, parseRule, remindersLabel, rulePhrase } from "@ruchoir/client/calendarLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useReloadOn } from "../../data/useReloadOn";
 import { key, useTranslation } from "../../i18n";
@@ -63,6 +64,8 @@ export function EventSummary({
   onClose,
   panel = false,
 }: RootParams["eventSummary"] & { onClose: () => void; panel?: boolean }) {
+  const api = useApi();
+  const { deleteEvent, fileDownloadUrl, listCalendars, respondToEvent } = api;
   const params = { eventId, recurrenceId, start };
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
@@ -79,7 +82,7 @@ export function EventSummary({
   const [onlyThisDate, setOnlyThisDate] = useState(false);
   const insets = useSafeAreaInsets();
   const loaded = useLoad(`event:${params.eventId}:${params.recurrenceId ?? ""}`, (signal) =>
-    loadOccurrence(params.eventId, params.recurrenceId, params.start, signal),
+    loadOccurrence(api, params.eventId, params.recurrenceId, params.start, signal),
   );
   const reloadEvent = loaded.reload;
   useReloadOn((e) => e.type === "calendar", reloadEvent);

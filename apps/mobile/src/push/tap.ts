@@ -32,6 +32,17 @@ export function tapData(item: PendingItem): Record<string, string> {
   return data;
 }
 
+/**
+ * The newest `limit` items of several instances' answers, newest first, each with its instance: a
+ * phone signed in to several shows what is newest wherever it comes from (ADR 0007).
+ */
+export function newestPending(answers: { server: string; items: PendingItem[] }[], limit: number): { server: string; item: PendingItem }[] {
+  return answers
+    .flatMap(({ server, items }) => items.map((item) => ({ server, item })))
+    .sort((a, b) => b.item.created_at.localeCompare(a.item.created_at))
+    .slice(0, limit);
+}
+
 export type TapTarget =
   | {
       spaceId?: string;

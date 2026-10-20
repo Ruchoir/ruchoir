@@ -1,9 +1,10 @@
-import { getPinnedMessages, type ApiMessage } from "@ruchoir/client";
+import type { ApiMessage } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pin } from "lucide-react-native";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
+import { useApi } from "../../api/useApi";
 import { useSpaceMembers } from "../../data/members";
 import { useLoad } from "../../data/useLoad";
 import { useNow } from "../../data/useNow";
@@ -27,6 +28,7 @@ import { Text } from "../../ui/Text";
  * a long press opens its own menu, to unpin it, copy it or answer it in its thread.
  */
 export function ConversationPins({ channelId, title, onOpen }: { channelId: string; title: string; onOpen: (message: ApiMessage) => void }) {
+  const { getPinnedMessages } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
   const { locale, timeZone } = useLocale();
