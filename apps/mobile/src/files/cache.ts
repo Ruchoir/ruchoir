@@ -14,8 +14,15 @@ export function downloadsDirectory(origin: string): Directory {
   return dir;
 }
 
-/** Empty an instance's downloads, or every instance's without one. */
+/**
+ * Empty an instance's downloads, or every instance's without one. Never throws: it runs as a session
+ * ends (a 401, a sign-out), which a file system that refuses must not turn into another failure.
+ */
 export function clearDownloads(origin?: string): void {
-  const dir = origin ? new Directory(Paths.cache, "ruchoir-files", folderOf(origin)) : new Directory(Paths.cache, "ruchoir-files");
-  if (dir.exists) dir.delete();
+  try {
+    const dir = origin ? new Directory(Paths.cache, "ruchoir-files", folderOf(origin)) : new Directory(Paths.cache, "ruchoir-files");
+    if (dir.exists) dir.delete();
+  } catch {
+    // Left for the next sign-out: the cache holds nothing the instance would not hand out again.
+  }
 }

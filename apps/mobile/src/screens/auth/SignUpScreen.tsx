@@ -37,7 +37,9 @@ export function SignUpScreen() {
   const server = "server" in session.state ? session.state.server : null;
 
   const [editing, setEditing] = useState(server === null);
-  const [serverDraft, setServerDraft] = useState(server ? hostOf(server) : DEFAULT_SERVER ? hostOf(DEFAULT_SERVER) : "");
+  // Adding another instance from the app: the default one is most likely there already.
+  const offered = session.cancel ? null : DEFAULT_SERVER;
+  const [serverDraft, setServerDraft] = useState(server ? hostOf(server) : offered ? hostOf(offered) : "");
   const [name, setName] = useState("");
   const [email, setEmail] = useState(invitation?.email ?? "");
   const [password, setPassword] = useState("");

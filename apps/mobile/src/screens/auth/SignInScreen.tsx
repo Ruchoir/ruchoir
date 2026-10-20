@@ -35,7 +35,9 @@ export function SignInScreen() {
   const reason = session.state.kind === "signedOut" ? session.state.reason : undefined;
 
   const [editing, setEditing] = useState(server === null);
-  const [serverDraft, setServerDraft] = useState(server ? hostOf(server) : (DEFAULT_SERVER ? hostOf(DEFAULT_SERVER) : ""));
+  // Adding another instance from the app: the default one is most likely there already.
+  const offered = session.cancel ? null : DEFAULT_SERVER;
+  const [serverDraft, setServerDraft] = useState(server ? hostOf(server) : offered ? hostOf(offered) : "");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
