@@ -9,8 +9,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod protocol;
+mod state;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_deep_link::DeepLinkExt;
 
 /// The scheme of the app's own origin.
 pub const APP_SCHEME: &str = "ruchoir-app";
@@ -49,7 +51,41 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::default().build());
 
     protocol::register(builder)
+        .invoke_handler(tauri::generate_handler![
+            state::instance_state,
+            state::instance_add,
+            state::sign_in_start,
+            state::sign_in_cancel,
+        ])
         .setup(|app| {
+            let list_path = app.path().app_data_dir()?.join("instances.json");
+            app.manage(state::Desktop::new(
+                list_path,
+                ruchoir_desktop_core::vault::open_vault(),
+            ));
+
+            // `ruchoir://auth?code=...`, whether it launched the app or reached it running (the
+            // single-instance plugin hands a second launch's link over to this same handler).
+            #[cfg(any(windows, target_os = "linux"))]
+            app.deep_link().register_all()?;
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    tauri::async_runtime::spawn(state::handle_deep_link(
+                        handle.clone(),
+                        url.to_string(),
+                    ));
+                }
+            });
+            if let Some(urls) = app.deep_link().get_current()? {
+                for url in urls {
+                    tauri::async_runtime::spawn(state::handle_deep_link(
+                        app.handle().clone(),
+                        url.to_string(),
+                    ));
+                }
+            }
+
             let window =
                 WebviewWindowBuilder::new(app, "main", WebviewUrl::CustomProtocol(app_url()))
                     .title("Ruchoir")
