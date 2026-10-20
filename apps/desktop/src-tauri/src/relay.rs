@@ -133,6 +133,20 @@ pub fn set_paused<R: Runtime>(app: &AppHandle<R>, paused: bool) {
     }
 }
 
+/// Whether the interface's socket for `instance` may say it is open: the watcher is connected and
+/// the relay is not paused. Asked when the interface opens a socket, since the watcher's own
+/// `socket:open` may have been sent long before.
+#[tauri::command]
+pub fn socket_is_open(relay: State<'_, Relay>, instance: String) -> bool {
+    !relay.paused.load(Ordering::Relaxed)
+        && relay
+            .watchers
+            .lock()
+            .ok()
+            .and_then(|w| w.get(&instance).map(Watcher::is_open))
+            .unwrap_or(false)
+}
+
 /// A frame from the interface: typing or a ping, for one instance.
 #[tauri::command]
 pub fn socket_send(relay: State<'_, Relay>, instance: String, frame: String) {

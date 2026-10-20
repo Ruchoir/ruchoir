@@ -58,6 +58,7 @@ fn main() {
             state::sign_in_start,
             state::sign_in_cancel,
             relay::socket_send,
+            relay::socket_is_open,
         ])
         .setup(|app| {
             let list_path = app.path().app_data_dir()?.join("instances.json");

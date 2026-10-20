@@ -5,6 +5,8 @@
 //! relayed to the webview, tagged with its instance, so there is never a second socket. The socket
 //! carries the bearer and no `Origin`, which the API accepts from a client that is not a browser.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::{SinkExt, StreamExt};
@@ -49,6 +51,7 @@ pub fn frame_allowed(frame: &str) -> bool {
 pub struct Watcher {
     outgoing: mpsc::UnboundedSender<String>,
     task: JoinHandle<()>,
+    open: Arc<AtomicBool>,
 }
 
 impl Watcher {
@@ -59,6 +62,8 @@ impl Watcher {
         F: Fn(WatcherEvent) + Send + Sync + 'static,
     {
         let (outgoing, mut frames) = mpsc::unbounded_channel::<String>();
+        let open = Arc::new(AtomicBool::new(false));
+        let is_open = open.clone();
         let url = format!(
             "{}/api/v1/realtime/ws",
             origin
@@ -77,6 +82,7 @@ impl Watcher {
                 match tokio_tungstenite::connect_async(request).await {
                     Ok((socket, _)) => {
                         attempt = 0;
+                        is_open.store(true, Ordering::Relaxed);
                         sink(WatcherEvent::Open);
                         let (mut write, mut read) = socket.split();
                         loop {
@@ -97,6 +103,7 @@ impl Watcher {
                                 },
                             }
                         }
+                        is_open.store(false, Ordering::Relaxed);
                         sink(WatcherEvent::Closed);
                     }
                     Err(WsError::Http(response)) if response.status().as_u16() == 401 => {
@@ -111,12 +118,21 @@ impl Watcher {
                 attempt = attempt.saturating_add(1);
             }
         });
-        Watcher { outgoing, task }
+        Watcher {
+            outgoing,
+            task,
+            open,
+        }
     }
 
     /// Send a frame up the socket, if it is open.
     pub fn send(&self, frame: String) {
         let _ = self.outgoing.send(frame);
+    }
+
+    /// Whether the socket is open right now.
+    pub fn is_open(&self) -> bool {
+        self.open.load(Ordering::Relaxed)
     }
 
     /// Close the socket and stop reconnecting.

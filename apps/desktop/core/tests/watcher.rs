@@ -107,3 +107,17 @@ async fn handshake_401_reports_signed_out_and_stops() {
     assert_eq!(events.lock().unwrap().as_slice(), [WatcherEvent::SignedOut]);
     assert_eq!(connections.load(Ordering::SeqCst), 0);
 }
+
+#[tokio::test]
+async fn reports_whether_it_is_open() {
+    let (origin, _, _) = stand_in("t").await;
+    let (_, sink) = collect();
+    let watcher = Watcher::spawn(origin, "t".into(), sink);
+    assert!(!watcher.is_open());
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(watcher.is_open());
+    // The stand-in closes after 300 ms; the watcher is then between two attempts.
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(!watcher.is_open());
+    watcher.stop();
+}
