@@ -22,7 +22,7 @@
     "shortDescription": "Ruchoir",
     "longDescription": "Ruchoir for Windows, macOS and Linux: the spaces of every Ruchoir instance you belong to.",
     "license": "AGPL-3.0-only",
-    "linux": { "deb": { "depends": ["libwebkit2gtk-4.1-0"] } },
+    "linux": { "deb": { "depends": ["libwebkit2gtk-4.1-0", "xdg-utils", "desktop-file-utils"] } },
     "macOS": { "minimumSystemVersion": "12.0" }
   },
   "plugins": {

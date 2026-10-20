@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { configureClient } from "@ruchoir/client/config";
-import { AppRoot } from "@/features/app/AppRoot";
 import { useTranslation } from "@/lib/i18n";
 import { instanceState, onInstanceChanged, tauriInvoke, tauriListen, type InstanceView } from "@/lib/desktop/bridge";
 import { createRelaySocket } from "@/lib/desktop/relaySocket";
@@ -11,6 +11,12 @@ import { AddInstanceScreen } from "./AddInstanceScreen";
 import { SignInWaitScreen } from "./SignInWaitScreen";
 import { TitleBar } from "./TitleBar";
 import "./desktop.css";
+
+/**
+ * The interface itself, loaded once an instance is signed in: the screens before it (add an
+ * instance, sign in) stay light, which is most of the app's memory at its first start.
+ */
+const AppRoot = dynamic(() => import("@/features/app/AppRoot").then((m) => m.AppRoot), { ssr: false });
 
 /** Point the web's default client at an instance, through the app's own protocol. */
 function pointClientAt(view: InstanceView) {

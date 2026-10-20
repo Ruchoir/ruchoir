@@ -71,8 +71,12 @@ fn main() {
 
             // `ruchoir://auth?code=...`, whether it launched the app or reached it running (the
             // single-instance plugin hands a second launch's link over to this same handler).
+            // Registration needs `xdg-mime` and `update-desktop-database` on Linux, which a minimal
+            // system may lack: the app still works without it (links then do not reach it).
             #[cfg(any(windows, target_os = "linux"))]
-            app.deep_link().register_all()?;
+            if let Err(error) = app.deep_link().register_all() {
+                eprintln!("ruchoir: the ruchoir:// links could not be registered: {error}");
+            }
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {
                 for url in event.urls() {
