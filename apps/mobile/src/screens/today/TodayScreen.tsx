@@ -38,6 +38,7 @@ import { TabHeader } from "../../ui/TabHeader";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
 import { ConversationRow, loadConversations, useMemberOf } from "../discussions/DiscussionsScreen";
+import { InboxBell } from "./InboxBell";
 import { TodayWide } from "./TodayWide";
 
 const SPOKEN_TITLE = {
@@ -155,6 +156,7 @@ export function TodayScreen() {
         memberOf={memberOf}
         myUserId={state.kind === "signedIn" ? state.user.id : undefined}
         onRefresh={pulled}
+        unread={notifications.data?.unreadCount ?? 0}
         openConversation={openConversation}
         openNotification={(n) =>
           navigation.navigate("conversation", { conversationId: n.conversationId, title: n.channelName ?? n.actor, channelId: n.channelName ? n.conversationId : undefined })
@@ -166,7 +168,11 @@ export function TodayScreen() {
 
   return (
     <TabScreen>
-      <TabHeader overline={date.charAt(0).toLocaleUpperCase(locale) + date.slice(1)} title={t("today.hello", { name: firstName })} />
+      <TabHeader
+        overline={date.charAt(0).toLocaleUpperCase(locale) + date.slice(1)}
+        title={t("today.hello", { name: firstName })}
+        action={<InboxBell unread={notifications.data?.unreadCount ?? 0} />}
+      />
       <ScrollView contentContainerStyle={styles.page} refreshControl={<RefreshControl refreshing={false} onRefresh={pulled} />}>
         <View style={styles.section}>
           <Text variant="heading" style={styles.sectionTitle}>

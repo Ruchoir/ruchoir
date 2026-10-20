@@ -91,3 +91,9 @@ test("a_month_grid_follows_the_first_day_of_the_week", () => {
   assert.deepEqual(weekdayOrder(1), [0, 1, 2, 3, 4, 5, 6]);
   assert.deepEqual(weekdayOrder(6), [5, 6, 0, 1, 2, 3, 4]);
 });
+
+test("a_year_asks_for_its_twelve_months_and_moves_by_years", () => {
+  assert.deepEqual(rangeForView("year", "2026-06-16"), { from: "2025-12-31T00:00:00Z", to: "2027-01-02T00:00:00Z" });
+  assert.equal(shiftAnchor("year", "2026-06-16", 1), "2027-01-01");
+  assert.equal(shiftAnchor("year", "2026-06-16", -1), "2025-01-01");
+});

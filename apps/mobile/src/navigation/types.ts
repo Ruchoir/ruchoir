@@ -24,6 +24,8 @@ export type RootParams = {
   profile: undefined;
   /** Every message I bookmarked, in every space. */
   saved: undefined;
+  /** The account's notifications, from Today's bell. */
+  notifications: undefined;
   preferences: undefined;
   languageSheet: undefined;
   security: undefined;

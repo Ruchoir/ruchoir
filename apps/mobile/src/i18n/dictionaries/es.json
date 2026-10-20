@@ -170,7 +170,8 @@
     "next": "Período siguiente",
     "nothingSoon": "Nada previsto",
     "nothingThatDay": "Nada previsto ese día",
-    "nothingSoonHint": "Ningún evento en los próximos 30 días."
+    "nothingSoonHint": "Ningún evento en los próximos 30 días.",
+    "year": "Año"
   },
   "calendar": {
     "personal": "Personal",
@@ -1180,7 +1181,10 @@
     "introBody": "Ruchoir le avisa cuando le escriben, le mencionan o le invitan a una cita. El resto lo ajusta en las preferencias.",
     "introSampleFrom": "Léa Martin · Equipo",
     "introSample": "@Camille, ¿puedes confirmar que vienes el jueves?",
-    "later": "Más tarde"
+    "later": "Más tarde",
+    "test": "Enviar una notificación de prueba",
+    "testSent": "Notificación de prueba enviada",
+    "testRefused": "No se puede probar ahora (notificaciones desactivadas en la instancia, o se acaba de enviar una prueba)."
   },
   "widgets": {
     "search": "Buscar",
@@ -1220,5 +1224,28 @@
   },
   "code": {
     "text": "texto"
+  },
+  "inbox": {
+    "markAllRead": "Marcar todo como leído",
+    "allReadText": "Estás al día, no hay notificaciones sin leer.",
+    "nothingNew": "Nada nuevo",
+    "nothingNewText": "Tus menciones, respuestas y mensajes directos aparecerán aquí.",
+    "mentioned": "te ha mencionado",
+    "broadcast": "ha mencionado a todo el canal",
+    "replied": "ha respondido en un hilo",
+    "dm": "te ha enviado un mensaje",
+    "wrote": "ha escrito",
+    "reacted": "ha reaccionado a tu mensaje",
+    "edited": "ha editado un mensaje",
+    "reminder": "Recordatorio: {{title}}",
+    "invitation": "{{actor}} te invita a «{{title}}»",
+    "invitationUpdate": "{{actor}} ha modificado «{{title}}»",
+    "invitationCancel": "{{actor}} ha cancelado «{{title}}»",
+    "invitationDeclined": "{{actor}} ha rechazado «{{title}}»",
+    "calendarShared": "ha compartido un calendario contigo",
+    "allMarked": "Todo marcado como leído",
+    "openUnread_one": "Notificaciones, {{count}} sin leer",
+    "openUnread_many": "Notificaciones, {{count}} sin leer",
+    "openUnread_other": "Notificaciones, {{count}} sin leer"
   }
 }

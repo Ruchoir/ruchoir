@@ -173,7 +173,8 @@
     "next": "Następny okres",
     "nothingSoon": "Nic nie zaplanowano",
     "nothingThatDay": "Tego dnia nic nie zaplanowano",
-    "nothingSoonHint": "Brak wydarzeń w ciągu najbliższych 30 dni."
+    "nothingSoonHint": "Brak wydarzeń w ciągu najbliższych 30 dni.",
+    "year": "Rok"
   },
   "calendar": {
     "personal": "Osobisty",
@@ -1234,7 +1235,10 @@
     "introBody": "Ruchoir da ci znać, gdy ktoś do ciebie napisze, wspomni o tobie lub zaprosi cię na spotkanie. Resztę ustawisz w preferencjach.",
     "introSampleFrom": "Léa Martin · Zespół",
     "introSample": "@Camille, możesz potwierdzić, że będziesz w czwartek?",
-    "later": "Później"
+    "later": "Później",
+    "test": "Wyślij powiadomienie testowe",
+    "testSent": "Wysłano powiadomienie testowe",
+    "testRefused": "Test nie jest teraz możliwy (powiadomienia wyłączone na instancji lub test właśnie wysłano)."
   },
   "widgets": {
     "search": "Szukaj",
@@ -1275,5 +1279,29 @@
   },
   "code": {
     "text": "tekst"
+  },
+  "inbox": {
+    "markAllRead": "Oznacz wszystko jako przeczytane",
+    "allReadText": "Jesteś na bieżąco, brak nieprzeczytanych.",
+    "nothingNew": "Nic nowego",
+    "nothingNewText": "Twoje wzmianki, odpowiedzi i wiadomości bezpośrednie pojawią się tutaj.",
+    "mentioned": "wspomniał o Tobie",
+    "broadcast": "wspomniał o całym kanale",
+    "replied": "odpowiedział w wątku",
+    "dm": "wysłał Ci wiadomość",
+    "wrote": "napisał",
+    "reacted": "zareagował na Twoją wiadomość",
+    "edited": "edytował wiadomość",
+    "reminder": "Przypomnienie: {{title}}",
+    "invitation": "{{actor}} zaprasza Cię na „{{title}}”",
+    "invitationUpdate": "{{actor}} zmienia „{{title}}”",
+    "invitationCancel": "{{actor}} odwołuje „{{title}}”",
+    "invitationDeclined": "{{actor}} odrzuca „{{title}}”",
+    "calendarShared": "udostępnia Ci kalendarz",
+    "allMarked": "Wszystko oznaczono jako przeczytane",
+    "openUnread_one": "Powiadomienia, {{count}} nieprzeczytane",
+    "openUnread_few": "Powiadomienia, {{count}} nieprzeczytane",
+    "openUnread_many": "Powiadomienia, {{count}} nieprzeczytanych",
+    "openUnread_other": "Powiadomienia, {{count}} nieprzeczytanego"
   }
 }

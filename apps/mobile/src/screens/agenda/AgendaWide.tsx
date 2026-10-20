@@ -22,6 +22,7 @@ import { Text } from "../../ui/Text";
 import type { AgendaData } from "./AgendaScreen";
 import { calendarColor } from "./calendarColor";
 import { EventSummary } from "./EventSummarySheet";
+import { YearView } from "./YearView";
 
 type Props = {
   view: AgendaView;
@@ -63,6 +64,7 @@ export function AgendaWide({ view, onView, anchor, onAnchor, today, data, error,
     { key: "list", label: t("agenda.list") },
     { key: "week", label: t("agenda.week") },
     { key: "month", label: t("agenda.month") },
+    { key: "year", label: t("agenda.year") },
   ];
   const side = layout === "portrait" ? 280 : 340;
 
@@ -113,6 +115,19 @@ export function AgendaWide({ view, onView, anchor, onAnchor, today, data, error,
         <ScrollView style={styles.main} contentContainerStyle={styles.mainContent}>
           {!data ? (
             <LoadState error={error} onRetry={reload} />
+          ) : view === "year" ? (
+            <YearView
+              anchor={anchor}
+              today={today}
+              data={data}
+              columns={layout === "portrait" ? 3 : 4}
+              onAnchor={onAnchor}
+              onPick={(day) => {
+                onView("month");
+                onAnchor(day);
+                pick(day);
+              }}
+            />
           ) : view === "month" ? (
             <Month anchor={anchor} today={today} chosen={chosen} byDay={byDay} colorOf={colorOf} onAnchor={onAnchor} onPick={pick} tall={layout === "portrait"} />
           ) : view === "week" ? (

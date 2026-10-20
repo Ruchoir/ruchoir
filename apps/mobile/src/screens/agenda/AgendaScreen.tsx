@@ -23,12 +23,14 @@ import { ListView } from "./ListView";
 import { MonthView } from "./MonthView";
 import { AgendaWide } from "./AgendaWide";
 import { WeekView } from "./WeekView";
+import { YearView } from "./YearView";
 import { usePrefs } from "../../prefs/store";
 
 const VIEWS = [
   { key: "list", label: key("agenda.list") },
   { key: "week", label: key("agenda.week") },
   { key: "month", label: key("agenda.month") },
+  { key: "year", label: key("agenda.year") },
 ] as const;
 
 export type AgendaData = {
@@ -40,7 +42,7 @@ export type AgendaData = {
 
 /**
  * The agenda (mockups 15 to 17): the person's own calendars and the space's, in a list of what is
- * coming, a week or a month. "New event" starts on the day looked at: today in the list, the day
+ * coming, a week, a month or a year (as the web's; a day there opens its month). "New event" starts on the day looked at: today in the list, the day
  * chosen in a week or a month.
  */
 export function AgendaScreen() {
@@ -106,6 +108,19 @@ export function AgendaScreen() {
             <WeekView anchor={anchor} today={today} data={data.data} onAnchor={setAnchor} onChosen={setChosen} />
           ) : view === "month" ? (
             <MonthView anchor={anchor} today={today} data={data.data} onAnchor={setAnchor} onChosen={setChosen} />
+          ) : view === "year" ? (
+            <YearView
+              anchor={anchor}
+              today={today}
+              data={data.data}
+              columns={2}
+              onAnchor={setAnchor}
+              onPick={(day) => {
+                setView("month");
+                setAnchor(day);
+                setChosen(day);
+              }}
+            />
           ) : data.data ? (
             <ListView data={data.data} today={today} />
           ) : null}
@@ -117,7 +132,7 @@ export function AgendaScreen() {
           compact={floating.compact}
           icon={CalendarPlus}
           label={t("calendar.newEvent")}
-          onPress={() => navigation.navigate("eventForm", { day: view === "list" ? today : chosen })}
+          onPress={() => navigation.navigate("eventForm", { day: view === "list" || view === "year" ? today : chosen })}
         />
       ) : null}
     </TabScreen>

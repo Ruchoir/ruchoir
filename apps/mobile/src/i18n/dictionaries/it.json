@@ -170,7 +170,8 @@
     "next": "Periodo successivo",
     "nothingSoon": "Niente in programma",
     "nothingThatDay": "Niente in programma quel giorno",
-    "nothingSoonHint": "Nessun evento nei prossimi 30 giorni."
+    "nothingSoonHint": "Nessun evento nei prossimi 30 giorni.",
+    "year": "Anno"
   },
   "calendar": {
     "personal": "Personale",
@@ -1180,7 +1181,10 @@
     "introBody": "Ruchoir vi avvisa quando qualcuno vi scrive, vi menziona o vi invita a un appuntamento. Il resto lo regolate nelle preferenze.",
     "introSampleFrom": "Léa Martin · Squadra",
     "introSample": "@Camille, puoi confermare che ci sei giovedì?",
-    "later": "Più tardi"
+    "later": "Più tardi",
+    "test": "Invia una notifica di prova",
+    "testSent": "Notifica di prova inviata",
+    "testRefused": "Nessuna prova possibile ora (notifiche disattivate sull’istanza, o una prova è appena partita)."
   },
   "widgets": {
     "search": "Cerca",
@@ -1220,5 +1224,28 @@
   },
   "code": {
     "text": "testo"
+  },
+  "inbox": {
+    "markAllRead": "Segna tutto come letto",
+    "allReadText": "Sei aggiornato, nessuna notifica da leggere.",
+    "nothingNew": "Niente di nuovo",
+    "nothingNewText": "Le tue menzioni, risposte e messaggi diretti appariranno qui.",
+    "mentioned": "ti ha menzionato",
+    "broadcast": "ha menzionato tutto il canale",
+    "replied": "ha risposto in una discussione",
+    "dm": "ti ha inviato un messaggio",
+    "wrote": "ha scritto",
+    "reacted": "ha reagito al tuo messaggio",
+    "edited": "ha modificato un messaggio",
+    "reminder": "Promemoria: {{title}}",
+    "invitation": "{{actor}} ti invita a «{{title}}»",
+    "invitationUpdate": "{{actor}} ha modificato «{{title}}»",
+    "invitationCancel": "{{actor}} ha annullato «{{title}}»",
+    "invitationDeclined": "{{actor}} ha rifiutato «{{title}}»",
+    "calendarShared": "ha condiviso un calendario con te",
+    "allMarked": "Tutto segnato come letto",
+    "openUnread_one": "Notifiche, {{count}} non letta",
+    "openUnread_many": "Notifiche, {{count}} non lette",
+    "openUnread_other": "Notifiche, {{count}} non lette"
   }
 }

@@ -188,3 +188,52 @@ async fn a_mention_wakes_the_phone_through_the_relay_and_a_dead_one_is_forgotten
     assert_eq!(left.len(), 1);
     assert_eq!(left[0].token, live);
 }
+
+#[tokio::test]
+async fn a_test_wakes_each_phone_and_is_handed_out_once() {
+    let Some((app, seen)) = boot_with_relay().await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let test = |cookie: String| {
+        let app = &app;
+        async move {
+            app.req(reqwest::Method::POST, "/api/v1/push/devices/test", &cookie)
+                .send()
+                .await
+                .expect("test")
+        }
+    };
+
+    // No phone yet: nothing to wake.
+    assert_eq!(test(alice.clone()).await.status(), 409);
+
+    assert_eq!(register(&app, &alice, "ios", &ios_token()).await, 204);
+    let sent = test(alice.clone()).await;
+    assert_eq!(sent.status(), 200);
+    assert_eq!(sent.json::<Value>().await.expect("json")["devices"], 1);
+    assert_eq!(seen.lock().unwrap().len(), 1, "the relay was asked once");
+    // Right after, the shared throttle holds a second one back.
+    assert_eq!(test(alice.clone()).await.status(), 409);
+
+    // The phone, woken, asks what to show: the test, once.
+    let pending = |cookie: String| {
+        let app = &app;
+        async move {
+            app.req(reqwest::Method::GET, "/api/v1/push/pending", &cookie)
+                .send()
+                .await
+                .expect("pending")
+                .json::<Value>()
+                .await
+                .expect("json")
+        }
+    };
+    let first = pending(alice.clone()).await;
+    let second = pending(alice.clone()).await;
+    assert_ne!(
+        first, second,
+        "the test is collected once: {first} / {second}"
+    );
+}

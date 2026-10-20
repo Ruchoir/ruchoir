@@ -43,7 +43,9 @@ Two things differ from the web:
    preferences; it registers its device token with its instance (`PUT /api/v1/push/devices`) at every
    start while allowed, and removes it at sign-out. The instance forgets a device unseen for sixty
    days, and every device of an account when all its sessions end (sign out everywhere, a password
-   change or reset).
+   change or reset). A test from the preferences (`POST /api/v1/push/devices/test`) takes the same
+   way as a real notification: the relay wakes each phone, which collects the test once from
+   `GET /api/v1/push/pending`, as the browsers' test does.
 5. **The instance decides when**, with the rules of ADR 0001 unchanged (`prefs::allows`, quiet hours,
    "do not disturb"): a phone is reached exactly when a browser would be. The administrator's switch
    (`web_push_enabled`) covers phones too. `RUCHOIR_PUSH_RELAY_URL` names the relay; empty turns

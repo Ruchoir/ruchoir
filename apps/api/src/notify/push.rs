@@ -55,10 +55,10 @@ const PENDING_WINDOW_SECS: i64 = 24 * 60 * 60;
 const PENDING_LIMIT: usize = 5;
 
 /// How long a requested test waits for the worker to collect it.
-const TEST_TTL_SECS: i64 = 5 * 60;
+pub(super) const TEST_TTL_SECS: i64 = 5 * 60;
 
 /// The Valkey key marking that the next wake-up of `user`'s worker should draw the test notification.
-fn test_key(user_id: Uuid) -> String {
+pub(super) fn test_key(user_id: Uuid) -> String {
     format!("push:test:{user_id}")
 }
 

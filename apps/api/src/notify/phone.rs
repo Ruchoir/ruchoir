@@ -13,10 +13,12 @@ use std::time::Duration;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
+use fred::interfaces::KeysInterface;
+use fred::types::{Expiration, SetOptions};
 use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -161,6 +163,82 @@ pub async fn devices(
         .filter(push_devices::Column::UserId.eq(user_id))
         .all(db)
         .await?)
+}
+
+/// What a phone test reached.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PhoneTestDto {
+    /// How many of the caller's phones were woken.
+    pub devices: usize,
+}
+
+/// `POST /api/v1/push/devices/test`: wake each of the caller's phones with the test notification.
+///
+/// The phones' counterpart of [`super::push::test`], through the same chain as a real notification:
+/// the relay, the phone waking up, and the phone asking `GET /api/v1/push/pending`, which hands it
+/// the test once. Quiet hours and preferences do not apply: it was asked for.
+#[utoipa::path(
+    post,
+    path = "/api/v1/push/devices/test",
+    tag = "notifications",
+    responses(
+        (status = 200, description = "Woken", body = PhoneTestDto),
+        (status = 409, description = "Notifications are off, no relay, no phone registered, or a test was just sent")
+    )
+)]
+pub async fn test(
+    State(state): State<AppState>,
+    session: AuthSession,
+) -> Result<Json<PhoneTestDto>, ApiError> {
+    let settings = crate::admin::instance_settings(&state.db).await?;
+    if !settings.web_push_enabled {
+        return Err(ApiError::Conflict(
+            "notifications past the open app are turned off on this instance",
+        ));
+    }
+    if state.config.push_relay_url.is_none() {
+        return Err(ApiError::Conflict("this instance has no push relay"));
+    }
+    let now = OffsetDateTime::now_utc();
+    let phones = devices(&state.db, session.user_id, now).await?;
+    if phones.is_empty() {
+        return Err(ApiError::Conflict(
+            "no phone is registered for this account",
+        ));
+    }
+    // The browsers' throttle, shared: one test every few seconds, whichever way it was asked.
+    let throttle: Option<String> = state
+        .hub
+        .valkey()
+        .set(
+            format!("push:test-throttle:{}", session.user_id),
+            "1",
+            Some(Expiration::EX(5)),
+            Some(SetOptions::NX),
+            false,
+        )
+        .await
+        .map_err(|_| ApiError::Internal)?;
+    if throttle.is_none() {
+        return Err(ApiError::Conflict("a test was just sent"));
+    }
+    let _: () = state
+        .hub
+        .valkey()
+        .set(
+            super::push::test_key(session.user_id),
+            "1",
+            Some(Expiration::EX(super::push::TEST_TTL_SECS)),
+            None,
+            false,
+        )
+        .await
+        .map_err(|_| ApiError::Internal)?;
+    let count = phones.len();
+    for phone in phones {
+        wake(&state, phone).await;
+    }
+    Ok(Json(PhoneTestDto { devices: count }))
 }
 
 /// The shared HTTP client for the relay: rustls with `ring`, a short timeout, every status handed

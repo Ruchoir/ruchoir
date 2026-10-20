@@ -51,4 +51,5 @@ pub fn router() -> Router<AppState> {
         )
         .route("/api/v1/push/pending", get(push::pending))
         .route("/api/v1/push/test", post(push::test))
+        .route("/api/v1/push/devices/test", post(phone::test))
 }
