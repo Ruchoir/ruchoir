@@ -97,6 +97,7 @@ impl Desktop {
 
 /// Tell the interface the instance changed.
 pub fn changed<R: Runtime>(app: &AppHandle<R>) {
+    crate::relay::reconcile(app);
     let view = app.state::<Desktop>().view();
     let _ = app.emit("instance:changed", view);
 }

@@ -9,6 +9,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod protocol;
+mod relay;
 mod state;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
@@ -56,6 +57,7 @@ fn main() {
             state::instance_add,
             state::sign_in_start,
             state::sign_in_cancel,
+            relay::socket_send,
         ])
         .setup(|app| {
             let list_path = app.path().app_data_dir()?.join("instances.json");
@@ -63,6 +65,8 @@ fn main() {
                 list_path,
                 ruchoir_desktop_core::vault::open_vault(),
             ));
+            app.manage(relay::Relay::default());
+            relay::reconcile(app.handle());
 
             // `ruchoir://auth?code=...`, whether it launched the app or reached it running (the
             // single-instance plugin hands a second launch's link over to this same handler).
@@ -99,7 +103,15 @@ fn main() {
                 .hidden_title(true);
             #[cfg(not(target_os = "macos"))]
             let window = window.decorations(false);
-            window.build()?;
+            let window = window.build()?;
+            // A minimised window needs no live interface: pause the relay (spec, "Lightness").
+            let handle = app.handle().clone();
+            let watched = window.clone();
+            window.on_window_event(move |event| {
+                if let tauri::WindowEvent::Resized(_) = event {
+                    relay::set_paused(&handle, watched.is_minimized().unwrap_or(false));
+                }
+            });
             Ok(())
         })
         .run(tauri::generate_context!())
