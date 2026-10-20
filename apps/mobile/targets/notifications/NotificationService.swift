@@ -6,10 +6,15 @@
 // item instead: its title and text, its conversation as the thread, and what the app needs to open
 // it on a tap (under `body`, where expo-notifications reads a remote notification's data). When the
 // instance cannot be reached, or nothing is waiting any more, it says only "New activity".
+//
+// Whatever it shows, it then tells WidgetKit to read again: something new is waiting, and the home
+// screen's widgets would otherwise keep the old count until their own quarter hour (which iOS
+// stretches to an hour or more).
 
 import Foundation
 import Security
 import UserNotifications
+import WidgetKit
 
 final class NotificationService: UNNotificationServiceExtension {
   private var contentHandler: ((UNNotificationContent) -> Void)?
@@ -73,6 +78,7 @@ final class NotificationService: UNNotificationServiceExtension {
     guard let handler = contentHandler, let content else { return }
     contentHandler = nil
     handler(content)
+    WidgetCenter.shared.reloadAllTimelines()
   }
 }
 

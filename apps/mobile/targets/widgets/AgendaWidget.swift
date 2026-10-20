@@ -69,7 +69,15 @@ struct AgendaProvider: TimelineProvider {
       // Read again in a quarter of an hour, or when the next event ends if sooner.
       var next = Date.now.addingTimeInterval(15 * 60)
       if let end = entry.events?.first(where: { ($0.endDate ?? .now) > .now })?.endDate, end < next { next = end }
-      completion(Timeline(entries: [entry], policy: .after(next)))
+      // One entry a minute until then, the same answer drawn at a later instant: "In 39 min" counts
+      // down instead of standing still until the next read, and none of them costs a reload.
+      var entries = [entry]
+      var at = entry.date.addingTimeInterval(60)
+      while at < next {
+        entries.append(AgendaEntry(date: at, events: entry.events, colors: entry.colors, failed: entry.failed))
+        at = at.addingTimeInterval(60)
+      }
+      completion(Timeline(entries: entries, policy: .after(next)))
     }
   }
 
@@ -243,8 +251,9 @@ struct AgendaView: View {
       }
       .frame(width: 96, alignment: .leading)
       .frame(maxHeight: .infinity, alignment: .topLeading)
+      let shown = Array(today.filter { ($0.endDate ?? entry.date) > entry.date }.prefix(2))
       VStack(spacing: 7) {
-        ForEach(Array(today.filter { ($0.endDate ?? entry.date) > entry.date }.prefix(2))) { event in
+        ForEach(shown) { event in
           Link(destination: event.link ?? Self.agenda) {
             HStack(spacing: 9) {
               RoundedRectangle(cornerRadius: 2).fill(color(event)).frame(width: 4)
@@ -261,6 +270,8 @@ struct AgendaView: View {
             .background(look.tint(color(event), 0.26), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
           }
         }
+        // The mockup's two rows share the height: a lone event keeps its half rather than the whole.
+        if shown.count == 1 { Color.clear.frame(maxHeight: .infinity) }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }

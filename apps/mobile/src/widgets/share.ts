@@ -6,6 +6,7 @@
  */
 import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef } from "react";
+import { AppState } from "react-native";
 
 import { usePrefs } from "../prefs/store";
 import { SHARED } from "../push/phone";
@@ -35,4 +36,18 @@ export function useWidgetLook(): void {
         written.current = "";
       });
   }, [space, theme]);
+}
+
+/**
+ * Draw the widgets again when the app goes to the background and when it comes back: what was read,
+ * sent or planned in between is then on the home screen the moment the person returns to it. Mounted
+ * once, signed in.
+ */
+export function useWidgetRefresh(): void {
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "background" || state === "active") void refreshWidgets();
+    });
+    return () => subscription.remove();
+  }, []);
 }

@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AttachSheet } from "../compose/AttachSheet";
 import { SearchScreen } from "../screens/search/SearchScreen";
 import { useDuplicateQuestions } from "../uploads/useDuplicateQuestions";
-import { useWidgetLook } from "../widgets/share";
+import { useWidgetLook, useWidgetRefresh } from "../widgets/share";
 import { AccountSheet } from "../screens/account/AccountSheet";
 import { ChangePasswordScreen } from "../screens/account/ChangePasswordScreen";
 import { HelpSheet } from "../screens/account/HelpSheet";
@@ -83,6 +83,7 @@ export function RootNavigator() {
   const links = useAppLinks(rootNavigation);
   useDuplicateQuestions(rootNavigation);
   useWidgetLook();
+  useWidgetRefresh();
   const wide = useWide();
   const onReady = () => {
     push.onReady();
