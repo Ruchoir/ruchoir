@@ -177,6 +177,9 @@ src/i18n/              i18next and the six dictionaries
 - **A scanned document is photos made into a PDF on the phone** (`ScanScreen`: `expo-image-manipulator`
   shrinks each page, `expo-print` lays them on A4 sheets through `logic/scan.ts`'s HTML). Expo Go has
   no document scanner (edges, perspective); the real one waits for the native app.
+- **The office editor is a web view posting the session's form** (`OfficeEditorScreen`, see
+  `docs/office-editing.md`, "Phone client"): the page's `parent` is replaced on the main frame only,
+  never in its inner frames, which still need theirs.
 - **A file's menu is the web's** (`EntryMenu`, the shared `actionsFor` and `canManage`): its sheets
   are routes given the `SpaceFile` itself (`fileMenu`, `fileName`, `fileMove`, `fileVersions`,
   `fileShare`, `fileSendTo`, `fileLinks`, `fileDetails`). A favourite is not broadcast: the menu emits

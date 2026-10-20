@@ -3,12 +3,13 @@ import { useNavigation, useRoute, type RouteProp } from "@react-navigation/nativ
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Sharing from "expo-sharing";
 import { Image } from "expo-image";
-import { Ellipsis, Share, X } from "lucide-react-native";
+import { Ellipsis, PencilRuler, Share, X } from "lucide-react-native";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { WebView } from "react-native-webview";
 
 import { useLoad } from "../../data/useLoad";
 import { downloadToCache } from "../../files/download";
+import { editAction, useOffice } from "../../files/office";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
@@ -23,7 +24,7 @@ import { Text } from "../../ui/Text";
 /**
  * A file, opened in the app: an image as itself, a PDF or an office document through the system's
  * own renderer (iOS draws them in a web view), and "Share / Open in" for everything, including what
- * the phone cannot show here.
+ * the phone cannot show here; and the office editor, for a document of a space it can edit.
  */
 export function FileViewerScreen() {
   const { params } = useRoute<RouteProp<RootParams, "fileViewer">>();
@@ -36,6 +37,10 @@ export function FileViewerScreen() {
   const local = useLoad(`download:${file.id}:${file.url}`, (signal) => downloadToCache(file, signal));
   const family = fileFamily(file.name, file.mime);
   const inline = family === "image" || (Platform.OS === "ios" && ["pdf", "document", "spreadsheet", "presentation", "text"].includes(family));
+
+  // The editor one button away, as on the web's preview, for a file of a space.
+  const office = useOffice();
+  const editing = entry ? editAction(file.name, office) : null;
 
   const share = () => {
     if (local.data) void Sharing.shareAsync(local.data, { mimeType: file.mime, dialogTitle: file.name });
@@ -53,6 +58,16 @@ export function FileViewerScreen() {
         <Pressable accessibilityRole="button" accessibilityLabel={t("viewer.share")} disabled={!local.data} onPress={share} style={styles.icon}>
           <Share size={22} color={local.data ? c.ink : c.muted} />
         </Pressable>
+        {editing && entry ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={editing === "convert" ? t("office.convert") : t("office.openInEditor")}
+            onPress={() => navigation.replace("officeEditor", { fileId: file.id, name: file.name, convert: editing === "convert" })}
+            style={styles.icon}
+          >
+            <PencilRuler size={22} color={c.ink} />
+          </Pressable>
+        ) : null}
         {entry && current ? (
           <Pressable
             accessibilityRole="button"

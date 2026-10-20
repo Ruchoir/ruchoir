@@ -593,7 +593,12 @@
     "nothingSharedText": "Los archivos que te envían en tus canales y mensajes directos aparecen aquí.",
     "sentBy": "enviado por {{name}}",
     "noRootFiles": "Ningún archivo en la raíz",
-    "noRootFilesText": "Los archivos guardados en carpetas están en sus carpetas, arriba."
+    "noRootFilesText": "Los archivos guardados en carpetas están en sus carpetas, arriba.",
+    "eraseTitle": "¿Eliminar «{{name}}» definitivamente?",
+    "eraseBody": "Ya no se podrá restaurar.",
+    "eraseHint": "Mantén pulsado para eliminar definitivamente",
+    "erased": "Eliminado definitivamente",
+    "eraseFailed": "No se pudo eliminar definitivamente"
   },
   "viewer": {
     "share": "Compartir o abrir en…",
@@ -1247,5 +1252,23 @@
     "openUnread_one": "Notificaciones, {{count}} sin leer",
     "openUnread_many": "Notificaciones, {{count}} sin leer",
     "openUnread_other": "Notificaciones, {{count}} sin leer"
+  },
+  "office": {
+    "kindDocument": "Documento de texto",
+    "kindSpreadsheet": "Hoja de cálculo",
+    "kindPresentation": "Presentación",
+    "openInEditor": "Abrir en el editor",
+    "convert": "Convertir para editar",
+    "opening": "Abriendo el documento…",
+    "failed": "No se pudo abrir",
+    "forbidden": "No tienes acceso a este documento.",
+    "unsupported": "Este formato no se puede abrir en el editor.",
+    "missing": "Este documento ya no existe.",
+    "conversionFailed": "La conversión no se ha completado. El original está intacto.",
+    "unavailable": "El editor no está disponible en este momento.",
+    "editingNow": "En edición por {{names}}",
+    "createFailed": "No se pudo crear el documento",
+    "convertHint": "El original no cambia: se crea una copia editable a su lado.",
+    "tryAgain": "Inténtalo de nuevo en un momento."
   }
 }

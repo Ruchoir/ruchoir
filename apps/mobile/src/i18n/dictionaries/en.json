@@ -554,7 +554,12 @@
     "nothingSharedText": "Files people send you in your channels and direct messages show here.",
     "sentBy": "sent by {{name}}",
     "noRootFiles": "No file at the root",
-    "noRootFilesText": "Files kept in folders are in their folders, above."
+    "noRootFilesText": "Files kept in folders are in their folders, above.",
+    "eraseTitle": "Delete “{{name}}” for good?",
+    "eraseBody": "It can no longer be restored.",
+    "eraseHint": "Long press to delete for good",
+    "erased": "Deleted for good",
+    "eraseFailed": "Could not delete for good"
   },
   "viewer": {
     "share": "Share or open in…",
@@ -1191,5 +1196,23 @@
     "allMarked": "All marked as read",
     "openUnread_one": "Notifications, {{count}} unread",
     "openUnread_other": "Notifications, {{count}} unread"
+  },
+  "office": {
+    "kindDocument": "Text document",
+    "kindSpreadsheet": "Spreadsheet",
+    "kindPresentation": "Presentation",
+    "openInEditor": "Open in the editor",
+    "convert": "Convert to edit",
+    "opening": "Opening the document…",
+    "failed": "Could not open",
+    "forbidden": "You do not have access to this document.",
+    "unsupported": "This format cannot be opened in the editor.",
+    "missing": "This document no longer exists.",
+    "conversionFailed": "The conversion did not go through. The original is untouched.",
+    "unavailable": "The editor is not available right now.",
+    "editingNow": "Being edited by {{names}}",
+    "createFailed": "Could not create the document",
+    "convertHint": "The original stays as it is: an editable copy is made next to it.",
+    "tryAgain": "Try again in a moment."
   }
 }

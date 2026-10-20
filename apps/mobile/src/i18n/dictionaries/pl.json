@@ -632,7 +632,12 @@
     "nothingSharedText": "Pliki wysyłane ci w kanałach i wiadomościach bezpośrednich pojawiają się tutaj.",
     "sentBy": "wysłał(a) {{name}}",
     "noRootFiles": "Brak plików w katalogu głównym",
-    "noRootFilesText": "Pliki w folderach są w swoich folderach, powyżej."
+    "noRootFilesText": "Pliki w folderach są w swoich folderach, powyżej.",
+    "eraseTitle": "Usunąć „{{name}}” na zawsze?",
+    "eraseBody": "Nie będzie można go przywrócić.",
+    "eraseHint": "Przytrzymaj, aby usunąć na zawsze",
+    "erased": "Usunięto na zawsze",
+    "eraseFailed": "Nie udało się usunąć na zawsze"
   },
   "viewer": {
     "share": "Udostępnij lub otwórz w…",
@@ -1303,5 +1308,23 @@
     "openUnread_few": "Powiadomienia, {{count}} nieprzeczytane",
     "openUnread_many": "Powiadomienia, {{count}} nieprzeczytanych",
     "openUnread_other": "Powiadomienia, {{count}} nieprzeczytanego"
+  },
+  "office": {
+    "kindDocument": "Dokument tekstowy",
+    "kindSpreadsheet": "Arkusz kalkulacyjny",
+    "kindPresentation": "Prezentacja",
+    "openInEditor": "Otwórz w edytorze",
+    "convert": "Konwertuj, aby edytować",
+    "opening": "Otwieranie dokumentu…",
+    "failed": "Nie udało się otworzyć",
+    "forbidden": "Nie masz dostępu do tego dokumentu.",
+    "unsupported": "Tego formatu nie można otworzyć w edytorze.",
+    "missing": "Ten dokument już nie istnieje.",
+    "conversionFailed": "Konwersja się nie powiodła. Oryginał pozostał bez zmian.",
+    "unavailable": "Edytor jest teraz niedostępny.",
+    "editingNow": "Edytują: {{names}}",
+    "createFailed": "Nie udało się utworzyć dokumentu",
+    "convertHint": "Oryginał pozostaje bez zmian: obok powstaje kopia do edycji.",
+    "tryAgain": "Spróbuj ponownie za chwilę."
   }
 }

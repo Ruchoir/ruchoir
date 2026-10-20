@@ -554,7 +554,12 @@
     "nothingSharedText": "Les fichiers que l’on vous envoie dans vos canaux et vos messages directs apparaissent ici.",
     "sentBy": "envoyé par {{name}}",
     "noRootFiles": "Aucun fichier à la racine",
-    "noRootFilesText": "Les fichiers rangés dans des dossiers sont dans leurs dossiers, au-dessus."
+    "noRootFilesText": "Les fichiers rangés dans des dossiers sont dans leurs dossiers, au-dessus.",
+    "eraseTitle": "Supprimer « {{name}} » définitivement ?",
+    "eraseBody": "Il ne pourra plus être restauré.",
+    "eraseHint": "Appui long pour supprimer définitivement",
+    "erased": "Supprimé définitivement",
+    "eraseFailed": "Suppression définitive impossible"
   },
   "viewer": {
     "share": "Partager ou ouvrir dans…",
@@ -1191,5 +1196,23 @@
     "allMarked": "Tout est marqué comme lu",
     "openUnread_one": "Notifications, {{count}} non lue",
     "openUnread_other": "Notifications, {{count}} non lues"
+  },
+  "office": {
+    "kindDocument": "Document texte",
+    "kindSpreadsheet": "Classeur",
+    "kindPresentation": "Présentation",
+    "openInEditor": "Ouvrir dans l'éditeur",
+    "convert": "Convertir pour modifier",
+    "opening": "Ouverture du document…",
+    "failed": "Ouverture impossible",
+    "forbidden": "Vous n'avez pas accès à ce document.",
+    "unsupported": "Ce format ne peut pas être ouvert dans l'éditeur.",
+    "missing": "Ce document n'existe plus.",
+    "conversionFailed": "La conversion n'a pas abouti. L'original est intact.",
+    "unavailable": "L'éditeur n'est pas disponible pour le moment.",
+    "editingNow": "En cours d'édition par {{names}}",
+    "createFailed": "Création du document impossible",
+    "convertHint": "Le format d’origine reste intact : une copie modifiable est créée à côté.",
+    "tryAgain": "Réessayez dans un instant."
   }
 }

@@ -1,11 +1,13 @@
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Camera, FileText, FolderPlus, Image as ImageIcon, Paperclip } from "lucide-react-native";
+import type { BlankKind } from "@ruchoir/client";
+import { Camera, FilePlus2, FileSpreadsheet, FileText, FolderPlus, Image as ImageIcon, Paperclip, Presentation } from "lucide-react-native";
 import { Alert } from "react-native";
 
 import { uploadLimit } from "../../api/limits";
 import { pickDocuments, pickFromCamera, pickFromGallery } from "../../compose/pick";
 import type { LocalFile } from "../../compose/useAttachments";
+import { useOffice } from "../../files/office";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { splitBySize } from "../../logic/attachments";
@@ -19,7 +21,8 @@ import { useUploads } from "../../uploads/UploadsProvider";
 
 /**
  * "Add a file" (mockup 21): a photo or a video, a photo taken now, a document of the phone, a scanned
- * document, a new folder, into the folder the person is in. What is picked goes to the uploads;
+ * document, a new folder, and with the office editor a blank document, spreadsheet or presentation,
+ * into the folder the person is in. What is picked goes to the uploads;
  * a name already taken there asks first.
  */
 export function AddSheet() {
@@ -29,6 +32,8 @@ export function AddSheet() {
   const { c } = useTheme();
   const { locale } = useLocale();
   const uploads = useUploads();
+  const office = useOffice();
+  const blank = (kind: BlankKind) => navigation.replace("fileName", { mode: "document", kind, spaceId: params.spaceId, folderId: params.folderId });
   const target = { spaceId: params.spaceId, folderId: params.folderId };
 
   const hand = async (picked: LocalFile[]) => {
@@ -67,6 +72,13 @@ export function AddSheet() {
         subtitle={t("files.newFolderHint")}
         onPress={() => navigation.replace("fileName", { mode: "create", spaceId: params.spaceId, folderId: params.folderId })}
       />
+      {office ? (
+        <>
+          <ActionRow icon={FilePlus2} tint={c.sky} title={t("office.kindDocument")} onPress={() => blank("document")} />
+          <ActionRow icon={FileSpreadsheet} tint={c.mint} title={t("office.kindSpreadsheet")} onPress={() => blank("spreadsheet")} />
+          <ActionRow icon={Presentation} tint={c.peach} title={t("office.kindPresentation")} onPress={() => blank("presentation")} />
+        </>
+      ) : null}
     </Sheet>
   );
 }

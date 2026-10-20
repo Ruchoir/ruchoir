@@ -306,6 +306,26 @@ A new feature folder, `apps/web/features/office/`, rather than more weight in th
   on.
 - **Languages:** every new string in the six dictionaries from the start, French first.
 
+## Phone client
+
+The phone app opens the same session (`openOfficeSession`, `mobile: true`, so the engine draws its
+own touch editor) in `apps/mobile/src/screens/files/OfficeEditorScreen.tsx`: a Ruchoir band (the
+document, who is editing it, the way out) over a web view on the editor's hostname. Entries: the
+file's menu and the viewer ("Open in the editor", or "Convert to edit"), and "Add" in a folder for a
+blank document, spreadsheet or presentation (`createBlankDocument`, then the editor).
+
+- **The token is posted, never put in an address**: the web view loads the session's `url` with a
+  `POST` whose form body carries `access_token`, `access_token_ttl` and `docs_api_config`, as the
+  web's hidden form does.
+- **The WOPI page has no parent in a web view.** It posts its messages to `window.parent`, which is
+  itself at the top of a web view (and the target origin, Ruchoir's, would drop them). A script run
+  before the page, **on the main frame only**, replaces that page's `parent` with an object whose
+  `postMessage` hands the message to the app. The engine's inner frames keep their real parent: a
+  script injected into them too swallowed their messages and the editor never finished loading.
+  Listened to: `UI_Close`, `Edit_Notification` (from which the phone heartbeats as editing, until it
+  closes), `Ruchoir_Painted` (which uncovers the editor; 15 s fallback).
+- A conversion polls `getConvertedCopy` and opens the copy, as the web does.
+
 ## Look
 
 - **Ruchoir day** (`infra/office/themes/theme-ruchoir-light.json`): a light top bar (the surface

@@ -1,6 +1,7 @@
-import { createFolder, getFolder, updateFile } from "@ruchoir/client";
+import { createBlankDocument, createFolder, getFolder, updateFile } from "@ruchoir/client";
 import { isTaken } from "@ruchoir/client/filesLogic";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 
@@ -15,10 +16,13 @@ import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
 import { useToast } from "../../ui/Toast";
 
-/** A new folder's name, or an entry's new name: empty or taken in the folder is said under the field. */
+/**
+ * A new folder's name, an entry's new name, or a new blank document's (opened in the editor once
+ * made): empty or taken in the folder is said under the field.
+ */
 export function NameSheet() {
   const { params } = useRoute<RouteProp<RootParams, "fileName">>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c } = useTheme();
   const toast = useToast();
@@ -27,6 +31,7 @@ export function NameSheet() {
   const [busy, setBusy] = useState(false);
   const folder = useLoad(`names:${params.spaceId}:${params.folderId ?? "root"}`, (signal) => getFolder(params.spaceId, params.folderId, signal));
   const rename = params.mode === "rename";
+  const document = params.mode === "document";
 
   const save = async () => {
     const wanted = name.trim();
@@ -35,6 +40,16 @@ export function NameSheet() {
     const others = (folder.data?.entries ?? []).filter((e) => e.id !== params.fileId).map((e) => e.name);
     if (isTaken(wanted, others)) return setError(t("files.nameUsed"));
     setBusy(true);
+    if (document) {
+      try {
+        const made = await createBlankDocument(params.spaceId, params.kind ?? "document", wanted, params.folderId);
+        navigation.replace("officeEditor", { fileId: made.id!, name: made.name });
+      } catch {
+        setBusy(false);
+        setError(t("office.createFailed"));
+      }
+      return;
+    }
     try {
       if (rename) await updateFile(params.fileId!, { name: wanted });
       else await createFolder(params.spaceId, wanted, params.folderId);
@@ -55,9 +70,19 @@ export function NameSheet() {
         </View>
       }
     >
-      <Text variant="heading">{rename ? t("files.rename") : t("files.newFolder")}</Text>
+      <Text variant="heading">
+        {rename
+          ? t("files.rename")
+          : !document
+            ? t("files.newFolder")
+            : params.kind === "spreadsheet"
+              ? t("office.kindSpreadsheet")
+              : params.kind === "presentation"
+                ? t("office.kindPresentation")
+                : t("office.kindDocument")}
+      </Text>
       <TextField
-        label={rename ? t("files.name") : t("files.folderName")}
+        label={rename || document ? t("files.name") : t("files.folderName")}
         value={name}
         onChangeText={(next) => {
           setName(next);
