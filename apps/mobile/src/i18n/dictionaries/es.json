@@ -1270,5 +1270,30 @@
     "createFailed": "No se pudo crear el documento",
     "convertHint": "El original no cambia: se crea una copia editable a su lado.",
     "tryAgain": "Inténtalo de nuevo en un momento."
+  },
+  "admin": {
+    "screenTitle": "Administración de la instancia",
+    "accountsTitle": "Devolver el acceso a una cuenta",
+    "accountsIntro": "Para quien ya no puede iniciar sesión y no le queda ningún código de recuperación. El enlace se lo entregas tú, en persona o por otro canal: nunca ves su contraseña, y la que tiene hoy sigue funcionando hasta que abra el enlace.",
+    "filterPlaceholder": "Nombre o correo electrónico",
+    "noMatch": "Ninguna cuenta coincide.",
+    "statusPending": "pendiente",
+    "statusLocked": "bloqueada",
+    "issueLink": "Emitir un enlace",
+    "issueFailed": "No se ha podido emitir el enlace. Inténtalo de nuevo.",
+    "linkFor": "Enlace para {{name}}",
+    "linkValidity": "De un solo uso, válido {{minutes}} minutos. No volverá a mostrarse al salir de esta pantalla.",
+    "settingsTitle": "Ajustes de la instancia",
+    "showAdmins": "Mostrar quién administra la instancia",
+    "showAdminsDescription": "Una insignia en el perfil de los administradores. Es lo que permite a quien ha perdido la contraseña y los códigos de recuperación saber a quién dirigirse. Desactivada, solo la ven los propios administradores.",
+    "settingsSaveFailed": "No se ha podido guardar este ajuste.",
+    "adminsShown": "Administradores visibles",
+    "adminsHidden": "Administradores ocultos",
+    "webPush": "Notificaciones push",
+    "webPushDescription": "Avisa a los miembros en sus dispositivos cuando Ruchoir está cerrado. Cada persona lo activa en su navegador. La señal pasa por el servicio de notificaciones del fabricante del navegador (Google, Apple, Mozilla, Microsoft) sin ningún contenido: ni autor, ni conversación, ni texto. Si se desactiva, se olvidan las suscripciones existentes.",
+    "webPushOn": "Notificaciones push activadas",
+    "webPushOff": "Notificaciones push desactivadas",
+    "hint": "Ajustes de la instancia, acceso a las cuentas",
+    "issueConfirm": "¿Emitir un enlace de restablecimiento de contraseña para {{name}}?"
   }
 }

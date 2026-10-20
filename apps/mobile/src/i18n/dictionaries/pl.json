@@ -1326,5 +1326,30 @@
     "createFailed": "Nie udało się utworzyć dokumentu",
     "convertHint": "Oryginał pozostaje bez zmian: obok powstaje kopia do edycji.",
     "tryAgain": "Spróbuj ponownie za chwilę."
+  },
+  "admin": {
+    "screenTitle": "Administracja instancją",
+    "accountsTitle": "Przywrócenie dostępu do konta",
+    "accountsIntro": "Dla kogoś, kto nie może się już zalogować i nie ma żadnego kodu odzyskiwania. Link przekazujesz samodzielnie, osobiście lub innym kanałem: nigdy nie widzisz hasła, a dotychczasowe działa, dopóki link nie zostanie otwarty.",
+    "filterPlaceholder": "Nazwa lub adres e-mail",
+    "noMatch": "Żadne konto nie pasuje.",
+    "statusPending": "oczekujące",
+    "statusLocked": "zablokowane",
+    "issueLink": "Wystaw link",
+    "issueFailed": "Nie udało się wystawić linku. Spróbuj ponownie.",
+    "linkFor": "Link dla: {{name}}",
+    "linkValidity": "Jednorazowy, ważny {{minutes}} min. Po opuszczeniu tego ekranu nie zostanie pokazany ponownie.",
+    "settingsTitle": "Ustawienia instancji",
+    "showAdmins": "Pokazuj, kto administruje instancją",
+    "showAdminsDescription": "Oznaczenie w profilu administratorów. To dzięki niemu osoba, która straciła hasło i kody odzyskiwania, wie, do kogo się zwrócić. Po wyłączeniu widzą je tylko sami administratorzy.",
+    "settingsSaveFailed": "Nie udało się zapisać tego ustawienia.",
+    "adminsShown": "Administratorzy widoczni",
+    "adminsHidden": "Administratorzy ukryci",
+    "webPush": "Powiadomienia push",
+    "webPushDescription": "Powiadamia członków na ich urządzeniach, gdy Ruchoir jest zamknięty. Każdy włącza je dla swojej przeglądarki. Sygnał przechodzi przez usługę powiadomień producenta przeglądarki (Google, Apple, Mozilla, Microsoft) bez żadnej treści: bez autora, rozmowy ani tekstu. Po wyłączeniu istniejące subskrypcje zostają zapomniane.",
+    "webPushOn": "Powiadomienia push włączone",
+    "webPushOff": "Powiadomienia push wyłączone",
+    "hint": "Ustawienia instancji, dostęp do kont",
+    "issueConfirm": "Wystawić link do resetowania hasła dla {{name}}?"
   }
 }

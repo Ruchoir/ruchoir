@@ -1214,5 +1214,30 @@
     "createFailed": "Création du document impossible",
     "convertHint": "Le format d’origine reste intact : une copie modifiable est créée à côté.",
     "tryAgain": "Réessayez dans un instant."
+  },
+  "admin": {
+    "screenTitle": "Administration de l'instance",
+    "accountsTitle": "Rendre l'accès à un compte",
+    "accountsIntro": "Pour quelqu'un qui ne peut plus se connecter et n'a plus de code de récupération. Vous lui transmettez le lien vous-même, de vive voix ou par un autre canal : vous ne voyez jamais son mot de passe, et celui qu'il a aujourd'hui continue de fonctionner tant qu'il n'a pas ouvert le lien.",
+    "filterPlaceholder": "Nom ou adresse électronique",
+    "noMatch": "Aucun compte ne correspond.",
+    "statusPending": "en attente",
+    "statusLocked": "verrouillé",
+    "issueLink": "Émettre un lien",
+    "issueFailed": "Ce lien n'a pas pu être émis. Réessayez.",
+    "linkFor": "Lien pour {{name}}",
+    "linkValidity": "À usage unique, valable {{minutes}} minutes. Il ne sera plus affiché après avoir quitté cet écran.",
+    "settingsTitle": "Réglages de l'instance",
+    "showAdmins": "Afficher qui administre l'instance",
+    "showAdminsDescription": "Un badge sur le profil des administrateurs. C'est ce qui permet à quelqu'un qui a perdu son mot de passe et ses codes de récupération de savoir à qui s'adresser. Désactivé, le badge n'est plus visible que par les administrateurs eux-mêmes.",
+    "settingsSaveFailed": "Ce réglage n'a pas pu être enregistré.",
+    "adminsShown": "Administrateurs visibles",
+    "adminsHidden": "Administrateurs masqués",
+    "webPush": "Notifications push",
+    "webPushDescription": "Prévient les membres sur leurs appareils quand Ruchoir est fermé. Chacun l'active pour son navigateur. Le signal transite par le service de notifications de l'éditeur du navigateur (Google, Apple, Mozilla, Microsoft), sans aucun contenu : ni auteur, ni conversation, ni texte. Désactivé, les abonnements existants sont oubliés.",
+    "webPushOn": "Notifications push activées",
+    "webPushOff": "Notifications push désactivées",
+    "hint": "Réglages de l’instance, accès aux comptes",
+    "issueConfirm": "Émettre un lien de réinitialisation du mot de passe pour {{name}} ?"
   }
 }

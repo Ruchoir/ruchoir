@@ -1214,5 +1214,30 @@
     "createFailed": "Could not create the document",
     "convertHint": "The original stays as it is: an editable copy is made next to it.",
     "tryAgain": "Try again in a moment."
+  },
+  "admin": {
+    "screenTitle": "Instance administration",
+    "accountsTitle": "Hand an account back",
+    "accountsIntro": "For someone who can no longer sign in and has no recovery code left. You pass the link on yourself, in person or by another channel: you never see their password, and the one they have today keeps working until they open the link.",
+    "filterPlaceholder": "Name or email address",
+    "noMatch": "No account matches.",
+    "statusPending": "pending",
+    "statusLocked": "locked",
+    "issueLink": "Issue a link",
+    "issueFailed": "That link could not be issued. Try again.",
+    "linkFor": "Link for {{name}}",
+    "linkValidity": "Single use, valid for {{minutes}} minutes. It will not be shown again once you leave this screen.",
+    "settingsTitle": "Instance settings",
+    "showAdmins": "Show who administers the instance",
+    "showAdminsDescription": "A badge on administrators' profiles. It is what lets someone who has lost both their password and their recovery codes know who to ask. Turned off, the badge is visible only to administrators themselves.",
+    "settingsSaveFailed": "That setting could not be saved.",
+    "adminsShown": "Administrators visible",
+    "adminsHidden": "Administrators hidden",
+    "webPush": "Push notifications",
+    "webPushDescription": "Tells members on their devices when Ruchoir is closed. Each person turns it on for their browser. The signal goes through the browser vendor's notification service (Google, Apple, Mozilla, Microsoft) with no content at all: no author, no conversation, no text. Turned off, existing subscriptions are forgotten.",
+    "webPushOn": "Push notifications on",
+    "webPushOff": "Push notifications off",
+    "hint": "Instance settings, access to accounts",
+    "issueConfirm": "Issue a password reset link for {{name}}?"
   }
 }

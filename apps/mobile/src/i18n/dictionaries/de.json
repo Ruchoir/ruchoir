@@ -1214,5 +1214,30 @@
     "createFailed": "Dokument konnte nicht erstellt werden",
     "convertHint": "Das Original bleibt unverändert: Daneben wird eine bearbeitbare Kopie erstellt.",
     "tryAgain": "Versuchen Sie es gleich noch einmal."
+  },
+  "admin": {
+    "screenTitle": "Instanzverwaltung",
+    "accountsTitle": "Zugang zu einem Konto zurückgeben",
+    "accountsIntro": "Für jemanden, der sich nicht mehr anmelden kann und keinen Wiederherstellungscode mehr hat. Sie geben den Link selbst weiter, persönlich oder über einen anderen Kanal: Sie sehen das Passwort nie, und das bisherige funktioniert weiter, bis der Link geöffnet wird.",
+    "filterPlaceholder": "Name oder E-Mail-Adresse",
+    "noMatch": "Kein Konto passt.",
+    "statusPending": "ausstehend",
+    "statusLocked": "gesperrt",
+    "issueLink": "Link ausstellen",
+    "issueFailed": "Der Link konnte nicht ausgestellt werden. Versuchen Sie es erneut.",
+    "linkFor": "Link für {{name}}",
+    "linkValidity": "Einmalig, {{minutes}} Minuten gültig. Nach dem Verlassen dieses Bildschirms wird er nicht mehr angezeigt.",
+    "settingsTitle": "Einstellungen der Instanz",
+    "showAdmins": "Anzeigen, wer die Instanz verwaltet",
+    "showAdminsDescription": "Ein Abzeichen im Profil der Administratoren. Genau das lässt jemanden, der Passwort und Wiederherstellungscodes verloren hat, wissen, an wen er sich wenden kann. Ausgeschaltet sehen es nur die Administratoren selbst.",
+    "settingsSaveFailed": "Diese Einstellung konnte nicht gespeichert werden.",
+    "adminsShown": "Administratoren sichtbar",
+    "adminsHidden": "Administratoren verborgen",
+    "webPush": "Push-Benachrichtigungen",
+    "webPushDescription": "Benachrichtigt Mitglieder auf ihren Geräten, wenn Ruchoir geschlossen ist. Jede Person aktiviert es für ihren Browser. Das Signal läuft über den Benachrichtigungsdienst des Browserherstellers (Google, Apple, Mozilla, Microsoft), ganz ohne Inhalt: kein Absender, keine Unterhaltung, kein Text. Deaktiviert, werden bestehende Abonnements verworfen.",
+    "webPushOn": "Push-Benachrichtigungen aktiviert",
+    "webPushOff": "Push-Benachrichtigungen deaktiviert",
+    "hint": "Instanzeinstellungen, Zugang zu Konten",
+    "issueConfirm": "Einen Link zum Zurücksetzen des Passworts für {{name}} ausstellen?"
   }
 }
