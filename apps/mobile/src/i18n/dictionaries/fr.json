@@ -138,7 +138,11 @@
     "lastAt": "dernière à {{time}}",
     "lastYesterday": "dernière hier",
     "lastOn": "dernière le {{date}}",
-    "copyLink": "Copier le lien"
+    "copyLink": "Copier le lien",
+    "save": "Enregistrer le message",
+    "unsave": "Retirer des enregistrés",
+    "savedDone": "Message enregistré",
+    "unsavedDone": "Retiré des enregistrés"
   },
   "common": {
     "back": "Retour",
@@ -346,7 +350,11 @@
     "removedFromChannel": "Vous avez été retiré de ce canal.",
     "pinned": "Épinglés",
     "noPinnedHint": "Épinglez un message important dans la conversation : il se retrouve ici.",
-    "messageNotFound": "Message introuvable"
+    "messageNotFound": "Message introuvable",
+    "readByEveryone": "Lu par tout le monde",
+    "readByOne": "Lu par {{name}}",
+    "readByTwo": "Lu par {{first}} et {{second}}",
+    "readBySome": "Lu par {{count}} personnes sur {{audience}}"
   },
   "attendee": {
     "accepted": "Participe",
@@ -1146,5 +1154,16 @@
     "hint": "La personne reçoit une invitation à usage unique. Elle rejoint l’espace en invitée et ne voit que ce canal.",
     "forbidden": "Seules les personnes qui gèrent ce canal peuvent y inviter.",
     "refused": "Adresse refusée, ou canal archivé."
+  },
+  "saved": {
+    "title": "Messages enregistrés",
+    "hint": "Ceux que vous gardez sous la main",
+    "empty": "Rien d’enregistré",
+    "emptyText": "Enregistrez un message depuis son menu (appui long) pour le retrouver ici.",
+    "removeTitle": "Retirer ce message des enregistrés ?",
+    "direct": "Message direct"
+  },
+  "code": {
+    "text": "texte"
   }
 }

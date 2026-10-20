@@ -138,7 +138,11 @@
     "lastAt": "letzte um {{time}}",
     "lastYesterday": "letzte gestern",
     "lastOn": "letzte am {{date}}",
-    "copyLink": "Link kopieren"
+    "copyLink": "Link kopieren",
+    "save": "Nachricht speichern",
+    "unsave": "Aus Gespeicherten entfernen",
+    "savedDone": "Nachricht gespeichert",
+    "unsavedDone": "Aus Gespeicherten entfernt"
   },
   "common": {
     "back": "Zurück",
@@ -346,7 +350,11 @@
     "removedFromChannel": "Sie wurden aus diesem Kanal entfernt.",
     "pinned": "Angeheftet",
     "noPinnedHint": "Heften Sie eine wichtige Nachricht in der Unterhaltung an: Sie erscheint hier.",
-    "messageNotFound": "Nachricht nicht gefunden"
+    "messageNotFound": "Nachricht nicht gefunden",
+    "readByEveryone": "Von allen gelesen",
+    "readByOne": "Gelesen von {{name}}",
+    "readByTwo": "Gelesen von {{first}} und {{second}}",
+    "readBySome": "Von {{count}} von {{audience}} gelesen"
   },
   "attendee": {
     "accepted": "Nimmt teil",
@@ -1146,5 +1154,16 @@
     "hint": "Die Person erhält eine einmalige Einladung, tritt dem Bereich als Gast bei und sieht nur diesen Kanal.",
     "forbidden": "Nur wer diesen Kanal verwaltet, kann dorthin einladen.",
     "refused": "Adresse abgelehnt oder Kanal archiviert."
+  },
+  "saved": {
+    "title": "Gespeicherte Nachrichten",
+    "hint": "Was Sie griffbereit halten",
+    "empty": "Nichts gespeichert",
+    "emptyText": "Speichern Sie eine Nachricht über ihr Menü (lange drücken), um sie hier wiederzufinden.",
+    "removeTitle": "Diese Nachricht aus den Gespeicherten entfernen?",
+    "direct": "Direktnachricht"
+  },
+  "code": {
+    "text": "Text"
   }
 }

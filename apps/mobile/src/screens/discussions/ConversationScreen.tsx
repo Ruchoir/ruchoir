@@ -9,7 +9,7 @@ import {
   type Channel,
 } from "@ruchoir/client";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
-import { Archive, ArrowDown, CalendarDays, Check, ChevronLeft, FileText, Info, MessageSquare, Pin } from "lucide-react-native";
+import { Archive, ArrowDown, CalendarDays, CheckCheck, ChevronLeft, FileText, Info, MessageSquare, Pin } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -35,7 +35,7 @@ import { deletedHere } from "./deletedHere";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { dayKey, daysBetween } from "../../logic/format";
-import { seenMessageId } from "../../logic/receipts";
+import { readReceipt, receiptWording } from "../../logic/receipts";
 import { seekMessage } from "../../logic/seek";
 import { countNewer, firstUnreadId } from "../../logic/unread";
 import type { RootParams } from "../../navigation/types";
@@ -78,7 +78,7 @@ type Row =
   | { kind: "message"; message: ApiMessage; head: boolean }
   | { kind: "day"; day: string }
   | { kind: "unread" }
-  | { kind: "seen" };
+  | { kind: "seen"; readers: string[] };
 
 const isInFeed = (m: ApiMessage) => !m.parentId;
 
@@ -361,22 +361,30 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
   const [anchor, setAnchor] = useState<{ id: string | null } | null>(null);
   if (anchor === null && first.data && me) setAnchor({ id: firstUnreadId(first.data.messages, unread ?? 0, me.id) });
 
-  // "Seen" under my last message, in a conversation with one person, from the read cursors.
-  const cursors = useLoad(oneToOne ? `read:${conversationId}` : null, (signal) => getReadCursors(conversationId, signal));
+  // "Seen" or "Read by ..." under my last message, from the read cursors.
+  const cursors = useLoad(`read:${conversationId}`, (signal) => getReadCursors(conversationId, signal));
   const [liveCursors, setLiveCursors] = useState<Record<string, string>>({});
   useRealtimeEvent((event) => {
     if (event.type === "readCursor" && event.conversationId === conversationId) {
       setLiveCursors((prev) => ({ ...prev, [event.userId]: event.lastReadMessageId }));
     }
   });
-  const seenId = useMemo(() => {
-    if (!oneToOne || !me || pending.length > 0) return null;
+  const receipt = useMemo(() => {
+    if (!me || pending.length > 0) return null;
     const known = (cursors.data ?? []).map((cur) => ({ ...cur, lastReadMessageId: liveCursors[cur.userId] ?? cur.lastReadMessageId }));
     const added = Object.entries(liveCursors)
       .filter(([userId]) => !known.some((cur) => cur.userId === userId))
       .map(([userId, lastReadMessageId]) => ({ userId, lastReadMessageId }));
-    return seenMessageId([...known, ...added], messages, me.id);
-  }, [oneToOne, me, pending.length, cursors.data, liveCursors, messages]);
+    const found = readReceipt([...known, ...added], messages, me.id);
+    return found && found.readers.length > 0 ? found : null;
+  }, [me, pending.length, cursors.data, liveCursors, messages]);
+  // Who could read it, me aside: the other person, a channel's members, a group's participants.
+  const audience = oneToOne
+    ? 1
+    : channel
+      ? Math.max((channel.memberCount ?? 1) - 1, 1)
+      : Math.max((cursors.data ?? []).filter((cur) => cur.userId !== me?.id).length, 1);
+  const nameOf = (userId: string) => members.list.find((m) => m.userId === userId)?.name ?? "?";
 
   // Reading higher up: what arrives below is counted on a pill rather than scrolled to.
   const [awayFrom, setAwayFrom] = useState<string | null>(null);
@@ -406,13 +414,13 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
         older.author === m.author &&
         dayKey(older.createdAt, timeZone) === day &&
         Date.parse(m.createdAt) - Date.parse(older.createdAt) < RUN_GAP_MS;
-      if (m.id === seenId) out.push({ kind: "seen" });
+      if (m.id === receipt?.id) out.push({ kind: "seen", readers: receipt.readers });
       out.push({ kind: "message", message: m, head: !sameRun });
       if (m.id === anchor?.id) out.push({ kind: "unread" });
       if (!older || dayKey(older.createdAt, timeZone) !== day) out.push({ kind: "day", day });
     }
     return out;
-  }, [messages, pending, timeZone, seenId, anchor]);
+  }, [messages, pending, timeZone, receipt, anchor]);
 
   // Where a scroll to a row puts it: the unread line at the top of the screen, a message asked for in
   // the middle. Read again when the row was not drawn yet (`onScrollToIndexFailed`).
@@ -545,11 +553,21 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
             );
           }
           if (item.kind === "seen") {
+            const wording = receiptWording(item.readers.length, audience);
+            const [first, second] = item.readers.map(nameOf);
             return (
               <View style={styles.seen}>
-                <Check size={12} color={c.muted} />
-                <Text variant="tiny" tone="muted">
-                  {t("conversation.seen")}
+                <CheckCheck size={12} color={c.muted} />
+                <Text variant="tiny" tone="muted" numberOfLines={1} style={styles.shrink}>
+                  {wording === "read"
+                    ? t("conversation.seen")
+                    : wording === "everyone"
+                      ? t("conversation.readByEveryone")
+                      : wording === "one"
+                        ? t("conversation.readByOne", { name: first })
+                        : wording === "two"
+                          ? t("conversation.readByTwo", { first, second })
+                          : t("conversation.readBySome", { count: item.readers.length, audience })}
                 </Text>
               </View>
             );
@@ -674,6 +692,7 @@ const styles = StyleSheet.create({
   rule: { flex: 1, height: hairline },
   unread: { fontFamily: fonts.sansSemibold },
   seen: { flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 62, paddingBottom: 6 },
+  shrink: { flexShrink: 1 },
   pill: {
     position: "absolute",
     bottom: 12,

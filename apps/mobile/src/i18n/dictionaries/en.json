@@ -138,7 +138,11 @@
     "lastAt": "last at {{time}}",
     "lastYesterday": "last yesterday",
     "lastOn": "last on {{date}}",
-    "copyLink": "Copy the link"
+    "copyLink": "Copy the link",
+    "save": "Save the message",
+    "unsave": "Remove from saved",
+    "savedDone": "Message saved",
+    "unsavedDone": "Removed from saved"
   },
   "common": {
     "back": "Back",
@@ -346,7 +350,11 @@
     "removedFromChannel": "You were removed from this channel.",
     "pinned": "Pinned",
     "noPinnedHint": "Pin an important message in the conversation: it shows up here.",
-    "messageNotFound": "Message not found"
+    "messageNotFound": "Message not found",
+    "readByEveryone": "Read by everyone",
+    "readByOne": "Read by {{name}}",
+    "readByTwo": "Read by {{first}} and {{second}}",
+    "readBySome": "Read by {{count}} of {{audience}}"
   },
   "attendee": {
     "accepted": "Going",
@@ -1146,5 +1154,16 @@
     "hint": "They receive a single-use invitation, join the space as a guest and see this channel only.",
     "forbidden": "Only the people who run this channel can invite to it.",
     "refused": "Address refused, or the channel is archived."
+  },
+  "saved": {
+    "title": "Saved messages",
+    "hint": "The ones you keep at hand",
+    "empty": "Nothing saved",
+    "emptyText": "Save a message from its menu (long press) to find it here.",
+    "removeTitle": "Remove this message from saved?",
+    "direct": "Direct message"
+  },
+  "code": {
+    "text": "text"
   }
 }

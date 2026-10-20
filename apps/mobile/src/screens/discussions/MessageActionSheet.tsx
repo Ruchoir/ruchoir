@@ -1,15 +1,16 @@
 /**
  * What can be done with a message, on a long press (the web's phone sheet): react at once or from
- * the whole picker, copy its text, edit or delete my own, pin it for a space's admins.
+ * the whole picker, copy its text, save it among my bookmarks, edit or delete my own, pin it for a
+ * space's admins.
  *
  * Only what leads somewhere is offered: no row for something this person cannot do.
  */
 import { QUICK_REACTIONS } from "@ruchoir/client/emoji";
-import { deleteMessage, setMessagePinned } from "@ruchoir/client";
+import { deleteMessage, setMessagePinned, setMessageSaved } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Clipboard from "expo-clipboard";
-import { Copy, MessageSquareReply, PenLine, Pin, PinOff, SmilePlus, Trash2 } from "lucide-react-native";
+import { Bookmark, BookmarkX, Copy, MessageSquareReply, PenLine, Pin, PinOff, SmilePlus, Trash2 } from "lucide-react-native";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { requestEdit } from "../../compose/requests";
@@ -68,6 +69,19 @@ export function MessageActionSheet() {
     emit({ type: "patched", conversationId, message: { ...m, pinned: pinned || undefined } });
     setMessagePinned(channelId!, m.id, pinned).then(
       () => toast(pinned ? t("message.pinnedDone") : t("message.unpinnedDone")),
+      () => {
+        emit({ type: "patched", conversationId, message: m });
+        toast(t("message.actionFailed"), "failure");
+      },
+    );
+  };
+
+  const toggleSaved = () => {
+    close();
+    const saved = !m.saved;
+    emit({ type: "patched", conversationId, message: { ...m, saved: saved || undefined } });
+    setMessageSaved(m.id, saved).then(
+      () => toast(saved ? t("message.savedDone") : t("message.unsavedDone")),
       () => {
         emit({ type: "patched", conversationId, message: m });
         toast(t("message.actionFailed"), "failure");
@@ -142,6 +156,7 @@ export function MessageActionSheet() {
       ) : null}
       {m.body ? <ActionRow icon={Copy} tint={c.sky} title={t("message.copy")} onPress={copy} /> : null}
       {own && !fromList ? <ActionRow icon={PenLine} tint={c.violet} title={t("message.edit")} onPress={edit} /> : null}
+      <ActionRow icon={m.saved ? BookmarkX : Bookmark} tint={c.mint} title={m.saved ? t("message.unsave") : t("message.save")} onPress={toggleSaved} />
       {canPin ? (
         <ActionRow icon={m.pinned ? PinOff : Pin} tint={c.sun} title={m.pinned ? t("message.unpin") : t("message.pin")} onPress={togglePin} />
       ) : null}

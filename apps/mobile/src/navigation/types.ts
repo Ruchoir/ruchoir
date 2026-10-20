@@ -22,6 +22,8 @@ export type RootParams = {
   /** My account's screens and sheets (mockup 11). */
   statusSheet: undefined;
   profile: undefined;
+  /** Every message I bookmarked, in every space. */
+  saved: undefined;
   preferences: undefined;
   languageSheet: undefined;
   security: undefined;

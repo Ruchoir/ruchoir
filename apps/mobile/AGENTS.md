@@ -90,6 +90,8 @@ src/logic/             pure functions, tested by Node: conversations, inline Mar
                        mentions, outbox, unread, reactions, receipts, threads, attachments, handle,
                        eventForm (the event form as data), availability, uploadQueue, scan,
                        invitationLink, signup (password rule, code), otpauth, channelRoles
+                       invitationLink, signup (password rule, code), otpauth, highlight (code
+                       blocks: highlight.js, BSD-3, the web's, read back from its HTML into runs)
 src/screens/agenda/form/  the event form, its sheets (calendar, date and time pickers, repeat, custom
                        rule, reminders, people, channel, time zone, series scope) and its draft store
 src/navigation/        AuthNavigator (before sign-in), root stack (pushed screens, sheets), the four tabs
