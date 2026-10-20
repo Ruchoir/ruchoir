@@ -9,6 +9,9 @@
  *
  * @type {import('next').NextConfig}
  */
+/** The desktop app's build (`build:desktop`), which embeds the export in the Tauri app. */
+const desktop = process.env.NEXT_PUBLIC_RUCHOIR_TARGET === "desktop";
+
 const nextConfig = {
   output: "export",
   reactStrictMode: true,
@@ -21,6 +24,12 @@ const nextConfig = {
   // Workspace packages shipped as TypeScript source: the API client (shared with the mobile app) and
   // the design system (shared with Ruchoir Lab).
   transpilePackages: ["@ruchoir/client", "@ruchoir/design-system"],
+  // The web build resolves the desktop root to an empty module, so no desktop code ships to browsers.
+  turbopack: {
+    resolveAlias: desktop
+      ? {}
+      : { "@/features/desktop/DesktopEntry": "./features/desktop/DesktopEntry.web.tsx" },
+  },
 };
 
 export default nextConfig;

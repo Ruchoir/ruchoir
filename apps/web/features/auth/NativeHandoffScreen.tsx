@@ -23,7 +23,7 @@ import { LoginScreen } from "./LoginScreen";
 import { MfaChallengeScreen } from "./MfaChallengeScreen";
 
 /**
- * The page the phone app opens in the system's authentication browser (`/n/`, ADR 0005, step 6f),
+ * The page the phone and desktop apps open in the system's browser (`/n/`, ADR 0005, step 6f; ADR 0008),
  * since an app cannot run a passkey ceremony for an instance it does not know at build time:
  *
  * - `?c=<challenge>&e=<email>`: sign the app in. The person signs in here as on the web (password,

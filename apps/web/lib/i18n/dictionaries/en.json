@@ -1738,14 +1738,48 @@
     "files": "Attached documents"
   },
   "handoff": {
-    "signInNote": "Signing in the Ruchoir app on this phone",
+    "signInNote": "Signing in the Ruchoir app on this device",
     "consentTitle": "Allow the Ruchoir app?",
-    "consentBody": "The Ruchoir app on this phone will be able to use the account {{name}} ({{email}}), as if you signed in to it.",
+    "consentBody": "The Ruchoir app on this device will be able to use the account {{name}} ({{email}}), as if you signed in to it.",
     "passkeyTitle": "Add a passkey",
-    "passkeyBody": "For the account {{email}}. Your phone will ask for Face ID, your fingerprint or its passcode.",
+    "passkeyBody": "For the account {{email}}. Your device will ask for your face, your fingerprint, a security key or its passcode.",
     "doneTitle": "Done",
     "doneBody": "You can go back to the Ruchoir app.",
     "goneTitle": "Link expired",
     "goneBody": "This link is no longer valid. Start again from the Ruchoir app."
+  },
+  "desktop": {
+    "add": {
+      "title": "Add a Ruchoir instance",
+      "subtitle": "The address of your organisation’s instance, as you open it in a browser.",
+      "address": "Instance address",
+      "placeholder": "ruchoir.example.org",
+      "errors": {
+        "empty": "Enter the instance’s address.",
+        "not_https": "The address must start with https://: a session never travels in clear.",
+        "has_path": "Enter the instance’s address only, with no path after the name.",
+        "has_credentials": "The address must not contain a user name or a password.",
+        "invalid": "This address is not valid.",
+        "unreachable": "This address cannot be reached. Check it, and your connection.",
+        "not_ruchoir": "This address does not answer as a Ruchoir instance.",
+        "outdated": "This instance is too old for the app. Ask its administrator to update it.",
+        "other": "Something went wrong. Try again."
+      }
+    },
+    "signIn": {
+      "title": "Sign in to {{host}}",
+      "body": "You sign in on {{host}}’s page, in your browser: password, then a code or a passkey.",
+      "open": "Open the sign-in page",
+      "waitTitle": "Finish signing in in your browser",
+      "waitBody": "Sign in on the {{host}} page that just opened, then allow the app. You will come back here on your own.",
+      "reopen": "Open the page again",
+      "failed": "Signing in did not go through. Start again from this window."
+    },
+    "noKeychain": "Your system has no keychain: you will need to sign in again after quitting Ruchoir.",
+    "titleBar": {
+      "minimize": "Minimise",
+      "maximize": "Maximise",
+      "restore": "Restore"
+    }
   }
 }

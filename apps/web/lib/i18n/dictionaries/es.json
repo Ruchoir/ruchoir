@@ -1805,14 +1805,48 @@
     "files": "Documentos adjuntos"
   },
   "handoff": {
-    "signInNote": "Inicio de sesión para la app Ruchoir de este teléfono",
+    "signInNote": "Inicio de sesión para la app Ruchoir de este dispositivo",
     "consentTitle": "¿Autorizar la app Ruchoir?",
-    "consentBody": "La app Ruchoir de este teléfono podrá usar la cuenta {{name}} ({{email}}), como si iniciaras sesión en ella.",
+    "consentBody": "La app Ruchoir de este dispositivo podrá usar la cuenta {{name}} ({{email}}), como si iniciaras sesión en ella.",
     "passkeyTitle": "Añadir una clave de acceso",
-    "passkeyBody": "Para la cuenta {{email}}. Tu teléfono te pedirá Face ID, tu huella o su código.",
+    "passkeyBody": "Para la cuenta {{email}}. Tu dispositivo te pedirá tu cara, tu huella, una llave de seguridad o su código.",
     "doneTitle": "Listo",
     "doneBody": "Puedes volver a la app Ruchoir.",
     "goneTitle": "Enlace caducado",
     "goneBody": "Este enlace ya no es válido. Vuelve a empezar desde la app Ruchoir."
+  },
+  "desktop": {
+    "add": {
+      "title": "Añadir una instancia de Ruchoir",
+      "subtitle": "La dirección de la instancia de tu organización, tal como la abres en un navegador.",
+      "address": "Dirección de la instancia",
+      "placeholder": "ruchoir.ejemplo.org",
+      "errors": {
+        "empty": "Indica la dirección de la instancia.",
+        "not_https": "La dirección debe empezar por https://: una sesión nunca viaja sin cifrar.",
+        "has_path": "Indica solo la dirección de la instancia, sin ruta tras el nombre.",
+        "has_credentials": "La dirección no debe contener usuario ni contraseña.",
+        "invalid": "Esta dirección no es válida.",
+        "unreachable": "No se puede acceder a esta dirección. Compruébala, y también tu conexión.",
+        "not_ruchoir": "Esta dirección no responde como una instancia de Ruchoir.",
+        "outdated": "Esta instancia es demasiado antigua para la app. Pide a su administrador que la actualice.",
+        "other": "Algo ha fallado. Vuelve a intentarlo."
+      }
+    },
+    "signIn": {
+      "title": "Iniciar sesión en {{host}}",
+      "body": "Inicias sesión en la página de {{host}}, en tu navegador: contraseña y después un código o una llave de acceso.",
+      "open": "Abrir la página de inicio de sesión",
+      "waitTitle": "Termina de iniciar sesión en tu navegador",
+      "waitBody": "Inicia sesión en la página de {{host}} que acaba de abrirse y autoriza la app. Volverás aquí automáticamente.",
+      "reopen": "Volver a abrir la página",
+      "failed": "No se ha podido iniciar sesión. Empieza de nuevo desde esta ventana."
+    },
+    "noKeychain": "Tu sistema no tiene llavero: tendrás que volver a iniciar sesión después de salir de Ruchoir.",
+    "titleBar": {
+      "minimize": "Minimizar",
+      "maximize": "Maximizar",
+      "restore": "Restaurar"
+    }
   }
 }
