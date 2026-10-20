@@ -167,7 +167,8 @@
     "next": "Période suivante",
     "nothingSoon": "Rien de prévu",
     "nothingThatDay": "Rien de prévu ce jour-là",
-    "nothingSoonHint": "Aucun événement dans les 30 prochains jours."
+    "nothingSoonHint": "Aucun événement dans les 30 prochains jours.",
+    "year": "Année"
   },
   "calendar": {
     "personal": "Personnel",
@@ -1126,7 +1127,10 @@
     "introBody": "Ruchoir vous prévient quand on vous écrit, vous mentionne ou vous invite à un rendez-vous. Vous réglez le reste dans les préférences.",
     "introSampleFrom": "Léa Martin · Équipe",
     "introSample": "@Camille, tu peux confirmer ta présence jeudi ?",
-    "later": "Plus tard"
+    "later": "Plus tard",
+    "test": "Envoyer une notification de test",
+    "testSent": "Notification de test envoyée",
+    "testRefused": "Pas de test possible pour l’instant (notifications coupées sur l’instance, ou un test vient de partir)."
   },
   "widgets": {
     "search": "Rechercher",
@@ -1165,5 +1169,27 @@
   },
   "code": {
     "text": "texte"
+  },
+  "inbox": {
+    "markAllRead": "Tout marquer comme lu",
+    "allReadText": "Vous êtes à jour, aucune notification non lue.",
+    "nothingNew": "Rien de neuf",
+    "nothingNewText": "Vos mentions, réponses et messages directs apparaîtront ici.",
+    "mentioned": "vous a mentionné",
+    "broadcast": "a mentionné tout le canal",
+    "replied": "a répondu dans un fil",
+    "dm": "vous a envoyé un message",
+    "wrote": "a écrit",
+    "reacted": "a réagi à votre message",
+    "edited": "a modifié un message",
+    "reminder": "Rappel : {{title}}",
+    "invitation": "{{actor}} vous invite à « {{title}} »",
+    "invitationUpdate": "{{actor}} a modifié « {{title}} »",
+    "invitationCancel": "{{actor}} a annulé « {{title}} »",
+    "invitationDeclined": "{{actor}} a refusé « {{title}} »",
+    "calendarShared": "a partagé un agenda avec vous",
+    "allMarked": "Tout est marqué comme lu",
+    "openUnread_one": "Notifications, {{count}} non lue",
+    "openUnread_other": "Notifications, {{count}} non lues"
   }
 }

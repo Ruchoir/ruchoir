@@ -1,4 +1,4 @@
-import { getChannels, getDirectMessages, type Member } from "@ruchoir/client";
+import { getChannels, getDirectMessages, getSpacePresence, type Member } from "@ruchoir/client";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import { Lock, MessageCircle, MessageSquare, SearchX, SquarePen, Star, Users } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -83,11 +83,15 @@ export function DiscussionsScreen() {
   // its row. Who is online moves without any of that: it is laid over the rows as it is heard.
   const spaceId = current?.id ?? "";
   useReloadOn((e) => affects.conversations(e, spaceId), conversations.reload);
+  // Who is online when the list opens (the lists carry no presence), then as it is heard.
+  const known = useLoad(spaceId ? `presence:${spaceId}` : null, (signal) => getSpacePresence(spaceId, signal));
   const pulled = () => {
     feel("refresh");
     conversations.reload();
+    known.reload();
   };
-  const [presence, setPresence] = useState<Record<string, ConversationItem["presence"]>>({});
+  const [heard, setPresence] = useState<Record<string, ConversationItem["presence"]>>({});
+  const presence = useMemo(() => ({ ...known.data, ...heard }), [known.data, heard]);
   useRealtimeEvent((e) => {
     if (e.type === "presence") setPresence((now) => ({ ...now, [e.userId]: e.presence }));
   });

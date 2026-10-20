@@ -16,6 +16,7 @@ import { Button } from "../../ui/Button";
 import { FileIcon } from "../../ui/FileIcon";
 import { EmptyState } from "../../ui/States";
 import { SpaceSwitch } from "../../ui/TabHeader";
+import { InboxBell } from "./InboxBell";
 import { TabScreen } from "../../ui/TabScreen";
 import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
@@ -25,6 +26,8 @@ import { ConversationRow } from "../discussions/DiscussionsScreen";
 type Props = {
   date: string;
   hello: string;
+  /** How many notifications are unread, on the bell. */
+  unread: number;
   mention?: ApiNotification;
   /** Today's timed occurrences still to come or under way, in order. */
   events: Occurrence[];
@@ -122,6 +125,7 @@ export function TodayWide(props: Props) {
               </Text>
               <SpaceSwitch />
             </View>
+            <InboxBell unread={props.unread} />
             <Pressable
               accessibilityRole="search"
               accessibilityLabel={t("search.everywhere")}

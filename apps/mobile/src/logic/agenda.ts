@@ -10,7 +10,7 @@ import type { Occurrence } from "@ruchoir/client";
 
 import { dayKey } from "./format.ts";
 
-export type AgendaView = "list" | "week" | "month";
+export type AgendaView = "list" | "week" | "month" | "year";
 
 const DAY_MS = 86_400_000;
 const toTime = (day: string) => Date.parse(`${day}T00:00:00Z`);
@@ -93,6 +93,9 @@ export function rangeForView(view: AgendaView, anchor: string, weekStart: WeekSt
   if (view === "week") {
     const week = weekOf(anchor, weekStart);
     [first, last] = [week[0], week[6]];
+  } else if (view === "year") {
+    const year = anchor.slice(0, 4);
+    [first, last] = [`${year}-01-01`, `${year}-12-31`];
   } else if (view === "month") {
     const month = anchor.slice(0, 7);
     first = `${month}-01`;
@@ -109,8 +112,9 @@ function shiftMonth(month: string, n: number): string {
   return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
 }
 
-/** The next or previous period: a week (or a list's month) by days, a month to its 1st. */
+/** The next or previous period: a week (or a list's month) by days, a month to its 1st, a year to its 1 January. */
 export function shiftAnchor(view: AgendaView, anchor: string, direction: 1 | -1): string {
+  if (view === "year") return `${Number(anchor.slice(0, 4)) + direction}-01-01`;
   if (view === "month") return `${shiftMonth(anchor.slice(0, 7), direction)}-01`;
   return addDays(anchor, direction * (view === "week" ? 7 : 30));
 }

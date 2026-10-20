@@ -39,7 +39,7 @@ const ACCENT_TEXT: Record<Accent, ReturnType<typeof key>> = {
   violet: key("prefs.accentViolet"),
   pink: key("prefs.accentPink"),
 };
-const VIEW_TEXT = { list: key("agenda.list"), week: key("agenda.week"), month: key("agenda.month") };
+const VIEW_TEXT = { list: key("agenda.list"), week: key("agenda.week"), month: key("agenda.month"), year: key("agenda.year") };
 
 /**
  * Preferences (mockup 11's "text size, theme, notifications"): how the app looks and speaks, how the

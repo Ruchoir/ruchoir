@@ -15,9 +15,9 @@ import { Text } from "./Text";
 
 /**
  * The head of every tab (mockups 09, 12, 15, 20): an optional line above the title, the title, the
- * space switcher under it, and the person's own avatar, which opens their account sheet.
+ * space switcher under it, a tab's own button (`action`), and the person's own avatar, which opens their account sheet.
  */
-export function TabHeader({ title, overline, children }: { title: string; overline?: string; children?: ReactNode }) {
+export function TabHeader({ title, overline, children, action }: { title: string; overline?: string; children?: ReactNode; action?: ReactNode }) {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { state } = useSession();
@@ -39,6 +39,7 @@ export function TabHeader({ title, overline, children }: { title: string; overli
         <SpaceSwitch />
         {children}
       </View>
+      {action}
       {user ? (
         <Pressable
           accessibilityRole="button"

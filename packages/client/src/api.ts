@@ -2019,6 +2019,14 @@ export async function sendTestPush(): Promise<{ subscriptions: number; delivered
   return apiPost<{ subscriptions: number; delivered: number }>("/push/test");
 }
 
+/**
+ * `POST /push/devices/test`: wake each of the caller's phones with the test notification, through
+ * the relay, as a real one would. A `409` when there is no phone, no relay, or a test was just sent.
+ */
+export async function sendPhoneTestPush(): Promise<{ devices: number }> {
+  return apiPost<{ devices: number }>("/push/devices/test");
+}
+
 /** `DELETE /push/subscription`: forget this browser's subscription. */
 export async function forgetPushSubscription(endpoint: string): Promise<void> {
   await apiRequest<void>("DELETE", "/push/subscription", { json: { endpoint } });

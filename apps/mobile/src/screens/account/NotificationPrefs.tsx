@@ -1,5 +1,5 @@
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
-import { getNotificationPreferences, saveNotificationPreferences, type NotificationPreferences } from "@ruchoir/client";
+import { getNotificationPreferences, isApiError, saveNotificationPreferences, sendPhoneTestPush, type NotificationPreferences } from "@ruchoir/client";
 import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import { Alert, Linking, Platform, Pressable, StyleSheet, View } from "react-native";
@@ -10,6 +10,7 @@ import { useLocale } from "../../i18n/useLocale";
 import { disablePhonePush, enablePhonePush, phonePushState, type PhonePush } from "../../push/phone";
 import { radius } from "../../theme/tokens";
 import { useTheme } from "../../theme/useTheme";
+import { Button } from "../../ui/Button";
 import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
 import { useToast } from "../../ui/Toast";
@@ -81,14 +82,29 @@ function PhonePushRow() {
     }
   };
 
+  // The whole chain a real notification takes: the instance, the relay, the phone waking and asking.
+  const test = () => {
+    sendPhoneTestPush().then(
+      () => toast(t("push.testSent")),
+      (err) => toast(isApiError(err, 409) ? t("push.testRefused") : t("push.failed"), "failure"),
+    );
+  };
+
   return (
-    <ToggleRow
-      title={t("push.thisPhone")}
-      text={state === "denied" ? t("push.deniedText") : t("push.thisPhoneText")}
-      value={state === "on"}
-      disabled={busy}
-      onChange={(on) => void change(on)}
-    />
+    <>
+      <ToggleRow
+        title={t("push.thisPhone")}
+        text={state === "denied" ? t("push.deniedText") : t("push.thisPhoneText")}
+        value={state === "on"}
+        disabled={busy}
+        onChange={(on) => void change(on)}
+      />
+      {state === "on" ? (
+        <View style={styles.test}>
+          <Button variant="secondary" size="sm" label={t("push.test")} onPress={test} />
+        </View>
+      ) : null}
+    </>
   );
 }
 
@@ -214,6 +230,7 @@ function TimeField({ label, value, locale, onChange }: { label: string; value: s
 }
 
 const styles = StyleSheet.create({
+  test: { alignItems: "flex-start", paddingBottom: 8 },
   times: { flexDirection: "row", gap: 16, paddingBottom: 4 },
   time: { flex: 1, gap: 6, alignItems: "flex-start" },
   timeButton: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.m, borderWidth: 1 },

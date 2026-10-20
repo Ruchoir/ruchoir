@@ -167,7 +167,8 @@
     "next": "Next period",
     "nothingSoon": "Nothing planned",
     "nothingThatDay": "Nothing planned that day",
-    "nothingSoonHint": "No events in the next 30 days."
+    "nothingSoonHint": "No events in the next 30 days.",
+    "year": "Year"
   },
   "calendar": {
     "personal": "Personal",
@@ -1126,7 +1127,10 @@
     "introBody": "Ruchoir lets you know when someone writes to you, mentions you or invites you to a meeting. You set the rest in the preferences.",
     "introSampleFrom": "Léa Martin · Team",
     "introSample": "@Camille, can you confirm you'll be there on Thursday?",
-    "later": "Later"
+    "later": "Later",
+    "test": "Send a test notification",
+    "testSent": "Test notification sent",
+    "testRefused": "No test possible right now (notifications off on the instance, or a test was just sent)."
   },
   "widgets": {
     "search": "Search",
@@ -1165,5 +1169,27 @@
   },
   "code": {
     "text": "text"
+  },
+  "inbox": {
+    "markAllRead": "Mark all as read",
+    "allReadText": "You are up to date, nothing unread.",
+    "nothingNew": "Nothing new",
+    "nothingNewText": "Your mentions, replies and direct messages will appear here.",
+    "mentioned": "mentioned you",
+    "broadcast": "mentioned the whole channel",
+    "replied": "replied in a thread",
+    "dm": "sent you a message",
+    "wrote": "wrote",
+    "reacted": "reacted to your message",
+    "edited": "edited a message",
+    "reminder": "Reminder: {{title}}",
+    "invitation": "{{actor}} invites you to “{{title}}”",
+    "invitationUpdate": "{{actor}} changed “{{title}}”",
+    "invitationCancel": "{{actor}} cancelled “{{title}}”",
+    "invitationDeclined": "{{actor}} declined “{{title}}”",
+    "calendarShared": "shared a calendar with you",
+    "allMarked": "All marked as read",
+    "openUnread_one": "Notifications, {{count}} unread",
+    "openUnread_other": "Notifications, {{count}} unread"
   }
 }

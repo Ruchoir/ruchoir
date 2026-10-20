@@ -167,7 +167,8 @@
     "next": "Nächster Zeitraum",
     "nothingSoon": "Nichts geplant",
     "nothingThatDay": "An diesem Tag ist nichts geplant",
-    "nothingSoonHint": "Keine Termine in den nächsten 30 Tagen."
+    "nothingSoonHint": "Keine Termine in den nächsten 30 Tagen.",
+    "year": "Jahr"
   },
   "calendar": {
     "personal": "Persönlich",
@@ -1126,7 +1127,10 @@
     "introBody": "Ruchoir sagt Ihnen Bescheid, wenn man Ihnen schreibt, Sie erwähnt oder zu einem Termin einlädt. Den Rest stellen Sie in den Einstellungen ein.",
     "introSampleFrom": "Léa Martin · Team",
     "introSample": "@Camille, kannst du bestätigen, dass du am Donnerstag dabei bist?",
-    "later": "Später"
+    "later": "Später",
+    "test": "Testbenachrichtigung senden",
+    "testSent": "Testbenachrichtigung gesendet",
+    "testRefused": "Gerade kein Test möglich (Benachrichtigungen auf der Instanz aus, oder ein Test wurde eben gesendet)."
   },
   "widgets": {
     "search": "Suchen",
@@ -1165,5 +1169,27 @@
   },
   "code": {
     "text": "Text"
+  },
+  "inbox": {
+    "markAllRead": "Alle als gelesen markieren",
+    "allReadText": "Sie sind auf dem Stand, nichts Ungelesenes.",
+    "nothingNew": "Nichts Neues",
+    "nothingNewText": "Ihre Erwähnungen, Antworten und Direktnachrichten erscheinen hier.",
+    "mentioned": "hat Sie erwähnt",
+    "broadcast": "hat den ganzen Kanal erwähnt",
+    "replied": "hat in einem Thread geantwortet",
+    "dm": "hat Ihnen eine Nachricht geschickt",
+    "wrote": "hat geschrieben",
+    "reacted": "hat auf Ihre Nachricht reagiert",
+    "edited": "hat eine Nachricht bearbeitet",
+    "reminder": "Erinnerung: {{title}}",
+    "invitation": "{{actor}} lädt Sie zu „{{title}}“ ein",
+    "invitationUpdate": "{{actor}} hat „{{title}}“ geändert",
+    "invitationCancel": "{{actor}} hat „{{title}}“ abgesagt",
+    "invitationDeclined": "{{actor}} hat „{{title}}“ abgelehnt",
+    "calendarShared": "hat einen Kalender mit Ihnen geteilt",
+    "allMarked": "Alles als gelesen markiert",
+    "openUnread_one": "Benachrichtigungen, {{count}} ungelesen",
+    "openUnread_other": "Benachrichtigungen, {{count}} ungelesen"
   }
 }
