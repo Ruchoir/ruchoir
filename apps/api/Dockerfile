@@ -22,9 +22,11 @@ COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/package.json
 COPY apps/mobile/package.json ./apps/mobile/package.json
 COPY packages/client/package.json ./packages/client/package.json
+COPY packages/design-system/package.json ./packages/design-system/package.json
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --filter "@ruchoir/web..."
 COPY packages/client ./packages/client
+COPY packages/design-system ./packages/design-system
 COPY apps/web ./apps/web
 RUN --mount=type=cache,target=/build/apps/web/.next/cache \
     pnpm --filter @ruchoir/web build
