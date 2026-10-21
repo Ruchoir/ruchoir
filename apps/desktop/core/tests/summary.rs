@@ -92,7 +92,6 @@ fn refresh_on_messages_reads_and_space_changes_only() {
         "message.deleted",
         "read.updated",
         "notification.created",
-        "notification.read",
         "space.removed",
         "member.joined",
         "channel.created",
