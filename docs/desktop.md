@@ -130,7 +130,7 @@ the frameless window (drag, double click, Windows snap, resizing from the edges)
 instance, signing in with a password then a code, and with a passkey, live messages, signing out,
 quitting and starting again still signed in, and a second launch bringing the first window forward.
 With two instances: both in the rail with their counts, a notification from the one not open and
-its click, the badge on the icon and in the tray, closing to the tray and
+its click, a notification setting changed on one and found on the other, the badge on the icon and in the tray, closing to the tray and
 reopening from it, launch at login (the app starts in the tray), and the memory read in the task
 manager.
 macOS is checked by a volunteer tester before each release.

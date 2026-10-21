@@ -124,3 +124,14 @@ on the app icon (macOS label, Windows overlay, Linux launcher count), closing to
 and Linux (said once), the usual dock on macOS, launch at login off by default and started in the
 tray (`tauri-plugin-autostart`, `--hidden`). The relay to the interface pauses while the window is
 hidden or minimised.
+
+**Settings, once for every instance** (Théo, 2026-10-21). The app's own settings (appearance, shortcuts,
+emoji, the Application section, the calendar's display) live in the app's storage, one origin for
+every instance, so they were already common. Notification settings live on each server (each sends
+its own mail and pushes): in the desktop app they are the app's once the person has chosen them, sent
+to every signed-in instance when changed, and an instance opened later is brought in line; until the
+first choice, the first instance's are adopted. Each preferences section says whether it applies to
+every instance or to the open one; the profile and the security settings are one account's.
+
+**Quitting.** Closing the window keeps the app in the tray; "Quit Ruchoir" in the account menu ends
+it, which a Linux desktop without a tray (GNOME without its extension) needs.
