@@ -11,6 +11,10 @@ one sent it, so a phone signed in to several asks each of them and shows the new
 ```
 instance ── POST /v1/send {platform, token} ──▶ relay ── constant push ──▶ Apple / Google ──▶ phone
 phone ── GET /api/v1/push/pending (its session there) ──▶ each of its instances ── what to show
+
+read elsewhere:
+instance ── POST /v1/sync {platform, token} ──▶ relay ── silent push ──▶ Apple / Google ──▶ phone
+phone ── GET /api/v1/notifications?unread=true ──▶ each instance ── icon count, read ones cleared
 ```
 
 ## What it answers
@@ -19,6 +23,7 @@ phone ── GET /api/v1/push/pending (its session there) ──▶ each of its 
 |---|---|
 | `GET /health` | `{"status":"ok","apns":true,"fcm":false}`: which vendors have their key |
 | `POST /v1/send` `{"platform":"ios"\|"android","token":"…"}` | `202 delivered`; `410 gone` (the instance forgets the device); `400` (not a token, unknown platform); `429` (rate limited: 1,200 a minute per address, 20 a minute per device); `503 not_configured` (that vendor's key is missing); `502 failed` (the vendor refused or could not be reached) |
+| `POST /v1/sync`, same body | the silent push saying something was read elsewhere (ADR 0006, amendment of 2026-10-21): to Apple a background push (`content-available`, priority 5), to Google `{"ruchoir":"sync"}` at normal priority. Same answers; its own allowance of 10 a minute per device, so syncs never use up wakes |
 
 It keeps nothing but rate-limit counters, and never logs a token. Behind nginx, which adds TLS and
 the caller's address (`X-Real-IP`); the relay itself listens on the loopback only.
@@ -65,28 +70,17 @@ docker build -f apps/push-relay/Dockerfile -t ruchoir-push-relay:0.1.0 .
 
 ### Production (the website's server)
 
-`https://ruchoir.com/push/`, the default `RUCHOIR_PUSH_RELAY_URL` of every instance. On `ruchoir-site`:
+`https://ruchoir.com/push/`, the default `RUCHOIR_PUSH_RELAY_URL` of every instance, on `ruchoir-site`,
+deployed by a tag (below). Once, by hand:
 
-- the keys in `/etc/ruchoir-push-relay/` (`apns.p8`, `fcm.json`, `relay.env` with `APNS_KEY_ID` and
-  `APNS_TEAM_ID`), owned by root, group `10002` (the image's user), modes `750` and `640`;
-- `/opt/push-relay/compose.yml`:
-
-  ```yaml
-  services:
-    relay:
-      image: ruchoir-push-relay:0.1.0
-      env_file: /etc/ruchoir-push-relay/relay.env
-      environment:
-        APNS_KEY_FILE: /run/relay/apns.p8
-        FCM_SERVICE_ACCOUNT_FILE: /run/relay/fcm.json
-      volumes: ["/etc/ruchoir-push-relay:/run/relay:ro"]
-      ports: ["127.0.0.1:8095:8080"]
-      read_only: true
-      security_opt: ["no-new-privileges:true"]
-      cap_drop: [ALL]
-      restart: unless-stopped
-  ```
-
+- the keys in `/etc/ruchoir-push-relay/` (`apns.p8`, `fcm.json` when there is one, `relay.env` with
+  `APNS_KEY_ID` and `APNS_TEAM_ID`), owned by root, group `10002` (the image's user), modes `750`
+  and `640`;
+- the registry's `site` account may pull `ruchoir/push-relay` (the server's own pull login);
+- `infra/push-relay/push-relay-deploy` and `push-relay-deploy-entry` in `/usr/local/sbin` (root,
+  `0755`), a key of its own for the `deploy` account bound to the entry
+  (`command="/usr/local/sbin/push-relay-deploy-entry",restrict ssh-ed25519 … ci-push-relay`), and
+  `/etc/sudoers.d/push-relay-deploy`: `deploy ALL=(root) NOPASSWD: /usr/local/sbin/push-relay-deploy`;
 - in nginx's `ruchoir.com` server block (the file comes from the website's repository,
   `deploy/nginx/ruchoir.com.conf`: change it there too):
 
@@ -99,6 +93,17 @@ docker build -f apps/push-relay/Dockerfile -t ruchoir-push-relay:0.1.0 .
   ```
 
 - check: `curl https://ruchoir.com/push/health`.
+
+### Releasing
+
+A tag `push-relay-vX.Y.Z` (`.github/workflows/push-relay-release.yml`) builds the image
+(`registry.ruchoir.com/ruchoir/push-relay:vX.Y.Z`), pushes it, and runs `push-relay-deploy` through
+the `deploy` account with `infra/push-relay` as the bundle: it pulls the image, starts it
+(`/opt/push-relay`, `infra/push-relay/compose.yml`), waits for its health check and puts the previous
+image back if it never passes. Log: `/var/log/push-relay-deploy.log`. Secrets
+`RELAY_DEPLOY_SSH_KEY`, `RELAY_DEPLOY_KNOWN_HOSTS`, variable `RELAY_DEPLOY_HOST`; the registry
+account is release.yml's. The relay ships apart from the instance's `vX.Y.Z` tags: every instance
+uses it, whatever version each runs.
 
 ### Development
 
