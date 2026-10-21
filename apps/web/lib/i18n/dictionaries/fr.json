@@ -1764,14 +1764,48 @@
     "files": "Documents joints"
   },
   "handoff": {
-    "signInNote": "Connexion pour l’appli Ruchoir de ce téléphone",
+    "signInNote": "Connexion pour l’appli Ruchoir de cet appareil",
     "consentTitle": "Autoriser l’appli Ruchoir ?",
-    "consentBody": "L’appli Ruchoir de ce téléphone pourra utiliser le compte {{name}} ({{email}}), comme si vous vous y connectiez.",
+    "consentBody": "L’appli Ruchoir de cet appareil pourra utiliser le compte {{name}} ({{email}}), comme si vous vous y connectiez.",
     "passkeyTitle": "Ajouter une clé d’accès",
-    "passkeyBody": "Pour le compte {{email}}. Votre téléphone vous demandera Face ID, votre empreinte ou son code.",
+    "passkeyBody": "Pour le compte {{email}}. Votre appareil vous demandera votre visage, votre empreinte, une clé de sécurité ou son code.",
     "doneTitle": "C’est fait",
     "doneBody": "Vous pouvez revenir dans l’appli Ruchoir.",
     "goneTitle": "Lien expiré",
     "goneBody": "Ce lien n’est plus valable. Recommencez depuis l’appli Ruchoir."
+  },
+  "desktop": {
+    "add": {
+      "title": "Ajouter une instance Ruchoir",
+      "subtitle": "L’adresse de l’instance de votre organisation, telle que vous l’ouvrez dans un navigateur.",
+      "address": "Adresse de l’instance",
+      "placeholder": "ruchoir.exemple.org",
+      "errors": {
+        "empty": "Indiquez l’adresse de l’instance.",
+        "not_https": "L’adresse doit commencer par https:// : une session ne circule jamais en clair.",
+        "has_path": "Indiquez seulement l’adresse de l’instance, sans chemin après le nom.",
+        "has_credentials": "L’adresse ne doit pas contenir d’identifiant ni de mot de passe.",
+        "invalid": "Cette adresse n’est pas valide.",
+        "unreachable": "Impossible de joindre cette adresse. Vérifiez-la, ainsi que votre connexion.",
+        "not_ruchoir": "Cette adresse ne répond pas comme une instance Ruchoir.",
+        "outdated": "Cette instance est trop ancienne pour l’application. Demandez à son administrateur de la mettre à jour.",
+        "other": "Quelque chose s’est mal passé. Réessayez."
+      }
+    },
+    "signIn": {
+      "title": "Se connecter à {{host}}",
+      "body": "La connexion se fait sur la page de {{host}}, dans votre navigateur : mot de passe, puis code ou clé d’accès.",
+      "open": "Ouvrir la page de connexion",
+      "waitTitle": "Terminez la connexion dans votre navigateur",
+      "waitBody": "Connectez-vous sur la page de {{host}} qui vient de s’ouvrir, puis autorisez l’application. Vous reviendrez ici automatiquement.",
+      "reopen": "Rouvrir la page",
+      "failed": "La connexion n’a pas abouti. Recommencez depuis cette fenêtre."
+    },
+    "noKeychain": "Votre système n’a pas de trousseau : il faudra vous reconnecter après avoir quitté Ruchoir.",
+    "titleBar": {
+      "minimize": "Réduire",
+      "maximize": "Agrandir",
+      "restore": "Restaurer"
+    }
   }
 }

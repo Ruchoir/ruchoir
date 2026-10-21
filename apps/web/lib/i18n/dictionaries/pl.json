@@ -1872,14 +1872,48 @@
     "files": "Załączone dokumenty"
   },
   "handoff": {
-    "signInNote": "Logowanie do aplikacji Ruchoir na tym telefonie",
+    "signInNote": "Logowanie do aplikacji Ruchoir na tym urządzeniu",
     "consentTitle": "Zezwolić aplikacji Ruchoir?",
-    "consentBody": "Aplikacja Ruchoir na tym telefonie będzie mogła używać konta {{name}} ({{email}}), tak jakbyś się do niego zalogował.",
+    "consentBody": "Aplikacja Ruchoir na tym urządzeniu będzie mogła używać konta {{name}} ({{email}}), tak jakbyś się do niego zalogował.",
     "passkeyTitle": "Dodaj klucz dostępu",
-    "passkeyBody": "Dla konta {{email}}. Telefon poprosi o Face ID, odcisk palca lub swój kod.",
+    "passkeyBody": "Dla konta {{email}}. Urządzenie poprosi o twarz, odcisk palca, klucz bezpieczeństwa lub swój kod.",
     "doneTitle": "Gotowe",
     "doneBody": "Możesz wrócić do aplikacji Ruchoir.",
     "goneTitle": "Link wygasł",
     "goneBody": "Ten link jest już nieważny. Zacznij od nowa w aplikacji Ruchoir."
+  },
+  "desktop": {
+    "add": {
+      "title": "Dodaj instancję Ruchoir",
+      "subtitle": "Adres instancji Twojej organizacji, taki jak otwierasz w przeglądarce.",
+      "address": "Adres instancji",
+      "placeholder": "ruchoir.przyklad.org",
+      "errors": {
+        "empty": "Podaj adres instancji.",
+        "not_https": "Adres musi zaczynać się od https://: sesja nigdy nie jest przesyłana bez szyfrowania.",
+        "has_path": "Podaj tylko adres instancji, bez ścieżki po nazwie.",
+        "has_credentials": "Adres nie może zawierać nazwy użytkownika ani hasła.",
+        "invalid": "Ten adres jest nieprawidłowy.",
+        "unreachable": "Nie można połączyć się z tym adresem. Sprawdź go oraz swoje połączenie.",
+        "not_ruchoir": "Ten adres nie odpowiada jak instancja Ruchoir.",
+        "outdated": "Ta instancja jest za stara dla aplikacji. Poproś jej administratora o aktualizację.",
+        "other": "Coś poszło nie tak. Spróbuj ponownie."
+      }
+    },
+    "signIn": {
+      "title": "Zaloguj się do {{host}}",
+      "body": "Logujesz się na stronie {{host}}, w przeglądarce: hasło, potem kod lub klucz dostępu.",
+      "open": "Otwórz stronę logowania",
+      "waitTitle": "Dokończ logowanie w przeglądarce",
+      "waitBody": "Zaloguj się na właśnie otwartej stronie {{host}}, a potem zezwól aplikacji. Wrócisz tu automatycznie.",
+      "reopen": "Otwórz stronę ponownie",
+      "failed": "Logowanie się nie powiodło. Zacznij ponownie z tego okna."
+    },
+    "noKeychain": "Twój system nie ma pęku kluczy: po zamknięciu Ruchoir trzeba będzie zalogować się ponownie.",
+    "titleBar": {
+      "minimize": "Minimalizuj",
+      "maximize": "Maksymalizuj",
+      "restore": "Przywróć"
+    }
   }
 }

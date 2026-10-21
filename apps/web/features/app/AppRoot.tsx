@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAvatar, getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
+import { onSearchRequest } from "@/lib/desktop/searchRequest";
 import {
   acceptInvitation,
   addReaction,
@@ -3611,6 +3612,8 @@ function AppShell() {
     editing === null &&
     channelSettingsId === null &&
     channelNotifId === null;
+  // The desktop app's title bar has a search field of its own, outside this tree.
+  useEffect(() => onSearchRequest(() => setModal("search")), []);
   useGlobalShortcuts(
     settings.shortcuts,
     {

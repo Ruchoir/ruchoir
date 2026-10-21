@@ -1,0 +1,161 @@
+/*
+ * The desktop app's frame: its own title bar above the web interface (the window has no system
+ * frame on Windows and Linux; on macOS the traffic lights sit over the bar's left end).
+ *
+ * The root is zoomed by the text size setting (`--ui-zoom`), so the bar's height is divided by it to
+ * stay the system's 32 pixels. The body below is a containing block (`transform`), so the
+ * interface's full-screen overlays (`position: fixed; inset: 0`) fill the space under the bar
+ * rather than the whole window, and `--ui-vh` is the height left to them.
+ */
+:root:has(.wc-desktop) {
+  --wc-titlebar-h: calc(32px / var(--ui-zoom, 1));
+  --ui-vh: calc(100dvh / var(--ui-zoom, 1) - var(--wc-titlebar-h));
+}
+
+.wc-desktop {
+  display: flex;
+  flex-direction: column;
+  width: var(--ui-vw, 100vw);
+  height: calc(100dvh / var(--ui-zoom, 1));
+  background: var(--surface-canvas);
+}
+
+/*
+ * Linux: the window is transparent and the app draws its own rounded corners, with a thin grey edge
+ * standing in for the shadow Linux gives no frameless window. Square again once maximised.
+ */
+:root:has(.wc-desktop--rounded),
+:root:has(.wc-desktop--rounded) body {
+  background: transparent;
+}
+
+.wc-desktop--rounded {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.wc-desktop__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  transform: translateZ(0);
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * The top line is part of the interface: the rail's background, no line under it. Three columns so
+ * the search stays centred whatever sits at either end.
+ */
+.wc-titlebar {
+  flex: none;
+  height: var(--wc-titlebar-h);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 480px) minmax(0, 1fr);
+  align-items: center;
+  background: var(--surface-canvas);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.wc-titlebar__side {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.wc-titlebar__side--end {
+  justify-content: flex-end;
+}
+
+/* Room for the traffic lights. */
+.wc-titlebar--macos .wc-titlebar__side:first-child {
+  padding-left: 78px;
+}
+
+.wc-titlebar__middle {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.wc-titlebar__search {
+  width: 100%;
+  height: calc(24px / var(--ui-zoom, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.wc-titlebar__search:hover {
+  color: var(--text-body);
+}
+
+.wc-titlebar__search:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.wc-titlebar__controls {
+  display: flex;
+  height: 100%;
+}
+
+.wc-titlebar__button {
+  width: 46px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-body);
+  cursor: default;
+}
+
+.wc-titlebar__button:hover {
+  background: var(--surface-sunken);
+}
+
+/* The red every Windows and Linux person expects under the pointer on a close button. */
+.wc-titlebar__button--close:hover {
+  background: #c42b1c;
+  color: #fff;
+}
+
+.wc-titlebar__button:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: -2px;
+}
+
+.wc-desktop__notice {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: var(--text-sm);
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-body);
+}
+
+.wc-desktop__notice-close {
+  border: 0;
+  background: transparent;
+  color: var(--text-accent);
+  cursor: pointer;
+  font: inherit;
+}

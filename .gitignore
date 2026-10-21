@@ -21,6 +21,8 @@
 # Dependencies and build output (filled in as the stack lands).
 node_modules/
 /target/
+/apps/desktop/target/
+/apps/desktop/src-tauri/gen/
 /.next/
 /dist/
 /apps/web/out/

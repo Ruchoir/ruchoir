@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { type AvatarKind, avatarDataUri } from "./avatar";
+import { type AvatarKind, avatarDataUri } from "./avatarImage";
 
 /**
  * What someone is, right now, as the server computes it. The same union as `Presence` in

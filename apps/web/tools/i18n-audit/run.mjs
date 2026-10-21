@@ -322,6 +322,11 @@ function findHardCoded(source, path) {
  * Each entry is that claim, made once, in writing.
  */
 const ALLOWED_DUPLICATES = new Set([
+  // The desktop window's "Restore" button (back from maximised) and a file's "Restore" (out of the
+  // trash) share a word in several languages by coincidence; Windows itself words the first one
+  // apart in some of them.
+  "desktop.titleBar.restore",
+
   // The calendar's one-day view and the light theme's name are both "Jour" in French, and "Day" in
   // English, by coincidence: one is a span of time, the other daylight. A language that calls the
   // light theme "Clair" must be able to keep "Jour" for the view.

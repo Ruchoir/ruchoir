@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "What the main window may call. The interface is served on the app's own protocol, which Tauri treats as a local origin.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:event:default",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-maximized",
+    "core:window:allow-is-fullscreen",
+    "opener:allow-open-url"
+  ]
+}

@@ -1738,14 +1738,48 @@
     "files": "Angehängte Dokumente"
   },
   "handoff": {
-    "signInNote": "Anmeldung für die Ruchoir-App auf diesem Telefon",
+    "signInNote": "Anmeldung für die Ruchoir-App auf diesem Gerät",
     "consentTitle": "Ruchoir-App zulassen?",
-    "consentBody": "Die Ruchoir-App auf diesem Telefon kann das Konto {{name}} ({{email}}) nutzen, als hätten Sie sich dort angemeldet.",
+    "consentBody": "Die Ruchoir-App auf diesem Gerät kann das Konto {{name}} ({{email}}) nutzen, als hätten Sie sich dort angemeldet.",
     "passkeyTitle": "Passkey hinzufügen",
-    "passkeyBody": "Für das Konto {{email}}. Ihr Telefon fragt nach Face ID, Ihrem Fingerabdruck oder seinem Code.",
+    "passkeyBody": "Für das Konto {{email}}. Ihr Gerät fragt nach Ihrem Gesicht, Ihrem Fingerabdruck, einem Sicherheitsschlüssel oder seinem Code.",
     "doneTitle": "Erledigt",
     "doneBody": "Sie können zur Ruchoir-App zurückkehren.",
     "goneTitle": "Link abgelaufen",
     "goneBody": "Dieser Link ist nicht mehr gültig. Beginnen Sie erneut in der Ruchoir-App."
+  },
+  "desktop": {
+    "add": {
+      "title": "Ruchoir-Instanz hinzufügen",
+      "subtitle": "Die Adresse der Instanz Ihrer Organisation, so wie Sie sie im Browser öffnen.",
+      "address": "Adresse der Instanz",
+      "placeholder": "ruchoir.beispiel.org",
+      "errors": {
+        "empty": "Geben Sie die Adresse der Instanz ein.",
+        "not_https": "Die Adresse muss mit https:// beginnen: Eine Sitzung wird nie unverschlüsselt übertragen.",
+        "has_path": "Geben Sie nur die Adresse der Instanz ein, ohne Pfad nach dem Namen.",
+        "has_credentials": "Die Adresse darf weder Benutzernamen noch Passwort enthalten.",
+        "invalid": "Diese Adresse ist ungültig.",
+        "unreachable": "Diese Adresse ist nicht erreichbar. Prüfen Sie sie und Ihre Verbindung.",
+        "not_ruchoir": "Diese Adresse antwortet nicht wie eine Ruchoir-Instanz.",
+        "outdated": "Diese Instanz ist zu alt für die App. Bitten Sie die Administration, sie zu aktualisieren.",
+        "other": "Etwas ist schiefgelaufen. Versuchen Sie es erneut."
+      }
+    },
+    "signIn": {
+      "title": "Bei {{host}} anmelden",
+      "body": "Die Anmeldung erfolgt auf der Seite von {{host}} in Ihrem Browser: Passwort, dann Code oder Passkey.",
+      "open": "Anmeldeseite öffnen",
+      "waitTitle": "Schließen Sie die Anmeldung im Browser ab",
+      "waitBody": "Melden Sie sich auf der soeben geöffneten Seite von {{host}} an und erlauben Sie dann die App. Sie kehren automatisch hierher zurück.",
+      "reopen": "Seite erneut öffnen",
+      "failed": "Die Anmeldung ist nicht gelungen. Beginnen Sie erneut in diesem Fenster."
+    },
+    "noKeychain": "Ihr System hat keinen Schlüsselbund: Nach dem Beenden von Ruchoir müssen Sie sich erneut anmelden.",
+    "titleBar": {
+      "minimize": "Minimieren",
+      "maximize": "Maximieren",
+      "restore": "Wiederherstellen"
+    }
   }
 }

@@ -1,0 +1,21 @@
+# Cargo workspace of the desktop app (Windows, macOS, Linux), kept apart from the root workspace on
+# purpose: the API's checks never need WebKitGTK, and Tauri's dependency tree never touches the API's
+# lockfile. See docs/specs/desktop and ADR 0008.
+[workspace]
+resolver = "2"
+members = ["core", "src-tauri"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.96"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Ruchoir/ruchoir"
+version = "0.1.0"
+
+# The app must stay light (spec, "Lightness budget"): small, stripped, no unwinding tables.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

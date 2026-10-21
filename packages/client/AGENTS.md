@@ -7,7 +7,9 @@ share. See the root `AGENTS.md` for project-wide rules.
 
 - `config.ts`: where requests go and how they prove who is asking (`ClientOptions`). The defaults
   are the web's (relative same-origin calls, the session cookie, `credentials: "same-origin"`);
-  `configureClient` changes the **default client's** options.
+  `configureClient` changes the **default client's** options. `publicOrigin` names the instance
+  when `baseUrl` does not (the desktop app's `/i/<id>` paths): `apiOrigin`, public links and the
+  realtime socket's address use it.
 - `client.ts`: `createClient({ baseUrl, authorization, sessionDelivery: "token", openSocket,
   onUnauthorized })`, a client for one instance with every call bound to its own options. The apps
   hold one per instance (ADR 0007); the web never builds one.

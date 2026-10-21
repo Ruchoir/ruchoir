@@ -1,6 +1,7 @@
 "use client";
 
 import { forgetPushSubscription, getPushConfig, savePushSubscription } from "@/lib/data/api";
+import { isDesktop } from "@/lib/desktop/runtime";
 
 /**
  * Web Push: notifications that reach this device while no Ruchoir page is open.
@@ -37,7 +38,8 @@ export function isInstalledApp(): boolean {
 }
 
 export function pushSupport(): PushSupport {
-  if (typeof window === "undefined") return "unsupported";
+  // The desktop app notifies through its own connection to each instance, never Web Push (ADR 0008).
+  if (typeof window === "undefined" || isDesktop) return "unsupported";
   if ("serviceWorker" in navigator && "PushManager" in window && "Notification" in window) return "available";
   if (isAppleMobile() && !isInstalledApp()) return "needs-install";
   return "unsupported";
@@ -48,7 +50,7 @@ export function pushSupport(): PushSupport {
  * and having one is part of what makes the app installable.
  */
 export function registerServiceWorker(): void {
-  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  if (typeof window === "undefined" || isDesktop || !("serviceWorker" in navigator)) return;
   void navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
     // A browser in a private mode may refuse; the app works the same without it.
   });

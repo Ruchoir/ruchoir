@@ -1,9 +1,10 @@
-# pnpm workspace: the web and mobile apps and the TypeScript packages they share.
+# pnpm workspace: the web, mobile and desktop apps and the TypeScript packages they share.
 # The Rust API (apps/api) is a Cargo workspace member, not a pnpm one.
 # packages/* are added here when they become real pnpm packages.
 packages:
   - "apps/web"
   - "apps/mobile"
+  - "apps/desktop"
   - "packages/client"
   - "packages/design-system"
 allowBuilds:

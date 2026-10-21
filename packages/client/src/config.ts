@@ -15,6 +15,12 @@
 export type ClientOptions = {
   /** The instance origin (`https://ruchoir.example.org`), or empty for same-origin relative calls. */
   baseUrl: string;
+  /**
+   * The instance's own address when `baseUrl` is not it: the desktop app reaches every instance
+   * through a path of its own origin (`/i/<id>`), yet a public link copied to someone, or the
+   * realtime socket's address, must name the instance itself. Unset everywhere else.
+   */
+  publicOrigin?: string;
   /** The `Authorization` header value for each request, or null to send none. */
   authorization: () => string | null;
   /** How a sign-in asks for its session: the browser's cookie, or a token for a native app. */
@@ -63,12 +69,13 @@ export function apiBaseOf(options: ClientOptions): string {
 }
 
 /**
- * The origin the API of `options` answers on: the configured one, else the page's own.
+ * The origin the API of `options` answers on: its public origin if set, else the configured base,
+ * else the page's own.
  *
  * Only the web reaches the fallback, and only in a browser, which is where `window` exists.
  */
 export function apiOriginOf(options: ClientOptions): string {
-  return options.baseUrl || window.location.origin;
+  return options.publicOrigin || options.baseUrl || window.location.origin;
 }
 
 /**

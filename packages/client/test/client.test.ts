@@ -67,3 +67,13 @@ test("configure_changes_one_client_only", async () => {
   assert.equal(header(calls[0], "authorization"), "Bearer A2");
   assert.equal(header(calls[1], "authorization"), "Bearer B");
 });
+
+test("a_public_origin_apart_from_the_base_url", () => {
+  const a = createClient({ baseUrl: "/i/abc", publicOrigin: "https://a.example" });
+  assert.equal(a.apiOrigin(), "https://a.example");
+  assert.equal(a.apiBase(), "/i/abc/api/v1");
+  assert.ok(a.publicLinkUrl("t1").startsWith("https://a.example/s/?t="));
+  assert.equal(a.realtimeSocketUrl(), "wss://a.example/api/v1/realtime/ws");
+  // Without it, the base URL is still the origin.
+  assert.equal(createClient({ baseUrl: "https://b.test" }).apiOrigin(), "https://b.test");
+});
