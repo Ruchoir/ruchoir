@@ -531,7 +531,7 @@ pub async fn mark_read(
         let mut active = row.into_active_model();
         active.read_at = Set(Some(OffsetDateTime::now_utc()));
         active.update(&state.db).await?;
-        announce_read(&state, session.user_id, vec![id], false).await?;
+        announce_read(&state, session.user_id, vec![id], false).await;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -557,7 +557,7 @@ pub async fn mark_all_read(
         .exec(&state.db)
         .await?;
     if marked.rows_affected > 0 {
-        announce_read(&state, session.user_id, Vec::new(), true).await?;
+        announce_read(&state, session.user_id, Vec::new(), true).await;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -575,18 +575,21 @@ struct ReadPayload {
 
 /// Something was read: tell every device the person has open (`notification.read`), and their
 /// phones, silently, so the icon's count and the notifications on screen follow even with the app
-/// closed (ADR 0006, the sync push). Called only when something actually changed.
-async fn announce_read(
-    state: &AppState,
-    user_id: Uuid,
-    ids: Vec<Uuid>,
-    all: bool,
-) -> Result<(), ApiError> {
-    let unread_count = notifications::Entity::find()
+/// closed (ADR 0006, the sync push). Called only when something actually changed, after it was
+/// saved: it never fails the request, which has done what it was asked.
+async fn announce_read(state: &AppState, user_id: Uuid, ids: Vec<Uuid>, all: bool) {
+    let unread_count = match notifications::Entity::find()
         .filter(notifications::Column::UserId.eq(user_id))
         .filter(notifications::Column::ReadAt.is_null())
         .count(&state.db)
-        .await? as i64;
+        .await
+    {
+        Ok(count) => count as i64,
+        Err(error) => {
+            tracing::warn!(%error, "could not count the unread notifications to announce a read");
+            return;
+        }
+    };
     state
         .hub
         .publish(
@@ -599,7 +602,6 @@ async fn announce_read(
         )
         .await;
     crate::notify::phone::sync_soon(state, user_id).await;
-    Ok(())
 }
 
 #[cfg(test)]
