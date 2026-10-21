@@ -252,7 +252,13 @@ async function main() {
     if (!secondInstance) {
       await menu();
       if (!(await clickText("Retirer cette instance"))) throw new Error("no \"Retirer cette instance\" in the account menu");
-      await until("the add screen at the start", () => run("return !!document.querySelector('#dk-address') && location.pathname === '/';"), 30000);
+      try {
+        await until("the add screen at the start", () => run("return !!document.querySelector('#dk-address') && location.pathname === '/';"), 30000);
+      } catch (error) {
+        const state = await run("return { path: location.pathname, add: !!document.querySelector('#dk-address'), text: document.body.innerText.slice(0, 200) };");
+        console.error(`after removing: ${JSON.stringify(state)}`);
+        throw error;
+      }
     }
     console.log(`ok: signed in, ${path} open, live message received, account menu works`);
   } finally {
