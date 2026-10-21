@@ -36,6 +36,8 @@ export type DesktopBridge = {
   preferencesSaved: () => void;
   settings: DesktopSettings | null;
   setSettings: (settings: DesktopSettings) => void;
+  /** End the app, which closing the window does not (it stays in the tray). */
+  quit: () => void;
   /** The interface finished loading (it calls this once its boot is over). */
   interfaceReady: () => void;
 };

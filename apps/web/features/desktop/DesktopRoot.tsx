@@ -10,6 +10,7 @@ import {
   desktopSettings,
   instanceOpen,
   instanceRemove,
+  quitApp,
   instancesState,
   onDesktopOpen,
   onInstancesChanged,
@@ -189,11 +190,16 @@ export function DesktopRoot() {
       open: switchTo,
       addInstance: () => setAdding(true),
       signIn: (id) => switchTo(id, "/"),
-      removeOpen: () => void instanceRemove(open.id as string),
+      // The next instance opens at its own start, not at the removed one's last address.
+      removeOpen: () => {
+        goTo("/");
+        void instanceRemove(open.id as string);
+      },
       preferencesSaved: () => void preferencesChanged(open.id as string),
       settings,
       setSettings: (next) => void setDesktopSettings(next).then(setSettings),
       interfaceReady: releaseStill,
+      quit: () => void quitApp(),
     };
   }, [open, views, sums, settings, switchTo, releaseStill]);
 
@@ -205,8 +211,8 @@ export function DesktopRoot() {
 
   let body = null;
   if (views !== null) {
-    if (adding || !open) {
-      body = <AddInstanceScreen onAdded={() => setAdding(false)} onCancel={views.length > 0 ? () => setAdding(false) : undefined} />;
+    if (!open) {
+      body = <AddInstanceScreen onAdded={() => setAdding(false)} />;
     } else if (open.state === "signed_in") {
       body = (
         <DesktopContext.Provider value={bridge}>
@@ -217,23 +223,31 @@ export function DesktopRoot() {
       body = <SignInWaitScreen view={open} onBack={goBack} />;
     }
   }
+  // Adding an instance from the interface lays the add screen over it: cancelling comes back to the
+  // interface as it was, rather than to a fresh one.
+  const addingOver = adding && open !== null;
 
   return (
     // Linux draws no corners or shadow for a frameless window: the app rounds its own, unless the
     // window fills the screen.
     <div className={`wc-desktop${desktopOs() === "linux" && !maximized && !fullscreen ? " wc-desktop--rounded" : ""}`}>
-      {fullscreen ? null : <TitleBar maximized={maximized} onSearch={open?.state === "signed_in" && !adding ? requestSearch : undefined} />}
-      {showNoKeychain ? (
-        <div className="wc-desktop__notice" role="status">
-          <span>{t("desktop.noKeychain")}</span>
-          <button type="button" className="wc-desktop__notice-close" onClick={() => setNoKeychainSeen(true)}>
-            {t("common.close")}
-          </button>
-        </div>
-      ) : null}
+      {fullscreen ? null : <TitleBar maximized={maximized} onSearch={open?.state === "signed_in" && !addingOver ? requestSearch : undefined} />}
       <div className="wc-desktop__body" ref={bodyRef}>
         {body}
+        {addingOver ? (
+          <div className="wc-desktop__over">
+            <AddInstanceScreen onAdded={() => setAdding(false)} onCancel={() => setAdding(false)} />
+          </div>
+        ) : null}
         <div className="wc-desktop__still" ref={stillRef} aria-hidden="true" />
+        {showNoKeychain ? (
+          <div className="wc-desktop__notice" role="status">
+            <span>{t("desktop.noKeychain")}</span>
+            <button type="button" className="wc-desktop__notice-close" onClick={() => setNoKeychainSeen(true)}>
+              {t("common.close")}
+            </button>
+          </div>
+        ) : null}
       </div>
       {asking ? (
         <Dialog

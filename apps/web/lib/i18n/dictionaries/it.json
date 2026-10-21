@@ -1852,7 +1852,7 @@
     "tray": {
       "open": "Apri Ruchoir",
       "quit": "Esci",
-      "closedNotice": "Ruchoir resta aperto nell’area di notifica. Per uscire: clic destro sull’icona, poi Esci."
+      "closedNotice": "Ruchoir resta aperto per avvisarti. Per riaprirlo: la sua icona vicino all’orologio, oppure riavvia Ruchoir. Per uscire: Esci da Ruchoir, nel menu del tuo profilo."
     },
     "switch": {
       "title": "Invio in corso",
@@ -1866,7 +1866,8 @@
     "menu": {
       "addInstance": "Aggiungi un’istanza",
       "signOutHere": "Esci da questa istanza",
-      "removeInstance": "Rimuovi questa istanza"
+      "removeInstance": "Rimuovi questa istanza",
+      "quit": "Esci da Ruchoir"
     },
     "prefs": {
       "title": "Applicazione",

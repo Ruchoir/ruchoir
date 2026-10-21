@@ -1785,7 +1785,7 @@
     "tray": {
       "open": "Open Ruchoir",
       "quit": "Quit",
-      "closedNotice": "Ruchoir is still running in the notification area. To quit it: right click its icon, then Quit."
+      "closedNotice": "Ruchoir keeps running to notify you. To open it again: its icon near the clock, or start Ruchoir again. To quit it: Quit Ruchoir, in your profile’s menu."
     },
     "switch": {
       "title": "Files being sent",
@@ -1799,7 +1799,8 @@
     "menu": {
       "addInstance": "Add an instance",
       "signOutHere": "Sign out of this instance",
-      "removeInstance": "Remove this instance"
+      "removeInstance": "Remove this instance",
+      "quit": "Quit Ruchoir"
     },
     "prefs": {
       "title": "Application",

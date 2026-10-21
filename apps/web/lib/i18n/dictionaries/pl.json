@@ -1919,7 +1919,7 @@
     "tray": {
       "open": "Otwórz Ruchoir",
       "quit": "Zakończ",
-      "closedNotice": "Ruchoir działa dalej w obszarze powiadomień. Aby go zamknąć: kliknij ikonę prawym przyciskiem, potem Zakończ."
+      "closedNotice": "Ruchoir działa dalej, aby Cię powiadamiać. Aby go otworzyć: jego ikona obok zegara albo ponowne uruchomienie Ruchoir. Aby go zamknąć: Zakończ Ruchoir w menu profilu."
     },
     "switch": {
       "title": "Trwa wysyłanie",
@@ -1933,7 +1933,8 @@
     "menu": {
       "addInstance": "Dodaj instancję",
       "signOutHere": "Wyloguj się z tej instancji",
-      "removeInstance": "Usuń tę instancję"
+      "removeInstance": "Usuń tę instancję",
+      "quit": "Zakończ Ruchoir"
     },
     "prefs": {
       "title": "Aplikacja",

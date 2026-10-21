@@ -1852,7 +1852,7 @@
     "tray": {
       "open": "Abrir Ruchoir",
       "quit": "Salir",
-      "closedNotice": "Ruchoir sigue abierto en el área de notificaciones. Para salir: clic derecho en su icono y Salir."
+      "closedNotice": "Ruchoir sigue abierto para avisarte. Para volver a abrirlo: su icono junto al reloj, o vuelve a iniciar Ruchoir. Para salir: Salir de Ruchoir, en el menú de tu perfil."
     },
     "switch": {
       "title": "Envío en curso",
@@ -1866,7 +1866,8 @@
     "menu": {
       "addInstance": "Añadir una instancia",
       "signOutHere": "Cerrar sesión en esta instancia",
-      "removeInstance": "Quitar esta instancia"
+      "removeInstance": "Quitar esta instancia",
+      "quit": "Salir de Ruchoir"
     },
     "prefs": {
       "title": "Aplicación",

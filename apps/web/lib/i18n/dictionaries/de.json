@@ -1785,7 +1785,7 @@
     "tray": {
       "open": "Ruchoir öffnen",
       "quit": "Beenden",
-      "closedNotice": "Ruchoir läuft weiter im Infobereich. Zum Beenden: Rechtsklick auf das Symbol, dann Beenden."
+      "closedNotice": "Ruchoir läuft weiter, um Sie zu benachrichtigen. Zum erneuten Öffnen: sein Symbol neben der Uhr, oder Ruchoir erneut starten. Zum Beenden: Ruchoir beenden, im Menü Ihres Profils."
     },
     "switch": {
       "title": "Dateien werden gesendet",
@@ -1799,7 +1799,8 @@
     "menu": {
       "addInstance": "Instanz hinzufügen",
       "signOutHere": "Von dieser Instanz abmelden",
-      "removeInstance": "Diese Instanz entfernen"
+      "removeInstance": "Diese Instanz entfernen",
+      "quit": "Ruchoir beenden"
     },
     "prefs": {
       "title": "Anwendung",

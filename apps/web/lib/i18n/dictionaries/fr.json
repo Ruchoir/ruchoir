@@ -1811,7 +1811,7 @@
     "tray": {
       "open": "Ouvrir Ruchoir",
       "quit": "Quitter",
-      "closedNotice": "Ruchoir reste ouvert dans la zone de notification. Pour le quitter : clic droit sur son icône, puis Quitter."
+      "closedNotice": "Ruchoir reste ouvert pour vous notifier. Pour le rouvrir : son icône près de l’horloge, ou relancez Ruchoir. Pour le quitter : Quitter Ruchoir, dans le menu de votre profil."
     },
     "switch": {
       "title": "Envoi en cours",
@@ -1825,7 +1825,8 @@
     "menu": {
       "addInstance": "Ajouter une instance",
       "signOutHere": "Se déconnecter de cette instance",
-      "removeInstance": "Retirer cette instance"
+      "removeInstance": "Retirer cette instance",
+      "quit": "Quitter Ruchoir"
     },
     "prefs": {
       "title": "Application",

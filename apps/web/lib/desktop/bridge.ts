@@ -36,6 +36,8 @@ export const summaries = () => invoke<Record<string, Summary>>("summaries");
 /** The open instance's notification settings were saved: the core reads them again. */
 export const preferencesChanged = (id: string) => invoke<void>("preferences_changed", { id });
 export const desktopSettings = () => invoke<DesktopSettings>("desktop_settings");
+/** End the app (the window's close only hides it to the tray). */
+export const quitApp = () => invoke<void>("app_quit");
 export const setDesktopSettings = (settings: DesktopSettings) => invoke<DesktopSettings>("set_desktop_settings", { settings });
 /** The tray menu's words and the first-close notice, in the interface's language. */
 export const setShellLabels = (labels: { open: string; quit: string; closed_to_tray: string }) =>

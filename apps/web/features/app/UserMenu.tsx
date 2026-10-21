@@ -163,6 +163,10 @@ export function UserMenu({
             <button type="button" onClick={() => run(desktop.removeOpen)} style={{ ...item, color: "var(--status-danger-fg)" }} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
               <Icon name="trash-2" size={14} />{t("desktop.menu.removeInstance")}</button>
           ) : null}
+          {desktop ? (
+            <button type="button" onClick={() => run(desktop.quit)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
+              <Icon name="x" size={14} />{t("desktop.menu.quit")}</button>
+          ) : null}
         </div>
       </div>
     </Popover>

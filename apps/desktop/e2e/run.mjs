@@ -228,11 +228,33 @@ async function main() {
       console.log("ok: second instance added, both in the rail, back on the first by one click");
     }
 
+    // 8. The account menu: "Add an instance" opens the add screen, Cancel comes back; then
+    // "Remove this instance" leaves the app at its start, on the add screen when none is left.
+    const menu = async () => {
+      // The profile button at the bottom of the rail, by its French label.
+      await run("const b = document.querySelector(`button[aria-label='${arguments[0]}']`); if (b) b.click();", ["Mon profil et statut"]);
+      await sleep(300);
+    };
+    const clickText = (text) =>
+      run("const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === arguments[0]); if (b) b.click(); return !!b;", [text]);
+    await menu();
+    if (!(await clickText("Ajouter une instance"))) throw new Error("no \"Ajouter une instance\" in the account menu");
+    await until("the add screen", () => run("return !!document.querySelector('#dk-address');"));
+    if (!(await clickText("Annuler"))) throw new Error("no Cancel on the add screen");
+    await until("the interface again, as it was", () =>
+      run("return !document.querySelector('#dk-address') && !!document.querySelector(`button[aria-label='${arguments[0]}']`);", ["Mon profil et statut"]),
+    );
+
     if (process.env.E2E_SCREENSHOT) {
       const png = await wd("GET", `/session/${id}/screenshot`);
       writeFileSync(process.env.E2E_SCREENSHOT, Buffer.from(png, "base64"));
     }
-    console.log(`ok: signed in, ${path} open, live message received`);
+    if (!secondInstance) {
+      await menu();
+      if (!(await clickText("Retirer cette instance"))) throw new Error("no \"Retirer cette instance\" in the account menu");
+      await until("the add screen at the start", () => run("return !!document.querySelector('#dk-address') && location.pathname === '/';"), 30000);
+    }
+    console.log(`ok: signed in, ${path} open, live message received, account menu works`);
   } finally {
     await wd("DELETE", `/session/${id}`).catch(() => {});
   }

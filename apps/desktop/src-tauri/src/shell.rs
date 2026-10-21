@@ -108,6 +108,13 @@ pub fn set_desktop_settings<R: Runtime>(
     Ok(read_settings(&app))
 }
 
+/// Quit the app, from the interface (a desktop with no tray icon has no other way once the window is
+/// hidden to the tray).
+#[tauri::command]
+pub fn app_quit<R: Runtime>(app: AppHandle<R>) {
+    app.exit(0);
+}
+
 /// The interface's words for the tray menu and the first-close notice.
 #[tauri::command]
 pub fn set_shell_labels<R: Runtime>(

@@ -84,6 +84,7 @@ fn main() {
             shell::desktop_settings,
             shell::set_desktop_settings,
             shell::set_shell_labels,
+            shell::app_quit,
             relay::socket_send,
             relay::socket_is_open,
         ])
