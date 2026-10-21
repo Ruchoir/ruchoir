@@ -139,35 +139,6 @@
   outline-offset: -2px;
 }
 
-/* A one-time notice, floating over the interface rather than above it, so it takes no height from it. */
-.wc-desktop__notice {
-  position: absolute;
-  z-index: 70;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
-  max-width: min(560px, calc(100% - 32px));
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  font-size: var(--text-sm);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-popover);
-  color: var(--text-body);
-}
-
-.wc-desktop__notice-close {
-  border: 0;
-  background: transparent;
-  color: var(--text-accent);
-  cursor: pointer;
-  font: inherit;
-}
-
 /*
  * Scrollbars: thin and quiet, in the design system's greys, instead of each system's own (thick and
  * grey-blue on Windows). All three webviews (WebView2, WKWebView, WebKitGTK) read the

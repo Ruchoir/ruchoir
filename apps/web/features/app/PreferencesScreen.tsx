@@ -221,6 +221,7 @@ function ApplicationSection() {
     <>
       <h2 style={st.h}>{t("desktop.prefs.title")}</h2>
       <SyncNote scope="shared" />
+      {desktop.keychain ? null : <p style={st.sub}>{t("desktop.noKeychain")}</p>}
       <Row title={t("desktop.prefs.launchAtLogin")} desc={t("desktop.prefs.launchAtLoginDesc")}>
         <Switch
           checked={settings.launch_at_login}

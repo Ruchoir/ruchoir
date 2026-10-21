@@ -40,6 +40,8 @@ export type DesktopBridge = {
   preferencesSaved: (prefs: NotificationPreferences) => void;
   settings: DesktopSettings | null;
   setSettings: (settings: DesktopSettings) => void;
+  /** Whether sessions survive quitting (false on a Linux desktop without a keychain). */
+  keychain: boolean;
   /** End the app, which closing the window does not (it stays in the tray). */
   quit: () => void;
   /** The interface finished loading (it calls this once its boot is over). */

@@ -33,6 +33,7 @@ export function SignInWaitScreen({ view, onBack }: { view: InstanceView; onBack?
     <AuthShell>
       <h1 style={authStyles.title}>{waiting ? t("desktop.signIn.waitTitle") : t("desktop.signIn.title", { host })}</h1>
       <p style={authStyles.subtitle}>{waiting ? t("desktop.signIn.waitBody", { host }) : t("desktop.signIn.body", { host })}</p>
+      {view.vault_persistent ? null : <p style={authStyles.subtitle}>{t("desktop.noKeychain")}</p>}
       {failed ? (
         <p style={authStyles.error} role="alert">
           {t("desktop.signIn.failed")}

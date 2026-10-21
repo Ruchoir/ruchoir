@@ -82,7 +82,6 @@ export function DesktopRoot() {
   const [generation, setGeneration] = useState(0);
   const [adding, setAdding] = useState(false);
   const [asking, setAsking] = useState<((answer: "wait" | "cancel") => void) | null>(null);
-  const [noKeychainSeen, setNoKeychainSeen] = useState(false);
   const { maximized, fullscreen } = useWindowShape();
   const viewsRef = useRef<InstanceView[] | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -221,6 +220,7 @@ export function DesktopRoot() {
       settings,
       setSettings: (next) => void setDesktopSettings(next).then(setSettings),
       interfaceReady: releaseStill,
+      keychain: open.vault_persistent,
       quit: () => void quitApp(),
     };
   }, [open, views, sums, settings, switchTo, releaseStill]);
@@ -229,7 +229,6 @@ export function DesktopRoot() {
   const back = views?.find((v) => !v.open && v.state === "signed_in" && v.id) ?? null;
   const goBack = back ? () => switchTo(back.id as string, "/") : undefined;
 
-  const showNoKeychain = open !== null && !open.vault_persistent && open.state === "signed_in" && !noKeychainSeen;
 
   let body = null;
   if (views !== null) {
@@ -262,14 +261,6 @@ export function DesktopRoot() {
           </div>
         ) : null}
         <div className="wc-desktop__still" ref={stillRef} aria-hidden="true" />
-        {showNoKeychain ? (
-          <div className="wc-desktop__notice" role="status">
-            <span>{t("desktop.noKeychain")}</span>
-            <button type="button" className="wc-desktop__notice-close" onClick={() => setNoKeychainSeen(true)}>
-              {t("common.close")}
-            </button>
-          </div>
-        ) : null}
       </div>
       {asking ? (
         <Dialog
