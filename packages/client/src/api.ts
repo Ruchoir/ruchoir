@@ -271,7 +271,22 @@ export type InstanceCapabilities = {
   publicLinks: boolean;
   /** Whether sign-in can hand a native app a session token (false on an instance too old for the apps). */
   nativeSessions: boolean;
+  /** The release the instance runs (`v1.2.3`, or `dev`); absent from one older than v0.3.0. */
+  version?: string;
+  /** The major version of its paths: 1 for `/api/v1` (assumed from an instance that does not say). */
+  apiVersion: number;
+  /**
+   * What it can do beyond every `/api/v1` instance, by name (`apps/api/src/compat.rs`). Ask with
+   * `supports` before using what a name stands for, and do without when it is absent: an instance
+   * is not always updated when the app is (`docs/api-compatibility.md`).
+   */
+  features: string[];
 };
+
+/** Whether the instance can do what `feature` names (`InstanceCapabilities.features`). */
+export function supports(caps: Pick<InstanceCapabilities, "features">, feature: string): boolean {
+  return caps.features.includes(feature);
+}
 
 // --- Instance administration ---
 
@@ -1687,13 +1702,22 @@ export function createApi(transport: Transport) {
       trash_retention_days?: number;
       public_links?: boolean;
       native_sessions?: boolean;
+      version?: string;
+      api_version?: number;
+      features?: unknown[];
     }>("/instance", signal);
+    // An instance older than the feature list said what it could do with booleans of its own.
+    const features = Array.isArray(dto.features) ? dto.features.filter((f): f is string => typeof f === "string") : [];
+    if (dto.native_sessions === true && !features.includes("native_sessions")) features.push("native_sessions");
     return {
+      version: typeof dto.version === "string" ? dto.version : undefined,
+      apiVersion: typeof dto.api_version === "number" ? dto.api_version : 1,
+      features,
       emailDelivery: dto.email_delivery,
       uploadMaxBytes: dto.upload_max_bytes,
       trashRetentionDays: dto.trash_retention_days,
       publicLinks: dto.public_links === true,
-      nativeSessions: dto.native_sessions === true,
+      nativeSessions: features.includes("native_sessions"),
       office: {
         enabled: dto.office?.enabled === true,
         edit: dto.office?.edit ?? [],

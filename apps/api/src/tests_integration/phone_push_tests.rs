@@ -439,3 +439,32 @@ async fn a_phone_gone_when_synced_is_forgotten() {
     }
     assert!(devices_of(&app, fx.alice).await.is_empty());
 }
+
+// --- The instance says what it can do, so apps that were not updated keep working ---
+
+#[tokio::test]
+async fn the_instance_says_its_version_and_what_it_can_do() {
+    let Some(app) = boot().await else { return };
+    let caps: Value = app
+        .http
+        .get(format!("{}/api/v1/instance", app.base))
+        .send()
+        .await
+        .expect("instance")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(caps["api_version"], 1);
+    assert_eq!(caps["version"], crate::compat::version());
+    let features: Vec<&str> = caps["features"]
+        .as_array()
+        .expect("features")
+        .iter()
+        .filter_map(Value::as_str)
+        .collect();
+    assert!(features.contains(&"notification_read"), "{features:?}");
+    assert!(features.contains(&"native_sessions"));
+    // What older apps read is still there, as it was.
+    assert_eq!(caps["native_sessions"], true);
+    assert!(caps["upload_max_bytes"].is_u64());
+}

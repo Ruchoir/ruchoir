@@ -139,6 +139,14 @@ pub(crate) struct InstanceCapabilities {
     /// the iOS and Android apps need. Absent from an older instance, which the apps then ask to have
     /// updated.
     native_sessions: bool,
+    /// The release this instance runs (`v1.2.3`), or `dev` outside a release build.
+    version: &'static str,
+    /// The major version of the API's paths: 1 for `/api/v1`, which only ever grows
+    /// (`docs/api-compatibility.md`).
+    api_version: u32,
+    /// What this instance can do beyond every `/api/v1` instance, by name (`compat::FEATURES`): an
+    /// app checks for a name before using what it stands for, and does without when it is absent.
+    features: Vec<&'static str>,
 }
 
 /// What the client needs to know about live editing.
@@ -186,6 +194,9 @@ pub(crate) async fn instance_capabilities(
         trash_retention_days: state.config.trash_retention_days,
         public_links: state.config.public_links,
         native_sessions: true,
+        version: crate::compat::version(),
+        api_version: crate::compat::API_VERSION,
+        features: crate::compat::FEATURES.to_vec(),
     })
 }
 

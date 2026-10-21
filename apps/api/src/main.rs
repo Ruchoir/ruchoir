@@ -10,6 +10,7 @@ mod auth;
 mod bootstrap;
 mod cache;
 mod calendar;
+mod compat;
 mod config;
 mod db;
 mod entities;
