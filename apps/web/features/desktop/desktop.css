@@ -159,3 +159,81 @@
   cursor: pointer;
   font: inherit;
 }
+
+/*
+ * Scrollbars: thin and quiet, in the design system's greys, instead of each system's own (thick and
+ * grey-blue on Windows). Chromium (WebView2) reads the standard properties; WebKit (macOS, Linux)
+ * the `::-webkit-scrollbar` ones.
+ */
+:root:has(.wc-desktop) * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+:root:has(.wc-desktop) ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+:root:has(.wc-desktop) ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:root:has(.wc-desktop) ::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+:root:has(.wc-desktop) ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}
+
+:root:has(.wc-desktop) ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/*
+ * Opening another instance mounts a fresh interface. While it loads, the frame of the interface
+ * stands in its place (rail, sidebar, content, in their colours), rather than the full-screen boot
+ * card, and the interface fades in: what changes looks like the content, not the window.
+ */
+.wc-desktop-skeleton {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--surface-canvas);
+}
+
+.wc-desktop-skeleton__rail {
+  width: var(--rail-width);
+  flex: none;
+  border-right: 1.5px solid var(--border-subtle);
+}
+
+.wc-desktop-skeleton__side {
+  width: var(--sidebar-width);
+  flex: none;
+  background: var(--surface-chrome);
+  border-right: 1.5px solid var(--border-subtle);
+}
+
+.wc-desktop__body > div:not(.wc-desktop-skeleton) {
+  animation: wc-desktop-in 160ms ease-out;
+}
+
+@keyframes wc-desktop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-desktop__body > div:not(.wc-desktop-skeleton) {
+    animation: none;
+  }
+}

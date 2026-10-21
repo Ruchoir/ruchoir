@@ -3656,6 +3656,16 @@ function AppShell() {
   }, [authStage, ws, channelId, channels, workspaces, editorOpen, standalone]);
 
   if (booting) {
+    // The desktop app mounts a fresh interface when another instance opens: its frame stands in
+    // while it loads, rather than the full-screen card (features/desktop/desktop.css).
+    if (isDesktop) {
+      return (
+        <div className="wc-desktop-skeleton" aria-busy aria-label={t("boot.loading")}>
+          <div className="wc-desktop-skeleton__rail" />
+          <div className="wc-desktop-skeleton__side" />
+        </div>
+      );
+    }
     return (
       <div
         style={{
