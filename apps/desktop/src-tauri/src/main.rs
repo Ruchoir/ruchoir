@@ -66,7 +66,8 @@ fn main() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_store::Builder::default().build());
+        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_notification::init());
 
     protocol::register(builder)
         .invoke_handler(tauri::generate_handler![
@@ -79,6 +80,7 @@ fn main() {
             state::instance_remove,
             state::instance_sign_out,
             summaries::summaries,
+            notify::preferences_changed,
             relay::socket_send,
             relay::socket_is_open,
         ])
@@ -90,6 +92,8 @@ fn main() {
             ));
             app.manage(relay::Relay::default());
             app.manage(summaries::Summaries::default());
+            app.manage(notify::Notifier::default());
+            notify::listen_for_clicks(app.handle());
             relay::reconcile(app.handle());
 
             // `ruchoir://auth?code=...`, whether it launched the app or reached it running (the

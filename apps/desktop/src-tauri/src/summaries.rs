@@ -28,6 +28,16 @@ struct SummaryEvent {
     summary: Summary,
 }
 
+/// The summary of an instance, if one was fetched.
+pub fn get<R: Runtime>(app: &AppHandle<R>, id: &str) -> Option<Summary> {
+    app.state::<Summaries>()
+        .by_instance
+        .lock()
+        .ok()?
+        .get(id)
+        .cloned()
+}
+
 /// Drop an instance's summary (removed, or signed out).
 pub fn forget<R: Runtime>(app: &AppHandle<R>, id: &str) {
     if let Ok(mut map) = app.state::<Summaries>().by_instance.lock() {

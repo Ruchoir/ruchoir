@@ -86,7 +86,10 @@ fn on_event<R: Runtime>(app: &AppHandle<R>, instance: &str, event: WatcherEvent)
     };
     // The summary and the notifier follow every instance, relayed or not.
     match &event {
-        WatcherEvent::Open => crate::summaries::on_event(app, instance, None),
+        WatcherEvent::Open => {
+            crate::notify::on_open(app, instance);
+            crate::summaries::on_event(app, instance, None);
+        }
         WatcherEvent::Message(frame) => {
             let kind = serde_json::from_str::<serde_json::Value>(frame)
                 .ok()
