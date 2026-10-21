@@ -1119,6 +1119,10 @@ function AppShell() {
   useEffect(() => {
     desktopRef.current = desktop;
   }, [desktop]);
+  // The desktop app holds a still of the previous instance over this one until it is ready.
+  useEffect(() => {
+    if (!booting) desktop?.interfaceReady();
+  }, [booting, desktop]);
 
   /**
    * Latest "reach the person who is not looking" function, for the same reason as `notifyRef`: the

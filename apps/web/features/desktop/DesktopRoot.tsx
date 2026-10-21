@@ -83,6 +83,45 @@ export function DesktopRoot() {
   const [noKeychainSeen, setNoKeychainSeen] = useState(false);
   const { maximized, fullscreen } = useWindowShape();
   const viewsRef = useRef<InstanceView[] | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const stillRef = useRef<HTMLDivElement>(null);
+  const stillTimer = useRef<number | undefined>(undefined);
+
+  const releaseStill = useCallback(() => {
+    const still = stillRef.current;
+    if (!still?.classList.contains("wc-desktop__still--on")) return;
+    window.clearTimeout(stillTimer.current);
+    still.classList.remove("wc-desktop__still--on");
+    window.setTimeout(() => still.replaceChildren(), 200);
+  }, []);
+
+  /**
+   * Hold a still of the interface on screen while the next instance's loads under it (switching
+   * instance remounts the interface: without it, the window flashes through an empty frame). The
+   * still is a copy of the page as it stands, scroll positions included, inert; it fades out when
+   * the new interface says it is ready, or after ten seconds at most.
+   */
+  const holdStill = useCallback(() => {
+    const live = bodyRef.current?.firstElementChild;
+    const still = stillRef.current;
+    if (!live || !still || live === still) return;
+    const copy = live.cloneNode(true) as HTMLElement;
+    copy.setAttribute("inert", "");
+    still.replaceChildren(copy);
+    const from = [live, ...live.querySelectorAll("*")];
+    const to = [copy, ...copy.querySelectorAll("*")];
+    from.forEach((el, i) => {
+      if (el.scrollTop || el.scrollLeft) {
+        to[i].scrollTop = el.scrollTop;
+        to[i].scrollLeft = el.scrollLeft;
+      }
+    });
+    still.classList.add("wc-desktop__still--on");
+    window.clearTimeout(stillTimer.current);
+    stillTimer.current = window.setTimeout(() => releaseStill(), 10000);
+  }, [releaseStill]);
+
+
   const openId = () => viewsRef.current?.find((v) => v.open)?.id ?? null;
 
   useEffect(() => {
@@ -98,13 +137,14 @@ export function DesktopRoot() {
       onSummaryChanged((instance, summary) => setSums((prev) => ({ ...prev, [instance]: summary }))),
       onDesktopOpen((instance, path) => {
         goTo(path);
+        holdStill();
         if (afterOpen(openId(), instance) === "remount") setGeneration((g) => g + 1);
       }),
     ];
     return () => {
       for (const stop of stops) void stop.then((unlisten) => unlisten());
     };
-  }, []);
+  }, [holdStill]);
 
   // The tray's words follow the interface's language.
   useEffect(() => {
@@ -123,11 +163,12 @@ export function DesktopRoot() {
       () => {
         goTo(path);
         setAdding(false);
+        holdStill();
         if (afterOpen(openId(), id) === "remount") setGeneration((g) => g + 1);
         else void instanceOpen(id);
       },
     );
-  }, []);
+  }, [holdStill]);
 
   const bridge = useMemo<DesktopBridge | null>(() => {
     if (!open?.id || !views) return null;
@@ -152,8 +193,9 @@ export function DesktopRoot() {
       preferencesSaved: () => void preferencesChanged(open.id as string),
       settings,
       setSettings: (next) => void setDesktopSettings(next).then(setSettings),
+      interfaceReady: releaseStill,
     };
-  }, [open, views, sums, settings, switchTo]);
+  }, [open, views, sums, settings, switchTo, releaseStill]);
 
   // Another signed-in instance to go back to from an add or sign-in screen.
   const back = views?.find((v) => !v.open && v.state === "signed_in" && v.id) ?? null;
@@ -189,7 +231,10 @@ export function DesktopRoot() {
           </button>
         </div>
       ) : null}
-      <div className="wc-desktop__body">{body}</div>
+      <div className="wc-desktop__body" ref={bodyRef}>
+        {body}
+        <div className="wc-desktop__still" ref={stillRef} aria-hidden="true" />
+      </div>
       {asking ? (
         <Dialog
           title={t("desktop.switch.title")}

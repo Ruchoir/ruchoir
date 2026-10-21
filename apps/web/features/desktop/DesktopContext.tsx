@@ -36,6 +36,8 @@ export type DesktopBridge = {
   preferencesSaved: () => void;
   settings: DesktopSettings | null;
   setSettings: (settings: DesktopSettings) => void;
+  /** The interface finished loading (it calls this once its boot is over). */
+  interfaceReady: () => void;
 };
 
 export const DesktopContext = createContext<DesktopBridge | null>(null);

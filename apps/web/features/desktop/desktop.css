@@ -237,3 +237,29 @@
     animation: none;
   }
 }
+
+/* The still of the previous instance, held over the next one while it loads (DesktopRoot). */
+.wc-desktop__still {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 160ms ease-out,
+    visibility 0s linear 160ms;
+}
+
+.wc-desktop__still--on {
+  opacity: 1;
+  visibility: visible;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-desktop__still {
+    transition: none;
+  }
+}

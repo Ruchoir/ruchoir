@@ -163,6 +163,29 @@ async function main() {
       throw error;
     }
 
+    // 6b. A remount (a notification clicked, here emitted by hand) holds a still of the page until
+    // the fresh interface is ready, then lets it go.
+    const shot = async (name) => {
+      if (!process.env.E2E_SCREENSHOT) return;
+      const png = await wd("GET", `/session/${id}/screenshot`);
+      writeFileSync(process.env.E2E_SCREENSHOT.replace(/\.png$/, `-${name}.png`), Buffer.from(png, "base64"));
+    };
+    await shot("before");
+    await wd("POST", `/session/${id}/execute/async`, {
+      script: `const d = arguments[arguments.length - 1];
+        const I = window.__TAURI_INTERNALS__;
+        I.invoke("instance_state").then((v) =>
+          I.invoke("plugin:event|emit", { event: "desktop:open", payload: { instance: v.id, path: arguments[0] } }).then(() => d(1), (e) => d(String(e))),
+        );`,
+      args: [path],
+    });
+    const held = await until("the still to be held", () => run("return !!document.querySelector('.wc-desktop__still--on');"), 3000);
+    await shot("during");
+    await until("the still to be let go", () => run("return !document.querySelector('.wc-desktop__still--on') && !document.querySelector('.wc-desktop-skeleton');"), 15000);
+    await sleep(400);
+    await shot("after");
+    if (!held) throw new Error("no still during the remount");
+
     // 7. A second instance (optional): add it, sign in, both headings in the rail, one click back.
     const secondInstance = process.env.E2E_INSTANCE_2;
     if (secondInstance) {
