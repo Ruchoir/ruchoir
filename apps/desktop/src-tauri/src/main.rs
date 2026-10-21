@@ -97,6 +97,7 @@ fn main() {
             app.manage(summaries::Summaries::default());
             app.manage(notify::Notifier::default());
             app.manage(shell::Shell::default());
+            app.manage(protocol::EmojiStore::default());
             notify::listen_for_clicks(app.handle());
             relay::reconcile(app.handle());
 

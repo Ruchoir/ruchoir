@@ -76,6 +76,30 @@ fn upstream_strips_origin_and_cookie_and_adds_bearer() {
 }
 
 #[test]
+fn conditional_requests_are_not_forwarded() {
+    // The webview keeps no cache of the app's protocol: a 304 from upstream would reach it with an
+    // empty body (an emoji drawn as nothing).
+    let mut headers = HeaderMap::new();
+    headers.insert("if-none-match", HeaderValue::from_static("\"abc\""));
+    headers.insert(
+        "if-modified-since",
+        HeaderValue::from_static("Tue, 20 Oct 2026 10:00:00 GMT"),
+    );
+    let request = upstream_request(
+        &reqwest::Client::new(),
+        Method::GET,
+        "/emoji/animated/1f44d.png",
+        &headers,
+        Vec::new(),
+        "https://a.example",
+        None,
+    )
+    .unwrap();
+    assert!(request.headers().get("if-none-match").is_none());
+    assert!(request.headers().get("if-modified-since").is_none());
+}
+
+#[test]
 fn emoji_never_carries_bearer() {
     let request = upstream_request(
         &reqwest::Client::new(),
@@ -179,4 +203,31 @@ fn signing_out_everywhere_forgets_token_too() {
         outcome("/api/v1/auth/logout/all", &Method::POST, 204),
         Outcome::LoggedOut
     );
+}
+
+fn answer(status: u16, len: usize) -> ruchoir_desktop_core::proxy::Answer {
+    ruchoir_desktop_core::proxy::Answer {
+        status,
+        headers: HeaderMap::new(),
+        body: vec![7; len],
+    }
+}
+
+#[test]
+fn the_emoji_cache_keeps_what_it_can() {
+    use ruchoir_desktop_core::proxy::EmojiCache;
+    let mut cache = EmojiCache::new(10);
+    cache.put("/emoji/a", &answer(200, 4));
+    cache.put("/emoji/missing", &answer(404, 1));
+    assert_eq!(cache.get("/emoji/a").map(|a| a.body.len()), Some(4));
+    assert!(cache.get("/emoji/missing").is_none());
+    // Too large for the whole cache: not kept.
+    cache.put("/emoji/huge", &answer(200, 11));
+    assert!(cache.get("/emoji/huge").is_none());
+    // Over the capacity: the oldest goes first.
+    cache.put("/emoji/b", &answer(200, 4));
+    cache.put("/emoji/c", &answer(200, 4));
+    assert!(cache.get("/emoji/a").is_none());
+    assert!(cache.get("/emoji/b").is_some());
+    assert!(cache.get("/emoji/c").is_some());
 }

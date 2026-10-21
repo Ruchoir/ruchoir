@@ -53,13 +53,12 @@ pub fn route(path: &str) -> Route {
 }
 
 /// The request headers passed upstream; everything else (`Origin`, `Cookie`, `Sec-Fetch-*`, the
-/// webview's own) stays behind.
-const UPSTREAM: [&str; 7] = [
+/// webview's own) stays behind. Conditional headers too: the webview keeps no cache of the app's
+/// protocol, so an upstream 304 would reach it with an empty body.
+const UPSTREAM: [&str; 5] = [
     "accept",
     "accept-language",
     "content-type",
-    "if-none-match",
-    "if-modified-since",
     "range",
     "x-requested-with",
 ];
@@ -192,5 +191,60 @@ pub async fn forward(
             body: bytes.to_vec(),
         },
         Err(_) => unreachable(),
+    }
+}
+
+/// The emoji pack's files, kept in memory once fetched: the same on every instance, and asked again
+/// and again by the interface (the webview keeps no cache of the app's protocol). Only successful
+/// answers, within a size bound; the oldest go first.
+#[derive(Debug)]
+pub struct EmojiCache {
+    capacity: usize,
+    size: usize,
+    entries: std::collections::VecDeque<(String, Answer)>,
+}
+
+impl EmojiCache {
+    /// A cache holding at most `capacity` bytes of bodies.
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            capacity,
+            size: 0,
+            entries: std::collections::VecDeque::new(),
+        }
+    }
+
+    /// A kept answer for `path`.
+    pub fn get(&self, path: &str) -> Option<Answer> {
+        self.entries
+            .iter()
+            .find(|(p, _)| p == path)
+            .map(|(_, a)| Answer {
+                status: a.status,
+                headers: a.headers.clone(),
+                body: a.body.clone(),
+            })
+    }
+
+    /// Keep `answer` for `path` if it is a success that fits.
+    pub fn put(&mut self, path: &str, answer: &Answer) {
+        if answer.status != 200 || answer.body.len() > self.capacity || self.get(path).is_some() {
+            return;
+        }
+        while self.size + answer.body.len() > self.capacity {
+            match self.entries.pop_front() {
+                Some((_, old)) => self.size -= old.body.len(),
+                None => break,
+            }
+        }
+        self.size += answer.body.len();
+        self.entries.push_back((
+            path.to_string(),
+            Answer {
+                status: answer.status,
+                headers: answer.headers.clone(),
+                body: answer.body.clone(),
+            },
+        ));
     }
 }
