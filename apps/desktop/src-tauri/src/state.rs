@@ -142,7 +142,8 @@ pub async fn instance_add<R: Runtime>(
     let host = origin.trim_start_matches("https://").to_string();
     {
         let mut list = desktop.list.lock().map_err(|_| "internal")?;
-        list.add(origin, host);
+        list.add(origin, host)
+            .map_err(|_| "already_added".to_string())?;
         list.save(&desktop.list_path).map_err(|_| "internal")?;
     }
     changed(&app);

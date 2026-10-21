@@ -48,6 +48,13 @@ pub fn normalise_origin(input: &str) -> Result<String, OriginError> {
     })
 }
 
+/// Why an instance could not be added.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AddError {
+    /// The origin is already in the list, under this id.
+    AlreadyThere(String),
+}
+
 /// One instance the person added.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Instance {
@@ -88,9 +95,12 @@ impl InstanceList {
         std::fs::rename(tmp, path)
     }
 
-    /// Add an instance and make it the active one. Step 1 of the desktop holds a single instance,
-    /// so this replaces any other; step 2 lifts that.
-    pub fn add(&mut self, origin: String, name: String) -> Instance {
+    /// Add an instance at the end of the list and open it. An origin already in the list is
+    /// refused with the id it has.
+    pub fn add(&mut self, origin: String, name: String) -> Result<Instance, AddError> {
+        if let Some(known) = self.instances.iter().find(|i| i.origin == origin) {
+            return Err(AddError::AlreadyThere(known.id.clone()));
+        }
         let instance = Instance {
             id: random_id(),
             origin,
@@ -100,16 +110,21 @@ impl InstanceList {
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or_default(),
         };
-        self.instances = vec![instance.clone()];
+        self.instances.push(instance.clone());
         self.active = Some(instance.id.clone());
-        instance
+        Ok(instance)
     }
 
-    /// Forget an instance.
+    /// Forget an instance. When it was the open one, the next in the list opens (or the one before
+    /// it, for the last), so the app keeps showing something while any instance is left.
     pub fn remove(&mut self, id: &str) {
-        self.instances.retain(|i| i.id != id);
+        let Some(index) = self.instances.iter().position(|i| i.id == id) else {
+            return;
+        };
+        self.instances.remove(index);
         if self.active.as_deref() == Some(id) {
-            self.active = self.instances.first().map(|i| i.id.clone());
+            let next = index.min(self.instances.len().saturating_sub(1));
+            self.active = self.instances.get(next).map(|i| i.id.clone());
         }
     }
 
@@ -124,11 +139,13 @@ impl InstanceList {
         self.instances.iter().find(|i| i.id == id)
     }
 
-    /// Show another instance.
-    pub fn set_active(&mut self, id: &str) {
-        if self.get(id).is_some() {
-            self.active = Some(id.to_string());
+    /// Open another instance; false when the id is unknown.
+    pub fn open(&mut self, id: &str) -> bool {
+        if self.get(id).is_none() {
+            return false;
         }
+        self.active = Some(id.to_string());
+        true
     }
 }
 
@@ -234,7 +251,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("instances.json");
         let mut list = InstanceList::default();
-        let added = list.add("https://a.example".into(), "Atelier".into());
+        let added = list
+            .add("https://a.example".into(), "Atelier".into())
+            .unwrap();
         assert_eq!(added.id.len(), 32);
         assert_eq!(
             list.active().map(|i| i.id.as_str()),
@@ -259,14 +278,50 @@ mod tests {
         assert_eq!(InstanceList::load(&broken), InstanceList::default());
     }
 
-    #[test]
-    fn step_one_holds_one_instance() {
+    fn three() -> (InstanceList, Vec<Instance>) {
         let mut list = InstanceList::default();
-        list.add("https://a.example".into(), "A".into());
-        let b = list.add("https://b.example".into(), "B".into());
-        assert_eq!(list.instances.len(), 1);
-        assert_eq!(list.active().unwrap().id, b.id);
-        list.remove(&b.id);
+        let added = ["a", "b", "c"]
+            .iter()
+            .map(|h| {
+                list.add(format!("https://{h}.example"), h.to_string())
+                    .unwrap()
+            })
+            .collect();
+        (list, added)
+    }
+
+    #[test]
+    fn adding_appends_and_opens() {
+        let (list, added) = three();
+        assert_eq!(list.instances.len(), 3);
+        assert_eq!(list.instances[0].id, added[0].id);
+        assert_eq!(list.active().unwrap().id, added[2].id);
+    }
+
+    #[test]
+    fn the_same_origin_is_refused() {
+        let (mut list, added) = three();
+        let again = list.add("https://a.example".into(), "a".into());
+        assert_eq!(again, Err(AddError::AlreadyThere(added[0].id.clone())));
+        assert_eq!(list.instances.len(), 3);
+    }
+
+    #[test]
+    fn removing_the_open_one_opens_the_next() {
+        let (mut list, added) = three();
+        assert!(list.open(&added[1].id));
+        list.remove(&added[1].id);
+        assert_eq!(list.active().unwrap().id, added[2].id);
+        list.remove(&added[2].id);
+        assert_eq!(list.active().unwrap().id, added[0].id);
+        list.remove(&added[0].id);
         assert!(list.active().is_none());
+    }
+
+    #[test]
+    fn opening_an_unknown_id_changes_nothing() {
+        let (mut list, added) = three();
+        assert!(!list.open("nope"));
+        assert_eq!(list.active().unwrap().id, added[2].id);
     }
 }
