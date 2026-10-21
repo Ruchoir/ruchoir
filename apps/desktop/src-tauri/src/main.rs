@@ -8,9 +8,12 @@
 // No console window behind the app on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod notify;
 mod protocol;
 mod relay;
+mod shell;
 mod state;
+mod summaries;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -71,6 +74,11 @@ fn main() {
             state::instance_add,
             state::sign_in_start,
             state::sign_in_cancel,
+            state::instances_state,
+            state::instance_open,
+            state::instance_remove,
+            state::instance_sign_out,
+            summaries::summaries,
             relay::socket_send,
             relay::socket_is_open,
         ])
@@ -81,6 +89,7 @@ fn main() {
                 ruchoir_desktop_core::vault::open_vault(),
             ));
             app.manage(relay::Relay::default());
+            app.manage(summaries::Summaries::default());
             relay::reconcile(app.handle());
 
             // `ruchoir://auth?code=...`, whether it launched the app or reached it running (the
