@@ -17,28 +17,55 @@ fn ios_token() -> String {
     format!("{:064x}", Uuid::new_v4().as_u128())
 }
 
+type Seen = Arc<Mutex<Vec<Value>>>;
+
+/// What the stand-in relay was asked: wakes on `/v1/send`, silent syncs on `/v1/sync`.
+#[derive(Clone, Default)]
+struct Asked {
+    woken: Seen,
+    synced: Seen,
+}
+
+/// Record a call, and answer `410` for a token starting with `dead`.
+fn record(list: &Seen, body: Value) -> AxStatus {
+    let gone = body["token"]
+        .as_str()
+        .is_some_and(|t| t.starts_with("dead"));
+    list.lock().unwrap().push(body);
+    if gone {
+        AxStatus::GONE
+    } else {
+        AxStatus::ACCEPTED
+    }
+}
+
 /// A stand-in relay: records what it is asked, and answers `410` for a token starting with `dead`.
-async fn fake_relay() -> (String, Arc<Mutex<Vec<Value>>>) {
-    let seen: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+async fn fake_relay() -> (String, Seen) {
+    let (url, asked) = fake_relay_both().await;
+    (url, asked.woken)
+}
+
+/// The same stand-in, with what it was asked on both routes.
+async fn fake_relay_both() -> (String, Asked) {
+    let asked = Asked::default();
     let app = axum::Router::new()
         .route(
             "/v1/send",
             post(
-                |AxState(seen): AxState<Arc<Mutex<Vec<Value>>>>,
-                 axum::Json(body): axum::Json<Value>| async move {
-                    let gone = body["token"]
-                        .as_str()
-                        .is_some_and(|t| t.starts_with("dead"));
-                    seen.lock().unwrap().push(body);
-                    if gone {
-                        AxStatus::GONE
-                    } else {
-                        AxStatus::ACCEPTED
-                    }
+                |AxState(asked): AxState<Asked>, axum::Json(body): axum::Json<Value>| async move {
+                    record(&asked.woken, body)
                 },
             ),
         )
-        .with_state(seen.clone());
+        .route(
+            "/v1/sync",
+            post(
+                |AxState(asked): AxState<Asked>, axum::Json(body): axum::Json<Value>| async move {
+                    record(&asked.synced, body)
+                },
+            ),
+        )
+        .with_state(asked.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind");
@@ -46,10 +73,10 @@ async fn fake_relay() -> (String, Arc<Mutex<Vec<Value>>>) {
     tokio::spawn(async move {
         let _ = axum::serve(listener, app).await;
     });
-    (format!("http://{address}"), seen)
+    (format!("http://{address}"), asked)
 }
 
-async fn boot_with_relay() -> Option<(TestApp, Arc<Mutex<Vec<Value>>>)> {
+async fn boot_with_relay() -> Option<(TestApp, Seen)> {
     let (url, seen) = fake_relay().await;
     let app = boot_with(None, |config| config.push_relay_url = Some(url)).await?;
     Some((app, seen))
@@ -236,4 +263,179 @@ async fn a_test_wakes_each_phone_and_is_handed_out_once() {
         first, second,
         "the test is collected once: {first} / {second}"
     );
+}
+
+// --- Read everywhere: a notification read on one device is read on the others ---
+
+async fn boot_with_both() -> Option<(TestApp, Asked)> {
+    let (url, asked) = fake_relay_both().await;
+    let app = boot_with(None, |config| config.push_relay_url = Some(url)).await?;
+    Some((app, asked))
+}
+
+/// Wait until `list` holds `count` calls, then a little more, so a call too many would show.
+async fn settle(list: &Seen, count: usize) -> Vec<Value> {
+    for _ in 0..80 {
+        if list.lock().unwrap().len() >= count {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    list.lock().unwrap().clone()
+}
+
+async fn put(app: &TestApp, cookie: &str, path: &str) -> u16 {
+    app.req(reqwest::Method::PUT, path, cookie)
+        .send()
+        .await
+        .expect("put")
+        .status()
+        .as_u16()
+}
+
+/// Wait for the next `notification.read` event, or none within a few seconds.
+async fn next_read(ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) -> Option<Value> {
+    next_event_of(ws, "notification.read").await
+}
+
+#[tokio::test]
+async fn reading_one_notification_tells_every_open_device() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let first = mention_alice(&app, &fx).await;
+    let mut alices = app.connect_ws(&alice).await;
+    let mut bobs = app.connect_ws(&bob).await;
+
+    assert_eq!(
+        put(
+            &app,
+            &alice,
+            &format!("/api/v1/notifications/{}/read", first.id)
+        )
+        .await,
+        204
+    );
+    let event = next_read(&mut alices)
+        .await
+        .expect("Alice's other devices hear it");
+    assert_eq!(event["payload"]["ids"], json!([first.id]));
+    assert_eq!(event["payload"]["all"], false);
+    assert_eq!(event["payload"]["unread_count"], 0);
+
+    // Read again: nothing changed, nothing said.
+    assert_eq!(
+        put(
+            &app,
+            &alice,
+            &format!("/api/v1/notifications/{}/read", first.id)
+        )
+        .await,
+        204
+    );
+    assert!(
+        next_read(&mut alices).await.is_none(),
+        "no event for a no-op"
+    );
+    // Nobody else hears about Alice's notifications.
+    assert!(next_read(&mut bobs).await.is_none());
+}
+
+#[tokio::test]
+async fn reading_all_tells_every_open_device_with_the_count_left() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    mention_alice(&app, &fx).await;
+    mention_alice(&app, &fx).await;
+    let mut ws = app.connect_ws(&alice).await;
+
+    assert_eq!(put(&app, &alice, "/api/v1/notifications/read").await, 204);
+    let event = next_read(&mut ws).await.expect("an event");
+    assert_eq!(event["payload"]["all"], true);
+    assert_eq!(event["payload"]["ids"], json!([]));
+    assert_eq!(event["payload"]["unread_count"], 0);
+
+    // Nothing left unread: a second "read all" says nothing.
+    assert_eq!(put(&app, &alice, "/api/v1/notifications/read").await, 204);
+    assert!(next_read(&mut ws).await.is_none());
+}
+
+#[tokio::test]
+async fn a_read_elsewhere_syncs_the_phones_silently_once_per_burst() {
+    let Some((app, asked)) = boot_with_both().await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let token = ios_token();
+    assert_eq!(register(&app, &alice, "ios", &token).await, 204);
+    let first = mention_alice(&app, &fx).await;
+    let woken = settle(&asked.woken, 1).await.len();
+    assert_eq!(woken, 1, "the mention woke the phone");
+
+    // Read one, then all, in quick succession: one silent sync, after the burst.
+    assert_eq!(
+        put(
+            &app,
+            &alice,
+            &format!("/api/v1/notifications/{}/read", first.id)
+        )
+        .await,
+        204
+    );
+    mention_alice(&app, &fx).await;
+    assert_eq!(put(&app, &alice, "/api/v1/notifications/read").await, 204);
+    let synced = settle(&asked.synced, 1).await;
+    assert_eq!(synced.len(), 1, "one sync for the burst: {synced:?}");
+    assert_eq!(synced[0], json!({ "platform": "ios", "token": token }));
+    assert_eq!(
+        asked.woken.lock().unwrap().len(),
+        2,
+        "a read never wakes the phone with an alert"
+    );
+}
+
+#[tokio::test]
+async fn nothing_read_nothing_synced() {
+    let Some((app, asked)) = boot_with_both().await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    assert_eq!(register(&app, &alice, "ios", &ios_token()).await, 204);
+    assert_eq!(put(&app, &alice, "/api/v1/notifications/read").await, 204);
+    tokio::time::sleep(Duration::from_secs(4)).await;
+    assert!(asked.synced.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn a_phone_gone_when_synced_is_forgotten() {
+    let Some((app, asked)) = boot_with_both().await else {
+        return;
+    };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let dead = format!("dead{}", &ios_token()[4..]);
+    let first = mention_alice(&app, &fx).await;
+    assert_eq!(register(&app, &alice, "ios", &dead).await, 204);
+    assert_eq!(
+        put(
+            &app,
+            &alice,
+            &format!("/api/v1/notifications/{}/read", first.id)
+        )
+        .await,
+        204
+    );
+    settle(&asked.synced, 1).await;
+    for _ in 0..50 {
+        if devices_of(&app, fx.alice).await.is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(devices_of(&app, fx.alice).await.is_empty());
 }

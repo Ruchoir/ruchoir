@@ -240,6 +240,12 @@ impl RealtimeEnvelope {
         Self::global("notification.created", payload)
     }
 
+    /// Some of a user's notifications were read (delivered only to that user): every device they have
+    /// open drops the dot and the count, whichever device they were read on.
+    pub fn notification_read(payload: impl Serialize) -> Self {
+        Self::global("notification.read", payload)
+    }
+
     /// A calendar, its settings or its events changed: whoever shows it reloads what is on screen.
     pub fn calendar_changed(calendar_id: Uuid) -> Self {
         Self::global(

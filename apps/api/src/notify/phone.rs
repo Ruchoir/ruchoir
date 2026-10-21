@@ -257,6 +257,61 @@ fn agent() -> &'static ureq::Agent {
 
 /// Wake one phone through the relay; a phone the vendor says is gone is forgotten.
 pub async fn wake(state: &AppState, device: push_devices::Model) {
+    ask_relay(state, device, "/v1/send").await;
+}
+
+/// How long the phones' sync waits after a read, so a burst of reading (one, then another, then
+/// "mark all read") costs one silent push, sent once the burst is over.
+const SYNC_WINDOW_SECS: u64 = 3;
+
+/// Some of the person's notifications were read: in a few seconds, tell each of their phones,
+/// silently, to count again and clear the read ones from the screen (ADR 0006). Reads within the
+/// window ride on the push already planned. Nothing is sent when the administrator turned pushes
+/// off or the instance has no relay.
+pub async fn sync_soon(state: &AppState, user_id: Uuid) {
+    if state.config.push_relay_url.is_none() {
+        return;
+    }
+    let planned: Result<Option<String>, _> = state
+        .hub
+        .valkey()
+        .set(
+            format!("push:sync:{user_id}"),
+            "1",
+            Some(Expiration::EX(SYNC_WINDOW_SECS as i64)),
+            Some(SetOptions::NX),
+            false,
+        )
+        .await;
+    // Already planned for this burst, or Valkey is away (the count catches up at the next push).
+    if !matches!(planned, Ok(Some(_))) {
+        return;
+    }
+    let state = state.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(SYNC_WINDOW_SECS)).await;
+        let enabled = crate::admin::instance_settings(&state.db)
+            .await
+            .map(|settings| settings.web_push_enabled)
+            .unwrap_or(false);
+        if !enabled {
+            return;
+        }
+        let phones = match devices(&state.db, user_id, OffsetDateTime::now_utc()).await {
+            Ok(phones) => phones,
+            Err(error) => {
+                tracing::warn!(?error, "could not list the phones to sync");
+                return;
+            }
+        };
+        for phone in phones {
+            ask_relay(&state, phone, "/v1/sync").await;
+        }
+    });
+}
+
+/// Post a device to one of the relay's routes; a phone the vendor says is gone is forgotten.
+async fn ask_relay(state: &AppState, device: push_devices::Model, route: &'static str) {
     let Some(relay) = state.config.push_relay_url.clone() else {
         return;
     };
@@ -264,7 +319,7 @@ pub async fn wake(state: &AppState, device: push_devices::Model) {
         serde_json::json!({ "platform": device.platform, "token": device.token }).to_string();
     let result = tokio::task::spawn_blocking(move || {
         agent()
-            .post(&format!("{relay}/v1/send"))
+            .post(&format!("{relay}{route}"))
             .header("Content-Type", "application/json")
             .send(body.as_bytes())
             .map(|response| response.status().as_u16())
@@ -281,7 +336,13 @@ pub async fn wake(state: &AppState, device: push_devices::Model) {
                 tracing::warn!(%error, "could not forget a phone");
             }
         }
-        Ok(Ok(status)) => tracing::warn!(status, device = %device.id, "the push relay refused"),
+        // A relay older than the sync push: the count catches up at the next notification.
+        Ok(Ok(404)) if route == "/v1/sync" => {
+            tracing::debug!("the push relay does not sync yet");
+        }
+        Ok(Ok(status)) => {
+            tracing::warn!(status, device = %device.id, route, "the push relay refused")
+        }
         Ok(Err(error)) => tracing::warn!(%error, "could not reach the push relay"),
         Err(error) => tracing::warn!(%error, "push relay task failed"),
     }
