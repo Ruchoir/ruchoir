@@ -30,6 +30,8 @@ const tabsRow: CSSProperties = {
   padding: "6px 8px",
   borderBottom: "1px solid var(--border-subtle)",
   overflowX: "auto",
+  // Scrolls sideways with a wheel or a swipe, without a bar under the categories.
+  scrollbarWidth: "none",
 };
 
 const grid: CSSProperties = {
@@ -39,6 +41,8 @@ const grid: CSSProperties = {
   padding: 8,
   height: 220,
   overflowY: "auto",
+  // Where a scrollbar takes room (Windows), the columns narrow instead of overflowing sideways.
+  overflowX: "hidden",
   alignContent: "start",
 };
 
@@ -46,7 +50,8 @@ const emojiBtn: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  width: 34,
+  width: "100%",
+  maxWidth: 34,
   height: 34,
   border: 0,
   borderRadius: "var(--radius-sm)",
