@@ -15,6 +15,7 @@ import { useDragReorder } from "./useDragReorder";
 import { formatChord, isMac } from "./shortcuts";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { isDesktop } from "@/lib/desktop/runtime";
 
 const styles: Record<string, CSSProperties> = {
   side: {
@@ -760,6 +761,8 @@ export function Sidebar({
               }}
             />
           </div>
+          {/* The desktop app has the search in its top line, as Slack does: one field, not two. */}
+          {isDesktop ? null : (
           <div style={{ padding: "8px 8px 0" }}>
             <Input
               size="sm"
@@ -772,6 +775,7 @@ export function Sidebar({
               suffix={settings.shortcuts.search ? <kbd className="wc-kbd">{formatChord(settings.shortcuts.search, isMac(), t)}</kbd> : undefined}
             />
           </div>
+          )}
         </>
       ) : null}
       <div style={compact ? { ...styles.scroll, padding: "0 0 96px" } : styles.scroll}>
