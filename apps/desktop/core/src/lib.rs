@@ -24,4 +24,5 @@ pub fn http_client() -> reqwest::Client {
 }
 pub mod navigation;
 pub mod proxy;
+pub mod summary;
 pub mod watcher;
