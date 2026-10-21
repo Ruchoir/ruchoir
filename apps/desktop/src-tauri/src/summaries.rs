@@ -28,6 +28,15 @@ struct SummaryEvent {
     summary: Summary,
 }
 
+/// The unread notifications of every instance.
+pub fn total_unread<R: Runtime>(app: &AppHandle<R>) -> u32 {
+    app.state::<Summaries>()
+        .by_instance
+        .lock()
+        .map(|m| m.values().map(|s| s.unread_notifications).sum())
+        .unwrap_or(0)
+}
+
 /// The summary of an instance, if one was fetched.
 pub fn get<R: Runtime>(app: &AppHandle<R>, id: &str) -> Option<Summary> {
     app.state::<Summaries>()

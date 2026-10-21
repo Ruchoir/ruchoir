@@ -57,17 +57,17 @@ fn main() {
     let builder = tauri::Builder::default()
         // First, so a second launch is caught before anything else starts.
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            shell::show_window(app);
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_notification::init());
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![shell::HIDDEN_ARG]),
+        ));
 
     protocol::register(builder)
         .invoke_handler(tauri::generate_handler![
@@ -81,6 +81,9 @@ fn main() {
             state::instance_sign_out,
             summaries::summaries,
             notify::preferences_changed,
+            shell::desktop_settings,
+            shell::set_desktop_settings,
+            shell::set_shell_labels,
             relay::socket_send,
             relay::socket_is_open,
         ])
@@ -93,6 +96,7 @@ fn main() {
             app.manage(relay::Relay::default());
             app.manage(summaries::Summaries::default());
             app.manage(notify::Notifier::default());
+            app.manage(shell::Shell::default());
             notify::listen_for_clicks(app.handle());
             relay::reconcile(app.handle());
 
@@ -151,17 +155,34 @@ fn main() {
             // interface draw rounded ones (`.wc-desktop--rounded`).
             #[cfg(target_os = "linux")]
             let window = window.transparent(true);
-            let window = window.build()?;
-            // A minimised window needs no live interface: pause the relay (spec, "Lightness").
+            // Launch at login starts the app in the tray.
+            let hidden = std::env::args().any(|a| a == shell::HIDDEN_ARG);
+            let window = window.visible(!hidden).build()?;
+            if hidden {
+                relay::set_paused(app.handle(), true);
+            }
+            shell::build_tray(app.handle())?;
+            // A minimised or hidden window needs no live interface: pause the relay (spec,
+            // "Lightness"); closing hides to the tray when the settings say so.
             let handle = app.handle().clone();
             let watched = window.clone();
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::Resized(_) = event {
-                    relay::set_paused(&handle, watched.is_minimized().unwrap_or(false));
+                    let away = watched.is_minimized().unwrap_or(false)
+                        || !watched.is_visible().unwrap_or(true);
+                    relay::set_paused(&handle, away);
                 }
+                shell::on_window_event(&handle, event);
             });
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("the app runs");
+        .build(tauri::generate_context!())
+        .expect("the app builds")
+        .run(|_app, _event| {
+            // The dock icon clicked while the window is hidden brings it back, as a Mac app does.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                shell::show_window(_app);
+            }
+        });
 }
