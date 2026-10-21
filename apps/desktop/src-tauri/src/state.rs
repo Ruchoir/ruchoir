@@ -10,7 +10,8 @@ use std::sync::Mutex;
 
 use ruchoir_desktop_core::auth::{self, PendingSignIn};
 use ruchoir_desktop_core::instances::{
-    check_instance, normalise_origin, CheckError, Instance, InstanceList, OriginError, CHECK_WITHIN,
+    check_instance, normalise_origin_with, origin_host, CheckError, Instance, InstanceList,
+    OriginError, CHECK_WITHIN,
 };
 use ruchoir_desktop_core::vault::TokenVault;
 use serde::Serialize;
@@ -217,7 +218,7 @@ pub async fn instance_add<R: Runtime>(
     desktop: State<'_, Desktop>,
     address: String,
 ) -> Result<InstanceView, String> {
-    let origin = normalise_origin(&address).map_err(origin_error)?;
+    let origin = normalise_origin_with(&address, cfg!(debug_assertions)).map_err(origin_error)?;
     check_instance(&desktop.http, &origin, CHECK_WITHIN)
         .await
         .map_err(|error| {
@@ -228,7 +229,7 @@ pub async fn instance_add<R: Runtime>(
             }
             .to_string()
         })?;
-    let host = origin.trim_start_matches("https://").to_string();
+    let host = origin_host(&origin).to_string();
     {
         let mut list = desktop.list.lock().map_err(|_| "internal")?;
         list.add(origin, host)

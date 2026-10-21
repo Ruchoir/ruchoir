@@ -22,6 +22,16 @@ pub enum OriginError {
 /// token must never travel in clear), and so is anything beyond the origin: a path, a query or
 /// credentials would mean the address is not the instance itself.
 pub fn normalise_origin(input: &str) -> Result<String, OriginError> {
+    normalise_origin_with(input, false)
+}
+
+/// `normalise_origin`, also accepting `http://` towards this machine itself (`127.0.0.1`,
+/// `localhost`) when `allow_loopback_http` is set: debug builds only, for a throwaway local instance
+/// in tests. A release build never reaches an instance in clear.
+pub fn normalise_origin_with(
+    input: &str,
+    allow_loopback_http: bool,
+) -> Result<String, OriginError> {
     let trimmed = input.trim();
     if trimmed.is_empty() {
         return Err(OriginError::Empty);
@@ -32,7 +42,9 @@ pub fn normalise_origin(input: &str) -> Result<String, OriginError> {
         format!("https://{trimmed}")
     };
     let url = url::Url::parse(&with_scheme).map_err(|_| OriginError::Invalid)?;
-    if url.scheme() != "https" {
+    let loopback = matches!(url.host_str(), Some("127.0.0.1" | "localhost"));
+    let scheme = url.scheme();
+    if scheme != "https" && !(scheme == "http" && allow_loopback_http && loopback) {
         return Err(OriginError::NotHttps);
     }
     if !url.username().is_empty() || url.password().is_some() {
@@ -43,9 +55,17 @@ pub fn normalise_origin(input: &str) -> Result<String, OriginError> {
     }
     let host = url.host_str().ok_or(OriginError::Invalid)?;
     Ok(match url.port() {
-        Some(port) => format!("https://{host}:{port}"),
-        None => format!("https://{host}"),
+        Some(port) => format!("{scheme}://{host}:{port}"),
+        None => format!("{scheme}://{host}"),
     })
+}
+
+/// The instance's name as the rail shows it: its origin without the scheme (`example.org:8443`).
+pub fn origin_host(origin: &str) -> &str {
+    origin
+        .strip_prefix("https://")
+        .or_else(|| origin.strip_prefix("http://"))
+        .unwrap_or(origin)
 }
 
 /// Why an instance could not be added.
@@ -208,6 +228,36 @@ pub async fn check_instance(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn origin_host_drops_either_scheme() {
+        assert_eq!(origin_host("https://example.org:8443"), "example.org:8443");
+        assert_eq!(origin_host("http://localhost:18090"), "localhost:18090");
+    }
+
+    #[test]
+    fn loopback_http_only_when_allowed() {
+        assert_eq!(
+            normalise_origin_with("http://127.0.0.1:18090", true).unwrap(),
+            "http://127.0.0.1:18090"
+        );
+        assert_eq!(
+            normalise_origin_with("http://localhost:3000/", true).unwrap(),
+            "http://localhost:3000"
+        );
+        assert!(matches!(
+            normalise_origin_with("http://example.org", true),
+            Err(OriginError::NotHttps)
+        ));
+        assert!(matches!(
+            normalise_origin_with("http://127.0.0.1:18090", false),
+            Err(OriginError::NotHttps)
+        ));
+        assert!(matches!(
+            normalise_origin("http://localhost:3000"),
+            Err(OriginError::NotHttps)
+        ));
+    }
 
     #[test]
     fn normalise_origin_cases() {

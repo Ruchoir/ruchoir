@@ -211,20 +211,30 @@ async function main() {
       const third = spawn(BIN, [`ruchoir://auth?code=${code2}`], { stdio: "ignore" });
       await new Promise((resolve) => third.on("exit", resolve));
       const hosts = [new URL(INSTANCE).host, new URL(secondInstance).host];
-      await until("both instances in the rail", () =>
-        run("return arguments[0].every((h) => !!document.querySelector(`[title='${h}']`));", [hosts]),
-        30000,
-      );
+      try {
+        await until("both instances in the rail", () =>
+          run("return arguments[0].every((h) => !!document.querySelector(`[title='${h}']`));", [hosts]),
+          30000,
+        );
+      } catch (error) {
+        const titles = await run("return [...document.querySelectorAll('[title]')].map((e) => e.getAttribute('title'));");
+        const state = await invoke("instances_state", {});
+        console.error(`rail titles: ${JSON.stringify(titles)}; instances: ${JSON.stringify(state)}`);
+        throw error;
+      }
       // The first instance is now the other one: open its first space from its section.
       const target = await run(
         "const h = document.querySelector(`[title='${arguments[0]}']`); let el = h.nextElementSibling; while (el && !el.querySelector('button')) el = el.nextElementSibling; const b = el && el.querySelector('button'); if (b) b.click(); return !!b;",
         [hosts[0]],
       );
       if (!target) throw new Error("no space of the first instance in the rail");
-      await until("a space of the first instance to open", () =>
-        run("return location.pathname.startsWith('/e/') ? location.pathname : null;"),
-        30000,
-      );
+      // The first instance is the open one again, and its interface is on screen (on one of its spaces).
+      await until("the first instance to open", async () => {
+        const state = await invoke("instances_state", {});
+        const open = state.ok?.find((v) => v.open);
+        if (open?.origin !== INSTANCE) return false;
+        return run("return location.pathname.startsWith('/e/') && !document.querySelector('.wc-desktop__still--on');");
+      }, 30000);
       console.log("ok: second instance added, both in the rail, back on the first by one click");
     }
 
