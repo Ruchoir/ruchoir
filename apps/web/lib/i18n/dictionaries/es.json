@@ -1830,7 +1830,8 @@
         "unreachable": "No se puede acceder a esta dirección. Compruébala, y también tu conexión.",
         "not_ruchoir": "Esta dirección no responde como una instancia de Ruchoir.",
         "outdated": "Esta instancia es demasiado antigua para la app. Pide a su administrador que la actualice.",
-        "other": "Algo ha fallado. Vuelve a intentarlo."
+        "other": "Algo ha fallado. Vuelve a intentarlo.",
+        "already_added": "Esta instancia ya está añadida."
       }
     },
     "signIn": {
@@ -1847,6 +1848,32 @@
       "minimize": "Minimizar",
       "maximize": "Maximizar",
       "restore": "Restaurar"
+    },
+    "tray": {
+      "open": "Abrir Ruchoir",
+      "quit": "Salir",
+      "closedNotice": "Ruchoir sigue abierto en el área de notificaciones. Para salir: clic derecho en su icono y Salir."
+    },
+    "switch": {
+      "title": "Envío en curso",
+      "body": "Se están enviando archivos a {{host}}.",
+      "wait": "Esperar",
+      "cancelSends": "Cancelar los envíos y continuar"
+    },
+    "rail": {
+      "signInAgain": "Volver a iniciar sesión en {{host}}"
+    },
+    "menu": {
+      "addInstance": "Añadir una instancia",
+      "signOutHere": "Cerrar sesión en esta instancia",
+      "removeInstance": "Quitar esta instancia"
+    },
+    "prefs": {
+      "title": "Aplicación",
+      "launchAtLogin": "Abrir Ruchoir al iniciar sesión",
+      "launchAtLoginDesc": "Ruchoir se inicia discretamente en el área de notificaciones.",
+      "closeToTray": "Mantener Ruchoir abierto al cerrar",
+      "closeToTrayDesc": "Cerrar la ventana deja Ruchoir en el área de notificaciones, para seguir recibiendo notificaciones."
     }
   }
 }

@@ -7,6 +7,7 @@ import type { PresenceChoice } from "@/lib/data";
 import { presenceLabelKey } from "./presence";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
+import { useDesktop } from "@/features/desktop/DesktopContext";
 
 const panel: CSSProperties = {
   width: 260,
@@ -102,6 +103,7 @@ export function UserMenu({
   onLogout,
 }: UserMenuProps) {
   const { t } = useTranslation();
+  const desktop = useDesktop();
   const run = (fn: () => void) => {
     fn();
     onClose();
@@ -151,8 +153,16 @@ export function UserMenu({
               <Icon name="shield" size={14} /> {t("admin.screenTitle")}
             </button>
           ) : null}
+          {desktop ? (
+            <button type="button" onClick={() => run(desktop.addInstance)} style={item} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
+              <Icon name="plus" size={14} />{t("desktop.menu.addInstance")}</button>
+          ) : null}
           <button type="button" onClick={() => run(onLogout)} style={{ ...item, color: "var(--status-danger-fg)" }} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
-            <Icon name="log-out" size={14} />{t("shell.signOut")}</button>
+            <Icon name="log-out" size={14} />{desktop ? t("desktop.menu.signOutHere") : t("shell.signOut")}</button>
+          {desktop ? (
+            <button type="button" onClick={() => run(desktop.removeOpen)} style={{ ...item, color: "var(--status-danger-fg)" }} onMouseEnter={hover(true)} onMouseLeave={hover(false)}>
+              <Icon name="trash-2" size={14} />{t("desktop.menu.removeInstance")}</button>
+          ) : null}
         </div>
       </div>
     </Popover>

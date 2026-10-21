@@ -1830,7 +1830,8 @@
         "unreachable": "Impossibile raggiungere questo indirizzo. Controllalo, e controlla la connessione.",
         "not_ruchoir": "Questo indirizzo non risponde come un’istanza Ruchoir.",
         "outdated": "Questa istanza è troppo vecchia per l’app. Chiedi al suo amministratore di aggiornarla.",
-        "other": "Qualcosa è andato storto. Riprova."
+        "other": "Qualcosa è andato storto. Riprova.",
+        "already_added": "Questa istanza è già stata aggiunta."
       }
     },
     "signIn": {
@@ -1847,6 +1848,32 @@
       "minimize": "Riduci a icona",
       "maximize": "Ingrandisci",
       "restore": "Ripristina"
+    },
+    "tray": {
+      "open": "Apri Ruchoir",
+      "quit": "Esci",
+      "closedNotice": "Ruchoir resta aperto nell’area di notifica. Per uscire: clic destro sull’icona, poi Esci."
+    },
+    "switch": {
+      "title": "Invio in corso",
+      "body": "Alcuni file sono in invio verso {{host}}.",
+      "wait": "Attendi",
+      "cancelSends": "Annulla gli invii e continua"
+    },
+    "rail": {
+      "signInAgain": "Accedi di nuovo a {{host}}"
+    },
+    "menu": {
+      "addInstance": "Aggiungi un’istanza",
+      "signOutHere": "Esci da questa istanza",
+      "removeInstance": "Rimuovi questa istanza"
+    },
+    "prefs": {
+      "title": "Applicazione",
+      "launchAtLogin": "Avvia Ruchoir all’accesso",
+      "launchAtLoginDesc": "Ruchoir si avvia discretamente nell’area di notifica.",
+      "closeToTray": "Tieni Ruchoir aperto alla chiusura",
+      "closeToTrayDesc": "Chiudere la finestra lascia Ruchoir nell’area di notifica, per continuare a ricevere le notifiche."
     }
   }
 }

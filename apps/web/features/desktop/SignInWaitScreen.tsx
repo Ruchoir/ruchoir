@@ -11,7 +11,7 @@ import { onSignInFailed, signInCancel, signInStart, type InstanceView } from "@/
  * Signing in happens on the instance's own page, in the system browser (password, then a code or a
  * passkey), which hands the app a one-time code back. This screen starts it and waits.
  */
-export function SignInWaitScreen({ view }: { view: InstanceView }) {
+export function SignInWaitScreen({ view, onBack }: { view: InstanceView; onBack?: () => void }) {
   const { t } = useTranslation();
   const [failed, setFailed] = useState(false);
   const host = view.name ?? "";
@@ -26,7 +26,7 @@ export function SignInWaitScreen({ view }: { view: InstanceView }) {
 
   const start = () => {
     setFailed(false);
-    void signInStart().catch(() => setFailed(true));
+    void signInStart(view.id ?? undefined).catch(() => setFailed(true));
   };
 
   return (
@@ -45,6 +45,10 @@ export function SignInWaitScreen({ view }: { view: InstanceView }) {
         {waiting ? (
           <Button variant="ghost" size="lg" fullWidth onClick={() => void signInCancel()}>
             {t("common.cancel")}
+          </Button>
+        ) : onBack ? (
+          <Button variant="ghost" size="lg" fullWidth onClick={onBack}>
+            {t("common.back")}
           </Button>
         ) : null}
       </div>

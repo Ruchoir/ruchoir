@@ -1763,7 +1763,8 @@
         "unreachable": "Diese Adresse ist nicht erreichbar. Prüfen Sie sie und Ihre Verbindung.",
         "not_ruchoir": "Diese Adresse antwortet nicht wie eine Ruchoir-Instanz.",
         "outdated": "Diese Instanz ist zu alt für die App. Bitten Sie die Administration, sie zu aktualisieren.",
-        "other": "Etwas ist schiefgelaufen. Versuchen Sie es erneut."
+        "other": "Etwas ist schiefgelaufen. Versuchen Sie es erneut.",
+        "already_added": "Diese Instanz ist bereits hinzugefügt."
       }
     },
     "signIn": {
@@ -1780,6 +1781,32 @@
       "minimize": "Minimieren",
       "maximize": "Maximieren",
       "restore": "Wiederherstellen"
+    },
+    "tray": {
+      "open": "Ruchoir öffnen",
+      "quit": "Beenden",
+      "closedNotice": "Ruchoir läuft weiter im Infobereich. Zum Beenden: Rechtsklick auf das Symbol, dann Beenden."
+    },
+    "switch": {
+      "title": "Dateien werden gesendet",
+      "body": "Dateien werden gerade an {{host}} gesendet.",
+      "wait": "Warten",
+      "cancelSends": "Abbrechen und fortfahren"
+    },
+    "rail": {
+      "signInAgain": "Erneut bei {{host}} anmelden"
+    },
+    "menu": {
+      "addInstance": "Instanz hinzufügen",
+      "signOutHere": "Von dieser Instanz abmelden",
+      "removeInstance": "Diese Instanz entfernen"
+    },
+    "prefs": {
+      "title": "Anwendung",
+      "launchAtLogin": "Ruchoir bei der Anmeldung starten",
+      "launchAtLoginDesc": "Ruchoir startet unauffällig im Infobereich.",
+      "closeToTray": "Ruchoir beim Schließen weiterlaufen lassen",
+      "closeToTrayDesc": "Das Schließen des Fensters lässt Ruchoir im Infobereich, damit weiterhin Benachrichtigungen ankommen."
     }
   }
 }

@@ -2,6 +2,8 @@
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAvatar, getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
+import { isDesktop } from "@/lib/desktop/runtime";
+import { useDesktop } from "@/features/desktop/DesktopContext";
 import { onSearchRequest } from "@/lib/desktop/searchRequest";
 import {
   acceptInvitation,
@@ -1111,6 +1113,12 @@ function AppShell() {
    * the effect's dependencies would tear the WebSocket down and rebuild it on each one.
    */
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
+  // The desktop app's bridge (null on the web), for effects that outlive a render.
+  const desktop = useDesktop();
+  const desktopRef = useRef(desktop);
+  useEffect(() => {
+    desktopRef.current = desktop;
+  }, [desktop]);
 
   /**
    * Latest "reach the person who is not looking" function, for the same reason as `notifyRef`: the
@@ -2682,7 +2690,8 @@ function AppShell() {
       if (inQuietHours(settings.notif)) return;
       // With Web Push on in this browser, the service worker draws the system notification (and it
       // does so whether or not this tab is open). Drawing it here too would show it twice.
-      if (appIsAway() && pushActive()) return;
+      // Away from the window, someone else draws it: the browser's push, or the desktop app's core.
+      if (appIsAway() && (pushActive() || isDesktop)) return;
       if (settings.notif.sound) playNotificationSound();
       if (n.reminder) {
         const title = notifSummary(n, t);
@@ -3595,9 +3604,10 @@ function AppShell() {
     if (serialised === lastSentNotifRef.current) return;
     const timer = window.setTimeout(() => {
       lastSentNotifRef.current = serialised;
-      void saveNotificationPreferences({ ...prefs, utcOffsetMinutes: -new Date().getTimezoneOffset() }).catch(() =>
-        notifyRef.current?.({ tone: "danger", title: tRef.current("admin.settingsSaveFailed") }),
-      );
+      void saveNotificationPreferences({ ...prefs, utcOffsetMinutes: -new Date().getTimezoneOffset() })
+        // The desktop app's core applies them to its notifications: it reads them again.
+        .then(() => desktopRef.current?.preferencesSaved())
+        .catch(() => notifyRef.current?.({ tone: "danger", title: tRef.current("admin.settingsSaveFailed") }));
     }, 400);
     return () => window.clearTimeout(timer);
   }, [settings.notif]);

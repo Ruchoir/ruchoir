@@ -7,6 +7,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+import type { DesktopSettings, Summary } from "./instances";
 import type { Invoke, Listen } from "./relaySocket";
 
 export type InstanceState = "none" | "signed_out" | "signing_in" | "signed_in";
@@ -19,11 +20,45 @@ export type InstanceView = {
   state: InstanceState;
   /** False on a Linux desktop without a keychain: the session ends when the app quits. */
   vault_persistent: boolean;
+  /** The instance the interface shows. */
+  open: boolean;
 };
 
 export const instanceState = () => invoke<InstanceView>("instance_state");
 export const instanceAdd = (address: string) => invoke<InstanceView>("instance_add", { address });
-export const signInStart = () => invoke<void>("sign_in_start");
+/** Open an instance's sign-in page in the browser (the open instance when none is named). */
+export const signInStart = (id?: string) => invoke<void>("sign_in_start", { id: id ?? null });
+export const instancesState = () => invoke<InstanceView[]>("instances_state");
+export const instanceOpen = (id: string) => invoke<void>("instance_open", { id });
+export const instanceRemove = (id: string) => invoke<void>("instance_remove", { id });
+export const instanceSignOut = (id: string) => invoke<void>("instance_sign_out", { id });
+export const summaries = () => invoke<Record<string, Summary>>("summaries");
+/** The open instance's notification settings were saved: the core reads them again. */
+export const preferencesChanged = (id: string) => invoke<void>("preferences_changed", { id });
+export const desktopSettings = () => invoke<DesktopSettings>("desktop_settings");
+export const setDesktopSettings = (settings: DesktopSettings) => invoke<DesktopSettings>("set_desktop_settings", { settings });
+/** The tray menu's words and the first-close notice, in the interface's language. */
+export const setShellLabels = (labels: { open: string; quit: string; closed_to_tray: string }) =>
+  invoke<void>("set_shell_labels", { labels });
+
+/** Follow every instance. */
+export function onInstancesChanged(handler: (views: InstanceView[]) => void): Promise<() => void> {
+  return listen<InstanceView[]>("instances:changed", (event) => handler(event.payload));
+}
+
+/** Hear an instance's summary change. */
+export function onSummaryChanged(handler: (instance: string, summary: Summary) => void): Promise<() => void> {
+  return listen<{ instance: string; summary: Summary }>("summary:changed", (event) =>
+    handler(event.payload.instance, event.payload.summary),
+  );
+}
+
+/** A notification was clicked: the core opened its instance; the interface goes to `path`. */
+export function onDesktopOpen(handler: (instance: string, path: string) => void): Promise<() => void> {
+  return listen<{ instance: string; path: string }>("desktop:open", (event) =>
+    handler(event.payload.instance, event.payload.path),
+  );
+}
 export const signInCancel = () => invoke<void>("sign_in_cancel");
 
 /** Follow the instance's state. Resolves to the function that stops following. */

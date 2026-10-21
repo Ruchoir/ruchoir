@@ -7,6 +7,7 @@ import type { Workspace } from "@/lib/data";
 import { UserMenu } from "./UserMenu";
 import { getAvatar } from "@/lib/data";
 import { useTranslation } from "@/lib/i18n";
+import { useDesktop, type OtherInstance } from "@/features/desktop/DesktopContext";
 
 const rail: CSSProperties = {
   width: "var(--rail-width)",
@@ -18,6 +19,24 @@ const rail: CSSProperties = {
   alignItems: "center",
   padding: "12px 0",
   gap: 10,
+};
+
+/**
+ * The spaces, and in the desktop app the other instances' sections: they scroll, so an account with
+ * many spaces still reaches help and its own profile at the bottom, and every instance's spaces.
+ */
+const railList: CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  alignSelf: "stretch",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 10,
+  overflowY: "auto",
+  scrollbarWidth: "none",
+  // Room for the hover tilt and the badges, which overhang a tile.
+  padding: "4px 0",
 };
 
 /** Wrapper that lets the unread indicator sit on the tile's corner. */
@@ -59,6 +78,77 @@ const wsButton: CSSProperties = {
   cursor: "pointer",
   background: "transparent",
 };
+
+/** The small heading over an instance's spaces in the desktop app (ADR 0007, "spaces first"). */
+const instanceHeading: CSSProperties = {
+  // The rail centres its children: stretch this one so a long name is cut with an ellipsis.
+  alignSelf: "stretch",
+  // An overfull rail would otherwise squeeze it to nothing (it clips its own overflow).
+  flex: "none",
+  boxSizing: "border-box",
+  maxWidth: "var(--rail-width)",
+  padding: "0 4px",
+  fontSize: 9,
+  fontWeight: 600,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
+  color: "var(--text-muted)",
+  textAlign: "center",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+function InstanceHeading({ label, host }: { label: string; host: string }) {
+  // A plain `title` rather than a `Tooltip`, whose inline wrapper the rail would centre and shrink.
+  return (
+    <div style={instanceHeading} title={host}>
+      {label}
+    </div>
+  );
+}
+
+/** Another instance's spaces in the desktop app's rail: one click opens one, on its instance. */
+function OtherInstanceSection({ other, onOpen, onSignIn }: { other: OtherInstance; onOpen: (path: string) => void; onSignIn: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <InstanceHeading label={other.label} host={other.host} />
+      {other.state === "signedOut" ? (
+        <Tooltip label={t("desktop.rail.signInAgain", { host: other.host })} side="right">
+          <IconButton icon="key-round" label={t("desktop.rail.signInAgain", { host: other.host })} onClick={onSignIn} />
+        </Tooltip>
+      ) : (
+        other.spaces.map((space) => {
+          const label =
+            space.mentions > 0
+              ? `${space.name}, ${space.mentions} notification${space.mentions > 1 ? "s" : ""}`
+              : space.unread > 0
+                ? t("rail.unreadActivity", { name: space.name })
+                : space.name;
+          return (
+            <Tooltip key={space.id} label={label} side="right">
+              <span style={wsSlot}>
+                <button className="wc-rail-space" style={wsButton} onClick={() => onOpen(`/e/${space.slug}`)} aria-label={label}>
+                  <Avatar name={space.name} src={space.icon_url ? `${other.base}${space.icon_url}` : undefined} kind="workspace" size={36} />
+                </button>
+                {space.mentions > 0 ? (
+                  <span style={wsIndicator} className="wc-rail-ind">
+                    <Badge count={space.mentions} tone="mention" />
+                  </span>
+                ) : space.unread > 0 ? (
+                  <span style={wsDot}>
+                    <Badge dot tone="strong" />
+                  </span>
+                ) : null}
+              </span>
+            </Tooltip>
+          );
+        })
+      )}
+    </>
+  );
+}
 
 export type WorkspaceRailProps = {
   workspaces: Workspace[];
@@ -105,6 +195,7 @@ export function WorkspaceRail({
   onReorder,
 }: WorkspaceRailProps) {
   const { t } = useTranslation();
+  const desktop = useDesktop();
   const [userMenu, setUserMenu] = useState(false);
   const userRef = useRef<HTMLButtonElement>(null);
 
@@ -119,65 +210,75 @@ export function WorkspaceRail({
 
   return (
     <div style={rail}>
-      {workspaces.map((w, index) => {
-        // Nothing on the space being read: its per-channel badges are already in the sidebar, and a
-        // counter fetched at boot would go stale the moment its owner starts reading.
-        const background = w.id !== active;
-        const mentions = background ? w.mentions : 0;
-        const activity = background && mentions === 0 && w.unread > 0;
-        const label =
-          mentions > 0
-            ? `${w.name}, ${mentions} notification${mentions > 1 ? "s" : ""}`
-            : activity
-              ? t("rail.unreadActivity", { name: w.name })
-              : w.name;
-        return (
-          <Tooltip key={w.id} label={label} side="right" disabled={reorder.dragging}>
-            <span ref={reorder.itemRef(index)} style={{ ...wsSlot, ...reorder.itemStyle(index) }}>
-              <button
-                // The ring, the offset shadow of the open space and the tilt under the pointer are
-                // drawn by the class (components.css), which can say :hover.
-                className="wc-rail-space"
-                style={wsButton}
-                aria-current={w.id === active ? "true" : undefined}
-                onClick={() => onSelect(w.id)}
-                aria-label={label}
-                // Reordering is a pointer gesture *and* a keyboard one: alt with the arrow keys moves
-                // the focused space, so the arrangement is not a feature reserved to pointers.
-                onPointerDown={onReorder ? reorder.onPointerDown(index) : undefined}
-                // The icon is an image, which the browser would otherwise drag out as a file.
-                onDragStart={(e) => e.preventDefault()}
-                onKeyDown={(e) => {
-                  if (!onReorder || !e.altKey) return;
-                  if (e.key === "ArrowUp") {
-                    e.preventDefault();
-                    move(w.id, index - 1);
-                  } else if (e.key === "ArrowDown") {
-                    e.preventDefault();
-                    move(w.id, index + 1);
-                  }
-                }}
-              >
-                <Avatar name={w.name} src={w.iconUrl} kind="workspace" size={36} />
-              </button>
-              {mentions > 0 ? (
-                <span style={wsIndicator} className="wc-rail-ind">
-                  <Badge count={mentions} tone="mention" />
-                </span>
-              ) : null}
-              {activity ? (
-                <span style={wsDot}>
-                  <Badge dot tone="strong" />
-                </span>
-              ) : null}
-            </span>
-          </Tooltip>
-        );
-      })}
-      <Tooltip label={t("shell.newSpace")} side="right">
-        <IconButton icon="plus" label={t("shell.newSpace")} onClick={onNew} />
-      </Tooltip>
-      <div style={{ flex: 1 }} />
+      <div style={railList}>
+        {desktop ? <InstanceHeading label={desktop.instanceLabel} host={desktop.instanceHost} /> : null}
+        {workspaces.map((w, index) => {
+          // Nothing on the space being read: its per-channel badges are already in the sidebar, and a
+          // counter fetched at boot would go stale the moment its owner starts reading.
+          const background = w.id !== active;
+          const mentions = background ? w.mentions : 0;
+          const activity = background && mentions === 0 && w.unread > 0;
+          const label =
+            mentions > 0
+              ? `${w.name}, ${mentions} notification${mentions > 1 ? "s" : ""}`
+              : activity
+                ? t("rail.unreadActivity", { name: w.name })
+                : w.name;
+          return (
+            <Tooltip key={w.id} label={label} side="right" disabled={reorder.dragging}>
+              <span ref={reorder.itemRef(index)} style={{ ...wsSlot, ...reorder.itemStyle(index) }}>
+                <button
+                  // The ring, the offset shadow of the open space and the tilt under the pointer are
+                  // drawn by the class (components.css), which can say :hover.
+                  className="wc-rail-space"
+                  style={wsButton}
+                  aria-current={w.id === active ? "true" : undefined}
+                  onClick={() => onSelect(w.id)}
+                  aria-label={label}
+                  // Reordering is a pointer gesture *and* a keyboard one: alt with the arrow keys moves
+                  // the focused space, so the arrangement is not a feature reserved to pointers.
+                  onPointerDown={onReorder ? reorder.onPointerDown(index) : undefined}
+                  // The icon is an image, which the browser would otherwise drag out as a file.
+                  onDragStart={(e) => e.preventDefault()}
+                  onKeyDown={(e) => {
+                    if (!onReorder || !e.altKey) return;
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      move(w.id, index - 1);
+                    } else if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      move(w.id, index + 1);
+                    }
+                  }}
+                >
+                  <Avatar name={w.name} src={w.iconUrl} kind="workspace" size={36} />
+                </button>
+                {mentions > 0 ? (
+                  <span style={wsIndicator} className="wc-rail-ind">
+                    <Badge count={mentions} tone="mention" />
+                  </span>
+                ) : null}
+                {activity ? (
+                  <span style={wsDot}>
+                    <Badge dot tone="strong" />
+                  </span>
+                ) : null}
+              </span>
+            </Tooltip>
+          );
+        })}
+        <Tooltip label={t("shell.newSpace")} side="right">
+          <IconButton icon="plus" label={t("shell.newSpace")} onClick={onNew} />
+        </Tooltip>
+        {desktop?.others.map((other) => (
+          <OtherInstanceSection
+            key={other.id}
+            other={other}
+            onOpen={(path) => desktop.open(other.id, path)}
+            onSignIn={() => desktop.signIn(other.id)}
+          />
+        ))}
+      </div>
       <Tooltip label={t("common.help")} side="right">
         <IconButton icon="life-buoy" label={t("common.help")} onClick={onHelp} />
       </Tooltip>
