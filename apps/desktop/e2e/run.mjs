@@ -7,11 +7,11 @@
 // Environment: RUCHOIR_DESKTOP_BIN (the built app), E2E_INSTANCE (https origin of a test instance),
 // E2E_EMAIL and E2E_PASSWORD (an account there without a second factor), E2E_OTHER_EMAIL (a second
 // account with the same password), E2E_SPACE and E2E_CHANNEL (a channel both belong to),
-// E2E_OPENED_FILE. The live message comes from the second account: the interface leaves out its own
+// E2E_OPENED_FILE, and optionally E2E_SCREENSHOT (a PNG of the window at the end). The live message comes from the second account: the interface leaves out its own
 // person's messages arriving live, which it has already drawn when sending them.
 
 import { spawn } from "node:child_process";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync } from "node:fs";
 
 const BIN = must("RUCHOIR_DESKTOP_BIN");
 const INSTANCE = must("E2E_INSTANCE");
@@ -155,6 +155,10 @@ async function main() {
       throw error;
     }
 
+    if (process.env.E2E_SCREENSHOT) {
+      const png = await wd("GET", `/session/${id}/screenshot`);
+      writeFileSync(process.env.E2E_SCREENSHOT, Buffer.from(png, "base64"));
+    }
     console.log(`ok: signed in, ${path} open, live message received`);
   } finally {
     await wd("DELETE", `/session/${id}`).catch(() => {});

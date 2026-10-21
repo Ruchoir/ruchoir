@@ -6,10 +6,12 @@ import { configureClient } from "@ruchoir/client/config";
 import { useTranslation } from "@/lib/i18n";
 import { instanceState, onInstanceChanged, tauriInvoke, tauriListen, type InstanceView } from "@/lib/desktop/bridge";
 import { createRelaySocket } from "@/lib/desktop/relaySocket";
-import { instanceBase } from "@/lib/desktop/runtime";
+import { desktopOs, instanceBase } from "@/lib/desktop/runtime";
+import { requestSearch } from "@/lib/desktop/searchRequest";
 import { AddInstanceScreen } from "./AddInstanceScreen";
 import { SignInWaitScreen } from "./SignInWaitScreen";
 import { TitleBar } from "./TitleBar";
+import { useWindowShape } from "./useWindowShape";
 import "./desktop.css";
 
 /**
@@ -43,6 +45,7 @@ export function DesktopRoot() {
   const { t } = useTranslation();
   const [view, setView] = useState<InstanceView | null>(null);
   const [noKeychainSeen, setNoKeychainSeen] = useState(false);
+  const { maximized, fullscreen } = useWindowShape();
 
   useEffect(() => {
     void instanceState().then(setView);
@@ -55,12 +58,13 @@ export function DesktopRoot() {
   // Before the interface renders, so its first request already goes to the right instance.
   if (view) pointClientAt(view);
 
-  const title = view?.name ?? "Ruchoir";
   const showNoKeychain = view !== null && !view.vault_persistent && view.state === "signed_in" && !noKeychainSeen;
 
   return (
-    <div className="wc-desktop">
-      <TitleBar title={title} />
+    // Linux draws no corners or shadow for a frameless window: the app rounds its own, unless the
+    // window fills the screen.
+    <div className={`wc-desktop${desktopOs() === "linux" && !maximized && !fullscreen ? " wc-desktop--rounded" : ""}`}>
+      {fullscreen ? null : <TitleBar maximized={maximized} onSearch={view?.state === "signed_in" ? requestSearch : undefined} />}
       {showNoKeychain ? (
         <div className="wc-desktop__notice" role="status">
           <span>{t("desktop.noKeychain")}</span>

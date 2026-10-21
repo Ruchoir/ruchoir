@@ -134,6 +134,10 @@ fn main() {
                 .hidden_title(true);
             #[cfg(not(target_os = "macos"))]
             let window = window.decorations(false);
+            // Linux gives a frameless window square corners: a transparent window lets the
+            // interface draw rounded ones (`.wc-desktop--rounded`).
+            #[cfg(target_os = "linux")]
+            let window = window.transparent(true);
             let window = window.build()?;
             // A minimised window needs no live interface: pause the relay (spec, "Lightness").
             let handle = app.handle().clone();

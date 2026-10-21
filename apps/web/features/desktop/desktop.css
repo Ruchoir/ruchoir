@@ -17,6 +17,22 @@
   flex-direction: column;
   width: var(--ui-vw, 100vw);
   height: calc(100dvh / var(--ui-zoom, 1));
+  background: var(--surface-canvas);
+}
+
+/*
+ * Linux: the window is transparent and the app draws its own rounded corners, with a thin grey edge
+ * standing in for the shadow Linux gives no frameless window. Square again once maximised.
+ */
+:root:has(.wc-desktop--rounded),
+:root:has(.wc-desktop--rounded) body {
+  background: transparent;
+}
+
+.wc-desktop--rounded {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
 }
 
 .wc-desktop__body {
@@ -28,40 +44,68 @@
   flex-direction: column;
 }
 
+/*
+ * The top line is part of the interface: the rail's background, no line under it. Three columns so
+ * the search stays centred whatever sits at either end.
+ */
 .wc-titlebar {
   flex: none;
   height: var(--wc-titlebar-h);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 480px) minmax(0, 1fr);
   align-items: center;
   background: var(--surface-canvas);
-  border-bottom: 1px solid var(--border-subtle);
   user-select: none;
   -webkit-user-select: none;
 }
 
-.wc-titlebar--macos {
-  /* Room for the traffic lights. */
+.wc-titlebar__side {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.wc-titlebar__side--end {
+  justify-content: flex-end;
+}
+
+/* Room for the traffic lights. */
+.wc-titlebar--macos .wc-titlebar__side:first-child {
   padding-left: 78px;
 }
 
-.wc-titlebar--windows,
-.wc-titlebar--linux {
-  padding-left: 12px;
+.wc-titlebar__middle {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
 }
 
-.wc-titlebar__title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-sm);
+.wc-titlebar__search {
+  width: 100%;
+  height: calc(24px / var(--ui-zoom, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-sunken);
   color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
 }
 
-.wc-titlebar--macos .wc-titlebar__title {
-  text-align: center;
-  padding-right: 78px;
+.wc-titlebar__search:hover {
+  color: var(--text-body);
+}
+
+.wc-titlebar__search:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
 }
 
 .wc-titlebar__controls {
