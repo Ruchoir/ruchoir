@@ -13,6 +13,9 @@ share. See the root `AGENTS.md` for project-wide rules.
 - `client.ts`: `createClient({ baseUrl, authorization, sessionDelivery: "token", openSocket,
   onUnauthorized })`, a client for one instance with every call bound to its own options. The apps
   hold one per instance (ADR 0007); the web never builds one.
+- `inbox.ts` (`@ruchoir/client/inbox`): one inbox for several instances' pages, newest first, without
+  letting an older item of one instance jump ahead of another's next page. The phone's notifications
+  screen and the desktop app's common bell use it.
 - `http.ts`: the transport (`makeTransport(getOptions)`: `apiRequest` and the verbs, `apiBase`,
   `authInit`...; `ApiError`, `apiErrorCode`). A 401 calls the options' `onUnauthorized` before
   throwing. The module-level `apiRequest` and verbs are the default client's.

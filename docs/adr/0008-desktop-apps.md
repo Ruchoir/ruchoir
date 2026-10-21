@@ -91,3 +91,32 @@ tree never touches the API's lockfile. Its logic that needs no window lives in a
   once by each build on GitHub's macOS runner.
 - The end to end check needs a Ruchoir instance and runs by hand on the development server, to keep
   the pipeline light.
+
+## Amendment, 2026-10-21: several instances (step 2)
+
+**One interface at a time.** The web's screens keep their single default client and their
+module-level registries; only the open instance's interface is mounted. Opening a space of another
+instance points the client at it and mounts a fresh interface (no page reload), after asking when
+files are being sent (`lib/uploads.ts`: a queued file must never start on the next instance). The
+web's 62 files reading the data layer were not moved to a per-instance client, which the phone needed
+(ADR 0007) and the desktop does not: one interface is lighter, whatever the number of instances.
+
+**The other instances live in the core.** Per signed-in instance: the step 1 socket, a summary
+(`GET /me/spaces` and the unread notification count, refreshed after the events that can change
+them, at most every two seconds) and a notifier. On `notification.created` the notifier asks
+`GET /push/pending` for what is new since the last one drawn (kept across restarts) and draws it with
+the system's notifications (`tauri-plugin-notification`, which reports clicks on all three systems;
+on Windows while the toast is on screen), unless the instance's own settings say not to (off, quiet
+hours) or it is the instance on screen in a focused window. A click opens the item on its instance.
+The browser's notifications are off in the desktop build: the core is the one source.
+
+**Spaces first, one bell.** The rail heads the open instance's spaces with its name and lists every
+other instance's spaces below, with their counts; the bell lists every instance's notifications
+(Théo's choice, as on the phone), the other instances' read through clients of their own on the
+app's protocol (`/i/<id>`), merged with the phone's rule, now `@ruchoir/client/inbox`.
+
+**On the desktop.** A tray icon with the total of unread notifications (dot variant), the same total
+on the app icon (macOS label, Windows overlay, Linux launcher count), closing to the tray on Windows
+and Linux (said once), the usual dock on macOS, launch at login off by default and started in the
+tray (`tauri-plugin-autostart`, `--hidden`). The relay to the interface pauses while the window is
+hidden or minimised.
