@@ -241,7 +241,7 @@ pub fn open_at<R: Runtime>(app: &AppHandle<R>, instance: &str, path: &str) {
             let _ = list.save(&desktop.list_path);
         }
     }
-    changed(app);
+    // The address first: the interface writes it, then remounts on the instance when told it opened.
     let _ = app.emit(
         "desktop:open",
         OpenEvent {
@@ -249,6 +249,7 @@ pub fn open_at<R: Runtime>(app: &AppHandle<R>, instance: &str, path: &str) {
             path: path.to_string(),
         },
     );
+    changed(app);
     crate::shell::show_window(app);
 }
 

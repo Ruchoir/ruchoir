@@ -18,3 +18,13 @@ export async function guardedSwitch(
   go();
   return true;
 }
+
+/**
+ * What to do once the interface is asked to show `target` while `current` is open: within the same
+ * instance, mount a fresh interface at the new address; for another instance, nothing yet, since the
+ * interface remounts itself (its key) when the core says the open instance changed, and reads the
+ * address then. Remounting at once would show the old instance at the new instance's address.
+ */
+export function afterOpen(current: string | null, target: string): "remount" | "await-switch" {
+  return current === target ? "remount" : "await-switch";
+}

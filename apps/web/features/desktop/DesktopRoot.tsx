@@ -27,7 +27,7 @@ import { shortLabel, type DesktopSettings, type Summary } from "@/lib/desktop/in
 import { createRelaySocket } from "@/lib/desktop/relaySocket";
 import { desktopOs, instanceBase } from "@/lib/desktop/runtime";
 import { requestSearch } from "@/lib/desktop/searchRequest";
-import { guardedSwitch } from "@/lib/desktop/switchGuard";
+import { afterOpen, guardedSwitch } from "@/lib/desktop/switchGuard";
 import { AddInstanceScreen } from "./AddInstanceScreen";
 import type { OtherFeed } from "./commonBell";
 import { DesktopContext, type DesktopBridge } from "./DesktopContext";
@@ -88,6 +88,7 @@ export function DesktopRoot() {
   const [feeds, setFeeds] = useState<Record<string, OtherFeed>>({});
   const clients = useRef(new Map<string, RuchoirClient>());
   const viewsRef = useRef<InstanceView[] | null>(null);
+  const openId = () => viewsRef.current?.find((v) => v.open)?.id ?? null;
 
   const clientOf = useCallback((id: string, origin: string | null) => {
     let client = clients.current.get(id);
@@ -134,9 +135,9 @@ export function DesktopRoot() {
         const view = viewsRef.current?.find((v) => v.id === instance);
         if (view) loadFeed(view);
       }),
-      onDesktopOpen((_instance, path) => {
+      onDesktopOpen((instance, path) => {
         goTo(path);
-        setGeneration((g) => g + 1);
+        if (afterOpen(openId(), instance) === "remount") setGeneration((g) => g + 1);
       }),
     ];
     return () => {
@@ -161,8 +162,8 @@ export function DesktopRoot() {
       () => {
         goTo(path);
         setAdding(false);
-        void instanceOpen(id);
-        setGeneration((g) => g + 1);
+        if (afterOpen(openId(), id) === "remount") setGeneration((g) => g + 1);
+        else void instanceOpen(id);
       },
     );
   }, []);

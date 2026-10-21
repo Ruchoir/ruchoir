@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { guardedSwitch } from "./switchGuard.ts";
+import { afterOpen, guardedSwitch } from "./switchGuard.ts";
 
 function spy() {
   const calls: string[] = [];
@@ -25,4 +25,12 @@ test("switch_waits_for_uploads", async () => {
   s = spy();
   assert.equal(await guardedSwitch(() => true, async () => "cancel", s.cancelAll, s.go), true);
   assert.deepEqual(s.calls, ["cancelAll", "go"]);
+});
+
+test("opening_another_instance_waits_for_the_switch_instead_of_remounting", () => {
+  // The interface remounts by itself when the open instance changes (its key): bumping it as well
+  // would mount the old instance at the new instance's address first.
+  assert.equal(afterOpen("a", "b"), "await-switch");
+  assert.equal(afterOpen("a", "a"), "remount");
+  assert.equal(afterOpen(null, "a"), "await-switch");
 });
