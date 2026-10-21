@@ -7,7 +7,9 @@
 // Environment: RUCHOIR_DESKTOP_BIN (the built app), E2E_INSTANCE (https origin of a test instance),
 // E2E_EMAIL and E2E_PASSWORD (an account there without a second factor), E2E_OTHER_EMAIL (a second
 // account with the same password), E2E_SPACE and E2E_CHANNEL (a channel both belong to),
-// E2E_OPENED_FILE, and optionally E2E_SCREENSHOT (a PNG of the window at the end). The live message comes from the second account: the interface leaves out its own
+// E2E_OPENED_FILE, and optionally E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
+// E2E_EMAIL_2 and E2E_PASSWORD_2 (an account on a second instance), it also adds that instance, signs
+// in to it, checks the rail heads both instances' spaces, and opens a space of the first from it. The live message comes from the second account: the interface leaves out its own
 // person's messages arriving live, which it has already drawn when sending them.
 
 import { spawn } from "node:child_process";
@@ -59,18 +61,18 @@ async function until(what, check, timeoutMs = 20000) {
 }
 
 /** A session on the instance, as a browser would hold it, to play the person's side of `/n/`. */
-async function webSession(email = EMAIL) {
-  const response = await fetch(`${INSTANCE}/api/v1/auth/login`, {
+async function webSession(email = EMAIL, instance = INSTANCE, password = PASSWORD) {
+  const response = await fetch(`${instance}/api/v1/auth/login`, {
     method: "POST",
-    headers: { "content-type": "application/json", origin: INSTANCE },
-    body: JSON.stringify({ email, password: PASSWORD }),
+    headers: { "content-type": "application/json", origin: instance },
+    body: JSON.stringify({ email, password }),
   });
   if (!response.ok) throw new Error(`login: ${response.status}`);
   const cookie = response.headers.getSetCookie().map((c) => c.split(";")[0]).join("; ");
   return (path, init = {}) =>
-    fetch(`${INSTANCE}/api/v1${path}`, {
+    fetch(`${instance}/api/v1${path}`, {
       ...init,
-      headers: { "content-type": "application/json", origin: INSTANCE, cookie, ...(init.headers ?? {}) },
+      headers: { "content-type": "application/json", origin: instance, cookie, ...(init.headers ?? {}) },
     });
 }
 
@@ -153,6 +155,48 @@ async function main() {
       }).catch((e) => ({ error: e.message }));
       console.error(`relay diagnostics: ${JSON.stringify(seen)}`);
       throw error;
+    }
+
+    // 7. A second instance (optional): add it, sign in, both headings in the rail, one click back.
+    const secondInstance = process.env.E2E_INSTANCE_2;
+    if (secondInstance) {
+      const invoke = (cmd, args) =>
+        wd("POST", `/session/${id}/execute/async`, {
+          script: "const d = arguments[arguments.length - 1]; window.__TAURI_INTERNALS__.invoke(arguments[0], arguments[1]).then((r) => d({ ok: r }), (e) => d({ error: String(e) }));",
+          args: [cmd, args],
+        });
+      const added = await invoke("instance_add", { address: secondInstance });
+      if (added.error) throw new Error(`adding ${secondInstance}: ${added.error}`);
+      const opened = readFileSync(OPENED, "utf8").trim().split("\n").length;
+      await until("the second sign-in screen", () =>
+        run("return !!document.querySelector('.wc-btn--primary') && !document.querySelector('.wc-titlebar__search');"),
+      );
+      await run("document.querySelector('.wc-btn--primary').click();");
+      const page2 = await until("the second sign-in page", () => {
+        const lines = readFileSync(OPENED, "utf8").trim().split("\n");
+        return lines.length > opened ? lines.at(-1) : null;
+      });
+      const api2 = await webSession(must("E2E_EMAIL_2"), secondInstance, must("E2E_PASSWORD_2"));
+      const challenge2 = new URL(page2).searchParams.get("c");
+      const { code: code2 } = await (await api2("/auth/native/code", { method: "POST", body: JSON.stringify({ challenge: challenge2 }) })).json();
+      const third = spawn(BIN, [`ruchoir://auth?code=${code2}`], { stdio: "ignore" });
+      await new Promise((resolve) => third.on("exit", resolve));
+      const hosts = [new URL(INSTANCE).host, new URL(secondInstance).host];
+      await until("both instances in the rail", () =>
+        run("return arguments[0].every((h) => !!document.querySelector(`[title='${h}']`));", [hosts]),
+        30000,
+      );
+      // The first instance is now the other one: open its first space from its section.
+      const target = await run(
+        "const h = document.querySelector(`[title='${arguments[0]}']`); let el = h.nextElementSibling; while (el && !el.querySelector('button')) el = el.nextElementSibling; const b = el && el.querySelector('button'); if (b) b.click(); return !!b;",
+        [hosts[0]],
+      );
+      if (!target) throw new Error("no space of the first instance in the rail");
+      await until("a space of the first instance to open", () =>
+        run("return location.pathname.startsWith('/e/') ? location.pathname : null;"),
+        30000,
+      );
+      console.log("ok: second instance added, both in the rail, back on the first by one click");
     }
 
     if (process.env.E2E_SCREENSHOT) {
