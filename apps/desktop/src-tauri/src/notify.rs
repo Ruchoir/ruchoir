@@ -49,12 +49,14 @@ struct OpenEvent {
     path: String,
 }
 
-/// The sound each system's notification server knows as its usual one.
+/// The sound each system's notification server plays for a new message. On Windows, the instant
+/// message sound by name: "Default" adds no `<audio>` to the toast and leaves it to the app's
+/// registration, which an app installed by NSIS may not have, and Théo heard nothing (2026-10-21).
 fn system_sound() -> &'static str {
     if cfg!(target_os = "macos") {
         "default"
     } else if cfg!(windows) {
-        "Default"
+        "IM"
     } else {
         "message-new-instant"
     }
