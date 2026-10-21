@@ -10,7 +10,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
-use crate::{Outcome, Pusher};
+use crate::{Kind, Outcome, Pusher};
 
 /// Production APNs: every Ruchoir build is signed for the App Store (TestFlight included).
 pub const PRODUCTION_HOST: &str = "api.push.apple.com";
@@ -42,6 +42,23 @@ pub fn payload() -> Value {
             "sound": "default"
         }
     })
+}
+
+/// What a push of this kind carries. A sync is a background push with nothing in it: iOS hands it
+/// to the app, which counts its unread again; nothing is shown and no sound is played.
+pub fn payload_for(kind: Kind) -> Value {
+    match kind {
+        Kind::Wake => payload(),
+        Kind::Sync => json!({ "aps": { "content-available": 1 } }),
+    }
+}
+
+/// The push type and priority Apple requires for each kind (a background push must be priority 5).
+pub fn headers_for(kind: Kind) -> (&'static str, &'static str) {
+    match kind {
+        Kind::Wake => ("alert", "10"),
+        Kind::Sync => ("background", "5"),
+    }
 }
 
 /// What an APNs answer means for the device.
@@ -105,24 +122,30 @@ impl Apns {
         Ok(token)
     }
 
-    async fn send_once(&self, device: &str, fresh: bool) -> (u16, Option<String>) {
+    async fn send_once(&self, device: &str, kind: Kind, fresh: bool) -> (u16, Option<String>) {
         let bearer = match self.bearer(fresh).await {
             Ok(bearer) => bearer,
             Err(e) => return (0, Some(e)),
         };
+        // A count that is an hour late is not worth correcting: a newer one will have come.
+        let lifetime = match kind {
+            Kind::Wake => 86_400,
+            Kind::Sync => 3_600,
+        };
         let expiration = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs() + 86_400)
+            .map(|d| d.as_secs() + lifetime)
             .unwrap_or(0);
+        let (push_type, priority) = headers_for(kind);
         let response = self
             .client
             .post(format!("https://{}/3/device/{device}", self.host))
             .header("authorization", format!("bearer {bearer}"))
             .header("apns-topic", &self.topic)
-            .header("apns-push-type", "alert")
-            .header("apns-priority", "10")
+            .header("apns-push-type", push_type)
+            .header("apns-priority", priority)
             .header("apns-expiration", expiration.to_string())
-            .json(&payload())
+            .json(&payload_for(kind))
             .send()
             .await;
         match response {
@@ -141,12 +164,16 @@ impl Apns {
 }
 
 impl Pusher for Apns {
-    fn push<'a>(&'a self, token: &'a str) -> Pin<Box<dyn Future<Output = Outcome> + Send + 'a>> {
+    fn push<'a>(
+        &'a self,
+        token: &'a str,
+        kind: Kind,
+    ) -> Pin<Box<dyn Future<Output = Outcome> + Send + 'a>> {
         Box::pin(async move {
-            let (status, reason) = self.send_once(token, false).await;
+            let (status, reason) = self.send_once(token, kind, false).await;
             // A provider token Apple no longer takes: make a new one and try once more.
             if status == 403 && reason.as_deref() == Some("ExpiredProviderToken") {
-                let (status, reason) = self.send_once(token, true).await;
+                let (status, reason) = self.send_once(token, kind, true).await;
                 return outcome(status, reason.as_deref());
             }
             outcome(status, reason.as_deref())
@@ -168,6 +195,15 @@ mod tests {
             1,
             "nothing beside `aps`"
         );
+    }
+
+    #[test]
+    fn a_sync_is_silent_and_carries_nothing() {
+        let sync = payload_for(Kind::Sync);
+        assert_eq!(sync, json!({ "aps": { "content-available": 1 } }));
+        assert_eq!(payload_for(Kind::Wake), payload());
+        assert_eq!(headers_for(Kind::Sync), ("background", "5"));
+        assert_eq!(headers_for(Kind::Wake), ("alert", "10"));
     }
 
     #[test]

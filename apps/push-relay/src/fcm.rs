@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
-use crate::{Outcome, Pusher};
+use crate::{Kind, Outcome, Pusher};
 
 const SCOPE: &str = "https://www.googleapis.com/auth/firebase.messaging";
 const DEFAULT_TOKEN_URI: &str = "https://oauth2.googleapis.com/token";
@@ -52,6 +52,21 @@ pub fn message(token: &str) -> Value {
             "android": { "priority": "HIGH", "ttl": "86400s" }
         }
     })
+}
+
+/// What a push of this kind carries. A sync is a data message saying only `sync`, at normal priority
+/// (nothing urgent: the phone counts its unread again and takes the read ones off its shade).
+pub fn message_for(token: &str, kind: Kind) -> Value {
+    match kind {
+        Kind::Wake => message(token),
+        Kind::Sync => json!({
+            "message": {
+                "token": token,
+                "data": { "ruchoir": "sync" },
+                "android": { "priority": "NORMAL", "ttl": "3600s" }
+            }
+        }),
+    }
 }
 
 /// What an FCM answer means for the device. The message itself is constant and valid, so a refused
@@ -137,7 +152,7 @@ impl Fcm {
         Ok(token)
     }
 
-    async fn send_once(&self, device: &str, fresh: bool) -> (u16, Value) {
+    async fn send_once(&self, device: &str, kind: Kind, fresh: bool) -> (u16, Value) {
         let access = match self.access_token(fresh).await {
             Ok(access) => access,
             Err(e) => return (0, json!({ "error": { "status": e } })),
@@ -149,7 +164,7 @@ impl Fcm {
                 self.project_id
             ))
             .bearer_auth(access)
-            .json(&message(device))
+            .json(&message_for(device, kind))
             .send()
             .await;
         match response {
@@ -163,11 +178,15 @@ impl Fcm {
 }
 
 impl Pusher for Fcm {
-    fn push<'a>(&'a self, token: &'a str) -> Pin<Box<dyn Future<Output = Outcome> + Send + 'a>> {
+    fn push<'a>(
+        &'a self,
+        token: &'a str,
+        kind: Kind,
+    ) -> Pin<Box<dyn Future<Output = Outcome> + Send + 'a>> {
         Box::pin(async move {
-            let (status, body) = self.send_once(token, false).await;
+            let (status, body) = self.send_once(token, kind, false).await;
             if status == 401 {
-                let (status, body) = self.send_once(token, true).await;
+                let (status, body) = self.send_once(token, kind, true).await;
                 return outcome(status, &body);
             }
             outcome(status, &body)
@@ -188,6 +207,15 @@ mod tests {
             message["message"].get("notification").is_none(),
             "nothing to read"
         );
+    }
+
+    #[test]
+    fn a_sync_only_says_sync() {
+        let sync = message_for("tok", Kind::Sync);
+        assert_eq!(sync["message"]["data"], json!({ "ruchoir": "sync" }));
+        assert_eq!(sync["message"]["android"]["priority"], "NORMAL");
+        assert!(sync["message"].get("notification").is_none());
+        assert_eq!(message_for("tok", Kind::Wake), message("tok"));
     }
 
     #[test]
