@@ -1119,10 +1119,15 @@ function AppShell() {
   useEffect(() => {
     desktopRef.current = desktop;
   }, [desktop]);
-  // The desktop app holds a still of the previous instance over this one until it is ready.
+  // The desktop app holds a still of the previous page over this one until it is ready: booted, and
+  // the open conversation's messages in (an empty feed and grey members showed through otherwise),
+  // with a short margin for the side panels that load beside them.
+  const feedReady = !booting && (!channelId || messages[channelId] !== undefined);
   useEffect(() => {
-    if (!booting) desktop?.interfaceReady();
-  }, [booting, desktop]);
+    if (!feedReady) return;
+    const timer = window.setTimeout(() => desktopRef.current?.interfaceReady(), 300);
+    return () => window.clearTimeout(timer);
+  }, [feedReady]);
 
   /**
    * Latest "reach the person who is not looking" function, for the same reason as `notifyRef`: the
