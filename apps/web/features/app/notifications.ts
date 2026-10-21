@@ -64,9 +64,6 @@ export type AppNotification = {
   reminder?: ReminderInfo;
   /** The emoji of a reaction to one of the reader's messages. */
   emoji?: string;
-  /** In the desktop app's common bell: the other instance it comes from, and its rail heading. */
-  instanceId?: string;
-  instanceLabel?: string;
 };
 
 /**

@@ -4,7 +4,6 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import { getAvatar, getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
 import { isDesktop } from "@/lib/desktop/runtime";
 import { useDesktop } from "@/features/desktop/DesktopContext";
-import { commonBell } from "@/features/desktop/commonBell";
 import { onSearchRequest } from "@/lib/desktop/searchRequest";
 import {
   acceptInvitation,
@@ -1855,29 +1854,19 @@ function AppShell() {
     // addressed to a person, not to a space) and the rail already carries the count for the others,
     // so showing all of them here would report the same mention twice and point at a conversation
     // this space does not contain.
-    // The desktop app's bell is one for every instance (Théo, 2026-10-21): all of this instance's
-    // spaces, with the other instances' notifications merged in.
-    () => {
-      const own = notifs.filter(
+    () =>
+      notifs.filter(
         (n) =>
           // A reminder or an invitation from a personal calendar belongs to no space: every space
           // shows it. So does an invitation (and its change, cancellation or refusal) from any
           // space: it asks something of this person, wherever they are reading. A calendar shared
           // with them belongs to no space either.
-          (desktop !== null ||
-            n.spaceId === ws ||
+          (n.spaceId === ws ||
             (Boolean(n.reminder) && (!n.spaceId || isInvitationKind(n.kind))) ||
             n.kind === "calendar_shared") &&
           passesPref(n, channelPrefs[n.channelId], settings.notif, wsNotifyLevel),
-      );
-      if (!desktop) return own;
-      return commonBell(own, desktop.otherNotifications, (n, instanceId, instanceLabel) => ({
-        ...toAppNotification(n, [], [], n.read),
-        instanceId,
-        instanceLabel,
-      }));
-    },
-    [notifs, ws, channelPrefs, settings.notif, wsNotifyLevel, desktop],
+      ),
+    [notifs, ws, channelPrefs, settings.notif, wsNotifyLevel],
   );
   const notifUnread = visibleNotifs.filter((n) => !n.read).length;
   /**
@@ -1940,7 +1929,6 @@ function AppShell() {
   const markAllNotifsRead = () => {
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
     void markAllNotificationsRead().catch(() => {});
-    desktop?.markAllOthersRead();
   };
   /**
    * What a conversation left on `default` currently gets: the space's level, else one's own

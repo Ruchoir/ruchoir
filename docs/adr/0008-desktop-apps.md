@@ -112,10 +112,12 @@ on Windows while the toast is on screen), unless the instance's own settings say
 hours) or it is the instance on screen in a focused window. A click opens the item on its instance.
 The browser's notifications are off in the desktop build: the core is the one source.
 
-**Spaces first, one bell.** The rail heads the open instance's spaces with its name and lists every
-other instance's spaces below, with their counts; the bell lists every instance's notifications
-(Théo's choice, as on the phone), the other instances' read through clients of their own on the
-app's protocol (`/i/<id>`), merged with the phone's rule, now `@ruchoir/client/inbox`.
+**Spaces first; the bell stays the web's.** The rail heads the open instance's spaces with its name
+and lists every other instance's spaces below, with their counts. The bell and the Mentions tab show
+the space on screen, as on the web (Théo, 2026-10-21, after trying a bell for every instance: an item
+from elsewhere reads as if it were here). The other instances reach the person through their counts
+in the rail, the badge and the native notifications. The phone keeps its bell for every instance
+(`@ruchoir/client/inbox`).
 
 **On the desktop.** A tray icon with the total of unread notifications (dot variant), the same total
 on the app icon (macOS label, Windows overlay, Linux launcher count), closing to the tray on Windows

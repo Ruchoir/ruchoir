@@ -18,8 +18,8 @@ core ── per signed-in instance: one realtime socket ──► frames relayed
                                   a notifier           ──► the system's notifications
 ```
 
-One interface at a time: only the open instance's is mounted; a space of another instance, a click on
-a notification or on another instance's bell item mounts a fresh one on that instance (ADR 0008,
+One interface at a time: only the open instance's is mounted; a space of another instance or a click
+on a notification mounts a fresh one on that instance (ADR 0008,
 amendment of 2026-10-21).
 
 - `apps/desktop/core`: the logic that needs no window (instance list, keychain vault, sign-in
@@ -28,9 +28,9 @@ amendment of 2026-10-21).
 - `apps/desktop/src-tauri`: the app (window, protocol, commands, deep links, relay, summaries,
   notifications, tray and badge, launch at login).
 - `apps/web/lib/desktop` (bridge to the core, relayed socket, the switch guard) and
-  `apps/web/features/desktop` (title bar, add an instance, sign in, the bridge's React context, the
-  common bell's merge): loaded only in the desktop build. The rail, the bell, the account menu and
-  the preferences read `useDesktop()`, `null` on the web.
+  `apps/web/features/desktop` (title bar, add an instance, sign in, the bridge's React context):
+  loaded only in the desktop build. The rail, the account menu and the preferences read
+  `useDesktop()`, `null` on the web.
 
 ## Building
 
@@ -130,7 +130,7 @@ the frameless window (drag, double click, Windows snap, resizing from the edges)
 instance, signing in with a password then a code, and with a passkey, live messages, signing out,
 quitting and starting again still signed in, and a second launch bringing the first window forward.
 With two instances: both in the rail with their counts, a notification from the one not open and
-its click, the bell listing both, the badge on the icon and in the tray, closing to the tray and
+its click, the badge on the icon and in the tray, closing to the tray and
 reopening from it, launch at login (the app starts in the tray), and the memory read in the task
 manager.
 macOS is checked by a volunteer tester before each release.

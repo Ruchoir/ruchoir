@@ -7,7 +7,6 @@ import { respondToEvent } from "@/lib/data/calendar";
 import { type AppNotification, isMention, type NotifKind, notifSummary } from "./notifications";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDate, formatDateTime, formatStamp } from "@/lib/i18n/format";
-import { useDesktop } from "@/features/desktop/DesktopContext";
 
 const KIND_ICON: Record<NotifKind, string> = {
   mention: "at-sign",
@@ -273,26 +272,19 @@ function NotifRow({
   page?: boolean;
 }) {
   const { t } = useTranslation();
-  const desktop = useDesktop();
   const [hovered, setHover] = useState(false);
   // On a page (a phone) there is no hover: the toggle is always offered.
   const hover = hovered || page;
-  // In the desktop app's common bell, another instance's item goes through that instance.
-  const other = notif.instanceId && desktop ? { id: notif.instanceId, bridge: desktop } : null;
-  const open = () =>
-    other ? other.bridge.openNotification(other.id, notif) : onOpen(notif.channelId, notif.messageId, notif.id);
-  const toggleRead = (read: boolean) =>
-    other ? other.bridge.markRead(other.id, notif.id, read) : onToggleRead(notif.id, read);
 
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={open}
+      onClick={() => onOpen(notif.channelId, notif.messageId, notif.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          open();
+          onOpen(notif.channelId, notif.messageId, notif.id);
         }
       }}
       onMouseEnter={() => setHover(true)}
@@ -365,8 +357,7 @@ function NotifRow({
             : notif.preview}
         </span>
         <span style={{ display: "block", marginTop: 3, fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
-          {notif.reminder ? [...new Set([notif.spaceName, notif.reminder.calendarName].filter(Boolean))].join(" · ") : notif.label}
-          {notif.instanceLabel ? ` · ${notif.spaceName} · ${notif.instanceLabel}` : null} · {formatStamp(notif.createdAt)}
+          {notif.reminder ? [...new Set([notif.spaceName, notif.reminder.calendarName].filter(Boolean))].join(" · ") : notif.label} · {formatStamp(notif.createdAt)}
         </span>
         {notif.kind === "calendar_invitation" && notif.reminder?.eventId && notif.reminder.myStatus ? (
           <InboxAnswer eventId={notif.reminder.eventId} current={notif.reminder.myStatus} />
@@ -381,7 +372,7 @@ function NotifRow({
         aria-hidden={!hover}
         onClick={(e) => {
           e.stopPropagation();
-          toggleRead(!notif.read);
+          onToggleRead(notif.id, !notif.read);
         }}
         style={{
           flex: "none",

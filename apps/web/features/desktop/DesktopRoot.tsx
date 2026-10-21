@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { createClient, type RuchoirClient } from "@ruchoir/client";
 import { configureClient } from "@ruchoir/client/config";
 import { Button, Dialog } from "@/components/ds";
 import { useTranslation } from "@/lib/i18n";
@@ -29,7 +28,6 @@ import { desktopOs, instanceBase } from "@/lib/desktop/runtime";
 import { requestSearch } from "@/lib/desktop/searchRequest";
 import { afterOpen, guardedSwitch } from "@/lib/desktop/switchGuard";
 import { AddInstanceScreen } from "./AddInstanceScreen";
-import type { OtherFeed } from "./commonBell";
 import { DesktopContext, type DesktopBridge } from "./DesktopContext";
 import { SignInWaitScreen } from "./SignInWaitScreen";
 import { TitleBar } from "./TitleBar";
@@ -84,44 +82,12 @@ export function DesktopRoot() {
   const [asking, setAsking] = useState<((answer: "wait" | "cancel") => void) | null>(null);
   const [noKeychainSeen, setNoKeychainSeen] = useState(false);
   const { maximized, fullscreen } = useWindowShape();
-  // The common bell: each other signed-in instance's first page, read through its own client.
-  const [feeds, setFeeds] = useState<Record<string, OtherFeed>>({});
-  const clients = useRef(new Map<string, RuchoirClient>());
   const viewsRef = useRef<InstanceView[] | null>(null);
   const openId = () => viewsRef.current?.find((v) => v.open)?.id ?? null;
 
-  const clientOf = useCallback((id: string, origin: string | null) => {
-    let client = clients.current.get(id);
-    if (!client) {
-      // Same origin as the interface: the core adds this instance's token on the way.
-      client = createClient({ baseUrl: instanceBase(id), publicOrigin: origin ?? undefined });
-      clients.current.set(id, client);
-    }
-    return client;
-  }, []);
-
-  const loadFeed = useCallback(
-    (view: InstanceView) => {
-      if (!view.id || view.open || view.state !== "signed_in") return;
-      const id = view.id;
-      void clientOf(id, view.origin)
-        .getNotifications({ limit: 30 })
-        .then((page) =>
-          setFeeds((prev) => ({
-            ...prev,
-            [id]: { instanceId: id, label: shortLabel(view.name ?? ""), items: page.notifications, next: page.nextBefore ?? undefined },
-          })),
-        )
-        .catch(() => {});
-    },
-    [clientOf],
-  );
-
-  // Every other signed-in instance's page, whenever the list changes.
   useEffect(() => {
     viewsRef.current = views;
-    for (const view of views ?? []) loadFeed(view);
-  }, [views, loadFeed]);
+  }, [views]);
 
   useEffect(() => {
     void instancesState().then(setViews);
@@ -129,12 +95,7 @@ export function DesktopRoot() {
     void desktopSettings().then(setSettings);
     const stops = [
       onInstancesChanged(setViews),
-      onSummaryChanged((instance, summary) => {
-        setSums((prev) => ({ ...prev, [instance]: summary }));
-        // A change on another instance: its page of the common bell is read again.
-        const view = viewsRef.current?.find((v) => v.id === instance);
-        if (view) loadFeed(view);
-      }),
+      onSummaryChanged((instance, summary) => setSums((prev) => ({ ...prev, [instance]: summary }))),
       onDesktopOpen((instance, path) => {
         goTo(path);
         if (afterOpen(openId(), instance) === "remount") setGeneration((g) => g + 1);
@@ -143,7 +104,7 @@ export function DesktopRoot() {
     return () => {
       for (const stop of stops) void stop.then((unlisten) => unlisten());
     };
-  }, [loadFeed]);
+  }, []);
 
   // The tray's words follow the interface's language.
   useEffect(() => {
@@ -168,19 +129,6 @@ export function DesktopRoot() {
     );
   }, []);
 
-  const markRead = useCallback(
-    (instanceId: string, id: string, read: boolean) => {
-      setFeeds((prev) => {
-        const feed = prev[instanceId];
-        if (!feed) return prev;
-        return { ...prev, [instanceId]: { ...feed, items: feed.items.map((n) => (n.id === id ? { ...n, read } : n)) } };
-      });
-      // The API marks read only (there is no "unread" inverse), as on the web.
-      if (read) void clients.current.get(instanceId)?.markNotificationRead(id).catch(() => {});
-    },
-    [],
-  );
-
   const bridge = useMemo<DesktopBridge | null>(() => {
     if (!open?.id || !views) return null;
     const host = open.name ?? "";
@@ -204,27 +152,8 @@ export function DesktopRoot() {
       preferencesSaved: () => void preferencesChanged(open.id as string),
       settings,
       setSettings: (next) => void setDesktopSettings(next).then(setSettings),
-      // Only the instances that are still other and signed in (one opened or signed out drops out).
-      otherNotifications: Object.values(feeds).filter((feed) =>
-        views.some((v) => v.id === feed.instanceId && !v.open && v.state === "signed_in"),
-      ),
-      openNotification: (instanceId, n) => {
-        const slug = sums[instanceId]?.spaces.find((space) => space.id === n.spaceId)?.slug;
-        const channel = !n.isDm && n.label.startsWith("#") ? n.label.slice(1) : null;
-        markRead(instanceId, n.id, true);
-        switchTo(instanceId, slug ? (channel ? `/e/${slug}/c/${channel}` : `/e/${slug}`) : "/");
-      },
-      markRead,
-      markAllOthersRead: () => {
-        for (const id of Object.keys(feeds)) {
-          void clients.current.get(id)?.markAllNotificationsRead().catch(() => {});
-        }
-        setFeeds((prev) =>
-          Object.fromEntries(Object.entries(prev).map(([id, feed]) => [id, { ...feed, items: feed.items.map((n) => ({ ...n, read: true })) }])),
-        );
-      },
     };
-  }, [open, views, sums, settings, switchTo, feeds, markRead]);
+  }, [open, views, sums, settings, switchTo]);
 
   // Another signed-in instance to go back to from an add or sign-in screen.
   const back = views?.find((v) => !v.open && v.state === "signed_in" && v.id) ?? null;

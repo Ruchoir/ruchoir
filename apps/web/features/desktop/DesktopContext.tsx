@@ -2,8 +2,6 @@
 
 import { createContext, useContext } from "react";
 import type { DesktopSettings, SpaceSummary } from "@/lib/desktop/instances";
-import type { AppNotification } from "@/features/app/notifications";
-import type { OtherFeed } from "./commonBell";
 
 /** Another instance the desktop app holds, as the rail draws it. */
 export type OtherInstance = {
@@ -38,13 +36,6 @@ export type DesktopBridge = {
   preferencesSaved: () => void;
   settings: DesktopSettings | null;
   setSettings: (settings: DesktopSettings) => void;
-  /** Every other signed-in instance's first page of notifications, for the common bell. */
-  otherNotifications: OtherFeed[];
-  /** Open a notification of another instance where it happened. */
-  openNotification: (instanceId: string, n: AppNotification) => void;
-  /** Mark one of another instance's notifications read (unread stays local, as on the web). */
-  markRead: (instanceId: string, id: string, read: boolean) => void;
-  markAllOthersRead: () => void;
 };
 
 export const DesktopContext = createContext<DesktopBridge | null>(null);
