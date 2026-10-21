@@ -158,7 +158,8 @@ infra/deploy/ruchoir-deploy (on the server, as root)
 ```
 
 Merging to `main` runs the checks only. Tags follow `vMAJOR.MINOR.PATCH`, with an optional
-pre-release suffix (`v0.4.0-rc.1`).
+pre-release suffix (`v0.4.0-rc.1`). The phones' push relay ships apart, from its own tags
+(`push-relay-vMAJOR.MINOR.PATCH`) onto the website's server: `docs/push-relay.md`, "Releasing".
 
 **The registry** is Ruchoir's own: [Zot](https://zotregistry.dev) (CNCF, Apache-2.0) at
 `registry.ruchoir.com`, behind nginx and an Actalis certificate, with three accounts: `ci` pushes,

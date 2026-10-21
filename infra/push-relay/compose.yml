@@ -1,0 +1,21 @@
+# The push relay (ADR 0006) on the website's server: the image a `push-relay-v*` tag built, on
+# 127.0.0.1 only. The server's nginx terminates TLS for ruchoir.com and forwards /push/ here
+# (docs/push-relay.md). RELAY_IMAGE is set in .env beside this file by push-relay-deploy; the keys
+# live in /etc/ruchoir-push-relay, never in the repository.
+services:
+  relay:
+    image: ${RELAY_IMAGE:?set by push-relay-deploy}
+    env_file: /etc/ruchoir-push-relay/relay.env
+    environment:
+      APNS_KEY_FILE: /run/relay/apns.p8
+      FCM_SERVICE_ACCOUNT_FILE: /run/relay/fcm.json
+    volumes:
+      - /etc/ruchoir-push-relay:/run/relay:ro
+    ports:
+      - "127.0.0.1:8095:8080"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped

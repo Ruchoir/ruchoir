@@ -531,6 +531,7 @@ pub async fn mark_read(
         let mut active = row.into_active_model();
         active.read_at = Set(Some(OffsetDateTime::now_utc()));
         active.update(&state.db).await?;
+        announce_read(&state, session.user_id, vec![id], false).await;
     }
     Ok(StatusCode::NO_CONTENT)
 }
@@ -546,7 +547,7 @@ pub async fn mark_all_read(
     State(state): State<AppState>,
     session: AuthSession,
 ) -> Result<StatusCode, ApiError> {
-    notifications::Entity::update_many()
+    let marked = notifications::Entity::update_many()
         .col_expr(
             notifications::Column::ReadAt,
             Expr::value(OffsetDateTime::now_utc()),
@@ -555,7 +556,52 @@ pub async fn mark_all_read(
         .filter(notifications::Column::ReadAt.is_null())
         .exec(&state.db)
         .await?;
+    if marked.rows_affected > 0 {
+        announce_read(&state, session.user_id, Vec::new(), true).await;
+    }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// What the `notification.read` event says.
+#[derive(Debug, serde::Serialize)]
+struct ReadPayload {
+    /// The notifications read; empty when `all` is set.
+    ids: Vec<Uuid>,
+    /// Every notification of the person was read.
+    all: bool,
+    /// What is left unread, as the bell and the icon count it.
+    unread_count: i64,
+}
+
+/// Something was read: tell every device the person has open (`notification.read`), and their
+/// phones, silently, so the icon's count and the notifications on screen follow even with the app
+/// closed (ADR 0006, the sync push). Called only when something actually changed, after it was
+/// saved: it never fails the request, which has done what it was asked.
+async fn announce_read(state: &AppState, user_id: Uuid, ids: Vec<Uuid>, all: bool) {
+    let unread_count = match notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(user_id))
+        .filter(notifications::Column::ReadAt.is_null())
+        .count(&state.db)
+        .await
+    {
+        Ok(count) => count as i64,
+        Err(error) => {
+            tracing::warn!(%error, "could not count the unread notifications to announce a read");
+            return;
+        }
+    };
+    state
+        .hub
+        .publish(
+            vec![user_id],
+            RealtimeEnvelope::notification_read(ReadPayload {
+                ids,
+                all,
+                unread_count,
+            }),
+        )
+        .await;
+    crate::notify::phone::sync_soon(state, user_id).await;
 }
 
 #[cfg(test)]

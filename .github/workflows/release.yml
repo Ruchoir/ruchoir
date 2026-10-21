@@ -51,6 +51,7 @@ jobs:
           docker buildx create --use --driver docker-container >/dev/null
           docker buildx build \
             --file apps/api/Dockerfile \
+            --build-arg "RUCHOIR_VERSION=$TAG" \
             --cache-from "type=registry,ref=$IMAGE:buildcache" \
             --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max" \
             --tag "$IMAGE:$TAG" \

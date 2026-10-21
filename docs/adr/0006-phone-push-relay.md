@@ -1,6 +1,6 @@
 # ADR 0006: Phone notifications through a publisher-run relay, without content
 
-- Status: accepted
+- Status: accepted, amended 2026-10-21 (reading everywhere, see the end)
 - Date: 2026-10-15
 - Widens: ADR 0001 (Web Push), ADR 0005 (native apps)
 
@@ -75,3 +75,35 @@ Two things differ from the web:
   through the relay and the vendor. Rejected, as in ADR 0001.
 - **UnifiedPush on Android.** Sovereign, but it needs a distributor app on the phone that almost no
   one has; Google Play phones are reached through FCM. Can be added later beside it.
+
+## Amendment, 2026-10-21: read on one device, read everywhere
+
+A notification read on the computer used to stay on the phone: its dot on the icon, and the
+notification itself on the lock screen, until the app was opened. Théo asked for one read to count
+everywhere.
+
+1. **On the devices that are open**, the instance says so on the realtime socket:
+   `notification.read`, to the person only, with the ids read (or `all`) and what is left unread.
+   The web and the desktop mark them read in the bell and refresh the counts; the phone app counts
+   again and takes them off its screen.
+2. **On a phone whose app is closed**, a second constant push, through the same relay: a **sync**,
+   on a route of its own (`POST /v1/sync`, same body as `/v1/send`). It shows nothing and carries
+   nothing: to Apple a background push (`content-available`, push type `background`, priority 5),
+   to Google a data message `{"ruchoir": "sync"}` at normal priority. The app, woken in the
+   background (the iPhone app gains the `remote-notification` background mode, and nothing else),
+   asks each of its instances which notifications are still unread, puts the total on the icon, and
+   takes the read ones off the screen (each carries its id since this change). Nothing is drawn.
+3. **Sparingly.** The instance waits three seconds after a read and sends one sync for the whole
+   burst (reading one, then another, then "mark all read"); only when something was actually read,
+   only to phones it would wake anyway (the administrator's switch). The relay gives syncs their own
+   allowance (10 a minute per device), so reading never holds back a new message. Apple may still
+   delay or drop a background push, and never delivers one to an app the person swiped away: the
+   count is then right again at the next push or when the app opens. An instance whose relay
+   predates `/v1/sync` gets a `404` and carries on.
+
+What crosses does not change: the relay and the vendor learn that a device has something to update,
+not what, nor from which instance; not even the count.
+
+The relay is deployed apart from instances, by a tag of its own (`push-relay-v1.2.3`,
+`docs/push-relay.md`, "Releasing"), on the website's server.
+

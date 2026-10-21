@@ -1,0 +1,14 @@
+#!/bin/sh
+#
+# The forced command of the `deploy` account's relay key on the website's server: it can start
+# push-relay-deploy with a version, and nothing else (sudoers allows exactly that).
+#
+# authorized_keys:
+#   command="/usr/local/sbin/push-relay-deploy-entry",restrict ssh-ed25519 AAAA... ci-push-relay
+# /etc/sudoers.d/push-relay-deploy:
+#   deploy ALL=(root) NOPASSWD: /usr/local/sbin/push-relay-deploy
+set -eu
+case "${SSH_ORIGINAL_COMMAND:-}" in
+  *[!A-Za-z0-9.-]*|"") echo "expected a version, such as v1.2.3" >&2; exit 2 ;;
+esac
+exec sudo -n /usr/local/sbin/push-relay-deploy "$SSH_ORIGINAL_COMMAND"

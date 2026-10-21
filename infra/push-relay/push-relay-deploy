@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+#
+# Deploy one released version of the push relay on the website's server: the only thing the CI may
+# do here for the relay.
+#
+# Installed as /usr/local/sbin/push-relay-deploy (root, 0755), reached through the `deploy` account
+# whose relay key is bound to push-relay-deploy-entry (docs/push-relay.md, "Releasing"):
+#
+#   ssh deploy@<server> v1.2.3 < bundle.tar.gz
+#
+# The bundle holds infra/push-relay (compose.yml and these two scripts). The script pulls the
+# release's image, starts it, waits for its health check, and puts the previous image back if it
+# never passes. The relay keeps nothing, so there is nothing to back up.
+set -euo pipefail
+
+RELAY_DIR="${RELAY_DIR:-/opt/push-relay}"
+IMAGE_REPO="${RELAY_IMAGE_REPO:-registry.ruchoir.com/ruchoir/push-relay}"
+LOG="/var/log/push-relay-deploy.log"
+MAX_BUNDLE_BYTES=$((1024 * 1024))
+HEALTH_TIMEOUT=120
+
+version="${1:-}"
+if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+  echo "usage: push-relay-deploy vMAJOR.MINOR.PATCH[-pre] < bundle.tar.gz" >&2
+  exit 2
+fi
+image="$IMAGE_REPO:$version"
+
+exec > >(tee -a "$LOG") 2>&1
+echo "=== $(date -u +%FT%TZ) deploying $version"
+exec 9>/run/push-relay-deploy.lock
+flock -n 9 || { echo "another deployment is running" >&2; exit 1; }
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+head -c "$((MAX_BUNDLE_BYTES + 1))" > "$work/bundle.tar.gz"
+[ "$(stat -c %s "$work/bundle.tar.gz")" -le "$MAX_BUNDLE_BYTES" ] || { echo "bundle too large" >&2; exit 1; }
+allowed='^(\./)?(infra/?|infra/push-relay/?|infra/push-relay/(compose\.yml|push-relay-deploy|push-relay-deploy-entry))$'
+if tar -tzf "$work/bundle.tar.gz" | grep -vE "$allowed" | grep -q .; then
+  echo "the bundle holds files a release may not place" >&2
+  exit 1
+fi
+mkdir "$work/stage"
+tar -xzf "$work/bundle.tar.gz" -C "$work/stage" --no-same-owner --no-same-permissions
+[ -f "$work/stage/infra/push-relay/compose.yml" ] || { echo "the bundle has no compose.yml" >&2; exit 1; }
+[ -f /etc/ruchoir-push-relay/relay.env ] || { echo "no keys in /etc/ruchoir-push-relay" >&2; exit 1; }
+
+mkdir -p "$RELAY_DIR"
+cd "$RELAY_DIR"
+touch .env
+previous="$(sed -n 's/^RELAY_IMAGE=//p' .env | tail -n 1)"
+echo "previous image: ${previous:-none}"
+
+docker pull -q "$image"
+install -m 0644 "$work/stage/infra/push-relay/compose.yml" compose.yml
+set_image() {
+  if grep -q '^RELAY_IMAGE=' .env; then sed -i "s|^RELAY_IMAGE=.*|RELAY_IMAGE=$1|" .env; else echo "RELAY_IMAGE=$1" >> .env; fi
+}
+set_image "$image"
+docker compose up -d --remove-orphans
+
+healthy() {
+  [ "$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q relay)" 2>/dev/null)" = healthy ]
+}
+deadline=$((SECONDS + HEALTH_TIMEOUT))
+until healthy; do
+  if [ $SECONDS -ge $deadline ]; then
+    echo "the relay did not come up healthy within ${HEALTH_TIMEOUT}s"
+    docker compose logs --tail 30 relay || true
+    if [ -n "$previous" ]; then
+      set_image "$previous"
+      docker compose up -d
+      echo "previous image restored"
+    fi
+    echo "=== $(date -u +%FT%TZ) $version FAILED"
+    exit 1
+  fi
+  sleep 3
+done
+
+for script in push-relay-deploy push-relay-deploy-entry; do
+  [ -f "$work/stage/infra/push-relay/$script" ] && install -m 0755 -o root -g root "$work/stage/infra/push-relay/$script" "/usr/local/sbin/$script"
+done
+docker image prune -f >/dev/null || true
+echo "=== $(date -u +%FT%TZ) $version deployed"

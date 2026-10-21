@@ -271,7 +271,22 @@ export type InstanceCapabilities = {
   publicLinks: boolean;
   /** Whether sign-in can hand a native app a session token (false on an instance too old for the apps). */
   nativeSessions: boolean;
+  /** The release the instance runs (`v1.2.3`, or `dev`); absent from one older than v0.3.0. */
+  version?: string;
+  /** The major version of its paths: 1 for `/api/v1` (assumed from an instance that does not say). */
+  apiVersion: number;
+  /**
+   * What it can do beyond every `/api/v1` instance, by name (`apps/api/src/compat.rs`). Ask with
+   * `supports` before using what a name stands for, and do without when it is absent: an instance
+   * is not always updated when the app is (`docs/api-compatibility.md`).
+   */
+  features: string[];
 };
+
+/** Whether the instance can do what `feature` names (`InstanceCapabilities.features`). */
+export function supports(caps: Pick<InstanceCapabilities, "features">, feature: string): boolean {
+  return caps.features.includes(feature);
+}
 
 // --- Instance administration ---
 
@@ -693,6 +708,12 @@ export type ApiNotification = {
   /** For a `reaction` to one of the reader's messages: the emoji. */
   emoji?: string;
 };
+
+/**
+ * Notifications read on one of the person's devices (`notification.read`): these `ids`, or every one
+ * when `all` is set, with what is left unread (absent from a server that did not say).
+ */
+export type NotificationsRead = { ids: string[]; all: boolean; unreadCount?: number };
 
 /** A page of the notification inbox, newest first, with the caller's total unread count. */
 export type NotificationFeed = { notifications: ApiNotification[]; nextBefore?: string; unreadCount: number };
@@ -1160,6 +1181,8 @@ export type RealtimeHandlers = {
   onChannelDeleted?: (spaceId: string, channelId: string) => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
+  /** Some of the person's notifications were read, on this device or another one. */
+  onNotificationsRead?: (read: NotificationsRead) => void;
   onTyping?: (conversationId: string, userId: string) => void;
   /** Someone's read cursor moved in a conversation the recipient belongs to. */
   onReadCursor?: (conversationId: string, userId: string, lastReadMessageId: string) => void;
@@ -1679,13 +1702,22 @@ export function createApi(transport: Transport) {
       trash_retention_days?: number;
       public_links?: boolean;
       native_sessions?: boolean;
+      version?: string;
+      api_version?: number;
+      features?: unknown[];
     }>("/instance", signal);
+    // An instance older than the feature list said what it could do with booleans of its own.
+    const features = Array.isArray(dto.features) ? dto.features.filter((f): f is string => typeof f === "string") : [];
+    if (dto.native_sessions === true && !features.includes("native_sessions")) features.push("native_sessions");
     return {
+      version: typeof dto.version === "string" ? dto.version : undefined,
+      apiVersion: typeof dto.api_version === "number" ? dto.api_version : 1,
+      features,
       emailDelivery: dto.email_delivery,
       uploadMaxBytes: dto.upload_max_bytes,
       trashRetentionDays: dto.trash_retention_days,
       publicLinks: dto.public_links === true,
-      nativeSessions: dto.native_sessions === true,
+      nativeSessions: features.includes("native_sessions"),
       office: {
         enabled: dto.office?.enabled === true,
         edit: dto.office?.edit ?? [],
@@ -3275,6 +3307,13 @@ export function createApi(transport: Transport) {
           break;
         case "notification.created":
           handlers.onNotification?.(toApiNotification(payload as unknown as NotificationDto));
+          break;
+        case "notification.read":
+          handlers.onNotificationsRead?.({
+            ids: Array.isArray(payload.ids) ? (payload.ids as unknown[]).map(String) : [],
+            all: Boolean(payload.all),
+            unreadCount: typeof payload.unread_count === "number" ? payload.unread_count : undefined,
+          });
           break;
         case "typing":
           handlers.onTyping?.(conv, String(payload.user_id));

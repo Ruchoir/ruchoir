@@ -22,9 +22,12 @@ export type PendingItem = {
 
 const KEYS = ["space_id", "conversation_id", "message_id", "event_id", "channel_name", "actor_name"] as const;
 
-/** The item's ids and names, as the notification keeps them (strings only, the absent ones left out). */
+/**
+ * The item's ids and names, as the notification keeps them (strings only, the absent ones left out).
+ * `notification_id` lets a read elsewhere take it off the screen (`push/sync.ts`).
+ */
 export function tapData(item: PendingItem): Record<string, string> {
-  const data: Record<string, string> = {};
+  const data: Record<string, string> = { notification_id: item.id };
   for (const key of KEYS) {
     const value = item[key];
     if (value) data[key] = value;

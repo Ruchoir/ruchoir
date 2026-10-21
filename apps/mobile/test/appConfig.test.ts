@@ -46,6 +46,14 @@ test("notifications_are_signed_for_production", () => {
   assert.equal((plugin[1] as { mode: string }).mode, "production");
 });
 
+test("the_iphone_app_hears_the_silent_sync_push", () => {
+  // Without the remote-notification background mode, iOS never hands a background push to the app,
+  // and the icon's count stays as it was after a read elsewhere.
+  const plugin = appConfig({}).plugins?.find((p) => Array.isArray(p) && p[0] === "expo-notifications");
+  assert.ok(Array.isArray(plugin));
+  assert.equal((plugin[1] as { enableBackgroundRemoteNotifications?: boolean }).enableBackgroundRemoteNotifications, true);
+});
+
 test("the_four_android_widgets_are_declared", () => {
   const plugin = appConfig({}).plugins?.find((p) => Array.isArray(p) && p[0] === "react-native-android-widget");
   assert.ok(Array.isArray(plugin));

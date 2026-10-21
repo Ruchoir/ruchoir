@@ -53,12 +53,15 @@ COPY migrations ./migrations
 # at build (`include_str!` in `importer::scripts`). They live outside the crate, so the context has
 # to carry them.
 COPY packages/importer ./packages/importer
+# The release the image is built for (`v1.2.3`, from the tag in release.yml), which the instance
+# announces at `/api/v1/instance` (`compat::version`); `dev` otherwise.
+ARG RUCHOIR_VERSION=dev
 # Cache the cargo registry/git and the target dir. The binary is copied out of the cached
 # target within the same layer (cache mounts are not part of the image filesystem).
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/build/target \
-    cargo build --release -p ruchoir-api \
+    RUCHOIR_VERSION="$RUCHOIR_VERSION" cargo build --release -p ruchoir-api \
     && cp target/release/ruchoir-api /usr/local/bin/ruchoir-api
 
 # ---------------------------------------------------------------------------

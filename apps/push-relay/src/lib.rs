@@ -4,6 +4,11 @@
 //! posts `{platform, token}` here, and the relay wakes that device through Apple (APNs) or Google
 //! (FCM) with a constant payload. The phone then asks its own instance what to show. The relay keeps
 //! nothing but rate-limit counters, and never logs a token.
+//!
+//! Two routes, two constant payloads:
+//! - `/v1/send` wakes the phone to show something new (an alert its extension fills in);
+//! - `/v1/sync` tells it, silently, that something was read elsewhere: it counts its unread again for
+//!   the icon and takes the read notifications off the screen. Nothing is shown.
 
 pub mod apns;
 pub mod fcm;
@@ -33,9 +38,22 @@ pub enum Outcome {
     Failed(String),
 }
 
+/// Which constant push a device gets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    /// Something new: the phone shows it (`/v1/send`).
+    Wake,
+    /// Something was read elsewhere: the phone updates its count and its shade, silently (`/v1/sync`).
+    Sync,
+}
+
 /// One vendor's sender.
 pub trait Pusher: Send + Sync {
-    fn push<'a>(&'a self, token: &'a str) -> Pin<Box<dyn Future<Output = Outcome> + Send + 'a>>;
+    fn push<'a>(
+        &'a self,
+        token: &'a str,
+        kind: Kind,
+    ) -> Pin<Box<dyn Future<Output = Outcome> + Send + 'a>>;
 }
 
 pub struct Relay {
@@ -43,6 +61,8 @@ pub struct Relay {
     pub fcm: Option<Arc<dyn Pusher>>,
     per_address: Limiter,
     per_device: Limiter,
+    /// Syncs have their own allowance, so a burst of reading never holds back a new message.
+    per_device_sync: Limiter,
 }
 
 impl Relay {
@@ -53,6 +73,7 @@ impl Relay {
             // An instance sends for all its people; a device is woken a few times a minute at most.
             per_address: Limiter::new(1_200, Duration::from_secs(60)),
             per_device: Limiter::new(20, Duration::from_secs(60)),
+            per_device_sync: Limiter::new(10, Duration::from_secs(60)),
         }
     }
 }
@@ -80,6 +101,7 @@ pub fn router(relay: Arc<Relay>) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/v1/send", post(send))
+        .route("/v1/sync", post(sync))
         .layer(DefaultBodyLimit::max(8 * 1024))
         .with_state(relay)
 }
@@ -97,6 +119,23 @@ async fn send(
     headers: HeaderMap,
     Json(body): Json<SendRequest>,
 ) -> (StatusCode, Json<Value>) {
+    deliver(&relay, &headers, body, Kind::Wake).await
+}
+
+async fn sync(
+    State(relay): State<Arc<Relay>>,
+    headers: HeaderMap,
+    Json(body): Json<SendRequest>,
+) -> (StatusCode, Json<Value>) {
+    deliver(&relay, &headers, body, Kind::Sync).await
+}
+
+async fn deliver(
+    relay: &Relay,
+    headers: &HeaderMap,
+    body: SendRequest,
+    kind: Kind,
+) -> (StatusCode, Json<Value>) {
     let (pusher, plausible) = match body.platform.as_str() {
         "ios" => (relay.apns.clone(), plausible_apns(&body.token)),
         "android" => (relay.fcm.clone(), plausible_fcm(&body.token)),
@@ -111,17 +150,21 @@ async fn send(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("unknown");
     let now = Instant::now();
-    if !relay.per_address.allow(address, now) || !relay.per_device.allow(&body.token, now) {
+    let per_device = match kind {
+        Kind::Wake => &relay.per_device,
+        Kind::Sync => &relay.per_device_sync,
+    };
+    if !relay.per_address.allow(address, now) || !per_device.allow(&body.token, now) {
         return answer(StatusCode::TOO_MANY_REQUESTS, "rate_limited");
     }
     let Some(pusher) = pusher else {
         return answer(StatusCode::SERVICE_UNAVAILABLE, "not_configured");
     };
-    match pusher.push(&body.token).await {
+    match pusher.push(&body.token, kind).await {
         Outcome::Delivered => answer(StatusCode::ACCEPTED, "delivered"),
         Outcome::Gone => answer(StatusCode::GONE, "gone"),
         Outcome::Failed(reason) => {
-            tracing::warn!(platform = %body.platform, %reason, "push refused");
+            tracing::warn!(platform = %body.platform, ?kind, %reason, "push refused");
             answer(StatusCode::BAD_GATEWAY, "failed")
         }
     }
@@ -140,14 +183,17 @@ mod tests {
     struct Fake {
         outcome: Outcome,
         seen: Mutex<Vec<String>>,
+        kinds: Mutex<Vec<Kind>>,
     }
 
     impl Pusher for Fake {
         fn push<'a>(
             &'a self,
             token: &'a str,
+            kind: Kind,
         ) -> Pin<Box<dyn Future<Output = Outcome> + Send + 'a>> {
             self.seen.lock().unwrap().push(token.to_owned());
+            self.kinds.lock().unwrap().push(kind);
             let outcome = self.outcome.clone();
             Box::pin(async move { outcome })
         }
@@ -157,6 +203,7 @@ mod tests {
         Arc::new(Fake {
             outcome,
             seen: Mutex::new(Vec::new()),
+            kinds: Mutex::new(Vec::new()),
         })
     }
 
@@ -164,9 +211,13 @@ mod tests {
     const ANDROID_TOKEN: &str = "dQw4w9WgXcQ:APA91bHPRgkF3JUikC4ENAHEeMrd41Zxv3hVZjC9KtT8";
 
     async fn post(relay: Arc<Relay>, body: Value) -> (StatusCode, Value) {
+        post_to(relay, "/v1/send", body).await
+    }
+
+    async fn post_to(relay: Arc<Relay>, path: &str, body: Value) -> (StatusCode, Value) {
         let response = router(relay)
             .oneshot(
-                Request::post("/v1/send")
+                Request::post(path)
                     .header("content-type", "application/json")
                     .header("x-real-ip", "203.0.113.7")
                     .body(Body::from(body.to_string()))
@@ -255,5 +306,87 @@ mod tests {
         let (status, body) = post(relay, json!({ "platform": "ios", "token": IOS_TOKEN })).await;
         assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
         assert_eq!(body["result"], "rate_limited");
+    }
+
+    #[tokio::test]
+    async fn a_device_is_synced_silently_through_its_platform() {
+        let apple = fake(Outcome::Delivered);
+        let google = fake(Outcome::Delivered);
+        let relay = Arc::new(Relay::new(Some(apple.clone()), Some(google.clone())));
+        let (status, body) = post_to(
+            relay.clone(),
+            "/v1/sync",
+            json!({ "platform": "ios", "token": IOS_TOKEN }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::ACCEPTED);
+        assert_eq!(body["result"], "delivered");
+        let (status, _) = post_to(
+            relay.clone(),
+            "/v1/sync",
+            json!({ "platform": "android", "token": ANDROID_TOKEN }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::ACCEPTED);
+        let (status, _) = post(relay, json!({ "platform": "ios", "token": IOS_TOKEN })).await;
+        assert_eq!(status, StatusCode::ACCEPTED);
+        assert_eq!(*apple.kinds.lock().unwrap(), vec![Kind::Sync, Kind::Wake]);
+        assert_eq!(*google.kinds.lock().unwrap(), vec![Kind::Sync]);
+    }
+
+    #[tokio::test]
+    async fn a_sync_checks_its_request_like_a_wake() {
+        let apple = fake(Outcome::Gone);
+        let relay = Arc::new(Relay::new(Some(apple.clone()), None));
+        let (status, body) = post_to(
+            relay.clone(),
+            "/v1/sync",
+            json!({ "platform": "ios", "token": "not hex at all" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["result"], "invalid_token");
+        let (status, body) = post_to(
+            relay.clone(),
+            "/v1/sync",
+            json!({ "platform": "android", "token": ANDROID_TOKEN }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(body["result"], "not_configured");
+        let (status, body) = post_to(
+            relay,
+            "/v1/sync",
+            json!({ "platform": "ios", "token": IOS_TOKEN }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::GONE);
+        assert_eq!(body["result"], "gone");
+        assert_eq!(apple.seen.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn syncs_never_use_up_a_devices_wakes() {
+        let relay = Arc::new(Relay::new(Some(fake(Outcome::Delivered)), None));
+        for _ in 0..10 {
+            let (status, _) = post_to(
+                relay.clone(),
+                "/v1/sync",
+                json!({ "platform": "ios", "token": IOS_TOKEN }),
+            )
+            .await;
+            assert_eq!(status, StatusCode::ACCEPTED);
+        }
+        let (status, body) = post_to(
+            relay.clone(),
+            "/v1/sync",
+            json!({ "platform": "ios", "token": IOS_TOKEN }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(body["result"], "rate_limited");
+        // A new message still reaches the phone.
+        let (status, _) = post(relay, json!({ "platform": "ios", "token": IOS_TOKEN })).await;
+        assert_eq!(status, StatusCode::ACCEPTED);
     }
 }

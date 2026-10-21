@@ -18,6 +18,7 @@ const message = {
 
 test("a_notification_keeps_what_opening_it_needs_and_nothing_else", () => {
   assert.deepEqual(tapData(message), {
+    notification_id: "n1",
     space_id: "s1",
     conversation_id: "c1",
     message_id: "m1",

@@ -49,6 +49,12 @@ is open source under **AGPLv3**.
    they never drift. Record non-obvious gotchas here so they are not hit twice.
 6. **No em dashes (the U+2014 character) anywhere** in code, comments, docs, or commits. Use a
    colon, comma, parentheses, or a plain hyphen instead.
+7. **Apps and instances that were not updated keep working.** `/api/v1` only grows: never remove,
+   rename or retype a route, field, event or value an app may rely on, never make a request field
+   required. `the_v1_contract_only_grows` checks it against `apps/api/contract/openapi-v1.json`;
+   record an addition with `RUCHOIR_UPDATE_CONTRACT=1 cargo test -p ruchoir-api
+   the_v1_contract_only_grows`. Something new an app depends on gets a name in `compat::FEATURES`,
+   and the apps check it (`supports`) before using it. See `docs/api-compatibility.md`.
 
 ## Tech stack
 
