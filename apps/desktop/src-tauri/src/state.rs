@@ -1,15 +1,17 @@
 //! What the app holds while it runs: the instance list, the token vault, the sign-in in progress,
 //! and the commands the interface calls to drive them.
 //!
-//! The interface learns of every change through the `instance:changed` event and never receives a
-//! token: no command returns one, and no event carries one.
+//! The interface learns of every change through the `instances:changed` event (every instance) and
+//! `instance:changed` (the open one), and never receives a token: no command returns one, and no
+//! event carries one.
 
 use std::path::PathBuf;
 use std::sync::Mutex;
 
 use ruchoir_desktop_core::auth::{self, PendingSignIn};
 use ruchoir_desktop_core::instances::{
-    check_instance, normalise_origin, CheckError, InstanceList, OriginError, CHECK_WITHIN,
+    check_instance, normalise_origin_with, origin_host, CheckError, Instance, InstanceList,
+    OriginError, CHECK_WITHIN,
 };
 use ruchoir_desktop_core::vault::TokenVault;
 use serde::Serialize;
@@ -25,7 +27,7 @@ pub struct Desktop {
     pub list_path: PathBuf,
 }
 
-/// What the interface knows of the instance it shows.
+/// What the interface knows of an instance.
 #[derive(Debug, Clone, Serialize)]
 pub struct InstanceView {
     pub id: Option<String>,
@@ -34,6 +36,8 @@ pub struct InstanceView {
     /// `none`, `signed_out`, `signing_in` or `signed_in`.
     pub state: &'static str,
     pub vault_persistent: bool,
+    /// The instance the interface shows.
+    pub open: bool,
 }
 
 impl Desktop {
@@ -47,26 +51,42 @@ impl Desktop {
         }
     }
 
-    /// The active instance as the interface sees it.
+    /// The open instance as the interface sees it.
     pub fn view(&self) -> InstanceView {
         let list = self.list.lock().expect("instance list");
-        let persistent = self.vault.persistent();
-        let Some(instance) = list.active() else {
-            return InstanceView {
+        match list.active() {
+            Some(instance) => self.view_of(instance, true),
+            None => InstanceView {
                 id: None,
                 origin: None,
                 name: None,
                 state: "none",
-                vault_persistent: persistent,
-            };
-        };
-        let pending = self.pending.lock().expect("pending sign-in");
+                vault_persistent: self.vault.persistent(),
+                open: false,
+            },
+        }
+    }
+
+    /// Every instance, in the list's order.
+    pub fn views(&self) -> Vec<InstanceView> {
+        let list = self.list.lock().expect("instance list");
+        let open = list.active().map(|i| i.id.clone());
+        list.instances
+            .iter()
+            .map(|i| self.view_of(i, open.as_deref() == Some(i.id.as_str())))
+            .collect()
+    }
+
+    fn view_of(&self, instance: &Instance, open: bool) -> InstanceView {
+        let signing_in = self
+            .pending
+            .lock()
+            .ok()
+            .and_then(|p| p.as_ref().map(|p| p.instance_id == instance.id))
+            .unwrap_or(false);
         let state = if self.vault.get(&instance.id).is_some() {
             "signed_in"
-        } else if pending
-            .as_ref()
-            .is_some_and(|p| p.instance_id == instance.id)
-        {
+        } else if signing_in {
             "signing_in"
         } else {
             "signed_out"
@@ -76,8 +96,15 @@ impl Desktop {
             origin: Some(instance.origin.clone()),
             name: Some(instance.name.clone()),
             state,
-            vault_persistent: persistent,
+            vault_persistent: self.vault.persistent(),
+            open,
         }
+    }
+
+    /// Save the list after a change.
+    fn save(&self, list: &InstanceList) -> Result<(), String> {
+        list.save(&self.list_path)
+            .map_err(|_| "internal".to_string())
     }
 
     /// The origin and token of an instance, for the proxy and the watcher.
@@ -97,11 +124,12 @@ impl Desktop {
     }
 }
 
-/// Tell the interface the instance changed.
+/// Tell the interface the instances changed (and start or stop their watchers to match).
 pub fn changed<R: Runtime>(app: &AppHandle<R>) {
     crate::relay::reconcile(app);
-    let view = app.state::<Desktop>().view();
-    let _ = app.emit("instance:changed", view);
+    let desktop = app.state::<Desktop>();
+    let _ = app.emit("instance:changed", desktop.view());
+    let _ = app.emit("instances:changed", desktop.views());
 }
 
 fn origin_error(error: OriginError) -> String {
@@ -120,6 +148,68 @@ pub fn instance_state(desktop: State<'_, Desktop>) -> InstanceView {
     desktop.view()
 }
 
+#[tauri::command]
+pub fn instances_state(desktop: State<'_, Desktop>) -> Vec<InstanceView> {
+    desktop.views()
+}
+
+/// Show another instance.
+#[tauri::command]
+pub fn instance_open<R: Runtime>(
+    app: AppHandle<R>,
+    desktop: State<'_, Desktop>,
+    id: String,
+) -> Result<(), String> {
+    {
+        let mut list = desktop.list.lock().map_err(|_| "internal")?;
+        if !list.open(&id) {
+            return Err("unknown_instance".into());
+        }
+        desktop.save(&list)?;
+    }
+    changed(&app);
+    Ok(())
+}
+
+/// Forget an instance: its session, its summary, its place in the list.
+#[tauri::command]
+pub fn instance_remove<R: Runtime>(
+    app: AppHandle<R>,
+    desktop: State<'_, Desktop>,
+    id: String,
+) -> Result<(), String> {
+    desktop.forget_session(&id);
+    {
+        let mut list = desktop.list.lock().map_err(|_| "internal")?;
+        list.remove(&id);
+        desktop.save(&list)?;
+    }
+    crate::summaries::forget(&app, &id);
+    changed(&app);
+    Ok(())
+}
+
+/// End the session on an instance (the instance is told, then the token forgotten); the instance
+/// stays in the list, signed out.
+#[tauri::command]
+pub async fn instance_sign_out<R: Runtime>(
+    app: AppHandle<R>,
+    desktop: State<'_, Desktop>,
+    id: String,
+) -> Result<(), String> {
+    if let Some((origin, Some(token))) = desktop.credentials(&id) {
+        let _ = desktop
+            .http
+            .post(format!("{origin}/api/v1/auth/logout"))
+            .bearer_auth(token)
+            .send()
+            .await;
+    }
+    desktop.forget_session(&id);
+    changed(&app);
+    Ok(())
+}
+
 /// Add the instance at `address` once it answers as a Ruchoir instance able to give an app its own
 /// session. Errors are codes the interface translates.
 #[tauri::command]
@@ -128,7 +218,7 @@ pub async fn instance_add<R: Runtime>(
     desktop: State<'_, Desktop>,
     address: String,
 ) -> Result<InstanceView, String> {
-    let origin = normalise_origin(&address).map_err(origin_error)?;
+    let origin = normalise_origin_with(&address, cfg!(debug_assertions)).map_err(origin_error)?;
     check_instance(&desktop.http, &origin, CHECK_WITHIN)
         .await
         .map_err(|error| {
@@ -139,25 +229,31 @@ pub async fn instance_add<R: Runtime>(
             }
             .to_string()
         })?;
-    let host = origin.trim_start_matches("https://").to_string();
+    let host = origin_host(&origin).to_string();
     {
         let mut list = desktop.list.lock().map_err(|_| "internal")?;
-        list.add(origin, host);
-        list.save(&desktop.list_path).map_err(|_| "internal")?;
+        list.add(origin, host)
+            .map_err(|_| "already_added".to_string())?;
+        desktop.save(&list)?;
     }
     changed(&app);
     Ok(desktop.view())
 }
 
-/// Open the instance's sign-in page in the system browser.
+/// Open an instance's sign-in page in the system browser (the open instance when none is named).
 #[tauri::command]
 pub fn sign_in_start<R: Runtime>(
     app: AppHandle<R>,
     desktop: State<'_, Desktop>,
+    id: Option<String>,
 ) -> Result<(), String> {
     let (id, origin) = {
         let list = desktop.list.lock().map_err(|_| "internal")?;
-        let instance = list.active().ok_or("no_instance")?;
+        let instance = match &id {
+            Some(id) => list.get(id),
+            None => list.active(),
+        }
+        .ok_or("no_instance")?;
         (instance.id.clone(), instance.origin.clone())
     };
     let pending = auth::begin(&id);

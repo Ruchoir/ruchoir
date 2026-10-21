@@ -2,6 +2,8 @@
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getAvatar, getPresence, setChannelMembers, setCurrentUser, setSpaceRooms, setUserPresence } from "@/lib/data";
+import { isDesktop } from "@/lib/desktop/runtime";
+import { useDesktop } from "@/features/desktop/DesktopContext";
 import { onSearchRequest } from "@/lib/desktop/searchRequest";
 import {
   acceptInvitation,
@@ -148,7 +150,6 @@ import {
   effectiveLevel,
   type NotifLevel,
   type NotifPrefs,
-  sameNotifPrefs,
   isInvitationKind,
   isMention,
   type NotifKind,
@@ -187,6 +188,7 @@ import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
 import { SpaceSwitcherSheet, YouSheet } from "./mobile/MobileSheets";
+import { reconcileNotifPrefs } from "./notifPrefsSync";
 
 /** Wraps the app in the settings provider (emoji rendering, etc.). */
 export function AppRoot() {
@@ -1111,6 +1113,21 @@ function AppShell() {
    * the effect's dependencies would tear the WebSocket down and rebuild it on each one.
    */
   const notifyRef = useRef<((toast: Toast) => void) | null>(null);
+  // The desktop app's bridge (null on the web), for effects that outlive a render.
+  const desktop = useDesktop();
+  const desktopRef = useRef(desktop);
+  useEffect(() => {
+    desktopRef.current = desktop;
+  }, [desktop]);
+  // The desktop app holds a still of the previous page over this one until it is ready: booted, and
+  // the open conversation's messages in (an empty feed and grey members showed through otherwise),
+  // with a short margin for the side panels that load beside them.
+  const feedReady = !booting && (!channelId || messages[channelId] !== undefined);
+  useEffect(() => {
+    if (!feedReady) return;
+    const timer = window.setTimeout(() => desktopRef.current?.interfaceReady(), 300);
+    return () => window.clearTimeout(timer);
+  }, [feedReady]);
 
   /**
    * Latest "reach the person who is not looking" function, for the same reason as `notifyRef`: the
@@ -2682,7 +2699,8 @@ function AppShell() {
       if (inQuietHours(settings.notif)) return;
       // With Web Push on in this browser, the service worker draws the system notification (and it
       // does so whether or not this tab is open). Drawing it here too would show it twice.
-      if (appIsAway() && pushActive()) return;
+      // Away from the window, someone else draws it: the browser's push, or the desktop app's core.
+      if (appIsAway() && (pushActive() || isDesktop)) return;
       if (settings.notif.sound) playNotificationSound();
       if (n.reminder) {
         const title = notifSummary(n, t);
@@ -3566,17 +3584,19 @@ function AppShell() {
       .then((server) => {
         if (notifSyncRef.current.session !== sessionId) return;
         const local = settingsRef.current.notif;
-        const serverIsBlank = sameNotifPrefs(server, DEFAULT_NOTIF_PREFS);
-        // Every field the app keeps, taken from the server (which has the offset on top).
-        const merged: NotifPrefs = serverIsBlank
-          ? { ...DEFAULT_NOTIF_PREFS, ...local }
-          : (Object.fromEntries(
-              (Object.keys(DEFAULT_NOTIF_PREFS) as (keyof NotifPrefs)[]).map((field) => [field, server[field]]),
-            ) as NotifPrefs);
+        // On the web, the server's (unless it holds none); in the desktop app, once chosen, the app's,
+        // the same for every instance (notifPrefsSync.ts).
+        const { prefs: merged, push } = reconcileNotifPrefs({
+          local,
+          server: server as unknown as NotifPrefs,
+          defaults: DEFAULT_NOTIF_PREFS,
+          shared: isDesktop && settingsRef.current.notifShared,
+        });
         lastSentNotifRef.current = JSON.stringify(merged);
         settingsRef.current.set("notif", merged);
+        if (isDesktop && !settingsRef.current.notifShared) settingsRef.current.set("notifShared", true);
         notifSyncRef.current.synced = true;
-        if (serverIsBlank || server.utcOffsetMinutes !== offset) {
+        if (push || server.utcOffsetMinutes !== offset) {
           void saveNotificationPreferences({ ...merged, utcOffsetMinutes: offset }).catch(() => {});
         }
       })
@@ -3595,9 +3615,11 @@ function AppShell() {
     if (serialised === lastSentNotifRef.current) return;
     const timer = window.setTimeout(() => {
       lastSentNotifRef.current = serialised;
-      void saveNotificationPreferences({ ...prefs, utcOffsetMinutes: -new Date().getTimezoneOffset() }).catch(() =>
-        notifyRef.current?.({ tone: "danger", title: tRef.current("admin.settingsSaveFailed") }),
-      );
+      const payload = { ...prefs, utcOffsetMinutes: -new Date().getTimezoneOffset() };
+      void saveNotificationPreferences(payload)
+        // The desktop app sends them to every other instance, and its core reads them again.
+        .then(() => desktopRef.current?.preferencesSaved(payload))
+        .catch(() => notifyRef.current?.({ tone: "danger", title: tRef.current("admin.settingsSaveFailed") }));
     }, 400);
     return () => window.clearTimeout(timer);
   }, [settings.notif]);
@@ -3646,6 +3668,16 @@ function AppShell() {
   }, [authStage, ws, channelId, channels, workspaces, editorOpen, standalone]);
 
   if (booting) {
+    // The desktop app mounts a fresh interface when another instance opens: its frame stands in
+    // while it loads, rather than the full-screen card (features/desktop/desktop.css).
+    if (isDesktop) {
+      return (
+        <div className="wc-desktop-skeleton" aria-busy aria-label={t("boot.loading")}>
+          <div className="wc-desktop-skeleton__rail" />
+          <div className="wc-desktop-skeleton__side" />
+        </div>
+      );
+    }
     return (
       <div
         style={{

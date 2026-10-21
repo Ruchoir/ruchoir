@@ -84,6 +84,23 @@ fn on_event<R: Runtime>(app: &AppHandle<R>, instance: &str, event: WatcherEvent)
         instance: instance.to_string(),
         frame,
     };
+    // The summary and the notifier follow every instance, relayed or not.
+    match &event {
+        WatcherEvent::Open => {
+            crate::notify::on_open(app, instance);
+            crate::summaries::on_event(app, instance, None);
+        }
+        WatcherEvent::Message(frame) => {
+            let kind = serde_json::from_str::<serde_json::Value>(frame)
+                .ok()
+                .and_then(|v| v.get("type").and_then(|t| t.as_str()).map(str::to_string));
+            if let Some(kind) = kind.as_deref() {
+                crate::summaries::on_event(app, instance, Some(kind));
+                crate::notify::on_event(app, instance, kind);
+            }
+        }
+        _ => {}
+    }
     match event {
         WatcherEvent::Open if !paused => {
             let _ = app.emit("socket:open", payload(None));
@@ -96,6 +113,7 @@ fn on_event<R: Runtime>(app: &AppHandle<R>, instance: &str, event: WatcherEvent)
         }
         WatcherEvent::SignedOut => {
             app.state::<Desktop>().forget_session(instance);
+            crate::summaries::forget(app, instance);
             if let Ok(mut watchers) = relay.watchers.lock() {
                 watchers.remove(instance);
             }

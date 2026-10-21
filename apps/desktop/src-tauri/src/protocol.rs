@@ -8,11 +8,22 @@
 //! debug build, `RUCHOIR_DESKTOP_DEV_URL` (for instance `http://localhost:3112`, the desktop
 //! `next dev`) serves the interface instead, with hot reload.
 
-use ruchoir_desktop_core::proxy::{self, Answer, Outcome, Route};
+use std::sync::Mutex;
+
+use ruchoir_desktop_core::proxy::{self, Answer, EmojiCache, Outcome, Route};
 use tauri::http::{header, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager, Runtime, UriSchemeResponder};
 
 use crate::state::{changed, Desktop};
+
+/// The emoji pack's files once fetched (the sprite alone is 5 MB): 24 MB at most.
+pub struct EmojiStore(pub Mutex<EmojiCache>);
+
+impl Default for EmojiStore {
+    fn default() -> Self {
+        Self(Mutex::new(EmojiCache::new(24 * 1024 * 1024)))
+    }
+}
 
 /// Add the protocol to the app being built.
 pub fn register<R: Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
@@ -42,6 +53,10 @@ async fn respond<R: Runtime>(
         Route::Api { instance, rest } => {
             api(app, &instance, &format!("{rest}{query}"), &rest, request).await
         }
+        Route::OpenApi(rest) => match app.state::<Desktop>().view().id {
+            Some(open) => api(app, &open, &format!("{rest}{query}"), &rest, request).await,
+            None => empty(404),
+        },
         Route::Emoji(emoji) => emoji_answer(app, &format!("{emoji}{query}"), request).await,
         Route::Asset(asset) => asset_answer(app, &asset).await,
     };
@@ -107,11 +122,15 @@ async fn emoji_answer<R: Runtime>(
     path_and_query: &str,
     request: Request<Vec<u8>>,
 ) -> Answer {
+    let store = app.state::<EmojiStore>();
+    if let Some(kept) = store.0.lock().ok().and_then(|c| c.get(path_and_query)) {
+        return kept;
+    }
     let desktop = app.state::<Desktop>();
     let Some(origin) = desktop.active_origin() else {
         return empty(404);
     };
-    proxy::forward(
+    let answer = proxy::forward(
         &desktop.http,
         request.method().clone(),
         path_and_query,
@@ -120,7 +139,11 @@ async fn emoji_answer<R: Runtime>(
         &origin,
         None,
     )
-    .await
+    .await;
+    if let Ok(mut cache) = store.0.lock() {
+        cache.put(path_and_query, &answer);
+    }
+    answer
 }
 
 async fn asset_answer<R: Runtime>(app: &AppHandle<R>, path: &str) -> Answer {

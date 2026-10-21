@@ -49,6 +49,8 @@ import {
 } from "./shortcuts";
 import type { Toast } from "./types";
 import { currentLocale } from "@/lib/i18n/current";
+import { useDesktop } from "@/features/desktop/DesktopContext";
+import { desktopOs, isDesktop } from "@/lib/desktop/runtime";
 import {
   type CalendarPrefs,
   type ClockFormat,
@@ -66,7 +68,7 @@ function capitalize(text: string, locale: string): string {
   return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
 }
 
-export type PrefTab = "appearance" | "calendar" | "notifications" | "shortcuts" | "security" | "emojis";
+export type PrefTab = "appearance" | "calendar" | "notifications" | "shortcuts" | "security" | "emojis" | "application";
 
 const NAV: [PrefTab, TranslationKey, IconName][] = [
   ["appearance", key("prefs.appearance"), "layout-grid"],
@@ -75,6 +77,8 @@ const NAV: [PrefTab, TranslationKey, IconName][] = [
   ["shortcuts", key("prefs.shortcuts"), "keyboard"],
   ["security", key("prefs.security"), "shield"],
   ["emojis", key("prefs.emojis"), "smile"],
+  // The desktop app's own settings (launch at login, the tray), only in its build.
+  ...(isDesktop ? [["application", key("desktop.prefs.title"), "monitor"] as [PrefTab, TranslationKey, IconName]] : []),
 ];
 
 
@@ -190,6 +194,54 @@ const rowStyle: CSSProperties = {
 };
 
 /** A title + description on the left, a control on the right. */
+/**
+ * In the desktop app, which instances a section's settings apply to (Théo, 2026-10-21): every one
+ * (kept by the app, notification settings sent to each), or only the open one (its account's).
+ * Nothing on the web, where a tab is one instance.
+ */
+function SyncNote({ scope }: { scope: "shared" | "instance" }) {
+  const { t } = useTranslation();
+  const desktop = useDesktop();
+  if (!desktop) return null;
+  return (
+    <p style={{ ...st.sub, display: "flex", alignItems: "center", gap: 6, marginTop: -4 }}>
+      <Icon name={scope === "shared" ? "refresh-cw" : "key-round"} size={13} aria-hidden />
+      {scope === "shared" ? t("desktop.prefs.sharedNote") : t("desktop.prefs.instanceNote", { host: desktop.instanceHost })}
+    </p>
+  );
+}
+
+/** The desktop app's own settings: launch at login, and closing to the tray (not on macOS). */
+function ApplicationSection() {
+  const { t } = useTranslation();
+  const desktop = useDesktop();
+  const settings = desktop?.settings;
+  if (!desktop || !settings) return null;
+  return (
+    <>
+      <h2 style={st.h}>{t("desktop.prefs.title")}</h2>
+      <SyncNote scope="shared" />
+      {desktop.keychain ? null : <p style={st.sub}>{t("desktop.noKeychain")}</p>}
+      <Row title={t("desktop.prefs.launchAtLogin")} desc={t("desktop.prefs.launchAtLoginDesc")}>
+        <Switch
+          checked={settings.launch_at_login}
+          onChange={(e) => desktop.setSettings({ ...settings, launch_at_login: e.target.checked })}
+          aria-label={t("desktop.prefs.launchAtLogin")}
+        />
+      </Row>
+      {desktopOs() === "macos" ? null : (
+        <Row title={t("desktop.prefs.closeToTray")} desc={t("desktop.prefs.closeToTrayDesc")}>
+          <Switch
+            checked={settings.close_to_tray}
+            onChange={(e) => desktop.setSettings({ ...settings, close_to_tray: e.target.checked })}
+            aria-label={t("desktop.prefs.closeToTray")}
+          />
+        </Row>
+      )}
+    </>
+  );
+}
+
 function Row({ title, desc, children }: { title: ReactNode; desc?: ReactNode; children: ReactNode }) {
   return (
     <div style={rowStyle}>
@@ -744,6 +796,7 @@ function CalendarSection() {
   return (
     <>
       <h2 style={st.h}>{t("calendar.title")}</h2>
+      <SyncNote scope="shared" />
       <p style={st.sub}>{t("calendar.prefs.sub")}</p>
 
       <div style={st.sect} className="wc-sect">{t("prefs.defaultDisplay")}</div>
@@ -902,6 +955,7 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
   return (
     <>
       <h2 style={st.h}>{t("prefs.shortcuts")}</h2>
+      <SyncNote scope="shared" />
       <p style={st.sub}>
         {t("shortcut.customizeHint")}
       </p>
@@ -1011,6 +1065,7 @@ export function PreferencesScreen({
             {tab === "appearance" ? (
               <>
                 <h2 style={st.h}>{t("prefs.appearance")}</h2>
+                <SyncNote scope="shared" />
                 <p style={st.sub}>{t("prefs.appearanceSub")}</p>
 
                 <div style={st.sect} className="wc-sect">{t("language.section")}</div>
@@ -1084,12 +1139,16 @@ export function PreferencesScreen({
               </>
             ) : null}
 
+            {tab === "application" ? <ApplicationSection /> : null}
+
             {tab === "notifications" ? (
               <>
                 <h2 style={st.h}>{t("notif.title")}</h2>
+                <SyncNote scope="shared" />
                 <p style={st.sub}>{t("prefs.notifSub")}</p>
-                <DevicePushRow onNotify={onNotify} />
-                <BrowserNotificationRow soundOn={s.notif.sound} onNotify={onNotify} />
+                {/* The desktop app notifies through its core: no browser permission or push to set up. */}
+                {isDesktop ? null : <DevicePushRow onNotify={onNotify} />}
+                {isDesktop ? null : <BrowserNotificationRow soundOn={s.notif.sound} onNotify={onNotify} />}
                 <Row title={t("prefs.enableNotif")} desc={t("prefs.enableNotifDesc")}>
                   <Switch checked={s.notif.enabled} onChange={(e) => s.set("notif", { ...s.notif, enabled: e.target.checked })} aria-label={t("prefs.enableNotif")} />
                 </Row>
@@ -1128,6 +1187,7 @@ export function PreferencesScreen({
             {tab === "security" ? (
               <>
                 <h2 style={st.h}>{t("prefs.security")}</h2>
+                <SyncNote scope="instance" />
                 <p style={st.sub}>{t("prefs.securitySub")}</p>
                 <Row title={t("prefs.linkWarning")} desc={t("prefs.linkWarningDesc")}>
                   <Switch
@@ -1143,6 +1203,7 @@ export function PreferencesScreen({
             {tab === "emojis" ? (
               <>
                 <h2 style={st.h}>{t("prefs.emojis")}</h2>
+                <SyncNote scope="shared" />
                 <p style={st.sub}>{t("prefs.emojisSub")}</p>
                 <Row
                   title={

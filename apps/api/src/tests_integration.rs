@@ -8287,7 +8287,10 @@ async fn the_woken_worker_is_shown_only_what_is_unread_and_wanted() {
     let body = items[0]["body"].as_str().expect("body");
     assert!(title.contains("#general"), "{title}");
     assert!(body.contains("bob") && body.contains("devis"), "{body}");
-    assert_eq!(shown["silent"], true, "no sound unless asked for");
+    assert_eq!(
+        shown["silent"], false,
+        "a sound by default (the person turns it off)"
+    );
 
     // Muting the channel is obeyed by the worker too.
     let muted = app

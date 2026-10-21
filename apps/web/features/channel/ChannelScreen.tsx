@@ -164,7 +164,10 @@ const styles: Record<string, CSSProperties> = {
     alignItems: "center",
     gap: 6,
     minWidth: 0,
+    // Whole unless very long: the topic shortens first, the name only past this share, the buttons never.
     flexShrink: 0,
+    maxWidth: "45%",
+    overflow: "hidden",
     margin: 0, // rendered as an <h1>: drop the UA heading margin
     fontSize: "var(--text-lg)",
     fontWeight: 700,
@@ -183,9 +186,13 @@ const styles: Record<string, CSSProperties> = {
     fontSize: "var(--text-xs)",
     color: "var(--text-muted)",
   },
+  /** Text that ends in an ellipsis when its row runs out of room (a flex row clips, it does not). */
+  clip: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   feed: { flex: 1, overflow: "auto", padding: "20px 0 8px" },
   toBottom: {
     position: "absolute",
+    // Above the sticky day headings (2), which would otherwise slide over it while scrolling.
+    zIndex: 3,
     left: "50%",
     transform: "translateX(-50%)",
     bottom: 12,
@@ -892,24 +899,25 @@ export function ChannelScreen({
                   name={channel.type === "private" ? "lock" : "hash"}
                   size={15}
                   title={channel.type === "private" ? t("sidebar.privateChannel") : undefined}
-                  style={{ color: "var(--text-muted)" }}
+                  style={{ color: "var(--text-muted)", flex: "none" }}
                 />
-                {channel.name}
+                <span style={styles.clip}>{channel.name}</span>
               </h1>
               <div style={styles.meta}>
-                <Icon name="users" size={13} />
+                <Icon name="users" size={13} style={{ flex: "none" }} />
                 {memberList.length}
                 {channel.topic ? (
                   <>
                     <span aria-hidden style={{ color: "var(--border-strong)" }}>·</span>
-                    {channel.topic}
+                    <span style={styles.clip}>{channel.topic}</span>
                   </>
                 ) : null}
               </div>
             </>
           )}
           <div style={{ flex: 1 }} />
-          <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflowX: "auto", flexShrink: 1, scrollbarWidth: "none" }}>
+          {/* The buttons keep their room; the name and the topic shorten instead. */}
+          <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
           <Tooltip label={t("conversation.searchInConversation")} side="bottom">
             <IconButton
               className="wc-ibtn--bare"

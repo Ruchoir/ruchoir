@@ -35,6 +35,8 @@ browser. No remote page is ever loaded in the app window.
 `ruchoir-app://localhost/` (`http://ruchoir-app.localhost/` on Windows). The Rust core answers it:
 
 - `/i/<instance-id>/api/v1/...` goes to that instance, with its bearer;
+- `/api/v1/...` goes to the open instance, with its bearer: the paths the server hands out as they
+  are (an avatar, a space's icon), used by the interface without its base (since 2026-10-21);
 - `/emoji/...` goes to a signed-in instance, without one;
 - anything else is the embedded interface (`index.html` for a deep path).
 
@@ -91,3 +93,45 @@ tree never touches the API's lockfile. Its logic that needs no window lives in a
   once by each build on GitHub's macOS runner.
 - The end to end check needs a Ruchoir instance and runs by hand on the development server, to keep
   the pipeline light.
+
+## Amendment, 2026-10-21: several instances (step 2)
+
+**One interface at a time.** The web's screens keep their single default client and their
+module-level registries; only the open instance's interface is mounted. Opening a space of another
+instance points the client at it and mounts a fresh interface (no page reload), after asking when
+files are being sent (`lib/uploads.ts`: a queued file must never start on the next instance). The
+web's 62 files reading the data layer were not moved to a per-instance client, which the phone needed
+(ADR 0007) and the desktop does not: one interface is lighter, whatever the number of instances.
+
+**The other instances live in the core.** Per signed-in instance: the step 1 socket, a summary
+(`GET /me/spaces` and the unread notification count, refreshed after the events that can change
+them, at most every two seconds) and a notifier. On `notification.created` the notifier asks
+`GET /push/pending` for what is new since the last one drawn (kept across restarts) and draws it with
+the system's notifications (`tauri-plugin-notification`, which reports clicks on all three systems;
+on Windows while the toast is on screen), unless the instance's own settings say not to (off, quiet
+hours) or it is the instance on screen in a focused window. A click opens the item on its instance.
+The browser's notifications are off in the desktop build: the core is the one source.
+
+**Spaces first; the bell stays the web's.** The rail heads the open instance's spaces with its name
+and lists every other instance's spaces below, with their counts. The bell and the Mentions tab show
+the space on screen, as on the web (Théo, 2026-10-21, after trying a bell for every instance: an item
+from elsewhere reads as if it were here). The other instances reach the person through their counts
+in the rail, the badge and the native notifications. The phone keeps its bell for every instance
+(`@ruchoir/client/inbox`).
+
+**On the desktop.** A tray icon with the total of unread notifications (dot variant), the same total
+on the app icon (macOS label, Windows overlay, Linux launcher count), closing to the tray on Windows
+and Linux (said once), the usual dock on macOS, launch at login off by default and started in the
+tray (`tauri-plugin-autostart`, `--hidden`). The relay to the interface pauses while the window is
+hidden or minimised.
+
+**Settings, once for every instance** (Théo, 2026-10-21). The app's own settings (appearance, shortcuts,
+emoji, the Application section, the calendar's display) live in the app's storage, one origin for
+every instance, so they were already common. Notification settings live on each server (each sends
+its own mail and pushes): in the desktop app they are the app's once the person has chosen them, sent
+to every signed-in instance when changed, and an instance opened later is brought in line; until the
+first choice, the first instance's are adopted. Each preferences section says whether it applies to
+every instance or to the open one; the profile and the security settings are one account's.
+
+**Quitting.** Closing the window keeps the app in the tray; "Quit Ruchoir" in the account menu ends
+it, which a Linux desktop without a tray (GNOME without its extension) needs.

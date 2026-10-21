@@ -7,6 +7,7 @@ import { initialLocale, startI18n } from "@/lib/i18n";
 import { setCurrentLocale } from "@/lib/i18n/current";
 import { DEFAULT_BINDINGS, mergeBindings, type Bindings } from "./shortcuts";
 import { calendarPrefs, DEFAULT_CALENDAR_PREFS, type CalendarPrefs } from "@/features/calendar/prefs";
+import { isDesktop } from "@/lib/desktop/runtime";
 
 /** The accent a theme paints with: one of the design system's pastels. */
 export type ThemeAccent = "sky" | "mint" | "violet" | "pink";
@@ -178,6 +179,11 @@ export type Settings = {
   /** Whether the browser-notification prompt has already been offered, so it is offered once. */
   notifPrompted: boolean;
   /**
+   * The desktop app: the person's notification settings are the app's, sent to every instance, once
+   * they exist (the first instance's are adopted until then). See `notifPrefsSync.ts`.
+   */
+  notifShared: boolean;
+  /**
    * Whether to warn before a link opens a page outside Ruchoir (see `ExternalLinkDialog`). On by
    * default; turned off from the warning itself or in Preferences > Security.
    */
@@ -223,6 +229,7 @@ const DEFAULTS: Settings = {
   hiddenDms: [],
   collapsedSections: [],
   notifPrompted: false,
+  notifShared: false,
   externalLinkWarning: true,
   threadWidth: THREAD_WIDTH_DEFAULT,
   locale: null,
@@ -261,51 +268,67 @@ function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((x): x is string => typeof x === "string") : [];
 }
 
+/**
+ * The settings kept in this browser, or `null` when there are none (or they cannot be read). A
+ * stored object missing newer keys still gets their defaults, and unknown values fall back.
+ */
+function storedSettings(): Settings | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const { theme: _retired, ...parsed } = JSON.parse(raw);
+    return {
+      ...DEFAULTS,
+      ...parsed,
+      ...storedAppearance({ ...parsed, theme: _retired }),
+      font: isFont(parsed.font) ? parsed.font : DEFAULTS.font,
+      textSize: isTextSize(parsed.textSize) ? parsed.textSize : DEFAULTS.textSize,
+      filesLayout: isFilesLayout(parsed.filesLayout) ? parsed.filesLayout : DEFAULTS.filesLayout,
+      defaultPanel: isDefaultPanel(parsed.defaultPanel) ? parsed.defaultPanel : DEFAULTS.defaultPanel,
+      // Deep-merge notif so a stored object missing newer keys still gets their defaults.
+      notif: { ...DEFAULT_NOTIF_PREFS, ...(parsed.notif ?? {}) },
+      calendar: calendarPrefs(parsed.calendar),
+      // Keep only known commands and string bindings; unknown/missing ones fall back to default.
+      shortcuts: mergeBindings(parsed.shortcuts),
+      locale: isLocale(parsed.locale) ? parsed.locale : null,
+      welcome: {
+        dismissed: typeof parsed.welcome?.dismissed === "boolean" ? parsed.welcome.dismissed : false,
+        done: Array.isArray(parsed.welcome?.done)
+          ? parsed.welcome.done.filter((x: unknown) => typeof x === "string")
+          : [],
+      },
+      spaceOrder: stringList(parsed.spaceOrder),
+      hiddenDms: stringList(parsed.hiddenDms),
+      collapsedSections: stringList(parsed.collapsedSections),
+      notifPrompted: parsed.notifPrompted === true,
+      notifShared: parsed.notifShared === true,
+      externalLinkWarning: parsed.externalLinkWarning !== false,
+      threadWidth: threadWidth(parsed.threadWidth),
+    };
+  } catch {
+    // ignore malformed storage
+    return null;
+  }
+}
+
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(() => ({ ...DEFAULTS, ...initialAppearance() }));
+  // The desktop app renders on the client only: its stored settings apply from the first render, so
+  // a fresh interface (another instance opened) does not draw the defaults first and then jump to
+  // the person's text size. The web reconciles after mount instead, for hydration (below).
+  const [settings, setSettings] = useState<Settings>(
+    () => (isDesktop ? storedSettings() : null) ?? { ...DEFAULTS, ...initialAppearance() },
+  );
   const deviceDark = useSyncExternalStore(subscribeToSystemDark, systemDark, serverSystemDark);
 
   // Load persisted settings once on mount (client only).
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const { theme: _retired, ...parsed } = JSON.parse(raw);
-        // Hydration-safe: the server renders the defaults, then this reconciles from localStorage after
-        // mount. Reading storage in the initializer instead would cause a hydration mismatch, so the
-        // one-shot setState here is intentional.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setSettings({
-          ...DEFAULTS,
-          ...parsed,
-          ...storedAppearance({ ...parsed, theme: _retired }),
-          font: isFont(parsed.font) ? parsed.font : DEFAULTS.font,
-          textSize: isTextSize(parsed.textSize) ? parsed.textSize : DEFAULTS.textSize,
-          filesLayout: isFilesLayout(parsed.filesLayout) ? parsed.filesLayout : DEFAULTS.filesLayout,
-          defaultPanel: isDefaultPanel(parsed.defaultPanel) ? parsed.defaultPanel : DEFAULTS.defaultPanel,
-          // Deep-merge notif so a stored object missing newer keys still gets their defaults.
-          notif: { ...DEFAULT_NOTIF_PREFS, ...(parsed.notif ?? {}) },
-          calendar: calendarPrefs(parsed.calendar),
-          // Keep only known commands and string bindings; unknown/missing ones fall back to default.
-          shortcuts: mergeBindings(parsed.shortcuts),
-          locale: isLocale(parsed.locale) ? parsed.locale : null,
-          welcome: {
-            dismissed: typeof parsed.welcome?.dismissed === "boolean" ? parsed.welcome.dismissed : false,
-            done: Array.isArray(parsed.welcome?.done)
-              ? parsed.welcome.done.filter((x: unknown) => typeof x === "string")
-              : [],
-          },
-          spaceOrder: stringList(parsed.spaceOrder),
-          hiddenDms: stringList(parsed.hiddenDms),
-          collapsedSections: stringList(parsed.collapsedSections),
-          notifPrompted: parsed.notifPrompted === true,
-          externalLinkWarning: parsed.externalLinkWarning !== false,
-          threadWidth: threadWidth(parsed.threadWidth),
-        });
-      }
-    } catch {
-      // ignore malformed storage
-    }
+    if (isDesktop) return;
+    const stored = storedSettings();
+    // Hydration-safe: the server renders the defaults, then this reconciles from localStorage after
+    // mount. Reading storage in the initializer instead would cause a hydration mismatch, so the
+    // one-shot setState here is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (stored) setSettings(stored);
   }, []);
 
   /**

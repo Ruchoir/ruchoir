@@ -112,7 +112,7 @@ impl Default for NotificationPrefs {
     fn default() -> Self {
         Self {
             enabled: true,
-            sound: false,
+            sound: true,
             mentions: true,
             channel_mentions: true,
             replies: true,
@@ -665,6 +665,12 @@ pub async fn space_levels(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_new_account_hears_its_notifications() {
+        // Théo, 2026-10-21: notifications ring by default; the person turns the sound off.
+        assert!(NotificationPrefs::default().sound);
+    }
 
     fn scope(level: &str, muted: bool) -> Scope {
         Scope {

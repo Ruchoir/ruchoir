@@ -1763,7 +1763,8 @@
         "unreachable": "This address cannot be reached. Check it, and your connection.",
         "not_ruchoir": "This address does not answer as a Ruchoir instance.",
         "outdated": "This instance is too old for the app. Ask its administrator to update it.",
-        "other": "Something went wrong. Try again."
+        "other": "Something went wrong. Try again.",
+        "already_added": "This instance is already added."
       }
     },
     "signIn": {
@@ -1780,6 +1781,35 @@
       "minimize": "Minimise",
       "maximize": "Maximise",
       "restore": "Restore"
+    },
+    "tray": {
+      "open": "Open Ruchoir",
+      "quit": "Quit",
+      "closedNotice": "Ruchoir keeps running to notify you. To open it again: its icon near the clock, or start Ruchoir again. To quit it: Quit Ruchoir, in your profile’s menu."
+    },
+    "switch": {
+      "title": "Files being sent",
+      "body": "Files are being sent to {{host}}.",
+      "wait": "Wait",
+      "cancelSends": "Cancel them and continue"
+    },
+    "rail": {
+      "signInAgain": "Sign in to {{host}} again"
+    },
+    "menu": {
+      "addInstance": "Add an instance",
+      "signOutHere": "Sign out of this instance",
+      "removeInstance": "Remove this instance",
+      "quit": "Quit Ruchoir"
+    },
+    "prefs": {
+      "title": "Application",
+      "launchAtLogin": "Start Ruchoir when you sign in to your computer",
+      "launchAtLoginDesc": "Ruchoir starts quietly in the notification area.",
+      "closeToTray": "Keep Ruchoir running when closed",
+      "closeToTrayDesc": "Closing the window leaves Ruchoir in the notification area, so notifications keep coming.",
+      "sharedNote": "The same on all your instances",
+      "instanceNote": "Only for {{host}}"
     }
   }
 }

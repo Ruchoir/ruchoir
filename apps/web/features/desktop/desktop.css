@@ -139,23 +139,116 @@
   outline-offset: -2px;
 }
 
-.wc-desktop__notice {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
-  font-size: var(--text-sm);
-  background: var(--surface-sunken);
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-body);
+/*
+ * Scrollbars: thin and quiet, in the design system's greys, instead of each system's own (thick and
+ * grey-blue on Windows). All three webviews (WebView2, WKWebView, WebKitGTK) read the
+ * `::-webkit-scrollbar` rules, which unlike the standard `scrollbar-width` can make the horizontal
+ * bar thinner than the vertical one.
+ */
+:root:has(.wc-desktop) ::-webkit-scrollbar {
+  width: 10px;
+  height: 6px;
 }
 
-.wc-desktop__notice-close {
-  border: 0;
+:root:has(.wc-desktop) ::-webkit-scrollbar-track {
   background: transparent;
-  color: var(--text-accent);
-  cursor: pointer;
-  font: inherit;
+}
+
+:root:has(.wc-desktop) ::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+:root:has(.wc-desktop) ::-webkit-scrollbar-thumb:horizontal {
+  border-width: 1px;
+}
+
+:root:has(.wc-desktop) ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
+}
+
+:root:has(.wc-desktop) ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/*
+ * Opening another instance mounts a fresh interface. While it loads, the frame of the interface
+ * stands in its place (rail, sidebar, content, in their colours), rather than the full-screen boot
+ * card, and the interface fades in: what changes looks like the content, not the window.
+ */
+.wc-desktop-skeleton {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--surface-canvas);
+}
+
+.wc-desktop-skeleton__rail {
+  width: var(--rail-width);
+  flex: none;
+  border-right: 1.5px solid var(--border-subtle);
+}
+
+.wc-desktop-skeleton__side {
+  width: var(--sidebar-width);
+  flex: none;
+  background: var(--surface-chrome);
+  border-right: 1.5px solid var(--border-subtle);
+}
+
+.wc-desktop__body > div:not(.wc-desktop-skeleton) {
+  animation: wc-desktop-in 160ms ease-out;
+}
+
+@keyframes wc-desktop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-desktop__body > div:not(.wc-desktop-skeleton) {
+    animation: none;
+  }
+}
+
+/* The add-an-instance screen, over the interface it leaves in place. */
+.wc-desktop__over {
+  position: absolute;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-canvas);
+}
+
+/* The still of the previous instance, held over the next one while it loads (DesktopRoot). */
+.wc-desktop__still {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 160ms ease-out,
+    visibility 0s linear 160ms;
+}
+
+.wc-desktop__still--on {
+  opacity: 1;
+  visibility: visible;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wc-desktop__still {
+    transition: none;
+  }
 }

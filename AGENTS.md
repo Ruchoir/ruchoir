@@ -161,6 +161,8 @@ dep-freshness hook and `scripts/check-deps.sh` back this up; CI audits every pus
 | lucide-react-native / @dicebear (mobile) | 1.55 / 10 | `apps/mobile/package.json` |
 | tauri / tauri-build (desktop; The Commons Conservancy, Netherlands) | 2.12.4 / 2.7.3 | `apps/desktop/src-tauri/Cargo.toml` |
 | tauri-plugin-deep-link / -single-instance / -window-state / -opener / -store (official Tauri plugins) | 2.6.2 / 2.5.4 / 2.5.0 / 2.7.2 / 2.5.0 | `apps/desktop/src-tauri/Cargo.toml` |
+| tauri-plugin-notification / -autostart (official Tauri plugins; native notifications with clicks, launch at login) and tauri's `tray-icon`, `image-png` features | 2.7.0 / 2.7.0 | `apps/desktop/src-tauri/Cargo.toml` |
+| time (desktop: the notifier's instants and local quiet hours; already the API's) | 0.3 | `apps/desktop/core/Cargo.toml`, `apps/desktop/src-tauri/Cargo.toml` |
 | @tauri-apps/cli / @tauri-apps/api | 2.12.3 / 2.12.4 | `apps/desktop/package.json`, `apps/web/package.json` |
 | rust-ini (held below 0.21.2, which tauri-plugin-deep-link 2.6.2 does not build with on Linux) | 0.21.1 | `apps/desktop/Cargo.lock` |
 | keyring (system keychains; open-source-cooperative, community, MIT/Apache-2.0; `async-secret-service` over zbus, `crypto-rust`) | 3.6.3 | `apps/desktop/core/Cargo.toml` |
@@ -210,7 +212,7 @@ apps/api/            Rust backend (axum/tokio)            - has its own AGENTS.m
 apps/web/            Next.js frontend                     - has its own AGENTS.md
 apps/mobile/         Expo app (iOS, Android)              - has its own AGENTS.md
 apps/desktop/        Tauri app (Windows, macOS, Linux), its own Cargo workspace (core/, src-tauri/, e2e/)
-packages/client/     API client shared by web and mobile  - has its own AGENTS.md
+packages/client/     API client shared by web, mobile and desktop - has its own AGENTS.md
 packages/importer/   Export scripts + import adapters     - has its own AGENTS.md
 packages/design-system/  @ruchoir/design-system: tokens, fonts, React components - own AGENTS.md
 migrations/          Versioned SeaORM migrations (Rust crate `ruchoir-migration`)

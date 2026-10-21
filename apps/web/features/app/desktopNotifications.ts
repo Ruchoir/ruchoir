@@ -2,6 +2,7 @@
 
 import type { NotifPrefs } from "./notifications";
 import { DEFAULT_NOTIF_PREFS } from "./notifications";
+import { isDesktop } from "@/lib/desktop/runtime";
 
 /**
  * Notifications that reach someone who is not looking at Ruchoir.
@@ -32,6 +33,8 @@ import { DEFAULT_NOTIF_PREFS } from "./notifications";
 export type NotifPermission = "unsupported" | "default" | "granted" | "denied";
 
 export function notificationPermission(): NotifPermission {
+  // The desktop app notifies through its core, which needs no browser permission.
+  if (isDesktop) return "granted";
   if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
   return Notification.permission as NotifPermission;
 }
@@ -170,6 +173,7 @@ export type DesktopNotification = {
  * chime in the other.
  */
 export function showDesktopNotification(n: DesktopNotification): void {
+  if (isDesktop) return;
   if (notificationPermission() !== "granted") {
     n.onDelivered?.(false);
     return;

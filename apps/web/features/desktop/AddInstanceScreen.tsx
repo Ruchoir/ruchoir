@@ -8,13 +8,13 @@ import { useTranslation } from "@/lib/i18n";
 import { instanceAdd } from "@/lib/desktop/bridge";
 
 /** The codes `instance_add` answers with, each with its own sentence. */
-const KNOWN_ERRORS = ["empty", "not_https", "has_path", "has_credentials", "invalid", "unreachable", "not_ruchoir", "outdated"] as const;
+const KNOWN_ERRORS = ["empty", "not_https", "has_path", "has_credentials", "invalid", "unreachable", "not_ruchoir", "outdated", "already_added"] as const;
 
 /**
  * The first screen of the desktop app: the address of a Ruchoir instance. The app checks it answers
  * as an instance able to give an app its own session before keeping it.
  */
-export function AddInstanceScreen() {
+export function AddInstanceScreen({ onAdded, onCancel }: { onAdded?: () => void; onCancel?: () => void }) {
   const { t } = useTranslation();
   const [address, setAddress] = useState("");
   const [pending, setPending] = useState(false);
@@ -26,6 +26,7 @@ export function AddInstanceScreen() {
     setError(null);
     try {
       await instanceAdd(address);
+      onAdded?.();
     } catch (code) {
       const known = KNOWN_ERRORS.find((k) => k === code);
       setError(known ? t(`desktop.add.errors.${known}`) : t("desktop.add.errors.other"));
@@ -60,6 +61,11 @@ export function AddInstanceScreen() {
         <Button variant="primary" size="lg" fullWidth type="submit" disabled={pending || !address.trim()}>
           {pending ? t("common.verifying") : t("onboarding.continue")}
         </Button>
+        {onCancel ? (
+          <Button variant="ghost" size="lg" fullWidth type="button" onClick={onCancel}>
+            {t("common.cancel")}
+          </Button>
+        ) : null}
       </form>
     </AuthShell>
   );

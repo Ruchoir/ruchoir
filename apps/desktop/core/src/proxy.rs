@@ -4,6 +4,8 @@
 //! same-origin (no CORS, and the emoji sprite's `<use href>` works, which a second origin forbids):
 //!
 //! - `/i/<instance-id>/api/v1/...` goes to that instance, with its bearer;
+//! - `/api/v1/...` goes to the open instance, with its bearer: the paths the server hands out as they
+//!   are (an avatar, a space's icon), which the interface uses without its `/i/<id>` base;
 //! - `/emoji/...` goes to a signed-in instance, without one;
 //! - anything else is the embedded interface.
 //!
@@ -18,6 +20,8 @@ use reqwest::Method;
 pub enum Route {
     /// An instance's API: `rest` starts with `/api/v1/`.
     Api { instance: String, rest: String },
+    /// The open instance's API, by a path the server returned without the app's base.
+    OpenApi(String),
     /// The emoji pack, the same on every instance.
     Emoji(String),
     /// The embedded interface.
@@ -39,6 +43,9 @@ pub fn route(path: &str) -> Route {
             }
         }
     }
+    if path.starts_with("/api/v1/") {
+        return Route::OpenApi(path.to_string());
+    }
     if path.starts_with("/emoji/") {
         return Route::Emoji(path.to_string());
     }
@@ -46,13 +53,12 @@ pub fn route(path: &str) -> Route {
 }
 
 /// The request headers passed upstream; everything else (`Origin`, `Cookie`, `Sec-Fetch-*`, the
-/// webview's own) stays behind.
-const UPSTREAM: [&str; 7] = [
+/// webview's own) stays behind. Conditional headers too: the webview keeps no cache of the app's
+/// protocol, so an upstream 304 would reach it with an empty body.
+const UPSTREAM: [&str; 5] = [
     "accept",
     "accept-language",
     "content-type",
-    "if-none-match",
-    "if-modified-since",
     "range",
     "x-requested-with",
 ];
@@ -185,5 +191,60 @@ pub async fn forward(
             body: bytes.to_vec(),
         },
         Err(_) => unreachable(),
+    }
+}
+
+/// The emoji pack's files, kept in memory once fetched: the same on every instance, and asked again
+/// and again by the interface (the webview keeps no cache of the app's protocol). Only successful
+/// answers, within a size bound; the oldest go first.
+#[derive(Debug)]
+pub struct EmojiCache {
+    capacity: usize,
+    size: usize,
+    entries: std::collections::VecDeque<(String, Answer)>,
+}
+
+impl EmojiCache {
+    /// A cache holding at most `capacity` bytes of bodies.
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            capacity,
+            size: 0,
+            entries: std::collections::VecDeque::new(),
+        }
+    }
+
+    /// A kept answer for `path`.
+    pub fn get(&self, path: &str) -> Option<Answer> {
+        self.entries
+            .iter()
+            .find(|(p, _)| p == path)
+            .map(|(_, a)| Answer {
+                status: a.status,
+                headers: a.headers.clone(),
+                body: a.body.clone(),
+            })
+    }
+
+    /// Keep `answer` for `path` if it is a success that fits.
+    pub fn put(&mut self, path: &str, answer: &Answer) {
+        if answer.status != 200 || answer.body.len() > self.capacity || self.get(path).is_some() {
+            return;
+        }
+        while self.size + answer.body.len() > self.capacity {
+            match self.entries.pop_front() {
+                Some((_, old)) => self.size -= old.body.len(),
+                None => break,
+            }
+        }
+        self.size += answer.body.len();
+        self.entries.push_back((
+            path.to_string(),
+            Answer {
+                status: answer.status,
+                headers: answer.headers.clone(),
+                body: answer.body.clone(),
+            },
+        ));
     }
 }

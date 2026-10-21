@@ -9,17 +9,28 @@ built this way: `docs/adr/0008-desktop-apps.md`.
 ```
 window ── ruchoir-app://localhost/ ──► Rust core (apps/desktop/src-tauri)
             ├─ /i/<instance-id>/api/v1/…  → that instance, with its bearer (from the keychain)
+            ├─ /api/v1/…                  → the open instance (paths the server hands out as they are)
             ├─ /emoji/…                   → a signed-in instance
             └─ anything else              → the embedded web export (apps/web, build:desktop)
 
-core ── one realtime socket per instance ──► frames relayed to the interface as events
+core ── per signed-in instance: one realtime socket ──► frames relayed to the open interface
+                                  a summary            ──► the rail's other instances, the badge
+                                  a notifier           ──► the system's notifications
 ```
 
+One interface at a time: only the open instance's is mounted; a space of another instance or a click
+on a notification mounts a fresh one on that instance (ADR 0008,
+amendment of 2026-10-21).
+
 - `apps/desktop/core`: the logic that needs no window (instance list, keychain vault, sign-in
-  exchange, proxy rules, realtime watcher). `cargo test -p ruchoir-desktop-core` runs anywhere.
-- `apps/desktop/src-tauri`: the app (window, protocol, commands, deep links, relay).
-- `apps/web/lib/desktop` (bridge to the core, relayed socket) and `apps/web/features/desktop`
-  (title bar, add an instance, sign in): loaded only in the desktop build.
+  exchange, proxy rules, realtime watcher, summaries, the notifier's rules). `cargo test -p
+  ruchoir-desktop-core` runs anywhere.
+- `apps/desktop/src-tauri`: the app (window, protocol, commands, deep links, relay, summaries,
+  notifications, tray and badge, launch at login).
+- `apps/web/lib/desktop` (bridge to the core, relayed socket, the switch guard) and
+  `apps/web/features/desktop` (title bar, add an instance, sign in, the bridge's React context):
+  loaded only in the desktop build. The rail, the account menu and the preferences read
+  `useDesktop()`, `null` on the web.
 
 ## Building
 
@@ -105,10 +116,21 @@ e2e/run.sh
 It posts a message in that channel each run. The app's own log is kept in
 `/tmp/ruchoir-desktop-e2e.log`.
 
+With `E2E_INSTANCE_2`, `E2E_EMAIL_2` and `E2E_PASSWORD_2` (an account on a second instance, which
+must offer native sessions, so be a release from October 2026 or later), it also adds that instance,
+signs in to it, checks the rail heads both instances' spaces, and opens a space of the first one
+from the second. The development host runs one instance; the second is production with Théo's own
+account. Native notifications, their click and the badge are checked by hand: WebDriver cannot see
+them.
+
 ## Trying it on a machine
 
 Install the artifact of the `Desktop apps` workflow, then check, against the development instance:
 the frameless window (drag, double click, Windows snap, resizing from the edges), adding the
 instance, signing in with a password then a code, and with a passkey, live messages, signing out,
 quitting and starting again still signed in, and a second launch bringing the first window forward.
+With two instances: both in the rail with their counts, a notification from the one not open and
+its click, a notification setting changed on one and found on the other, the badge on the icon and in the tray, closing to the tray and
+reopening from it, launch at login (the app starts in the tray), and the memory read in the task
+manager.
 macOS is checked by a volunteer tester before each release.

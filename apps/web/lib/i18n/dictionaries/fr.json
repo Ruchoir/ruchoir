@@ -1789,7 +1789,8 @@
         "unreachable": "Impossible de joindre cette adresse. Vérifiez-la, ainsi que votre connexion.",
         "not_ruchoir": "Cette adresse ne répond pas comme une instance Ruchoir.",
         "outdated": "Cette instance est trop ancienne pour l’application. Demandez à son administrateur de la mettre à jour.",
-        "other": "Quelque chose s’est mal passé. Réessayez."
+        "other": "Quelque chose s’est mal passé. Réessayez.",
+        "already_added": "Cette instance est déjà ajoutée."
       }
     },
     "signIn": {
@@ -1806,6 +1807,35 @@
       "minimize": "Réduire",
       "maximize": "Agrandir",
       "restore": "Restaurer"
+    },
+    "tray": {
+      "open": "Ouvrir Ruchoir",
+      "quit": "Quitter",
+      "closedNotice": "Ruchoir reste ouvert pour vous notifier. Pour le rouvrir : son icône près de l’horloge, ou relancez Ruchoir. Pour le quitter : Quitter Ruchoir, dans le menu de votre profil."
+    },
+    "switch": {
+      "title": "Envoi en cours",
+      "body": "Des fichiers sont en cours d’envoi vers {{host}}.",
+      "wait": "Attendre",
+      "cancelSends": "Annuler les envois et continuer"
+    },
+    "rail": {
+      "signInAgain": "Se reconnecter à {{host}}"
+    },
+    "menu": {
+      "addInstance": "Ajouter une instance",
+      "signOutHere": "Se déconnecter de cette instance",
+      "removeInstance": "Retirer cette instance",
+      "quit": "Quitter Ruchoir"
+    },
+    "prefs": {
+      "title": "Application",
+      "launchAtLogin": "Lancer Ruchoir à l’ouverture de session",
+      "launchAtLoginDesc": "Ruchoir démarre discrètement dans la zone de notification.",
+      "closeToTray": "Garder Ruchoir ouvert à la fermeture",
+      "closeToTrayDesc": "Fermer la fenêtre laisse Ruchoir dans la zone de notification, pour continuer à recevoir les notifications.",
+      "sharedNote": "Commun à toutes vos instances",
+      "instanceNote": "Propre à {{host}}"
     }
   }
 }
