@@ -102,7 +102,11 @@ pub async fn fetch_summary(
 pub fn wants_refresh(event_type: &str) -> bool {
     matches!(
         event_type,
-        "message.created" | "message.deleted" | "read.updated" | "notification.created"
+        "message.created"
+            | "message.deleted"
+            | "read.updated"
+            | "notification.created"
+            | "notification.read"
     ) || ["space.", "member.", "channel."]
         .iter()
         .any(|prefix| event_type.starts_with(prefix))

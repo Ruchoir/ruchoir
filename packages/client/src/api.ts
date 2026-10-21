@@ -694,6 +694,12 @@ export type ApiNotification = {
   emoji?: string;
 };
 
+/**
+ * Notifications read on one of the person's devices (`notification.read`): these `ids`, or every one
+ * when `all` is set, with what is left unread (absent from a server that did not say).
+ */
+export type NotificationsRead = { ids: string[]; all: boolean; unreadCount?: number };
+
 /** A page of the notification inbox, newest first, with the caller's total unread count. */
 export type NotificationFeed = { notifications: ApiNotification[]; nextBefore?: string; unreadCount: number };
 
@@ -1160,6 +1166,8 @@ export type RealtimeHandlers = {
   onChannelDeleted?: (spaceId: string, channelId: string) => void;
   onPresence?: (userId: string, presence: Presence) => void;
   onNotification?: (notification: ApiNotification) => void;
+  /** Some of the person's notifications were read, on this device or another one. */
+  onNotificationsRead?: (read: NotificationsRead) => void;
   onTyping?: (conversationId: string, userId: string) => void;
   /** Someone's read cursor moved in a conversation the recipient belongs to. */
   onReadCursor?: (conversationId: string, userId: string, lastReadMessageId: string) => void;
@@ -3275,6 +3283,13 @@ export function createApi(transport: Transport) {
           break;
         case "notification.created":
           handlers.onNotification?.(toApiNotification(payload as unknown as NotificationDto));
+          break;
+        case "notification.read":
+          handlers.onNotificationsRead?.({
+            ids: Array.isArray(payload.ids) ? (payload.ids as unknown[]).map(String) : [],
+            all: Boolean(payload.all),
+            unreadCount: typeof payload.unread_count === "number" ? payload.unread_count : undefined,
+          });
           break;
         case "typing":
           handlers.onTyping?.(conv, String(payload.user_id));

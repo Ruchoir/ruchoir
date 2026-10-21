@@ -188,6 +188,7 @@ import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
 import { SpaceSwitcherSheet, YouSheet } from "./mobile/MobileSheets";
+import { applyNotificationsRead } from "./notifRead";
 import { reconcileNotifPrefs } from "./notifPrefsSync";
 
 /** Wraps the app in the settings provider (emoji rendering, etc.). */
@@ -1455,6 +1456,11 @@ function AppShell() {
       onPresence: (userId, p) => {
         setPresence((prev) => ({ ...prev, [userId]: p }));
         setDms((prev) => prev.map((d) => (d.userId === userId ? { ...d, presence: p } : d)));
+      },
+      onNotificationsRead: (read) => {
+        // Read on another device (or this one): the bell and the rail's mention counts follow.
+        setNotifs((prev) => applyNotificationsRead(prev, read));
+        refreshSpaceCounters();
       },
       onNotification: (n) => {
         const { channels: chs, dms: dmList, channelId: activeConv, view: activeView } = liveRef.current;
