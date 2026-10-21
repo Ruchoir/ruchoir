@@ -132,7 +132,7 @@ export type NotifPrefs = {
 
 export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
   enabled: true,
-  sound: false,
+  sound: true,
   mentions: true,
   channelMentions: true,
   replies: true,
