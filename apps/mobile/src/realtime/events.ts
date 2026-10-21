@@ -14,7 +14,8 @@ export type RealtimeEvent =
   /** Someone's reaction added or removed. Mine are already on screen. */
   | { type: "reaction"; conversationId: string; messageId: string; emoji: string; userId: string; added: boolean }
   | { type: "pinned"; conversationId: string; messageId: string; pinned: boolean }
-  | { type: "notification" }
+  /** A notification came, or (`read`) some were read on one of my devices. */
+  | { type: "notification"; read?: true }
   | { type: "readCursor"; conversationId: string; userId: string; lastReadMessageId: string }
   | { type: "typing"; conversationId: string; userId: string }
   | { type: "presence"; userId: string; presence: Presence }
@@ -48,6 +49,7 @@ export function handlersFor(emit: (event: RealtimeEvent) => void, onReconnect: (
     onReaction: (conversationId, r) => emit({ type: "reaction", conversationId, ...r }),
     onPinned: (conversationId, messageId, pinned) => emit({ type: "pinned", conversationId, messageId, pinned }),
     onNotification: () => emit({ type: "notification" }),
+    onNotificationsRead: () => emit({ type: "notification", read: true }),
     onReadCursor: (conversationId, userId, lastReadMessageId) => emit({ type: "readCursor", conversationId, userId, lastReadMessageId }),
     onTyping: (conversationId, userId) => emit({ type: "typing", conversationId, userId }),
     onPresence: (userId, presence) => emit({ type: "presence", userId, presence }),

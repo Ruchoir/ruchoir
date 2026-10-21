@@ -71,7 +71,7 @@ export function appConfig(env: Env): ExpoConfig {
       "expo-localization",
       "expo-web-browser",
       // Phone notifications (ADR 0006): every build is signed for the App Store (TestFlight too).
-      ["expo-notifications", { mode: "production", icon: "./assets/notification-icon.png", color: "#c65d45" }],
+      ["expo-notifications", { mode: "production", icon: "./assets/notification-icon.png", color: "#c65d45", enableBackgroundRemoteNotifications: true }],
       // The iPhone extensions written in Swift, under targets/ (the notification service).
       "@bacons/apple-targets",
       // No `fetch` background mode on the iPhone, which the task manager adds and nothing uses.

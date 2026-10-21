@@ -85,7 +85,8 @@ final class NotificationService: UNNotificationServiceExtension {
       content.body = items.count > 1 ? item.body + "\n" + Fallback.more(items.count - 1) : item.body
       if answered.allSatisfy({ $0.pending.silent }) { content.sound = nil }
       if let conversation = item.conversation_id { content.threadIdentifier = conversation }
-      var tap: [String: String] = ["server": newest.server]
+      // Its id too, so a read on another device can take it off the screen (the app's `syncRead`).
+      var tap: [String: String] = ["server": newest.server, "notification_id": item.id]
       if let value = item.space_id { tap["space_id"] = value }
       if let value = item.conversation_id { tap["conversation_id"] = value }
       if let value = item.message_id { tap["message_id"] = value }
@@ -115,6 +116,7 @@ private struct Pending: Decodable {
   let items: [Item]
 
   struct Item: Decodable {
+    let id: String
     let title: String
     let body: String
     let space_id: String?

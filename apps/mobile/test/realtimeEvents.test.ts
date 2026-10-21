@@ -54,12 +54,18 @@ test("conversation_changes_are_relayed", () => {
   handlers.onTyping!("k1", "u2");
   handlers.onPresence!("u2", "away");
   handlers.onNotification!({} as never);
+  handlers.onNotificationsRead!({ ids: ["n1"], all: false, unreadCount: 0 });
   handlers.onCalendarChanged!("cal1");
   handlers.onFilesUpdated!("s1", {} as never);
   handlers.onFilesDeleted!("s1", ["f1"]);
   assert.deepEqual(
     out.map((e) => e.type),
-    ["message", "message", "message", "reaction", "pinned", "readCursor", "typing", "presence", "notification", "calendar", "files", "files"],
+    ["message", "message", "message", "reaction", "pinned", "readCursor", "typing", "presence", "notification", "notification", "calendar", "files", "files"],
+  );
+  // Only the second says something was read: the shade is cleaned on it.
+  assert.deepEqual(
+    out.filter((e) => e.type === "notification").map((e) => e.type === "notification" && e.read),
+    [undefined, true],
   );
 });
 
