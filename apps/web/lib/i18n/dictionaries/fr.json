@@ -1833,7 +1833,9 @@
       "launchAtLogin": "Lancer Ruchoir à l’ouverture de session",
       "launchAtLoginDesc": "Ruchoir démarre discrètement dans la zone de notification.",
       "closeToTray": "Garder Ruchoir ouvert à la fermeture",
-      "closeToTrayDesc": "Fermer la fenêtre laisse Ruchoir dans la zone de notification, pour continuer à recevoir les notifications."
+      "closeToTrayDesc": "Fermer la fenêtre laisse Ruchoir dans la zone de notification, pour continuer à recevoir les notifications.",
+      "sharedNote": "Commun à toutes vos instances",
+      "instanceNote": "Propre à {{host}}"
     }
   }
 }

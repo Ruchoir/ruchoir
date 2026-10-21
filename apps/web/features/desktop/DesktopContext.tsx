@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import type { NotificationPreferences } from "@ruchoir/client";
 import type { DesktopSettings, SpaceSummary } from "@/lib/desktop/instances";
 
 /** Another instance the desktop app holds, as the rail draws it. */
@@ -32,8 +33,11 @@ export type DesktopBridge = {
   signIn: (instanceId: string) => void;
   /** Forget the open instance (the app keeps the others). */
   removeOpen: () => void;
-  /** The open instance's notification settings were saved. */
-  preferencesSaved: () => void;
+  /**
+   * The open instance's notification settings were saved: the desktop sends the same to every other
+   * signed-in instance (they are one set for all, Théo 2026-10-21), and its core reads them again.
+   */
+  preferencesSaved: (prefs: NotificationPreferences) => void;
   settings: DesktopSettings | null;
   setSettings: (settings: DesktopSettings) => void;
   /** End the app, which closing the window does not (it stays in the tray). */

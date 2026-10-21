@@ -194,6 +194,23 @@ const rowStyle: CSSProperties = {
 };
 
 /** A title + description on the left, a control on the right. */
+/**
+ * In the desktop app, which instances a section's settings apply to (Théo, 2026-10-21): every one
+ * (kept by the app, notification settings sent to each), or only the open one (its account's).
+ * Nothing on the web, where a tab is one instance.
+ */
+function SyncNote({ scope }: { scope: "shared" | "instance" }) {
+  const { t } = useTranslation();
+  const desktop = useDesktop();
+  if (!desktop) return null;
+  return (
+    <p style={{ ...st.sub, display: "flex", alignItems: "center", gap: 6, marginTop: -4 }}>
+      <Icon name={scope === "shared" ? "refresh-cw" : "key-round"} size={13} aria-hidden />
+      {scope === "shared" ? t("desktop.prefs.sharedNote") : t("desktop.prefs.instanceNote", { host: desktop.instanceHost })}
+    </p>
+  );
+}
+
 /** The desktop app's own settings: launch at login, and closing to the tray (not on macOS). */
 function ApplicationSection() {
   const { t } = useTranslation();
@@ -203,6 +220,7 @@ function ApplicationSection() {
   return (
     <>
       <h2 style={st.h}>{t("desktop.prefs.title")}</h2>
+      <SyncNote scope="shared" />
       <Row title={t("desktop.prefs.launchAtLogin")} desc={t("desktop.prefs.launchAtLoginDesc")}>
         <Switch
           checked={settings.launch_at_login}
@@ -777,6 +795,7 @@ function CalendarSection() {
   return (
     <>
       <h2 style={st.h}>{t("calendar.title")}</h2>
+      <SyncNote scope="shared" />
       <p style={st.sub}>{t("calendar.prefs.sub")}</p>
 
       <div style={st.sect} className="wc-sect">{t("prefs.defaultDisplay")}</div>
@@ -935,6 +954,7 @@ function ShortcutsSection({ onNotify }: { onNotify?: (t: Toast) => void }) {
   return (
     <>
       <h2 style={st.h}>{t("prefs.shortcuts")}</h2>
+      <SyncNote scope="shared" />
       <p style={st.sub}>
         {t("shortcut.customizeHint")}
       </p>
@@ -1044,6 +1064,7 @@ export function PreferencesScreen({
             {tab === "appearance" ? (
               <>
                 <h2 style={st.h}>{t("prefs.appearance")}</h2>
+                <SyncNote scope="shared" />
                 <p style={st.sub}>{t("prefs.appearanceSub")}</p>
 
                 <div style={st.sect} className="wc-sect">{t("language.section")}</div>
@@ -1122,6 +1143,7 @@ export function PreferencesScreen({
             {tab === "notifications" ? (
               <>
                 <h2 style={st.h}>{t("notif.title")}</h2>
+                <SyncNote scope="shared" />
                 <p style={st.sub}>{t("prefs.notifSub")}</p>
                 {/* The desktop app notifies through its core: no browser permission or push to set up. */}
                 {isDesktop ? null : <DevicePushRow onNotify={onNotify} />}
@@ -1164,6 +1186,7 @@ export function PreferencesScreen({
             {tab === "security" ? (
               <>
                 <h2 style={st.h}>{t("prefs.security")}</h2>
+                <SyncNote scope="instance" />
                 <p style={st.sub}>{t("prefs.securitySub")}</p>
                 <Row title={t("prefs.linkWarning")} desc={t("prefs.linkWarningDesc")}>
                   <Switch
@@ -1179,6 +1202,7 @@ export function PreferencesScreen({
             {tab === "emojis" ? (
               <>
                 <h2 style={st.h}>{t("prefs.emojis")}</h2>
+                <SyncNote scope="shared" />
                 <p style={st.sub}>{t("prefs.emojisSub")}</p>
                 <Row
                   title={

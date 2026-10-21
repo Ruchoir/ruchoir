@@ -179,6 +179,11 @@ export type Settings = {
   /** Whether the browser-notification prompt has already been offered, so it is offered once. */
   notifPrompted: boolean;
   /**
+   * The desktop app: the person's notification settings are the app's, sent to every instance, once
+   * they exist (the first instance's are adopted until then). See `notifPrefsSync.ts`.
+   */
+  notifShared: boolean;
+  /**
    * Whether to warn before a link opens a page outside Ruchoir (see `ExternalLinkDialog`). On by
    * default; turned off from the warning itself or in Preferences > Security.
    */
@@ -224,6 +229,7 @@ const DEFAULTS: Settings = {
   hiddenDms: [],
   collapsedSections: [],
   notifPrompted: false,
+  notifShared: false,
   externalLinkWarning: true,
   threadWidth: THREAD_WIDTH_DEFAULT,
   locale: null,
@@ -295,6 +301,7 @@ function storedSettings(): Settings | null {
       hiddenDms: stringList(parsed.hiddenDms),
       collapsedSections: stringList(parsed.collapsedSections),
       notifPrompted: parsed.notifPrompted === true,
+      notifShared: parsed.notifShared === true,
       externalLinkWarning: parsed.externalLinkWarning !== false,
       threadWidth: threadWidth(parsed.threadWidth),
     };

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { createClient, type RuchoirClient } from "@ruchoir/client";
 import { configureClient } from "@ruchoir/client/config";
 import { Button, Dialog } from "@/components/ds";
 import { useTranslation } from "@/lib/i18n";
@@ -85,6 +86,17 @@ export function DesktopRoot() {
   const { maximized, fullscreen } = useWindowShape();
   const viewsRef = useRef<InstanceView[] | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  // A client per other instance, for what the desktop sends them itself (notification settings).
+  const clients = useRef(new Map<string, RuchoirClient>());
+  const clientOf = (id: string, origin: string | null) => {
+    let client = clients.current.get(id);
+    if (!client) {
+      // Same origin as the interface: the core adds this instance's token on the way.
+      client = createClient({ baseUrl: instanceBase(id), publicOrigin: origin ?? undefined });
+      clients.current.set(id, client);
+    }
+    return client;
+  };
   const stillRef = useRef<HTMLDivElement>(null);
   const stillTimer = useRef<number | undefined>(undefined);
 
@@ -195,7 +207,17 @@ export function DesktopRoot() {
         goTo("/");
         void instanceRemove(open.id as string);
       },
-      preferencesSaved: () => void preferencesChanged(open.id as string),
+      preferencesSaved: (prefs) => {
+        void preferencesChanged(open.id as string);
+        for (const view of views) {
+          if (view.open || !view.id || view.state !== "signed_in") continue;
+          const id = view.id;
+          void clientOf(id, view.origin)
+            .saveNotificationPreferences(prefs)
+            .then(() => preferencesChanged(id))
+            .catch(() => {});
+        }
+      },
       settings,
       setSettings: (next) => void setDesktopSettings(next).then(setSettings),
       interfaceReady: releaseStill,

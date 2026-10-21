@@ -1874,7 +1874,9 @@
       "launchAtLogin": "Avvia Ruchoir all’accesso",
       "launchAtLoginDesc": "Ruchoir si avvia discretamente nell’area di notifica.",
       "closeToTray": "Tieni Ruchoir aperto alla chiusura",
-      "closeToTrayDesc": "Chiudere la finestra lascia Ruchoir nell’area di notifica, per continuare a ricevere le notifiche."
+      "closeToTrayDesc": "Chiudere la finestra lascia Ruchoir nell’area di notifica, per continuare a ricevere le notifiche.",
+      "sharedNote": "Uguale su tutte le tue istanze",
+      "instanceNote": "Solo per {{host}}"
     }
   }
 }

@@ -1941,7 +1941,9 @@
       "launchAtLogin": "Uruchamiaj Ruchoir po zalogowaniu",
       "launchAtLoginDesc": "Ruchoir uruchamia się dyskretnie w obszarze powiadomień.",
       "closeToTray": "Nie zamykaj Ruchoir przy zamknięciu okna",
-      "closeToTrayDesc": "Zamknięcie okna zostawia Ruchoir w obszarze powiadomień, by dalej otrzymywać powiadomienia."
+      "closeToTrayDesc": "Zamknięcie okna zostawia Ruchoir w obszarze powiadomień, by dalej otrzymywać powiadomienia.",
+      "sharedNote": "Wspólne dla wszystkich Twoich instancji",
+      "instanceNote": "Tylko dla {{host}}"
     }
   }
 }

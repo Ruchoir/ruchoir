@@ -1807,7 +1807,9 @@
       "launchAtLogin": "Start Ruchoir when you sign in to your computer",
       "launchAtLoginDesc": "Ruchoir starts quietly in the notification area.",
       "closeToTray": "Keep Ruchoir running when closed",
-      "closeToTrayDesc": "Closing the window leaves Ruchoir in the notification area, so notifications keep coming."
+      "closeToTrayDesc": "Closing the window leaves Ruchoir in the notification area, so notifications keep coming.",
+      "sharedNote": "The same on all your instances",
+      "instanceNote": "Only for {{host}}"
     }
   }
 }

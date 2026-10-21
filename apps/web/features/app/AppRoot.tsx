@@ -150,7 +150,6 @@ import {
   effectiveLevel,
   type NotifLevel,
   type NotifPrefs,
-  sameNotifPrefs,
   isInvitationKind,
   isMention,
   type NotifKind,
@@ -189,6 +188,7 @@ import { BottomTabs } from "./BottomTabs";
 import { UploadPanel } from "@/features/files/UploadPanel";
 import { ComposeFab, MobileActivity, MobileHeader, MobileMessages, MobileSearchField, QuickLinks, SpaceMark } from "./mobile/MobileScreens";
 import { SpaceSwitcherSheet, YouSheet } from "./mobile/MobileSheets";
+import { reconcileNotifPrefs } from "./notifPrefsSync";
 
 /** Wraps the app in the settings provider (emoji rendering, etc.). */
 export function AppRoot() {
@@ -3579,17 +3579,19 @@ function AppShell() {
       .then((server) => {
         if (notifSyncRef.current.session !== sessionId) return;
         const local = settingsRef.current.notif;
-        const serverIsBlank = sameNotifPrefs(server, DEFAULT_NOTIF_PREFS);
-        // Every field the app keeps, taken from the server (which has the offset on top).
-        const merged: NotifPrefs = serverIsBlank
-          ? { ...DEFAULT_NOTIF_PREFS, ...local }
-          : (Object.fromEntries(
-              (Object.keys(DEFAULT_NOTIF_PREFS) as (keyof NotifPrefs)[]).map((field) => [field, server[field]]),
-            ) as NotifPrefs);
+        // On the web, the server's (unless it holds none); in the desktop app, once chosen, the app's,
+        // the same for every instance (notifPrefsSync.ts).
+        const { prefs: merged, push } = reconcileNotifPrefs({
+          local,
+          server: server as unknown as NotifPrefs,
+          defaults: DEFAULT_NOTIF_PREFS,
+          shared: isDesktop && settingsRef.current.notifShared,
+        });
         lastSentNotifRef.current = JSON.stringify(merged);
         settingsRef.current.set("notif", merged);
+        if (isDesktop && !settingsRef.current.notifShared) settingsRef.current.set("notifShared", true);
         notifSyncRef.current.synced = true;
-        if (serverIsBlank || server.utcOffsetMinutes !== offset) {
+        if (push || server.utcOffsetMinutes !== offset) {
           void saveNotificationPreferences({ ...merged, utcOffsetMinutes: offset }).catch(() => {});
         }
       })
@@ -3608,9 +3610,10 @@ function AppShell() {
     if (serialised === lastSentNotifRef.current) return;
     const timer = window.setTimeout(() => {
       lastSentNotifRef.current = serialised;
-      void saveNotificationPreferences({ ...prefs, utcOffsetMinutes: -new Date().getTimezoneOffset() })
-        // The desktop app's core applies them to its notifications: it reads them again.
-        .then(() => desktopRef.current?.preferencesSaved())
+      const payload = { ...prefs, utcOffsetMinutes: -new Date().getTimezoneOffset() };
+      void saveNotificationPreferences(payload)
+        // The desktop app sends them to every other instance, and its core reads them again.
+        .then(() => desktopRef.current?.preferencesSaved(payload))
         .catch(() => notifyRef.current?.({ tone: "danger", title: tRef.current("admin.settingsSaveFailed") }));
     }, 400);
     return () => window.clearTimeout(timer);

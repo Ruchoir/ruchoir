@@ -1874,7 +1874,9 @@
       "launchAtLogin": "Abrir Ruchoir al iniciar sesión",
       "launchAtLoginDesc": "Ruchoir se inicia discretamente en el área de notificaciones.",
       "closeToTray": "Mantener Ruchoir abierto al cerrar",
-      "closeToTrayDesc": "Cerrar la ventana deja Ruchoir en el área de notificaciones, para seguir recibiendo notificaciones."
+      "closeToTrayDesc": "Cerrar la ventana deja Ruchoir en el área de notificaciones, para seguir recibiendo notificaciones.",
+      "sharedNote": "Común a todas tus instancias",
+      "instanceNote": "Solo para {{host}}"
     }
   }
 }

@@ -14,6 +14,7 @@ import type { Toast } from "../app/types";
 import { useTranslation } from "@/lib/i18n";
 import { languageName } from "@/lib/i18n/config";
 import { PanelHead } from "./PanelHead";
+import { useDesktop } from "@/features/desktop/DesktopContext";
 
 /**
  * The timezones offered in the profile form.
@@ -142,6 +143,7 @@ export function ProfilePanel({
   // twenty minutes wrong, which is worse than showing none because it is precise.
   const localTime = useLocalTime(p.timezone);
   const isOwn = name === getCurrentUser().name;
+  const desktop = useDesktop();
   const [editing, setEditing] = useState(!!startEditing && isOwn);
   const [role, setRole] = useState(p.role);
   const [pronouns, setPronouns] = useState(p.pronouns ?? "");
@@ -311,6 +313,12 @@ export function ProfilePanel({
         {isOwn && editing ? (
           <div style={styles.section}>
             <div style={styles.label}>{t("message.edit")}</div>
+            {/* In the desktop app: a profile is one account's, on one instance. */}
+            {desktop ? (
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)", margin: "0 0 8px" }}>
+                {t("desktop.prefs.instanceNote", { host: desktop.instanceHost })}
+              </p>
+            ) : null}
             {photo ? (
               <div style={{ marginBottom: 8 }}>
                 <Button variant="link" size="sm" disabled={photoBusy} onClick={() => void removePhoto()}>

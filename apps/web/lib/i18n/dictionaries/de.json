@@ -1807,7 +1807,9 @@
       "launchAtLogin": "Ruchoir bei der Anmeldung starten",
       "launchAtLoginDesc": "Ruchoir startet unauffällig im Infobereich.",
       "closeToTray": "Ruchoir beim Schließen weiterlaufen lassen",
-      "closeToTrayDesc": "Das Schließen des Fensters lässt Ruchoir im Infobereich, damit weiterhin Benachrichtigungen ankommen."
+      "closeToTrayDesc": "Das Schließen des Fensters lässt Ruchoir im Infobereich, damit weiterhin Benachrichtigungen ankommen.",
+      "sharedNote": "Gleich auf allen Ihren Instanzen",
+      "instanceNote": "Nur für {{host}}"
     }
   }
 }
