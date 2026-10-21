@@ -7,7 +7,7 @@
  * newest of the oldest items among the instances that have more, and the rest shows once they have
  * answered for the next page.
  */
-import type { ApiNotification } from "@ruchoir/client";
+import type { ApiNotification } from "./api.ts";
 
 export type Feed = { instanceId: string; items: ApiNotification[]; next?: string };
 

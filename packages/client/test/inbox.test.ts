@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { mergeInboxes } from "../src/accounts/inbox.ts";
+import { mergeInboxes } from "../src/inbox.ts";
 
 const n = (id: string, createdAt: string) =>
   ({ id, kind: "mention", conversationId: "c", spaceId: "s", spaceName: "S", messageId: "m", actor: "A", preview: "", createdAt, read: false }) as const;

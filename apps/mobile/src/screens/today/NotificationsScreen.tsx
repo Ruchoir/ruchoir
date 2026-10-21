@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { FlatList, Pressable, StyleSheet, View } from "react-native";
 
 import { useAccounts } from "../../accounts/AccountsProvider";
-import { mergeInboxes, type InboxItem } from "../../accounts/inbox";
+import { mergeInboxes, type InboxItem } from "@ruchoir/client/inbox";
 import { queueLink } from "../../accounts/pendingLink";
 import { hostOf, unreadEverywhere } from "../../accounts/summary";
 import { useLoad } from "../../data/useLoad";
@@ -70,7 +70,7 @@ type Older = Record<string, { items: ApiNotification[]; next?: string }>;
 
 /**
  * Pages of the inbox of every signed-in instance (ADR 0007), merged newest first
- * (`accounts/inbox.ts`): the first pages reload live, the older ones are appended per instance.
+ * (`@ruchoir/client/inbox`): the first pages reload live, the older ones are appended per instance.
  */
 export function NotificationsScreen() {
   const { t } = useTranslation();

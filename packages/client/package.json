@@ -16,6 +16,7 @@
     "./fileType": "./src/fileType.ts",
     "./filesLogic": "./src/filesLogic/index.ts",
     "./http": "./src/http.ts",
+    "./inbox": "./src/inbox.ts",
     "./types": "./src/types.ts"
   },
   "scripts": {
