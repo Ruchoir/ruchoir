@@ -21,6 +21,11 @@ fn routes() {
     );
     assert_eq!(route("/e/s/c/x"), Route::Asset("/e/s/c/x".into()));
     assert_eq!(route("/apiary"), Route::Asset("/apiary".into()));
+    // A path the server returned as is (an avatar, an icon): the open instance's.
+    assert_eq!(
+        route("/api/v1/users/u1/avatar"),
+        Route::OpenApi("/api/v1/users/u1/avatar".into())
+    );
     assert_eq!(
         route("/i/abc/elsewhere"),
         Route::Asset("/i/abc/elsewhere".into())

@@ -42,6 +42,10 @@ async fn respond<R: Runtime>(
         Route::Api { instance, rest } => {
             api(app, &instance, &format!("{rest}{query}"), &rest, request).await
         }
+        Route::OpenApi(rest) => match app.state::<Desktop>().view().id {
+            Some(open) => api(app, &open, &format!("{rest}{query}"), &rest, request).await,
+            None => empty(404),
+        },
         Route::Emoji(emoji) => emoji_answer(app, &format!("{emoji}{query}"), request).await,
         Route::Asset(asset) => asset_answer(app, &asset).await,
     };

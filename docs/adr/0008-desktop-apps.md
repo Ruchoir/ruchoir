@@ -35,6 +35,8 @@ browser. No remote page is ever loaded in the app window.
 `ruchoir-app://localhost/` (`http://ruchoir-app.localhost/` on Windows). The Rust core answers it:
 
 - `/i/<instance-id>/api/v1/...` goes to that instance, with its bearer;
+- `/api/v1/...` goes to the open instance, with its bearer: the paths the server hands out as they
+  are (an avatar, a space's icon), used by the interface without its base (since 2026-10-21);
 - `/emoji/...` goes to a signed-in instance, without one;
 - anything else is the embedded interface (`index.html` for a deep path).
 

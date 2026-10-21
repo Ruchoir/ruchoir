@@ -4,6 +4,8 @@
 //! same-origin (no CORS, and the emoji sprite's `<use href>` works, which a second origin forbids):
 //!
 //! - `/i/<instance-id>/api/v1/...` goes to that instance, with its bearer;
+//! - `/api/v1/...` goes to the open instance, with its bearer: the paths the server hands out as they
+//!   are (an avatar, a space's icon), which the interface uses without its `/i/<id>` base;
 //! - `/emoji/...` goes to a signed-in instance, without one;
 //! - anything else is the embedded interface.
 //!
@@ -18,6 +20,8 @@ use reqwest::Method;
 pub enum Route {
     /// An instance's API: `rest` starts with `/api/v1/`.
     Api { instance: String, rest: String },
+    /// The open instance's API, by a path the server returned without the app's base.
+    OpenApi(String),
     /// The emoji pack, the same on every instance.
     Emoji(String),
     /// The embedded interface.
@@ -38,6 +42,9 @@ pub fn route(path: &str) -> Route {
                 };
             }
         }
+    }
+    if path.starts_with("/api/v1/") {
+        return Route::OpenApi(path.to_string());
     }
     if path.starts_with("/emoji/") {
         return Route::Emoji(path.to_string());

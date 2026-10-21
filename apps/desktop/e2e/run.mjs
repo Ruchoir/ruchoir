@@ -119,6 +119,12 @@ async function main() {
       () => run("return /^\\/e\\/[^/]+\\/c\\/[^/]+/.test(location.pathname) ? location.pathname : null;"),
       30000,
     );
+    // A path the server hands out as is (an avatar, an icon) reaches the open instance.
+    const raw = await wd("POST", `/session/${id}/execute/async`, {
+      script: "const d = arguments[arguments.length - 1]; fetch('/api/v1/me/spaces').then((r) => d(r.status), (e) => d(String(e)));",
+      args: [],
+    });
+    if (raw !== 200) throw new Error(`an unprefixed /api/v1 path answered ${raw}`);
     const path = `/e/${SPACE}/c/${CHANNEL}`;
     await run("location.assign(arguments[0]);", [path]);
     await until("the shared channel to open", () => run("return location.pathname === arguments[0];", [path]), 30000);

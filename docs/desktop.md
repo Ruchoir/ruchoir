@@ -9,6 +9,7 @@ built this way: `docs/adr/0008-desktop-apps.md`.
 ```
 window ── ruchoir-app://localhost/ ──► Rust core (apps/desktop/src-tauri)
             ├─ /i/<instance-id>/api/v1/…  → that instance, with its bearer (from the keychain)
+            ├─ /api/v1/…                  → the open instance (paths the server hands out as they are)
             ├─ /emoji/…                   → a signed-in instance
             └─ anything else              → the embedded web export (apps/web, build:desktop)
 
