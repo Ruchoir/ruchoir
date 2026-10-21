@@ -186,6 +186,8 @@ const styles: Record<string, CSSProperties> = {
   feed: { flex: 1, overflow: "auto", padding: "20px 0 8px" },
   toBottom: {
     position: "absolute",
+    // Above the sticky day headings (2), which would otherwise slide over it while scrolling.
+    zIndex: 3,
     left: "50%",
     transform: "translateX(-50%)",
     bottom: 12,
