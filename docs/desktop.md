@@ -141,7 +141,9 @@ The app checks `https://ruchoir.com/desktop/latest.json` at launch and every six
 (`src-tauri/src/updater.rs`). A newer version shows a line under the title bar, "Restart to update":
 on the click it is downloaded, its signature checked against the public key in `tauri.conf.json`,
 installed, and the app starts again. Windows (NSIS), macOS and the AppImage update themselves; a
-`.deb` or `.rpm` install cannot, and its button opens the download page instead. A failed check or
+`.deb` or `.rpm` install is not updated by the app yet (the updater could, given signed packages in
+the manifest, asking for the administrator's password each time), and its button opens the download
+page instead. A failed check or
 download changes nothing and is tried again at the next check.
 
 The updater's key pair (minisign) is the app's own, apart from the systems' code signing

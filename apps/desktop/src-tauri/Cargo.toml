@@ -19,7 +19,10 @@ tauri-plugin-single-instance = { version = "=2.5.4", features = ["deep-link"] }
 tauri-plugin-window-state = "=2.5.0"
 tauri-plugin-opener = "=2.7.2"
 tauri-plugin-dialog = "=2.8.3"
-tauri-plugin-updater = "=2.14.0"
+# Without its `zip` feature: only zipped Windows installers and compressed AppImages need it, and a
+# release publishes neither (the NSIS .exe and the AppImage as they are). It also kept zip 4, whose
+# extraction advisories (RUSTSEC-2026-0367 to 0369) are fixed in zip 9 only.
+tauri-plugin-updater = { version = "=2.14.0", default-features = false, features = ["rustls-tls", "system-proxy"] }
 tauri-plugin-store = "=2.5.0"
 tauri-plugin-notification = "=2.7.0"
 tauri-plugin-autostart = "=2.7.0"

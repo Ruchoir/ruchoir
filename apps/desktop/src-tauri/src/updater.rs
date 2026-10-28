@@ -2,8 +2,9 @@
 //! at launch and every six hours; what it offers is signed with the updater's own key (minisign),
 //! whose public half is in `tauri.conf.json`, so nothing but a Ruchoir release installs. A new
 //! version is announced to the interface (`update:available`) and installed only on the person's
-//! click ("Restart to update"). Installs from a `.deb` or a `.rpm` cannot replace themselves: they
-//! are told, with the download page, and the person updates as they installed. A check or a download
+//! click ("Restart to update"). Installs from a `.deb` or a `.rpm` are not updated by the app yet
+//! (that needs signed packages in the manifest, and the administrator's password at each update):
+//! they are told, with the download page, and the person updates as they installed. A check or a download
 //! that fails is logged and tried again at the next check; nothing half-installed is left.
 
 use std::sync::Mutex;
@@ -22,7 +23,7 @@ pub const DOWNLOAD_PAGE: &str = "https://ruchoir.com/desktop/";
 #[derive(Debug, Clone, Serialize)]
 pub struct UpdateOffer {
     pub version: String,
-    /// True for an install the app cannot replace (`.deb`, `.rpm`): the download page instead.
+    /// True for an install the app does not replace yet (`.deb`, `.rpm`): the download page instead.
     pub manual: bool,
 }
 
@@ -33,7 +34,7 @@ pub struct Updates {
     offer: Mutex<Option<UpdateOffer>>,
 }
 
-/// Whether this install is a system package, which only the system's package tools may replace.
+/// Whether this install is a system package (`.deb`, `.rpm`), which the app leaves to the person.
 fn system_package() -> bool {
     use tauri::utils::{config::BundleType, platform::bundle_type};
     matches!(bundle_type(), Some(BundleType::Deb | BundleType::Rpm))
@@ -86,8 +87,8 @@ pub fn update_state(updates: State<'_, Updates>) -> Option<UpdateOffer> {
     updates.offer.lock().ok().and_then(|offer| offer.clone())
 }
 
-/// "Restart to update": download, check the signature, install, start the new version. An install
-/// that cannot replace itself opens the download page instead.
+/// "Restart to update": download, check the signature, install, start the new version. A system
+/// package opens the download page instead.
 #[tauri::command]
 pub async fn update_install<R: Runtime>(
     app: AppHandle<R>,
