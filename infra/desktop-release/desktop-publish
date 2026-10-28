@@ -37,7 +37,8 @@ head -c "$((MAX_BYTES + 1))" > "$work/release.tar"
 [ "$(stat -c %s "$work/release.tar")" -le "$MAX_BYTES" ] || { echo "release too large" >&2; exit 1; }
 # Plain files at the root only, with the names a release has: nothing else may be placed.
 allowed='^\./$|^(\./)?[A-Za-z0-9._+-]+\.(exe|dmg|AppImage|deb|rpm|tar\.gz|sig|json|html)$'
-if tar -tf "$work/release.tar" | grep -vE "$allowed" | grep -q .; then
+tar -tf "$work/release.tar" > "$work/names" || { echo "not a tar archive" >&2; exit 1; }
+if grep -vE "$allowed" "$work/names" | grep -q .; then
   echo "the release holds files it may not place" >&2
   exit 1
 fi
