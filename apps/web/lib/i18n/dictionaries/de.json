@@ -1823,6 +1823,13 @@
       "unreachable": "Die Instanz antwortet nicht. Versuchen Sie es gleich noch einmal.",
       "notSaved": "Die Datei konnte dort nicht gespeichert werden. Wählen Sie einen anderen Ordner.",
       "noApp": "Keine App auf diesem Computer kann diese Datei öffnen."
+    },
+    "update": {
+      "available": "Ruchoir {{version}} ist verfügbar.",
+      "availableManual": "Ruchoir {{version}} ist verfügbar: Installieren Sie es von der Download-Seite.",
+      "failed": "Das Update konnte nicht installiert werden. Versuchen Sie es erneut.",
+      "restart": "Neu starten und aktualisieren",
+      "installing": "Wird installiert…"
     }
   }
 }

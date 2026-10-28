@@ -134,3 +134,58 @@ its click, a notification setting changed on one and found on the other, the bad
 reopening from it, launch at login (the app starts in the tray), and the memory read in the task
 manager.
 macOS is checked by a volunteer tester before each release.
+
+## Updates
+
+The app checks `https://ruchoir.com/desktop/latest.json` at launch and every six hours
+(`src-tauri/src/updater.rs`). A newer version shows a line under the title bar, "Restart to update":
+on the click it is downloaded, its signature checked against the public key in `tauri.conf.json`,
+installed, and the app starts again. Windows (NSIS), macOS and the AppImage update themselves; a
+`.deb` or `.rpm` install is not updated by the app yet (the updater could, given signed packages in
+the manifest, asking for the administrator's password each time), and its button opens the download
+page instead. A failed check or
+download changes nothing and is tried again at the next check.
+
+The updater's key pair (minisign) is the app's own, apart from the systems' code signing
+certificates (which come later). The private key and its password are the repository's secrets
+`TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, with a copy in Théo's password
+manager. **Losing it means no installed app can ever update again**: every install would have to
+be replaced by hand with a build carrying a new public key.
+
+## Releasing
+
+A tag `desktop-vX.Y.Z` (apart from the instance's `vX.Y.Z` tags) runs the `Desktop apps` workflow
+as a release: every system is built with the tag's version and the updater's archives signed, then
+the `publish` job gathers the files, writes `latest.json` and a plain download page
+(`infra/desktop-release/assemble.mjs`), and hands them to the website's server through the
+`deploy` account (secret `DESKTOP_DEPLOY_SSH_KEY`, host and host key shared with the relay's
+`RELAY_DEPLOY_HOST` and `RELAY_DEPLOY_KNOWN_HOSTS`). There, `desktop-publish` puts them in
+`/srv/ruchoir-desktop/vX.Y.Z/`, then `latest.json` and `index.html` at the top, last, so an app never
+reads a manifest naming files not there yet. Older versions stay. Log:
+`/var/log/desktop-publish.log`.
+
+Once, by hand, on the website's server:
+
+- `infra/desktop-release/desktop-publish` and `desktop-publish-entry` in `/usr/local/sbin` (root,
+  `0755`); a key of its own for the `deploy` account bound to the entry
+  (`command="/usr/local/sbin/desktop-publish-entry",restrict ssh-ed25519 … ci-desktop`), and
+  `/etc/sudoers.d/desktop-publish`: `deploy ALL=(root) NOPASSWD: /usr/local/sbin/desktop-publish`;
+- `/srv/ruchoir-desktop/` (root, `0755`);
+- in nginx's `ruchoir.com` server block (the file comes from the website's repository,
+  `deploy/nginx/ruchoir.com.conf`: change it there too):
+
+  ```nginx
+  location = /desktop/latest.json {
+      alias /srv/ruchoir-desktop/latest.json;
+      add_header Cache-Control "no-cache" always;
+      add_header X-Robots-Tag "noindex" always;
+  }
+  location /desktop/ {
+      alias /srv/ruchoir-desktop/;
+      add_header X-Robots-Tag "noindex" always;
+  }
+  ```
+
+The first version a person installs by hand (from `https://ruchoir.com/desktop/`); each later one
+reaches the app by itself. Until the systems' certificates, Windows warns at the first install
+(SmartScreen, "More info", "Run anyway") and macOS asks to open it from the Finder's context menu.

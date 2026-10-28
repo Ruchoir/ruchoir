@@ -1957,6 +1957,13 @@
       "unreachable": "Instancja nie odpowiada. Spróbuj ponownie za chwilę.",
       "notSaved": "Nie udało się zapisać pliku w tym miejscu. Wybierz inny folder.",
       "noApp": "Żadna aplikacja na tym komputerze nie otworzy tego pliku."
+    },
+    "update": {
+      "available": "Ruchoir {{version}} jest dostępny.",
+      "availableManual": "Ruchoir {{version}} jest dostępny: zainstaluj go ze strony pobierania.",
+      "failed": "Nie udało się zainstalować aktualizacji. Spróbuj ponownie.",
+      "restart": "Uruchom ponownie, aby zaktualizować",
+      "installing": "Instalowanie…"
     }
   }
 }
