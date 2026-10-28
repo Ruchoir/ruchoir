@@ -70,7 +70,8 @@ export function Button({
       ) : (
         <View style={styles.row}>
           {icon}
-          <Text variant={size === "sm" ? "smallStrong" : "bodyStrong"} style={{ color: fg }}>
+          {/* One line, cut with "…" when the words are longer than the button (a long instance name). */}
+          <Text variant={size === "sm" ? "smallStrong" : "bodyStrong"} numberOfLines={1} style={[styles.label, { color: fg }]}>
             {label}
           </Text>
         </View>
@@ -88,6 +89,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   link: { alignSelf: "flex-start", paddingVertical: 6 },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  row: { flexDirection: "row", alignItems: "center", gap: 8, maxWidth: "100%" },
+  label: { flexShrink: 1 },
   lifted: { shadowOffset: { width: 4, height: 4 }, shadowOpacity: 1, shadowRadius: 0, elevation: 4 },
 });
