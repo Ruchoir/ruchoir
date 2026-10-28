@@ -1726,7 +1726,8 @@
       "freebusy": "Nur Verfügbarkeit",
       "read": "Details sehen",
       "write": "Termine bearbeiten"
-    }
+    },
+    "printFile": "kalender.pdf"
   },
   "invitationPage": {
     "title": "Einladung",
@@ -1814,6 +1815,14 @@
       "closeToTrayDesc": "Das Schließen des Fensters lässt Ruchoir im Infobereich, damit weiterhin Benachrichtigungen ankommen.",
       "sharedNote": "Gleich auf allen Ihren Instanzen",
       "instanceNote": "Nur für {{host}}"
+    },
+    "download": {
+      "title": "Download nicht möglich",
+      "failed": "Die Datei konnte nicht abgerufen werden. Versuchen Sie es erneut.",
+      "signedOut": "Ihre Sitzung auf dieser Instanz ist beendet. Melden Sie sich erneut an und versuchen Sie es noch einmal.",
+      "unreachable": "Die Instanz antwortet nicht. Versuchen Sie es gleich noch einmal.",
+      "notSaved": "Die Datei konnte dort nicht gespeichert werden. Wählen Sie einen anderen Ordner.",
+      "noApp": "Keine App auf diesem Computer kann diese Datei öffnen."
     }
   }
 }

@@ -1793,7 +1793,8 @@
       "freebusy": "Solo disponibilidad",
       "read": "Ver los detalles",
       "write": "Editar los eventos"
-    }
+    },
+    "printFile": "agenda.pdf"
   },
   "invitationPage": {
     "title": "Invitación",
@@ -1881,6 +1882,14 @@
       "closeToTrayDesc": "Cerrar la ventana deja Ruchoir en el área de notificaciones, para seguir recibiendo notificaciones.",
       "sharedNote": "Común a todas tus instancias",
       "instanceNote": "Solo para {{host}}"
+    },
+    "download": {
+      "title": "Descarga imposible",
+      "failed": "No se ha podido obtener el archivo. Inténtelo de nuevo.",
+      "signedOut": "Su sesión en esta instancia ha terminado. Vuelva a iniciar sesión e inténtelo de nuevo.",
+      "unreachable": "La instancia no responde. Inténtelo de nuevo en un momento.",
+      "notSaved": "No se ha podido guardar el archivo ahí. Elija otra carpeta.",
+      "noApp": "Ninguna aplicación de este ordenador puede abrir este archivo."
     }
   }
 }
