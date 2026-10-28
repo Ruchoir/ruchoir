@@ -758,7 +758,10 @@
   "thread": {
     "title": "Wątek",
     "in": "w {{name}}",
-    "noReplies": "Brak odpowiedzi"
+    "noReplies": "Brak odpowiedzi",
+    "alsoInChannel": "Wyślij też do #{{channel}}",
+    "alsoInConversation": "Wyślij też do rozmowy",
+    "repliedToThread": "odpowiedział(a) w wątku"
   },
   "newMessage": {
     "title": "Nowa wiadomość",

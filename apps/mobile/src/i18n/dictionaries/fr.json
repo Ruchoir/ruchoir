@@ -674,7 +674,10 @@
   "thread": {
     "title": "Fil de discussion",
     "in": "dans {{name}}",
-    "noReplies": "Pas encore de réponse"
+    "noReplies": "Pas encore de réponse",
+    "alsoInChannel": "Envoyer aussi dans #{{channel}}",
+    "alsoInConversation": "Envoyer aussi dans la conversation",
+    "repliedToThread": "a répondu à un fil"
   },
   "newMessage": {
     "title": "Nouveau message",

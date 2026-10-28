@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useSupports } from "../../api/features";
 import { useApi } from "../../api/useApi";
 import { Composer } from "../../compose/Composer";
 import { useAttachRequests } from "../../compose/requests";
@@ -50,6 +51,14 @@ export function ThreadScreen() {
   const channels = useLoad(current ? `channels:${current.id}` : null, (signal) => getChannels(current!.id, signal));
   useReloadOn((e) => !!current && affects.channels(e, current.id), channels.reload);
   const draftKey = `thread:${rootId}`;
+  // "Also send to #general" under the field, where the instance can.
+  const canAlso = useSupports("reply_to_channel");
+  const channelName = channelId ? (channels.data?.find((ch) => ch.id === channelId)?.name ?? title) : undefined;
+  const alsoLabel = !canAlso
+    ? undefined
+    : channelName
+      ? t("thread.alsoInChannel", { channel: channelName })
+      : t("thread.alsoInConversation");
 
   const replies = useLoad(`replies:${rootId}`, (signal) => getReplies(rootId, signal));
   const loaded = useMemo(
@@ -165,6 +174,7 @@ export function ThreadScreen() {
             conversationId={conversationId}
             draftKey={draftKey}
             parentId={rootId}
+            alsoInChannelLabel={alsoLabel}
             placeholder={t("compose.placeholderThread")}
             people={members.list}
             channels={channels.data ?? []}

@@ -440,7 +440,11 @@
   "thread": {
     "title": "Wątek",
     "close": "Zamknij wątek",
-    "replyPlaceholder": "Odpowiedz w wątku"
+    "replyPlaceholder": "Odpowiedz w wątku",
+    "alsoInChannel": "Wyślij też do #{{channel}}",
+    "alsoInConversation": "Wyślij też do rozmowy",
+    "repliedToThread": "odpowiedział(a) w wątku",
+    "openThread": "Otwórz wątek"
   },
   "composer": {
     "uploadFailed": "Plik nie został wysłany",

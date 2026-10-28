@@ -716,7 +716,10 @@
   "thread": {
     "title": "Hilo",
     "in": "en {{name}}",
-    "noReplies": "Todavía no hay respuestas"
+    "noReplies": "Todavía no hay respuestas",
+    "alsoInChannel": "Enviar también a #{{channel}}",
+    "alsoInConversation": "Enviar también a la conversación",
+    "repliedToThread": "respondió en un hilo"
   },
   "newMessage": {
     "title": "Nuevo mensaje",

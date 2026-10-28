@@ -716,7 +716,10 @@
   "thread": {
     "title": "Discussione",
     "in": "in {{name}}",
-    "noReplies": "Ancora nessuna risposta"
+    "noReplies": "Ancora nessuna risposta",
+    "alsoInChannel": "Invia anche in #{{channel}}",
+    "alsoInConversation": "Invia anche nella conversazione",
+    "repliedToThread": "ha risposto in una discussione"
   },
   "newMessage": {
     "title": "Nuovo messaggio",

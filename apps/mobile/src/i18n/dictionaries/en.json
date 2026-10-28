@@ -674,7 +674,10 @@
   "thread": {
     "title": "Thread",
     "in": "in {{name}}",
-    "noReplies": "No replies yet"
+    "noReplies": "No replies yet",
+    "alsoInChannel": "Also send to #{{channel}}",
+    "alsoInConversation": "Also send to the conversation",
+    "repliedToThread": "replied to a thread"
   },
   "newMessage": {
     "title": "New message",

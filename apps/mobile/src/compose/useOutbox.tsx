@@ -20,6 +20,8 @@ export type OutgoingMessage = {
   attachments: MessageAttachment[];
   images?: InlineImage[];
   parentId?: string;
+  /** A thread reply sent to its channel too. */
+  alsoInChannel?: boolean;
   /** My messages with the same words already on screen (see `OutboxItem.baseline`). */
   baseline: string[];
 };
@@ -59,6 +61,7 @@ export function OutboxProvider({ children }: { children: ReactNode }) {
       sendMessage(item.conversationId, item.body, {
         attachments: item.attachments.flatMap((a) => (a.fileId ? [a.fileId] : [])),
         parentMessageId: item.parentId,
+        alsoInChannel: item.alsoInChannel,
       }).then(
         (message) => {
           // Into the screens first, then out of the outbox, so the row never blinks out in between.
