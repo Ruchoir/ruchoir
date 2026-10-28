@@ -4,7 +4,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useState } from "react";
 import { Alert, Linking, Platform, Pressable, StyleSheet, View } from "react-native";
 
-import { useSignedInClients } from "../../accounts/AccountsProvider";
+import { useAccounts, useSignedInClients } from "../../accounts/AccountsProvider";
+import { hostOf } from "../../accounts/summary";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
@@ -123,6 +124,9 @@ export function NotificationPrefs() {
   const { t } = useTranslation();
   const { locale } = useLocale();
   const toast = useToast();
+  // Each instance keeps its own: with several on the phone, say which one these are.
+  const { accounts, active } = useAccounts();
+  const forInstance = accounts.length > 1 && active ? t("notifPrefs.forInstance", { host: hostOf(active.origin) }) : undefined;
   const loaded = useLoad("notificationPrefs", (signal) => getNotificationPreferences(signal));
   const [changed, setChanged] = useState<NotificationPreferences | null>(null);
   const prefs = changed ?? loaded.data;
@@ -153,7 +157,7 @@ export function NotificationPrefs() {
       <Section label={t("push.section")}>
         <PhonePushRow />
       </Section>
-      <Section label={t("details.notifications")}>
+      <Section label={t("details.notifications")} note={forInstance}>
         <ToggleRow title={t("notifPrefs.enabled")} text={t("notifPrefs.enabledText")} value={prefs.enabled} onChange={(enabled) => save({ enabled })} />
         {KINDS.map((kind) => (
           <ToggleRow

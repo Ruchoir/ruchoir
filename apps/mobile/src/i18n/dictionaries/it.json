@@ -971,7 +971,8 @@
     "quietText": "Nessuna notifica nella fascia oraria scelta.",
     "byEmail": "Via e-mail",
     "email": "Riepilogo via e-mail",
-    "emailText": "Ciò che resta non letto per un quarto d’ora, quando Ruchoir non è aperto da nessuna parte, arriva via e-mail."
+    "emailText": "Ciò che resta non letto per un quarto d’ora, quando Ruchoir non è aperto da nessuna parte, arriva via e-mail.",
+    "forInstance": "Per {{host}}. Ogni istanza ha le proprie impostazioni, ore di silenzio ed e-mail comprese."
   },
   "prefs": {
     "appearance": "Aspetto",

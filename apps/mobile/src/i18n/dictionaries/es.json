@@ -971,7 +971,8 @@
     "quietText": "Ninguna notificación en la franja horaria elegida.",
     "byEmail": "Por correo",
     "email": "Resumen por correo",
-    "emailText": "Lo que sigue sin leer un cuarto de hora, cuando Ruchoir no está abierto en ninguna parte, llega por correo."
+    "emailText": "Lo que sigue sin leer un cuarto de hora, cuando Ruchoir no está abierto en ninguna parte, llega por correo.",
+    "forInstance": "Para {{host}}. Cada instancia tiene sus propios ajustes, horas de silencio y correos incluidos."
   },
   "prefs": {
     "appearance": "Apariencia",

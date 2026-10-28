@@ -1019,7 +1019,8 @@
     "quietText": "Żadnych powiadomień w wybranych godzinach.",
     "byEmail": "E-mailem",
     "email": "Podsumowanie e-mailem",
-    "emailText": "To, co przez kwadrans pozostaje nieprzeczytane, gdy Ruchoir nie jest nigdzie otwarty, przychodzi e-mailem."
+    "emailText": "To, co przez kwadrans pozostaje nieprzeczytane, gdy Ruchoir nie jest nigdzie otwarty, przychodzi e-mailem.",
+    "forInstance": "Dla {{host}}. Każda instancja ma własne ustawienia, w tym godziny ciszy i e-maile."
   },
   "prefs": {
     "appearance": "Wygląd",

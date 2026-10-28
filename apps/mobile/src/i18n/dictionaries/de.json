@@ -923,7 +923,8 @@
     "quietText": "Keine Benachrichtigung im gewählten Zeitraum.",
     "byEmail": "Per E-Mail",
     "email": "Zusammenfassung per E-Mail",
-    "emailText": "Was eine Viertelstunde ungelesen bleibt, während Ruchoir nirgends geöffnet ist, kommt per E-Mail."
+    "emailText": "Was eine Viertelstunde ungelesen bleibt, während Ruchoir nirgends geöffnet ist, kommt per E-Mail.",
+    "forInstance": "Für {{host}}. Jede Instanz hat ihre eigenen Einstellungen, Ruhezeiten und E-Mails eingeschlossen."
   },
   "prefs": {
     "appearance": "Darstellung",

@@ -923,7 +923,8 @@
     "quietText": "Aucune notification sur la plage horaire choisie.",
     "byEmail": "Par e-mail",
     "email": "Rattrapage par e-mail",
-    "emailText": "Ce qui reste non lu un quart d’heure, quand Ruchoir n’est ouvert nulle part, arrive par e-mail."
+    "emailText": "Ce qui reste non lu un quart d’heure, quand Ruchoir n’est ouvert nulle part, arrive par e-mail.",
+    "forInstance": "Pour {{host}}. Chaque instance a ses propres réglages, heures calmes et e-mails compris."
   },
   "prefs": {
     "appearance": "Apparence",
