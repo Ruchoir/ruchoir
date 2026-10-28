@@ -35,6 +35,19 @@
   border: 1px solid var(--border-subtle);
 }
 
+/* A newer version, under the title bar: one quiet line and its button. */
+.wc-desktop__update {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+  color: var(--text-default);
+  font-size: var(--text-sm);
+}
+
 .wc-desktop__body {
   position: relative;
   flex: 1;

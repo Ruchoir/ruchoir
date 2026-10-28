@@ -38,6 +38,14 @@ export const preferencesChanged = (id: string) => invoke<void>("preferences_chan
 export const desktopSettings = () => invoke<DesktopSettings>("desktop_settings");
 /** End the app (the window's close only hides it to the tray). */
 export const quitApp = () => invoke<void>("app_quit");
+/** A newer version of the app, found by the core (`updater.rs`). */
+export type UpdateOffer = { version: string; manual: boolean };
+/** The newer version found so far, if any (for a window opened after the check). */
+export const updateState = () => invoke<UpdateOffer | null>("update_state");
+/** "Restart to update" (or, for a system package, the download page). */
+export const updateInstall = () => invoke<void>("update_install");
+export const onUpdateAvailable = (handler: (offer: UpdateOffer) => void) =>
+  listen<UpdateOffer>("update:available", (event) => handler(event.payload));
 /** "Save as" for a download link of the interface; false when the person cancelled. */
 export const downloadSave = (href: string, name: string) => invoke<boolean>("download_save", { href, name });
 /** Open what a link points at in the system's app for it (the calendar's PDF, to print). */

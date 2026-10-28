@@ -15,6 +15,7 @@ mod relay;
 mod shell;
 mod state;
 mod summaries;
+mod updater;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -64,6 +65,7 @@ fn main() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(
@@ -91,6 +93,8 @@ fn main() {
             relay::socket_is_open,
             downloads::download_save,
             downloads::download_open,
+            updater::update_state,
+            updater::update_install,
         ])
         .setup(|app| {
             let list_path = app.path().app_data_dir()?.join("instances.json");
@@ -103,6 +107,8 @@ fn main() {
             app.manage(notify::Notifier::default());
             app.manage(shell::Shell::default());
             app.manage(protocol::EmojiStore::default());
+            app.manage(updater::Updates::default());
+            updater::watch(app.handle());
             notify::listen_for_clicks(app.handle());
             relay::reconcile(app.handle());
 

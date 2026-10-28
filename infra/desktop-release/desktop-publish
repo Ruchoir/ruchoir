@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+#
+# Publish one released version of the desktop app on the website's server: the only thing the CI may
+# do here for the desktop app (docs/desktop.md, "Releasing").
+#
+# Installed as /usr/local/sbin/desktop-publish (root, 0755), reached through the `deploy` account
+# whose desktop key is bound to desktop-publish-entry:
+#
+#   ssh deploy@<server> v1.2.3 < release.tar
+#
+# The archive holds the release's files at its root: the installers, the updater's archives with
+# their `.sig`, `latest.json` and `index.html`. They go to /srv/ruchoir-desktop/<version>/, then
+# latest.json and index.html are put in place at the top, last, so an app never reads a manifest
+# pointing at files not there yet. nginx serves the folder as https://ruchoir.com/desktop/.
+# Older versions stay, so an app between two checks can still download what it was offered.
+set -euo pipefail
+
+ROOT="${DESKTOP_ROOT:-/srv/ruchoir-desktop}"
+LOG="/var/log/desktop-publish.log"
+MAX_BYTES=$((1536 * 1024 * 1024))
+
+version="${1:-}"
+if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+  echo "usage: desktop-publish vMAJOR.MINOR.PATCH[-pre] < release.tar" >&2
+  exit 2
+fi
+plain="${version#v}"
+
+exec > >(tee -a "$LOG") 2>&1
+echo "=== $(date -u +%FT%TZ) publishing $version"
+exec 9>/run/desktop-publish.lock
+flock -n 9 || { echo "another publication is running" >&2; exit 1; }
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+head -c "$((MAX_BYTES + 1))" > "$work/release.tar"
+[ "$(stat -c %s "$work/release.tar")" -le "$MAX_BYTES" ] || { echo "release too large" >&2; exit 1; }
+# Plain files at the root only, with the names a release has: nothing else may be placed.
+allowed='^\./$|^(\./)?[A-Za-z0-9._+-]+\.(exe|dmg|AppImage|deb|rpm|tar\.gz|sig|json|html)$'
+if tar -tf "$work/release.tar" | grep -vE "$allowed" | grep -q .; then
+  echo "the release holds files it may not place" >&2
+  exit 1
+fi
+mkdir "$work/stage"
+tar -xf "$work/release.tar" -C "$work/stage" --no-same-owner --no-same-permissions
+for needed in latest.json index.html; do
+  [ -f "$work/stage/$needed" ] || { echo "the release has no $needed" >&2; exit 1; }
+done
+grep -q "\"version\": *\"$plain\"" "$work/stage/latest.json" || { echo "latest.json is not for $version" >&2; exit 1; }
+
+target="$ROOT/$version"
+mkdir -p "$target"
+find "$work/stage" -maxdepth 1 -type f ! -name latest.json ! -name index.html -exec install -m 0644 {} "$target/" \;
+install -m 0644 "$work/stage/latest.json" "$ROOT/.latest.json.new"
+install -m 0644 "$work/stage/index.html" "$ROOT/.index.html.new"
+mv -f "$ROOT/.latest.json.new" "$ROOT/latest.json"
+mv -f "$ROOT/.index.html.new" "$ROOT/index.html"
+echo "=== $(date -u +%FT%TZ) $version published"
