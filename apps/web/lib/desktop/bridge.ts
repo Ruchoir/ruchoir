@@ -38,6 +38,10 @@ export const preferencesChanged = (id: string) => invoke<void>("preferences_chan
 export const desktopSettings = () => invoke<DesktopSettings>("desktop_settings");
 /** End the app (the window's close only hides it to the tray). */
 export const quitApp = () => invoke<void>("app_quit");
+/** "Save as" for a download link of the interface; false when the person cancelled. */
+export const downloadSave = (href: string, name: string) => invoke<boolean>("download_save", { href, name });
+/** Open what a link points at in the system's app for it (the calendar's PDF, to print). */
+export const downloadOpen = (href: string, name: string) => invoke<void>("download_open", { href, name });
 export const setDesktopSettings = (settings: DesktopSettings) => invoke<DesktopSettings>("set_desktop_settings", { settings });
 /** The tray menu's words and the first-close notice, in the interface's language. */
 export const setShellLabels = (labels: { open: string; quit: string; closed_to_tray: string }) =>

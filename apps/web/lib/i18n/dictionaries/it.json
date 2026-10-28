@@ -1793,7 +1793,8 @@
       "freebusy": "Solo disponibilità",
       "read": "Vedere i dettagli",
       "write": "Modificare gli eventi"
-    }
+    },
+    "printFile": "calendario.pdf"
   },
   "invitationPage": {
     "title": "Invito",
@@ -1881,6 +1882,14 @@
       "closeToTrayDesc": "Chiudere la finestra lascia Ruchoir nell’area di notifica, per continuare a ricevere le notifiche.",
       "sharedNote": "Uguale su tutte le tue istanze",
       "instanceNote": "Solo per {{host}}"
+    },
+    "download": {
+      "title": "Download non riuscito",
+      "failed": "Impossibile recuperare il file. Riprova.",
+      "signedOut": "La sessione su questa istanza è terminata. Accedi di nuovo, poi riprova.",
+      "unreachable": "L’istanza non risponde. Riprova tra un momento.",
+      "notSaved": "Impossibile salvare il file lì. Scegli un’altra cartella.",
+      "noApp": "Nessuna app di questo computer può aprire questo file."
     }
   }
 }

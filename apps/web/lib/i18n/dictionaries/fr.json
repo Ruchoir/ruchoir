@@ -1752,7 +1752,8 @@
       "freebusy": "Disponibilités seulement",
       "read": "Voir les détails",
       "write": "Modifier les événements"
-    }
+    },
+    "printFile": "agenda.pdf"
   },
   "invitationPage": {
     "title": "Invitation",
@@ -1840,6 +1841,14 @@
       "closeToTrayDesc": "Fermer la fenêtre laisse Ruchoir dans la zone de notification, pour continuer à recevoir les notifications.",
       "sharedNote": "Commun à toutes vos instances",
       "instanceNote": "Propre à {{host}}"
+    },
+    "download": {
+      "title": "Téléchargement impossible",
+      "failed": "Le fichier n’a pas pu être récupéré. Réessayez.",
+      "signedOut": "Votre session sur cette instance est terminée. Reconnectez-vous, puis réessayez.",
+      "unreachable": "L’instance ne répond pas. Réessayez dans un instant.",
+      "notSaved": "Le fichier n’a pas pu être enregistré à cet endroit. Choisissez un autre dossier.",
+      "noApp": "Aucune application de cet ordinateur ne sait ouvrir ce fichier."
     }
   }
 }

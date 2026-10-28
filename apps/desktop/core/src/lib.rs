@@ -5,6 +5,7 @@
 //! pieces to the window, the system's keychain and the deep links.
 
 pub mod auth;
+pub mod emoji_disk;
 pub mod instances;
 pub mod vault;
 

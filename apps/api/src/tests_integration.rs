@@ -10252,6 +10252,49 @@ async fn boot_office(configure: impl FnOnce(&mut Config)) -> Option<TestApp> {
 }
 
 #[tokio::test]
+async fn the_emoji_sprite_is_compressed_for_whoever_asks_and_the_pictures_are_not() {
+    let dir = std::env::temp_dir().join(format!("ruchoir-emoji-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(dir.join("animated")).expect("pack folder");
+    let sprite = format!(
+        "<svg xmlns=\"http://www.w3.org/2000/svg\">{}</svg>",
+        "<symbol id=\"e1f600\"><path d=\"M0 0h32v32H0z\"/></symbol>".repeat(400)
+    );
+    std::fs::write(dir.join("sprite.svg"), &sprite).expect("sprite");
+    std::fs::write(dir.join("animated").join("1f600.png"), vec![7u8; 4096]).expect("picture");
+    let pack = dir.clone();
+    let Some(app) = boot_with(None, move |config| config.emoji_dir = Some(pack)).await else {
+        return;
+    };
+
+    let get = |path: &'static str, gzip: bool| {
+        let app = &app;
+        async move {
+            let mut request = app.http.get(format!("{}{path}", app.base));
+            if gzip {
+                request = request.header("Accept-Encoding", "gzip");
+            }
+            request.send().await.expect("emoji")
+        }
+    };
+    let packed = get("/emoji/sprite.svg", true).await;
+    assert_eq!(packed.status(), 200);
+    assert_eq!(packed.headers()["content-encoding"], "gzip");
+    assert_eq!(packed.headers()["cache-control"], "public, max-age=604800");
+    let bytes = packed.bytes().await.expect("body");
+    assert!(bytes.len() < sprite.len() / 4, "the sprite is far smaller");
+
+    // Asked plainly, it comes plainly; a picture is never compressed again.
+    let plain = get("/emoji/sprite.svg", false).await;
+    assert!(plain.headers().get("content-encoding").is_none());
+    assert_eq!(plain.text().await.expect("body"), sprite);
+    let picture = get("/emoji/animated/1f600.png", true).await;
+    assert_eq!(picture.status(), 200);
+    assert!(picture.headers().get("content-encoding").is_none());
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
 async fn the_instance_says_what_the_editor_opens() {
     let Some(app) = boot_office(|_| {}).await else {
         return;

@@ -25,6 +25,7 @@ import {
   type InstanceView,
 } from "@/lib/desktop/bridge";
 import { shortLabel, type DesktopSettings, type Summary } from "@/lib/desktop/instances";
+import { catchDownloads } from "@/lib/desktop/downloads";
 import { createRelaySocket } from "@/lib/desktop/relaySocket";
 import { desktopOs, instanceBase } from "@/lib/desktop/runtime";
 import { requestSearch } from "@/lib/desktop/searchRequest";
@@ -158,6 +159,11 @@ export function DesktopRoot() {
     };
   }, [holdStill]);
 
+  // Download links go to the core ("Save as", or the system's app for the calendar's PDF): the
+  // webview saves nothing by itself. A failure says why, in a dialog.
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  useEffect(() => catchDownloads(setDownloadError), []);
+
   // The tray's words follow the interface's language.
   useEffect(() => {
     void setShellLabels({ open: t("desktop.tray.open"), quit: t("desktop.tray.quit"), closed_to_tray: t("desktop.tray.closedNotice") });
@@ -262,6 +268,31 @@ export function DesktopRoot() {
         ) : null}
         <div className="wc-desktop__still" ref={stillRef} aria-hidden="true" />
       </div>
+      {downloadError ? (
+        <Dialog
+          title={t("desktop.download.title")}
+          onClose={() => setDownloadError(null)}
+          closeLabel={t("common.close")}
+          footer={
+            <Button variant="primary" onClick={() => setDownloadError(null)}>
+              {t("common.close")}
+            </Button>
+          }
+        >
+          <p>
+            {/* The core's error codes (`downloads.rs`), each in words. */}
+            {downloadError === "signed_out"
+              ? t("desktop.download.signedOut")
+              : downloadError === "unreachable"
+                ? t("desktop.download.unreachable")
+                : downloadError === "not_saved"
+                  ? t("desktop.download.notSaved")
+                  : downloadError === "no_app"
+                    ? t("desktop.download.noApp")
+                    : t("desktop.download.failed")}
+          </p>
+        </Dialog>
+      ) : null}
       {asking ? (
         <Dialog
           title={t("desktop.switch.title")}

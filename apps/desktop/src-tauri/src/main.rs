@@ -8,6 +8,7 @@
 // No console window behind the app on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod downloads;
 mod notify;
 mod protocol;
 mod relay;
@@ -62,6 +63,7 @@ fn main() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(
@@ -87,6 +89,8 @@ fn main() {
             shell::app_quit,
             relay::socket_send,
             relay::socket_is_open,
+            downloads::download_save,
+            downloads::download_open,
         ])
         .setup(|app| {
             let list_path = app.path().app_data_dir()?.join("instances.json");
@@ -143,6 +147,26 @@ fn main() {
                         move |url, _| {
                             leave_for(&handle, &url);
                             tauri::webview::NewWindowResponse::Deny
+                        }
+                    })
+                    // The interface hands its download links to the core (`downloads`); one that
+                    // still reaches the webview goes the same way, "Save as", never to the webview.
+                    .on_download({
+                        let handle = app.handle().clone();
+                        move |_, event| {
+                            if let tauri::webview::DownloadEvent::Requested { url, .. } = event {
+                                let handle = handle.clone();
+                                let href = url.to_string();
+                                let name = url
+                                    .path_segments()
+                                    .and_then(|mut segments| segments.next_back())
+                                    .unwrap_or("download")
+                                    .to_owned();
+                                tauri::async_runtime::spawn(async move {
+                                    let _ = downloads::save(&handle, &href, &name).await;
+                                });
+                            }
+                            false
                         }
                     });
             // Frameless with the interface's own title bar on Windows and Linux; on macOS the
