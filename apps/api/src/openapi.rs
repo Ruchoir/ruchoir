@@ -257,6 +257,7 @@ use utoipa::OpenApi;
         crate::messaging::dto::ReactionDto,
         crate::messaging::dto::MessageDto,
         crate::messaging::dto::LinkPreviewDto,
+        crate::messaging::dto::ThreadRootDto,
         crate::messaging::dto::MessagePage,
         crate::messaging::dto::ChangesDto,
         crate::messaging::dto::SpaceDto,

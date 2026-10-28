@@ -1839,6 +1839,114 @@ async fn space_row(app: &TestApp, cookie: &str, space_id: Uuid) -> Value {
 }
 
 #[tokio::test]
+async fn a_reply_sent_to_the_channel_too_shows_counts_and_previews_there() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let post = format!("/api/v1/conversations/{}/messages", fx.public_channel);
+    let channel = fx.public_channel.to_string();
+    let is_channel = |c: &Value| c["id"] == channel.as_str();
+
+    let root: Value = app
+        .req(reqwest::Method::POST, &post, &alice)
+        .json(&json!({ "body": "On   décale la répétition\nà jeudi ?" }))
+        .send()
+        .await
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    let before = space_row(&app, &alice, fx.space_id).await["unread"].clone();
+
+    // A plain reply stays in its thread; "also_in_channel" without a parent means nothing.
+    let plain = app
+        .req(reqwest::Method::POST, &post, &bob)
+        .json(&json!({ "body": "dans le fil seulement", "parent_message_id": root["id"] }))
+        .send()
+        .await
+        .expect("reply");
+    assert_eq!(plain.status(), 201);
+    let lone: Value = app
+        .req(reqwest::Method::POST, &post, &bob)
+        .json(&json!({ "body": "racine", "also_in_channel": true }))
+        .send()
+        .await
+        .expect("send")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(lone["also_in_channel"], false);
+    assert!(lone.get("thread_root").is_none());
+
+    let shared: Value = app
+        .req(reqwest::Method::POST, &post, &bob)
+        .json(&json!({
+            "body": "Ok pour moi",
+            "parent_message_id": root["id"],
+            "also_in_channel": true,
+        }))
+        .send()
+        .await
+        .expect("reply")
+        .json()
+        .await
+        .expect("json");
+    assert_eq!(shared["also_in_channel"], true);
+    assert_eq!(shared["thread_root"]["id"], root["id"]);
+    assert_eq!(
+        shared["thread_root"]["excerpt"],
+        "On décale la répétition à jeudi ?"
+    );
+    assert!(shared["thread_root"]["author_name"].is_string());
+
+    // The feed holds the root, the lone message and the shared reply, never the plain one.
+    let page: Value = app
+        .req(reqwest::Method::GET, &post, &alice)
+        .send()
+        .await
+        .expect("history")
+        .json()
+        .await
+        .expect("json");
+    let bodies: Vec<&str> = page["messages"]
+        .as_array()
+        .expect("messages")
+        .iter()
+        .map(|m| m["body"].as_str().unwrap_or_default())
+        .collect();
+    assert!(bodies.contains(&"Ok pour moi"));
+    assert!(!bodies.contains(&"dans le fil seulement"));
+    // Still a reply in its thread, which counts it once.
+    let replies: Value = app
+        .req(
+            reqwest::Method::GET,
+            &format!(
+                "/api/v1/messages/{}/replies",
+                root["id"].as_str().expect("id")
+            ),
+            &alice,
+        )
+        .send()
+        .await
+        .expect("replies")
+        .json()
+        .await
+        .expect("json");
+    let replies = replies["messages"]
+        .as_array()
+        .or(replies.as_array())
+        .expect("replies");
+    assert_eq!(replies.len(), 2);
+
+    // It counts as the channel's messages do (the lone one and it), and is its latest word.
+    let after = space_row(&app, &alice, fx.space_id).await["unread"].clone();
+    assert_eq!(after.as_i64().unwrap() - before.as_i64().unwrap(), 2);
+    let row = channel_row(&app, fx.space_id, &alice, is_channel).await;
+    assert_eq!(row["last_message"]["excerpt"], "Ok pour moi");
+}
+
+#[tokio::test]
 async fn space_counters_separate_mentions_from_other_activity() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;

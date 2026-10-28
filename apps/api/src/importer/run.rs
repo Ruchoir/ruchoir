@@ -1154,6 +1154,7 @@ pub async fn import_messages<C: ConnectionTrait>(
             system_event: Set(record.system_event.clone()),
             // Filled by the second pass, once every root has an identifier here.
             parent_message_id: Set(None),
+            also_in_channel: Set(false),
             reply_count: Set(0),
             imported_source: Set(Some(mapper.source.to_owned())),
             external_ref: Set(Some(record.id.clone())),
