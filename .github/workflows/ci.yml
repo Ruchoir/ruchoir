@@ -366,9 +366,18 @@ jobs:
         # passphrase decryption, because an archive is sealed with a passphrase rather than a key.
         # There is no fixed release on the rsa 0.9 line. Remove this ignore once rsa ships a
         # constant-time fix, or once rPGP no longer pulls it in.
+        #
+        # RUSTSEC-2026-0387 (crypto-bigint timing variability): fixed in 0.7.6, which the API's own
+        # p256 0.14 and aes-gcm use (0.7.10 in the lockfile). What remains is crypto-bigint 0.5,
+        # with no fixed release, behind the elliptic-curve 0.13 line that rPGP (0.21 included) and
+        # jsonwebtoken (11.1, its rust_crypto backend; the other one is AWS's aws-lc-rs, golden rule
+        # 2) still use. Neither path is reachable for timing: the importer only decrypts with a
+        # passphrase (see above), and the push relay signs one APNs token every 40 minutes, cached,
+        # which no one outside can make it repeat. Ignoring the ID also hides it for the 0.7 line:
+        # remove this ignore as soon as both move to elliptic-curve 0.14.
         run: |
           command -v cargo-audit >/dev/null || cargo install cargo-audit --locked
-          cargo audit --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195 --ignore RUSTSEC-2023-0071
+          cargo audit --ignore RUSTSEC-2026-0235 --ignore RUSTSEC-2026-0194 --ignore RUSTSEC-2026-0195 --ignore RUSTSEC-2023-0071 --ignore RUSTSEC-2026-0387
       - name: cargo audit (desktop app)
         # Its own workspace and lockfile (apps/desktop). Warnings only so far: unmaintained crates of
         # the GTK and D-Bus stacks Tauri builds on.
