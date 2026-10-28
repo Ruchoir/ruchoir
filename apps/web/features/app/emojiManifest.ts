@@ -23,28 +23,35 @@ const EMPTY: EmojiManifest = { static: new Set(), animated: new Set() };
 let cache: Promise<EmojiManifest> | null = null;
 
 /**
- * Fetch (and memoise) the pack manifest. Also warms the browser cache for the static sprite so the
- * first `<use>` reference paints instantly instead of blocking on a fetch when the picker opens.
+ * Fetch (and memoise) the pack manifest, once the static sprite has arrived whole. Until then the
+ * system's own glyphs are drawn: a `<use>` into a sprite still on its way paints nothing, and a
+ * picker opened on a slow line showed a grid of holes (the sprite is megabytes). The sprite's
+ * download also warms the cache every later `<use>` reads from. A sprite that cannot be read leaves
+ * the static glyphs to the system for this session.
  */
 export function loadEmojiManifest(): Promise<EmojiManifest> {
   if (cache) return cache;
   cache = fetch("/emoji/manifest.json")
     .then((r) => (r.ok ? r.json() : null))
-    .then((json): EmojiManifest => {
+    .then(async (json): Promise<EmojiManifest> => {
       if (!json) return EMPTY;
       const staticCodes: string[] = Array.isArray(json.static) ? json.static : [];
       const animated: string[] = Array.isArray(json.animated) ? json.animated : [];
-      // Prefetch the sprite once we know it exists; ignore failures (pack may be static-less).
-      if (staticCodes.length > 0) void fetch("/emoji/sprite.svg").catch(() => {});
-      return { static: new Set(staticCodes), animated: new Set(animated) };
+      const sprite =
+        staticCodes.length > 0
+          ? await fetch("/emoji/sprite.svg")
+              .then((r) => (r.ok ? r.arrayBuffer().then(() => true) : false))
+              .catch(() => false)
+          : false;
+      return { static: new Set(sprite ? staticCodes : []), animated: new Set(animated) };
     })
     .catch(() => EMPTY);
   return cache;
 }
 
 /**
- * React access to the pack manifest. Returns `null` until it resolves; during that brief window the
- * renderer uses the native glyph, then swaps to Fluent assets once the index is known.
+ * React access to the pack manifest. Returns `null` until it resolves (the sprite included); until
+ * then the renderer uses the native glyph, then swaps to Fluent assets.
  */
 export function useEmojiManifest(): EmojiManifest | null {
   const [manifest, setManifest] = useState<EmojiManifest | null>(null);

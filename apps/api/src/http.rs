@@ -343,6 +343,11 @@ pub fn router(state: AppState) -> Router {
     // pack at a couple of requests per client per week instead of one per glyph on every load. The
     // window is intentionally not `immutable`: `sprite.svg`/`manifest.json` keep a stable name across
     // rebuilds, so a bounded max-age lets a rebuilt pack propagate (or a hard refresh forces it).
+    //
+    // Compressed for whoever asks (gzip): the sprite is 5.3 MB of SVG and 1.9 MB once compressed,
+    // the difference between a picker full of holes and one that fills at once on a slow line. The
+    // animated PNGs are already compressed and are left as they are (the layer skips images, SVG
+    // aside).
     if let Some(dir) = state.config.emoji_dir.clone() {
         let emoji_service = ServeDir::new(dir);
         router = router.nest_service(
@@ -352,6 +357,7 @@ pub fn router(state: AppState) -> Router {
                     header::CACHE_CONTROL,
                     HeaderValue::from_static("public, max-age=604800"),
                 ))
+                .layer(tower_http::compression::CompressionLayer::new())
                 .service(emoji_service),
         );
     }

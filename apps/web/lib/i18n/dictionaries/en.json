@@ -1726,7 +1726,8 @@
       "freebusy": "Free/busy only",
       "read": "See details",
       "write": "Edit events"
-    }
+    },
+    "printFile": "calendar.pdf"
   },
   "invitationPage": {
     "title": "Invitation",
@@ -1814,6 +1815,14 @@
       "closeToTrayDesc": "Closing the window leaves Ruchoir in the notification area, so notifications keep coming.",
       "sharedNote": "The same on all your instances",
       "instanceNote": "Only for {{host}}"
+    },
+    "download": {
+      "title": "Download failed",
+      "failed": "The file could not be fetched. Try again.",
+      "signedOut": "Your session on this instance has ended. Sign in again, then try again.",
+      "unreachable": "The instance is not answering. Try again in a moment.",
+      "notSaved": "The file could not be saved there. Choose another folder.",
+      "noApp": "No app on this computer can open this file."
     }
   }
 }

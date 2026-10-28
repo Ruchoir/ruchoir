@@ -18,6 +18,7 @@ tauri-plugin-deep-link = "=2.6.2"
 tauri-plugin-single-instance = { version = "=2.5.4", features = ["deep-link"] }
 tauri-plugin-window-state = "=2.5.0"
 tauri-plugin-opener = "=2.7.2"
+tauri-plugin-dialog = "=2.8.3"
 tauri-plugin-store = "=2.5.0"
 tauri-plugin-notification = "=2.7.0"
 tauri-plugin-autostart = "=2.7.0"

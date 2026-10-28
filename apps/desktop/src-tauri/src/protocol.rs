@@ -10,6 +10,7 @@
 
 use std::sync::Mutex;
 
+use ruchoir_desktop_core::emoji_disk;
 use ruchoir_desktop_core::proxy::{self, Answer, EmojiCache, Outcome, Route};
 use tauri::http::{header, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager, Runtime, UriSchemeResponder};
@@ -126,6 +127,17 @@ async fn emoji_answer<R: Runtime>(
     if let Some(kept) = store.0.lock().ok().and_then(|c| c.get(path_and_query)) {
         return kept;
     }
+    // Kept on disk by an earlier launch: no fetch of the 5 MB sprite before the picker can draw.
+    let folder = app.path().app_cache_dir().ok().map(|dir| dir.join("emoji"));
+    if let Some(kept) = folder
+        .as_deref()
+        .and_then(|dir| emoji_disk::read(dir, path_and_query, emoji_disk::MAX_AGE))
+    {
+        if let Ok(mut cache) = store.0.lock() {
+            cache.put(path_and_query, &kept);
+        }
+        return kept;
+    }
     let desktop = app.state::<Desktop>();
     let Some(origin) = desktop.active_origin() else {
         return empty(404);
@@ -142,6 +154,9 @@ async fn emoji_answer<R: Runtime>(
     .await;
     if let Ok(mut cache) = store.0.lock() {
         cache.put(path_and_query, &answer);
+    }
+    if let Some(dir) = folder.as_deref() {
+        emoji_disk::write(dir, path_and_query, &answer);
     }
     answer
 }

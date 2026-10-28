@@ -1860,7 +1860,8 @@
       "freebusy": "Tylko dostępność",
       "read": "Widzi szczegóły",
       "write": "Edytuje wydarzenia"
-    }
+    },
+    "printFile": "kalendarz.pdf"
   },
   "invitationPage": {
     "title": "Zaproszenie",
@@ -1948,6 +1949,14 @@
       "closeToTrayDesc": "Zamknięcie okna zostawia Ruchoir w obszarze powiadomień, by dalej otrzymywać powiadomienia.",
       "sharedNote": "Wspólne dla wszystkich Twoich instancji",
       "instanceNote": "Tylko dla {{host}}"
+    },
+    "download": {
+      "title": "Nie udało się pobrać",
+      "failed": "Nie udało się pobrać pliku. Spróbuj ponownie.",
+      "signedOut": "Twoja sesja na tej instancji wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.",
+      "unreachable": "Instancja nie odpowiada. Spróbuj ponownie za chwilę.",
+      "notSaved": "Nie udało się zapisać pliku w tym miejscu. Wybierz inny folder.",
+      "noApp": "Żadna aplikacja na tym komputerze nie otworzy tego pliku."
     }
   }
 }

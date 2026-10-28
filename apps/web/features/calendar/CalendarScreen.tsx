@@ -323,7 +323,9 @@ export function CalendarScreen({
       icon="printer"
       size={compact ? "lg" : "md"}
       label={t("calendar.print")}
-      download
+      download={t("calendar.printFile")}
+      // In the desktop app, the PDF opens in the system's viewer, to print from there.
+      data-desktop-open
       href={printUrl(
         view,
         anchor,
