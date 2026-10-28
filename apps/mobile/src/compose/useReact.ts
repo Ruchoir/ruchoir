@@ -11,6 +11,7 @@ import { useCallback } from "react";
 import { useApi } from "../api/useApi";
 import { useTranslation } from "../i18n";
 import { toggleReaction } from "../logic/reactions";
+import { noteReaction } from "./recentReactions";
 import { useRealtimeActions } from "../realtime/RealtimeProvider";
 import { useSession } from "../session/SessionProvider";
 import { feel } from "../ui/haptics";
@@ -41,6 +42,7 @@ export function useReact(): (conversationId: string, message: ApiMessage, emoji:
   const { t } = useTranslation();
   const { state } = useSession();
   const myName = state.kind === "signedIn" ? state.user.name : null;
+  const myId = state.kind === "signedIn" ? state.user.id : null;
 
   return useCallback(
     (conversationId, message, emoji) => {
@@ -49,11 +51,13 @@ export function useReact(): (conversationId: string, message: ApiMessage, emoji:
       const reactions = toggleReaction(message.reactions, emoji, myName);
       emit({ type: "patched", conversationId, message: { ...message, reactions: reactions.length > 0 ? reactions : undefined } });
       feel("choice");
-      sendReaction(api, message.id, emoji, !wasMine).catch(() => {
+      const sent = sendReaction(api, message.id, emoji, !wasMine);
+      if (!wasMine && myId) void sent.then(() => noteReaction(api, myId, emoji), () => {});
+      sent.catch(() => {
         emit({ type: "patched", conversationId, message });
         toast(t("message.reactionFailed"), "failure");
       });
     },
-    [api, emit, myName, t, toast],
+    [api, emit, myId, myName, t, toast],
   );
 }

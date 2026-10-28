@@ -2589,6 +2589,16 @@ export function createApi(transport: Transport) {
   // --- Notification delivery (preferences, Web Push) ---
 
   /** `GET /me/notification-preferences`. */
+  /**
+   * The emoji the signed-in person reacted with last, newest first (`recent_reactions`): the quick
+   * reactions lead with them. Empty on an instance without the feature, as for someone who never
+   * reacted.
+   */
+  async function getRecentReactions(signal?: AbortSignal): Promise<string[]> {
+    const dto = await apiGet<{ emojis?: unknown }>("/me/recent-reactions", signal);
+    return Array.isArray(dto.emojis) ? dto.emojis.filter((e): e is string => typeof e === "string") : [];
+  }
+
   async function getNotificationPreferences(signal?: AbortSignal): Promise<NotificationPreferences> {
     const dto = await apiGet<Record<string, unknown>>("/me/notification-preferences", signal);
     return Object.fromEntries(
@@ -3630,7 +3640,7 @@ export function createApi(transport: Transport) {
     getDirectMessages, getSpacePresence, setMyPresence, getUserProfile, getSpaceMembers,
     listChannelMembers, addChannelMembers, setChannelMemberRole, removeChannelMember, createDm,
     updateMyProfile, getChannelMessages, getChanges, sendMessage, editMessage, deleteMessage,
-    getReplies, addReaction, removeReaction, setReadCursor, getSavedMessages, setMessageSaved,
+    getReplies, addReaction, removeReaction, getRecentReactions, setReadCursor, getSavedMessages, setMessageSaved,
     getPinnedMessages, setMessagePinned, getReadCursors, getNotifications, markNotificationRead,
     markAllNotificationsRead, getNotificationPreferences, saveNotificationPreferences,
     saveConversationNotify, getPushConfig, savePushSubscription, sendTestPush, sendPhoneTestPush,
@@ -3663,7 +3673,7 @@ export const {
   getDirectMessages, getSpacePresence, setMyPresence, getUserProfile, getSpaceMembers,
   listChannelMembers, addChannelMembers, setChannelMemberRole, removeChannelMember, createDm,
   updateMyProfile, getChannelMessages, getChanges, sendMessage, editMessage, deleteMessage,
-  getReplies, addReaction, removeReaction, setReadCursor, getSavedMessages, setMessageSaved,
+  getReplies, addReaction, removeReaction, getRecentReactions, setReadCursor, getSavedMessages, setMessageSaved,
   getPinnedMessages, setMessagePinned, getReadCursors, getNotifications, markNotificationRead,
   markAllNotificationsRead, getNotificationPreferences, saveNotificationPreferences,
   saveConversationNotify, getPushConfig, savePushSubscription, sendTestPush, sendPhoneTestPush,

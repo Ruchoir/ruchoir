@@ -8,10 +8,14 @@
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::Json;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait, QueryFilter, Statement,
+};
 use serde::Serialize;
 use time::OffsetDateTime;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 use crate::auth::extract::AuthSession;
@@ -170,4 +174,51 @@ pub async fn remove_reaction(
     }
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// How many recent emoji `GET /api/v1/me/recent-reactions` hands back: enough for any quick row.
+const RECENT_LIMIT: i64 = 12;
+/// How far back in the caller's reactions the recent ones are looked for.
+const RECENT_WINDOW: i64 = 300;
+
+/// The emoji someone reacted with last, newest first.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct RecentReactionsDto {
+    /// Distinct native emoji, the most recently used first; empty for someone who never reacted.
+    pub emojis: Vec<String>,
+}
+
+/// `GET /api/v1/me/recent-reactions`: the caller's most recently used reactions, so the quick
+/// reactions lead with them on every device. Read from the reactions themselves: a reaction taken
+/// back no longer counts, and nothing else is stored.
+#[utoipa::path(
+    get,
+    path = "/api/v1/me/recent-reactions",
+    tag = "messaging",
+    responses((status = 200, description = "Recent reactions", body = RecentReactionsDto))
+)]
+pub async fn recent_reactions(
+    State(state): State<AppState>,
+    session: AuthSession,
+) -> Result<Json<RecentReactionsDto>, ApiError> {
+    let rows = state
+        .db
+        .query_all_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT emoji FROM ( \
+               SELECT emoji, created_at FROM message_reactions \
+                WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 \
+             ) recent GROUP BY emoji ORDER BY max(created_at) DESC LIMIT $3",
+            [
+                session.user_id.into(),
+                RECENT_WINDOW.into(),
+                RECENT_LIMIT.into(),
+            ],
+        ))
+        .await?;
+    let mut emojis = Vec::with_capacity(rows.len());
+    for row in rows {
+        emojis.push(row.try_get("", "emoji")?);
+    }
+    Ok(Json(RecentReactionsDto { emojis }))
 }

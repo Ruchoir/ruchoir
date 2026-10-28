@@ -4,11 +4,24 @@
  * the package's main entry and loads only where a picker needs it.
  */
 
-import { EMOJI_CATEGORIES } from "./data.ts";
+import { EMOJI_CATEGORIES, QUICK_REACTIONS } from "./data.ts";
 import { keywordsMatch, normalizeSearch } from "./keywords/index.ts";
 
 export { EMOJI_CATEGORIES, QUICK_REACTIONS, type EmojiCategory } from "./data.ts";
 export { normalizeSearch } from "./keywords/index.ts";
+
+/**
+ * The quick reactions as offered: the ones used last first, then the usual ones, each once, as many
+ * as `count` (the usual row's length by default).
+ */
+export function quickReactions(recent: readonly string[], count: number = QUICK_REACTIONS.length): string[] {
+  const out: string[] = [];
+  for (const emoji of [...recent, ...QUICK_REACTIONS]) {
+    if (out.length >= count) break;
+    if (emoji && !out.includes(emoji)) out.push(emoji);
+  }
+  return out;
+}
 
 /**
  * Every emoji whose keywords hold `query`, in the reader's language and then in French and English,

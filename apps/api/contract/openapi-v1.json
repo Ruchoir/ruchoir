@@ -3967,6 +3967,22 @@
         ],
         "type": "object"
       },
+      "RecentReactionsDto": {
+        "description": "The emoji someone reacted with last, newest first.",
+        "properties": {
+          "emojis": {
+            "description": "Distinct native emoji, the most recently used first; empty for someone who never reacted.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "emojis"
+        ],
+        "type": "object"
+      },
       "RecoveryCodesResponse": {
         "description": "A freshly generated set of recovery codes, shown to the user exactly once.",
         "properties": {
@@ -9514,6 +9530,27 @@
         "summary": "`PUT /api/v1/me/presence`: set or clear the caller's manual override, then broadcast the change.",
         "tags": [
           "realtime"
+        ]
+      }
+    },
+    "/api/v1/me/recent-reactions": {
+      "get": {
+        "operationId": "recent_reactions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecentReactionsDto"
+                }
+              }
+            },
+            "description": "Recent reactions"
+          }
+        },
+        "summary": "`GET /api/v1/me/recent-reactions`: the caller's most recently used reactions, so the quick\nreactions lead with them on every device. Read from the reactions themselves: a reaction taken\nback no longer counts, and nothing else is stored.",
+        "tags": [
+          "messaging"
         ]
       }
     },

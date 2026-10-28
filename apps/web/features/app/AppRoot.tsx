@@ -81,6 +81,7 @@ import {
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { authMessage } from "@/features/auth/authMessage";
+import { forgetRecentReactions, noteReaction } from "@/lib/data/recentReactions";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
 import { fileUrl, readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
@@ -2423,6 +2424,7 @@ function AppShell() {
     } catch {
       // Even if the request fails (already-expired session, offline), clear the client state.
     }
+    forgetRecentReactions();
     setSession(null);
     setWorkspaces([]);
     setChannels([]);
@@ -2758,6 +2760,7 @@ function AppShell() {
       const request = wasMine ? removeReaction(messageId, emoji) : addReaction(messageId, emoji);
       // Reacting puts one in the channel too, exactly like writing does.
       request.then(() => !wasMine && notInChannel(conv) && void markJoined(conv));
+      if (!wasMine) void request.then(() => noteReaction(emoji), () => {});
       request.catch(() => {
         rollbackMessage(conv, target);
         showToast({ tone: "info", title: t("toast.reactionFailed") });

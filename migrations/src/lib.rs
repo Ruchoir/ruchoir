@@ -46,6 +46,7 @@ mod m20261014_000001_channel_invitations;
 mod m20261015_000001_push_devices;
 mod m20261019_000001_reaction_and_edit_notifications;
 mod m20261019_000002_file_content_hash_index;
+mod m20261028_000001_recent_reactions_index;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -94,6 +95,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261015_000001_push_devices::Migration),
             Box::new(m20261019_000001_reaction_and_edit_notifications::Migration),
             Box::new(m20261019_000002_file_content_hash_index::Migration),
+            Box::new(m20261028_000001_recent_reactions_index::Migration),
         ]
     }
 }

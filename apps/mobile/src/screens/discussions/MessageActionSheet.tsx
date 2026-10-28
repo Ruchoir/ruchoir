@@ -5,7 +5,6 @@
  *
  * Only what leads somewhere is offered: no row for something this person cannot do.
  */
-import { QUICK_REACTIONS } from "@ruchoir/client/emoji";
 import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Clipboard from "expo-clipboard";
@@ -13,6 +12,7 @@ import { Bookmark, BookmarkX, Copy, MessageSquareReply, PenLine, Pin, PinOff, Sm
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { useApi } from "../../api/useApi";
+import { useQuickReactions } from "../../compose/recentReactions";
 import { requestEdit } from "../../compose/requests";
 import { useReact } from "../../compose/useReact";
 import { useTranslation } from "../../i18n";
@@ -107,13 +107,15 @@ export function MessageActionSheet() {
       },
     ]);
 
+  const quick = useQuickReactions();
+
   return (
     <Sheet>
       <Text variant="label" tone="muted">
         {t("message.sentAt", { at: sentAt })}
       </Text>
       <View style={styles.quick}>
-        {QUICK_REACTIONS.map((emoji) => {
+        {quick.map((emoji) => {
           const mine = !!m.reactions?.find((r) => r.emoji === emoji)?.mine;
           return (
             <Pressable

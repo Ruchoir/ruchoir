@@ -35,6 +35,10 @@ pub fn router() -> Router<AppState> {
             "/api/v1/messages/{message_id}/reactions/{emoji}",
             put(reactions::add_reaction).delete(reactions::remove_reaction),
         )
+        .route(
+            "/api/v1/me/recent-reactions",
+            get(reactions::recent_reactions),
+        )
         // Read cursor.
         .route(
             "/api/v1/conversations/{conversation_id}/read",

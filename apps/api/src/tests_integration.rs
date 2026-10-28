@@ -744,6 +744,86 @@ async fn reactions_toggle_idempotently() {
 }
 
 #[tokio::test]
+async fn recent_reactions_lead_with_the_last_used_and_forget_the_taken_back() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    let send = |body: &'static str| {
+        let app = &app;
+        let alice = &alice;
+        async move {
+            let created: Value = app
+                .req(
+                    reqwest::Method::POST,
+                    &format!("/api/v1/conversations/{}/messages", fx.public_channel),
+                    alice,
+                )
+                .json(&json!({ "body": body }))
+                .send()
+                .await
+                .expect("send")
+                .json()
+                .await
+                .expect("json");
+            created["id"].as_str().expect("id").to_owned()
+        }
+    };
+    let react = |method: reqwest::Method, message: String, emoji: &'static str| {
+        let app = &app;
+        let alice = &alice;
+        async move {
+            let response = app
+                .req(
+                    method,
+                    &format!("/api/v1/messages/{message}/reactions/{emoji}"),
+                    alice,
+                )
+                .send()
+                .await
+                .expect("react");
+            assert_eq!(response.status(), 204);
+            // Apart in time, so "the last used" is never a tie.
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+    };
+    let recent = |cookie: String| {
+        let app = &app;
+        async move {
+            let page: Value = app
+                .req(reqwest::Method::GET, "/api/v1/me/recent-reactions", &cookie)
+                .send()
+                .await
+                .expect("recent")
+                .json()
+                .await
+                .expect("json");
+            page["emojis"].clone()
+        }
+    };
+
+    assert_eq!(recent(alice.clone()).await, json!([]), "nothing yet");
+    let first = send("one").await;
+    let second = send("two").await;
+    // Thumbs up, party popper, then thumbs up again on another message.
+    react(reqwest::Method::PUT, first.clone(), "%F0%9F%91%8D").await;
+    react(reqwest::Method::PUT, first.clone(), "%F0%9F%8E%89").await;
+    react(reqwest::Method::PUT, second.clone(), "%F0%9F%91%8D").await;
+    assert_eq!(
+        recent(alice.clone()).await,
+        json!(["\u{1F44D}", "\u{1F389}"]),
+        "newest first, each once"
+    );
+    assert_eq!(recent(bob.clone()).await, json!([]), "one's own only");
+
+    // Taken back everywhere: no longer recent.
+    react(reqwest::Method::DELETE, first, "%F0%9F%91%8D").await;
+    react(reqwest::Method::DELETE, second, "%F0%9F%91%8D").await;
+    assert_eq!(recent(alice).await, json!(["\u{1F389}"]));
+}
+
+#[tokio::test]
 async fn create_dm_is_idempotent_by_participants() {
     let Some(app) = boot().await else { return };
     let fx = seed(&app.db).await;

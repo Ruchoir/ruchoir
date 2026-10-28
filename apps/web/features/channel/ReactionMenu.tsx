@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Icon, IconButton, Popover, Tooltip } from "@/components/ds";
 import { EmojiPicker } from "./EmojiPicker";
+import { useQuickReactions } from "@/lib/data/recentReactions";
 import { useTranslation } from "@/lib/i18n";
 
 export type ReactionMenuProps = {
@@ -17,6 +18,7 @@ export function ReactionMenu({ onPick, variant = "action", onOpenChange }: React
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const quick = useQuickReactions();
 
   const set = (next: boolean) => {
     setOpen(next);
@@ -67,7 +69,7 @@ export function ReactionMenu({ onPick, variant = "action", onOpenChange }: React
       )}
 
       <Popover anchorRef={anchorRef} open={open} onClose={() => set(false)} placement="top" align="start">
-        <EmojiPicker onPick={pick} animated />
+        <EmojiPicker quick={quick} onPick={pick} animated />
       </Popover>
     </>
   );

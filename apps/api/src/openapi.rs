@@ -57,6 +57,7 @@ use utoipa::OpenApi;
         crate::messaging::messages::edit_message,
         crate::messaging::messages::delete_message,
         crate::messaging::reactions::add_reaction,
+        crate::messaging::reactions::recent_reactions,
         crate::messaging::reactions::remove_reaction,
         crate::auth::routes::mfa_state,
         crate::auth::routes::totp_disable,
@@ -209,6 +210,7 @@ use utoipa::OpenApi;
         crate::office::sessions::end_heartbeat
     ),
     components(schemas(
+        crate::messaging::reactions::RecentReactionsDto,
         crate::importer::routes::ArchiveRequest,
         crate::importer::routes::PlanResponse,
         crate::importer::routes::PlannedSpace,
