@@ -1849,6 +1849,13 @@
       "unreachable": "L’instance ne répond pas. Réessayez dans un instant.",
       "notSaved": "Le fichier n’a pas pu être enregistré à cet endroit. Choisissez un autre dossier.",
       "noApp": "Aucune application de cet ordinateur ne sait ouvrir ce fichier."
+    },
+    "update": {
+      "available": "Ruchoir {{version}} est disponible.",
+      "availableManual": "Ruchoir {{version}} est disponible : installez-la depuis la page de téléchargement.",
+      "failed": "La mise à jour n’a pas pu être installée. Réessayez.",
+      "restart": "Redémarrer pour mettre à jour",
+      "installing": "Installation…"
     }
   }
 }

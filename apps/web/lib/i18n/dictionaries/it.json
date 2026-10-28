@@ -1890,6 +1890,13 @@
       "unreachable": "L’istanza non risponde. Riprova tra un momento.",
       "notSaved": "Impossibile salvare il file lì. Scegli un’altra cartella.",
       "noApp": "Nessuna app di questo computer può aprire questo file."
+    },
+    "update": {
+      "available": "Ruchoir {{version}} è disponibile.",
+      "availableManual": "Ruchoir {{version}} è disponibile: installalo dalla pagina di download.",
+      "failed": "Impossibile installare l’aggiornamento. Riprova.",
+      "restart": "Riavvia per aggiornare",
+      "installing": "Installazione…"
     }
   }
 }

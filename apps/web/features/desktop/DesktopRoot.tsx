@@ -16,12 +16,16 @@ import {
   onDesktopOpen,
   onInstancesChanged,
   onSummaryChanged,
+  onUpdateAvailable,
   preferencesChanged,
   setDesktopSettings,
   setShellLabels,
   summaries,
   tauriInvoke,
   tauriListen,
+  updateInstall,
+  updateState,
+  type UpdateOffer,
   type InstanceView,
 } from "@/lib/desktop/bridge";
 import { shortLabel, type DesktopSettings, type Summary } from "@/lib/desktop/instances";
@@ -164,6 +168,24 @@ export function DesktopRoot() {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   useEffect(() => catchDownloads(setDownloadError), []);
 
+  // A newer version, offered under the title bar until the person restarts into it.
+  const [update, setUpdate] = useState<UpdateOffer | null>(null);
+  const [installing, setInstalling] = useState(false);
+  const [updateFailed, setUpdateFailed] = useState(false);
+  useEffect(() => {
+    void updateState().then((offer) => offer && setUpdate(offer));
+    const stop = onUpdateAvailable(setUpdate);
+    return () => void stop.then((unlisten) => unlisten());
+  }, []);
+  const install = () => {
+    setInstalling(true);
+    setUpdateFailed(false);
+    // On success the app restarts into the new version; nothing comes back.
+    void updateInstall()
+      .catch(() => setUpdateFailed(true))
+      .finally(() => setInstalling(false));
+  };
+
   // The tray's words follow the interface's language.
   useEffect(() => {
     void setShellLabels({ open: t("desktop.tray.open"), quit: t("desktop.tray.quit"), closed_to_tray: t("desktop.tray.closedNotice") });
@@ -259,6 +281,20 @@ export function DesktopRoot() {
     // window fills the screen.
     <div className={`wc-desktop${desktopOs() === "linux" && !maximized && !fullscreen ? " wc-desktop--rounded" : ""}`}>
       {fullscreen ? null : <TitleBar maximized={maximized} onSearch={open?.state === "signed_in" && !addingOver ? requestSearch : undefined} />}
+      {update ? (
+        <div className="wc-desktop__update" role="status">
+          <span>
+            {updateFailed
+              ? t("desktop.update.failed")
+              : update.manual
+                ? t("desktop.update.availableManual", { version: update.version })
+                : t("desktop.update.available", { version: update.version })}
+          </span>
+          <Button size="sm" variant="primary" disabled={installing} onClick={install}>
+            {update.manual ? t("message.download") : installing ? t("desktop.update.installing") : t("desktop.update.restart")}
+          </Button>
+        </div>
+      ) : null}
       <div className="wc-desktop__body" ref={bodyRef}>
         {body}
         {addingOver ? (

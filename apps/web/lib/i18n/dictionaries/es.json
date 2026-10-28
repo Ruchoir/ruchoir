@@ -1890,6 +1890,13 @@
       "unreachable": "La instancia no responde. Inténtelo de nuevo en un momento.",
       "notSaved": "No se ha podido guardar el archivo ahí. Elija otra carpeta.",
       "noApp": "Ninguna aplicación de este ordenador puede abrir este archivo."
+    },
+    "update": {
+      "available": "Ruchoir {{version}} está disponible.",
+      "availableManual": "Ruchoir {{version}} está disponible: instálela desde la página de descarga.",
+      "failed": "No se ha podido instalar la actualización. Inténtelo de nuevo.",
+      "restart": "Reiniciar para actualizar",
+      "installing": "Instalando…"
     }
   }
 }

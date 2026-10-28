@@ -1823,6 +1823,13 @@
       "unreachable": "The instance is not answering. Try again in a moment.",
       "notSaved": "The file could not be saved there. Choose another folder.",
       "noApp": "No app on this computer can open this file."
+    },
+    "update": {
+      "available": "Ruchoir {{version}} is available.",
+      "availableManual": "Ruchoir {{version}} is available: install it from the download page.",
+      "failed": "The update could not be installed. Try again.",
+      "restart": "Restart to update",
+      "installing": "Installing…"
     }
   }
 }
