@@ -674,7 +674,10 @@
   "thread": {
     "title": "Thread",
     "in": "in {{name}}",
-    "noReplies": "No replies yet"
+    "noReplies": "No replies yet",
+    "alsoInChannel": "Also send to #{{channel}}",
+    "alsoInConversation": "Also send to the conversation",
+    "repliedToThread": "replied to a thread"
   },
   "newMessage": {
     "title": "New message",
@@ -920,7 +923,8 @@
     "quietText": "No notification during the hours you choose.",
     "byEmail": "By email",
     "email": "Email catch-up",
-    "emailText": "What stays unread for a quarter of an hour, while Ruchoir is open nowhere, arrives by email."
+    "emailText": "What stays unread for a quarter of an hour, while Ruchoir is open nowhere, arrives by email.",
+    "forInstance": "For {{host}}. Each instance keeps its own settings, quiet hours and emails included."
   },
   "prefs": {
     "appearance": "Appearance",

@@ -674,7 +674,10 @@
   "thread": {
     "title": "Fil de discussion",
     "in": "dans {{name}}",
-    "noReplies": "Pas encore de réponse"
+    "noReplies": "Pas encore de réponse",
+    "alsoInChannel": "Envoyer aussi dans #{{channel}}",
+    "alsoInConversation": "Envoyer aussi dans la conversation",
+    "repliedToThread": "a répondu à un fil"
   },
   "newMessage": {
     "title": "Nouveau message",
@@ -920,7 +923,8 @@
     "quietText": "Aucune notification sur la plage horaire choisie.",
     "byEmail": "Par e-mail",
     "email": "Rattrapage par e-mail",
-    "emailText": "Ce qui reste non lu un quart d’heure, quand Ruchoir n’est ouvert nulle part, arrive par e-mail."
+    "emailText": "Ce qui reste non lu un quart d’heure, quand Ruchoir n’est ouvert nulle part, arrive par e-mail.",
+    "forInstance": "Pour {{host}}. Chaque instance a ses propres réglages, heures calmes et e-mails compris."
   },
   "prefs": {
     "appearance": "Apparence",

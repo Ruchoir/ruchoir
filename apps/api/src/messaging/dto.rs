@@ -51,6 +51,12 @@ pub struct MessageDto {
     /// Parent message for a threaded reply; `None` for a root message.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_message_id: Option<Uuid>,
+    /// A thread reply sent to its channel too: drawn in the channel's feed as well, under a line
+    /// naming the thread it answers. Always false for a root message.
+    pub also_in_channel: bool,
+    /// For a reply sent to its channel too, the thread it answers, as that line shows it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_root: Option<ThreadRootDto>,
     /// Number of replies in this message's thread.
     pub reply_count: i32,
     /// When the thread was last answered (RFC 3339), for "last reply at 14:32" beside the count.
@@ -92,6 +98,17 @@ pub struct MessageDto {
     pub mentions: Vec<Uuid>,
     /// Files attached to the message, in attachment order.
     pub attachments: Vec<AttachmentDto>,
+}
+
+/// The thread a reply sent to its channel too answers: who started it and how it began.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct ThreadRootDto {
+    pub id: Uuid,
+    /// Its author's display name; absent for a system message or a removed account.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author_name: Option<String>,
+    /// The start of what it says, as plain as it was written; empty when it was deleted.
+    pub excerpt: String,
 }
 
 /// A page of messages, newest-last, with an opaque cursor for the previous (older) page.
@@ -576,6 +593,9 @@ pub struct SendMessageRequest {
     pub body: String,
     #[serde(default)]
     pub parent_message_id: Option<Uuid>,
+    /// With `parent_message_id`, send the reply to the channel's feed too. Ignored without it.
+    #[serde(default)]
+    pub also_in_channel: bool,
     /// Ids of already-uploaded files to attach (the caller must be able to read each, and each must
     /// belong to the conversation's space).
     #[serde(default)]

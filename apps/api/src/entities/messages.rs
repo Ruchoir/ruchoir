@@ -5,7 +5,7 @@
 //! client name them without a second lookup. `body` is raw markdown (rendered client-side), and is
 //! left empty on a system message: the row carries `system_event`, and the client owns the sentence.
 //! Threads use the self-referential `parent_message_id` (a `None` parent is a root message);
-//! `reply_count` is a denormalized counter. Soft-deleted via `deleted_at` (tombstone rendering).
+//! `reply_count` is a denormalized counter; a reply with `also_in_channel` belongs to the feed too. Soft-deleted via `deleted_at` (tombstone rendering).
 
 use sea_orm::entity::prelude::*;
 
@@ -21,6 +21,8 @@ pub struct Model {
     pub body: String,
     pub system_event: Option<String>,
     pub parent_message_id: Option<Uuid>,
+    /// A thread reply sent to its channel too: it shows in the channel's feed as well.
+    pub also_in_channel: bool,
     pub reply_count: i32,
     pub imported_source: Option<String>,
     pub external_ref: Option<String>,

@@ -314,10 +314,15 @@ export type Message = {
   /**
    * The root message this one answers, when it is a thread reply.
    *
-   * A reply never belongs in the feed: the history endpoint leaves them out, and the live stream
-   * carries them like any other message, so this is what tells the two apart on arrival.
+   * A reply belongs in the feed only when sent to its channel too (`alsoInChannel`): the history
+   * endpoint leaves the others out, and the live stream carries them like any other message, so
+   * this is what tells them apart on arrival.
    */
   parentId?: string;
+  /** A thread reply sent to its channel too: in the feed as well, under the thread it answers. */
+  alsoInChannel?: boolean;
+  /** For such a reply, the thread it answers: who started it and how it began. */
+  threadRoot?: { id: string; authorName?: string; excerpt: string };
   replies?: number;
   /**
    * The last few people who answered in this message's thread, most recent first.

@@ -22,7 +22,12 @@ pub const API_VERSION: u32 = 1;
 /// - `native_sessions`: sign-in hands a native app a session token (`session_delivery: "token"`).
 /// - `notification_read`: reading a notification is announced to the person's other devices
 ///   (`notification.read`) and their phones are synced silently (ADR 0006).
-pub const FEATURES: &[&str] = &["native_sessions", "notification_read"];
+pub const FEATURES: &[&str] = &[
+    "native_sessions",
+    "notification_read",
+    "recent_reactions",
+    "reply_to_channel",
+];
 
 /// The release this instance was built from (`v1.2.3`, set by the release build), or `dev`.
 pub fn version() -> &'static str {

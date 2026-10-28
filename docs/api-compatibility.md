@@ -63,6 +63,8 @@ older way taken. A name, once listed, is never removed nor reused for something 
 |---|---|---|
 | `native_sessions` | v0.2.0 | sign-in hands a native app a session token |
 | `notification_read` | v0.3.0 | a read is announced to the person's other devices (`notification.read`) and their phones are synced silently (ADR 0006) |
+| `recent_reactions` | v0.3.0 | `GET /api/v1/me/recent-reactions`: the emoji someone reacted with last, which the quick reactions lead with |
+| `reply_to_channel` | v0.3.0 | a thread reply may be sent to its channel too (`also_in_channel`), shown there under a line naming its thread (`thread_root`) |
 
 Adding one: a name in `compat::FEATURES` (lowercase, underscores), a line in this table, and the
 apps' check before they use it.

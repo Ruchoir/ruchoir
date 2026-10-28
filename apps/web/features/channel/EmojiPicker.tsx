@@ -71,8 +71,11 @@ function hoverOut(e: React.MouseEvent<HTMLButtonElement>) {
 export function EmojiPicker({
   onPick,
   animated = false,
+  quick = QUICK_REACTIONS,
 }: {
   onPick: (emoji: string) => void;
+  /** The row above the grid: the usual quick reactions, or a reaction picker's own (recent first). */
+  quick?: readonly string[];
   /** Animate the pickable glyphs (quick row + grid). Set when the picker chooses a reaction. */
   animated?: boolean;
 }) {
@@ -87,7 +90,7 @@ export function EmojiPicker({
   return (
     <div style={panel} role="dialog" aria-label={t("emoji.title")}>
       <div style={quickRow}>
-        {QUICK_REACTIONS.map((e) => (
+        {quick.map((e) => (
           <button
             key={e}
             type="button"

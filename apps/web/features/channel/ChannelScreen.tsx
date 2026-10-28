@@ -287,7 +287,9 @@ export type ChannelScreenProps = {
   /** The open thread's replies, oldest first. Empty when no thread is open. */
   threadReplies: Message[];
   /** Answer in the open thread. */
-  onSendReply: (parentId: string, text: string) => void;
+  onSendReply: (parentId: string, text: string, alsoInChannel: boolean) => void;
+  /** The instance can send a thread reply to its channel too (`reply_to_channel`). */
+  canReplyToChannel?: boolean;
   profileName: string | null;
   profileEditing: boolean;
   unreadMarker: string | null;
@@ -384,6 +386,8 @@ const GROUPING_WINDOW_MS = 5 * 60 * 1000;
  */
 function followsSameAuthor(previous: Message | undefined, current: Message): boolean {
   if (!previous || previous.kind === "system" || current.kind === "system") return false;
+  // A reply sent to the channel too opens with the line naming its thread, which needs its head.
+  if (current.parentId && current.alsoInChannel) return false;
   if (previous.author !== current.author) return false;
   // Ids are compared when both are known, so two people sharing a display name are still two people.
   if (previous.authorId && current.authorId && previous.authorId !== current.authorId) return false;
@@ -431,6 +435,7 @@ export function ChannelScreen({
   threadLoading = false,
   threadReplies,
   onSendReply,
+  canReplyToChannel,
   profileName,
   profileEditing,
   unreadMarker,
@@ -598,7 +603,8 @@ export function ChannelScreen({
    */
   const rowActions = (m: Message): MessageActions => ({
     onReact: (emoji) => actions.react(m.id, emoji),
-    onOpenThread: () => actions.openThread(m.id),
+    // A reply shown in the feed (sent to the channel too) opens the thread it belongs to.
+    onOpenThread: () => actions.openThread(m.parentId ?? m.id),
     onToggleSave: () => actions.toggleSave(m.id),
     onEdit: () => actions.edit(m.id),
     onTogglePin: () => actions.togglePin(m.id),
@@ -794,7 +800,10 @@ export function ChannelScreen({
       rowActions={rowActions}
       presenceByName={presenceByName}
       avatarByName={avatarByName}
-      onSendReply={(text) => onSendReply(threadParent.id, text)}
+      onSendReply={(text, alsoInChannel) => onSendReply(threadParent.id, text, alsoInChannel)}
+      alsoInChannelLabel={
+        canReplyToChannel ? (isDm ? t("thread.alsoInConversation") : t("thread.alsoInChannel", { channel: channel.name })) : undefined
+      }
       editing={editingInThread ? editing : null}
       onSaveEdit={onSaveEdit}
       onCancelEdit={onCancelEdit}

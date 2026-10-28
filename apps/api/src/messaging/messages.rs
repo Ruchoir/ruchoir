@@ -15,7 +15,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, DatabaseTransaction, EntityTrait,
+    ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, DatabaseTransaction, EntityTrait,
     IntoActiveModel, QueryFilter, QueryOrder, QuerySelect, TransactionTrait,
 };
 use serde::Deserialize;
@@ -32,7 +32,9 @@ use crate::realtime::presence;
 use crate::state::AppState;
 
 use super::authz::{self, ConversationKind};
-use super::dto::{rfc3339, MessageDto, MessagePage, ReactionDto, SendMessageRequest};
+use super::dto::{
+    rfc3339, MessageDto, MessagePage, ReactionDto, SendMessageRequest, ThreadRootDto,
+};
 use super::error::ApiError;
 use super::mentions;
 use super::notifications;
@@ -85,7 +87,7 @@ pub async fn list_messages(
 
     let mut select = messages::Entity::find()
         .filter(messages::Column::ConversationId.eq(conversation_id))
-        .filter(messages::Column::ParentMessageId.is_null());
+        .filter(in_feed());
 
     // Cursor: everything strictly older than the `before` message's timestamp.
     if let Some(before) = query.before {
@@ -187,6 +189,8 @@ pub async fn send_message(
         return Err(ApiError::BadRequest("message body is too long"));
     }
 
+    // A reply sent to its channel too belongs to the feed as well; a root message always does.
+    let also_in_channel = body.parent_message_id.is_some() && body.also_in_channel;
     // A reply must target a message in the same conversation; remember its author to notify them.
     let mut reply_target: Option<Uuid> = None;
     if let Some(parent_id) = body.parent_message_id {
@@ -262,7 +266,9 @@ pub async fn send_message(
     // their own default says so) gets one too, of the quietest kind. A direct message needs none:
     // every message there is already addressed to its participants. Nor does a thread reply: a
     // thread is a side conversation, and its root's author is told through the `reply` kind.
-    if access.kind == ConversationKind::Channel && body.parent_message_id.is_none() {
+    if access.kind == ConversationKind::Channel
+        && (body.parent_message_id.is_none() || also_in_channel)
+    {
         let others: Vec<Uuid> = audience
             .iter()
             .copied()
@@ -291,6 +297,7 @@ pub async fn send_message(
         kind: Set("message".to_owned()),
         body: Set(text.to_owned()),
         parent_message_id: Set(body.parent_message_id),
+        also_in_channel: Set(also_in_channel),
         created_at: Set(now),
         ..Default::default()
     }
@@ -438,6 +445,7 @@ pub async fn edit_message(
     }
 
     let conversation_id = message.conversation_id;
+    let also_in_channel = message.also_in_channel;
     let audience = authz::conversation_audience(&state.db, &access).await?;
     let tokens = mentions::extract_mention_tokens(text);
     let resolved =
@@ -525,6 +533,7 @@ pub async fn edit_message(
         &audience,
         &resolved,
         parent_id,
+        also_in_channel,
         session.user_id,
         conversation_id,
     )
@@ -548,6 +557,7 @@ async fn edit_recipients(
     audience: &[Uuid],
     resolved: &[mentions::ResolvedMention],
     parent_id: Option<Uuid>,
+    also_in_channel: bool,
     author_id: Uuid,
     conversation_id: Uuid,
 ) -> Result<Vec<(Uuid, &'static str)>, ApiError> {
@@ -581,7 +591,7 @@ async fn edit_recipients(
         &dm_recipients,
         reply_target,
     );
-    if access.kind == ConversationKind::Channel && parent_id.is_none() {
+    if access.kind == ConversationKind::Channel && (parent_id.is_none() || also_in_channel) {
         let others: Vec<Uuid> = audience
             .iter()
             .copied()
@@ -886,6 +896,49 @@ pub async fn hydrate_messages(
         }
     }
 
+    // The threads that replies sent to their channel answer, for the line above them in the feed.
+    let root_ids: Vec<Uuid> = rows
+        .iter()
+        .filter(|m| m.also_in_channel)
+        .filter_map(|m| m.parent_message_id)
+        .collect();
+    let mut roots: HashMap<Uuid, ThreadRootDto> = HashMap::new();
+    if !root_ids.is_empty() {
+        let root_rows = messages::Entity::find()
+            .filter(messages::Column::Id.is_in(root_ids))
+            .all(db)
+            .await?;
+        let unnamed: Vec<Uuid> = root_rows
+            .iter()
+            .filter_map(|r| r.author_id)
+            .filter(|id| !names.contains_key(id))
+            .collect();
+        if !unnamed.is_empty() {
+            for user in users::Entity::find()
+                .filter(users::Column::Id.is_in(unnamed))
+                .all(db)
+                .await?
+            {
+                names.insert(user.id, user.display_name);
+            }
+        }
+        for root in root_rows {
+            let excerpt = if root.deleted_at.is_some() {
+                String::new()
+            } else {
+                root_excerpt(&root.body)
+            };
+            roots.insert(
+                root.id,
+                ThreadRootDto {
+                    id: root.id,
+                    author_name: root.author_id.and_then(|id| names.get(&id).cloned()),
+                    excerpt,
+                },
+            );
+        }
+    }
+
     // Calendar cards, drawn for the caller as their events stand.
     let cards =
         crate::calendar::links::cards(db, caller, rows.iter().filter_map(|m| m.event_id).collect())
@@ -915,6 +968,12 @@ pub async fn hydrate_messages(
             body: m.body,
             system_event: m.system_event,
             parent_message_id: m.parent_message_id,
+            also_in_channel: m.also_in_channel,
+            thread_root: if m.also_in_channel {
+                m.parent_message_id.and_then(|id| roots.get(&id).cloned())
+            } else {
+                None
+            },
             reply_authors: repliers
                 .remove(&m.id)
                 .unwrap_or_default()
@@ -933,6 +992,26 @@ pub async fn hydrate_messages(
         .collect();
 
     Ok(dtos)
+}
+
+/// How long the line above a reply sent to its channel quotes its thread, in characters.
+const ROOT_EXCERPT_CHARS: usize = 120;
+
+/// The start of a thread's first message, on one line, cut at a character boundary.
+fn root_excerpt(body: &str) -> String {
+    let flat = body.split_whitespace().collect::<Vec<_>>().join(" ");
+    if flat.chars().count() <= ROOT_EXCERPT_CHARS {
+        return flat;
+    }
+    let cut: String = flat.chars().take(ROOT_EXCERPT_CHARS).collect();
+    format!("{}…", cut.trim_end())
+}
+
+/// A message of a conversation's feed: a root message, or a reply sent to its channel too.
+pub(crate) fn in_feed() -> Condition {
+    Condition::any()
+        .add(messages::Column::ParentMessageId.is_null())
+        .add(messages::Column::AlsoInChannel.eq(true))
 }
 
 /// How many changes a catch-up sends as a list before telling the client to reload instead.

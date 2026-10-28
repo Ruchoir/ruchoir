@@ -173,22 +173,34 @@ export function AccountsProvider({ children }: { children: ReactNode }) {
   const signedIn = useMemo(() => accounts.filter((a) => a.status.kind === "signedIn"), [accounts]);
   const active = signedIn.find((a) => a.id === registry?.active) ?? signedIn[0] ?? null;
 
-  // The extensions (notifications, widgets) read every signed-in instance and its token; the phone
-  // registers for notifications with each. Done whenever that set changes.
+  // The phone registers for notifications with every signed-in instance. Done whenever that set changes.
   const signedInKey = signedIn.map((a) => a.id).join(" ");
   useEffect(() => {
     if (!registry) return;
-    const shared = signedIn.flatMap((a) => {
+    void refreshPhonePush(signedIn.map((a) => a.client));
+    // Only the set of signed-in instances matters here, not their accounts' details.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedInKey, registry !== null]);
+
+  // The extensions (notifications, widgets) read every instance still holding a session and its
+  // token. Left alone while a session is being checked: an app opened from a widget would otherwise
+  // hand over no instance at all for the moment of the check, and the home screen would say "sign in"
+  // until it is over. An instance out of reach keeps its place; only a session that ended leaves.
+  const checking = accounts.some((a) => a.status.kind === "checking");
+  const held = accounts.filter((a) => a.status.kind === "signedIn" || a.status.kind === "offline");
+  const heldKey = held.map((a) => a.id).join(" ");
+  useEffect(() => {
+    if (!registry || checking) return;
+    const shared = held.flatMap((a) => {
       const token = live.token(a.id);
       return token ? [{ server: a.origin, token }] : [];
     });
     void shareSessions(shared)
       .then(refreshWidgets)
       .catch(() => {});
-    void refreshPhonePush(signedIn.map((a) => a.client));
-    // Only the set of signed-in instances matters here, not their accounts' details.
+    // Only the set of instances holding a session matters here, not their accounts' details.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signedInKey, registry !== null]);
+  }, [heldKey, checking, registry !== null]);
 
   // The app's icon carries the unread notifications of every signed-in instance, as the bell does;
   // the extensions keep it current while the app is closed (`push/background.ts`, `targets/`).

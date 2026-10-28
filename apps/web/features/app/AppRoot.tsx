@@ -52,6 +52,8 @@ import {
   requestPasswordReset,
   resetPasswordWithRecoveryCode,
   getInstanceCapabilities,
+  isInFeed,
+  supports,
   resolveSpaceSlug,
   revokeInvitation,
   saveConversationNotify,
@@ -81,6 +83,7 @@ import {
 } from "@/lib/data/api";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { authMessage } from "@/features/auth/authMessage";
+import { forgetRecentReactions, noteReaction } from "@/lib/data/recentReactions";
 import { clearAuthLink, forgetInvite, readAuthLink, readRememberedInvite, rememberInvite } from "@/lib/authLink";
 import { fileUrl, readSpaceLocation, writeSpaceLocation } from "@/lib/spaceUrl";
 import { OfficeEditor } from "@/features/office/OfficeEditor";
@@ -495,6 +498,7 @@ function AppShell() {
    * read as "assume it can": a slow answer must not hide the ordinary path.
    */
   const [emailDelivery, setEmailDelivery] = useState<boolean | undefined>(undefined);
+  const [canReplyToChannel, setCanReplyToChannel] = useState(false);
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -1068,7 +1072,9 @@ function AppShell() {
     let active = true;
     void getInstanceCapabilities()
       .then((capabilities) => {
-        if (active) setEmailDelivery(capabilities.emailDelivery);
+        if (!active) return;
+        setEmailDelivery(capabilities.emailDelivery);
+        setCanReplyToChannel(supports(capabilities, "reply_to_channel"));
       })
       .catch(() => {});
     return () => {
@@ -1216,9 +1222,9 @@ function AppShell() {
           });
         }
         // Everything below is about the feed and the counters that follow it, neither of which a
-        // reply takes part in: the history endpoint leaves replies out, and so do the unread counters
-        // the server keeps.
-        if (parentId) return;
+        // reply takes part in (the history endpoint leaves replies out, and so do the unread counters
+        // the server keeps), unless it was sent to its channel too.
+        if (!isInFeed(m)) return;
         // The conversation list previews what was just said, whether or not it is being read.
         setDms((prev) =>
           prev.map((d) => (d.id === conv ? { ...d, lastMessage: { excerpt: m.body, mine: false, at: m.createdAt ?? new Date().toISOString() } } : d)),
@@ -1654,7 +1660,7 @@ function AppShell() {
   // they are taken back out: a thread is read in its panel, and a reply in the channel would be a
   // sentence out of the conversation it belongs to.
   const conversationMessages = useMemo(() => messages[channelId] ?? [], [messages, channelId]);
-  const feed = useMemo(() => conversationMessages.filter((m) => !m.parentId), [conversationMessages]);
+  const feed = useMemo(() => conversationMessages.filter(isInFeed), [conversationMessages]);
   /** The open thread's replies, oldest first, from that same list. */
   const threadReplies = useMemo(
     () =>
@@ -1991,8 +1997,9 @@ function AppShell() {
     // only means the badge reappears on reload, so it is not surfaced.
     const list = loaded ?? messages[id] ?? [];
     // A cursor is a position in the conversation as it is read, and replies are read in their
-    // thread: the last one of those is not where the channel was left off.
-    const last = [...list].reverse().find((m) => !isPendingId(m.id) && !m.parentId);
+    // thread: the last one of those is not where the channel was left off (unless it was sent to
+    // the channel too, and read there).
+    const last = [...list].reverse().find((m) => !isPendingId(m.id) && isInFeed(m));
     if (last) void setReadCursor(id, last.id).catch(() => {});
     // The rail counts the whole account, so reading here changes a number drawn over there. It is
     // re-read rather than decremented: the arithmetic would have to mirror the server's definition
@@ -2423,6 +2430,7 @@ function AppShell() {
     } catch {
       // Even if the request fails (already-expired session, offline), clear the client state.
     }
+    forgetRecentReactions();
     setSession(null);
     setWorkspaces([]);
     setChannels([]);
@@ -2758,6 +2766,7 @@ function AppShell() {
       const request = wasMine ? removeReaction(messageId, emoji) : addReaction(messageId, emoji);
       // Reacting puts one in the channel too, exactly like writing does.
       request.then(() => !wasMine && notInChannel(conv) && void markJoined(conv));
+      if (!wasMine) void request.then(() => noteReaction(emoji), () => {});
       request.catch(() => {
         rollbackMessage(conv, target);
         showToast({ tone: "info", title: t("toast.reactionFailed") });
@@ -2974,9 +2983,10 @@ function AppShell() {
    * Answer in a thread. The same optimistic dance as {@link send}, plus the root's counter: our own
    * reply is never echoed back to us, so nothing else would move it.
    */
-  const sendReply = (parentId: string, text: string) => {
+  const sendReply = (parentId: string, text: string, alsoInChannel = false) => {
     if (!text.trim()) return;
     const conv = channelId;
+    const root = (messages[conv] ?? []).find((x) => x.id === parentId);
     const tempId = `tmp-${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
@@ -2986,9 +2996,12 @@ function AppShell() {
       createdAt: new Date().toISOString(),
       body: text,
       parentId,
+      ...(alsoInChannel
+        ? { alsoInChannel, threadRoot: { id: parentId, authorName: root?.author, excerpt: root?.deleted ? "" : (root?.body ?? "") } }
+        : {}),
     };
     setMessages((prev) => ({ ...prev, [conv]: [...(prev[conv] ?? []), optimistic] }));
-    sendMessage(conv, text, { parentMessageId: parentId })
+    sendMessage(conv, text, { parentMessageId: parentId, alsoInChannel })
       .then((m) => {
         setMessages((prev) => {
           const list = (prev[conv] ?? []).filter((x) => x.id !== tempId && x.id !== m.id);
@@ -4119,6 +4132,7 @@ function AppShell() {
           threadReplies={threadReplies}
           threadLoading={thread !== null && threadLoading === thread}
           onSendReply={sendReply}
+          canReplyToChannel={canReplyToChannel}
           profileName={profile}
           profileEditing={profileEdit}
           unreadMarker={unreadMarker}

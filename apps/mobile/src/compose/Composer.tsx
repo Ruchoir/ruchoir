@@ -6,7 +6,7 @@
  * unsent message is the conversation's draft, kept while the app runs.
  */
 import type { Channel, Member } from "@ruchoir/client";
-import { PenLine, Plus, Send } from "lucide-react-native";
+import { Check, PenLine, Plus, Send } from "lucide-react-native";
 import { useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,6 +36,11 @@ type Props = {
   draftKey: string;
   /** The message a thread reply answers. */
   parentId?: string;
+  /**
+   * Under a thread's field, "Also send to #general": the reply goes to the channel too when ticked,
+   * for that reply only. Absent where it cannot (an instance without it, outside a thread).
+   */
+  alsoInChannelLabel?: string;
   placeholder: string;
   /** Who `@` suggests (the space's people), and the channels `#` does. */
   people: Member[];
@@ -131,6 +136,8 @@ export function Composer(props: Props) {
   const waiting = !!files && (files.uploading || files.failed);
   const ready = (body.length > 0 || (files?.attachments.length ?? 0) > 0) && !waiting;
 
+  const [alsoInChannel, setAlsoInChannel] = useState(false);
+
   const submit = () => {
     if (!ready) return;
     feel("send");
@@ -144,9 +151,12 @@ export function Composer(props: Props) {
       attachments: files?.attachments ?? [],
       images: files?.images,
       parentId,
+      alsoInChannel: parentId && alsoInChannel ? true : undefined,
       baseline: props.baselineFor(body),
     });
     files?.clear();
+    // One reply at a time, as Slack does: the next stays in the thread unless asked again.
+    setAlsoInChannel(false);
     change("");
     setCursor(0);
     props.onSent?.();
@@ -174,6 +184,25 @@ export function Composer(props: Props) {
         </View>
       ) : null}
       {files ? <PendingFiles attachments={files} /> : null}
+      {props.alsoInChannelLabel && !editing ? (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: alsoInChannel }}
+          onPress={() => {
+            feel("choice");
+            setAlsoInChannel((on) => !on);
+          }}
+          hitSlop={6}
+          style={styles.also}
+        >
+          <View style={[styles.tick, { borderColor: alsoInChannel ? c.ink : c.controlLine, backgroundColor: alsoInChannel ? c.ink : "transparent" }]}>
+            {alsoInChannel ? <Check size={13} color={c.surface} strokeWidth={3} /> : null}
+          </View>
+          <Text variant="small" tone="muted" numberOfLines={1} style={styles.grow}>
+            {props.alsoInChannelLabel}
+          </Text>
+        </Pressable>
+      ) : null}
       <View style={[styles.bar, barBottom, tablet && styles.barTablet]}>
         {props.onAttach && !editing ? (
           <Pressable
@@ -250,6 +279,8 @@ const styles = StyleSheet.create({
   fieldTablet: { minHeight: 48, paddingTop: 13, paddingBottom: 13, paddingHorizontal: 16 },
   typing: { paddingHorizontal: 16, paddingTop: 6 },
   banner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
+  also: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 8 },
+  tick: { width: 18, height: 18, borderRadius: 5, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   grow: { flex: 1 },
   bar: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 16, paddingTop: 8 },
   square: { width: 44, height: 44, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },

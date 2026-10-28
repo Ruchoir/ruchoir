@@ -1,4 +1,4 @@
-import type { ApiMessage, Channel } from "@ruchoir/client";
+import { isInFeed as inFeed, type ApiMessage, type Channel } from "@ruchoir/client";
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from "@react-navigation/native";
 import { Archive, ArrowDown, CalendarDays, CheckCheck, ChevronLeft, FileText, Info, MessageSquare, Pin } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -72,7 +72,8 @@ type Row =
   | { kind: "unread" }
   | { kind: "seen"; readers: string[] };
 
-const isInFeed = (m: ApiMessage) => !m.parentId;
+// A root message, or a thread reply sent to the channel too.
+const isInFeed = (m: ApiMessage) => inFeed(m);
 
 /** A message of the feed to take the reader to; `replyId` when what was asked for is one of its replies. */
 type Focus = { id: string; replyId?: string; n: number };
@@ -406,6 +407,8 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
         older &&
         older.kind !== "system" &&
         m.kind !== "system" &&
+        // A reply sent to the channel too opens with the line naming its thread, under its own head.
+        !(m.parentId && m.alsoInChannel) &&
         older.author === m.author &&
         dayKey(older.createdAt, timeZone) === day &&
         Date.parse(m.createdAt) - Date.parse(older.createdAt) < RUN_GAP_MS;
@@ -603,7 +606,18 @@ function Messages({ conversationId, title, channelId, unread, oneToOne, channel,
               onLongPress={() =>
                 navigation.navigate("messageActions", { conversationId, channelId, title, draftKey: conversationId, message: item.message })
               }
-              onOpenThread={() => navigation.navigate("thread", { conversationId, channelId, rootId: item.message.id, title, root: item.message })}
+              onOpenThread={() => {
+                const m = item.message;
+                if (!m.parentId) {
+                  navigation.navigate("thread", { conversationId, channelId, rootId: m.id, title, root: m });
+                  return;
+                }
+                // A reply shown here (sent to the channel too) opens its thread: at once when its root
+                // is loaded, else once the root is found further up, as a pinned reply does.
+                const root = messages.find((x) => x.id === m.parentId);
+                if (root) navigation.navigate("thread", { conversationId, channelId, rootId: root.id, title, root, focusId: m.id });
+                else void seek({ id: m.parentId, replyId: m.id, n: handled.current + 1 });
+              }}
               avatarOf={members.avatarOf}
               onReact={(emoji) => react(conversationId, item.message, emoji)}
               onAddReaction={() => navigation.navigate("emojiPicker", { conversationId, message: item.message })}
