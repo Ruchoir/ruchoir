@@ -19,6 +19,8 @@ export type OutboxItem = {
   images?: InlineImage[];
   /** The message this one answers, for a thread reply. */
   parentId?: string;
+  /** A thread reply sent to its channel too. */
+  alsoInChannel?: boolean;
   state: "sending" | "failed";
   createdAt: string;
   /**
@@ -120,6 +122,7 @@ export function pendingRows(
           attachments: files.length > 0 ? files : undefined,
           images: i.images?.length ? i.images : undefined,
           parentId: i.parentId,
+          alsoInChannel: i.alsoInChannel || undefined,
         },
       };
     });

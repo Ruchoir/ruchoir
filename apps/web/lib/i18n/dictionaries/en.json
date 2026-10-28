@@ -434,7 +434,11 @@
   "thread": {
     "title": "Thread",
     "close": "Close the thread",
-    "replyPlaceholder": "Reply in the thread"
+    "replyPlaceholder": "Reply in the thread",
+    "alsoInChannel": "Also send to #{{channel}}",
+    "alsoInConversation": "Also send to the conversation",
+    "repliedToThread": "replied to a thread",
+    "openThread": "Open the thread"
   },
   "composer": {
     "uploadFailed": "File not sent",

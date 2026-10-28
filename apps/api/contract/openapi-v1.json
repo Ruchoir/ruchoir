@@ -2589,6 +2589,10 @@
       "MessageDto": {
         "description": "A message as returned to clients, with its satellites folded in.",
         "properties": {
+          "also_in_channel": {
+            "description": "A thread reply sent to its channel too: drawn in the channel's feed as well, under a line\nnaming the thread it answers. Always false for a root message.",
+            "type": "boolean"
+          },
           "attachments": {
             "description": "Files attached to the message, in attachment order.",
             "items": {
@@ -2736,6 +2740,17 @@
               "string",
               "null"
             ]
+          },
+          "thread_root": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ThreadRootDto",
+                "description": "For a reply sent to its channel too, the thread it answers, as that line shows it."
+              }
+            ]
           }
         },
         "required": [
@@ -2743,6 +2758,7 @@
           "conversation_id",
           "kind",
           "body",
+          "also_in_channel",
           "reply_count",
           "imported",
           "edited",
@@ -3967,6 +3983,22 @@
         ],
         "type": "object"
       },
+      "RecentReactionsDto": {
+        "description": "The emoji someone reacted with last, newest first.",
+        "properties": {
+          "emojis": {
+            "description": "Distinct native emoji, the most recently used first; empty for someone who never reacted.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "emojis"
+        ],
+        "type": "object"
+      },
       "RecoveryCodesResponse": {
         "description": "A freshly generated set of recovery codes, shown to the user exactly once.",
         "properties": {
@@ -4142,6 +4174,10 @@
       "SendMessageRequest": {
         "description": "Post a new message (optionally as a threaded reply).",
         "properties": {
+          "also_in_channel": {
+            "description": "With `parent_message_id`, send the reply to the channel's feed too. Ignored without it.",
+            "type": "boolean"
+          },
           "attachments": {
             "description": "Ids of already-uploaded files to attach (the caller must be able to read each, and each must\nbelong to the conversation's space).",
             "items": {
@@ -4503,6 +4539,31 @@
         "required": [
           "endpoint",
           "keys"
+        ],
+        "type": "object"
+      },
+      "ThreadRootDto": {
+        "description": "The thread a reply sent to its channel too answers: who started it and how it began.",
+        "properties": {
+          "author_name": {
+            "description": "Its author's display name; absent for a system message or a removed account.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "excerpt": {
+            "description": "The start of what it says, as plain as it was written; empty when it was deleted.",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "excerpt"
         ],
         "type": "object"
       },
@@ -9514,6 +9575,27 @@
         "summary": "`PUT /api/v1/me/presence`: set or clear the caller's manual override, then broadcast the change.",
         "tags": [
           "realtime"
+        ]
+      }
+    },
+    "/api/v1/me/recent-reactions": {
+      "get": {
+        "operationId": "recent_reactions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecentReactionsDto"
+                }
+              }
+            },
+            "description": "Recent reactions"
+          }
+        },
+        "summary": "`GET /api/v1/me/recent-reactions`: the caller's most recently used reactions, so the quick\nreactions lead with them on every device. Read from the reactions themselves: a reaction taken\nback no longer counts, and nothing else is stored.",
+        "tags": [
+          "messaging"
         ]
       }
     },

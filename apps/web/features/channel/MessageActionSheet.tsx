@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Icon, Sheet, SheetGroup, SheetItem } from "@/components/ds";
-import { QUICK_REACTIONS } from "@/lib/emoji";
+import { useQuickReactions } from "@/lib/data/recentReactions";
 import { useTranslation } from "@/lib/i18n";
 import { Emoji } from "../app/Emoji";
 import { EmojiPicker } from "./EmojiPicker";
@@ -39,7 +39,8 @@ export type MessageActionSheetProps = {
 
 export function MessageActionSheet(p: MessageActionSheetProps) {
   const { t } = useTranslation();
-  // The full picker replaces the list when the six quick ones are not the one wanted.
+  const quick = useQuickReactions();
+  // The full picker replaces the list when the quick ones (the recent first) are not the one wanted.
   const [picking, setPicking] = useState(false);
   const close = () => {
     setPicking(false);
@@ -53,13 +54,13 @@ export function MessageActionSheet(p: MessageActionSheetProps) {
     <Sheet open={p.open} label={t("message.more")} onClose={close}>
       {picking ? (
         <div style={{ display: "flex", justifyContent: "center", paddingBottom: 8 }}>
-          <EmojiPicker onPick={(emoji) => run(() => p.onReact(emoji))()} />
+          <EmojiPicker quick={quick} onPick={(emoji) => run(() => p.onReact(emoji))()} />
         </div>
       ) : (
         <>
           <div style={{ padding: "0 6px 10px", fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{p.sentAt}</div>
           <div className="wc-sheet__reacts">
-            {QUICK_REACTIONS.slice(0, 6).map((emoji) => (
+            {quick.map((emoji) => (
               <button key={emoji} type="button" className="wc-sheet__react" aria-label={emoji} onClick={run(() => p.onReact(emoji))}>
                 <Emoji emoji={emoji} size={24} />
               </button>

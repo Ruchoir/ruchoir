@@ -78,6 +78,22 @@ const styles: Record<string, CSSProperties> = {
     whiteSpace: "nowrap",
   },
   name: { fontSize: "var(--text-md)", fontWeight: 700, color: "var(--text-strong)" },
+  // Above a reply sent to the channel too: the thread it answers, a way into it.
+  threadLine: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    maxWidth: "100%",
+    padding: 0,
+    margin: "0 0 2px",
+    border: "none",
+    background: "none",
+    color: "var(--text-subtle)",
+    fontSize: "var(--text-xs)",
+    textAlign: "left",
+    cursor: "pointer",
+  },
+  threadExcerpt: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--text-muted)" },
   time: { fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" },
   body: {
     fontSize: "var(--text-base)",
@@ -500,6 +516,14 @@ export function MessageRow({
         ) : null}
       </Popover>
       <div style={{ flex: 1, minWidth: 0 }}>
+        {!inThread && m.parentId && m.alsoInChannel && m.threadRoot ? (
+          <button type="button" style={styles.threadLine} onClick={actions.onOpenThread} aria-label={t("thread.openThread")}>
+            <Icon name="message-square" size={13} />
+            <span>{t("thread.repliedToThread")}</span>
+            {m.threadRoot.authorName && m.threadRoot.excerpt ? <strong style={{ fontWeight: 600 }}>{m.threadRoot.authorName}</strong> : null}
+            <span style={styles.threadExcerpt}>{m.threadRoot.excerpt || t("message.deleted")}</span>
+          </button>
+        ) : null}
         {grouped ? null : (
         <div style={styles.author}>
           <button style={nameBtn} onClick={() => setProfileOpen(true)}>

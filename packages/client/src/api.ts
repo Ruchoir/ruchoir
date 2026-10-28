@@ -137,6 +137,9 @@ type MessageDto = {
   /** A calendar card's event, as the reader sees it. */
   event?: EventCardDto;
   parent_message_id?: string;
+  /** Absent from an instance without `reply_to_channel`. */
+  also_in_channel?: boolean;
+  thread_root?: { id: string; author_name?: string; excerpt: string };
   reply_count: number;
   /** The server's preview of the first link, once it has read the page. */
   link?: {
@@ -284,6 +287,14 @@ export type InstanceCapabilities = {
 };
 
 /** Whether the instance can do what `feature` names (`InstanceCapabilities.features`). */
+/**
+ * Whether a message belongs in its conversation's feed: a root message, or a thread reply sent to
+ * its channel too. Every other reply lives in its thread only.
+ */
+export function isInFeed(m: { parentId?: string; alsoInChannel?: boolean }): boolean {
+  return !m.parentId || !!m.alsoInChannel;
+}
+
 export function supports(caps: Pick<InstanceCapabilities, "features">, feature: string): boolean {
   return caps.features.includes(feature);
 }
@@ -2350,12 +2361,14 @@ export function createApi(transport: Transport) {
   async function sendMessage(
     conversationId: string,
     body: string,
-    opts: { attachments?: string[]; parentMessageId?: string } = {},
+    opts: { attachments?: string[]; parentMessageId?: string; alsoInChannel?: boolean } = {},
   ): Promise<ApiMessage> {
     const dto = await apiPost<MessageDto>(`/conversations/${conversationId}/messages`, {
       body,
       attachments: opts.attachments ?? [],
       parent_message_id: opts.parentMessageId,
+      // Sent only when asked: an older instance ignores it, a newer one reads false as absent.
+      ...(opts.parentMessageId && opts.alsoInChannel ? { also_in_channel: true } : {}),
     });
     return toMessage(dto);
   }
@@ -2461,6 +2474,10 @@ export function createApi(transport: Transport) {
       images,
       reactions: dto.reactions.length > 0 ? dto.reactions.map(toReaction) : undefined,
       parentId: dto.parent_message_id,
+      alsoInChannel: dto.also_in_channel || undefined,
+      threadRoot: dto.thread_root
+        ? { id: dto.thread_root.id, authorName: dto.thread_root.author_name, excerpt: dto.thread_root.excerpt }
+        : undefined,
       replies: dto.reply_count > 0 ? dto.reply_count : undefined,
       replyAuthors: dto.reply_authors?.length ? dto.reply_authors : undefined,
       lastReplyAt: dto.last_reply_at,
@@ -2589,6 +2606,16 @@ export function createApi(transport: Transport) {
   // --- Notification delivery (preferences, Web Push) ---
 
   /** `GET /me/notification-preferences`. */
+  /**
+   * The emoji the signed-in person reacted with last, newest first (`recent_reactions`): the quick
+   * reactions lead with them. Empty on an instance without the feature, as for someone who never
+   * reacted.
+   */
+  async function getRecentReactions(signal?: AbortSignal): Promise<string[]> {
+    const dto = await apiGet<{ emojis?: unknown }>("/me/recent-reactions", signal);
+    return Array.isArray(dto.emojis) ? dto.emojis.filter((e): e is string => typeof e === "string") : [];
+  }
+
   async function getNotificationPreferences(signal?: AbortSignal): Promise<NotificationPreferences> {
     const dto = await apiGet<Record<string, unknown>>("/me/notification-preferences", signal);
     return Object.fromEntries(
@@ -3630,7 +3657,7 @@ export function createApi(transport: Transport) {
     getDirectMessages, getSpacePresence, setMyPresence, getUserProfile, getSpaceMembers,
     listChannelMembers, addChannelMembers, setChannelMemberRole, removeChannelMember, createDm,
     updateMyProfile, getChannelMessages, getChanges, sendMessage, editMessage, deleteMessage,
-    getReplies, addReaction, removeReaction, setReadCursor, getSavedMessages, setMessageSaved,
+    getReplies, addReaction, removeReaction, getRecentReactions, setReadCursor, getSavedMessages, setMessageSaved,
     getPinnedMessages, setMessagePinned, getReadCursors, getNotifications, markNotificationRead,
     markAllNotificationsRead, getNotificationPreferences, saveNotificationPreferences,
     saveConversationNotify, getPushConfig, savePushSubscription, sendTestPush, sendPhoneTestPush,
@@ -3663,7 +3690,7 @@ export const {
   getDirectMessages, getSpacePresence, setMyPresence, getUserProfile, getSpaceMembers,
   listChannelMembers, addChannelMembers, setChannelMemberRole, removeChannelMember, createDm,
   updateMyProfile, getChannelMessages, getChanges, sendMessage, editMessage, deleteMessage,
-  getReplies, addReaction, removeReaction, setReadCursor, getSavedMessages, setMessageSaved,
+  getReplies, addReaction, removeReaction, getRecentReactions, setReadCursor, getSavedMessages, setMessageSaved,
   getPinnedMessages, setMessagePinned, getReadCursors, getNotifications, markNotificationRead,
   markAllNotificationsRead, getNotificationPreferences, saveNotificationPreferences,
   saveConversationNotify, getPushConfig, savePushSubscription, sendTestPush, sendPhoneTestPush,

@@ -437,7 +437,11 @@
   "thread": {
     "title": "Hilo",
     "close": "Cerrar el hilo",
-    "replyPlaceholder": "Responder en el hilo"
+    "replyPlaceholder": "Responder en el hilo",
+    "alsoInChannel": "Enviar también a #{{channel}}",
+    "alsoInConversation": "Enviar también a la conversación",
+    "repliedToThread": "respondió en un hilo",
+    "openThread": "Abrir el hilo"
   },
   "composer": {
     "uploadFailed": "Archivo no enviado",

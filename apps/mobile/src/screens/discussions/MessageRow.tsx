@@ -1,7 +1,7 @@
 import type { ApiMessage } from "@ruchoir/client";
 import { useNavigation } from "@react-navigation/native";
 import { Image } from "expo-image";
-import { Pin } from "lucide-react-native";
+import { MessageSquare, Pin } from "lucide-react-native";
 import { memo, useState } from "react";
 import { Alert, Keyboard, Pressable, StyleSheet, View } from "react-native";
 
@@ -145,6 +145,9 @@ export const MessageRow = memo(function MessageRow({
       {highlighted ? <Flash /> : null}
       <View style={[styles.gutter, tablet && styles.gutterTablet]}>{head ? <Avatar name={m.author} src={avatar} size={tablet ? 42 : 36} /> : null}</View>
       <View style={styles.main}>
+        {m.parentId && m.alsoInChannel && m.threadRoot && onOpenThread ? (
+          <ThreadLine root={m.threadRoot} onPress={onOpenThread} />
+        ) : null}
         {head ? (
           <View style={styles.head}>
             <Text variant="bodyStrong" numberOfLines={1} style={styles.author}>
@@ -212,6 +215,29 @@ export const MessageRow = memo(function MessageRow({
     </Pressable>
   );
 });
+
+/** Above a reply sent to the channel too: "replied to a thread", who started it and how, a way in. */
+function ThreadLine({ root, onPress }: { root: NonNullable<ApiMessage["threadRoot"]>; onPress: () => void }) {
+  const { t } = useTranslation();
+  const { c } = useTheme();
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.threadLine, pressed && { opacity: 0.6 }]}>
+      <MessageSquare size={13} color={c.muted} />
+      <Text variant="tiny" tone="muted" numberOfLines={1} style={styles.threadText}>
+        {t("thread.repliedToThread")}
+        {root.excerpt ? (
+          <>
+            {" · "}
+            {root.authorName ? <Text variant="tiny" style={{ color: c.ink }}>{root.authorName} </Text> : null}
+            {root.excerpt}
+          </>
+        ) : (
+          ` · ${t("message.deleted")}`
+        )}
+      </Text>
+    </Pressable>
+  );
+}
 
 /** "3 replies · last at 10:42", with up to three faces of those who answered, in the link colour. */
 function ReplyLine({ message: m, onPress, avatarOf }: { message: ApiMessage; onPress: () => void; avatarOf?: (name: string) => string | undefined }) {
@@ -321,6 +347,8 @@ const styles = StyleSheet.create({
   systemCard: { paddingHorizontal: 16, paddingBottom: 8, alignItems: "center" },
   pinned: { flexDirection: "row", alignItems: "center", gap: 3 },
   replies: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", paddingVertical: 2 },
+  threadLine: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "stretch", paddingBottom: 2 },
+  threadText: { flexShrink: 1 },
   faces: { flexDirection: "row" },
   face: { borderWidth: 2, borderRadius: radius.s + 2 },
   faceOverlap: { marginLeft: -6 },

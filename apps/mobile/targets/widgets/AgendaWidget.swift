@@ -4,7 +4,7 @@
 import SwiftUI
 import WidgetKit
 
-struct AgendaEvent: Decodable, Identifiable {
+struct AgendaEvent: Codable, Identifiable {
   let event_id: String
   let calendar_id: String?
   let title: String
@@ -64,7 +64,7 @@ struct AgendaEntry: TimelineEntry {
 
 struct AgendaProvider: TimelineProvider {
   func placeholder(in context: Context) -> AgendaEntry {
-    AgendaEntry(date: .now, events: [], colors: [:], failed: false)
+    LastAgenda.read() ?? AgendaEntry(date: .now, events: [], colors: [:], failed: false)
   }
 
   func getSnapshot(in context: Context, completion: @escaping (AgendaEntry) -> Void) {
@@ -99,7 +99,8 @@ struct AgendaProvider: TimelineProvider {
     async let occurrences = Instance.everywhere(path, as: [AgendaEvent].self)
     async let calendars = Instance.everywhere("/calendars", as: [CalendarInfo].self)
     guard let answered = await occurrences else {
-      return AgendaEntry(date: now, events: [], colors: [:], failed: true)
+      // Out of reach for now: the last week read, rather than an empty card, until the next try.
+      return LastAgenda.read() ?? AgendaEntry(date: now, events: [], colors: [:], failed: true)
     }
     let all = answered.flatMap { answer in answer.value.map { $0.from(answer.server) } }
     let known = (await calendars ?? []).flatMap(\.value)
@@ -109,7 +110,31 @@ struct AgendaProvider: TimelineProvider {
     let shown = all
       .filter { !hidden.contains($0.calendar_id ?? "") }
       .sorted { ($0.startDate ?? now) < ($1.startDate ?? now) }
+    LastAgenda.write(events: shown, colors: colors)
     return AgendaEntry(date: now, events: shown, colors: colors, failed: false)
+  }
+}
+
+/// The last agenda read, in the widget extension's own defaults: what iOS draws while a new read is
+/// on its way, and what stays on the card while the instances cannot be reached. Never the session.
+private enum LastAgenda {
+  private struct Saved: Codable {
+    let events: [AgendaEvent]
+    let colors: [String: String]
+  }
+  private static let key = "agenda.last"
+
+  static func read() -> AgendaEntry? {
+    guard Instance.signedIn,
+      let data = UserDefaults.standard.data(forKey: key),
+      let saved = try? JSONDecoder().decode(Saved.self, from: data)
+    else { return nil }
+    return AgendaEntry(date: .now, events: saved.events, colors: saved.colors, failed: false)
+  }
+
+  static func write(events: [AgendaEvent], colors: [String: String]) {
+    guard let data = try? JSONEncoder().encode(Saved(events: events, colors: colors)) else { return }
+    UserDefaults.standard.set(data, forKey: key)
   }
 }
 

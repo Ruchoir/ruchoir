@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { EMOJI_CATEGORIES, QUICK_REACTIONS, searchEmojis } from "../src/emoji/index.ts";
+import { EMOJI_CATEGORIES, QUICK_REACTIONS, quickReactions, searchEmojis } from "../src/emoji/index.ts";
 
 test("every_category_has_an_id_an_icon_and_emojis", () => {
   for (const c of EMOJI_CATEGORIES) {
@@ -21,4 +21,11 @@ test("search_falls_back_to_french_and_english", () => {
 
 test("an_empty_query_finds_nothing", () => {
   assert.deepEqual(searchEmojis("  ", "fr"), []);
+});
+
+test("quick_reactions_lead_with_the_recent_then_the_usual_each_once", () => {
+  assert.deepEqual(quickReactions([]), QUICK_REACTIONS);
+  assert.deepEqual(quickReactions(["🔥", "👍"]), ["🔥", "👍", "❤️", "😂", "🎉"]);
+  assert.deepEqual(quickReactions(["🔥", "🚀", "👀", "🙏", "✅", "💯"]), ["🔥", "🚀", "👀", "🙏", "✅"]);
+  assert.deepEqual(quickReactions(["🔥"], 3), ["🔥", "👍", "❤️"]);
 });

@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { createClient, resetClientForTests, supports } from "../src/index.ts";
+import { createClient, isInFeed, resetClientForTests, supports } from "../src/index.ts";
 import { fakeFetch } from "./fakeFetch.ts";
 
 beforeEach(() => resetClientForTests());
@@ -33,4 +33,11 @@ test("a_newer_instance_with_things_this_app_does_not_know_is_read_as_usual", asy
   const caps = await createClient({ baseUrl: "https://a.test" }).getInstanceCapabilities();
   assert.ok(supports(caps, "teleport"));
   assert.ok(caps.nativeSessions);
+});
+
+test("a_reply_is_in_the_feed_only_when_sent_to_the_channel_too", () => {
+  assert.equal(isInFeed({}), true);
+  assert.equal(isInFeed({ parentId: "root" }), false);
+  assert.equal(isInFeed({ parentId: "root", alsoInChannel: false }), false);
+  assert.equal(isInFeed({ parentId: "root", alsoInChannel: true }), true);
 });

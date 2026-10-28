@@ -113,7 +113,7 @@ async fn unread_messages_by_space(
                  LEFT JOIN read_cursors rc \
                    ON rc.conversation_id = m.conversation_id AND rc.user_id = $1 \
                  LEFT JOIN messages lm ON lm.id = rc.last_read_message_id \
-                WHERE m.parent_message_id IS NULL \
+                WHERE (m.parent_message_id IS NULL OR m.also_in_channel) \
                   AND m.deleted_at IS NULL \
                   AND m.kind <> 'system' \
                   AND (m.author_id IS NULL OR m.author_id <> $1) \
@@ -407,7 +407,7 @@ pub(super) async fn preview(
     };
     let Some(message) = messages::Entity::find()
         .filter(messages::Column::ConversationId.eq(conversation_id))
-        .filter(messages::Column::ParentMessageId.is_null())
+        .filter(super::messages::in_feed())
         .filter(messages::Column::DeletedAt.is_null())
         .filter(said)
         .order_by_desc(messages::Column::CreatedAt)
@@ -619,7 +619,7 @@ pub(super) async fn unread_count(
 
     let mut query = messages::Entity::find()
         .filter(messages::Column::ConversationId.eq(conversation_id))
-        .filter(messages::Column::ParentMessageId.is_null())
+        .filter(super::messages::in_feed())
         .filter(messages::Column::DeletedAt.is_null())
         // System notices are not something anyone is behind on. It matters now that they are written
         // at runtime: without this, every arrival in a space would bump the unread badge of every

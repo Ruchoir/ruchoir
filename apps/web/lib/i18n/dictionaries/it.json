@@ -437,7 +437,11 @@
   "thread": {
     "title": "Discussione",
     "close": "Chiudi la discussione",
-    "replyPlaceholder": "Rispondi nella discussione"
+    "replyPlaceholder": "Rispondi nella discussione",
+    "alsoInChannel": "Invia anche in #{{channel}}",
+    "alsoInConversation": "Invia anche nella conversazione",
+    "repliedToThread": "ha risposto in una discussione",
+    "openThread": "Apri la discussione"
   },
   "composer": {
     "uploadFailed": "File non inviato",

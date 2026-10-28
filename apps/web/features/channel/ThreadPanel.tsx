@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { FileIcon, Icon, IconButton, Popover, Skeleton, SkeletonGroup } from "@/components/ds";
+import { Checkbox, FileIcon, Icon, IconButton, Popover, Skeleton, SkeletonGroup } from "@/components/ds";
 import type { Presence } from "@/components/ds";
 import type { Message, MessageAttachment } from "@/lib/data";
 import { deleteFile } from "@/lib/data/api";
@@ -93,8 +93,13 @@ export type ThreadPanelProps = {
   presenceByName: Map<string, Presence>;
   /** Uploaded avatars by display name; absent means the generated one. */
   avatarByName: Map<string, string | undefined>;
-  /** Post a reply in this thread. */
-  onSendReply: (text: string) => void;
+  /** Post a reply in this thread, and to its channel too when asked. */
+  onSendReply: (text: string, alsoInChannel: boolean) => void;
+  /**
+   * The label of "send to the channel too" under the composer ("Also send to #general"); absent on
+   * an instance that cannot, where the choice is not offered.
+   */
+  alsoInChannelLabel?: string;
   /** Set while one of *these* messages is being edited: the thread composer takes the edit. */
   editing?: { id: string; body: string } | null;
   onSaveEdit?: (text: string, attachments?: MessageAttachment[]) => void;
@@ -127,6 +132,7 @@ export function ThreadPanel({
   presenceByName,
   avatarByName,
   onSendReply,
+  alsoInChannelLabel,
   editing,
   onSaveEdit,
   onCancelEdit,
@@ -196,6 +202,8 @@ export function ThreadPanel({
     [width, settings],
   );
 
+  const [alsoInChannel, setAlsoInChannel] = useState(false);
+
   const submit = (text: string): boolean => {
     if (activeUploads.current > 0) return false;
     if (editing) {
@@ -203,7 +211,9 @@ export function ThreadPanel({
       setEditPending([]);
       return true;
     }
-    onSendReply(text);
+    onSendReply(text, alsoInChannel);
+    // Asked for one reply at a time, as Slack does: the next one stays in the thread unless asked.
+    setAlsoInChannel(false);
     return true;
   };
 
@@ -367,6 +377,11 @@ export function ThreadPanel({
               <IconButton icon="send" label={t("composer.send")} variant="accent" size="sm" disabled={uploading} onClick={clickSend} className="wc-send" />
             </div>
           </div>
+          {alsoInChannelLabel && !editing ? (
+            <div style={{ marginTop: 8 }}>
+              <Checkbox label={alsoInChannelLabel} checked={alsoInChannel} onChange={(event) => setAlsoInChannel(event.target.checked)} />
+            </div>
+          ) : null}
         </div>
       )}
     </div>
