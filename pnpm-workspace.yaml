@@ -27,7 +27,7 @@ overrides:
 # via eslint-config-next > @next/eslint-plugin-next > fast-glob 3.3.1 > micromatch > braces. It runs
 # at lint time on the repository's own glob patterns, never on input from a user, and nothing of it
 # reaches the built app. There is no patched braces release, and the latest @next/eslint-plugin-next
-# (16.3.8) still pins fast-glob 3.3.1. Drop this once either moves.
+# (16.4.3) still pins fast-glob 3.3.1. Drop this once either moves.
 #
 # GHSA-86w9-cpqp-85rv (node-forge <= 1.4.0, RSA PKCS#1 v1.5 signature verification) and
 # GHSA-w5hq-g745-h8pq (uuid < 11.1.1, missing bounds check with a caller-provided buffer): dev only,
@@ -36,8 +36,17 @@ overrides:
 # machine and never reach the app's bundle (Metro bundles the app's own code) nor the API image
 # (its web stage installs only `@ruchoir/web...`). node-forge has no patched release, and xcode pins
 # uuid 7. Drop these once the Expo CLI moves past them.
+#
+# GHSA-mrhx-c7xc-m3w5 (zod < 4.6.6, memory exhaustion validating oversized input) and
+# GHSA-gcqx-w48m-w2h4 (deepmerge 4.2 to 4.3.1, prototype poisoning in mergeObject): dev only, the
+# same way, through the Expo CLI (zod 3.25 in @expo/cli, deepmerge in @expo/config), which validates
+# and merges the project's own configuration on a developer's machine. zod is fixed in 4.6.6 only,
+# with nothing on the 3 line the CLI is written against, and deepmerge has no fixed release. Drop
+# these once the Expo CLI moves past them.
 auditConfig:
   ignoreGhsas:
     - GHSA-vfj7-8cjw-p6xm
     - GHSA-86w9-cpqp-85rv
     - GHSA-w5hq-g745-h8pq
+    - GHSA-mrhx-c7xc-m3w5
+    - GHSA-gcqx-w48m-w2h4

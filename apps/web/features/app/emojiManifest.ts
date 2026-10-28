@@ -23,6 +23,15 @@ const EMPTY: EmojiManifest = { static: new Set(), animated: new Set() };
 let cache: Promise<EmojiManifest> | null = null;
 
 /**
+ * Let go of an answer whose body is not wanted (a 404: no pack, or no sprite). Left unread, the
+ * browser keeps the request open for as long as the server streams the page, and since Next 16.4 the
+ * development server's not-found page streams without end: the page never settled.
+ */
+function discard<T>(r: Response, value: T): Promise<T> {
+  return r.body ? r.body.cancel().then(() => value, () => value) : Promise.resolve(value);
+}
+
+/**
  * Fetch (and memoise) the pack manifest, once the static sprite has arrived whole. Until then the
  * system's own glyphs are drawn: a `<use>` into a sprite still on its way paints nothing, and a
  * picker opened on a slow line showed a grid of holes (the sprite is megabytes). The sprite's
@@ -32,7 +41,7 @@ let cache: Promise<EmojiManifest> | null = null;
 export function loadEmojiManifest(): Promise<EmojiManifest> {
   if (cache) return cache;
   cache = fetch("/emoji/manifest.json")
-    .then((r) => (r.ok ? r.json() : null))
+    .then((r) => (r.ok ? r.json() : discard(r, null)))
     .then(async (json): Promise<EmojiManifest> => {
       if (!json) return EMPTY;
       const staticCodes: string[] = Array.isArray(json.static) ? json.static : [];
@@ -40,7 +49,7 @@ export function loadEmojiManifest(): Promise<EmojiManifest> {
       const sprite =
         staticCodes.length > 0
           ? await fetch("/emoji/sprite.svg")
-              .then((r) => (r.ok ? r.arrayBuffer().then(() => true) : false))
+              .then((r) => (r.ok ? r.arrayBuffer().then(() => true) : discard(r, false)))
               .catch(() => false)
           : false;
       return { static: new Set(sprite ? staticCodes : []), animated: new Set(animated) };
