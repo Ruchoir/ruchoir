@@ -1830,6 +1830,15 @@
       "failed": "The update could not be installed. Try again.",
       "restart": "Restart to update",
       "installing": "Installing…"
+    },
+    "about": {
+      "title": "About Ruchoir",
+      "version": "Version {{version}} · {{os}} · web engine {{webview}}",
+      "diagnostics": "Diagnostics",
+      "diagnosticsDesc": "The version, the system, your instances and the end of the log, to paste in a request for help. Nothing is sent by itself, and no message or password is in it.",
+      "copyFailed": "Copying failed. Open the log folder to attach the file.",
+      "logs": "Logs",
+      "logsDesc": "The file where the app notes what happened, without what your messages say."
     }
   }
 }

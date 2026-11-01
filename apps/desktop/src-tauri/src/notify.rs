@@ -202,7 +202,7 @@ async fn draw<R: Runtime>(app: &AppHandle<R>, id: &str) {
             builder = builder.sound(system_sound());
         }
         if let Err(error) = builder.show() {
-            eprintln!("ruchoir: a notification could not be shown: {error}");
+            log::warn!("a notification could not be shown: {error}");
         }
     }
 }

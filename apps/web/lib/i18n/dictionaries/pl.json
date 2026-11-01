@@ -1964,6 +1964,15 @@
       "failed": "Nie udało się zainstalować aktualizacji. Spróbuj ponownie.",
       "restart": "Uruchom ponownie, aby zaktualizować",
       "installing": "Instalowanie…"
+    },
+    "about": {
+      "title": "O Ruchoir",
+      "version": "Wersja {{version}} · {{os}} · silnik WWW {{webview}}",
+      "diagnostics": "Informacje diagnostyczne",
+      "diagnosticsDesc": "Wersja, system, Twoje instancje i koniec dziennika, do wklejenia w prośbie o pomoc. Nic nie jest wysyłane samo, nie ma tu żadnej wiadomości ani hasła.",
+      "copyFailed": "Nie udało się skopiować. Otwórz folder dzienników, aby dołączyć plik.",
+      "logs": "Dzienniki",
+      "logsDesc": "Plik, w którym aplikacja zapisuje, co się wydarzyło, bez treści Twoich wiadomości."
     }
   }
 }

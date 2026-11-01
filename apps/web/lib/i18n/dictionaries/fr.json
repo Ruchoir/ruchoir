@@ -1856,6 +1856,15 @@
       "failed": "La mise à jour n’a pas pu être installée. Réessayez.",
       "restart": "Redémarrer pour mettre à jour",
       "installing": "Installation…"
+    },
+    "about": {
+      "title": "À propos de Ruchoir",
+      "version": "Version {{version}} · {{os}} · moteur web {{webview}}",
+      "diagnostics": "Informations de diagnostic",
+      "diagnosticsDesc": "La version, le système, vos instances et la fin du journal, à coller dans une demande d’aide. Rien n’est envoyé automatiquement, et aucun message ni mot de passe n’y figure.",
+      "copyFailed": "La copie a échoué. Ouvrez le dossier des journaux pour joindre le fichier.",
+      "logs": "Journaux",
+      "logsDesc": "Le fichier où l’application note ce qui s’est passé, sans le contenu de vos messages."
     }
   }
 }

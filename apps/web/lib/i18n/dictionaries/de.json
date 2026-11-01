@@ -1830,6 +1830,15 @@
       "failed": "Das Update konnte nicht installiert werden. Versuchen Sie es erneut.",
       "restart": "Neu starten und aktualisieren",
       "installing": "Wird installiert…"
+    },
+    "about": {
+      "title": "Über Ruchoir",
+      "version": "Version {{version}} · {{os}} · Web-Engine {{webview}}",
+      "diagnostics": "Diagnoseinformationen",
+      "diagnosticsDesc": "Version, System, Ihre Instanzen und das Ende des Protokolls, zum Einfügen in eine Hilfeanfrage. Nichts wird von selbst gesendet, und keine Nachricht und kein Passwort sind enthalten.",
+      "copyFailed": "Das Kopieren ist fehlgeschlagen. Öffnen Sie den Protokollordner, um die Datei anzuhängen.",
+      "logs": "Protokolle",
+      "logsDesc": "Die Datei, in der die App festhält, was passiert ist, ohne den Inhalt Ihrer Nachrichten."
     }
   }
 }

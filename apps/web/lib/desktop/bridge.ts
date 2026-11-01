@@ -38,6 +38,12 @@ export const preferencesChanged = (id: string) => invoke<void>("preferences_chan
 export const desktopSettings = () => invoke<DesktopSettings>("desktop_settings");
 /** End the app (the window's close only hides it to the tray). */
 export const quitApp = () => invoke<void>("app_quit");
+/** The app as "About" shows it (`diagnostics.rs`). */
+export type AboutApp = { version: string; os: string; arch: string; webview: string; bundle: string };
+export const aboutApp = () => invoke<AboutApp>("about_app");
+/** The text "Copy diagnostics" puts on the clipboard: version, system, instances' hosts, the log's end. */
+export const diagnostics = () => invoke<string>("diagnostics");
+export const openLogFolder = () => invoke<void>("open_log_folder");
 /** A newer version of the app, found by the core (`updater.rs`). */
 export type UpdateOffer = { version: string; manual: boolean };
 /** The newer version found so far, if any (for a window opened after the check). */

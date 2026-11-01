@@ -152,6 +152,16 @@ certificates (which come later). The private key and its password are the reposi
 manager. **Losing it means no installed app can ever update again**: every install would have to
 be replaced by hand with a build carrying a new public key.
 
+## Logs and diagnostics
+
+The app writes `ruchoir.log` in the system's log folder for it (`tauri-plugin-log`, rotated at 1 MB,
+three old files kept): one line per thing worth knowing (start, an update found, a check or a
+notification that failed), never what a message says and never a token. Preferences, Application,
+"About Ruchoir" shows the version, the system and the web engine, copies the diagnostics (version,
+system, installation format, instances counted and named by host, the log's last 200 lines) to the
+clipboard, and opens the log folder (`src-tauri/src/diagnostics.rs`). Nothing is sent anywhere by
+itself.
+
 ## Releasing
 
 A tag `desktop-vX.Y.Z` (apart from the instance's `vX.Y.Z` tags) runs the `Desktop apps` workflow
