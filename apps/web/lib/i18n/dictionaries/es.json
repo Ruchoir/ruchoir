@@ -1881,7 +1881,9 @@
       "closeToTray": "Mantener Ruchoir abierto al cerrar",
       "closeToTrayDesc": "Cerrar la ventana deja Ruchoir en el área de notificaciones, para seguir recibiendo notificaciones.",
       "sharedNote": "Común a todas tus instancias",
-      "instanceNote": "Solo para {{host}}"
+      "instanceNote": "Solo para {{host}}",
+      "usageCount": "Contar esta instalación en las estadísticas anónimas",
+      "usageCountDesc": "Un identificador aleatorio, sin relación con su cuenta ni sus instancias, acompaña la búsqueda de actualizaciones, con la versión y el formato de instalación. Solo sirve para saber cuántas aplicaciones se usan. Si lo desactiva, se borra."
     },
     "download": {
       "title": "Descarga imposible",

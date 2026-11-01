@@ -239,6 +239,15 @@ function ApplicationSection() {
           />
         </Row>
       )}
+      {settings.usage_count === undefined ? null : (
+        <Row title={t("desktop.prefs.usageCount")} desc={t("desktop.prefs.usageCountDesc")}>
+          <Switch
+            checked={settings.usage_count}
+            onChange={(e) => desktop.setSettings({ ...settings, usage_count: e.target.checked })}
+            aria-label={t("desktop.prefs.usageCount")}
+          />
+        </Row>
+      )}
       <AboutSection />
     </>
   );

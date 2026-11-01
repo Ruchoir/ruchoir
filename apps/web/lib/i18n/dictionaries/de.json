@@ -1814,7 +1814,9 @@
       "closeToTray": "Ruchoir beim Schließen weiterlaufen lassen",
       "closeToTrayDesc": "Das Schließen des Fensters lässt Ruchoir im Infobereich, damit weiterhin Benachrichtigungen ankommen.",
       "sharedNote": "Gleich auf allen Ihren Instanzen",
-      "instanceNote": "Nur für {{host}}"
+      "instanceNote": "Nur für {{host}}",
+      "usageCount": "Diese Installation in der anonymen Statistik zählen",
+      "usageCountDesc": "Eine zufällige Kennung ohne Bezug zu Ihrem Konto oder Ihren Instanzen wird mit der Update-Prüfung gesendet, zusammen mit Version und Installationsformat. Sie dient nur dazu, zu wissen, wie viele Apps genutzt werden. Ausgeschaltet wird sie gelöscht."
     },
     "download": {
       "title": "Download nicht möglich",

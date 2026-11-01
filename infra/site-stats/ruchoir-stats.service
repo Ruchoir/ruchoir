@@ -1,0 +1,6 @@
+[Unit]
+Description=Ruchoir anonymous statistics, the day's totals
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ruchoir-stats

@@ -1881,7 +1881,9 @@
       "closeToTray": "Tieni Ruchoir aperto alla chiusura",
       "closeToTrayDesc": "Chiudere la finestra lascia Ruchoir nell’area di notifica, per continuare a ricevere le notifiche.",
       "sharedNote": "Uguale su tutte le tue istanze",
-      "instanceNote": "Solo per {{host}}"
+      "instanceNote": "Solo per {{host}}",
+      "usageCount": "Conta questa installazione nelle statistiche anonime",
+      "usageCountDesc": "Un identificativo casuale, senza legame con il tuo account o le tue istanze, accompagna la ricerca di aggiornamenti, con la versione e il formato di installazione. Serve solo a sapere quante app sono in uso. Se disattivato, viene cancellato."
     },
     "download": {
       "title": "Download non riuscito",
