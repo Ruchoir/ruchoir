@@ -33,6 +33,14 @@ pub struct DesktopSettings {
     /// Windows and Linux; always true on macOS, where the switch is not shown.
     pub close_to_tray: bool,
     pub close_notice_seen: bool,
+    /// Whether this installation is counted in Ruchoir's anonymous usage statistics (`usage.rs`).
+    /// On unless turned off; absent from settings saved before it existed, which read as on.
+    #[serde(default = "counted_by_default")]
+    pub usage_count: bool,
+}
+
+fn counted_by_default() -> bool {
+    true
 }
 
 /// The words the core shows, in the interface's language.
@@ -59,7 +67,7 @@ pub struct Shell {
     labels: Mutex<ShellLabels>,
 }
 
-fn read_settings<R: Runtime>(app: &AppHandle<R>) -> DesktopSettings {
+pub(crate) fn read_settings<R: Runtime>(app: &AppHandle<R>) -> DesktopSettings {
     let stored = app
         .store(SETTINGS_STORE)
         .ok()
@@ -70,6 +78,7 @@ fn read_settings<R: Runtime>(app: &AppHandle<R>) -> DesktopSettings {
         launch_at_login,
         close_to_tray: true,
         close_notice_seen: false,
+        usage_count: true,
     });
     settings.launch_at_login = launch_at_login;
     if cfg!(target_os = "macos") {
@@ -104,6 +113,10 @@ pub fn set_desktop_settings<R: Runtime>(
         autolaunch.disable()
     };
     result.map_err(|_| "autostart".to_string())?;
+    if !settings.usage_count {
+        // Turned off: the identifier goes with it, and a later "on" draws a new one.
+        crate::usage::forget(&app);
+    }
     write_settings(&app, &settings);
     Ok(read_settings(&app))
 }

@@ -17,6 +17,7 @@ mod shell;
 mod state;
 mod summaries;
 mod updater;
+mod usage;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;

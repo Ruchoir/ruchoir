@@ -16,7 +16,13 @@ export type SpaceSummary = {
 
 export type Summary = { spaces: SpaceSummary[]; unread_notifications: number };
 
-export type DesktopSettings = { launch_at_login: boolean; close_to_tray: boolean; close_notice_seen: boolean };
+export type DesktopSettings = {
+  launch_at_login: boolean;
+  close_to_tray: boolean;
+  close_notice_seen: boolean;
+  /** Counted in Ruchoir's anonymous usage statistics (`usage.rs`); absent from an older app. */
+  usage_count?: boolean;
+};
 
 /** Parts of a host that name the software or the web, not the organisation. */
 const GENERIC = new Set(["www", "app", "ruchoir"]);

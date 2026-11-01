@@ -1840,7 +1840,9 @@
       "closeToTray": "Garder Ruchoir ouvert à la fermeture",
       "closeToTrayDesc": "Fermer la fenêtre laisse Ruchoir dans la zone de notification, pour continuer à recevoir les notifications.",
       "sharedNote": "Commun à toutes vos instances",
-      "instanceNote": "Propre à {{host}}"
+      "instanceNote": "Propre à {{host}}",
+      "usageCount": "Compter cette installation dans les statistiques anonymes",
+      "usageCountDesc": "Un identifiant tiré au hasard, sans lien avec votre compte ni vos instances, accompagne la recherche de mises à jour, avec la version et le format d’installation. Il sert seulement à savoir combien d’applications sont utilisées. Désactivé, il est effacé."
     },
     "download": {
       "title": "Téléchargement impossible",

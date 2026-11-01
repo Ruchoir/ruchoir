@@ -52,7 +52,21 @@ pub fn watch<R: Runtime>(app: &AppHandle<R>) {
 }
 
 async fn check<R: Runtime>(app: &AppHandle<R>) {
-    let found = match app.updater() {
+    // Counted in the anonymous usage statistics unless turned off (`usage.rs`).
+    let mut builder = app.updater_builder();
+    if let Some(id) = crate::usage::install_id(app) {
+        let version = app.package_info().version.to_string();
+        let format = crate::diagnostics::bundle();
+        builder = match builder
+            .header("X-Ruchoir-Install", id)
+            .and_then(|b| b.header("X-Ruchoir-Version", version))
+            .and_then(|b| b.header("X-Ruchoir-Format", format))
+        {
+            Ok(builder) => builder,
+            Err(_) => app.updater_builder(),
+        };
+    }
+    let found = match builder.build() {
         Ok(updater) => updater.check().await,
         Err(error) => {
             log::warn!("the updater is not available: {error}");

@@ -46,7 +46,7 @@ fn tail(text: &str, lines: usize) -> String {
 }
 
 /// How the app was installed, as the updater sees it.
-fn bundle() -> &'static str {
+pub(crate) fn bundle() -> &'static str {
     use tauri::utils::{config::BundleType, platform::bundle_type};
     match bundle_type() {
         Some(BundleType::Nsis) => "nsis",

@@ -1814,7 +1814,9 @@
       "closeToTray": "Keep Ruchoir running when closed",
       "closeToTrayDesc": "Closing the window leaves Ruchoir in the notification area, so notifications keep coming.",
       "sharedNote": "The same on all your instances",
-      "instanceNote": "Only for {{host}}"
+      "instanceNote": "Only for {{host}}",
+      "usageCount": "Count this installation in the anonymous statistics",
+      "usageCountDesc": "A random identifier, unrelated to your account or your instances, goes with the update check, with the version and installation format. It only tells how many apps are in use. Turned off, it is erased."
     },
     "download": {
       "title": "Download failed",

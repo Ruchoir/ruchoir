@@ -162,6 +162,35 @@ system, installation format, instances counted and named by host, the log's last
 clipboard, and opens the log folder (`src-tauri/src/diagnostics.rs`). Nothing is sent anywhere by
 itself.
 
+## Usage statistics
+
+Ruchoir counts its desktop apps and their downloads, anonymously (decided 2026-11-01, stated in the
+website's legal notice):
+
+- **Active apps.** The first time an app checks for updates it draws a random identifier (128 bits,
+  `src-tauri/src/usage.rs`), unrelated to any account, instance or person, and sends it with each
+  check (`X-Ruchoir-Install`), with its version (`X-Ruchoir-Version`) and installation format
+  (`X-Ruchoir-Format`). Preferences, Application, "Count this installation in the anonymous
+  statistics" turns it off: nothing is sent, the identifier is erased, and turning it on again draws
+  a new one.
+- **Downloads**, by system: a GET answered 200 for an installer under `/desktop/vX.Y.Z/`.
+
+On the website's server both locations log to their own files, whose formats hold no address
+(`infra/site-stats/nginx-log-formats.conf`), kept 35 days (`logrotate.conf`). Every night
+`ruchoir-stats` (`ruchoir-stats.timer`) writes the totals in `/srv/ruchoir-stats/`: `stats.txt` (the
+last day at a glance), `downloads.csv`, `active.csv` (distinct installations the day, the last 7 and
+30 days) and `versions.csv`. Only totals outlive the logs.
+
+```bash
+ssh ruchoir-site cat /srv/ruchoir-stats/stats.txt
+```
+
+Once, by hand, on the website's server: `nginx-log-formats.conf` as
+`/etc/nginx/conf.d/ruchoir-stats.conf`, `logrotate.conf` as `/etc/logrotate.d/ruchoir-stats`,
+`ruchoir-stats` in `/usr/local/sbin` (root, `0755`), the service and timer in `/etc/systemd/system`
+(`systemctl enable --now ruchoir-stats.timer`), and the `access_log` lines of the website
+repository's `deploy/nginx/ruchoir.com.conf`.
+
 ## Releasing
 
 A tag `desktop-vX.Y.Z` (apart from the instance's `vX.Y.Z` tags) runs the `Desktop apps` workflow

@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+"""Ruchoir's anonymous statistics, on the website's server (docs/desktop.md, "Usage statistics").
+
+Run every night (ruchoir-stats.timer). Reads the two dedicated nginx logs, which hold no address:
+
+- ruchoir-downloads.log: each request under /desktop/; a GET answered 200 for an installer counts as
+  one download of its system;
+- ruchoir-usage.log: each desktop app's update check, with its random installation identifier, its
+  version and its installation format (only apps that leave counting on send them).
+
+and writes, in /srv/ruchoir-stats/:
+
+- downloads.csv: date, system, downloads (one line per day and system, rewritten each run);
+- active.csv: date, active the day, the last 7 days, the last 30 days (distinct identifiers);
+- versions.csv: date, version, format, active the day;
+- stats.txt: the latest figures, readable at a glance.
+
+Only totals are kept. The identifiers are read from the logs, which logrotate drops after 35 days,
+and are never written anywhere else.
+
+Installed as /usr/local/sbin/ruchoir-stats (root, 0755).
+"""
+
+import csv
+import datetime as dt
+import glob
+import gzip
+import os
+import re
+from collections import defaultdict
+
+LOGS = "/var/log/nginx"
+OUT = os.environ.get("RUCHOIR_STATS_DIR", "/srv/ruchoir-stats")
+
+SYSTEMS = [
+    ("windows", re.compile(r"-setup\.exe$")),
+    ("macos", re.compile(r"\.dmg$")),
+    ("appimage", re.compile(r"\.AppImage$")),
+    ("deb", re.compile(r"\.deb$")),
+    ("rpm", re.compile(r"\.rpm$")),
+]
+DOWNLOAD = re.compile(r"^(\S+) (\d{3}) (\S+) (/desktop/v[^/\s]+/\S+)$")
+USAGE = re.compile(r'^(\S+) (\d{3}) "([0-9a-f]{32})" "([0-9A-Za-z.+-]{1,32})" "([a-z-]{1,16})"$')
+
+
+def lines(name):
+    """Every line of a log and its rotated copies, compressed or not."""
+    for path in sorted(glob.glob(os.path.join(LOGS, name + "*"))):
+        opener = gzip.open if path.endswith(".gz") else open
+        try:
+            with opener(path, "rt", encoding="utf-8", errors="replace") as handle:
+                yield from handle
+        except OSError:
+            continue
+
+
+def day_of(stamp):
+    """The day of an ISO 8601 time, in UTC."""
+    try:
+        return dt.datetime.fromisoformat(stamp).astimezone(dt.timezone.utc).date()
+    except ValueError:
+        return None
+
+
+def main():
+    downloads = defaultdict(int)  # (day, system) -> count
+    for line in lines("ruchoir-downloads.log"):
+        found = DOWNLOAD.match(line.strip())
+        if not found or found.group(2) != "200" or found.group(3) != "GET":
+            continue
+        day = day_of(found.group(1))
+        name = found.group(4)
+        for system, pattern in SYSTEMS:
+            if day and pattern.search(name):
+                downloads[(day, system)] += 1
+
+    seen = defaultdict(set)  # day -> identifiers
+    versions = defaultdict(set)  # (day, version, format) -> identifiers
+    for line in lines("ruchoir-usage.log"):
+        found = USAGE.match(line.strip())
+        if not found:
+            continue
+        day = day_of(found.group(1))
+        if not day:
+            continue
+        seen[day].add(found.group(3))
+        versions[(day, found.group(4), found.group(5))].add(found.group(3))
+
+    os.makedirs(OUT, exist_ok=True)
+    days = sorted({d for d, _ in downloads} | set(seen))
+
+    # Totals already computed for days whose logs are gone are kept: only days still in the logs are
+    # recomputed, the older lines come back from the previous run's files.
+    def merge(path, header, rows, key_len):
+        kept = {}
+        if os.path.exists(path):
+            with open(path, newline="") as handle:
+                reader = csv.reader(handle)
+                next(reader, None)
+                for row in reader:
+                    if row and dt.date.fromisoformat(row[0]) not in days:
+                        kept[tuple(row[:key_len])] = row
+        for row in rows:
+            kept[tuple(row[:key_len])] = row
+        with open(path + ".new", "w", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(header)
+            for key in sorted(kept):
+                writer.writerow(kept[key])
+        os.replace(path + ".new", path)
+
+    merge(
+        os.path.join(OUT, "downloads.csv"),
+        ["date", "system", "downloads"],
+        [[d.isoformat(), s, str(n)] for (d, s), n in downloads.items()],
+        2,
+    )
+
+    def active_over(day, span):
+        ids = set()
+        for back in range(span):
+            ids |= seen.get(day - dt.timedelta(days=back), set())
+        return len(ids)
+
+    merge(
+        os.path.join(OUT, "active.csv"),
+        ["date", "day", "week", "month"],
+        [[d.isoformat(), str(len(seen[d])), str(active_over(d, 7)), str(active_over(d, 30))] for d in seen],
+        1,
+    )
+    merge(
+        os.path.join(OUT, "versions.csv"),
+        ["date", "version", "format", "active"],
+        [[d.isoformat(), v, f, str(len(ids))] for (d, v, f), ids in versions.items()],
+        3,
+    )
+
+    # The summary: yesterday (the last complete day), and every download so far.
+    yesterday = dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=1)
+    totals = defaultdict(int)
+    with open(os.path.join(OUT, "downloads.csv"), newline="") as handle:
+        for row in csv.DictReader(handle):
+            totals[row["system"]] += int(row["downloads"])
+    summary = [
+        f"Ruchoir desktop, {yesterday.isoformat()} (UTC)",
+        "",
+        "Active apps (distinct installations counting):",
+        f"  that day {len(seen.get(yesterday, ()))}, last 7 days {active_over(yesterday, 7)}, "
+        f"last 30 days {active_over(yesterday, 30)}",
+        "",
+        "Downloads that day / since the first release:",
+    ]
+    for system, _ in SYSTEMS:
+        summary.append(f"  {system:9} {downloads.get((yesterday, system), 0):6} / {totals.get(system, 0)}")
+    summary.append("")
+    summary.append("Versions in use that day:")
+    for (d, v, f), ids in sorted(versions.items()):
+        if d == yesterday:
+            summary.append(f"  {v:10} {f:10} {len(ids)}")
+    with open(os.path.join(OUT, "stats.txt.new"), "w") as handle:
+        handle.write("\n".join(summary) + "\n")
+    os.replace(os.path.join(OUT, "stats.txt.new"), os.path.join(OUT, "stats.txt"))
+
+
+if __name__ == "__main__":
+    main()

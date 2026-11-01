@@ -1948,7 +1948,9 @@
       "closeToTray": "Nie zamykaj Ruchoir przy zamknięciu okna",
       "closeToTrayDesc": "Zamknięcie okna zostawia Ruchoir w obszarze powiadomień, by dalej otrzymywać powiadomienia.",
       "sharedNote": "Wspólne dla wszystkich Twoich instancji",
-      "instanceNote": "Tylko dla {{host}}"
+      "instanceNote": "Tylko dla {{host}}",
+      "usageCount": "Licz tę instalację w anonimowych statystykach",
+      "usageCountDesc": "Losowy identyfikator, niezwiązany z Twoim kontem ani instancjami, jest wysyłany przy sprawdzaniu aktualizacji, razem z wersją i formatem instalacji. Służy tylko do policzenia, ile aplikacji jest używanych. Po wyłączeniu zostaje usunięty."
     },
     "download": {
       "title": "Nie udało się pobrać",
