@@ -9,9 +9,10 @@
 #   ssh deploy@<server> v1.2.3 < release.tar
 #
 # The archive holds the release's files at its root: the installers, the updater's archives with
-# their `.sig`, `latest.json` and `index.html`. They go to /srv/ruchoir-desktop/<version>/, then
-# latest.json and index.html are put in place at the top, last, so an app never reads a manifest
-# pointing at files not there yet. nginx serves the folder as https://ruchoir.com/desktop/.
+# their `.sig`, `latest.json`, `downloads.json` and `index.html`. They go to
+# /srv/ruchoir-desktop/<version>/, then downloads.json, index.html and latest.json are put in place
+# at the top, last, so an app never reads a manifest pointing at files not there yet. nginx serves
+# the folder as https://ruchoir.com/desktop/.
 # Older versions stay, so an app between two checks can still download what it was offered.
 set -euo pipefail
 
@@ -44,16 +45,19 @@ if grep -vE "$allowed" "$work/names" | grep -q .; then
 fi
 mkdir "$work/stage"
 tar -xf "$work/release.tar" -C "$work/stage" --no-same-owner --no-same-permissions
-for needed in latest.json index.html; do
+for needed in latest.json downloads.json index.html; do
   [ -f "$work/stage/$needed" ] || { echo "the release has no $needed" >&2; exit 1; }
 done
 grep -q "\"version\": *\"$plain\"" "$work/stage/latest.json" || { echo "latest.json is not for $version" >&2; exit 1; }
 
 target="$ROOT/$version"
 mkdir -p "$target"
-find "$work/stage" -maxdepth 1 -type f ! -name latest.json ! -name index.html -exec install -m 0644 {} "$target/" \;
-install -m 0644 "$work/stage/latest.json" "$ROOT/.latest.json.new"
-install -m 0644 "$work/stage/index.html" "$ROOT/.index.html.new"
-mv -f "$ROOT/.latest.json.new" "$ROOT/latest.json"
+find "$work/stage" -maxdepth 1 -type f ! -name latest.json ! -name downloads.json ! -name index.html \
+  -exec install -m 0644 {} "$target/" \;
+for top in downloads.json index.html latest.json; do
+  install -m 0644 "$work/stage/$top" "$ROOT/.$top.new"
+done
+mv -f "$ROOT/.downloads.json.new" "$ROOT/downloads.json"
 mv -f "$ROOT/.index.html.new" "$ROOT/index.html"
+mv -f "$ROOT/.latest.json.new" "$ROOT/latest.json"
 echo "=== $(date -u +%FT%TZ) $version published"

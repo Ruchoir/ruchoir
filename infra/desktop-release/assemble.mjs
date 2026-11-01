@@ -1,13 +1,13 @@
 // Assemble a desktop release for the website's server (docs/desktop.md, "Releasing"): from
 // the folder where the CI gathered every system's files, write `latest.json`, the updater's
-// manifest, and `index.html`, the plain download page the app's "Download" opens (the website's own
+// manifest, `downloads.json`, the files by system for the website's download page, and `index.html`, the plain download page the app's "Download" opens (the website's own
 // page comes later). Run by `.github/workflows/desktop-build.yml` on a `desktop-v*` tag:
 //
 //   node infra/desktop-release/assemble.mjs 0.1.0 release/
 //
 // Every updater archive needs its `.sig` (minisign, from TAURI_SIGNING_PRIVATE_KEY): a missing one
 // stops the release rather than publish an update the apps would refuse.
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const [version, dir] = process.argv.slice(2);
@@ -55,6 +55,26 @@ writeFileSync(join(dir, "latest.json"), `${JSON.stringify(manifest, null, 2)}\n`
 const dmg = one(/\.dmg$/, "macOS disk image");
 const deb = one(/\.deb$/, "Debian package");
 const rpm = one(/\.rpm$/, "RPM package");
+
+// The same, for the website's download page, which reads it from the browser (same origin) to
+// point its buttons at the current version: path from /desktop/ and size in bytes, by system.
+const entry = (file) => ({ path: `v${version}/${encodeURIComponent(file)}`, bytes: statSync(join(dir, file)).size });
+writeFileSync(
+  join(dir, "downloads.json"),
+  `${JSON.stringify(
+    {
+      version,
+      pub_date: manifest.pub_date,
+      windows: entry(windows),
+      macos: entry(dmg),
+      appimage: entry(appimage),
+      deb: entry(deb),
+      rpm: entry(rpm),
+    },
+    null,
+    2,
+  )}\n`,
+);
 const link = (file, label) => `<li><a href="v${version}/${encodeURIComponent(file)}">${label}</a> <small>${file}</small></li>`;
 writeFileSync(
   join(dir, "index.html"),
@@ -84,4 +104,4 @@ ${link(rpm, "Linux, paquet .rpm")}
 </html>
 `,
 );
-console.log(`latest.json and index.html written for ${version}`);
+console.log(`latest.json, downloads.json and index.html written for ${version}`);
