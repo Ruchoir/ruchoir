@@ -55,7 +55,7 @@ async fn check<R: Runtime>(app: &AppHandle<R>) {
     let found = match app.updater() {
         Ok(updater) => updater.check().await,
         Err(error) => {
-            eprintln!("ruchoir: the updater is not available: {error}");
+            log::warn!("the updater is not available: {error}");
             return;
         }
     };
@@ -63,10 +63,11 @@ async fn check<R: Runtime>(app: &AppHandle<R>) {
         Ok(Some(update)) => update,
         Ok(None) => return,
         Err(error) => {
-            eprintln!("ruchoir: the update check failed: {error}");
+            log::warn!("the update check failed: {error}");
             return;
         }
     };
+    log::info!("update {} available", update.version);
     let offer = UpdateOffer {
         version: update.version.clone(),
         manual: system_package(),
@@ -108,7 +109,7 @@ pub async fn update_install<R: Runtime>(
         .and_then(|found| found.clone())
         .ok_or("no_update")?;
     if let Err(error) = update.download_and_install(|_, _| {}, || {}).await {
-        eprintln!("ruchoir: the update could not be installed: {error}");
+        log::warn!("the update could not be installed: {error}");
         // Kept for another try from the same offer.
         return Err("failed".into());
     }

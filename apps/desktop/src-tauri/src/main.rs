@@ -8,6 +8,7 @@
 // No console window behind the app on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod diagnostics;
 mod downloads;
 mod notify;
 mod protocol;
@@ -65,6 +66,7 @@ fn main() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(diagnostics::plugin())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_notification::init())
@@ -93,10 +95,19 @@ fn main() {
             relay::socket_is_open,
             downloads::download_save,
             downloads::download_open,
+            diagnostics::about_app,
+            diagnostics::diagnostics,
+            diagnostics::open_log_folder,
             updater::update_state,
             updater::update_install,
         ])
         .setup(|app| {
+            log::info!(
+                "Ruchoir {} starting on {} {}",
+                app.package_info().version,
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            );
             let list_path = app.path().app_data_dir()?.join("instances.json");
             app.manage(state::Desktop::new(
                 list_path,
@@ -118,7 +129,7 @@ fn main() {
             // system may lack: the app still works without it (links then do not reach it).
             #[cfg(any(windows, target_os = "linux"))]
             if let Err(error) = app.deep_link().register_all() {
-                eprintln!("ruchoir: the ruchoir:// links could not be registered: {error}");
+                log::warn!("the ruchoir:// links could not be registered: {error}");
             }
             let handle = app.handle().clone();
             app.deep_link().on_open_url(move |event| {

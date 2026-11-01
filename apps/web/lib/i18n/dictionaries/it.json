@@ -1897,6 +1897,15 @@
       "failed": "Impossibile installare l’aggiornamento. Riprova.",
       "restart": "Riavvia per aggiornare",
       "installing": "Installazione…"
+    },
+    "about": {
+      "title": "Informazioni su Ruchoir",
+      "version": "Versione {{version}} · {{os}} · motore web {{webview}}",
+      "diagnostics": "Informazioni di diagnostica",
+      "diagnosticsDesc": "La versione, il sistema, le tue istanze e la fine del registro, da incollare in una richiesta di aiuto. Non viene inviato nulla da solo, e non contiene messaggi né password.",
+      "copyFailed": "Copia non riuscita. Apri la cartella dei registri per allegare il file.",
+      "logs": "Registri",
+      "logsDesc": "Il file in cui l’app annota cosa è successo, senza il contenuto dei tuoi messaggi."
     }
   }
 }

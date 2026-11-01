@@ -51,6 +51,7 @@ import type { Toast } from "./types";
 import { currentLocale } from "@/lib/i18n/current";
 import { useDesktop } from "@/features/desktop/DesktopContext";
 import { desktopOs, isDesktop } from "@/lib/desktop/runtime";
+import { aboutApp, diagnostics, openLogFolder, type AboutApp } from "@/lib/desktop/bridge";
 import {
   type CalendarPrefs,
   type ClockFormat,
@@ -238,6 +239,50 @@ function ApplicationSection() {
           />
         </Row>
       )}
+      <AboutSection />
+    </>
+  );
+}
+
+/**
+ * "About": the app's version, system and web engine, and what someone asking for help needs. The
+ * diagnostics are text the person copies and pastes where they choose (nothing is sent anywhere):
+ * version, system, how many instances and their hosts, the end of the log, never a token or a
+ * message (`diagnostics.rs`).
+ */
+function AboutSection() {
+  const { t } = useTranslation();
+  const [about, setAbout] = useState<AboutApp | null>(null);
+  const [copied, setCopied] = useState<"done" | "failed" | null>(null);
+  useEffect(() => {
+    void aboutApp().then(setAbout, () => {});
+  }, []);
+  const copy = () => {
+    void diagnostics()
+      .then((text) => navigator.clipboard.writeText(text))
+      .then(
+        () => setCopied("done"),
+        () => setCopied("failed"),
+      );
+  };
+  if (!about) return null;
+  return (
+    <>
+      <h2 style={st.h}>{t("desktop.about.title")}</h2>
+      <p style={st.sub}>
+        {t("desktop.about.version", { version: about.version, os: `${about.os} ${about.arch}`, webview: about.webview })}
+      </p>
+      <Row title={t("desktop.about.diagnostics")} desc={t("desktop.about.diagnosticsDesc")}>
+        <Button size="sm" variant="secondary" onClick={copy}>
+          {copied === "done" ? t("common.copied") : t("admin.copy")}
+        </Button>
+      </Row>
+      {copied === "failed" ? <p style={st.sub}>{t("desktop.about.copyFailed")}</p> : null}
+      <Row title={t("desktop.about.logs")} desc={t("desktop.about.logsDesc")}>
+        <Button size="sm" variant="secondary" onClick={() => void openLogFolder().catch(() => {})}>
+          {t("panel.openFolder")}
+        </Button>
+      </Row>
     </>
   );
 }
