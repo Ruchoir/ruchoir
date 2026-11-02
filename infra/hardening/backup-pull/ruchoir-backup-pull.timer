@@ -1,0 +1,10 @@
+[Unit]
+Description=Pull the app server's backups every night, after its own backup (03:36 UTC)
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+Persistent=true
+Unit=ruchoir-backup-pull.service
+
+[Install]
+WantedBy=timers.target

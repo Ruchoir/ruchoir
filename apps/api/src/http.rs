@@ -19,7 +19,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tower_governor::governor::GovernorConfigBuilder;
-use tower_governor::key_extractor::SmartIpKeyExtractor;
+use tower_governor::key_extractor::KeyExtractor;
 use tower_governor::GovernorLayer;
 
 use crate::state::AppState;
@@ -260,11 +260,11 @@ pub fn router(state: AppState) -> Router {
     let csp = HeaderValue::from_str(&csp).expect("a valid content security policy");
 
     // Coarse per-IP rate limit on the auth surface: a backstop above the per-account lockout.
-    // `SmartIpKeyExtractor` reads a forwarded client IP behind a proxy and falls back to the
-    // connection peer (see the connect-info make-service in `main`).
+    // `ClientIpKey` reads the client address the proxy in front of the API saw and falls back to
+    // the connection peer (see the connect-info make-service in `main`).
     let governor = Arc::new(
         GovernorConfigBuilder::default()
-            .key_extractor(SmartIpKeyExtractor)
+            .key_extractor(ClientIpKey)
             .period(Duration::from_millis(state.config.auth_rate_period_ms))
             .burst_size(state.config.auth_rate_burst)
             .finish()
@@ -275,7 +275,7 @@ pub fn router(state: AppState) -> Router {
     // there as on the sign-in form.
     let links_governor = Arc::new(
         GovernorConfigBuilder::default()
-            .key_extractor(SmartIpKeyExtractor)
+            .key_extractor(ClientIpKey)
             .period(Duration::from_millis(state.config.auth_rate_period_ms))
             .burst_size(state.config.auth_rate_burst)
             .finish()
@@ -482,6 +482,112 @@ async fn spa_fallback(index: PathBuf, req: Request) -> Response {
 /// Build a layer that sets a static header value on every response.
 fn set_header(name: HeaderName, value: &'static str) -> SetResponseHeaderLayer<HeaderValue> {
     SetResponseHeaderLayer::overriding(name, HeaderValue::from_static(value))
+}
+
+/// The rate-limit key: the address of the client as the reverse proxy in front of the API saw it.
+///
+/// A proxy appends the address it saw to `X-Forwarded-For`, so the **last** entry is the only one
+/// a client cannot choose; the earlier ones are whatever the client sent. The library's
+/// `SmartIpKeyExtractor` takes the first entry, which let a client rotate a fake one and get a
+/// fresh bucket on every request. `X-Real-IP` and `Forwarded` are not read at all: a proxy that
+/// does not overwrite them would pass the client's own through. With no usable `X-Forwarded-For`
+/// (the API reached directly) the key is the connection peer.
+///
+/// This assumes exactly one trusted proxy that appends or replaces the header, as the nginx
+/// snippet in `docs/deployment.md` does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClientIpKey;
+
+impl KeyExtractor for ClientIpKey {
+    type Key = std::net::IpAddr;
+
+    fn extract<T>(
+        &self,
+        req: &axum::http::Request<T>,
+    ) -> Result<Self::Key, tower_governor::GovernorError> {
+        let forwarded = req
+            .headers()
+            .get_all("x-forwarded-for")
+            .iter()
+            .filter_map(|value| value.to_str().ok())
+            .flat_map(|value| value.split(','))
+            .filter_map(|entry| entry.trim().parse::<std::net::IpAddr>().ok())
+            .next_back();
+        forwarded
+            .or_else(|| {
+                req.extensions()
+                    .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+                    .map(|peer| peer.ip())
+            })
+            .or_else(|| {
+                req.extensions()
+                    .get::<std::net::SocketAddr>()
+                    .map(|peer| peer.ip())
+            })
+            .ok_or(tower_governor::GovernorError::UnableToExtractKey)
+    }
+}
+
+#[cfg(test)]
+mod client_ip_tests {
+    use super::*;
+    use std::net::{IpAddr, SocketAddr};
+    use tower_governor::key_extractor::SmartIpKeyExtractor;
+
+    fn request(forwarded: &[&str]) -> Request<()> {
+        let mut builder = Request::builder().uri("/api/v1/auth/login");
+        for value in forwarded {
+            builder = builder.header("x-forwarded-for", *value);
+        }
+        let mut request = builder.body(()).expect("request");
+        let peer: SocketAddr = "127.0.0.1:4000".parse().expect("peer");
+        request
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(peer));
+        request
+    }
+
+    fn ip(text: &str) -> IpAddr {
+        text.parse().expect("ip")
+    }
+
+    #[test]
+    fn the_library_extractor_trusts_the_first_entry() {
+        // Why `ClientIpKey` exists: with the library's extractor, two requests that differ only
+        // in the entry the client chose get different buckets.
+        let a = SmartIpKeyExtractor.extract(&request(&["198.51.100.1, 203.0.113.9"]));
+        let b = SmartIpKeyExtractor.extract(&request(&["198.51.100.2, 203.0.113.9"]));
+        assert_ne!(a.expect("a"), b.expect("b"));
+    }
+
+    #[test]
+    fn forged_first_entries_with_the_same_last_one_share_a_bucket() {
+        let a = ClientIpKey.extract(&request(&["198.51.100.1, 203.0.113.9"]));
+        let b = ClientIpKey.extract(&request(&["198.51.100.2, 203.0.113.9"]));
+        assert_eq!(a.expect("a"), ip("203.0.113.9"));
+        assert_eq!(b.expect("b"), ip("203.0.113.9"));
+    }
+
+    #[test]
+    fn the_last_entry_wins_across_repeated_headers() {
+        let key = ClientIpKey.extract(&request(&["198.51.100.1", "203.0.113.9"]));
+        assert_eq!(key.expect("key"), ip("203.0.113.9"));
+    }
+
+    #[test]
+    fn without_a_forwarded_header_the_peer_is_the_key() {
+        let key = ClientIpKey.extract(&request(&[]));
+        assert_eq!(key.expect("key"), ip("127.0.0.1"));
+    }
+
+    #[test]
+    fn a_real_ip_header_is_ignored() {
+        let mut request = request(&[]);
+        request
+            .headers_mut()
+            .insert("x-real-ip", HeaderValue::from_static("198.51.100.1"));
+        assert_eq!(ClientIpKey.extract(&request).expect("key"), ip("127.0.0.1"));
+    }
 }
 
 #[cfg(test)]

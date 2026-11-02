@@ -1,0 +1,14 @@
+# Monthly restore test: restores the newest backup into a throwaway, unreachable project and checks
+# it. Paired with ruchoir-restore-test.timer. Installed by `infra/hardening/install restore-test`.
+[Unit]
+Description=Ruchoir monthly restore test
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ruchoir-restore-test
+# The script alerts by itself on any failure; this only stops a stuck run from lasting forever.
+TimeoutStartSec=2h
+Nice=10
+IOSchedulingClass=idle

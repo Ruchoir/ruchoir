@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+#
+# Weekly report of the pinned Docker images that have a newer patch release.
+#
+# Installed as /usr/local/sbin/ruchoir-image-report (root, 0755) by hygiene/install.sh, run by
+# ruchoir-image-report.timer. Looks at the images of the running containers (PostgreSQL, Valkey,
+# Garage, the office engine), asks their registry for the tags it holds, and sends one `info`
+# message through ruchoir-notify when a security fix may be waiting. Nothing is pulled or changed.
+#
+# A tag counts as a newer patch when it has the same prefix, the same major version and the same
+# flavour (`-alpine`) and a higher version. `-hotfix.N` is read as one more version component.
+# A floating tag (`18-alpine`) names no patch: the report says how old the image is instead.
+#
+#   ruchoir-image-report            report, notify when there is something to say
+#   ruchoir-image-report --print    report on standard output only
+#
+# Registries asked: Docker Hub and ghcr.io, the two the images are pulled from already.
+# IMAGE_REPORT_IMAGES replaces the list of images (tests). Sourced by the tests: main only runs
+# when the file is executed.
+set -euo pipefail
+
+# split_version TAG: prints "prefix core flavour" for a tag, or fails when it has no version.
+split_version() {
+  local tag="${1/-hotfix./.}" prefix="" core flavour
+  [[ "$tag" =~ ^(v?)([0-9]+(\.[0-9]+)*)(.*)$ ]] || return 1
+  prefix="${BASH_REMATCH[1]}"
+  core="${BASH_REMATCH[2]}"
+  flavour="${BASH_REMATCH[4]}"
+  printf '%s %s %s\n' "${prefix:-_}" "$core" "${flavour:-_}"
+}
+
+# newer_patch CANDIDATE CURRENT: success when CANDIDATE is a later release of CURRENT's line.
+newer_patch() {
+  local cand="$1" cur="$2" cp cc cf up uc uf
+  read -r cp cc cf < <(split_version "$cand") || return 1
+  read -r up uc uf < <(split_version "$cur") || return 1
+  [ "$cp" = "$up" ] && [ "$cf" = "$uf" ] || return 1
+  [ "${cc%%.*}" = "${uc%%.*}" ] || return 1
+  [ "$cc" != "$uc" ] || return 1
+  [ "$(printf '%s\n%s\n' "$cc" "$uc" | sort -V | tail -n 1)" = "$cc" ]
+}
+
+# is_floating TAG: a tag that names a major line only (`18-alpine`, `9`), so no patch.
+is_floating() {
+  local core
+  read -r _ core _ < <(split_version "$1") || return 1
+  [[ "$core" != *.* ]]
+}
+
+# registry_tags IMAGE: one tag a line. Docker Hub (library/ for a bare name) or ghcr.io.
+registry_tags() {
+  local image="$1" repo token
+  case "$image" in
+    ghcr.io/*)
+      repo="${image#ghcr.io/}"
+      token="$(curl -fsS "https://ghcr.io/token?scope=repository:${repo}:pull" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
+      curl -fsS -H "Authorization: Bearer $token" "https://ghcr.io/v2/${repo}/tags/list?n=1000" \
+        | python3 -c 'import json,sys; print("\n".join(json.load(sys.stdin).get("tags") or []))'
+      ;;
+    *)
+      repo="$image"
+      [[ "$repo" == */* ]] || repo="library/$repo"
+      curl -fsS "https://hub.docker.com/v2/repositories/${repo}/tags?page_size=100&ordering=last_updated" \
+        | python3 -c 'import json,sys; print("\n".join(t["name"] for t in json.load(sys.stdin)["results"]))'
+      ;;
+  esac
+}
+
+running_images() {
+  if [ -n "${IMAGE_REPORT_IMAGES:-}" ]; then
+    printf '%s\n' $IMAGE_REPORT_IMAGES
+    return
+  fi
+  docker ps --format '{{.Image}}' | sort -u | grep -E '(^|/)(postgres|valkey|garage|documentserver):' || true
+}
+
+report() {
+  local ref image tag best candidate created age_days
+  while IFS= read -r ref; do
+    [ -n "$ref" ] || continue
+    image="${ref%:*}"
+    tag="${ref##*:}"
+    if is_floating "$tag"; then
+      created="$(docker image inspect --format '{{.Created}}' "$ref" 2>/dev/null || true)"
+      if [ -n "$created" ]; then
+        age_days=$((($(date +%s) - $(date -d "$created" +%s)) / 86400))
+        [ "$age_days" -lt 45 ] || echo "$ref: floating tag, image built $age_days days ago: pull it to take the latest patch"
+      fi
+      continue
+    fi
+    best=""
+    while IFS= read -r candidate; do
+      if newer_patch "$candidate" "$tag"; then
+        if [ -z "$best" ] || newer_patch "$candidate" "$best"; then best="$candidate"; fi
+      fi
+    done < <(registry_tags "$image" || true)
+    [ -z "$best" ] || echo "$ref: newer patch available: $best"
+  done < <(running_images)
+}
+
+main() {
+  local out
+  out="$(report)"
+  if [ "${1:-}" = "--print" ]; then
+    printf '%s\n' "${out:-every pinned image is on its latest patch}"
+    return
+  fi
+  if [ -n "$out" ]; then
+    ruchoir-notify info "Pinned images with a newer patch" "$out"
+  fi
+}
+
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main "$@"
+fi

@@ -1,0 +1,8 @@
+[Unit]
+Description=Ruchoir file integrity check (AIDE)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ruchoir-aide-check
+Nice=15
+IOSchedulingClass=idle

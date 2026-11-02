@@ -1,0 +1,278 @@
+#!/usr/bin/env bash
+#
+# Prove that the newest backup restores: bring it back into a throwaway Ruchoir project, check the
+# result, alert, and destroy the project whatever happened.
+#
+# Installed as /usr/local/sbin/ruchoir-restore-test (root, 0755) by `infra/hardening/install
+# restore-test`, run by ruchoir-restore-test.timer on the 1st of each month at 05:00 UTC, or by hand:
+#
+#   sudo ruchoir-restore-test
+#   ruchoir-restore-test --print-config      the resolved paths, and nothing else
+#
+# What it does, in order:
+#   1. takes the newest sealed archive of the backup directory;
+#   2. copies production's compose file, Garage configuration and scripts/restore.sh into a work
+#      directory, writes a .env made from production's (see env_for_restore) and lays
+#      compose.restoretest.yml over the compose file: project `ruchoir-restoretest`, no published
+#      port, an internal network, a memory cap on every service;
+#   3. asserts, on the RESOLVED configuration and before any container starts, that the project
+#      cannot touch production (assert_isolated). If it does not hold, nothing is started;
+#   4. runs scripts/restore.sh on the archive there, waits for the API to answer healthy, compares
+#      the counts of accounts, spaces, channels, messages and files with the live instance (counts_close)
+#      and reads back five random Garage objects against their recorded size and checksum;
+#   5. sends one message through ruchoir-notify (info with the counts, alert with the reason), and
+#      records the success where the watch check reads it;
+#   6. in a trap, whatever happened: `docker compose down -v` of the throwaway project (always named
+#      explicitly with -p) and removal of the work directory.
+#
+# The live instance is only ever queried (SELECT count(*)); the archive is only ever read.
+#
+# Defaults describe production's layout; each can be overridden by an environment variable, for a
+# rehearsal on another machine:
+#   RESTORE_TEST_PROD_DIR     /opt/ruchoir               the instance (compose file, .env, scripts)
+#   RESTORE_TEST_BACKUP_DIR   /srv/ruchoir/backups       where backup.sh writes archives
+#   RESTORE_TEST_KEY_FILE     production's .env RUCHOIR_BACKUP_KEY_FILE, else /etc/ruchoir/backup.key
+#   RESTORE_TEST_WORK_DIR     /srv/ruchoir-restoretest   the throwaway project's directory
+#   RESTORE_TEST_STATE_DIR    /var/lib/ruchoir-hardening  last-success, install date, lock
+#   RESTORE_TEST_NOTIFY       ruchoir-notify             the command that sends an alert
+#   RESTORE_TEST_MIN_MEM_MB   3000                       refuse to start with less memory available
+#   RESTORE_TEST_KEEP         0                          1 keeps the project and directory afterwards,
+#                                                        for a manual look; the next run removes them
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -r "$here/lib.sh" ]; then
+  # shellcheck source=lib.sh
+  . "$here/lib.sh"
+  compose_file="$here/compose.restoretest.yml"
+else
+  # shellcheck source=lib.sh
+  . /usr/local/lib/ruchoir-hardening/restore-test/lib.sh
+  compose_file=/usr/local/lib/ruchoir-hardening/restore-test/compose.restoretest.yml
+fi
+
+prod_dir="${RESTORE_TEST_PROD_DIR:-/opt/ruchoir}"
+backup_dir="${RESTORE_TEST_BACKUP_DIR:-/srv/ruchoir/backups}"
+work_dir="${RESTORE_TEST_WORK_DIR:-/srv/ruchoir-restoretest}"
+state_dir="${RESTORE_TEST_STATE_DIR:-/var/lib/ruchoir-hardening}"
+key_file="${RESTORE_TEST_KEY_FILE:-$(value_of "$prod_dir/.env" RUCHOIR_BACKUP_KEY_FILE)}"
+key_file="${key_file:-/etc/ruchoir/backup.key}"
+notify_cmd="${RESTORE_TEST_NOTIFY:-ruchoir-notify}"
+min_mem_mb="${RESTORE_TEST_MIN_MEM_MB:-3000}"
+project="$RESTORE_TEST_PROJECT"
+
+# The work directory is wiped at the end: it must be something this script can safely own.
+case "$work_dir" in
+  /?*) ;;
+  *)
+    echo "RESTORE_TEST_WORK_DIR must be an absolute path other than /" >&2
+    exit 2
+    ;;
+esac
+work_dir="${work_dir%/}"
+if [ "$work_dir" = "${prod_dir%/}" ] || [[ "${prod_dir%/}/" == "$work_dir"/* ]]; then
+  echo "the work directory cannot be, or contain, the instance directory" >&2
+  exit 2
+fi
+
+if [ "${1:-}" = "--print-config" ]; then
+  printf 'project=%s\nprod_dir=%s\nbackup_dir=%s\nkey_file=%s\nwork_dir=%s\nstate_dir=%s\n' \
+    "$project" "$prod_dir" "$backup_dir" "$key_file" "$work_dir" "$state_dir"
+  exit 0
+fi
+
+reason=""
+archive=""
+taken_at=""
+counts_report=""
+marker=".ruchoir-restoretest"
+
+log() { printf '%s\n' "$*"; }
+die() {
+  reason="$*"
+  log "restore test failed: $reason"
+  exit 1
+}
+
+notify() { # notify LEVEL TITLE BODY
+  if "$notify_cmd" "$@"; then return 0; fi
+  log "could not send the notification: $2"
+}
+
+# Destroy the throwaway project and its directory. The project is named explicitly so that, whatever
+# the files in the work directory say, only ruchoir-restoretest can be removed here.
+cleanup() {
+  if [ -d "$work_dir" ] && [ -f "$work_dir/$marker" ]; then
+    (cd "$work_dir" && docker compose -p "$project" down -v --remove-orphans >/dev/null 2>&1) || true
+    rm -rf -- "${work_dir:?}"
+  fi
+  # scripts/restore.sh fills the Garage and Valkey volumes with a plain `docker run`, so Compose
+  # did not create them and `down -v` leaves them behind. Removed by their exact names, which are
+  # built from the fixed project name only (never from anything read from the instance).
+  local v
+  for v in postgres-data valkey-data garage-meta garage-data; do
+    docker volume rm -f "${project}_${v}" >/dev/null 2>&1 || true
+  done
+}
+
+finish() {
+  local rc=$?
+  trap - EXIT
+  # Anything the restore wrote to the log is in $work_dir, which is about to go: keep its tail.
+  local tail_text=""
+  if [ -f "$work_dir/restore.log" ]; then tail_text="$(tail -n 8 "$work_dir/restore.log" 2>/dev/null || true)"; fi
+  if [ "${RESTORE_TEST_KEEP:-0}" = 1 ]; then
+    log "RESTORE_TEST_KEEP=1: the project $project and $work_dir are kept for inspection; the next run removes them"
+  else
+    cleanup
+  fi
+  if [ "$rc" -ne 0 ]; then
+    [ -n "$reason" ] || reason="unexpected error (exit $rc)"
+    local body="Restore test failed: $reason."
+    if [ -n "$archive" ]; then body="$body Archive: $(basename "$archive")."; fi
+    if [ -n "$tail_text" ]; then body="$body Last lines of the restore: $tail_text"; fi
+    notify alert "Restore test failed" "$body"
+  fi
+  exit "$rc"
+}
+trap finish EXIT
+# A stop by systemd (timeout) or by hand must still run `finish`, which destroys the project.
+trap 'exit 143' TERM HUP
+trap 'exit 130' INT
+
+mkdir -p "$state_dir"
+exec 9>"$state_dir/restore-test.lock"
+flock -n 9 || die "another restore test is running"
+
+# A leftover of a crashed run is removed first; a directory this script did not make is not touched.
+if [ -e "$work_dir" ] && [ ! -f "$work_dir/$marker" ] && [ -n "$(ls -A "$work_dir" 2>/dev/null)" ]; then
+  die "$work_dir exists and was not made by this script: refusing to use or remove it"
+fi
+cleanup
+
+# 1. The archive and the key.
+archive="$(newest_archive "$backup_dir")" || die "no sealed archive in $backup_dir"
+[ -r "$key_file" ] || die "cannot read the backup key file"
+[ -r "$prod_dir/.env" ] || die "cannot read the instance's .env"
+for f in docker-compose.yml infra/garage/garage.toml scripts/restore.sh; do
+  [ -r "$prod_dir/$f" ] || die "the instance directory has no $f"
+done
+log "archive: $(basename "$archive")"
+
+# 2. The throwaway project's directory.
+mkdir -p "$work_dir"
+chmod 700 "$work_dir"
+: >"$work_dir/$marker"
+mkdir -p "$work_dir/infra/garage" "$work_dir/scripts" "$work_dir/imports"
+cp "$prod_dir/docker-compose.yml" "$work_dir/docker-compose.yml"
+cp "$prod_dir/infra/garage/garage.toml" "$work_dir/infra/garage/garage.toml"
+cp "$prod_dir/scripts/restore.sh" "$work_dir/scripts/restore.sh"
+# Before anything starts: an older restore.sh would write into production's volumes.
+safety="$(restore_script_is_safe "$work_dir/scripts/restore.sh" 2>&1)" \
+  || die "refusing to run: $safety (deploy the release that fixes scripts/restore.sh first)"
+chmod +x "$work_dir/scripts/restore.sh"
+cp "$compose_file" "$work_dir/docker-compose.override.yml"
+env_for_restore "$prod_dir/.env" "$work_dir/.env" "$work_dir"
+
+# Compose picks the project from COMPOSE_PROJECT_NAME before anything else (-p aside), and
+# scripts/restore.sh runs plain `docker compose` in the work directory: both are given the throwaway
+# project's name. It is set for those calls only, never exported: the queries against the live
+# instance (count_in) must see its own project, and are run with the variable removed.
+compose_work() { (cd "$work_dir" && COMPOSE_PROJECT_NAME="$project" docker compose "$@"); }
+
+# 3. Isolation, on the resolved configuration, before any `up`.
+compose_work config --format json >"$work_dir/resolved.json" 2>"$work_dir/resolved.err" \
+  || die "the throwaway project's configuration does not resolve: $(head -c 300 "$work_dir/resolved.err")"
+isolation_problems="$(assert_isolated "$work_dir/resolved.json" "$work_dir" 2>&1)" \
+  || die "$(printf '%s' "$isolation_problems" | tr '\n' ';')"
+log "isolation verified: project $project, no published port, internal network, memory capped"
+
+available_mb="$(awk '/^MemAvailable:/ {print int($2 / 1024)}' /proc/meminfo)"
+if [ "${available_mb:-0}" -lt "$min_mem_mb" ]; then
+  die "only ${available_mb} MB of memory available, $min_mem_mb needed for the throwaway project"
+fi
+
+# 4. Restore.
+log "restoring"
+if ! (cd "$work_dir" && COMPOSE_PROJECT_NAME="$project" RUCHOIR_BACKUP_KEY_FILE="$key_file" timeout 3600 ./scripts/restore.sh "$archive" --yes) >"$work_dir/restore.log" 2>&1; then
+  tail -n 20 "$work_dir/restore.log" || true
+  die "scripts/restore.sh failed (wrong key, damaged archive or a restore error)"
+fi
+taken_at="$(sed -n 's/^  taken at \([^ ]*\) .*/\1/p' "$work_dir/restore.log" | head -n 1)"
+
+log "waiting for the API"
+healthy=0
+for _ in $(seq 1 90); do
+  health="$(compose_work exec -T api curl -fsS http://127.0.0.1:8080/api/v1/health 2>/dev/null || true)"
+  if grep -q '"status":"ok"' <<<"$health" && grep -q '"database":"ok"' <<<"$health" \
+    && grep -q '"cache":"ok"' <<<"$health"; then
+    healthy=1
+    break
+  fi
+  sleep 2
+done
+if [ "$healthy" != 1 ]; then
+  api_log="$(compose_work logs --no-color --tail 8 api 2>&1 | tr '\n' ' ' | cut -c 1-600 || true)"
+  die "the restored API did not report PostgreSQL and Valkey up (last answer: ${health:-none}; its log: ${api_log:-empty})"
+fi
+log "API healthy: PostgreSQL and Valkey up"
+
+# Counts, restored against live. The live instance is only read.
+pg_user="$(value_of "$prod_dir/.env" POSTGRES_USER)"
+pg_user="${pg_user:-ruchoir}"
+pg_db="$(value_of "$prod_dir/.env" POSTGRES_DB)"
+pg_db="${pg_db:-ruchoir}"
+count_in() { # count_in DIR SQL
+  (cd "$1" && env -u COMPOSE_PROJECT_NAME docker compose exec -T postgres psql -U "$pg_user" -d "$pg_db" -tA -v ON_ERROR_STOP=1 -c "$2") | tr -d '[:space:]'
+}
+check_count() { # check_count LABEL SQL
+  local label="$1" sql="$2" restored live
+  restored="$(count_in "$work_dir" "$sql")" || die "could not count $label in the restored database"
+  live="$(count_in "$prod_dir" "$sql")" || die "could not count $label in the live database"
+  counts_report="${counts_report}${label} ${restored} (live ${live}), "
+  counts_close "$restored" "$live" || die "$label: ${restored} restored against ${live} live, further apart than expected"
+  if [ "$label" = accounts ] || [ "$label" = spaces ]; then
+    [ "$restored" -gt 0 ] || die "$label: none in the restored database"
+  fi
+}
+check_count accounts "SELECT count(*) FROM users"
+check_count spaces "SELECT count(*) FROM spaces"
+check_count channels "SELECT count(*) FROM channels"
+check_count messages "SELECT count(*) FROM messages"
+check_count files "SELECT count(*) FROM files"
+check_count "stored objects" "SELECT count(*) FROM file_versions WHERE storage_key IS NOT NULL"
+log "counts: ${counts_report%, }"
+
+# Five random Garage objects, read back through the S3 API from inside the restored API container
+# (which holds the credentials in its own environment: they never reach a command line here) and
+# compared with the size and SHA-256 the database recorded.
+read_object='
+key="$1"
+curl -fsS --max-time 60 --aws-sigv4 "aws:amz:${S3_REGION}:s3" \
+  -H "x-amz-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" \
+  --user "${S3_ACCESS_KEY_ID}:${S3_SECRET_ACCESS_KEY}" "${S3_ENDPOINT}/${S3_BUCKET}/${key}" -o /tmp/restore-test-object || exit 1
+printf "%s %s\n" "$(stat -c %s /tmp/restore-test-object)" "$(sha256sum /tmp/restore-test-object | cut -d" " -f1)"
+rm -f /tmp/restore-test-object
+'
+samples="$(compose_work exec -T postgres psql -U "$pg_user" -d "$pg_db" -tA -v ON_ERROR_STOP=1 -c \
+  "SELECT storage_key || '|' || size_bytes || '|' || coalesce(encode(content_hash, 'hex'), '') FROM file_versions WHERE storage_key IS NOT NULL ORDER BY random() LIMIT 5")" \
+  || die "could not pick objects to read back from the restored database"
+sampled=0
+while IFS='|' read -r key size hash; do
+  [ -n "$key" ] || continue
+  got="$(compose_work exec -T api sh -c "$read_object" _ "$key" 2>/dev/null </dev/null)" || die "an object recorded in the database cannot be read back from Garage ($key)"
+  got_size="${got%% *}"
+  got_hash="${got##* }"
+  [ "$got_size" = "$size" ] || die "object $key is $got_size bytes in Garage, $size recorded"
+  if [ -n "$hash" ] && [ "$got_hash" != "$hash" ]; then
+    die "object $key does not match its recorded checksum"
+  fi
+  sampled=$((sampled + 1))
+done <<<"$samples"
+[ "$sampled" -gt 0 ] || [ -z "${samples//[[:space:]]/}" ] || die "no object could be read back"
+log "objects read back and verified: $sampled"
+
+# 5. Success.
+date +%s >"$state_dir/restore-test.last-ok"
+notify info "Restore test OK" "The newest backup ($(basename "$archive"), taken ${taken_at:-at an unknown time}) restores: API healthy, PostgreSQL and Valkey up; ${counts_report%, }; ${sampled} Garage objects read back and verified."
+log "restore test passed"

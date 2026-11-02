@@ -1,0 +1,9 @@
+[Unit]
+Description=Nightly Ruchoir file integrity check (02:15 UTC, before the backup)
+
+[Timer]
+OnCalendar=*-*-* 02:15:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

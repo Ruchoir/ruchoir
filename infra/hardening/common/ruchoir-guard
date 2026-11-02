@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+#
+# Apply a change that could lock us out of the server (sshd, the firewall, fail2ban, the Spamhaus ruleset), and
+# take it back by itself unless someone confirms they can still get in.
+#
+# Installed as /usr/local/sbin/ruchoir-guard (root, 0755) by `infra/hardening/install common`.
+#
+#   ruchoir-guard apply NAME MINUTES -- COMMAND...   back up NAME's files, run COMMAND, arm a revert
+#   ruchoir-guard confirm NAME                       disarm it (run from a fresh SSH login)
+#   ruchoir-guard status                             armed reverts
+#
+# /etc/ruchoir-hardening/guard.d/NAME.files lists the files to save, one absolute path a line (a
+# path that does not exist yet is removed again on revert). NAME.revert, when present and
+# executable, runs after the files are back (to reload a service, flush a ruleset).
+# The revert is a transient systemd timer, so it fires even if this shell or SSH session dies.
+# GUARD_DRY_RUN=1 says what it would do and does nothing. GUARD_DIR points elsewhere (tests).
+set -euo pipefail
+
+guard_dir="${GUARD_DIR:-/etc/ruchoir-hardening/guard.d}"
+state_dir="${GUARD_STATE_DIR:-/var/lib/ruchoir-hardening/guard}"
+dry="${GUARD_DRY_RUN:-0}"
+
+usage() {
+  echo "usage: ruchoir-guard apply NAME MINUTES -- COMMAND... | confirm NAME | status | revert NAME" >&2
+  exit 2
+}
+
+unit_of() { printf 'ruchoir-guard-revert-%s' "$1"; }
+
+revert() {
+  local name="$1" saved="$state_dir/$1"
+  [ -d "$saved" ] || { echo "nothing saved for $name" >&2; exit 1; }
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    if [ -e "$saved/files$path" ]; then
+      cp -a "$saved/files$path" "$path"
+    elif [ -e "$saved/absent$path" ]; then
+      rm -f "$path"
+    fi
+  done <"$saved/list"
+  if [ -x "$guard_dir/$name.revert" ]; then "$guard_dir/$name.revert"; fi
+  logger -t ruchoir-guard "reverted $name" 2>/dev/null || true
+  command -v ruchoir-notify >/dev/null && ruchoir-notify alert "Change reverted: $name" \
+    "Nobody confirmed the change within its delay, so the previous files are back." || true
+  rm -rf "$saved"
+}
+
+cmd="${1:-}"
+case "$cmd" in
+  apply)
+    [ "$#" -ge 5 ] && [ "$4" = "--" ] || usage
+    name="$2" minutes="$3"
+    shift 4
+    list="$guard_dir/$name.files"
+    [ -r "$list" ] || { echo "no file list for $name: $list" >&2; exit 1; }
+    case "$minutes" in '' | *[!0-9]*) usage ;; esac
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      echo "back up $path"
+    done <"$list"
+    echo "run: $*"
+    echo "arm revert of $name in $minutes min"
+    [ "$dry" = 1 ] && exit 0
+    saved="$state_dir/$name"
+    if [ -d "$saved" ]; then
+      echo "a change named $name is already waiting for confirmation" >&2
+      exit 1
+    fi
+    mkdir -p "$saved/files" "$saved/absent"
+    cp "$list" "$saved/list"
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      if [ -e "$path" ]; then
+        mkdir -p "$saved/files$(dirname "$path")"
+        cp -a "$path" "$saved/files$path"
+      else
+        mkdir -p "$saved/absent$(dirname "$path")"
+        : >"$saved/absent$path"
+      fi
+    done <"$list"
+    systemd-run --quiet --unit "$(unit_of "$name")" --on-active="${minutes}m" \
+      "$(readlink -f "$0")" revert "$name"
+    if ! "$@"; then
+      echo "the change failed: reverting now" >&2
+      systemctl stop "$(unit_of "$name").timer" 2>/dev/null || true
+      revert "$name"
+      exit 1
+    fi
+    echo "applied. From a NEW ssh session, run: sudo ruchoir-guard confirm $name"
+    ;;
+  confirm)
+    [ "$#" -eq 2 ] || usage
+    systemctl stop "$(unit_of "$2").timer" 2>/dev/null || true
+    rm -rf "${state_dir:?}/$2"
+    echo "confirmed $2"
+    ;;
+  revert)
+    [ "$#" -eq 2 ] || usage
+    revert "$2"
+    ;;
+  status)
+    ls -1 "$state_dir" 2>/dev/null || true
+    systemctl list-timers --all --no-pager 'ruchoir-guard-revert-*' 2>/dev/null || true
+    ;;
+  *) usage ;;
+esac

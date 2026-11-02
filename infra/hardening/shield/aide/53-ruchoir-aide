@@ -1,0 +1,5 @@
+// Installed as /etc/apt/apt.conf.d/53-ruchoir-aide by infra/hardening (shield).
+// Check before a package run, so a change made earlier is reported instead of being blessed by the
+// accept that follows; accept the new state after it, so an upgrade does not alert the next night.
+DPkg::Pre-Invoke { "/usr/local/sbin/ruchoir-aide-check || true"; };
+DPkg::Post-Invoke { "/usr/local/sbin/ruchoir-aide-accept --quiet || true"; };

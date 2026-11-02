@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+#
+# Send one alert by mail to the one person the env file names. Mail only, by the owner's choice
+# (2026-11-02): a push service for the iPhone would go through Google's Firebase, and the mail app on
+# the phone notifies at once anyway.
+#
+# Installed as /usr/local/sbin/ruchoir-notify (root, 0755) by `infra/hardening/install common`.
+# Every hardening script alerts through this and nothing else.
+#
+#   ruchoir-notify LEVEL TITLE BODY      LEVEL is alert, recovered or info
+#
+# The subject starts with what it is (Alert, Resolved, Info) so the inbox says it at a glance. A
+# failure is written to the journal and the exit status is 1, so the caller can retry. Secrets never
+# reach a command line: the SMTP credentials go in a temporary netrc file, 0600, removed after.
+# NOTIFY_DRY_RUN=1 prints what would be sent (without the secrets) and sends nothing.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -r "$here/lib.sh" ]; then
+  # shellcheck source=lib.sh
+  . "$here/lib.sh"
+else
+  # shellcheck source=lib.sh
+  . /usr/local/lib/ruchoir-hardening/lib.sh
+fi
+
+if [ "$#" -ne 3 ]; then
+  echo "usage: ruchoir-notify alert|recovered|info TITLE BODY" >&2
+  exit 2
+fi
+level="$1" title="$2" body="$3"
+case "$level" in
+  alert) label=Alert ;;
+  recovered) label=Resolved ;;
+  info) label=Info ;;
+  *)
+    echo "unknown level: $level (alert, recovered or info)" >&2
+    exit 2
+    ;;
+esac
+
+host="$(hostname -s)"
+dry="${NOTIFY_DRY_RUN:-0}"
+log() { logger -t ruchoir-notify -- "$*" 2>/dev/null || printf '%s\n' "$*" >&2; }
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+chmod 700 "$work"
+
+# Mail, through the SMTP relay (STARTTLS on 587, implicit TLS on 465).
+send_mail() {
+  local smtp_host port user password from to scheme
+  smtp_host="$(env_get NOTIFY_SMTP_HOST)" || return 1
+  port="$(env_get NOTIFY_SMTP_PORT)" || return 1
+  user="$(env_get NOTIFY_SMTP_USER)" || return 1
+  password="$(env_get NOTIFY_SMTP_PASSWORD)" || return 1
+  from="$(env_get NOTIFY_MAIL_FROM)" || return 1
+  to="$(env_get NOTIFY_MAIL_TO)" || return 1
+  {
+    printf 'From: %s\r\nTo: %s\r\nSubject: [%s] %s: %s\r\n' "$from" "$to" "$host" "$label" "$title"
+    printf 'Date: %s\r\nMIME-Version: 1.0\r\n' "$(date -R)"
+    printf 'Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n'
+    printf '%s\r\n\r\n-- \r\n%s, %s\r\n' "$body" "$host" "$(date -u '+%Y-%m-%d %H:%M UTC')"
+  } >"$work/mail"
+  if [ "$dry" = 1 ]; then
+    printf 'mail to %s via %s:%s\n' "$to" "$smtp_host" "$port"
+    sed 's/\r$//' "$work/mail"
+    return 0
+  fi
+  printf 'machine %s login %s password %s\n' "$smtp_host" "$user" "$password" >"$work/netrc"
+  chmod 600 "$work/netrc"
+  if [ "$port" = 465 ]; then scheme=smtps; else scheme=smtp; fi
+  local envelope_from="${from##*<}" envelope_to="${to##*<}"
+  envelope_from="${envelope_from%>}"
+  envelope_to="${envelope_to%>}"
+  curl -fsS -m 30 --ssl-reqd --netrc-file "$work/netrc" \
+    --url "$scheme://$smtp_host:$port" \
+    --mail-from "$envelope_from" --mail-rcpt "$envelope_to" \
+    --upload-file "$work/mail"
+}
+
+if ! send_mail; then
+  log "mail failed for: $label: $title"
+  exit 1
+fi

@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Ruchoir probe every minute
+
+[Timer]
+OnBootSec=2min
+OnCalendar=minutely
+AccuracySec=5s
+Persistent=false
+
+[Install]
+WantedBy=timers.target
