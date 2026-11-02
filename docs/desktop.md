@@ -171,6 +171,19 @@ itself.
   Gatekeeper's verdict and the stapled ticket before publishing. The certificate was requested from
   a key made on the development server, never on a Mac; the `.p12` and its password are kept in
   Théo's password manager. Renew it before it expires: a new key and request, the same steps.
+- **Every file**: each release has `SHA256SUMS.txt`, signed (`SHA256SUMS.txt.asc`) with Ruchoir's
+  release key, `Ruchoir Releases <contact@ruchoir.com>`, fingerprint
+  `D868 1A64 9CBE 0E81 1CA1 7BE3 9A78 091C DFC5 D3CB`, valid until 2029-11-01. Its public half is
+  `infra/desktop-release/ruchoir-release.asc`, published at
+  `https://ruchoir.com/desktop/ruchoir-release.asc`; the private half and its passphrase are the
+  secrets `RELEASE_GPG_KEY` and `RELEASE_GPG_PASSPHRASE`, with a copy and the revocation certificate
+  in Théo's password manager. To check a download:
+
+  ```bash
+  curl -sO https://ruchoir.com/desktop/ruchoir-release.asc && gpg --import ruchoir-release.asc
+  gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt && sha256sum --ignore-missing -c SHA256SUMS.txt
+  ```
+
 - **Windows**: SignPath's free signing for open-source projects, applied for on 2026-11-02 (the
   policy it asks for is on ruchoir.com). Until it is set up, the installer is unsigned and
   SmartScreen warns at the first install.

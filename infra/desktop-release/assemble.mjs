@@ -100,6 +100,9 @@ ${link(appimage, "Linux, AppImage (mises à jour automatiques)")}
 ${link(deb, "Linux, paquet .deb")}
 ${link(rpm, "Linux, paquet .rpm")}
 </ul>
+<p>Empreintes : <a href="v${version}/SHA256SUMS.txt">SHA256SUMS.txt</a>, signées
+(<a href="v${version}/SHA256SUMS.txt.asc">signature</a>) par la
+<a href="ruchoir-release.asc">clé de publication de Ruchoir</a>.</p>
 </body>
 </html>
 `,
