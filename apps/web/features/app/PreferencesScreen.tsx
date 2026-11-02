@@ -277,7 +277,10 @@ function AboutSection() {
   if (!about) return null;
   return (
     <>
-      <h2 style={st.h}>{t("desktop.about.title")}</h2>
+      {/* A quiet subheading, as the tab's other groups have, with room above the last setting. */}
+      <div style={{ ...st.sect, marginTop: 40 }} className="wc-sect">
+        {t("desktop.about.title")}
+      </div>
       <p style={st.sub}>
         {t("desktop.about.version", { version: about.version, os: `${about.os} ${about.arch}`, webview: about.webview })}
       </p>
