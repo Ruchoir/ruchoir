@@ -242,6 +242,26 @@ jobs:
           node-version-file: .nvmrc
       - name: Write the manifest and the download page
         run: node infra/desktop-release/assemble.mjs "${GITHUB_REF#refs/tags/desktop-v}" release
+      - name: Sign the checksums
+        # SHA256SUMS.txt holds every file's checksum, signed with Ruchoir's release key
+        # (docs/desktop.md, "Signing"), whose public half ships beside it: anyone can check a
+        # download was not changed, on any system.
+        env:
+          RELEASE_GPG_KEY: ${{ secrets.RELEASE_GPG_KEY }}
+          RELEASE_GPG_PASSPHRASE: ${{ secrets.RELEASE_GPG_PASSPHRASE }}
+        run: |
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          install -d -m 700 "$GNUPGHOME"
+          printf '%s\n' "$RELEASE_GPG_KEY" | gpg --batch --import
+          printf '%s' "$RELEASE_GPG_PASSPHRASE" > "$GNUPGHOME/passphrase"
+          cd release
+          find . -maxdepth 1 -type f ! -name '*.sig' ! -name 'latest.json' ! -name 'downloads.json' \
+            ! -name 'index.html' ! -name 'SHA256SUMS*' -printf '%f\n' | sort | xargs sha256sum > SHA256SUMS.txt
+          gpg --batch --pinentry-mode loopback --passphrase-file "$GNUPGHOME/passphrase" \
+            --armor --detach-sign --output SHA256SUMS.txt.asc SHA256SUMS.txt
+          gpg --verify SHA256SUMS.txt.asc SHA256SUMS.txt
+          cp ../infra/desktop-release/ruchoir-release.asc .
+          rm -rf "$GNUPGHOME"
       - name: Publish through the deploy account
         env:
           DESKTOP_DEPLOY_SSH_KEY: ${{ secrets.DESKTOP_DEPLOY_SSH_KEY }}
