@@ -1,0 +1,8 @@
+[Unit]
+Description=Ruchoir: report pinned Docker images that have a newer patch release
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ruchoir-image-report
