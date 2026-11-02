@@ -162,6 +162,19 @@ system, installation format, instances counted and named by host, the log's last
 clipboard, and opens the log folder (`src-tauri/src/diagnostics.rs`). Nothing is sent anywhere by
 itself.
 
+## Signing
+
+- **macOS**: a release is signed with the "Developer ID Application" certificate (Théo Vilain,
+  team `J6MBDYD9N8`, valid until 2027-12-02) and notarised by Apple with the App Store Connect key
+  TestFlight uses (`APPLE_API_KEY_*`). Secrets: `APPLE_CERTIFICATE` (the `.p12`, base64),
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`. The release checks the signature,
+  Gatekeeper's verdict and the stapled ticket before publishing. The certificate was requested from
+  a key made on the development server, never on a Mac; the `.p12` and its password are kept in
+  Théo's password manager. Renew it before it expires: a new key and request, the same steps.
+- **Windows**: SignPath's free signing for open-source projects, applied for on 2026-11-02 (the
+  policy it asks for is on ruchoir.com). Until it is set up, the installer is unsigned and
+  SmartScreen warns at the first install.
+
 ## Usage statistics
 
 Ruchoir counts its desktop apps and their downloads, anonymously (decided 2026-11-01, stated in the

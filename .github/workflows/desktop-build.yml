@@ -142,13 +142,36 @@ jobs:
           # (docs/desktop.md, "Releasing"); any other build is neither, and needs no secret.
           TAURI_SIGNING_PRIVATE_KEY: ${{ startsWith(github.ref, 'refs/tags/desktop-v') && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ startsWith(github.ref, 'refs/tags/desktop-v') && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          # macOS, a release only: signed with the Developer ID Application certificate, then
+          # notarised with the App Store Connect key TestFlight already uses (docs/desktop.md,
+          # "Signing"). Tauri reads these and leaves an unsigned build alone when they are empty.
+          APPLE_CERTIFICATE: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_API_ISSUER: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.APPLE_API_ISSUER_ID || '' }}
+          APPLE_API_KEY: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_KEY_P8: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.APPLE_API_KEY_P8 || '' }}
         run: |
+          if [ -n "${APPLE_API_KEY_P8:-}" ]; then
+            # Tauri's notarisation reads the App Store Connect key from a file.
+            export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey_$APPLE_API_KEY.p8"
+            (umask 077; printf '%s\n' "$APPLE_API_KEY_P8" > "$APPLE_API_KEY_PATH")
+          fi
           if [[ "$GITHUB_REF" == refs/tags/desktop-v* ]]; then
             version="${GITHUB_REF#refs/tags/desktop-v}"
             pnpm tauri build ${{ matrix.args }} -c "{\"version\":\"$version\",\"bundle\":{\"createUpdaterArtifacts\":true}}"
           else
             pnpm tauri build ${{ matrix.args }}
           fi
+      - name: Check the signature (macOS release)
+        # The app must carry the Developer ID signature and Apple's notarisation ticket, or
+        # Gatekeeper stops it at the first open: the release stops here instead.
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v')
+        run: |
+          app=$(ls -d apps/desktop/target/universal-apple-darwin/release/bundle/macos/*.app | head -1)
+          codesign --verify --deep --strict --verbose=2 "$app"
+          spctl --assess --type execute --verbose=4 "$app"
+          xcrun stapler validate "$app"
       - name: Lightness, measured (Windows and macOS)
         # Reported, not enforced: these runners have no GPU, so the webview draws in software and the
         # figures are an upper bound. Linux enforces the budget in the checks job; real machines are
