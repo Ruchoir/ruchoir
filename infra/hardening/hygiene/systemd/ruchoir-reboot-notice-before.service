@@ -1,0 +1,6 @@
+[Unit]
+Description=Ruchoir: warn that the automatic reboot is five minutes away
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ruchoir-reboot-notice before

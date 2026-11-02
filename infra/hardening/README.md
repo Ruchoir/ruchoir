@@ -87,6 +87,48 @@ in bash can source `check-lib.sh` (installed next to the other helpers) and end 
 `watch/checks.d/disk.sh` is the smallest example. Test it like the others in `tests/watch.sh`, with
 a fixture or a stub, never a real server.
 
+## Lot 4: system hygiene
+
+`install hygiene` (after `watch`, whose check helpers it uses), on both servers:
+
+- **Docker daemon** (`/etc/docker/daemon.json`, merged into what is there): `local` log driver with
+  10 MB x 5 per container, `no-new-privileges`, `live-restore`. The installer reloads the daemon and
+  never restarts it (a restart would stop the containers on a host that does not have `live-restore`
+  yet): live-restore applies at once, the log driver and `no-new-privileges` at the next daemon start,
+  which the automatic reboot brings. Containers keep the log driver they were created with, so
+  recreate them (a deploy does) to move their logs to the new one.
+- **Kernel** (`/etc/sysctl.d/60-ruchoir.conf`): no redirects or source routing, martians logged,
+  loose reverse-path filter (2: strict drops legitimate replies on Docker's bridges),
+  `kptr_restrict`, `dmesg_restrict`, no unprivileged eBPF, protected FIFOs and regular files, no
+  core dumps from setuid programs. `net.ipv4.ip_forward` stays on: Docker needs it.
+- **SSH** (`/etc/ssh/sshd_config.d/50-ruchoir.conf`): forwarding off except for the administrator's
+  account, 20 s login grace, keep-alive 300 s x 2, modern key exchange, ciphers and MACs only. Applied
+  through `ruchoir-guard apply sshd 5`: confirm from a new session or it reverts by itself. The
+  `deploy` and `backup-pull` keys stay forced-command.
+- **Reboot:** unattended-upgrades reboots at 05:15 UTC when an update needs it (after the 03:36
+  backup and the 04:30 pull). `ruchoir-reboot-notice` mails at 05:10 when one is pending and again at
+  boot; the `reboot-pending` check of `ruchoir-watch` fails if a requested reboot is over 36 hours old.
+- **Pinned images:** `ruchoir-image-report` runs weekly (Monday, UTC) and mails the running
+  PostgreSQL, Valkey, Garage and office engine images that have a newer patch release on Docker Hub
+  or ghcr.io. It pulls and changes nothing. Those registries are US hosted (Golden rule 2), so the
+  timer is installed but only enabled when the env file says `HARDENING_IMAGE_REPORT=on`.
+
+Not part of the installer: the Lynis audits (start and end) are run by hand.
+
+### Containers (`docker-compose.yml`)
+
+Every service has `no-new-privileges`. PostgreSQL and Valkey start as root, fix the owner of their
+data and drop to their own user, so they keep four capabilities (`CHOWN`, `DAC_OVERRIDE`, `SETGID`,
+`SETUID`) and nothing else; the API and Garage keep none. All four have a read-only root; the writable
+places are their volumes, a `tmpfs` for PostgreSQL (`/tmp`, `/run/postgresql`) and a capped `tmpfs`
+for the API (`/tmp`, where the document viewer's LibreOffice works). The office engine only gets
+`no-new-privileges`: it bundles several services and writes widely, and its restricting is a separate
+step to measure on the engine itself.
+
+A change here is tested on a throwaway project (`ruchoir-hardentest`, own volumes, nothing published
+but the API on localhost): cold start on empty volumes, bootstrap, sign-in, an upload and its
+download, a document preview, then a restart of the whole stack.
+
 ## Tests
 
 ```bash
@@ -94,7 +136,8 @@ bash infra/hardening/tests/run.sh
 docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable -x -S warning \
   infra/hardening/install infra/hardening/common/* infra/hardening/watch/ruchoir-watch \
   infra/hardening/watch/*.sh infra/hardening/watch/checks.d/*.sh \
-  infra/hardening/tests/*.sh
+  infra/hardening/hygiene/install.sh infra/hardening/hygiene/ruchoir-* \
+  infra/hardening/hygiene/checks.d/*.sh infra/hardening/tests/*.sh
 ```
 
 ## Where each package comes from
@@ -172,3 +215,6 @@ the logs, the Spamhaus DROP list (Europe) for known-bad networks.
   package run. Run it by hand after your own change in `/etc`.
 - SSH login alert: `HARDENING_LOGIN_QUIET_USERS` (optional, space-separated) silences accounts whose
   logins come from changing addresses.
+
+| unattended-upgrades, OpenSSH server (`sshd`), procps (`sysctl`) | community, distribution packages | Ubuntu archive |
+| Docker Hub and ghcr.io (read by `ruchoir-image-report` for tag lists only) | Docker Inc. (US) and GitHub (US) | the registries the images are already pulled from; nothing is sent but a tag-list request |

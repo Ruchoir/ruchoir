@@ -1,0 +1,6 @@
+// Installed as /etc/apt/apt.conf.d/52-ruchoir-reboot (infra/hardening/hygiene).
+// Reboot by itself when an update needs it, after the 03:36 backup and the 04:30 pull (the
+// server's clock is UTC). ruchoir-reboot-notice.service reports the boot that follows.
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+Unattended-Upgrade::Automatic-Reboot-Time "05:15";

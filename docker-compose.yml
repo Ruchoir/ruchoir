@@ -22,6 +22,24 @@ services:
       # Published so the API can run on the host (cargo run) against localhost. Change the host
       # port if 5432 is already taken locally.
       - "${POSTGRES_HOST_PORT:-5432}:5432"
+    # Hardening (infra/hardening, lot 4): the entrypoint starts as root, fixes the data directory's
+    # owner (CHOWN), reads a directory the postgres user owns at 0700 (DAC_OVERRIDE) and drops to
+    # that user (SETGID, SETUID). Each of the four was proven needed by taking it away (a fresh
+    # volume and a restart on an existing one); FOWNER was not. Everything but the data volume and
+    # the two tmpfs below is read-only.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ruchoir} -d ${POSTGRES_DB:-ruchoir}"]
       interval: 10s
@@ -37,6 +55,19 @@ services:
     ports:
       # Published for host-side dev (cargo run). Change the host port if 6379 is taken.
       - "${VALKEY_HOST_PORT:-6379}:6379"
+    # Hardening (infra/hardening, lot 4): the entrypoint fixes the owner of /data (CHOWN), reads
+    # the append-only directory the valkey user owns at 0700 (DAC_OVERRIDE) and drops to that user
+    # (SETGID, SETUID). Only /data (the volume) is writable.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    read_only: true
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 10s
@@ -58,6 +89,13 @@ services:
       # S3 API published so the API can run on the host (cargo run) against localhost:3900. Change
       # the host port if 3900 is already taken. The RPC port (3901) stays internal to the network.
       - "${GARAGE_S3_HOST_PORT:-3900}:3900"
+    # Hardening (infra/hardening, lot 4): Garage runs as the user of its image and reads and writes
+    # only its two volumes and the read-only config, so it needs no capability at all.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
     restart: unless-stopped
 
   api:
@@ -114,6 +152,18 @@ services:
       # Host port is configurable (default 8080) to avoid clashes with other local projects.
       # Only the published host port changes; the container still listens on 8080.
       - "${RUCHOIR_HOST_PORT:-8080}:8080"
+    # Hardening (infra/hardening, lot 4): the API runs as an unprivileged user and binds 8080, so it
+    # needs no capability. Its root is read-only: the one place it writes outside the import
+    # directory above is /tmp, where the document viewer's LibreOffice conversions work (a
+    # directory and a profile per conversion, removed afterwards), capped so a huge document cannot
+    # eat the host's memory.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m
     depends_on:
       postgres:
         condition: service_healthy
@@ -157,6 +207,12 @@ services:
       - ./infra/office/patches/editor-wopi.ejs:/var/www/euro-office/documentserver/web-apps/apps/api/wopi/editor-wopi.ejs:ro
       - ./infra/office/patches/visioeditor-index.html:/var/www/euro-office/documentserver/web-apps/apps/visioeditor/main/index.html:ro
     mem_limit: ${OFFICE_MEM_LIMIT:-4g}
+    # Hardening (infra/hardening, lot 4): no-new-privileges only. The engine bundles several
+    # services in one image and writes widely on its own filesystem, so dropping capabilities or a
+    # read-only root could break it in ways only a long editing session shows; that is left for a
+    # separate step, measured on the engine itself.
+    security_opt:
+      - no-new-privileges:true
     # On the internal network only: no route out, so whatever a document or a crafted request asks
     # the engine to fetch, it can reach nothing but the API.
     networks:

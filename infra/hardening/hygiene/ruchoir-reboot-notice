@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#
+# Tell the administrator about the automatic reboot, before and after it.
+#
+# Installed as /usr/local/sbin/ruchoir-reboot-notice (root, 0755) by hygiene/install.sh.
+#
+#   ruchoir-reboot-notice before   05:10 UTC timer: say so when a reboot is pending (it comes at 05:15)
+#   ruchoir-reboot-notice after    boot-time oneshot: the server is back, with its kernel
+#
+# unattended-upgrades has no hook ahead of its reboot, hence the timer five minutes earlier.
+# REBOOT_REQUIRED_FILE points elsewhere (tests); NOTIFY_CMD replaces ruchoir-notify (tests).
+set -euo pipefail
+
+flag="${REBOOT_REQUIRED_FILE:-/var/run/reboot-required}"
+notify="${NOTIFY_CMD:-ruchoir-notify}"
+
+case "${1:-}" in
+  before)
+    if [ -e "$flag" ]; then
+      "$notify" info "Reboot in 5 minutes" "An update needs a reboot: the server restarts at 05:15 UTC."
+    fi
+    ;;
+  after)
+    "$notify" info "Server is back" "Booted on kernel $(uname -r), up since $(uptime -s)."
+    ;;
+  *)
+    echo "usage: ruchoir-reboot-notice before|after" >&2
+    exit 2
+    ;;
+esac
