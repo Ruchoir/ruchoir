@@ -167,6 +167,9 @@ mkdir -p "$work_dir/infra/garage" "$work_dir/scripts" "$work_dir/imports"
 cp "$prod_dir/docker-compose.yml" "$work_dir/docker-compose.yml"
 cp "$prod_dir/infra/garage/garage.toml" "$work_dir/infra/garage/garage.toml"
 cp "$prod_dir/scripts/restore.sh" "$work_dir/scripts/restore.sh"
+# Before anything starts: an older restore.sh would write into production's volumes.
+safety="$(restore_script_is_safe "$work_dir/scripts/restore.sh" 2>&1)" \
+  || die "refusing to run: $safety (deploy the release that fixes scripts/restore.sh first)"
 chmod +x "$work_dir/scripts/restore.sh"
 cp "$compose_file" "$work_dir/docker-compose.override.yml"
 env_for_restore "$prod_dir/.env" "$work_dir/.env" "$work_dir"

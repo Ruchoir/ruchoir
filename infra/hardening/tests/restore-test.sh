@@ -24,6 +24,19 @@ check() { # check NAME CONDITION...
 
 # shellcheck source=../restore-test/lib.sh
 . "$here/restore-test/lib.sh"
+
+# restore.sh must name the volumes after the project it runs in. The one production had until the
+# hardening release wrote `ruchoir_*`, which from the throwaway project would have overwritten
+# production's own Garage and Valkey volumes.
+rs="$(mktemp -d)"
+check "the repository's restore.sh is project-aware" restore_script_is_safe "$here/../../scripts/restore.sh"
+printf '#!/bin/sh\ndocker run --rm -v "ruchoir_${vol}:/dst" alpine:3 true\n' >"$rs/old.sh"
+check "a restore.sh writing ruchoir_ volumes is refused" bash -c '. "$1"; ! restore_script_is_safe "$2" 2>/dev/null' _ "$here/restore-test/lib.sh" "$rs/old.sh"
+printf '#!/bin/sh\ndocker run --rm -v "ruchoir_valkey-data:/dst" alpine:3 true\n' >"$rs/old2.sh"
+check "a restore.sh naming ruchoir_valkey-data is refused" bash -c '. "$1"; ! restore_script_is_safe "$2" 2>/dev/null' _ "$here/restore-test/lib.sh" "$rs/old2.sh"
+printf '#!/bin/sh\necho no project here\n' >"$rs/odd.sh"
+check "a restore.sh that does not derive the project is refused" bash -c '. "$1"; ! restore_script_is_safe "$2" 2>/dev/null' _ "$here/restore-test/lib.sh" "$rs/odd.sh"
+rm -rf "$rs"
 script="$here/restore-test/ruchoir-restore-test"
 lib="$here/restore-test/lib.sh"
 
@@ -162,7 +175,7 @@ printf 'POSTGRES_PASSWORD=pw\n' >"$scratch/prod/.env"
 printf 'services: {}\n' >"$scratch/prod/docker-compose.yml"
 mkdir -p "$scratch/prod/infra/garage" "$scratch/prod/scripts"
 printf 'x\n' >"$scratch/prod/infra/garage/garage.toml"
-printf '#!/bin/sh\nexit 0\n' >"$scratch/prod/scripts/restore.sh"
+printf '#!/bin/sh\n# names its volumes ${project}_garage-data, as the fixed restore.sh does\nexit 0\n' >"$scratch/prod/scripts/restore.sh"
 printf 'key\n' >"$scratch/key"
 cat >"$scratch/notify" <<'EOF'
 #!/usr/bin/env bash

@@ -35,6 +35,22 @@ counts_close() {
 # external), no external volume, no container name or host networking, no bind mount outside
 # WORKDIR, and a memory cap on every service. Called on the resolved configuration before any
 # container is started.
+# restore_script_is_safe FILE: whether the restore.sh about to run names the volumes after the
+# Compose project it runs in. Until the hardening release, production's restore.sh wrote straight
+# into `ruchoir_*`: run from the throwaway project it would have overwritten production's Garage and
+# Valkey volumes. Refuse any restore.sh that names a `ruchoir_` volume or does not derive the project.
+restore_script_is_safe() {
+  local file="$1"
+  if grep -qE 'ruchoir_(\$\{vol\}|\$vol|garage|valkey)' "$file"; then
+    echo "$file writes the ruchoir_* volumes directly: it would overwrite production's" >&2
+    return 1
+  fi
+  if ! grep -qE '\$\{project\}_' "$file"; then
+    echo "$file does not name the volumes after its own Compose project" >&2
+    return 1
+  fi
+}
+
 assert_isolated() {
   local config="$1" workdir="$2"
   python3 -I - "$config" "$workdir" "$RESTORE_TEST_PROJECT" <<'PY'
