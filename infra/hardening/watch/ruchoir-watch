@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+#
+# The probe: run every check once, compare with the last result, alert on a change of state.
+#
+# Installed as /usr/local/sbin/ruchoir-watch (root, 0755) by `infra/hardening/install watch`, and
+# run every minute by ruchoir-watch.timer. Alerts go through ruchoir-notify and nothing else.
+#
+# THE CHECK CONTRACT (other lots add checks to this, do not change it)
+#
+#   A check is an executable file `NAME.sh` in /etc/ruchoir-watch/checks.d/ (a symlink to the
+#   lot's own file is fine; each lot's install.sh creates its links). It prints exactly ONE line
+#
+#       ok MESSAGE | fail MESSAGE | unknown MESSAGE
+#
+#   and exits 0. ok: the condition holds. fail: it does not (alerts at once, once). unknown: the
+#   check could not tell (a tool missing, DNS down on this side): alerts only after 5 minutes.
+#   Only the first line counts. A check that prints nothing, prints something else, exits after
+#   20 seconds ($WATCH_TIMEOUT) or is killed counts as unknown, never as ok. Checks run in
+#   parallel and must not write anywhere but their own files under /var/lib/ruchoir-hardening.
+#   watch/check-lib.sh offers check_ok / check_fail / check_unknown for checks written in bash.
+#
+# Per check, the last result is kept in $WATCH_STATE_DIR (NAME.last) and the state in NAME.state.
+# One run at a time: a run started while another still holds the lock exits 0 and does nothing.
+# Environment (tests): WATCH_CHECKS_DIR, WATCH_STATE_DIR, WATCH_TIMEOUT, WATCH_NOTIFY, WATCH_NOW.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -r "$here/lib.sh" ]; then
+  # shellcheck source=lib.sh
+  . "$here/lib.sh"
+else
+  # shellcheck source=lib.sh
+  . /usr/local/lib/ruchoir-hardening/watch-lib.sh
+fi
+
+checks_dir="${WATCH_CHECKS_DIR:-/etc/ruchoir-watch/checks.d}"
+state_dir="${WATCH_STATE_DIR:-/var/lib/ruchoir-hardening/watch}"
+timeout_s="${WATCH_TIMEOUT:-20}"
+
+mkdir -p "$state_dir"
+exec 9>"$state_dir/.lock"
+if ! flock -n 9; then
+  exit 0
+fi
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+
+# Start every check at once, each with its own timeout, so one slow probe delays nothing else.
+names=()
+shopt -s nullglob
+for file in "$checks_dir"/*.sh; do
+  [ -f "$file" ] && [ -x "$file" ] || continue
+  name="$(basename "$file" .sh)"
+  names+=("$name")
+  (
+    rc=0
+    timeout -k 2 "$timeout_s" "$file" >"$work/$name.out" 2>/dev/null </dev/null || rc=$?
+    printf '%s\n' "$rc" >"$work/$name.rc"
+  ) &
+done
+wait
+
+for name in "${names[@]}"; do
+  line="$(head -n 1 "$work/$name.out" 2>/dev/null | tr -d '\r' | cut -c 1-400 || true)"
+  rc="$(cat "$work/$name.rc" 2>/dev/null || echo 1)"
+  case "$line" in
+    "ok" | "ok "* | "fail" | "fail "* | "unknown" | "unknown "*) ;;
+    "")
+      if [ "$rc" = 124 ] || [ "$rc" = 137 ]; then
+        line="unknown the check timed out after ${timeout_s}s"
+      else
+        line="unknown the check printed nothing (exit $rc)"
+      fi
+      ;;
+    *) line="unknown the check printed something else: $line" ;;
+  esac
+  printf '%s\n' "$line" >"$state_dir/$name.last"
+  watch_transition "$state_dir" "$name" "$line" || true
+done
+date +%s >"$state_dir/.last-run"
