@@ -74,7 +74,7 @@ install_nginx() {
   old="$(mktemp -d)"
   local f
   for f in /etc/nginx/conf.d/00-hardening.conf /etc/nginx/conf.d/default-server.conf \
-    /etc/nginx/ruchoir-exempt.conf /etc/nginx/snippets/ruchoir-proxy.conf; do
+    /etc/nginx/ruchoir-exempt.conf /etc/nginx/snippets/ruchoir-proxy.conf /etc/nginx/nginx.conf; do
     if [ -f "$prefix$f" ]; then
       mkdir -p "$old$(dirname "$f")"
       cp -a "$prefix$f" "$old$f"
@@ -85,6 +85,10 @@ install_nginx() {
   put "$shield/nginx/00-hardening.conf" /etc/nginx/conf.d/00-hardening.conf 0644
   put "$shield/nginx/default-server.conf" /etc/nginx/conf.d/default-server.conf 0644
   put "$shield/nginx/proxy-common.conf" /etc/nginx/snippets/ruchoir-proxy.conf 0644
+  if [ -f "$prefix/etc/nginx/nginx.conf" ] && [ "$(nginx_server_tokens_off "$prefix/etc/nginx/nginx.conf")" = changed ]; then
+    say "set server_tokens off in /etc/nginx/nginx.conf"
+    changed=1
+  fi
   if [ "$changed" = 1 ]; then
     if [ "$dry" = 1 ]; then
       say "dry-run: nginx -t && systemctl reload nginx"
@@ -95,7 +99,7 @@ install_nginx() {
       nginx -t || true
       say "nginx -t failed: putting the previous files back" >&2
       for f in /etc/nginx/conf.d/00-hardening.conf /etc/nginx/conf.d/default-server.conf \
-        /etc/nginx/ruchoir-exempt.conf /etc/nginx/snippets/ruchoir-proxy.conf; do
+        /etc/nginx/ruchoir-exempt.conf /etc/nginx/snippets/ruchoir-proxy.conf /etc/nginx/nginx.conf; do
         if [ -f "$old$f" ]; then cp -a "$old$f" "$f"; else rm -f "$f"; fi
       done
       rm -rf "$old"

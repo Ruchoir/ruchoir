@@ -41,6 +41,24 @@ render_jail() {
 # render_nginx_exempt HOUSE_IP PEER_IP: the nginx geo block that marks the addresses exempt from
 # limit_req and limit_conn (the house, the other server, loopback). 00-hardening.conf maps it to
 # an empty key, and nginx does not count a request whose key is empty.
+# nginx_server_tokens_off FILE: make nginx.conf say `server_tokens off;`. Ubuntu's declares
+# `server_tokens build;` inside http {}, and nginx refuses the directive twice, so it cannot live in
+# conf.d: an existing active line is rewritten, otherwise one is added right after `http {`.
+# Prints "changed" or "unchanged".
+nginx_server_tokens_off() {
+  local file="$1"
+  if grep -qE '^\s*server_tokens\s+off;' "$file" && ! grep -qE '^\s*server_tokens\s+(on|build)\b' "$file"; then
+    echo unchanged
+    return 0
+  fi
+  if grep -qE '^\s*server_tokens\s' "$file"; then
+    sed -i -E 's/^(\s*)server_tokens\s+[^;]*;.*$/\1server_tokens off;/' "$file"
+  else
+    sed -i -E '0,/^\s*http\s*\{/s//&\n\tserver_tokens off;/' "$file"
+  fi
+  echo changed
+}
+
 render_nginx_exempt() {
   local house="$1" peer="$2"
   is_valid_address "$house" || { echo "invalid house address: $house" >&2; return 1; }

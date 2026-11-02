@@ -24,6 +24,7 @@ check() { # check NAME CONDITION...
 
 # shellcheck source=../shield/lib.sh
 . "$here/shield/lib.sh"
+export -f nginx_server_tokens_off
 # shellcheck source=../shield/pam/ruchoir-login-alert
 . "$here/shield/pam/ruchoir-login-alert"
 
@@ -33,6 +34,17 @@ peer=203.0.113.20
 # Rendering from the env values
 ignoreip="$(render_ignoreip "$house" "$peer")"
 check "ignoreip names the house" grep -qw "$house" <<<"$ignoreip"
+
+# server_tokens: Ubuntu's nginx.conf already declares it (as "build"); nginx refuses a duplicate, so
+# the installer sets the existing line to off, or adds one inside http {} when there is none.
+tok="$(mktemp -d)"
+printf 'http {\n\tsendfile on;\n\tserver_tokens build; # Recommended practice is to turn this off\n}\n' >"$tok/a.conf"
+check "server_tokens: an existing line is set to off" bash -c '[ "$(nginx_server_tokens_off "$1")" = changed ] && grep -qx "	server_tokens off;" "$1" && ! grep -q build "$1"' _ "$tok/a.conf"
+check "server_tokens: a second run changes nothing" test "$(nginx_server_tokens_off "$tok/a.conf")" = unchanged
+printf 'http {\n\tsendfile on;\n\t# server_tokens off;\n}\n' >"$tok/b.conf"
+check "server_tokens: added inside http when only a comment names it" bash -c '[ "$(nginx_server_tokens_off "$1")" = changed ] && [ "$(grep -c "^\s*server_tokens off;" "$1")" = 1 ] && sed -n 2p "$1" | grep -q "server_tokens off;"' _ "$tok/b.conf"
+check "the hardening file no longer declares server_tokens" bash -c '! grep -qE "^\s*server_tokens" "$1"' _ "$here/shield/nginx/00-hardening.conf"
+rm -rf "$tok"
 check "ignoreip names the peer server" grep -qw "$peer" <<<"$ignoreip"
 check "ignoreip names the loopback ranges" grep -q '127.0.0.0/8 ::1' <<<"$ignoreip"
 check "ignoreip refuses an address that is not one" bash -c '. "$1"; ! render_ignoreip "198.51.100.7; rm" 203.0.113.20 >/dev/null 2>&1' _ "$here/shield/lib.sh"
