@@ -72,6 +72,11 @@ mkdir -p "$backup_dir"
 
 compose() { docker compose "$@"; }
 
+# The volumes below belong to this directory's Compose project and carry its name (not always
+# `ruchoir`: a rehearsal or a second instance has its own).
+project="$(compose config 2>/dev/null | sed -n 's/^name: //p' | head -n 1)"
+[ -n "$project" ] || { echo "cannot tell which Compose project this directory is" >&2; exit 1; }
+
 say() { printf '  %s\n' "$1"; }
 
 # begin share_with_group
@@ -113,7 +118,7 @@ say "Garage (objects and metadata)"
 # Read straight from the volumes with a throwaway container: Garage has no dump command, and its
 # metadata and data directories are what a restore needs to put back.
 for vol in garage-meta garage-data; do
-  docker run --rm -v "ruchoir_${vol}:/src:ro" -v "$work:/out" alpine:3 \
+  docker run --rm -v "${project}_${vol}:/src:ro" -v "$work:/out" alpine:3 \
     tar -C /src -cf "/out/${vol}.tar" . >/dev/null
 done
 

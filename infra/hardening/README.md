@@ -51,6 +51,31 @@ months, only archives whose `.sha256` matches. `SHA256SUMS.latest` there names t
 `/var/lib/ruchoir-hardening/backup-pull.last-ok` holds the time of the last good run. The backup
 key itself never goes to the site (escrow is a manual step, see the spec).
 
+## Lot 5: monthly restore test
+
+`install restore-test` on the **app** server (after `common` and `watch`). On the 1st of each month
+at 05:00 UTC, `ruchoir-restore-test` takes the newest sealed archive, copies the instance's compose
+file, Garage configuration and `scripts/restore.sh` into `/srv/ruchoir-restoretest/`, lays
+`compose.restoretest.yml` over them (project `ruchoir-restoretest`, no published port, an internal
+network, 1 GB per service and 1.5 GB for the API, no office engine) and checks the **resolved**
+configuration with `assert_isolated` before anything starts. It then runs `scripts/restore.sh`,
+waits for the API to report PostgreSQL and Valkey up, compares the counts of accounts, spaces,
+channels, messages, files and stored objects with the live instance (within 10 rows or 1 %), reads
+back up to five random Garage objects against the size and SHA-256 the database recorded, and mails
+the result (`info` "Restore test OK" with the counts, or `alert` "Restore test failed" with the
+reason). The project, its volumes and its directory are destroyed whatever happened. The live
+instance is only read. The `restore-test` check of `ruchoir-watch` fails when the last success is
+older than 35 days (quiet for 35 days after the install, until the first run).
+
+The first run is done by hand, watched: `sudo ruchoir-restore-test`. `RESTORE_TEST_KEEP=1` keeps
+the throwaway project afterwards for a look. A deliberately wrong key
+(`RESTORE_TEST_KEY_FILE=/some/other.key`) must end in the failure mail. Defaults describe
+production's layout; each can be overridden for a rehearsal elsewhere: `RESTORE_TEST_PROD_DIR`
+(`/opt/ruchoir`), `RESTORE_TEST_BACKUP_DIR` (`/srv/ruchoir/backups`), `RESTORE_TEST_KEY_FILE` (the
+`RUCHOIR_BACKUP_KEY_FILE` of the instance's `.env`), `RESTORE_TEST_WORK_DIR`
+(`/srv/ruchoir-restoretest`), `RESTORE_TEST_STATE_DIR`, `RESTORE_TEST_MIN_MEM_MB` (3000).
+`ruchoir-restore-test --print-config` shows what is in effect.
+
 ## Probes and alerts
 
 `ruchoir-watch` runs every minute (a systemd timer) on both servers. It runs each check, compares the

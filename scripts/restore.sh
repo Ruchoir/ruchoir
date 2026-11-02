@@ -42,6 +42,12 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 compose() { docker compose "$@"; }
 
+# The Compose project of this directory, whatever it is called: the volumes below belong to it and
+# carry its name. They used to be written as `ruchoir_*`, so a restore run in any other project (a
+# rehearsal, the monthly restore test) would have overwritten the production volumes instead.
+project="$(compose config 2>/dev/null | sed -n 's/^name: //p' | head -n 1)"
+[ -n "$project" ] || { echo "cannot tell which Compose project this directory is" >&2; exit 1; }
+
 echo "Opening $archive"
 if [ -r "$archive.sha256" ]; then
   # The archive against what was written: this catches a truncated copy before anything is stopped.
@@ -73,8 +79,11 @@ compose stop api >/dev/null 2>&1 || true
 echo "  PostgreSQL"
 compose up -d postgres >/dev/null
 # Wait for it rather than assume: a compose that has just started is not a database that answers.
-for _ in $(seq 1 30); do
-  compose exec -T postgres pg_isready -U "$pg_user" -d "$pg_db" >/dev/null 2>&1 && break
+# Over TCP on purpose: a container with an empty volume first runs a temporary server that listens
+# on the socket only, answers pg_isready, then shuts down and starts the real one. Asking the
+# socket meant restoring into a server that was about to stop (a new machine, the restore test).
+for _ in $(seq 1 60); do
+  compose exec -T postgres pg_isready -h 127.0.0.1 -U "$pg_user" -d "$pg_db" >/dev/null 2>&1 && break
   sleep 1
 done
 # The schema is emptied first, rather than leaning on pg_restore --clean.
@@ -104,18 +113,20 @@ fi
 echo "  Garage (objects and metadata)"
 compose stop garage >/dev/null 2>&1 || true
 for vol in garage-meta garage-data; do
-  docker run --rm -v "ruchoir_${vol}:/dst" -v "$work:/in:ro" alpine:3 \
+  docker run --rm -v "${project}_${vol}:/dst" -v "$work:/in:ro" alpine:3 \
     sh -c "rm -rf /dst/* /dst/.[!.]* 2>/dev/null; tar -C /dst -xf /in/${vol}.tar" >/dev/null
 done
 compose up -d garage >/dev/null
 
 echo "  Valkey"
 compose stop valkey >/dev/null 2>&1 || true
-docker run --rm -v "ruchoir_valkey-data:/dst" -v "$work:/in:ro" alpine:3 \
+docker run --rm -v "${project}_valkey-data:/dst" -v "$work:/in:ro" alpine:3 \
   sh -c "cp /in/valkey.rdb /dst/dump.rdb; rm -f /dst/appendonlydir/* 2>/dev/null || true" >/dev/null
 compose up -d valkey >/dev/null
 
-compose start api >/dev/null 2>&1 || compose up -d api >/dev/null
+# `up -d`, not `start`: on a machine where the API container was never created (a new server, the
+# monthly restore test) `compose start api` succeeds without starting anything.
+compose up -d api >/dev/null
 
 # Waited for, not assumed: the API applies pending migrations as it boots, and the log written just
 # below lives in a table a newer version may only just have created.
