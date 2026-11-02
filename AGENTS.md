@@ -225,6 +225,8 @@ migrations/          Versioned SeaORM migrations (Rust crate `ruchoir-migration`
 docs/                Technical documentation (EN)
                      incl. `import-archive.md`, the archive format every importer reads
 infra/office/        Office engine settings, themes and temporary patches (mounted read-only)
+infra/hardening/     Server hardening: backups pulled off the server, probes and mail alerts, fail2ban +
+                     Spamhaus DROP + AIDE, system hygiene, monthly restore test (see its README)
 docker-compose.yml   Full stack (api, web, PostgreSQL, Valkey, Garage; Euro-Office behind a profile)
 ```
 
