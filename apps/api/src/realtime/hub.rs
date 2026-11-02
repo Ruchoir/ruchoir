@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use fred::interfaces::{EventInterface, PubsubInterface};
-use fred::prelude::{Builder, ClientLike, Config as ValkeyConfig, Error, Pool};
+use fred::prelude::{ClientLike, Error, Pool};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
@@ -65,8 +65,9 @@ impl Hub {
             send_buffer: config.realtime_send_buffer,
         });
 
-        let subscriber = Builder::from_config(ValkeyConfig::from_url(&config.valkey_url)?)
-            .build_subscriber_client()?;
+        // Same reconnection policy and timeouts as the command pool: without them a Valkey restart
+        // would end the fan-out for good, and `manage_subscriptions` would have nothing to resume.
+        let subscriber = crate::cache::builder(&config.valkey_url)?.build_subscriber_client()?;
         subscriber.init().await?;
         // Re-subscribe automatically across reconnects.
         subscriber.manage_subscriptions();
