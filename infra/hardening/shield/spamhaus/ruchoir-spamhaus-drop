@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""Load The Spamhaus Project's DROP lists into nftables, atomically.
+
+Installed as /usr/local/sbin/ruchoir-spamhaus-drop (root, 0755) by `infra/hardening/install shield`,
+run daily by ruchoir-spamhaus-drop.timer.
+
+DROP ("Don't Route Or Peer") lists networks hijacked or run by spam and crime operations. Spamhaus
+publishes them for exactly this use, free of charge (https://www.spamhaus.org/drop/terms/), as JSON
+lines: https://www.spamhaus.org/drop/drop_v4.json and drop_v6.json. Each line is
+{"cidr": "...", "sblid": "...", "rir": "..."}, and the last one is {"type": "metadata", ...}.
+Spamhaus asks for at most one download a day. Nothing is sent about this server.
+
+The lists are validated before they touch the firewall:
+  - every entry must be a network of the right family (a single bad line refuses the whole list);
+  - a list that is empty, smaller than the minimum, or larger than 100000 entries is refused;
+  - an entry that covers the house or the other server is dropped, and the journal says so.
+A refused list keeps the previous set in place and raises an alert. The result is the nftables
+table `inet ruchoir_drop`, replaced in a single transaction (never a moment without its rules).
+The last good ruleset is kept in the state directory and reloaded at boot if the download then
+fails.
+
+Environment (tests): RUCHOIR_HARDENING_ENV, STATE_DIR, NFT_BIN, NOTIFY_BIN, DROP_URL_V4, DROP_URL_V6.
+Options: --v4-file F --v6-file F read the lists from files instead of downloading;
+         --render-only prints the nft ruleset and changes nothing.
+"""
+import ipaddress
+import json
+import os
+import subprocess
+import sys
+import time
+import urllib.request
+
+URL_V4 = "https://www.spamhaus.org/drop/drop_v4.json"
+URL_V6 = "https://www.spamhaus.org/drop/drop_v6.json"
+# The real lists hold about 1750 IPv4 and 90 IPv6 entries (2026-11-02): below these, something is
+# wrong with the download, not with the internet's criminals.
+MIN_ENTRIES = {4: 100, 6: 10}
+MAX_ENTRIES = 100000
+TABLE = "ruchoir_drop"
+PRIORITY = -100  # before ufw's chains (priority 0) and fail2ban's (-1)
+
+
+class Refused(Exception):
+    pass
+
+
+def env_value(path, key):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            lines = [line.rstrip("\n") for line in handle if line.startswith(key + "=")]
+    except OSError as error:
+        raise Refused("cannot read %s: %s" % (path, error))
+    value = lines[-1].split("=", 1)[1].strip() if lines else ""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1]
+    if not value:
+        raise Refused("%s is not set in %s" % (key, path))
+    return value
+
+
+def parse_list(text, family):
+    """The networks of one DROP JSON-lines document, validated. Raises Refused."""
+    networks = []
+    for number, line in enumerate(text.splitlines(), 1):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            raise Refused("line %d is not JSON" % number)
+        if not isinstance(entry, dict):
+            raise Refused("line %d is not an object" % number)
+        if entry.get("type") == "metadata":
+            continue
+        cidr = entry.get("cidr")
+        if not isinstance(cidr, str) or "/" not in cidr:
+            raise Refused("line %d has no CIDR" % number)
+        try:
+            network = ipaddress.ip_network(cidr, strict=True)
+        except ValueError:
+            raise Refused("line %d: %r is not a network" % (number, cidr))
+        if network.version != family:
+            raise Refused("line %d: %s is not an IPv%d network" % (number, cidr, family))
+        networks.append(network)
+    if not networks:
+        raise Refused("IPv%d list is empty" % family)
+    if len(networks) < MIN_ENTRIES[family]:
+        raise Refused("IPv%d list has only %d entries (minimum %d)" % (family, len(networks), MIN_ENTRIES[family]))
+    if len(networks) > MAX_ENTRIES:
+        raise Refused("IPv%d list has %d entries (maximum %d)" % (family, len(networks), MAX_ENTRIES))
+    return networks
+
+
+def without_protected(networks, protected, log):
+    """Drops every network that covers a protected address. Returns the kept networks."""
+    kept = []
+    for network in networks:
+        covered = [str(address) for address in protected if address.version == network.version and address in network]
+        if covered:
+            log("dropped %s from the list: it covers %s" % (network, ", ".join(covered)))
+        else:
+            kept.append(network)
+    return kept
+
+
+def render(v4, v6):
+    """The nft script: create-if-absent, delete, then the whole table, in one transaction."""
+    out = ["table inet %s" % TABLE, "delete table inet %s" % TABLE, "table inet %s {" % TABLE]
+    for name, kind, networks in (("drop_v4", "ipv4_addr", v4), ("drop_v6", "ipv6_addr", v6)):
+        out.append("  set %s {" % name)
+        out.append("    type %s" % kind)
+        out.append("    flags interval")
+        out.append("    auto-merge")
+        merged = list(ipaddress.collapse_addresses(networks))
+        out.append("    elements = { %s }" % ", ".join(str(network) for network in merged))
+        out.append("  }")
+    out += [
+        "  chain input {",
+        "    type filter hook input priority %d; policy accept;" % PRIORITY,
+        "    ip saddr @drop_v4 counter drop",
+        "    ip6 saddr @drop_v6 counter drop",
+        "  }",
+        "}",
+    ]
+    return "\n".join(out) + "\n"
+
+
+def download(url):
+    request = urllib.request.Request(url, headers={"User-Agent": "ruchoir-spamhaus-drop (daily)"})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return response.read(20_000_000).decode("utf-8")
+
+
+def main(argv):
+    state_dir = os.environ.get("STATE_DIR", "/var/lib/ruchoir-hardening")
+    env_file = os.environ.get("RUCHOIR_HARDENING_ENV", "/etc/ruchoir-hardening/hardening.env")
+    nft = os.environ.get("NFT_BIN", "nft")
+    notify = os.environ.get("NOTIFY_BIN", "/usr/local/sbin/ruchoir-notify")
+    files = {}
+    render_only = False
+    args = list(argv)
+    while args:
+        option = args.pop(0)
+        if option == "--render-only":
+            render_only = True
+        elif option in ("--v4-file", "--v6-file") and args:
+            files[option] = args.pop(0)
+        else:
+            print("usage: ruchoir-spamhaus-drop [--v4-file F --v6-file F] [--render-only]", file=sys.stderr)
+            return 2
+
+    def log(message):
+        print(message, flush=True)
+
+    spam_dir = os.path.join(state_dir, "spamhaus")
+    saved = os.path.join(spam_dir, "drop.nft")
+    stamp = os.path.join(state_dir, "spamhaus.refreshed")
+
+    def table_present():
+        return subprocess.run([nft, "list", "table", "inet", TABLE], capture_output=True).returncode == 0
+
+    def alert(reason):
+        log("REFUSED: %s" % reason)
+        if render_only:
+            return
+        body = "The Spamhaus DROP list was not updated: %s. The previous set stays in place." % reason
+        try:
+            subprocess.run([notify, "alert", "Spamhaus DROP list not updated", body], check=False, timeout=60)
+        except OSError:
+            pass
+        if not table_present() and os.path.isfile(saved):
+            if subprocess.run([nft, "-f", saved], capture_output=True).returncode == 0:
+                log("reloaded the last good ruleset (the table was missing)")
+
+    try:
+        house = ipaddress.ip_address(env_value(env_file, "HARDENING_HOUSE_IP"))
+        peer = ipaddress.ip_address(env_value(env_file, "HARDENING_PEER_IP"))
+        protected = [house, peer]
+        lists = {}
+        for family, option, url_var, default in ((4, "--v4-file", "DROP_URL_V4", URL_V4), (6, "--v6-file", "DROP_URL_V6", URL_V6)):
+            if option in files:
+                with open(files[option], encoding="utf-8") as handle:
+                    text = handle.read()
+            else:
+                text = download(os.environ.get(url_var, default))
+            lists[family] = without_protected(parse_list(text, family), protected, log)
+        script = render(lists[4], lists[6])
+    except (Refused, OSError, ValueError) as error:
+        alert(str(error))
+        return 1
+
+    if render_only:
+        sys.stdout.write(script)
+        return 0
+
+    os.makedirs(spam_dir, mode=0o755, exist_ok=True)
+    candidate = saved + ".new"
+    with open(candidate, "w", encoding="utf-8") as handle:
+        handle.write(script)
+    for command in ([nft, "-c", "-f", candidate], [nft, "-f", candidate]):
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            os.unlink(candidate)
+            alert("nft refused the ruleset: %s" % result.stderr.strip()[:300])
+            return 1
+    os.replace(candidate, saved)
+    with open(stamp, "w", encoding="utf-8") as handle:
+        handle.write("ok %d IPv4 and %d IPv6 networks (%s)\n" % (len(lists[4]), len(lists[6]), time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())))
+    log("loaded %d IPv4 and %d IPv6 networks into table inet %s" % (len(lists[4]), len(lists[6]), TABLE))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

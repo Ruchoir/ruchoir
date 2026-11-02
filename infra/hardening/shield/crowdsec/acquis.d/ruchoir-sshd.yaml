@@ -1,6 +1,0 @@
-# sshd's journal read by CrowdSec. Installed in /etc/crowdsec/acquis.d/ by infra/hardening (shield).
-source: journalctl
-journalctl_filter:
-  - "_SYSTEMD_UNIT=ssh.service"
-labels:
-  type: syslog

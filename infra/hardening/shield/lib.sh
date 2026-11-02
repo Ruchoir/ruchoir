@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Helpers of the shield lot (CrowdSec, nginx limits, AIDE, login alert). Sourced by install.sh and
-# by tests/shield.sh, never run. The decisions live here as functions so the tests can call them.
+# Helpers of the shield lot (fail2ban, Spamhaus DROP, nginx limits, AIDE, login alert). Sourced by
+# install.sh and by tests/shield.sh, never run. The decisions live here as functions so the tests
+# can call them.
 
 # is_valid_address ADDR: an IPv4 or IPv6 address, nothing else (no CIDR, no name). The addresses
 # end up inside generated configuration files, so they are checked before being written.
@@ -21,27 +22,20 @@ is_valid_address() {
   fi
 }
 
-# render_allowlist HOUSE_IP PEER_IP: a CrowdSec parser whitelist (s02-enrich) naming the house, the
-# other server and the loopback ranges. An address in it is never turned into an alert, so never
-# banned. Works with the old 1.4 engine and with current ones.
-render_allowlist() {
+# render_ignoreip HOUSE_IP PEER_IP: the value of fail2ban's `ignoreip`: loopback, the house and the
+# other server, space-separated. An address in it is never banned.
+render_ignoreip() {
   local house="$1" peer="$2"
   is_valid_address "$house" || { echo "invalid house address: $house" >&2; return 1; }
   is_valid_address "$peer" || { echo "invalid peer address: $peer" >&2; return 1; }
-  cat <<YAML
-# Managed by infra/hardening (shield). Do not edit: rerun the installer.
-name: ruchoir/allowlist
-description: "The house, the other server and the loopback never get banned"
-whitelist:
-  reason: "Ruchoir infrastructure and administrators"
-  ip:
-    - "127.0.0.1"
-    - "::1"
-    - "$house"
-    - "$peer"
-  cidr:
-    - "127.0.0.0/8"
-YAML
+  printf '127.0.0.0/8 ::1 %s %s\n' "$house" "$peer"
+}
+
+# render_jail TEMPLATE HOUSE_IP PEER_IP: the jail file, with @IGNOREIP@ replaced.
+render_jail() {
+  local template="$1" ignoreip
+  ignoreip="$(render_ignoreip "$2" "$3")" || return 1
+  sed "s|@IGNOREIP@|$ignoreip|" "$template"
 }
 
 # render_nginx_exempt HOUSE_IP PEER_IP: the nginx geo block that marks the addresses exempt from
@@ -61,28 +55,4 @@ geo \$ruchoir_exempt {
     $peer 1;
 }
 CONF
-}
-
-# log_line_meta LINE: reads one nginx access-log line in the default "combined" format and prints
-# `verb path status`, the three fields CrowdSec's nginx parser hands to scenarios as
-# http_verb, http_path and http_status. Used by the tests to play a scenario's filter.
-log_line_meta() {
-  local line="$1"
-  if [[ "$line" =~ \"([A-Z]+)\ ([^\ ?\"]*)[^\"]*\"\ ([0-9]{3})\  ]]; then
-    printf '%s %s %s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
-  else
-    return 1
-  fi
-}
-
-# crowdsec_has_acted: true when the engine has raised an alert on its own or counted sshd lines
-# (a community-blocklist decision does not count: it proves nothing about this server's logs).
-# The old and the new engine print their tables differently, so this looks for any local alert row
-# or any metrics line counting the ssh source.
-crowdsec_has_acted() {
-  local alerts metrics
-  alerts="$(cscli alerts list -o raw 2>/dev/null | tail -n +2 | grep -c . || true)"
-  [ "${alerts:-0}" -gt 0 ] && return 0
-  metrics="$(cscli metrics 2>/dev/null || true)"
-  grep -Eqi 'journalctl:.*ssh|ssh.*[1-9][0-9]*' <<<"$metrics"
 }

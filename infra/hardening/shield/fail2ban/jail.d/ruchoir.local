@@ -1,0 +1,58 @@
+# fail2ban jails of Ruchoir. Installed as /etc/fail2ban/jail.d/ruchoir.local by infra/hardening
+# (shield); @IGNOREIP@ is rendered from the env file (loopback, the house, the other server).
+# Package: fail2ban from the Ubuntu archive. No network service: it only reads local logs.
+
+[DEFAULT]
+# nftables, one set per jail. Matches the firewall of Ubuntu 26.04 (ufw runs on nftables).
+banaction = nftables-multiport
+banaction_allports = nftables-allports
+ignoreip = @IGNOREIP@
+bantime = 1h
+findtime = 10m
+maxretry = 5
+# A repeat offender is banned for longer each time (1h, 2h, 4h ... up to 4 weeks), across jails.
+bantime.increment = true
+bantime.factor = 1
+bantime.maxtime = 4w
+bantime.overalljails = true
+
+[sshd]
+enabled = true
+backend = systemd
+journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd
+maxretry = 5
+findtime = 10m
+bantime = 1h
+
+# Failed sign-ins on the API: 401 on the login and second-factor endpoints (what the API answers to
+# a wrong password, a wrong code or a wrong recovery code). 10 in 5 minutes bans for 1 hour.
+[ruchoir-auth]
+enabled = true
+filter = ruchoir-auth
+port = http,https
+logpath = /var/log/nginx/access.log
+backend = auto
+maxretry = 10
+findtime = 5m
+bantime = 1h
+
+# Addresses nginx keeps rejecting with limit_req (the error log says "limiting requests").
+[nginx-limit-req]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/error.log
+backend = auto
+maxretry = 20
+findtime = 5m
+bantime = 1h
+
+# Scanners probing for paths that do not exist here (wp-login.php, phpmyadmin, webmail, cgi-bin).
+[nginx-botsearch]
+enabled = true
+port = http,https
+logpath = /var/log/nginx/access.log
+          /var/log/nginx/error.log
+backend = auto
+maxretry = 5
+findtime = 10m
+bantime = 1h

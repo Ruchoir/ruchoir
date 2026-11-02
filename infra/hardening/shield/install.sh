@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 #
-# Install the shield lot on this server: nginx limits and headers, CrowdSec (engine and firewall
-# bouncer), file integrity (AIDE), an alert on SSH logins from unknown addresses.
+# Install the shield lot on this server: nginx limits and headers, fail2ban (SSH and nginx jails),
+# the Spamhaus DROP list in nftables, file integrity (AIDE), an alert on SSH logins from unknown
+# addresses.
 #
 # Run as root, on the server, through the entry point (see infra/hardening/README.md):
 #
 #   sudo /tmp/ruchoir-hardening/install shield
 #
-# Reads /etc/ruchoir-hardening/hardening.env: HARDENING_HOUSE_IP, HARDENING_PEER_IP, and
-# HARDENING_CROWDSEC_SOURCE (ubuntu|vendor), which the owner sets after reading the package table
-# in the README. Without it everything else is installed and CrowdSec is refused (exit 3 at the end).
+# Reads /etc/ruchoir-hardening/hardening.env: HARDENING_HOUSE_IP and HARDENING_PEER_IP (never
+# banned, never in the Spamhaus set), and the alert settings.
 #
 # Idempotent: a second run prints only "unchanged" lines. Changes that can lock us out go through
 # ruchoir-guard; confirm each from a NEW SSH session (`sudo ruchoir-guard confirm NAME`).
 #
 # HARDENING_DRY_RUN=1 writes under HARDENING_PREFIX (default: a temp dir) and only prints the
-# commands that would touch the system (apt, systemctl, nginx, cscli, aide, ruchoir-guard).
+# commands that would touch the system (apt, systemctl, nginx, aide, ruchoir-guard).
 set -euo pipefail
 
 root="${HARDENING_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -62,9 +62,7 @@ put_rendered() {
 
 house="$(env_get HARDENING_HOUSE_IP)"
 peer="$(env_get HARDENING_PEER_IP)"
-source_choice="$(env_get HARDENING_CROWDSEC_SOURCE 2>/dev/null || true)"
 role="${RUCHOIR_HARDENING_ROLE:-$(env_get RUCHOIR_HARDENING_ROLE)}"
-crowdsec_refused=0
 
 # ---------------------------------------------------------------- nginx
 install_nginx() {
@@ -107,137 +105,87 @@ install_nginx() {
   rm -rf "$old"
 }
 
-# ---------------------------------------------------------------- CrowdSec
-# The two sources, and why a choice is needed, are in the README ("Where each package comes from").
-crowdsec_packages() {
-  case "$source_choice" in
-    ubuntu) echo "crowdsec crowdsec-firewall-bouncer" ;;
-    vendor) echo "crowdsec crowdsec-firewall-bouncer-nftables" ;;
-  esac
-}
-
-add_vendor_repository() {
-  [ "$source_choice" = vendor ] || return 0
-  if [ -f "$prefix/etc/apt/sources.list.d/crowdsec_crowdsec.list" ]; then
-    say "unchanged $prefix/etc/apt/sources.list.d/crowdsec_crowdsec.list"
-    return 0
-  fi
-  run install -d -m 0755 "$prefix/etc/apt/keyrings" "$prefix/etc/apt/sources.list.d"
-  run bash -c "curl -fsSL https://packagecloud.io/crowdsec/crowdsec/gpgkey | gpg --dearmor -o '$prefix/etc/apt/keyrings/crowdsec.gpg'"
-  if [ "$dry" != 1 ]; then
-    printf 'deb [signed-by=/etc/apt/keyrings/crowdsec.gpg] https://packagecloud.io/crowdsec/crowdsec/ubuntu/ %s main\n' \
-      "$(. /etc/os-release && echo "$VERSION_CODENAME")" >"$prefix/etc/apt/sources.list.d/crowdsec_crowdsec.list"
-  fi
-  run apt-get update -qq
-  say "installed CrowdSec's package repository (vendor source)"
-}
-
-install_crowdsec() {
-  case "$source_choice" in
-    ubuntu | vendor) ;;
-    "")
-      crowdsec_refused=1
-      cat >&2 <<'MSG'
-REFUSED: CrowdSec is not installed. HARDENING_CROWDSEC_SOURCE is not set in the env file.
-Every possible source runs on infrastructure of US companies (see the package table in
-infra/hardening/README.md, golden rule 2). Decide, then set HARDENING_CROWDSEC_SOURCE=ubuntu
-(the distribution's old packages) or vendor (CrowdSec's own repository) and run this again.
-Everything else in the shield lot has been installed.
-MSG
-      return 0
-      ;;
-    *)
-      echo "HARDENING_CROWDSEC_SOURCE must be ubuntu or vendor, not '$source_choice'" >&2
-      return 1
-      ;;
-  esac
-
-  local packages
-  packages="$(crowdsec_packages)"
-  add_vendor_repository
-  # shellcheck disable=SC2086
-  if [ "$dry" = 1 ] || ! dpkg -s $packages >/dev/null 2>&1; then
-    # shellcheck disable=SC2086
-    run env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $packages
-  else
-    say "unchanged packages: $packages"
-  fi
-
-  changed=0
-  put "$shield/crowdsec/acquis.d/ruchoir-nginx.yaml" /etc/crowdsec/acquis.d/ruchoir-nginx.yaml 0644
-  put "$shield/crowdsec/acquis.d/ruchoir-sshd.yaml" /etc/crowdsec/acquis.d/ruchoir-sshd.yaml 0644
-  put "$shield/crowdsec/scenarios/ruchoir-auth-bf.yaml" /etc/crowdsec/scenarios/ruchoir-auth-bf.yaml 0644
-  put "$shield/crowdsec/config.yaml.local" /etc/crowdsec/config.yaml.local 0644
-  put_rendered /etc/crowdsec/parsers/s02-enrich/ruchoir-allowlist.yaml 0644 render_allowlist "$house" "$peer"
-
-  # Collections: Linux, sshd, nginx, base HTTP scenarios, known web CVEs.
-  local collection
-  for collection in crowdsecurity/linux crowdsecurity/sshd crowdsecurity/nginx \
-    crowdsecurity/base-http-scenarios crowdsecurity/http-cve; do
-    if [ "$dry" = 1 ]; then
-      say "dry-run: cscli collections install $collection"
-    elif cscli collections list -o raw 2>/dev/null | grep -q "^$collection,"; then
-      say "unchanged collection $collection"
-    else
-      cscli collections install "$collection"
-      changed=1
-    fi
-  done
-  if [ "$changed" = 1 ]; then
-    run systemctl restart crowdsec
-  fi
-  run systemctl enable --now crowdsec
-
-  # The firewall bouncer can cut our own SSH: armed for 10 minutes, a revert puts it back unless
-  # someone confirms from a fresh session.
-  install_guard_files
-  if [ "$dry" = 1 ] || ! systemctl is-active --quiet crowdsec-firewall-bouncer; then
-    run ruchoir-guard apply crowdsec 10 -- systemctl enable --now crowdsec-firewall-bouncer
-    say "NOW open a NEW ssh session; if it works: sudo ruchoir-guard confirm crowdsec"
-  else
-    say "unchanged crowdsec-firewall-bouncer is active"
-  fi
-
-  remove_fail2ban_when_proven
-}
-
+# ---------------------------------------------------------------- guard files
+# What ruchoir-guard saves and undoes for each change that could cut us off.
 install_guard_files() {
   local dir="$prefix/etc/ruchoir-hardening/guard.d" tmp
   run install -d -m 0700 "$dir"
   [ "$dry" = 1 ] && install -d -m 0700 "$dir"
   tmp="$(mktemp)"
-  printf '%s\n' /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml >"$tmp"
-  install_file "$tmp" "$dir/crowdsec.files" 0600
+  printf '%s\n' /etc/fail2ban/jail.d/ruchoir.local /etc/fail2ban/filter.d/ruchoir-auth.conf \
+    /etc/fail2ban/filter.d/sshd.local >"$tmp"
+  install_file "$tmp" "$dir/fail2ban.files" 0600
   cat >"$tmp" <<'REVERT'
 #!/usr/bin/env bash
-# Run by ruchoir-guard when the CrowdSec bouncer was not confirmed: stop it and empty its ruleset.
-systemctl disable --now crowdsec-firewall-bouncer || true
-nft delete table ip crowdsec 2>/dev/null || true
-nft delete table ip6 crowdsec6 2>/dev/null || true
+# Run by ruchoir-guard when the fail2ban configuration was not confirmed: the files are back (or
+# gone), so reload fail2ban, which also removes the bans of the rejected configuration.
+systemctl restart fail2ban || true
 REVERT
-  install_file "$tmp" "$dir/crowdsec.revert" 0700
+  install_file "$tmp" "$dir/fail2ban.revert" 0700
+  printf '%s\n' /var/lib/ruchoir-hardening/spamhaus/drop.nft >"$tmp"
+  install_file "$tmp" "$dir/spamhaus.files" 0600
+  cat >"$tmp" <<'REVERT'
+#!/usr/bin/env bash
+# Run by ruchoir-guard when the Spamhaus table was not confirmed: empty the ruleset, stop the timer.
+nft delete table inet ruchoir_drop 2>/dev/null || true
+systemctl disable --now ruchoir-spamhaus-drop.timer || true
+REVERT
+  install_file "$tmp" "$dir/spamhaus.revert" 0700
   printf '%s\n' /etc/pam.d/sshd >"$tmp"
   install_file "$tmp" "$dir/pam.files" 0600
   rm -f "$tmp"
 }
 
-# fail2ban goes only once the engine is seen at work on this server (a local alert, or sshd lines
-# counted); until then both run and this says so.
-remove_fail2ban_when_proven() {
-  if [ "$dry" = 1 ]; then
-    say "dry-run: remove fail2ban once crowdsec_has_acted"
-    return 0
-  fi
-  if ! dpkg -s fail2ban >/dev/null 2>&1; then
-    say "unchanged fail2ban is not installed"
-    return 0
-  fi
-  if crowdsec_has_acted; then
-    systemctl disable --now fail2ban || true
-    DEBIAN_FRONTEND=noninteractive apt-get purge -y -qq fail2ban
-    say "removed fail2ban (CrowdSec has parsed sshd lines or raised alerts)"
+# ---------------------------------------------------------------- fail2ban
+# From the Ubuntu archive, already present on both servers; this makes sure of it. The jails ban
+# through nftables (action nftables-multiport). Changing the jails goes through the lock-out guard.
+install_fail2ban() {
+  if [ "$dry" = 1 ] || ! dpkg -s fail2ban >/dev/null 2>&1; then
+    run env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fail2ban
   else
-    say "fail2ban kept: CrowdSec has not been seen at work yet; run this again later"
+    say "unchanged package: fail2ban"
+  fi
+  install_guard_files
+  changed=0
+  put "$shield/fail2ban/filter.d/ruchoir-auth.conf" /etc/fail2ban/filter.d/ruchoir-auth.conf 0644
+  put "$shield/fail2ban/filter.d/sshd.local" /etc/fail2ban/filter.d/sshd.local 0644
+  put_rendered /etc/fail2ban/jail.d/ruchoir.local 0644 render_jail "$shield/fail2ban/jail.d/ruchoir.local" "$house" "$peer"
+  if [ "$changed" = 1 ] || [ "$dry" = 1 ]; then
+    if [ "$dry" = 1 ]; then
+      run ruchoir-guard apply fail2ban 10 -- systemctl restart fail2ban
+    else
+      # fail2ban refuses to start on a broken jail, and the guard then puts the old files back.
+      ruchoir-guard apply fail2ban 10 -- bash -c 'fail2ban-client -t >/dev/null && systemctl enable fail2ban && systemctl restart fail2ban'
+    fi
+    say "NOW open a NEW ssh session; if it works: sudo ruchoir-guard confirm fail2ban"
+  else
+    run systemctl enable --now fail2ban
+  fi
+}
+
+# ---------------------------------------------------------------- Spamhaus DROP
+# A daily list of hijacked networks into the nftables table inet ruchoir_drop. The first load goes
+# through the guard: the script never loads an entry covering the house or the other server, but a
+# wrong env file would be the one way to cut ourselves off.
+install_spamhaus() {
+  if [ "$dry" = 1 ] || ! command -v nft >/dev/null 2>&1; then
+    run env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nftables python3
+  fi
+  changed=0
+  put "$shield/spamhaus/ruchoir-spamhaus-drop" /usr/local/sbin/ruchoir-spamhaus-drop 0755
+  put "$shield/spamhaus/ruchoir-spamhaus-drop.service" /etc/systemd/system/ruchoir-spamhaus-drop.service 0644
+  put "$shield/spamhaus/ruchoir-spamhaus-drop.timer" /etc/systemd/system/ruchoir-spamhaus-drop.timer 0644
+  if [ "$changed" = 1 ]; then
+    run systemctl daemon-reload
+  fi
+  install_guard_files
+  if [ "$dry" = 1 ] || ! nft list table inet ruchoir_drop >/dev/null 2>&1; then
+    run ruchoir-guard apply spamhaus 10 -- /usr/local/sbin/ruchoir-spamhaus-drop
+    run systemctl enable --now ruchoir-spamhaus-drop.timer
+    say "NOW open a NEW ssh session; if it works: sudo ruchoir-guard confirm spamhaus"
+  else
+    say "unchanged table inet ruchoir_drop is loaded"
+    run systemctl enable --now ruchoir-spamhaus-drop.timer
   fi
 }
 
@@ -315,10 +263,6 @@ link_checks() {
   install -d -m 0755 "$prefix$lib" "$prefix/etc/ruchoir-watch/checks.d"
   for check in "$shield"/checks.d/*.sh; do
     name="$(basename "$check")"
-    # The CrowdSec probe only makes sense once CrowdSec is there.
-    if [ "$name" = crowdsec.sh ] && [ "$crowdsec_refused" = 1 ]; then
-      continue
-    fi
     put "$check" "$lib/$name" 0755
     link="$prefix/etc/ruchoir-watch/checks.d/shield-$name"
     target="$lib/$name"
@@ -333,12 +277,9 @@ link_checks() {
 
 say "shield on a '$role' server"
 install_nginx
-install_crowdsec
+install_fail2ban
+install_spamhaus
 install_aide
 install_login_alert
 link_checks
 initialise_aide
-
-if [ "$crowdsec_refused" = 1 ]; then
-  exit 3
-fi

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Apply a change that could lock us out of the server (sshd, the firewall, CrowdSec's bouncer), and
+# Apply a change that could lock us out of the server (sshd, the firewall, fail2ban, the Spamhaus ruleset), and
 # take it back by itself unless someone confirms they can still get in.
 #
 # Installed as /usr/local/sbin/ruchoir-guard (root, 0755) by `infra/hardening/install common`.

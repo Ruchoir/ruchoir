@@ -1,0 +1,8 @@
+# Adds to Ubuntu's sshd filter. Installed as /etc/fail2ban/filter.d/sshd.local by infra/hardening.
+#
+# The CI deploy runner's address is not known in advance, and the `deploy` and `backup-pull`
+# accounts are key-only: nothing they do over SSH, even a refused key, may ever ban the runner or
+# the other server. A successful login never matches the filter anyway; this covers the failures
+# (a retried connection, a key mix-up) of these two accounts only. Every other account counts.
+[Definition]
+ignoreregex = (?:user|for) (?:invalid user )?(?:deploy|backup-pull) (?:from )?\S+
