@@ -623,16 +623,32 @@ fn esc(value: &str) -> String {
     out
 }
 
-// Ruchoir's light palette, from `apps/web/app/tokens.css`. Mail clients read no custom properties,
-// so the values are written out.
-const CREAM: &str = "#f7f3ed";
-const CARD: &str = "#ffffff";
-const BORDER: &str = "#e8ded2";
-const INK: &str = "#171716";
-const BODY: &str = "#4b4945";
-const MUTED: &str = "#807a74";
+// Ruchoir's visual identity, as the website draws it (`ruchoir-website/app/site.css`) and the
+// design system names it (`packages/design-system`): cool greys, ink borders, flat offset shadows in
+// pastel, terracotta for the brand's dot. Mail clients read no custom properties, so the values are
+// written out. Clients that drop `box-shadow` (Gmail) show the same bordered cards, unshadowed.
+const BG: &str = "#f6f7f9";
+const CARD: &str = "#fdfdfe";
+const LINE: &str = "#e2e5ea";
+const INK: &str = "#15171c";
+const BODY: &str = "#2e323a";
+const MUTED: &str = "#5a6070";
 const TERRACOTTA: &str = "#c65d45";
-const FONT: &str = "'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const SKY: &str = "#8fd0ff";
+const BEE: &str = "#fbbf1a";
+const LIME: &str = "#8fe6a3";
+// The night palette (`packages/design-system/styles/tokens.css`, `[data-theme$="-dark"]`), applied by
+// the reader's client when it is in dark mode. Pastels stay light, with the dark ink on them.
+const NIGHT_BG: &str = "#15171c";
+const NIGHT_SURFACE: &str = "#1d2027";
+const NIGHT_LINE: &str = "#2e323a";
+const NIGHT_INK: &str = "#f6f7f9";
+const NIGHT_BODY: &str = "#dfe2e7";
+const NIGHT_MUTED: &str = "#a7adb8";
+/// The digest's entries take these shadows in turn, as the website's steps do.
+const PASTELS: [&str; 3] = ["#6fe0c2", "#ffb3ba", "#f5b0f0"];
+const FONT: &str = "'IBM Plex Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+const MONO: &str = "'IBM Plex Mono', Menlo, Consolas, monospace";
 
 /// Draw a message twice, as HTML and as plain text, from the same content.
 fn render(locale: Locale, content: &Content, instance: &str) -> Email {
@@ -692,48 +708,46 @@ fn render_with_code(
 
     let lang = locale.as_str();
     let link = esc(&content.link);
-    // The digest's lines: one bordered block, each entry a headline over its excerpt.
+    // The digest's lines: one card per entry, a headline over its excerpt, each with its pastel shadow.
     let items_html = if content.items.is_empty() {
         String::new()
     } else {
+        let last = content.items.len() - 1;
         let rows: String = content
             .items
             .iter()
             .enumerate()
             .map(|(index, item)| {
-                let rule = if index == 0 {
-                    String::new()
-                } else {
-                    format!("border-top:1px solid {BORDER};")
-                };
+                let gap = if index == last { "0" } else { "14px" };
+                let shadow = PASTELS[index % PASTELS.len()];
                 let excerpt = if item.excerpt.is_empty() {
                     String::new()
                 } else {
                     format!(
-                        r#"<br><span style="font-weight:400;color:{BODY};">{}</span>"#,
+                        r#"<br><span class="rc-body" style="font-size:14px;font-weight:400;color:{BODY};">{}</span>"#,
                         esc(&item.excerpt)
                     )
                 };
                 format!(
-                    r#"<tr><td style="{rule}padding:12px 16px;font-family:{FONT};font-size:14px;line-height:1.5;font-weight:600;color:{INK};">{headline}{excerpt}</td></tr>"#,
+                    r#"<tr><td style="padding:0 6px {gap} 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="rc-surface" style="border:2px solid {INK};border-radius:10px;background:{CARD};box-shadow:6px 6px 0 {shadow};"><tr><td class="rc-ink" style="padding:14px 16px;font-family:{FONT};font-size:15px;line-height:1.45;font-weight:600;color:{INK};">{headline}{excerpt}</td></tr></table></td></tr>"#,
                     headline = esc(&item.headline),
                 )
             })
             .collect();
         format!(
-            r#"<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 28px 0;border:1px solid {BORDER};border-left:3px solid {TERRACOTTA};border-radius:8px;background:{CREAM};">{rows}</table>"#
+            r#"<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 32px 0;">{rows}</table>"#
         )
     };
     let action_html = if content.link.is_empty() {
         String::new()
     } else {
         format!(
-            r#"<table role="presentation" cellpadding="0" cellspacing="0" border="0" class="rc-button-table"><tr>
-<td align="center" bgcolor="{TERRACOTTA}" class="rc-button" style="border-radius:8px;">
-<a href="{link}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:{FONT};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">{button}</a>
+            r#"<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" class="rc-button-table"><tr>
+<td align="center" bgcolor="{INK}" class="rc-button" style="border:2px solid {INK};border-radius:10px;box-shadow:4px 4px 0 {BEE};">
+<a href="{link}" target="_blank" class="rc-button-link" style="display:inline-block;padding:14px 28px;font-family:{FONT};font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">{button}</a>
 </td></tr></table>
-<p style="margin:28px 0 6px 0;font-family:{FONT};font-size:13px;line-height:1.5;color:{MUTED};">{fallback}</p>
-<p style="margin:0 0 24px 0;font-family:{FONT};font-size:13px;line-height:1.5;word-break:break-all;"><a href="{link}" target="_blank" style="color:{TERRACOTTA};text-decoration:underline;">{link}</a></p>
+<p class="rc-muted" style="margin:28px 0 6px 0;font-family:{FONT};font-size:13px;line-height:1.5;color:{MUTED};text-align:center;">{fallback}</p>
+<p style="margin:0 0 24px 0;font-family:{MONO};font-size:13px;line-height:1.5;word-break:break-all;text-align:center;"><a href="{link}" target="_blank" class="rc-ink" style="color:{INK};text-decoration:underline;">{link}</a></p>
 "#,
             button = esc(&content.button),
             fallback = esc(common.fallback),
@@ -742,8 +756,8 @@ fn render_with_code(
     let code_html = code
         .map(|code| {
             format!(
-                r#"<p style="margin:0 0 8px 0;font-family:{FONT};font-size:13px;line-height:1.5;color:{MUTED};">{label}</p>
-<p style="margin:0 0 24px 0;font-family:'IBM Plex Mono', Menlo, Consolas, monospace;font-size:30px;line-height:1.2;font-weight:600;letter-spacing:0.08em;color:{INK};">{code}</p>
+                r#"<p class="rc-muted" style="margin:0 0 10px 0;font-family:{FONT};font-size:13px;line-height:1.5;color:{MUTED};text-align:center;">{label}</p>
+<p style="margin:0 0 24px 0;text-align:center;"><span style="display:inline-block;padding:10px 20px;border:2px solid {INK};border-radius:10px;background:{LIME};font-family:{MONO};font-size:30px;line-height:1.2;font-weight:700;letter-spacing:0.08em;color:{INK};">{code}</span></p>
 "#,
                 label = esc(code_label(locale)),
                 code = esc(&grouped_code(code)),
@@ -756,37 +770,56 @@ fn render_with_code(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
-<meta name="supported-color-schemes" content="light">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
 <title>{subject}</title>
 <style>
+:root {{ color-scheme: light dark; supported-color-schemes: light dark; }}
 @media (max-width: 480px) {{
   .rc-outer {{ padding: 24px 12px !important; }}
-  .rc-card {{ padding: 28px 22px 24px 22px !important; }}
-  .rc-title {{ font-size: 20px !important; }}
-  .rc-button a {{ display: block !important; text-align: center !important; }}
+  .rc-card {{ padding: 28px 20px 24px 20px !important; }}
+  .rc-title {{ font-size: 22px !important; }}
 }}
+@media (prefers-color-scheme: dark) {{
+  .rc-bg {{ background: {NIGHT_BG} !important; }}
+  .rc-surface {{ background: {NIGHT_SURFACE} !important; border-color: {NIGHT_INK} !important; }}
+  .rc-ink {{ color: {NIGHT_INK} !important; }}
+  .rc-body {{ color: {NIGHT_BODY} !important; }}
+  .rc-muted {{ color: {NIGHT_MUTED} !important; }}
+  .rc-line {{ border-top-color: {NIGHT_LINE} !important; }}
+  .rc-button {{ background: {NIGHT_INK} !important; border-color: {NIGHT_INK} !important; }}
+  .rc-button-link {{ color: {INK} !important; }}
+}}
+/* Outlook.com and the Outlook apps mark their dark mode with these attributes instead. */
+[data-ogsb] .rc-bg {{ background: {NIGHT_BG} !important; }}
+[data-ogsb] .rc-surface {{ background: {NIGHT_SURFACE} !important; }}
+[data-ogsc] .rc-ink {{ color: {NIGHT_INK} !important; }}
+[data-ogsc] .rc-body {{ color: {NIGHT_BODY} !important; }}
+[data-ogsc] .rc-muted {{ color: {NIGHT_MUTED} !important; }}
 </style>
 </head>
-<body style="margin:0;padding:0;background:{CREAM};">
+<body class="rc-bg" style="margin:0;padding:0;background:{BG};">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">{preheader}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:{CREAM};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="rc-bg" style="background:{BG};">
 <tr><td align="center" class="rc-outer" style="padding:40px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
-<tr><td style="padding:0 4px 24px 4px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td style="vertical-align:middle;"><img src="cid:{LOGO_CID}" width="36" height="36" alt="" style="display:block;border:0;"></td>
-<td style="vertical-align:middle;padding-left:10px;font-family:{FONT};font-size:20px;font-weight:600;letter-spacing:-0.01em;color:{INK};">Ruchoir<span style="color:{TERRACOTTA};">.</span></td>
+<tr><td align="center" style="padding:0 0 28px 0;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
+<td style="vertical-align:middle;"><img src="cid:{LOGO_CID}" width="40" height="40" alt="" style="display:block;border:0;"></td>
+<td class="rc-ink" style="vertical-align:middle;padding-left:10px;font-family:{FONT};font-size:22px;font-weight:700;letter-spacing:-0.02em;color:{INK};">Ruchoir<span style="color:{TERRACOTTA};">.</span></td>
 </tr></table>
 </td></tr>
-<tr><td class="rc-card" style="background:{CARD};border:1px solid {BORDER};border-top:4px solid {TERRACOTTA};border-radius:12px;padding:36px 36px 32px 36px;">
-<h1 class="rc-title" style="margin:0 0 14px 0;font-family:{FONT};font-size:22px;line-height:1.3;font-weight:600;letter-spacing:-0.01em;color:{INK};">{heading}</h1>
-<p style="margin:0 0 28px 0;font-family:{FONT};font-size:15px;line-height:1.6;color:{BODY};">{paragraph}</p>
+<tr><td style="padding:0 8px 8px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="rc-surface" style="border:2px solid {INK};border-radius:16px;background:{CARD};box-shadow:8px 8px 0 {SKY};">
+<tr><td class="rc-card" style="padding:36px 32px 32px 32px;">
+<h1 class="rc-title rc-ink" style="margin:0 0 12px 0;font-family:{FONT};font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-0.02em;color:{INK};">{heading}</h1>
+<p class="rc-body" style="margin:0 0 28px 0;font-family:{FONT};font-size:16px;line-height:1.6;color:{BODY};">{paragraph}</p>
 {items_html}
-{action_html}{code_html}<p style="margin:0;padding-top:20px;border-top:1px solid {BORDER};font-family:{FONT};font-size:13px;line-height:1.55;color:{MUTED};">{note}</p>
+{action_html}{code_html}<p class="rc-muted rc-line" style="margin:0;padding-top:20px;border-top:1px solid {LINE};font-family:{FONT};font-size:13px;line-height:1.55;color:{MUTED};text-align:center;">{note}</p>
+</td></tr></table>
 </td></tr>
-<tr><td align="center" style="padding:24px 16px 0 16px;font-family:{FONT};font-size:12px;line-height:1.6;color:{MUTED};">
-<span style="color:{INK};font-weight:600;">Ruchoir.</span> {tagline}<br>
+<tr><td align="center" class="rc-muted" style="padding:28px 16px 0 16px;font-family:{FONT};font-size:12px;line-height:1.6;color:{MUTED};">
+<span class="rc-ink" style="color:{INK};font-weight:700;">Ruchoir.</span> {tagline}<br>
 {sent_by} {instance}
 </td></tr>
 </table>
@@ -1244,6 +1277,12 @@ mod tests {
                 assert!(email.text.contains("token=LINK"), "{locale}");
                 assert!(email.html.contains("token=LINK"), "{locale}");
                 assert!(email.html.contains(&format!("cid:{LOGO_CID}")), "{locale}");
+                // A phone in dark mode gets the night palette rather than an inverted guess.
+                assert!(
+                    email.html.contains("prefers-color-scheme: dark"),
+                    "{locale}"
+                );
+                assert!(email.html.contains(r#"content="light dark""#), "{locale}");
                 assert!(email
                     .html
                     .contains(&format!("lang=\"{}\"", locale.as_str())));
