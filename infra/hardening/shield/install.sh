@@ -145,7 +145,7 @@ REVERT
 # through nftables (action nftables-multiport). Changing the jails goes through the lock-out guard.
 install_fail2ban() {
   if [ "$dry" = 1 ] || ! dpkg -s fail2ban >/dev/null 2>&1; then
-    run env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq fail2ban
+    run env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends -qq fail2ban
   else
     say "unchanged package: fail2ban"
   fi
@@ -173,7 +173,7 @@ install_fail2ban() {
 # wrong env file would be the one way to cut ourselves off.
 install_spamhaus() {
   if [ "$dry" = 1 ] || ! command -v nft >/dev/null 2>&1; then
-    run env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nftables python3
+    run env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends -qq nftables python3
   fi
   changed=0
   put "$shield/spamhaus/ruchoir-spamhaus-drop" /usr/local/sbin/ruchoir-spamhaus-drop 0755
@@ -196,7 +196,7 @@ install_spamhaus() {
 # ---------------------------------------------------------------- AIDE
 install_aide() {
   if [ "$dry" = 1 ] || ! dpkg -s aide >/dev/null 2>&1; then
-    run env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq aide
+    run env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends -qq aide
   else
     say "unchanged package: aide"
   fi

@@ -88,7 +88,7 @@ fi
 # --- Automatic reboot, notices and the weekly report -------------------------------------------
 install_file "$src/apt.conf.d/52-ruchoir-reboot" "$prefix/etc/apt/apt.conf.d/52-ruchoir-reboot" 0644
 if [ "$skip" != 1 ] && ! dpkg -s unattended-upgrades >/dev/null 2>&1; then
-  apt-get install -y unattended-upgrades
+  apt-get install -y --no-install-recommends unattended-upgrades
 fi
 install_file "$src/ruchoir-reboot-notice" "$prefix/usr/local/sbin/ruchoir-reboot-notice" 0755
 install_file "$src/ruchoir-image-report" "$prefix/usr/local/sbin/ruchoir-image-report" 0755

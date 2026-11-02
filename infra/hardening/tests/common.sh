@@ -73,6 +73,11 @@ check "guard backs up the listed files" grep -q "back up $scratch/dest" <<<"$gua
 check "guard arms a revert in 5 minutes" grep -q "arm revert of demo in 5 min" <<<"$guard_out"
 check "guard refuses a name without a file list" bash -c '! GUARD_DRY_RUN=1 GUARD_DIR="$2" bash "$1" apply nope 5 -- true >/dev/null 2>&1' _ "$here/common/ruchoir-guard" "$scratch/guard.d"
 
+# Every package an installer adds comes without its "recommended" extras: AIDE's pulled in postfix,
+# a mail server listening on port 25 that nothing here uses.
+loose="$(grep -rn "apt-get install" "$here"/*/install.sh | grep -v -- "--no-install-recommends" || true)"
+check "installers never pull recommended packages" test -z "$loose"
+
 if [ "$fails" -ne 0 ]; then
   echo "common: $fails failed" >&2
   exit 1
