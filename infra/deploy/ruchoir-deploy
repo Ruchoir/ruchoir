@@ -108,4 +108,8 @@ if [ -f "$work/stage/infra/deploy/ruchoir-deploy" ]; then
   install -m 0755 -o root -g root "$work/stage/infra/deploy/ruchoir-deploy-entry" /usr/local/sbin/ruchoir-deploy-entry
 fi
 docker image prune -f >/dev/null || true
+# File integrity (hardening, shield lot): the files this release installed are meant.
+if command -v ruchoir-aide-accept >/dev/null 2>&1; then
+  ruchoir-aide-accept --quiet || true
+fi
 echo "=== $(date -u +%FT%TZ) $version deployed"

@@ -106,3 +106,57 @@ before it is installed.
 |---|---|---|
 | curl, rsync (`rrsync`), systemd, nginx | community, distribution packages | Ubuntu archive |
 | openssl (certificate dates), curl | community, distribution packages | Ubuntu archive |
+| aide | community, distribution package | Ubuntu archive (no network service at runtime) |
+| crowdsec 1.4.6, crowdsec-firewall-bouncer 0.0.25 (`HARDENING_CROWDSEC_SOURCE=ubuntu`) | CrowdSec SAS (France), packaged by Ubuntu | Ubuntu archive. The packages are old, and the engine still calls the services below at runtime |
+| crowdsec, crowdsec-firewall-bouncer-nftables, current versions (`HARDENING_CROWDSEC_SOURCE=vendor`) | CrowdSec SAS (France) | packagecloud.io/crowdsec/crowdsec, hosted by **Computology, LLC (New York, US)** on **Amazon Web Services** (resolves to AWS us-west-1) |
+
+### CrowdSec: runtime services (checked 2026-11-02, golden rule 2)
+
+The shield installer **refuses to install CrowdSec until `HARDENING_CROWDSEC_SOURCE` is set** in the
+env file, because every source depends on infrastructure of US companies. The owner decides.
+
+| Service | What it does | Hosted by (observed) |
+|---|---|---|
+| Package repository (vendor source only) | the `.deb` files | packagecloud.io: Computology, LLC (US company), AWS us-west-1 |
+| Hub (`hub-cdn.crowdsec.net`, `hub-data.crowdsec.net`) | scenarios, parsers and collections the engine downloads (`cscli collections install`, `cscli hub update`) | Amazon CloudFront (US company, global CDN) and Cloudflare (US company). Needed by **both** sources |
+| Central API (`api.crowdsec.net`) | the community blocklist; receives the signals about attackers unless sharing is turned off | AWS eu-west-1 (Ireland): EU region, Amazon (US company). Needed by **both** sources |
+| Console (`app.crowdsec.net`) | optional web console | not used: the machine is never enrolled |
+
+How this was found: `dig` on the hostnames, then the published AWS address ranges
+(`ip-ranges.amazonaws.com`) to place each address; CrowdSec's documentation
+(docs.crowdsec.net: installation page, central API page, configuration page). The documentation does
+not state where the Central API runs; the region is deduced from the addresses, so it can change.
+The packages' publisher is French (CrowdSec SAS), but none of the services it needs at runtime is run
+by a European company.
+
+Old engine against today's hub: the hub still serves an index for the `v1.4.6` tag
+(`hub-cdn.crowdsec.net/v1.4.6/.index.json` answers 200), so installing collections works in
+principle. CrowdSec's installation page also warns that an installed version should be newer than
+1.4.6. Not tested (no install is allowed from this work): a 1.4.6 engine may fail to load the current
+collections, which are written for newer ones. The community blocklist is pulled through the Central
+API either way.
+
+What is kept off: usage metrics to the console (`config.yaml.local`: `disable_usage_metrics_export`).
+What stays on, by the owner's choice: pulling the community blocklist and sharing signals (the
+addresses CrowdSec blocked) with the Central API.
+
+## Shield lot: files and decisions
+
+- Client address: the API's per-address rate limit keys on the **last** `X-Forwarded-For` entry
+  (`ClientIpKey` in `apps/api/src/http.rs`); nginx replaces the header with `$remote_addr`
+  (`shield/nginx/proxy-common.conf`, installed as `/etc/nginx/snippets/ruchoir-proxy.conf`).
+  The live vhosts must include that snippet instead of their own `proxy_set_header` lines.
+- nginx limits are set generously without server log data (50 requests/s per address with a burst of
+  200, 30 sign-in requests/minute with a burst of 30, 100 connections): tune them from the access
+  logs once a few weeks exist. The house, the other server and loopback are exempt.
+- A default server closes connections for unknown names, so any name served by a vhost must be in
+  that vhost's `server_name`, and no vhost may keep `default_server` (nginx -t fails, and the
+  installer puts the old files back).
+- CrowdSec's allowlist (`ruchoir/allowlist`) holds the house, the other server and loopback.
+  The sign-in scenario `ruchoir/auth-bf` counts 401 answers on login and second-factor endpoints
+  (10 in about 5 minutes bans). A `deploy` or `backup-pull` SSH login is a success, never a failure.
+- AIDE database: `/var/lib/aide/ruchoir.db`, checked nightly at 02:15 UTC. `ruchoir-aide-accept`
+  re-baselines it; the deploy script calls it after a good deploy, and an apt hook before/after each
+  package run. Run it by hand after your own change in `/etc`.
+- SSH login alert: `HARDENING_LOGIN_QUIET_USERS` (optional, space-separated) silences accounts whose
+  logins come from changing addresses.

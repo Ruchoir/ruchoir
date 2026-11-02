@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#
+# Compare the file system with AIDE's database and alert when something changed.
+#
+# Installed as /usr/local/sbin/ruchoir-aide-check (root, 0755) by `infra/hardening/install shield`;
+# run every night by ruchoir-aide-check.timer, and before each package upgrade (apt hook).
+#
+#   ruchoir-aide-check
+#
+# Writes the last report to /var/log/aide/ruchoir-last.txt and a one-line status to
+# $STATE_DIR/aide.status (read by the aide.sh probe). A change is alerted once: the same report is
+# not sent again the next night until it differs (or until ruchoir-aide-accept clears it).
+# AIDE_BIN, AIDE_CONF, REPORT_DIR and STATE_DIR can be overridden (tests).
+set -euo pipefail
+
+AIDE_BIN="${AIDE_BIN:-aide}"
+AIDE_CONF="${AIDE_CONF:-/etc/aide/ruchoir.conf}"
+REPORT_DIR="${REPORT_DIR:-/var/log/aide}"
+STATE_DIR="${STATE_DIR:-/var/lib/ruchoir-hardening}"
+NOTIFY="${NOTIFY:-/usr/local/sbin/ruchoir-notify}"
+
+mkdir -p "$REPORT_DIR" "$STATE_DIR"
+report="$REPORT_DIR/ruchoir-last.txt"
+status="$STATE_DIR/aide.status"
+alerted="$STATE_DIR/aide.alerted"
+
+set +e
+"$AIDE_BIN" --config "$AIDE_CONF" --check >"$report" 2>&1
+code=$?
+set -e
+
+now="$(date -u +%FT%TZ)"
+if [ "$code" -eq 0 ]; then
+  printf 'ok no change since the last accepted state (%s)\n' "$now" >"$status"
+  rm -f "$alerted"
+elif [ "$code" -ge 1 ] && [ "$code" -le 7 ]; then
+  summary="$(grep -E '^(Total number of entries|Added entries|Removed entries|Changed entries)' "$report" | tr '\n' ';' || true)"
+  printf 'fail files changed since the last accepted state: %s (%s)\n' "$summary" "$now" >"$status"
+  digest="$(grep -E '^(f|d|l|F|D|L|[a-zA-Z.+-]{4,}:) ' "$report" | sha256sum | cut -d' ' -f1)"
+  if [ ! -f "$alerted" ] || [ "$(cat "$alerted")" != "$digest" ]; then
+    body="$(head -c 3000 "$report")"
+    "$NOTIFY" alert "File integrity: files changed" "$body" || true
+    printf '%s\n' "$digest" >"$alerted"
+  fi
+else
+  printf 'unknown AIDE could not run (exit %s, %s)\n' "$code" "$now" >"$status"
+  "$NOTIFY" alert "File integrity check failed to run" "aide exited $code; see $report" || true
+fi
+exit 0

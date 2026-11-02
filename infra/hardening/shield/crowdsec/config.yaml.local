@@ -1,0 +1,7 @@
+# Overrides merged over /etc/crowdsec/config.yaml. Installed by infra/hardening (shield).
+# The engine's usage metrics (which agents and bouncers run, their versions) stay on this server.
+# Signals about attackers are still shared and the community blocklist still pulled: that is the
+# owner's explicit choice (see infra/hardening/README.md).
+api:
+  server:
+    disable_usage_metrics_export: true

@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#
+# Accept the current state of the file system as the new reference for AIDE: run after a change
+# that was meant (a deploy, a package upgrade, an edit of /etc).
+#
+# Installed as /usr/local/sbin/ruchoir-aide-accept (root, 0755) by `infra/hardening/install shield`.
+# Called at the end of a successful deploy (infra/deploy/ruchoir-deploy) and by the apt hook after
+# an upgrade; run it by hand after an administrator's own change.
+#
+#   ruchoir-aide-accept [--quiet]
+#
+# Does nothing (exit 0) when AIDE has no database yet: the installer initialises it.
+# AIDE_BIN, AIDE_CONF and STATE_DIR can be overridden (tests).
+set -euo pipefail
+
+AIDE_BIN="${AIDE_BIN:-aide}"
+AIDE_CONF="${AIDE_CONF:-/etc/aide/ruchoir.conf}"
+STATE_DIR="${STATE_DIR:-/var/lib/ruchoir-hardening}"
+DB_DIR="${DB_DIR:-/var/lib/aide}"
+quiet=0
+[ "${1:-}" = "--quiet" ] && quiet=1
+
+if [ ! -f "$DB_DIR/ruchoir.db" ]; then
+  [ "$quiet" = 1 ] || echo "no AIDE database yet: nothing to accept"
+  exit 0
+fi
+"$AIDE_BIN" --config "$AIDE_CONF" --update >/dev/null 2>&1 || {
+  code=$?
+  # --update exits 1..7 when it found differences, which is the point; 14 and above is an error.
+  [ "$code" -le 7 ] || { echo "aide --update failed (exit $code)" >&2; exit 1; }
+}
+mv -f "$DB_DIR/ruchoir.db.new" "$DB_DIR/ruchoir.db"
+rm -f "$STATE_DIR/aide.alerted"
+printf 'ok state accepted (%s)\n' "$(date -u +%FT%TZ)" >"$STATE_DIR/aide.status"
+[ "$quiet" = 1 ] || echo "AIDE database updated"

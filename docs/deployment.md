@@ -32,9 +32,13 @@ A self-signed certificate technically satisfies the browser's "secure context" o
 accepted the exception. It is a poor thing to hand to people you are asking to try the product, and
 on phones the exception is awkward to grant.
 
-Behind a proxy, forward the client address (`X-Forwarded-For`): the per-IP rate limit on the
+Behind a proxy, forward the client address in `X-Forwarded-For`: the per-IP rate limit on the
 authentication endpoints reads it and otherwise sees only the proxy, which turns a per-attacker limit
-into a per-instance one.
+into a per-instance one. The API keys on the **last** entry, the one the proxy itself wrote, so the
+proxy must *replace* the header with the address it saw (`proxy_set_header X-Forwarded-For
+$remote_addr;`), or append to it as `$proxy_add_x_forwarded_for` does; it must never pass a
+client's own header through untouched. Exactly one trusted proxy is assumed in front of the API.
+`infra/hardening/shield/nginx/proxy-common.conf` is a ready-made nginx snippet doing this.
 
 The first `docker compose up -d --build` compiles the API from source and takes several minutes on a
 modest machine. Later ones reuse the cargo cache and are much shorter.
@@ -222,8 +226,7 @@ server {
     location / {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        include snippets/ruchoir-proxy.conf;   # Host, X-Forwarded-For (replaced), limits
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_buffering off;

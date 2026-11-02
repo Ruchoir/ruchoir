@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+#
+# Tell the owner about an SSH login from an address that is neither the house nor the other server.
+#
+# Installed as /usr/local/sbin/ruchoir-login-alert (root, 0755) by `infra/hardening/install shield`,
+# and called by pam_exec from /etc/pam.d/sshd on session open:
+#
+#   session optional pam_exec.so quiet /usr/local/sbin/ruchoir-login-alert
+#
+# PAM gives PAM_TYPE, PAM_USER and PAM_RHOST in the environment. It only reports: it never blocks a
+# login and always exits 0, whatever fails inside. HARDENING_LOGIN_QUIET_USERS (optional, in the env
+# file, space-separated) names accounts whose logins from anywhere stay silent, such as the CI's
+# deploy account when its runner address changes.
+set -uo pipefail
+
+# is_known_source ADDR HOUSE PEER: true for the house, the other server, loopback or no address.
+is_known_source() {
+  local addr="$1" house="$2" peer="$3"
+  case "$addr" in
+    "" | 127.0.0.1 | ::1) return 0 ;;
+  esac
+  [ "$addr" = "$house" ] || [ "$addr" = "$peer" ]
+}
+
+main() {
+  [ "${PAM_TYPE:-}" = open_session ] || return 0
+  # shellcheck source=/dev/null
+  . /usr/local/lib/ruchoir-hardening/lib.sh 2>/dev/null || return 0
+  local house peer quiet user="${PAM_USER:-?}" from="${PAM_RHOST:-}"
+  house="$(env_get HARDENING_HOUSE_IP)" || return 0
+  peer="$(env_get HARDENING_PEER_IP)" || return 0
+  is_known_source "$from" "$house" "$peer" && return 0
+  quiet="$(env_get HARDENING_LOGIN_QUIET_USERS 2>/dev/null || true)"
+  case " $quiet " in *" $user "*) return 0 ;; esac
+  /usr/local/sbin/ruchoir-notify info "SSH login from an unknown address" \
+    "$user logged in from $from on $(hostname -s) at $(date -u +%FT%TZ)" || true
+  return 0
+}
+
+# Run only when executed; sourcing (the tests) just defines the functions.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  main || true
+  exit 0
+fi
