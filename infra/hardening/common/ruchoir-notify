@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+#
+# Send one alert, by push (ntfy) and by mail, to the one person the env file names.
+#
+# Installed as /usr/local/sbin/ruchoir-notify (root, 0755) by `infra/hardening/install common`.
+# Every hardening script alerts through this and nothing else.
+#
+#   ruchoir-notify LEVEL TITLE BODY      LEVEL is alert, recovered or info
+#
+# Either channel failing is written to the journal and does not stop the other. Exit 0 when at least
+# one went out, 1 otherwise. Secrets never reach a command line: the ntfy token goes in a header
+# read from a file, the SMTP credentials in a temporary netrc file, both 0600 and removed after.
+# NOTIFY_DRY_RUN=1 prints what would be sent (without the secrets) and sends nothing.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -r "$here/lib.sh" ]; then
+  # shellcheck source=lib.sh
+  . "$here/lib.sh"
+else
+  # shellcheck source=lib.sh
+  . /usr/local/lib/ruchoir-hardening/lib.sh
+fi
+
+if [ "$#" -ne 3 ]; then
+  echo "usage: ruchoir-notify alert|recovered|info TITLE BODY" >&2
+  exit 2
+fi
+level="$1" title="$2" body="$3"
+case "$level" in
+  alert) priority=5 tag=rotating_light ;;
+  recovered) priority=3 tag=white_check_mark ;;
+  info) priority=3 tag=information_source ;;
+  *)
+    echo "unknown level: $level (alert, recovered or info)" >&2
+    exit 2
+    ;;
+esac
+
+host="$(hostname -s)"
+dry="${NOTIFY_DRY_RUN:-0}"
+log() { logger -t ruchoir-notify -- "$*" 2>/dev/null || printf '%s\n' "$*" >&2; }
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+chmod 700 "$work"
+
+sent=0
+
+# Push, through ntfy.
+send_push() {
+  local url topic token
+  url="$(env_get NOTIFY_NTFY_URL)" || return 1
+  topic="$(env_get NOTIFY_NTFY_TOPIC)" || return 1
+  token="$(env_get NOTIFY_NTFY_TOKEN)" || return 1
+  if [ "$dry" = 1 ]; then
+    printf 'ntfy POST %s/%s\nTitle: [%s] %s\nPriority: %s\nTags: %s\n\n%s\n\n' \
+      "${url%/}" "$topic" "$host" "$title" "$priority" "$tag" "$body"
+    return 0
+  fi
+  printf 'Authorization: Bearer %s\n' "$token" >"$work/auth"
+  curl -fsS -m 20 -o /dev/null \
+    -H @"$work/auth" \
+    -H "Title: [$host] $title" -H "Priority: $priority" -H "Tags: $tag" \
+    --data-binary "$body" "${url%/}/$topic"
+}
+
+# Mail, through the SMTP relay (STARTTLS on 587, implicit TLS on 465).
+send_mail() {
+  local smtp_host port user password from to scheme
+  smtp_host="$(env_get NOTIFY_SMTP_HOST)" || return 1
+  port="$(env_get NOTIFY_SMTP_PORT)" || return 1
+  user="$(env_get NOTIFY_SMTP_USER)" || return 1
+  password="$(env_get NOTIFY_SMTP_PASSWORD)" || return 1
+  from="$(env_get NOTIFY_MAIL_FROM)" || return 1
+  to="$(env_get NOTIFY_MAIL_TO)" || return 1
+  {
+    printf 'From: %s\r\nTo: %s\r\nSubject: [%s] %s\r\n' "$from" "$to" "$host" "$title"
+    printf 'Date: %s\r\nMIME-Version: 1.0\r\n' "$(date -R)"
+    printf 'Content-Type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n'
+    printf '%s\r\n\r\n-- \r\n%s, %s\r\n' "$body" "$host" "$(date -u '+%Y-%m-%d %H:%M UTC')"
+  } >"$work/mail"
+  if [ "$dry" = 1 ]; then
+    printf 'mail to %s via %s:%s\n' "$to" "$smtp_host" "$port"
+    sed 's/\r$//' "$work/mail"
+    return 0
+  fi
+  printf 'machine %s login %s password %s\n' "$smtp_host" "$user" "$password" >"$work/netrc"
+  chmod 600 "$work/netrc"
+  if [ "$port" = 465 ]; then scheme=smtps; else scheme=smtp; fi
+  local envelope_from="${from##*<}" envelope_to="${to##*<}"
+  envelope_from="${envelope_from%>}"
+  envelope_to="${envelope_to%>}"
+  curl -fsS -m 30 --ssl-reqd --netrc-file "$work/netrc" \
+    --url "$scheme://$smtp_host:$port" \
+    --mail-from "$envelope_from" --mail-rcpt "$envelope_to" \
+    --upload-file "$work/mail"
+}
+
+if send_push; then sent=$((sent + 1)); else log "push failed for: $title"; fi
+if send_mail; then sent=$((sent + 1)); else log "mail failed for: $title"; fi
+
+[ "$sent" -gt 0 ]

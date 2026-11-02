@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# Install one hardening lot on this server. Run as root, on the server, from a copy of this tree:
+#
+#   rsync -a infra/hardening/ <server>:/tmp/ruchoir-hardening/
+#   ssh <server> sudo /tmp/ruchoir-hardening/install common      (first, once)
+#   ssh <server> sudo /tmp/ruchoir-hardening/install <lot>
+#
+# A lot is a directory here with an install.sh (backup-pull, watch, ntfy, shield, hygiene,
+# restore-test). Every install is idempotent: a second run prints only "unchanged" lines.
+# The host's values come from /etc/ruchoir-hardening/hardening.env (see hardening.env.example).
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+lot="${1:-}"
+dry="${HARDENING_DRY_RUN:-0}"
+
+if [ -z "$lot" ]; then
+  echo "usage: install common|<lot>" >&2
+  exit 2
+fi
+if [ "$dry" != 1 ] && [ "$(id -u)" -ne 0 ]; then
+  echo "run as root" >&2
+  exit 1
+fi
+
+# shellcheck source=common/lib.sh
+. "$here/common/lib.sh"
+
+if [ "$lot" = common ]; then
+  prefix="${HARDENING_PREFIX:-}"
+  install -d -m 0700 "$prefix/etc/ruchoir-hardening" "$prefix/etc/ruchoir-hardening/guard.d"
+  install -d -m 0755 "$prefix/var/lib/ruchoir-hardening"
+  install_file "$here/common/lib.sh" "$prefix/usr/local/lib/ruchoir-hardening/lib.sh" 0644
+  install_file "$here/common/ruchoir-notify" "$prefix/usr/local/sbin/ruchoir-notify" 0755
+  install_file "$here/common/ruchoir-guard" "$prefix/usr/local/sbin/ruchoir-guard" 0755
+  if [ ! -e "$prefix/etc/ruchoir-hardening/hardening.env" ]; then
+    install -m 0600 "$here/hardening.env.example" "$prefix/etc/ruchoir-hardening/hardening.env"
+    say "created $prefix/etc/ruchoir-hardening/hardening.env from the example: fill it in"
+  fi
+  exit 0
+fi
+
+if [ ! -x "$here/$lot/install.sh" ] && [ ! -f "$here/$lot/install.sh" ]; then
+  echo "no such lot: $lot" >&2
+  exit 1
+fi
+role="$(env_get RUCHOIR_HARDENING_ROLE)"
+case "$role" in app | site) ;; *) echo "RUCHOIR_HARDENING_ROLE must be app or site" >&2; exit 1 ;; esac
+HARDENING_ROOT="$here" RUCHOIR_HARDENING_ROLE="$role" bash "$here/$lot/install.sh"
