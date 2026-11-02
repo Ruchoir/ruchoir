@@ -24,10 +24,9 @@ Every install is idempotent: run it again and it prints only `unchanged` lines.
 
 | Directory | Role | What it does |
 |---|---|---|
-| `common/` | both | `ruchoir-notify` (one alert, by push and mail), `ruchoir-guard` (a change that could lock us out reverts by itself unless confirmed), `lib.sh` |
+| `common/` | both | `ruchoir-notify` (one alert, by mail), `ruchoir-guard` (a change that could lock us out reverts by itself unless confirmed), `lib.sh` |
 | `backup-pull/` | both | the `site` server pulls the `app` server's encrypted backups every night, read-only, and keeps its own history |
 | `watch/` | both | `ruchoir-watch`, a probe every minute: the other server, certificates, disk, memory, containers, backup age; one alert per change of state |
-| `ntfy/` | site | the self-hosted push service the alerts go through |
 | `shield/` | both | CrowdSec (SSH and nginx), nginx limits and headers, file integrity (AIDE), an alert on SSH logins from unknown addresses |
 | `hygiene/` | both | Docker daemon, kernel and SSH settings, automatic reboot after a kernel update, weekly report of pinned images with a newer patch |
 | `restore-test/` | app | once a month, restores the newest backup into a throwaway, unreachable instance and checks it |
@@ -62,9 +61,7 @@ Each server watches the other and itself. The state is in `/var/lib/ruchoir-hard
 (`NAME.state`, `NAME.last`).
 
 Checks of the `watch` lot: `peer-http`, `tls-expiry`, `disk`, `memory`, `containers` (both roles),
-`backup-age`, `secrets-mode` (app), `pull-age` (site). On the site server, `ntfy/` runs the push
-service (Compose project `ruchoir-ntfy`, port 8096 on loopback, behind nginx, deny-all by default);
-its install prints the certbot command when the certificate is missing and the tokens once.
+`backup-age`, `secrets-mode` (app), `pull-age` (site).
 
 Known limit: if `ruchoir-watch` itself stops on a server, nothing on that server says so (the other
 server's `peer-http` still sees the services, not the probe).
@@ -96,7 +93,7 @@ a fixture or a stub, never a real server.
 bash infra/hardening/tests/run.sh
 docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable -x -S warning \
   infra/hardening/install infra/hardening/common/* infra/hardening/watch/ruchoir-watch \
-  infra/hardening/watch/*.sh infra/hardening/watch/checks.d/*.sh infra/hardening/ntfy/install.sh \
+  infra/hardening/watch/*.sh infra/hardening/watch/checks.d/*.sh \
   infra/hardening/tests/*.sh
 ```
 
@@ -108,5 +105,4 @@ before it is installed.
 | Package | Origin | Source used |
 |---|---|---|
 | curl, rsync (`rrsync`), systemd, nginx | community, distribution packages | Ubuntu archive |
-| ntfy (`binwiederhier/ntfy:v2.37.0`, Docker Hub) | Philipp Heckel, Germany; Apache-2.0 and GPL-2.0, self-hosted on the site server. Calls `ntfy.sh` (the project's public relay, run by its author; its hosting location was not verified, the decision to use it is recorded in the design spec) only to wake the iPhone app: it carries a message identifier, never the content | Docker Hub, pinned tag, version checked against the Docker Hub tags API and the GitHub release on 2026-11-02 |
 | openssl (certificate dates), curl | community, distribution packages | Ubuntu archive |

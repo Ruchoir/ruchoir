@@ -6,7 +6,7 @@
 #   ssh <server> sudo /tmp/ruchoir-hardening/install common      (first, once)
 #   ssh <server> sudo /tmp/ruchoir-hardening/install <lot>
 #
-# A lot is a directory here with an install.sh (backup-pull, watch, ntfy, shield, hygiene,
+# A lot is a directory here with an install.sh (backup-pull, watch, shield, hygiene,
 # restore-test). Every install is idempotent: a second run prints only "unchanged" lines.
 # The host's values come from /etc/ruchoir-hardening/hardening.env (see hardening.env.example).
 set -euo pipefail

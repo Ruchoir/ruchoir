@@ -28,8 +28,6 @@ check() { # check NAME CONDITION...
 cat >"$scratch/hardening.env" <<'EOF'
 RUCHOIR_HARDENING_ROLE=site
 HARDENING_PEER_NAMES="app.example.org office.app.example.org"
-NTFY_PUBLIC_NAME=ntfy.example.org
-NTFY_READER_USER=reader
 EOF
 export RUCHOIR_HARDENING_ENV="$scratch/hardening.env"
 export RUCHOIR_HARDENING_LIB="$here/common/lib.sh"
@@ -350,27 +348,6 @@ check "changing the role removes the other role's links" bash -c '
   RUCHOIR_HARDENING_ENV="$1" HARDENING_DRY_RUN=1 HARDENING_PREFIX="$2" bash "$3" watch >/dev/null
   [ ! -e "$2/etc/ruchoir-watch/checks.d/backup-age.sh" ] && [ -L "$2/etc/ruchoir-watch/checks.d/pull-age.sh" ]' _ \
   "$scratch/env-site" "$scratch/root-app" "$here/install"
-
-RUCHOIR_HARDENING_ENV="$scratch/env-site" inst ntfy site >/dev/null
-ntfy_second="$(RUCHOIR_HARDENING_ENV="$scratch/env-site" inst ntfy site)"
-check "ntfy install (site) second run prints only unchanged lines" \
-  bash -c '! grep -v -e "^unchanged" -e "^dry run" -e "^certificate" <<<"$1"' _ "$ntfy_second"
-check "ntfy install renders the base url from the env file" \
-  grep -q 'NTFY_BASE_URL=https://ntfy.example.org' "$scratch/root-site/opt/ruchoir-ntfy/.env"
-check "ntfy install starts with a port 80 vhost when there is no certificate" \
-  bash -c '! grep -q ssl_certificate "$1" && grep -q "server_name ntfy.example.org" "$1"' _ "$scratch/root-site/etc/nginx/sites-available/ruchoir-ntfy"
-mkdir -p "$scratch/root-site/etc/letsencrypt/live/ntfy.example.org"
-touch "$scratch/root-site/etc/letsencrypt/live/ntfy.example.org/fullchain.pem"
-RUCHOIR_HARDENING_ENV="$scratch/env-site" inst ntfy site >/dev/null
-check "ntfy install renders the full vhost once the certificate exists" \
-  grep -q 'live/ntfy.example.org/fullchain.pem' "$scratch/root-site/etc/nginx/sites-available/ruchoir-ntfy"
-check "the rendered vhost keeps no placeholder" \
-  bash -c '! grep -q __NTFY "$1"' _ "$scratch/root-site/etc/nginx/sites-available/ruchoir-ntfy"
-check "ntfy refuses the app role" \
-  bash -c '! RUCHOIR_HARDENING_ENV="$1" HARDENING_DRY_RUN=1 HARDENING_PREFIX="$2" bash "$3" ntfy >/dev/null 2>&1' _ \
-  "$scratch/env-app" "$scratch/root-ntfy-refused" "$here/install"
-check "ntfy is denied by default and pinned to a version" \
-  bash -c 'grep -q "auth-default-access: \"deny-all\"" "$1/ntfy/server.yml" && grep -Eq "image: binwiederhier/ntfy:v[0-9]+\.[0-9]+\.[0-9]+$" "$1/ntfy/compose.yml"' _ "$here"
 
 check "every check prints one line and exits 0 with an unreadable env" \
   bash -c 'for c in "$1"/*.sh; do out="$(RUCHOIR_HARDENING_ENV=/nonexistent bash "$c")" || exit 1; [ "$(printf "%s\n" "$out" | wc -l | tr -d " ")" = 1 ] || exit 1; done' _ "$cdir" 2>/dev/null

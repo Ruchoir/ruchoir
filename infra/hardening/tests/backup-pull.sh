@@ -88,9 +88,6 @@ cat >"$RUCHOIR_HARDENING_ENV" <<'ENV'
 RUCHOIR_HARDENING_ROLE=site
 HARDENING_PEER_HOST=peer.example.org
 HARDENING_PEER_IP=203.0.113.20
-NOTIFY_NTFY_URL=https://ntfy.example.org
-NOTIFY_NTFY_TOPIC=app-alerts
-NOTIFY_NTFY_TOKEN=tk_unused
 NOTIFY_MAIL_TO=someone@example.org
 NOTIFY_MAIL_FROM=alerts@example.org
 NOTIFY_SMTP_HOST=smtp.example.org
@@ -132,7 +129,7 @@ check "SHA256SUMS.latest is the newest checksum, by base name" \
   test "$(cat "$dest/SHA256SUMS.latest")" = "$(printf '%s  %s' "$(printf 'two\n' | sha256sum | cut -d' ' -f1)" "$(name_of '2026-11-02 03:36:00 UTC')")"
 check "SHA256SUMS.latest verifies" bash -c 'cd "$1" && sha256sum -c --status SHA256SUMS.latest' _ "$dest"
 check "last-ok holds the epoch" test "$(cat "$state/backup-pull.last-ok")" = "$now"
-check "no alert on success" bash -c '! grep -q "ntfy POST" <<<"$1"' _ "$out"
+check "no alert on success" bash -c '! grep -q "^mail to" <<<"$1"' _ "$out"
 check "no staging left behind" bash -c '! ls -A "$1" | grep -qi staging' _ "$dest"
 
 # Delete a pulled archive: the next pull brings it back.
@@ -155,7 +152,7 @@ now4="$(date -u -d '2026-11-04 04:30:00' +%s)"
 now="$now4"
 out="$(pull)" && rc=0 || rc=$?
 check "pull fails on a checksum mismatch" test "$rc" -ne 0
-check "pull alerts on a checksum mismatch" grep -q "ntfy POST" <<<"$out"
+check "pull alerts on a checksum mismatch" grep -q "^mail to" <<<"$out"
 check "the alert names the archive" grep -q "20261104T033600Z" <<<"$out"
 check "the corrupt archive is not stored" test ! -e "$dest/$(name_of '2026-11-04 03:36:00 UTC')"
 check "last-ok is not moved by a failed run" test "$(cat "$state/backup-pull.last-ok")" = "$now3"
@@ -169,7 +166,7 @@ check "a fixed archive is stored on the retry" test -f "$dest/$(name_of '2026-11
 now="$(date -u -d '2026-11-06 04:30:00' +%s)"
 out="$(pull)" && rc=0 || rc=$?
 check "pull fails when no archive is newer than 26 hours" test "$rc" -ne 0
-check "pull alerts on a stale backup" grep -q "ntfy POST" <<<"$out"
+check "pull alerts on a stale backup" grep -q "^mail to" <<<"$out"
 
 # A corrupt stored copy is noticed too.
 printf 'rot\n' >"$dest/$(name_of '2026-11-03 03:36:00 UTC')"
@@ -184,7 +181,7 @@ out="$(BACKUP_PULL_SOURCE="$scratch/missing/" BACKUP_PULL_DEST="$dest" BACKUP_PU
   BACKUP_PULL_OWNER="$(id -un)" NOTIFY_DRY_RUN=1 BACKUP_PULL_NOTIFY="$here/common/ruchoir-notify" \
   bash "$here/backup-pull/ruchoir-backup-pull" 2>&1)" && rc=0 || rc=$?
 check "pull fails when the source cannot be read" test "$rc" -ne 0
-check "pull alerts when the source cannot be read" grep -q "ntfy POST" <<<"$out"
+check "pull alerts when the source cannot be read" grep -q "^mail to" <<<"$out"
 
 # --- scripts/backup.sh: sharing the archive with a group -----------------------------------------
 # The function is lifted out of the script between its markers, so the test runs the real text.

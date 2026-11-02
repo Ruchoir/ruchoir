@@ -21,9 +21,6 @@ check() { # check NAME CONDITION...
 
 cat >"$scratch/hardening.env" <<'EOF'
 RUCHOIR_HARDENING_ROLE=app
-NOTIFY_NTFY_URL=https://ntfy.example.org
-NOTIFY_NTFY_TOPIC=app-alerts
-NOTIFY_NTFY_TOKEN=tk_secret_never_printed
 NOTIFY_MAIL_TO=someone@example.org
 NOTIFY_MAIL_FROM="Ruchoir <alerts@example.org>"
 NOTIFY_SMTP_HOST=smtp.example.org
@@ -59,13 +56,13 @@ check "install_file fixes a wrong mode" test "$fourth" = "installed $scratch/des
 
 # ruchoir-notify, dry run
 notify_out="$(NOTIFY_DRY_RUN=1 bash "$here/common/ruchoir-notify" alert "API down" "health answered 502" 2>&1)"
-check "notify dry run shows the ntfy message" grep -q "ntfy POST https://ntfy.example.org/app-alerts" <<<"$notify_out"
-check "notify dry run uses priority 5 for an alert" grep -q "Priority: 5" <<<"$notify_out"
-check "notify dry run shows the mail subject" grep -qE "Subject: \[[^]]+\] API down" <<<"$notify_out"
-check "notify never prints the ntfy token" bash -c '! grep -q tk_secret_never_printed <<<"$1"' _ "$notify_out"
+check "notify dry run shows the mail" grep -q "^mail to someone@example.org via smtp.example.org:587" <<<"$notify_out"
+check "notify sends no push any more" bash -c '! grep -qi ntfy <<<"$1"' _ "$notify_out"
+check "notify dry run shows the mail subject" grep -qE "^Subject: \[[^]]+\] " <<<"$notify_out"
 check "notify never prints the SMTP password" bash -c '! grep -q smtp_secret_never_printed <<<"$1"' _ "$notify_out"
 recovered="$(NOTIFY_DRY_RUN=1 bash "$here/common/ruchoir-notify" recovered "API down" "back" 2>&1)"
-check "notify uses priority 3 for a recovery" grep -q "Priority: 3" <<<"$recovered"
+check "notify marks a recovery in the subject" grep -q "Subject: .*Resolved: API down" <<<"$recovered"
+check "notify marks an alert in the subject" grep -q "Subject: .*Alert: API down" <<<"$notify_out"
 check "notify refuses an unknown level" bash -c '! NOTIFY_DRY_RUN=1 bash "$1" panic t b >/dev/null 2>&1' _ "$here/common/ruchoir-notify"
 
 # ruchoir-guard, dry run: says what it would back up and arm, runs nothing
