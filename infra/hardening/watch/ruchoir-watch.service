@@ -1,0 +1,15 @@
+[Unit]
+Description=Ruchoir probe: run every check once, alert on a change of state
+Documentation=file:///usr/local/sbin/ruchoir-watch
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ruchoir-watch
+# A run that hangs is killed well before the next minute's run would matter.
+TimeoutStartSec=90
+Nice=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true

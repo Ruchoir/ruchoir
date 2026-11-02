@@ -1,0 +1,52 @@
+# ntfy behind the host nginx. Rendered by ntfy/install.sh: __NTFY_PUBLIC_NAME__ is replaced by
+# NTFY_PUBLIC_NAME from hardening.env, once the certificate exists (see install.sh).
+# Installed as /etc/nginx/sites-available/ruchoir-ntfy.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __NTFY_PUBLIC_NAME__;
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name __NTFY_PUBLIC_NAME__;
+
+    ssl_certificate     /etc/letsencrypt/live/__NTFY_PUBLIC_NAME__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__NTFY_PUBLIC_NAME__/privkey.pem;
+
+    add_header X-Robots-Tag "noindex" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:8096;
+        proxy_http_version 1.1;
+
+        # Replace, never append, what the client claims about itself.
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Long-lived streams (JSON, SSE, WebSocket) must neither be buffered nor cut.
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $ruchoir_ntfy_upgrade;
+        proxy_buffering off;
+        proxy_request_buffering off;
+        proxy_read_timeout 3h;
+        proxy_send_timeout 3h;
+
+        client_max_body_size 1m;
+    }
+}
+
+# $ruchoir_ntfy_upgrade: "upgrade" for a WebSocket handshake, "close" otherwise. A map belongs to the
+# http context, which a file of sites-enabled is part of.
+map $http_upgrade $ruchoir_ntfy_upgrade {
+    default upgrade;
+    ""      close;
+}
