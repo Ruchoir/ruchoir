@@ -176,6 +176,8 @@ printf 'rot\n' >"$dest/$(name_of '2026-11-03 03:36:00 UTC')"
 now="$now4"
 out="$(pull)" && rc=0 || rc=$?
 check "pull alerts on a corrupt stored copy" grep -q "20261103T033600Z" <<<"$out"
+check "a corrupt stored copy is set aside, not deleted" test -f "$dest/quarantine/$(name_of '2026-11-03 03:36:00 UTC')"
+check "a corrupt stored copy keeps its checksum beside it" test -f "$dest/quarantine/$(name_of '2026-11-03 03:36:00 UTC').sha256"
 
 # An unreachable source: alert, nonzero.
 out="$(BACKUP_PULL_SOURCE="$scratch/missing/" BACKUP_PULL_DEST="$dest" BACKUP_PULL_STATE="$state" BACKUP_PULL_NOW="$now4" \

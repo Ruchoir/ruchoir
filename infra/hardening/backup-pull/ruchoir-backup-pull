@@ -82,13 +82,15 @@ if ! flock -n 9; then
   exit 0
 fi
 
-# 1. Stored copies that no longer verify are worthless: drop them (the next step fetches them again
-# if the source still has them) and say so.
+# 1. Stored copies that no longer verify are set aside in quarantine/ (never deleted: the app server
+# keeps only two weeks, so this may be the last copy, and a tampered file is evidence), the next step
+# fetches them again if the source still has them, and the run says so.
 while IFS= read -r name; do
   [ -n "$name" ] || continue
   if [ "$(checksum_state "$dest" "$name")" != ok ]; then
-    find "$dest" -maxdepth 1 -name "$name*" -delete
-    problems+=("stored copy of $name did not match its checksum and was dropped")
+    mkdir -p "$dest/quarantine"
+    find "$dest" -maxdepth 1 -name "$name*" -exec mv -f {} "$dest/quarantine/" \;
+    problems+=("stored copy of $name did not match its checksum; set aside in $dest/quarantine")
   fi
 done < <(list_archives "$dest")
 
