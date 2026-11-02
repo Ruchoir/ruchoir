@@ -1,0 +1,14 @@
+[Unit]
+Description=Pull the app server's encrypted backups
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ruchoir-backup-pull
+Nice=10
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/srv/backups /var/lib/ruchoir-hardening
+NoNewPrivileges=true

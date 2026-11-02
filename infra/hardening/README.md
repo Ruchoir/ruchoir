@@ -39,6 +39,19 @@ Every install is idempotent: run it again and it prints only `unchanged` lines.
 command. Open a **new** SSH session; if it works, `sudo ruchoir-guard confirm NAME`. If nobody
 confirms, the timer restores the files, runs `NAME.revert` when there is one, and sends an alert.
 
+## Lot 1: backups pulled by the site server
+
+Order: `install common` on both, then `install backup-pull` on the **site** (it prints a public key),
+put that key in `/etc/ruchoir-hardening/backup-pull.pub` on the **app** server, then
+`install backup-pull` there (the sshd change goes through `ruchoir-guard`: confirm it from a new
+session). Set `RUCHOIR_BACKUP_GROUP=backup-pull` in the app's `.env` so `scripts/backup.sh` writes
+archives readable by that group only (0640, directory 0750); the install fixes the existing ones.
+
+The site keeps `/srv/backups/alpha/`: the newest 30 archives plus the first of each month for 12
+months, only archives whose `.sha256` matches. `SHA256SUMS.latest` there names the newest one;
+`/var/lib/ruchoir-hardening/backup-pull.last-ok` holds the time of the last good run. The backup
+key itself never goes to the site (escrow is a manual step, see the spec).
+
 ## Tests
 
 ```bash

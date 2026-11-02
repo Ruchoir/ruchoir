@@ -16,6 +16,8 @@
 #   RUCHOIR_BACKUP_DIR       where archives are written (default ./backups)
 #   RUCHOIR_BACKUP_KEY_FILE  passphrase file for the archive encryption (required)
 #   RUCHOIR_BACKUP_KEEP      how many archives to keep (default 14, 0 keeps everything)
+#   RUCHOIR_BACKUP_GROUP     optional: a group allowed to read the archives (0640, directory 0750),
+#                            for an account that copies them elsewhere; unset leaves the modes alone
 #
 # The key file must NOT live on the instance being backed up: an archive encrypted with a key that
 # burns in the same fire is a compressed copy of the problem.
@@ -30,7 +32,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --no-pause) pause=0 ;;
     --out) out="${2:?--out needs a directory}"; shift ;;
-    -h|--help) sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
   shift
@@ -49,6 +51,7 @@ backup_dir="${backup_dir:-./backups}"
 key_file="${RUCHOIR_BACKUP_KEY_FILE:-$(env_value RUCHOIR_BACKUP_KEY_FILE)}"
 keep="${RUCHOIR_BACKUP_KEEP:-$(env_value RUCHOIR_BACKUP_KEEP)}"
 keep="${keep:-14}"
+group="${RUCHOIR_BACKUP_GROUP:-$(env_value RUCHOIR_BACKUP_GROUP)}"
 pg_user="$(env_value POSTGRES_USER)"; pg_user="${pg_user:-ruchoir}"
 pg_db="$(env_value POSTGRES_DB)"; pg_db="${pg_db:-ruchoir}"
 
@@ -70,6 +73,19 @@ mkdir -p "$backup_dir"
 compose() { docker compose "$@"; }
 
 say() { printf '  %s\n' "$1"; }
+
+# begin share_with_group
+# share_with_group GROUP DIR FILE...: let GROUP read the archive and nothing wider. Does nothing
+# when GROUP is empty, so an instance that does not copy its backups elsewhere is unchanged.
+share_with_group() {
+  local grp="$1" dir="$2"
+  shift 2
+  [ -n "$grp" ] || return 0
+  chgrp "$grp" "$dir" "$@"
+  chmod 0750 "$dir"
+  chmod 0640 "$@"
+}
+# end share_with_group
 
 echo "Ruchoir backup $stamp"
 
@@ -120,6 +136,7 @@ tar -C "$work" -czf - . \
   | openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -pass "file:$key_file" \
   > "$archive"
 sha256sum "$archive" > "$archive.sha256"
+share_with_group "$group" "$backup_dir" "$archive" "$archive.sha256"
 
 restart_api
 trap 'rm -rf "$work"' EXIT

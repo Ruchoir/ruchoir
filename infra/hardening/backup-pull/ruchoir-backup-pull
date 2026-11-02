@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+#
+# Pull the app server's encrypted backups onto this server, every night. Role "site".
+#
+# Installed as /usr/local/sbin/ruchoir-backup-pull (root, 0755) by `infra/hardening/install
+# backup-pull`, run by ruchoir-backup-pull.timer at 04:30 UTC (the app's own backup runs at 03:36).
+#
+# Pull, never push: the app server holds no credential for this one. The key used here can only
+# read the backup directory over there (rrsync -ro, forced command), and the archives are encrypted
+# with a key that never comes to this server, so a copy stolen from here is unreadable.
+#
+# What a run does:
+#   1. drops stored copies whose checksum no longer matches (bit rot, tampering) and says so;
+#   2. rsyncs the archives it does not hold yet into a staging directory;
+#   3. keeps only archives whose .sha256 exists and matches (an archive without one is still being
+#      written over there; one with a wrong one is damaged and is retried the next night);
+#   4. moves them into the store, applies retention (newest 30 plus the first of each month for 12
+#      months), writes SHA256SUMS.latest (read by the monthly restore test);
+#   5. alerts if anything above went wrong, or if no archive is newer than 26 hours; otherwise
+#      records the time in backup-pull.last-ok (read by the probes).
+#
+# Tests point it elsewhere with BACKUP_PULL_SOURCE (a local directory), BACKUP_PULL_DEST,
+# BACKUP_PULL_STATE, BACKUP_PULL_NOW, BACKUP_PULL_OWNER and BACKUP_PULL_NOTIFY.
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$here/lib.sh" ] && [ -f "$here/../common/lib.sh" ]; then
+  # shellcheck source=../common/lib.sh
+  . "$here/../common/lib.sh"
+  # shellcheck source=lib.sh
+  . "$here/lib.sh"
+else
+  # shellcheck source=/dev/null
+  . /usr/local/lib/ruchoir-hardening/lib.sh
+  # shellcheck source=/dev/null
+  . /usr/local/lib/ruchoir-hardening/backup-pull-lib.sh
+fi
+
+dest="${BACKUP_PULL_DEST:-/srv/backups/alpha}"
+state="${BACKUP_PULL_STATE:-/var/lib/ruchoir-hardening}"
+owner="${BACKUP_PULL_OWNER:-backup-store}"
+notify="${BACKUP_PULL_NOTIFY:-/usr/local/sbin/ruchoir-notify}"
+key="${BACKUP_PULL_KEY:-/etc/ruchoir-hardening/backup-pull.key}"
+known_hosts="${BACKUP_PULL_KNOWN_HOSTS:-/etc/ruchoir-hardening/backup-pull.known_hosts}"
+now="${BACKUP_PULL_NOW:-$(date -u +%s)}"
+max_age=$((26 * 3600))
+
+problems=()
+alerted=0
+
+alert() {
+  alerted=1
+  "$notify" alert "Backup pull failed" "$1" || echo "could not send the alert: $1" >&2
+}
+
+staging=""
+cleanup() {
+  local rc=$?
+  [ -z "$staging" ] || rm -rf "$staging"
+  if [ "$rc" -ne 0 ] && [ "$alerted" -eq 0 ]; then
+    alert "ruchoir-backup-pull stopped unexpectedly (exit $rc); see the journal"
+  fi
+}
+trap cleanup EXIT
+
+if [ -n "${BACKUP_PULL_SOURCE:-}" ]; then
+  source_spec="$BACKUP_PULL_SOURCE"
+  ssh_args=()
+else
+  peer="$(env_get HARDENING_PEER_HOST)"
+  source_spec="backup-pull@${peer}:./"
+  ssh_args=(-e "ssh -i $key -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$known_hosts -o ConnectTimeout=30")
+fi
+
+mkdir -p "$dest" "$state"
+chmod 0700 "$dest"
+chown "$owner:$(id -gn "$owner")" "$dest"
+
+exec 9>"$state/backup-pull.lock"
+if ! flock -n 9; then
+  echo "another pull is running" >&2
+  exit 0
+fi
+
+# 1. Stored copies that no longer verify are worthless: drop them (the next step fetches them again
+# if the source still has them) and say so.
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  if [ "$(checksum_state "$dest" "$name")" != ok ]; then
+    find "$dest" -maxdepth 1 -name "$name*" -delete
+    problems+=("stored copy of $name did not match its checksum and was dropped")
+  fi
+done < <(list_archives "$dest")
+
+# 2. Fetch what the store does not hold yet, into a staging directory on the same file system.
+staging="$(mktemp -d "$dest/.staging.XXXXXX")"
+{
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    printf '%s\n%s\n' "$name" "$name.sha256"
+  done < <(list_archives "$dest")
+} >"$staging/.held"
+rc=0
+rsync -rt --ignore-existing --exclude-from="$staging/.held" \
+  --include='ruchoir-*.tar.gz.enc' --include='ruchoir-*.tar.gz.enc.sha256' --exclude='*' \
+  "${ssh_args[@]}" "$source_spec" "$staging/" || rc=$?
+# 24: a file vanished on the source while listing (it prunes its own old archives). Harmless.
+if [ "$rc" -ne 0 ] && [ "$rc" -ne 24 ]; then
+  alert "rsync from the app server failed (exit $rc)"
+  exit 1
+fi
+
+# 3. Only verified archives go in. A missing checksum is a write in progress: wait for tomorrow.
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  problems+=("checksum mismatch on $name; it was not kept and is retried tomorrow")
+done < <(mismatched_archives "$staging")
+
+# 4. Store them, apply retention, publish the newest checksum.
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  mv "$staging/$name" "$dest/$name"
+  mv "$staging/$name.sha256" "$dest/$name.sha256"
+  chmod 0600 "$dest/$name" "$dest/$name.sha256"
+  echo "stored $name"
+done < <(verified_archives "$staging")
+
+keep="$(retention_keep "$dest")"
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  grep -qxF "$name" <<<"$keep" && continue
+  find "$dest" -maxdepth 1 -name "$name*" -delete
+  echo "removed $name (retention)"
+done < <(list_archives "$dest")
+
+newest="$(list_archives "$dest" | tail -n 1)"
+if [ -n "$newest" ]; then
+  printf '%s  %s\n' "$(sha256sum <"$dest/$newest" | awk '{ print $1 }')" "$newest" >"$dest/SHA256SUMS.latest.new"
+  chmod 0600 "$dest/SHA256SUMS.latest.new"
+  mv "$dest/SHA256SUMS.latest.new" "$dest/SHA256SUMS.latest"
+fi
+chown -R "$owner:$(id -gn "$owner")" "$dest"
+
+# 5. Fresh enough?
+age="$(newest_age "$dest" "$now")"
+if [ -z "$age" ]; then
+  problems+=("no archive is stored yet")
+elif [ "$age" -gt "$max_age" ]; then
+  problems+=("no archive newer than 26 hours (the newest is $newest)")
+fi
+
+if [ "${#problems[@]}" -gt 0 ]; then
+  body="$(printf '%s\n' "${problems[@]}")"
+  alert "$body"
+  exit 1
+fi
+
+printf '%s\n' "$now" >"$state/backup-pull.last-ok.new"
+mv "$state/backup-pull.last-ok.new" "$state/backup-pull.last-ok"
+echo "pull ok, newest $newest"
