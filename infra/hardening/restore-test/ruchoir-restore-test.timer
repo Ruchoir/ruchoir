@@ -1,0 +1,10 @@
+# The 1st of each month at 05:00 UTC, after the 03:36 backup and the 04:30 pull.
+[Unit]
+Description=Ruchoir monthly restore test
+
+[Timer]
+OnCalendar=*-*-01 05:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,31 @@
+# The throwaway project of the monthly restore test, laid over production's docker-compose.yml.
+#
+# ruchoir-restore-test copies it as docker-compose.override.yml into /srv/ruchoir-restoretest, next
+# to a copy of production's compose file, so scripts/restore.sh (which acts on the project of the
+# directory it runs from) restores into it. The project has its own name, so its volumes and
+# network are its own; nothing is published, nothing can reach out, and every service is capped.
+# assert_isolated checks the resolved result of all this before anything is started.
+name: ruchoir-restoretest
+
+services:
+  postgres:
+    ports: !reset []
+    mem_limit: 1g
+    restart: "no"
+  valkey:
+    ports: !reset []
+    mem_limit: 1g
+    restart: "no"
+  garage:
+    ports: !reset []
+    mem_limit: 1g
+    restart: "no"
+  api:
+    ports: !reset []
+    mem_limit: 1536m
+    restart: "no"
+
+networks:
+  # No route out: the API and its stores talk to each other and to nothing else.
+  default:
+    internal: true
