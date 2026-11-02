@@ -36,7 +36,7 @@ else
   . /usr/local/lib/ruchoir-hardening/backup-pull-lib.sh
 fi
 
-dest="${BACKUP_PULL_DEST:-/srv/backups/alpha}"
+dest="${BACKUP_PULL_DEST:-/srv/backups/app}"
 state="${BACKUP_PULL_STATE:-/var/lib/ruchoir-hardening}"
 owner="${BACKUP_PULL_OWNER:-backup-store}"
 notify="${BACKUP_PULL_NOTIFY:-/usr/local/sbin/ruchoir-notify}"

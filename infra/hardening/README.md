@@ -46,7 +46,7 @@ put that key in `/etc/ruchoir-hardening/backup-pull.pub` on the **app** server, 
 session). Set `RUCHOIR_BACKUP_GROUP=backup-pull` in the app's `.env` so `scripts/backup.sh` writes
 archives readable by that group only (0640, directory 0750); the install fixes the existing ones.
 
-The site keeps `/srv/backups/alpha/`: the newest 30 archives plus the first of each month for 12
+The site keeps `/srv/backups/app/`: the newest 30 archives plus the first of each month for 12
 months, only archives whose `.sha256` matches. `SHA256SUMS.latest` there names the newest one;
 `/var/lib/ruchoir-hardening/backup-pull.last-ok` holds the time of the last good run. The backup
 key itself never goes to the site (escrow is a manual step, see the spec).

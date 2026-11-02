@@ -84,7 +84,7 @@ case "$role" in
 
     ensure_account backup-store "$store" /usr/sbin/nologin
     ensure_dir "$store" root root 0755
-    ensure_dir "$store/alpha" backup-store backup-store 0700
+    ensure_dir "$store/app" backup-store backup-store 0700
     install -d -m 0755 "$prefix/var/lib/ruchoir-hardening"
 
     if [ ! -f "$key" ]; then
