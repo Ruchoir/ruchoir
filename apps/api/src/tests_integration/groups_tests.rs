@@ -680,3 +680,52 @@ async fn a_legacy_admin_is_still_repaired_when_a_group_also_carries_administrato
         "the direct assignment is created"
     );
 }
+
+#[tokio::test]
+async fn groups_of_loads_groups_with_people_and_roles() {
+    use crate::permissions::groups::{group, groups_of, GroupSource};
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let guest = make_user(&app.db, "guest").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Loading").await;
+    let other = crate::testkit::make_space(&app.db, owner, "Elsewhere").await;
+    crate::testkit::add_member(&app.db, space, guest, "guest").await;
+    let b = make_group(&app.db, space, "Bravo").await;
+    let a = make_group(&app.db, space, "alpha").await;
+    let foreign = make_group(&app.db, other, "Foreign").await;
+    put_in_group(&app.db, a, space, owner, true).await;
+    put_in_group(&app.db, a, space, guest, false).await;
+    let role = make_role(&app.db, space, "Comptable", 40, &["files.manage"]).await;
+    give_role_to_group(&app.db, a, space, role)
+        .await
+        .expect("role");
+    exec(
+        &app.db,
+        "UPDATE space_groups SET source = 'directory', description = 'from ldap' WHERE id = $1",
+        vec![b.into()],
+    )
+    .await
+    .expect("source");
+
+    let all = groups_of(&app.db, space).await.expect("groups");
+    assert_eq!(
+        all.iter().map(|g| g.name.as_str()).collect::<Vec<_>>(),
+        ["alpha", "Bravo"],
+        "by name, case-insensitively, and only this space's"
+    );
+    assert_eq!(all[0].members.len(), 2);
+    let m = |u| all[0].members.iter().find(|m| m.user_id == u).unwrap();
+    assert!(m(owner).is_manager && !m(owner).guest);
+    assert!(!m(guest).is_manager && m(guest).guest);
+    assert_eq!(all[0].roles.len(), 1);
+    assert_eq!(all[0].roles[0].id, role);
+    assert_eq!(all[0].roles[0].position, 40);
+    assert_eq!(all[1].source, GroupSource::Directory);
+    assert_eq!(all[1].description.as_deref(), Some("from ldap"));
+    assert!(all[1].members.is_empty() && all[1].roles.is_empty());
+
+    let one = group(&app.db, space, a).await.expect("one").expect("some");
+    assert_eq!(one.members.len(), 2);
+    assert!(group(&app.db, space, foreign).await.expect("q").is_none());
+    assert!(group(&app.db, other, a).await.expect("q").is_none());
+}

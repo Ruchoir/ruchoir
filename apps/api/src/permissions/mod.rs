@@ -9,6 +9,7 @@ pub mod changed;
 pub mod check;
 pub mod delegation;
 pub mod engine;
+pub mod groups;
 pub mod load;
 pub mod roles;
 pub mod system_roles;

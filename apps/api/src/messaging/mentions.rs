@@ -246,7 +246,7 @@ fn display_name_matches(display_name: &str, handle: &str) -> bool {
 }
 
 /// Lowercase and strip common Latin diacritics so an ASCII handle can match an accented name.
-fn fold_ascii(s: &str) -> String {
+pub(crate) fn fold_ascii(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for ch in s.chars() {
         for lc in ch.to_lowercase() {
