@@ -531,6 +531,9 @@
   --float-edge-focus: var(--edge-focus);
   --float-badge-bg: var(--badge-bg);
   --float-badge-fg: var(--badge-fg);
+  --float-action-ghost-fg: var(--action-ghost-fg);
+  --float-action-ghost-bg-hover: var(--action-ghost-bg-hover);
+  --float-action-ghost-bg-active: var(--action-ghost-bg-active);
 }
 
 /* --- Aubergine: a plum sidebar, tight messages ----------------------------- */
@@ -612,6 +615,9 @@
   --surface-hover: rgb(255 255 255 / 0.08);
   --surface-active: rgb(255 255 255 / 0.14);
   --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: #d8c8d9;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 [data-style="aubergine"][data-theme$="-dark"] .wc-pane-sidebar {
   --text-strong: #ffffff;
@@ -621,6 +627,9 @@
   --surface-hover: rgb(255 255 255 / 0.08);
   --surface-active: rgb(255 255 255 / 0.14);
   --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: #bcbcbe;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 [data-style="aubergine"]:not([data-theme$="-dark"]) .wc-pane-rail {
   --text-muted: #c6b3c7;
@@ -629,6 +638,9 @@
   --line-strong: rgb(255 255 255 / 0.3);
   --edge-focus: #ffffff;
   --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: #c6b3c7;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 [data-style="aubergine"][data-theme$="-dark"] .wc-pane-rail {
   --text-muted: #9a9b9e;
@@ -637,6 +649,9 @@
   --line-strong: rgb(255 255 255 / 0.3);
   --edge-focus: #ffffff;
   --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: #9a9b9e;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 
 /* --- Nuage: a bright blue band, airy messages, pills ----------------------- */
@@ -667,7 +682,7 @@
   --muted: #6b6b6b;
   --text-link: #00679e;
   --surface-mention: #eaf5fb;
-  /* Deeper than the band (#0082c9), whose white label would read at 4.2:1 only. */
+  /* Deeper than the mockup's #0082c9, whose white label would read at 4.2:1 only. */
   --action-primary-bg: #0073b1;
   --action-primary-bg-hover: #0073b1;
   --action-primary-bg-active: #0073b1;
@@ -676,7 +691,8 @@
   --sidebar-bg: #f5f5f5;
   --sidebar-selected-bg: #d8ecf8;
   --sidebar-selected-fg: #00507c;
-  --rail-bg: #0082c9;
+  /* The band, a shade deeper than the mockup's #0082c9 so white text holds on it (4.2:1 there). */
+  --rail-bg: #0073b1;
   --badge-bg: #0073b1;
   --badge-fg: #ffffff;
   --msg-bg: transparent;
@@ -715,10 +731,13 @@
 [data-style="nuage"]:not([data-theme$="-dark"]) .wc-pane-rail {
   --text-muted: #ffffff;
   --text-subtle: #ffffff;
-  --surface-canvas: #0082c9;
+  --surface-canvas: #0073b1;
   --line-strong: rgb(255 255 255 / 0.4);
   --edge-focus: #ffffff;
   --border-subtle: rgb(255 255 255 / 0.2);
+  --action-ghost-fg: #ffffff;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 [data-style="nuage"][data-theme$="-dark"] .wc-pane-rail {
   --text-muted: #ffffff;
@@ -727,6 +746,9 @@
   --line-strong: rgb(255 255 255 / 0.4);
   --edge-focus: #ffffff;
   --border-subtle: rgb(255 255 255 / 0.2);
+  --action-ghost-fg: #ffffff;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 
 /* --- Indigo: each message on a card, over a grey canvas -------------------- */
@@ -886,6 +908,9 @@
   --border-subtle: rgb(255 255 255 / 0.12);
   --badge-bg: #ffffff;
   --badge-fg: #1e325c;
+  --action-ghost-fg: rgb(255 255 255 / 0.72);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 [data-style="marine"][data-theme$="-dark"] .wc-pane-sidebar {
   --text-strong: #ffffff;
@@ -897,6 +922,9 @@
   --border-subtle: rgb(255 255 255 / 0.12);
   --badge-bg: #ffffff;
   --badge-fg: #202228;
+  --action-ghost-fg: rgb(255 255 255 / 0.72);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 [data-style="marine"]:not([data-theme$="-dark"]) .wc-pane-rail {
   --text-muted: rgb(255 255 255 / 0.6);
@@ -905,6 +933,9 @@
   --line-strong: rgb(255 255 255 / 0.3);
   --edge-focus: #ffffff;
   --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: rgb(255 255 255 / 0.72);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 [data-style="marine"][data-theme$="-dark"] .wc-pane-rail {
   --text-muted: rgb(255 255 255 / 0.55);
@@ -913,6 +944,9 @@
   --line-strong: rgb(255 255 255 / 0.3);
   --edge-focus: #ffffff;
   --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: rgb(255 255 255 / 0.72);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
 }
 
 /* --- What floats inside a coloured pane ------------------------------------ */
@@ -931,4 +965,7 @@
   --edge-focus: var(--float-edge-focus);
   --badge-bg: var(--float-badge-bg);
   --badge-fg: var(--float-badge-fg);
+  --action-ghost-fg: var(--float-action-ghost-fg);
+  --action-ghost-bg-hover: var(--float-action-ghost-bg-hover);
+  --action-ghost-bg-active: var(--float-action-ghost-bg-active);
 }

@@ -120,7 +120,7 @@ const STYLE_PREVIEW: Record<AppStyle, { label: TranslationKey; day: StyleSwatch;
   },
   nuage: {
     label: key("prefs.styleNuage"),
-    day: { rail: "#0082c9", side: "#f5f5f5", sel: "#d8ecf8", selFg: "#00507c", content: "#ffffff", text: "#222222", primary: "#0073b1" },
+    day: { rail: "#0073b1", side: "#f5f5f5", sel: "#d8ecf8", selFg: "#00507c", content: "#ffffff", text: "#222222", primary: "#0073b1" },
     night: { rail: "#00507c", side: "#222222", sel: "#11384f", selFg: "#bfe3f7", content: "#171717", text: "#e6e6e6", primary: "#2a9de0" },
   },
   indigo: {

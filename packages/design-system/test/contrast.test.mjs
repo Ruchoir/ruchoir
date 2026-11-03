@@ -21,6 +21,14 @@ const SIDEBAR = [
   ["--text-body", "--sidebar-bg"], ["--text-strong", "--sidebar-bg"], ["--text-muted", "--sidebar-bg"],
   ["--sidebar-selected-fg", "--sidebar-selected-bg", "--sidebar-bg"],
   ["--badge-fg", "--badge-bg"],
+  // An icon button drawn in the pane (the space's actions, the new message pen).
+  ["--action-ghost-fg", "--sidebar-bg", null, 3],
+];
+/** The rail holds icons and the instance's headings: what it draws must hold on it too. */
+const RAIL = [
+  ["--text-muted", "--rail-bg"],
+  ["--action-ghost-fg", "--rail-bg", null, 3],
+  ["--edge-focus", "--rail-bg", null, 3],
 ];
 
 function check(tokens, pairs, where) {
@@ -40,6 +48,7 @@ test("every text of every style clears WCAG AA, by day and by night", () => {
       const where = `${v} ${night ? "night" : "day"}`;
       failures.push(...check(resolveTokens(css, v, night), CONTENT, where));
       failures.push(...check(resolveTokens(css, v, night, "sidebar"), SIDEBAR, `${where} sidebar`));
+      failures.push(...check(resolveTokens(css, v, night, "rail"), RAIL, `${where} rail`));
     }
   }
   assert.deepEqual(failures, []);
