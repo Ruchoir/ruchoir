@@ -52,7 +52,8 @@ export function groupRow<R extends RoleLike>(
 }
 
 /**
- * The groups a mention being typed offers: those whose name holds the query, by name, with how many
+ * The groups a mention being typed offers: those whose name begins with the query (as one types a
+ * name), by name, with how many
  * people they hold and how many of those are in the room the message goes to (`audienceIds`).
  */
 export function groupMentionHits<G extends GroupLike>(
@@ -63,7 +64,7 @@ export function groupMentionHits<G extends GroupLike>(
   const needle = foldName(query.trim());
   const room = new Set(audienceIds);
   return sortGroups(groups)
-    .filter((g) => foldName(g.name).includes(needle))
+    .filter((g) => foldName(g.name).startsWith(needle))
     .map((group) => ({ group, members: group.memberIds.length, inRoom: group.memberIds.filter((id) => room.has(id)).length }));
 }
 

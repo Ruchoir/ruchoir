@@ -46,7 +46,7 @@ type Member = ReturnType<typeof getChannelMembers>[number];
 type Hit =
   | { kind: "mention"; name: string; member: Member }
   | { kind: "broadcast"; name: string; hint: TranslationKey }
-  | { kind: "group"; name: string; id: string; members: number; inRoom: number }
+  | { kind: "group"; name: string; id: string; members: number; inRoom: number | null }
   | { kind: "emoji"; name: string; emoji: string }
   | { kind: "room"; name: string };
 
@@ -209,9 +209,9 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
       );
       // Between the two: a group names several people at once, but is still a name to be looked up.
       // A guest gets none, whatever the list holds: guests cannot mention a group.
-      const groupHits = groupHitsFor(mentionGroups.viewerRole, mentionGroups.groups, trigger.query, mentionGroups.audience)
+      const groupHits = groupHitsFor(mentionGroups.viewerRole, mentionGroups.groups, trigger.query, mentionGroups.audience ?? [])
         .slice(0, 5)
-        .map((h): Hit => ({ kind: "group", name: h.group.name, id: h.group.id, members: h.members, inRoom: h.inRoom }));
+        .map((h): Hit => ({ kind: "group", name: h.group.name, id: h.group.id, members: h.members, inRoom: mentionGroups.audience === null ? null : h.inRoom }));
       const people = members
         .filter((m) => m.name.toLowerCase().includes(q))
         .slice(0, 6)
@@ -261,6 +261,7 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
     if (spaced) {
       const needle = foldName(spaced[1]);
       const { groups, viewerRole } = groupsRef.current;
+      // The same rule as the suggestions themselves (`groupMentionHits`): the name begins with the query.
       if (viewerRole !== "guest" && groups.some((g) => foldName(g.name).startsWith(needle))) {
         setTrigger({ kind: "mention", query: spaced[1], start: caret - spaced[1].length - 1 });
         setActive(0);
@@ -646,7 +647,11 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: "block", fontWeight: 600 }}>@{hit.name}</span>
                     <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
-                      {t("composer.groupHint", { count: hit.members, inRoom: hit.inRoom })}
+                      {hit.inRoom === null
+                        ? t("message.reactors", { count: hit.members })
+                        : mentionGroups.dm
+                          ? t("composer.groupHintDm", { count: hit.members, inRoom: hit.inRoom })
+                          : t("composer.groupHint", { count: hit.members, inRoom: hit.inRoom })}
                     </span>
                   </span>
                 </>

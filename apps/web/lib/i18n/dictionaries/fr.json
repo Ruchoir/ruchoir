@@ -483,7 +483,9 @@
     "uploadFailedName": "« {{name}} » n'a pas pu être téléversé.",
     "writeIn": "Écrire dans #{{name}}",
     "groupHint_one": "{{count}} personne, dont {{inRoom}} dans ce canal",
-    "groupHint_other": "{{count}} personnes, dont {{inRoom}} dans ce canal"
+    "groupHint_other": "{{count}} personnes, dont {{inRoom}} dans ce canal",
+    "groupHintDm_one": "{{count}} personne, dont {{inRoom}} dans cette conversation",
+    "groupHintDm_other": "{{count}} personnes, dont {{inRoom}} dans cette conversation"
   },
   "code": {
     "changeLanguage": "Changer le langage",

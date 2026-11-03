@@ -483,7 +483,9 @@
     "uploadFailedName": "\\u201c{{name}}\\u201d could not be uploaded.",
     "writeIn": "Write in #{{name}}",
     "groupHint_one": "{{count}} person, {{inRoom}} in this channel",
-    "groupHint_other": "{{count}} people, {{inRoom}} in this channel"
+    "groupHint_other": "{{count}} people, {{inRoom}} in this channel",
+    "groupHintDm_one": "{{count}} person, {{inRoom}} in this conversation",
+    "groupHintDm_other": "{{count}} people, {{inRoom}} in this conversation"
   },
   "code": {
     "changeLanguage": "Change the language",

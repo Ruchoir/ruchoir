@@ -611,10 +611,18 @@ export function ChannelScreen({
     .map((m) => ({ id: m.userId, name: m.name, presence: m.presence, bot: m.bot, avatar: m.avatar }));
   // The groups a `@Name` can point at and who reads this conversation, published for the composer
   // and the message renderer (which read them through the data seam, like the roster).
-  const audienceKey = memberList.map((m) => m.id).join(",");
+  // The audience is the conversation's own people: a direct message's participants, a channel's
+  // roster; null while that roster is not here, so the composer says no number rather than a wrong one.
+  const dmPeople = isDm ? [myUserId, ...(dm?.participantIds ?? (dm?.userId ? [dm.userId] : []))] : null;
+  const audienceKey = dmPeople ? dmPeople.join(",") : channelRoster ? channelRoster.join(",") : null;
   useEffect(() => {
-    setMentionGroups({ groups: mentionGroups ?? [], audience: audienceKey ? audienceKey.split(",") : [], viewerRole: myRole });
-  }, [mentionGroups, audienceKey, myRole]);
+    setMentionGroups({
+      groups: mentionGroups ?? [],
+      audience: audienceKey === null ? null : audienceKey ? audienceKey.split(",") : [],
+      dm: isDm,
+      viewerRole: myRole,
+    });
+  }, [mentionGroups, audienceKey, myRole, isDm]);
   useEffect(() => () => setMentionGroups({ groups: [], audience: [] }), []);
   const presenceByName = new Map(members.map((m) => [m.name, m.presence] as const));
   // Uploaded avatars, by display name: a row only knows its author's name, and the roster is the one

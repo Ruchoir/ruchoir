@@ -1,8 +1,8 @@
 "use client";
 
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Avatar, brandFor, Card, Dialog, FileIcon, Icon, IconButton, IconLink, Popover, Tag, Tooltip } from "@/components/ds";
-import { getCurrentUser, getMentionGroups, getMentionNames, getPresence, getSpaceRooms } from "@/lib/data";
+import { getCurrentUser, getMentionGroups, getMentionNames, getNoMentionGroups, getPresence, getSpaceRooms, subscribeToDirectory } from "@/lib/data";
 import type { ImportSource, Message, MessageAttachment } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
@@ -362,6 +362,10 @@ export function MessageRow({
   }, [mentionOpen]);
   // The card opens once its profile is in hand, so it is placed at its final size rather than
   // growing (and jumping) after it appears. A failed read still opens it, on the name alone.
+  // Subscribed: the groups arrive after the messages, and a mention drawn before them has to turn
+  // into a pill when they land rather than at the next unrelated render.
+  const mentionGroups = useSyncExternalStore(subscribeToDirectory, getMentionGroups, getNoMentionGroups);
+  const groupNames = useMemo(() => mentionGroups.groups.map((g) => g.name), [mentionGroups.groups]);
   const openMention = (name: string, anchor: HTMLElement) => {
     if (mentionOpen?.anchor === anchor) {
       setMentionOpen(null);
@@ -575,7 +579,7 @@ export function MessageRow({
                   // but the author, and a box that answers a click with a toast is worse than one
                   // that says up front it is not yours.
                   isOwn && !readOnly ? actions.onToggleTask : undefined,
-                  { names: getMentionGroups().groups.map((g) => g.name), onOpen: actions.onOpenGroup },
+                  { names: groupNames, onOpen: actions.onOpenGroup },
                 )}
                 {m.edited ? <EditedTag createdAt={m.createdAt} editedAt={m.editedAt} /> : null}
               </div>

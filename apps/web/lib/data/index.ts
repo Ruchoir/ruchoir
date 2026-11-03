@@ -122,8 +122,10 @@ export function getSpaceRooms(): string[] {
  */
 export type MentionGroups = {
   groups: { id: string; name: string; source: "manual" | "directory"; memberIds: string[]; managerIds: string[]; roleIds: string[] }[];
-  /** The ids of the people who read the conversation on screen. */
-  audience: string[];
+  /** The ids of the people who read the conversation on screen; null while that is not known yet. */
+  audience: string[] | null;
+  /** A direct message rather than a channel (the hint says "conversation", not "channel"). */
+  dm?: boolean;
   /** The viewer's standing in the space (a guest cannot mention a group). */
   viewerRole?: string;
 };
@@ -134,9 +136,13 @@ let liveMentionGroups: MentionGroups = NO_MENTION_GROUPS;
 export function setMentionGroups(next: MentionGroups): void {
   const same =
     next.viewerRole === liveMentionGroups.viewerRole &&
+    next.dm === liveMentionGroups.dm &&
     next.groups === liveMentionGroups.groups &&
-    next.audience.length === liveMentionGroups.audience.length &&
-    next.audience.every((id, i) => id === liveMentionGroups.audience[i]);
+    (next.audience === liveMentionGroups.audience ||
+      (next.audience !== null &&
+        liveMentionGroups.audience !== null &&
+        next.audience.length === liveMentionGroups.audience.length &&
+        next.audience.every((id, i) => id === (liveMentionGroups.audience as string[])[i])));
   if (same) return;
   liveMentionGroups = next;
   for (const listener of directoryListeners) listener();

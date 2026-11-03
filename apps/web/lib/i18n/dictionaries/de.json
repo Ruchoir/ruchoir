@@ -483,7 +483,9 @@
     "uploadFailedName": "\\u201e{{name}}\\u201c konnte nicht hochgeladen werden.",
     "writeIn": "In #{{name}} schreiben",
     "groupHint_one": "{{count}} Person, davon {{inRoom}} in diesem Kanal",
-    "groupHint_other": "{{count}} Personen, davon {{inRoom}} in diesem Kanal"
+    "groupHint_other": "{{count}} Personen, davon {{inRoom}} in diesem Kanal",
+    "groupHintDm_one": "{{count}} Person, davon {{inRoom}} in dieser Unterhaltung",
+    "groupHintDm_other": "{{count}} Personen, davon {{inRoom}} in dieser Unterhaltung"
   },
   "code": {
     "changeLanguage": "Sprache ändern",

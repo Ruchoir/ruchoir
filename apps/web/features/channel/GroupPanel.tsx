@@ -217,7 +217,7 @@ export function GroupPanel({ spaceId, group, edition, roles, members, viewerId, 
                 : t("groups.manageNote")}
             </span>
           </div>
-{leaveButton}
+          {leaveButton}
         </div>
       )}
       {adding ? (

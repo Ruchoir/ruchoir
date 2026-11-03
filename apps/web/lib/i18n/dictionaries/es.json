@@ -487,7 +487,10 @@
     "writeIn": "Escribir en #{{name}}",
     "groupHint_one": "{{count}} persona, {{inRoom}} en este canal",
     "groupHint_many": "{{count}} personas, {{inRoom}} en este canal",
-    "groupHint_other": "{{count}} personas, {{inRoom}} en este canal"
+    "groupHint_other": "{{count}} personas, {{inRoom}} en este canal",
+    "groupHintDm_one": "{{count}} persona, {{inRoom}} en esta conversación",
+    "groupHintDm_many": "{{count}} personas, {{inRoom}} en esta conversación",
+    "groupHintDm_other": "{{count}} personas, {{inRoom}} en esta conversación"
   },
   "code": {
     "changeLanguage": "Cambiar el lenguaje",

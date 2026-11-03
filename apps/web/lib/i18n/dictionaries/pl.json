@@ -491,7 +491,11 @@
     "groupHint_one": "{{count}} osoba, {{inRoom}} na tym kanale",
     "groupHint_few": "{{count}} osoby, {{inRoom}} na tym kanale",
     "groupHint_many": "{{count}} osób, {{inRoom}} na tym kanale",
-    "groupHint_other": "{{count}} osoby, {{inRoom}} na tym kanale"
+    "groupHint_other": "{{count}} osoby, {{inRoom}} na tym kanale",
+    "groupHintDm_one": "{{count}} osoba, {{inRoom}} w tej rozmowie",
+    "groupHintDm_few": "{{count}} osoby, {{inRoom}} w tej rozmowie",
+    "groupHintDm_many": "{{count}} osób, {{inRoom}} w tej rozmowie",
+    "groupHintDm_other": "{{count}} osoby, {{inRoom}} w tej rozmowie"
   },
   "code": {
     "changeLanguage": "Zmień język",
@@ -2306,7 +2310,7 @@
     "you": "Pan/Pani",
     "manageNote": "Dodaje i usuwa Pan/Pani osoby z tej grupy. Jej role i opiekunowie ustawia się w ustawieniach przestrzeni.",
     "leave": "Opuść grupę",
-    "left": "Opuścił(a) Pan/Pani grupę"
+    "left": "Opuszczono grupę"
   },
   "licence": {
     "refusal": {
