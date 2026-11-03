@@ -246,10 +246,16 @@ async fn next_event(ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) -> Opti
 
 /// Assert no `message.created` event arrives within a short window. Presence and typing events for
 /// space co-members are expected background noise and are ignored.
+///
+/// The window is one deadline for the whole watch, and every kind of frame keeps it going: stopping
+/// at the first frame that is not text (a ping) would end the watch early and let a message that
+/// arrives just after pass unseen.
 async fn expect_no_message(ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>) {
-    let deadline = Duration::from_millis(800);
-    while let Ok(Some(Ok(WsMessage::Text(text)))) = tokio::time::timeout(deadline, ws.next()).await
-    {
+    let deadline = tokio::time::Instant::now() + Duration::from_millis(800);
+    while let Ok(Some(frame)) = tokio::time::timeout_at(deadline, ws.next()).await {
+        let Ok(WsMessage::Text(text)) = frame else {
+            continue;
+        };
         let event: Value = match serde_json::from_str(text.as_str()) {
             Ok(event) => event,
             Err(_) => continue,
@@ -3372,6 +3378,237 @@ async fn a_reservation_takes_the_channel_back_when_a_role_changes() {
         .await
         .expect("history");
     assert_eq!(refused.status(), 403);
+}
+
+/// Create a channel reserved to administrators as Alice (an admin), with Bob (an admin) added to
+/// it, and return its id.
+async fn admin_channel_with_bob(app: &TestApp, fx: &Fixture, alice: &str) -> String {
+    let channel: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            alice,
+        )
+        .json(&json!({
+            "name": format!("direction-{}", Uuid::new_v4().simple()),
+            "type": "private",
+            "allowed_roles": ["owner", "admin"],
+        }))
+        .send()
+        .await
+        .expect("create")
+        .json()
+        .await
+        .expect("json");
+    let channel_id = channel["id"].as_str().expect("id").to_owned();
+    let added = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/channels/{channel_id}/members"),
+            alice,
+        )
+        .json(&json!({ "user_ids": [fx.bob] }))
+        .send()
+        .await
+        .expect("add");
+    assert!(added.status().is_success(), "bob joins the admin channel");
+    channel_id
+}
+
+#[tokio::test]
+async fn a_reservation_stops_the_live_messages_of_someone_demoted_out_of_it() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let channel_id = admin_channel_with_bob(&app, &fx, &alice).await;
+
+    // Demoted: the REST side already refuses him the channel (see the test above). The live side
+    // must agree, or the reservation only hides the history while the next message arrives anyway.
+    set_space_role(&app.db, fx.space_id, fx.bob, "member").await;
+    let mut bob_ws = app.connect_ws(&bob).await;
+    let _ = tokio::time::timeout(Duration::from_millis(300), bob_ws.next()).await;
+
+    let sent = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .json(&json!({ "body": "board only @channel" }))
+        .send()
+        .await
+        .expect("send");
+    assert_eq!(sent.status(), 201);
+
+    expect_no_message(&mut bob_ws).await;
+    let notified = notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.bob))
+        .count(&app.db)
+        .await
+        .expect("count");
+    assert_eq!(notified, 0, "a room he may not read does not mention him");
+}
+
+#[tokio::test]
+async fn reserving_a_channel_stops_the_live_messages_of_those_it_leaves_out() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+
+    // Bob, a plain member, joined a public channel; it is then reserved to administrators. (Not the
+    // seeded one: that is the space's default channel, which cannot be reserved.)
+    let channel_id = make_channel(
+        &app.db,
+        fx.space_id,
+        &format!("board-{}", Uuid::new_v4().simple()),
+        "public",
+    )
+    .await;
+    add_channel_member(&app.db, channel_id, fx.alice).await;
+    add_channel_member(&app.db, channel_id, fx.bob).await;
+    let reserved = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{channel_id}"),
+            &alice,
+        )
+        .json(&json!({ "allowed_roles": ["owner", "admin"] }))
+        .send()
+        .await
+        .expect("reserve");
+    assert_eq!(reserved.status(), 200);
+
+    let mut bob_ws = app.connect_ws(&bob).await;
+    let _ = tokio::time::timeout(Duration::from_millis(300), bob_ws.next()).await;
+    let sent = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .json(&json!({ "body": "now for administrators" }))
+        .send()
+        .await
+        .expect("send");
+    assert_eq!(sent.status(), 201);
+
+    expect_no_message(&mut bob_ws).await;
+}
+
+#[tokio::test]
+async fn a_reply_does_not_reach_an_author_the_channel_no_longer_admits() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let channel_id = admin_channel_with_bob(&app, &fx, &alice).await;
+
+    let root: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &bob,
+        )
+        .json(&json!({ "body": "the budget, before the board" }))
+        .send()
+        .await
+        .expect("send root")
+        .json()
+        .await
+        .expect("json");
+    let root_id = root["id"].as_str().expect("root id").to_owned();
+
+    // Demoted, then answered: the reply's preview would carry the room's words to someone it shut
+    // out.
+    set_space_role(&app.db, fx.space_id, fx.bob, "member").await;
+    let replied = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .json(&json!({ "body": "cut by ten percent", "parent_message_id": root_id }))
+        .send()
+        .await
+        .expect("reply");
+    assert_eq!(replied.status(), 201);
+
+    let notified = notifications::Entity::find()
+        .filter(notifications::Column::UserId.eq(fx.bob))
+        .count(&app.db)
+        .await
+        .expect("count");
+    assert_eq!(notified, 0, "no reply notice from a room he may not read");
+}
+
+#[tokio::test]
+async fn shared_files_leave_out_a_channel_that_no_longer_admits_the_reader() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    promote_to_admin(&app.db, fx.space_id, fx.alice).await;
+    promote_to_admin(&app.db, fx.space_id, fx.bob).await;
+    let alice = app.cookie_for(fx.alice).await;
+    let bob = app.cookie_for(fx.bob).await;
+    let channel_id = admin_channel_with_bob(&app, &fx, &alice).await;
+
+    // Inserted directly: object storage is not configured in these tests, and this is a test of who
+    // is shown the file, not of its bytes.
+    let file_id = Uuid::new_v4();
+    files::ActiveModel {
+        id: Set(file_id),
+        space_id: Set(fx.space_id),
+        owner_id: Set(Some(fx.alice)),
+        name: Set("salaires-2027.xlsx".to_owned()),
+        kind: Set("file".to_owned()),
+        size_bytes: Set(12),
+        ..Default::default()
+    }
+    .insert(&app.db)
+    .await
+    .expect("file");
+    let sent = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/conversations/{channel_id}/messages"),
+            &alice,
+        )
+        .json(&json!({ "body": "les salaires", "attachments": [file_id] }))
+        .send()
+        .await
+        .expect("send");
+    assert_eq!(sent.status(), 201);
+
+    let shared_with = |cookie: String| {
+        let request = app.req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/files/shared", fx.space_id),
+            &cookie,
+        );
+        async move {
+            let response = request.send().await.expect("shared");
+            assert_eq!(response.status(), 200);
+            response.text().await.expect("body")
+        }
+    };
+    assert!(
+        shared_with(bob.clone())
+            .await
+            .contains(&file_id.to_string()),
+        "an admin is shown what was shared in the admin channel"
+    );
+
+    set_space_role(&app.db, fx.space_id, fx.bob, "member").await;
+    assert!(
+        !shared_with(bob).await.contains(&file_id.to_string()),
+        "demoted, he is no longer shown what that channel shares"
+    );
 }
 
 #[tokio::test]

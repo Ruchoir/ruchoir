@@ -726,13 +726,7 @@ async fn publish_notice(
     notice: messages::Model,
 ) -> Result<(), ApiError> {
     let conversation_id = notice.conversation_id;
-    let audience: Vec<Uuid> = channel_members::Entity::find()
-        .filter(channel_members::Column::ChannelId.eq(conversation_id))
-        .all(&state.db)
-        .await?
-        .into_iter()
-        .map(|member| member.user_id)
-        .collect();
+    let audience = super::authz::channel_audience(&state.db, conversation_id).await?;
     if audience.is_empty() {
         return Ok(());
     }

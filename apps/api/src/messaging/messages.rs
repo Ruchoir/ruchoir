@@ -200,7 +200,7 @@ pub async fn send_message(
                 "parent message is in another conversation",
             ));
         }
-        reply_target = parent.author_id;
+        reply_target = reply_target_for(&state.db, conversation_id, parent.author_id).await?;
     }
 
     // Writing in a channel, a thread reply included, is for its members. Reading it is not.
@@ -581,7 +581,10 @@ async fn edit_recipients(
         Vec::new()
     };
     let reply_target = match parent_id {
-        Some(parent) => load_message(&state.db, parent).await?.author_id,
+        Some(parent) => {
+            let author = load_message(&state.db, parent).await?.author_id;
+            reply_target_for(&state.db, conversation_id, author).await?
+        }
         None => None,
     };
     let mut recipients = notifications::compute_recipients(
@@ -723,6 +726,23 @@ pub async fn load_message(
         .one(db)
         .await?
         .ok_or(ApiError::NotFound)
+}
+
+/// Who hears that a thread was answered: the root's author, while they may still read the
+/// conversation.
+///
+/// The notice carries a preview of the reply, so it is a read of the room. An author demoted out of
+/// a reserved channel, or gone from the space, wrote the root when the room was theirs; it no longer
+/// is, and the answer is not sent after them.
+async fn reply_target_for(
+    db: &DatabaseConnection,
+    conversation_id: Uuid,
+    root_author: Option<Uuid>,
+) -> Result<Option<Uuid>, ApiError> {
+    match root_author {
+        Some(author) if authz::may_read(db, conversation_id, author).await? => Ok(Some(author)),
+        _ => Ok(None),
+    }
 }
 
 /// Turn raw message rows into DTOs, batch-loading every satellite in a fixed number of queries.

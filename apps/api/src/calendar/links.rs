@@ -29,8 +29,8 @@ use super::events::{exception_inputs, series_of, when_texts};
 use super::recurrence;
 use crate::auth::extract::AuthSession;
 use crate::entities::{
-    calendar_event_exceptions as exceptions, calendar_events, calendars, channel_members, channels,
-    messages, space_members, spaces,
+    calendar_event_exceptions as exceptions, calendar_events, calendars, channels, messages,
+    space_members, spaces,
 };
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
@@ -267,11 +267,9 @@ pub async fn post(
             return;
         }
     };
-    let Ok(members) = channel_members::Entity::find()
-        .filter(channel_members::Column::ChannelId.eq(channel_id))
-        .all(&state.db)
-        .await
-    else {
+    // The channel's audience, not its rows: the card carries the event's title, and someone the
+    // channel's reservation no longer admits is not sent what is said in it.
+    let Ok(members) = crate::messaging::authz::channel_audience(&state.db, channel_id).await else {
         return;
     };
     if let Ok(mut dtos) =
@@ -284,10 +282,7 @@ pub async fn post(
             }
             state
                 .hub
-                .publish(
-                    members.into_iter().map(|m| m.user_id).collect(),
-                    RealtimeEnvelope::message_created(channel_id, &dto),
-                )
+                .publish(members, RealtimeEnvelope::message_created(channel_id, &dto))
                 .await;
         }
     }
