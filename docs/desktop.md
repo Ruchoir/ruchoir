@@ -122,10 +122,12 @@ PDF viewer and of the channel with its two attachments; `GDK_SCALE=2` gives shar
 
 The office editor's frame: WebKit (Linux, macOS) hands a frame's navigation to the window's rules too, so
 the core keeps a short allowlist of framed https origins (`allow_frame_origin`, called by the interface
-with the office host before it mounts the frame). Still open, behind `E2E_OFFICE=1`: the API answers the
-engine's pages with `frame-ancestors 'self' <instance origin>` (`office/proxy.rs`), and the desktop's page
-is `ruchoir-app://localhost`, so the engine's page loads and is then refused. The API must add the
-desktop's origins there.
+with the office host before it mounts the frame). The editor works once the instance has the
+`office_desktop_embed` feature: the API then lists the desktop's origins in the engine pages'
+`frame-ancestors` (`office/proxy.rs`), and the interface sends its own origin as `embed_origin` when it
+opens a session, so the editor posts its messages to the desktop page (WOPI `PostMessageOrigin`). On an
+older instance the frame stays blank. The e2e office step stays opt-in (`E2E_OFFICE=1`) until the dev API
+runs this build.
 
 It posts a message in that channel each run. The app's own log is kept in
 `/tmp/ruchoir-desktop-e2e.log`.

@@ -3232,7 +3232,7 @@ export function createApi(transport: Transport) {
    */
   async function openOfficeSession(
     fileId: string,
-    opts: { theme: "light" | "dark"; accent?: string; mode?: "convert"; mobile?: boolean },
+    opts: { theme: "light" | "dark"; accent?: string; mode?: "convert"; mobile?: boolean; embedOrigin?: string },
   ): Promise<OfficeSession> {
     const dto = await apiPost<OfficeSessionDto>(`/files/${fileId}/office`, {
       locale: currentLocale(),
@@ -3240,6 +3240,8 @@ export function createApi(transport: Transport) {
       accent: opts.accent,
       mode: opts.mode,
       mobile: opts.mobile,
+      // Only the desktop app has one (`office_desktop_embed`): where the editor posts its messages.
+      ...(opts.embedOrigin ? { embed_origin: opts.embedOrigin } : {}),
     });
     return {
       file: toSpaceFile(dto.file),
