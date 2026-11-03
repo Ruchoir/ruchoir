@@ -89,7 +89,15 @@ pub async fn list_trash(
     Path(space_id): Path<Uuid>,
 ) -> Result<Json<Vec<TrashEntryDto>>, FileError> {
     authz::ensure_space_files_member(&state.db, space_id, session.user_id).await?;
-    let admin = authz::is_space_admin(&state.db, space_id, session.user_id).await?;
+    // Whoever empties the space's trash sees and erases everyone's entries, not only their own.
+    let admin = crate::permissions::check::can(
+        &state.db,
+        space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Space,
+        crate::permissions::catalogue::Permission::FilesTrashPurge,
+    )
+    .await?;
 
     let roots = trash_roots(&state.db, space_id).await?;
     let parent_ids: Vec<Uuid> = roots.iter().filter_map(|f| f.parent_folder_id).collect();
@@ -243,7 +251,15 @@ pub async fn empty_trash(
     Path(space_id): Path<Uuid>,
 ) -> Result<Json<EmptiedDto>, FileError> {
     authz::ensure_space_files_member(&state.db, space_id, session.user_id).await?;
-    let admin = authz::is_space_admin(&state.db, space_id, session.user_id).await?;
+    // Whoever empties the space's trash sees and erases everyone's entries, not only their own.
+    let admin = crate::permissions::check::can(
+        &state.db,
+        space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Space,
+        crate::permissions::catalogue::Permission::FilesTrashPurge,
+    )
+    .await?;
     let mut erased = 0;
     for root in trash_roots(&state.db, space_id).await? {
         if !admin && root.owner_id != Some(session.user_id) {
@@ -333,8 +349,14 @@ async fn managed_trash_entry(
     if !file.trashed || file.deleted_at.is_none() {
         return Err(FileError::BadRequest("not in the trash"));
     }
-    let manage =
-        file.owner_id == Some(user_id) || authz::is_space_admin(db, file.space_id, user_id).await?;
+    let manage = crate::permissions::check::can(
+        db,
+        file.space_id,
+        user_id,
+        crate::permissions::check::Resource::File(file.id),
+        crate::permissions::catalogue::Permission::FilesManage,
+    )
+    .await?;
     if !manage {
         return Err(FileError::Forbidden);
     }

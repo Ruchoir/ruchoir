@@ -246,6 +246,16 @@ impl RealtimeEnvelope {
         Self::global("notification.read", payload)
     }
 
+    /// What someone may do in a space changed: a role, a standing, a rule on a channel or a
+    /// calendar. Delivered to the whole space; each client asks again what it may do there
+    /// (`my_permissions`) rather than being told, so the event says nothing about anyone's rights.
+    pub fn permissions_changed(space_id: Uuid) -> Self {
+        Self::global(
+            "permissions.changed",
+            serde_json::json!({ "space_id": space_id }),
+        )
+    }
+
     /// A calendar, its settings or its events changed: whoever shows it reloads what is on screen.
     pub fn calendar_changed(calendar_id: Uuid) -> Self {
         Self::global(

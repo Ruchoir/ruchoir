@@ -101,7 +101,7 @@ pub async fn upload_file(
     Path(space_id): Path<Uuid>,
     multipart: Multipart,
 ) -> Result<Response, FileError> {
-    authz::ensure_space_files_member(&state.db, space_id, session.user_id).await?;
+    authz::ensure_space_files_creator(&state.db, space_id, session.user_id).await?;
     let storage = state
         .storage
         .as_ref()
@@ -384,9 +384,17 @@ pub async fn upload_attachment(
     multipart: Multipart,
 ) -> Result<(StatusCode, Json<FileDto>), FileError> {
     let access = authz::conversation_access(&state.db, conversation_id, session.user_id).await?;
-    // An archived channel takes no new message, so it takes no attachment for one either.
-    if !access.is_postable() {
-        return Err(FileError::Forbidden);
+    // `message.attach`: an archived channel takes no new message, so it takes no attachment for
+    // one either. A direct message is written by its participants.
+    if access.kind == crate::messaging::authz::ConversationKind::Channel {
+        authz::ensure_permission(
+            &state.db,
+            access.space_id,
+            session.user_id,
+            crate::permissions::check::Resource::Channel(conversation_id),
+            crate::permissions::catalogue::Permission::MessageAttach,
+        )
+        .await?;
     }
     let storage = state
         .storage

@@ -29,6 +29,9 @@ pub enum Resource {
     Channel(Uuid),
     /// A file or a folder.
     File(Uuid),
+    // The calendar code asks through `check::calendar_rights_many` (it runs inside transactions);
+    // `explain` and the tests ask through this variant.
+    #[allow(dead_code)]
     Calendar(Uuid),
 }
 
@@ -285,17 +288,32 @@ pub(super) async fn calendar_of<C: ConnectionTrait>(
         .await
 }
 
+/// Space calendars of the space among `ids` (personal ones and another space's are left out).
+pub(super) async fn calendars_of<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    ids: &[Uuid],
+) -> Result<Vec<calendars::Model>, DbErr> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    issued(space_id);
+    calendars::Entity::find()
+        .filter(calendars::Column::SpaceId.eq(space_id))
+        .filter(calendars::Column::Id.is_in(ids.iter().copied()))
+        .all(db)
+        .await
+}
+
 /// A file and the folders above it, top first, the file last. Empty when the file is not in the
 /// space.
 #[derive(Clone, Debug, FromQueryResult)]
 pub(super) struct FileRow {
     pub id: Uuid,
-    pub space_id: Uuid,
     pub owner_id: Option<Uuid>,
     pub conversation_id: Option<Uuid>,
     /// `file` or `folder`.
     pub kind: String,
-    pub depth: i32,
 }
 
 const FILE_CHAIN: &str = "\

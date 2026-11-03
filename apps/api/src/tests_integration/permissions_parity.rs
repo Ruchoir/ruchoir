@@ -259,6 +259,68 @@ async fn the_engine_decides_what_the_old_rules_decided() {
             );
         }
 
+        // The messaging questions rebuilt on the engine, against their old selves.
+        let sorted = |mut ids: Vec<Uuid>| {
+            ids.sort();
+            ids
+        };
+        diff.compare(
+            "members shown",
+            who,
+            "space",
+            true,
+            sorted(
+                legacy_visible_member_ids(db, space, person)
+                    .await
+                    .expect("legacy"),
+            ) == sorted(
+                crate::messaging::authz::visible_member_ids(db, space, person)
+                    .await
+                    .expect("engine"),
+            ),
+        );
+        diff.compare(
+            "conversations searched",
+            who,
+            "space",
+            true,
+            sorted(
+                legacy_accessible_conversation_ids(db, space, person)
+                    .await
+                    .expect("legacy"),
+            ) == sorted(
+                crate::messaging::authz::accessible_conversation_ids(db, space, person)
+                    .await
+                    .expect("engine"),
+            ),
+        );
+        for case in &channels {
+            let legacy_rank = legacy_effective_channel_rank(db, case.id, space, person)
+                .await
+                .expect("legacy rank");
+            let rank = crate::messaging::authz::effective_channel_rank(db, case.id, space, person)
+                .await
+                .expect("rank");
+            diff.compare(
+                "rank in the channel",
+                who,
+                &case.label,
+                true,
+                legacy_rank == rank,
+            );
+            diff.compare(
+                "admitted by the reservation",
+                who,
+                &case.label,
+                legacy_role_admitted(db, case.id, space, person)
+                    .await
+                    .expect("legacy"),
+                crate::messaging::authz::role_admitted(db, case.id, space, person)
+                    .await
+                    .expect("engine"),
+            );
+        }
+
         for case in &channels {
             let got = check::effective(db, space, person, Resource::Channel(case.id))
                 .await
@@ -319,6 +381,31 @@ async fn the_engine_decides_what_the_old_rules_decided() {
             let content = legacy_ensure_content_editable(db, case.id, person)
                 .await
                 .is_ok();
+            // The files guards rebuilt on the engine, against their old selves.
+            let rebuilt = crate::files::authz::ensure_readable(db, case.id, person).await;
+            diff.compare(
+                "ensure_readable",
+                who,
+                &case.label,
+                readable,
+                rebuilt.is_ok(),
+            );
+            diff.compare(
+                "can_edit",
+                who,
+                &case.label,
+                can_edit,
+                rebuilt.map(|access| access.can_edit).unwrap_or(false),
+            );
+            diff.compare(
+                "ensure_content_editable",
+                who,
+                &case.label,
+                content,
+                crate::files::authz::ensure_content_editable(db, case.id, person)
+                    .await
+                    .is_ok(),
+            );
             diff.compare(
                 "read",
                 who,
@@ -363,6 +450,15 @@ async fn the_engine_decides_what_the_old_rules_decided() {
                 }
                 None => (false, false, false),
             };
+            // `calendar::authz::seen`, rebuilt on the engine, against the old rule.
+            let (r_seen, r_write, r_manage) =
+                match crate::calendar::authz::seen(db, person, *id).await {
+                    Ok(access) => (true, access.can_write_events, access.can_manage),
+                    Err(_) => (false, false, false),
+                };
+            diff.compare("seen", who, label, seen, r_seen);
+            diff.compare("can_write_events", who, label, write, r_write);
+            diff.compare("can_manage", who, label, manage, r_manage);
             diff.compare(
                 "see",
                 who,

@@ -13,6 +13,11 @@
 //!   [`access`] grants `read` and `write` only, so every route about one event refuses `freebusy`
 //!   by construction; [`visible`] lists all three and marks the busy-only ones.
 //!
+//! **Who sees, writes and manages a space calendar is the permission engine's answer**
+//! (`crate::permissions`): `calendar.view`, `calendar.write` (closed to members by a rule on the
+//! calendar when its `write_access` is `admins`) and `calendar.manage`, the roles above being what
+//! the system roles hold. Personal calendars and their shares stay outside it.
+//!
 //! Visibility is computed from membership on every request, so leaving a space takes its calendars,
 //! their subscription addresses and their reminders away at once, with nothing to clean up.
 //!
@@ -31,6 +36,8 @@ use uuid::Uuid;
 
 use super::error::CalendarError;
 use crate::entities::{calendars, space_members, users};
+use crate::permissions::catalogue::{Permission, PermissionSet};
+use crate::permissions::check;
 
 /// The colours a calendar may wear: the design system's pastels, or `accent`, which each viewer
 /// sees in their own theme's accent.
@@ -42,12 +49,6 @@ pub const PALETTE: [&str; 8] = [
 /// spaces wins, ties going to the first here. Sky, the default accent, comes last so a space rarely
 /// looks like the personal calendar.
 const SPACE_COLOURS: [&str; 7] = ["mint", "violet", "peach", "lime", "sun", "pink", "sky"];
-
-/// Roles that see a space's calendars.
-const SEEING_ROLES: [&str; 3] = ["member", "admin", "owner"];
-
-/// Roles that manage a space's calendars, and write in every one of them.
-const MANAGING_ROLES: [&str; 2] = ["admin", "owner"];
 
 /// How far a share opens a personal calendar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -114,13 +115,15 @@ impl CalendarAccess {
         }
     }
 
-    fn new(calendar: calendars::Model, space_role: Option<String>) -> Self {
-        let (can_write_events, can_manage) = match space_role.as_deref() {
+    /// What someone holds on a calendar: everything on their own (`None`), else what the
+    /// engine resolved on the space's calendar.
+    fn from_rights(calendar: calendars::Model, rights: Option<PermissionSet>) -> Self {
+        let (can_write_events, can_manage) = match rights {
             None => (true, true),
-            Some(role) => {
-                let manages = MANAGING_ROLES.contains(&role);
-                (manages || calendar.write_access == "members", manages)
-            }
+            Some(rights) => (
+                rights.contains(Permission::CalendarWrite),
+                rights.contains(Permission::CalendarManage),
+            ),
         };
         Self {
             calendar,
@@ -169,7 +172,7 @@ pub async fn seen<C: ConnectionTrait>(
         .await?
         .ok_or(CalendarError::NotFound)?;
     match (calendar.owner_user_id, calendar.space_id) {
-        (Some(owner), _) if owner == user_id => Ok(CalendarAccess::new(calendar, None)),
+        (Some(owner), _) if owner == user_id => Ok(CalendarAccess::from_rights(calendar, None)),
         (Some(_), None) => {
             let level = share_level(db, calendar_id, user_id)
                 .await?
@@ -177,10 +180,14 @@ pub async fn seen<C: ConnectionTrait>(
             Ok(CalendarAccess::through_share(calendar, level))
         }
         (None, Some(space_id)) => {
-            let role = seeing_role(db, space_id, user_id)
+            let rights = check::calendar_rights_many(db, space_id, user_id, &[calendar_id])
                 .await?
-                .ok_or(CalendarError::NotFound)?;
-            Ok(CalendarAccess::new(calendar, Some(role)))
+                .remove(&calendar_id)
+                .unwrap_or_default();
+            if !rights.contains(Permission::CalendarView) {
+                return Err(CalendarError::NotFound);
+            }
+            Ok(CalendarAccess::from_rights(calendar, Some(rights)))
         }
         _ => Err(CalendarError::NotFound),
     }
@@ -271,15 +278,20 @@ pub async fn visible<C: ConnectionTrait>(
     user_id: Uuid,
 ) -> Result<Vec<CalendarAccess>, CalendarError> {
     ensure_personal(db, user_id).await?;
-    let roles: HashMap<Uuid, String> = space_members::Entity::find()
+    // The spaces whose calendars they see (`calendar.view` there: not as a guest).
+    let mut space_ids: Vec<Uuid> = Vec::new();
+    for membership in space_members::Entity::find()
         .filter(space_members::Column::UserId.eq(user_id))
-        .filter(space_members::Column::Role.is_in(SEEING_ROLES))
         .all(db)
         .await?
-        .into_iter()
-        .map(|m| (m.space_id, m.role))
-        .collect();
-    let space_ids: Vec<Uuid> = roles.keys().copied().collect();
+    {
+        if check::space_rights(db, membership.space_id, user_id)
+            .await?
+            .contains(Permission::CalendarView)
+        {
+            space_ids.push(membership.space_id);
+        }
+    }
     if !space_ids.is_empty() {
         let with_default: Vec<Uuid> = calendars::Entity::find()
             .filter(calendars::Column::SpaceId.is_in(space_ids.clone()))
@@ -303,26 +315,40 @@ pub async fn visible<C: ConnectionTrait>(
         .filter(
             Condition::any()
                 .add(calendars::Column::OwnerUserId.eq(user_id))
-                .add(calendars::Column::SpaceId.is_in(space_ids))
+                .add(calendars::Column::SpaceId.is_in(space_ids.clone()))
                 .add(calendars::Column::Id.is_in(shared.keys().copied())),
         )
         .all(db)
         .await?;
+    // What they hold on each space calendar, space by space.
+    let mut rights: HashMap<Uuid, PermissionSet> = HashMap::new();
+    for space_id in &space_ids {
+        let ids: Vec<Uuid> = rows
+            .iter()
+            .filter(|calendar| calendar.space_id == Some(*space_id))
+            .map(|calendar| calendar.id)
+            .collect();
+        rights.extend(check::calendar_rights_many(db, *space_id, user_id, &ids).await?);
+    }
     Ok(rows
         .into_iter()
-        .map(|calendar| match calendar.owner_user_id {
-            Some(owner) if owner != user_id => {
-                let level = shared
-                    .get(&calendar.id)
-                    .copied()
-                    .unwrap_or(ShareLevel::FreeBusy);
-                CalendarAccess::through_share(calendar, level)
-            }
-            _ => {
-                let role = calendar.space_id.and_then(|s| roles.get(&s).cloned());
-                CalendarAccess::new(calendar, role)
-            }
-        })
+        .filter_map(
+            |calendar| match (calendar.owner_user_id, calendar.space_id) {
+                (Some(owner), _) if owner != user_id => {
+                    let level = shared
+                        .get(&calendar.id)
+                        .copied()
+                        .unwrap_or(ShareLevel::FreeBusy);
+                    Some(CalendarAccess::through_share(calendar, level))
+                }
+                (_, Some(_)) => {
+                    let held = rights.get(&calendar.id).copied().unwrap_or_default();
+                    held.contains(Permission::CalendarView)
+                        .then(|| CalendarAccess::from_rights(calendar, Some(held)))
+                }
+                _ => Some(CalendarAccess::from_rights(calendar, None)),
+            },
+        )
         .collect())
 }
 
@@ -355,27 +381,7 @@ pub async fn reminded<C: ConnectionTrait>(
     let Some(space_id) = calendar.space_id else {
         return Ok(Vec::new());
     };
-    Ok(space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(space_id))
-        .filter(space_members::Column::Role.is_in(SEEING_ROLES))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|m| m.user_id)
-        .collect())
-}
-
-/// The caller's role in a space when it lets them see its calendars.
-async fn seeing_role<C: ConnectionTrait>(
-    db: &C,
-    space_id: Uuid,
-    user_id: Uuid,
-) -> Result<Option<String>, CalendarError> {
-    Ok(space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
-        .await?
-        .map(|m| m.role)
-        .filter(|role| SEEING_ROLES.contains(&role.as_str())))
+    Ok(check::calendar_holders(db, space_id, calendar.id, Permission::CalendarView).await?)
 }
 
 /// A person's own calendar, created the first time it is needed, named in their language.

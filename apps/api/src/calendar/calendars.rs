@@ -17,7 +17,7 @@ use super::authz::{self, CalendarAccess, PALETTE};
 use super::dto::{CalendarDto, CalendarMe, CreateCalendar, DeleteCalendar, UpdateCalendar};
 use super::error::CalendarError;
 use crate::auth::extract::AuthSession;
-use crate::entities::{calendar_reminder_prefs, calendar_visibility, calendars, space_members};
+use crate::entities::{calendar_reminder_prefs, calendar_visibility, calendars};
 use crate::realtime::event::RealtimeEnvelope;
 use crate::state::AppState;
 
@@ -246,13 +246,15 @@ pub async fn create_space_calendar(
     Path(space_id): Path<Uuid>,
     Json(body): Json<CreateCalendar>,
 ) -> Result<(StatusCode, Json<CalendarDto>), CalendarError> {
-    let role = space_members::Entity::find_by_id((space_id, session.user_id))
-        .one(&state.db)
-        .await?
-        .map(|m| m.role);
-    match role.as_deref() {
-        Some("admin" | "owner") => insert_calendar(&state, &session, Some(space_id), body).await,
-        Some("member") => Err(CalendarError::Forbidden),
+    // `calendars.create`. A member who may not is told so; anybody else (a guest, who sees no
+    // calendar of the space, or a stranger) does not learn the space is there.
+    let rights =
+        crate::permissions::check::space_rights(&state.db, space_id, session.user_id).await?;
+    if rights.contains(crate::permissions::catalogue::Permission::CalendarsCreate) {
+        return insert_calendar(&state, &session, Some(space_id), body).await;
+    }
+    match crate::permissions::check::standing(&state.db, space_id, session.user_id).await? {
+        Some(crate::permissions::engine::Standing::Member) => Err(CalendarError::Forbidden),
         _ => Err(CalendarError::NotFound),
     }
 }
@@ -293,9 +295,11 @@ pub async fn update_calendar(
     if let Some(description) = body.description {
         calendar.description = Set(clean_description(description)?);
     }
+    let mut writing_changed = false;
     if let Some(write_access) = body.write_access {
         check_write_access(&write_access)?;
         if !personal {
+            writing_changed = true;
             calendar.write_access = Set(write_access);
         }
     }
@@ -306,6 +310,9 @@ pub async fn update_calendar(
     calendar.updated_at = Set(OffsetDateTime::now_utc());
     let calendar = calendar.update(&state.db).await?;
     announce(&state, &calendar).await?;
+    if let (true, Some(space_id)) = (writing_changed, calendar.space_id) {
+        crate::permissions::changed::announce(&state, space_id).await;
+    }
     Ok(Json(one_dto(&state, session.user_id, calendar_id).await?))
 }
 

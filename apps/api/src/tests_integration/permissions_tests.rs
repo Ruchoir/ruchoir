@@ -690,3 +690,294 @@ async fn explain_says_which_role_opened_a_reserved_channel() {
     );
     assert_eq!(last.effect, crate::permissions::engine::Effect::Granted);
 }
+
+// ---- Every write of the old model reaches the new one, and is announced (Task 6) ----
+
+/// Watch a socket for `permissions.changed` about a space.
+async fn expect_permissions_changed(
+    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    space_id: Uuid,
+) {
+    let event = wait_for_type(ws, "permissions.changed").await;
+    assert_eq!(event["payload"]["space_id"], space_id.to_string());
+}
+
+#[tokio::test]
+async fn changing_a_role_writes_both_models() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let owner = app.cookie_for(fx.owner).await;
+    let mut watching = app.connect_ws(&app.cookie_for(fx.guest).await).await;
+    let (status, _) = set_role(&app, &owner, fx.space_id, fx.member, "admin").await;
+    assert_eq!(status, 200);
+    assert_eq!(role_of(&app.db, fx.space_id, fx.member).await, "admin");
+    let mut both = vec![fx.admin, fx.member];
+    both.sort();
+    assert_eq!(administrators(&app.db, fx.space_id).await, both);
+    expect_permissions_changed(&mut watching, fx.space_id).await;
+
+    let (status, _) = set_role(&app, &owner, fx.space_id, fx.member, "guest").await;
+    assert_eq!(status, 200);
+    assert_eq!(standing_of(&app.db, fx.space_id, fx.member).await, "guest");
+    assert_eq!(administrators(&app.db, fx.space_id).await, vec![fx.admin]);
+    expect_permissions_changed(&mut watching, fx.space_id).await;
+}
+
+#[tokio::test]
+async fn handing_a_space_over_writes_both_models() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let owner = app.cookie_for(fx.owner).await;
+    let mut watching = app.connect_ws(&app.cookie_for(fx.member).await).await;
+    let (status, _) = set_role(&app, &owner, fx.space_id, fx.admin, "owner").await;
+    assert_eq!(status, 200);
+    assert_eq!(standing_of(&app.db, fx.space_id, fx.admin).await, "owner");
+    assert_eq!(role_of(&app.db, fx.space_id, fx.owner).await, "admin");
+    assert_eq!(standing_of(&app.db, fx.space_id, fx.owner).await, "member");
+    assert_eq!(administrators(&app.db, fx.space_id).await, vec![fx.owner]);
+    expect_permissions_changed(&mut watching, fx.space_id).await;
+}
+
+#[tokio::test]
+async fn accepting_an_admin_invitation_writes_both_models() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    // Accepting lands the newcomer in the space's default channel.
+    let general = make_channel(&app.db, fx.space_id, "general", "public").await;
+    spaces::ActiveModel {
+        id: Set(fx.space_id),
+        default_channel_id: Set(Some(general)),
+        ..Default::default()
+    }
+    .update(&app.db)
+    .await
+    .expect("default channel");
+    let owner = app.cookie_for(fx.owner).await;
+    let created = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{}/invitations", fx.space_id),
+            &owner,
+        )
+        .json(&json!({ "role": "admin" }))
+        .send()
+        .await
+        .expect("create invitation");
+    assert_eq!(created.status(), 201);
+    let invitation: Value = created.json().await.expect("json");
+    let token = token_of(invitation["url"].as_str().expect("url"));
+    let newcomer = make_user(&app.db, "newcomer").await;
+    let mut watching = app.connect_ws(&app.cookie_for(fx.member).await).await;
+    let accepted = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/invitations/{token}/accept"),
+            &app.cookie_for(newcomer).await,
+        )
+        .send()
+        .await
+        .expect("accept");
+    assert_eq!(accepted.status(), 200);
+    assert_eq!(role_of(&app.db, fx.space_id, newcomer).await, "admin");
+    assert_eq!(standing_of(&app.db, fx.space_id, newcomer).await, "member");
+    assert!(administrators(&app.db, fx.space_id)
+        .await
+        .contains(&newcomer));
+    expect_permissions_changed(&mut watching, fx.space_id).await;
+}
+
+#[tokio::test]
+async fn reserving_a_channel_writes_both_models() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "board", "public").await;
+    let owner = app.cookie_for(fx.owner).await;
+    let mut watching = app.connect_ws(&app.cookie_for(fx.member).await).await;
+    let reserve_to = |roles: Value| {
+        app.req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/channels/{channel}"),
+            &owner,
+        )
+        .json(&json!({ "allowed_roles": roles }))
+        .send()
+    };
+    let reserved = reserve_to(json!(["admin"])).await.expect("reserve");
+    assert_eq!(reserved.status(), 200);
+    assert_eq!(
+        rules_on(
+            &app.db,
+            fx.space_id,
+            permission_overrides::Column::ChannelId,
+            channel
+        )
+        .await,
+        vec![
+            rule("administrator", &["channel.view"], &[]),
+            rule("guests", &[], &["channel.view"]),
+            rule("members", &[], &["channel.view"]),
+        ]
+    );
+    expect_permissions_changed(&mut watching, fx.space_id).await;
+    // An empty list lifts the reservation (an absent one changes nothing).
+    let cleared = reserve_to(json!([])).await.expect("clear");
+    assert_eq!(cleared.status(), 200);
+    assert!(rules_on(
+        &app.db,
+        fx.space_id,
+        permission_overrides::Column::ChannelId,
+        channel
+    )
+    .await
+    .is_empty());
+    expect_permissions_changed(&mut watching, fx.space_id).await;
+}
+
+#[tokio::test]
+async fn restricting_calendar_writing_writes_both_models() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let calendar = space_calendar(&app.db, fx.space_id, "members").await;
+    let owner = app.cookie_for(fx.owner).await;
+    let mut watching = app.connect_ws(&app.cookie_for(fx.member).await).await;
+    let restricted = app
+        .req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/calendars/{calendar}"),
+            &owner,
+        )
+        .json(&json!({ "write_access": "admins" }))
+        .send()
+        .await
+        .expect("restrict");
+    assert_eq!(restricted.status(), 200);
+    assert_eq!(
+        rules_on(
+            &app.db,
+            fx.space_id,
+            permission_overrides::Column::CalendarId,
+            calendar
+        )
+        .await,
+        vec![
+            rule("administrator", &["calendar.write"], &[]),
+            rule("members", &[], &["calendar.write"]),
+        ]
+    );
+    expect_permissions_changed(&mut watching, fx.space_id).await;
+}
+
+#[tokio::test]
+async fn an_import_writes_both_models() {
+    let Some(app) = boot().await else { return };
+    let fx = seed(&app.db).await;
+    let imported = import_two_spaces(&app, fx.alice).await;
+    for space_id in [imported.first_space, imported.second_space] {
+        let members = space_members::Entity::find()
+            .filter(space_members::Column::SpaceId.eq(space_id))
+            .all(&app.db)
+            .await
+            .expect("members");
+        assert!(!members.is_empty());
+        let mut admins = Vec::new();
+        for member in members {
+            let expected = match member.role.as_str() {
+                "owner" => "owner",
+                "guest" => "guest",
+                _ => "member",
+            };
+            assert_eq!(
+                standing_of(&app.db, space_id, member.user_id).await,
+                expected
+            );
+            if member.role == "admin" {
+                admins.push(member.user_id);
+            }
+        }
+        admins.sort();
+        assert_eq!(administrators(&app.db, space_id).await, admins);
+    }
+    std::fs::remove_dir_all(&imported.dir).ok();
+}
+
+// ---- Messaging on the engine (Task 7) ----
+
+/// A channel's people are listed to whoever reads the channel, and to nobody else: a member
+/// reserved out of it and a guest who was never added to it used to get the list all the same.
+#[tokio::test]
+async fn a_channel_lists_its_people_only_to_its_readers() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let open = make_channel(&app.db, fx.space_id, "open", "public").await;
+    let board = make_channel(&app.db, fx.space_id, "board", "public").await;
+    reserve(&app.db, board, &["admin"]).await;
+    let list = |channel: Uuid, who: Uuid| {
+        let app = &app;
+        async move {
+            status_of(
+                app,
+                reqwest::Method::GET,
+                &format!("/api/v1/channels/{channel}/members"),
+                &app.cookie_for(who).await,
+            )
+            .await
+        }
+    };
+    assert_eq!(list(open, fx.member).await, 200);
+    assert_eq!(list(board, fx.admin).await, 200);
+    assert_eq!(list(board, fx.owner).await, 200);
+    assert_eq!(list(board, fx.member).await, 403);
+    assert_eq!(list(open, fx.guest).await, 403);
+    join_as(&app.db, open, fx.guest, "member").await;
+    assert_eq!(list(open, fx.guest).await, 200);
+}
+
+// ---- Audiences and lists in bulk (Task 10) ----
+
+/// The sidebar of a large space is resolved in a fixed number of queries, whatever its size.
+#[tokio::test]
+async fn listing_a_space_resolves_in_bulk() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "WITH made AS ( \
+                 INSERT INTO conversations (id, space_id, kind, created_at) \
+                 SELECT gen_random_uuid(), $1, 'channel', now() FROM generate_series(1, 300) \
+                 RETURNING id) \
+             INSERT INTO channels (id, space_id, name, type) \
+             SELECT id, $1, 'bulk-' || row_number() OVER (ORDER BY id), 'public' FROM made",
+            [fx.space_id.into()],
+        ))
+        .await
+        .expect("300 channels");
+    app.db
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO channel_role_access (channel_id, role) \
+             SELECT id, 'admin' FROM channels WHERE space_id = $1 ORDER BY name LIMIT 60",
+            [fx.space_id.into()],
+        ))
+        .await
+        .expect("60 reserved");
+    let cookie = app.cookie_for(fx.member).await;
+    let before = crate::permissions::load::queries_issued(fx.space_id);
+    let started = std::time::Instant::now();
+    let listed = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{}/channels", fx.space_id),
+            &cookie,
+        )
+        .send()
+        .await
+        .expect("list");
+    let elapsed = started.elapsed();
+    assert_eq!(listed.status(), 200);
+    let listed: Value = listed.json().await.expect("json");
+    assert_eq!(listed.as_array().map(Vec::len), Some(240));
+    let issued = crate::permissions::load::queries_issued(fx.space_id) - before;
+    eprintln!("sidebar of 300 channels: {elapsed:?}, {issued} permission queries");
+    assert!(issued <= 6, "the listing made {issued} permission queries");
+}

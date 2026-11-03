@@ -27,6 +27,13 @@
 //!
 //! The audience helpers compute *who receives a push* for a conversation, evaluated once at publish
 //! time so the real-time fan-out never queries the database on delivery.
+//!
+//! **Every rule above is decided by the permission engine** (`crate::permissions`): reading a
+//! channel is `channel.view`, moderating it `message.manage`, `channel.members.manage` and
+//! `channel.manage`, running the space the space-level permissions. The reservation, the guest rule
+//! and the owner's reach are what the engine resolves from the roles, the rules converted from
+//! `channel_role_access` and the standing; this module keeps the messaging-shaped questions and
+//! their flat `403`. Direct messages stay a participant rule.
 
 use std::collections::{BTreeSet, HashSet};
 
@@ -38,6 +45,9 @@ use crate::entities::{
     channel_members, channel_role_access, channels, conversations, dm_conversations,
     dm_participants, space_members,
 };
+use crate::permissions::catalogue::Permission;
+use crate::permissions::check::{self, Assume, Resource};
+use crate::permissions::engine::Standing;
 
 /// Whether a conversation is a channel or a direct message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,13 +64,6 @@ pub struct ConversationAccess {
     pub kind: ConversationKind,
     /// For channels, the channel type (`public`, `private`, `archived`); `None` for DMs.
     pub channel_type: Option<String>,
-}
-
-impl ConversationAccess {
-    /// Whether new messages may be posted here. Archived channels are read-only.
-    pub fn is_postable(&self) -> bool {
-        self.channel_type.as_deref() != Some("archived")
-    }
 }
 
 /// Resolve and authorize a conversation for a caller, or fail with `403` (never revealing whether
@@ -81,24 +84,17 @@ pub async fn ensure_conversation_access(
                 .one(db)
                 .await?
                 .ok_or(ApiError::Forbidden)?;
-            // A private channel is joined explicitly (its owner of the space aside, who reads it
-            // without joining), and so is *every* channel for a guest: that is the whole of what
-            // the role means. Both paths end at the same row.
-            let explicit_only = (channel.channel_type == "private"
-                && !is_space_owner(db, conversation.space_id, user_id).await?)
-                || is_guest(db, conversation.space_id, user_id).await?;
-            let authorized = if explicit_only {
-                is_channel_member(db, conversation_id, user_id).await?
-            } else {
-                // Public and archived channels are open to any member of the space.
-                is_space_member(db, conversation.space_id, user_id).await?
-            };
-            // And the channel's own guest list, when it has one, on top of all that.
-            let admitted =
-                role_admitted(db, conversation_id, conversation.space_id, user_id).await?;
-            if !authorized || !admitted {
-                return Err(ApiError::Forbidden);
-            }
+            // `channel.view`: a private channel is joined explicitly (the space's owner aside, who
+            // reads it without joining), so is *every* channel for a guest, and a reservation keeps
+            // out whoever it does not name, membership row or not.
+            ensure_permission(
+                db,
+                conversation.space_id,
+                user_id,
+                Resource::Channel(conversation_id),
+                Permission::ChannelView,
+            )
+            .await?;
             Ok(ConversationAccess {
                 conversation_id,
                 space_id: conversation.space_id,
@@ -165,27 +161,19 @@ pub async fn channel_audience<C: ConnectionTrait>(
     if members.is_empty() {
         return Ok(members);
     }
-    let Some(allowed) = channel_allowed_roles(db, channel_id).await? else {
-        return Ok(members);
-    };
     let Some(channel) = channels::Entity::find_by_id(channel_id).one(db).await? else {
         return Ok(Vec::new());
     };
-    // The same test as [`role_admitted`], for the whole list at once: the space's owner always, and
-    // otherwise a role the reservation names. Someone with a row but no space role is no longer in
-    // the space, and is admitted to nothing.
-    let admitted: HashSet<Uuid> = space_members::Entity::find()
-        .filter(space_members::Column::SpaceId.eq(channel.space_id))
-        .filter(space_members::Column::UserId.is_in(members.clone()))
-        .all(db)
-        .await?
-        .into_iter()
-        .filter(|member| member.role == "owner" || allowed.contains(&member.role))
-        .map(|member| member.user_id)
-        .collect();
+    // Its readers (`channel.view`, resolved for the whole space at once): the same rule as
+    // [`ensure_conversation_access`]. Someone with a row but no longer in the space reads nothing.
+    let readers: HashSet<Uuid> =
+        check::channel_holders(db, channel.space_id, channel_id, Permission::ChannelView)
+            .await?
+            .into_iter()
+            .collect();
     Ok(members
         .into_iter()
-        .filter(|user_id| admitted.contains(user_id))
+        .filter(|user_id| readers.contains(user_id))
         .collect())
 }
 
@@ -220,6 +208,22 @@ pub async fn ensure_space_member(
     }
 }
 
+/// Require a permission (`crate::permissions`) on a resource of a space, or fail with the same flat
+/// `403` whatever is missing: the space, the membership or the right.
+pub async fn ensure_permission(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+    resource: Resource,
+    permission: Permission,
+) -> Result<(), ApiError> {
+    if check::can(db, space_id, user_id, resource, permission).await? {
+        Ok(())
+    } else {
+        Err(ApiError::Forbidden)
+    }
+}
+
 /// The roles a space membership can hold, weakest first. The order is the rule: everything about who
 /// may do what to whom is a comparison of two positions in this list, and the database constrains
 /// `space_members.role` to exactly these four values.
@@ -240,30 +244,10 @@ pub fn is_space_role(role: &str) -> bool {
     SPACE_ROLES.contains(&role)
 }
 
-/// Require an `owner` or `admin` role in the space, or fail with the same flat `403`.
-///
-/// The second guard of the space boundary: [`ensure_space_member`] answers "may they see this
-/// space", this one answers "may they change who is in it". A plain `member` or `guest` gets the
-/// identical refusal a non-member does, so the endpoint never confirms the space exists to someone
-/// who is not allowed to administer it.
-pub async fn ensure_space_admin(
-    db: &DatabaseConnection,
-    space_id: Uuid,
-    user_id: Uuid,
-) -> Result<(), ApiError> {
-    match space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
-        .await?
-    {
-        Some(member) if member.role == "owner" || member.role == "admin" => Ok(()),
-        _ => Err(ApiError::Forbidden),
-    }
-}
-
 /// Require the `owner` role in the space, or fail with the same flat `403`.
 ///
 /// The third guard of the space boundary, and the narrowest. [`ensure_space_member`] answers "may
-/// they see this space", [`ensure_space_admin`] "may they run it", this one "is it theirs". The line
+/// they see this space", the space-level permissions "may they run it", this one "is it theirs". The line
 /// between the last two is deliberate: an administrator manages the people and the conversations,
 /// an owner holds the space itself, its identity, its end, and the billing the day that exists. Two
 /// roles that could do exactly the same things would be one role with two names.
@@ -272,9 +256,10 @@ pub async fn ensure_space_owner(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<(), ApiError> {
-    match space_role(db, space_id, user_id).await?.as_deref() {
-        Some("owner") => Ok(()),
-        _ => Err(ApiError::Forbidden),
+    if is_space_owner(db, space_id, user_id).await? {
+        Ok(())
+    } else {
+        Err(ApiError::Forbidden)
     }
 }
 
@@ -308,52 +293,30 @@ pub async fn effective_channel_rank(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<usize, ApiError> {
-    match space_role(db, space_id, user_id).await?.as_deref() {
-        Some("owner") | Some("admin") => return Ok(channel_role_rank("owner")),
-        // A guest moderates nothing, whatever the channel's own table says. Someone who opened a
-        // channel and was later made a guest kept an `owner` row in it, and with it the right to
-        // add and remove people in a space they are only visiting: the space role is the outer
-        // boundary, and a demotion takes back what the old one opened.
-        Some("guest") => return Ok(0),
-        _ => {}
+    // A guest moderates nothing, whatever the channel's own table says. Someone who opened a
+    // channel and was later made a guest kept an `owner` row in it, and with it the right to add
+    // and remove people in a space they are only visiting: the standing is the outer boundary, and
+    // a demotion takes back what the old one opened.
+    if check::standing(db, space_id, user_id).await? == Some(Standing::Guest) {
+        return Ok(0);
+    }
+    // Whoever adds and removes people in every channel of the space is at the top of each.
+    if check::can(
+        db,
+        space_id,
+        user_id,
+        Resource::Space,
+        Permission::ChannelMembersManage,
+    )
+    .await?
+    {
+        return Ok(channel_role_rank("owner"));
     }
     Ok(channel_members::Entity::find_by_id((channel_id, user_id))
         .one(db)
         .await?
         .map(|member| channel_role_rank(&member.role))
         .unwrap_or(0))
-}
-
-/// Whether the caller may moderate a channel (delete others' messages, pin): an `owner`/`admin`
-/// channel role, or an `owner`/`admin` role in the owning space.
-pub async fn is_channel_moderator(
-    db: &DatabaseConnection,
-    channel_id: Uuid,
-    space_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool, ApiError> {
-    // Same reason as in [`effective_channel_rank`]: a guest is in the space to take part, not to
-    // run part of it, and a channel role they held before being demoted does not survive that.
-    if is_guest(db, space_id, user_id).await? {
-        return Ok(false);
-    }
-    if let Some(member) = channel_members::Entity::find_by_id((channel_id, user_id))
-        .one(db)
-        .await?
-    {
-        if member.role == "owner" || member.role == "admin" {
-            return Ok(true);
-        }
-    }
-    if let Some(member) = space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
-        .await?
-    {
-        if member.role == "owner" || member.role == "admin" {
-            return Ok(true);
-        }
-    }
-    Ok(false)
 }
 
 /// Every user who shares at least one space with `user_id`, including the user. Drives presence
@@ -398,30 +361,20 @@ pub async fn accessible_conversation_ids(
     }
     let mut ids = Vec::new();
 
-    let joined_channels: HashSet<Uuid> = channel_members::Entity::find()
-        .filter(channel_members::Column::UserId.eq(user_id))
+    let channel_ids: Vec<Uuid> = channels::Entity::find()
+        .filter(channels::Column::SpaceId.eq(space_id))
         .all(db)
         .await?
         .into_iter()
-        .map(|m| m.channel_id)
+        .map(|channel| channel.id)
         .collect();
-    let channels = channels::Entity::find()
-        .filter(channels::Column::SpaceId.eq(space_id))
-        .all(db)
-        .await?;
     // Same rule as [`ensure_conversation_access`], and it has to be the same or search would find
-    // what opening the conversation refuses to show.
-    let explicit_only = is_guest(db, space_id, user_id).await?;
-    let owner = is_space_owner(db, space_id, user_id).await?;
-    for channel in channels {
-        let open = !explicit_only && (channel.channel_type != "private" || owner);
-        if !(open || joined_channels.contains(&channel.id)) {
-            continue;
-        }
-        if role_admitted(db, channel.id, space_id, user_id).await? {
-            ids.push(channel.id);
-        }
-    }
+    // what opening the conversation refuses to show: `channel.view`, for the whole space at once.
+    let seen = check::effective_many(db, space_id, user_id, &channel_ids).await?;
+    ids.extend(channel_ids.into_iter().filter(|id| {
+        seen.get(id)
+            .is_some_and(|granted| granted.contains(Permission::ChannelView))
+    }));
 
     let joined_dms: Vec<Uuid> = dm_participants::Entity::find()
         .filter(dm_participants::Column::UserId.eq(user_id))
@@ -482,7 +435,8 @@ pub async fn channel_allowed_roles<C: ConnectionTrait>(
     Ok(Some(rows.into_iter().map(|row| row.role).collect()))
 }
 
-/// Whether the role a user holds in the space is one this channel admits.
+/// Whether the channel admits this person at all: its reservation (the rules converted from
+/// `channel_role_access`) names their role, or they own the space.
 ///
 /// True when the channel has no list, which is every channel until someone draws one.
 pub async fn role_admitted(
@@ -491,19 +445,20 @@ pub async fn role_admitted(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<bool, ApiError> {
-    let Some(allowed) = channel_allowed_roles(db, channel_id).await? else {
-        return Ok(true);
-    };
-    let Some(role) = space_role(db, space_id, user_id).await? else {
-        return Ok(false);
-    };
-    // A space's owner is admitted to every channel in it, named in the list or not. A reservation
-    // says who belongs in a room; it is not a way to take a space away from the person who holds it.
-    // Reserving a channel to the administrators used to make it vanish from the owner's own sidebar,
-    // with no way back that did not go through the API. It stays a real restriction for everybody
-    // else, and it still grants nothing on its own: a private channel is entered explicitly, owner
-    // included.
-    Ok(role == "owner" || allowed.contains(&role))
+    // Whether they would read it once in it: a space's owner is admitted to every channel in it,
+    // named in the list or not (a reservation says who belongs in a room; it is not a way to take a
+    // space away from the person who holds it), and it stays a real restriction for everybody else.
+    Ok(check::sees_channel(
+        db,
+        space_id,
+        user_id,
+        channel_id,
+        Assume {
+            joined: Some(true),
+            public: false,
+        },
+    )
+    .await?)
 }
 
 /// The role a user holds in a space, or `None` when they are not in it.
@@ -530,20 +485,7 @@ pub async fn is_space_owner(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<bool, ApiError> {
-    Ok(space_role(db, space_id, user_id).await?.as_deref() == Some("owner"))
-}
-
-/// Whether a user reaches this space only where they were explicitly added.
-///
-/// A non-member answers `false` rather than `true`: this narrows what a member sees, it is never the
-/// thing that keeps an outsider out. That is [`is_space_member`]'s job, and every caller runs it
-/// first.
-pub async fn is_guest(
-    db: &DatabaseConnection,
-    space_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool, ApiError> {
-    Ok(space_role(db, space_id, user_id).await?.as_deref() == Some("guest"))
+    Ok(check::standing(db, space_id, user_id).await? == Some(Standing::Owner))
 }
 
 /// The members of a space `user_id` may be shown: everyone, or for a guest, only the people they
@@ -557,7 +499,17 @@ pub async fn visible_member_ids(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<Vec<Uuid>, ApiError> {
-    if !is_guest(db, space_id, user_id).await? {
+    // `members.view`: the whole directory. Without it (a guest), the people they share a
+    // conversation with.
+    if check::can(
+        db,
+        space_id,
+        user_id,
+        Resource::Space,
+        Permission::MembersView,
+    )
+    .await?
+    {
         return space_member_ids(db, space_id, user_id).await;
     }
     let conversations = accessible_conversation_ids(db, space_id, user_id).await?;
@@ -586,17 +538,6 @@ pub async fn is_space_member(
     user_id: Uuid,
 ) -> Result<bool, ApiError> {
     Ok(space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
-        .await?
-        .is_some())
-}
-
-async fn is_channel_member(
-    db: &DatabaseConnection,
-    channel_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool, ApiError> {
-    Ok(channel_members::Entity::find_by_id((channel_id, user_id))
         .one(db)
         .await?
         .is_some())

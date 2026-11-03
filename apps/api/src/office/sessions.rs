@@ -179,8 +179,8 @@ pub async fn create_blank(
     Json(request): Json<BlankRequest>,
 ) -> Result<(StatusCode, Json<FileDto>), OfficeError> {
     state.office.as_ref().ok_or(OfficeError::Disabled)?;
-    // Members only: this already refuses a guest of the space.
-    authz::ensure_space_files_member(&state.db, request.space_id, session.user_id).await?;
+    // `files.create` on the space: this already refuses a guest of it.
+    authz::ensure_space_files_creator(&state.db, request.space_id, session.user_id).await?;
     if let Some(folder_id) = request.folder_id {
         crate::files::tree::ensure_folder_in_space(&state.db, folder_id, request.space_id).await?;
     }

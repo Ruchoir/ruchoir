@@ -19,7 +19,7 @@
 
 use std::collections::HashMap;
 
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 use super::catalogue::{Family, Permission, PermissionSet};
@@ -60,6 +60,8 @@ pub async fn effective(
 }
 
 /// [`effective`] with every step that led to it: "why may they?".
+// Shown by the access screens of permissions lot 4; held to the decision by the tests now.
+#[allow(dead_code)]
 pub async fn explain(
     db: &DatabaseConnection,
     space_id: Uuid,
@@ -107,6 +109,15 @@ pub async fn holders(
     resource: Resource,
     permission: Permission,
 ) -> Result<Vec<Uuid>, DbErr> {
+    match resource {
+        Resource::Channel(channel_id) => {
+            return channel_holders(db, space_id, channel_id, permission).await;
+        }
+        Resource::Calendar(calendar_id) => {
+            return calendar_holders(db, space_id, calendar_id, permission).await;
+        }
+        Resource::Space | Resource::File(_) => {}
+    }
     let people = load::people(db, space_id, None).await?;
     let mut holding = Vec::new();
     match resource {
@@ -120,47 +131,7 @@ pub async fn holders(
                 }
             }
         }
-        Resource::Channel(channel_id) => {
-            let channels = load::channels_of(db, space_id, &[channel_id]).await?;
-            let Some(channel) = channels.first() else {
-                return Ok(holding);
-            };
-            let ids = [channel_id];
-            let rules =
-                load::rules(db, space_id, permission_overrides::Column::ChannelId, &ids).await?;
-            let memberships = load::memberships(db, space_id, &ids, None).await?;
-            for person in people.values() {
-                if channel_decision(person, channel, &rules, &memberships, false)
-                    .granted
-                    .contains(permission)
-                {
-                    holding.push(person.user_id);
-                }
-            }
-        }
-        Resource::Calendar(calendar_id) => {
-            if load::calendar_of(db, space_id, calendar_id)
-                .await?
-                .is_none()
-            {
-                return Ok(holding);
-            }
-            let rules = load::rules(
-                db,
-                space_id,
-                permission_overrides::Column::CalendarId,
-                &[calendar_id],
-            )
-            .await?;
-            for person in people.values() {
-                if calendar_decision(person, calendar_id, &rules, false)
-                    .granted
-                    .contains(permission)
-                {
-                    holding.push(person.user_id);
-                }
-            }
-        }
+        Resource::Channel(_) | Resource::Calendar(_) => {}
         Resource::File(_) => {
             // One person at a time: a file's paths through messages and events are per person.
             for person in people.values() {
@@ -175,6 +146,230 @@ pub async fn holders(
         }
     }
     Ok(holding)
+}
+
+/// Where `user_id` stands in the space: `None` when they are not in it (an expired guest
+/// included). For the few rules that are about the standing itself rather than a permission: the
+/// owner alone holds the space's identity and end, and a guest's channel role is no rank.
+pub async fn standing(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<Standing>, DbErr> {
+    Ok(load::people(db, space_id, Some(user_id))
+        .await?
+        .get(&user_id)
+        .map(|person| person.subject.standing))
+}
+
+/// What someone may do with a file, and whether they read it only because a calendar event they
+/// see carries it (read only, its content included).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FileRights {
+    pub granted: PermissionSet,
+    pub through_event: bool,
+}
+
+/// [`effective`] on a file, with where its reading comes from.
+pub async fn file_rights(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+    file_id: Uuid,
+) -> Result<FileRights, DbErr> {
+    let people = load::people(db, space_id, Some(user_id)).await?;
+    let (decision, through_event) =
+        file_decision(db, space_id, user_id, people.get(&user_id), file_id, false).await?;
+    Ok(FileRights {
+        granted: decision.granted,
+        through_event,
+    })
+}
+
+/// [`effective`] on the space itself, on any connection (a transaction included).
+pub async fn space_rights<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<PermissionSet, DbErr> {
+    Ok(load::people(db, space_id, Some(user_id))
+        .await?
+        .get(&user_id)
+        .map(|person| resolve(&person.subject, &[], Facts::default(), false).granted)
+        .unwrap_or_default())
+}
+
+/// [`effective`] on many calendars of a space at once, on any connection. A calendar that is not
+/// one of the space's is left out of the map.
+pub async fn calendar_rights_many<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    user_id: Uuid,
+    calendar_ids: &[Uuid],
+) -> Result<HashMap<Uuid, PermissionSet>, DbErr> {
+    let people = load::people(db, space_id, Some(user_id)).await?;
+    let Some(person) = people.get(&user_id) else {
+        return Ok(HashMap::new());
+    };
+    let calendars = load::calendars_of(db, space_id, calendar_ids).await?;
+    let found: Vec<Uuid> = calendars.iter().map(|calendar| calendar.id).collect();
+    let rules = load::rules(
+        db,
+        space_id,
+        permission_overrides::Column::CalendarId,
+        &found,
+    )
+    .await?;
+    Ok(found
+        .into_iter()
+        .map(|id| (id, calendar_decision(person, id, &rules, false).granted))
+        .collect())
+}
+
+/// The members of the space who hold `permission` on one of its calendars, on any connection.
+pub async fn calendar_holders<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    calendar_id: Uuid,
+    permission: Permission,
+) -> Result<Vec<Uuid>, DbErr> {
+    if load::calendars_of(db, space_id, &[calendar_id])
+        .await?
+        .is_empty()
+    {
+        return Ok(Vec::new());
+    }
+    let people = load::people(db, space_id, None).await?;
+    let rules = load::rules(
+        db,
+        space_id,
+        permission_overrides::Column::CalendarId,
+        &[calendar_id],
+    )
+    .await?;
+    Ok(people
+        .values()
+        .filter(|person| {
+            calendar_decision(person, calendar_id, &rules, false)
+                .granted
+                .contains(permission)
+        })
+        .map(|person| person.user_id)
+        .collect())
+}
+
+/// The space's owners (the standing, not a permission: outside every rule).
+pub async fn owners(db: &DatabaseConnection, space_id: Uuid) -> Result<Vec<Uuid>, DbErr> {
+    Ok(load::people(db, space_id, None)
+        .await?
+        .into_values()
+        .filter(|person| person.subject.standing == Standing::Owner)
+        .map(|person| person.user_id)
+        .collect())
+}
+
+/// What a question about a channel takes for granted, when it is not "may they read it now".
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Assume {
+    /// Taken as joined (`Some(true)`), as not joined (`Some(false)`), or as it is (`None`).
+    pub joined: Option<bool>,
+    /// Taken as public whatever its type: who would see it were it not private (who must hear
+    /// that it was made private, for one).
+    pub public: bool,
+}
+
+/// Whether `user_id` would see the channel under `assume`: "would it admit them if they joined"
+/// (adding someone), "may they walk in" (joining).
+pub async fn sees_channel(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+    channel_id: Uuid,
+    assume: Assume,
+) -> Result<bool, DbErr> {
+    Ok(
+        channel_viewers_among(db, space_id, channel_id, Some(user_id), assume)
+            .await?
+            .contains(&user_id),
+    )
+}
+
+/// The members of the space who would see the channel under `assume`, in a fixed number of
+/// queries.
+pub async fn channel_viewers<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    channel_id: Uuid,
+    assume: Assume,
+) -> Result<Vec<Uuid>, DbErr> {
+    channel_viewers_among(db, space_id, channel_id, None, assume).await
+}
+
+/// The members of the space who hold `permission` on one of its channels, as it is, on any
+/// connection (a transaction included): who a channel's content may be sent to, for one.
+pub async fn channel_holders<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    channel_id: Uuid,
+    permission: Permission,
+) -> Result<Vec<Uuid>, DbErr> {
+    let people = load::people(db, space_id, None).await?;
+    let channels = load::channels_of(db, space_id, &[channel_id]).await?;
+    let Some(channel) = channels.first() else {
+        return Ok(Vec::new());
+    };
+    let ids = [channel_id];
+    let rules = load::rules(db, space_id, permission_overrides::Column::ChannelId, &ids).await?;
+    let memberships = load::memberships(db, space_id, &ids, None).await?;
+    Ok(people
+        .values()
+        .filter(|person| {
+            channel_decision(person, channel, &rules, &memberships, false)
+                .granted
+                .contains(permission)
+        })
+        .map(|person| person.user_id)
+        .collect())
+}
+
+async fn channel_viewers_among<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    channel_id: Uuid,
+    user: Option<Uuid>,
+    assume: Assume,
+) -> Result<Vec<Uuid>, DbErr> {
+    let people = load::people(db, space_id, user).await?;
+    let channels = load::channels_of(db, space_id, &[channel_id]).await?;
+    let Some(mut channel) = channels.into_iter().next() else {
+        return Ok(Vec::new());
+    };
+    if assume.public && channel.channel_type == "private" {
+        channel.channel_type = "public".to_owned();
+    }
+    let ids = [channel_id];
+    let rules = load::rules(db, space_id, permission_overrides::Column::ChannelId, &ids).await?;
+    let mut memberships = load::memberships(db, space_id, &ids, user).await?;
+    match assume.joined {
+        Some(true) => {
+            for person in people.keys() {
+                memberships
+                    .entry((channel_id, *person))
+                    .or_insert_with(|| "member".to_owned());
+            }
+        }
+        Some(false) => memberships.clear(),
+        None => {}
+    }
+    Ok(people
+        .values()
+        .filter(|person| {
+            channel_decision(person, &channel, &rules, &memberships, false)
+                .granted
+                .contains(Permission::ChannelView)
+        })
+        .map(|person| person.user_id)
+        .collect())
 }
 
 async fn decide(
@@ -215,9 +410,11 @@ async fn decide(
             .await?;
             Ok(calendar_decision(person, calendar_id, &rules, explain))
         }
-        Resource::File(file_id) => {
-            file_decision(db, space_id, user_id, person, file_id, explain).await
-        }
+        Resource::File(file_id) => Ok(file_decision(
+            db, space_id, user_id, person, file_id, explain,
+        )
+        .await?
+        .0),
     }
 }
 
@@ -315,10 +512,10 @@ async fn file_decision(
     person: Option<&Person>,
     file_id: Uuid,
     explain: bool,
-) -> Result<Decision, DbErr> {
+) -> Result<(Decision, bool), DbErr> {
     let chain = load::file_chain(db, space_id, file_id).await?;
     let Some(file) = chain.last().cloned() else {
-        return Ok(Decision::default());
+        return Ok((Decision::default(), false));
     };
     let conversation = match file.conversation_id {
         None => Conversation::None,
@@ -333,7 +530,7 @@ async fn file_decision(
                         .pop()
                     {
                         Some(channel) => Conversation::Channel(Box::new(channel)),
-                        None => return Ok(Decision::default()),
+                        None => return Ok((Decision::default(), false)),
                     }
                 }
                 Some("direct") => Conversation::Direct(
@@ -342,7 +539,7 @@ async fn file_decision(
                         .await?
                         .is_some(),
                 ),
-                _ => return Ok(Decision::default()),
+                _ => return Ok((Decision::default(), false)),
             }
         }
     };
@@ -444,9 +641,9 @@ async fn file_decision(
         }
     }
     unseen_grants_nothing(&mut decision, Permission::FilesView, Family::Files, explain);
-    if !decision.granted.contains(Permission::FilesView)
-        && crate::calendar::attachments::grants(db, file_id, user_id).await
-    {
+    let through_event = !decision.granted.contains(Permission::FilesView)
+        && event_grants(db, file_id, user_id).await;
+    if through_event {
         set(
             &mut decision,
             Permission::FilesView,
@@ -455,7 +652,17 @@ async fn file_decision(
             explain,
         );
     }
-    Ok(decision)
+    Ok((decision, through_event))
+}
+
+/// Whether a calendar event the person sees carries the file. Boxed: seeing an event can go
+/// through reading a channel, which asks this module again.
+fn event_grants<'a>(
+    db: &'a DatabaseConnection,
+    file_id: Uuid,
+    user_id: Uuid,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+    Box::pin(crate::calendar::attachments::grants(db, file_id, user_id))
 }
 
 async fn conversation_kind(

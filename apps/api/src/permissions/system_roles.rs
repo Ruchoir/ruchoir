@@ -2,17 +2,13 @@
 //!
 //! The database creates the three roles itself (the `permissions_ensure_system_roles` function of
 //! the permission foundation migration, called when a space is inserted), with the sets below
-//! written out as names; `the_system_roles_hold_the_constants` holds the two to the same values.
-
-use sea_orm::{
-    ColumnTrait, ConnectionTrait, DatabaseBackend, DbErr, EntityTrait, QueryFilter, Statement,
-};
-use uuid::Uuid;
+//! written out as names; `the_system_roles_hold_the_constants` holds the two to the same values
+//! (which is all the code reads these three sets for until roles are edited, in lot 2).
 
 use super::catalogue::{Permission, PermissionSet};
-use crate::entities::space_roles;
 
 /// What `@members` holds: everything a plain member could do before roles existed.
+#[cfg_attr(not(test), allow(dead_code))]
 pub const MEMBERS_BASE: PermissionSet = PermissionSet::of(&[
     Permission::MembersView,
     Permission::ChannelsCreate,
@@ -31,6 +27,7 @@ pub const MEMBERS_BASE: PermissionSet = PermissionSet::of(&[
 ]);
 
 /// What `@guests` holds: taking part where they were let in, nothing space-wide.
+#[cfg_attr(not(test), allow(dead_code))]
 pub const GUESTS_BASE: PermissionSet = PermissionSet::of(&[
     Permission::DmStart,
     Permission::MessageSend,
@@ -40,47 +37,8 @@ pub const GUESTS_BASE: PermissionSet = PermissionSet::of(&[
 ]);
 
 /// The Administrator role: today's `admin`, every permission of the catalogue.
+#[cfg_attr(not(test), allow(dead_code))]
 pub const ADMINISTRATOR: PermissionSet = PermissionSet::ALL;
-
-/// The ids of a space's three system roles.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SystemRoles {
-    pub administrator: Uuid,
-    pub members: Uuid,
-    pub guests: Uuid,
-}
-
-/// The space's system roles, created first if any is missing (a space written before the
-/// foundation, or by hand). Concurrent callers are safe: the database inserts with
-/// `ON CONFLICT DO NOTHING`, and everyone reads the rows that won.
-pub async fn ensure_system_roles<C: ConnectionTrait>(
-    db: &C,
-    space_id: Uuid,
-) -> Result<SystemRoles, DbErr> {
-    db.execute_raw(Statement::from_sql_and_values(
-        DatabaseBackend::Postgres,
-        "SELECT permissions_ensure_system_roles($1)",
-        [space_id.into()],
-    ))
-    .await?;
-    let roles = space_roles::Entity::find()
-        .filter(space_roles::Column::SpaceId.eq(space_id))
-        .filter(space_roles::Column::SystemKey.is_not_null())
-        .all(db)
-        .await?;
-    let id_of = |key: &str| {
-        roles
-            .iter()
-            .find(|role| role.system_key.as_deref() == Some(key))
-            .map(|role| role.id)
-            .ok_or_else(|| DbErr::RecordNotFound(format!("the {key} role of space {space_id}")))
-    };
-    Ok(SystemRoles {
-        administrator: id_of("administrator")?,
-        members: id_of("members")?,
-        guests: id_of("guests")?,
-    })
-}
 
 /// What no rule, role or setting can ever give a guest (spec section 4, the "never" column).
 pub const GUEST_CEILING: PermissionSet = PermissionSet::of(&[

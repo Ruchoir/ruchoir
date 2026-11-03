@@ -104,8 +104,8 @@ context and takes precedence here.
   accepted rather than what would be refused.
   **Adding someone to a channel is moderation**, not a member's errand: being in a channel is not
   the same as deciding who else is, and anyone who had walked into a public one could put anybody in
-  it, an external guest included. It takes `is_channel_moderator`, like every other act of
-  moderation.
+  it, an external guest included. It takes `channel.members.manage` (the channel's owner or
+  moderators, or whoever administers the space), like every other act of moderation.
   **A guest moderates nothing**, whatever a channel's own table says: someone who opened a channel
   and was later made a guest kept an `owner` row in it, and with it the right to add and remove
   people in a space they are only visiting. The space role is the outer boundary, and a demotion
@@ -157,8 +157,9 @@ context and takes precedence here.
   `conversation_id` and lives in the space tree. Before this, `guest` was accepted by the schema and
   read by nothing, so an "external guest" saw exactly what a member saw.
   **An administrator runs a space, an owner holds it.** Three guards, narrowing:
-  `ensure_space_member` ("may they see it"), `ensure_space_admin` ("may they run it": invitations,
-  roles below their own, removals, moderation) and `ensure_space_owner` ("is it theirs": the name,
+  `ensure_space_member` ("may they see it"), the space-level permissions of `crate::permissions`
+  ("may they run it": `members.invite`, `roles.manage` below their own, `members.manage`,
+  moderation) and `ensure_space_owner` ("is it theirs": the name,
   the icon, the transfer, the deletion, and the billing the day it exists). Two roles allowed to do
   exactly the same things would be one role with two names.
   **Roles** (`PATCH /spaces/{id}/members/{user_id}`) run on one rule applied twice: you may only act
@@ -193,7 +194,10 @@ context and takes precedence here.
   and `space.updated`, the same idea for a space's name and icon, carrying `SpaceUpdatedDto` rather
   than `SpaceDto` because that one holds the caller's role and unread counters, plus `member.role_changed`, which is deliberately not
   `member.updated`: an identity is the same in every space, a role is a fact about one space and
-  decides which controls the person receiving it is offered, plus the two
+  decides which controls the person receiving it is offered, plus `permissions.changed`
+  (`{ space_id }`, to the whole space after any change of a role, a standing or a rule, through
+  `permissions::changed::announce`; it carries no rights, each client asks again what it may do),
+  plus the two
   departure events: `member.left`, the counterpart of `member.joined` for the roster, and
   `space.removed`, which says "this space is no longer yours" to the person who left it and to
   everyone when it is deleted, carrying a `deleted` flag because the client does the same thing

@@ -680,13 +680,17 @@ async fn ensure_link_manager(
     file_id: Uuid,
     user_id: Uuid,
 ) -> Result<files::Model, FileError> {
-    let access = authz::ensure_editable(db, file_id, user_id).await?;
-    if access.file.conversation_id.is_none() {
-        authz::ensure_space_files_member(db, access.file.space_id, user_id).await?;
-    } else {
-        // A private conversation's file belongs to its participants, not to whoever holds a link.
-        return Err(FileError::Forbidden);
-    }
+    let access = authz::ensure_readable(db, file_id, user_id).await?;
+    // `files.public_link`: the author or whoever administers the space, never a guest, and never
+    // for a conversation's file, which belongs to its participants, not to whoever holds a link.
+    authz::ensure_permission(
+        db,
+        access.file.space_id,
+        user_id,
+        crate::permissions::check::Resource::File(file_id),
+        crate::permissions::catalogue::Permission::FilesPublicLink,
+    )
+    .await?;
     if access.file.kind == "folder" {
         return Err(FileError::BadRequest("a folder cannot be shared by link"));
     }

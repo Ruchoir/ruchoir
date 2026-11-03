@@ -36,7 +36,7 @@ use crate::entities::{
 };
 use crate::state::AppState;
 
-use super::authz::{ensure_space_admin, space_member_ids};
+use super::authz::{ensure_permission, space_member_ids};
 use super::dto::{
     rfc3339, ChannelInvitationRequest, CreateInvitationRequest, CreatedInvitationDto,
     InvitationDto, InvitationPreviewDto, MemberDto, MemberJoinedDto, SpaceDto,
@@ -79,7 +79,14 @@ pub async fn create_invitation(
     Path(space_id): Path<Uuid>,
     Json(body): Json<CreateInvitationRequest>,
 ) -> Result<(StatusCode, Json<CreatedInvitationDto>), ApiError> {
-    ensure_space_admin(&state.db, space_id, session.user_id).await?;
+    ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Space,
+        crate::permissions::catalogue::Permission::MembersInvite,
+    )
+    .await?;
 
     let email = match body.email.as_deref().map(str::trim) {
         None | Some("") => None,
@@ -158,11 +165,14 @@ pub async fn invite_to_channel(
         .await?
         .ok_or(ApiError::Forbidden)?;
     super::authz::ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
-    if !super::authz::is_channel_moderator(&state.db, channel_id, channel.space_id, session.user_id)
-        .await?
-    {
-        return Err(ApiError::Forbidden);
-    }
+    ensure_permission(
+        &state.db,
+        channel.space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Channel(channel_id),
+        crate::permissions::catalogue::Permission::ChannelMembersManage,
+    )
+    .await?;
     if channel.channel_type == "archived" {
         return Err(ApiError::BadRequest("this channel is archived"));
     }
@@ -258,7 +268,14 @@ pub async fn list_invitations(
     session: AuthSession,
     Path(space_id): Path<Uuid>,
 ) -> Result<Json<Vec<InvitationDto>>, ApiError> {
-    ensure_space_admin(&state.db, space_id, session.user_id).await?;
+    ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Space,
+        crate::permissions::catalogue::Permission::MembersInvite,
+    )
+    .await?;
 
     let records = space_invitations::Entity::find()
         .filter(space_invitations::Column::SpaceId.eq(space_id))
@@ -312,7 +329,14 @@ pub async fn revoke_invitation(
     session: AuthSession,
     Path((space_id, invitation_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
-    ensure_space_admin(&state.db, space_id, session.user_id).await?;
+    ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Space,
+        crate::permissions::catalogue::Permission::MembersInvite,
+    )
+    .await?;
 
     let record = space_invitations::Entity::find_by_id(invitation_id)
         .one(&state.db)
@@ -494,6 +518,9 @@ pub async fn accept_invitation(
     // Tell the space someone arrived, so the member list, the mention candidates and the
     // direct-message candidates gain them without a reload. Only on a real arrival: an existing
     // member re-opening their link changed nothing and must not announce itself again.
+    if !already_member {
+        crate::permissions::changed::announce(&state, space.id).await;
+    }
     if !already_member {
         let audience = space_member_ids(&state.db, space.id, session.user_id).await?;
         let joined = MemberJoinedDto {
