@@ -14,6 +14,12 @@ import { fileURLToPath } from "node:url";
 /** @typedef {{ path: string, props: Record<string, string> }} Element */
 /** @typedef {{ file: string, path: string, prop: string, a: string, b: string }} Diff */
 
+/**
+ * Elements whose look follows live state rather than styles, left out of the comparison: a presence
+ * dot (online or away depends on the moment), and the overlay `next dev` adds to the page.
+ */
+const LIVE = /wc-av__dot|nextjs-portal|next-route-announcer/;
+
 /** Every `.json` file under `dir`, relative to it. */
 function jsonFiles(dir) {
   const out = [];
@@ -34,6 +40,7 @@ function byPath(file) {
   const elements = JSON.parse(readFileSync(file, "utf8"));
   const map = new Map();
   for (const el of elements) {
+    if (LIVE.test(el.path)) continue;
     let key = el.path;
     for (let n = 2; map.has(key); n++) key = `${el.path}#${n}`;
     map.set(key, el.props);

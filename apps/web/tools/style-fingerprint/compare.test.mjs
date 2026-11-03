@@ -40,3 +40,14 @@ test("a state file present on one side only is reported", async () => {
   assert.equal(diffs.length, 1);
   assert.equal(diffs[0].prop, "(missing file)");
 });
+
+test("live elements are left out: a presence dot and the dev server's overlay", async () => {
+  const live = [
+    row,
+    { path: "div:2 > span.wc-av-wrap:0 > span.wc-av__dot:1", props: { "background-color": "rgb(207, 211, 218)" } },
+    { path: "script:6 > nextjs-portal:0", props: { color: "rgb(0, 0, 0)" } },
+    { path: "next-route-announcer:7", props: { color: "rgb(0, 0, 0)" } },
+  ];
+  const changed = [row, { path: "div:2 > span.wc-av-wrap:0 > span.wc-av__dot:1", props: { "background-color": "rgb(26, 158, 120)" } }];
+  assert.deepEqual(compare(await fingerprint(live), await fingerprint(changed)), []);
+});

@@ -153,7 +153,8 @@ async function main() {
       await mkdir(dir, { recursive: true });
       await page.setViewportSize({ width, height: 900 });
       const capture = async (id) => {
-        await page.waitForTimeout(300);
+        // Long enough for a dialog or a popover to have opened and its data to have arrived.
+        await page.waitForTimeout(1000);
         const data = await page.evaluate(collect, PROPS);
         await writeFile(path.join(dir, `${id}.json`), JSON.stringify(data, null, 1));
         console.log(`${theme} ${width} ${id}: ${data.length} elements`);
