@@ -2117,7 +2117,10 @@
       "beyondGuestCeiling": "Un ospite non può mai avere questo diritto.",
       "memberFirst": "Prima fai diventare membro questa persona."
     },
-    "colPerson": "Persona"
+    "colPerson": "Persona",
+    "directly": "Direttamente",
+    "viaGroup": "Tramite un gruppo",
+    "nobodyDirectly": "Nessuno lo ha direttamente."
   },
   "groups": {
     "title": "Gruppi",
@@ -2189,7 +2192,26 @@
       "baseRole": "Un ruolo di base non può essere assegnato a un gruppo.",
       "notInSpace": "Questa persona non è nello spazio.",
       "tooManyPeople": "Troppe persone in una volta: aggiungile in più riprese."
-    }
+    },
+    "allGroups": "Tutti i gruppi",
+    "filter": "Filtra per gruppo",
+    "viaTooltip_one": "Ricevuto dal gruppo {{groups}}",
+    "viaTooltip_many": "Ricevuto dai gruppi {{groups}}",
+    "viaTooltip_other": "Ricevuto dai gruppi {{groups}}",
+    "viaFootnote": "Un ruolo contrassegnato da questa icona viene da un gruppo: si perde togliendo la persona dal gruppo.",
+    "viaReason_one": "Ricevuto dal gruppo {{groups}}: togli {{name}} dal gruppo per rimuoverlo.",
+    "viaReason_many": "Ricevuto dai gruppi {{groups}}: togli {{name}} da questi gruppi per rimuoverlo.",
+    "viaReason_other": "Ricevuto dai gruppi {{groups}}: togli {{name}} da questi gruppi per rimuoverlo.",
+    "alsoDirect_one": "Assegnato direttamente e ricevuto anche da {{groups}}.",
+    "alsoDirect_many": "Assegnato direttamente e ricevuto anche da {{groups}}.",
+    "alsoDirect_other": "Assegnato direttamente e ricevuto anche da {{groups}}.",
+    "carries": "porta {{roles}}",
+    "leaveNamed": "Togli {{name}} dal gruppo {{group}}",
+    "personRemoved": "Persona rimossa dal gruppo",
+    "addToGroup": "Aggiungi a un gruppo",
+    "openGroup": "Apri il gruppo",
+    "roleFootnote": "Per togliere questo ruolo a chi lo riceve da un gruppo, togli la persona dal gruppo o rimuovi il ruolo al gruppo.",
+    "nobody": "Ancora nessuno"
   },
   "licence": {
     "refusal": {

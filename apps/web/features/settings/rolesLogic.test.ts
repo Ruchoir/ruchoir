@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { changedPermissions, FAMILIES, grantableRoles, holdsEverything, memberAccessFor, orderAllowed, permissionRow, roleRowState } from "./rolesLogic.ts";
+import { changedPermissions, FAMILIES, grantableRoles, holdsEverything, memberAccessFor, orderAllowed, permissionRow, roleIdsToSave, roleRowState } from "./rolesLogic.ts";
+import { groupsOf, rolePeople, rolesViaGroups, type GroupLike } from "./groupsLogic.ts";
 
 const role = (id: string, over: Partial<{ systemKey: "administrator" | "members" | "guests"; permissions: string[]; manageable: boolean; position: number }> = {}) => ({
   id,
@@ -91,4 +92,55 @@ test("a_row_of_the_roles_list_says_why_it_cannot_be_opened", () => {
   // The owner manages Administrator: a system role, tuned like any other (spec: editable, not
   // deletable).
   assert.equal(roleRowState({ ...admin, manageable: true }, { frozen: false }), "edit");
+});
+
+const group = (id: string, name: string, memberIds: string[], roleIds: string[]): GroupLike => ({ id, name, source: "manual", memberIds, managerIds: [], roleIds });
+
+test("a_role_received_through_a_group_is_not_removable_here", () => {
+  const roles = [role("compta"), role("com"), role("hr")];
+  const groups = [group("g1", "Comptabilite", ["hugo"], ["compta", "com"]), group("g2", "Communication", ["hugo"], ["com"])];
+  const hugo = { userId: "hugo", roleIds: ["com"], manageable: true };
+  const access = memberAccessFor({ member: hugo, me: "karim", edition: "enterprise", roles, viaGroups: rolesViaGroups(hugo, groups) });
+  assert.equal(access.mode, "roles");
+  if (access.mode === "roles") {
+    // compta: only through a group, so ticked and locked; com: direct and through groups, a normal box; hr: untouched.
+    assert.deepEqual(
+      access.choices.map((c) => [c.role.id, c.checked, c.disabled, c.direct, c.via]),
+      [["compta", true, true, false, ["Comptabilite"]], ["com", true, false, true, ["Comptabilite", "Communication"]], ["hr", false, false, false, []]],
+    );
+  }
+});
+
+test("saving_sends_only_direct_role_ids", () => {
+  const roles = [role("compta"), role("com"), role("hr")];
+  const groups = [group("g1", "Comptabilite", ["hugo"], ["compta"])];
+  const hugo = { userId: "hugo", roleIds: ["com"], manageable: true };
+  const access = memberAccessFor({ member: hugo, me: "karim", edition: "enterprise", roles, viaGroups: rolesViaGroups(hugo, groups) });
+  assert.equal(access.mode, "roles");
+  if (access.mode !== "roles") return;
+  // Even a draft that somehow holds the group-received role never sends it.
+  assert.deepEqual(roleIdsToSave(roles, access.choices, new Set(["com", "compta", "hr"])), ["com", "hr"]);
+  assert.deepEqual(roleIdsToSave(roles, access.choices, new Set(["com"])), ["com"]);
+});
+
+test("the_role_people_tab_lists_groups_apart", () => {
+  const members = [
+    { userId: "nadia", name: "Nadia", roleIds: ["compta"] },
+    { userId: "julie", name: "Julie", roleIds: [] },
+    { userId: "hugo", name: "Hugo", roleIds: ["compta"] },
+    { userId: "paul", name: "Paul", roleIds: [] },
+  ];
+  const groups = [group("g1", "Comptabilite", ["julie", "hugo"], ["compta"]), group("g2", "Autre", ["paul"], ["com"]), group("g3", "Anciens", [], ["compta"])];
+  const people = rolePeople("compta", members, groups);
+  assert.deepEqual(people.direct.map((m) => m.userId), ["nadia", "hugo"]);
+  assert.deepEqual(people.viaGroups.map((v) => [v.group.id, v.members.map((m) => m.userId)]), [["g3", []], ["g1", ["julie", "hugo"]]]);
+  // A person who has it both ways is listed in both places.
+  assert.equal(people.direct.some((m) => m.userId === "hugo"), true);
+  // Everyone who holds it, once.
+  assert.deepEqual(people.holderIds.sort(), ["hugo", "julie", "nadia"]);
+});
+
+test("a_person_groups_are_those_they_are_in_by_name", () => {
+  const groups = [group("g2", "Zeta", ["a"], []), group("g1", "alpha", ["a", "b"], []), group("g3", "Other", ["b"], [])];
+  assert.deepEqual(groupsOf("a", groups).map((g) => g.id), ["g1", "g2"]);
 });

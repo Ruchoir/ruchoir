@@ -5,7 +5,7 @@ import { Avatar, Button, Field, Icon, type IconName, Input, Select } from "@/com
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setDefaultChannel, setSpaceIcon } from "@/lib/data/api";
 import type { Channel } from "@/lib/data";
-import type { Role, SpaceEdition, SpaceLicence } from "@/lib/data/types";
+import type { Group, Role, SpaceEdition, SpaceLicence } from "@/lib/data/types";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatUtcDate } from "@/lib/i18n/format";
@@ -162,6 +162,8 @@ export type WorkspaceSettingsProps = {
   ownerNames: string[];
   /** The space's roles, strongest first (empty from an instance without them). */
   roles: Role[];
+  /** The space's groups (empty when the caller cannot list them, a guest for one). */
+  groups: Group[];
   /** What the caller holds in the space, by permission name. */
   myRights: string[];
   /** The caller's id, to find their own membership. */
@@ -238,6 +240,7 @@ export function WorkspaceSettings({
   frozenSince,
   ownerNames,
   roles,
+  groups,
   myRights,
   myUserId,
   pricingUrl,
@@ -267,6 +270,8 @@ export function WorkspaceSettings({
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<NavKey>("general");
+  // A group opened from elsewhere (a role's people): the Groupes tab shows it straight away.
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const sections = NAV.filter(([id]) =>
     id === "audit" ? canReadAudit : id === "groups" ? canManageGroups : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
   );
@@ -398,7 +403,10 @@ export function WorkspaceSettings({
           }
         >
           {sections.map(([v, l, i]) => (
-            <button key={v} style={navItem(v === tab, compact)} onClick={() => setTab(v)}>
+            <button key={v} style={navItem(v === tab, compact)} onClick={() => {
+                setOpenGroup(null);
+                setTab(v);
+              }}>
               <Icon name={i} size={14} style={{ color: v === tab ? "var(--on-pastel)" : "var(--text-muted)" }} />
               {t(l)}
             </button>
@@ -523,6 +531,10 @@ export function WorkspaceSettings({
               myRole={myRole}
               myRights={myRights}
               roles={roles}
+              groups={groups}
+              spaceId={spaceId}
+              onGroupsChanged={onAccessChanged}
+              onNotify={onNotify}
               canInvite={canInvite}
               summary={memberSummary}
               onInvite={onInvite}
@@ -539,11 +551,20 @@ export function WorkspaceSettings({
               spaceName={workspaceName}
               edition={edition}
               roles={roles}
+              groups={groups}
               members={members}
               me={me}
               myRights={myRights}
               pricingUrl={pricingUrl}
               onChanged={onAccessChanged}
+              onOpenGroup={
+                canManageGroups
+                  ? (id) => {
+                      setOpenGroup(id);
+                      setTab("groups");
+                    }
+                  : undefined
+              }
               onSetMemberRoles={onSaveMemberRoles}
               onNotify={onNotify}
             />
@@ -552,6 +573,7 @@ export function WorkspaceSettings({
           {tab === "groups" && canManageGroups ? (
             <GroupsSettings
               spaceId={spaceId}
+              initialGroupId={openGroup}
               spaceName={workspaceName}
               edition={edition}
               roles={roles}

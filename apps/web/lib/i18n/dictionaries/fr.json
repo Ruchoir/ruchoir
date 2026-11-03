@@ -2069,7 +2069,10 @@
       "beyondGuestCeiling": "Un invité ne peut jamais avoir ce droit.",
       "memberFirst": "Faites d'abord passer cette personne en membre."
     },
-    "colPerson": "Personne"
+    "colPerson": "Personne",
+    "directly": "Directement",
+    "viaGroup": "Par un groupe",
+    "nobodyDirectly": "Personne ne l'a directement."
   },
   "groups": {
     "title": "Groupes",
@@ -2136,7 +2139,23 @@
       "baseRole": "Un rôle de base ne se fait pas porter par un groupe.",
       "notInSpace": "Cette personne n'est pas dans l'espace.",
       "tooManyPeople": "Trop de personnes d'un coup : ajoutez-les en plusieurs fois."
-    }
+    },
+    "allGroups": "Tous les groupes",
+    "filter": "Filtrer par groupe",
+    "viaTooltip_one": "Reçu par le groupe {{groups}}",
+    "viaTooltip_other": "Reçu par les groupes {{groups}}",
+    "viaFootnote": "Un rôle marqué de cette icône vient d'un groupe : il se retire en sortant la personne du groupe.",
+    "viaReason_one": "Reçu par le groupe {{groups}} : sortez {{name}} du groupe pour le lui retirer.",
+    "viaReason_other": "Reçu par les groupes {{groups}} : sortez {{name}} de ces groupes pour le lui retirer.",
+    "alsoDirect_one": "Donné directement, et reçu aussi par {{groups}}.",
+    "alsoDirect_other": "Donné directement, et reçu aussi par {{groups}}.",
+    "carries": "porte {{roles}}",
+    "leaveNamed": "Sortir {{name}} du groupe {{group}}",
+    "personRemoved": "Personne retirée du groupe",
+    "addToGroup": "Ajouter à un groupe",
+    "openGroup": "Ouvrir le groupe",
+    "roleFootnote": "Pour retirer ce rôle à quelqu'un qui le reçoit par un groupe, sortez-le du groupe, ou retirez le rôle au groupe.",
+    "nobody": "Personne n'y est encore"
   },
   "licence": {
     "refusal": {

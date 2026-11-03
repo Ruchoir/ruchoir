@@ -2043,7 +2043,10 @@
       "beyondGuestCeiling": "Ein Gast kann dieses Recht nie haben.",
       "memberFirst": "Machen Sie diese Person zuerst zum Mitglied."
     },
-    "colPerson": "Person"
+    "colPerson": "Person",
+    "directly": "Direkt",
+    "viaGroup": "Über eine Gruppe",
+    "nobodyDirectly": "Niemand hat sie direkt."
   },
   "groups": {
     "title": "Gruppen",
@@ -2110,7 +2113,23 @@
       "baseRole": "Eine Basisrolle kann nicht von einer Gruppe getragen werden.",
       "notInSpace": "Diese Person ist nicht im Space.",
       "tooManyPeople": "Zu viele Personen auf einmal: Fügen Sie sie in mehreren Schritten hinzu."
-    }
+    },
+    "allGroups": "Alle Gruppen",
+    "filter": "Nach Gruppe filtern",
+    "viaTooltip_one": "Über die Gruppe {{groups}} erhalten",
+    "viaTooltip_other": "Über die Gruppen {{groups}} erhalten",
+    "viaFootnote": "Eine mit diesem Symbol markierte Rolle kommt von einer Gruppe: Sie entfällt, wenn die Person die Gruppe verlässt.",
+    "viaReason_one": "Über die Gruppe {{groups}} erhalten: Nehmen Sie {{name}} aus der Gruppe, um die Rolle zu entziehen.",
+    "viaReason_other": "Über die Gruppen {{groups}} erhalten: Nehmen Sie {{name}} aus diesen Gruppen, um die Rolle zu entziehen.",
+    "alsoDirect_one": "Direkt vergeben und außerdem über {{groups}} erhalten.",
+    "alsoDirect_other": "Direkt vergeben und außerdem über {{groups}} erhalten.",
+    "carries": "trägt {{roles}}",
+    "leaveNamed": "{{name}} aus der Gruppe {{group}} nehmen",
+    "personRemoved": "Person aus der Gruppe entfernt",
+    "addToGroup": "Zu einer Gruppe hinzufügen",
+    "openGroup": "Gruppe öffnen",
+    "roleFootnote": "Um diese Rolle jemandem zu entziehen, der sie über eine Gruppe erhält, nehmen Sie die Person aus der Gruppe oder entziehen Sie der Gruppe die Rolle.",
+    "nobody": "Noch niemand darin"
   },
   "licence": {
     "refusal": {

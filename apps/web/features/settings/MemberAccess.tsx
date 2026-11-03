@@ -1,14 +1,17 @@
 "use client";
 
 import { type CSSProperties, useState } from "react";
-import { Avatar, Button, Checkbox, Icon, Select, Tag } from "@/components/ds";
+import { Avatar, Button, Checkbox, Icon, IconButton, Select, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
-import type { Refusal, Role, SpaceEdition } from "@/lib/data/types";
+import { addGroupMembers, refusalOf, removeGroupMember } from "@/lib/data/api";
+import type { Group, Refusal, Role, SpaceEdition } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
-import { formatDate } from "@/lib/i18n/format";
+import { formatDate, formatList } from "@/lib/i18n/format";
+import type { Toast } from "../app/types";
+import { groupsOf, rolesViaGroups, sortGroups } from "./groupsLogic.ts";
 import { PERMISSION_TEXT } from "./permissionText";
-import { grantableRoles, memberAccessFor } from "./rolesLogic";
+import { grantableRoles, memberAccessFor, roleIdsToSave, type RoleChoice } from "./rolesLogic";
 
 type T = ReturnType<typeof useTranslation>["t"];
 
@@ -43,16 +46,38 @@ export function RoleDot({ role, size = 8 }: { role: Pick<Role, "colour" | "syste
   );
 }
 
-/** A role as a pastille: its colour, its name. */
-export function RoleChip({ role }: { role: Role }) {
+/**
+ * A role as a pastille: its colour, its name. `via` names the groups it is received through (and
+ * only those: a role held directly is a plain chip): a small group icon, and the names on hover.
+ */
+export function RoleChip({ role, via }: { role: Role; via?: string[] }) {
   const { t } = useTranslation();
+  const groups = via ?? [];
+  const reason = groups.length > 0 ? t("groups.viaTooltip", { groups: formatList(groups), count: groups.length }) : undefined;
   return (
     <Tag>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <span title={reason} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <RoleDot role={role} />
         {roleLabel(role, t)}
+        {reason ? <Icon name="users" size={12} aria-label={reason} style={{ color: "var(--text-muted)" }} /> : null}
       </span>
     </Tag>
+  );
+}
+
+/** A group as a pastille: the group icon, its name; it opens the group when `onOpen` is given. */
+export function GroupChip({ group, onOpen }: { group: Pick<Group, "id" | "name">; onOpen?: (groupId: string) => void }) {
+  const inner = (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      <Icon name="users" size={12} style={{ color: "var(--text-muted)" }} />
+      {group.name}
+    </span>
+  );
+  if (!onOpen) return <Tag>{inner}</Tag>;
+  return (
+    <button type="button" onClick={() => onOpen(group.id)} style={{ border: 0, background: "transparent", padding: 0, cursor: "pointer", font: "inherit" }}>
+      <Tag>{inner}</Tag>
+    </button>
   );
 }
 
@@ -122,10 +147,33 @@ const s: Record<string, CSSProperties> = {
   row: { display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderTop: "1px solid var(--border-subtle)" },
 };
 
-/** The roles someone holds, strongest first, as the space's role list orders them. */
-function heldRoles(member: Pick<Member, "roleIds">, roles: Role[]): Role[] {
-  const held = new Set(member.roleIds ?? []);
-  return roles.filter((r) => held.has(r.id));
+/**
+ * The roles someone holds, strongest first, as the space's role list orders them: those given to
+ * them and those their groups give. `via` is set only for a role received through a group alone.
+ */
+function heldRoles(member: Pick<Member, "roleIds" | "userId">, roles: Role[], groups: Group[] = []): { role: Role; via: string[] }[] {
+  const direct = new Set(member.roleIds ?? []);
+  const viaMap = rolesViaGroups(member, groups);
+  return roles
+    .filter((r) => direct.has(r.id) || viaMap.has(r.id))
+    .map((role) => ({ role, via: direct.has(role.id) ? [] : (viaMap.get(role.id) ?? []) }));
+}
+
+/** The "Groupes" section of a profile: the groups the person is in, openable when the caller says how. */
+export function MemberGroupsSummary({ member, groups, onOpenGroup }: { member: Pick<Member, "userId">; groups: Group[]; onOpenGroup?: (groupId: string) => void }) {
+  const { t } = useTranslation();
+  const mine = groupsOf(member.userId, groups);
+  if (mine.length === 0) return null;
+  return (
+    <div style={s.section}>
+      <div style={s.label}>{t("groups.title")}</div>
+      <div style={s.chips}>
+        {mine.map((g) => (
+          <GroupChip key={g.id} group={g} onOpen={onOpenGroup} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -135,26 +183,29 @@ function heldRoles(member: Pick<Member, "roleIds">, roles: Role[]): Role[] {
 export function MemberRolesSummary({
   member,
   roles,
+  groups,
   spaceName,
   isSelf,
   viewerManages,
 }: {
   member: Member;
   roles: Role[];
+  /** The space's groups: the roles they give are marked as received through a group. */
+  groups?: Group[];
   spaceName: string;
   isSelf: boolean;
   /** Whether the viewer manages people at all: only then is "above you" worth saying. */
   viewerManages: boolean;
 }) {
   const { t } = useTranslation();
-  const held = heldRoles(member, roles);
+  const held = heldRoles(member, roles, groups);
   return (
     <div style={s.section}>
       <div style={s.label}>{t("roles.inSpace", { space: spaceName })}</div>
       <div style={s.chips}>
         {member.role === "owner" ? <Tag tone="accent" icon="star">{t("role.owner")}</Tag> : null}
-        {held.map((role) => (
-          <RoleChip key={role.id} role={role} />
+        {held.map(({ role, via }) => (
+          <RoleChip key={role.id} role={role} via={via} />
         ))}
         {member.role !== "owner" && held.length === 0 ? (
           <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
@@ -184,6 +235,12 @@ export type MemberManagementProps = {
   roles: Role[];
   /** Draw the person's identity line first: the profile's tab has no title naming them. */
   identity?: boolean;
+  /** The space's groups: the roles they give are shown as such, and the person's groups are managed. */
+  groups?: Group[];
+  spaceId?: string;
+  /** A group's members changed: read the space's people and groups again. */
+  onGroupsChanged?: () => Promise<void>;
+  onNotify?: (toast: Toast) => void;
   /** Set their roles (strongest first); resolves to whether it was saved. */
   onSaveRoles: (roleIds: string[]) => Promise<boolean>;
   /** Change their legacy role or standing, handing the space over included (confirmed upstream). */
@@ -196,9 +253,10 @@ export type MemberManagementProps = {
  * tab's dialog and the profile's "Gestion" tab draw this same component, so both offer and refuse
  * the same things; the API is the judge either way.
  */
-export function MemberManagement({ member, me, myRole, myRights, edition, roles, identity = false, onSaveRoles, onChangeRole, onRemove }: MemberManagementProps) {
+export function MemberManagement({ member, me, myRole, myRights, edition, roles, identity = false, groups, spaceId, onGroupsChanged, onNotify, onSaveRoles, onChangeRole, onRemove }: MemberManagementProps) {
   const { t } = useTranslation();
-  const access = memberAccessFor({ member, me: me?.userId ?? "", edition, roles, rights: myRights });
+  const via = rolesViaGroups(member, groups ?? []);
+  const access = memberAccessFor({ member, me: me?.userId ?? "", edition, roles, rights: myRights, viaGroups: via });
   const managesPeople = myRights.includes("members.manage");
   const legacy = grantableRoles(myRole, member.role);
   const since = member.joinedAt ? formatDate(member.joinedAt) : "";
@@ -226,10 +284,10 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
         <div style={s.section}>
           <div style={s.label}>{t("roles.title")}</div>
           <div style={s.chips}>
-            {heldRoles(member, roles).map((role) => (
-              <RoleChip key={role.id} role={role} />
+            {heldRoles(member, roles, groups).map(({ role, via: from }) => (
+              <RoleChip key={role.id} role={role} via={from} />
             ))}
-            {heldRoles(member, roles).length === 0 ? (
+            {heldRoles(member, roles, groups).length === 0 ? (
               <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("roles.membersOnly")}</span>
             ) : null}
           </div>
@@ -239,8 +297,8 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
         <div style={s.section}>
           <div style={s.label}>{t("roles.title")}</div>
           <div style={s.chips}>
-            {heldRoles(member, roles).map((role) => (
-              <RoleChip key={role.id} role={role} />
+            {heldRoles(member, roles, groups).map(({ role, via: from }) => (
+              <RoleChip key={role.id} role={role} via={from} />
             ))}
           </div>
           <div style={s.note}>
@@ -266,6 +324,10 @@ export function MemberManagement({ member, me, myRole, myRights, edition, roles,
             <span style={{ fontSize: "var(--text-xs)", color: "var(--text-body)" }}>{t(ROLE_LABEL[member.role] ?? key("role.member"))}</span>
           )}
         </div>
+      ) : null}
+
+      {groups && spaceId && !member.bot ? (
+        <MemberGroups member={member} groups={groups} roles={roles} spaceId={spaceId} onChanged={onGroupsChanged} onNotify={onNotify} />
       ) : null}
 
       <div style={s.section}>
@@ -326,11 +388,12 @@ function RoleChecklist({
   member: Member;
   me?: Member;
   roles: Role[];
-  choices: { role: Role; checked: boolean; disabled: boolean }[];
+  choices: RoleChoice<Role>[];
   onSave: (roleIds: string[]) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
-  const initial = choices.filter((c) => c.checked).map((c) => c.role.id);
+  // The draft is the person's direct roles only: what a group gives is shown ticked, never edited here.
+  const initial = choices.filter((c) => c.direct).map((c) => c.role.id);
   const [draft, setDraft] = useState<Set<string>>(() => new Set(initial));
   const [busy, setBusy] = useState(false);
   const dirty = initial.length !== draft.size || initial.some((id) => !draft.has(id));
@@ -356,7 +419,7 @@ function RoleChecklist({
   const save = async () => {
     setBusy(true);
     // Strongest first, as the space orders its roles: the order the route expects.
-    const ok = await onSave(roles.filter((r) => draft.has(r.id)).map((r) => r.id));
+    const ok = await onSave(roleIdsToSave(roles, choices, draft));
     setBusy(false);
     if (!ok) setDraft(new Set(initial));
   };
@@ -366,10 +429,20 @@ function RoleChecklist({
       <p style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", margin: "0 0 6px", lineHeight: "var(--leading-snug)" }}>
         {t("roles.additive", { name: member.name })}
       </p>
-      {choices.map(({ role, disabled }) => {
-        const on = draft.has(role.id);
+      {choices.map(({ role, disabled, direct, via }) => {
+        const groupOnly = !direct && via.length > 0;
+        const on = draft.has(role.id) || groupOnly;
         const was = initial.includes(role.id);
-        const why = disabled ? (role.id === myTop ? t("roles.yourTopRole") : t("roles.aboveYou")) : adds(role);
+        const names = formatList(via);
+        const why = groupOnly
+          ? t("groups.viaReason", { groups: names, count: via.length, name: member.name.split(" ")[0] })
+          : disabled
+            ? role.id === myTop
+              ? t("roles.yourTopRole")
+              : t("roles.aboveYou")
+            : via.length > 0
+              ? t("groups.alsoDirect", { groups: names, count: via.length })
+              : adds(role);
         return (
           <div key={role.id} style={{ ...s.row, opacity: disabled ? 0.7 : 1 }}>
             <span style={{ flex: 1, minWidth: 0 }}>
@@ -377,12 +450,16 @@ function RoleChecklist({
                 checked={on}
                 disabled={disabled || busy}
                 onChange={(e) => toggle(role.id, e.target.checked)}
-                label={<RoleChip role={role} />}
+                label={<RoleChip role={role} via={groupOnly ? via : []} />}
                 description={why || undefined}
               />
             </span>
-            {disabled ? <Icon name="lock" size={13} style={{ color: "var(--text-muted)", marginTop: 4 }} /> : null}
-            {!disabled && on !== was ? <Tag tone="accent">{on ? t("roles.added") : t("roles.removed")}</Tag> : null}
+            {groupOnly ? (
+              <Icon name="users" size={13} aria-label={t("groups.viaTooltip", { groups: names, count: via.length })} style={{ color: "var(--text-muted)", marginTop: 4 }} />
+            ) : disabled ? (
+              <Icon name="lock" size={13} style={{ color: "var(--text-muted)", marginTop: 4 }} />
+            ) : null}
+            {!disabled && draft.has(role.id) !== was ? <Tag tone="accent">{draft.has(role.id) ? t("roles.added") : t("roles.removed")}</Tag> : null}
           </div>
         );
       })}
@@ -394,6 +471,89 @@ function RoleChecklist({
           {busy ? t("common.sending") : t("common.save")}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The person's groups, each with what it gives them and, where the caller may change that group's
+ * members, the way out of it; and the way into another one. The API judges each change.
+ */
+function MemberGroups({
+  member,
+  groups,
+  roles,
+  spaceId,
+  onChanged,
+  onNotify,
+}: {
+  member: Member;
+  groups: Group[];
+  roles: Role[];
+  spaceId: string;
+  onChanged?: () => Promise<void>;
+  onNotify?: (toast: Toast) => void;
+}) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const mine = groupsOf(member.userId, groups);
+  const addable = sortGroups(groups.filter((g) => g.may.changeMembers && !g.memberIds.includes(member.userId)));
+  if (mine.length === 0 && addable.length === 0) return null;
+  const first = member.name.split(" ")[0];
+
+  const run = async (write: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    try {
+      await write();
+      await onChanged?.();
+      onNotify?.({ tone: "success", title: done, description: member.name });
+    } catch (err) {
+      onNotify?.({ tone: "danger", title: t("roles.saveFailed"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={s.section}>
+      <div style={s.label}>{t("groups.title")}</div>
+      {mine.map((g, i) => {
+        const carried = roles.filter((r) => g.roleIds.includes(r.id)).map((r) => roleLabel(r, t));
+        return (
+          <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i ? "1px solid var(--border-subtle)" : "none" }}>
+            <GroupChip group={g} />
+            {carried.length > 0 ? (
+              <span style={{ flex: 1, minWidth: 0, fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("groups.carries", { roles: formatList(carried) })}</span>
+            ) : (
+              <span style={{ flex: 1 }} />
+            )}
+            {g.may.changeMembers ? (
+              <IconButton
+                icon="user-minus"
+                size="sm"
+                disabled={busy}
+                label={t("groups.leaveNamed", { name: first, group: g.name })}
+                onClick={() => void run(() => removeGroupMember(spaceId, g.id, member.userId), t("groups.personRemoved"))}
+              />
+            ) : null}
+          </div>
+        );
+      })}
+      {addable.length > 0 ? (
+        <div style={{ width: 240, marginTop: mine.length > 0 ? 8 : 0 }}>
+          <Select
+            size="sm"
+            aria-label={t("groups.addToGroup")}
+            value=""
+            disabled={busy}
+            onChange={(e) => {
+              const g = addable.find((x) => x.id === e.target.value);
+              if (g) void run(() => addGroupMembers(spaceId, g.id, [member.userId]), t("groups.membersAdded"));
+            }}
+            options={[{ value: "", label: t("groups.addToGroup") }, ...addable.map((g) => ({ value: g.id, label: g.name }))]}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

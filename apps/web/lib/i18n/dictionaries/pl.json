@@ -2191,7 +2191,10 @@
       "beyondGuestCeiling": "Gość nigdy nie może mieć tego uprawnienia.",
       "memberFirst": "Najpierw zrób z tej osoby członka."
     },
-    "colPerson": "Osoba"
+    "colPerson": "Osoba",
+    "directly": "Bezpośrednio",
+    "viaGroup": "Przez grupę",
+    "nobodyDirectly": "Nikt nie ma jej bezpośrednio."
   },
   "groups": {
     "title": "Grupy",
@@ -2268,7 +2271,29 @@
       "baseRole": "Grupa nie może mieć roli podstawowej.",
       "notInSpace": "Tej osoby nie ma w przestrzeni.",
       "tooManyPeople": "Za dużo osób naraz: dodaj je w kilku krokach."
-    }
+    },
+    "allGroups": "Wszystkie grupy",
+    "filter": "Filtruj według grupy",
+    "viaTooltip_one": "Otrzymana przez grupę {{groups}}",
+    "viaTooltip_few": "Otrzymana przez grupy {{groups}}",
+    "viaTooltip_many": "Otrzymana przez grupy {{groups}}",
+    "viaTooltip_other": "Otrzymana przez grupy {{groups}}",
+    "viaFootnote": "Rola oznaczona tą ikoną pochodzi z grupy: znika, gdy osoba opuści grupę.",
+    "viaReason_one": "Otrzymana przez grupę {{groups}}: usuń osobę {{name}} z grupy, aby odebrać rolę.",
+    "viaReason_few": "Otrzymana przez grupy {{groups}}: usuń osobę {{name}} z tych grup, aby odebrać rolę.",
+    "viaReason_many": "Otrzymana przez grupy {{groups}}: usuń osobę {{name}} z tych grup, aby odebrać rolę.",
+    "viaReason_other": "Otrzymana przez grupy {{groups}}: usuń osobę {{name}} z tych grup, aby odebrać rolę.",
+    "alsoDirect_one": "Nadana bezpośrednio, a także otrzymana przez {{groups}}.",
+    "alsoDirect_few": "Nadana bezpośrednio, a także otrzymana przez {{groups}}.",
+    "alsoDirect_many": "Nadana bezpośrednio, a także otrzymana przez {{groups}}.",
+    "alsoDirect_other": "Nadana bezpośrednio, a także otrzymana przez {{groups}}.",
+    "carries": "ma rolę {{roles}}",
+    "leaveNamed": "Usuń osobę {{name}} z grupy {{group}}",
+    "personRemoved": "Osoba usunięta z grupy",
+    "addToGroup": "Dodaj do grupy",
+    "openGroup": "Otwórz grupę",
+    "roleFootnote": "Aby odebrać tę rolę osobie, która dostaje ją przez grupę, usuń ją z grupy albo odbierz rolę grupie.",
+    "nobody": "Nikogo tam jeszcze nie ma"
   },
   "licence": {
     "refusal": {

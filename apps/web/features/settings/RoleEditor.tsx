@@ -4,10 +4,13 @@ import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Card, Dialog, Field, Icon, IconButton, Input, Select, Switch, Tabs, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
 import { deleteRole, refusalOf, updateRole } from "@/lib/data/api";
-import type { Role } from "@/lib/data/types";
+import type { Group, Role } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
+import { formatList } from "@/lib/i18n/format";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
+import { GroupIcon } from "./GroupEditor";
+import { rolePeople } from "./groupsLogic.ts";
 import { refusalMessage, roleColour, roleLabel } from "./MemberAccess";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
 import { changedPermissions, FAMILIES, GUEST_CEILING, permissionRow } from "./rolesLogic";
@@ -69,6 +72,7 @@ const st: Record<string, CSSProperties> = {
     fontSize: "var(--text-xs)",
     color: "var(--text-body)",
   },
+  sect: { fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", fontWeight: 500, color: "var(--text-muted)", marginBottom: 8 },
   person: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px" },
 };
 
@@ -78,6 +82,10 @@ export type RoleEditorProps = {
   /** Every role of the space, strongest first. */
   roles: Role[];
   members: Member[];
+  /** The space's groups: some of them give this role to their members. */
+  groups: Group[];
+  /** Opens a group in the Groupes tab; absent when the viewer does not manage groups. */
+  onOpenGroup?: (groupId: string) => void;
   /** What the viewer holds in the space: rule 2, they give and take only that. */
   myRights: string[];
   frozen: boolean;
@@ -90,7 +98,7 @@ export type RoleEditorProps = {
 };
 
 /** One role: its rights in plain sentences, the people holding it, its name and colour. */
-export function RoleEditor({ spaceId, role, roles, members, myRights, frozen, onBack, onChanged, onSetMemberRoles, onNotify }: RoleEditorProps) {
+export function RoleEditor({ spaceId, role, roles, members, groups, onOpenGroup, myRights, frozen, onBack, onChanged, onSetMemberRoles, onNotify }: RoleEditorProps) {
   const { t } = useTranslation();
   const custom = !role.systemKey;
   const [tab, setTab] = useState("rights");
@@ -105,12 +113,12 @@ export function RoleEditor({ spaceId, role, roles, members, myRights, frozen, on
   const membersBase = roles.find((r) => r.systemKey === "members")?.permissions ?? [];
   const ranked = roles.filter((r) => r.systemKey !== "members" && r.systemKey !== "guests");
   const above = custom ? ranked[ranked.findIndex((r) => r.id === role.id) - 1] : undefined;
-  const holders =
-    role.systemKey === "guests"
-      ? members.filter((m) => m.role === "guest")
-      : role.systemKey === "members"
-        ? []
-        : members.filter((m) => m.roleIds?.includes(role.id));
+  const base = role.systemKey === "guests" || role.systemKey === "members";
+  const people = rolePeople(role.id, members, groups);
+  // Everyone who holds it, once: given directly or through a group.
+  const holders = role.systemKey === "guests" ? members.filter((m) => m.role === "guest") : base ? [] : members.filter((m) => people.holderIds.includes(m.userId));
+  const viaGroups = base ? [] : people.viaGroups;
+  const directHolders = role.systemKey === "guests" ? holders : people.direct;
   const after = CATALOGUE.filter((p) => draft.has(p));
   const changes = changedPermissions(role.permissions, after);
   const changeCount = changes.added.length + changes.removed.length;
@@ -328,11 +336,14 @@ export function RoleEditor({ spaceId, role, roles, members, myRights, frozen, on
               />
             </div>
           ) : null}
+          {viaGroups.length > 0 ? <div style={st.sect}>{t("roles.directly")}</div> : null}
           <Card>
-            {holders.length === 0 ? (
-              <div style={{ ...st.person, color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>{t("roles.nobodyHolds")}</div>
+            {directHolders.length === 0 ? (
+              <div style={{ ...st.person, color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>
+                {viaGroups.length > 0 ? t("roles.nobodyDirectly") : t("roles.nobodyHolds")}
+              </div>
             ) : (
-              holders.map((m, i) => (
+              directHolders.map((m, i) => (
                 <div key={m.userId} style={{ ...st.person, borderTop: i ? "1px solid var(--border-subtle)" : "none" }}>
                   <Avatar name={m.name} src={m.avatarUrl ?? getAvatar(m.name)} size={28} />
                   <span style={{ flex: 1, minWidth: 0 }}>
@@ -351,6 +362,34 @@ export function RoleEditor({ spaceId, role, roles, members, myRights, frozen, on
               ))
             )}
           </Card>
+          {viaGroups.length > 0 ? (
+            <>
+              <div style={{ ...st.sect, marginTop: 24 }}>{t("roles.viaGroup")}</div>
+              <Card>
+                {viaGroups.map(({ group, members: inGroup }, i) => (
+                  <div key={group.id} style={{ ...st.person, borderTop: i ? "1px solid var(--border-subtle)" : "none" }}>
+                    <GroupIcon id={group.id} size={32} />
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{group.name}</div>
+                      <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>
+                        {inGroup.length > 0 ? formatList(inGroup.map((m) => m.name)) : t("groups.nobody")}
+                      </div>
+                    </span>
+                    <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t("message.reactors", { count: group.memberIds.length })}</span>
+                    {onOpenGroup ? (
+                      <Button size="sm" variant="link" onClick={() => onOpenGroup(group.id)}>
+                        {t("groups.openGroup")}
+                      </Button>
+                    ) : null}
+                  </div>
+                ))}
+              </Card>
+              <div style={st.hint}>
+                <Icon name="info" size={13} />
+                {t("groups.roleFootnote")}
+              </div>
+            </>
+          ) : null}
         </div>
       ) : null}
 

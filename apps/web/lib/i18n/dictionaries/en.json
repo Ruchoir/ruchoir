@@ -2043,7 +2043,10 @@
       "beyondGuestCeiling": "A guest can never hold this right.",
       "memberFirst": "Make this person a member first."
     },
-    "colPerson": "Person"
+    "colPerson": "Person",
+    "directly": "Directly",
+    "viaGroup": "Through a group",
+    "nobodyDirectly": "Nobody has it directly."
   },
   "groups": {
     "title": "Groups",
@@ -2110,7 +2113,23 @@
       "baseRole": "A base role cannot be carried by a group.",
       "notInSpace": "This person is not in the space.",
       "tooManyPeople": "Too many people at once: add them in several steps."
-    }
+    },
+    "allGroups": "All groups",
+    "filter": "Filter by group",
+    "viaTooltip_one": "Received through the group {{groups}}",
+    "viaTooltip_other": "Received through the groups {{groups}}",
+    "viaFootnote": "A role marked with this icon comes from a group: it goes away when the person leaves the group.",
+    "viaReason_one": "Received through the group {{groups}}: take {{name}} out of the group to remove it.",
+    "viaReason_other": "Received through the groups {{groups}}: take {{name}} out of those groups to remove it.",
+    "alsoDirect_one": "Given directly, and also received through {{groups}}.",
+    "alsoDirect_other": "Given directly, and also received through {{groups}}.",
+    "carries": "carries {{roles}}",
+    "leaveNamed": "Take {{name}} out of the group {{group}}",
+    "personRemoved": "Person removed from the group",
+    "addToGroup": "Add to a group",
+    "openGroup": "Open the group",
+    "roleFootnote": "To take this role away from someone who receives it through a group, take them out of the group, or remove the role from the group.",
+    "nobody": "Nobody in it yet"
   },
   "licence": {
     "refusal": {

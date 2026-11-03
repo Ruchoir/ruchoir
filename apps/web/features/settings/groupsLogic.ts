@@ -66,3 +66,27 @@ export function groupMentionHits<G extends GroupLike>(
     .filter((g) => foldName(g.name).includes(needle))
     .map((group) => ({ group, members: group.memberIds.length, inRoom: group.memberIds.filter((id) => room.has(id)).length }));
 }
+
+/** The groups a person is in, by name. */
+export function groupsOf<G extends Pick<GroupLike, "name" | "memberIds">>(userId: string, groups: G[]): G[] {
+  return sortGroups(groups.filter((g) => g.memberIds.includes(userId)));
+}
+
+/**
+ * Who holds a role, for the role editor's people tab: those given it directly, then each group that
+ * carries it with the people it holds (`members` in the space's order), and every holder once.
+ */
+export function rolePeople<M extends { userId: string; roleIds?: string[] }, G extends GroupLike>(
+  roleId: string,
+  members: M[],
+  groups: G[],
+): { direct: M[]; viaGroups: { group: G; members: M[] }[]; holderIds: string[] } {
+  const direct = members.filter((m) => m.roleIds?.includes(roleId));
+  const viaGroups = sortGroups(groups.filter((g) => g.roleIds.includes(roleId))).map((group) => ({
+    group,
+    members: members.filter((m) => group.memberIds.includes(m.userId)),
+  }));
+  const holderIds = new Set(direct.map((m) => m.userId));
+  for (const v of viaGroups) for (const m of v.members) holderIds.add(m.userId);
+  return { direct, viaGroups, holderIds: [...holderIds] };
+}

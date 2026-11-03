@@ -53,6 +53,8 @@ export type GroupsSettingsProps = {
   /** Roles or their holders may have changed: read them again. */
   onChanged: () => Promise<void>;
   onNotify: (toast: Toast) => void;
+  /** A group to open at once (from a role's people), instead of the list. */
+  initialGroupId?: string | null;
 };
 
 /**
@@ -65,7 +67,7 @@ export function GroupsSettings(props: GroupsSettingsProps) {
   const { spaceId, edition, onNotify } = props;
   const [groups, setGroups] = useState<Group[] | null>(null);
   const [failed, setFailed] = useState(false);
-  const [editing, setEditing] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(props.initialGroupId ?? null);
 
   // Only the newest request may write: a slow older answer never overwrites a newer one.
   const latest = useRef(0);

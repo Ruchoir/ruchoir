@@ -81,11 +81,12 @@ import {
   verifyPasskey,
   verifyRecoveryCode,
   verifyTotp,
+  listGroups,
   listRoles,
   refusalOf,
   setMemberRoles as apiSetMemberRoles,
 } from "@/lib/data/api";
-import type { Role } from "@/lib/data/types";
+import type { Group, Role } from "@/lib/data/types";
 import { apiErrorCode, isApiError } from "@/lib/data/http";
 import { authMessage } from "@/features/auth/authMessage";
 import { forgetRecentReactions, noteReaction } from "@/lib/data/recentReactions";
@@ -133,7 +134,7 @@ import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
 import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/VerifyEmailScreen";
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
-import { MemberManagement, MemberRolesSummary, refusalMessage } from "@/features/settings/MemberAccess";
+import { MemberGroupsSummary, MemberManagement, MemberRolesSummary, refusalMessage } from "@/features/settings/MemberAccess";
 import { canGiveAdministrator, rightsOf, spaceGates } from "./spaceGates";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
@@ -533,6 +534,8 @@ function AppShell() {
   const [members, setMembers] = useState<Member[]>([]);
   /** The space's roles, strongest first: the settings and the profiles read them. */
   const [spaceRoles, setSpaceRoles] = useState<Role[]>([]);
+  /** The space's groups, read with its roles; empty when the caller may not list them (a guest). */
+  const [spaceGroups, setSpaceGroups] = useState<Group[]>([]);
   /** The latest {@link refreshAccess}, for the realtime handlers bound once. */
   const refreshAccessRef = useRef<() => Promise<void>>(async () => {});
   // The space's files (root folder), for the in-channel file panel and search. The full Files screen
@@ -807,6 +810,7 @@ function AppShell() {
     // entered, not even for the few hundred milliseconds the fetch takes.
     setMembers([]);
     setSpaceRoles([]);
+    setSpaceGroups([]);
     if (!activeWs) {
       setChannels([]);
       setDms([]);
@@ -847,6 +851,12 @@ function AppShell() {
     void listRoles(activeWs)
       .then((roles) => {
         if (loadingSpaceRef.current === activeWs) setSpaceRoles(roles);
+      })
+      .catch(() => {});
+    // The groups, the same way: a guest gets a 403 and keeps the empty list.
+    void listGroups(activeWs)
+      .then((groups) => {
+        if (loadingSpaceRef.current === activeWs) setSpaceGroups(groups);
       })
       .catch(() => {});
     setPresence(presenceMap);
@@ -3313,8 +3323,14 @@ function AppShell() {
     const me = members.find((m) => m.userId === session?.id);
     return {
       summary:
-        spaceRoles.length > 0 ? (
-          <MemberRolesSummary member={member} roles={spaceRoles} spaceName={currentWorkspace.name} isSelf={self} viewerManages={managesPeople} />
+        spaceRoles.length > 0 || spaceGroups.length > 0 ? (
+          <>
+            {spaceRoles.length > 0 ? (
+              <MemberRolesSummary member={member} roles={spaceRoles} groups={spaceGroups} spaceName={currentWorkspace.name} isSelf={self} viewerManages={managesPeople} />
+            ) : null}
+            {/* Task 10 gives the chips somewhere to go: `onOpenGroup` stays unset until then. */}
+            <MemberGroupsSummary member={member} groups={spaceGroups} />
+          </>
         ) : undefined,
       manage:
         !self && managesPeople && member.manageable ? (
@@ -3326,6 +3342,10 @@ function AppShell() {
             myRights={myRights}
             edition={currentWorkspace.edition}
             roles={spaceRoles}
+            groups={spaceGroups}
+            spaceId={ws}
+            onGroupsChanged={() => refreshAccess()}
+            onNotify={showToast}
             onSaveRoles={(roleIds) => saveMemberRoles(userId, roleIds)}
             onChangeRole={(role) => void changeMemberRole({ userId, name: member.name }, role)}
             onRemove={() => setRemoving({ userId, name: member.name })}
@@ -3433,13 +3453,15 @@ function AppShell() {
    */
   const refreshAccess = async () => {
     const space = ws;
-    const [fresh, roles] = await Promise.all([
+    const [fresh, roles, groups] = await Promise.all([
       getSpaceMembers(space).catch(() => null),
       listRoles(space).catch(() => null),
+      listGroups(space).catch(() => null),
     ]);
     if (liveRef.current.ws !== space) return;
     if (fresh) setMembers(fresh);
     if (roles) setSpaceRoles(roles);
+    if (groups) setSpaceGroups(groups);
   };
   useEffect(() => {
     refreshAccessRef.current = refreshAccess;
@@ -4404,6 +4426,7 @@ function AppShell() {
           frozenSince={currentWorkspace?.licence?.validUntil}
           ownerNames={members.filter((m) => m.role === "owner").map((m) => m.name)}
           roles={spaceRoles}
+          groups={spaceGroups}
           myRights={myRights}
           myUserId={session?.id}
           pricingUrl={pricingUrl}
