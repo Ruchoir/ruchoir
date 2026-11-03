@@ -2,7 +2,7 @@
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Avatar, brandFor, Card, Dialog, FileIcon, Icon, IconButton, IconLink, Popover, Tag, Tooltip } from "@/components/ds";
-import { getCurrentUser, getMentionNames, getPresence, getSpaceRooms } from "@/lib/data";
+import { getCurrentUser, getMentionGroups, getMentionNames, getPresence, getSpaceRooms } from "@/lib/data";
 import type { ImportSource, Message, MessageAttachment } from "@/lib/data";
 import type { Presence } from "@/components/ds";
 import { ReactionPill } from "./ReactionPill";
@@ -47,6 +47,8 @@ export type MessageActions = {
   mentionUserId: (name: string) => string | undefined;
   /** Follow a `#room` written in a message, to the channel it names. */
   onOpenRoom?: (name: string) => void;
+  /** Follow a group mention written in a message, to the group it names. */
+  onOpenGroup?: (name: string) => void;
   /** Tick or untick the checklist item on this line of the body. Author-only, like any edit. */
   onToggleTask: (line: number, done: boolean) => void;
   /**
@@ -573,6 +575,7 @@ export function MessageRow({
                   // but the author, and a box that answers a click with a toast is worse than one
                   // that says up front it is not yours.
                   isOwn && !readOnly ? actions.onToggleTask : undefined,
+                  { names: getMentionGroups().groups.map((g) => g.name), onOpen: actions.onOpenGroup },
                 )}
                 {m.edited ? <EditedTag createdAt={m.createdAt} editedAt={m.editedAt} /> : null}
               </div>

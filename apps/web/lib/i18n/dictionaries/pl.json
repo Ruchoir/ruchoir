@@ -487,7 +487,11 @@
     "broadcastHere": "Powiadamia tylko osoby połączone",
     "uploading": "wysyłanie…",
     "uploadFailedName": "Nie udało się przesłać „{{name}}”.",
-    "writeIn": "Napisz w #{{name}}"
+    "writeIn": "Napisz w #{{name}}",
+    "groupHint_one": "{{count}} osoba, {{inRoom}} na tym kanale",
+    "groupHint_few": "{{count}} osoby, {{inRoom}} na tym kanale",
+    "groupHint_many": "{{count}} osób, {{inRoom}} na tym kanale",
+    "groupHint_other": "{{count}} osoby, {{inRoom}} na tym kanale"
   },
   "code": {
     "changeLanguage": "Zmień język",
@@ -2293,7 +2297,16 @@
     "addToGroup": "Dodaj do grupy",
     "openGroup": "Otwórz grupę",
     "roleFootnote": "Aby odebrać tę rolę osobie, która dostaje ją przez grupę, usuń ją z grupy albo odbierz rolę grupie.",
-    "nobody": "Nikogo tam jeszcze nie ma"
+    "nobody": "Nikogo tam jeszcze nie ma",
+    "close": "Zamknij grupę",
+    "membersReceive": "Jej członkowie otrzymują",
+    "peopleHead": "Osoby · {{count}}",
+    "mentionHint": "Wspomnij @{{name}}, aby powiadomić jej członków, którzy czytają rozmowę.",
+    "youManage": "Jest Pan/Pani jej opiekunem",
+    "you": "Pan/Pani",
+    "manageNote": "Dodaje i usuwa Pan/Pani osoby z tej grupy. Jej role i opiekunowie ustawia się w ustawieniach przestrzeni.",
+    "leave": "Opuść grupę",
+    "left": "Opuścił(a) Pan/Pani grupę"
   },
   "licence": {
     "refusal": {

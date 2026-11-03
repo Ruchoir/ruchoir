@@ -36,10 +36,15 @@ const st: Record<string, CSSProperties> = {
   person: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px" },
 };
 
-/** A group's square: one of the pastels, always the same for the same group. */
-export function GroupIcon({ id, size = 36 }: { id: string; size?: number }) {
+/** The pastel a group wears, always the same for the same group. */
+export function groupColour(id: string): string {
   let hash = 0;
   for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return ROLE_COLOURS[hash % ROLE_COLOURS.length];
+}
+
+/** A group's square: one of the pastels, always the same for the same group. */
+export function GroupIcon({ id, size = 36 }: { id: string; size?: number }) {
   return (
     <span
       aria-hidden
@@ -48,7 +53,7 @@ export function GroupIcon({ id, size = 36 }: { id: string; size?: number }) {
         height: size,
         flex: "none",
         borderRadius: "var(--radius-md)",
-        background: `var(--${ROLE_COLOURS[hash % ROLE_COLOURS.length]})`,
+        background: `var(--${groupColour(id)})`,
         color: "var(--on-pastel)",
         display: "flex",
         alignItems: "center",

@@ -481,7 +481,9 @@
     "broadcastHere": "Notifies only the people connected",
     "uploading": "uploading…",
     "uploadFailedName": "\\u201c{{name}}\\u201d could not be uploaded.",
-    "writeIn": "Write in #{{name}}"
+    "writeIn": "Write in #{{name}}",
+    "groupHint_one": "{{count}} person, {{inRoom}} in this channel",
+    "groupHint_other": "{{count}} people, {{inRoom}} in this channel"
   },
   "code": {
     "changeLanguage": "Change the language",
@@ -2129,7 +2131,16 @@
     "addToGroup": "Add to a group",
     "openGroup": "Open the group",
     "roleFootnote": "To take this role away from someone who receives it through a group, take them out of the group, or remove the role from the group.",
-    "nobody": "Nobody in it yet"
+    "nobody": "Nobody in it yet",
+    "close": "Close the group",
+    "membersReceive": "Its members receive",
+    "peopleHead": "People · {{count}}",
+    "mentionHint": "Mention @{{name}} to notify its members who read the conversation.",
+    "youManage": "You manage it",
+    "you": "you",
+    "manageNote": "You add and remove people in this group. Its roles and managers are set in the space settings.",
+    "leave": "Leave the group",
+    "left": "You left the group"
   },
   "licence": {
     "refusal": {

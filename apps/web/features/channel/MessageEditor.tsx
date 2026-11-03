@@ -4,6 +4,8 @@ import { type ClipboardEvent, type CSSProperties, type KeyboardEvent, type Ref, 
 import { Avatar, Icon, Popover } from "@/components/ds";
 import {
   getChannelMembers,
+  getMentionGroups,
+  getNoMentionGroups,
   getNoRooms,
   getServerDirectory,
   getSpaceRooms,
@@ -11,6 +13,9 @@ import {
 } from "@/lib/data";
 import { searchShortcodes } from "@/lib/shortcodes";
 import { Emoji } from "../app/Emoji";
+import { GroupIcon } from "../settings/GroupEditor";
+import { foldName } from "../settings/groupsLogic.ts";
+import { groupHitsFor } from "./groupPanelLogic.ts";
 import { useEmojiManifest } from "../app/emojiManifest";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import {
@@ -41,6 +46,7 @@ type Member = ReturnType<typeof getChannelMembers>[number];
 type Hit =
   | { kind: "mention"; name: string; member: Member }
   | { kind: "broadcast"; name: string; hint: TranslationKey }
+  | { kind: "group"; name: string; id: string; members: number; inRoom: number }
   | { kind: "emoji"; name: string; emoji: string }
   | { kind: "room"; name: string };
 
@@ -185,6 +191,13 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
   // person, and offering a room from the space being left would be the same leak.
   const rooms = useSyncExternalStore(subscribeToDirectory, getSpaceRooms, getNoRooms);
 
+  // The space's groups and who reads this conversation, published by the conversation on screen.
+  const mentionGroups = useSyncExternalStore(subscribeToDirectory, getMentionGroups, getNoMentionGroups);
+  const groupsRef = useRef(mentionGroups);
+  useEffect(() => {
+    groupsRef.current = mentionGroups;
+  });
+
   const hits = useMemo<Hit[]>(() => {
     if (!trigger) return [];
     if (trigger.kind === "mention") {
@@ -194,11 +207,16 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
       const broadcasts = BROADCASTS.filter((b) => b.name.startsWith(q)).map(
         (b): Hit => ({ kind: "broadcast", name: b.name, hint: b.hint }),
       );
+      // Between the two: a group names several people at once, but is still a name to be looked up.
+      // A guest gets none, whatever the list holds: guests cannot mention a group.
+      const groupHits = groupHitsFor(mentionGroups.viewerRole, mentionGroups.groups, trigger.query, mentionGroups.audience)
+        .slice(0, 5)
+        .map((h): Hit => ({ kind: "group", name: h.group.name, id: h.group.id, members: h.members, inRoom: h.inRoom }));
       const people = members
         .filter((m) => m.name.toLowerCase().includes(q))
         .slice(0, 6)
         .map((m): Hit => ({ kind: "mention", name: m.name, member: m }));
-      return [...broadcasts, ...people];
+      return [...broadcasts, ...groupHits, ...people];
     }
     if (trigger.kind === "room") {
       const q = trigger.query.toLowerCase();
@@ -208,7 +226,7 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
         .map((name): Hit => ({ kind: "room", name }));
     }
     return searchShortcodes(trigger.query).map((r): Hit => ({ kind: "emoji", name: r.name, emoji: r.emoji }));
-  }, [trigger, members, rooms]);
+  }, [trigger, members, rooms, mentionGroups]);
 
   const acOpen = trigger != null && hits.length > 0;
   const activeIdx = Math.min(active, Math.max(0, hits.length - 1));
@@ -236,6 +254,18 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
       setTrigger({ kind: "mention", query: mention[1], start: caret - mention[1].length - 1 });
       setActive(0);
       return;
+    }
+    // A group's name has spaces ("@Chantier Re"): the menu stays open while what was typed still
+    // begins a group's name, and closes at the first word that does not.
+    const spaced = /(?:^|\s)@([\p{L}\p{N}_'-]+(?: [\p{L}\p{N}_'-]*)+)$/u.exec(before);
+    if (spaced) {
+      const needle = foldName(spaced[1]);
+      const { groups, viewerRole } = groupsRef.current;
+      if (viewerRole !== "guest" && groups.some((g) => foldName(g.name).startsWith(needle))) {
+        setTrigger({ kind: "mention", query: spaced[1], start: caret - spaced[1].length - 1 });
+        setActive(0);
+        return;
+      }
     }
     // One hash only: `##` and beyond are a heading, and suggesting rooms under a title would put a
     // menu in front of somebody writing one.
@@ -297,7 +327,7 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
     const len = caret - trigger.start;
     if (hit.kind === "room") {
       replaceTokenBeforeCaret(len, document.createTextNode(`#${hit.name} `));
-    } else if (hit.kind === "mention" || hit.kind === "broadcast") {
+    } else if (hit.kind === "mention" || hit.kind === "broadcast" || hit.kind === "group") {
       // The display name, whole. The server resolves it as written, so what is typed, what is shown
       // and who is notified are the same thing.
       replaceTokenBeforeCaret(len, document.createTextNode(`@${hit.name} `));
@@ -608,6 +638,16 @@ export function MessageEditor({ placeholder, onSend, onPasteFiles, ariaLabel, re
                   <span style={{ minWidth: 0 }}>
                     <span style={{ display: "block" }}>{hit.name}</span>
                     <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>{t(hit.hint)}</span>
+                  </span>
+                </>
+              ) : hit.kind === "group" ? (
+                <>
+                  <GroupIcon id={hit.id} size={22} />
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontWeight: 600 }}>@{hit.name}</span>
+                    <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-subtle)" }}>
+                      {t("composer.groupHint", { count: hit.members, inRoom: hit.inRoom })}
+                    </span>
                   </span>
                 </>
               ) : hit.kind === "mention" ? (

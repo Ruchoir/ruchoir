@@ -188,6 +188,12 @@
   color: var(--text-strong);
   background: var(--line);
 }
+/* A group, not a person: the group icon, and the design system's violet pastel so it reads apart from
+   a person's mention while staying the same pill. */
+.wc-mention--group {
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--violet) 55%, transparent);
+}
 /* A mention of the current user: a stronger, filled pill so it stands out in the feed. */
 .wc-mention--me {
   color: var(--on-ink);

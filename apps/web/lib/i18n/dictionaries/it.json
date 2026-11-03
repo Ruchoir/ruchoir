@@ -484,7 +484,10 @@
     "broadcastHere": "Avvisa solo chi è connesso",
     "uploading": "invio…",
     "uploadFailedName": "Non è stato possibile caricare «{{name}}».",
-    "writeIn": "Scrivi in #{{name}}"
+    "writeIn": "Scrivi in #{{name}}",
+    "groupHint_one": "{{count}} persona, {{inRoom}} in questo canale",
+    "groupHint_many": "{{count}} persone, {{inRoom}} in questo canale",
+    "groupHint_other": "{{count}} persone, {{inRoom}} in questo canale"
   },
   "code": {
     "changeLanguage": "Cambia linguaggio",
@@ -2211,7 +2214,16 @@
     "addToGroup": "Aggiungi a un gruppo",
     "openGroup": "Apri il gruppo",
     "roleFootnote": "Per togliere questo ruolo a chi lo riceve da un gruppo, togli la persona dal gruppo o rimuovi il ruolo al gruppo.",
-    "nobody": "Ancora nessuno"
+    "nobody": "Ancora nessuno",
+    "close": "Chiudi il gruppo",
+    "membersReceive": "I suoi membri ricevono",
+    "peopleHead": "Persone · {{count}}",
+    "mentionHint": "Menzioni @{{name}} per avvisare i suoi membri che leggono la conversazione.",
+    "youManage": "Ne è responsabile",
+    "you": "lei",
+    "manageNote": "Aggiunge e toglie persone da questo gruppo. I suoi ruoli e i suoi responsabili si impostano nelle impostazioni dello spazio.",
+    "leave": "Esci dal gruppo",
+    "left": "Ha lasciato il gruppo"
   },
   "licence": {
     "refusal": {

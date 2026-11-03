@@ -115,6 +115,42 @@ export function getSpaceRooms(): string[] {
   return liveRooms;
 }
 
+/**
+ * The groups a `@Name` can point at, and who reads the conversation on screen, for the composer's
+ * suggestions and the message renderer. Published beside the roster for the same reason: both read
+ * it synchronously, and the groups of a space being left must not survive into the next.
+ */
+export type MentionGroups = {
+  groups: { id: string; name: string; source: "manual" | "directory"; memberIds: string[]; managerIds: string[]; roleIds: string[] }[];
+  /** The ids of the people who read the conversation on screen. */
+  audience: string[];
+  /** The viewer's standing in the space (a guest cannot mention a group). */
+  viewerRole?: string;
+};
+
+const NO_MENTION_GROUPS: MentionGroups = { groups: [], audience: [] };
+let liveMentionGroups: MentionGroups = NO_MENTION_GROUPS;
+
+export function setMentionGroups(next: MentionGroups): void {
+  const same =
+    next.viewerRole === liveMentionGroups.viewerRole &&
+    next.groups === liveMentionGroups.groups &&
+    next.audience.length === liveMentionGroups.audience.length &&
+    next.audience.every((id, i) => id === liveMentionGroups.audience[i]);
+  if (same) return;
+  liveMentionGroups = next;
+  for (const listener of directoryListeners) listener();
+}
+
+export function getMentionGroups(): MentionGroups {
+  return liveMentionGroups;
+}
+
+/** The snapshot for a render with no browser behind it: no groups. */
+export function getNoMentionGroups(): MentionGroups {
+  return NO_MENTION_GROUPS;
+}
+
 /** The snapshot for a render with no browser behind it: no rooms, rather than stale ones. */
 export function getNoRooms(): string[] {
   return NO_ROOMS;

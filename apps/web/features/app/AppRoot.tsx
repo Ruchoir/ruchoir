@@ -134,6 +134,8 @@ import { InviteScreen, type InviteStatus } from "@/features/auth/InviteScreen";
 import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/VerifyEmailScreen";
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
+import { foldName } from "@/features/settings/groupsLogic.ts";
+import { GroupPanel } from "@/features/channel/GroupPanel";
 import { MemberGroupsSummary, MemberManagement, MemberRolesSummary, refusalMessage } from "@/features/settings/MemberAccess";
 import { canGiveAdministrator, rightsOf, spaceGates } from "./spaceGates";
 import { ActivityView } from "./ActivityView";
@@ -626,7 +628,13 @@ function AppShell() {
   const [thread, setThread] = useState<string | null>(null);
   /** The thread whose replies are being fetched, so its panel can draw placeholders meanwhile. */
   const [threadLoading, setThreadLoading] = useState<string | null>(null);
-  const [profile, setProfile] = useState<string | null>(null);
+  const [profile, setProfileRaw] = useState<string | null>(null);
+  /** The group open in the profile's slot, by id; opening a profile closes it, and the reverse. */
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const setProfile = (name: string | null) => {
+    setProfileRaw(name);
+    if (name) setOpenGroupId(null);
+  };
   const [profileEdit, setProfileEdit] = useState(false);
   const [unreadMarker, setUnreadMarker] = useState<string | null>(null);
   const [focusMessageId, setFocusMessageId] = useState<string | null>(null);
@@ -811,6 +819,7 @@ function AppShell() {
     setMembers([]);
     setSpaceRoles([]);
     setSpaceGroups([]);
+    setOpenGroupId(null);
     if (!activeWs) {
       setChannels([]);
       setDms([]);
@@ -2598,6 +2607,7 @@ function AppShell() {
     setPanel(layout !== "desktop" || panelDismissed ? null : defaultPanel);
     setThread(null);
     setProfile(null);
+    setOpenGroupId(null);
     setProfileEdit(false);
     setUnreadMarker(null);
     setFocusMessageId(null);
@@ -2616,6 +2626,7 @@ function AppShell() {
     setPanelDismissed(next === null);
     setThread(null);
     setProfile(null);
+    setOpenGroupId(null);
   };
 
   const updateMessage = (targetChannel: string, messageId: string, updater: (m: Message) => Message) => {
@@ -2851,8 +2862,10 @@ function AppShell() {
     openThread: (messageId: string) => {
       setThread(messageId);
       setProfile(null);
+      setOpenGroupId(null);
       loadThread(channelId, messageId);
     },
+    /** A group mention (or chip) followed: its panel opens where the profile does. */
     openProfile: (name: string) => {
       setProfile(name);
       setProfileEdit(false);
@@ -3312,6 +3325,41 @@ function AppShell() {
   /** Whether the caller administers people here: the member list, the roles, someone's "Gestion". */
   const managesPeople = gates.managePeople;
 
+  /** Open a group in the profile's slot (and close the profile and the thread, which share it). */
+  const openGroup = (groupId: string) => {
+    setProfile(null);
+    setProfileEdit(false);
+    setThread(null);
+    setOpenGroupId(groupId);
+  };
+  /** The same, for a group a message names: the server reads its name whole, accents and case folded. */
+  const openGroupByName = (name: string) => {
+    const wanted = foldName(name);
+    const group = spaceGroups.find((g) => foldName(g.name) === wanted);
+    if (group) openGroup(group.id);
+  };
+  /** The open group's panel, once the groups are loaded (a group deleted meanwhile just closes it). */
+  const openedGroup = openGroupId ? spaceGroups.find((g) => g.id === openGroupId) : undefined;
+  const openGroupNode =
+    openedGroup && currentWorkspace
+      ? {
+          id: openedGroup.id,
+          node: (
+            <GroupPanel
+              spaceId={ws}
+              group={openedGroup}
+              edition={currentWorkspace.edition}
+              roles={spaceRoles}
+              members={members}
+              viewerId={session?.id ?? ""}
+              onClose={() => setOpenGroupId(null)}
+              onChanged={() => refreshAccessRef.current()}
+              onNotify={showToast}
+            />
+          ),
+        }
+      : null;
+
   /**
    * What someone's profile says about them in this space (their roles), and the "Gestion" tab when
    * the caller may manage them: the Members tab's own component, so both offer the same things.
@@ -3328,8 +3376,7 @@ function AppShell() {
             {spaceRoles.length > 0 ? (
               <MemberRolesSummary member={member} roles={spaceRoles} groups={spaceGroups} spaceName={currentWorkspace.name} isSelf={self} viewerManages={managesPeople} />
             ) : null}
-            {/* Task 10 gives the chips somewhere to go: `onOpenGroup` stays unset until then. */}
-            <MemberGroupsSummary member={member} groups={spaceGroups} />
+            <MemberGroupsSummary member={member} groups={spaceGroups} onOpenGroup={openGroup} />
           </>
         ) : undefined,
       manage:
@@ -4317,6 +4364,10 @@ function AppShell() {
           onSendReply={sendReply}
           canReplyToChannel={canReplyToChannel}
           profileName={profile}
+          openGroup={openGroupNode}
+          mentionGroups={spaceGroups}
+          onOpenGroupByName={openGroupByName}
+          onCloseGroup={() => setOpenGroupId(null)}
           profileEditing={profileEdit}
           unreadMarker={unreadMarker}
           focusMessageId={focusMessageId}

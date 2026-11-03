@@ -481,7 +481,9 @@
     "broadcastHere": "Benachrichtigt nur die gerade Verbundenen",
     "uploading": "wird gesendet…",
     "uploadFailedName": "\\u201e{{name}}\\u201c konnte nicht hochgeladen werden.",
-    "writeIn": "In #{{name}} schreiben"
+    "writeIn": "In #{{name}} schreiben",
+    "groupHint_one": "{{count}} Person, davon {{inRoom}} in diesem Kanal",
+    "groupHint_other": "{{count}} Personen, davon {{inRoom}} in diesem Kanal"
   },
   "code": {
     "changeLanguage": "Sprache ändern",
@@ -2129,7 +2131,16 @@
     "addToGroup": "Zu einer Gruppe hinzufügen",
     "openGroup": "Gruppe öffnen",
     "roleFootnote": "Um diese Rolle jemandem zu entziehen, der sie über eine Gruppe erhält, nehmen Sie die Person aus der Gruppe oder entziehen Sie der Gruppe die Rolle.",
-    "nobody": "Noch niemand darin"
+    "nobody": "Noch niemand darin",
+    "close": "Gruppe schließen",
+    "membersReceive": "Ihre Mitglieder erhalten",
+    "peopleHead": "Personen · {{count}}",
+    "mentionHint": "Erwähnen Sie @{{name}}, um die Mitglieder zu benachrichtigen, die die Unterhaltung lesen.",
+    "youManage": "Sie sind dafür verantwortlich",
+    "you": "Sie",
+    "manageNote": "Sie nehmen Personen in diese Gruppe auf und entfernen sie. Ihre Rollen und Verantwortlichen legen Sie in den Einstellungen des Bereichs fest.",
+    "leave": "Gruppe verlassen",
+    "left": "Sie haben die Gruppe verlassen"
   },
   "licence": {
     "refusal": {
