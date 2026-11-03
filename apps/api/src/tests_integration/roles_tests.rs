@@ -193,6 +193,15 @@ async fn the_member_list_carries_role_ids_and_who_the_caller_may_manage() {
     assert_eq!(row(admin)["manageable"], false);
     assert_eq!(row(owner)["manageable"], false);
     assert_eq!(row(hr)["manageable"], false, "never oneself");
+    // When each arrived, for "member since" in their profile.
+    let since = row(worker)["joined_at"]
+        .as_str()
+        .expect("joined_at")
+        .to_owned();
+    assert!(
+        time::OffsetDateTime::parse(&since, &time::format_description::well_known::Rfc3339).is_ok(),
+        "{since}"
+    );
     // A plain member manages nobody.
     let list = members_of(&app, &app.cookie_for(worker).await, space).await;
     assert!(list.iter().all(|m| m["manageable"] == false));

@@ -147,6 +147,9 @@ pub(crate) struct InstanceCapabilities {
     /// What this instance can do beyond every `/api/v1` instance, by name (`compat::FEATURES`): an
     /// app checks for a name before using what it stands for, and does without when it is absent.
     features: Vec<&'static str>,
+    /// Where the publisher's prices are, for the screens that offer a paid feature to a space
+    /// without a licence (`RUCHOIR_PRICING_URL`).
+    pricing_url: String,
 }
 
 /// What the client needs to know about live editing.
@@ -202,6 +205,7 @@ pub(crate) async fn instance_capabilities(
             .chain(state.edition.features())
             .copied()
             .collect(),
+        pricing_url: state.config.pricing_url.clone(),
     })
 }
 

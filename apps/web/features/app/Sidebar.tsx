@@ -400,6 +400,10 @@ export type SidebarProps = {
    * it was a door that opened onto somebody else's job.
    */
   canAdministerSpace: boolean;
+  /** Whether the caller may invite (`members.invite`): the menu's invitation entry. */
+  canInvite: boolean;
+  /** Whether the caller sets the arrival channel (`space.settings`). */
+  canSetDefaultChannel: boolean;
   /**
    * Whether bringing a workspace over is offered. Anyone signed in may: an import by somebody who
    * does not administer the instance only creates spaces of their own (the server scopes it).
@@ -497,6 +501,8 @@ export function Sidebar({
   onNewChannel,
   canBrowseSpace,
   canAdministerSpace,
+  canInvite,
+  canSetDefaultChannel,
   canImport,
   importRun,
   onImport,
@@ -585,7 +591,7 @@ export function Sidebar({
           : undefined,
       onAddPeople: onAddPeople ? () => onAddPeople(channel.id) : undefined,
       onSetDefault:
-        canAdministerSpace && canBeDefaultChannel(channel, workspace?.defaultChannelId)
+        canSetDefaultChannel && canBeDefaultChannel(channel, workspace?.defaultChannelId)
           ? () => onSetDefaultChannel(channel.id)
           : undefined,
       onMoveUp: up && onReorderChannels ? () => onReorderChannels(up) : undefined,
@@ -676,7 +682,7 @@ export function Sidebar({
                 // Inviting is administration, not browsing: the endpoint that issues an invitation
                 // takes an administrator, so a plain member was being offered a dialog that could
                 // only end in a refusal.
-                ...(canAdministerSpace
+                ...(canInvite
                   ? [{ icon: "user-plus", label: t("sidebar.invitePeople"), onClick: onInvite }]
                   : []),
                 ...(canAdministerSpace

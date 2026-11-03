@@ -271,6 +271,8 @@ type MenuDialog = "settings" | "notifications" | "addpeople" | "leave" | null;
 export type ChannelScreenProps = {
   /** Moves when someone's place in this channel changed live (a role writes no notice): its roster is fetched again. */
   rosterVersion?: number;
+  /** What a profile shows of someone's place in the space, and its "Gestion" tab when there is one. */
+  memberAccess?: (userId: string) => { summary?: ReactNode; manage?: ReactNode } | undefined;
   channel: Channel;
   /** Set when the open conversation is a direct message rather than a channel. */
   dm?: DirectMessage | null;
@@ -430,6 +432,7 @@ function useDayHeading(): (at: string) => string {
 
 export function ChannelScreen({
   rosterVersion = 0,
+  memberAccess,
   channel,
   dm,
   messages,
@@ -803,6 +806,7 @@ export function ChannelScreen({
       userId={profileUserId}
       presence={profilePresence}
       startEditing={profileEditing}
+      access={profileUserId ? memberAccess?.(profileUserId) : undefined}
       onClose={onCloseProfile}
       onMessage={() => actions.message(profileName)}
       onAvatarChanged={onAvatarChanged}

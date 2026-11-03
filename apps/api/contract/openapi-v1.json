@@ -2062,6 +2062,10 @@
             "$ref": "#/components/schemas/OfficeCapabilities",
             "description": "Live office editing."
           },
+          "pricing_url": {
+            "description": "Where the publisher's prices are, for the screens that offer a paid feature to a space\nwithout a licence (`RUCHOIR_PRICING_URL`).",
+            "type": "string"
+          },
           "public_links": {
             "description": "Whether files may be handed out by public link.",
             "type": "boolean"
@@ -2092,7 +2096,8 @@
           "native_sessions",
           "version",
           "api_version",
-          "features"
+          "features",
+          "pricing_url"
         ],
         "type": "object"
       },
@@ -2616,6 +2621,13 @@
           },
           "is_bot": {
             "type": "boolean"
+          },
+          "joined_at": {
+            "description": "When they joined the space (RFC 3339), for \"member since\" in their profile. Only in the\nspace's member list.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "manageable": {
             "description": "Whether the caller may manage them: change their roles, take them out (they rank strictly\nbelow the caller, who holds `members.manage` or `roles.manage`). Only in the space's member\nlist, which is per caller; never in anything broadcast.",

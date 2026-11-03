@@ -269,3 +269,80 @@ async fn the_repair_never_undoes_a_custom_assignment() {
         .expect("n");
     assert_eq!(kept, 1);
 }
+
+#[tokio::test]
+async fn managing_members_changes_a_standing_and_only_managing_roles_gives_administrator() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let desk = make_user(&app.db, "desk").await;
+    let guest = make_user(&app.db, "guest").await;
+    let member = make_user(&app.db, "member").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Accueil").await;
+    crate::testkit::add_member(&app.db, space, desk, "member").await;
+    crate::testkit::add_member(&app.db, space, guest, "guest").await;
+    crate::testkit::add_member(&app.db, space, member, "member").await;
+    // The front desk manages people, not roles (spec: members.manage changes a standing).
+    let front = make_role(&app.db, space, "Accueil", 50, &["members.manage"]).await;
+    assign(&app.db, space, desk, front).await;
+    let cookie = app.cookie_for(desk).await;
+    let set = |user: Uuid, role: &'static str| {
+        app.req(
+            reqwest::Method::PATCH,
+            &format!("/api/v1/spaces/{space}/members/{user}"),
+            &cookie,
+        )
+        .json(&json!({ "role": role }))
+        .send()
+    };
+    assert_eq!(set(guest, "member").await.expect("patch").status(), 200);
+    assert_eq!(set(member, "guest").await.expect("patch").status(), 200);
+    // Administrator is a role: giving it, or taking it away, takes roles.manage.
+    assert_eq!(set(member, "admin").await.expect("patch").status(), 403);
+}
+
+#[tokio::test]
+async fn an_invitation_never_gives_a_role_above_the_inviter() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let admin = make_user(&app.db, "admin").await;
+    let desk = make_user(&app.db, "desk").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Invitations").await;
+    crate::testkit::add_member(&app.db, space, admin, "admin").await;
+    crate::testkit::add_member(&app.db, space, desk, "member").await;
+    let front = make_role(&app.db, space, "Accueil", 50, &["members.invite"]).await;
+    assign(&app.db, space, desk, front).await;
+    let invite = |cookie: String, role: &'static str| {
+        app.req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space}/invitations"),
+            &cookie,
+        )
+        .json(&json!({ "role": role }))
+        .send()
+    };
+    let desk_cookie = app.cookie_for(desk).await;
+    assert_eq!(
+        invite(desk_cookie.clone(), "member")
+            .await
+            .expect("post")
+            .status(),
+        201
+    );
+    // A link that makes its taker an administrator would be a way around rule 1: whoever may only
+    // give what sits below them would hand out the role above.
+    let refused = invite(desk_cookie, "admin").await.expect("post");
+    assert_eq!(refused.status(), 403);
+    let body: Value = refused.json().await.expect("json");
+    assert_eq!(body["reason"], "role_above_you");
+    // Administrator is an administrator's own rank, not below it; the owner gives it.
+    let admin_cookie = app.cookie_for(admin).await;
+    assert_eq!(
+        invite(admin_cookie, "admin").await.expect("post").status(),
+        403
+    );
+    let owner_cookie = app.cookie_for(owner).await;
+    assert_eq!(
+        invite(owner_cookie, "admin").await.expect("post").status(),
+        201
+    );
+}

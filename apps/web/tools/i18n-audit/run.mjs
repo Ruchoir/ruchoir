@@ -322,6 +322,19 @@ function findHardCoded(source, path) {
  * Each entry is that claim, made once, in writing.
  */
 const ALLOWED_DUPLICATES = new Set([
+  // A permission's name says what one may do, a button what to do now: the same French word
+  // ("Inviter des personnes", "Épingler", "Réagir", "Vider la corbeille"), but an infinitive in a
+  // Polish list of rights and an imperative on a Polish button.
+  "perm.membersInvite",
+  "perm.messagePin",
+  "perm.messageReact",
+  "perm.filesTrashPurge",
+
+  // "Système" tags a built-in role and names the system font: one word in French and English, but
+  // Polish agrees it with the noun (rola is feminine, czcionka too, yet the font setting reads as an
+  // adjective of its own).
+  "roles.system",
+
   // The desktop window's "Restore" button (back from maximised) and a file's "Restore" (out of the
   // trash) share a word in several languages by coincidence; Windows itself words the first one
   // apart in some of them.

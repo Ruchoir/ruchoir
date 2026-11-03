@@ -55,7 +55,102 @@ export type Workspace = {
    * role.
    */
   myPermissions?: string[];
+  /**
+   * The edition the space runs: `community`, `enterprise` (a valid licence) or `frozen` (its licence
+   * expired: what it configured keeps applying, nothing paid can be changed). `community` from an
+   * instance that does not say.
+   */
+  edition: SpaceEdition;
+  /** The space's licence, for its owners alone, when it has one. */
+  licence?: SpaceLicence;
 };
+
+export type SpaceEdition = "community" | "enterprise" | "frozen";
+
+/** What an owner reads of the space's licence. */
+export type SpaceLicence = {
+  seats: number;
+  /** Owners and members today; guests take no seat. */
+  used: number;
+  /** RFC 3339. */
+  validUntil: string;
+  /** Whole days left, rounded up; 0 once it has passed. */
+  expiresInDays: number;
+};
+
+/** One role of a space, as `GET /spaces/{id}/roles` lists it (strongest first). */
+export type Role = {
+  id: string;
+  /** `administrator`, `members` or `guests` for a system role, whose name the app translates. */
+  systemKey?: "administrator" | "members" | "guests";
+  name: string;
+  /** One of the design system's pastels. */
+  colour?: string;
+  position: number;
+  /** Permission names, in catalogue order. */
+  permissions: string[];
+  /** How many hold it (for a base role, the people of that standing). */
+  holders: number;
+  /** Whether the caller may manage it. */
+  manageable: boolean;
+};
+
+/** One entry of a space's audit log. */
+export type AuditEntry = {
+  id: string;
+  /** RFC 3339. */
+  at: string;
+  /** The dotted action (`role.created`, `member.removed`...). */
+  action: string;
+  /** `members`, `roles`, `channels`, `calendars`, `licence` (or `other`). */
+  category: string;
+  /** Who did it; absent once their account is deleted. */
+  actor?: { id: string; name: string; avatarUrl?: string };
+  target: { kind: string; id?: string; label?: string };
+  /** Ids, role and permission names, before and after. */
+  details: Record<string, unknown>;
+};
+
+export type AuditPage = { entries: AuditEntry[]; next?: string };
+
+export type AuditQuery = { actor?: string; category?: string; since?: string; before?: string; limit?: number };
+
+/** A space's licence as its owner manages it. */
+export type LicenceView = {
+  licenceId: string;
+  organisation: string;
+  seats: number;
+  used: number;
+  validUntil: string;
+  edition: "enterprise" | "frozen";
+  /** When it was installed (ISO 8601); absent from an instance older than this field. */
+  installedAt?: string;
+  /** Who installed it; absent once their account is deleted. */
+  installedBy?: { id: string; name: string };
+};
+
+/**
+ * Why the server refused, when it said so by name: what the screens explain in plain words (see
+ * `refusalOf`). Codes the app does not know read as no refusal at all, and the generic message shows.
+ */
+export type Refusal =
+  | { code: "seats_full"; seats: number; pricingUrl: string }
+  | { code: "licence_required"; pricingUrl: string }
+  | { code: "licence_other_space"; organisation?: string }
+  | {
+      code:
+        | "licence_frozen"
+        | "licence_invalid"
+        | "licence_expired"
+        | "role_above_you"
+        | "person_above_you"
+        | "permission_not_held"
+        | "role_name_reserved"
+        | "role_name_taken"
+        | "role_has_rules"
+        | "beyond_guest_ceiling"
+        | "make_them_a_member_first";
+    };
 
 /**
  * An outstanding invitation into a space, as listed to an administrator.
