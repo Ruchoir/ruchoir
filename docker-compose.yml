@@ -204,6 +204,10 @@ services:
       - ./infra/office/local-production-linux.json:/etc/euro-office/documentserver/local-production-linux.json:ro
       - ./infra/office/themes/theme-ruchoir-light.json:/var/www/euro-office/documentserver/web-apps/apps/common/main/resources/themes/theme-ruchoir-light.json:ro
       - ./infra/office/themes/theme-ruchoir-dark.json:/var/www/euro-office/documentserver/web-apps/apps/common/main/resources/themes/theme-ruchoir-dark.json:ro
+      - ./infra/office/themes/theme-ruchoir-aubergine-light.json:/var/www/euro-office/documentserver/web-apps/apps/common/main/resources/themes/theme-ruchoir-aubergine-light.json:ro
+      - ./infra/office/themes/theme-ruchoir-nuage-light.json:/var/www/euro-office/documentserver/web-apps/apps/common/main/resources/themes/theme-ruchoir-nuage-light.json:ro
+      - ./infra/office/themes/theme-ruchoir-indigo-light.json:/var/www/euro-office/documentserver/web-apps/apps/common/main/resources/themes/theme-ruchoir-indigo-light.json:ro
+      - ./infra/office/themes/theme-ruchoir-marine-light.json:/var/www/euro-office/documentserver/web-apps/apps/common/main/resources/themes/theme-ruchoir-marine-light.json:ro
       - ./infra/office/patches/editor-wopi.ejs:/var/www/euro-office/documentserver/web-apps/apps/api/wopi/editor-wopi.ejs:ro
       - ./infra/office/patches/visioeditor-index.html:/var/www/euro-office/documentserver/web-apps/apps/visioeditor/main/index.html:ro
     mem_limit: ${OFFICE_MEM_LIMIT:-4g}
