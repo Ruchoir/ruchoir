@@ -365,8 +365,21 @@ The product is drawn with the Ruchoir design system, the same one as the public 
   selection), `--label-font`, `--avatar-radius`, the panes (`--sidebar-*`, `--rail-bg`, hooks
   `wc-pane-sidebar` / `wc-pane-rail`) and the message density (`--msg-*`). Never write such a value
   as a literal in a component. A block that redefines `--ink` locally (`.wc-pastel`) restates the
-  ink-based ones. To prove a refactor moved nothing, take a style fingerprint before and after
-  (`apps/web/tools/style-fingerprint/README.md`).
+  ink-based ones. Radii a style reshapes apart from the scale (`--radius-control`, `--radius-item`,
+  `--radius-space`, `--radius-msg`), the floating edge's width (`--edge-width`), the unread count
+  (`--badge-*`), the tilts (`--tilt`, `--tilt-icon`) and the message card (`--msg-bg`, `--msg-edge`,
+  `--msg-space`) follow the same rule. To prove a refactor moved nothing, take a style fingerprint
+  before and after (`apps/web/tools/style-fingerprint/README.md`).
+- **Simplified styles:** `data-style="aubergine|nuage|indigo|marine"` on `<html>`, beside the
+  unchanged `data-theme` (no attribute is the Ruchoir style), from the `style` setting (per device,
+  never an account setting) and the pre-paint script (`lib/themeBootstrap.ts`). `tokens.css` holds a
+  flat layer (`[data-style]`: no offset, lift or tilt, grey hairline edges) and per style a shape
+  block and two colour blocks, by day (`:not([data-theme$="-dark"])`) and by night, which must
+  declare the same names. A coloured sidebar or rail redefines its text tokens on its hook; anything
+  that floats and is drawn inside a pane (a menu, a popover, a dialog, a field) gets the content's
+  values back: give a new menu root the `wc-float` class. `test/variants.test.mjs` and
+  `test/contrast.test.mjs` (WCAG AA for every style, by day and by night) guard them. The style names
+  are our own: never name the tools they recall.
 - **Where it lives:** `packages/design-system` (`@ruchoir/design-system`): tokens, typefaces and the
   React components with their stylesheet, depending on nothing of the app's. The web app consumes it
   through the workspace; Ruchoir Lab (a separate repository) installs it as a git dependency pinned
