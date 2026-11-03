@@ -8,6 +8,9 @@
 /// `404` unless the caller administers the instance (the administration surface does not exist
 /// for anyone else).
 pub use crate::admin::ensure_instance_admin;
+/// The space's audit log: [`record`] writes one entry ([`Action`] on a [`Target`]), inside the
+/// caller's transaction when it has one. The only way anything writes to it.
+pub use crate::audit::{record, Action, Target};
 /// The signed-in caller, as an axum extractor (a `401` without a live session).
 pub use crate::auth::extract::AuthSession;
 /// Messages in Ruchoir's own layout: [`Notice`] is what the caller writes, [`notice`] draws it,
