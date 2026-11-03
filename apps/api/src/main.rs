@@ -22,6 +22,7 @@ mod notify;
 mod office;
 mod og;
 mod openapi;
+mod permissions;
 mod realtime;
 mod seed;
 mod state;
