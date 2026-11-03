@@ -325,6 +325,7 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::realtime::routes::router())
         // Notification delivery past the open page: preferences, Web Push, the email fallback.
         .merge(crate::notify::router())
+        .merge(crate::preferences::router())
         // Link preview cards, the images a pasted link's preview shows.
         .merge(crate::og::router())
         // The files surface (tree, upload/versions, download/preview/thumbnail, shares). Its upload

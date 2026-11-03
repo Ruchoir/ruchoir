@@ -16,3 +16,16 @@
 
 pub mod document;
 pub mod routes;
+
+use axum::routing::get;
+use axum::Router;
+
+use crate::state::AppState;
+
+/// The preferences routes. Merged into the main router with absolute paths.
+pub fn router() -> Router<AppState> {
+    Router::new().route(
+        "/api/v1/me/preferences",
+        get(routes::get_preferences).patch(routes::patch_preferences),
+    )
+}

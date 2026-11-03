@@ -185,6 +185,12 @@ impl RealtimeEnvelope {
         Self::global("space.removed", payload)
     }
 
+    /// Some of a person's account preferences changed (`payload.changes`: the keys and their new
+    /// values, `null` for one back to its default). Delivered to that person's own connections only.
+    pub fn preferences_updated(payload: impl Serialize) -> Self {
+        Self::global("preferences.updated", payload)
+    }
+
     /// A member's profile changed: display name, title, or avatar.
     ///
     /// Space-scoped like an arrival, and for the same reason: an identity is shown by the member
