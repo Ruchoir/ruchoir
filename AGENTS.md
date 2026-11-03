@@ -288,6 +288,11 @@ terminates TLS for that instance, rather than exposing its port:
 - The Rust API is stateless (shared state in Postgres/Valkey) so it can run behind a load balancer.
   It also serves the frontend's static bundle; there is a single production service.
 - The Rust API never trusts the client: every request is authenticated and authorized server-side.
+- **Authorization is one engine** (`apps/api/src/permissions/`, ADR 0009): Discord's model (owner
+  standing outside every rule, additive roles, allow/deny rules per resource with the closest level
+  winning, a hard guest ceiling). Handlers ask it for a named permission; they never compare role
+  strings. The permission catalogue only grows: a name is never renamed, removed or moved, like
+  `/api/v1`. Clients read `my_permissions` when the instance lists the `permissions` feature.
 - **Auth:** fully owned by the Rust API. Passwords are argon2id; sessions are opaque server-side
   records in Valkey delivered as `httpOnly`+`Secure`+`SameSite` cookies. The web frontend holds no
   auth secret. A native app gets the same session as a bearer token (`session_delivery: "token"`),

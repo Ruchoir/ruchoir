@@ -19,6 +19,19 @@ context and takes precedence here.
   `dm_conversations`, `messages` and their satellites (reactions, mentions, link previews,
   attachments, pins, saved, read cursors), and `files`/`file_versions`/`file_shares`. Relations are
   added when query code needs them.
+- `src/permissions/` - **the one place rights are decided** (ADR 0009): `catalogue` (the 29 named
+  permissions, a `u64` set; a name is never renamed or removed and its position never moves,
+  `the_permission_catalogue_only_grows`), `engine` (pure resolution with an explain trace: owner
+  standing, base role and roles, guest ceiling, rules level by level, private lock, author,
+  archived), `load` (a space's people and a list's rules in a fixed number of queries; repairs a
+  space missing its system roles; never reads another space's rows), `check` (what handlers ask:
+  `can`, `effective`, `effective_many`, `files_effective`, `holders`, the channel and calendar
+  helpers, `standing`), `changed` (`permissions.changed`). Every domain's `authz` asks it; nothing
+  compares role strings to decide a right, only the rank ladders and the last-owner guard do. **The
+  new model is derived by the database** from the old columns (`role`, `channel_role_access`,
+  `write_access`) through the foundation migration's triggers, so tests and imports writing role
+  strings stay correct. The parity oracle (`tests_integration/permissions_parity`) keeps the old
+  rules verbatim and must stay at 0 differences.
 - `src/calendar/` - the calendar (`docs/calendar.md`, ADR 0004): `recurrence` (pure: unfolding a
   rule over a period in the event's own time zone, cutting a series, `VTIMEZONE` blocks; the only
   place `chrono` is used), `authz` (who sees and changes which calendar, and the lazily created
@@ -125,8 +138,8 @@ context and takes precedence here.
   membership row, so a demotion takes back the channels the old role opened; it filters the listing,
   the search, the join, the "add people" call and even the real-time frames. **A membership row is
   not a right**: it survives a demotion and a later reservation on purpose, so whatever is *sent*
-  about a channel's content goes through `authz::channel_audience` (the rows less whoever the
-  reservation no longer admits): messages, edits, reactions, pins, typing, read markers, `@channel`
+  about a channel's content goes through `authz::channel_audience` (the rows less whoever no longer
+  holds `channel.view` there, resolved for the whole space at once by the permission engine): messages, edits, reactions, pins, typing, read markers, `@channel`
   and every-message notices, system notices, calendar cards. A one-person notice (the reply sent to
   a thread root's author) asks `authz::may_read`, and the shared-files view keeps only joined
   channels that still admit the reader. Until 2026-11-03 these went to the rows alone, so someone
@@ -213,9 +226,10 @@ context and takes precedence here.
   ephemeral), and the two transports `ws` (WebSocket) / `sse` (read-only fallback + typing POST).
   State-changing operations are never accepted over the socket; they are REST handlers in
   `messaging`.
-- `src/files/`    - the files feature over the collaboration schema: `authz` (space-membership read
+- `src/files/`    - the files feature over the collaboration schema: `authz` (the permission
+  engine's `files.view` / `files.manage` / `files.edit` / `files.public_link`: space-membership read
   access, **except a file carrying a `conversation_id`, whose audience is that conversation's**;
-  owner/space-admin for mutations), `mime` (magic-byte sniffing + kind mapping), `thumbnail`
+  owner/space-admin for mutations; listings carry `my_permissions` through `mark_permissions`), `mime` (magic-byte sniffing + kind mapping), `thumbnail`
   (image decode/resize), `tree` (folder listing, create, rename/move, recursive soft-delete),
   `uploads` (multipart upload), `versions` (the one path every new version and every server-made
   file goes through, announced as `files.updated`), `download` (download/preview/thumbnail, streamed back
