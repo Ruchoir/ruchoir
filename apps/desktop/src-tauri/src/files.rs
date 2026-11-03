@@ -4,7 +4,7 @@
 //! so it holds no capability and no command can be called from it. It follows the main window's
 //! rules for navigation, new windows and downloads.
 
-use ruchoir_desktop_core::files::{own_path, safe_name, window_label};
+use ruchoir_desktop_core::files::{own_path, window_label, window_title};
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 /// Open the app's own `href` in a window, or bring forward the one already showing it.
@@ -17,13 +17,22 @@ pub async fn file_window<R: Runtime>(
     let path = own_path(&href, crate::APP_SCHEME).ok_or("refused")?;
     let label = window_label(&path);
     if let Some(window) = app.get_webview_window(&label) {
+        let _ = window.show();
         let _ = window.unminimize();
         return window.set_focus().map_err(|_| "failed".to_owned());
     }
-    let url = crate::app_url().join(&path).map_err(|_| "refused")?;
+    let base = crate::app_url();
+    let url = base.join(&path).map_err(|_| "refused")?;
+    // Belt and braces after `own_path`: the joined address must still be the app's own origin.
+    if url.scheme() != base.scheme()
+        || url.host_str() != base.host_str()
+        || url.port() != base.port()
+    {
+        return Err("refused".into());
+    }
     // An async command, so the build runs off the main thread (a synchronous one can deadlock on Windows).
-    WebviewWindowBuilder::new(&app, label, WebviewUrl::CustomProtocol(url))
-        .title(safe_name(&title))
+    let built = WebviewWindowBuilder::new(&app, &label, WebviewUrl::CustomProtocol(url))
+        .title(window_title(&title))
         .inner_size(1000.0, 760.0)
         .decorations(true)
         .on_navigation({
@@ -38,7 +47,13 @@ pub async fn file_window<R: Runtime>(
             let handle = app.clone();
             move |_, event| crate::route_download(&handle, event)
         })
-        .build()
-        .map(|_| ())
-        .map_err(|_| "failed".to_owned())
+        .build();
+    match built {
+        Ok(_) => Ok(()),
+        // A second call for the same address won the race: show that window.
+        Err(_) => match app.get_webview_window(&label) {
+            Some(window) => window.set_focus().map_err(|_| "failed".to_owned()),
+            None => Err("failed".to_owned()),
+        },
+    }
 }

@@ -9,7 +9,17 @@ use sha2::{Digest, Sha256};
 /// The path and query of a link of the app's own origin (or a relative one); `None` for any other.
 /// `scheme` is the custom protocol's name; Windows spells that origin as `http://<scheme>.localhost`.
 pub fn own_path(href: &str, scheme: &str) -> Option<String> {
-    if href.starts_with('/') && !href.starts_with("//") {
+    let path = own_path_unchecked(href, scheme)?;
+    // A path that starts with two slashes (or a slash and a backslash, which the URL parser reads
+    // the same way) is host-relative once joined to the app's origin: it would name another site.
+    if !path.starts_with('/') || path.starts_with("//") || path.contains('\\') {
+        return None;
+    }
+    Some(path)
+}
+
+fn own_path_unchecked(href: &str, scheme: &str) -> Option<String> {
+    if href.starts_with('/') {
         return Some(href.to_owned());
     }
     let url = url::Url::parse(href).ok()?;
@@ -42,6 +52,21 @@ pub fn safe_name(name: &str) -> String {
     } else {
         cleaned
     }
+}
+
+/// The title of a viewer window: the file's name as the person knows it, so punctuation stays (a
+/// title is no path); control characters go, and it is cut to 120 characters. Never empty.
+pub fn window_title(title: &str) -> String {
+    let cleaned: String = title.chars().filter(|c| !c.is_control()).collect();
+    let cleaned = cleaned.trim();
+    if cleaned.is_empty() {
+        return "Ruchoir".to_owned();
+    }
+    if cleaned.chars().count() > 120 {
+        let cut: String = cleaned.chars().take(120).collect();
+        return format!("{}...", cut.trim_end());
+    }
+    cleaned.to_owned()
 }
 
 /// The label of the window showing `path`: `viewer-` and the first 16 hex characters of its sha256
@@ -82,6 +107,36 @@ mod tests {
             own_path("http://ruchoir-app.localhost.evil.org/x", SCHEME),
             None
         );
+    }
+
+    #[test]
+    fn a_link_never_escapes_the_apps_origin() {
+        for href in [
+            "//evil.org/x",
+            "/\\evil.org/x",
+            "\\evil.org/x",
+            "ruchoir-app://localhost//evil.org/x",
+            "http://ruchoir-app.localhost//evil.org/x",
+            "/a\\b",
+            "ruchoir-app://localhost/a%5Cb\\c",
+        ] {
+            assert_eq!(own_path(href, SCHEME), None, "{href}");
+        }
+        assert_eq!(
+            own_path("/i/x/files/a?name=b%20c&d=1", SCHEME).as_deref(),
+            Some("/i/x/files/a?name=b%20c&d=1")
+        );
+    }
+
+    #[test]
+    fn a_title_is_cleaned_not_renamed() {
+        assert_eq!(window_title("Devis: 2026?.pdf"), "Devis: 2026?.pdf");
+        assert_eq!(window_title("  a\nb\u{7}c  "), "abc");
+        assert_eq!(window_title(" \n "), "Ruchoir");
+        let long = "é".repeat(200);
+        let t = window_title(&long);
+        assert_eq!(t.chars().count(), 123);
+        assert!(t.ends_with("..."));
     }
 
     #[test]
