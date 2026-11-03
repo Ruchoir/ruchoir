@@ -117,7 +117,7 @@ export function ChannelDetails({
                     </span>
                   ))}
                 </span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{members.length}</span>
+                <span style={{ fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{members.length}</span>
               </span>
             }
             onClick={() => onOpenPanel("members")}

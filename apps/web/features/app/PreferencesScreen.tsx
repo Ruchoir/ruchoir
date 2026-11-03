@@ -156,7 +156,7 @@ const st: Record<string, CSSProperties> = {
   },
   sub: { fontSize: "var(--text-md)", color: "var(--text-body)", marginBottom: 8 },
   sect: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
@@ -434,7 +434,7 @@ function NotificationKinds() {
         <div
           role="row"
           style={{
-            fontFamily: "var(--font-mono)",
+            fontFamily: "var(--label-font)",
             display: "flex",
             alignItems: "center",
             gap: 8,
@@ -609,7 +609,7 @@ function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: Font
               borderRadius: "var(--radius-md)",
               background: "var(--surface-card)",
               // Chosen: an ink edge and the offset shadow, as the chosen theme.
-              border: `1.5px solid ${selected ? "var(--ink)" : "var(--border-default)"}`,
+              border: `1.5px solid ${selected ? "var(--edge-focus)" : "var(--border-default)"}`,
               boxShadow: selected ? "var(--shadow-popover)" : "none",
               transition: "border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)",
             }}
@@ -620,7 +620,7 @@ function FontPicker({ value, onChange }: { value: FontChoice; onChange: (f: Font
             <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: 1, overflowWrap: "anywhere" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{t(f.label)}</span>
-                {selected ? <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t("prefs.active")}</span> : null}
+                {selected ? <span style={{ fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t("prefs.active")}</span> : null}
               </span>
               <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t(f.desc)}</span>
               {/* Sample rendered in the target font so the choice previews before it is applied. */}
@@ -667,7 +667,7 @@ function TextSizePicker({ value, onChange }: { value: TextSize; onChange: (t: Te
               borderRadius: "var(--radius-md)",
               background: "var(--surface-card)",
               // Chosen: an ink edge and the offset shadow, as the chosen theme.
-              border: `1.5px solid ${selected ? "var(--ink)" : "var(--border-default)"}`,
+              border: `1.5px solid ${selected ? "var(--edge-focus)" : "var(--border-default)"}`,
               boxShadow: selected ? "var(--shadow-popover)" : "none",
               transition: "border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)",
             }}
@@ -747,7 +747,7 @@ function ModePicker({ value, onChange }: { value: ThemeMode; onChange: (m: Theme
 }
 
 const kbdStyle: CSSProperties = {
-  fontFamily: "var(--font-mono)",
+  fontFamily: "var(--label-font)",
   fontSize: "var(--text-2xs)",
   color: "var(--text-strong)",
   background: "var(--surface-card)",
@@ -806,7 +806,7 @@ function ShortcutRow({
             style={{
               ...kbdStyle,
               color: "var(--text-accent)",
-              borderColor: "var(--border-accent)",
+              borderColor: "var(--edge-focus)",
               background: "var(--surface-selected)",
             }}
           >

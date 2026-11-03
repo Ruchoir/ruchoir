@@ -185,7 +185,7 @@ export function ShareDialog({
             ) : (
               groups.map((g) => (
                 <div key={g.key} role="group" aria-label={heading(g.key)}>
-                  <div style={{ padding: "8px 8px 4px", fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{heading(g.key)}</div>
+                  <div style={{ padding: "8px 8px 4px", fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{heading(g.key)}</div>
                   {g.items.map((c) => (
                     <button
                       key={c.id}
@@ -248,7 +248,7 @@ export function ShareDialog({
               <div key={link.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderTop: "1px solid var(--border-subtle)" }}>
                 <Icon name="globe" size={16} style={{ flex: "none", color: "var(--text-muted)" }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-2xs)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {link.url}
                   </div>
                   <div style={{ fontSize: "var(--text-2xs)", color: link.expired ? "var(--status-danger-fg)" : "var(--text-muted)" }}>

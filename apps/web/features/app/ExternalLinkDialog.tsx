@@ -47,14 +47,14 @@ const st: Record<string, CSSProperties> = {
   url: {
     margin: "4px 0 0",
     fontSize: "var(--text-2xs)",
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     color: "var(--text-muted)",
     overflowWrap: "anywhere",
     maxHeight: 54,
     overflowY: "auto",
   },
   section: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     margin: "20px 0 8px",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,

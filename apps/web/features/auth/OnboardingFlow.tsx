@@ -20,7 +20,7 @@ const styles: Record<string, CSSProperties> = {
   seg: { flex: 1, height: 4, borderRadius: "var(--radius-full)", background: "var(--grey-200)" },
   segOn: { background: "var(--ink)" },
   step: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",
@@ -29,7 +29,7 @@ const styles: Record<string, CSSProperties> = {
   sub: { fontSize: "var(--text-sm)", color: "var(--text-muted)", marginTop: 6 },
   card: {
     background: "var(--surface-raised)",
-    border: "2px solid var(--ink)",
+    border: "2px solid var(--edge-float)",
     borderRadius: "var(--radius-lg)",
     boxShadow: "var(--shadow-dialog)",
     padding: 24,

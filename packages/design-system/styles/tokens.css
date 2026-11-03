@@ -156,7 +156,7 @@
   --tracking-display: -0.035em;
   --tracking-tight: -0.02em;
   --tracking-normal: 0;
-  /* Section labels are set in the monospace face, in sentence case, not in spaced capitals. */
+  /* Section labels are set in the label face, in sentence case, not in spaced capitals. */
   --tracking-caps: 0;
 
   /* Spacing: 4px grid, 2px half-steps for optical adjustments. */
@@ -217,6 +217,37 @@
   --shadow-inset-top: inset 0 1px 0 var(--line);
   /* The lift of a primary action under the pointer: a bee-yellow offset. */
   --shadow-lift: 4px 4px 0 var(--bee);
+  /*
+   * The other offsets the components draw, each named after its role. A simplified style turns
+   * every one of them off; the Ruchoir style keeps these values.
+   */
+  --shadow-lift-sm: 3px 3px 0 var(--bee);
+  --shadow-lift-lg: 8px 8px 0 var(--bee);
+  --shadow-accent: 4px 4px 0 var(--acc);
+  --shadow-editing: 4px 4px 0 var(--peach);
+  --shadow-ring-offset: 0 0 0 2px var(--ink), 3px 3px 0 2px var(--ink);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--ink), 2px 2px 0 1.5px var(--ink);
+
+  /* Lifts: how far something moves under the pointer, and how far it sinks when pressed. */
+  --lift: translate(-2px, -2px);
+  --lift-sm: translate(-1px, -1px);
+  --lift-y-sm: translateY(-1px);
+  --press: translate(3px, 3px);
+
+  /*
+   * Ink edges. `--edge-float` is the resting edge of what floats (a popover, a menu, a dialog, the
+   * composer, a card); `--edge-focus` is the edge or outline that marks hover, focus, selection and
+   * the active control. A token holding `var(--ink)` is resolved here, at the root: a block that
+   * redefines `--ink` below it (`.wc-pastel`) restates these too.
+   */
+  --edge-float: var(--ink);
+  --edge-focus: var(--ink);
+
+  /* Labels, hints, times and keys: the interface face. Monospace is for code only. */
+  --label-font: var(--font-sans);
+
+  /* Square avatars; a round one (`.wc-av--round`) keeps the full radius. */
+  --avatar-radius: var(--radius-sm);
 
   --ring-width: 2px;
   --ring-offset: 2px;
@@ -318,6 +349,18 @@
   /* Import provenance (Nextcloud, Slack, Mattermost): grey, never coloured. */
   --import-source-fg: var(--muted);
   --import-source-bg: var(--grey-50);
+
+  /* Panes: the rail of spaces and the sidebar, and the item selected in it. */
+  --sidebar-bg: var(--surface-chrome);
+  --sidebar-selected-bg: var(--acc);
+  --sidebar-selected-fg: var(--on-pastel);
+  --rail-bg: var(--surface-canvas);
+
+  /* Message density: the avatar's distance to the text, and the row's padding. */
+  --msg-gap: 14px;
+  --msg-pad-x: 8px;
+  --msg-pad-top: 6px;
+  --msg-pad-top-grouped: 2px;
 }
 
 /* Base reset. */

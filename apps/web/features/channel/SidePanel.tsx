@@ -115,7 +115,7 @@ export function SidePanel({ kind, files, members, membersLoading = false, pinned
                   <span style={{ display: "block", fontSize: "var(--text-sm)", color: "var(--text-strong)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {fl.name}
                   </span>
-                  <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                  <span style={{ display: "block", fontSize: "var(--text-2xs)", color: "var(--text-muted)", fontFamily: "var(--label-font)" }}>
                     {fl.kind === "folder" ? "" : `${formatBytes(fl.sizeBytes)} · `}{formatStamp(fl.updatedAt)}
                   </span>
                 </span>

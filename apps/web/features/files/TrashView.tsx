@@ -25,7 +25,7 @@ const styles: Record<string, CSSProperties> = {
   wrap: { border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-md)", overflow: "hidden", background: "var(--surface-card)" },
   table: { width: "100%", borderCollapse: "collapse", tableLayout: "fixed" },
   th: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     height: 36,
     textAlign: "left",
     fontSize: "var(--text-2xs)",

@@ -14,7 +14,7 @@ import type { Occurrence } from "@/lib/data/calendar";
 
 const styles: Record<string, CSSProperties> = {
   label: {
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     fontWeight: 500,
     color: "var(--text-muted)",

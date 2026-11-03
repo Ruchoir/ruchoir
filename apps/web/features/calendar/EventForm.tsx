@@ -642,7 +642,7 @@ export function EventForm({ compact, calendars, spaces, currentSpaceId, viewerId
               gap: 8,
               padding: 14,
               background: "var(--surface-card)",
-              border: "2px solid var(--ink)",
+              border: "2px solid var(--edge-float)",
               borderRadius: "var(--radius-lg)",
               boxShadow: "var(--shadow-popover)",
             }}

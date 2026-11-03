@@ -16,7 +16,7 @@ export type CodeBlockProps = {
 const pickerPanel: CSSProperties = {
   width: 240,
   background: "var(--surface-raised)",
-  border: "2px solid var(--ink)",
+  border: "2px solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
   overflow: "hidden",
@@ -116,7 +116,7 @@ function langItem(active: boolean): CSSProperties {
     borderRadius: "var(--radius-sm)",
     background: active ? "var(--surface-selected)" : "transparent",
     color: active ? "var(--text-accent)" : "var(--text-body)",
-    fontFamily: "var(--font-mono)",
+    fontFamily: "var(--label-font)",
     fontSize: "var(--text-2xs)",
     textAlign: "left",
     cursor: "pointer",

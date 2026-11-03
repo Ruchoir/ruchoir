@@ -158,7 +158,7 @@ function NextView({ p, event, message }: { p: WidgetPalette; event?: Event; mess
           <>
             <TextWidget
               text={event.all_day ? t("widgets.allDay") : time(new Date(event.start))}
-              style={{ fontSize: 28, fontWeight: "700", fontFamily: "monospace", color: p.strong }}
+              style={{ fontSize: 28, fontWeight: "700", color: p.strong }}
               maxLines={1}
             />
             <TextWidget text={event.title} style={{ fontSize: 15, fontWeight: "700", color: p.strong }} maxLines={2} truncate="END" />
@@ -286,7 +286,7 @@ function DiscussionsView({ p, rows, message }: { p: WidgetPalette; rows: Row[]; 
               >
                 <TextWidget
                   text={row.unread > 99 ? "99+" : String(row.unread)}
-                  style={{ fontSize: 11, fontWeight: "700", fontFamily: "monospace", color: row.channel ? p.onPastel : p.surface }}
+                  style={{ fontSize: 11, fontWeight: "700", color: row.channel ? p.onPastel : p.surface }}
                 />
               </FlexWidget>
             ) : null}

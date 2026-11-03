@@ -10,7 +10,7 @@ const menu: CSSProperties = {
   minWidth: 220,
   padding: 4,
   background: "var(--surface-raised)",
-  border: "2px solid var(--ink)",
+  border: "2px solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
