@@ -35,6 +35,13 @@ export type ClientOptions = {
    * session that ended.
    */
   onUnauthorized: (code?: string) => void;
+  /**
+   * Send every multipart upload as one in-memory `ArrayBuffer` (with its own `Content-Type`) instead
+   * of a `FormData`. Set by the desktop app only: its webview's custom protocol drops the file-backed
+   * parts of a multipart body (WebView2 and WebKit), so uploads arrived empty. The web and the phone
+   * leave it unset and send the `FormData` untouched. Costs the file in memory while it is sent.
+   */
+  inMemoryUploads?: boolean;
 };
 
 const DEFAULTS: ClientOptions = {
@@ -44,6 +51,7 @@ const DEFAULTS: ClientOptions = {
   locale: () => "fr",
   openSocket: (url) => new WebSocket(url),
   onUnauthorized: () => {},
+  inMemoryUploads: false,
 };
 
 let options: ClientOptions = { ...DEFAULTS };

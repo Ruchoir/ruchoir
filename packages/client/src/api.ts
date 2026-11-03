@@ -13,6 +13,7 @@
  * `ApiMessage` is the front `Message` with that string id.
  */
 import { ApiError, apiErrorMessage, defaultTransport, type Transport } from "./http.ts";
+import { multipartBody } from "./multipart.ts";
 import { toEventCard, type EventCardDto } from "./calendar.ts";
 import type { AccountPrefsDoc } from "./accountPrefs.ts";
 import type {
@@ -2051,14 +2052,33 @@ export function createApi(transport: Transport) {
       xhr.onerror = () => reject(new ApiError(0, "network", null));
       xhr.onabort = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
     });
-    xhr.open(method, `${apiBase()}${path}`);
     const auth = authInit();
-    // Same-origin on the web, where the cookie goes anyway; an app presents its bearer and no cookie.
-    xhr.withCredentials = false;
-    for (const [name, value] of Object.entries(auth.headers)) xhr.setRequestHeader(name, value);
-    if (onProgress) xhr.upload.onprogress = (event) => onProgress(event.loaded);
-    xhr.send(form);
-    return { done, abort: () => xhr.abort() };
+    const begin = (payload: BodyInit, contentType?: string) => {
+      xhr.open(method, `${apiBase()}${path}`);
+      // Same-origin on the web, where the cookie goes anyway; an app presents its bearer and no cookie.
+      xhr.withCredentials = false;
+      for (const [name, value] of Object.entries(auth.headers)) xhr.setRequestHeader(name, value);
+      if (contentType) xhr.setRequestHeader("Content-Type", contentType);
+      if (onProgress) xhr.upload.onprogress = (event) => onProgress(event.loaded);
+      xhr.send(payload);
+    };
+    if (!clientOptions().inMemoryUploads) {
+      begin(form);
+      return { done, abort: () => xhr.abort() };
+    }
+    // The form is flattened first (see `multipart.ts`), which takes a moment: an abort in that
+    // window has no request to cancel yet, so it is remembered and the send is skipped.
+    let aborted = false;
+    multipartBody(form).then(({ body, contentType }) => {
+      if (!aborted) begin(body, contentType);
+    }, () => xhr.abort());
+    return {
+      done,
+      abort: () => {
+        aborted = true;
+        xhr.abort();
+      },
+    };
   }
 
   /** {@link startAttachmentUpload}, for a caller that needs neither progress nor a way to stop it. */
@@ -2808,6 +2828,18 @@ export function createApi(transport: Transport) {
     return { ...toSpaceFile(dto), ...(dto.merged === "version" ? { merged: true } : {}) };
   };
 
+  /**
+   * The `fetch` options carrying `form`: the credentials and bearer, and the body, which is the
+   * `FormData` itself (the platform then sets the boundary) or, under `inMemoryUploads`, its bytes with
+   * the `Content-Type` that names the boundary (see `multipart.ts`).
+   */
+  async function multipartInit(form: FormData): Promise<RequestInit> {
+    const auth = authInit();
+    if (!clientOptions().inMemoryUploads) return { ...auth, body: form };
+    const { body, contentType } = await multipartBody(form);
+    return { ...auth, headers: { ...auth.headers, "Content-Type": contentType }, body };
+  }
+
   /** `POST /spaces/{id}/files`: upload a file (multipart) into the root or a folder. */
   async function uploadFile(spaceId: string, file: File, parentId?: string, answer?: DuplicateAnswer): Promise<UploadedFile> {
     const form = new FormData();
@@ -2819,8 +2851,7 @@ export function createApi(transport: Transport) {
     // Multipart: let the browser set the boundary, so this call does not go through the JSON client.
     const res = await fetch(`${apiBase()}/spaces/${spaceId}/files`, {
       method: "POST",
-      ...authInit(),
-      body: form,
+      ...(await multipartInit(form)),
     });
     if (!res.ok) {
       const text = await res.text().catch(() => null);
@@ -2867,8 +2898,7 @@ export function createApi(transport: Transport) {
     form.append("file", file);
     const res = await fetch(`${apiBase()}/files/${fileId}/versions`, {
       method: "POST",
-      ...authInit(),
-      body: form,
+      ...(await multipartInit(form)),
     });
     if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`, await res.text().catch(() => null));
     return toSpaceFile((await res.json()) as FileDto);
@@ -3090,12 +3120,30 @@ export function createApi(transport: Transport) {
       xhr.onerror = () => reject(new ApiError(0, "network", null));
       xhr.onabort = () => reject(new DOMException("aborted", "AbortError"));
     });
-    xhr.open("POST", url);
     const auth = authInit();
-    xhr.withCredentials = auth.credentials === "same-origin";
-    for (const [name, value] of Object.entries(auth.headers)) xhr.setRequestHeader(name, value);
-    xhr.send(form);
-    return { done, abort: () => xhr.abort() };
+    const begin = (payload: BodyInit, contentType?: string) => {
+      xhr.open("POST", url);
+      xhr.withCredentials = auth.credentials === "same-origin";
+      for (const [name, value] of Object.entries(auth.headers)) xhr.setRequestHeader(name, value);
+      if (contentType) xhr.setRequestHeader("Content-Type", contentType);
+      xhr.send(payload);
+    };
+    if (!clientOptions().inMemoryUploads) {
+      begin(form);
+      return { done, abort: () => xhr.abort() };
+    }
+    // Flattened first (see `multipart.ts`); an abort during that wait skips the send.
+    let aborted = false;
+    multipartBody(form).then(({ body, contentType }) => {
+      if (!aborted) begin(body, contentType);
+    }, () => xhr.abort());
+    return {
+      done,
+      abort: () => {
+        aborted = true;
+        xhr.abort();
+      },
+    };
   }
 
   /**
