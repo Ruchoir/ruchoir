@@ -2065,7 +2065,6 @@
     "created": "Group created",
     "saved": "Group saved",
     "empty": "No groups yet.",
-    "loadFailed": "The groups could not be read. Try again in a moment.",
     "colGroup": "Group",
     "colRoles": "Roles carried",
     "colManagers": "Managers",
@@ -2110,6 +2109,8 @@
     "rolesIntro_one": "The person in the group gets the ticked roles, on top of their own. You can only have it carry roles placed below yours.",
     "rolesIntro_other": "The {{count}} members of the group get the ticked roles, on top of their own. You can only have it carry roles placed below yours.",
     "noSelfRole": "Nobody gives themselves a role, through a group either: you cannot change the roles of a group you belong to.",
+    "noSelfJoin": "You cannot add yourself to a group that carries roles.",
+    "guestCeiling": "Guests stay under the guest ceiling: they only receive what that ceiling allows.",
     "refusal": {
       "fromDirectory": "This group comes from the directory: its members and its name are changed there.",
       "nameTaken": "Another group already has this name.",

@@ -2142,7 +2142,6 @@
     "created": "Grupo creado",
     "saved": "Grupo guardado",
     "empty": "Aún no hay grupos.",
-    "loadFailed": "No se han podido leer los grupos. Inténtalo de nuevo en un momento.",
     "colGroup": "Grupo",
     "colRoles": "Roles asignados",
     "colManagers": "Responsables",
@@ -2192,6 +2191,8 @@
     "rolesIntro_many": "Los {{count}} miembros del grupo reciben los roles marcados, además de los suyos. Solo puedes asignar al grupo roles situados por debajo del tuyo.",
     "rolesIntro_other": "Los {{count}} miembros del grupo reciben los roles marcados, además de los suyos. Solo puedes asignar al grupo roles situados por debajo del tuyo.",
     "noSelfRole": "Nadie se da un rol a sí mismo, tampoco a través de un grupo: no puedes cambiar los roles de un grupo del que formas parte.",
+    "noSelfJoin": "No puedes añadirte a ti mismo a un grupo que lleva roles.",
+    "guestCeiling": "Las personas invitadas se quedan bajo el límite de invitados: solo reciben lo que ese límite permite.",
     "refusal": {
       "fromDirectory": "Este grupo viene del directorio: sus miembros y su nombre se cambian allí.",
       "nameTaken": "Otro grupo ya tiene este nombre.",

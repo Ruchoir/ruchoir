@@ -8,10 +8,11 @@ import { refusalOf, removeGroupMember } from "@/lib/data/api";
 import type { Group, Role, SpaceEdition } from "@/lib/data/types";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
-import { groupColour, GroupIcon } from "../settings/GroupEditor";
-import { AddPeopleDialog } from "../settings/GroupDialogs";
+import { AddPeopleDialog } from "../groups/AddPeopleDialog";
+import { isManagerOf, offersLeaving, offersManagement, removalOf } from "../groups/groupPanelLogic.ts";
+import { groupColour, GroupIcon } from "../groups/GroupIcon";
+import { groupPeople } from "../settings/groupsLogic.ts";
 import { refusalMessage, RoleChip, roleLabel } from "../settings/MemberAccess";
-import { isManagerOf, offersLeaving, offersManagement, removalOf } from "./groupPanelLogic.ts";
 import { PanelHead } from "./PanelHead";
 
 const st: Record<string, CSSProperties> = {
@@ -59,15 +60,15 @@ export function GroupPanel({ spaceId, group, edition, roles, members, viewerId, 
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const licensed = edition !== "community";
-  const manage = offersManagement(group, viewerId);
+  const manage = offersManagement(group);
   const managing = manage && tab === "manage";
   const carries = roles.filter((r) => group.roleIds.includes(r.id));
-  const byId = new Map(members.map((m) => [m.userId, m]));
-  const people = group.memberIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
+  const { people, missing } = groupPeople(group, members);
+  const viewerIsOwner = members.find((m) => m.userId === viewerId)?.role === "owner";
   const managersFirst = [...people].sort((a, b) => Number(group.managerIds.includes(b.userId)) - Number(group.managerIds.includes(a.userId)));
 
   const failed = (err: unknown) =>
-    onNotify({ tone: "danger", title: t("roles.saveFailed"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
+    onNotify({ tone: "danger", title: t("roles.saveFailed"), description: refusalMessage(refusalOf(err), t, t("space.retry"), "members") });
 
   const write = async (action: () => Promise<unknown>, done: string, then?: () => void) => {
     setBusy(true);
@@ -148,7 +149,7 @@ export function GroupPanel({ spaceId, group, edition, roles, members, viewerId, 
       {!managing ? (
         <div style={st.scroll}>
           <div style={{ ...st.hero, background: `var(--${groupColour(group.id)})` }} className="wc-pastel">
-            <GroupIcon id={group.id} size={56} />
+            <GroupIcon id={group.id} size={64} framed />
             <div style={{ fontSize: "var(--text-xl)", fontWeight: 700, letterSpacing: "var(--tracking-tight)" }}>{group.name}</div>
             {group.description ? <div style={{ fontSize: "var(--text-xs)" }}>{group.description}</div> : null}
           </div>
@@ -165,6 +166,7 @@ export function GroupPanel({ spaceId, group, edition, roles, members, viewerId, 
           <div style={st.section}>
             <div style={st.label}>{t("groups.peopleHead", { count: people.length })}</div>
             {people.length === 0 ? <div style={st.sub}>{t("groups.nobody")}</div> : managersFirst.map((m) => row(m, null))}
+            {missing > 0 ? <div style={{ ...st.sub, marginTop: 6 }}>{t("audit.formerMembers", { count: missing })}</div> : null}
           </div>
           <div style={{ ...st.section, ...st.note }}>
             <Icon name="at-sign" size={14} style={{ color: "var(--text-muted)", marginTop: 1, flex: "none" }} />
@@ -178,7 +180,7 @@ export function GroupPanel({ spaceId, group, edition, roles, members, viewerId, 
           <div style={st.section}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
               <div style={{ ...st.label, marginBottom: 0 }}>{t("groups.peopleHead", { count: people.length })}</div>
-              {group.may.changeMembers || isManagerOf(group, viewerId) ? (
+              {group.may.changeMembers ? (
                 <Button size="sm" variant="secondary" iconLeft="user-plus" disabled={busy} onClick={() => setAdding(true)}>
                   {t("groups.addPeople")}
                 </Button>
@@ -208,6 +210,7 @@ export function GroupPanel({ spaceId, group, edition, roles, members, viewerId, 
               }
               return row(m, trailing);
             })}
+            {missing > 0 ? <div style={{ ...st.sub, marginTop: 6 }}>{t("audit.formerMembers", { count: missing })}</div> : null}
           </div>
           <div style={{ ...st.section, ...st.note }}>
             <Icon name="info" size={14} style={{ color: "var(--text-muted)", marginTop: 1, flex: "none" }} />
@@ -226,6 +229,8 @@ export function GroupPanel({ spaceId, group, edition, roles, members, viewerId, 
           group={group}
           members={members}
           carries={licensed ? carries : []}
+          viewerId={viewerId}
+          viewerIsOwner={viewerIsOwner}
           onClose={() => setAdding(false)}
           onChanged={onChanged}
           onNotify={onNotify}

@@ -2065,7 +2065,6 @@
     "created": "Gruppe erstellt",
     "saved": "Gruppe gespeichert",
     "empty": "Noch keine Gruppen.",
-    "loadFailed": "Die Gruppen konnten nicht gelesen werden. Versuchen Sie es gleich noch einmal.",
     "colGroup": "Gruppe",
     "colRoles": "Getragene Rollen",
     "colManagers": "Verantwortliche",
@@ -2110,6 +2109,8 @@
     "rolesIntro_one": "Die Person in der Gruppe erhält die angekreuzten Rollen zusätzlich zu ihren eigenen. Sie können nur Rollen tragen lassen, die unter Ihrer eigenen liegen.",
     "rolesIntro_other": "Die {{count}} Mitglieder der Gruppe erhalten die angekreuzten Rollen zusätzlich zu ihren eigenen. Sie können nur Rollen tragen lassen, die unter Ihrer eigenen liegen.",
     "noSelfRole": "Niemand gibt sich selbst eine Rolle, auch nicht über eine Gruppe: Sie können die Rollen einer Gruppe, der Sie angehören, nicht ändern.",
+    "noSelfJoin": "Sie können sich nicht selbst zu einer Gruppe hinzufügen, die Rollen trägt.",
+    "guestCeiling": "Gäste bleiben unter der Gästegrenze: Sie erhalten nur, was diese Grenze zulässt.",
     "refusal": {
       "fromDirectory": "Diese Gruppe stammt aus dem Verzeichnis: Mitglieder und Name werden dort geändert.",
       "nameTaken": "Eine andere Gruppe heißt schon so.",

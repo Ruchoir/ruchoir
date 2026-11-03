@@ -578,6 +578,7 @@ export function WorkspaceSettings({
               edition={edition}
               roles={roles}
               members={members}
+              groups={groups}
               me={me}
               pricingUrl={pricingUrl}
               onChanged={onAccessChanged}

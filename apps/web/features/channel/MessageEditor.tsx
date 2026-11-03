@@ -13,9 +13,9 @@ import {
 } from "@/lib/data";
 import { searchShortcodes } from "@/lib/shortcodes";
 import { Emoji } from "../app/Emoji";
-import { GroupIcon } from "../settings/GroupEditor";
+import { GroupIcon } from "../groups/GroupIcon";
 import { foldName } from "../settings/groupsLogic.ts";
-import { groupHitsFor } from "./groupPanelLogic.ts";
+import { groupHitsFor } from "../groups/groupPanelLogic.ts";
 import { useEmojiManifest } from "../app/emojiManifest";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import {

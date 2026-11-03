@@ -96,3 +96,21 @@ export function rolePeople<M extends { userId: string; roleIds?: string[] }, G e
   for (const v of viaGroups) for (const m of v.members) holderIds.add(m.userId);
   return { direct, viaGroups, holderIds: [...holderIds] };
 }
+
+/**
+ * The people of a group that the space still has, in the group's order, and how many ids point at
+ * someone no longer in it. Headers show the first count, so they match the rows drawn.
+ */
+export function groupPeople<M extends { userId: string }>(group: Pick<GroupLike, "memberIds">, members: M[]): { people: M[]; missing: number } {
+  const byId = new Map(members.map((m) => [m.userId, m]));
+  const people = group.memberIds.map((id) => byId.get(id)).filter((m): m is M => !!m);
+  return { people, missing: group.memberIds.length - people.length };
+}
+
+/**
+ * The dictionary key for the server's `no_self_role` refusal, by what was being done: changing the
+ * roles of a group one is in ("roles"), or putting oneself in a group that carries some ("members").
+ */
+export function selfRoleKey(context: "roles" | "members"): "groups.noSelfRole" | "groups.noSelfJoin" {
+  return context === "members" ? "groups.noSelfJoin" : "groups.noSelfRole";
+}

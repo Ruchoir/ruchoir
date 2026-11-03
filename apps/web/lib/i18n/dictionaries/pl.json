@@ -2219,7 +2219,6 @@
     "created": "Grupa utworzona",
     "saved": "Grupa zapisana",
     "empty": "Na razie nie ma grup.",
-    "loadFailed": "Nie udało się wczytać grup. Spróbuj za chwilę.",
     "colGroup": "Grupa",
     "colRoles": "Nadane role",
     "colManagers": "Opiekunowie",
@@ -2274,6 +2273,8 @@
     "rolesIntro_many": "{{count}} członków grupy dostaje zaznaczone role oprócz własnych. Grupie możesz nadać tylko role położone poniżej Twojej.",
     "rolesIntro_other": "{{count}} członków grupy dostaje zaznaczone role oprócz własnych. Grupie możesz nadać tylko role położone poniżej Twojej.",
     "noSelfRole": "Nikt nie nadaje sobie roli, także przez grupę: nie możesz zmieniać ról grupy, do której należysz.",
+    "noSelfJoin": "Nie możesz dodać siebie do grupy, która nadaje role.",
+    "guestCeiling": "Goście pozostają pod limitem gości: otrzymują tylko to, na co ten limit pozwala.",
     "refusal": {
       "fromDirectory": "Ta grupa pochodzi z katalogu: jej członków i nazwę zmienia się tam.",
       "nameTaken": "Inna grupa ma już tę nazwę.",

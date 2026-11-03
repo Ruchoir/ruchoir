@@ -136,7 +136,8 @@ import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
 import { foldName } from "@/features/settings/groupsLogic.ts";
 import { GroupPanel } from "@/features/channel/GroupPanel";
-import { MemberGroupsSummary, MemberManagement, MemberRolesSummary, refusalMessage } from "@/features/settings/MemberAccess";
+import { MemberGroupsSummary } from "@/features/groups/MemberGroups";
+import { MemberManagement, MemberRolesSummary, refusalMessage } from "@/features/settings/MemberAccess";
 import { canGiveAdministrator, rightsOf, spaceGates } from "./spaceGates";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
@@ -3498,14 +3499,17 @@ function AppShell() {
    * Read the people and the roles of the open space again, after a change to either: a role's
    * holders, someone's roles, Administrator given through the legacy column all move both lists.
    */
+  const accessRequest = useRef(0);
   const refreshAccess = async () => {
     const space = ws;
+    // Only the newest read may write: a slow older answer never overwrites a newer one.
+    const mine = ++accessRequest.current;
     const [fresh, roles, groups] = await Promise.all([
       getSpaceMembers(space).catch(() => null),
       listRoles(space).catch(() => null),
       listGroups(space).catch(() => null),
     ]);
-    if (liveRef.current.ws !== space) return;
+    if (liveRef.current.ws !== space || mine !== accessRequest.current) return;
     if (fresh) setMembers(fresh);
     if (roles) setSpaceRoles(roles);
     if (groups) setSpaceGroups(groups);

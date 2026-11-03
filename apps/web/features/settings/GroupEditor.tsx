@@ -8,11 +8,13 @@ import type { Group, Role, SpaceEdition } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
-import { AddPeopleDialog, DeleteGroupDialog } from "./GroupDialogs";
+import { AddPeopleDialog } from "../groups/AddPeopleDialog";
+import { offersManagement, removalOf } from "../groups/groupPanelLogic.ts";
+import { GroupIcon } from "../groups/GroupIcon";
+import { DeleteGroupDialog } from "./GroupDialogs";
 import { GroupRolesTab } from "./GroupRolesTab";
-import { foldName, groupRow } from "./groupsLogic.ts";
+import { foldName, groupPeople, groupRow } from "./groupsLogic.ts";
 import { refusalMessage, roleLabel } from "./MemberAccess";
-import { ROLE_COLOURS } from "./RoleEditor";
 
 const st: Record<string, CSSProperties> = {
   crumb: { display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: "var(--text-muted)", marginBottom: 14 },
@@ -35,35 +37,6 @@ const st: Record<string, CSSProperties> = {
   },
   person: { display: "flex", alignItems: "center", gap: 12, padding: "10px 14px" },
 };
-
-/** The pastel a group wears, always the same for the same group. */
-export function groupColour(id: string): string {
-  let hash = 0;
-  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return ROLE_COLOURS[hash % ROLE_COLOURS.length];
-}
-
-/** A group's square: one of the pastels, always the same for the same group. */
-export function GroupIcon({ id, size = 36 }: { id: string; size?: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        width: size,
-        height: size,
-        flex: "none",
-        borderRadius: "var(--radius-md)",
-        background: `var(--${groupColour(id)})`,
-        color: "var(--on-pastel)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Icon name="users" size={Math.round(size / 2)} />
-    </span>
-  );
-}
 
 export type GroupEditorProps = {
   spaceId: string;
@@ -102,14 +75,14 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
     setDescription(group.description ?? "");
   }
   const { carries } = groupRow(group, roles, { frozen });
-  const byId = new Map(members.map((m) => [m.userId, m]));
-  const people = group.memberIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
+  const { people, missing } = groupPeople(group, members);
+  const viewerId = me?.userId ?? "";
   const needle = foldName(query.trim());
   const shown = people.filter((m) => foldName(m.name).includes(needle));
-  const peopleLabel = t("message.reactors", { count: group.memberIds.length });
+  const peopleLabel = t("message.reactors", { count: people.length });
 
   const failed = (err: unknown) =>
-    onNotify({ tone: "danger", title: t("roles.saveFailed"), description: refusalMessage(refusalOf(err), t, t("space.retry")) });
+    onNotify({ tone: "danger", title: t("roles.saveFailed"), description: refusalMessage(refusalOf(err), t, t("space.retry"), "members") });
 
   const setManager = async (userId: string, on: boolean) => {
     setBusy(true);
@@ -153,7 +126,7 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
   };
 
   const tabs = [
-    { value: "people", label: t("gsearch.people"), count: group.memberIds.length },
+    { value: "people", label: t("gsearch.people"), count: people.length },
     ...(licensed ? [{ value: "roles", label: t("roles.title"), count: group.roleIds.length }] : []),
     { value: "name", label: t("groups.tabName") },
   ];
@@ -202,7 +175,7 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
               <Input size="sm" icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("groups.searchIn")} aria-label={t("groups.searchIn")} />
             </div>
             <span style={{ flex: 1 }} />
-            {group.may.changeMembers && !directory ? (
+            {offersManagement(group) ? (
               <Button size="sm" variant="primary" iconLeft="user-plus" onClick={() => setAdding(true)}>
                 {t("groups.addPeople")}
               </Button>
@@ -241,7 +214,7 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
                             onChange={(e) => void setManager(m.userId, e.target.checked)}
                           />
                         ) : null}
-                        {group.may.changeMembers ? (
+                        {removalOf(group, viewerId, m.userId).removable ? (
                           <IconButton icon="user-minus" size="sm" label={t("groups.removeFrom", { name: m.name })} disabled={busy} onClick={() => void remove(m.userId)} />
                         ) : null}
                       </>
@@ -251,6 +224,7 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
               })
             )}
           </Card>
+          {missing > 0 ? <div style={{ ...st.info, margin: "10px 0 0" }}>{t("audit.formerMembers", { count: missing })}</div> : null}
         </>
       ) : null}
 
@@ -276,7 +250,7 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
         </div>
       ) : null}
 
-      {adding ? <AddPeopleDialog spaceId={spaceId} group={group} members={members} carries={licensed ? carries : []} onClose={() => setAdding(false)} onChanged={onChanged} onNotify={onNotify} /> : null}
+      {adding ? <AddPeopleDialog spaceId={spaceId} group={group} members={members} carries={licensed ? carries : []} viewerId={viewerId} viewerIsOwner={me?.role === "owner"} onClose={() => setAdding(false)} onChanged={onChanged} onNotify={onNotify} /> : null}
       {deleting ? (
         <DeleteGroupDialog spaceId={spaceId} group={group} carries={licensed ? carries : []} onClose={() => setDeleting(false)} onChanged={onChanged} onNotify={onNotify} onDeleted={onBack} />
       ) : null}

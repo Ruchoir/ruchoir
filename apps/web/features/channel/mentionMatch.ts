@@ -17,27 +17,16 @@ function isHandleChar(c: string): boolean {
   return /[\p{L}\p{N}]/u.test(c) || c === "." || c === "_" || c === "-";
 }
 
+/** The Latin letters the server maps to ASCII, as code points (`fold_ascii`). */
+const FOLD: Record<string, string> = { "\u00e0": "a", "\u00e1": "a", "\u00e2": "a", "\u00e3": "a", "\u00e4": "a", "\u00e5": "a", "\u00e7": "c", "\u00e8": "e", "\u00e9": "e", "\u00ea": "e", "\u00eb": "e", "\u00ec": "i", "\u00ed": "i", "\u00ee": "i", "\u00ef": "i", "\u00f1": "n", "\u00f2": "o", "\u00f3": "o", "\u00f4": "o", "\u00f5": "o", "\u00f6": "o", "\u00f9": "u", "\u00fa": "u", "\u00fb": "u", "\u00fc": "u", "\u00fd": "y", "\u00ff": "y", "\u00e6": "ae", "\u0153": "oe" };
+
 /**
  * The server's folding for mentions (`fold_ascii`): lowercase, then a fixed set of Latin letters
  * mapped to ASCII. Anything else, a combining mark included, is kept as typed.
  */
 export function foldMention(text: string): string {
   let out = "";
-  for (const ch of text) {
-    for (const lc of ch.toLowerCase()) {
-      if ("àáâãäå".includes(lc)) out += "a";
-      else if (lc === "æ") out += "ae";
-      else if (lc === "ç") out += "c";
-      else if ("èéêë".includes(lc)) out += "e";
-      else if ("ìíîï".includes(lc)) out += "i";
-      else if (lc === "ñ") out += "n";
-      else if ("òóôõö".includes(lc)) out += "o";
-      else if (lc === "œ") out += "oe";
-      else if ("ùúûü".includes(lc)) out += "u";
-      else if ("ýÿ".includes(lc)) out += "y";
-      else out += lc;
-    }
-  }
+  for (const ch of text) for (const lc of ch.toLowerCase()) out += FOLD[lc] ?? lc;
   return out;
 }
 

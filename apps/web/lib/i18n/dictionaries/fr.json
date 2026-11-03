@@ -2091,7 +2091,6 @@
     "created": "Groupe créé",
     "saved": "Groupe enregistré",
     "empty": "Aucun groupe pour l'instant.",
-    "loadFailed": "Les groupes n'ont pas pu être lus. Réessayez dans un instant.",
     "colGroup": "Groupe",
     "colRoles": "Rôles portés",
     "colManagers": "Responsables",
@@ -2136,6 +2135,8 @@
     "rolesIntro_one": "La personne du groupe reçoit les rôles cochés, en plus des siens. Vous ne pouvez faire porter que des rôles placés sous le vôtre.",
     "rolesIntro_other": "Les {{count}} membres du groupe reçoivent les rôles cochés, en plus des leurs. Vous ne pouvez faire porter que des rôles placés sous le vôtre.",
     "noSelfRole": "Personne ne se donne un rôle à soi-même, par un groupe non plus : vous ne pouvez pas changer les rôles d'un groupe dont vous faites partie.",
+    "noSelfJoin": "Vous ne pouvez pas vous ajouter vous-même à un groupe qui porte des rôles.",
+    "guestCeiling": "Les personnes invitées restent sous le plafond des invités : elles ne reçoivent des rôles que ce que ce plafond permet.",
     "refusal": {
       "fromDirectory": "Ce groupe vient de l'annuaire : ses membres et son nom se changent là-bas.",
       "nameTaken": "Un autre groupe porte déjà ce nom.",

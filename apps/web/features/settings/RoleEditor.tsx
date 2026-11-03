@@ -9,7 +9,7 @@ import { getAvatar } from "@/lib/data";
 import { formatList } from "@/lib/i18n/format";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
-import { GroupIcon } from "./GroupEditor";
+import { GroupIcon } from "../groups/GroupIcon";
 import { rolePeople } from "./groupsLogic.ts";
 import { refusalMessage, roleColour, roleLabel } from "./MemberAccess";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";

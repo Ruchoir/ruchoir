@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { groupMentionHits, groupRow, rolesViaGroups, sortGroups } from "./groupsLogic.ts";
+import { groupMentionHits, groupPeople, groupRow, rolesViaGroups, selfRoleKey, sortGroups } from "./groupsLogic.ts";
 
 const group = (id: string, name: string, over: Partial<{ memberIds: string[]; managerIds: string[]; roleIds: string[]; source: "manual" | "directory" }> = {}) => ({
   id,
@@ -62,4 +62,17 @@ test("mention_hits_count_the_members_in_the_room", () => {
 test("groups_sort_by_name_ignoring_accents_and_case", () => {
   const sorted = sortGroups([group("1", "été"), group("2", "Zoé"), group("3", "Alpha")]);
   assert.deepEqual(sorted.map((g) => g.name), ["Alpha", "été", "Zoé"]);
+});
+
+test("people_of_a_group_counts_those_drawn_and_those_gone", () => {
+  const members = [{ userId: "a" }, { userId: "b" }];
+  const got = groupPeople({ memberIds: ["a", "gone", "b", "gone2"] }, members);
+  assert.deepEqual(got.people.map((m) => m.userId), ["a", "b"]);
+  assert.equal(got.missing, 2);
+  assert.equal(groupPeople({ memberIds: [] }, members).missing, 0);
+});
+
+test("the_self_role_refusal_speaks_of_roles_or_of_joining", () => {
+  assert.equal(selfRoleKey("roles"), "groups.noSelfRole");
+  assert.equal(selfRoleKey("members"), "groups.noSelfJoin");
 });

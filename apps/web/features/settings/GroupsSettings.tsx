@@ -1,15 +1,16 @@
 "use client";
 
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useState } from "react";
 import { Avatar, Button, Card, Dialog, Field, Icon, Input, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
-import { createGroup, listGroups, refusalOf } from "@/lib/data/api";
+import { createGroup, refusalOf } from "@/lib/data/api";
 import type { Group, Role, SpaceEdition } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { useTranslation } from "@/lib/i18n";
 import type { Toast } from "../app/types";
-import { GroupEditor, GroupIcon } from "./GroupEditor";
-import { groupRow, foldName, sortGroups } from "./groupsLogic.ts";
+import { GroupIcon } from "../groups/GroupIcon";
+import { GroupEditor } from "./GroupEditor";
+import { groupPeople, groupRow, foldName, sortGroups } from "./groupsLogic.ts";
 import { refusalMessage, RoleChip, roleLabel } from "./MemberAccess";
 
 const st: Record<string, CSSProperties> = {
@@ -48,6 +49,8 @@ export type GroupsSettingsProps = {
   /** The space's roles, strongest first, base roles last. */
   roles: Role[];
   members: Member[];
+  /** The space's groups, kept by the app. */
+  groups: Group[];
   me?: Member;
   pricingUrl?: string;
   /** Roles or their holders may have changed: read them again. */
@@ -58,43 +61,21 @@ export type GroupsSettingsProps = {
 };
 
 /**
- * The Groupes tab. It reads the space's groups itself and reads them again after each write; the
+ * The Groupes tab. It draws the space's groups the app keeps (read again after each write and on
+ * every change of permissions, wherever it comes from); the
  * list is the community one (people only, one discreet line about more) or the licensed one (roles
  * carried and managers too).
  */
 export function GroupsSettings(props: GroupsSettingsProps) {
   const { t } = useTranslation();
-  const { spaceId, edition, onNotify } = props;
-  const [groups, setGroups] = useState<Group[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const { spaceId, edition, onNotify, groups } = props;
   const [editing, setEditing] = useState<string | null>(props.initialGroupId ?? null);
 
-  // Only the newest request may write: a slow older answer never overwrites a newer one.
-  const latest = useRef(0);
-  const reload = useCallback(async () => {
-    const mine = ++latest.current;
-    try {
-      const list = await listGroups(spaceId);
-      if (mine !== latest.current) return;
-      setGroups(list);
-      setFailed(false);
-    } catch {
-      if (mine === latest.current) setFailed(true);
-    }
-  }, [spaceId]);
+  // The space's groups are the app's own list, read again after each write and when permissions
+  // change elsewhere: this tab keeps no copy of its own.
+  const changed = () => props.onChanged();
 
-  useEffect(() => {
-    // The first read: state is set when the answer arrives, which the rule cannot see through `reload`.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void reload();
-  }, [reload]);
-
-  const changed = async () => {
-    await reload();
-    await props.onChanged();
-  };
-
-  const group = editing ? groups?.find((g) => g.id === editing) : undefined;
+  const group = editing ? groups.find((g) => g.id === editing) : undefined;
   if (group) {
     return (
       <GroupEditor
@@ -112,7 +93,6 @@ export function GroupsSettings(props: GroupsSettingsProps) {
       />
     );
   }
-  if (failed && !groups) return <p style={st.sub}>{t("groups.loadFailed")}</p>;
   return <GroupList {...props} groups={groups} onOpen={setEditing} onCreated={async (id, name) => {
           await changed();
           onNotify({ tone: "success", title: t("groups.created"), description: name });
@@ -129,7 +109,7 @@ function GroupList({
   groups,
   onOpen,
   onCreated,
-}: GroupsSettingsProps & { groups: Group[] | null; onOpen: (id: string) => void; onCreated: (id: string, name: string) => Promise<void> }) {
+}: GroupsSettingsProps & { onOpen: (id: string) => void; onCreated: (id: string, name: string) => Promise<void> }) {
   const { t } = useTranslation();
   const licensed = edition !== "community";
   const frozen = edition === "frozen";
@@ -137,9 +117,9 @@ function GroupList({
   const [creating, setCreating] = useState(false);
   const byId = new Map(members.map((m) => [m.userId, m]));
   const needle = foldName(query.trim());
-  const shown = sortGroups(groups ?? []).filter((g) => foldName(g.name).includes(needle));
+  const shown = sortGroups(groups).filter((g) => foldName(g.name).includes(needle));
   const lockedAbove = licensed
-    ? sortGroups(groups ?? [])
+    ? sortGroups(groups)
         .map((g) => ({ g, row: groupRow(g, roles, { frozen }) }))
         .find((x) => x.row.locked === "above")
     : undefined;
@@ -160,7 +140,7 @@ function GroupList({
           {t("groups.create")}
         </Button>
       </div>
-      {groups === null ? null : groups.length === 0 ? (
+      {groups.length === 0 ? (
         <p style={st.muted}>{t("groups.empty")}</p>
       ) : (
         <Card>
@@ -178,7 +158,7 @@ function GroupList({
             shown.map((g, i) => {
               const row = groupRow(g, roles, { frozen });
               const opens = row.locked !== "above" || Object.values(g.may).some(Boolean);
-              const people = g.memberIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
+              const { people } = groupPeople(g, members);
               const managers = g.managerIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
               return (
                 <div
@@ -203,7 +183,7 @@ function GroupList({
                         <Avatar key={m.userId} name={m.name} src={m.avatarUrl ?? getAvatar(m.name)} size={22} style={{ marginLeft: k ? -6 : 0 }} />
                       ))}
                     </span>
-                    {g.memberIds.length}
+                    {people.length}
                   </span>
                   {licensed ? (
                     <span style={st.roles}>
