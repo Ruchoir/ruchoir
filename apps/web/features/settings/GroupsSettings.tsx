@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useCallback, useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { Avatar, Button, Card, Dialog, Field, Icon, Input, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
 import { createGroup, listGroups, refusalOf } from "@/lib/data/api";
@@ -67,25 +67,25 @@ export function GroupsSettings(props: GroupsSettingsProps) {
   const [failed, setFailed] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
 
+  // Only the newest request may write: a slow older answer never overwrites a newer one.
+  const latest = useRef(0);
   const reload = useCallback(async () => {
+    const mine = ++latest.current;
     try {
-      setGroups(await listGroups(spaceId));
+      const list = await listGroups(spaceId);
+      if (mine !== latest.current) return;
+      setGroups(list);
       setFailed(false);
     } catch {
-      setFailed(true);
+      if (mine === latest.current) setFailed(true);
     }
   }, [spaceId]);
 
   useEffect(() => {
-    let live = true;
-    listGroups(spaceId).then(
-      (list) => live && setGroups(list),
-      () => live && setFailed(true),
-    );
-    return () => {
-      live = false;
-    };
-  }, [spaceId]);
+    // The first read: state is set when the answer arrives, which the rule cannot see through `reload`.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void reload();
+  }, [reload]);
 
   const changed = async () => {
     await reload();
@@ -96,8 +96,8 @@ export function GroupsSettings(props: GroupsSettingsProps) {
   if (group) {
     return (
       <GroupEditor
-        // A group read again after a write starts its drafts from what was saved.
-        key={`${group.id}:${group.name}:${group.description ?? ""}:${group.roleIds.join(",")}`}
+        // Keyed on the group alone: a write reads it again without sending the editor back to its first tab.
+        key={group.id}
         spaceId={spaceId}
         group={group}
         edition={edition}

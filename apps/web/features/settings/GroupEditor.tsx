@@ -87,6 +87,15 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
   const [name, setName] = useState(group.name);
   const [description, setDescription] = useState(group.description ?? "");
   const [nameError, setNameError] = useState("");
+  // The group is read again after each write and this editor stays mounted (so the tab stays), so
+  // the drafts follow what was saved: adjusted while rendering, as React recommends.
+  const saved = `${group.name}\n${group.description ?? ""}`;
+  const [seen, setSeen] = useState(saved);
+  if (seen !== saved) {
+    setSeen(saved);
+    setName(group.name);
+    setDescription(group.description ?? "");
+  }
   const { carries } = groupRow(group, roles, { frozen });
   const byId = new Map(members.map((m) => [m.userId, m]));
   const people = group.memberIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
@@ -171,8 +180,8 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
       {tab === "people" ? (
         <>
           {directory ? (
-            <div style={{ ...st.alert, background: "var(--info-soft, var(--surface-sunken))" }}>
-              <Icon name="refresh-cw" size={14} style={{ marginTop: 1 }} />
+            <div style={{ ...st.alert, background: "var(--status-info-bg)", border: "1px solid var(--status-info-border)" }}>
+              <Icon name="refresh-cw" size={14} style={{ marginTop: 1, color: "var(--status-info-fg)" }} />
               <span>
                 <b>{t("groups.directoryAlertStrong")}</b> {t("groups.directoryAlertRest")}
               </span>
@@ -241,7 +250,7 @@ export function GroupEditor({ spaceId, group, edition, roles, members, me, onBac
       ) : null}
 
       {tab === "roles" && licensed ? (
-        <GroupRolesTab spaceId={spaceId} group={group} roles={roles} me={me} frozen={frozen} onChanged={onChanged} onNotify={onNotify} />
+        <GroupRolesTab key={group.roleIds.join(",")} spaceId={spaceId} group={group} roles={roles} me={me} frozen={frozen} onChanged={onChanged} onNotify={onNotify} />
       ) : null}
 
       {tab === "name" ? (

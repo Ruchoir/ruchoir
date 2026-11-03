@@ -76,7 +76,7 @@ export function GroupRolesTab({
     <>
       <div style={st.intro}>
         <Icon name="info" size={14} style={{ color: "var(--text-muted)", marginTop: 1 }} />
-        <span>{frozen ? t("roles.frozenNote") : t("groups.rolesIntro", { count: group.memberIds.length })}</span>
+        <span>{frozen ? t("roles.frozenNote") : group.memberIds.length === 0 ? t("groups.rolesIntroEmpty") : t("groups.rolesIntro", { count: group.memberIds.length })}</span>
       </div>
       <Card>
         {ranked.map((role, i) => {

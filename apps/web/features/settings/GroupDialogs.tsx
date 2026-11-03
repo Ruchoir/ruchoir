@@ -1,15 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Avatar, Button, Checkbox, Dialog, Field, Input } from "@/components/ds";
+import { Fragment } from "react";
+import { Avatar, Button, Checkbox, Dialog, Field, Icon, Input } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
 import { addGroupMembers, deleteGroup, refusalOf } from "@/lib/data/api";
 import type { Group, Role } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
-import { useTranslation } from "@/lib/i18n";
+import { key, useTranslation } from "@/lib/i18n";
+import { formatList } from "@/lib/i18n/format";
 import type { Toast } from "../app/types";
 import { foldName } from "./groupsLogic.ts";
-import { refusalMessage, roleLabel } from "./MemberAccess";
+import { refusalMessage, RoleChip, roleLabel } from "./MemberAccess";
+
+/** Marks where the role chips go in a translated sentence. */
+const ROLES_SLOT = "\u2063";
 
 type Common = { spaceId: string; group: Group; onChanged: () => Promise<void>; onNotify: (toast: Toast) => void };
 
@@ -96,16 +101,40 @@ export function AddPeopleDialog({
         {carries.length > 0 && picked.size > 0 ? (
           <div
             style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "flex-start",
               padding: "10px 12px",
-              background: "var(--warning-soft, var(--surface-sunken))",
-              border: "1px solid var(--border-default)",
+              background: "var(--status-warning-bg)",
+              border: "1px solid var(--status-warning-border)",
               borderRadius: "var(--radius-md)",
               fontSize: "var(--text-xs)",
               color: "var(--text-body)",
               lineHeight: "var(--leading-snug)",
             }}
           >
-            {t("groups.addNotice", { roles: carries.map((r) => roleLabel(r, t)).join(", ") })}
+            <Icon name="alert-triangle" size={15} style={{ color: "var(--status-warning-fg)", marginTop: 1, flex: "none" }} />
+            <span>
+              {/* The sentence is translated whole, with the chips dropped where {{roles}} falls. */}
+              {t(carries.length === 1 ? key("groups.addNoticeRole") : key("groups.addNoticeRoles"), {
+                count: picked.size,
+                names: formatList(members.filter((m) => picked.has(m.userId)).map((m) => m.name.split(" ")[0])),
+                roles: ROLES_SLOT,
+              })
+                .split(ROLES_SLOT)
+                .map((part, i, parts) => (
+                  <Fragment key={i}>
+                    {part}
+                    {i < parts.length - 1 ? (
+                      <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4, verticalAlign: "middle" }}>
+                        {carries.map((r) => (
+                          <RoleChip key={r.id} role={r} />
+                        ))}
+                      </span>
+                    ) : null}
+                  </Fragment>
+                ))}
+            </span>
           </div>
         ) : null}
       </div>
@@ -152,7 +181,8 @@ export function DeleteGroupDialog({
           <Button variant="ghost" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button variant="danger" iconLeft="trash-2" disabled={busy || typed.trim() !== group.name} onClick={() => void remove()}>
+          <Button variant="danger" iconLeft="trash-2" // Exact otherwise: a stray space around the name is forgiven, a different case is not.
+            disabled={busy || typed.trim() !== group.name} onClick={() => void remove()}>
             {t("groups.delete")}
           </Button>
         </>

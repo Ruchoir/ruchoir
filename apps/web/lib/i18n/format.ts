@@ -158,3 +158,8 @@ export function formatBytes(bytes: number, locale: Locale = currentLocale()): st
 export function formatNumber(value: number, locale: Locale = currentLocale()): string {
   return new Intl.NumberFormat(locale).format(value);
 }
+
+/** A list of names in the language in force: "Nadia et Paul", "Nadia, Paul et Léa". */
+export function formatList(items: string[], locale: Locale = currentLocale()): string {
+  return new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(items);
+}
