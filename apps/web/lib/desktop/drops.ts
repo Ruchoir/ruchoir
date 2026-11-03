@@ -11,18 +11,22 @@ export function strayFileDrop(event: Pick<DragEvent, "defaultPrevented" | "dataT
   return Array.from(event.dataTransfer?.types ?? []).includes("Files");
 }
 
+/** Cancel a stray drag or drop, and tell the cursor nothing will happen on release. */
+export function cancelStrayDrop(event: DragEvent): void {
+  if (!strayFileDrop(event)) return;
+  event.preventDefault();
+  if (event.type === "dragover" && event.dataTransfer) event.dataTransfer.dropEffect = "none";
+}
+
 /**
  * Listen on the window, in the bubbling phase, so the page's own handlers (the composer, the files
  * list) have run first and a drop they took is left alone.
  */
 export function guardStrayDrops(): () => void {
-  const cancel = (event: DragEvent) => {
-    if (strayFileDrop(event)) event.preventDefault();
-  };
-  window.addEventListener("dragover", cancel);
-  window.addEventListener("drop", cancel);
+  window.addEventListener("dragover", cancelStrayDrop);
+  window.addEventListener("drop", cancelStrayDrop);
   return () => {
-    window.removeEventListener("dragover", cancel);
-    window.removeEventListener("drop", cancel);
+    window.removeEventListener("dragover", cancelStrayDrop);
+    window.removeEventListener("drop", cancelStrayDrop);
   };
 }

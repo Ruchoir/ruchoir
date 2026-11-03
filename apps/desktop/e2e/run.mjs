@@ -392,10 +392,6 @@ async function main() {
     await sleep(1500);
     const refused = await run("return window.__csp;");
     if (refused.length > 0) throw new Error(`the page's CSP refused the viewer's frame: ${JSON.stringify(refused)}`);
-    if (process.env.E2E_SCREENSHOT_VIEWER) {
-      const png = await wd("GET", `/session/${id}/screenshot`);
-      writeFileSync(process.env.E2E_SCREENSHOT_VIEWER, Buffer.from(png, "base64"));
-    }
     await frameShot("viewer-pdf");
     console.log(`ok: dropped file attached, viewer frame shown (${JSON.stringify(frame)})`);
 
