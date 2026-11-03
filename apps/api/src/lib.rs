@@ -26,6 +26,7 @@ mod messaging;
 mod notify;
 mod office;
 mod og;
+mod preferences;
 mod openapi;
 mod permissions;
 mod realtime;
