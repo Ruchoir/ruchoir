@@ -61,6 +61,11 @@ pub fn router() -> Router<AppState> {
         )
 }
 
+/// The origins the desktop app shows the web interface on (`ruchoir-app://localhost` on macOS and
+/// Linux, `http://ruchoir-app.localhost` on Windows). The engine's pages are framed by the
+/// interface, so they must accept it as an ancestor, and the editor must post its messages to it.
+pub const DESKTOP_ORIGINS: [&str; 2] = ["ruchoir-app://localhost", "http://ruchoir-app.localhost"];
+
 /// The engine, as the API knows it.
 pub struct Office {
     engine_url: String,
