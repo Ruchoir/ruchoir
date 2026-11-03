@@ -1565,6 +1565,11 @@
   --action-secondary-border: #15171c;
   --action-secondary-bg-hover: rgb(255 255 255 / 0.4);
   --surface-hover: rgb(255 255 255 / 0.35);
+  /* The ink-based style tokens (tokens.css), for the same reason. */
+  --edge-float: #15171c;
+  --edge-focus: #15171c;
+  --shadow-ring-offset: 0 0 0 2px #15171c, 3px 3px 0 2px #15171c;
+  --shadow-ring-offset-sm: 0 0 0 1.5px #15171c, 2px 2px 0 1.5px #15171c;
   color: #15171c;
 }
 .wc-pastel .wc-av {
