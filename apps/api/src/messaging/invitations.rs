@@ -495,6 +495,9 @@ pub async fn accept_invitation(
     // direct-message candidates gain them without a reload. Only on a real arrival: an existing
     // member re-opening their link changed nothing and must not announce itself again.
     if !already_member {
+        crate::permissions::changed::announce(&state, space.id).await;
+    }
+    if !already_member {
         let audience = space_member_ids(&state.db, space.id, session.user_id).await?;
         let joined = MemberJoinedDto {
             space_id: space.id,

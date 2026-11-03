@@ -293,9 +293,11 @@ pub async fn update_calendar(
     if let Some(description) = body.description {
         calendar.description = Set(clean_description(description)?);
     }
+    let mut writing_changed = false;
     if let Some(write_access) = body.write_access {
         check_write_access(&write_access)?;
         if !personal {
+            writing_changed = true;
             calendar.write_access = Set(write_access);
         }
     }
@@ -306,6 +308,9 @@ pub async fn update_calendar(
     calendar.updated_at = Set(OffsetDateTime::now_utc());
     let calendar = calendar.update(&state.db).await?;
     announce(&state, &calendar).await?;
+    if let (true, Some(space_id)) = (writing_changed, calendar.space_id) {
+        crate::permissions::changed::announce(&state, space_id).await;
+    }
     Ok(Json(one_dto(&state, session.user_id, calendar_id).await?))
 }
 

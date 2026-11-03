@@ -7,6 +7,7 @@
 #![allow(dead_code)]
 
 pub mod catalogue;
+pub mod changed;
 pub mod check;
 pub mod engine;
 pub mod load;

@@ -601,6 +601,7 @@ pub async fn update_member_role(
             )
             .await;
     }
+    crate::permissions::changed::announce(&state, space_id).await;
     Ok(Json(changes))
 }
 

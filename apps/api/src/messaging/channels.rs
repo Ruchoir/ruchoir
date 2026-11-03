@@ -485,6 +485,9 @@ pub async fn update_channel(
         access_changed = before != after;
         set_allowed_roles(&state.db, channel_id, roles).await?;
     }
+    if access_changed {
+        crate::permissions::changed::announce(&state, channel.space_id).await;
+    }
 
     let updated = active.update(&state.db).await?;
 

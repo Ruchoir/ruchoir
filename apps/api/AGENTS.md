@@ -193,7 +193,10 @@ context and takes precedence here.
   and `space.updated`, the same idea for a space's name and icon, carrying `SpaceUpdatedDto` rather
   than `SpaceDto` because that one holds the caller's role and unread counters, plus `member.role_changed`, which is deliberately not
   `member.updated`: an identity is the same in every space, a role is a fact about one space and
-  decides which controls the person receiving it is offered, plus the two
+  decides which controls the person receiving it is offered, plus `permissions.changed`
+  (`{ space_id }`, to the whole space after any change of a role, a standing or a rule, through
+  `permissions::changed::announce`; it carries no rights, each client asks again what it may do),
+  plus the two
   departure events: `member.left`, the counterpart of `member.joined` for the roster, and
   `space.removed`, which says "this space is no longer yours" to the person who left it and to
   everyone when it is deleted, carrying a `deleted` flag because the client does the same thing
