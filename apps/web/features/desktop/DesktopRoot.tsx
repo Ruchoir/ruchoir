@@ -291,6 +291,24 @@ export function DesktopRoot() {
   // interface as it was, rather than to a fresh one.
   const addingOver = adding && open !== null;
 
+  // The core's error codes (`downloads.rs`, `files.rs`), each in words; a file window's carry "file:".
+  const downloadMessage =
+    downloadError === null
+      ? null
+      : downloadError === "file:refused"
+        ? t("desktop.files.refused")
+        : downloadError.startsWith("file:")
+          ? t("desktop.files.failed")
+          : downloadError === "signed_out"
+            ? t("desktop.download.signedOut")
+            : downloadError === "unreachable"
+              ? t("desktop.download.unreachable")
+              : downloadError === "not_saved"
+                ? t("desktop.download.notSaved")
+                : downloadError === "no_app"
+                  ? t("desktop.download.noApp")
+                  : t("desktop.download.failed");
+
   return (
     // Linux draws no corners or shadow for a frameless window: the app rounds its own, unless the
     // window fills the screen.
@@ -321,7 +339,7 @@ export function DesktopRoot() {
       </div>
       {downloadError ? (
         <Dialog
-          title={t("desktop.download.title")}
+          title={downloadError.startsWith("file:") ? t("office.failed") : t("desktop.download.title")}
           onClose={() => setDownloadError(null)}
           closeLabel={t("common.close")}
           footer={
@@ -332,15 +350,7 @@ export function DesktopRoot() {
         >
           <p>
             {/* The core's error codes (`downloads.rs`), each in words. */}
-            {downloadError === "signed_out"
-              ? t("desktop.download.signedOut")
-              : downloadError === "unreachable"
-                ? t("desktop.download.unreachable")
-                : downloadError === "not_saved"
-                  ? t("desktop.download.notSaved")
-                  : downloadError === "no_app"
-                    ? t("desktop.download.noApp")
-                    : t("desktop.download.failed")}
+            {downloadMessage}
           </p>
         </Dialog>
       ) : null}

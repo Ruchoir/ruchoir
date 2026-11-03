@@ -56,8 +56,8 @@ export function OpenFileEntries({
         label={label}
         align="end"
         items={[
-          { icon: "external-link", label: t("desktop.files.openWindow"), onClick: () => void openInWindow(href, name) },
-          { icon: "monitor", label: t("desktop.files.openLocal"), onClick: () => void openLocal(href, name) },
+          { icon: "external-link", label: t("desktop.files.openWindow"), onClick: () => void openInWindow(href, name), testId: "open-window" },
+          { icon: "monitor", label: t("desktop.files.openLocal"), onClick: () => void openLocal(href, name), testId: "open-local" },
         ]}
       />
     </span>

@@ -1766,6 +1766,8 @@
   },
   "desktop": {
     "files": {
+      "refused": "Diese Datei kann nicht in einem Fenster geöffnet werden.",
+      "failed": "Das Fenster konnte nicht geöffnet werden. Versuche es erneut.",
       "openMenu": "{{name}} öffnen",
       "openWindow": "In einem Fenster öffnen",
       "openLocal": "Mit der App des Computers öffnen"

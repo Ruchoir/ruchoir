@@ -58,7 +58,6 @@ const ACTION_ICONS: Record<ActionId, IconName> = {
   delete: "trash-2",
 };
 
-/** Whether a file name looks like an image (drives the preview rendering). */
 /** The address the viewer shows for an entry (its preview, or the converted document), if it has one. */
 function viewAddress(f: SpaceFile): string | null {
   if (!f.id) return null;
@@ -67,6 +66,7 @@ function viewAddress(f: SpaceFile): string | null {
   return kind === "pdf" || isImage(f.name) ? filePreviewUrl(f.id) : null;
 }
 
+/** Whether a file name looks like an image (drives the preview rendering). */
 function isImage(name: string): boolean {
   return /\.(jpe?g|png|gif|webp|svg|heic)$/i.test(name);
 }

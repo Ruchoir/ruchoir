@@ -393,6 +393,14 @@ async function main() {
     const refused = await run("return window.__csp;");
     if (refused.length > 0) throw new Error(`the page's CSP refused the viewer's frame: ${JSON.stringify(refused)}`);
     await frameShot("viewer-pdf");
+    // An open menu owns Escape: one press closes the menu and leaves the viewer under it open.
+    await until("the viewer's open button", () => run("const b = document.querySelector('.wc-viewer [aria-haspopup=menu]'); if (!b) return false; b.click(); return true;"));
+    await until("the viewer's open menu", () => run("return !!document.querySelector('[role=menu]');"));
+    await wd("POST", `/session/${id}/actions`, {
+      actions: [{ type: "key", id: "keyboard", actions: [{ type: "keyDown", value: "\uE00C" }, { type: "keyUp", value: "\uE00C" }] }],
+    });
+    await until("the menu to close", () => run("return !document.querySelector('[role=menu]');"), 5000);
+    if (!(await run("return !!document.querySelector('.wc-viewer');"))) throw new Error("Escape closed the viewer along with the menu");
     console.log(`ok: dropped file attached, viewer frame shown (${JSON.stringify(frame)})`);
 
     // Opt-in (E2E_OFFICE=1) until the instance has `office_desktop_embed`: only then does the API list
@@ -455,20 +463,20 @@ async function main() {
 
     // 6d. The attachment's "open" entries: a window of its own (one per address), and the computer's app.
     const handles = async () => (await wd("GET", `/session/${id}/window/handles`)).length;
-    const menuItem = (label) =>
-      until(`the "${label}" entry`, () =>
-        run("const el = [...document.querySelectorAll('[role=menuitem]')].find((x) => x.textContent.trim() === arguments[0]); if (el) el.click(); return !!el;", [label]),
+    const menuItem = (testId) =>
+      until(`the "${testId}" entry`, () =>
+        run("const el = document.querySelector(`[role=menuitem][data-testid='${arguments[0]}']`); if (el) el.click(); return !!el;", [testId]),
       );
     const windowsBefore = await handles();
     await clickAria(`Ouvrir ${pickedName}`);
     await until("the open menu", () => run("return !!document.querySelector('[role=menu]');"));
     await sleep(300);
     await frameShot("open-menu");
-    await menuItem("Ouvrir dans une fenêtre");
+    await menuItem("open-window");
     await until("a window of its own", async () => (await handles()) === windowsBefore + 1);
     // The same address again brings the window forward instead of opening a second one.
     await clickAria(`Ouvrir ${pickedName}`);
-    await menuItem("Ouvrir dans une fenêtre");
+    await menuItem("open-window");
     await sleep(1500);
     if ((await handles()) !== windowsBefore + 1) throw new Error("a second click opened a second window");
     // Its screenshot, then back to the main window.
@@ -477,13 +485,18 @@ async function main() {
     const fileHandle = all6.find((h) => h !== mainHandle);
     await wd("POST", `/session/${id}/window`, { handle: fileHandle });
     await sleep(1500);
+    // The window shows the file's preview address on the app's own origin.
+    const windowUrl = await wd("GET", `/session/${id}/url`);
+    if (!/\/files\/[^/]+\/preview$/.test(windowUrl) || !/^(ruchoir-app:\/\/localhost|http:\/\/ruchoir-app\.localhost)\//.test(windowUrl)) {
+      throw new Error(`the file window shows ${windowUrl}, expected the file's preview on the app origin`);
+    }
     await frameShot("file-window");
     await wd("POST", `/session/${id}/window`, { handle: mainHandle });
     console.log("ok: attachment opens in a window of its own, once");
     // The computer's app: the stand-in opener records the path the core handed it.
     const linesBefore = existsSync(OPENED) ? readFileSync(OPENED, "utf8").trim().split("\n").length : 0;
     await clickAria(`Ouvrir ${pickedName}`);
-    await menuItem("Ouvrir avec l\u2019application de l\u2019ordinateur");
+    await menuItem("open-local");
     const recorded = await until("the opener to be called", () => {
       if (!existsSync(OPENED)) return null;
       const lines = readFileSync(OPENED, "utf8").trim().split("\n");

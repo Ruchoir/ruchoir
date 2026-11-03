@@ -1833,6 +1833,8 @@
   },
   "desktop": {
     "files": {
+      "refused": "Este archivo no se puede abrir en una ventana.",
+      "failed": "No se pudo abrir la ventana. Inténtalo de nuevo.",
       "openMenu": "Abrir {{name}}",
       "openWindow": "Abrir en una ventana",
       "openLocal": "Abrir con la aplicación del ordenador"

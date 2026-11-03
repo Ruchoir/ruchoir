@@ -25,7 +25,7 @@ export function viewerKind(name: string): ViewerKind | null {
 }
 
 /** Print a same-origin address (an image, say) through a hidden frame, leaving the app as it is. */
-export function printUrl(url: string, name = "") {
+export function printUrl(url: string, name: string) {
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   frame.style.cssText = "position:fixed;width:0;height:0;border:0;visibility:hidden";

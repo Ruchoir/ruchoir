@@ -1900,6 +1900,8 @@
   },
   "desktop": {
     "files": {
+      "refused": "Tego pliku nie można otworzyć w oknie.",
+      "failed": "Nie udało się otworzyć okna. Spróbuj ponownie.",
       "openMenu": "Otwórz {{name}}",
       "openWindow": "Otwórz w oknie",
       "openLocal": "Otwórz w aplikacji komputera"
