@@ -66,6 +66,9 @@ test("the_gestion_tab_offers_what_the_viewer_may_do", () => {
   assert.equal(memberAccessFor({ member: hugo, me: "karim", edition: "frozen", roles }).mode, "frozen");
   assert.equal(memberAccessFor({ member: { ...hugo, manageable: false }, me: "karim", edition: "enterprise", roles }).mode, "above");
   assert.equal(memberAccessFor({ member: hugo, me: "hugo", edition: "enterprise", roles }).mode, "none");
+  // Managing people without managing roles: the roles are read, not ticked.
+  assert.equal(memberAccessFor({ member: hugo, me: "karim", edition: "enterprise", roles, rights: ["members.manage"] }).mode, "held");
+  assert.equal(memberAccessFor({ member: hugo, me: "karim", edition: "enterprise", roles, rights: ["roles.manage"] }).mode, "roles");
 });
 
 test("the_legacy_roles_one_may_hand_out_stay_below_ones_own", () => {

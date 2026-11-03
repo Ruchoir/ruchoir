@@ -293,6 +293,11 @@ export type InviteDialogProps = {
    * a confirmation message that is never sent, so the dialog says so.
    */
   emailDelivery?: boolean;
+  /**
+   * Whether "Administrateur" is offered: only to whoever may give that role (the owner, or a role
+   * placed above Administrator with `roles.manage`). The API refuses anyone else.
+   */
+  canInviteAdmins?: boolean;
 };
 
 /**
@@ -309,6 +314,7 @@ export function InviteDialog({
   invitations,
   onRevoke,
   emailDelivery,
+  canInviteAdmins = false,
 }: InviteDialogProps) {
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
@@ -407,7 +413,7 @@ export function InviteDialog({
         <Field label={t("dialogs.roleOnArrival")} htmlFor="inv-role">
           <Select
             id="inv-role"
-            options={INVITE_ROLES.map((r) => ({ value: r.value, label: t(r.labelKey) }))}
+            options={INVITE_ROLES.filter((r) => r.value !== "admin" || canInviteAdmins).map((r) => ({ value: r.value, label: t(r.labelKey) }))}
             value={role}
             onChange={(e) => setRole(e.target.value)}
           />

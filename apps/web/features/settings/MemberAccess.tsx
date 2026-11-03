@@ -157,6 +157,9 @@ export type MemberManagementProps = {
   /** The viewer's own membership: their strongest role names the "your highest role" rows. */
   me?: Member;
   myRole: string;
+  /** What the viewer holds in the space: roles are ticked with `roles.manage`, people are removed and
+   * their standing changed with `members.manage`. */
+  myRights: string[];
   edition: SpaceEdition;
   roles: Role[];
   /** Draw the person's identity line first: the profile's tab has no title naming them. */
@@ -173,9 +176,10 @@ export type MemberManagementProps = {
  * tab's dialog and the profile's "Gestion" tab draw this same component, so both offer and refuse
  * the same things; the API is the judge either way.
  */
-export function MemberManagement({ member, me, myRole, edition, roles, identity = false, onSaveRoles, onChangeRole, onRemove }: MemberManagementProps) {
+export function MemberManagement({ member, me, myRole, myRights, edition, roles, identity = false, onSaveRoles, onChangeRole, onRemove }: MemberManagementProps) {
   const { t } = useTranslation();
-  const access = memberAccessFor({ member, me: me?.userId ?? "", edition, roles });
+  const access = memberAccessFor({ member, me: me?.userId ?? "", edition, roles, rights: myRights });
+  const managesPeople = myRights.includes("members.manage");
   const legacy = grantableRoles(myRole, member.role);
   const since = member.joinedAt ? formatDate(member.joinedAt) : "";
   return (
@@ -196,6 +200,19 @@ export function MemberManagement({ member, me, myRole, edition, roles, identity 
         <div style={s.section}>
           <div style={s.label}>{t("roles.title")}</div>
           <RoleChecklist member={member} me={me} roles={roles} choices={access.choices} onSave={onSaveRoles} />
+        </div>
+      ) : null}
+      {access.mode === "held" ? (
+        <div style={s.section}>
+          <div style={s.label}>{t("roles.title")}</div>
+          <div style={s.chips}>
+            {heldRoles(member, roles).map((role) => (
+              <RoleChip key={role.id} role={role} />
+            ))}
+            {heldRoles(member, roles).length === 0 ? (
+              <span style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>{t("roles.membersOnly")}</span>
+            ) : null}
+          </div>
         </div>
       ) : null}
       {access.mode === "frozen" ? (
@@ -243,7 +260,7 @@ export function MemberManagement({ member, me, myRole, edition, roles, identity 
           </span>
           {/* In a licensed space the roles are the checklist's; the standing (guest or member) stays
               the legacy column's, which the API changes under the same rank rule. */}
-          {access.mode !== "fixed" && (member.role === "guest" || member.role === "member") ? (
+          {access.mode !== "fixed" && managesPeople && (member.role === "guest" || member.role === "member") ? (
             <div style={{ width: 150 }}>
               <Select
                 size="sm"
@@ -267,11 +284,13 @@ export function MemberManagement({ member, me, myRole, edition, roles, identity 
         ) : null}
       </div>
 
-      <div style={{ ...s.section, borderBottom: 0 }}>
-        <Button size="sm" variant="ghost" iconLeft="user-minus" onClick={onRemove} style={{ color: "var(--danger)" }}>
-          {t("space.remove")}
-        </Button>
-      </div>
+      {managesPeople ? (
+        <div style={{ ...s.section, borderBottom: 0 }}>
+          <Button size="sm" variant="ghost" iconLeft="user-minus" onClick={onRemove} style={{ color: "var(--status-danger-fg)" }}>
+            {t("space.remove")}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -79,6 +79,8 @@ export type MemberAccess<R extends RoleLike = RoleLike> =
   | { mode: "above" }
   | { mode: "frozen" }
   | { mode: "fixed" }
+  /** Their roles read, not ticked: the viewer manages people, not roles. */
+  | { mode: "held" }
   | { mode: "roles"; choices: { role: R; checked: boolean; disabled: boolean }[] };
 
 export function memberAccessFor<R extends RoleLike>(input: {
@@ -86,11 +88,14 @@ export function memberAccessFor<R extends RoleLike>(input: {
   me: string;
   edition: "community" | "enterprise" | "frozen";
   roles: R[];
+  /** The viewer's rights in the space; absent reads as all of them (an older caller). */
+  rights?: string[];
 }): MemberAccess<R> {
   if (input.member.userId === input.me) return { mode: "none" };
   if (!input.member.manageable) return { mode: "above" };
   if (input.edition === "frozen") return { mode: "frozen" };
   if (input.edition === "community") return { mode: "fixed" };
+  if (input.rights && !input.rights.includes("roles.manage")) return { mode: "held" };
   const held = new Set(input.member.roleIds ?? []);
   return {
     mode: "roles",

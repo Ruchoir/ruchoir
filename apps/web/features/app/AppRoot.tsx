@@ -134,7 +134,7 @@ import { VerifyEmailScreen, type VerifyEmailStatus } from "@/features/auth/Verif
 import { FilesScreen } from "@/features/files/FilesScreen";
 import { WorkspaceSettings } from "@/features/settings/WorkspaceSettings";
 import { MemberManagement, MemberRolesSummary, refusalMessage } from "@/features/settings/MemberAccess";
-import { rightsOf, spaceGates } from "./spaceGates";
+import { canGiveAdministrator, rightsOf, spaceGates } from "./spaceGates";
 import { ActivityView } from "./ActivityView";
 import { type ActivityItem, collectMentions, collectSaved, collectThreads, type MessageMap } from "./activity";
 import {
@@ -3323,6 +3323,7 @@ function AppShell() {
             member={member}
             me={me}
             myRole={currentWorkspace.role}
+            myRights={myRights}
             edition={currentWorkspace.edition}
             roles={spaceRoles}
             onSaveRoles={(roleIds) => saveMemberRoles(userId, roleIds)}
@@ -4510,6 +4511,10 @@ function AppShell() {
         <InviteDialog
           onClose={() => setModal(null)}
           canInvite={gates.invite}
+          canInviteAdmins={canGiveAdministrator(currentWorkspace?.role, myRights, {
+            myTop: spaceRoles.find((r) => r.id === members.find((m) => m.userId === session?.id)?.roleIds?.[0])?.position,
+            administrator: spaceRoles.find((r) => r.systemKey === "administrator")?.position,
+          })}
           invitations={invitations}
           emailDelivery={emailDelivery}
           onCreate={async ({ email, role }) => {

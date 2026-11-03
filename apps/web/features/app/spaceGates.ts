@@ -29,3 +29,19 @@ export function spaceGates(role: string | undefined, rights: string[]) {
     addPeopleToChannels: has("channel.members.manage"),
   };
 }
+
+/**
+ * Whether the caller may make someone an administrator, by invitation or otherwise: rule 1, a role
+ * is given by whoever holds `roles.manage` and ranks strictly above it. The owner always does; an
+ * administrator does not (Administrator is their own rank); a role the owner placed above
+ * Administrator may. Positions are the roles' (`Role.position`).
+ */
+export function canGiveAdministrator(
+  role: string | undefined,
+  rights: string[],
+  positions: { myTop?: number; administrator?: number },
+): boolean {
+  if (role === "owner") return true;
+  if (!rights.includes("roles.manage")) return false;
+  return positions.myTop !== undefined && positions.administrator !== undefined && positions.myTop > positions.administrator;
+}
