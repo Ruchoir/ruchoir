@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { themeBootstrap } from "@/lib/themeBootstrap";
 
 export const metadata: Metadata = {
   title: "Ruchoir",
@@ -32,12 +33,9 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-// Applied before first paint so the stored appearance is in place with no flash of the defaults.
-// Kept inline and tiny: reads the persisted settings and stamps data-theme/font/text on <html>.
-// Only non-default values are stamped, matching how the CSS defaults are the bare :root. The theme is
-// the accent plus the mode (day, night, or the device's own in automatic); a single stored `theme`
-// from before is read for what it meant, as SettingsProvider does.
-const themeBootstrap = `try{var s=JSON.parse(localStorage.getItem("ruchoir.settings")||"{}"),d=document.documentElement.dataset;var A=/^(sky|mint|violet|pink)$/,a=s.accent,m=s.mode,t=s.theme||"";if(!A.test(a)){var p=t.split(/-(?=dark$)/);a=A.test(p[0])?p[0]:"sky";m=t?(p[1]==="dark"||t==="dark"?"night":"day"):"day";}var n=m==="night"||(m==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches),h=a+(n?"-dark":"");if(h!=="sky")d.theme=h;if(s.font==="system"||s.font==="dyslexic")d.font=s.font;if(s.textSize==="s"||s.textSize==="l"||s.textSize==="xl")d.text=s.textSize;}catch(e){}`;
+// Applied before first paint so the stored appearance is in place with no flash of the defaults
+// (see lib/themeBootstrap.ts). Only non-default values are stamped, matching how the CSS defaults
+// are the bare :root.
 
 export default function RootLayout({
   children,

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { DEFAULT_CALENDAR_PREFS } from "../calendar/prefs.ts";
-import { fromWire, toWire, WEB_ACCOUNT_KEYS, wireChanges, type AccountSettings } from "./accountPrefs.ts";
+import { fromWire, isAccountSetting, toWire, WEB_ACCOUNT_KEYS, wireChanges, type AccountSettings } from "./accountPrefs.ts";
 
 const defaults: AccountSettings = {
   font: "plex",
@@ -74,4 +74,9 @@ test("only_the_changed_calendar_field_is_sent", () => {
   assert.deepEqual(wireChanges("locale", defaults, { ...defaults, locale: "de" }), { locale: "de" });
   assert.deepEqual(wireChanges("locale", { ...defaults, locale: "de" }, defaults), { locale: null });
   assert.deepEqual(wireChanges("spaceOrder", defaults, { ...defaults }), {});
+});
+
+test("the style stays on the device, like the accent", () => {
+  assert.equal(isAccountSetting("style"), false);
+  assert.equal(isAccountSetting("accent"), false);
 });
