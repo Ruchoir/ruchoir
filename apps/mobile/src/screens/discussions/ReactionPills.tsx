@@ -3,8 +3,8 @@ import { SmilePlus } from "lucide-react-native";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 
@@ -23,6 +23,7 @@ export function ReactionPills({
 }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.row}>
       {reactions.map((r) => (
@@ -62,9 +63,11 @@ export function ReactionPills({
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  pill: { flexDirection: "row", alignItems: "center", gap: 4, height: 30, paddingHorizontal: 9, borderRadius: 15, borderWidth: hairline },
-  add: { paddingHorizontal: 8 },
-  glyph: { fontSize: 15, lineHeight: 20 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    row: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    pill: { flexDirection: "row", alignItems: "center", gap: 4, height: 30, paddingHorizontal: 9, borderRadius: 15, borderWidth: shape.hairline },
+    add: { paddingHorizontal: 8 },
+    glyph: { fontSize: 15, lineHeight: 20 },
+  }),
+);

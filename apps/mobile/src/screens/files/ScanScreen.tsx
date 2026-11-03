@@ -21,8 +21,8 @@ import { useLocale } from "../../i18n/useLocale";
 import { leaveScan, scanHtml, scanName, scanPageSize } from "../../logic/scan";
 import { hasDocumentScanner, scanDocument } from "../../native/documentScanner";
 import type { RootParams } from "../../navigation/types";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FullScreen } from "../../ui/FullScreen";
 import { KeyboardForm } from "../../ui/KeyboardForm";
@@ -42,6 +42,7 @@ export function ScanScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { timeZone } = useLocale();
   const toast = useToast();
   const uploads = useUploads();
@@ -182,16 +183,18 @@ export function ScanScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  form: { gap: 20, paddingTop: 8, paddingBottom: 24 },
-  gutter: { paddingHorizontal: 16 },
-  pages: { gap: 12, paddingHorizontal: 16 },
-  page: { width: 132, height: 186, borderRadius: radius.m, borderWidth: hairline, overflow: "hidden", alignItems: "center", justifyContent: "center" },
-  thumb: { width: "100%", height: "100%" },
-  pageNo: { position: "absolute", bottom: 6, left: 8 },
-  cross: { position: "absolute", top: 6, right: 6, width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  add: { borderStyle: "dashed", gap: 6 },
-  addText: { textAlign: "center", paddingHorizontal: 8 },
-  foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    form: { gap: 20, paddingTop: 8, paddingBottom: 24 },
+    gutter: { paddingHorizontal: 16 },
+    pages: { gap: 12, paddingHorizontal: 16 },
+    page: { width: 132, height: 186, borderRadius: shape.radius.m, borderWidth: shape.hairline, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+    thumb: { width: "100%", height: "100%" },
+    pageNo: { position: "absolute", bottom: 6, left: 8 },
+    cross: { position: "absolute", top: 6, right: 6, width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+    add: { borderStyle: "dashed", gap: 6 },
+    addText: { textAlign: "center", paddingHorizontal: 8 },
+    foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: shape.hairline },
+  }),
+);

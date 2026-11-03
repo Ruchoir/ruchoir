@@ -19,8 +19,9 @@ import { pickNowCards } from "../../logic/today";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { lift } from "../../theme/lift";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { feel } from "../../ui/haptics";
 import { EmptyState } from "../../ui/States";
@@ -48,6 +49,7 @@ export function TodayScreen() {
   const { getFilesView, getNotifications, listCalendars, listOccurrences } = api;
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { state } = useSession();
@@ -215,7 +217,9 @@ function MentionCard({ n }: { n: ApiNotification }) {
   const { t } = useTranslation();
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
-  const { c } = useTheme();
+  const theme = useTheme();
+  const { c, s } = theme;
+  const styles = useThemedStyles(makeStyles);
   const kind = n.kind as keyof typeof SPOKEN_TITLE;
   const where = n.channelName ? t("today.inChannel", { name: n.channelName }) : t("today.direct");
   return (
@@ -229,7 +233,7 @@ function MentionCard({ n }: { n: ApiNotification }) {
           channelId: n.channelName ? n.conversationId : undefined,
         })
       }
-      style={({ pressed }) => [styles.mention, { borderColor: c.ink, backgroundColor: c.surface, shadowColor: c.ink }, pressed && { opacity: 0.8 }]}
+      style={({ pressed }) => [styles.mention, { borderColor: s.edge, backgroundColor: c.surface }, lift(theme, 3, 3, c.ink), pressed && { opacity: 0.8 }]}
     >
       <View style={[styles.mentionIcon, { backgroundColor: c.acc }]}>
         <AtSign size={22} color={c.onPastel} />
@@ -258,6 +262,7 @@ function EventTile({ occurrence: o, now }: { occurrence: Occurrence; now: number
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const minutes = Math.round((Date.parse(o.start) - now) / 60_000);
   const when =
     minutes <= 0
@@ -287,6 +292,7 @@ function FileTile({ file }: { file: SpaceFile }) {
   const { t } = useTranslation();
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -310,30 +316,28 @@ function FileTile({ file }: { file: SpaceFile }) {
   );
 }
 
-const styles = StyleSheet.create({
-  // The tab's head stays above the page (it does not scroll away); the gap it had below it, here.
-  page: { paddingTop: 8, paddingBottom: 24, gap: 8 },
-  section: { paddingHorizontal: 16, gap: 12, paddingTop: 8 },
-  sectionTitle: { fontSize: 17 },
-  sectionHead: { flexDirection: "row", alignItems: "center" },
-  flex: { flex: 1, minWidth: 0, gap: 4 },
-  mention: {
-    flexDirection: "row",
-    gap: 14,
-    alignItems: "flex-start",
-    padding: 16,
-    borderRadius: radius.l,
-    borderWidth: 2,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
-  },
-  mentionIcon: { width: 44, height: 44, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  open: { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: 2 },
-  pair: { flexDirection: "row", gap: 12 },
-  // Two small cards side by side (mockup 09): a tile, a title and one line, each on one line.
-  tile: { flex: 1, minWidth: 0, gap: 6, padding: 12, borderRadius: radius.l, borderWidth: hairline },
-  tileIcon: { width: 32, height: 32, borderRadius: radius.s, alignItems: "center", justifyContent: "center" },
-  calm: { borderRadius: radius.l, borderWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    // The tab's head stays above the page (it does not scroll away); the gap it had below it, here.
+    page: { paddingTop: 8, paddingBottom: 24, gap: 8 },
+    section: { paddingHorizontal: 16, gap: 12, paddingTop: 8 },
+    sectionTitle: { fontSize: 17 },
+    sectionHead: { flexDirection: "row", alignItems: "center" },
+    flex: { flex: 1, minWidth: 0, gap: 4 },
+    mention: {
+      flexDirection: "row",
+      gap: 14,
+      alignItems: "flex-start",
+      padding: 16,
+      borderRadius: shape.radius.l,
+      borderWidth: shape.edgeWidth,
+    },
+    mentionIcon: { width: 44, height: 44, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    open: { flexDirection: "row", alignItems: "center", alignSelf: "center", gap: 2 },
+    pair: { flexDirection: "row", gap: 12 },
+    // Two small cards side by side (mockup 09): a tile, a title and one line, each on one line.
+    tile: { flex: 1, minWidth: 0, gap: 6, padding: 12, borderRadius: shape.radius.l, borderWidth: shape.hairline },
+    tileIcon: { width: 32, height: 32, borderRadius: shape.radius.s, alignItems: "center", justifyContent: "center" },
+    calm: { borderRadius: shape.radius.l, borderWidth: shape.hairline },
+  }),
+);

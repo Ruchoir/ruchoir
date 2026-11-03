@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet } from "react-native";
 
-import { hairline } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { feel } from "./haptics";
 import { Text } from "./Text";
 
@@ -25,6 +25,7 @@ export function Chips<K extends string>({
   gutter?: number;
 }) {
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip} contentContainerStyle={[styles.row, { paddingHorizontal: gutter }]}>
       {chips.map(({ key, label, icon: Icon, count }) => {
@@ -38,7 +39,7 @@ export function Chips<K extends string>({
               if (!on) feel("choice");
               onChange(key);
             }}
-            style={[styles.chip, { borderColor: on ? c.ink : c.lineStrong, backgroundColor: on ? s.selected : c.surface }]}
+            style={[styles.chip, { borderColor: on ? s.edge : c.lineStrong, backgroundColor: on ? s.selected : c.surface }]}
           >
             {Icon ? <Icon size={16} color={c.ink} /> : null}
             <Text variant={on ? "smallStrong" : "small"}>{label}</Text>
@@ -54,10 +55,12 @@ export function Chips<K extends string>({
   );
 }
 
-const styles = StyleSheet.create({
-  // A horizontal ScrollView grows by default and would take half of a screen's height.
-  strip: { flexGrow: 0 },
-  row: { gap: 8, paddingHorizontal: 16, paddingVertical: 4 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: hairline },
-  count: { fontSize: 11, lineHeight: 13, marginTop: -6 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    // A horizontal ScrollView grows by default and would take half of a screen's height.
+    strip: { flexGrow: 0 },
+    row: { gap: 8, paddingHorizontal: 16, paddingVertical: 4 },
+    chip: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: shape.hairline },
+    count: { fontSize: 11, lineHeight: 13, marginTop: -6 },
+  }),
+);

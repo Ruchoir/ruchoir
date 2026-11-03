@@ -2,8 +2,8 @@ import { Server } from "lucide-react-native";
 import { StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
-import { radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { Text } from "../../ui/Text";
 import { TextField } from "../../ui/TextField";
@@ -30,6 +30,7 @@ export function ServerField({
 }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   if (server && !editing) {
     return (
       <View style={[styles.row, { backgroundColor: s.sunken }]}>
@@ -61,7 +62,9 @@ export function ServerField({
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: radius.m },
-  text: { flex: 1, minWidth: 0 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: shape.radius.m },
+    text: { flex: 1, minWidth: 0 },
+  }),
+);

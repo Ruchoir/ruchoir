@@ -6,8 +6,9 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useTranslation } from "../../i18n";
 import { progress } from "../../logic/uploadQueue";
 import type { RootParams } from "../../navigation/types";
-import { hairline, mix, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { mix } from "../../theme/tokens";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
 import { useUploads } from "../../uploads/UploadsProvider";
 
@@ -15,6 +16,7 @@ import { useUploads } from "../../uploads/UploadsProvider";
 export function UploadStrip({ spaceId }: { spaceId: string }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { queue } = useUploads();
   const mine = queue.filter((i) => i.spaceId === spaceId);
@@ -56,9 +58,11 @@ export function UploadStrip({ spaceId }: { spaceId: string }) {
   );
 }
 
-const styles = StyleSheet.create({
-  strip: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 16, padding: 12, borderRadius: radius.m, borderWidth: hairline },
-  grow: { flex: 1, gap: 6 },
-  bar: { height: 4, borderRadius: 2, overflow: "hidden" },
-  fill: { height: 4 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    strip: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 16, padding: 12, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    grow: { flex: 1, gap: 6 },
+    bar: { height: 4, borderRadius: 2, overflow: "hidden" },
+    fill: { height: 4 },
+  }),
+);

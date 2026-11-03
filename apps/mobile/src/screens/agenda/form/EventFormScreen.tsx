@@ -25,8 +25,9 @@ import type { RootParams } from "../../../navigation/types";
 import { useSession } from "../../../session/SessionProvider";
 import { useSpace } from "../../../space/SpaceProvider";
 import { fonts } from "../../../theme/fonts";
-import { hairline, mix } from "../../../theme/tokens";
-import { useTheme } from "../../../theme/useTheme";
+import { mix } from "../../../theme/tokens";
+import { styleCache } from "../../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../../theme/useTheme";
 import { Button } from "../../../ui/Button";
 import { FullScreen } from "../../../ui/FullScreen";
 import { feel } from "../../../ui/haptics";
@@ -61,6 +62,7 @@ export function EventFormScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const { duration, textSize } = usePrefs();
   // The typed lines follow the text size chosen in the app, as every other line does: left at their
@@ -444,18 +446,20 @@ export function EventFormScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  grow: { flex: 1 },
-  choice: { flexDirection: "row", alignItems: "center", gap: 8 },
-  start: { alignSelf: "flex-start" },
-  form: { paddingBottom: 24 },
-  band: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, gap: 10 },
-  title: { fontFamily: fonts.sansBold, fontSize: 24, lineHeight: 30, paddingVertical: 4 },
-  calendar: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", maxWidth: "100%", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: hairline },
-  calendarName: { flexShrink: 1 },
-  dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1 },
-  input: { fontFamily: fonts.sans, fontSize: 16, lineHeight: 21, paddingVertical: 6 },
-  notes: { minHeight: 72, textAlignVertical: "top" },
-  foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    grow: { flex: 1 },
+    choice: { flexDirection: "row", alignItems: "center", gap: 8 },
+    start: { alignSelf: "flex-start" },
+    form: { paddingBottom: 24 },
+    band: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14, gap: 10 },
+    title: { fontFamily: fonts.sansBold, fontSize: 24, lineHeight: 30, paddingVertical: 4 },
+    calendar: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", maxWidth: "100%", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: shape.hairline },
+    calendarName: { flexShrink: 1 },
+    dot: { width: 12, height: 12, borderRadius: 6, borderWidth: 1 },
+    input: { fontFamily: fonts.sans, fontSize: 16, lineHeight: 21, paddingVertical: 6 },
+    notes: { minHeight: 72, textAlignVertical: "top" },
+    foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: shape.hairline },
+  }),
+);

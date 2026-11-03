@@ -9,7 +9,7 @@ import { feel } from "./haptics";
  * Android too (on iOS `UISwitch` plays that itself).
  */
 export function Toggle({ onValueChange, ...props }: Omit<SwitchProps, "trackColor">) {
-  const { c, s, dark } = useTheme();
+  const { c, s, dark, style } = useTheme();
   return (
     <Switch
       {...props}
@@ -21,7 +21,7 @@ export function Toggle({ onValueChange, ...props }: Omit<SwitchProps, "trackColo
             }
           : undefined
       }
-      trackColor={{ true: dark ? c.acc : c.ink, false: s.sunken }}
+      trackColor={{ true: style !== "ruchoir" ? s.primary : dark ? c.acc : c.ink, false: s.sunken }}
     />
   );
 }

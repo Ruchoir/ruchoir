@@ -4,8 +4,8 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 import { useLocale } from "../i18n/useLocale";
 import { fileSize } from "../logic/format";
-import { hairline, radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { FileIcon } from "./FileIcon";
 import { Text } from "./Text";
 
@@ -23,6 +23,7 @@ export function FileCard({
   trailing?: ReactNode;
 }) {
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   const meta = [fileExtension(name).toUpperCase(), sizeBytes !== undefined ? fileSize(sizeBytes, locale) : null]
     .filter(Boolean)
@@ -50,7 +51,9 @@ export function FileCard({
   );
 }
 
-const styles = StyleSheet.create({
-  card: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: radius.m, borderWidth: hairline, maxWidth: 300 },
-  text: { flex: 1, minWidth: 0 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    card: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: shape.radius.m, borderWidth: shape.hairline, maxWidth: 300 },
+    text: { flex: 1, minWidth: 0 },
+  }),
+);

@@ -17,8 +17,8 @@ import { channelHandle } from "../../logic/handle";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { AvatarStack } from "../../ui/AvatarStack";
 import { Button } from "../../ui/Button";
 import { feel } from "../../ui/haptics";
@@ -37,6 +37,7 @@ export function NewGroupScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const { state } = useSession();
   const me = state.kind === "signedIn" ? state.user : null;
@@ -255,19 +256,21 @@ export function NewGroupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  form: { gap: 20, paddingBottom: 24 },
-  gutter: { paddingHorizontal: 16 },
-  block: { gap: 8 },
-  foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
-  addRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
-  grow: { flex: 1 },
-  // Level with the field, under its label.
-  addButton: { marginTop: 24, height: 52 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  chip: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%", paddingLeft: 10, paddingRight: 8, paddingVertical: 6, borderRadius: radius.l },
-  chipText: { flexShrink: 1 },
-  pick: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56, paddingHorizontal: 12, paddingVertical: 8, borderWidth: hairline, borderRadius: radius.m },
-  pickTile: { width: 36, height: 36, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    form: { gap: 20, paddingBottom: 24 },
+    gutter: { paddingHorizontal: 16 },
+    block: { gap: 8 },
+    foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: shape.hairline },
+    addRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+    grow: { flex: 1 },
+    // Level with the field, under its label.
+    addButton: { marginTop: 24, height: 52 },
+    chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    chip: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "100%", paddingLeft: 10, paddingRight: 8, paddingVertical: 6, borderRadius: shape.radius.l },
+    chipText: { flexShrink: 1 },
+    pick: { flexDirection: "row", alignItems: "center", gap: 12, minHeight: 56, paddingHorizontal: 12, paddingVertical: 8, borderWidth: shape.hairline, borderRadius: shape.radius.m },
+    pickTile: { width: 36, height: 36, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+  }),
+);

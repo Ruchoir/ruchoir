@@ -7,8 +7,8 @@ import { useState } from "react";
 import { Modal, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../../i18n";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { KeyboardArea } from "../../ui/KeyboardArea";
 import { SearchField } from "../../ui/SearchField";
@@ -30,6 +30,7 @@ export function PeoplePickerModal({
 }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState(selected);
   const toggle = (member: Member) =>
@@ -53,8 +54,10 @@ export function PeoplePickerModal({
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  search: { paddingBottom: 8 },
-  foot: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    search: { paddingBottom: 8 },
+    foot: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: shape.hairline },
+  }),
+);

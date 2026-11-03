@@ -11,8 +11,9 @@ import { Image, StyleSheet, View } from "react-native";
 import { useSignedInClients } from "../../accounts/AccountsProvider";
 import { useTranslation } from "../../i18n";
 import { enablePhonePush } from "../../push/phone";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { soft } from "../../theme/lift";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FullScreen } from "../../ui/FullScreen";
 import { Text } from "../../ui/Text";
@@ -23,7 +24,9 @@ const mark = require("../../../assets/mark.png");
 export function NotificationsIntroScreen() {
   const clients = useSignedInClients();
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const theme = useTheme();
+  const { c } = theme;
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const navigation = useNavigation();
   const [busy, setBusy] = useState(false);
@@ -44,7 +47,7 @@ export function NotificationsIntroScreen() {
   return (
     <FullScreen color={c.bg}>
       <View style={styles.body}>
-        <View style={[styles.preview, { backgroundColor: c.surface, borderColor: c.line, shadowColor: s.shadow }]}>
+        <View style={[styles.preview, { backgroundColor: c.surface, borderColor: c.line }, soft(theme, 6, 0.12, 16)]}>
           <View style={[styles.icon, { backgroundColor: c.bg, borderColor: c.line }]}>
             <Image source={mark} style={[styles.mark, { tintColor: c.brand }]} />
           </View>
@@ -77,23 +80,21 @@ export function NotificationsIntroScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  body: { flex: 1, justifyContent: "center", gap: 20, paddingHorizontal: 24 },
-  preview: {
-    flexDirection: "row",
-    gap: 12,
-    padding: 14,
-    borderRadius: radius.l,
-    borderWidth: hairline,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  icon: { width: 40, height: 40, borderRadius: radius.m, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-  mark: { width: 24, height: 24 },
-  grow: { flex: 1, minWidth: 0 },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  center: { textAlign: "center" },
-  actions: { gap: 8, paddingHorizontal: 20, paddingBottom: 12 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    body: { flex: 1, justifyContent: "center", gap: 20, paddingHorizontal: 24 },
+    preview: {
+      flexDirection: "row",
+      gap: 12,
+      padding: 14,
+      borderRadius: shape.radius.l,
+      borderWidth: shape.hairline,
+    },
+    icon: { width: 40, height: 40, borderRadius: shape.radius.m, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+    mark: { width: 24, height: 24 },
+    grow: { flex: 1, minWidth: 0 },
+    row: { flexDirection: "row", alignItems: "center", gap: 8 },
+    center: { textAlign: "center" },
+    actions: { gap: 8, paddingHorizontal: 20, paddingBottom: 12 },
+  }),
+);

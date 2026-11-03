@@ -21,8 +21,8 @@ import type { RootParams } from "../../navigation/types";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Sheet } from "../../ui/Sheet";
 import { Text } from "../../ui/Text";
@@ -35,6 +35,7 @@ export function MessageActionSheet() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const { state } = useSession();
   const { current } = useSpace();
@@ -173,9 +174,11 @@ export function MessageActionSheet() {
   );
 }
 
-const styles = StyleSheet.create({
-  quick: { flexDirection: "row", justifyContent: "space-between", gap: 6, marginTop: 10, marginBottom: 8 },
-  emoji: { flex: 1, maxWidth: 52, aspectRatio: 1, borderRadius: radius.m, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-  glyph: { fontSize: 24, lineHeight: 30 },
-  rule: { height: hairline, marginVertical: 6 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    quick: { flexDirection: "row", justifyContent: "space-between", gap: 6, marginTop: 10, marginBottom: 8 },
+    emoji: { flex: 1, maxWidth: 52, aspectRatio: 1, borderRadius: shape.radius.m, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+    glyph: { fontSize: 24, lineHeight: 30 },
+    rule: { height: shape.hairline, marginVertical: 6 },
+  }),
+);

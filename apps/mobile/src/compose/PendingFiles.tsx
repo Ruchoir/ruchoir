@@ -5,8 +5,8 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useTranslation } from "../i18n";
 import { useLocale } from "../i18n/useLocale";
 import { fileSize } from "../logic/format";
-import { hairline, radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { FileIcon } from "../ui/FileIcon";
 import { Text } from "../ui/Text";
 import type { Attachments } from "./useAttachments";
@@ -19,6 +19,7 @@ import type { Attachments } from "./useAttachments";
 export function PendingFiles({ attachments }: { attachments: Attachments }) {
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   if (attachments.files.length === 0) return null;
   return (
@@ -78,25 +79,27 @@ export function PendingFiles({ attachments }: { attachments: Attachments }) {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { flexGrow: 0 },
-  row: { gap: 8, paddingHorizontal: 16, paddingTop: 8 },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    width: 220,
-    height: 56,
-    paddingLeft: 8,
-    paddingRight: 6,
-    borderWidth: hairline,
-    borderRadius: radius.m,
-    overflow: "hidden",
-  },
-  thumb: { width: 36, height: 36, borderRadius: radius.s },
-  text: { flex: 1, minWidth: 0 },
-  status: { flexDirection: "row", alignItems: "center", gap: 4 },
-  remove: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  track: { position: "absolute", left: 0, right: 0, bottom: 0, height: 3 },
-  bar: { height: 3 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    scroll: { flexGrow: 0 },
+    row: { gap: 8, paddingHorizontal: 16, paddingTop: 8 },
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      width: 220,
+      height: 56,
+      paddingLeft: 8,
+      paddingRight: 6,
+      borderWidth: shape.hairline,
+      borderRadius: shape.radius.m,
+      overflow: "hidden",
+    },
+    thumb: { width: 36, height: 36, borderRadius: shape.radius.s },
+    text: { flex: 1, minWidth: 0 },
+    status: { flexDirection: "row", alignItems: "center", gap: 4 },
+    remove: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    track: { position: "absolute", left: 0, right: 0, bottom: 0, height: 3 },
+    bar: { height: 3 },
+  }),
+);

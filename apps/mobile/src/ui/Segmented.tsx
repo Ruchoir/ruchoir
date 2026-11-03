@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { hairline, radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { feel } from "./haptics";
 import { Text } from "./Text";
 
@@ -18,6 +18,7 @@ export function Segmented<K extends string>({
   style?: StyleProp<ViewStyle>;
 }) {
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.track, { backgroundColor: s.sunken }, style]}>
       {options.map(({ key, label }) => {
@@ -31,7 +32,7 @@ export function Segmented<K extends string>({
               if (!on) feel("choice");
               onChange(key);
             }}
-            style={[styles.part, on && { backgroundColor: c.acc, borderColor: c.ink }]}
+            style={[styles.part, on && { backgroundColor: c.acc, borderColor: s.edge }]}
           >
             <Text variant={on ? "smallStrong" : "small"} style={{ color: on ? c.onPastel : c.ink }}>
               {label}
@@ -43,7 +44,9 @@ export function Segmented<K extends string>({
   );
 }
 
-const styles = StyleSheet.create({
-  track: { flexDirection: "row", padding: 4, borderRadius: radius.m, marginHorizontal: 16 },
-  part: { flex: 1, height: 36, alignItems: "center", justifyContent: "center", borderRadius: radius.s + 2, borderWidth: hairline, borderColor: "transparent" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    track: { flexDirection: "row", padding: 4, borderRadius: shape.radius.m, marginHorizontal: 16 },
+    part: { flex: 1, height: 36, alignItems: "center", justifyContent: "center", borderRadius: shape.radius.s + 2, borderWidth: shape.hairline, borderColor: "transparent" },
+  }),
+);

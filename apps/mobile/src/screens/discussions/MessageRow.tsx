@@ -11,8 +11,8 @@ import { useLocale } from "../../i18n/useLocale";
 import { listStamp, timeOf } from "../../logic/format";
 import { thumbBox } from "../../logic/thumb";
 import { useTabletLayout } from "../../layout/useWide";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Avatar } from "../../ui/Avatar";
 import { FileCard } from "../../ui/FileCard";
 import { Flash } from "../../ui/Flash";
@@ -22,6 +22,7 @@ import { EventCardView } from "./EventCardView";
 import { LinkCard } from "./LinkCard";
 import { ReactionPills } from "./ReactionPills";
 import { RichText } from "./RichText";
+import { rowLayers } from "./rowLayers";
 import { SYSTEM_TEXT } from "./systemText";
 
 
@@ -71,7 +72,8 @@ export const MessageRow = memo(function MessageRow({
   highlighted,
 }: Props) {
   const { t } = useTranslation();
-  const { s } = useTheme();
+  const { s, shape } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const tablet = useTabletLayout() !== null;
   const { locale, timeZone } = useLocale();
   const navigation = useNavigation();
@@ -134,10 +136,14 @@ export const MessageRow = memo(function MessageRow({
       delayLongPress={350}
       accessibilityHint={unsent ? t("compose.failed") : undefined}
       style={({ pressed }) => [
-        styles.row,
-        tablet && styles.rowTablet,
-        mentionsMe && { backgroundColor: s.mention },
-        !head && styles.continued,
+        // Indigo sets each message on a card; a mention's tint still wins over it (`rowLayers`).
+        ...rowLayers({ head, tablet, card: shape.msg.card, mention: mentionsMe }).map((layer) =>
+          layer === "card"
+            ? [styles.card, { backgroundColor: s.msgBg ?? undefined, borderColor: s.msgEdge ?? undefined }]
+            : layer === "mention"
+              ? { backgroundColor: s.mention }
+              : styles[layer],
+        ),
         pending === "sending" && styles.sending,
         pressed && actions && { backgroundColor: s.pressed },
       ]}
@@ -220,6 +226,7 @@ export const MessageRow = memo(function MessageRow({
 function ThreadLine({ root, onPress }: { root: NonNullable<ApiMessage["threadRoot"]>; onPress: () => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable accessibilityRole="button" onPress={onPress} hitSlop={6} style={({ pressed }) => [styles.threadLine, pressed && { opacity: 0.6 }]}>
       <MessageSquare size={13} color={c.muted} />
@@ -243,6 +250,7 @@ function ThreadLine({ root, onPress }: { root: NonNullable<ApiMessage["threadRoo
 function ReplyLine({ message: m, onPress, avatarOf }: { message: ApiMessage; onPress: () => void; avatarOf?: (name: string) => string | undefined }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const stamp = m.lastReplyAt ? listStamp(m.lastReplyAt, new Date(), locale, timeZone) : null;
   const last = !stamp
@@ -285,6 +293,7 @@ function Pictures({ images }: { images: NonNullable<ApiMessage["images"]> }) {
   const { absoluteUrl, fileDownloadUrl } = api;
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation();
   const [column, setColumn] = useState(0);
   return (
@@ -321,6 +330,7 @@ function Pictures({ images }: { images: NonNullable<ApiMessage["images"]> }) {
 function PinnedTag() {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.pinned}>
       <Pin size={12} color={c.muted} />
@@ -331,28 +341,32 @@ function PinnedTag() {
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
-  continued: { paddingTop: 2 },
-  sending: { opacity: 0.55 },
-  gutter: { width: 36 },
-  // The tablet mockups' message: a face of 42, 14 beside it, 12 around, rounded.
-  rowTablet: { gap: 14, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 6, borderRadius: radius.m },
-  gutterTablet: { width: 42 },
-  main: { flex: 1, minWidth: 0, gap: 6 },
-  head: { flexDirection: "row", alignItems: "baseline", gap: 8 },
-  author: { flexShrink: 1 },
-  italic: { fontStyle: "italic" },
-  system: { textAlign: "center", paddingHorizontal: 24, paddingVertical: 8 },
-  systemCard: { paddingHorizontal: 16, paddingBottom: 8, alignItems: "center" },
-  pinned: { flexDirection: "row", alignItems: "center", gap: 3 },
-  replies: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", paddingVertical: 2 },
-  threadLine: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "stretch", paddingBottom: 2 },
-  threadText: { flexShrink: 1 },
-  faces: { flexDirection: "row" },
-  face: { borderWidth: 2, borderRadius: radius.s + 2 },
-  faceOverlap: { marginLeft: -6 },
-  shrink: { flexShrink: 1 },
-  pictures: { alignSelf: "stretch", gap: 6 },
-  image: { borderRadius: radius.m, borderWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    // The style's density: the space above a message, alone or continuing, and between two.
+    row: { flexDirection: "row", gap: 10, paddingHorizontal: shape.msg.padX, paddingTop: shape.msg.padTop, paddingBottom: 4, marginBottom: shape.msg.space },
+    continued: { paddingTop: shape.msg.padTopGrouped },
+    card: { marginHorizontal: 8, paddingHorizontal: shape.msg.padX - 8, paddingBottom: 8, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    sending: { opacity: 0.55 },
+    gutter: { width: 36 },
+    // The tablet mockups' message: a face of 42, 14 beside it, 12 around, rounded.
+    rowTablet: { gap: 14, paddingHorizontal: 12, paddingTop: 12, paddingBottom: 6, borderRadius: shape.radius.m },
+    gutterTablet: { width: 42 },
+    main: { flex: 1, minWidth: 0, gap: 6 },
+    head: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+    author: { flexShrink: 1 },
+    italic: { fontStyle: "italic" },
+    system: { textAlign: "center", paddingHorizontal: 24, paddingVertical: 8 },
+    systemCard: { paddingHorizontal: 16, paddingBottom: 8, alignItems: "center" },
+    pinned: { flexDirection: "row", alignItems: "center", gap: 3 },
+    replies: { flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "flex-start", paddingVertical: 2 },
+    threadLine: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "stretch", paddingBottom: 2 },
+    threadText: { flexShrink: 1 },
+    faces: { flexDirection: "row" },
+    face: { borderWidth: 2, borderRadius: shape.radius.s + 2 },
+    faceOverlap: { marginLeft: -6 },
+    shrink: { flexShrink: 1 },
+    pictures: { alignSelf: "stretch", gap: 6 },
+    image: { borderRadius: shape.radius.m, borderWidth: shape.hairline },
+  }),
+);

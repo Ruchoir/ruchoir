@@ -1,8 +1,8 @@
 import { Hash, Megaphone } from "lucide-react-native";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { hairline, radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Avatar } from "../ui/Avatar";
 import { Text } from "../ui/Text";
 
@@ -17,6 +17,7 @@ export type Suggestion =
  */
 export function MentionSuggestions({ items, onPick }: { items: Suggestion[]; onPick: (item: Suggestion) => void }) {
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   if (items.length === 0) return null;
   return (
     <View style={[styles.list, { backgroundColor: c.surface, borderBottomColor: c.line }]} accessibilityRole="menu">
@@ -50,9 +51,11 @@ export function MentionSuggestions({ items, onPick }: { items: Suggestion[]; onP
   );
 }
 
-const styles = StyleSheet.create({
-  list: { borderBottomWidth: hairline, paddingVertical: 4 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, minHeight: 52 },
-  tile: { width: 32, height: 32, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  text: { flex: 1, minWidth: 0 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    list: { borderBottomWidth: shape.hairline, paddingVertical: 4 },
+    row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, minHeight: 52 },
+    tile: { width: 32, height: 32, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    text: { flex: 1, minWidth: 0 },
+  }),
+);

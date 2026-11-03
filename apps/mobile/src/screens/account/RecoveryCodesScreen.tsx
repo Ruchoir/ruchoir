@@ -6,8 +6,8 @@ import { ScrollView, Share, StyleSheet, View } from "react-native";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { fonts } from "../../theme/fonts";
-import { radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { SheetHeader } from "../../ui/SheetHeader";
 import { Text } from "../../ui/Text";
@@ -18,6 +18,7 @@ export function RecoveryCodesScreen() {
   const { codes } = useRoute<RouteProp<RootParams, "recoveryCodes">>().params;
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const navigation = useNavigation();
   const all = codes.join("\n");
@@ -55,11 +56,13 @@ export function RecoveryCodesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  content: { paddingBottom: 32 },
-  pad: { paddingHorizontal: 20, gap: 16 },
-  codes: { flexDirection: "row", flexWrap: "wrap", padding: 16, borderRadius: radius.m, borderWidth: 1.5, rowGap: 10 },
-  code: { width: "50%", fontFamily: fonts.monoSemibold, fontSize: 15, letterSpacing: 0.5 },
-  row: { flexDirection: "row", gap: 10 },
-  flex: { flex: 1 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    content: { paddingBottom: 32 },
+    pad: { paddingHorizontal: 20, gap: 16 },
+    codes: { flexDirection: "row", flexWrap: "wrap", padding: 16, borderRadius: shape.radius.m, borderWidth: 1.5, rowGap: 10 },
+    code: { width: "50%", fontFamily: fonts.monoSemibold, fontSize: 15, letterSpacing: 0.5 },
+    row: { flexDirection: "row", gap: 10 },
+    flex: { flex: 1 },
+  }),
+);

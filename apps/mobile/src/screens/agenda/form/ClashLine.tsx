@@ -10,8 +10,9 @@ import { useLocale } from "../../../i18n/useLocale";
 import { draftSpan, type EventDraft } from "../../../logic/eventForm";
 import { timeOf } from "../../../logic/format";
 import { useSpace } from "../../../space/SpaceProvider";
-import { mix, radius } from "../../../theme/tokens";
-import { useTheme } from "../../../theme/useTheme";
+import { mix } from "../../../theme/tokens";
+import { styleCache } from "../../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../../theme/useTheme";
 import { Text } from "../../../ui/Text";
 import { calendarLabel } from "../calendarLabel";
 
@@ -24,6 +25,7 @@ export function ClashLine({ draft, calendars, busyNames, eventId }: { draft: Eve
   const { listOccurrences } = useApi();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   const { spaces } = useSpace();
   const span = draftSpan(draft);
@@ -74,8 +76,10 @@ export function ClashLine({ draft, calendars, busyNames, eventId }: { draft: Eve
   );
 }
 
-const styles = StyleSheet.create({
-  box: { flexDirection: "row", gap: 8, marginHorizontal: 16, marginTop: 10, padding: 10, borderRadius: radius.m },
-  icon: { marginTop: 1 },
-  texts: { flex: 1, gap: 2 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    box: { flexDirection: "row", gap: 8, marginHorizontal: 16, marginTop: 10, padding: 10, borderRadius: shape.radius.m },
+    icon: { marginTop: 1 },
+    texts: { flex: 1, gap: 2 },
+  }),
+);

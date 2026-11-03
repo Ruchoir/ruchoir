@@ -16,8 +16,8 @@ import { composerRoom } from "../logic/keyboard";
 import { useTabletLayout } from "../layout/useWide";
 import { activeToken, broadcastsFor, fold, insertToken, matchPeople } from "../logic/mentions";
 import { fonts } from "../theme/fonts";
-import { hairline, radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { feel } from "../ui/haptics";
 import { Text } from "../ui/Text";
 import { MentionSuggestions, type Suggestion } from "./MentionSuggestions";
@@ -67,7 +67,8 @@ type Props = {
 export function Composer(props: Props) {
   const { conversationId, draftKey, parentId, people, channels, broadcasts, myUserId, editing } = props;
   const { t } = useTranslation();
-  const { c, s } = useTheme();
+  const { c, s, shape } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const tablet = useTabletLayout();
   const insets = useSafeAreaInsets();
   // The bar keeps clear of the home indicator; with the keyboard up, its `KeyboardArea` (`composer`)
@@ -155,7 +156,7 @@ export function Composer(props: Props) {
       baseline: props.baselineFor(body),
     });
     files?.clear();
-    // One reply at a time, as Slack does: the next stays in the thread unless asked again.
+    // One reply at a time: the next stays in the thread unless asked again.
     setAlsoInChannel(false);
     change("");
     setCursor(0);
@@ -212,7 +213,7 @@ export function Composer(props: Props) {
             style={({ pressed }) => [
               styles.square,
               tablet && styles.squareTablet,
-              { borderColor: tablet ? c.lineStrong : c.controlLine, borderWidth: hairline, backgroundColor: c.surface },
+              { borderColor: tablet ? c.lineStrong : c.controlLine, borderWidth: shape.hairline, backgroundColor: c.surface },
               pressed && { backgroundColor: s.pressed },
             ]}
           >
@@ -245,8 +246,8 @@ export function Composer(props: Props) {
             styles.square,
             tablet && styles.squareTablet,
             tablet === "landscape" && styles.sendLabelled,
-            { borderColor: c.ink, borderWidth: 2 },
-            ready && { backgroundColor: c.ink },
+            { borderColor: ready ? s.primary : s.edge, borderWidth: shape.edgeWidth },
+            ready && { backgroundColor: s.primary },
             pressed && { opacity: 0.8 },
           ]}
         >
@@ -254,10 +255,10 @@ export function Composer(props: Props) {
             <ActivityIndicator color={c.ink} />
           ) : (
             <>
-              <Send size={tablet === "landscape" ? 18 : 20} color={ready ? c.onInk : c.ink} />
+              <Send size={tablet === "landscape" ? 18 : 20} color={ready ? s.onPrimary : c.ink} />
               {/* A tablet held wide says it in words, as its mockup does. */}
               {tablet === "landscape" ? (
-                <Text variant="bodyStrong" style={{ color: ready ? c.onInk : c.ink }}>
+                <Text variant="bodyStrong" style={{ color: ready ? s.onPrimary : c.ink }}>
                   {editing ? t("compose.save") : t("compose.send")}
                 </Text>
               ) : null}
@@ -269,33 +270,35 @@ export function Composer(props: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  box: { borderTopWidth: hairline },
-  // The tablet mockups' composer: 14 above, 20 aside, its row 820 wide at most, its controls 48 high.
-  boxTablet: { paddingHorizontal: 4 },
-  barTablet: { width: "100%", maxWidth: 820 + 40, alignSelf: "center", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingTop: 14 },
-  squareTablet: { width: 48, height: 48 },
-  sendLabelled: { width: "auto", flexDirection: "row", gap: 8, paddingHorizontal: 20 },
-  fieldTablet: { minHeight: 48, paddingTop: 13, paddingBottom: 13, paddingHorizontal: 16 },
-  typing: { paddingHorizontal: 16, paddingTop: 6 },
-  banner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
-  also: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 8 },
-  tick: { width: 18, height: 18, borderRadius: 5, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
-  grow: { flex: 1 },
-  bar: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 16, paddingTop: 8 },
-  square: { width: 44, height: 44, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  field: {
-    flex: 1,
-    minHeight: 44,
-    // Five lines of text, then it scrolls.
-    maxHeight: 5 * 21 + 22,
-    borderWidth: hairline,
-    borderRadius: radius.m,
-    paddingHorizontal: 12,
-    paddingTop: 11,
-    paddingBottom: 11,
-    fontSize: 16,
-    lineHeight: 21,
-    fontFamily: fonts.sans,
-  },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    box: { borderTopWidth: shape.hairline },
+    // The tablet mockups' composer: 14 above, 20 aside, its row 820 wide at most, its controls 48 high.
+    boxTablet: { paddingHorizontal: 4 },
+    barTablet: { width: "100%", maxWidth: 820 + 40, alignSelf: "center", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingTop: 14 },
+    squareTablet: { width: 48, height: 48 },
+    sendLabelled: { width: "auto", flexDirection: "row", gap: 8, paddingHorizontal: 20 },
+    fieldTablet: { minHeight: 48, paddingTop: 13, paddingBottom: 13, paddingHorizontal: 16 },
+    typing: { paddingHorizontal: 16, paddingTop: 6 },
+    banner: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 8 },
+    also: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 8 },
+    tick: { width: 18, height: 18, borderRadius: 5, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
+    grow: { flex: 1 },
+    bar: { flexDirection: "row", alignItems: "flex-end", gap: 8, paddingHorizontal: 16, paddingTop: 8 },
+    square: { width: 44, height: 44, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    field: {
+      flex: 1,
+      minHeight: 44,
+      // Five lines of text, then it scrolls.
+      maxHeight: 5 * 21 + 22,
+      borderWidth: shape.hairline,
+      borderRadius: shape.radius.m,
+      paddingHorizontal: 12,
+      paddingTop: 11,
+      paddingBottom: 11,
+      fontSize: 16,
+      lineHeight: 21,
+      fontFamily: fonts.sans,
+    },
+  }),
+);

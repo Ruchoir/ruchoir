@@ -11,8 +11,8 @@ import { passwordLongEnough } from "../../logic/signup";
 import type { AuthParams } from "../../navigation/types";
 import { FAILURE_TEXT } from "../../session/failureText";
 import { AuthFailure, useSession } from "../../session/SessionProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Banner } from "../../ui/Banner";
 import { Button } from "../../ui/Button";
@@ -31,6 +31,7 @@ export function SignUpScreen() {
   const { getInstanceCapabilities } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const session = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<AuthParams>>();
   const invitation = useRoute<RouteProp<AuthParams, "signUp">>().params?.invitation;
@@ -204,15 +205,17 @@ export function SignUpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  head: { gap: 6 },
-  flex: { flex: 1, minWidth: 0 },
-  invitation: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: radius.m, borderWidth: hairline },
-  password: { gap: 10 },
-  rule: { flexDirection: "row", alignItems: "center", gap: 8 },
-  tick: { width: 18, height: 18, borderRadius: 9, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-  terms: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  box: { width: 24, height: 24, borderRadius: radius.s, borderWidth: 2, alignItems: "center", justifyContent: "center" },
-  signIn: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 },
-  inlineLink: { alignSelf: "center", paddingVertical: 0 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    head: { gap: 6 },
+    flex: { flex: 1, minWidth: 0 },
+    invitation: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    password: { gap: 10 },
+    rule: { flexDirection: "row", alignItems: "center", gap: 8 },
+    tick: { width: 18, height: 18, borderRadius: 9, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+    terms: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+    box: { width: 24, height: 24, borderRadius: shape.radius.s, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+    signIn: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6 },
+    inlineLink: { alignSelf: "center", paddingVertical: 0 },
+  }),
+);

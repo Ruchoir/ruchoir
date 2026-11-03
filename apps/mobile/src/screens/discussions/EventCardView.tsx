@@ -14,8 +14,8 @@ import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { timeOf } from "../../logic/format";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { feel } from "../../ui/haptics";
 import { Text } from "../../ui/Text";
 import { AnswerButtons, type Answer } from "../agenda/AnswerButtons";
@@ -26,6 +26,7 @@ export function EventCardView({ message: m, myUserId }: { message: ApiMessage; m
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const [status, setStatus] = useState<AttendeeStatus | undefined>(card.myStatus);
   const [failed, setFailed] = useState(false);
@@ -124,15 +125,17 @@ export function EventCardView({ message: m, myUserId }: { message: ApiMessage; m
   );
 }
 
-const styles = StyleSheet.create({
-  // As wide as the column it sits in (a message, or under a notice), never wider than a phone's card.
-  card: { alignSelf: "stretch", maxWidth: 420, gap: 10, padding: 12, borderRadius: radius.m, borderWidth: hairline },
-  head: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  tile: { width: 48, borderRadius: radius.s, borderWidth: hairline, overflow: "hidden", alignItems: "center" },
-  month: { alignSelf: "stretch", textAlign: "center", fontSize: 11, lineHeight: 15, paddingVertical: 1 },
-  dayNumber: { paddingTop: 2, paddingBottom: 4 },
-  text: { flex: 1, minWidth: 0, gap: 4 },
-  meta: { flexDirection: "row", alignItems: "center", gap: 6 },
-  shrink: { flexShrink: 1 },
-  answers: { gap: 6 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    // As wide as the column it sits in (a message, or under a notice), never wider than a phone's card.
+    card: { alignSelf: "stretch", maxWidth: 420, gap: 10, padding: 12, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    head: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+    tile: { width: 48, borderRadius: shape.radius.s, borderWidth: shape.hairline, overflow: "hidden", alignItems: "center" },
+    month: { alignSelf: "stretch", textAlign: "center", fontSize: 11, lineHeight: 15, paddingVertical: 1 },
+    dayNumber: { paddingTop: 2, paddingBottom: 4 },
+    text: { flex: 1, minWidth: 0, gap: 4 },
+    meta: { flexDirection: "row", alignItems: "center", gap: 6 },
+    shrink: { flexShrink: 1 },
+    answers: { gap: 6 },
+  }),
+);

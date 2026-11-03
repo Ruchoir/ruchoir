@@ -14,8 +14,8 @@ import { editAction, useOffice } from "../../files/office";
 import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FileIcon } from "../../ui/FileIcon";
 import { LoadState } from "../../ui/States";
@@ -36,6 +36,7 @@ export function FileViewerScreen() {
   const { current } = useSpace();
   const entry = params.entry;
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const local = useLoad(`download:${file.id}:${file.url}`, (signal) => downloadToCache(api, file, signal));
   const family = fileFamily(file.name, file.mime);
   const inline = family === "image" || (Platform.OS === "ios" && ["pdf", "document", "spreadsheet", "presentation", "text"].includes(family));
@@ -106,11 +107,13 @@ export function FileViewerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  bar: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, minHeight: 52, borderBottomWidth: hairline },
-  icon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  title: { flex: 1, textAlign: "center" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 },
-  text: { textAlign: "center" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    bar: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, minHeight: 52, borderBottomWidth: shape.hairline },
+    icon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    title: { flex: 1, textAlign: "center" },
+    center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 16, padding: 32 },
+    text: { textAlign: "center" },
+  }),
+);

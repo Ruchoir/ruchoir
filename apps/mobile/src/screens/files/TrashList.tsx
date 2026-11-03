@@ -8,8 +8,8 @@ import { useReloadOn } from "../../data/useReloadOn";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FileIcon } from "../../ui/FileIcon";
 import { feel } from "../../ui/haptics";
@@ -27,6 +27,7 @@ export function TrashList() {
   const { emptyTrash, eraseFile, getInstanceCapabilities, getTrash, restoreFile } = useApi();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const toast = useToast();
   const { current } = useSpace();
@@ -131,9 +132,11 @@ export function TrashList() {
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
-  grow: { flex: 1, minWidth: 0, gap: 2 },
-  restore: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, paddingHorizontal: 10, borderRadius: radius.m, borderWidth: hairline },
-  foot: { gap: 12, paddingHorizontal: 16, paddingTop: 16 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1 },
+    grow: { flex: 1, minWidth: 0, gap: 2 },
+    restore: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, paddingHorizontal: 10, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    foot: { gap: 12, paddingHorizontal: 16, paddingTop: 16 },
+  }),
+);

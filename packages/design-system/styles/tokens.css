@@ -613,7 +613,7 @@
   --msg-bg: transparent;
   --msg-edge: none;
   --acc: #b9d7f0;
-  --control-line: #6b6b6b;
+  --control-line: #6e6e6e;
 }
 [data-style="aubergine"]:not([data-theme$="-dark"]) .wc-pane-sidebar {
   --text-strong: #ffffff;
@@ -874,7 +874,7 @@
   --msg-bg: var(--surface);
   --msg-edge: 1px solid #333333;
   --acc: #c5c8f5;
-  --control-line: #6e6e6e;
+  --control-line: #727272;
 }
 
 /* --- Marine: a navy sidebar, very tight messages, small corners ------------ */

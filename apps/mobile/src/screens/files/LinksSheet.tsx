@@ -10,8 +10,8 @@ import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import type { RootParams } from "../../navigation/types";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { Chips } from "../../ui/Chips";
 import { KeyboardForm } from "../../ui/KeyboardForm";
@@ -34,6 +34,7 @@ export function LinksSheet() {
   const { params } = useRoute<RouteProp<RootParams, "fileLinks">>();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const toast = useToast();
   const file = params.file;
@@ -137,11 +138,13 @@ export function LinksSheet() {
   );
 }
 
-const styles = StyleSheet.create({
-  form: { gap: 12, paddingTop: 24, paddingBottom: 16 },
-  gutter: { paddingHorizontal: 20, gap: 4 },
-  grow: { flex: 1, minWidth: 0, gap: 2 },
-  link: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, marginBottom: 8, borderRadius: radius.m, borderWidth: hairline },
-  icon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
-  foot: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    form: { gap: 12, paddingTop: 24, paddingBottom: 16 },
+    gutter: { paddingHorizontal: 20, gap: 4 },
+    grow: { flex: 1, minWidth: 0, gap: 2 },
+    link: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, marginBottom: 8, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+    icon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+    foot: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8, borderTopWidth: shape.hairline },
+  }),
+);

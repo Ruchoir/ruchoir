@@ -14,8 +14,8 @@ import { useSession } from "../session/SessionProvider";
 import { selfPresence } from "../session/presence";
 import { useSpace } from "../space/SpaceProvider";
 import { fonts } from "../theme/fonts";
-import { hairline } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
 import { Text } from "../ui/Text";
@@ -55,11 +55,12 @@ function useBadges(): Partial<Record<keyof TabParams, number>> {
 /**
  * The tablet's rail (the tablet mockups): the space's mark on top, which switches space; the four
  * tabs, the one on screen in a pill of the accent; and the person's own face at the bottom, which
- * opens their account.
+ * opens their account. A flat style paints it in its band's colour (`s.bar`), as the web's rail.
  */
 function Rail({ state, navigation }: BottomTabBarProps) {
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const root = useNavigation();
   const { current } = useSpace();
@@ -70,7 +71,7 @@ function Rail({ state, navigation }: BottomTabBarProps) {
     <View
       style={[
         styles.rail,
-        { backgroundColor: c.surface, borderRightColor: c.line, paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 16), paddingLeft: insets.left },
+        { backgroundColor: s.bar, borderRightColor: c.line, paddingTop: insets.top + 20, paddingBottom: Math.max(insets.bottom, 16), paddingLeft: insets.left },
       ]}
     >
       {current ? (
@@ -100,12 +101,12 @@ function Rail({ state, navigation }: BottomTabBarProps) {
             style={styles.railTab}
           >
             <View style={[styles.railPill, active && { backgroundColor: c.acc }]}>
-              <Icon size={22} color={active ? c.onPastel : c.muted} />
+              <Icon size={22} color={active ? c.onPastel : s.barMuted} />
               <View style={styles.railBadge}>
                 <Badge count={badges[name] ?? 0} />
               </View>
             </View>
-            <Text style={[styles.railLabel, { color: active ? c.ink : c.muted, fontFamily: active ? fonts.sansSemibold : fonts.sansMedium }]}>
+            <Text style={[styles.railLabel, { color: active ? s.barFg : s.barMuted, fontFamily: active ? fonts.sansSemibold : fonts.sansMedium }]}>
               {t(label)}
             </Text>
           </Pressable>
@@ -123,21 +124,22 @@ function Rail({ state, navigation }: BottomTabBarProps) {
 
 /**
  * The bar of mockup 09: an ink tick over the tab on screen, its label in the strong weight, and the
- * space's counts on Today and Discussions.
+ * space's counts on Today and Discussions. A flat style paints it in its band's colour (`s.bar`).
  */
 function TabBar({ state, navigation }: BottomTabBarProps) {
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const badges = useBadges();
 
   return (
-    <View style={[styles.bar, { backgroundColor: c.surface, borderTopColor: c.line, paddingBottom: insets.bottom }]}>
+    <View style={[styles.bar, { backgroundColor: s.bar, borderTopColor: c.line, paddingBottom: insets.bottom }]}>
       {state.routes.map((route, index) => {
         const name = route.name as keyof TabParams;
         const { icon: Icon, label } = TABS[name];
         const active = state.index === index;
-        const color = active ? c.ink : c.muted;
+        const color = active ? s.barFg : s.barMuted;
         return (
           <Pressable
             key={route.key}
@@ -150,7 +152,7 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
             }}
             style={styles.tab}
           >
-            {active ? <View style={[styles.tick, { backgroundColor: c.ink }]} /> : null}
+            {active ? <View style={[styles.tick, { backgroundColor: s.barFg }]} /> : null}
             <View>
               <Icon size={22} color={color} />
               <View style={styles.badge}>
@@ -167,18 +169,20 @@ function TabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  bar: { flexDirection: "row", borderTopWidth: hairline },
-  tab: { flex: 1, minHeight: 60, paddingTop: 8, alignItems: "center", justifyContent: "center", gap: 3 },
-  tick: { position: "absolute", top: 0, left: "28%", right: "28%", height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
-  badge: { position: "absolute", top: -4, left: 12 },
-  // The tablet mockups' rail: 104 wide, the tabs 92 by 72, the pill 64 by 36.
-  rail: { width: 104, borderRightWidth: hairline, alignItems: "center", gap: 8 },
-  railSpace: { width: 56, height: 56, alignItems: "center", justifyContent: "center", marginBottom: 16 },
-  railMe: { width: 56, height: 56, alignItems: "center", justifyContent: "center" },
-  railTab: { width: 92, minHeight: 72, alignItems: "center", justifyContent: "center", gap: 6 },
-  railPill: { width: 64, height: 36, borderRadius: 999, alignItems: "center", justifyContent: "center" },
-  railBadge: { position: "absolute", top: -6, right: 0 },
-  railLabel: { fontSize: 13, lineHeight: 17 },
-  fill: { flex: 1 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    bar: { flexDirection: "row", borderTopWidth: shape.hairline },
+    tab: { flex: 1, minHeight: 60, paddingTop: 8, alignItems: "center", justifyContent: "center", gap: 3 },
+    tick: { position: "absolute", top: 0, left: "28%", right: "28%", height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
+    badge: { position: "absolute", top: -4, left: 12 },
+    // The tablet mockups' rail: 104 wide, the tabs 92 by 72, the pill 64 by 36.
+    rail: { width: 104, borderRightWidth: shape.hairline, alignItems: "center", gap: 8 },
+    railSpace: { width: 56, height: 56, alignItems: "center", justifyContent: "center", marginBottom: 16 },
+    railMe: { width: 56, height: 56, alignItems: "center", justifyContent: "center" },
+    railTab: { width: 92, minHeight: 72, alignItems: "center", justifyContent: "center", gap: 6 },
+    railPill: { width: 64, height: 36, borderRadius: 999, alignItems: "center", justifyContent: "center" },
+    railBadge: { position: "absolute", top: -6, right: 0 },
+    railLabel: { fontSize: 13, lineHeight: 17 },
+    fill: { flex: 1 },
+  }),
+);

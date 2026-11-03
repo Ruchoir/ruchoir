@@ -5,11 +5,11 @@ import { useTheme } from "../theme/useTheme";
 
 /** React Navigation's colours and faces, from the theme in force: shared by both navigators. */
 export function useNavigationTheme(): Theme {
-  const { c, dark } = useTheme();
+  const { c, s, dark, style } = useTheme();
   const base = dark ? DarkTheme : DefaultTheme;
   return {
     ...base,
-    colors: { ...base.colors, primary: c.ink, background: c.bg, card: c.surface, text: c.ink, border: c.line, notification: c.alarm },
+    colors: { ...base.colors, primary: s.primary, background: c.bg, card: c.surface, text: c.ink, border: c.line, notification: style === "ruchoir" ? c.alarm : s.badge },
     fonts: {
       regular: { fontFamily: fonts.sans, fontWeight: "400" },
       medium: { fontFamily: fonts.sansMedium, fontWeight: "500" },

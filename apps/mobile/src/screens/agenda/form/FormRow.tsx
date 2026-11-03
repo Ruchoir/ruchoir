@@ -2,8 +2,8 @@ import type { LucideIcon } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { radius } from "../../../theme/tokens";
-import { useTheme } from "../../../theme/useTheme";
+import { styleCache } from "../../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../../theme/useTheme";
 
 /**
  * A line of the event form (mockup 19): a pastel tile for what it is, then its content, a hairline
@@ -26,6 +26,7 @@ export function FormRow({
   align?: "center" | "start";
 }) {
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const content = (
     <>
       <View style={[styles.tile, { backgroundColor: tint }, align === "start" && styles.tileTop]}>
@@ -43,10 +44,12 @@ export function FormRow({
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 56, borderBottomWidth: 1 },
-  rowTop: { alignItems: "flex-start" },
-  tile: { width: 32, height: 32, borderRadius: radius.s + 2, alignItems: "center", justifyContent: "center" },
-  tileTop: { marginTop: 2 },
-  body: { flex: 1, minWidth: 0, gap: 6 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, minHeight: 56, borderBottomWidth: 1 },
+    rowTop: { alignItems: "flex-start" },
+    tile: { width: 32, height: 32, borderRadius: shape.radius.s + 2, alignItems: "center", justifyContent: "center" },
+    tileTop: { marginTop: 2 },
+    body: { flex: 1, minWidth: 0, gap: 6 },
+  }),
+);

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { DEFAULT_PREFS, MOBILE_ACCOUNT_KEYS, fromWire, toWire, type Prefs } from "../src/prefs/prefs.ts";
+import { DEFAULT_PREFS, MOBILE_ACCOUNT_KEYS, fromWire, toWire, wireChanges, type Prefs } from "../src/prefs/prefs.ts";
 import { buildConversations } from "../src/logic/conversations.ts";
 
 test("mobile_sends_only_its_four_keys", () => {
@@ -36,4 +36,10 @@ test("a_hidden_conversation_says_so", () => {
   ]);
   assert.equal(items.find((i) => i.id === "d1")?.hidden, true);
   assert.equal(items.find((i) => i.id === "d2")?.hidden, undefined);
+});
+
+test("style_never_reaches_the_account", () => {
+  assert.equal("style" in toWire({ ...DEFAULT_PREFS, style: "indigo" }), false);
+  assert.equal(MOBILE_ACCOUNT_KEYS.includes("style"), false);
+  assert.deepEqual(wireChanges(DEFAULT_PREFS, { ...DEFAULT_PREFS, style: "indigo" }), {});
 });

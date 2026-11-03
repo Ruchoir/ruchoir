@@ -6,8 +6,8 @@ import { FlatList, Pressable, StyleSheet, useWindowDimensions, View } from "reac
 
 import { useTranslation } from "../../i18n";
 import type { AuthParams, RootParams } from "../../navigation/types";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { FullScreen } from "../../ui/FullScreen";
 import { Text } from "../../ui/Text";
@@ -21,6 +21,7 @@ import { TUTORIAL } from "./tutorial";
 export function TutorialScreen() {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { width } = useWindowDimensions();
   const navigation = useNavigation<NativeStackNavigationProp<AuthParams & RootParams>>();
   const replay = useRoute<RouteProp<RootParams, "tutorial">>().params?.replay === true;
@@ -91,15 +92,17 @@ export function TutorialScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingRight: 16, minHeight: 52 },
-  back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  page: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 14 },
-  picture: { marginBottom: 28 },
-  chip: { position: "absolute", top: -14, right: -18, paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.m, borderWidth: hairline + 0.5 },
-  center: { textAlign: "center" },
-  text: { maxWidth: 320 },
-  dots: { flexDirection: "row", justifyContent: "center", gap: 6, paddingVertical: 16 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  actions: { paddingHorizontal: 24, paddingBottom: 16 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingRight: 16, minHeight: 52 },
+    back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    page: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 14 },
+    picture: { marginBottom: 28 },
+    chip: { position: "absolute", top: -14, right: -18, paddingHorizontal: 12, paddingVertical: 6, borderRadius: shape.radius.m, borderWidth: shape.hairline + 0.5 },
+    center: { textAlign: "center" },
+    text: { maxWidth: 320 },
+    dots: { flexDirection: "row", justifyContent: "center", gap: 6, paddingVertical: 16 },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    actions: { paddingHorizontal: 24, paddingBottom: 16 },
+  }),
+);

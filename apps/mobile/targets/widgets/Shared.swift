@@ -80,9 +80,10 @@ enum Instance {
     return accounts.first { $0.server == server } ?? accounts.first
   }
 
-  /// The space on screen in the app, and the theme chosen there (`src/widgets/share.ts`).
+  /// The space on screen in the app, and the theme and style chosen there (`src/widgets/share.ts`).
   static var space: String? { SharedSession.value("widget.space") }
   static var theme: String? { SharedSession.value("widget.theme") }
+  static var style: String? { SharedSession.value("widget.style") }
 }
 
 /// An instant as the API writes it: RFC 3339 (with or without fractions), or a day for an all-day
@@ -130,13 +131,38 @@ extension Color {
   }
 }
 
+/// A flat style's page, texts, line and tint in a widget (`src/theme/tokens.ts`, kept equal by
+/// `test/widgets.test.ts`).
+struct Shades {
+  let acc: UInt32
+  let surface: UInt32
+  let strong: UInt32
+  let body: UInt32
+  let muted: UInt32
+  let line: UInt32
+}
+
 /// The app's look in a widget: its accent and day or night, as chosen in the app ("violet-dark"),
-/// else the phone's own; and, when the home screen is clear or tinted glass (`accented`), white on
-/// glass, as the widget mockup's "Liquid Glass" column draws it.
+/// else the phone's own, and its style's colours when it is a flat one; and, when the home screen is
+/// clear or tinted glass (`accented`), white on glass, as the widget mockup's "Liquid Glass" column
+/// draws it.
 struct Look {
   let dark: Bool
   let glass: Bool
   let accHex: UInt32
+  /// The flat style's colours, or nil for Ruchoir (and for a style this extension does not know).
+  let shades: Shades?
+
+  static let styles: [String: Shades] = [
+    "aubergine-day": Shades(acc: 0xB9D7F0, surface: 0xFFFFFF, strong: 0x1D1C1D, body: 0x1D1C1D, muted: 0x616061, line: 0xE2E2E2),
+    "aubergine-night": Shades(acc: 0xB9D7F0, surface: 0x222529, strong: 0xF2F2F2, body: 0xD1D2D3, muted: 0x9A9B9E, line: 0x35373B),
+    "nuage-day": Shades(acc: 0xB3DCF3, surface: 0xFFFFFF, strong: 0x222222, body: 0x222222, muted: 0x6B6B6B, line: 0xEDEDED),
+    "nuage-night": Shades(acc: 0xB3DCF3, surface: 0x222222, strong: 0xFFFFFF, body: 0xE6E6E6, muted: 0xA8A8A8, line: 0x2A2A2A),
+    "indigo-day": Shades(acc: 0xC5C8F5, surface: 0xFFFFFF, strong: 0x242424, body: 0x242424, muted: 0x616161, line: 0xE0E0E0),
+    "indigo-night": Shades(acc: 0xC5C8F5, surface: 0x292929, strong: 0xFFFFFF, body: 0xD6D6D6, muted: 0xADADAD, line: 0x3D3D3D),
+    "marine-day": Shades(acc: 0xB8CDF6, surface: 0xFFFFFF, strong: 0x2A2D36, body: 0x3F4350, muted: 0x6B6F7A, line: 0xE3E4E8),
+    "marine-night": Shades(acc: 0xB8CDF6, surface: 0x202228, strong: 0xFFFFFF, body: 0xDDDFE4, muted: 0xA3A6AD, line: 0x30333A),
+  ]
 
   static let pastels: [String: UInt32] = [
     "sky": 0x8FD0FF, "mint": 0x6FE0C2, "violet": 0xC9A8FF, "pink": 0xF5B0F0,
@@ -147,18 +173,21 @@ struct Look {
     let theme = Instance.theme ?? ""
     let accent = theme.split(separator: "-").first.map(String.init) ?? "sky"
     accHex = Look.pastels[accent] ?? Look.pastels["sky"]!
-    dark = theme.isEmpty ? scheme == .dark : theme.hasSuffix("-dark")
+    // A local first: the closure below may not read `self` before every property is set.
+    let night = theme.isEmpty ? scheme == .dark : theme.hasSuffix("-dark")
+    dark = night
+    shades = Instance.style.flatMap { Look.styles["\($0)-\(night ? "night" : "day")"] }
     self.glass = glass
   }
 
   private func pick(_ day: UInt32, _ night: UInt32) -> Color { Color(hex: dark ? night : day) }
 
-  var acc: Color { glass ? .white.opacity(0.9) : Color(hex: accHex) }
-  var surface: Color { glass ? .white.opacity(0.14) : pick(0xFDFDFE, 0x1D2027) }
-  var strong: Color { glass ? .white.opacity(0.95) : pick(0x15171C, 0xF6F7F9) }
-  var body: Color { glass ? .white.opacity(0.85) : pick(0x2E323A, 0xDFE2E7) }
-  var muted: Color { glass ? .white.opacity(0.68) : pick(0x5A6070, 0xA7ADB8) }
-  var line: Color { glass ? .white.opacity(0.2) : pick(0xE2E5EA, 0x2E323A) }
+  var acc: Color { glass ? .white.opacity(0.9) : Color(hex: shades?.acc ?? accHex) }
+  var surface: Color { glass ? .white.opacity(0.14) : shades.map { Color(hex: $0.surface) } ?? pick(0xFDFDFE, 0x1D2027) }
+  var strong: Color { glass ? .white.opacity(0.95) : shades.map { Color(hex: $0.strong) } ?? pick(0x15171C, 0xF6F7F9) }
+  var body: Color { glass ? .white.opacity(0.85) : shades.map { Color(hex: $0.body) } ?? pick(0x2E323A, 0xDFE2E7) }
+  var muted: Color { glass ? .white.opacity(0.68) : shades.map { Color(hex: $0.muted) } ?? pick(0x5A6070, 0xA7ADB8) }
+  var line: Color { glass ? .white.opacity(0.2) : shades.map { Color(hex: $0.line) } ?? pick(0xE2E5EA, 0x2E323A) }
   var onPastel: Color { Color(hex: 0x15171C) }
   var danger: Color { glass ? .white.opacity(0.95) : (dark ? Color(hex: 0xFFB3BA) : Color(hex: 0xC2303F)) }
   /// The Ruchoir mark's colour in the heads.
@@ -167,7 +196,7 @@ struct Look {
   /// A calendar's colour: one of the pastels, or the reader's accent.
   func pastel(_ name: String?) -> Color {
     if glass { return .white.opacity(0.85) }
-    guard let name, let hex = Look.pastels[name] else { return Color(hex: accHex) }
+    guard let name, let hex = Look.pastels[name] else { return Color(hex: shades?.acc ?? accHex) }
     return Color(hex: hex)
   }
 

@@ -16,8 +16,8 @@ import { Alert, ScrollView, Share, StyleSheet, View } from "react-native";
 import { useApi } from "../../api/useApi";
 import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { feel } from "../../ui/haptics";
 import { SearchField } from "../../ui/SearchField";
@@ -33,6 +33,7 @@ export function InstanceAdminScreen() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
 
   const loaded = useLoad("instanceSettings", (signal) => getInstanceSettings(signal));
@@ -144,10 +145,12 @@ export function InstanceAdminScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  page: { paddingHorizontal: 16, paddingBottom: 40 },
-  search: { marginHorizontal: 0 },
-  card: { borderWidth: hairline, borderRadius: radius.l, paddingHorizontal: 12, paddingVertical: 4 },
-  tag: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.s },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    page: { paddingHorizontal: 16, paddingBottom: 40 },
+    search: { marginHorizontal: 0 },
+    card: { borderWidth: shape.hairline, borderRadius: shape.radius.l, paddingHorizontal: 12, paddingVertical: 4 },
+    tag: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: shape.radius.s },
+  }),
+);

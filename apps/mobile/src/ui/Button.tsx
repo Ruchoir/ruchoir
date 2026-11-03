@@ -1,16 +1,18 @@
 import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { hairline, radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { lift } from "../theme/lift";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Text } from "./Text";
 
 type Variant = "primary" | "secondary" | "ghost" | "link" | "danger";
 
 /**
- * The design system's button: the ink as primary, an ink outline as secondary, a bare ghost, a link,
- * and danger (the deep red by day, the peach by night) for what cannot be undone. A primary button
- * lifts onto a bee-yellow offset while pressed, as on the web; disabled is the sunken grey.
+ * The design system's button: the primary action's colour (the ink in Ruchoir), an outline as
+ * secondary, a bare ghost, a link, and danger (the deep red by day, the peach by night) for what
+ * cannot be undone. A primary button lifts onto a bee-yellow offset while pressed, as on the web,
+ * unless the style is flat; disabled is the sunken grey.
  */
 export function Button({
   label,
@@ -31,18 +33,22 @@ export function Button({
   icon?: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { c, s } = useTheme();
+  const theme = useTheme();
+  const { c, s } = theme;
+  const styles = useThemedStyles(makeStyles);
   const off = disabled || busy;
   const height = { lg: 52, md: 40, sm: 34 }[size];
   const fg = off
     ? s.disabledText
-    : variant === "primary" || variant === "danger"
-      ? c.onInk
-      : variant === "link"
-        ? s.link
-        : variant === "ghost"
-          ? c.body
-          : c.ink;
+    : variant === "primary"
+      ? s.onPrimary
+      : variant === "danger"
+        ? c.onInk
+        : variant === "link"
+          ? s.link
+          : variant === "ghost"
+            ? c.body
+            : c.ink;
 
   return (
     <Pressable
@@ -53,14 +59,13 @@ export function Button({
       hitSlop={variant === "link" ? 8 : undefined}
       style={({ pressed }) => [
         variant === "link" ? styles.link : [styles.base, { height, paddingHorizontal: size === "sm" ? 12 : 20 }],
-        variant === "primary" && { backgroundColor: c.ink, borderColor: c.ink },
-        variant === "secondary" && { borderColor: c.ink },
+        variant === "primary" && { backgroundColor: s.primary, borderColor: s.primary },
+        variant === "secondary" && { borderColor: s.edge },
         variant === "danger" && { backgroundColor: s.danger, borderColor: s.danger },
         variant === "danger" && pressed && { opacity: 0.85 },
         variant === "ghost" && pressed && { backgroundColor: s.pressed },
         variant === "secondary" && pressed && { backgroundColor: s.sunken },
-        variant === "primary" && pressed && !off && styles.lifted,
-        variant === "primary" && pressed && !off && { shadowColor: c.bee },
+        variant === "primary" && pressed && !off && lift(theme, 4, 4, c.bee),
         off && variant !== "link" && variant !== "ghost" && { backgroundColor: s.sunken, borderColor: c.lineStrong },
         style,
       ]}
@@ -80,16 +85,17 @@ export function Button({
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    borderWidth: hairline,
-    borderColor: "transparent",
-    borderRadius: radius.m,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  link: { alignSelf: "flex-start", paddingVertical: 6 },
-  row: { flexDirection: "row", alignItems: "center", gap: 8, maxWidth: "100%" },
-  label: { flexShrink: 1 },
-  lifted: { shadowOffset: { width: 4, height: 4 }, shadowOpacity: 1, shadowRadius: 0, elevation: 4 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    base: {
+      borderWidth: shape.hairline,
+      borderColor: "transparent",
+      borderRadius: shape.control,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    link: { alignSelf: "flex-start", paddingVertical: 6 },
+    row: { flexDirection: "row", alignItems: "center", gap: 8, maxWidth: "100%" },
+    label: { flexShrink: 1 },
+  }),
+);

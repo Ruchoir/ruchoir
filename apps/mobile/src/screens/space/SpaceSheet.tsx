@@ -11,8 +11,8 @@ import { useTranslation } from "../../i18n";
 import { canAdminister } from "../../logic/spaceRoles";
 import type { RootParams } from "../../navigation/types";
 import { useSpace } from "../../space/SpaceProvider";
-import { radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Avatar } from "../../ui/Avatar";
 import { Sheet } from "../../ui/Sheet";
@@ -30,6 +30,7 @@ import { useLeaveSpace } from "./useLeaveSpace";
 export function SpaceSheet() {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { spaces, current, select } = useSpace();
   const accounts = useAccounts();
@@ -128,6 +129,7 @@ export function SpaceSheet() {
 function SpaceRow({ space, selected, onPress }: { space: Workspace; selected: boolean; onPress: () => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <ActionRow
       selected={selected}
@@ -169,6 +171,7 @@ function InstanceSection({
 }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <ApiProvider client={account.client}>
       <Text variant="smallStrong" tone="muted" style={styles.section} numberOfLines={1}>
@@ -187,10 +190,12 @@ function InstanceSection({
   );
 }
 
-const styles = StyleSheet.create({
-  title: { marginBottom: 6 },
-  section: { marginTop: 14, marginBottom: 2 },
-  gap: { height: 8 },
-  loading: { paddingVertical: 12 },
-  check: { width: 40, height: 40, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    title: { marginBottom: 6 },
+    section: { marginTop: 14, marginBottom: 2 },
+    gap: { height: 8 },
+    loading: { paddingVertical: 12 },
+    check: { width: 40, height: 40, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+  }),
+);

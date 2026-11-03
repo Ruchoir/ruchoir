@@ -26,8 +26,8 @@ import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useRealtimeActions } from "../../realtime/RealtimeProvider";
 import { usePrefs } from "../../prefs/store";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { AvatarStack } from "../../ui/AvatarStack";
 import { Button } from "../../ui/Button";
 import { FullScreen } from "../../ui/FullScreen";
@@ -92,7 +92,8 @@ export function OfficeEditorScreen() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c, dark } = useTheme();
-  const { accent } = usePrefs();
+  const styles = useThemedStyles(makeStyles);
+  const { accent, style } = usePrefs();
   const { emit } = useRealtimeActions();
   const [state, setState] = useState<State>({ status: "loading" });
   const [tab] = useState(newTab);
@@ -100,8 +101,8 @@ export function OfficeEditorScreen() {
 
   const open = useCallback(
     (fileId: string, convert: boolean) =>
-      openOfficeSession(fileId, { theme: dark ? "dark" : "light", accent, mode: convert ? "convert" : undefined, mobile: true }),
-    [openOfficeSession, dark, accent],
+      openOfficeSession(fileId, { theme: dark ? "dark" : "light", accent, style, mode: convert ? "convert" : undefined, mobile: true }),
+    [openOfficeSession, dark, accent, style],
   );
 
   // Opened once: a change of theme while editing does not reload the document.
@@ -277,12 +278,14 @@ export function OfficeEditorScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  bar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 8, paddingVertical: 6, borderBottomWidth: hairline },
-  icon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  title: { flex: 1 },
-  fill: { flex: 1 },
-  hidden: { opacity: 0 },
-  center: { alignItems: "center", justifyContent: "center", gap: 12, padding: 24 },
-  text: { textAlign: "center" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    bar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 8, paddingVertical: 6, borderBottomWidth: shape.hairline },
+    icon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    title: { flex: 1 },
+    fill: { flex: 1 },
+    hidden: { opacity: 0 },
+    center: { alignItems: "center", justifyContent: "center", gap: 12, padding: 24 },
+    text: { textAlign: "center" },
+  }),
+);

@@ -8,8 +8,8 @@ import { useLoad } from "../../data/useLoad";
 import { useTranslation } from "../../i18n";
 import { buildConversations, listConversations, type ConversationItem } from "../../logic/conversations";
 import type { RootParams } from "../../navigation/types";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Avatar } from "../../ui/Avatar";
 import { Button } from "../../ui/Button";
@@ -32,6 +32,7 @@ export function ConversationPicker() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const [query, setQuery] = useState("");
   const [chosen, setChosen] = useState<ConversationItem | null>(null);
@@ -109,11 +110,13 @@ export function ConversationPicker() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  form: { gap: 6, paddingTop: 4, paddingBottom: 16 },
-  gutter: { paddingHorizontal: 16 },
-  section: { paddingHorizontal: 16, marginTop: 10 },
-  dot: { width: 12, height: 12, borderRadius: 6 },
-  foot: { gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    form: { gap: 6, paddingTop: 4, paddingBottom: 16 },
+    gutter: { paddingHorizontal: 16 },
+    section: { paddingHorizontal: 16, marginTop: 10 },
+    dot: { width: 12, height: 12, borderRadius: 6 },
+    foot: { gap: 10, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: shape.hairline },
+  }),
+);

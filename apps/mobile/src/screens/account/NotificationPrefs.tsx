@@ -11,8 +11,8 @@ import { useLoad } from "../../data/useLoad";
 import { key, useTranslation } from "../../i18n";
 import { useLocale } from "../../i18n/useLocale";
 import { disablePhonePush, enablePhonePush, phonePushState, type PhonePush } from "../../push/phone";
-import { radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
@@ -49,6 +49,7 @@ const asTime = (date: Date) => `${String(date.getHours()).padStart(2, "0")}:${St
  * leads there. Expo Go cannot receive them.
  */
 function PhonePushRow() {
+  const styles = useThemedStyles(makeStyles);
   // The phone is one, its notifications cover every instance it is signed in to.
   const clients = useSignedInClients();
   const { sendPhoneTestPush } = useApi();
@@ -120,6 +121,7 @@ function PhonePushRow() {
  * saved at once and put back if the server refuses it. First, whether this phone receives them.
  */
 export function NotificationPrefs() {
+  const styles = useThemedStyles(makeStyles);
   const { getNotificationPreferences, saveNotificationPreferences } = useApi();
   const { t } = useTranslation();
   const { locale } = useLocale();
@@ -200,6 +202,7 @@ export function NotificationPrefs() {
 /** A time of day from the phone's own picker: inline on iOS, the system dialog on Android. */
 function TimeField({ label, value, locale, onChange }: { label: string; value: string; locale: string; onChange: (hhmm: string) => void }) {
   const { c, s, dark } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const shown = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(asDate(value));
   return (
     <View style={styles.time}>
@@ -239,9 +242,11 @@ function TimeField({ label, value, locale, onChange }: { label: string; value: s
   );
 }
 
-const styles = StyleSheet.create({
-  test: { alignItems: "flex-start", paddingBottom: 8 },
-  times: { flexDirection: "row", gap: 16, paddingBottom: 4 },
-  time: { flex: 1, gap: 6, alignItems: "flex-start" },
-  timeButton: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radius.m, borderWidth: 1 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    test: { alignItems: "flex-start", paddingBottom: 8 },
+    times: { flexDirection: "row", gap: 16, paddingBottom: 4 },
+    time: { flex: 1, gap: 6, alignItems: "flex-start" },
+    timeButton: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: shape.radius.m, borderWidth: 1 },
+  }),
+);

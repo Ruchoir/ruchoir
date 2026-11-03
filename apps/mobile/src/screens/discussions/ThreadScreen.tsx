@@ -22,8 +22,8 @@ import { useTranslation } from "../../i18n";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { BackHeader } from "../../ui/BackHeader";
 import { LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
@@ -41,7 +41,8 @@ export function ThreadScreen() {
   const { params } = useRoute<RouteProp<RootParams, "thread">>();
   const { conversationId, channelId, rootId, title } = params;
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const { c, shape } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { state } = useSession();
   const me = state.kind === "signedIn" ? state.user : null;
   const navigation = useNavigation();
@@ -115,7 +116,7 @@ export function ThreadScreen() {
   return (
     <SafeAreaView edges={["top"]} style={styles.fill}>
       <BackHeader title={t("thread.title")} subtitle={t("thread.in", { name: channelId ? `#${title}` : title })} />
-      <KeyboardArea composer slide={!!replies.data} style={[styles.fill, { borderTopWidth: hairline, borderTopColor: c.line }]}>
+      <KeyboardArea composer slide={!!replies.data} style={[styles.fill, { borderTopWidth: shape.hairline, borderTopColor: c.line }]}>
         {!replies.data ? (
           <LoadState error={replies.error} onRetry={replies.reload} />
         ) : (
@@ -194,9 +195,11 @@ export function ThreadScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  end: { height: 12 },
-  count: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
-  rule: { flex: 1, height: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    end: { height: 12 },
+    count: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
+    rule: { flex: 1, height: shape.hairline },
+  }),
+);

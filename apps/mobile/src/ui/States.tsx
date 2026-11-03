@@ -2,8 +2,9 @@ import type { LucideIcon } from "lucide-react-native";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { useTranslation } from "../i18n";
-import { radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { lift } from "../theme/lift";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Button } from "./Button";
 import { Text } from "./Text";
 
@@ -24,7 +25,9 @@ export function EmptyState({
   text?: string;
   size?: "hero" | "compact";
 }) {
-  const { c, s } = useTheme();
+  const theme = useTheme();
+  const { c, s } = theme;
+  const styles = useThemedStyles(makeStyles);
   const hero = size === "hero";
   const tile = hero ? 64 : 40;
   return (
@@ -39,10 +42,9 @@ export function EmptyState({
             height: tile,
             marginBottom: hero ? 8 : 4,
             backgroundColor: c.acc,
-            borderColor: c.ink,
-            shadowColor: s.shadow,
-            shadowOffset: hero ? { width: 4, height: 4 } : { width: 3, height: 3 },
+            borderColor: s.edge,
           },
+          hero ? lift(theme, 4, 4) : lift(theme, 3, 3, undefined, 4),
         ]}
       >
         <Icon size={hero ? 28 : 18} color={c.onPastel} />
@@ -63,6 +65,7 @@ export function EmptyState({
 export function LoadState({ error, onRetry }: { error: { offline: boolean } | null; onRetry: () => void }) {
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   if (!error) {
     return (
       <View style={[styles.center, styles.hero]}>
@@ -80,20 +83,20 @@ export function LoadState({ error, onRetry }: { error: { offline: boolean } | nu
   );
 }
 
-const styles = StyleSheet.create({
-  center: { alignItems: "center", justifyContent: "center", gap: 12 },
-  hero: { flexGrow: 1, padding: 40, gap: 10 },
-  compact: { paddingVertical: 24, paddingHorizontal: 16, gap: 6 },
-  sticker: {
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderRadius: radius.m,
-    transform: [{ rotate: "-4deg" }],
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 4,
-  },
-  text: { textAlign: "center" },
-  heroTitle: { fontSize: 20, lineHeight: 26, letterSpacing: -0.4 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    center: { alignItems: "center", justifyContent: "center", gap: 12 },
+    hero: { flexGrow: 1, padding: 40, gap: 10 },
+    compact: { paddingVertical: 24, paddingHorizontal: 16, gap: 6 },
+    sticker: {
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: shape.edgeWidth,
+      borderRadius: shape.radius.m,
+      // Askew in Ruchoir, square in a flat style.
+      transform: shape.flat ? [] : [{ rotate: "-4deg" }],
+    },
+    text: { textAlign: "center" },
+    heroTitle: { fontSize: 20, lineHeight: 26, letterSpacing: -0.4 },
+  }),
+);

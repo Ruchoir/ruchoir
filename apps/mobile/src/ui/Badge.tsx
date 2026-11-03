@@ -3,12 +3,12 @@ import { StyleSheet, View } from "react-native";
 import { useTheme } from "../theme/useTheme";
 import { Text } from "./Text";
 
-/** The ink pill with a count (`wc-badge`), or the accent one for mentions. */
+/** The pill with a count (`wc-badge`, the ink in Ruchoir, the style's badge colour), or the accent one for mentions. */
 export function Badge({ count, tone = "ink" }: { count: number; tone?: "ink" | "accent" }) {
-  const { c } = useTheme();
+  const { c, s } = useTheme();
   if (count <= 0) return null;
-  const bg = tone === "ink" ? c.ink : c.acc;
-  const fg = tone === "ink" ? c.onInk : c.onPastel;
+  const bg = tone === "ink" ? s.badge : c.acc;
+  const fg = tone === "ink" ? s.onBadge : c.onPastel;
   return (
     <View style={[styles.pill, { backgroundColor: bg }]}>
       <Text variant="label" style={[styles.text, { color: fg }]}>

@@ -11,8 +11,8 @@ import { key, useTranslation } from "../../../i18n";
 import { useSharedT } from "../../../i18n/sharedT";
 import { useLocale } from "../../../i18n/useLocale";
 import type { RootParams } from "../../../navigation/types";
-import { hairline, radius } from "../../../theme/tokens";
-import { useTheme } from "../../../theme/useTheme";
+import { styleCache } from "../../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../../theme/useTheme";
 import { ActionRow } from "../../../ui/ActionRow";
 import { Button } from "../../../ui/Button";
 import { Chips } from "../../../ui/Chips";
@@ -59,6 +59,7 @@ export function CustomRuleScreen() {
   const { t } = useTranslation();
   const say = useSharedT();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale } = useLocale();
   const insets = useSafeAreaInsets();
   const draft = useDraft(params.formKey);
@@ -271,16 +272,18 @@ export function CustomRuleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  grow: { flex: 1 },
-  content: { gap: 18 },
-  gutter: { paddingHorizontal: 16 },
-  phrase: { marginHorizontal: 16, padding: 12, borderRadius: radius.m },
-  group: { gap: 8 },
-  days: { flexDirection: "row", justifyContent: "space-between" },
-  day: { width: 40, height: 40, borderRadius: 20, borderWidth: hairline, alignItems: "center", justifyContent: "center" },
-  nth: { gap: 8 },
-  inline: { flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 52 },
-  untilLine: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 52, paddingHorizontal: 12, paddingVertical: 10, borderWidth: hairline, borderRadius: radius.m },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    grow: { flex: 1 },
+    content: { gap: 18 },
+    gutter: { paddingHorizontal: 16 },
+    phrase: { marginHorizontal: 16, padding: 12, borderRadius: shape.radius.m },
+    group: { gap: 8 },
+    days: { flexDirection: "row", justifyContent: "space-between" },
+    day: { width: 40, height: 40, borderRadius: 20, borderWidth: shape.hairline, alignItems: "center", justifyContent: "center" },
+    nth: { gap: 8 },
+    inline: { flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: 52 },
+    untilLine: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 52, paddingHorizontal: 12, paddingVertical: 10, borderWidth: shape.hairline, borderRadius: shape.radius.m },
+  }),
+);

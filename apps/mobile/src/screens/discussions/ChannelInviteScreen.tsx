@@ -12,8 +12,8 @@ import { useApi } from "../../api/useApi";
 import { useTranslation } from "../../i18n";
 import { isEmail } from "../../logic/email";
 import type { RootParams } from "../../navigation/types";
-import { hairline } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Button } from "../../ui/Button";
 import { feel } from "../../ui/haptics";
 import { KeyboardForm } from "../../ui/KeyboardForm";
@@ -28,6 +28,7 @@ export function ChannelInviteScreen() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const toast = useToast();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -95,9 +96,11 @@ export function ChannelInviteScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  form: { gap: 16, paddingTop: 8, paddingBottom: 24 },
-  gutter: { paddingHorizontal: 16 },
-  foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    form: { gap: 16, paddingTop: 8, paddingBottom: 24 },
+    gutter: { paddingHorizontal: 16 },
+    foot: { gap: 8, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderTopWidth: shape.hairline },
+  }),
+);

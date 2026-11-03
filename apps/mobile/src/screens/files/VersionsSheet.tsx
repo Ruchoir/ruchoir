@@ -14,8 +14,8 @@ import { fileSize } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Sheet } from "../../ui/Sheet";
 import { EmptyState, LoadState } from "../../ui/States";
 import { Text } from "../../ui/Text";
@@ -31,6 +31,7 @@ export function VersionsSheet() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const toast = useToast();
   const { current } = useSpace();
@@ -105,8 +106,10 @@ export function VersionsSheet() {
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12, borderBottomWidth: 1 },
-  grow: { flex: 1, minWidth: 0, gap: 2 },
-  restore: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, paddingHorizontal: 10, borderRadius: radius.m, borderWidth: hairline },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12, borderBottomWidth: 1 },
+    grow: { flex: 1, minWidth: 0, gap: 2 },
+    restore: { flexDirection: "row", alignItems: "center", gap: 6, height: 34, paddingHorizontal: 10, borderRadius: shape.radius.m, borderWidth: shape.hairline },
+  }),
+);

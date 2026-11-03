@@ -29,7 +29,7 @@ import { SHARED, SHARED_ACCOUNTS } from "../push/phone";
 import { fromEvery, parseSharedAccounts, type SharedAccount } from "../push/shared";
 import { initials, mixHex, previewOf, startsIn, upcoming, widgetPalette, type WidgetPalette, type WireEvent, type WireLast } from "./data";
 import { glyph, type Glyph } from "./icons";
-import { SHARED_SPACE, SHARED_SPACE_SERVER, SHARED_THEME } from "./keys";
+import { SHARED_SPACE, SHARED_SPACE_SERVER, SHARED_STYLE, SHARED_THEME } from "./keys";
 
 const mark = require("../../assets/mark.png");
 
@@ -297,10 +297,13 @@ function DiscussionsView({ p, rows, message }: { p: WidgetPalette; rows: Row[]; 
   );
 }
 
-/** The palette of the app's theme, for the phone's day and its night. */
+/** The palette of the app's theme and style, for the phone's day and its night. */
 async function palettes(): Promise<{ light: WidgetPalette; dark: WidgetPalette }> {
-  const theme = await SecureStore.getItemAsync(SHARED_THEME, SHARED).catch(() => null);
-  return { light: widgetPalette(theme, false), dark: widgetPalette(theme, true) };
+  const [theme, style] = await Promise.all([
+    SecureStore.getItemAsync(SHARED_THEME, SHARED).catch(() => null),
+    SecureStore.getItemAsync(SHARED_STYLE, SHARED).catch(() => null),
+  ]);
+  return { light: widgetPalette(theme, false, style), dark: widgetPalette(theme, true, style) };
 }
 
 /** The space's conversations, most recent first. */

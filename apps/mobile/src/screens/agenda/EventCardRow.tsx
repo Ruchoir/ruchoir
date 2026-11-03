@@ -1,8 +1,9 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { fonts } from "../../theme/fonts";
-import { hairline, mix, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { mix } from "../../theme/tokens";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Text } from "../../ui/Text";
 
 /**
@@ -26,6 +27,7 @@ export function EventCardRow({
   onPress: () => void;
 }) {
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -54,9 +56,11 @@ export function EventCardRow({
   );
 }
 
-const styles = StyleSheet.create({
-  card: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 12, paddingRight: 12, paddingLeft: 16, borderRadius: radius.m, borderWidth: hairline, overflow: "hidden" },
-  bar: { position: "absolute", left: 6, top: 10, bottom: 10, width: 3, borderRadius: 2 },
-  time: { fontFamily: fonts.sansMedium, width: 58, paddingTop: 1 },
-  text: { flex: 1, minWidth: 0, gap: 2 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    card: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 12, paddingRight: 12, paddingLeft: 16, borderRadius: shape.radius.m, borderWidth: shape.hairline, overflow: "hidden" },
+    bar: { position: "absolute", left: 6, top: 10, bottom: 10, width: 3, borderRadius: 2 },
+    time: { fontFamily: fonts.sansMedium, width: 58, paddingTop: 1 },
+    text: { flex: 1, minWidth: 0, gap: 2 },
+  }),
+);

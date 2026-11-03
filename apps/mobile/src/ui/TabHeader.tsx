@@ -8,8 +8,8 @@ import { useWide } from "../layout/useWide";
 import { useSession } from "../session/SessionProvider";
 import { selfPresence } from "../session/presence";
 import { useSpace } from "../space/SpaceProvider";
-import { radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Avatar } from "./Avatar";
 import { Text } from "./Text";
 
@@ -18,6 +18,7 @@ import { Text } from "./Text";
  * space switcher under it, a tab's own button (`action`), and the person's own avatar, which opens their account sheet.
  */
 export function TabHeader({ title, overline, children, action }: { title: string; overline?: string; children?: ReactNode; action?: ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { state } = useSession();
@@ -59,6 +60,7 @@ export function SpaceSwitch() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { current } = useSpace();
   if (!current) return null;
   return (
@@ -77,21 +79,23 @@ export function SpaceSwitch() {
   );
 }
 
-const styles = StyleSheet.create({
-  head: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 12 },
-  titles: { flex: 1, minWidth: 0 },
-  overline: { fontFamily: "IBMPlexSans-Medium" },
-  space: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    minHeight: 40,
-    marginLeft: -6,
-    paddingHorizontal: 6,
-    borderRadius: radius.m,
-    alignSelf: "flex-start",
-    maxWidth: "100%",
-  },
-  spaceName: { flexShrink: 1 },
-  me: { padding: 4 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    head: { flexDirection: "row", alignItems: "flex-start", paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 12 },
+    titles: { flex: 1, minWidth: 0 },
+    overline: { fontFamily: "IBMPlexSans-Medium" },
+    space: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      minHeight: 40,
+      marginLeft: -6,
+      paddingHorizontal: 6,
+      borderRadius: shape.radius.m,
+      alignSelf: "flex-start",
+      maxWidth: "100%",
+    },
+    spaceName: { flexShrink: 1 },
+    me: { padding: 4 },
+  }),
+);

@@ -17,8 +17,9 @@ import { timeOf } from "../../logic/format";
 import type { RootParams } from "../../navigation/types";
 import { useSession } from "../../session/SessionProvider";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, mix, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { mix } from "../../theme/tokens";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { ActionRow } from "../../ui/ActionRow";
 import { Avatar } from "../../ui/Avatar";
 import { FileCard } from "../../ui/FileCard";
@@ -70,6 +71,7 @@ export function EventSummary({
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const { t } = useTranslation();
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { locale, timeZone } = useLocale();
   const say = useSharedT();
   const toast = useToast();
@@ -333,6 +335,7 @@ export function EventSummary({
 
 function Row({ icon, tint, children }: { icon: ReactNode; tint: string; children: ReactNode }) {
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.row, { borderBottomColor: c.line }]}>
       <View style={[styles.tile, { backgroundColor: tint }]}>{icon}</View>
@@ -341,22 +344,24 @@ function Row({ icon, tint, children }: { icon: ReactNode; tint: string; children
   );
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  band: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 20, paddingTop: 28, paddingBottom: 18 },
-  // The tablet mockup's panel head: 18/10/16/20 around it.
-  bandPanel: { gap: 8, paddingTop: 18, paddingRight: 10, paddingBottom: 16 },
-  title: { flex: 1, fontSize: 22, lineHeight: 28 },
-  edit: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 12, borderRadius: radius.m, borderWidth: hairline, marginTop: -4 },
-  close: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginTop: -6 },
-  rows: { paddingHorizontal: 20 },
-  row: { flexDirection: "row", gap: 14, paddingVertical: 14, borderBottomWidth: 1 },
-  tile: { width: 32, height: 32, borderRadius: radius.s + 2, alignItems: "center", justifyContent: "center" },
-  flex: { flex: 1, minWidth: 0, gap: 6 },
-  attendee: { flexDirection: "row", alignItems: "center", gap: 10 },
-  description: { paddingTop: 14 },
-  danger: { marginTop: 18, paddingTop: 10, borderTopWidth: hairline },
-  answer: { gap: 10, marginTop: 14, padding: 12, borderRadius: radius.m },
-  flush: { marginHorizontal: 0 },
-  chevron: { alignSelf: "center" },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    band: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 20, paddingTop: 28, paddingBottom: 18 },
+    // The tablet mockup's panel head: 18/10/16/20 around it.
+    bandPanel: { gap: 8, paddingTop: 18, paddingRight: 10, paddingBottom: 16 },
+    title: { flex: 1, fontSize: 22, lineHeight: 28 },
+    edit: { flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 12, borderRadius: shape.radius.m, borderWidth: shape.hairline, marginTop: -4 },
+    close: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginTop: -6 },
+    rows: { paddingHorizontal: 20 },
+    row: { flexDirection: "row", gap: 14, paddingVertical: 14, borderBottomWidth: 1 },
+    tile: { width: 32, height: 32, borderRadius: shape.radius.s + 2, alignItems: "center", justifyContent: "center" },
+    flex: { flex: 1, minWidth: 0, gap: 6 },
+    attendee: { flexDirection: "row", alignItems: "center", gap: 10 },
+    description: { paddingTop: 14 },
+    danger: { marginTop: 18, paddingTop: 10, borderTopWidth: shape.hairline },
+    answer: { gap: 10, marginTop: 14, padding: 12, borderRadius: shape.radius.m },
+    flush: { marginHorizontal: 0 },
+    chevron: { alignSelf: "center" },
+  }),
+);

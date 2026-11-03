@@ -32,6 +32,17 @@ rules; this file holds what is particular to the app.
   (`pnpm --filter @ruchoir/mobile i18n:check`).
 - Colours come from `src/theme/tokens.ts`, a copy of `packages/design-system/styles/tokens.css` kept honest by
   `test/tokens.test.ts`.
+- **Shapes come from the theme too.** A person picks a style (Ruchoir, or the flat Aubergine, Nuage,
+  Indigo, Marine), kept on the phone like the accent. `useTheme()` returns its palette (`c`), its
+  derived colours (`s`: `primary`, `badge`, `edge`, `focus`, `bar`, the message card...) and its
+  `shape` (radii, hairline, edge width, `flat`, the face's corner, message density). A file that needs a
+  radius or a hairline declares `const makeStyles = styleCache((shape) => StyleSheet.create({...}))`
+  and reads `useThemedStyles(makeStyles)`; an offset or soft shadow goes through `lift()` / `soft()`
+  (`src/theme/lift.ts`), which draw nothing in a flat style; an ink edge is `s.edge`, a primary action
+  `s.primary`. `test/themeUse.test.ts` fails on any file outside `src/theme/` that imports `radius` or
+  `hairline` or writes a `shadowOffset`. The variants' values are checked against `tokens.css` (lot 2's
+  `resolve.mjs`) and for contrast (`test/styleContrast.test.ts`); the iPhone widgets keep their own copy
+  in `targets/widgets/Shared.swift`, checked by `test/widgets.test.ts`.
 
 ## Design consistency
 
@@ -109,7 +120,7 @@ src/navigation/        AuthNavigator (before sign-in), root stack (pushed screen
 src/screens/           welcome (and its tutorial), auth, today, discussions, agenda, files, account,
                        space
 src/ui/                design-system pieces: Text, Button, TextField, Avatar, Chips, Segmented...
-src/theme/             tokens.ts (copy of tokens.css), IBM Plex, useTheme
+src/theme/             tokens.ts (copy of tokens.css, the styles), IBM Plex, useTheme, themedStyles, lift
 src/i18n/              i18next and the six dictionaries
 ```
 
@@ -222,7 +233,7 @@ CI=1 pnpm --filter @ruchoir/mobile bundle:ios   # proves Metro resolves and bund
   `invalid_credentials` is a wrong password typed to confirm an action (changing the password, turning
   off two-factor) and must not sign the phone out.
 - **Preferences are read before the first screen** (`prefs/store.ts`, `loadPrefs` in `App.tsx`):
-  `useTheme` takes the accent and mode from them, `Text` and `TextField` scale with the text size, and a
+  `useTheme` takes the style, accent and mode from them, `Text` and `TextField` scale with the text size, and a
   forced day or night is also handed to the system (`Appearance.setColorScheme`) so its own controls
   follow. The notifications are the account's, on the server, as the web's. **So are the language and
   the agenda's settings** (`MOBILE_ACCOUNT_KEYS`, wire keys shared with the web where they are the

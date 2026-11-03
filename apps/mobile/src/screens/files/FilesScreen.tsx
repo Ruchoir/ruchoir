@@ -13,8 +13,9 @@ import { useWide } from "../../layout/useWide";
 import type { RootParams } from "../../navigation/types";
 import { fonts } from "../../theme/fonts";
 import { useSpace } from "../../space/SpaceProvider";
-import { hairline, radius } from "../../theme/tokens";
-import { useTheme } from "../../theme/useTheme";
+import { lift } from "../../theme/lift";
+import { styleCache } from "../../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../../theme/useTheme";
 import { Chips } from "../../ui/Chips";
 import { FloatingButton, useFloatingScroll } from "../../ui/FloatingButton";
 import { feel } from "../../ui/haptics";
@@ -35,7 +36,9 @@ import { UploadStrip } from "./UploadStrip";
 export function FilesScreen() {
   const { getFilesView, getFolder, searchFiles } = useApi();
   const { t } = useTranslation();
-  const { c } = useTheme();
+  const theme = useTheme();
+  const { c, s, shape } = theme;
+  const styles = useThemedStyles(makeStyles);
   const { current } = useSpace();
   const navigation = useNavigation<NativeStackNavigationProp<RootParams>>();
   const floating = useFloatingScroll();
@@ -109,7 +112,7 @@ export function FilesScreen() {
               <Pressable
                 accessibilityRole="button"
                 onPress={() => navigation.navigate("filesAdd", { spaceId: current.id, folderName: current.name })}
-                style={({ pressed }) => [styles.wideAdd, { borderColor: c.acc, backgroundColor: c.surface, shadowColor: c.acc }, pressed && { opacity: 0.7 }]}
+                style={({ pressed }) => [styles.wideAdd, { borderColor: shape.flat ? s.edge : c.acc, backgroundColor: c.surface }, lift(theme, 3, 3, c.acc), pressed && { opacity: 0.7 }]}
               >
                 <Upload size={18} color={c.ink} />
                 <Text variant="bodyStrong">{t("eventForm.addFile")}</Text>
@@ -215,6 +218,7 @@ const pathOf = (e: ViewEntry) => e.path.map((p) => p.name).join(" / ") || undefi
 
 /** The tablet mockup's grids: cards of at least 200 points, 14 apart, as many as fit. */
 function Grid({ children }: { children: ReactNode[] }) {
+  const styles = useThemedStyles(makeStyles);
   const [width, setWidth] = useState(0);
   const columns = Math.max(1, Math.floor((width + 14) / (200 + 14)));
   const cell = width ? (width - 14 * (columns - 1)) / columns : 0;
@@ -234,6 +238,7 @@ function Grid({ children }: { children: ReactNode[] }) {
 function FolderTiles({ folders }: { folders: SpaceFile[] }) {
   const api = useApi();
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const navigation = useNavigation<NavigationProp<RootParams>>();
   const { current } = useSpace();
   return (
@@ -263,45 +268,43 @@ function FolderTiles({ folders }: { folders: SpaceFile[] }) {
   );
 }
 
-const styles = StyleSheet.create({
-  // Room under the last row for the floating button.
-  // The tab's head stays above the page (it does not scroll away); the gap it had below it, here.
-  page: { paddingTop: 12, paddingBottom: 96, gap: 12, flexGrow: 1 },
-  // The tablet mockup's page: 1040 wide at most, 30/44/48 around it, 22 between blocks.
-  widePage: { width: "100%", maxWidth: 1040, alignSelf: "center", paddingTop: 30, paddingHorizontal: 44, paddingBottom: 48, gap: 22 },
-  wideHead: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", gap: 14 },
-  wideTitles: { flex: 1, minWidth: 200, gap: 2 },
-  wideTitle: { fontSize: 32, lineHeight: 38, fontFamily: fonts.sansBold, letterSpacing: -1.1 },
-  wideSearch: { width: 300, marginHorizontal: 0 },
-  wideAdd: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    height: 48,
-    paddingHorizontal: 18,
-    borderRadius: radius.m,
-    borderWidth: 2,
-    shadowOffset: { width: 3, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 3,
-  },
-  wideLabel: { fontSize: 14, lineHeight: 19, fontFamily: fonts.sansSemibold },
-  wideGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
-  hidden: { display: "none" },
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    // Room under the last row for the floating button.
+    // The tab's head stays above the page (it does not scroll away); the gap it had below it, here.
+    page: { paddingTop: 12, paddingBottom: 96, gap: 12, flexGrow: 1 },
+    // The tablet mockup's page: 1040 wide at most, 30/44/48 around it, 22 between blocks.
+    widePage: { width: "100%", maxWidth: 1040, alignSelf: "center", paddingTop: 30, paddingHorizontal: 44, paddingBottom: 48, gap: 22 },
+    wideHead: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end", gap: 14 },
+    wideTitles: { flex: 1, minWidth: 200, gap: 2 },
+    wideTitle: { fontSize: 32, lineHeight: 38, fontFamily: fonts.sansBold, letterSpacing: -1.1 },
+    wideSearch: { width: 300, marginHorizontal: 0 },
+    wideAdd: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      height: 48,
+      paddingHorizontal: 18,
+      borderRadius: shape.radius.m,
+      borderWidth: shape.edgeWidth,
+    },
+    wideLabel: { fontSize: 14, lineHeight: 19, fontFamily: fonts.sansSemibold },
+    wideGrid: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
+    hidden: { display: "none" },
 
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16 },
-  tile: {
-    flexBasis: "47%",
-    flexGrow: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    height: 52,
-    paddingHorizontal: 14,
-    borderRadius: radius.m,
-    borderWidth: hairline,
-  },
-  tileName: { flexShrink: 1 },
-  section: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 2 },
-});
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 16 },
+    tile: {
+      flexBasis: "47%",
+      flexGrow: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      height: 52,
+      paddingHorizontal: 14,
+      borderRadius: shape.radius.m,
+      borderWidth: shape.hairline,
+    },
+    tileName: { flexShrink: 1 },
+    section: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 2 },
+  }),
+);
