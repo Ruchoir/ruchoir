@@ -72,6 +72,14 @@ pub async fn add_reaction(
             .await?;
     // Reacting is taking part, like writing: for the channel's members only.
     if access.kind == authz::ConversationKind::Channel {
+        authz::ensure_permission(
+            &state.db,
+            access.space_id,
+            session.user_id,
+            crate::permissions::check::Resource::Channel(message.conversation_id),
+            crate::permissions::catalogue::Permission::MessageReact,
+        )
+        .await?;
         super::channels::ensure_taking_part(&state, message.conversation_id, session.user_id)
             .await?;
     }
@@ -143,6 +151,14 @@ pub async fn remove_reaction(
         authz::ensure_conversation_access(&state.db, message.conversation_id, session.user_id)
             .await?;
     if access.kind == authz::ConversationKind::Channel {
+        authz::ensure_permission(
+            &state.db,
+            access.space_id,
+            session.user_id,
+            crate::permissions::check::Resource::Channel(message.conversation_id),
+            crate::permissions::catalogue::Permission::MessageReact,
+        )
+        .await?;
         super::channels::ensure_taking_part(&state, message.conversation_id, session.user_id)
             .await?;
     }

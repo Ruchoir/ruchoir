@@ -899,3 +899,35 @@ async fn an_import_writes_both_models() {
     }
     std::fs::remove_dir_all(&imported.dir).ok();
 }
+
+// ---- Messaging on the engine (Task 7) ----
+
+/// A channel's people are listed to whoever reads the channel, and to nobody else: a member
+/// reserved out of it and a guest who was never added to it used to get the list all the same.
+#[tokio::test]
+async fn a_channel_lists_its_people_only_to_its_readers() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let open = make_channel(&app.db, fx.space_id, "open", "public").await;
+    let board = make_channel(&app.db, fx.space_id, "board", "public").await;
+    reserve(&app.db, board, &["admin"]).await;
+    let list = |channel: Uuid, who: Uuid| {
+        let app = &app;
+        async move {
+            status_of(
+                app,
+                reqwest::Method::GET,
+                &format!("/api/v1/channels/{channel}/members"),
+                &app.cookie_for(who).await,
+            )
+            .await
+        }
+    };
+    assert_eq!(list(open, fx.member).await, 200);
+    assert_eq!(list(board, fx.admin).await, 200);
+    assert_eq!(list(board, fx.owner).await, 200);
+    assert_eq!(list(board, fx.member).await, 403);
+    assert_eq!(list(open, fx.guest).await, 403);
+    join_as(&app.db, open, fx.guest, "member").await;
+    assert_eq!(list(open, fx.guest).await, 200);
+}

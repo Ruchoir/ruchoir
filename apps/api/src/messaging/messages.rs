@@ -175,8 +175,17 @@ pub async fn send_message(
 ) -> Result<(StatusCode, Json<MessageDto>), ApiError> {
     let access =
         authz::ensure_conversation_access(&state.db, conversation_id, session.user_id).await?;
-    if !access.is_postable() {
-        return Err(ApiError::Forbidden);
+    // `message.send`, which an archived channel takes away from everybody. A direct message is
+    // written by its participants.
+    if access.kind == ConversationKind::Channel {
+        authz::ensure_permission(
+            &state.db,
+            access.space_id,
+            session.user_id,
+            crate::permissions::check::Resource::Channel(conversation_id),
+            crate::permissions::catalogue::Permission::MessageSend,
+        )
+        .await?;
     }
 
     let text = body.body.trim();
@@ -638,11 +647,12 @@ pub async fn delete_message(
 
     let is_author = message.author_id == Some(session.user_id);
     let is_moderator = access.kind == ConversationKind::Channel
-        && authz::is_channel_moderator(
+        && crate::permissions::check::can(
             &state.db,
-            access.conversation_id,
             access.space_id,
             session.user_id,
+            crate::permissions::check::Resource::Channel(access.conversation_id),
+            crate::permissions::catalogue::Permission::MessageManage,
         )
         .await?;
     if !is_author && !is_moderator {

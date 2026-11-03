@@ -58,9 +58,14 @@ async fn ensure_may_pin(
     access: &authz::ConversationAccess,
     user_id: Uuid,
 ) -> Result<(), ApiError> {
-    if authz::is_guest(&state.db, access.space_id, user_id).await? {
-        return Err(ApiError::Forbidden);
-    }
+    authz::ensure_permission(
+        &state.db,
+        access.space_id,
+        user_id,
+        crate::permissions::check::Resource::Channel(access.conversation_id),
+        crate::permissions::catalogue::Permission::MessagePin,
+    )
+    .await?;
     if channel_members::Entity::find_by_id((access.conversation_id, user_id))
         .one(&state.db)
         .await?
@@ -199,8 +204,14 @@ pub async fn unpin_message(
         .await?
     {
         if pin.pinned_by != Some(session.user_id)
-            && !authz::is_channel_moderator(&state.db, channel_id, access.space_id, session.user_id)
-                .await?
+            && !crate::permissions::check::can(
+                &state.db,
+                access.space_id,
+                session.user_id,
+                crate::permissions::check::Resource::Channel(channel_id),
+                crate::permissions::catalogue::Permission::MessageManage,
+            )
+            .await?
         {
             return Err(ApiError::Forbidden);
         }

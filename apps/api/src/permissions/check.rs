@@ -177,6 +177,107 @@ pub async fn holders(
     Ok(holding)
 }
 
+/// Where `user_id` stands in the space: `None` when they are not in it (an expired guest
+/// included). For the few rules that are about the standing itself rather than a permission: the
+/// owner alone holds the space's identity and end, and a guest's channel role is no rank.
+pub async fn standing(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<Option<Standing>, DbErr> {
+    Ok(load::people(db, space_id, Some(user_id))
+        .await?
+        .get(&user_id)
+        .map(|person| person.subject.standing))
+}
+
+/// The space's owners (the standing, not a permission: outside every rule).
+pub async fn owners(db: &DatabaseConnection, space_id: Uuid) -> Result<Vec<Uuid>, DbErr> {
+    Ok(load::people(db, space_id, None)
+        .await?
+        .into_values()
+        .filter(|person| person.subject.standing == Standing::Owner)
+        .map(|person| person.user_id)
+        .collect())
+}
+
+/// What a question about a channel takes for granted, when it is not "may they read it now".
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Assume {
+    /// Taken as joined (`Some(true)`), as not joined (`Some(false)`), or as it is (`None`).
+    pub joined: Option<bool>,
+    /// Taken as public whatever its type: who would see it were it not private (who must hear
+    /// that it was made private, for one).
+    pub public: bool,
+}
+
+/// Whether `user_id` would see the channel under `assume`: "would it admit them if they joined"
+/// (adding someone), "may they walk in" (joining).
+pub async fn sees_channel(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+    channel_id: Uuid,
+    assume: Assume,
+) -> Result<bool, DbErr> {
+    Ok(
+        channel_viewers_among(db, space_id, channel_id, Some(user_id), assume)
+            .await?
+            .contains(&user_id),
+    )
+}
+
+/// The members of the space who would see the channel under `assume`, in a fixed number of
+/// queries.
+pub async fn channel_viewers(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    channel_id: Uuid,
+    assume: Assume,
+) -> Result<Vec<Uuid>, DbErr> {
+    channel_viewers_among(db, space_id, channel_id, None, assume).await
+}
+
+async fn channel_viewers_among(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    channel_id: Uuid,
+    user: Option<Uuid>,
+    assume: Assume,
+) -> Result<Vec<Uuid>, DbErr> {
+    let people = load::people(db, space_id, user).await?;
+    let channels = load::channels_of(db, space_id, &[channel_id]).await?;
+    let Some(mut channel) = channels.into_iter().next() else {
+        return Ok(Vec::new());
+    };
+    if assume.public && channel.channel_type == "private" {
+        channel.channel_type = "public".to_owned();
+    }
+    let ids = [channel_id];
+    let rules = load::rules(db, space_id, permission_overrides::Column::ChannelId, &ids).await?;
+    let mut memberships = load::memberships(db, space_id, &ids, user).await?;
+    match assume.joined {
+        Some(true) => {
+            for person in people.keys() {
+                memberships
+                    .entry((channel_id, *person))
+                    .or_insert_with(|| "member".to_owned());
+            }
+        }
+        Some(false) => memberships.clear(),
+        None => {}
+    }
+    Ok(people
+        .values()
+        .filter(|person| {
+            channel_decision(person, &channel, &rules, &memberships, false)
+                .granted
+                .contains(Permission::ChannelView)
+        })
+        .map(|person| person.user_id)
+        .collect())
+}
+
 async fn decide(
     db: &DatabaseConnection,
     space_id: Uuid,
@@ -444,8 +545,7 @@ async fn file_decision(
         }
     }
     unseen_grants_nothing(&mut decision, Permission::FilesView, Family::Files, explain);
-    if !decision.granted.contains(Permission::FilesView)
-        && crate::calendar::attachments::grants(db, file_id, user_id).await
+    if !decision.granted.contains(Permission::FilesView) && event_grants(db, file_id, user_id).await
     {
         set(
             &mut decision,
@@ -456,6 +556,16 @@ async fn file_decision(
         );
     }
     Ok(decision)
+}
+
+/// Whether a calendar event the person sees carries the file. Boxed: seeing an event can go
+/// through reading a channel, which asks this module again.
+fn event_grants<'a>(
+    db: &'a DatabaseConnection,
+    file_id: Uuid,
+    user_id: Uuid,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = bool> + Send + 'a>> {
+    Box::pin(crate::calendar::attachments::grants(db, file_id, user_id))
 }
 
 async fn conversation_kind(

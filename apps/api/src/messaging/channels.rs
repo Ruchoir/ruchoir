@@ -31,14 +31,12 @@ use uuid::Uuid;
 use crate::auth::extract::AuthSession;
 use crate::entities::{
     channel_members, channel_role_access, channels, conversations, file_versions, files,
-    message_link_previews, messages, space_members, spaces, users,
+    message_link_previews, messages, spaces, users,
 };
 use crate::state::AppState;
 use sea_orm::DatabaseConnection;
 
-use super::authz::{
-    ensure_space_admin, ensure_space_member, is_channel_moderator, space_member_ids,
-};
+use super::authz::{ensure_permission, ensure_space_member, space_member_ids};
 use super::conversations::unread_count;
 use super::dto::{
     AddChannelMembersRequest, AddedMembersDto, ChannelDto, ChannelMemberRoleDto, ChannelSummaryDto,
@@ -47,6 +45,8 @@ use super::dto::{
 };
 use super::error::ApiError;
 use super::slug::slugify;
+use crate::permissions::catalogue::Permission;
+use crate::permissions::check::{self, Assume, Resource};
 use crate::realtime::event::RealtimeEnvelope;
 
 /// Read a submitted role list, or fail with a reason the caller can act on.
@@ -253,11 +253,16 @@ pub async fn create_channel(
     Json(body): Json<CreateChannelRequest>,
 ) -> Result<(StatusCode, Json<ChannelDto>), ApiError> {
     ensure_space_member(&state.db, space_id, session.user_id).await?;
-    // A guest is in the space to take part in what they were brought into, not to open new rooms in
-    // an organisation that is not theirs.
-    if super::authz::is_guest(&state.db, space_id, session.user_id).await? {
-        return Err(ApiError::Forbidden);
-    }
+    // `channels.create`: a guest is in the space to take part in what they were brought into, not
+    // to open new rooms in an organisation that is not theirs.
+    ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        Resource::Space,
+        Permission::ChannelsCreate,
+    )
+    .await?;
 
     let name = slugify(&body.name);
     if name.is_empty() {
@@ -400,9 +405,14 @@ pub async fn update_channel(
         .await?
         .ok_or(ApiError::Forbidden)?;
     ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
-    if !is_channel_moderator(&state.db, channel_id, channel.space_id, session.user_id).await? {
-        return Err(ApiError::Forbidden);
-    }
+    ensure_permission(
+        &state.db,
+        channel.space_id,
+        session.user_id,
+        Resource::Channel(channel_id),
+        Permission::ChannelManage,
+    )
+    .await?;
 
     let space_id = channel.space_id;
     let space = spaces::Entity::find_by_id(space_id)
@@ -574,7 +584,14 @@ pub async fn delete_channel(
         .await?
         .ok_or(ApiError::Forbidden)?;
     let space_id = channel.space_id;
-    ensure_space_admin(&state.db, space_id, session.user_id).await?;
+    ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        Resource::Space,
+        Permission::ChannelsDelete,
+    )
+    .await?;
     let space = spaces::Entity::find_by_id(space_id)
         .one(&state.db)
         .await?
@@ -705,12 +722,19 @@ pub async fn join_channel(
     // owner, who already reads it and would otherwise be offered a "join" that refuses. The 403 is
     // the same one a non-member gets when reading it, so nothing is revealed either way. A guest is
     // refused for the same reason on any channel: every room they are in, somebody put them in.
-    if (channel.channel_type == "private"
-        && !super::authz::is_space_owner(&state.db, channel.space_id, session.user_id).await?)
-        || super::authz::is_guest(&state.db, channel.space_id, session.user_id).await?
-        || !super::authz::role_admitted(&state.db, channel_id, channel.space_id, session.user_id)
-            .await?
-    {
+    // Read as someone not in it yet: `channel.view` without the membership row.
+    let may_walk_in = check::sees_channel(
+        &state.db,
+        channel.space_id,
+        session.user_id,
+        channel_id,
+        Assume {
+            joined: Some(false),
+            public: false,
+        },
+    )
+    .await?;
+    if !may_walk_in {
         return Err(ApiError::Forbidden);
     }
     if channel.channel_type == "archived" {
@@ -763,17 +787,17 @@ pub async fn list_channel_members(
         .await?
         .ok_or(ApiError::Forbidden)?;
     ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
-    // A private channel does not list its people to someone outside it: its membership is as private
-    // as its messages. The space's owner is not outside it: they read the messages too.
-    if channel.channel_type == "private"
-        && !super::authz::is_space_owner(&state.db, channel.space_id, session.user_id).await?
-        && channel_members::Entity::find_by_id((channel_id, session.user_id))
-            .one(&state.db)
-            .await?
-            .is_none()
-    {
-        return Err(ApiError::Forbidden);
-    }
+    // A channel lists its people to whoever reads it, and to nobody else: its membership is as
+    // private as its messages (a private channel one is not in, a reserved one, a room a guest was
+    // not added to). The space's owner reads them all.
+    ensure_permission(
+        &state.db,
+        channel.space_id,
+        session.user_id,
+        Resource::Channel(channel_id),
+        Permission::ChannelView,
+    )
+    .await?;
 
     let memberships = channel_members::Entity::find()
         .filter(channel_members::Column::ChannelId.eq(channel_id))
@@ -850,9 +874,14 @@ pub async fn add_channel_members(
     // room they had themselves been invited to. Adding people is moderation, so it takes the same
     // rank as every other act of moderation: the channel's own owner or a moderator, or somebody who
     // administers the space.
-    if !is_channel_moderator(&state.db, channel_id, channel.space_id, session.user_id).await? {
-        return Err(ApiError::Forbidden);
-    }
+    ensure_permission(
+        &state.db,
+        channel.space_id,
+        session.user_id,
+        Resource::Channel(channel_id),
+        Permission::ChannelMembersManage,
+    )
+    .await?;
 
     // Everyone in the space, so a target outside it is refused without a query per person, and
     // without confirming to the caller whether an id belongs to an account elsewhere.
@@ -1218,14 +1247,9 @@ async fn channel_audience(
             .into_iter()
             .map(|m| m.user_id)
             .collect();
-        let owners = space_members::Entity::find()
-            .filter(space_members::Column::SpaceId.eq(space_id))
-            .filter(space_members::Column::Role.eq("owner"))
-            .all(db)
-            .await?;
-        for owner in owners {
-            if !audience.contains(&owner.user_id) {
-                audience.push(owner.user_id);
+        for owner in check::owners(db, space_id).await? {
+            if !audience.contains(&owner) {
+                audience.push(owner);
             }
         }
         return Ok(audience);
@@ -1248,26 +1272,24 @@ async fn visible_only(
     channel_id: Uuid,
     audience: Vec<Uuid>,
 ) -> Result<Vec<Uuid>, ApiError> {
-    let allowed = super::authz::channel_allowed_roles(db, channel_id).await?;
-    let mut kept = Vec::with_capacity(audience.len());
-    for user_id in audience {
-        let Some(role) = super::authz::space_role(db, space_id, user_id).await? else {
-            continue;
-        };
-        if allowed.as_ref().is_some_and(|roles| !roles.contains(&role)) {
-            continue;
-        }
-        if role == "guest"
-            && channel_members::Entity::find_by_id((channel_id, user_id))
-                .one(db)
-                .await?
-                .is_none()
-        {
-            continue;
-        }
-        kept.push(user_id);
-    }
-    Ok(kept)
+    // Whoever would read it were it public: the reservation and the guest rule apply, the private
+    // lock does not (whoever has it in their list must hear that it was made private).
+    let viewers: std::collections::HashSet<Uuid> = check::channel_viewers(
+        db,
+        space_id,
+        channel_id,
+        Assume {
+            joined: None,
+            public: true,
+        },
+    )
+    .await?
+    .into_iter()
+    .collect();
+    Ok(audience
+        .into_iter()
+        .filter(|user_id| viewers.contains(user_id))
+        .collect())
 }
 
 /// Insert a membership row with the given role and the default notification settings.
@@ -1354,27 +1376,26 @@ pub async fn set_channel_order(
     Path(space_id): Path<Uuid>,
     Json(body): Json<super::dto::ChannelOrderRequest>,
 ) -> Result<StatusCode, ApiError> {
-    super::authz::ensure_space_admin(&state.db, space_id, session.user_id).await?;
+    ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        Resource::Space,
+        Permission::SpaceSettings,
+    )
+    .await?;
 
     let all = in_space_order(&state.db, space_id).await?;
     // What the caller sees, with the rule the channel list applies to them.
-    let mut visible = std::collections::HashSet::new();
-    let owner = super::authz::is_space_owner(&state.db, space_id, session.user_id).await?;
-    for channel in &all {
-        if channel.channel_type == "private"
-            && !owner
-            && channel_members::Entity::find_by_id((channel.id, session.user_id))
-                .one(&state.db)
-                .await?
-                .is_none()
-        {
-            continue;
-        }
-        if !super::authz::role_admitted(&state.db, channel.id, space_id, session.user_id).await? {
-            continue;
-        }
-        visible.insert(channel.id);
-    }
+    let ids: Vec<Uuid> = all.iter().map(|channel| channel.id).collect();
+    let seen = check::effective_many(&state.db, space_id, session.user_id, &ids).await?;
+    let visible: std::collections::HashSet<Uuid> = ids
+        .into_iter()
+        .filter(|id| {
+            seen.get(id)
+                .is_some_and(|granted| granted.contains(Permission::ChannelView))
+        })
+        .collect();
     // Exactly the caller's list, each once. Anything else is a list that changed under them (a
     // channel created or removed since they loaded it), and guessing where it goes would be wrong.
     let named: std::collections::HashSet<Uuid> = body.channel_ids.iter().copied().collect();

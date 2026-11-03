@@ -381,7 +381,14 @@ pub async fn set_default_channel(
     Path(space_id): Path<Uuid>,
     Json(body): Json<SetDefaultChannelRequest>,
 ) -> Result<Json<SpaceUpdatedDto>, ApiError> {
-    super::authz::ensure_space_admin(&state.db, space_id, session.user_id).await?;
+    super::authz::ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Space,
+        crate::permissions::catalogue::Permission::SpaceSettings,
+    )
+    .await?;
     let space = spaces::Entity::find_by_id(space_id)
         .one(&state.db)
         .await?
@@ -542,9 +549,17 @@ pub async fn update_member_role(
     // Acting on one's own membership is caught by the rank rule below (nobody ranks below
     // themselves), but it is worth refusing by name: it is the one case a client could reach by
     // accident rather than by trying.
-    if user_id == session.user_id || actor_rank < super::authz::role_rank("admin") {
+    if user_id == session.user_id {
         return Err(ApiError::Forbidden);
     }
+    super::authz::ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Space,
+        crate::permissions::catalogue::Permission::RolesManage,
+    )
+    .await?;
 
     let target = space_members::Entity::find_by_id((space_id, user_id))
         .one(&state.db)
@@ -781,9 +796,17 @@ pub async fn remove_member(
         .await?
         .ok_or(ApiError::Forbidden)?;
     let actor_rank = super::authz::role_rank(&actor.role);
-    if user_id == session.user_id || actor_rank < super::authz::role_rank("admin") {
+    if user_id == session.user_id {
         return Err(ApiError::Forbidden);
     }
+    super::authz::ensure_permission(
+        &state.db,
+        space_id,
+        session.user_id,
+        crate::permissions::check::Resource::Space,
+        crate::permissions::catalogue::Permission::MembersManage,
+    )
+    .await?;
     let target = space_members::Entity::find_by_id((space_id, user_id))
         .one(&state.db)
         .await?
@@ -830,13 +853,7 @@ pub async fn delete_space(
     session: AuthSession,
     Path(space_id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    match space_members::Entity::find_by_id((space_id, session.user_id))
-        .one(&state.db)
-        .await?
-    {
-        Some(membership) if membership.role == "owner" => {}
-        _ => return Err(ApiError::Forbidden),
-    }
+    super::authz::ensure_space_owner(&state.db, space_id, session.user_id).await?;
     let space = spaces::Entity::find_by_id(space_id)
         .one(&state.db)
         .await?

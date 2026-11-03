@@ -259,6 +259,68 @@ async fn the_engine_decides_what_the_old_rules_decided() {
             );
         }
 
+        // The messaging questions rebuilt on the engine, against their old selves.
+        let sorted = |mut ids: Vec<Uuid>| {
+            ids.sort();
+            ids
+        };
+        diff.compare(
+            "members shown",
+            who,
+            "space",
+            true,
+            sorted(
+                legacy_visible_member_ids(db, space, person)
+                    .await
+                    .expect("legacy"),
+            ) == sorted(
+                crate::messaging::authz::visible_member_ids(db, space, person)
+                    .await
+                    .expect("engine"),
+            ),
+        );
+        diff.compare(
+            "conversations searched",
+            who,
+            "space",
+            true,
+            sorted(
+                legacy_accessible_conversation_ids(db, space, person)
+                    .await
+                    .expect("legacy"),
+            ) == sorted(
+                crate::messaging::authz::accessible_conversation_ids(db, space, person)
+                    .await
+                    .expect("engine"),
+            ),
+        );
+        for case in &channels {
+            let legacy_rank = legacy_effective_channel_rank(db, case.id, space, person)
+                .await
+                .expect("legacy rank");
+            let rank = crate::messaging::authz::effective_channel_rank(db, case.id, space, person)
+                .await
+                .expect("rank");
+            diff.compare(
+                "rank in the channel",
+                who,
+                &case.label,
+                true,
+                legacy_rank == rank,
+            );
+            diff.compare(
+                "admitted by the reservation",
+                who,
+                &case.label,
+                legacy_role_admitted(db, case.id, space, person)
+                    .await
+                    .expect("legacy"),
+                crate::messaging::authz::role_admitted(db, case.id, space, person)
+                    .await
+                    .expect("engine"),
+            );
+        }
+
         for case in &channels {
             let got = check::effective(db, space, person, Resource::Channel(case.id))
                 .await

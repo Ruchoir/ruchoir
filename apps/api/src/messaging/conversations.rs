@@ -190,28 +190,28 @@ pub async fn list_channels(
     // In the space's own order (see `channels.position`), placed channels first, then the rest by
     // creation, so a new channel arrives at the end rather than wherever the table puts it.
     let all = super::channels::in_space_order(&state.db, space_id).await?;
-    // A guest is offered nothing they were not added to, so for them every channel is listed the
-    // way a private one is. Same test as the one that would refuse them the conversation itself.
-    let explicit_only = super::authz::is_guest(&state.db, space_id, session.user_id).await?;
-    // The space's owner is offered its private channels too, joined or not.
-    let owner = super::authz::is_space_owner(&state.db, space_id, session.user_id).await?;
+    // The channels they read (`channel.view`), for the whole space at once: the same test as the
+    // one that would refuse them the conversation itself. A guest is offered nothing they were not
+    // added to, a reservation keeps its channel out of the list of those it does not name, and the
+    // space's owner is offered its private channels too, joined or not.
+    let ids: Vec<Uuid> = all.iter().map(|channel| channel.id).collect();
+    let seen =
+        crate::permissions::check::effective_many(&state.db, space_id, session.user_id, &ids)
+            .await?;
 
     let mut out = Vec::new();
     for channel in all {
         // Private channels are visible only to their members and to the space's owner; public and
         // archived ones to any space member.
+        let readable = seen.get(&channel.id).is_some_and(|granted| {
+            granted.contains(crate::permissions::catalogue::Permission::ChannelView)
+        });
+        if !readable {
+            continue;
+        }
         let membership = channel_members::Entity::find_by_id((channel.id, session.user_id))
             .one(&state.db)
             .await?;
-        if ((channel.channel_type == "private" && !owner) || explicit_only) && membership.is_none()
-        {
-            continue;
-        }
-        // And the channel's own guest list, checked even for a member: a role taken away takes the
-        // channels that role opened with it.
-        if !super::authz::role_admitted(&state.db, channel.id, space_id, session.user_id).await? {
-            continue;
-        }
         let favorite = membership.as_ref().map(|m| m.favorite).unwrap_or(false);
         let unread = unread_count(&state.db, channel.id, session.user_id).await?;
         let member_count = channel_member_count(&state.db, channel.id).await?;
