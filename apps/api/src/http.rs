@@ -196,7 +196,12 @@ pub(crate) async fn instance_capabilities(
         native_sessions: true,
         version: crate::compat::version(),
         api_version: crate::compat::API_VERSION,
-        features: crate::compat::FEATURES.to_vec(),
+        // The instance's own names, then the edition's (none for the community build).
+        features: crate::compat::FEATURES
+            .iter()
+            .chain(state.edition.features())
+            .copied()
+            .collect(),
     })
 }
 
@@ -332,7 +337,10 @@ pub fn router(state: AppState) -> Router {
         // Live office editing: opening a file in the editor, blank documents (404 when off).
         .merge(crate::office::router())
         // The calendar: calendars, events, reminders, subscription addresses.
-        .merge(crate::calendar::router());
+        .merge(crate::calendar::router())
+        // What the edition adds (nothing for the community build), guarded per request like the
+        // rest.
+        .merge(state.edition.routes());
 
     // Optional self-hosted emoji pack. `ServeDir` handles path traversal safely and returns 404
     // for missing files, which the client treats as "no asset" and renders the native glyph. The

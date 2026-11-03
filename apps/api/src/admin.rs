@@ -122,7 +122,7 @@ pub fn router() -> Router<AppState> {
 /// Answers `404`, not `403`: to anyone who is not an administrator this surface does not exist,
 /// and a refusal that distinguishes "forbidden" from "no such route" would confirm that an
 /// administration surface is there to be attacked.
-async fn ensure_instance_admin(state: &AppState, user_id: Uuid) -> Result<(), ApiError> {
+pub async fn ensure_instance_admin(state: &AppState, user_id: Uuid) -> Result<(), ApiError> {
     let is_admin = users::Entity::find_by_id(user_id)
         .one(&state.db)
         .await?

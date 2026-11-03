@@ -38,6 +38,9 @@ pub struct AppState {
     pub storage: Option<Arc<S3Store>>,
     /// The office engine, when live editing is configured (`RUCHOIR_OFFICE_URL`).
     pub office: Option<Arc<crate::office::Office>>,
+    /// The edition this server runs as (`crate::edition`): the community one, or one built
+    /// elsewhere on top of this crate.
+    pub edition: Arc<dyn crate::edition::Edition>,
     /// Fully resolved runtime configuration.
     pub config: Arc<Config>,
 }
