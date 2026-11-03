@@ -39,7 +39,12 @@ fn own_path_unchecked(href: &str, scheme: &str) -> Option<String> {
     })
 }
 
-/// A file name the system will take: no folder in it, no control character, never empty.
+/// The longest file name kept, in characters (most file systems cap a name at 255 bytes).
+const NAME_MAX: usize = 150;
+
+/// A file name the system will take: no folder in it, no control character, never empty, not a
+/// name Windows reserves for a device (`CON`, `NUL`, `COM1`...: those open the device, whatever the
+/// extension), and at most 150 characters, the extension kept.
 pub fn safe_name(name: &str) -> String {
     let cleaned: String = name
         .chars()
@@ -49,12 +54,34 @@ pub fn safe_name(name: &str) -> String {
             c => c,
         })
         .collect();
-    let cleaned = cleaned.trim().trim_matches('.').to_owned();
+    let mut cleaned = cleaned.trim().trim_matches('.').to_owned();
     if cleaned.is_empty() {
-        "download".to_owned()
-    } else {
-        cleaned
+        return "download".to_owned();
     }
+    let first = cleaned.split('.').next().unwrap_or("").trim_end();
+    if is_reserved_stem(first) {
+        cleaned.insert(0, '_');
+    }
+    if cleaned.chars().count() > NAME_MAX {
+        // Keep a plausible extension so the system still knows what opens the file.
+        let ext = cleaned
+            .rfind('.')
+            .map(|i| &cleaned[i..])
+            .filter(|e| e.chars().count() <= 20)
+            .unwrap_or("");
+        let keep = NAME_MAX - ext.chars().count();
+        let stem: String = cleaned.chars().take(keep).collect();
+        cleaned = format!("{stem}{ext}");
+    }
+    cleaned
+}
+
+fn is_reserved_stem(stem: &str) -> bool {
+    let up = stem.to_ascii_uppercase();
+    matches!(up.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (up.len() == 4
+            && (up.starts_with("COM") || up.starts_with("LPT"))
+            && matches!(up.as_bytes()[3], b'1'..=b'9'))
 }
 
 /// The title of a viewer window: the file's name as the person knows it, so punctuation stays (a
@@ -159,36 +186,77 @@ pub enum Seen {
     Expired,
 }
 
-/// What a look at the file means. Pure: the caller reads the file and the clock. `observed` is the
-/// modification time and hash read now, or `None` when the time has not moved (no hash computed);
-/// a missing file is `Unchanged` too, as an editor may have it removed for a moment while saving.
-pub fn decide(w: &Watched, now: Instant, observed: Option<(SystemTime, [u8; 32])>) -> Seen {
-    if now.saturating_duration_since(w.since) >= LIFETIME {
+impl Watched {
+    /// Records that `hash` is now the version on the instance. The caller calls it only after the
+    /// upload succeeded: a dismissed or failed one leaves the base as it was, so the same content
+    /// is offered again the next time it changes.
+    pub fn mark_sent(&mut self, hash: [u8; 32]) {
+        self.hash = hash;
+        self.settling = None;
+    }
+}
+
+/// One look at the file, and what it means. Pure (no filesystem, no clock read): the caller reads
+/// the file and the clock and passes them in, and `step` owns every update of `w` that follows.
+///
+/// `observed` is the modification time and hash read now, or `None` when the time has not moved
+/// since the last look (no hash computed, the caller hashes only when it moved); a missing file is
+/// `None` too, as an editor may remove it for a moment while saving. The time seen is recorded in
+/// `w.mtime`.
+///
+/// - A hash different from `w.hash` arms `w.settling` (first seen now); the same one seen again
+///   keeps it, a different one restarts it. Both answer `Settling`.
+/// - The content going back to `w.hash` clears `w.settling` and answers `Unchanged`: an undone edit
+///   is never offered.
+/// - Once the pending content has stood `SETTLE` unchanged, `Saved(h)` is answered once and
+///   `w.settling` is cleared. `w.hash` stays untouched: it moves only through `mark_sent`.
+/// - `Expired` is answered after `LIFETIME`, but only when nothing is pending: a save in progress
+///   completes first and the next look expires the watch.
+pub fn step(w: &mut Watched, now: Instant, observed: Option<(SystemTime, [u8; 32])>) -> Seen {
+    if let Some((mtime, _)) = observed {
+        w.mtime = Some(mtime);
+    }
+    let differs = matches!(observed, Some((_, h)) if h != w.hash);
+    if w.settling.is_none() && !differs && now.saturating_duration_since(w.since) >= LIFETIME {
         return Seen::Expired;
     }
-    let settled = |hash: [u8; 32], first_seen: Instant| {
-        if now.saturating_duration_since(first_seen) >= SETTLE {
-            Seen::Saved(hash)
-        } else {
-            Seen::Settling
-        }
-    };
     match observed {
-        // The time did not move since the last look: only a content already waiting can finish.
-        None => w.settling.map_or(Seen::Unchanged, |(h, t)| settled(h, t)),
-        Some((_, hash)) if hash == w.hash => Seen::Unchanged,
+        Some((_, hash)) if hash == w.hash => {
+            w.settling = None;
+            Seen::Unchanged
+        }
         Some((_, hash)) => match w.settling {
-            Some((h, t)) if h == hash => settled(hash, t),
+            Some((h, t)) if h == hash => settle(w, hash, t, now),
             // A first sight, or a content that changed again: the wait starts over.
-            _ => Seen::Settling,
+            _ => {
+                w.settling = Some((hash, now));
+                Seen::Settling
+            }
+        },
+        // The time did not move: only a content already waiting can finish.
+        None => match w.settling {
+            Some((h, t)) => settle(w, h, t, now),
+            None => Seen::Unchanged,
         },
     }
 }
 
-/// The body of a `POST /api/v1/files/{id}/versions`: one `file` part. The name is quoted for a
-/// header (`"` and `\` escaped, CR and LF dropped); a non-ASCII name stays UTF-8 in `filename="..."`,
+fn settle(w: &mut Watched, hash: [u8; 32], first_seen: Instant, now: Instant) -> Seen {
+    if now.saturating_duration_since(first_seen) >= SETTLE {
+        w.settling = None;
+        Seen::Saved(hash)
+    } else {
+        Seen::Settling
+    }
+}
+
+/// The body of a `POST /api/v1/files/{id}/versions`: one `file` part. `boundary` must be a
+/// generated token (no CR, LF or `--`, never empty), so it cannot occur in the framing by chance.
+/// The name is quoted for a header (`"` and `\` escaped, control characters dropped); a non-ASCII name stays UTF-8 in `filename="..."`,
 /// which the API's multipart parser accepts, so no `filename*` form is needed.
 pub fn multipart_file(boundary: &str, name: &str, bytes: &[u8]) -> Vec<u8> {
+    debug_assert!(!boundary.is_empty() && !boundary.contains(['\r', '\n']));
+    debug_assert!(!boundary.contains("--"));
     let mut quoted = String::with_capacity(name.len());
     for c in name.chars() {
         match c {
@@ -196,7 +264,7 @@ pub fn multipart_file(boundary: &str, name: &str, bytes: &[u8]) -> Vec<u8> {
                 quoted.push('\\');
                 quoted.push(c);
             }
-            '\r' | '\n' => {}
+            c if c.is_control() => {}
             c => quoted.push(c),
         }
     }
@@ -282,6 +350,27 @@ mod tests {
     }
 
     #[test]
+    fn a_name_is_no_device_and_not_too_long() {
+        for (name, want) in [
+            ("CON", "_CON"),
+            ("nul.txt", "_nul.txt"),
+            ("Com1.tar.gz", "_Com1.tar.gz"),
+            ("LPT9.pdf", "_LPT9.pdf"),
+            ("COM0.txt", "COM0.txt"),
+            ("CONSOLE.txt", "CONSOLE.txt"),
+            ("communion.txt", "communion.txt"),
+        ] {
+            assert_eq!(safe_name(name), want);
+        }
+        let long = format!("{}.docx", "é".repeat(300));
+        let n = safe_name(&long);
+        assert_eq!(n.chars().count(), 150);
+        assert!(n.ends_with(".docx"));
+        let no_ext = safe_name(&"a".repeat(300));
+        assert_eq!(no_ext.chars().count(), 150);
+    }
+
+    #[test]
     fn a_window_label_is_stable_per_path() {
         let a = window_label("/i/x/api/v1/files/a/content");
         assert_eq!(a, window_label("/i/x/api/v1/files/a/content"));
@@ -331,6 +420,9 @@ mod tests {
             assert!(p.starts_with(cache.join("57268a15").join(id())), "{name}");
             assert_eq!(p.parent().unwrap(), cache.join("57268a15").join(id()));
         }
+        let p = local_path(cache, "57268a15", &id(), "Relevé été/2026 final.pdf").unwrap();
+        assert_eq!(p.file_name().unwrap(), "Relevé été_2026 final.pdf");
+        assert_eq!(p.parent().unwrap(), cache.join("57268a15").join(id()));
         assert_eq!(local_path(cache, "a/b", &id(), "x"), None);
         assert_eq!(local_path(cache, "..", &id(), "x"), None);
         assert_eq!(local_path(cache, "", &id(), "x"), None);
@@ -352,53 +444,86 @@ mod tests {
         }
     }
 
+    fn seen(h: u8) -> Option<(SystemTime, [u8; 32])> {
+        Some((SystemTime::now(), [h; 32]))
+    }
+
     #[test]
     fn an_untouched_file_is_unchanged() {
         let t0 = Instant::now();
-        let w = watched(t0);
-        assert_eq!(decide(&w, t0 + POLL, None), Seen::Unchanged);
-        assert_eq!(
-            decide(&w, t0 + POLL, Some((SystemTime::now(), [1; 32]))),
-            Seen::Unchanged
-        );
+        let mut w = watched(t0);
+        assert_eq!(step(&mut w, t0 + POLL, None), Seen::Unchanged);
+        assert_eq!(step(&mut w, t0 + POLL, seen(1)), Seen::Unchanged);
+        assert!(w.mtime.is_some());
     }
 
     #[test]
     fn a_save_is_offered_once_it_has_settled() {
         let t0 = Instant::now();
         let mut w = watched(t0);
-        let seen = Some((SystemTime::now(), [2; 32]));
-        assert_eq!(decide(&w, t0 + POLL, seen), Seen::Settling);
-        w.settling = Some(([2; 32], t0 + POLL));
-        assert_eq!(decide(&w, t0 + POLL + SETTLE / 2, seen), Seen::Settling);
-        assert_eq!(decide(&w, t0 + POLL + SETTLE, seen), Seen::Saved([2; 32]));
-        // The clock may be the only thing that moved: the settled content still counts.
-        assert_eq!(decide(&w, t0 + POLL + SETTLE, None), Seen::Saved([2; 32]));
+        assert_eq!(step(&mut w, t0 + POLL, seen(2)), Seen::Settling);
+        assert_eq!(w.settling.map(|s| s.0), Some([2; 32]));
+        assert_eq!(step(&mut w, t0 + POLL + SETTLE / 2, None), Seen::Settling);
+        assert_eq!(step(&mut w, t0 + POLL + SETTLE, None), Seen::Saved([2; 32]));
+        // Reported once, and the base moves only when the upload succeeded.
+        assert_eq!(w.settling, None);
+        assert_eq!(w.hash, [1; 32]);
+        assert_eq!(
+            step(&mut w, t0 + POLL + SETTLE + POLL, None),
+            Seen::Unchanged
+        );
+        w.mark_sent([2; 32]);
+        assert_eq!(w.hash, [2; 32]);
+        assert_eq!(
+            step(&mut w, t0 + POLL + SETTLE + POLL, seen(2)),
+            Seen::Unchanged
+        );
     }
 
     #[test]
     fn a_save_still_moving_restarts_the_wait() {
+        // The Word double save: h2 is written, then h3 within SETTLE.
         let t0 = Instant::now();
         let mut w = watched(t0);
-        w.settling = Some(([2; 32], t0 + POLL));
-        let later = Some((SystemTime::now(), [3; 32]));
-        assert_eq!(decide(&w, t0 + POLL + SETTLE, later), Seen::Settling);
+        assert_eq!(step(&mut w, t0, seen(2)), Seen::Settling);
+        assert_eq!(step(&mut w, t0 + SETTLE / 2, seen(3)), Seen::Settling);
+        assert_eq!(step(&mut w, t0 + SETTLE, None), Seen::Settling);
+        assert_eq!(
+            step(&mut w, t0 + SETTLE / 2 + SETTLE, None),
+            Seen::Saved([3; 32])
+        );
+        assert_eq!(step(&mut w, t0 + 3 * SETTLE, None), Seen::Unchanged);
     }
 
     #[test]
-    fn a_watch_ends_after_its_lifetime() {
+    fn an_undone_edit_is_never_offered() {
         let t0 = Instant::now();
-        let w = watched(t0);
-        assert_eq!(decide(&w, t0 + LIFETIME, None), Seen::Expired);
-        let seen = Some((SystemTime::now(), [2; 32]));
-        assert_eq!(decide(&w, t0 + LIFETIME + POLL, seen), Seen::Expired);
-        assert_eq!(decide(&w, t0 + LIFETIME - POLL, None), Seen::Unchanged);
+        let mut w = watched(t0);
+        assert_eq!(step(&mut w, t0, seen(2)), Seen::Settling);
+        assert_eq!(step(&mut w, t0 + POLL, seen(1)), Seen::Unchanged);
+        assert_eq!(w.settling, None);
+        assert_eq!(step(&mut w, t0 + POLL + SETTLE, None), Seen::Unchanged);
+    }
+
+    #[test]
+    fn a_watch_ends_after_its_lifetime_once_nothing_is_pending() {
+        let t0 = Instant::now();
+        let mut w = watched(t0);
+        assert_eq!(step(&mut w, t0 + LIFETIME - POLL, None), Seen::Unchanged);
+        assert_eq!(step(&mut w, t0 + LIFETIME, None), Seen::Expired);
+        assert_eq!(step(&mut w, t0 + LIFETIME, seen(1)), Seen::Expired);
+        // A save in progress completes first, then the next look expires the watch.
+        let mut w = watched(t0);
+        let late = t0 + LIFETIME;
+        assert_eq!(step(&mut w, late, seen(2)), Seen::Settling);
+        assert_eq!(step(&mut w, late + SETTLE, None), Seen::Saved([2; 32]));
+        assert_eq!(step(&mut w, late + SETTLE + POLL, None), Seen::Expired);
     }
 
     #[test]
     fn a_multipart_body_carries_the_exact_bytes_and_name() {
         let bytes: Vec<u8> = (0..=255u8).chain(*b"\r\n--B--\r\n").collect();
-        let body = multipart_file("B", "Devis \"é\"\\x\r\n.pdf", &bytes);
+        let body = multipart_file("B", "Devis \"é\"\\x\r\n\0.pdf", &bytes);
         let head = "--B\r\nContent-Disposition: form-data; name=\"file\"; filename=\"Devis \\\"é\\\"\\\\x.pdf\"\r\nContent-Type: application/octet-stream\r\n\r\n"
             .as_bytes();
         assert!(body.starts_with(head), "{}", String::from_utf8_lossy(&body));
