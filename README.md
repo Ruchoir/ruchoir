@@ -94,3 +94,10 @@ Contributors - including AI coding agents - should read [`AGENTS.md`](AGENTS.md)
 ## License
 
 Licensed under the **GNU Affero General Public License v3.0** (AGPLv3). See [`LICENSE`](LICENSE).
+
+Everything in this repository is free software, and stays so: an organisation can run it, change it
+and host it for itself. An **enterprise edition**, built separately on top of this code, adds
+composition and delegation at scale to a space that holds a licence: custom roles, groups that carry
+roles, fine rules on a resource, delegated administration, directory sync, audit export. Its licence
+is per space, verified on the server without calling anywhere. What is free and what is not, and
+why, is in [`docs/adr/0010-open-core-boundary-and-licences.md`](docs/adr/0010-open-core-boundary-and-licences.md).
