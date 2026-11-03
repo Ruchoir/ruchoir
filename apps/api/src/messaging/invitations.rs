@@ -472,6 +472,15 @@ pub async fn accept_invitation(
             let mut active = record.clone().into_active_model();
             active.uses = Set(record.uses + 1);
             active.update(&txn).await?;
+            crate::audit::record(
+                &txn,
+                record.space_id,
+                Some(session.user_id),
+                crate::audit::Action::MemberJoined,
+                crate::audit::Target::Member(session.user_id),
+                serde_json::json!({ "role": record.role, "invited_by": record.created_by }),
+            )
+            .await?;
 
             // Joining the configured default channel makes a new space membership immediately
             // live, regardless of which public channel happened to be created first; an

@@ -161,3 +161,276 @@ fn no_code_writes_to_the_audit_log_but_record() {
         "the audit log is written by audit::record alone: {offenders:?}"
     );
 }
+
+/// Every entry of a space: action, actor, target kind and id, details.
+async fn log_of(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+) -> Vec<(String, Option<Uuid>, String, Option<Uuid>, Value)> {
+    db.query_all_raw(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT action, actor_id, target_kind, target_id, details FROM space_audit_log \
+         WHERE space_id = $1 ORDER BY at, id",
+        [space_id.into()],
+    ))
+    .await
+    .expect("log")
+    .into_iter()
+    .map(|row| {
+        (
+            row.try_get("", "action").expect("action"),
+            row.try_get("", "actor_id").expect("actor"),
+            row.try_get("", "target_kind").expect("kind"),
+            row.try_get("", "target_id").expect("target"),
+            row.try_get("", "details").expect("details"),
+        )
+    })
+    .collect()
+}
+
+async fn patch(app: &TestApp, cookie: &str, path: &str, body: Value) -> reqwest::Response {
+    app.req(reqwest::Method::PATCH, path, cookie)
+        .json(&body)
+        .send()
+        .await
+        .expect("patch")
+}
+
+#[tokio::test]
+async fn an_arrival_is_logged() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    let created: Value = app
+        .req(
+            reqwest::Method::POST,
+            &format!("/api/v1/spaces/{space}/invitations"),
+            &app.cookie_for(owner).await,
+        )
+        .json(&json!({ "role": "member" }))
+        .send()
+        .await
+        .expect("invite")
+        .json()
+        .await
+        .expect("json");
+    let newcomer = make_user(&app.db, "newcomer").await;
+    let accepted = app
+        .req(
+            reqwest::Method::POST,
+            &format!(
+                "/api/v1/invitations/{}/accept",
+                token_of(created["url"].as_str().expect("url"))
+            ),
+            &app.cookie_for(newcomer).await,
+        )
+        .send()
+        .await
+        .expect("accept");
+    assert_eq!(accepted.status(), 200);
+    let log = log_of(&app.db, space).await;
+    assert_eq!(log.len(), 1, "{log:?}");
+    let (action, actor, kind, target, details) = &log[0];
+    assert_eq!(action, "member.joined");
+    assert_eq!(*actor, Some(newcomer));
+    assert_eq!((kind.as_str(), *target), ("member", Some(newcomer)));
+    assert_eq!(details["role"], "member");
+    assert_eq!(details["invited_by"], owner.to_string());
+}
+
+#[tokio::test]
+async fn a_departure_and_a_removal_are_logged() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let leaving = make_user(&app.db, "leaving").await;
+    let removed = make_user(&app.db, "removed").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    crate::testkit::add_member(&app.db, space, leaving, "member").await;
+    crate::testkit::add_member(&app.db, space, removed, "guest").await;
+    let left = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{space}/membership"),
+            &app.cookie_for(leaving).await,
+        )
+        .send()
+        .await
+        .expect("leave");
+    assert!(left.status().is_success(), "{}", left.status());
+    let gone = app
+        .req(
+            reqwest::Method::DELETE,
+            &format!("/api/v1/spaces/{space}/members/{removed}"),
+            &app.cookie_for(owner).await,
+        )
+        .send()
+        .await
+        .expect("remove");
+    assert!(gone.status().is_success(), "{}", gone.status());
+    let log = log_of(&app.db, space).await;
+    let summary: Vec<_> = log
+        .iter()
+        .map(|(action, actor, _, target, details)| {
+            (action.as_str(), *actor, *target, details["role"].clone())
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        vec![
+            ("member.left", Some(leaving), Some(leaving), json!("member")),
+            ("member.removed", Some(owner), Some(removed), json!("guest")),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_role_change_is_logged_with_before_and_after() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let member = make_user(&app.db, "member").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    crate::testkit::add_member(&app.db, space, member, "member").await;
+    let cookie = app.cookie_for(owner).await;
+    let path = format!("/api/v1/spaces/{space}/members/{member}");
+    for _ in 0..2 {
+        assert_eq!(
+            patch(&app, &cookie, &path, json!({ "role": "admin" }))
+                .await
+                .status(),
+            200
+        );
+    }
+    let log = log_of(&app.db, space).await;
+    assert_eq!(
+        log.len(),
+        1,
+        "the second, unchanged, writes nothing: {log:?}"
+    );
+    let (action, actor, kind, target, details) = &log[0];
+    assert_eq!(action, "member.role_changed");
+    assert_eq!(*actor, Some(owner));
+    assert_eq!((kind.as_str(), *target), ("member", Some(member)));
+    assert_eq!(details, &json!({ "before": "member", "after": "admin" }));
+}
+
+#[tokio::test]
+async fn a_transfer_is_logged_once() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let heir = make_user(&app.db, "heir").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    crate::testkit::add_member(&app.db, space, heir, "admin").await;
+    let path = format!("/api/v1/spaces/{space}/members/{heir}");
+    let handed = patch(
+        &app,
+        &app.cookie_for(owner).await,
+        &path,
+        json!({ "role": "owner" }),
+    )
+    .await;
+    assert_eq!(handed.status(), 200);
+    let log = log_of(&app.db, space).await;
+    let actions: Vec<&str> = log.iter().map(|entry| entry.0.as_str()).collect();
+    assert_eq!(
+        actions,
+        vec![
+            "member.role_changed",
+            "member.role_changed",
+            "space.ownership_transferred"
+        ],
+        "{log:?}"
+    );
+    let transfer = &log[2].4;
+    assert_eq!(
+        transfer,
+        &json!({ "from": owner.to_string(), "to": heir.to_string() })
+    );
+    assert_eq!(log[0].4, json!({ "before": "admin", "after": "owner" }));
+    assert_eq!(log[1].3, Some(owner));
+    assert_eq!(log[1].4, json!({ "before": "owner", "after": "admin" }));
+}
+
+#[tokio::test]
+async fn a_reservation_is_logged() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    let channel = make_channel(&app.db, space, "direction", "public").await;
+    let cookie = app.cookie_for(owner).await;
+    let path = format!("/api/v1/channels/{channel}");
+    for _ in 0..2 {
+        let reserved = patch(&app, &cookie, &path, json!({ "allowed_roles": ["admin"] })).await;
+        assert_eq!(reserved.status(), 200);
+    }
+    let lifted = patch(&app, &cookie, &path, json!({ "allowed_roles": [] })).await;
+    assert_eq!(lifted.status(), 200);
+    let log = log_of(&app.db, space).await;
+    let summary: Vec<_> = log
+        .iter()
+        .map(|(action, actor, kind, target, details)| {
+            (
+                action.as_str(),
+                *actor,
+                kind.as_str(),
+                *target,
+                details.clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        vec![
+            (
+                "channel.reserved",
+                Some(owner),
+                "channel",
+                Some(channel),
+                json!({ "name": "direction", "before": [], "after": ["admin"] })
+            ),
+            (
+                "channel.reserved",
+                Some(owner),
+                "channel",
+                Some(channel),
+                json!({ "name": "direction", "before": ["admin"], "after": [] })
+            ),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn a_calendar_closed_to_members_is_logged() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    let cookie = app.cookie_for(owner).await;
+    let created: Value = app
+        .req(reqwest::Method::POST, &format!("/api/v1/spaces/{space}/calendars"), &cookie)
+        .json(&json!({ "name": "Chantiers", "color": "lime", "write_access": "members", "default_reminders": [] }))
+        .send()
+        .await
+        .expect("create")
+        .json()
+        .await
+        .expect("json");
+    let calendar: Uuid = created["id"].as_str().expect("id").parse().expect("uuid");
+    let path = format!("/api/v1/calendars/{calendar}");
+    for _ in 0..2 {
+        assert_eq!(
+            patch(&app, &cookie, &path, json!({ "write_access": "admins" }))
+                .await
+                .status(),
+            200
+        );
+    }
+    let log = log_of(&app.db, space).await;
+    assert_eq!(log.len(), 1, "{log:?}");
+    let (action, actor, kind, target, details) = &log[0];
+    assert_eq!(action, "calendar.write_access_changed");
+    assert_eq!(*actor, Some(owner));
+    assert_eq!((kind.as_str(), *target), ("calendar", Some(calendar)));
+    assert_eq!(
+        details,
+        &json!({ "name": "Chantiers", "before": "members", "after": "admins" })
+    );
+}

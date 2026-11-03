@@ -284,6 +284,7 @@ pub async fn update_calendar(
         return Err(CalendarError::Forbidden);
     }
     let personal = access.calendar.space_id.is_none();
+    let write_access_before = access.calendar.write_access.clone();
     let mut calendar = access.calendar.into_active_model();
     if let Some(name) = body.name {
         calendar.name = Set(clean_name(&name)?);
@@ -298,7 +299,7 @@ pub async fn update_calendar(
     let mut writing_changed = false;
     if let Some(write_access) = body.write_access {
         check_write_access(&write_access)?;
-        if !personal {
+        if !personal && write_access != write_access_before {
             writing_changed = true;
             calendar.write_access = Set(write_access);
         }
@@ -311,6 +312,19 @@ pub async fn update_calendar(
     let calendar = calendar.update(&state.db).await?;
     announce(&state, &calendar).await?;
     if let (true, Some(space_id)) = (writing_changed, calendar.space_id) {
+        crate::audit::record(
+            &state.db,
+            space_id,
+            Some(session.user_id),
+            crate::audit::Action::CalendarWriteAccessChanged,
+            crate::audit::Target::Calendar(calendar.id),
+            serde_json::json!({
+                "name": calendar.name,
+                "before": write_access_before,
+                "after": calendar.write_access,
+            }),
+        )
+        .await?;
         crate::permissions::changed::announce(&state, space_id).await;
     }
     Ok(Json(one_dto(&state, session.user_id, calendar_id).await?))
