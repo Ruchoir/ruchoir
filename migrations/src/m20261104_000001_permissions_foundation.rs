@@ -58,6 +58,9 @@ macro_rules! guests_base {
     };
 }
 
+// A space's own roles have unique names (`space_roles_name_key`, among roles without a
+// `system_key`); a system role is known by its key, so no role named like it can ever stop it from
+// being created again.
 const SCHEMA: &str = "\
 ALTER TABLE space_members \
     ADD COLUMN standing text, \
@@ -84,10 +87,10 @@ CREATE TABLE space_roles ( \
     created_by uuid REFERENCES users (id) ON DELETE SET NULL, \
     created_at timestamptz NOT NULL DEFAULT now(), \
     updated_at timestamptz NOT NULL DEFAULT now(), \
-    CONSTRAINT space_roles_name_key UNIQUE (space_id, name), \
     CONSTRAINT space_roles_system_key UNIQUE (space_id, system_key), \
     CONSTRAINT space_roles_id_space_key UNIQUE (id, space_id) \
 ); \
+CREATE UNIQUE INDEX space_roles_name_key ON space_roles (space_id, name) WHERE system_key IS NULL; \
 \
 CREATE TABLE space_role_assignments ( \
     space_id uuid NOT NULL, \
@@ -146,7 +149,7 @@ BEGIN
     VALUES (p_space, 'administrator', 'Administrator', 100, {all}),
            (p_space, 'members', '@members', 0, {members}),
            (p_space, 'guests', '@guests', -1, {guests})
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (space_id, system_key) DO NOTHING;
 END $$;
 
 -- Put one permission in a system role's rule on a channel or a calendar, allowed or denied.
