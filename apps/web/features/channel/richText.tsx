@@ -176,7 +176,7 @@ function renderInline(
         const gkey = `${keyBase}-g${k++}`;
         const inner = (
           <>
-            <Icon name="users" size={12} aria-hidden style={{ marginRight: 3, verticalAlign: "-1px" }} />@{target.name}
+            <Icon name="users" size={12} aria-hidden />@{target.name}
           </>
         );
         nodes.push(

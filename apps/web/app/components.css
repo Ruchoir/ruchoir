@@ -191,6 +191,10 @@
 /* A group, not a person: the group icon, and the design system's violet pastel so it reads apart from
    a person's mention while staying the same pill. */
 .wc-mention--group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  vertical-align: bottom;
   color: var(--text-strong);
   background: color-mix(in srgb, var(--violet) 55%, transparent);
 }

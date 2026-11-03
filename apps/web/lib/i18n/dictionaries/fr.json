@@ -2122,6 +2122,7 @@
     "addNoticeRole_other": "{{names}} recevront le rôle {{roles}} tant que ces personnes seront dans le groupe. Ce sera écrit au journal.",
     "addNoticeRoles_one": "{{names}} recevra les rôles {{roles}} tant que cette personne sera dans le groupe. Ce sera écrit au journal.",
     "addNoticeRoles_other": "{{names}} recevront les rôles {{roles}} tant que ces personnes seront dans le groupe. Ce sera écrit au journal.",
+    "addConfirmNone": "Ajouter",
     "addConfirm_one": "Ajouter {{count}} personne",
     "addConfirm_other": "Ajouter {{count}} personnes",
     "membersAdded": "Personnes ajoutées au groupe",

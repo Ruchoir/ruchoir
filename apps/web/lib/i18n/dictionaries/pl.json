@@ -2256,6 +2256,7 @@
     "addNoticeRoles_few": "{{names}} dostaną role {{roles}}, dopóki będą w grupie. Zostanie to zapisane w dzienniku.",
     "addNoticeRoles_many": "{{names}} dostaną role {{roles}}, dopóki będą w grupie. Zostanie to zapisane w dzienniku.",
     "addNoticeRoles_other": "{{names}} dostaną role {{roles}}, dopóki będą w grupie. Zostanie to zapisane w dzienniku.",
+    "addConfirmNone": "Dodaj",
     "addConfirm_one": "Dodaj {{count}} osobę",
     "addConfirm_few": "Dodaj {{count}} osoby",
     "addConfirm_many": "Dodaj {{count}} osób",

@@ -369,6 +369,9 @@ const ALLOWED_DUPLICATES = new Set([
   // "Ajouter" adds people to a channel and adds a second factor to an account. German says
   // "hinzufügen" for the first and "einrichten" for the second.
   "security.add",
+  // The add-people button of a group with nobody ticked yet: the bare verb, while the calendar's
+  // reminder button is a different action that polish and german word their own way.
+  "groups.addConfirmNone",
   // "Désactiver" turns a notification setting off and takes two-factor authentication off an
   // account. The second is a security decision and several languages mark it more strongly.
   "security.disable",

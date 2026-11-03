@@ -2176,6 +2176,7 @@
     "addNoticeRoles_one": "{{names}} riceverà i ruoli {{roles}} finché sarà nel gruppo. Sarà scritto nel registro.",
     "addNoticeRoles_many": "{{names}} riceveranno i ruoli {{roles}} finché saranno nel gruppo. Sarà scritto nel registro.",
     "addNoticeRoles_other": "{{names}} riceveranno i ruoli {{roles}} finché saranno nel gruppo. Sarà scritto nel registro.",
+    "addConfirmNone": "Aggiungi",
     "addConfirm_one": "Aggiungi {{count}} persona",
     "addConfirm_many": "Aggiungi {{count}} persone",
     "addConfirm_other": "Aggiungi {{count}} persone",

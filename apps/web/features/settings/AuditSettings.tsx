@@ -9,7 +9,7 @@ import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDayHeading, formatTime, formatUtcDate } from "@/lib/i18n/format";
 import { auditLine, dayKey, type Sentence, type Slot } from "./auditLogic";
-import { RoleDot, ROLE_LABEL } from "./MemberAccess";
+import { RoleDot, ROLE_LABEL, roleLabel } from "./MemberAccess";
 import { PERMISSION_TEXT } from "./permissionText";
 
 /** Each sentence's words, with `{{actor}}` and the other slots and values to fill. */
@@ -117,6 +117,11 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
 
   const nameById = new Map(members.map((m) => [m.userId, m.name]));
   const colourOf = (name: string) => roles.find((r) => r.name === name)?.colour;
+  // The log keeps a role's stored name ("Administrator"); a system role reads in the reader's language.
+  const roleText = (name: string) => {
+    const role = roles.find((r) => r.name === name && r.systemKey);
+    return role ? roleLabel(role, t) : name;
+  };
 
   const slot = (s: Slot): ReactNode => {
     switch (s.kind) {
@@ -128,12 +133,12 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
         return (
           <span style={st.chip}>
             <RoleDot role={{ colour: s.colour ?? colourOf(s.name) }} />
-            {s.name}
+            {roleText(s.name)}
           </span>
         );
       case "group":
         return (
-          <b style={{ color: "var(--text-strong)" }}>
+          <b style={{ color: "var(--text-strong)", display: "inline-flex", alignItems: "center", gap: 4, verticalAlign: "bottom" }}>
             <Icon name="users" size={13} /> <span style={{ overflowWrap: "anywhere" }}>{s.name}</span>
           </b>
         );
@@ -169,7 +174,8 @@ export function AuditSettings({ spaceId, members, roles }: AuditSettingsProps) {
     const diff = line.diff;
     const label = (name: string) => {
       if (diff?.kind === "permission") return PERMISSION_TEXT[name] ? t(PERMISSION_TEXT[name].title) : name;
-      return diff?.viaGroup ? t("audit.viaGroup", { role: name }) : name;
+      const text = roleText(name);
+      return diff?.viaGroup ? t("audit.viaGroup", { role: text }) : text;
     };
     return (
       <>

@@ -2096,6 +2096,7 @@
     "addNoticeRole_other": "{{names}} will get the role {{roles}} as long as they are in the group. This will be written to the log.",
     "addNoticeRoles_one": "{{names}} will get the roles {{roles}} as long as they are in the group. This will be written to the log.",
     "addNoticeRoles_other": "{{names}} will get the roles {{roles}} as long as they are in the group. This will be written to the log.",
+    "addConfirmNone": "Add",
     "addConfirm_one": "Add {{count}} person",
     "addConfirm_other": "Add {{count}} people",
     "membersAdded": "People added to the group",

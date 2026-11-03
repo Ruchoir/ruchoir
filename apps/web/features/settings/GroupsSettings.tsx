@@ -148,10 +148,9 @@ function GroupList({
     <>
       <h2 style={st.h}>{t("groups.title")}</h2>
       <p style={st.sub}>{licensed ? t("groups.subLicensed") : t("groups.sub")}</p>
+      {frozen ? <p style={{ ...st.muted, margin: "0 0 12px" }}>{t("groups.frozenNote")}</p> : null}
       <div style={st.tools}>
-        {frozen ? (
-          <span style={{ ...st.muted, flex: 1, minWidth: 220 }}>{t("groups.frozenNote")}</span>
-        ) : (
+        {frozen ? null : (
           <div style={{ width: 280 }}>
             <Input size="sm" icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("groups.search")} aria-label={t("groups.search")} />
           </div>

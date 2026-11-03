@@ -61,7 +61,7 @@ export function AddPeopleDialog({
             {t("common.cancel")}
           </Button>
           <Button variant="primary" disabled={busy || picked.size === 0} onClick={() => void add()}>
-            {t("groups.addConfirm", { count: picked.size })}
+            {picked.size === 0 ? t("groups.addConfirmNone") : t("groups.addConfirm", { count: picked.size })}
           </Button>
         </>
       }

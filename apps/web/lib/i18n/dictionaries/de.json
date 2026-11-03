@@ -2096,6 +2096,7 @@
     "addNoticeRole_other": "{{names}} erhalten die Rolle {{roles}}, solange sie in der Gruppe sind. Das wird im Protokoll festgehalten.",
     "addNoticeRoles_one": "{{names}} erhält die Rollen {{roles}}, solange die Person in der Gruppe ist. Das wird im Protokoll festgehalten.",
     "addNoticeRoles_other": "{{names}} erhalten die Rollen {{roles}}, solange sie in der Gruppe sind. Das wird im Protokoll festgehalten.",
+    "addConfirmNone": "Hinzufügen",
     "addConfirm_one": "{{count}} Person hinzufügen",
     "addConfirm_other": "{{count}} Personen hinzufügen",
     "membersAdded": "Personen zur Gruppe hinzugefügt",
