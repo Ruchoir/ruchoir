@@ -9,7 +9,7 @@ import { getAvatar } from "@/lib/data";
 import { key, useTranslation } from "@/lib/i18n";
 import { MemberManagement, RoleChip, roleLabel, ROLE_LABEL } from "./MemberAccess";
 import type { Toast } from "../app/types";
-import { rolesViaGroups, sortGroups } from "./groupsLogic.ts";
+import { holdsRole, rolesViaGroups, sortGroups } from "./groupsLogic.ts";
 import { grantableRoles } from "./rolesLogic";
 
 export type SettingsMember = Member & { presence: Presence };
@@ -62,7 +62,7 @@ export function MembersSettings(props: MembersSettingsProps) {
   const licensed = edition !== "community";
   const ranked = roles.filter((r) => r.systemKey !== "members" && r.systemKey !== "guests");
   const shown = members.filter(
-    (m) => m.name.toLowerCase().includes(query.trim().toLowerCase()) && (!roleFilter || m.roleIds?.includes(roleFilter) || rolesViaGroups(m, groups).has(roleFilter)) &&
+    (m) => m.name.toLowerCase().includes(query.trim().toLowerCase()) && (!roleFilter || holdsRole(m, roleFilter, groups)) &&
       (!groupFilter || groups.find((g) => g.id === groupFilter)?.memberIds.includes(m.userId)),
   );
   const managed = managing ? members.find((m) => m.userId === managing) : undefined;

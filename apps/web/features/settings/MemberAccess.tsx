@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useState } from "react";
+import { type CSSProperties, useRef, useState } from "react";
 import { Avatar, Button, Checkbox, Icon, IconButton, Select, Tag } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
 import { addGroupMembers, refusalOf, removeGroupMember } from "@/lib/data/api";
@@ -8,6 +8,7 @@ import type { Group, Refusal, Role, SpaceEdition } from "@/lib/data/types";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDate, formatList } from "@/lib/i18n/format";
+import { MenuPopover } from "../app/MenuPopover";
 import type { Toast } from "../app/types";
 import { groupsOf, rolesViaGroups, sortGroups } from "./groupsLogic.ts";
 import { PERMISSION_TEXT } from "./permissionText";
@@ -59,7 +60,7 @@ export function RoleChip({ role, via }: { role: Role; via?: string[] }) {
       <span title={reason} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <RoleDot role={role} />
         {roleLabel(role, t)}
-        {reason ? <Icon name="users" size={12} aria-label={reason} style={{ color: "var(--text-muted)" }} /> : null}
+        {reason ? <Icon name="users" size={12} aria-hidden style={{ color: "var(--text-muted)" }} /> : null}
       </span>
     </Tag>
   );
@@ -455,7 +456,7 @@ function RoleChecklist({
               />
             </span>
             {groupOnly ? (
-              <Icon name="users" size={13} aria-label={t("groups.viaTooltip", { groups: names, count: via.length })} style={{ color: "var(--text-muted)", marginTop: 4 }} />
+              <Icon name="users" size={13} aria-hidden style={{ color: "var(--text-muted)", marginTop: 4 }} />
             ) : disabled ? (
               <Icon name="lock" size={13} style={{ color: "var(--text-muted)", marginTop: 4 }} />
             ) : null}
@@ -496,6 +497,8 @@ function MemberGroups({
 }) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
   const mine = groupsOf(member.userId, groups);
   const addable = sortGroups(groups.filter((g) => g.may.changeMembers && !g.memberIds.includes(member.userId)));
   if (mine.length === 0 && addable.length === 0) return null;
@@ -540,17 +543,27 @@ function MemberGroups({
         );
       })}
       {addable.length > 0 ? (
-        <div style={{ width: 240, marginTop: mine.length > 0 ? 8 : 0 }}>
-          <Select
-            size="sm"
-            aria-label={t("groups.addToGroup")}
-            value=""
-            disabled={busy}
-            onChange={(e) => {
-              const g = addable.find((x) => x.id === e.target.value);
-              if (g) void run(() => addGroupMembers(spaceId, g.id, [member.userId]), t("groups.membersAdded"));
-            }}
-            options={[{ value: "", label: t("groups.addToGroup") }, ...addable.map((g) => ({ value: g.id, label: g.name }))]}
+        <div style={{ marginTop: mine.length > 0 ? 8 : 0 }}>
+          <span ref={anchorRef} style={{ display: "inline-block" }}>
+            <Button size="sm" variant="secondary" iconLeft="plus" disabled={busy} aria-haspopup="menu" aria-expanded={pickerOpen} onClick={() => setPickerOpen((v) => !v)}>
+              {t("groups.addToGroup")}
+            </Button>
+          </span>
+          <MenuPopover
+            anchorRef={anchorRef}
+            open={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            placement="bottom"
+            align="start"
+            label={t("groups.addToGroup")}
+            items={addable.map((g) => ({
+              icon: "users",
+              label: g.name,
+              onClick: () => {
+                setPickerOpen(false);
+                void run(() => addGroupMembers(spaceId, g.id, [member.userId]), t("groups.membersAdded"));
+              },
+            }))}
           />
         </div>
       ) : null}

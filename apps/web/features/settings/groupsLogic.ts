@@ -67,6 +67,11 @@ export function groupMentionHits<G extends GroupLike>(
     .map((group) => ({ group, members: group.memberIds.length, inRoom: group.memberIds.filter((id) => room.has(id)).length }));
 }
 
+/** Whether a person holds a role: given directly or received through one of their groups. */
+export function holdsRole(member: { userId: string; roleIds?: string[] }, roleId: string, groups: GroupLike[]): boolean {
+  return !!member.roleIds?.includes(roleId) || rolesViaGroups(member, groups).has(roleId);
+}
+
 /** The groups a person is in, by name. */
 export function groupsOf<G extends Pick<GroupLike, "name" | "memberIds">>(userId: string, groups: G[]): G[] {
   return sortGroups(groups.filter((g) => g.memberIds.includes(userId)));

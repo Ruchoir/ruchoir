@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { changedPermissions, FAMILIES, grantableRoles, holdsEverything, memberAccessFor, orderAllowed, permissionRow, roleIdsToSave, roleRowState } from "./rolesLogic.ts";
-import { groupsOf, rolePeople, rolesViaGroups, type GroupLike } from "./groupsLogic.ts";
+import { groupsOf, holdsRole, rolePeople, rolesViaGroups, type GroupLike } from "./groupsLogic.ts";
 
 const role = (id: string, over: Partial<{ systemKey: "administrator" | "members" | "guests"; permissions: string[]; manageable: boolean; position: number }> = {}) => ({
   id,
@@ -143,4 +143,11 @@ test("the_role_people_tab_lists_groups_apart", () => {
 test("a_person_groups_are_those_they_are_in_by_name", () => {
   const groups = [group("g2", "Zeta", ["a"], []), group("g1", "alpha", ["a", "b"], []), group("g3", "Other", ["b"], [])];
   assert.deepEqual(groupsOf("a", groups).map((g) => g.id), ["g1", "g2"]);
+});
+
+test("the_role_filter_matches_direct_and_group_roles", () => {
+  const groups = [group("g1", "Comptabilite", ["hugo"], ["compta"])];
+  assert.equal(holdsRole({ userId: "nadia", roleIds: ["compta"] }, "compta", groups), true, "direct");
+  assert.equal(holdsRole({ userId: "hugo", roleIds: [] }, "compta", groups), true, "through a group");
+  assert.equal(holdsRole({ userId: "paul", roleIds: ["com"] }, "compta", groups), false, "neither");
 });

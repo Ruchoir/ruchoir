@@ -375,7 +375,7 @@ export function RoleEditor({ spaceId, role, roles, members, groups, onOpenGroup,
                         {inGroup.length > 0 ? formatList(inGroup.map((m) => m.name)) : t("groups.nobody")}
                       </div>
                     </span>
-                    <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t("message.reactors", { count: group.memberIds.length })}</span>
+                    <span style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{t("space.members", { count: group.memberIds.length })}</span>
                     {onOpenGroup ? (
                       <Button size="sm" variant="link" onClick={() => onOpenGroup(group.id)}>
                         {t("groups.openGroup")}
