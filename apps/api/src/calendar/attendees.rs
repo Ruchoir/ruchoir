@@ -46,9 +46,6 @@ pub const MAX_ATTENDEES: usize = 100;
 /// How many people the invitee search offers at once.
 const SEARCH_LIMIT: u64 = 20;
 
-/// Roles that may be invited to a space calendar's events: those who see the space's calendars.
-const INVITABLE_ROLES: [&str; 3] = ["member", "admin", "owner"];
-
 /// An answer.
 pub const NEEDS_ACTION: &str = "needs_action";
 pub const ACCEPTED: &str = "accepted";
@@ -126,6 +123,23 @@ async fn spaces_of<C: ConnectionTrait>(db: &C, user: Uuid) -> Result<Vec<Uuid>, 
         .collect())
 }
 
+/// The members of a space who see one of its calendars (`calendar.view`).
+async fn see_the_calendar<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    calendar_id: Uuid,
+) -> Result<HashSet<Uuid>, CalendarError> {
+    Ok(crate::permissions::check::calendar_holders(
+        db,
+        space_id,
+        calendar_id,
+        crate::permissions::catalogue::Permission::CalendarView,
+    )
+    .await?
+    .into_iter()
+    .collect())
+}
+
 /// Among `candidates`, those who may be invited to an event of `calendar` organised by
 /// `organizer`. The organiser is never one of them.
 pub async fn invitable<C: ConnectionTrait>(
@@ -137,29 +151,29 @@ pub async fn invitable<C: ConnectionTrait>(
     if candidates.is_empty() {
         return Ok(HashSet::new());
     }
-    let members = space_members::Entity::find()
-        .filter(space_members::Column::UserId.is_in(candidates.iter().copied()));
-    let members = match calendar.space_id {
+    let members: Vec<Uuid> = match calendar.space_id {
+        // Who may be invited to a space calendar's events: those who see the calendar.
         Some(space_id) => {
-            members
-                .filter(space_members::Column::SpaceId.eq(space_id))
-                .filter(space_members::Column::Role.is_in(INVITABLE_ROLES))
-                .all(db)
-                .await?
+            let seeing = see_the_calendar(db, space_id, calendar.id).await?;
+            candidates
+                .iter()
+                .copied()
+                .filter(|candidate| seeing.contains(candidate))
+                .collect()
         }
         None => {
             let owner = calendar.owner_user_id.unwrap_or(organizer);
-            members
+            space_members::Entity::find()
+                .filter(space_members::Column::UserId.is_in(candidates.iter().copied()))
                 .filter(space_members::Column::SpaceId.is_in(spaces_of(db, owner).await?))
                 .all(db)
                 .await?
+                .into_iter()
+                .map(|m| m.user_id)
+                .collect()
         }
     };
-    Ok(members
-        .into_iter()
-        .map(|m| m.user_id)
-        .filter(|u| *u != organizer)
-        .collect())
+    Ok(members.into_iter().filter(|u| *u != organizer).collect())
 }
 
 /// `GET /api/v1/calendars/{calendar_id}/invitees?q=`: who may be invited to an event of this
@@ -190,27 +204,23 @@ pub async fn search_invitees(
         return Err(CalendarError::Forbidden);
     }
     let calendar = &access.calendar;
-    let pool = match calendar.space_id {
-        Some(space_id) => {
-            space_members::Entity::find()
-                .filter(space_members::Column::SpaceId.eq(space_id))
-                .filter(space_members::Column::Role.is_in(INVITABLE_ROLES))
-                .all(&state.db)
-                .await?
-        }
+    let pool: Vec<Uuid> = match calendar.space_id {
+        Some(space_id) => see_the_calendar(&state.db, space_id, calendar.id)
+            .await?
+            .into_iter()
+            .collect(),
         None => {
             let owner = calendar.owner_user_id.unwrap_or(session.user_id);
             space_members::Entity::find()
                 .filter(space_members::Column::SpaceId.is_in(spaces_of(&state.db, owner).await?))
                 .all(&state.db)
                 .await?
+                .into_iter()
+                .map(|m| m.user_id)
+                .collect()
         }
     };
-    let mut ids: HashSet<Uuid> = pool
-        .into_iter()
-        .map(|m| m.user_id)
-        .filter(|u| *u != session.user_id)
-        .collect();
+    let mut ids: HashSet<Uuid> = pool.into_iter().filter(|u| *u != session.user_id).collect();
     if let Some(channel) = query.channel {
         if !super::links::reads(&state.db, channel, session.user_id).await {
             return Err(CalendarError::Forbidden);

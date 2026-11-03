@@ -19,7 +19,7 @@
 
 use std::collections::HashMap;
 
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 use super::catalogue::{Family, Permission, PermissionSet};
@@ -139,27 +139,7 @@ pub async fn holders(
             }
         }
         Resource::Calendar(calendar_id) => {
-            if load::calendar_of(db, space_id, calendar_id)
-                .await?
-                .is_none()
-            {
-                return Ok(holding);
-            }
-            let rules = load::rules(
-                db,
-                space_id,
-                permission_overrides::Column::CalendarId,
-                &[calendar_id],
-            )
-            .await?;
-            for person in people.values() {
-                if calendar_decision(person, calendar_id, &rules, false)
-                    .granted
-                    .contains(permission)
-                {
-                    holding.push(person.user_id);
-                }
-            }
+            return calendar_holders(db, space_id, calendar_id, permission).await;
         }
         Resource::File(_) => {
             // One person at a time: a file's paths through messages and events are per person.
@@ -213,6 +193,78 @@ pub async fn file_rights(
         granted: decision.granted,
         through_event,
     })
+}
+
+/// [`effective`] on the space itself, on any connection (a transaction included).
+pub async fn space_rights<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    user_id: Uuid,
+) -> Result<PermissionSet, DbErr> {
+    Ok(load::people(db, space_id, Some(user_id))
+        .await?
+        .get(&user_id)
+        .map(|person| resolve(&person.subject, &[], Facts::default(), false).granted)
+        .unwrap_or_default())
+}
+
+/// [`effective`] on many calendars of a space at once, on any connection. A calendar that is not
+/// one of the space's is left out of the map.
+pub async fn calendar_rights_many<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    user_id: Uuid,
+    calendar_ids: &[Uuid],
+) -> Result<HashMap<Uuid, PermissionSet>, DbErr> {
+    let people = load::people(db, space_id, Some(user_id)).await?;
+    let Some(person) = people.get(&user_id) else {
+        return Ok(HashMap::new());
+    };
+    let calendars = load::calendars_of(db, space_id, calendar_ids).await?;
+    let found: Vec<Uuid> = calendars.iter().map(|calendar| calendar.id).collect();
+    let rules = load::rules(
+        db,
+        space_id,
+        permission_overrides::Column::CalendarId,
+        &found,
+    )
+    .await?;
+    Ok(found
+        .into_iter()
+        .map(|id| (id, calendar_decision(person, id, &rules, false).granted))
+        .collect())
+}
+
+/// The members of the space who hold `permission` on one of its calendars, on any connection.
+pub async fn calendar_holders<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    calendar_id: Uuid,
+    permission: Permission,
+) -> Result<Vec<Uuid>, DbErr> {
+    if load::calendars_of(db, space_id, &[calendar_id])
+        .await?
+        .is_empty()
+    {
+        return Ok(Vec::new());
+    }
+    let people = load::people(db, space_id, None).await?;
+    let rules = load::rules(
+        db,
+        space_id,
+        permission_overrides::Column::CalendarId,
+        &[calendar_id],
+    )
+    .await?;
+    Ok(people
+        .values()
+        .filter(|person| {
+            calendar_decision(person, calendar_id, &rules, false)
+                .granted
+                .contains(permission)
+        })
+        .map(|person| person.user_id)
+        .collect())
 }
 
 /// The space's owners (the standing, not a permission: outside every rule).

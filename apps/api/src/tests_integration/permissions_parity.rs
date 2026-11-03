@@ -450,6 +450,15 @@ async fn the_engine_decides_what_the_old_rules_decided() {
                 }
                 None => (false, false, false),
             };
+            // `calendar::authz::seen`, rebuilt on the engine, against the old rule.
+            let (r_seen, r_write, r_manage) =
+                match crate::calendar::authz::seen(db, person, *id).await {
+                    Ok(access) => (true, access.can_write_events, access.can_manage),
+                    Err(_) => (false, false, false),
+                };
+            diff.compare("seen", who, label, seen, r_seen);
+            diff.compare("can_write_events", who, label, write, r_write);
+            diff.compare("can_manage", who, label, manage, r_manage);
             diff.compare(
                 "see",
                 who,

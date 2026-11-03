@@ -285,6 +285,23 @@ pub(super) async fn calendar_of<C: ConnectionTrait>(
         .await
 }
 
+/// Space calendars of the space among `ids` (personal ones and another space's are left out).
+pub(super) async fn calendars_of<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    ids: &[Uuid],
+) -> Result<Vec<calendars::Model>, DbErr> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    issued(space_id);
+    calendars::Entity::find()
+        .filter(calendars::Column::SpaceId.eq(space_id))
+        .filter(calendars::Column::Id.is_in(ids.iter().copied()))
+        .all(db)
+        .await
+}
+
 /// A file and the folders above it, top first, the file last. Empty when the file is not in the
 /// space.
 #[derive(Clone, Debug, FromQueryResult)]
