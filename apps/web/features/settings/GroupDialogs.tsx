@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { Avatar, Button, Checkbox, Dialog, Field, Icon, Input } from "@/components/ds";
 import type { Member } from "@/lib/data/api";
 import { addGroupMembers, deleteGroup, refusalOf } from "@/lib/data/api";
@@ -181,8 +180,8 @@ export function DeleteGroupDialog({
           <Button variant="ghost" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button variant="danger" iconLeft="trash-2" // Exact otherwise: a stray space around the name is forgiven, a different case is not.
-            disabled={busy || typed.trim() !== group.name} onClick={() => void remove()}>
+          {/* Exact otherwise: a stray space around the name is forgiven, a different case is not. */}
+          <Button variant="danger" iconLeft="trash-2" disabled={busy || typed.trim() !== group.name} onClick={() => void remove()}>
             {t("groups.delete")}
           </Button>
         </>
