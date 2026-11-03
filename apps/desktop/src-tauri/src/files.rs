@@ -280,8 +280,8 @@ pub async fn file_send_version<R: Runtime>(
             if let Ok(mut list) = watcher.watches.lock() {
                 if let Some(w) = list.find(&instance, &file_id) {
                     w.mark_sent(hash);
-                    // A save made while this one was going up stays offered.
-                    // or one the poller has not seen yet (the file's time moved since it looked).
+                    // A save made while this one was going up stays offered, or one the poller
+                    // has not seen yet (the file's time moved since it looked).
                     let moved =
                         std::fs::metadata(&w.path).and_then(|m| m.modified()).ok() != w.mtime;
                     if w.settling.is_none() && !moved {
