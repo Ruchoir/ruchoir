@@ -58,3 +58,11 @@ test("only a changed value fails the verdict; an element on one side only is cou
   assert.deepEqual(verdict([value, presence]), { values: [value], presence: [presence] });
   assert.deepEqual(verdict([presence]), { values: [], presence: [presence] });
 });
+
+test("a style hook added to an element's classes does not hide it from the comparison", async () => {
+  const before = { path: "div.wc-shell:0 > div:3", props: row.props };
+  const after = { path: "div.wc-shell:0 > div.wc-float:3", props: { ...row.props, color: "rgb(1, 1, 1)" } };
+  const diffs = compare(await fingerprint([before]), await fingerprint([after]));
+  assert.equal(diffs.length, 1);
+  assert.equal(diffs[0].prop, "color");
+});

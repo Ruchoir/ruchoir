@@ -165,7 +165,7 @@
 /* Messages that mention the current user, one after the other: one washed block, not a stack of
    cards. The corners that touch are squared (see MessageRow). */
 .wc-msg-mention {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-msg);
 }
 .wc-msg-mention + .wc-msg-mention {
   border-top-left-radius: 0;
@@ -1570,7 +1570,14 @@
   --edge-focus: #15171c;
   --shadow-ring-offset: 0 0 0 2px #15171c, 3px 3px 0 2px #15171c;
   --shadow-ring-offset-sm: 0 0 0 1.5px #15171c, 2px 2px 0 1.5px #15171c;
+  --badge-bg: #15171c;
+  --badge-fg: #ffffff;
   color: #15171c;
+}
+/* Under a simplified style, the rings on a pastel lose their offset like every other. */
+[data-style] .wc-pastel {
+  --shadow-ring-offset: 0 0 0 2px #15171c;
+  --shadow-ring-offset-sm: 0 0 0 1.5px #15171c;
 }
 .wc-pastel .wc-av {
   box-shadow: 0 0 0 2px #15171c;
@@ -1633,13 +1640,13 @@
 /* A space in the rail: a hairline ring at rest, the ink under the pointer, and the open space set
    on an offset shadow like a sticker. It tilts a little under the pointer. */
 .wc-rail-space .wc-av {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-space);
   box-shadow: 0 0 0 1.5px var(--line-strong);
   transition: transform 200ms var(--ease-spring), box-shadow 150ms var(--ease-out);
 }
 .wc-rail-space:hover .wc-av {
-  box-shadow: 0 0 0 1.5px var(--ink);
-  transform: rotate(-6deg) scale(1.06);
+  box-shadow: 0 0 0 1.5px var(--edge-focus);
+  transform: var(--tilt);
 }
 .wc-rail-space[aria-current="true"] .wc-av {
   box-shadow: var(--shadow-ring-offset);
@@ -1657,7 +1664,7 @@
   transition: transform 200ms var(--ease-spring);
 }
 .wc-side-item:hover > svg:first-child {
-  transform: scale(1.15) rotate(-6deg);
+  transform: var(--tilt-icon);
 }
 
 /* A theme in the preferences: a swatch in four bands and its name. The chosen one is set on an ink
@@ -1703,6 +1710,48 @@
 }
 .wc-theme-card__sw > span {
   flex: 1;
+}
+/* A style in miniature (the Style picker): rail, sidebar with its selected row, content. */
+.wc-style-card__pv {
+  display: grid;
+  grid-template-columns: 14% 32% 1fr;
+  height: 54px;
+  overflow: hidden;
+  border: var(--border-width) solid var(--edge-float);
+  border-radius: var(--radius-sm);
+}
+.wc-style-card__side {
+  padding: 9px 4px;
+}
+.wc-style-card__row {
+  display: flex;
+  align-items: center;
+  height: 10px;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+.wc-style-card__row > span {
+  height: 2px;
+  width: 70%;
+  border-radius: 1px;
+}
+.wc-style-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 7px;
+}
+.wc-style-card__content > span {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+}
+.wc-style-card__content > .wc-style-card__primary {
+  align-self: flex-end;
+  width: 22px;
+  height: 9px;
+  margin-top: auto;
+  border-radius: 3px;
 }
 
 /* A card of a list that opens something (activity, search results): it rises onto an ink offset. */

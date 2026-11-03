@@ -11,7 +11,7 @@ dependency pinned to a tag). See root `AGENTS.md` for project-wide rules.
 src/        the components (Button, Tag, Tabs, Dialog, Avatar...), index.ts re-exports them all;
             avatarImage.ts (generated avatars; not `avatar.ts`, which a case-insensitive disk takes
             for `Avatar.tsx`) and haptics.ts (a tap under the finger) beside them
-styles/     tokens.css (palette, semantic tokens, the eight themes), fonts.css (@font-face and
+styles/     tokens.css (palette, semantic tokens, the eight themes, the simplified styles), fonts.css (@font-face and
             --font-sans / --font-mono), components.css (the `wc-*` classes), index.css (all of it,
             plus the flag-icons stylesheet `Flag` reads)
 fonts/      IBM Plex Sans and Mono, OpenDyslexic (OFL, self-hosted, see the README there)
@@ -49,5 +49,10 @@ Entry points (`package.json` `exports`): `.` (the components), `./avatar`, `./ha
   radius, pane colour, message density) is read through its token in `styles/tokens.css`, never
   written as a literal; `test/tokens.test.mjs` holds each to its Ruchoir value. See the root
   `AGENTS.md`.
+- **Simplified styles**: the `[data-style]` blocks at the end of `styles/tokens.css` (a flat layer,
+  then four styles, each a shape block and a day and a night colour block declaring the same names).
+  Inert without the attribute, so a consumer that never sets it (Ruchoir Lab) is unchanged.
+  `test/variants.test.mjs` checks their shape, `test/contrast.test.mjs` their contrast (WCAG AA),
+  both through `test/resolve.mjs`, which resolves the cascade the way `<html>` does.
 - Recreate the mockups faithfully in React; do not copy prototype internals when they do not fit.
 - The source handoff lives locally (and gitignored) at `ruchoir-design-system/`.

@@ -202,7 +202,7 @@ const styles: Record<string, CSSProperties> = {
     gap: 6,
     padding: "7px 14px",
     borderRadius: 999,
-    border: "2px solid var(--edge-float)",
+    border: "var(--edge-width) solid var(--edge-float)",
     background: "var(--ink)",
     color: "var(--on-ink)",
     fontSize: "var(--text-xs)",

@@ -27,6 +27,19 @@ export const STYLE_TOKENS = {
   "--msg-pad-top": "6px",
   "--msg-pad-top-grouped": "2px",
   "--avatar-radius": "var(--radius-sm)",
+  "--radius-control": "var(--radius-md)",
+  "--radius-item": "var(--radius-sm)",
+  "--radius-space": "var(--radius-md)",
+  "--radius-msg": "var(--radius-md)",
+  "--edge-width": "2px",
+  "--badge-bg": "var(--action-primary-bg)",
+  "--badge-fg": "var(--action-primary-fg)",
+  "--tilt": "rotate(-6deg) scale(1.06)",
+  "--tilt-icon": "scale(1.15) rotate(-6deg)",
+  "--sidebar-selected-mark": "none",
+  "--msg-bg": "transparent",
+  "--msg-edge": "none",
+  "--msg-space": "0px",
 };
 
 /** The declarations of the first block opened by `selector` in `css`, as a name to value map. */

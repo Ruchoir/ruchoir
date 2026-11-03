@@ -12,7 +12,7 @@ import { useDesktop } from "@/features/desktop/DesktopContext";
 const panel: CSSProperties = {
   width: 260,
   background: "var(--surface-raised)",
-  border: "2px solid var(--edge-float)",
+  border: "var(--edge-width) solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
   overflow: "hidden",

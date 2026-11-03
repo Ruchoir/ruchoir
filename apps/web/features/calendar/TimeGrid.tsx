@@ -228,7 +228,7 @@ export function TimeGrid({
                       right: 2,
                       borderRadius: "var(--radius-sm)",
                       background: "var(--acc)",
-                      border: "2px solid var(--edge-float)",
+                      border: "var(--edge-width) solid var(--edge-float)",
                       pointerEvents: "none",
                     }}
                   />

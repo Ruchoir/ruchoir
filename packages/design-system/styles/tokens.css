@@ -361,6 +361,26 @@
   --msg-pad-x: 8px;
   --msg-pad-top: 6px;
   --msg-pad-top-grouped: 2px;
+  /* A message drawn as a card (a simplified style): its fill, its edge and the room under it. */
+  --msg-bg: transparent;
+  --msg-edge: none;
+  --msg-space: 0px;
+  --radius-msg: var(--radius-md);
+
+  /* Shapes a style changes apart from the radius scale: buttons, rows of a list, a space's tile. */
+  --radius-control: var(--radius-md);
+  --radius-item: var(--radius-sm);
+  --radius-space: var(--radius-md);
+  /* The width of the edge of what floats (the ink edge by default, a hairline in a simplified style). */
+  --edge-width: 2px;
+  /* A count of what is unread. */
+  --badge-bg: var(--action-primary-bg);
+  --badge-fg: var(--action-primary-fg);
+  /* The small tilt of a space and of a row's icon under the pointer. */
+  --tilt: rotate(-6deg) scale(1.06);
+  --tilt-icon: scale(1.15) rotate(-6deg);
+  /* A mark beside the selected row of the sidebar (a bar at its start in a simplified style). */
+  --sidebar-selected-mark: none;
 }
 
 /* Base reset. */
@@ -456,4 +476,593 @@
   --status-info-border: color-mix(in srgb, var(--sky) 45%, transparent);
 
   --border-inverse: rgb(21 23 28 / 0.18);
+}
+
+/* ============================================================================
+ * Simplified styles
+ *
+ * A person may trade the Ruchoir style for a flat one: `data-style` on <html> (see SettingsProvider
+ * and the pre-paint script), beside `data-theme`, which keeps the accent and the night. No attribute
+ * is the Ruchoir style. Each style is a shape block (radii, density) and two colour blocks, one by
+ * day and one by night, which set the same names: a colour of the day never reaches the night. The
+ * sidebar and the rail are coloured through their hooks (`wc-pane-sidebar`, `wc-pane-rail`), and
+ * what floats inside a pane takes the content's colours back. These blocks come after the accents
+ * and the night on purpose: at the same specificity, a style wins.
+ * ========================================================================== */
+
+/* --- The flat layer, shared by every style --------------------------------- */
+[data-style] {
+  /* Nothing is lifted onto an offset shadow, nothing moves under the pointer. */
+  --shadow-offset-sm: none;
+  --shadow-popover: none;
+  --shadow-dialog: none;
+  --shadow-lift: none;
+  --shadow-lift-sm: none;
+  --shadow-lift-lg: none;
+  --shadow-accent: none;
+  --shadow-editing: none;
+  /* A ring without its offset, in the focus colour. */
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --lift: none;
+  --lift-sm: none;
+  --lift-y-sm: none;
+  --press: none;
+  --tilt: none;
+  --tilt-icon: none;
+  /* What floats is edged with a grey hairline, not the ink. The focus ring keeps its width. */
+  --edge-float: var(--line-strong);
+  --border-width: 1px;
+  --border-width-strong: 1px;
+  --edge-width: 1px;
+  --action-secondary-border: var(--control-line);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+  /* The content's values, kept for what floats inside a coloured pane (see the end of this file). */
+  --float-text-strong: var(--text-strong);
+  --float-text-body: var(--text-body);
+  --float-text-muted: var(--text-muted);
+  --float-text-subtle: var(--text-subtle);
+  --float-surface-hover: var(--surface-hover);
+  --float-surface-active: var(--surface-active);
+  --float-border-subtle: var(--border-subtle);
+  --float-surface-canvas: var(--surface-canvas);
+  --float-line-strong: var(--line-strong);
+  --float-edge-focus: var(--edge-focus);
+  --float-badge-bg: var(--badge-bg);
+  --float-badge-fg: var(--badge-fg);
+  --float-action-ghost-fg: var(--action-ghost-fg);
+  --float-action-ghost-bg-hover: var(--action-ghost-bg-hover);
+  --float-action-ghost-bg-active: var(--action-ghost-bg-active);
+  --float-surface-chrome: var(--surface-chrome);
+  --float-surface-card: var(--surface-card);
+  --float-line: var(--line);
+  --float-border-default: var(--border-default);
+  --float-shadow-ring-offset: var(--shadow-ring-offset);
+  --float-shadow-ring-offset-sm: var(--shadow-ring-offset-sm);
+  --float-focus-ring: var(--focus-ring);
+  --float-edge-float: var(--edge-float);
+}
+
+/* --- Aubergine: a plum sidebar, tight messages ----------------------------- */
+[data-style="aubergine"] {
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-control: 4px;
+  --radius-item: 6px;
+  --radius-space: 8px;
+  --avatar-radius: 6px;
+  --msg-gap: 10px;
+  --msg-pad-x: 8px;
+  --msg-pad-top: 6px;
+  --msg-pad-top-grouped: 2px;
+  --msg-space: 0px;
+  --sidebar-selected-mark: none;
+}
+[data-style="aubergine"]:not([data-theme$="-dark"]) {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-chrome: #ffffff;
+  --line: #e2e2e2;
+  --line-strong: #d6d6d6;
+  --ink: #1d1c1d;
+  --body: #1d1c1d;
+  --muted: #616061;
+  --text-link: #1264a3;
+  --surface-mention: #fdf4e3;
+  --action-primary-bg: #007a5a;
+  --action-primary-bg-hover: #007a5a;
+  --action-primary-bg-active: #007a5a;
+  --action-primary-fg: #ffffff;
+  --edge-focus: #1264a3;
+  --sidebar-bg: #4a154b;
+  --sidebar-selected-bg: #1164a3;
+  --sidebar-selected-fg: #ffffff;
+  --rail-bg: #3a0e3b;
+  --badge-bg: #cd2553;
+  --badge-fg: #ffffff;
+  --msg-bg: transparent;
+  --msg-edge: none;
+  --acc: #b9d7f0;
+  --control-line: #868686;
+}
+[data-style="aubergine"][data-theme$="-dark"] {
+  --bg: #1a1d21;
+  --surface: #222529;
+  --surface-chrome: #1a1d21;
+  --line: #35373b;
+  --line-strong: #3c3e42;
+  --ink: #f2f2f2;
+  --body: #d1d2d3;
+  --muted: #9a9b9e;
+  --text-link: #4ea4e8;
+  --surface-mention: #3a3220;
+  --action-primary-bg: #007a5a;
+  --action-primary-bg-hover: #007a5a;
+  --action-primary-bg-active: #007a5a;
+  --action-primary-fg: #ffffff;
+  --edge-focus: #4ea4e8;
+  --sidebar-bg: #19171d;
+  --sidebar-selected-bg: #1164a3;
+  --sidebar-selected-fg: #ffffff;
+  --rail-bg: #121016;
+  --badge-bg: #cd2553;
+  --badge-fg: #ffffff;
+  --msg-bg: transparent;
+  --msg-edge: none;
+  --acc: #b9d7f0;
+  --control-line: #6b6b6b;
+}
+[data-style="aubergine"]:not([data-theme$="-dark"]) .wc-pane-sidebar {
+  --text-strong: #ffffff;
+  --text-body: #d8c8d9;
+  --text-muted: #c6b3c7;
+  --text-subtle: #c6b3c7;
+  --surface-hover: rgb(255 255 255 / 0.08);
+  --surface-active: rgb(255 255 255 / 0.14);
+  --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: #d8c8d9;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* What the pane draws on: a count, a tag, the ring of a presence dot, the keyboard focus. */
+  --surface-chrome: #4a154b;
+  --surface-card: rgb(255 255 255 / 0.1);
+  --line: rgb(255 255 255 / 0.16);
+  --border-default: rgb(255 255 255 / 0.24);
+  --edge-focus: #ffffff;
+  /* Declared again here so they resolve with the pane's focus colour, not the content's. */
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+[data-style="aubergine"][data-theme$="-dark"] .wc-pane-sidebar {
+  --text-strong: #ffffff;
+  --text-body: #bcbcbe;
+  --text-muted: #9a9b9e;
+  --text-subtle: #9a9b9e;
+  --surface-hover: rgb(255 255 255 / 0.08);
+  --surface-active: rgb(255 255 255 / 0.14);
+  --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: #bcbcbe;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* What the pane draws on: a count, a tag, the ring of a presence dot, the keyboard focus. */
+  --surface-chrome: #19171d;
+  --surface-card: rgb(255 255 255 / 0.1);
+  --line: rgb(255 255 255 / 0.16);
+  --border-default: rgb(255 255 255 / 0.24);
+  --edge-focus: #ffffff;
+  /* Declared again here so they resolve with the pane's focus colour, not the content's. */
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+[data-style="aubergine"]:not([data-theme$="-dark"]) .wc-pane-rail {
+  --text-muted: #c6b3c7;
+  --text-subtle: #c6b3c7;
+  --surface-canvas: #3a0e3b;
+  --line-strong: rgb(255 255 255 / 0.3);
+  --edge-focus: #ffffff;
+  --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: #c6b3c7;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+[data-style="aubergine"][data-theme$="-dark"] .wc-pane-rail {
+  --text-muted: #9a9b9e;
+  --text-subtle: #9a9b9e;
+  --surface-canvas: #121016;
+  --line-strong: rgb(255 255 255 / 0.3);
+  --edge-focus: #ffffff;
+  --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: #9a9b9e;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+
+/* --- Nuage: a bright blue band, airy messages, pills ----------------------- */
+[data-style="nuage"] {
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-control: var(--radius-full);
+  --radius-item: var(--radius-full);
+  --radius-space: var(--radius-full);
+  --avatar-radius: var(--radius-full);
+  --msg-gap: 10px;
+  --msg-pad-x: 10px;
+  --msg-pad-top: 8px;
+  --msg-pad-top-grouped: 4px;
+  --msg-space: 6px;
+  --sidebar-selected-mark: none;
+}
+[data-style="nuage"]:not([data-theme$="-dark"]) {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-chrome: #ffffff;
+  --line: #ededed;
+  --line-strong: #dbdbdb;
+  --ink: #222222;
+  --body: #222222;
+  --muted: #6b6b6b;
+  --text-link: #00679e;
+  --surface-mention: #eaf5fb;
+  /* Deeper than the mockup's #0082c9, whose white label would read at 4.2:1 only. */
+  --action-primary-bg: #0073b1;
+  --action-primary-bg-hover: #0073b1;
+  --action-primary-bg-active: #0073b1;
+  --action-primary-fg: #ffffff;
+  --edge-focus: #00679e;
+  --sidebar-bg: #f5f5f5;
+  --sidebar-selected-bg: #d8ecf8;
+  --sidebar-selected-fg: #00507c;
+  /* The band, a shade deeper than the mockup's #0082c9 so white text holds on it (4.2:1 there). */
+  --rail-bg: #0073b1;
+  --badge-bg: #0073b1;
+  --badge-fg: #ffffff;
+  --msg-bg: transparent;
+  --msg-edge: none;
+  --acc: #b3dcf3;
+  --control-line: #8a8a8a;
+}
+[data-style="nuage"][data-theme$="-dark"] {
+  --bg: #171717;
+  --surface: #222222;
+  --surface-chrome: #171717;
+  --line: #2a2a2a;
+  --line-strong: #3d3d3d;
+  --ink: #ffffff;
+  --body: #e6e6e6;
+  --muted: #a8a8a8;
+  --text-link: #55b6ec;
+  --surface-mention: #13293a;
+  /* The light blue of the night carries a dark label: a white one would read at 3:1. */
+  --action-primary-bg: #2a9de0;
+  --action-primary-bg-hover: #2a9de0;
+  --action-primary-bg-active: #2a9de0;
+  --action-primary-fg: #111111;
+  --edge-focus: #55b6ec;
+  --sidebar-bg: #222222;
+  --sidebar-selected-bg: #11384f;
+  --sidebar-selected-fg: #bfe3f7;
+  --rail-bg: #00507c;
+  --badge-bg: #2a9de0;
+  --badge-fg: #111111;
+  --msg-bg: transparent;
+  --msg-edge: none;
+  --acc: #b3dcf3;
+  --control-line: #707070;
+}
+[data-style="nuage"]:not([data-theme$="-dark"]) .wc-pane-rail {
+  --text-muted: #ffffff;
+  --text-subtle: #ffffff;
+  --surface-canvas: #0073b1;
+  --line-strong: rgb(255 255 255 / 0.4);
+  --edge-focus: #ffffff;
+  --border-subtle: rgb(255 255 255 / 0.2);
+  --action-ghost-fg: #ffffff;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+[data-style="nuage"][data-theme$="-dark"] .wc-pane-rail {
+  --text-muted: #ffffff;
+  --text-subtle: #ffffff;
+  --surface-canvas: #00507c;
+  --line-strong: rgb(255 255 255 / 0.4);
+  --edge-focus: #ffffff;
+  --border-subtle: rgb(255 255 255 / 0.2);
+  --action-ghost-fg: #ffffff;
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+
+/* --- Indigo: each message on a card, over a grey canvas -------------------- */
+[data-style="indigo"] {
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-control: 4px;
+  --radius-item: 4px;
+  --radius-space: 6px;
+  --avatar-radius: var(--radius-full);
+  --msg-gap: 10px;
+  --msg-pad-x: 12px;
+  --msg-pad-top: 8px;
+  --msg-pad-top-grouped: 4px;
+  --msg-space: 8px;
+  --sidebar-selected-mark: none;
+}
+[data-style="indigo"]:not([data-theme$="-dark"]) {
+  --bg: #f5f5f5;
+  --surface: #ffffff;
+  --surface-chrome: #ffffff;
+  --line: #e0e0e0;
+  --line-strong: #d1d1d1;
+  --ink: #242424;
+  --body: #242424;
+  --muted: #616161;
+  --text-link: #4f52b2;
+  --surface-mention: #e8ebfa;
+  --action-primary-bg: #5b5fc7;
+  --action-primary-bg-hover: #5b5fc7;
+  --action-primary-bg-active: #5b5fc7;
+  --action-primary-fg: #ffffff;
+  --edge-focus: #4f52b2;
+  --sidebar-bg: #fafafa;
+  --sidebar-selected-bg: #ffffff;
+  --sidebar-selected-fg: #4f52b2;
+  --rail-bg: #ebebeb;
+  --badge-bg: #c4314b;
+  --badge-fg: #ffffff;
+  --msg-bg: var(--surface);
+  --msg-edge: 1px solid #e6e6e6;
+  --acc: #c5c8f5;
+  --control-line: #858585;
+}
+[data-style="indigo"][data-theme$="-dark"] {
+  --bg: #1f1f1f;
+  --surface: #292929;
+  --surface-chrome: #292929;
+  --line: #3d3d3d;
+  --line-strong: #4a4a4a;
+  --ink: #ffffff;
+  --body: #d6d6d6;
+  --muted: #adadad;
+  --text-link: #9ea2ff;
+  --surface-mention: #2a2c4d;
+  --action-primary-bg: #7f85f5;
+  --action-primary-bg-hover: #7f85f5;
+  --action-primary-bg-active: #7f85f5;
+  --action-primary-fg: #141414;
+  --edge-focus: #9ea2ff;
+  --sidebar-bg: #1a1a1a;
+  --sidebar-selected-bg: #2e2e2e;
+  --sidebar-selected-fg: #b6b9ff;
+  --rail-bg: #141414;
+  --badge-bg: #c4314b;
+  --badge-fg: #ffffff;
+  --msg-bg: var(--surface);
+  --msg-edge: 1px solid #333333;
+  --acc: #c5c8f5;
+  --control-line: #6e6e6e;
+}
+
+/* --- Marine: a navy sidebar, very tight messages, small corners ------------ */
+[data-style="marine"] {
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 8px;
+  --radius-control: 4px;
+  --radius-item: 4px;
+  --radius-space: 6px;
+  --avatar-radius: var(--radius-full);
+  --msg-gap: 8px;
+  --msg-pad-x: 8px;
+  --msg-pad-top: 5px;
+  --msg-pad-top-grouped: 1px;
+  --msg-space: 0px;
+  /* A bar at the start of the selected row. */
+  --sidebar-selected-mark: inset 3px 0 0 var(--focus-mark);
+}
+[data-style="marine"]:not([data-theme$="-dark"]) {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-chrome: #ffffff;
+  --line: #e3e4e8;
+  --line-strong: #d5d7dc;
+  --ink: #2a2d36;
+  --body: #3f4350;
+  --muted: #6b6f7a;
+  --text-link: #1c58d9;
+  --surface-mention: #fff8e0;
+  --action-primary-bg: #1c58d9;
+  --action-primary-bg-hover: #1c58d9;
+  --action-primary-bg-active: #1c58d9;
+  --action-primary-fg: #ffffff;
+  --edge-focus: #1c58d9;
+  --sidebar-bg: #1e325c;
+  --sidebar-selected-bg: rgb(255 255 255 / 0.14);
+  --sidebar-selected-fg: #ffffff;
+  --rail-bg: #14213e;
+  --badge-bg: #1c58d9;
+  --badge-fg: #ffffff;
+  --msg-bg: transparent;
+  --msg-edge: none;
+  --acc: #b8cdf6;
+  --control-line: #868686;
+  --focus-mark: #5d89ea;
+}
+[data-style="marine"][data-theme$="-dark"] {
+  --bg: #191b1f;
+  --surface: #202228;
+  --surface-chrome: #191b1f;
+  --line: #30333a;
+  --line-strong: #3a3d44;
+  --ink: #ffffff;
+  --body: #dddfe4;
+  --muted: #a3a6ad;
+  --text-link: #6d9af0;
+  --surface-mention: #33301c;
+  /* Deeper than the mockup's #4a7ce8, whose white label read at 3.9:1. */
+  --action-primary-bg: #3d6fdc;
+  --action-primary-bg-hover: #3d6fdc;
+  --action-primary-bg-active: #3d6fdc;
+  --action-primary-fg: #ffffff;
+  --edge-focus: #6d9af0;
+  --sidebar-bg: #202228;
+  --sidebar-selected-bg: rgb(255 255 255 / 0.14);
+  --sidebar-selected-fg: #ffffff;
+  --rail-bg: #121317;
+  --badge-bg: #3d6fdc;
+  --badge-fg: #ffffff;
+  --msg-bg: transparent;
+  --msg-edge: none;
+  --acc: #b8cdf6;
+  --control-line: #6b7080;
+  --focus-mark: #4a7ce8;
+}
+[data-style="marine"]:not([data-theme$="-dark"]) .wc-pane-sidebar {
+  --text-strong: #ffffff;
+  --text-body: rgb(255 255 255 / 0.72);
+  --text-muted: rgb(255 255 255 / 0.6);
+  --text-subtle: rgb(255 255 255 / 0.6);
+  --surface-hover: rgb(255 255 255 / 0.08);
+  --surface-active: rgb(255 255 255 / 0.14);
+  --border-subtle: rgb(255 255 255 / 0.12);
+  --badge-bg: #ffffff;
+  --badge-fg: #1e325c;
+  --action-ghost-fg: rgb(255 255 255 / 0.72);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* What the pane draws on: a count, a tag, the ring of a presence dot, the keyboard focus. */
+  --surface-chrome: #1e325c;
+  --surface-card: rgb(255 255 255 / 0.1);
+  --line: rgb(255 255 255 / 0.16);
+  --border-default: rgb(255 255 255 / 0.24);
+  --edge-focus: #ffffff;
+  /* Declared again here so they resolve with the pane's focus colour, not the content's. */
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+[data-style="marine"][data-theme$="-dark"] .wc-pane-sidebar {
+  --text-strong: #ffffff;
+  --text-body: rgb(255 255 255 / 0.72);
+  --text-muted: rgb(255 255 255 / 0.55);
+  --text-subtle: rgb(255 255 255 / 0.55);
+  --surface-hover: rgb(255 255 255 / 0.08);
+  --surface-active: rgb(255 255 255 / 0.14);
+  --border-subtle: rgb(255 255 255 / 0.12);
+  --badge-bg: #ffffff;
+  --badge-fg: #202228;
+  --action-ghost-fg: rgb(255 255 255 / 0.72);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* What the pane draws on: a count, a tag, the ring of a presence dot, the keyboard focus. */
+  --surface-chrome: #202228;
+  --surface-card: rgb(255 255 255 / 0.1);
+  --line: rgb(255 255 255 / 0.16);
+  --border-default: rgb(255 255 255 / 0.24);
+  --edge-focus: #ffffff;
+  /* Declared again here so they resolve with the pane's focus colour, not the content's. */
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+[data-style="marine"]:not([data-theme$="-dark"]) .wc-pane-rail {
+  --text-muted: rgb(255 255 255 / 0.6);
+  --text-subtle: rgb(255 255 255 / 0.6);
+  --surface-canvas: #14213e;
+  --line-strong: rgb(255 255 255 / 0.3);
+  --edge-focus: #ffffff;
+  --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: rgb(255 255 255 / 0.72);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+[data-style="marine"][data-theme$="-dark"] .wc-pane-rail {
+  --text-muted: rgb(255 255 255 / 0.55);
+  --text-subtle: rgb(255 255 255 / 0.55);
+  --surface-canvas: #121317;
+  --line-strong: rgb(255 255 255 / 0.3);
+  --edge-focus: #ffffff;
+  --border-subtle: rgb(255 255 255 / 0.12);
+  --action-ghost-fg: rgb(255 255 255 / 0.72);
+  --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
+  --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
+}
+
+/* --- What floats inside a coloured pane ------------------------------------ */
+/* A dialog, a sheet or a field drawn inside the sidebar or the rail takes the content's colours back,
+   on its own surface. Popovers and tooltips are portaled to <body> and never sit in a pane; a menu
+   drawn in place (class `wc-float`) is covered all the same. */
+[data-style] :is(.wc-pane-sidebar, .wc-pane-rail) :is(.wc-float, .wc-pop, .wc-dlg, .wc-sheet, .wc-inp) {
+  --text-strong: var(--float-text-strong);
+  --text-body: var(--float-text-body);
+  --text-muted: var(--float-text-muted);
+  --text-subtle: var(--float-text-subtle);
+  --surface-hover: var(--float-surface-hover);
+  --surface-active: var(--float-surface-active);
+  --border-subtle: var(--float-border-subtle);
+  --surface-canvas: var(--float-surface-canvas);
+  --line-strong: var(--float-line-strong);
+  --edge-focus: var(--float-edge-focus);
+  --badge-bg: var(--float-badge-bg);
+  --badge-fg: var(--float-badge-fg);
+  --action-ghost-fg: var(--float-action-ghost-fg);
+  --action-ghost-bg-hover: var(--float-action-ghost-bg-hover);
+  --action-ghost-bg-active: var(--float-action-ghost-bg-active);
+  --surface-chrome: var(--float-surface-chrome);
+  --surface-card: var(--float-surface-card);
+  --line: var(--float-line);
+  --border-default: var(--float-border-default);
+  --shadow-ring-offset: var(--float-shadow-ring-offset);
+  --shadow-ring-offset-sm: var(--float-shadow-ring-offset-sm);
+  --focus-ring: var(--float-focus-ring);
+  --edge-float: var(--float-edge-float);
 }

@@ -10,7 +10,7 @@ const menu: CSSProperties = {
   minWidth: 220,
   padding: 4,
   background: "var(--surface-raised)",
-  border: "2px solid var(--edge-float)",
+  border: "var(--edge-width) solid var(--edge-float)",
   borderRadius: "var(--radius-md)",
   boxShadow: "var(--shadow-popover)",
 };
@@ -23,7 +23,7 @@ const itemStyle: CSSProperties = {
   width: "100%",
   padding: "6px 8px",
   border: 0,
-  borderRadius: "var(--radius-sm)",
+  borderRadius: "var(--radius-item)",
   background: "transparent",
   color: "var(--text-body)",
   fontFamily: "var(--font-sans)",
@@ -77,7 +77,7 @@ export function ChannelMenu({ canModerate, channel, onAddPeople, ...actions }: C
         />
       </Tooltip>
       <Popover anchorRef={anchorRef} open={open} onClose={() => setOpen(false)} placement="bottom" align="end">
-        <div style={menu} role="menu">
+        <div className="wc-float" style={menu} role="menu">
           {items.map((it) => (
             <button
               key={it.label}
