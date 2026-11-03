@@ -30,7 +30,7 @@ export function FloatingButton({ icon: Icon, label, onPress, compact = false }: 
         compact && styles.round,
         // A flat style draws it on a grey edge, without the accent's offset or the press nudge.
         { backgroundColor: c.surface, borderColor: shape.flat ? s.edge : c.acc },
-        pressed ? lift(theme, 2, 2, c.acc) : lift(theme, 4, 4, c.acc),
+        pressed ? lift(theme, 2, 2, c.acc, 4) : lift(theme, 4, 4, c.acc),
         pressed && !shape.flat && styles.pressed,
       ]}
     >

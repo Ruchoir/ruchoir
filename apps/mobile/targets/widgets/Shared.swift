@@ -173,8 +173,10 @@ struct Look {
     let theme = Instance.theme ?? ""
     let accent = theme.split(separator: "-").first.map(String.init) ?? "sky"
     accHex = Look.pastels[accent] ?? Look.pastels["sky"]!
-    dark = theme.isEmpty ? scheme == .dark : theme.hasSuffix("-dark")
-    shades = Instance.style.flatMap { Look.styles["\($0)-\(dark ? "night" : "day")"] }
+    // A local first: the closure below may not read `self` before every property is set.
+    let night = theme.isEmpty ? scheme == .dark : theme.hasSuffix("-dark")
+    dark = night
+    shades = Instance.style.flatMap { Look.styles["\($0)-\(night ? "night" : "day")"] }
     self.glass = glass
   }
 

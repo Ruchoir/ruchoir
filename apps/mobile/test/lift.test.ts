@@ -31,3 +31,10 @@ test("a_soft_shadow_is_dropped_by_a_flat_style_too", () => {
   const t = theme("ruchoir", true);
   assert.deepEqual(soft(t, 3, 0.18, 8), { shadowColor: "#000000", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.18, shadowRadius: 8, elevation: 4 });
 });
+
+test("a_lift_can_keep_the_elevation_it_had", () => {
+  const t = theme("ruchoir");
+  assert.equal(lift(t, 2, 2, t.c.acc, 4).elevation, 4);
+  assert.equal(lift(t, 3, 3, undefined, 4).elevation, 4);
+  assert.equal(lift(t, 3, 3).elevation, 3);
+});

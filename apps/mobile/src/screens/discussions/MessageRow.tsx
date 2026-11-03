@@ -22,6 +22,7 @@ import { EventCardView } from "./EventCardView";
 import { LinkCard } from "./LinkCard";
 import { ReactionPills } from "./ReactionPills";
 import { RichText } from "./RichText";
+import { rowLayers } from "./rowLayers";
 import { SYSTEM_TEXT } from "./systemText";
 
 
@@ -135,12 +136,14 @@ export const MessageRow = memo(function MessageRow({
       delayLongPress={350}
       accessibilityHint={unsent ? t("compose.failed") : undefined}
       style={({ pressed }) => [
-        styles.row,
-        !head && styles.continued,
-        tablet && styles.rowTablet,
-        // Indigo sets each message on a card; a mention's tint still wins over it.
-        shape.msg.card && [styles.card, { backgroundColor: s.msgBg ?? undefined, borderColor: s.msgEdge ?? undefined }],
-        mentionsMe && { backgroundColor: s.mention },
+        // Indigo sets each message on a card; a mention's tint still wins over it (`rowLayers`).
+        ...rowLayers({ head, tablet, card: shape.msg.card, mention: mentionsMe }).map((layer) =>
+          layer === "card"
+            ? [styles.card, { backgroundColor: s.msgBg ?? undefined, borderColor: s.msgEdge ?? undefined }]
+            : layer === "mention"
+              ? { backgroundColor: s.mention }
+              : styles[layer],
+        ),
         pending === "sending" && styles.sending,
         pressed && actions && { backgroundColor: s.pressed },
       ]}

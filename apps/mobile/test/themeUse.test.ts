@@ -26,3 +26,12 @@ test("no_screen_draws_the_ruchoir_shape_by_hand", () => {
     .map((path) => relative(SRC, path));
   assert.deepEqual(offenders, []);
 });
+
+test("no_file_names_the_tools_the_styles_recall", () => {
+  const roots = ["../src/", "../targets/"].map((p) => new URL(p, import.meta.url).pathname);
+  const offenders = roots
+    .flatMap((root) => files(root).concat(root.endsWith("targets/") ? readdirSync(join(root, "widgets")).filter((n) => n.endsWith(".swift")).map((n) => join(root, "widgets", n)) : []))
+    .filter((path) => /\b(Slack|Nextcloud|Mattermost|Microsoft Teams)\b/.test(readFileSync(path, "utf8")))
+    .map((path) => relative(SRC, path));
+  assert.deepEqual(offenders, []);
+});

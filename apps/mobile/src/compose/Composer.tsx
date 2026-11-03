@@ -156,7 +156,7 @@ export function Composer(props: Props) {
       baseline: props.baselineFor(body),
     });
     files?.clear();
-    // One reply at a time, as Slack does: the next stays in the thread unless asked again.
+    // One reply at a time: the next stays in the thread unless asked again.
     setAlsoInChannel(false);
     change("");
     setCursor(0);

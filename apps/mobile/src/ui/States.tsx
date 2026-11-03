@@ -44,7 +44,7 @@ export function EmptyState({
             backgroundColor: c.acc,
             borderColor: s.edge,
           },
-          hero ? lift(theme, 4, 4) : lift(theme, 3, 3),
+          hero ? lift(theme, 4, 4) : lift(theme, 3, 3, undefined, 4),
         ]}
       >
         <Icon size={hero ? 28 : 18} color={c.onPastel} />

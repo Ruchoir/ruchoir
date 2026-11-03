@@ -90,3 +90,11 @@ test("the_widget_extension_knows_the_same_colours", () => {
     }
   }
 });
+
+test("the_widget_look_reads_its_style_before_capturing_itself", () => {
+  // Swift refuses a closure that reads `self.dark` before every stored property of `Look` is set.
+  const swift = readFileSync(new URL("../targets/widgets/Shared.swift", import.meta.url), "utf8");
+  const line = swift.split("\n").find((l) => l.includes("shades = Instance.style"));
+  assert.ok(line, "no shades assignment in Look.init");
+  assert.doesNotMatch(line, /\bdark\b/);
+});
