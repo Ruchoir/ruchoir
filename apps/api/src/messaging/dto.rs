@@ -412,6 +412,10 @@ pub struct MemberDto {
     /// list, which is per caller; never in anything broadcast.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manageable: Option<bool>,
+    /// When they joined the space (RFC 3339), for "member since" in their profile. Only in the
+    /// space's member list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub joined_at: Option<String>,
 }
 
 /// A space's shared identity after it changed, pushed in real time.

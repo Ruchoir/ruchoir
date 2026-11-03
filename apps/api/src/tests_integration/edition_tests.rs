@@ -44,16 +44,19 @@ impl Edition for ProbeEdition {
     fn background(&self, _state: AppState) {}
 }
 
-async fn features_of(app: &TestApp) -> Vec<String> {
-    let body: Value = app
-        .http
+async fn instance_of(app: &TestApp) -> Value {
+    app.http
         .get(format!("{}/api/v1/instance", app.base))
         .send()
         .await
         .expect("instance")
         .json()
         .await
-        .expect("json");
+        .expect("json")
+}
+
+async fn features_of(app: &TestApp) -> Vec<String> {
+    let body = instance_of(app).await;
     body["features"]
         .as_array()
         .expect("features")
@@ -69,6 +72,12 @@ async fn an_edition_adds_its_routes_and_its_features() {
     };
     let features = features_of(&app).await;
     assert!(features.contains(&"probe".to_owned()), "{features:?}");
+    // Where a screen offering a paid feature sends people: the configured page, the site's by
+    // default.
+    assert_eq!(
+        instance_of(&app).await["pricing_url"],
+        app.config.pricing_url.as_str()
+    );
     // The edition's names come after the instance's own, which are all still there.
     for own in crate::compat::FEATURES {
         assert!(features.contains(&(*own).to_owned()), "{own} missing");

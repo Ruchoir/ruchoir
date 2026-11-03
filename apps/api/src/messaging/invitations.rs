@@ -555,6 +555,7 @@ pub async fn accept_invitation(
                     .map(|key| crate::files::avatar_url(user.id, key)),
                 role_ids: None,
                 manageable: None,
+                joined_at: None,
             },
         };
         state
