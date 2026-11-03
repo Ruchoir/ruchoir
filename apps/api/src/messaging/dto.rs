@@ -169,6 +169,27 @@ pub struct SpaceDto {
     /// `permissions.changed`, and use it only when the instance lists the `permissions` feature.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub my_permissions: Option<Vec<String>>,
+    /// The edition this space runs: `community`, `enterprise` (a valid licence) or `frozen` (its
+    /// licence expired: what it configured keeps applying, nothing paid can be changed). Always
+    /// `community` on a community build, whatever the database holds.
+    pub edition: String,
+    /// The space's licence, for its owners alone, when it has one (`enterprise` or `frozen`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub licence: Option<SpaceLicenceDto>,
+}
+
+/// What an owner reads of the space's licence.
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct SpaceLicenceDto {
+    /// Owners and members it covers.
+    pub seats: u32,
+    /// Owners and members today; guests take no seat.
+    pub used: u32,
+    /// RFC 3339.
+    pub valid_until: String,
+    /// Whole days left before `valid_until`, rounded up (0 once it has passed): drives the reminder
+    /// banner.
+    pub expires_in_days: i64,
 }
 
 /// A link preview, as the server read it from the page.

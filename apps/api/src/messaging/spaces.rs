@@ -124,6 +124,9 @@ pub async fn create_space(
         .one(&state.db)
         .await?
         .and_then(|space| space.default_channel_id);
+    let (edition, licence) =
+        super::edition_view::describe(&state.db, state.edition.as_ref(), space_id, session.user_id)
+            .await?;
 
     Ok((
         StatusCode::CREATED,
@@ -146,6 +149,8 @@ pub async fn create_space(
                     .await?
                     .to_names(),
             ),
+            edition,
+            licence,
         }),
     ))
 }
@@ -531,6 +536,7 @@ pub async fn resolve_space_slug(
     responses(
         (status = 200, description = "Every membership this changed", body = Vec<MemberRoleChangedDto>),
         (status = 400, description = "Not a role this instance knows"),
+        (status = 402, description = "A guest made a member, and every seat of the space's licence is taken"),
         (status = 403, description = "Not allowed to give this role to this member"),
         (status = 404, description = "Not a member of this space")
     )
@@ -585,6 +591,12 @@ pub async fn update_member_role(
         };
     if !allowed {
         return Err(ApiError::Forbidden);
+    }
+    // A guest made a member (or an administrator, or an owner) takes a seat they did not hold.
+    if !super::edition_view::takes_a_seat(&target.role)
+        && super::edition_view::takes_a_seat(&wanted)
+    {
+        super::edition_view::ensure_a_seat(&state, space_id).await?;
     }
 
     let txn = state.db.begin().await?;

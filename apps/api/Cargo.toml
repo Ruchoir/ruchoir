@@ -8,6 +8,13 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+# The API is a library (everything runs from `ruchoir_api::run`) and a thin community binary. A
+# build made elsewhere depends on the library and provides its own binary and `Edition`; this
+# repository never names it.
+[lib]
+name = "ruchoir_api"
+path = "src/lib.rs"
+
 [[bin]]
 name = "ruchoir-api"
 path = "src/main.rs"
@@ -17,6 +24,9 @@ default = []
 # Opt-in dev TLS (self-signed certs). Off by default so the standard build and CI
 # stay provider-free. See scripts/dev-tls.sh and docs for usage.
 tls = ["dep:axum-server", "dep:rustls"]
+# The shared test server (`ruchoir_api::testkit`), for the tests of an edition built on this crate.
+# This crate's own tests compile it without the feature.
+testkit = []
 
 [dependencies]
 tokio = { workspace = true }
@@ -29,6 +39,9 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+# The `Edition` trait is held as `Arc<dyn Edition>` and has async methods (David Tolnay; already in
+# the tree for the migrations).
+async-trait = { workspace = true }
 dotenvy = { workspace = true }
 utoipa = { workspace = true }
 axum-server = { workspace = true, optional = true }

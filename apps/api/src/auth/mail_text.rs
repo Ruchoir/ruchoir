@@ -607,6 +607,39 @@ pub fn unread_digest(
     render(locale, &content, instance)
 }
 
+/// The words of a message written outside this module, for [`notice`]: by an edition built on
+/// this crate (a licence about to expire), which has its own texts and no access to the layout.
+#[derive(Debug, Clone, Copy)]
+pub struct Notice<'a> {
+    pub subject: &'a str,
+    /// The line a mail client shows next to the subject in the inbox.
+    pub preheader: &'a str,
+    pub heading: &'a str,
+    pub paragraph: &'a str,
+    pub button: &'a str,
+    pub link: &'a str,
+    /// Small, under the button.
+    pub note: &'a str,
+}
+
+/// Draw `notice` in Ruchoir's own layout, as HTML and plain text, escaped like every other message.
+pub fn notice(locale: Locale, notice: &Notice<'_>, instance: &str) -> Email {
+    render(
+        locale,
+        &Content {
+            subject: notice.subject.to_owned(),
+            preheader: notice.preheader.to_owned(),
+            heading: notice.heading.to_owned(),
+            paragraph: notice.paragraph.to_owned(),
+            button: notice.button.to_owned(),
+            link: notice.link.to_owned(),
+            note: notice.note.to_owned(),
+            items: Vec::new(),
+        },
+        instance,
+    )
+}
+
 /// Escape text for HTML: names and topics are somebody's text, never markup.
 fn esc(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
@@ -1240,6 +1273,32 @@ mod tests {
         Locale::It,
         Locale::Pl,
     ];
+
+    #[test]
+    fn a_notice_written_elsewhere_is_drawn_and_escaped() {
+        let email = notice(
+            Locale::Fr,
+            &Notice {
+                subject: "La licence expire bientôt",
+                preheader: "Dans 7 jours",
+                heading: "Plus que 7 jours",
+                paragraph: "La licence de <Atelier> expire le 31 décembre.",
+                button: "Ouvrir la licence",
+                link: "https://app.example/e/atelier/licence",
+                note: "Rien ne sera retiré.",
+            },
+            "app.example",
+        );
+        assert_eq!(email.subject, "La licence expire bientôt");
+        assert!(email
+            .text
+            .contains("La licence de <Atelier> expire le 31 décembre."));
+        assert!(email.text.contains("https://app.example/e/atelier/licence"));
+        assert!(email.html.contains("La licence de &lt;Atelier&gt; expire"));
+        assert!(!email.html.contains("<Atelier>"));
+        assert!(email.html.contains("Ouvrir la licence"));
+        assert!(email.html.contains("Rien ne sera retiré."));
+    }
 
     #[test]
     fn parses_a_tag_with_a_region() {

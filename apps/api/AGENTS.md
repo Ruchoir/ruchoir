@@ -7,9 +7,22 @@ context and takes precedence here.
 
 ## Layout
 
-- `src/main.rs`   - entrypoint: config load, tracing, datastore connections, migrations, server
-  bind (HTTP, or HTTPS with the `tls` feature), graceful shutdown. Also handles the `migrate`
-  subcommand.
+- `src/lib.rs`    - the crate is a library: `ruchoir_api::run(edition)` does what the binary does
+  (config load, tracing, datastore connections, migrations, server bind (HTTP, or HTTPS with the
+  `tls` feature), graceful shutdown, and the `migrate`, `seed`, `bootstrap`, `import` subcommands).
+  Only `edition`, `state`, `config`, `entities`, `ext` and `testkit` are public; every other module
+  stays private, so dead-code analysis keeps working and another build reaches nothing by accident.
+- `src/main.rs`   - the community binary: `run(Arc::new(CommunityEdition))`, nothing else.
+- `src/edition.rs` - the `Edition` trait (ADR 0010): a space's entitlement, the seat check, and the
+  routes, feature names and background jobs an edition adds. `CommunityEdition` is this
+  repository's; a build made elsewhere depends on this crate and brings its own. This repository
+  never names, fetches or requires such a build.
+- `src/ext.rs`    - what such a build may use from the core (the session extractor, `ApiError`, the
+  owner and instance-administrator guards, `permissions::changed::announce`, the mail layout).
+  Widen it only when that build needs something, and keep what is there stable.
+- `src/testkit.rs` - the test server and a few fixtures, shared by this crate's tests and (feature
+  `testkit`) by an edition's: both boot exactly the same server. Tests live in the library now:
+  `cargo test -p ruchoir-api --lib`.
 - `src/config.rs` - environment-driven configuration with dev defaults.
 - `src/db.rs`     - PostgreSQL connection pool via SeaORM.
 - `src/cache.rs`  - Valkey connection pool via fred.

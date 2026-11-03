@@ -133,6 +133,9 @@ pub struct Config {
     /// The publisher's push relay that wakes the phone apps (`RUCHOIR_PUSH_RELAY_URL`, ADR 0006).
     /// `None` (set to empty) keeps phones out of notifications on this instance.
     pub push_relay_url: Option<String>,
+    /// Where a refusal for want of seats sends an owner to buy more (`RUCHOIR_PRICING_URL`): only
+    /// an edition that sells seats ever refuses one.
+    pub pricing_url: String,
     /// How long, in seconds, an unread notification waits before the email fallback considers it.
     /// `0` turns the fallback off.
     pub notify_email_delay_secs: i64,
@@ -204,6 +207,9 @@ pub fn host_of(url: &str) -> Option<String> {
 
 /// The publisher's relay for the phone apps (ADR 0006), served under the project's website.
 pub const DEFAULT_PUSH_RELAY_URL: &str = "https://ruchoir.com/push";
+
+/// The public site, until it has a pricing page of its own.
+pub const DEFAULT_PRICING_URL: &str = "https://ruchoir.com/";
 
 /// The push services of the major browsers: Chrome, Edge (and other Chromium browsers) through
 /// Google's, Firefox through Mozilla's, Safari through Apple's, legacy Edge through Microsoft's.
@@ -387,6 +393,10 @@ impl Config {
             }
             _ => return Err(ConfigError::Invalid("RUCHOIR_PUSH_RELAY_URL")),
         };
+        let pricing_url = match env_or("RUCHOIR_PRICING_URL", DEFAULT_PRICING_URL).trim() {
+            url if url.starts_with("https://") || url.starts_with("http://") => url.to_owned(),
+            _ => return Err(ConfigError::Invalid("RUCHOIR_PRICING_URL")),
+        };
         let notify_email_delay_secs: i64 = env_or("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS", "900")
             .parse()
             .map_err(|_| ConfigError::Invalid("RUCHOIR_NOTIFY_EMAIL_DELAY_SECS"))?;
@@ -479,6 +489,7 @@ impl Config {
             thumbnail_max_px,
             push_allowed_hosts,
             push_relay_url,
+            pricing_url,
             notify_email_delay_secs,
             unfurl_enabled,
             unfurl_deny_hosts,

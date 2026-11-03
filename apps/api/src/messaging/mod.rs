@@ -18,6 +18,7 @@ pub mod authz;
 pub mod channels;
 pub mod conversations;
 pub mod dto;
+pub mod edition_view;
 pub mod error;
 pub mod invitations;
 pub mod mentions;

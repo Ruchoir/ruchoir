@@ -10,7 +10,7 @@
 //! createdb -h localhost -U ruchoir ruchoir_test   # or any empty database
 //! RUCHOIR_TEST_DATABASE_URL=postgres://ruchoir:<password>@localhost:5432/ruchoir_test \
 //!   VALKEY_TEST_URL=redis://localhost:6380 \
-//!   cargo test -p ruchoir-api --bin ruchoir-api -- --nocapture
+//!   cargo test -p ruchoir-api --lib -- --nocapture
 //! ```
 //! (`VALKEY_TEST_URL` matches the published Valkey host port from `docker-compose.yml`.)
 //!
@@ -18,7 +18,6 @@
 
 #![cfg(test)]
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -48,10 +47,6 @@ use crate::entities::{
 };
 use crate::state::AppState;
 
-/// Applies the migrations exactly once across all tests in this binary, so parallel `boot()` calls
-/// never race two migration runners against the same database.
-static SCHEMA_READY: tokio::sync::OnceCell<()> = tokio::sync::OnceCell::const_new();
-
 /// A booted test server plus the handles the tests need.
 struct TestApp {
     base: String,
@@ -79,123 +74,34 @@ async fn boot_with(
     storage: Option<Arc<crate::storage::S3Store>>,
     configure: impl FnOnce(&mut Config),
 ) -> Option<TestApp> {
-    let Ok(database_url) = std::env::var("RUCHOIR_TEST_DATABASE_URL") else {
-        // Skipping is right on a developer's machine, where a database may not be running. It is
-        // not right in CI: a suite that quietly tests nothing and reports success is worse than no
-        // suite, and that is exactly how a defect one of these tests catches reached production.
-        // So the skip becomes a failure wherever `CI` is set, which is every runner.
-        assert!(
-            std::env::var("CI").is_err(),
-            "RUCHOIR_TEST_DATABASE_URL is unset in CI: these tests would silently pass \
-             without running. Start a PostgreSQL and a Valkey for the job, or delete them."
-        );
-        eprintln!("skipping messaging integration tests: RUCHOIR_TEST_DATABASE_URL not set");
-        return None;
-    };
-    let valkey_url =
-        std::env::var("VALKEY_TEST_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
-
-    // Start from the process defaults, then point the datastores at the test instances.
-    let mut config = Config::from_env().expect("config");
-    config.database_url = database_url;
-    config.valkey_url = valkey_url;
-    config.auto_migrate = false;
-    // Never the publisher's relay from a test: the phone tests start one of their own.
-    config.push_relay_url = None;
-    // Short presence TTL so an offline transition is observable quickly in tests.
-    config.presence_ttl_secs = 5;
-    // An import directory, so the tests of the server-side path exercise the real guard instead of
-    // the "no directory configured" refusal, which answers the same 400 for a different reason.
-    let import_dir = std::env::temp_dir().join("ruchoir-test-imports");
-    std::fs::create_dir_all(&import_dir).expect("import dir");
-    config.import_dir = Some(import_dir);
-    // A stand-in for the web bundle's shell, so the pages served with link preview tags have a head.
-    let web_dist = std::env::temp_dir().join("ruchoir-test-web");
-    std::fs::create_dir_all(&web_dist).expect("web dir");
-    std::fs::write(
-        web_dist.join("index.html"),
-        "<html><head><title>Ruchoir</title></head><body></body></html>",
-    )
-    .expect("index");
-    config.web_dist = web_dist;
-    // The cards' language is asserted below, whatever the machine running the tests has set.
-    config.default_locale = crate::auth::mail_text::Locale::Fr;
-    configure(&mut config);
-
-    let db = crate::db::connect(&config).await.expect("connect db");
-    SCHEMA_READY
-        .get_or_init(|| async {
-            Migrator::up(&db, None).await.expect("migrate");
-        })
-        .await;
-    let valkey = crate::cache::connect(&config)
-        .await
-        .expect("connect valkey");
-    let hub = crate::realtime::Hub::start(&config, valkey.clone())
-        .await
-        .expect("hub");
-
-    let webauthn = {
-        let origin = webauthn_rs::prelude::Url::parse(&config.webauthn_origin).unwrap();
-        webauthn_rs::WebauthnBuilder::new(&config.webauthn_rp_id, &origin)
-            .unwrap()
-            .rp_name("Ruchoir")
-            .build()
-            .unwrap()
-    };
-
-    let state = AppState {
-        db: db.clone(),
-        valkey: valkey.clone(),
-        mailer: crate::auth::mailer::Mailer::from_config(&config).expect("mailer"),
-        breaches: Arc::new(crate::auth::breach::BreachFilter::disabled()),
-        secret_key: Arc::new([0x11u8; 32]),
-        webauthn: Arc::new(webauthn),
-        hub,
-        // `None` unless the test asked for a store: the byte endpoints then report 503.
+    boot_as(
+        Arc::new(crate::edition::CommunityEdition),
         storage,
-        office: crate::office::Office::from_config(&config).map(Arc::new),
-        config: Arc::new(config.clone()),
-    };
+        configure,
+    )
+    .await
+}
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind");
-    let addr = listener.local_addr().expect("addr");
-    let app = crate::http::router(state.clone());
-    tokio::spawn(async move {
-        axum::serve(
-            listener,
-            app.into_make_service_with_connect_info::<SocketAddr>(),
-        )
-        .await
-        .expect("serve");
-    });
-    let wopi_base = if state.office.is_some() {
-        let wopi_listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-            .await
-            .expect("bind wopi");
-        let wopi_addr = wopi_listener.local_addr().expect("wopi addr");
-        let wopi_app = crate::office::wopi_router(state.clone());
-        tokio::spawn(async move {
-            axum::serve(wopi_listener, wopi_app)
-                .await
-                .expect("serve wopi");
-        });
-        Some(format!("http://{wopi_addr}"))
-    } else {
-        None
-    };
-
+/// [`boot_with`] as a chosen edition (the shared test server, `crate::testkit`).
+async fn boot_as(
+    edition: Arc<dyn crate::edition::Edition>,
+    storage: Option<Arc<crate::storage::S3Store>>,
+    configure: impl FnOnce(&mut Config),
+) -> Option<TestApp> {
+    let server = crate::testkit::boot_with(edition, storage, configure).await?;
+    let ws_url = format!(
+        "{}/api/v1/realtime/ws",
+        server.base.replacen("http://", "ws://", 1)
+    );
     Some(TestApp {
-        base: format!("http://{addr}"),
-        wopi_base,
-        ws_url: format!("ws://{addr}/api/v1/realtime/ws"),
-        db,
-        config,
-        valkey,
+        base: server.base,
+        wopi_base: server.wopi_base,
+        ws_url,
+        db: server.db,
+        config: server.config,
+        valkey: server.valkey,
         http: reqwest::Client::new(),
-        state,
+        state: server.state,
     })
 }
 
@@ -332,21 +238,7 @@ async fn seed(db: &DatabaseConnection) -> Fixture {
 }
 
 async fn make_user(db: &DatabaseConnection, name: &str) -> Uuid {
-    let id = Uuid::new_v4();
-    users::ActiveModel {
-        id: Set(id),
-        email: Set(format!("{name}-{}@example.test", id.simple())),
-        display_name: Set(name.to_owned()),
-        password_hash: Set(None),
-        status: Set("active".to_owned()),
-        mfa_enforced: Set(false),
-        is_bot: Set(false),
-        ..Default::default()
-    }
-    .insert(db)
-    .await
-    .expect("user");
-    id
+    crate::testkit::make_user(db, name).await
 }
 
 async fn make_channel(db: &DatabaseConnection, space_id: Uuid, name: &str, kind: &str) -> Uuid {
@@ -12163,6 +12055,9 @@ mod permissions_tests;
 
 /// The engine held to today's rules over every combination they tell apart.
 mod permissions_parity;
+
+/// The edition the server runs as: what a build made elsewhere plugs in, and what it may not.
+mod edition_tests;
 
 // --- The six-digit code sent next to the verification link ---
 

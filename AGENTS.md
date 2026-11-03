@@ -293,6 +293,14 @@ terminates TLS for that instance, rather than exposing its port:
   winning, a hard guest ceiling). Handlers ask it for a named permission; they never compare role
   strings. The permission catalogue only grows: a name is never renamed, removed or moved, like
   `/api/v1`. Clients read `my_permissions` when the instance lists the `permissions` feature.
+- **The community build is this repository, and the edition is its only door** (ADR 0010). An
+  enterprise edition is built elsewhere, on top of this crate (`ruchoir_api::run(edition)`); this
+  repository never names, fetches, requires or vendors it, and builds and tests with no access to
+  it. What another build may use is `edition`, `state`, `config`, `entities`, `ext` and `testkit`;
+  every other module stays private. A space's entitlement, seats and paid routes come from the
+  `Edition` trait, never from a check written here. The community build refuses nobody a seat, and a
+  community image started on a licensed database reads every space as `community` while still
+  applying every rule it finds.
 - **Auth:** fully owned by the Rust API. Passwords are argon2id; sessions are opaque server-side
   records in Valkey delivered as `httpOnly`+`Secure`+`SameSite` cookies. The web frontend holds no
   auth secret. A native app gets the same session as a bearer token (`session_delivery: "token"`),
