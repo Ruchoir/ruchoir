@@ -38,6 +38,7 @@ import {
   type ThemeMode,
 } from "./settings";
 import { WordmarkLockup } from "./Wordmark";
+import { APP_STYLES, type AppStyle } from "./appearance";
 import {
   COMMANDS,
   COMPOSER_COMMANDS,
@@ -98,6 +99,40 @@ const ACCENT_PREVIEW: Record<ThemeAccent, { label: TranslationKey; colour: strin
 const MODE_PREVIEW = {
   day: { canvas: "#f6f7f9", surface: "#fdfdfe", ink: "#15171c" },
   night: { canvas: "#15171c", surface: "#1d2027", ink: "#f6f7f9" },
+};
+
+/**
+ * Each style in miniature, for the Style picker (fixed, not live tokens, so every card shows its own
+ * style whatever the one on screen): the rail, the sidebar with its selected row, the content with a
+ * line of text and the primary action. The Ruchoir card's selected row takes the person's accent.
+ */
+type StyleSwatch = { rail: string; side: string; sel: string; selFg: string; content: string; text: string; primary: string };
+const STYLE_PREVIEW: Record<AppStyle, { label: TranslationKey; day: StyleSwatch; night: StyleSwatch }> = {
+  ruchoir: {
+    label: key("prefs.styleRuchoir"),
+    day: { rail: "#f6f7f9", side: "#fdfdfe", sel: "", selFg: "#15171c", content: "#f6f7f9", text: "#2e323a", primary: "#15171c" },
+    night: { rail: "#15171c", side: "#1d2027", sel: "", selFg: "#15171c", content: "#15171c", text: "#dfe2e7", primary: "#f6f7f9" },
+  },
+  aubergine: {
+    label: key("prefs.styleAubergine"),
+    day: { rail: "#3a0e3b", side: "#4a154b", sel: "#1164a3", selFg: "#ffffff", content: "#ffffff", text: "#1d1c1d", primary: "#007a5a" },
+    night: { rail: "#121016", side: "#19171d", sel: "#1164a3", selFg: "#ffffff", content: "#1a1d21", text: "#d1d2d3", primary: "#007a5a" },
+  },
+  nuage: {
+    label: key("prefs.styleNuage"),
+    day: { rail: "#0082c9", side: "#f5f5f5", sel: "#d8ecf8", selFg: "#00507c", content: "#ffffff", text: "#222222", primary: "#0073b1" },
+    night: { rail: "#00507c", side: "#222222", sel: "#11384f", selFg: "#bfe3f7", content: "#171717", text: "#e6e6e6", primary: "#2a9de0" },
+  },
+  indigo: {
+    label: key("prefs.styleIndigo"),
+    day: { rail: "#ebebeb", side: "#fafafa", sel: "#ffffff", selFg: "#4f52b2", content: "#f5f5f5", text: "#242424", primary: "#5b5fc7" },
+    night: { rail: "#141414", side: "#1a1a1a", sel: "#2e2e2e", selFg: "#b6b9ff", content: "#1f1f1f", text: "#d6d6d6", primary: "#7f85f5" },
+  },
+  marine: {
+    label: key("prefs.styleMarine"),
+    day: { rail: "#14213e", side: "#1e325c", sel: "#34476c", selFg: "#ffffff", content: "#ffffff", text: "#3f4350", primary: "#1c58d9" },
+    night: { rail: "#121317", side: "#202228", sel: "#3e4046", selFg: "#ffffff", content: "#191b1f", text: "#dddfe4", primary: "#3d6fdc" },
+  },
 };
 
 const MODE_OPTIONS: { id: ThemeMode; label: TranslationKey; icon: IconName }[] = [
@@ -717,6 +752,50 @@ function AccentPicker({ value, night, onChange }: { value: ThemeAccent; night: b
   );
 }
 
+/**
+ * The style, as five cards, each a miniature of itself in the mode on screen. The cards themselves
+ * are drawn in the style in force (flat in a simplified one), like the rest of the screen.
+ */
+function StylePicker({ value, night, accent, onChange }: { value: AppStyle; night: boolean; accent: ThemeAccent; onChange: (s: AppStyle) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="radiogroup"
+      aria-label={t("prefs.style")}
+      style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, maxWidth: 900 }}
+    >
+      {APP_STYLES.map((style) => {
+        const c = STYLE_PREVIEW[style][night ? "night" : "day"];
+        return (
+          <button
+            key={style}
+            type="button"
+            role="radio"
+            aria-checked={style === value}
+            className="wc-theme-card"
+            onClick={() => onChange(style)}
+          >
+            <span aria-hidden className="wc-style-card__pv" style={{ background: c.content }}>
+              <span style={{ background: c.rail }} />
+              <span className="wc-style-card__side" style={{ background: c.side }}>
+                <span className="wc-style-card__row" style={{ background: c.sel || ACCENT_PREVIEW[accent].colour }}>
+                  <span style={{ background: c.selFg }} />
+                </span>
+              </span>
+              <span className="wc-style-card__content">
+                <span style={{ background: c.text, width: "80%" }} />
+                <span style={{ background: c.text, width: "55%" }} />
+                <span className="wc-style-card__primary" style={{ background: c.primary }} />
+              </span>
+            </span>
+            {t(STYLE_PREVIEW[style].label)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const MODE_HINT = { auto: key("prefs.modeAutoHint"), fixed: key("prefs.modeFixedHint") };
 
 /** Day, night or automatic: one row of three, drawn as the design system's pill switch. */
@@ -1174,8 +1253,16 @@ export function PreferencesScreen({
 
                 <div style={st.sect} className="wc-sect">{t("prefs.mode")}</div>
                 <ModePicker value={s.mode} onChange={(m) => s.set("mode", m)} />
-                <div style={st.sect} className="wc-sect">{t("prefs.accent")}</div>
-                <AccentPicker value={s.accent} night={s.theme.endsWith("-dark")} onChange={(a) => s.set("accent", a)} />
+                <div style={st.sect} className="wc-sect">{t("prefs.style")}</div>
+                <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)", margin: "0 0 10px" }}>{t("prefs.styleHint")}</div>
+                <StylePicker value={s.style} night={s.theme.endsWith("-dark")} accent={s.accent} onChange={(v) => s.set("style", v)} />
+                {/* A simplified style brings its own colours: the accent is kept, and chosen again under Ruchoir. */}
+                {s.style === "ruchoir" ? (
+                  <>
+                    <div style={st.sect} className="wc-sect">{t("prefs.accent")}</div>
+                    <AccentPicker value={s.accent} night={s.theme.endsWith("-dark")} onChange={(a) => s.set("accent", a)} />
+                  </>
+                ) : null}
                 <div style={st.sect} className="wc-sect">{t("prefs.font")}</div>
                 <FontPicker value={s.font} onChange={(f) => s.set("font", f)} />
                 <div style={st.sect} className="wc-sect">{t("prefs.textSize")}</div>

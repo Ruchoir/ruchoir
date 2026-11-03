@@ -1709,6 +1709,48 @@
 .wc-theme-card__sw > span {
   flex: 1;
 }
+/* A style in miniature (the Style picker): rail, sidebar with its selected row, content. */
+.wc-style-card__pv {
+  display: grid;
+  grid-template-columns: 14% 32% 1fr;
+  height: 54px;
+  overflow: hidden;
+  border: var(--border-width) solid var(--edge-float);
+  border-radius: var(--radius-sm);
+}
+.wc-style-card__side {
+  padding: 9px 4px;
+}
+.wc-style-card__row {
+  display: flex;
+  align-items: center;
+  height: 10px;
+  padding: 0 4px;
+  border-radius: 2px;
+}
+.wc-style-card__row > span {
+  height: 2px;
+  width: 70%;
+  border-radius: 1px;
+}
+.wc-style-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 9px 7px;
+}
+.wc-style-card__content > span {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+}
+.wc-style-card__content > .wc-style-card__primary {
+  align-self: flex-end;
+  width: 22px;
+  height: 9px;
+  margin-top: auto;
+  border-radius: 3px;
+}
 
 /* A card of a list that opens something (activity, search results): it rises onto an ink offset. */
 .wc-lift {
