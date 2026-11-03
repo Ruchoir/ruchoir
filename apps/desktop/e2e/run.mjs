@@ -14,6 +14,8 @@
 
 import { spawn } from "node:child_process";
 import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
 
 const BIN = must("RUCHOIR_DESKTOP_BIN");
 const INSTANCE = must("E2E_INSTANCE");
@@ -76,6 +78,29 @@ async function webSession(email = EMAIL, instance = INSTANCE, password = PASSWOR
     });
 }
 
+/** A valid one-page PDF of exactly `size` bytes: the padding is a comment after the trailer. */
+function fixturePdf(size) {
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>",
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets = [];
+  objects.forEach((body, i) => {
+    offsets.push(out.length);
+    out += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) out += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  const padding = size - out.length;
+  // Printable bytes only, so the file stays text a tool can read; the length is what the check needs.
+  out += `%${"x".repeat(padding - 2)}\n`;
+  return Buffer.from(out, "latin1");
+}
+
 async function main() {
   const session = await wd("POST", "/session", {
     capabilities: { alwaysMatch: { "tauri:options": { application: BIN } } },
@@ -83,6 +108,26 @@ async function main() {
   const id = session.sessionId;
   const find = (css) => wd("POST", `/session/${id}/element`, { using: "css selector", value: css });
   const run = (script, args = []) => wd("POST", `/session/${id}/execute/sync`, { script, args });
+  const clickText = (text) =>
+    run("const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === arguments[0]); if (b) b.click(); return !!b;", [text]);
+  // A file added to the composer is settled once its chip stops saying it is uploading; the
+  // interface's own refusal ("Fichier non envoyé") is the failure this check exists to catch.
+  const settled = (name) =>
+    until(`${name} to be uploaded from the composer`, async () => {
+      const state = await run(
+        `const text = document.body.innerText;
+         if (text.includes('Fichier non envoyé')) return 'refused';
+         const composer = document.querySelector('.wc-message-composer').innerText;
+         return composer.includes(arguments[0]) && !composer.includes('envoi…') ? 'ready' : null;`,
+        [name],
+      );
+      if (state === "refused") throw new Error(`the interface refused ${name} ("Fichier non envoyé")`);
+      return state === "ready";
+    });
+  const clickAria = (label) =>
+    until(`the "${label}" button`, () =>
+      run("const b = document.querySelector(`button[aria-label='${arguments[0]}']:not([disabled])`); if (!b) return false; b.click(); return true;", [label]),
+    );
 
   try {
     // 1. Add the instance.
@@ -186,6 +231,85 @@ async function main() {
     await shot("after");
     if (!held) throw new Error("no still during the remount");
 
+    // 6c. Files, through the real interface: a picked file reaches the instance whole (the core's
+    // upload once arrived empty), a drop reaches the page (the webview's own drag-drop handler used
+    // to take it), and the viewer's frame is admitted by the page's CSP.
+    const fixturePath = join(tmpdir(), `ruchoir-e2e-${Date.now()}.pdf`);
+    const fixture = fixturePdf(300 * 1024);
+    writeFileSync(fixturePath, fixture);
+    const pickedName = basename(fixturePath);
+    const inputs = await find(".wc-message-composer input[type=file]");
+    // The input is hidden (the paperclip button opens it); WebDriver is still given the path.
+    await wd("POST", `/session/${id}/element/${inputs[ELEMENT]}/value`, { text: fixturePath });
+    await settled(pickedName);
+    await clickAria("Envoyer");
+    await until("the attachment card", () => run("return document.body.innerText.includes(arguments[0]);", [pickedName]));
+    // What the instance holds, read with the account's own session: the size must be the fixture's.
+    const stored = await until("the file on the instance", async () => {
+      const files = await (await api(`/conversations/${channel.id}/files`)).json();
+      return files.find((f) => f.name === pickedName);
+    });
+    if (stored.size_bytes !== fixture.length) {
+      throw new Error(`the instance holds ${stored.size_bytes} bytes of ${pickedName}, expected ${fixture.length}`);
+    }
+    console.log(`ok: picked file stored whole (${stored.size_bytes} bytes)`);
+
+    // A drop on the composer, as the page sees one when the webview hands it over.
+    const droppedName = `dropped-${Date.now()}.txt`;
+    await run(
+      `const composer = document.querySelector('.wc-message-composer');
+       const data = new DataTransfer();
+       data.items.add(new File(['dropped on the composer'], arguments[0], { type: 'text/plain' }));
+       for (const type of ['dragenter', 'dragover', 'drop']) {
+         composer.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
+       }`,
+      [droppedName],
+    );
+    await settled(droppedName);
+    await clickAria("Envoyer");
+    await until("the second attachment card", () => run("return document.body.innerText.includes(arguments[0]);", [droppedName]));
+
+    // The viewer: the space's files, the PDF opened, its frame in the page.
+    const sideItem = await run(
+      `const el = [...document.querySelectorAll('span, div')].find((x) => x.children.length === 0 && x.textContent.trim() === arguments[0]);
+       if (el) el.click();
+       return !!el;`,
+      ["Fichiers de l'espace"],
+    );
+    if (!sideItem) throw new Error("no \"Fichiers de l'espace\" in the sidebar");
+    // Attachments live in folders of their own; "Récents" lists the file whatever its folder.
+    await until("the files screen", () => run("const el = [...document.querySelectorAll('span, div, button')].find((x) => x.children.length === 0 && x.textContent.trim() === arguments[0]); if (el) el.click(); return !!el;", ["Pièces jointes"]));
+    // A frame the page's CSP refuses leaves no error to read (its document is blank either way), so
+    // the refusal itself is listened for.
+    await run("window.__csp = []; document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));");
+    const opened = await until("the PDF in the files list", () =>
+      run(
+        "const b = document.querySelector(`button[title='${arguments[0]}']`); if (!b) return false; b.click(); return true;",
+        [pickedName],
+      ),
+    );
+    if (!opened) throw new Error("the PDF could not be opened");
+    const frame = await until("the viewer's frame", () =>
+      run(
+        `const f = document.querySelector('.wc-viewer iframe');
+         if (!f) return null;
+         let doc = null;
+         try { doc = f.contentDocument; } catch (e) { return { error: String(e) }; }
+         return { src: f.src, reachable: !!doc, location: f.contentWindow && f.contentWindow.location.href };`,
+      ),
+    );
+    if (frame.error || !frame.reachable) throw new Error(`the viewer's frame is not reachable: ${JSON.stringify(frame)}`);
+    await sleep(1500);
+    const refused = await run("return window.__csp;");
+    if (refused.length > 0) throw new Error(`the page's CSP refused the viewer's frame: ${JSON.stringify(refused)}`);
+    if (process.env.E2E_SCREENSHOT_VIEWER) {
+      const png = await wd("GET", `/session/${id}/screenshot`);
+      writeFileSync(process.env.E2E_SCREENSHOT_VIEWER, Buffer.from(png, "base64"));
+    }
+    console.log(`ok: dropped file attached, viewer frame shown (${JSON.stringify(frame)})`);
+    await run("location.assign(arguments[0]);", [path]);
+    await until("the channel again", () => run("return location.pathname === arguments[0] && !!document.querySelector('.wc-message-composer');", [path]), 30000);
+
     // 7. A second instance (optional): add it, sign in, both headings in the rail, one click back.
     const secondInstance = process.env.E2E_INSTANCE_2;
     if (secondInstance) {
@@ -245,8 +369,6 @@ async function main() {
       await run("const b = document.querySelector(`button[aria-label='${arguments[0]}']`); if (b) b.click();", ["Mon profil et statut"]);
       await sleep(300);
     };
-    const clickText = (text) =>
-      run("const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === arguments[0]); if (b) b.click(); return !!b;", [text]);
     await menu();
     if (!(await clickText("Ajouter une instance"))) throw new Error("no \"Ajouter une instance\" in the account menu");
     await until("the add screen", () => run("return !!document.querySelector('#dk-address');"));

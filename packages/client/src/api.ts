@@ -2036,7 +2036,7 @@ export function createApi(transport: Transport) {
   function sendForm<T>(
     xhr: XMLHttpRequest,
     form: FormData,
-    begin: (payload: BodyInit, contentType?: string) => void,
+    begin: (payload: XMLHttpRequestBodyInit, contentType?: string) => void,
     done: Promise<T>,
     fail: (reason: unknown) => void,
   ): UploadRequest<T> {
@@ -2106,7 +2106,7 @@ export function createApi(transport: Transport) {
       xhr.onabort = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
     });
     const auth = authInit();
-    const begin = (payload: BodyInit, contentType?: string) => {
+    const begin = (payload: XMLHttpRequestBodyInit, contentType?: string) => {
       xhr.open(method, `${apiBase()}${path}`);
       // Same-origin on the web, where the cookie goes anyway; an app presents its bearer and no cookie.
       xhr.withCredentials = false;
@@ -3160,7 +3160,7 @@ export function createApi(transport: Transport) {
       xhr.onabort = () => reject(new DOMException("aborted", "AbortError"));
     });
     const auth = authInit();
-    const begin = (payload: BodyInit, contentType?: string) => {
+    const begin = (payload: XMLHttpRequestBodyInit, contentType?: string) => {
       xhr.open("POST", url);
       xhr.withCredentials = auth.credentials === "same-origin";
       for (const [name, value] of Object.entries(auth.headers)) xhr.setRequestHeader(name, value);

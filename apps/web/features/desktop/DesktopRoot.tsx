@@ -57,6 +57,9 @@ function pointClientAt(view: InstanceView) {
       publicOrigin: view.origin,
       // The core holds the socket and its bearer; the interface hears its frames.
       openSocket: () => createRelaySocket(id, tauriListen, tauriInvoke),
+      // A streamed form does not cross the app's protocol intact (the core receives an empty or
+      // truncated body), so uploads go as one buffer.
+      inMemoryUploads: true,
     });
   }
 }

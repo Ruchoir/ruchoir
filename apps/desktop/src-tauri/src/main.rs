@@ -155,6 +155,10 @@ fn main() {
                     .title("Ruchoir")
                     .inner_size(1200.0, 800.0)
                     .min_inner_size(360.0, 560.0)
+                    // Tauri's own drag-drop handler takes a file dropped on the window and reports its
+                    // path to the core; the page then never sees the drop. The composer and the files
+                    // list take drops themselves (`dataTransfer.files`), so the page gets them.
+                    .disable_drag_drop_handler()
                     // The window shows Ruchoir only: other sites open in the system browser.
                     .on_navigation({
                         let handle = app.handle().clone();

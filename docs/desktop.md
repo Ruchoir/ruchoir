@@ -102,7 +102,7 @@ summary. Its runners have no GPU either, so the figures are an upper bound.
 
 `e2e/run.sh` drives the app through `tauri-driver` (WebDriver): it adds an instance, signs in through
 the instance's `/n/` page and a `ruchoir://auth` link handed to a second launch, opens a channel, and
-waits for a message posted by someone else to arrive without a reload. It needs, on Linux,
+waits for a message posted by someone else to arrive without a reload. It also sends a 300 KB PDF through the composer's file input and checks the instance stores every byte (uploads once arrived empty), drops a file on the composer (the window must not keep drops for itself), and opens the PDF in the files viewer, checking the page's CSP lets its frame load. It needs, on Linux,
 `webkit2gtk-driver`, `dbus-x11`, Xvfb and `cargo install tauri-driver --locked`, and an instance with
 two accounts sharing a channel:
 
