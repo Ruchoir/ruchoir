@@ -28,7 +28,28 @@ test("a_group_mention_ends_at_the_end_of_the_word", () => {
   assert.equal(matchGroupMention("@Ops-2", 1, ["Ops"]), null);
 });
 
-test("a_decomposed_accent_matches_and_the_typed_length_is_kept", () => {
-  const typed = "Comptabilite\u0301";
-  assert.equal(matchGroupMention(`@${typed} ok`, 1, ["Comptabilité"]), typed);
+test("a_decomposed_accent_is_not_folded_because_the_server_does_not_fold_it", () => {
+  // The server's fold is a fixed Latin table: "e" then a combining mark is not "é" there.
+  assert.equal(matchGroupMention("@Comptabilite\u0301 ok", 1, ["Comptabilité"]), null);
+  assert.equal(matchGroupMention("@Comptabilité ok", 1, ["Comptabilité"]), "Comptabilité");
+  assert.equal(matchGroupMention("@COMPTABILITE ok", 1, ["Comptabilité"]), "COMPTABILITE");
+  assert.equal(matchGroupMention("@coeur", 1, ["Cœur"]), "coeur");
+});
+
+test("a_group_mention_follows_the_servers_rule", () => {
+  // An address is not a mention.
+  assert.equal(matchGroupMention("contact@compta.fr", 8, ["Compta"]), null);
+  assert.equal(matchGroupMention("jean@ops.fr", 5, ["Ops"]), null);
+  // Only trailing . , ; : ! ? belong to the sentence: anything else glued to the name is another word.
+  assert.equal(matchGroupMention("(@Ops)", 2, ["Ops"]), null);
+  assert.equal(matchGroupMention("@Ops's", 1, ["Ops"]), null);
+  assert.equal(matchGroupMention("@Ops.Net", 1, ["Ops"]), null);
+  assert.equal(matchGroupMention("a @Ops;", 3, ["Ops"]), "Ops");
+  assert.equal(matchGroupMention("a @Ops?", 3, ["Ops"]), "Ops");
+  // Whitespace between the words is any run of it.
+  assert.equal(matchGroupMention("@Chantier  Rennes ok", 1, ["Chantier Rennes"]), "Chantier  Rennes");
+  assert.equal(matchGroupMention("@Chantier\nRennes ok", 1, ["Chantier Rennes"]), "Chantier\nRennes");
+  assert.equal(matchGroupMention("@Chantier Rennes, ok", 1, ["Chantier Rennes"]), "Chantier Rennes");
+  // After a space or at the start, the @ is a boundary.
+  assert.equal(matchGroupMention("salut @Ops", 7, ["Ops"]), "Ops");
 });
