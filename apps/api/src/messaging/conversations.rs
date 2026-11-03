@@ -512,13 +512,24 @@ pub async fn create_dm(
     // Choosing someone again from the "new message" picker is asking to see that conversation: one
     // the caller had hidden comes back into their list.
     if let Some(existing) = find_existing_dm(&state.db, space_id, &participants).await? {
-        dm_participants::Entity::update_many()
+        let shown = dm_participants::Entity::update_many()
             .col_expr(dm_participants::Column::Hidden, Expr::value(false))
             .filter(dm_participants::Column::DmId.eq(existing))
             .filter(dm_participants::Column::UserId.eq(session.user_id))
             .filter(dm_participants::Column::Hidden.eq(true))
             .exec(&state.db)
             .await?;
+        if shown.rows_affected > 0 {
+            state
+                .hub
+                .publish(
+                    vec![session.user_id],
+                    RealtimeEnvelope::dm_hidden(
+                        serde_json::json!({ "dm_id": existing, "hidden": false }),
+                    ),
+                )
+                .await;
+        }
         return Ok((StatusCode::OK, Json(ConversationRef { id: existing })));
     }
 

@@ -32,7 +32,7 @@ export function InstanceScope({ account, user, active, children }: { account: Ac
             <SpaceProvider instanceId={account.id}>
               <UploadsProvider>
                 <SummaryPublisher id={account.id} />
-                <AccountPrefsSync />
+                <AccountPrefsSync userId={user.id} />
                 {active ? children : null}
               </UploadsProvider>
             </SpaceProvider>

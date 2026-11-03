@@ -178,11 +178,6 @@ export type Settings = {
    */
   notifShared: boolean;
   /**
-   * The desktop app: the same for the account preferences (`accountPrefs.ts`). Once the first
-   * instance's are adopted, the app's are the person's, sent to every instance.
-   */
-  accountShared: boolean;
-  /**
    * Whether to warn before a link opens a page outside Ruchoir (see `ExternalLinkDialog`). On by
    * default; turned off from the warning itself or in Preferences > Security.
    */
@@ -232,18 +227,26 @@ export function onAccountChange(listener: (patch: AccountPrefsDoc) => void): () 
 /**
  * Hidden direct conversations used to be kept here (`hiddenDms`) and are the server's now
  * (`dm_participants.hidden`). What a browser still had is put aside at load, under its own key, so
- * no later save of the settings loses it before it is sent up once (`takeLegacyHiddenDms`).
+ * no later save of the settings loses it; it is forgotten once the server took it all.
  */
 const LEGACY_HIDDEN_KEY = "ruchoir.legacyHiddenDms";
 
-/** The conversations this browser hid before the server kept them, handed over once. */
-export function takeLegacyHiddenDms(): string[] {
+/** The conversations this browser hid before the server kept them, still to hand over. */
+export function peekLegacyHiddenDms(): string[] {
   try {
     const raw = localStorage.getItem(LEGACY_HIDDEN_KEY);
-    localStorage.removeItem(LEGACY_HIDDEN_KEY);
     return raw ? stringList(JSON.parse(raw)) : [];
   } catch {
     return [];
+  }
+}
+
+/** The server took them: nothing left to hand over. */
+export function clearLegacyHiddenDms() {
+  try {
+    localStorage.removeItem(LEGACY_HIDDEN_KEY);
+  } catch {
+    // ignore storage failures
   }
 }
 
@@ -264,7 +267,6 @@ export const DEFAULTS: Settings = {
   collapsedSections: [],
   notifPrompted: false,
   notifShared: false,
-  accountShared: false,
   externalLinkWarning: true,
   threadWidth: THREAD_WIDTH_DEFAULT,
   locale: null,
@@ -341,7 +343,6 @@ function storedSettings(): Settings | null {
       collapsedSections: stringList(parsed.collapsedSections),
       notifPrompted: parsed.notifPrompted === true,
       notifShared: parsed.notifShared === true,
-      accountShared: parsed.accountShared === true,
       externalLinkWarning: parsed.externalLinkWarning !== false,
       threadWidth: threadWidth(parsed.threadWidth),
     };

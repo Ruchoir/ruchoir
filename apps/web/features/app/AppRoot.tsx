@@ -197,6 +197,21 @@ import { reconcileNotifPrefs } from "./notifPrefsSync";
 import { useAccountPrefsSync } from "./useAccountPrefsSync";
 
 /** Wraps the app in the settings provider (emoji rendering, etc.). */
+
+/**
+ * A hidden direct conversation with something unread is back for good: one hidden by an older
+ * version of this page may have received messages since, and keeping its flag would hide it again
+ * the moment it is read. The server is told; the list shows it at once.
+ */
+function returningDms(list: DirectMessage[]): DirectMessage[] {
+  if (!list.some((d) => d.hidden && d.unread > 0)) return list;
+  return list.map((d) => {
+    if (!d.hidden || d.unread === 0) return d;
+    void setDmHidden(d.id, false).catch(() => {});
+    return { ...d, hidden: false };
+  });
+}
+
 export function AppRoot() {
   return (
     <SettingsProvider>
@@ -501,6 +516,9 @@ function AppShell() {
    */
   const [emailDelivery, setEmailDelivery] = useState<boolean | undefined>(undefined);
   const [canReplyToChannel, setCanReplyToChannel] = useState(false);
+  // Hiding a direct conversation is the account's (`account_preferences`): an instance from before
+  // it (the desktop app reaches older ones) has nowhere to keep it, so the action is not offered.
+  const [canHideDms, setCanHideDms] = useState(false);
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -827,7 +845,7 @@ function AppShell() {
       return next;
     });
     // Overlay each 1:1 DM's counterpart presence onto its sidebar row.
-    setDms(dmList.map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
+    setDms(returningDms(dmList).map((d) => (d.userId && presenceMap[d.userId] ? { ...d, presence: presenceMap[d.userId] } : d)));
 
     // Land on the channel the address named, else the conversation last open in this space, else its
     // main public channel (the one newcomers join), else the first of the space (or its first DM).
@@ -1077,6 +1095,7 @@ function AppShell() {
         if (!active) return;
         setEmailDelivery(capabilities.emailDelivery);
         setCanReplyToChannel(supports(capabilities, "reply_to_channel"));
+        setCanHideDms(supports(capabilities, "account_preferences"));
       })
       .catch(() => {});
     return () => {
@@ -1203,7 +1222,7 @@ function AppShell() {
     const conn = connectRealtime({
       onReconnect: () => {
         resyncRef.current();
-        accountSyncRef.current.flush();
+        accountSyncRef.current.resync();
       },
       onPreferencesUpdated: (changes) => accountSyncRef.current.remote(changes),
       onDmHidden: (dmId, hidden) => setDms((prev) => prev.map((d) => (d.id === dmId ? { ...d, hidden } : d))),
@@ -1713,7 +1732,14 @@ function AppShell() {
    * for everyone in it; the one being read stays put meanwhile: hiding the conversation you are
    * looking at and watching it vanish under you would be its own small defect.
    */
-  const visibleDms = useMemo(() => dms.filter((d) => !d.hidden || d.id === channelId), [dms, channelId]);
+  const visibleDms = useMemo(() => dms.filter((d) => !d.hidden || d.id === channelId || d.unread > 0), [dms, channelId]);
+
+  /** Bring a hidden conversation back, for the account. */
+  const showDm = (id: string) => {
+    setDms((prev) => prev.map((d) => (d.id === id ? { ...d, hidden: false } : d)));
+    void setDmHidden(id, false).catch(() => {});
+  };
+
 
   /** Hide a direct conversation, and leave it if it is the one on screen. */
   const hideDm = (id: string) => {
@@ -2107,7 +2133,7 @@ function AppShell() {
       void getDirectMessages(space)
         .then((fresh) => {
           if (liveRef.current.ws !== space) return;
-          setDms(fresh.map((d) => (d.userId && presence[d.userId] ? { ...d, presence: presence[d.userId] } : d)));
+          setDms(returningDms(fresh).map((d) => (d.userId && presence[d.userId] ? { ...d, presence: presence[d.userId] } : d)));
         })
         .catch(() => {});
       void reloadSpaceCounters();
@@ -2562,6 +2588,9 @@ function AppShell() {
     setModal(null);
     const existing = dms.find((d) => d.name === name);
     if (existing) {
+      // Choosing someone again is asking to see that conversation: one hidden comes back, here and
+      // on the person's other devices.
+      if (existing.hidden) showDm(existing.id);
       openChannel(existing.id);
       return;
     }
@@ -4031,7 +4060,7 @@ function AppShell() {
         workspace={workspaces.find((w) => w.id === ws)}
         channels={channels}
         directMessages={visibleDms}
-        onHideDm={hideDm}
+        onHideDm={canHideDms ? hideDm : undefined}
         view={view}
         channel={channelId}
         mentionCount={mentionUnread}

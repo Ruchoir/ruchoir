@@ -530,16 +530,24 @@ usage with the design-system oxlint config.
   (accent, mode), the text size, `threadWidth` and the flags about this browser or app stay here
   only.** `settings.set` reports an account change (`onAccountChange`) and `settings.adopt` takes
   one from the server without sending it back. `useAccountPrefsSync` (wired in `AppRoot`) reconciles
-  at sign-in with `reconcileAccountPrefs` from `@ruchoir/client` (the first device sends its own,
-  otherwise the server's win; the desktop app's are the person's once `accountShared`), queues
-  changes in `localStorage` (`ruchoir.pendingAccountPrefs`, so an offline change goes up later),
-  sends them (`PATCH /me/preferences`; on a 400 the server's value comes back) and applies
-  `preferences.updated`. A server without the route (404) leaves everything local. A new setting:
+  at sign-in **and after every reconnection** with `reconcileAccountPrefs` from `@ruchoir/client`:
+  the first time this browser syncs with an account (`ruchoir.accountSynced`) the two are merged
+  (it sends what it chose, never its untouched defaults, for the keys the account lacks); afterwards
+  **the server's win**, so a device never imposes its old values over a change made elsewhere while
+  it was closed. Changes are queued in `localStorage` (`ruchoir.pendingAccountPrefs`, so an offline
+  change goes up later) and sent one send at a time (`PATCH /me/preferences`; on a 400 each key is
+  retried alone and only the refused one takes the server's value back). `preferences.updated` makes
+  it read the document again (order-safe) rather than trust the event's values; the desktop app
+  passes adopted changes on to its other instances. A server without the route (404) leaves
+  everything local. A new setting:
   decide which side it is on, and if it follows the account, add its key to `accountPrefs.ts` **and**
   to the server's closed list (`apps/api/src/preferences/document.rs`).
 - **Hidden direct conversations are the account's** (`DirectMessage.hidden`, `setDmHidden`,
   `dm.hidden`): the server clears the flag for everyone in it on a new message, and the sidebar keeps
-  the one being read. A browser's old `hiddenDms` are sent up once (`takeLegacyHiddenDms`).
+  the one being read. One with something unread shows, and is unhidden (`returningDms`). Hiding is
+  offered only where the instance lists `account_preferences`; picking a hidden conversation again in
+  "new message" unhides it. A browser's old `hiddenDms` are sent up, then forgotten
+  (`peekLegacyHiddenDms` / `clearLegacyHiddenDms`).
 - **Keyboard shortcuts.** Commands and their default chords live in `features/app/shortcuts.ts`
   (`COMMANDS`, `DEFAULT_BINDINGS`, plus `eventToChord`/`formatChord`; `Mod` = Cmd on macOS, Ctrl
   elsewhere). Bindings persist in the settings and are user-editable in Préférences > Raccourcis

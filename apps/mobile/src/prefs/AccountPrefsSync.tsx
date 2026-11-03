@@ -1,26 +1,28 @@
 /**
  * The account preferences kept in line with the server's (`store.ts`).
  *
- * - `AccountPrefsSync`, in every instance's scope: reconciles once that instance is signed in, and
+ * - `AccountPrefsSync`, in every instance's scope: reads the account once that instance is signed
+ *   in and again whenever its connection comes back (what was announced meanwhile is lost), and
  *   adopts the changes it announces (`preferences.updated`).
- * - `AccountPrefsSender`, once for the app: what a change made here is sent through, every
- *   signed-in instance at once (as the phone's notification switch is). A change made offline goes
- *   up when the list of instances changes, at the next sign-in, or with the next change.
+ * - `AccountPrefsSender`, once for the app: what a change is sent through, to every signed-in
+ *   instance at once (as the phone's notification switch is). A change made offline goes up when
+ *   an instance is read again, or with the next change.
  */
 import { useEffect } from "react";
 
 import { useSignedInClients } from "../accounts/AccountsProvider";
 import { useApi } from "../api/useApi";
-import { useRealtimeEvent } from "../realtime/RealtimeProvider";
-import { adoptPrefs, flushAccountPrefs, reconcileWith, setAccountSender } from "./store";
+import { useRealtimeEvent, useResync } from "../realtime/RealtimeProvider";
+import { adoptRemote, reconcileWith, setAccountSender } from "./store";
 
-export function AccountPrefsSync() {
+export function AccountPrefsSync({ userId }: { userId: string }) {
   const api = useApi();
+  const revision = useResync();
   useEffect(() => {
-    void reconcileWith(api).then(() => flushAccountPrefs());
-  }, [api]);
+    void reconcileWith(api, userId);
+  }, [api, userId, revision]);
   useRealtimeEvent((event) => {
-    if (event.type === "preferences") adoptPrefs(event.changes);
+    if (event.type === "preferences") void adoptRemote(api, event.changes);
   });
   return null;
 }
@@ -29,15 +31,18 @@ export function AccountPrefsSender() {
   const clients = useSignedInClients();
   useEffect(() => {
     if (clients.length === 0) return;
-    setAccountSender(async (patch) => {
+    setAccountSender(async (patch, except) => {
       const sent = await Promise.all(
-        clients.map((client) =>
-          client.patchAccountPreferences(patch).then(
-            () => true,
-            // An instance from before account preferences answers 404: nothing to keep there.
-            (err: { status?: number }) => err?.status === 404,
+        clients
+          .filter((client) => client !== except)
+          .map((client) =>
+            client.patchAccountPreferences(patch).then(
+              () => true,
+              // 404: an instance from before account preferences, nothing to keep there. 400: a
+              // value it refuses for good; the next reading of that account brings its own back.
+              (err: { status?: number }) => err?.status === 404 || err?.status === 400,
+            ),
           ),
-        ),
       );
       return sent.every(Boolean);
     });

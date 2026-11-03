@@ -226,9 +226,12 @@ CI=1 pnpm --filter @ruchoir/mobile bundle:ios   # proves Metro resolves and bund
   forced day or night is also handed to the system (`Appearance.setColorScheme`) so its own controls
   follow. The notifications are the account's, on the server, as the web's. **So are the language and
   the agenda's settings** (`MOBILE_ACCOUNT_KEYS`, wire keys shared with the web where they are the
-  same setting): `setPrefs` queues and sends a change to every signed-in instance
-  (`AccountPrefsSender`), each instance's scope reconciles at sign-in and adopts
-  `preferences.updated` (`AccountPrefsSync`); the look (mode, accent, text size) stays the phone's.
+  same setting): `setPrefs` queues and sends a change to every signed-in instance, one send at a time
+  (`AccountPrefsSender`); each instance's scope reads the account at sign-in and after every
+  reconnection (`useResync`), merging the first time this phone syncs with that account and taking
+  the server's values afterwards, and adopts `preferences.updated` by reading the document again,
+  passing it on to the other instances (`AccountPrefsSync`). The look (mode, accent, text size)
+  stays the phone's.
   A private conversation hidden on any device is out of the Discussions list (`hidden`); a long press
   hides one, where the instance lists `account_preferences`.
 - **Every list on screen follows the live events.** `realtime/events.ts` relays every event the

@@ -8,55 +8,61 @@ import { fakeFetch } from "./fakeFetch.ts";
 beforeEach(() => resetClientForTests());
 
 const KEYS = ["locale", "font", "calendar_duration"] as const;
+const DEFAULTS = { locale: null, font: "plex", calendar_duration: 60 };
 
-test("reconcile_pushes_local_when_the_server_is_empty", () => {
+test("a_first_sync_on_an_empty_server_sends_what_this_device_chose", () => {
   const out = reconcileAccountPrefs({
-    local: { locale: "fr", font: "system", calendar_duration: 30 },
+    local: { locale: "fr", font: "system", calendar_duration: 60 },
     server: {},
     keys: KEYS,
-    shared: false,
+    defaults: DEFAULTS,
+    first: true,
   });
   assert.deepEqual(out.apply, {});
-  assert.deepEqual(out.push, { locale: "fr", font: "system", calendar_duration: 30 });
+  // Untouched defaults are not a choice: sending them would make the next device's first sync
+  // believe the account had decided.
+  assert.deepEqual(out.push, { locale: "fr", font: "system" });
+});
+
+test("a_first_sync_merges_rather_than_wiping", () => {
+  // The phone went first and holds the language; the laptop's own font and length are not lost.
+  const out = reconcileAccountPrefs({
+    local: { locale: "fr", font: "dyslexic", calendar_duration: 30 },
+    server: { locale: "en" },
+    keys: KEYS,
+    defaults: DEFAULTS,
+    first: true,
+  });
+  assert.deepEqual(out.apply, { locale: "en" });
+  assert.deepEqual(out.push, { font: "dyslexic", calendar_duration: 30 });
 });
 
 test("reconcile_server_wins_once_it_holds_something", () => {
+  // Later syncs: the account is the reference, and what it no longer holds is back to its default.
   const out = reconcileAccountPrefs({
     local: { locale: "fr", font: "system" },
     server: { locale: "en" },
     keys: KEYS,
-    shared: false,
+    defaults: DEFAULTS,
+    first: false,
   });
-  // What the server does not hold goes back to its default, not to this device's old value.
   assert.deepEqual(out.apply, { locale: "en", font: null, calendar_duration: null });
   assert.deepEqual(out.push, {});
 });
 
 test("reconcile_never_touches_unknown_keys", () => {
   // The phone knows only its keys: the web's rail order is neither applied nor sent.
-  const out = reconcileAccountPrefs({
-    local: { locale: "fr", space_order: ["a"] },
-    server: { locale: "en", space_order: ["b"] },
-    keys: KEYS,
-    shared: false,
-  });
-  assert.equal("space_order" in out.apply, false);
-  assert.equal("space_order" in out.push, false);
-  const first = reconcileAccountPrefs({ local: { space_order: ["a"] }, server: { space_order: ["b"] }, keys: KEYS, shared: false });
-  // The server holds none of this app's keys: the local ones go up, and only those.
-  assert.deepEqual(first.push, {});
-  assert.deepEqual(first.apply, {});
-});
-
-test("reconcile_shared_pushes_only_differences", () => {
-  const out = reconcileAccountPrefs({
-    local: { locale: "fr", font: "dyslexic", calendar_duration: 60 },
-    server: { locale: "fr", font: "plex" },
-    keys: KEYS,
-    shared: true,
-  });
-  assert.deepEqual(out.apply, {});
-  assert.deepEqual(out.push, { font: "dyslexic", calendar_duration: 60 });
+  for (const first of [true, false]) {
+    const out = reconcileAccountPrefs({
+      local: { locale: "fr", space_order: ["a"] },
+      server: { locale: "en", space_order: ["b"] },
+      keys: KEYS,
+      defaults: DEFAULTS,
+      first,
+    });
+    assert.equal("space_order" in out.apply, false);
+    assert.equal("space_order" in out.push, false);
+  }
 });
 
 test("merge_pending_keeps_the_last", () => {

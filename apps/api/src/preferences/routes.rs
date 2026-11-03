@@ -56,8 +56,11 @@ pub async fn get_preferences(
 pub async fn patch_preferences(
     State(state): State<AppState>,
     session: AuthSession,
-    Json(patch): Json<Document>,
+    Json(body): Json<Value>,
 ) -> Result<Json<Document>, ApiError> {
+    let Value::Object(patch) = body else {
+        return Err(ApiError::BadRequest("preferences: expected an object"));
+    };
     validate_patch(&patch).map_err(ApiError::BadRequestOwned)?;
     let now = OffsetDateTime::now_utc();
 

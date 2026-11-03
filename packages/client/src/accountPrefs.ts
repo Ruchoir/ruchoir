@@ -24,29 +24,35 @@ function same(a: unknown, b: unknown): boolean {
 }
 
 /**
- * At sign-in, what to take from the server (`apply`) and what to send it (`push`), over `keys` only.
+ * At sign-in (and again after a lost connection), what to take from the server (`apply`) and what
+ * to send it (`push`), over `keys` only.
  *
- * - `shared` (an app with several instances, once the person chose there): the app's values are the
- *   person's, sent to every instance; only the ones the server does not already hold go up.
- * - The server holds none of `keys` yet (first device on this account, or a server just upgraded):
- *   this device's go up, so nobody loses their arrangement.
- * - Otherwise the server's win; a key it does not hold comes back as `null`, its default.
+ * - `first`: this device has never synced with this account. Nobody's arrangement is lost: the
+ *   server's values are taken for the keys it holds, and this device sends the ones it chose (those
+ *   that differ from `defaults`) for the keys the server does not hold yet.
+ * - Otherwise the account is the reference: the server's values win, and a key it no longer holds
+ *   comes back as `null`, its default (someone reset it on another device).
+ *
+ * The device never imposes its own values after its first sync: a change made on the web while the
+ * phone was closed is what the phone shows when it opens.
  */
 export function reconcileAccountPrefs(opts: {
   local: AccountPrefsDoc;
   server: AccountPrefsDoc;
   keys: readonly string[];
-  shared: boolean;
+  defaults: AccountPrefsDoc;
+  first: boolean;
 }): { apply: AccountPrefsDoc; push: AccountPrefsDoc } {
-  const { local, server, keys, shared } = opts;
-  const mine = pick(local, keys);
+  const { local, server, keys, defaults, first } = opts;
   const theirs = pick(server, keys);
-  if (shared) {
+  if (first) {
     const push: AccountPrefsDoc = {};
-    for (const [key, value] of Object.entries(mine)) if (!same(value, theirs[key])) push[key] = value;
-    return { apply: {}, push };
+    for (const key of keys) {
+      if (key in theirs || !(key in local)) continue;
+      if (!same(local[key], defaults[key] ?? null)) push[key] = local[key];
+    }
+    return { apply: theirs, push };
   }
-  if (Object.keys(theirs).length === 0) return { apply: {}, push: mine };
   const apply: AccountPrefsDoc = {};
   for (const key of keys) apply[key] = key in theirs ? theirs[key] : null;
   return { apply, push: {} };

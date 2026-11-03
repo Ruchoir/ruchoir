@@ -1045,7 +1045,7 @@
     "agendaView": "Widok po otwarciu",
     "weekStart": "Pierwszy dzień tygodnia",
     "duration": "Długość nowego wydarzenia",
-    "onThisPhone": "Wygląd, język i kalendarz są ustawione dla tego telefonu. Powiadomienia dotyczą wszystkich twoich urządzeń.",
+    "onThisPhone": "Wygląd jest ustawiony dla tego telefonu. Język, kalendarz i powiadomienia dotyczą wszystkich twoich urządzeń.",
     "minutes": "{{n}} min",
     "hours": "{{n}} godz.",
     "hoursMinutes": "{{h}} godz. {{m}} min"

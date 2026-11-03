@@ -57,6 +57,10 @@ pub const KEYS: &[&str] = &[
     "calendar_duration",
 ];
 
+/// The working day the apps show when nobody chose one (`DEFAULT_CALENDAR_PREFS` on the web).
+const DEFAULT_WORK_START: i64 = 9;
+const DEFAULT_WORK_END: i64 = 18;
+
 const MAX_SPACE_ORDER: usize = 500;
 const MAX_COLLAPSED_SECTIONS: usize = 16;
 const MAX_SHORTCUTS: usize = 64;
@@ -223,15 +227,14 @@ pub fn merge(stored: &Document, patch: &Document) -> Result<Document, String> {
             out.insert(key.clone(), value.clone());
         }
     }
-    if let (Some(start), Some(end)) = (
-        out.get("calendar_work_start").and_then(Value::as_i64),
-        out.get("calendar_work_end").and_then(Value::as_i64),
-    ) {
-        if start >= end {
-            return Err(
-                "calendar_work_start: the working day must start before it ends".to_owned(),
-            );
-        }
+    // An end nobody set is the default one, for every app: a start after it is as wrong as after a
+    // stored end, or the apps would each show something else.
+    let start = out.get("calendar_work_start").and_then(Value::as_i64);
+    let end = out.get("calendar_work_end").and_then(Value::as_i64);
+    if (start.is_some() || end.is_some())
+        && start.unwrap_or(DEFAULT_WORK_START) >= end.unwrap_or(DEFAULT_WORK_END)
+    {
+        return Err("calendar_work_start: the working day must start before it ends".to_owned());
     }
     let (_, _, rest) = split(&out);
     if Value::Object(rest).to_string().len() > MAX_UI_STATE_BYTES {
@@ -370,6 +373,17 @@ mod tests {
         let err = merge(&stored, &doc(json!({ "calendar_work_start": 20 }))).unwrap_err();
         assert!(err.starts_with("calendar_work_start:"), "{err}");
         assert!(merge(&stored, &doc(json!({ "calendar_work_start": 17 }))).is_ok());
+    }
+
+    #[test]
+    fn the_working_day_is_checked_against_the_default_of_the_other_end() {
+        // Nobody set the end (the phone never touches it): it is the default 18 h for every app.
+        let err = merge(&Document::new(), &doc(json!({ "calendar_work_start": 20 }))).unwrap_err();
+        assert!(err.starts_with("calendar_work_start:"), "{err}");
+        // Nor the start (9 h by default).
+        assert!(merge(&Document::new(), &doc(json!({ "calendar_work_end": 8 }))).is_err());
+        assert!(merge(&Document::new(), &doc(json!({ "calendar_work_start": 17 }))).is_ok());
+        assert!(merge(&Document::new(), &doc(json!({ "calendar_work_end": 10 }))).is_ok());
     }
 
     #[test]

@@ -142,6 +142,17 @@ async fn an_invalid_value_is_refused_and_nothing_changes() {
             .starts_with("calendar_open_at:"),
         "{body}"
     );
+    // Not a document at all: refused the same way, with a sentence.
+    let list = patch(&app, &alice, json!(["locale", "en"])).await;
+    assert_eq!(list.status(), 400);
+    let body: Value = list.json().await.expect("json");
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("preferences:"),
+        "{body}"
+    );
     // The theme is the device's own.
     assert_eq!(
         patch(&app, &alice, json!({ "theme": "mint" }))
@@ -349,14 +360,17 @@ async fn reopening_a_hidden_dm_unhides_it() {
     let alice = app.cookie_for(fx.alice).await;
     let dm = open_dm(&app, &alice, fx.space_id, fx.bob).await;
     set_hidden(&app, &alice, &dm, true).await;
+    let mut phone = app.connect_ws(&alice).await;
 
     // The "new message" picker, choosing Bob again, answers the same conversation...
     assert_eq!(open_dm(&app, &alice, fx.space_id, fx.bob).await, dm);
-    // ...and brings it back into the caller's list.
+    // ...and brings it back into the caller's list, on her other devices too.
     assert_eq!(
         listed_hidden(&app, &alice, fx.space_id, &dm).await,
         Some(false)
     );
+    let event = wait_for_type(&mut phone, "dm.hidden").await;
+    assert_eq!(event["payload"], json!({ "dm_id": dm, "hidden": false }));
 }
 
 #[tokio::test]
