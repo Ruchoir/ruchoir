@@ -1814,7 +1814,8 @@
         "tooLarge": "Ce fichier est trop volumineux pour être envoyé.",
         "busy": "Un envoi est déjà en cours pour ce fichier.",
         "failed": "La version n’a pas pu être envoyée. Réessayez.",
-        "notWatched": "Ce fichier n’est plus suivi : rouvrez-le pour envoyer une version."
+        "notWatched": "Ce fichier n’est plus suivi : rouvrez-le pour envoyer une version.",
+        "unchanged": "Ce fichier est identique à la version d’origine : il n’y a rien à envoyer."
       },
       "unwatchedTitle": "Ouvert sans suivi",
       "unwatched": "Le fichier est ouvert, mais l’enregistrement ne sera pas proposé pour lui : ses versions n’ont pas pu être lues."

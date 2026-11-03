@@ -1856,7 +1856,8 @@
         "tooLarge": "Questo file è troppo grande per essere inviato.",
         "busy": "Un invio è già in corso per questo file.",
         "failed": "Impossibile inviare la versione. Riprova.",
-        "notWatched": "Questo file non è più monitorato: riaprilo per inviare una versione."
+        "notWatched": "Questo file non è più monitorato: riaprilo per inviare una versione.",
+        "unchanged": "Questo file è identico alla versione da cui è stato aperto: non c’è nulla da inviare."
       },
       "unwatchedTitle": "Aperto senza monitoraggio",
       "unwatched": "Il file è aperto, ma il salvataggio non verrà proposto: non è stato possibile leggere le sue versioni."

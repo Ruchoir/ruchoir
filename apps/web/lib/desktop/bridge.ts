@@ -77,6 +77,10 @@ export const fileKeepCopy = (instance: string, fileId: string) => invoke<boolean
 export function onFileSaved(handler: (saved: SavedFile) => void): Promise<() => void> {
   return listen<SavedFile>("file:saved", (event) => handler(event.payload));
 }
+/** An instance was signed out or removed on purpose: its opened copies are gone, so are their banners. */
+export function onFilesForgotten(handler: (instance: string) => void): Promise<() => void> {
+  return listen<string>("file:forgotten", (event) => handler(event.payload));
+}
 export const setDesktopSettings = (settings: DesktopSettings) => invoke<DesktopSettings>("set_desktop_settings", { settings });
 /** The tray menu's words and the first-close notice, in the interface's language. */
 export const setShellLabels = (labels: {

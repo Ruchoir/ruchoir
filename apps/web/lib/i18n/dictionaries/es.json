@@ -1856,7 +1856,8 @@
         "tooLarge": "Este archivo es demasiado grande para enviarlo.",
         "busy": "Ya hay un envío en curso para este archivo.",
         "failed": "No se pudo enviar la versión. Inténtelo de nuevo.",
-        "notWatched": "Este archivo ya no se sigue: vuelva a abrirlo para enviar una versión."
+        "notWatched": "Este archivo ya no se sigue: vuelva a abrirlo para enviar una versión.",
+        "unchanged": "Este archivo es igual a la versión de la que se abrió: no hay nada que enviar."
       },
       "unwatchedTitle": "Abierto sin seguimiento",
       "unwatched": "El archivo está abierto, pero no se ofrecerá enviar lo que guarde: no se pudieron leer sus versiones."

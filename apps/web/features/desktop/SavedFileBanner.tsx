@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient, isApiError, type RuchoirClient } from "@ruchoir/client";
 import { Button, Dialog, Icon } from "@/components/ds";
-import { fileDismiss, fileKeepCopy, fileSendVersion, onFileSaved, onInstancesChanged } from "@/lib/desktop/bridge";
+import { fileDismiss, fileKeepCopy, fileSendVersion, onFileSaved, onFilesForgotten, onInstancesChanged } from "@/lib/desktop/bridge";
 import { instanceBase } from "@/lib/desktop/runtime";
 import { useTranslation } from "@/lib/i18n";
 import { choiceFor, codeOfStatus, errorText as errorWords, fileKey, pushSaved, VISIBLE_SAVED, type SavedFile } from "./savedFile";
@@ -25,6 +25,11 @@ const SENT_MS = 4000;
 export function SavedFileBanner() {
   const { t } = useTranslation();
   const [saved, setSaved] = useState<SavedFile[]>([]);
+  // The list as last rendered, for a listener that outlives a render.
+  const savedRef = useRef<SavedFile[]>([]);
+  useEffect(() => {
+    savedRef.current = saved;
+  }, [saved]);
   const [phases, setPhases] = useState<Record<string, Phase>>({});
   // A client per instance: the saved file may belong to one the interface is not showing.
   const clients = useRef(new Map<string, RuchoirClient>());
@@ -66,6 +71,16 @@ export function SavedFileBanner() {
     });
     return () => void stop.then((unlisten) => unlisten());
   }, []);
+
+  // A deliberate sign-out or a removal deletes the instance's copies: their banners go too. An
+  // expired session keeps them (they say "signed out" and work after the next sign-in).
+  useEffect(() => {
+    const stop = onFilesForgotten((instance) => {
+      clients.current.delete(instance);
+      for (const key of [...savedRef.current].filter((s) => s.instance === instance).map(fileKey)) drop(key);
+    });
+    return () => void stop.then((unlisten) => unlisten());
+  }, [drop]);
 
   useEffect(() => {
     const stop = onFileSaved((event) => {

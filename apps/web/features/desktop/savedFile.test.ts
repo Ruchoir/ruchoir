@@ -35,7 +35,7 @@ test("only_three_are_shown_at_most", () => {
 });
 
 test("every_error_code_has_its_own_words", () => {
-  const codes = ["too_large", "busy", "signed_out", "unreachable", "forbidden", "not_watched", "failed", "whatever"];
+  const codes = ["too_large", "busy", "signed_out", "unreachable", "forbidden", "not_watched", "unchanged", "failed", "whatever"];
   const keys = codes.map((c) => errorText(c, (k) => k));
   assert.deepEqual(keys, [
     "desktop.files.saved.tooLarge",
@@ -44,6 +44,7 @@ test("every_error_code_has_its_own_words", () => {
     "desktop.download.unreachable",
     "files.uploadForbidden",
     "desktop.files.saved.notWatched",
+    "desktop.files.saved.unchanged",
     "desktop.files.saved.failed",
     "desktop.files.saved.failed",
   ]);

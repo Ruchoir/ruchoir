@@ -1788,7 +1788,8 @@
         "tooLarge": "This file is too large to send.",
         "busy": "A send is already in progress for this file.",
         "failed": "The version could not be sent. Try again.",
-        "notWatched": "This file is no longer tracked: reopen it to send a version."
+        "notWatched": "This file is no longer tracked: reopen it to send a version.",
+        "unchanged": "This file is the same as the version it was opened from: there is nothing to send."
       },
       "unwatchedTitle": "Opened without tracking",
       "unwatched": "The file is open, but saving will not be offered for it: its versions could not be read."

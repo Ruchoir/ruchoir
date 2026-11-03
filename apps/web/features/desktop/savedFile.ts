@@ -37,6 +37,8 @@ export function errorText(code: string, t: (key: DictKey) => string): string {
       return t("desktop.download.unreachable");
     case "forbidden":
       return t("files.uploadForbidden");
+    case "unchanged":
+      return t("desktop.files.saved.unchanged");
     case "not_watched":
       return t("desktop.files.saved.notWatched");
     default:
