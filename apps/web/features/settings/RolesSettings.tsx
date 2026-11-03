@@ -11,7 +11,7 @@ import { useDragReorder } from "../app/useDragReorder";
 import { refusalMessage, RoleDot, roleLabel } from "./MemberAccess";
 import { ColourPicker, RoleEditor } from "./RoleEditor";
 import { FAMILY_TEXT, PERMISSION_TEXT } from "./permissionText";
-import { FAMILIES, orderAllowed, type RoleRowState, roleRowState } from "./rolesLogic";
+import { FAMILIES, holdsEverything, orderAllowed, type RoleRowState, roleRowState } from "./rolesLogic";
 
 const st: Record<string, CSSProperties> = {
   h: { fontSize: "clamp(28px, 3.4vw, 40px)", fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.05, color: "var(--text-strong)", marginBottom: 10 },
@@ -254,7 +254,7 @@ function RankedRoles({ spaceId, roles, me, myRights, edition, onChanged, onNotif
           {isBase ? <span style={st.note}>{role.systemKey === "members" ? t("roles.membersLead") : t("roles.guestsNote")}</span> : null}
         </span>
         <span style={st.count}>{role.systemKey === "members" ? t("roles.everyMember") : role.holders}</span>
-        <span style={st.sum}>{role.systemKey === "administrator" ? t("roles.allRights") : t("roles.rightsCount", { count: role.permissions.length })}</span>
+        <span style={st.sum}>{holdsEverything(role) ? t("roles.allRights") : t("roles.rightsCount", { count: role.permissions.length })}</span>
         <span style={st.right}>{right(state)}</span>
       </div>
     );

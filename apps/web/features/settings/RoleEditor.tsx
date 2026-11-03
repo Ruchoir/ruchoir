@@ -339,11 +339,11 @@ export function RoleEditor({ spaceId, role, roles, members, myRights, frozen, on
                     <div style={{ fontSize: "var(--text-xs)", fontWeight: 500, color: "var(--text-strong)" }}>{m.name}</div>
                     {m.title ? <div style={{ fontSize: "var(--text-2xs)", color: "var(--text-muted)" }}>{m.title}</div> : null}
                   </span>
-                  {editable && custom && m.manageable ? (
+                  {editable && role.systemKey !== "guests" && m.manageable ? (
                     <IconButton
                       icon="user-minus"
                       size="sm"
-                      label={t("roles.takeAway", { name: m.name, role: role.name })}
+                      label={t("roles.takeAway", { name: m.name, role: roleLabel(role, t) })}
                       onClick={() => void onSetMemberRoles(m.userId, withThisRole(m, false))}
                     />
                   ) : null}

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { changedPermissions, FAMILIES, grantableRoles, memberAccessFor, orderAllowed, permissionRow, roleRowState } from "./rolesLogic.ts";
+import { changedPermissions, FAMILIES, grantableRoles, holdsEverything, memberAccessFor, orderAllowed, permissionRow, roleRowState } from "./rolesLogic.ts";
 
 const role = (id: string, over: Partial<{ systemKey: "administrator" | "members" | "guests"; permissions: string[]; manageable: boolean; position: number }> = {}) => ({
   id,
@@ -17,6 +17,9 @@ test("every_permission_of_the_catalogue_sits_in_one_family", () => {
   const all = FAMILIES.flatMap((f) => f.permissions);
   assert.equal(all.length, 29);
   assert.equal(new Set(all).size, 29);
+  // "Tous les droits" is said only of a role holding every one of them.
+  assert.equal(holdsEverything({ permissions: all }), true);
+  assert.equal(holdsEverything({ permissions: all.slice(1) }), false);
 });
 
 test("a_row_is_locked_when_the_viewer_lacks_the_permission", () => {
@@ -82,6 +85,7 @@ test("a_row_of_the_roles_list_says_why_it_cannot_be_opened", () => {
   assert.equal(roleRowState(compta, { myTopRoleId: "hr", frozen: false }), "edit");
   assert.equal(roleRowState(members, { myTopRoleId: "hr", frozen: false }), "edit");
   assert.equal(roleRowState(compta, { myTopRoleId: "hr", frozen: true }), "frozen");
-  // The owner manages Administrator, whose rights are all of them and never edited.
-  assert.equal(roleRowState({ ...admin, manageable: true }, { frozen: false }), "fixed");
+  // The owner manages Administrator: a system role, tuned like any other (spec: editable, not
+  // deletable).
+  assert.equal(roleRowState({ ...admin, manageable: true }, { frozen: false }), "edit");
 });

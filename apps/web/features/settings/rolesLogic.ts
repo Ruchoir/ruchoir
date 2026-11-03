@@ -123,15 +123,19 @@ export function grantableRoles(mine: string, theirs: string): string[] {
 }
 
 /**
- * What a row of the roles list does for the viewer: `edit` opens the editor, `fixed` is
- * Administrator for whoever may give it (all the rights, never edited), the others say why it does
- * not open.
+ * What a row of the roles list does for the viewer: `edit` opens the editor (Administrator
+ * included, for whoever sits above it: a system role is tuned, never deleted), the others say why
+ * it does not open.
  */
-export type RoleRowState = "edit" | "fixed" | "mine" | "above" | "frozen";
+export type RoleRowState = "edit" | "mine" | "above" | "frozen";
 
 export function roleRowState(role: RoleLike, ctx: { myTopRoleId?: string; frozen: boolean }): RoleRowState {
   if (role.id === ctx.myTopRoleId) return "mine";
   if (!role.manageable) return "above";
-  if (role.systemKey === "administrator") return "fixed";
   return ctx.frozen ? "frozen" : "edit";
+}
+
+/** Whether a role holds every right of the catalogue: said as such rather than counted. */
+export function holdsEverything(role: Pick<RoleLike, "permissions">): boolean {
+  return FAMILIES.every((f) => f.permissions.every((p) => role.permissions.includes(p)));
 }
