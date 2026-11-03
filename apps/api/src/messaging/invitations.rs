@@ -104,6 +104,23 @@ pub async fn create_invitation(
             ))
         }
     };
+    // Administrator is a role: the link gives it as `PATCH .../members/{id}` would, so the inviter
+    // holds `roles.manage` and ranks above it (rule 1). Without this, anyone who may invite could
+    // hand out the role above their own, through a second account.
+    if role == "admin" {
+        use crate::permissions::delegation::{fixed_role_position, rank_of};
+        let rights =
+            crate::permissions::check::space_rights(&state.db, space_id, session.user_id).await?;
+        let rank = rank_of(&state.db, space_id, session.user_id)
+            .await?
+            .ok_or(ApiError::Forbidden)?;
+        let above = fixed_role_position(&state.db, space_id, "admin")
+            .await?
+            .is_some_and(|position| rank.outranks_position(position));
+        if !rights.contains(crate::permissions::catalogue::Permission::RolesManage) || !above {
+            return Err(ApiError::ForbiddenBecause("role_above_you"));
+        }
+    }
     if super::edition_view::takes_a_seat(role) {
         super::edition_view::ensure_a_seat(&state, space_id).await?;
     }
