@@ -4410,6 +4410,7 @@ function AppShell() {
           onAccessChanged={refreshAccess}
           onSaveMemberRoles={saveMemberRoles}
           canReadAudit={gates.readAudit}
+          canManageGroups={gates.manageGroups}
           canManageLicence={canLicences && currentWorkspace?.role === "owner"}
           licence={currentWorkspace?.licence}
           onLicenceChanged={refreshSpace}

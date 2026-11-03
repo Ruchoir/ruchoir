@@ -1,0 +1,329 @@
+"use client";
+
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
+import { Avatar, Button, Card, Dialog, Field, Icon, Input, Tag } from "@/components/ds";
+import type { Member } from "@/lib/data/api";
+import { createGroup, listGroups, refusalOf } from "@/lib/data/api";
+import type { Group, Role, SpaceEdition } from "@/lib/data/types";
+import { getAvatar } from "@/lib/data";
+import { useTranslation } from "@/lib/i18n";
+import type { Toast } from "../app/types";
+import { GroupEditor, GroupIcon } from "./GroupEditor";
+import { groupRow, foldName, sortGroups } from "./groupsLogic.ts";
+import { refusalMessage, RoleChip, roleLabel } from "./MemberAccess";
+
+const st: Record<string, CSSProperties> = {
+  h: { fontSize: "clamp(28px, 3.4vw, 40px)", fontWeight: 700, letterSpacing: "var(--tracking-display)", lineHeight: 1.05, color: "var(--text-strong)", marginBottom: 10 },
+  sub: { fontSize: "var(--text-md)", color: "var(--text-body)", marginBottom: 20 },
+  tools: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 },
+  muted: { fontSize: "var(--text-xs)", color: "var(--text-muted)" },
+  head: { display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", fontFamily: "var(--label-font)", fontSize: "var(--text-2xs)", color: "var(--text-muted)" },
+  row: { display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", background: "var(--surface-raised)" },
+  name: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10 },
+  title: { display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--text-strong)" },
+  desc: { fontSize: "var(--text-xs)", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  people: { width: 120, flex: "none", display: "flex", alignItems: "center", gap: 8, fontSize: "var(--text-xs)", color: "var(--text-body)" },
+  roles: { width: 170, flex: "none", display: "flex", flexWrap: "wrap", gap: 4, fontSize: "var(--text-xs)", color: "var(--text-muted)" },
+  managers: { width: 140, flex: "none", display: "flex", flexDirection: "column", gap: 3, fontSize: "var(--text-xs)", color: "var(--text-body)" },
+  end: { width: 54, flex: "none", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 5, fontSize: "var(--text-2xs)", color: "var(--text-muted)" },
+  note: { display: "flex", gap: 8, alignItems: "flex-start", fontSize: "var(--text-xs)", color: "var(--text-muted)", marginTop: 12, lineHeight: "var(--leading-snug)" },
+  upsell: {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 18,
+    padding: "12px 14px",
+    border: "1px dashed var(--border-default)",
+    borderRadius: "var(--radius-md)",
+    fontSize: "var(--text-xs)",
+    color: "var(--text-body)",
+  },
+};
+
+export type GroupsSettingsProps = {
+  spaceId: string;
+  spaceName: string;
+  edition: SpaceEdition;
+  /** The space's roles, strongest first, base roles last. */
+  roles: Role[];
+  members: Member[];
+  me?: Member;
+  pricingUrl?: string;
+  /** Roles or their holders may have changed: read them again. */
+  onChanged: () => Promise<void>;
+  onNotify: (toast: Toast) => void;
+};
+
+/**
+ * The Groupes tab. It reads the space's groups itself and reads them again after each write; the
+ * list is the community one (people only, one discreet line about more) or the licensed one (roles
+ * carried and managers too).
+ */
+export function GroupsSettings(props: GroupsSettingsProps) {
+  const { t } = useTranslation();
+  const { spaceId, edition, onNotify } = props;
+  const [groups, setGroups] = useState<Group[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    try {
+      setGroups(await listGroups(spaceId));
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
+  }, [spaceId]);
+
+  useEffect(() => {
+    let live = true;
+    listGroups(spaceId).then(
+      (list) => live && setGroups(list),
+      () => live && setFailed(true),
+    );
+    return () => {
+      live = false;
+    };
+  }, [spaceId]);
+
+  const changed = async () => {
+    await reload();
+    await props.onChanged();
+  };
+
+  const group = editing ? groups?.find((g) => g.id === editing) : undefined;
+  if (group) {
+    return (
+      <GroupEditor
+        // A group read again after a write starts its drafts from what was saved.
+        key={`${group.id}:${group.name}:${group.description ?? ""}:${group.roleIds.join(",")}`}
+        spaceId={spaceId}
+        group={group}
+        edition={edition}
+        roles={props.roles}
+        members={props.members}
+        me={props.me}
+        onBack={() => setEditing(null)}
+        onChanged={changed}
+        onNotify={onNotify}
+      />
+    );
+  }
+  if (failed && !groups) return <p style={st.sub}>{t("groups.loadFailed")}</p>;
+  return <GroupList {...props} groups={groups} onOpen={setEditing} onCreated={async (id, name) => {
+          await changed();
+          onNotify({ tone: "success", title: t("groups.created"), description: name });
+          setEditing(id);
+        }} />;
+}
+
+function GroupList({
+  spaceId,
+  edition,
+  roles,
+  members,
+  pricingUrl,
+  groups,
+  onOpen,
+  onCreated,
+}: GroupsSettingsProps & { groups: Group[] | null; onOpen: (id: string) => void; onCreated: (id: string, name: string) => Promise<void> }) {
+  const { t } = useTranslation();
+  const licensed = edition !== "community";
+  const frozen = edition === "frozen";
+  const [query, setQuery] = useState("");
+  const [creating, setCreating] = useState(false);
+  const byId = new Map(members.map((m) => [m.userId, m]));
+  const needle = foldName(query.trim());
+  const shown = sortGroups(groups ?? []).filter((g) => foldName(g.name).includes(needle));
+  const lockedAbove = licensed
+    ? sortGroups(groups ?? [])
+        .map((g) => ({ g, row: groupRow(g, roles, { frozen }) }))
+        .find((x) => x.row.locked === "above")
+    : undefined;
+
+  return (
+    <>
+      <h2 style={st.h}>{t("groups.title")}</h2>
+      <p style={st.sub}>{licensed ? t("groups.subLicensed") : t("groups.sub")}</p>
+      <div style={st.tools}>
+        {frozen ? (
+          <span style={{ ...st.muted, flex: 1, minWidth: 220 }}>{t("groups.frozenNote")}</span>
+        ) : (
+          <div style={{ width: 280 }}>
+            <Input size="sm" icon="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("groups.search")} aria-label={t("groups.search")} />
+          </div>
+        )}
+        <span style={{ flex: 1 }} />
+        <Button size="sm" variant="primary" iconLeft="plus" onClick={() => setCreating(true)}>
+          {t("groups.create")}
+        </Button>
+      </div>
+      {groups === null ? null : groups.length === 0 ? (
+        <p style={st.muted}>{t("groups.empty")}</p>
+      ) : (
+        <Card>
+          <div style={st.head}>
+            <span style={{ width: 36 }} />
+            <span style={{ ...st.name, display: "block", fontWeight: 400 }}>{t("groups.colGroup")}</span>
+            <span style={st.people}>{t("gsearch.people")}</span>
+            {licensed ? <span style={st.roles}>{t("groups.colRoles")}</span> : null}
+            {licensed ? <span style={st.managers}>{t("groups.colManagers")}</span> : null}
+            <span style={st.end} />
+          </div>
+          {shown.length === 0 ? (
+            <div style={{ ...st.row, ...st.muted }}>{t("search.noResult")}</div>
+          ) : (
+            shown.map((g, i) => {
+              const row = groupRow(g, roles, { frozen });
+              const opens = row.locked !== "above" || Object.values(g.may).some(Boolean);
+              const people = g.memberIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
+              const managers = g.managerIds.map((id) => byId.get(id)).filter((m): m is Member => !!m);
+              return (
+                <div
+                  key={g.id}
+                  role={opens ? "button" : undefined}
+                  tabIndex={opens ? 0 : undefined}
+                  onClick={opens ? () => onOpen(g.id) : undefined}
+                  onKeyDown={opens ? (e) => (e.key === "Enter" || e.key === " ") && onOpen(g.id) : undefined}
+                  style={{ ...st.row, borderTop: i ? "1px solid var(--border-subtle)" : "none", cursor: opens ? "pointer" : "default" }}
+                >
+                  <GroupIcon id={g.id} />
+                  <span style={{ ...st.name, flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
+                    <span style={st.title}>
+                      {g.name}
+                      {g.source === "directory" ? <Tag icon="refresh-cw">{t("groups.directoryTag")}</Tag> : null}
+                    </span>
+                    {g.description ? <span style={{ ...st.desc, maxWidth: "100%" }}>{g.description}</span> : null}
+                  </span>
+                  <span style={st.people}>
+                    <span style={{ display: "flex" }}>
+                      {people.slice(0, 3).map((m, k) => (
+                        <Avatar key={m.userId} name={m.name} src={m.avatarUrl ?? getAvatar(m.name)} size={22} style={{ marginLeft: k ? -6 : 0 }} />
+                      ))}
+                    </span>
+                    {g.memberIds.length}
+                  </span>
+                  {licensed ? (
+                    <span style={st.roles}>
+                      {row.carries.length === 0 ? t("groups.noRole") : row.carries.map((r) => <RoleChip key={r.id} role={r} />)}
+                    </span>
+                  ) : null}
+                  {licensed ? (
+                    <span style={st.managers}>
+                      {g.source === "directory"
+                        ? t("groups.directoryDecides")
+                        : managers.map((m) => (
+                            <span key={m.userId} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <Avatar name={m.name} src={m.avatarUrl ?? getAvatar(m.name)} size={18} />
+                              {m.name.split(" ")[0]}
+                            </span>
+                          ))}
+                    </span>
+                  ) : null}
+                  <span style={st.end}>
+                    {row.locked === "above" ? (
+                      <Icon name="lock" size={14} />
+                    ) : row.locked === "frozen" ? (
+                      <>
+                        <Icon name="clock" size={13} />
+                        {t("roles.frozenShort")}
+                      </>
+                    ) : (
+                      <Icon name="chevron-right" size={16} />
+                    )}
+                  </span>
+                </div>
+              );
+            })
+          )}
+        </Card>
+      )}
+      {lockedAbove ? (
+        <div style={st.note}>
+          <Icon name="lock" size={13} style={{ marginTop: 2 }} />
+          <span>
+            {t("groups.lockedAbove", {
+              group: lockedAbove.g.name,
+              roles: lockedAbove.row.carries.map((r) => roleLabel(r, t)).join(", "),
+            })}
+          </span>
+        </div>
+      ) : null}
+      {licensed ? null : (
+        <div style={st.upsell}>
+          <Icon name="star" size={15} style={{ color: "var(--text-muted)" }} />
+          <span style={{ flex: 1, minWidth: 200 }}>
+            <b>{t("groups.upsellStrong")}</b> {t("groups.upsellRest")}
+          </span>
+          {pricingUrl ? (
+            <a className="wc-btn wc-btn--link wc-btn--sm" href={pricingUrl} target="_blank" rel="noreferrer">
+              {t("roles.seePricing")}
+              <Icon name="external-link" size={13} />
+            </a>
+          ) : null}
+        </div>
+      )}
+      {creating ? (
+        <CreateGroupDialog
+          spaceId={spaceId}
+          onClose={() => setCreating(false)}
+          onCreated={async (id, name) => {
+            setCreating(false);
+            await onCreated(id, name);
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
+/** A new group: a name (which is also what is mentioned) and an optional description. */
+function CreateGroupDialog({ spaceId, onClose, onCreated }: { spaceId: string; onClose: () => void; onCreated: (id: string, name: string) => Promise<void> }) {
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const create = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const group = await createGroup(spaceId, { name: name.trim(), description: description.trim() || undefined });
+      await onCreated(group.id, group.name);
+    } catch (err) {
+      setError(refusalMessage(refusalOf(err), t, t("roles.saveFailed")));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      open
+      title={t("groups.create")}
+      subtitle={t("groups.createSub")}
+      onClose={onClose}
+      closeLabel={t("common.close")}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" disabled={busy || !name.trim()} onClick={() => void create()}>
+            {busy ? t("common.creating") : t("groups.createAndAdd")}
+          </Button>
+        </>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <Field label={t("files.name")} htmlFor="new-group-name" error={error || undefined} hint={name.trim() ? t("groups.nameHint", { name: name.trim() }) : undefined}>
+          <Input id="new-group-name" value={name} maxLength={60} autoFocus onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label={t("groups.descOptional")} htmlFor="new-group-desc">
+          <Input id="new-group-desc" value={description} maxLength={300} onChange={(e) => setDescription(e.target.value)} />
+        </Field>
+      </div>
+    </Dialog>
+  );
+}

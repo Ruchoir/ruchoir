@@ -12,10 +12,11 @@ import { formatUtcDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
 import { MembersSettings, type SettingsMember } from "./MembersSettings";
 import { RolesSettings } from "./RolesSettings";
+import { GroupsSettings } from "./GroupsSettings";
 import { AuditSettings } from "./AuditSettings";
 import { LicenceSettings } from "./LicenceSettings";
 
-type NavKey = "general" | "members" | "roles" | "audit" | "licence";
+type NavKey = "general" | "members" | "roles" | "groups" | "audit" | "licence";
 
 /**
  * The sections, with the dictionary key of each label. The member list and the roles are
@@ -27,6 +28,7 @@ const NAV: [NavKey, TranslationKey, IconName][] = [
   ["general", key("space.general"), "settings"],
   ["members", key("conversation.members"), "users"],
   ["roles", key("roles.title"), "shield"],
+  ["groups", key("groups.title"), "users"],
   ["audit", key("audit.title"), "list"],
   ["licence", key("licence.title"), "key-round"],
 ];
@@ -172,6 +174,8 @@ export type WorkspaceSettingsProps = {
   onSaveMemberRoles: (userId: string, roleIds: string[]) => Promise<boolean>;
   /** Whether the caller reads the space's audit log (`audit.view`). */
   canReadAudit: boolean;
+  /** Whether the caller manages the space's groups (`groups.manage`). */
+  canManageGroups: boolean;
   /** Whether the caller manages the space's licence: its owner, on an instance that has licences. */
   canManageLicence: boolean;
   /** The space's licence as its list says (owners only), for the days left. */
@@ -240,6 +244,7 @@ export function WorkspaceSettings({
   onAccessChanged,
   onSaveMemberRoles,
   canReadAudit,
+  canManageGroups,
   canManageLicence,
   licence,
   onLicenceChanged,
@@ -263,7 +268,7 @@ export function WorkspaceSettings({
   const { t } = useTranslation();
   const [tab, setTab] = useState<NavKey>("general");
   const sections = NAV.filter(([id]) =>
-    id === "audit" ? canReadAudit : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
+    id === "audit" ? canReadAudit : id === "groups" ? canManageGroups : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
   );
   const me = members.find((m) => m.userId === myUserId);
   // Counted rather than asserted: the line used to read "2 invités externes, 1 bot" whatever the
@@ -540,6 +545,20 @@ export function WorkspaceSettings({
               pricingUrl={pricingUrl}
               onChanged={onAccessChanged}
               onSetMemberRoles={onSaveMemberRoles}
+              onNotify={onNotify}
+            />
+          ) : null}
+
+          {tab === "groups" && canManageGroups ? (
+            <GroupsSettings
+              spaceId={spaceId}
+              spaceName={workspaceName}
+              edition={edition}
+              roles={roles}
+              members={members}
+              me={me}
+              pricingUrl={pricingUrl}
+              onChanged={onAccessChanged}
               onNotify={onNotify}
             />
           ) : null}

@@ -36,3 +36,11 @@ test("only_whoever_sits_above_administrator_invites_one", () => {
   assert.equal(canGiveAdministrator("member", ["members.invite"], { myTop: 101, administrator: 100 }), false);
   assert.equal(canGiveAdministrator("member", ["roles.manage"], { myTop: 50, administrator: 100 }), false);
 });
+
+test("groups_open_on_groups_manage_alone", () => {
+  const keeper = spaceGates("member", ["groups.manage"]);
+  assert.equal(keeper.manageGroups, true);
+  assert.equal(keeper.openSettings, true);
+  assert.equal(keeper.managePeople, false);
+  assert.equal(spaceGates("member", ["members.manage", "roles.manage"]).manageGroups, false);
+});

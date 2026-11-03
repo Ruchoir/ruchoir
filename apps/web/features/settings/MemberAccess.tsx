@@ -89,6 +89,26 @@ export function refusalMessage(refusal: Refusal | undefined, t: T, fallback: str
       return t("roles.refusal.beyondGuestCeiling");
     case "make_them_a_member_first":
       return t("roles.refusal.memberFirst");
+    case "no_self_role":
+      return t("groups.noSelfRole");
+    case "manager_protected":
+      return t("groups.refusal.managerProtected");
+    case "group_from_directory":
+      return t("groups.refusal.fromDirectory");
+    case "group_name_taken":
+      return t("groups.refusal.nameTaken");
+    case "group_name_reserved":
+      return t("groups.refusal.nameReserved");
+    case "group_name_invalid":
+      return t("groups.refusal.nameInvalid");
+    case "manager_must_be_member":
+      return t("groups.refusal.managerMustBeMember");
+    case "base_role_not_allowed":
+      return t("groups.refusal.baseRole");
+    case "not_in_space":
+      return t("groups.refusal.notInSpace");
+    case "too_many_people":
+      return t("groups.refusal.tooManyPeople");
     default:
       return fallback;
   }
