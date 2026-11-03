@@ -4304,7 +4304,7 @@
             ]
           },
           "holders": {
-            "description": "How many hold it: its assignments, or for a base role the people of that standing.",
+            "description": "How many hold it: distinct people, directly or through a group, or for a base role the people of that standing.",
             "format": "int64",
             "type": "integer"
           },

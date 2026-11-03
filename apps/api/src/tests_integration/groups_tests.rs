@@ -424,3 +424,166 @@ async fn the_groups_migration_round_trips() {
     assert_eq!(count(db, wide, vec![]).await, 2);
     scratch.drop_it().await;
 }
+
+async fn administrator_role(db: &DatabaseConnection, space: Uuid) -> Uuid {
+    db.query_one_raw(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        "SELECT id FROM space_roles WHERE space_id = $1 AND system_key = 'administrator'",
+        [space.into()],
+    ))
+    .await
+    .expect("query")
+    .expect("administrator")
+    .try_get("", "id")
+    .expect("id")
+}
+
+#[tokio::test]
+async fn a_role_carried_by_a_group_grants_its_permissions() {
+    use crate::permissions::catalogue::Permission;
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let member = make_user(&app.db, "member").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Carried").await;
+    crate::testkit::add_member(&app.db, space, member, "member").await;
+    let before = crate::permissions::check::space_rights(&app.db, space, member)
+        .await
+        .expect("rights");
+    assert!(!before.contains(Permission::FilesTrashPurge));
+
+    let role = make_role(&app.db, space, "Archiviste", 30, &["files.trash.purge"]).await;
+    let group = make_group(&app.db, space, "Archives").await;
+    give_role_to_group(&app.db, group, space, role)
+        .await
+        .expect("role");
+    put_in_group(&app.db, group, space, member, false).await;
+    let granted = crate::permissions::check::space_rights(&app.db, space, member)
+        .await
+        .expect("rights");
+    assert!(
+        granted.contains(Permission::FilesTrashPurge),
+        "in the group"
+    );
+
+    exec(
+        &app.db,
+        "DELETE FROM space_group_members WHERE group_id = $1 AND user_id = $2",
+        vec![group.into(), member.into()],
+    )
+    .await
+    .expect("leave");
+    let refused = crate::permissions::check::space_rights(&app.db, space, member)
+        .await
+        .expect("rights");
+    assert!(
+        !refused.contains(Permission::FilesTrashPurge),
+        "left the group"
+    );
+}
+
+#[tokio::test]
+async fn a_role_carried_by_a_group_counts_for_the_rank() {
+    use crate::permissions::delegation::{ensure_acts_on, rank_of, Rank};
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let member = make_user(&app.db, "member").await;
+    let other = make_user(&app.db, "other").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Rank").await;
+    crate::testkit::add_member(&app.db, space, member, "member").await;
+    crate::testkit::add_member(&app.db, space, other, "member").await;
+    let role = make_role(&app.db, space, "Cheffe", 50, &["roles.manage"]).await;
+    let group = make_group(&app.db, space, "Direction").await;
+    give_role_to_group(&app.db, group, space, role)
+        .await
+        .expect("role");
+    put_in_group(&app.db, group, space, member, false).await;
+    assert_eq!(
+        rank_of(&app.db, space, member).await.expect("rank"),
+        Some(Rank::Position(50))
+    );
+    // The same rank is what the member list reads.
+    let loaded = crate::permissions::roles::MemberRoles::load(&app.db, space, member)
+        .await
+        .expect("load");
+    assert!(loaded.manageable(other), "outranks a plain member");
+    assert!(!loaded.manageable(owner));
+    assert!(ensure_acts_on(&app.db, space, member, other).await.is_ok());
+    assert!(loaded.role_ids(member).is_empty(), "role_ids stays direct");
+    assert_eq!(loaded.group_ids(member), vec![group]);
+    assert!(loaded.group_ids(other).is_empty());
+}
+
+#[tokio::test]
+async fn a_role_held_twice_is_counted_once() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let member = make_user(&app.db, "member").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Twice").await;
+    crate::testkit::add_member(&app.db, space, member, "member").await;
+    let role = make_role(&app.db, space, "Comptable", 40, &["files.manage"]).await;
+    assign(&app.db, space, member, role).await;
+    let (g1, g2) = (
+        make_group(&app.db, space, "Un").await,
+        make_group(&app.db, space, "Deux").await,
+    );
+    for g in [g1, g2] {
+        give_role_to_group(&app.db, g, space, role)
+            .await
+            .expect("role");
+        put_in_group(&app.db, g, space, member, false).await;
+    }
+    let roles = crate::permissions::roles::roles_of(&app.db, space, owner)
+        .await
+        .expect("roles");
+    let holders = roles.iter().find(|r| r.id == role).expect("role").holders;
+    assert_eq!(holders, 1, "directly and through two groups, one person");
+    // And the rights are loaded once, not three times.
+    let loaded = crate::permissions::roles::MemberRoles::load(&app.db, space, owner)
+        .await
+        .expect("load");
+    assert_eq!(loaded.role_ids(member), vec![role]);
+    assert_eq!(loaded.group_ids(member).len(), 2);
+}
+
+#[tokio::test]
+async fn a_guest_in_a_group_stays_a_guest() {
+    use crate::permissions::catalogue::PermissionSet;
+    use crate::permissions::delegation::{ensure_acts_on, rank_of, Rank};
+    use crate::permissions::system_roles::{GUEST_CEILING, VISIBILITY_DROP};
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let admin = make_user(&app.db, "admin").await;
+    let guest = make_user(&app.db, "guest").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Guests").await;
+    crate::testkit::add_member(&app.db, space, admin, "admin").await;
+    crate::testkit::add_member(&app.db, space, guest, "guest").await;
+    let group = make_group(&app.db, space, "Pouvoir").await;
+    let administrator = administrator_role(&app.db, space).await;
+    give_role_to_group(&app.db, group, space, administrator)
+        .await
+        .expect("role");
+    put_in_group(&app.db, group, space, guest, false).await;
+
+    let rights = crate::permissions::check::space_rights(&app.db, space, guest)
+        .await
+        .expect("rights");
+    assert_eq!(rights.intersect(GUEST_CEILING), PermissionSet::EMPTY);
+    assert_eq!(rights.intersect(VISIBILITY_DROP), PermissionSet::EMPTY);
+    assert_eq!(
+        rank_of(&app.db, space, guest).await.expect("rank"),
+        Some(Rank::Position(-1))
+    );
+    let loaded = crate::permissions::roles::MemberRoles::load(&app.db, space, admin)
+        .await
+        .expect("load");
+    assert!(loaded.manageable(guest));
+    assert!(ensure_acts_on(&app.db, space, admin, guest).await.is_ok());
+
+    // The same for a guest holding a custom role directly.
+    let custom = make_role(&app.db, space, "Haut", 60, &["roles.manage"]).await;
+    assign(&app.db, space, guest, custom).await;
+    assert_eq!(
+        rank_of(&app.db, space, guest).await.expect("rank"),
+        Some(Rank::Position(-1))
+    );
+}
