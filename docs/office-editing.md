@@ -340,7 +340,9 @@ blank document, spreadsheet or presentation (`createBlankDocument`, then the edi
   generated from each style's tokens by `apps/web/tools/office-themes/build.mjs` (its test fails when
   a file is stale, or when the API's tints no longer match `tokens.css`). By night the engine's dark
   theme, with the style's tint laid over it. The engine's mobile editor reads no custom theme: on a
-  phone it keeps Ruchoir's day colours, with the style's tint.
+  phone it keeps Ruchoir's day colours, with the style's tint. The engine gathers every file of its themes folder,
+  so its own theme menu lists the four styles beside Ruchoir day: one picked there by hand lasts
+  until the next opening, which applies the person's style again (the patch for defect 8).
 
 ## Security
 

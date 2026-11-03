@@ -20,7 +20,8 @@ export function officeAccent(): string {
 /**
  * The person's simplified style (`aubergine`, `nuage`, `indigo`, `marine`), from `data-style` on
  * `<html>`, or nothing for the Ruchoir style. The editor then wears that style's theme by day and
- * its tint by night; an instance that does not know the field opens it in Ruchoir's.
+ * its tint by night. An instance that does not know the field, or a name it does not know, opens
+ * the editor in Ruchoir's.
  */
 export function officeStyle(): string | undefined {
   if (typeof document === "undefined") return undefined;

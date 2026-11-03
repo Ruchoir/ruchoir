@@ -10974,6 +10974,25 @@ async fn a_member_opens_a_document_for_editing_and_a_guest_for_reading() {
     );
     assert_eq!(styled_config["ruchoir"]["accent"], "#c5c8f5");
 
+    // A style this instance does not know, by night: the engine's dark theme and the accent, as
+    // without a style.
+    let unknown: Value = open_session(
+        &app,
+        &bob,
+        file_id,
+        json!({ "style": "bogus", "theme": "dark", "accent": "mint" }),
+    )
+    .await
+    .json()
+    .await
+    .unwrap();
+    let unknown_config: Value = serde_json::from_str(unknown["config"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        unknown_config["editorConfig"]["customization"]["uiTheme"],
+        "theme-dark"
+    );
+    assert_eq!(unknown_config["ruchoir"]["accent"], "#6fe0c2");
+
     // A guest who reaches the file through a message reads it; here Carol is a member made guest
     // and the file is a space-tree file she cannot reach, so she is refused outright.
     set_space_role(&app.db, fx.space_id, fx.carol, "guest").await;

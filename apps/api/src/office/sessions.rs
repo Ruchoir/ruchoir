@@ -274,8 +274,6 @@ fn accent_colour(style: Option<&str>, accent: Option<&str>) -> &'static str {
     }
 }
 
-/// Euro-Office's configuration for a session, ignored by other engines. `ruchoir.accent` is read by
-/// the patched WOPI page (`infra/office/patches/editor-wopi.ejs`), which paints the editor with it.
 /// The engine theme: its own dark one by night (a custom dark theme is never painted, upstream
 /// defect 3), else the style's day theme (`infra/office/themes`), Ruchoir's by default.
 fn ui_theme(theme: Option<&str>, style: Option<&str>) -> String {
@@ -288,6 +286,8 @@ fn ui_theme(theme: Option<&str>, style: Option<&str>) -> String {
     }
 }
 
+/// Euro-Office's configuration for a session, ignored by other engines. `ruchoir.accent` is read by
+/// the patched WOPI page (`infra/office/patches/editor-wopi.ejs`), which paints the editor with it.
 fn engine_config(
     public_base_url: &str,
     theme: Option<&str>,
