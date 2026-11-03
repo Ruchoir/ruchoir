@@ -2022,6 +2022,57 @@ export function createApi(transport: Transport) {
   }
 
   /**
+   * Hand a multipart `form` to `begin` (which opens `xhr` and sends the payload) and return the
+   * request's handle.
+   *
+   * Without `inMemoryUploads` the form goes as it is. With it, the form is flattened first (see
+   * `multipart.ts`), which takes a moment during which `xhr` has not been opened. An abort in that
+   * window cannot go through `xhr.abort()`: the platform fires no `abort` event for a request that
+   * was never opened, so `done` would hang. It is rejected here instead, with the same `AbortError`,
+   * and the send is skipped. A flattening that fails, or a `begin` that throws, rejects `done` with a
+   * network {@link ApiError} (status 0, as a dropped connection): an `AbortError` would be taken for a
+   * person's own cancel and dropped silently.
+   */
+  function sendForm<T>(
+    xhr: XMLHttpRequest,
+    form: FormData,
+    begin: (payload: BodyInit, contentType?: string) => void,
+    done: Promise<T>,
+    fail: (reason: unknown) => void,
+  ): UploadRequest<T> {
+    const handle = (abort: () => void) => ({ done, abort });
+    if (!clientOptions().inMemoryUploads) {
+      begin(form);
+      return handle(() => xhr.abort());
+    }
+    let state: "preparing" | "sent" | "aborted" = "preparing";
+    multipartBody(form).then(
+      ({ body, contentType }) => {
+        if (state !== "preparing") return;
+        try {
+          begin(body, contentType);
+          state = "sent";
+        } catch {
+          state = "aborted";
+          fail(new ApiError(0, "network", null));
+        }
+      },
+      () => {
+        if (state === "preparing") fail(new ApiError(0, "network", null));
+        state = "aborted";
+      },
+    );
+    return handle(() => {
+      if (state === "preparing") {
+        state = "aborted";
+        fail(Object.assign(new Error("aborted"), { name: "AbortError" }));
+      } else if (state === "sent") {
+        xhr.abort();
+      }
+    });
+  }
+
+  /**
    * A multipart `POST` (or `PUT`) over `XMLHttpRequest`, for its upload progress: what
    * {@link startAttachmentUpload}, {@link startFileUpload} and the images share. `map` reads the created
    * resource from the answer.
@@ -2034,7 +2085,9 @@ export function createApi(transport: Transport) {
     method: "POST" | "PUT" = "POST",
   ): UploadRequest<T> {
     const xhr = new XMLHttpRequest();
+    let fail!: (reason: unknown) => void;
     const done = new Promise<T>((resolve, reject) => {
+      fail = reject;
       xhr.onload = () => {
         let body: unknown = null;
         try {
@@ -2062,23 +2115,7 @@ export function createApi(transport: Transport) {
       if (onProgress) xhr.upload.onprogress = (event) => onProgress(event.loaded);
       xhr.send(payload);
     };
-    if (!clientOptions().inMemoryUploads) {
-      begin(form);
-      return { done, abort: () => xhr.abort() };
-    }
-    // The form is flattened first (see `multipart.ts`), which takes a moment: an abort in that
-    // window has no request to cancel yet, so it is remembered and the send is skipped.
-    let aborted = false;
-    multipartBody(form).then(({ body, contentType }) => {
-      if (!aborted) begin(body, contentType);
-    }, () => xhr.abort());
-    return {
-      done,
-      abort: () => {
-        aborted = true;
-        xhr.abort();
-      },
-    };
+    return sendForm(xhr, form, begin, done, fail);
   }
 
   /** {@link startAttachmentUpload}, for a caller that needs neither progress nor a way to stop it. */
@@ -3097,7 +3134,9 @@ export function createApi(transport: Transport) {
       // `folder_id`, as `uploadFile` explains.
       if (target.folderId) form.append("folder_id", target.folderId);
     }
+    let fail!: (reason: unknown) => void;
     const done = new Promise<UploadedFile>((resolve, reject) => {
+      fail = reject;
       xhr.upload.onprogress = (e) => onProgress(e.loaded);
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
@@ -3128,22 +3167,7 @@ export function createApi(transport: Transport) {
       if (contentType) xhr.setRequestHeader("Content-Type", contentType);
       xhr.send(payload);
     };
-    if (!clientOptions().inMemoryUploads) {
-      begin(form);
-      return { done, abort: () => xhr.abort() };
-    }
-    // Flattened first (see `multipart.ts`); an abort during that wait skips the send.
-    let aborted = false;
-    multipartBody(form).then(({ body, contentType }) => {
-      if (!aborted) begin(body, contentType);
-    }, () => xhr.abort());
-    return {
-      done,
-      abort: () => {
-        aborted = true;
-        xhr.abort();
-      },
-    };
+    return sendForm(xhr, form, begin, done, fail);
   }
 
   /**

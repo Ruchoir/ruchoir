@@ -1,7 +1,7 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { configureClient, resetClientForTests, setMyAvatar, startAttachmentUpload, startFileUpload, startFileVersionUpload, uploadFile, uploadFileVersion } from "../src/index.ts";
+import { configureClient, resetClientForTests, setMyAvatar, startAttachmentUpload, startFileUpload, startFileVersionUpload, sendFile, uploadFile, uploadFileVersion } from "../src/index.ts";
 import { fakeFetch } from "./fakeFetch.ts";
 
 /** Poll until `ready` holds: the in-memory path sends after an asynchronous flattening. */
@@ -35,10 +35,13 @@ class FakeXhr {
     this.headers[name] = value;
   }
   send(body: unknown) {
+    this.sent = true;
     this.body = body;
   }
+  sent = false;
   abort() {
-    this.onabort?.();
+    // As the platform: a request never opened and sent fires no `abort` event.
+    if (this.sent) this.onabort?.();
   }
   answer(status: number, json: unknown) {
     this.status = status;
@@ -171,6 +174,7 @@ test("an_abort_while_preparing_sends_nothing", async () => {
   await assert.rejects(request.done, { name: "AbortError" });
   await new Promise((r) => setTimeout(r, 20));
   assert.equal(FakeXhr.last?.body, undefined);
+  assert.equal(FakeXhr.last?.sent, false);
 });
 
 test("in_memory_uploads_apply_to_the_fetch_uploads_too", async () => {
@@ -183,5 +187,47 @@ test("in_memory_uploads_apply_to_the_fetch_uploads_too", async () => {
     const headers = new Headers(call.init.headers);
     assert.match(headers.get("content-type")!, /^multipart\/form-data; boundary=/);
     assert.equal(headers.get("authorization"), "Bearer t1");
+  }
+});
+
+test("send_file_under_in_memory_uploads_sends_an_array_buffer", async () => {
+  configureClient({ baseUrl: "https://a.test", authorization: () => "Bearer t1", inMemoryUploads: true });
+  sendFile({ spaceId: "s1", name: "a.txt" }, new File(["a"], "a.txt"), () => {});
+  await waitFor(() => FakeXhr.last?.body !== undefined);
+  assert.ok(FakeXhr.last.body instanceof ArrayBuffer);
+  assert.match(FakeXhr.last.headers["Content-Type"], /^multipart\/form-data; boundary=/);
+});
+
+test("send_file_aborted_while_preparing_rejects_and_sends_nothing", async () => {
+  configureClient({ baseUrl: "https://a.test", inMemoryUploads: true });
+  const request = sendFile({ spaceId: "s1", name: "a.txt" }, new File(["a"], "a.txt"), () => {});
+  request.abort();
+  await assert.rejects(request.done, { name: "AbortError" });
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(FakeXhr.last.sent, false);
+});
+
+test("a_refused_in_memory_upload_still_rejects_with_its_status", async () => {
+  configureClient({ baseUrl: "https://a.test", inMemoryUploads: true });
+  const request = startAttachmentUpload("c1", new Blob(["x"]));
+  await waitFor(() => FakeXhr.last.sent);
+  FakeXhr.last.answer(413, { error: "too_large" });
+  await assert.rejects(request.done, (err: { status: number }) => err.status === 413);
+});
+
+test("a_flattening_failure_rejects_with_a_network_error_not_an_abort", async () => {
+  configureClient({ baseUrl: "https://a.test", inMemoryUploads: true });
+  const real = globalThis.Response;
+  globalThis.Response = class {
+    constructor() {
+      throw new Error("out of memory");
+    }
+  } as unknown as typeof Response;
+  try {
+    const request = startAttachmentUpload("c1", new Blob(["x"]));
+    await assert.rejects(request.done, (err: { name: string; status: number }) => err.name !== "AbortError" && err.status === 0);
+    assert.equal(FakeXhr.last.sent, false);
+  } finally {
+    globalThis.Response = real;
   }
 });
