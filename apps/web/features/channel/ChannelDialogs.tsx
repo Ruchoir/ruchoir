@@ -691,7 +691,7 @@ export function LeaveChannelDialog({
       footer={
         <>
           <Button onClick={onClose}>{t("common.cancel")}</Button>
-          <Button variant="danger" iconLeft="arrow-left" onClick={onConfirm}>
+          <Button variant="danger" iconLeft="log-out" onClick={onConfirm}>
             {t("sidebar.leaveChannel")}
           </Button>
         </>

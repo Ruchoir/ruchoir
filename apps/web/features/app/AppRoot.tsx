@@ -108,9 +108,11 @@ import type { SavedMessage } from "@/lib/data/api";
 import type { PresenceChoice } from "@/lib/data";
 import { ChannelScreen } from "@/features/channel/ChannelScreen";
 import {
+  AddPeopleDialog,
   ChannelNotificationsDialog,
   ChannelSettingsDialog,
   DeleteChannelDialog,
+  LeaveChannelDialog,
 } from "@/features/channel/ChannelDialogs";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { SignupScreen, type SignupValues } from "@/features/auth/SignupScreen";
@@ -628,6 +630,9 @@ function AppShell() {
   >({});
   const [modal, setModal] = useState<Modal>(null);
   const [channelSettingsId, setChannelSettingsId] = useState<string | null>(null);
+  /** The channel whose people are being chosen, or that is being left, from the sidebar's menu. */
+  const [addPeopleId, setAddPeopleId] = useState<string | null>(null);
+  const [leavingChannelId, setLeavingChannelId] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ id: string; body: string } | null>(null);
   // Toast: `toast` holds the content (kept through the exit so it stays rendered while animating out),
   // `toastVisible` drives the enter/exit, and useMountAnimation keeps it mounted for the exit window.
@@ -4073,10 +4078,16 @@ function AppShell() {
         onImport={openImport}
         onNewMessage={() => setModal("newMessage")}
         onGlobalSearch={() => setModal("search")}
-        onLeaveChannel={leaveChannel}
+        // Asked first, as from the channel's own menu: the two menus are one and act the same.
+        onLeaveChannel={setLeavingChannelId}
         onJoinChannel={joinChannel}
         onChannelSettings={setChannelSettingsId}
         onChannelNotifications={setChannelNotifId}
+        onPlanEvent={planEventIn}
+        // Who the channel settings already count as every channel's owner: the space's owners and
+        // administrators. The channel screen also reads the channel's own roster, which this list
+        // does not have.
+        onAddPeople={canAdministerSpace ? setAddPeopleId : undefined}
         onMarkRead={markConversationRead}
         onToggleFavorite={toggleFavorite}
         onSetDefaultChannel={(id) => void setDefaultChannel(id)}
@@ -4182,6 +4193,7 @@ function AppShell() {
           myUserId={session?.id ?? ""}
           onLeaveChannel={() => leaveChannel(channelId)}
           onJoinChannel={() => joinChannel(channelId)}
+          onToggleFavorite={() => toggleFavorite(channelId)}
           notifPref={channelPrefs[channelId] ?? DEFAULT_CHANNEL_PREF}
           onSaveNotifPref={(pref) => saveChannelPref(channelId, pref)}
           notifInherited={inheritedLevel}
@@ -4503,6 +4515,28 @@ function AppShell() {
                 }
               : undefined
           }
+        />
+      ) : null}
+
+      {addPeopleId && channels.find((c) => c.id === addPeopleId) ? (
+        <AddPeopleDialog
+          channelId={addPeopleId}
+          channelName={channels.find((c) => c.id === addPeopleId)!.name}
+          people={memberRecords.map((m) => ({ userId: m.userId, name: m.name, presence: m.presence, bot: m.bot, avatarUrl: m.avatar }))}
+          onClose={() => setAddPeopleId(null)}
+          onNotify={showToast}
+        />
+      ) : null}
+
+      {leavingChannelId && channels.find((c) => c.id === leavingChannelId) ? (
+        <LeaveChannelDialog
+          channelName={channels.find((c) => c.id === leavingChannelId)!.name}
+          onClose={() => setLeavingChannelId(null)}
+          onConfirm={() => {
+            const id = leavingChannelId;
+            setLeavingChannelId(null);
+            void leaveChannel(id);
+          }}
         />
       ) : null}
 

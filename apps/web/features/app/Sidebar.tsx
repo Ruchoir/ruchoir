@@ -12,6 +12,7 @@ import type { AppView, Toast } from "./types";
 import { Wordmark } from "./Wordmark";
 import { useSettings } from "./settings";
 import { useDragReorder } from "./useDragReorder";
+import { canBeDefaultChannel, channelMenuItems, movedChannel, steppedChannel } from "@/features/channel/channelMenuItems";
 import { formatChord, isMac } from "./shortcuts";
 import { getAvatar } from "@/lib/data";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
@@ -449,6 +450,10 @@ export type SidebarProps = {
   onJoinChannel: (id: string) => void;
   onChannelSettings: (id: string) => void;
   onChannelNotifications: (id: string) => void;
+  /** Plan an event linked to a channel. */
+  onPlanEvent?: (id: string) => void;
+  /** Decide who is in a channel: given only to those who moderate the space's channels. */
+  onAddPeople?: (id: string) => void;
   onMarkRead: (id: string) => void;
   onOpenNotification: (channelId: string, messageId: string, id: string) => void;
   onToggleNotifRead: (id: string, read: boolean) => void;
@@ -524,6 +529,8 @@ export function Sidebar({
   onJoinChannel,
   onChannelSettings,
   onChannelNotifications,
+  onPlanEvent,
+  onAddPeople,
   onMarkRead,
   onOpenNotification,
   onToggleNotifRead,
@@ -560,24 +567,8 @@ export function Sidebar({
   /** Channels holding an unread mention of the reader, from the notification inbox. */
   const mentionedIn = new Set(notifications.filter((n) => !n.read && isMention(n.kind)).map((n) => n.channelId));
   const stays = (id: string, unread?: number) => (view === "channel" && channel === id) || (unread ?? 0) > 0;
-  /**
-   * The space's order with `id` moved next to `target`. The order is one list for the whole space;
-   * the favourites and the rest are two views of it, so a move is made in the whole list.
-   */
-  const moved = (id: string, target: string, where: "before" | "after"): string[] | null => {
-    if (id === target) return null;
-    const ids = channels.map((c) => c.id).filter((x) => x !== id);
-    const at = ids.indexOf(target);
-    if (at === -1) return null;
-    ids.splice(where === "before" ? at : at + 1, 0, id);
-    return ids.join() === channels.map((c) => c.id).join() ? null : ids;
-  };
-  /** One step within the section the channel is shown in, which is the neighbour the reader sees. */
-  const stepped = (channel: Channel, step: -1 | 1): string[] | null => {
-    const section = channels.filter((c) => c.fav === channel.fav);
-    const neighbour = section[section.findIndex((c) => c.id === channel.id) + step];
-    return neighbour ? moved(channel.id, neighbour.id, step === -1 ? "before" : "after") : null;
-  };
+  const moved = (id: string, target: string, where: "before" | "after") => movedChannel(channels, id, target, where);
+  const stepped = (channel: Channel, step: -1 | 1) => steppedChannel(channels, channel.id, step);
   // The two sections as drawn, each dragged within itself: a favourite lands among the favourites.
   const favRows = channels.filter((c) => c.fav && (!isFolded("favourites") || stays(c.id, c.unread)));
   const channelRows = channels.filter((c) => !c.fav && (!isFolded("channels") || stays(c.id, c.unread)));
@@ -600,34 +591,29 @@ export function Sidebar({
       },
     };
   };
-  const channelMenu = (channel: Channel): SideMenuItem[] => [
-    {
-      icon: channel.fav ? "star-off" : "star",
-      label: channel.fav ? t("sidebar.unfavourite") : t("sidebar.favourite"),
-      onClick: () => onToggleFavorite(channel.id),
-    },
-    { icon: "check-check", label: t("sidebar.markRead"), onClick: () => onMarkRead(channel.id) },
-    { icon: "bell", label: t("notif.title"), onClick: () => onChannelNotifications(channel.id) },
-    { icon: "settings", label: t("sidebar.channelSettings"), onClick: () => onChannelSettings(channel.id) },
-    ...(canAdministerSpace
-      && channel.id !== workspace?.defaultChannelId
-      && channel.type === "public"
-      && !channel.allowedRoles?.length
-      ? [{ icon: "house", label: t("sidebar.setDefaultChannel"), onClick: () => onSetDefaultChannel(channel.id) }]
-      : []),
-    // The pointer-free way to arrange the space, and the only one on a touch screen.
-    ...(onReorderChannels && stepped(channel, -1)
-      ? [{ icon: "arrow-up", label: t("sidebar.moveUp"), onClick: () => onReorderChannels(stepped(channel, -1) ?? []) }]
-      : []),
-    ...(onReorderChannels && stepped(channel, 1)
-      ? [{ icon: "arrow-down", label: t("sidebar.moveDown"), onClick: () => onReorderChannels(stepped(channel, 1) ?? []) }]
-      : []),
-    // A public channel stays readable after leaving it, so the entry flips to rejoining rather than
-    // disappearing: leaving is not a one-way door.
-    channel.member === false
-      ? { icon: "user-plus", label: t("sidebar.joinChannel"), onClick: () => onJoinChannel(channel.id) }
-      : { icon: "log-out", label: t("sidebar.leaveChannel"), danger: true, onClick: () => onLeaveChannel(channel.id) },
-  ];
+  const channelMenu = (channel: Channel): SideMenuItem[] => {
+    const up = onReorderChannels ? stepped(channel, -1) : null;
+    const down = onReorderChannels ? stepped(channel, 1) : null;
+    return channelMenuItems(t, channel, {
+      onToggleFavourite: () => onToggleFavorite(channel.id),
+      onMarkRead: () => onMarkRead(channel.id),
+      onNotifications: () => onChannelNotifications(channel.id),
+      onSettings: () => onChannelSettings(channel.id),
+      onPlanEvent:
+        onPlanEvent && channel.type !== "archived" && channel.member !== false
+          ? () => onPlanEvent(channel.id)
+          : undefined,
+      onAddPeople: onAddPeople ? () => onAddPeople(channel.id) : undefined,
+      onSetDefault:
+        canAdministerSpace && canBeDefaultChannel(channel, workspace?.defaultChannelId)
+          ? () => onSetDefaultChannel(channel.id)
+          : undefined,
+      onMoveUp: up && onReorderChannels ? () => onReorderChannels(up) : undefined,
+      onMoveDown: down && onReorderChannels ? () => onReorderChannels(down) : undefined,
+      onLeave: () => onLeaveChannel(channel.id),
+      onJoin: () => onJoinChannel(channel.id),
+    });
+  };
   const dmMenu = (id: string, name: string): SideMenuItem[] => [
     { icon: "check-check", label: t("sidebar.markRead"), onClick: () => onMarkRead(id) },
     { icon: "bell", label: t("notif.title"), onClick: () => onChannelNotifications(id) },
