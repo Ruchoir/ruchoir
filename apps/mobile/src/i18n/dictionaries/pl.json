@@ -398,7 +398,9 @@
     "conversationOf_few": "Prywatna rozmowa · {{count}} osoby",
     "conversationOf_many": "Prywatna rozmowa · {{count}} osób",
     "pick": "Wybierz rozmowę",
-    "pickHint": "Otworzy się tutaj, obok listy."
+    "pickHint": "Otworzy się tutaj, obok listy.",
+    "hide": "Ukryj",
+    "hideHint": "Znika z Twojej listy na wszystkich Twoich urządzeniach do następnej wiadomości."
   },
   "conversation": {
     "backToList": "Wróć do rozmów",
@@ -1043,7 +1045,7 @@
     "agendaView": "Widok po otwarciu",
     "weekStart": "Pierwszy dzień tygodnia",
     "duration": "Długość nowego wydarzenia",
-    "onThisPhone": "Wygląd, język i kalendarz są ustawione dla tego telefonu. Powiadomienia dotyczą wszystkich twoich urządzeń.",
+    "onThisPhone": "Wygląd jest ustawiony dla tego telefonu. Język, kalendarz i powiadomienia dotyczą wszystkich twoich urządzeń.",
     "minutes": "{{n}} min",
     "hours": "{{n}} godz.",
     "hoursMinutes": "{{h}} godz. {{m}} min"

@@ -16,6 +16,7 @@ import { ApiProvider, useApi } from "../api/useApi";
 import { OutboxProvider } from "../compose/useOutbox";
 import { useLoad } from "../data/useLoad";
 import { useReloadOn } from "../data/useReloadOn";
+import { AccountPrefsSync } from "../prefs/AccountPrefsSync";
 import { RealtimeProvider } from "../realtime/RealtimeProvider";
 import { AuthFailure, SessionContext, type SessionApi } from "../session/SessionProvider";
 import { SpaceProvider, useSpace } from "../space/SpaceProvider";
@@ -31,6 +32,7 @@ export function InstanceScope({ account, user, active, children }: { account: Ac
             <SpaceProvider instanceId={account.id}>
               <UploadsProvider>
                 <SummaryPublisher id={account.id} />
+                <AccountPrefsSync userId={user.id} />
                 {active ? children : null}
               </UploadsProvider>
             </SpaceProvider>

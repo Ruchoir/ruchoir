@@ -371,7 +371,9 @@
     "conversationOf_other": "Conversación privada · {{count}} personas",
     "conversationOf_many": "Conversación privada · {{count}} personas",
     "pick": "Elija una conversación",
-    "pickHint": "Se abrirá aquí, junto a la lista."
+    "pickHint": "Se abrirá aquí, junto a la lista.",
+    "hide": "Ocultar",
+    "hideHint": "Sale de tu lista, en todos tus dispositivos, hasta el próximo mensaje."
   },
   "conversation": {
     "backToList": "Volver a las conversaciones",
@@ -995,7 +997,7 @@
     "agendaView": "Vista al abrir",
     "weekStart": "Primer día de la semana",
     "duration": "Duración de un evento nuevo",
-    "onThisPhone": "La apariencia, el idioma y la agenda se ajustan para este teléfono. Las notificaciones valen para todos sus dispositivos.",
+    "onThisPhone": "La apariencia se ajusta para este teléfono. El idioma, la agenda y las notificaciones valen para todos sus dispositivos.",
     "minutes": "{{n}} min",
     "hours": "{{n}} h",
     "hoursMinutes": "{{h}} h {{m}} min"

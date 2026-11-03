@@ -1031,7 +1031,7 @@
     "title": "Preferenze",
     "backToSpace": "Torna allo spazio",
     "appearance": "Aspetto",
-    "appearanceSub": "Tema, carattere, dimensione del testo e aspetto iniziale dell'interfaccia.",
+    "appearanceSub": "Tema, carattere, dimensione del testo e aspetto iniziale dell'interfaccia. Il tema e la dimensione del testo restano su questo dispositivo; il resto ti segue su tutti i tuoi dispositivi.",
     "font": "Carattere",
     "textSize": "Dimensione del testo",
     "defaultDisplay": "Visualizzazione predefinita",
@@ -1658,7 +1658,7 @@
     "clash_other": "Si sovrappone a {{count}} eventi: {{titles}}",
     "weekNumber": "Sett. {{n}}",
     "prefs": {
-      "sub": "Come si presenta il calendario su questo dispositivo.",
+      "sub": "Come si presenta il calendario, su tutti i tuoi dispositivi.",
       "viewDesktop": "Vista all'apertura sul computer",
       "viewPhone": "Vista all'apertura sul telefono",
       "weekAndTime": "Settimana e ora",

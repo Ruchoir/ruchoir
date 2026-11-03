@@ -522,6 +522,32 @@ usage with the design-system oxlint config.
   width of the thread panel (`threadWidth`, bounded by `THREAD_WIDTH_MIN`/`MAX`, written on mouse-up
   rather than on every move). A layout the reader adjusts by hand belongs here: one that lives in a
   component's state has to be adjusted again at every reopening.
+- **Which settings follow the account** (decided 2026-11-03): `features/app/accountPrefs.ts` names
+  them (`isAccountSetting`, `WEB_ACCOUNT_KEYS`, `toWire`/`fromWire`, tested) and how they read on the
+  wire: the typeface, the language, the rail order, folded sections, shortcuts, the getting-started
+  checklist, the files layout, the default panel, the external-link warning, emoji animation and the
+  calendar's settings (flattened into `calendar_*`, since the phone knows two of them). **The theme
+  (accent, mode), the text size, `threadWidth` and the flags about this browser or app stay here
+  only.** `settings.set` reports an account change (`onAccountChange`) and `settings.adopt` takes
+  one from the server without sending it back. `useAccountPrefsSync` (wired in `AppRoot`) reconciles
+  at sign-in **and after every reconnection** with `reconcileAccountPrefs` from `@ruchoir/client`:
+  the first time this browser syncs with an account (`ruchoir.accountSynced`) the two are merged
+  (it sends what it chose, never its untouched defaults, for the keys the account lacks); afterwards
+  **the server's win**, so a device never imposes its old values over a change made elsewhere while
+  it was closed. Changes are queued in `localStorage` (`ruchoir.pendingAccountPrefs`, so an offline
+  change goes up later) and sent one send at a time (`PATCH /me/preferences`; on a 400 each key is
+  retried alone and only the refused one takes the server's value back). `preferences.updated` makes
+  it read the document again (order-safe) rather than trust the event's values; the desktop app
+  passes adopted changes on to its other instances. A server without the route (404) leaves
+  everything local. A new setting:
+  decide which side it is on, and if it follows the account, add its key to `accountPrefs.ts` **and**
+  to the server's closed list (`apps/api/src/preferences/document.rs`).
+- **Hidden direct conversations are the account's** (`DirectMessage.hidden`, `setDmHidden`,
+  `dm.hidden`): the server clears the flag for everyone in it on a new message, and the sidebar keeps
+  the one being read. Hiding is
+  offered only where the instance lists `account_preferences`; picking a hidden conversation again in
+  "new message" unhides it. A browser's old `hiddenDms` are sent up, then forgotten
+  (`peekLegacyHiddenDms` / `clearLegacyHiddenDms`).
 - **Keyboard shortcuts.** Commands and their default chords live in `features/app/shortcuts.ts`
   (`COMMANDS`, `DEFAULT_BINDINGS`, plus `eventToChord`/`formatChord`; `Mod` = Cmd on macOS, Ctrl
   elsewhere). Bindings persist in the settings and are user-editable in Préférences > Raccourcis

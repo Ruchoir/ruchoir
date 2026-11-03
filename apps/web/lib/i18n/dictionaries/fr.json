@@ -1004,7 +1004,7 @@
     "title": "Préférences",
     "backToSpace": "Retour à l'espace",
     "appearance": "Apparence",
-    "appearanceSub": "Thème, police, taille du texte et affichage par défaut de l'interface.",
+    "appearanceSub": "Thème, police, taille du texte et affichage par défaut de l'interface. Le thème et la taille du texte restent propres à cet appareil ; le reste vous suit sur tous vos appareils.",
     "font": "Police d'écriture",
     "textSize": "Taille du texte",
     "defaultDisplay": "Affichage par défaut",
@@ -1617,7 +1617,7 @@
     "clash_other": "Chevauche {{count}} événements : {{titles}}",
     "weekNumber": "S{{n}}",
     "prefs": {
-      "sub": "Comment l'agenda s'affiche sur cet appareil.",
+      "sub": "Comment l'agenda s'affiche, sur tous vos appareils.",
       "viewDesktop": "Vue à l'ouverture sur ordinateur",
       "viewPhone": "Vue à l'ouverture sur téléphone",
       "weekAndTime": "Semaine et heure",

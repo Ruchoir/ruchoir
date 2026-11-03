@@ -295,6 +295,9 @@ pub struct DirectMessageDto {
     pub notify_level: String,
     /// Whether the caller has muted this conversation.
     pub muted: bool,
+    /// Whether the caller has hidden this conversation from their list. Reported rather than left
+    /// out, so a client can keep the one being read on screen; a new message clears it.
+    pub hidden: bool,
     /// The latest message of the conversation, for the preview line of a conversation list.
     /// Absent while nothing has been said.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -669,6 +672,12 @@ pub struct FavoriteRequest {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct ReadRequest {
     pub last_read_message_id: Uuid,
+}
+
+/// Hide a direct conversation from the caller's own list, or bring it back.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct DmHiddenRequest {
+    pub hidden: bool,
 }
 
 /// Open (or fetch) a direct-message conversation with a set of users.

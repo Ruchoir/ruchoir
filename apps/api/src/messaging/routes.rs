@@ -160,6 +160,10 @@ pub fn router() -> Router<AppState> {
             "/api/v1/spaces/{space_id}/dm",
             post(conversations::create_dm),
         )
+        .route(
+            "/api/v1/me/dms/{dm_id}/hidden",
+            put(conversations::set_dm_hidden),
+        )
         // Full-text search over messages and file names.
         .route("/api/v1/search", get(search::search))
         // In-app notification feed.

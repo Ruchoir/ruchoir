@@ -344,7 +344,9 @@
     "conversationOf_one": "Conversation privée · {{count}} personne",
     "conversationOf_other": "Conversation privée · {{count}} personnes",
     "pick": "Choisissez une discussion",
-    "pickHint": "Elle s’ouvrira ici, à côté de la liste."
+    "pickHint": "Elle s’ouvrira ici, à côté de la liste.",
+    "hide": "Masquer",
+    "hideHint": "Elle sort de votre liste, sur tous vos appareils, jusqu'au prochain message."
   },
   "conversation": {
     "backToList": "Retour aux discussions",
@@ -947,7 +949,7 @@
     "agendaView": "Vue à l’ouverture",
     "weekStart": "Premier jour de la semaine",
     "duration": "Durée d’un nouvel événement",
-    "onThisPhone": "L’apparence, la langue et l’agenda sont réglés pour ce téléphone. Les notifications valent pour tous vos appareils.",
+    "onThisPhone": "L’apparence est réglée pour ce téléphone. La langue, l’agenda et les notifications valent pour tous vos appareils.",
     "minutes": "{{n}} min",
     "hours": "{{n}} h",
     "hoursMinutes": "{{h}} h {{m}}"

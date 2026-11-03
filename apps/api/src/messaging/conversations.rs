@@ -10,6 +10,7 @@ use std::collections::{BTreeSet, HashMap};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
+use sea_orm::sea_query::Expr;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, ConnectionTrait, DatabaseConnection, DbBackend,
@@ -27,10 +28,11 @@ use crate::state::AppState;
 
 use super::authz::{ensure_space_member, is_space_member};
 use super::dto::{
-    ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto, LastMessageDto, MemberDto,
-    SpaceDto,
+    ChannelDto, ConversationRef, CreateDmRequest, DirectMessageDto, DmHiddenRequest,
+    LastMessageDto, MemberDto, SpaceDto,
 };
 use super::error::ApiError;
+use crate::realtime::event::RealtimeEnvelope;
 
 /// `GET /api/v1/me/spaces`: the spaces the caller belongs to, with their role in each.
 ///
@@ -329,7 +331,8 @@ pub async fn list_dms(
 ) -> Result<Json<Vec<DirectMessageDto>>, ApiError> {
     ensure_space_member(&state.db, space_id, session.user_id).await?;
 
-    // The caller's own participant rows, skipping conversations they have hidden.
+    // The caller's own participant rows. Hidden ones are listed with their flag: the client keeps
+    // the one being read on screen, which it could not do for a conversation it was not sent.
     let mine = dm_participants::Entity::find()
         .filter(dm_participants::Column::UserId.eq(session.user_id))
         .all(&state.db)
@@ -337,9 +340,6 @@ pub async fn list_dms(
 
     let mut out = Vec::new();
     for participation in mine {
-        if participation.hidden {
-            continue;
-        }
         let Some(dm) = dm_conversations::Entity::find_by_id(participation.dm_id)
             .one(&state.db)
             .await?
@@ -370,6 +370,7 @@ pub async fn list_dms(
             unread,
             notify_level: participation.notification_level.clone(),
             muted: participation.muted,
+            hidden: participation.hidden,
             last_message,
         });
     }
@@ -508,7 +509,27 @@ pub async fn create_dm(
     }
 
     // Reuse an existing conversation with exactly this participant set, if any.
+    // Choosing someone again from the "new message" picker is asking to see that conversation: one
+    // the caller had hidden comes back into their list.
     if let Some(existing) = find_existing_dm(&state.db, space_id, &participants).await? {
+        let shown = dm_participants::Entity::update_many()
+            .col_expr(dm_participants::Column::Hidden, Expr::value(false))
+            .filter(dm_participants::Column::DmId.eq(existing))
+            .filter(dm_participants::Column::UserId.eq(session.user_id))
+            .filter(dm_participants::Column::Hidden.eq(true))
+            .exec(&state.db)
+            .await?;
+        if shown.rows_affected > 0 {
+            state
+                .hub
+                .publish(
+                    vec![session.user_id],
+                    RealtimeEnvelope::dm_hidden(
+                        serde_json::json!({ "dm_id": existing, "hidden": false }),
+                    ),
+                )
+                .await;
+        }
         return Ok((StatusCode::OK, Json(ConversationRef { id: existing })));
     }
 
@@ -738,4 +759,48 @@ mod tests {
         let cut = excerpt(&body);
         assert_eq!(cut.chars().count(), EXCERPT_CHARS + 1);
     }
+}
+
+/// `PUT /api/v1/me/dms/{dm_id}/hidden`: hide a direct conversation from the caller's own list, or
+/// bring it back.
+///
+/// Hiding is not leaving: the conversation and its history are untouched, and the next message in
+/// it, from anyone, brings it back (`messages::send_message`). Only the caller's own row changes; a
+/// conversation they are not part of answers 404, as one that does not exist.
+#[utoipa::path(
+    put,
+    path = "/api/v1/me/dms/{dm_id}/hidden",
+    tag = "messaging",
+    params(("dm_id" = Uuid, Path, description = "Direct-message conversation id")),
+    request_body = DmHiddenRequest,
+    responses(
+        (status = 204, description = "Saved"),
+        (status = 404, description = "Not a conversation of the caller")
+    )
+)]
+pub async fn set_dm_hidden(
+    State(state): State<AppState>,
+    session: AuthSession,
+    Path(dm_id): Path<Uuid>,
+    Json(body): Json<DmHiddenRequest>,
+) -> Result<StatusCode, ApiError> {
+    let changed = dm_participants::Entity::update_many()
+        .col_expr(dm_participants::Column::Hidden, Expr::value(body.hidden))
+        .filter(dm_participants::Column::DmId.eq(dm_id))
+        .filter(dm_participants::Column::UserId.eq(session.user_id))
+        .exec(&state.db)
+        .await?;
+    if changed.rows_affected == 0 {
+        return Err(ApiError::NotFound);
+    }
+    state
+        .hub
+        .publish(
+            vec![session.user_id],
+            RealtimeEnvelope::dm_hidden(
+                serde_json::json!({ "dm_id": dm_id, "hidden": body.hidden }),
+            ),
+        )
+        .await;
+    Ok(StatusCode::NO_CONTENT)
 }

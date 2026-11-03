@@ -162,6 +162,11 @@ export type DirectMessage = {
   participantIds?: string[];
   /** How much this conversation notifies the signed-in user. */
   notify?: ConversationNotify;
+  /**
+   * Whether the signed-in user hid it from their list. A new message clears it on the server; the
+   * one being read stays on screen anyway.
+   */
+  hidden?: boolean;
   /** The latest message, for the preview line of a conversation list; absent while nothing was said. */
   lastMessage?: LastMessage;
 };

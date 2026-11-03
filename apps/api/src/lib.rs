@@ -28,6 +28,7 @@ mod office;
 mod og;
 mod openapi;
 mod permissions;
+mod preferences;
 mod realtime;
 mod seed;
 pub mod state;

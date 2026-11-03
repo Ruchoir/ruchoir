@@ -1063,6 +1063,10 @@
             "description": "Whether the sole counterpart is a bot account.",
             "type": "boolean"
           },
+          "hidden": {
+            "description": "Whether the caller has hidden this conversation from their list. Reported rather than left\nout, so a client can keep the one being read on screen; a new message clears it.",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -1122,7 +1126,8 @@
           "bot",
           "unread",
           "notify_level",
-          "muted"
+          "muted",
+          "hidden"
         ],
         "type": "object"
       },
@@ -1135,6 +1140,18 @@
         },
         "required": [
           "password"
+        ],
+        "type": "object"
+      },
+      "DmHiddenRequest": {
+        "description": "Hide a direct conversation from the caller's own list, or bring it back.",
+        "properties": {
+          "hidden": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "hidden"
         ],
         "type": "object"
       },
@@ -9563,6 +9580,46 @@
         ]
       }
     },
+    "/api/v1/me/dms/{dm_id}/hidden": {
+      "put": {
+        "description": "Hiding is not leaving: the conversation and its history are untouched, and the next message in\nit, from anyone, brings it back (`messages::send_message`). Only the caller's own row changes; a\nconversation they are not part of answers 404, as one that does not exist.",
+        "operationId": "set_dm_hidden",
+        "parameters": [
+          {
+            "description": "Direct-message conversation id",
+            "in": "path",
+            "name": "dm_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DmHiddenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Saved"
+          },
+          "404": {
+            "description": "Not a conversation of the caller"
+          }
+        },
+        "summary": "`PUT /api/v1/me/dms/{dm_id}/hidden`: hide a direct conversation from the caller's own list, or\nbring it back.",
+        "tags": [
+          "messaging"
+        ]
+      }
+    },
     "/api/v1/me/notification-preferences": {
       "get": {
         "operationId": "get_preferences",
@@ -9613,6 +9670,59 @@
         "summary": "`PUT /api/v1/me/notification-preferences`: replace the caller's notification settings.",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/api/v1/me/preferences": {
+      "get": {
+        "operationId": "get_preferences",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The caller's account preferences"
+          }
+        },
+        "summary": "`GET /api/v1/me/preferences`: every account preference the caller has set. A person who never\nset one reads `{}`: \"nothing stored yet\" is what tells a device to send its own up.",
+        "tags": [
+          "preferences"
+        ]
+      },
+      "patch": {
+        "operationId": "patch_preferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            },
+            "description": "The whole document after the change"
+          },
+          "400": {
+            "description": "An unknown key or an invalid value, named in the message"
+          }
+        },
+        "summary": "`PATCH /api/v1/me/preferences`: change some keys, `null` putting one back to its default. The\nwhole change is refused when one key is unknown or one value invalid.",
+        "tags": [
+          "preferences"
         ]
       }
     },
@@ -12508,6 +12618,10 @@
     {
       "description": "Live office editing: editing sessions and blank documents",
       "name": "office"
+    },
+    {
+      "description": "Account preferences that follow a person across devices",
+      "name": "preferences"
     },
     {
       "description": "Instance administration: account lookup and recovery",
