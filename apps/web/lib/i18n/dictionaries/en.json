@@ -1774,7 +1774,21 @@
       "failed": "The window couldn’t be opened. Try again.",
       "openMenu": "Open {{name}}",
       "openWindow": "Open in a window",
-      "openLocal": "Open with the computer’s app"
+      "openLocal": "Open with the computer’s app",
+      "unsafeType": "This type of file does not open from Ruchoir: save it first, then open it yourself.",
+      "saved": {
+        "title": "File saved",
+        "region": "Files saved on the computer",
+        "body": "“{{name}}” was saved. Send it as a new version?",
+        "sent": "Version sent",
+        "conflictTitle": "A version was added in the meantime",
+        "conflictBody": "Someone added a version since you opened it. Sending “{{name}}” anyway would put it on top.",
+        "keepCopy": "Keep my copy",
+        "sendAnyway": "Send anyway",
+        "tooLarge": "This file is too large to send.",
+        "busy": "A send is already in progress for this file.",
+        "failed": "The version could not be sent. Try again."
+      }
     },
     "add": {
       "title": "Add a Ruchoir instance",

@@ -50,13 +50,41 @@ export async function openInWindow(href: string, name: string): Promise<void> {
   }
 }
 
-/** Open `href` in the computer's app for that kind of file. */
-export async function openLocal(href: string, name: string): Promise<void> {
+/**
+ * Open a file in the computer's app for it. When the person may replace the file (`canVersion`),
+ * its current version is read first and handed to the core, which then watches the copy: the version
+ * is what a later save is compared with before it is offered as a new one. A version list that
+ * cannot be read opens the file all the same, unwatched, rather than refusing to open it.
+ */
+export async function openLocal(file: {
+  instance: string;
+  /** Absent for a file that is only a link (a message still uploading): opened as a plain download. */
+  fileId?: string;
+  name: string;
+  /** The file's own download link, which is what the core accepts for a watched file. */
+  href: string;
+  canVersion?: boolean;
+}): Promise<void> {
   try {
     // `isDesktop` is a constant on the web build, which drops the import with it (and Tauri too).
     if (isDesktop) {
-      const { downloadOpen } = await import("./bridge");
-      await downloadOpen(openTarget(href), name);
+      if (!file.fileId) {
+        const { downloadOpen } = await import("./bridge");
+        await downloadOpen(openTarget(file.href), file.name);
+        return;
+      }
+      let baseVersion: string | undefined;
+      if (file.canVersion) {
+        try {
+          // Loaded here, as the bridge is: the node tests import this file without the app's aliases.
+          const { getVersions } = await import("@/lib/data/api");
+          baseVersion = (await getVersions(file.fileId)).find((v) => v.current)?.id;
+        } catch {
+          baseVersion = undefined;
+        }
+      }
+      const { fileOpenLocal } = await import("./bridge");
+      await fileOpenLocal(file.instance, file.fileId, file.name, openTarget(file.href), baseVersion);
     }
   } catch (code) {
     report(code, "file:");

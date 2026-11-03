@@ -488,6 +488,85 @@ async function main() {
     if (!recorded.includes(pickedName)) throw new Error(`the opener was given ${recorded}, expected the file ${pickedName}`);
     console.log(`ok: attachment opened with the computer's app (${recorded})`);
 
+    // 6e. A file saved on the computer is offered back as a new version. A .txt the account owns,
+    // sent from the composer, opened with the computer's app (the stand-in opener records the path),
+    // then edited in place: the banner appears, "Envoyer" adds a version.
+    const versionsOf = async (fileId) => (await (await api(`/files/${fileId}/versions`)).json()).length;
+    const sendText = async (name, content) => {
+      const path = join(tmpdir(), name);
+      writeFileSync(path, content);
+      try {
+        const input = await find(".wc-message-composer input[type=file]");
+        await wd("POST", `/session/${id}/element/${input[ELEMENT]}/value`, { text: path });
+        await settled(name);
+        await clickAria("Envoyer");
+        await until("the attachment card", () => run("return document.body.innerText.includes(arguments[0]);", [name]));
+      } finally {
+        rmSync(path, { force: true });
+      }
+      const row = await until(`${name} on the instance`, async () => {
+        const files = await (await api(`/conversations/${channel.id}/files`)).json();
+        return files.find((f) => f.name === name);
+      });
+      return row.id;
+    };
+    const openCopy = async (name) => {
+      const before = readFileSync(OPENED, "utf8").trim().split("\n").length;
+      await clickAria(`Ouvrir ${name}`);
+      await menuItem("open-local");
+      const line = await until("the opener to be called", () => {
+        const lines = readFileSync(OPENED, "utf8").trim().split("\n");
+        return lines.length > before ? lines.at(-1) : null;
+      });
+      if (!line.includes(name)) throw new Error(`the opener was given ${line}, expected ${name}`);
+      return line;
+    };
+    const banner = (name) =>
+      until(`the banner for ${name}`, () =>
+        run("return [...document.querySelectorAll('.wc-saved__item')].some((x) => x.innerText.includes(arguments[0]));", [name]),
+        6000,
+      );
+    const bannerButton = (label) =>
+      until(`the banner's "${label}"`, () =>
+        run("const b = [...document.querySelectorAll('.wc-saved__item button')].find((x) => x.textContent.trim() === arguments[0] && !x.disabled); if (b) b.click(); return !!b;", [label]),
+      );
+
+    const plainName = `ruchoir-e2e-saved-${Date.now()}.txt`;
+    const plainId = await sendText(plainName, "first line\n");
+    const plainPath = await openCopy(plainName);
+    if ((await versionsOf(plainId)) !== 1) throw new Error("a fresh file should hold one version");
+    // The poller compares the file's time and content: a save a moment after the opening.
+    await sleep(1200);
+    writeFileSync(plainPath, "first line\nsecond line, saved on the computer\n");
+    await banner(plainName);
+    await frameShot("saved-banner");
+    await bannerButton("Envoyer");
+    await until("the second version on the instance", async () => (await versionsOf(plainId)) === 2, 10000);
+    await until("the banner to say it was sent", () => run("return document.body.innerText.includes('Version envoyée');"), 5000);
+    await until("the banner to leave", () => run("return !document.querySelector('.wc-saved__item');"), 8000);
+    console.log("ok: a save on the computer was sent as a second version");
+
+    // The conflict: a version added meanwhile (here by the account's own other session) makes
+    // the interface ask before putting this copy on top.
+    const racedName = `ruchoir-e2e-raced-${Date.now()}.txt`;
+    const racedId = await sendText(racedName, "base\n");
+    const racedPath = await openCopy(racedName);
+    await sleep(1200);
+    writeFileSync(racedPath, "base\nmy edit on the computer\n");
+    await banner(racedName);
+    const form = new FormData();
+    form.append("file", new Blob(["base\nsomeone else's edit\n"], { type: "text/plain" }), racedName);
+    const added = await api(`/files/${racedId}/versions`, { method: "POST", body: form });
+    if (!added.ok) throw new Error(`could not add a version meanwhile: ${added.status}`);
+    await bannerButton("Envoyer");
+    await until("the conflict dialog", () => run("return document.body.innerText.includes('Quelqu’un a ajouté une version depuis votre ouverture');"), 8000);
+    await frameShot("saved-conflict");
+    if ((await versionsOf(racedId)) !== 2) throw new Error("the copy was sent without asking");
+    await clickText("Envoyer quand même");
+    await until("the third version on the instance", async () => (await versionsOf(racedId)) === 3, 10000);
+    await until("the banner to leave", () => run("return !document.querySelector('.wc-saved__item');"), 8000);
+    console.log("ok: a version added meanwhile is asked about, then sent anyway");
+
     // A file carrying a script, opened in a window, must not run it: the window is a page of the
     // app's own origin, where a script would reach the app's commands.
     const hostile = [

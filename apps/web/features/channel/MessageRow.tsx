@@ -49,6 +49,11 @@ export type MessageActions = {
   onOpenRoom?: (name: string) => void;
   /** Tick or untick the checklist item on this line of the body. Author-only, like any edit. */
   onToggleTask: (line: number, done: boolean) => void;
+  /**
+   * This person may replace the files of the message (the desktop app's "send as a new version"):
+   * the server's rule, the file's owner or a space admin, read here as the message's author or an admin.
+   */
+  canVersionFiles: boolean;
 };
 
 const styles: Record<string, CSSProperties> = {
@@ -138,7 +143,7 @@ const styles: Record<string, CSSProperties> = {
 };
 
 /** One stored document in a message, kept to one line however long its original name is. */
-function AttachmentCard({ attachment }: { attachment: MessageAttachment }) {
+function AttachmentCard({ attachment, canVersion }: { attachment: MessageAttachment; canVersion: boolean }) {
   const { t } = useTranslation();
 
   return (
@@ -179,7 +184,7 @@ function AttachmentCard({ attachment }: { attachment: MessageAttachment }) {
           {attachment.url ? (
             <span style={{ display: "inline-flex", flex: "none" }}>
               {isDesktop ? (
-                <OpenFileEntries href={attachment.previewUrl ?? attachment.url} name={attachment.name} />
+                <OpenFileEntries href={attachment.previewUrl ?? attachment.url} name={attachment.name} fileId={attachment.fileId} canVersion={canVersion} />
               ) : (
                 <IconLink
                   icon="external-link"
@@ -575,11 +580,11 @@ export function MessageRow({
 
             {m.link ? <LinkPreviewCard link={m.link} /> : null}
             {images.map((image, index) => (
-              <InlineImage key={image.fileId ?? `${image.alt}-${index}`} image={image} />
+              <InlineImage key={image.fileId ?? `${image.alt}-${index}`} image={image} canVersion={actions.canVersionFiles} />
             ))}
 
             {attachments.map((attachment, index) => (
-              <AttachmentCard key={attachment.fileId ?? `${attachment.name}-${index}`} attachment={attachment} />
+              <AttachmentCard key={attachment.fileId ?? `${attachment.name}-${index}`} attachment={attachment} canVersion={actions.canVersionFiles} />
             ))}
 
             {m.reactions && m.reactions.length > 0 ? (

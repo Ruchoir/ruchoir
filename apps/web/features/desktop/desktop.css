@@ -13,6 +13,7 @@
 }
 
 .wc-desktop {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: var(--ui-vw, 100vw);
@@ -264,4 +265,57 @@
   .wc-desktop__still {
     transition: none;
   }
+}
+
+/*
+ * Files saved on the computer, offered as a new version: a stack in the lower right corner, over any
+ * screen. Subtle grey lines, no heavy borders; the newest sits at the bottom, nearest the corner.
+ */
+.wc-saved {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  width: min(420px, calc(100% - 32px));
+}
+
+.wc-saved__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-body);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-popover);
+}
+
+.wc-saved__icon {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.wc-saved__text {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-wrap: anywhere;
+}
+
+.wc-saved__error {
+  color: var(--status-danger-fg);
+  font-size: var(--text-xs);
+}
+
+.wc-saved__actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
 }

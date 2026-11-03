@@ -1842,7 +1842,21 @@
       "failed": "No se pudo abrir la ventana. Inténtalo de nuevo.",
       "openMenu": "Abrir {{name}}",
       "openWindow": "Abrir en una ventana",
-      "openLocal": "Abrir con la aplicación del ordenador"
+      "openLocal": "Abrir con la aplicación del ordenador",
+      "unsafeType": "Este tipo de archivo no se abre desde Ruchoir: guárdelo primero y ábralo usted mismo.",
+      "saved": {
+        "title": "Archivo guardado",
+        "region": "Archivos guardados en el ordenador",
+        "body": "«{{name}}» se ha guardado. ¿Enviarlo como nueva versión?",
+        "sent": "Versión enviada",
+        "conflictTitle": "Se añadió una versión mientras tanto",
+        "conflictBody": "Alguien añadió una versión desde que lo abrió. Enviar «{{name}}» de todos modos la dejaría encima.",
+        "keepCopy": "Conservar mi copia",
+        "sendAnyway": "Enviar de todos modos",
+        "tooLarge": "Este archivo es demasiado grande para enviarlo.",
+        "busy": "Ya hay un envío en curso para este archivo.",
+        "failed": "No se pudo enviar la versión. Inténtelo de nuevo."
+      }
     },
     "add": {
       "title": "Añadir una instancia de Ruchoir",

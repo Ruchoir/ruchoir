@@ -22,6 +22,8 @@ export type OtherInstance = {
  * `null` on the web and outside the desktop root: every reader treats it as "not the desktop".
  */
 export type DesktopBridge = {
+  /** The open instance's id, which the core names an opened file's copy and watch by. */
+  instanceId: string;
   /** The open instance's heading and host. */
   instanceLabel: string;
   instanceHost: string;

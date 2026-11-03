@@ -639,6 +639,7 @@ export function ChannelScreen({
     mentionUserId: (name) => userIdByName.get(name),
     onOpenRoom: (name) => actions.openRoom(name),
     onToggleTask: (line, done) => actions.toggleTask(m.id, line, done),
+    canVersionFiles: (!!m.authorId && m.authorId === myUserId) || myRole === "owner" || myRole === "admin",
   });
   /** The faces to draw next to a thread's reply count: the last repliers, with their pictures. */
   const replyFaces = (m: Message) =>

@@ -7,6 +7,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+import type { SavedFile } from "../../features/desktop/savedFile";
 import type { DesktopSettings, Summary } from "./instances";
 import type { Invoke, Listen } from "./relaySocket";
 
@@ -60,9 +61,32 @@ export const downloadSave = (href: string, name: string) => invoke<boolean>("dow
 export const downloadOpen = (href: string, name: string) => invoke<void>("download_open", { href, name });
 /** Open the app's own address in a window of its own (one per address; an open one is brought forward). */
 export const fileWindow = (href: string, title: string) => invoke<void>("file_window", { href, title });
+/**
+ * Open a file of an instance with the computer's app. With `baseVersion` (the version it was opened
+ * from) the core also watches the copy and tells `file:saved` when it changes.
+ */
+export const fileOpenLocal = (instance: string, fileId: string, name: string, href: string, baseVersion?: string) =>
+  invoke<void>("file_open_local", { instance, fileId, name, href, baseVersion: baseVersion ?? null });
+/** Stop watching an opened file ("Ignore"). */
+export const fileDismiss = (instance: string, fileId: string) => invoke<void>("file_dismiss", { instance, fileId });
+/** Send the watched copy as a new version of its file. */
+export const fileSendVersion = (instance: string, fileId: string) => invoke<void>("file_send_version", { instance, fileId });
+/** "Save as" for the watched copy, nothing uploaded; false when the person cancelled. */
+export const fileKeepCopy = (instance: string, fileId: string) => invoke<boolean>("file_keep_copy", { instance, fileId });
+/** An opened file was saved on the computer (also re-emitted when its notification is clicked). */
+export function onFileSaved(handler: (saved: SavedFile) => void): Promise<() => void> {
+  return listen<SavedFile>("file:saved", (event) => handler(event.payload));
+}
 export const setDesktopSettings = (settings: DesktopSettings) => invoke<DesktopSettings>("set_desktop_settings", { settings });
 /** The tray menu's words and the first-close notice, in the interface's language. */
-export const setShellLabels = (labels: { open: string; quit: string; closed_to_tray: string }) =>
+export const setShellLabels = (labels: {
+  open: string;
+  quit: string;
+  closed_to_tray: string;
+  /** The notice when an opened file is saved; the body holds `{name}`, which the core fills. */
+  saved_title: string;
+  saved_body: string;
+}) =>
   invoke<void>("set_shell_labels", { labels });
 
 /** Follow every instance. */

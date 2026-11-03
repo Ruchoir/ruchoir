@@ -10,6 +10,11 @@ work="$(mktemp -d)"
 trap 'cp "$work/driver.log" "${E2E_LOG:-/tmp/ruchoir-desktop-e2e.log}" 2>/dev/null; rm -rf "$work"' EXIT
 export XDG_DATA_HOME="$work/data" XDG_CONFIG_HOME="$work/config" XDG_CACHE_HOME="$work/cache"
 export E2E_OPENED_FILE="$work/opened.txt" BROWSER="$here/record-url.sh"
+# A plain-text file would open in the machine's own editor (a terminal one, here): the stand-in
+# opener is made its handler too, so the path of every file the app hands the system is recorded.
+mkdir -p "$XDG_DATA_HOME/applications" "$XDG_CONFIG_HOME"
+printf '[Desktop Entry]\nType=Application\nName=E2E opener\nExec=%s %%f\nMimeType=text/plain;application/pdf;\nNoDisplay=true\n' "$here/record-url.sh" > "$XDG_DATA_HOME/applications/e2e-opener.desktop"
+printf '[Default Applications]\ntext/plain=e2e-opener.desktop\napplication/pdf=e2e-opener.desktop\n' > "$XDG_CONFIG_HOME/mimeapps.list"
 # The app must not borrow a desktop's real settings for which browser opens links.
 unset XDG_CURRENT_DESKTOP DESKTOP_SESSION
 dbus-run-session -- xvfb-run -a bash -c '
