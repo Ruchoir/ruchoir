@@ -23,6 +23,11 @@ const SIDEBAR = [
   ["--badge-fg", "--badge-bg"],
   // An icon button drawn in the pane (the space's actions, the new message pen).
   ["--action-ghost-fg", "--sidebar-bg", null, 3],
+  // A muted channel's count (a neutral badge on the line colour) and a tag (on the card surface).
+  ["--text-body", "--line", "--sidebar-bg"],
+  ["--text-body", "--surface-card", "--sidebar-bg"],
+  // The keyboard focus of a row.
+  ["--edge-focus", "--sidebar-bg", null, 3],
 ];
 /** The rail holds icons and the instance's headings: what it draws must hold on it too. */
 const RAIL = [

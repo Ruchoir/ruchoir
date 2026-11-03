@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { colourSelector, FLAT, paneSelector, RESTORE, shapeSelector, VARIANTS } from "./resolve.mjs";
+import { colourSelector, FLAT, paneSelector, resolveTokens, RESTORE, shapeSelector, VARIANTS } from "./resolve.mjs";
 import { blockDeclarations, STYLE_TOKENS } from "./styleTokens.mjs";
 
 const css = readFileSync(new URL("../styles/tokens.css", import.meta.url), "utf8");
@@ -86,4 +86,37 @@ test("the flat layer turns off every offset shadow, lift and tilt, and keeps a r
   for (const name of off) assert.equal(flat[name], "none", `${name} is not turned off`);
   assert.equal(flat["--shadow-ring-offset"], "0 0 0 2px var(--edge-focus)");
   assert.equal(flat["--shadow-ring-offset-sm"], "0 0 0 1.5px var(--edge-focus)");
+});
+
+test("a pane that changes a value the flat layer builds on restates what is built on it", () => {
+  // A custom property holding var() is resolved where it is declared (on <html>): the flat layer's
+  // rings are drawn in the content's focus colour unless the pane declares them again.
+  const flat = blockDeclarations(css, FLAT);
+  for (const v of VARIANTS) {
+    for (const pane of PANES[v]) {
+      for (const night of [false, true]) {
+        const block = blockDeclarations(css, paneSelector(v, night, pane));
+        for (const [token, value] of Object.entries(flat)) {
+          if (token.startsWith("--float-")) continue;
+          const uses = [...value.matchAll(/var\((--[a-z0-9-]+)/g)].map((m) => m[1]).filter((n) => n in block);
+          if (uses.length) assert.ok(token in block, `${v} ${pane}${night ? " night" : ""}: changes ${uses.join(", ")} but not ${token}`);
+        }
+      }
+    }
+  }
+});
+
+test("a coloured pane draws its own chrome: rings around dots and avatars take the pane's colour", () => {
+  for (const v of VARIANTS) {
+    for (const night of [false, true]) {
+      if (PANES[v].includes("sidebar")) {
+        const t = resolveTokens(css, v, night, "sidebar");
+        assert.equal(t["--surface-chrome"], t["--sidebar-bg"], `${v} sidebar${night ? " night" : ""}`);
+      }
+      if (PANES[v].includes("rail")) {
+        const t = resolveTokens(css, v, night, "rail");
+        assert.equal(t["--surface-canvas"], t["--rail-bg"], `${v} rail${night ? " night" : ""}`);
+      }
+    }
+  }
 });

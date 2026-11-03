@@ -11,7 +11,7 @@ test("a stored style is read back as itself", () => {
 });
 
 test("a stored value that is not a style falls back to Ruchoir", () => {
-  for (const value of ["slack", 42, undefined, null, "", "Nuage"]) assert.equal(storedStyle(value), "ruchoir");
+  for (const value of ["bogus", 42, undefined, null, "", "Nuage", ["nuage"]]) assert.equal(storedStyle(value), "ruchoir");
 });
 
 test("Ruchoir carries no attribute, a simplified style its name", () => {

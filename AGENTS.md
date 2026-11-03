@@ -375,9 +375,11 @@ The product is drawn with the Ruchoir design system, the same one as the public 
   never an account setting) and the pre-paint script (`lib/themeBootstrap.ts`). `tokens.css` holds a
   flat layer (`[data-style]`: no offset, lift or tilt, grey hairline edges) and per style a shape
   block and two colour blocks, by day (`:not([data-theme$="-dark"])`) and by night, which must
-  declare the same names. A coloured sidebar or rail redefines its text tokens on its hook; anything
-  that floats and is drawn inside a pane (a menu, a popover, a dialog, a field) gets the content's
-  values back: give a new menu root the `wc-float` class. `test/variants.test.mjs` and
+  declare the same names. A coloured sidebar or rail redefines its text tokens on its hook, and
+  declares again any token built on one of them (the rings, `--focus-ring`: a token holding `var()`
+  resolves on `<html>`); what is drawn inside a pane on its own surface (a dialog, a sheet, a field)
+  gets the content's values back. Popovers and tooltips are portaled and never inherit from a pane;
+  give a menu drawn in place the `wc-float` class. `test/variants.test.mjs` and
   `test/contrast.test.mjs` (WCAG AA for every style, by day and by night) guard them. The style names
   are our own: never name the tools they recall.
 - **Where it lives:** `packages/design-system` (`@ruchoir/design-system`): tokens, typefaces and the

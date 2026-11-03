@@ -17,7 +17,8 @@ test("a style is stamped beside the accent, which stays", () => {
 });
 
 test("a stored style that is not one is not stamped", () => {
-  assert.deepEqual(paint(JSON.stringify({ style: "slack" })), {});
+  assert.deepEqual(paint(JSON.stringify({ style: "bogus" })), {});
+  assert.deepEqual(paint(JSON.stringify({ style: ["nuage"] })), {});
   assert.deepEqual(paint(JSON.stringify({ style: 42, accent: "pink" })), { theme: "pink" });
 });
 

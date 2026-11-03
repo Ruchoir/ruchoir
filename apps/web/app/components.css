@@ -1570,6 +1570,8 @@
   --edge-focus: #15171c;
   --shadow-ring-offset: 0 0 0 2px #15171c, 3px 3px 0 2px #15171c;
   --shadow-ring-offset-sm: 0 0 0 1.5px #15171c, 2px 2px 0 1.5px #15171c;
+  --badge-bg: #15171c;
+  --badge-fg: #ffffff;
   color: #15171c;
 }
 /* Under a simplified style, the rings on a pastel lose their offset like every other. */

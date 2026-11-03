@@ -534,6 +534,14 @@
   --float-action-ghost-fg: var(--action-ghost-fg);
   --float-action-ghost-bg-hover: var(--action-ghost-bg-hover);
   --float-action-ghost-bg-active: var(--action-ghost-bg-active);
+  --float-surface-chrome: var(--surface-chrome);
+  --float-surface-card: var(--surface-card);
+  --float-line: var(--line);
+  --float-border-default: var(--border-default);
+  --float-shadow-ring-offset: var(--shadow-ring-offset);
+  --float-shadow-ring-offset-sm: var(--shadow-ring-offset-sm);
+  --float-focus-ring: var(--focus-ring);
+  --float-edge-float: var(--edge-float);
 }
 
 /* --- Aubergine: a plum sidebar, tight messages ----------------------------- */
@@ -618,6 +626,17 @@
   --action-ghost-fg: #d8c8d9;
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* What the pane draws on: a count, a tag, the ring of a presence dot, the keyboard focus. */
+  --surface-chrome: #4a154b;
+  --surface-card: rgb(255 255 255 / 0.1);
+  --line: rgb(255 255 255 / 0.16);
+  --border-default: rgb(255 255 255 / 0.24);
+  --edge-focus: #ffffff;
+  /* Declared again here so they resolve with the pane's focus colour, not the content's. */
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 [data-style="aubergine"][data-theme$="-dark"] .wc-pane-sidebar {
   --text-strong: #ffffff;
@@ -630,6 +649,17 @@
   --action-ghost-fg: #bcbcbe;
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* What the pane draws on: a count, a tag, the ring of a presence dot, the keyboard focus. */
+  --surface-chrome: #19171d;
+  --surface-card: rgb(255 255 255 / 0.1);
+  --line: rgb(255 255 255 / 0.16);
+  --border-default: rgb(255 255 255 / 0.24);
+  --edge-focus: #ffffff;
+  /* Declared again here so they resolve with the pane's focus colour, not the content's. */
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 [data-style="aubergine"]:not([data-theme$="-dark"]) .wc-pane-rail {
   --text-muted: #c6b3c7;
@@ -641,6 +671,12 @@
   --action-ghost-fg: #c6b3c7;
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 [data-style="aubergine"][data-theme$="-dark"] .wc-pane-rail {
   --text-muted: #9a9b9e;
@@ -652,6 +688,12 @@
   --action-ghost-fg: #9a9b9e;
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 
 /* --- Nuage: a bright blue band, airy messages, pills ----------------------- */
@@ -738,6 +780,12 @@
   --action-ghost-fg: #ffffff;
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 [data-style="nuage"][data-theme$="-dark"] .wc-pane-rail {
   --text-muted: #ffffff;
@@ -749,6 +797,12 @@
   --action-ghost-fg: #ffffff;
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 
 /* --- Indigo: each message on a card, over a grey canvas -------------------- */
@@ -911,6 +965,17 @@
   --action-ghost-fg: rgb(255 255 255 / 0.72);
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* What the pane draws on: a count, a tag, the ring of a presence dot, the keyboard focus. */
+  --surface-chrome: #1e325c;
+  --surface-card: rgb(255 255 255 / 0.1);
+  --line: rgb(255 255 255 / 0.16);
+  --border-default: rgb(255 255 255 / 0.24);
+  --edge-focus: #ffffff;
+  /* Declared again here so they resolve with the pane's focus colour, not the content's. */
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 [data-style="marine"][data-theme$="-dark"] .wc-pane-sidebar {
   --text-strong: #ffffff;
@@ -925,6 +990,17 @@
   --action-ghost-fg: rgb(255 255 255 / 0.72);
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* What the pane draws on: a count, a tag, the ring of a presence dot, the keyboard focus. */
+  --surface-chrome: #202228;
+  --surface-card: rgb(255 255 255 / 0.1);
+  --line: rgb(255 255 255 / 0.16);
+  --border-default: rgb(255 255 255 / 0.24);
+  --edge-focus: #ffffff;
+  /* Declared again here so they resolve with the pane's focus colour, not the content's. */
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 [data-style="marine"]:not([data-theme$="-dark"]) .wc-pane-rail {
   --text-muted: rgb(255 255 255 / 0.6);
@@ -936,6 +1012,12 @@
   --action-ghost-fg: rgb(255 255 255 / 0.72);
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 [data-style="marine"][data-theme$="-dark"] .wc-pane-rail {
   --text-muted: rgb(255 255 255 / 0.55);
@@ -947,11 +1029,18 @@
   --action-ghost-fg: rgb(255 255 255 / 0.72);
   --action-ghost-bg-hover: rgb(255 255 255 / 0.08);
   --action-ghost-bg-active: rgb(255 255 255 / 0.14);
+  /* Declared again here so they resolve with the rail's own colours, not the content's. */
+  --edge-float: var(--line-strong);
+  --shadow-ring-offset: 0 0 0 2px var(--edge-focus);
+  --shadow-ring-offset-sm: 0 0 0 1.5px var(--edge-focus);
+  --focus-ring: 0 0 0 var(--ring-offset) var(--bg),
+    0 0 0 calc(var(--ring-offset) + var(--ring-width)) var(--edge-focus);
 }
 
 /* --- What floats inside a coloured pane ------------------------------------ */
-/* A menu, a popover, a dialog or a field opened in the sidebar or the rail is drawn where it is
-   opened (the app has no portals): it takes the content's colours back, on its own surface. */
+/* A dialog, a sheet or a field drawn inside the sidebar or the rail takes the content's colours back,
+   on its own surface. Popovers and tooltips are portaled to <body> and never sit in a pane; a menu
+   drawn in place (class `wc-float`) is covered all the same. */
 [data-style] :is(.wc-pane-sidebar, .wc-pane-rail) :is(.wc-float, .wc-pop, .wc-dlg, .wc-sheet, .wc-inp) {
   --text-strong: var(--float-text-strong);
   --text-body: var(--float-text-body);
@@ -968,4 +1057,12 @@
   --action-ghost-fg: var(--float-action-ghost-fg);
   --action-ghost-bg-hover: var(--float-action-ghost-bg-hover);
   --action-ghost-bg-active: var(--float-action-ghost-bg-active);
+  --surface-chrome: var(--float-surface-chrome);
+  --surface-card: var(--float-surface-card);
+  --line: var(--float-line);
+  --border-default: var(--float-border-default);
+  --shadow-ring-offset: var(--float-shadow-ring-offset);
+  --shadow-ring-offset-sm: var(--float-shadow-ring-offset-sm);
+  --focus-ring: var(--float-focus-ring);
+  --edge-float: var(--float-edge-float);
 }
