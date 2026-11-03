@@ -3232,12 +3232,14 @@ export function createApi(transport: Transport) {
    */
   async function openOfficeSession(
     fileId: string,
-    opts: { theme: "light" | "dark"; accent?: string; mode?: "convert"; mobile?: boolean; embedOrigin?: string },
+    opts: { theme: "light" | "dark"; accent?: string; style?: string; mode?: "convert"; mobile?: boolean; embedOrigin?: string },
   ): Promise<OfficeSession> {
     const dto = await apiPost<OfficeSessionDto>(`/files/${fileId}/office`, {
       locale: currentLocale(),
       theme: opts.theme,
       accent: opts.accent,
+      // A simplified style: an instance that does not know the field opens Ruchoir's theme.
+      style: opts.style,
       mode: opts.mode,
       mobile: opts.mobile,
       // Only the desktop app has one (`office_desktop_embed`): where the editor posts its messages.
