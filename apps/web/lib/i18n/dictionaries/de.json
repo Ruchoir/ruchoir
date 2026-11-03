@@ -1004,7 +1004,7 @@
     "title": "Einstellungen",
     "backToSpace": "Zurück zum Bereich",
     "appearance": "Erscheinungsbild",
-    "appearanceSub": "Thema, Schrift, Textgröße und wie die Oberfläche startet.",
+    "appearanceSub": "Thema, Schrift, Textgröße und wie die Oberfläche startet. Thema und Textgröße gelten nur für dieses Gerät; alles andere folgt Ihnen auf alle Ihre Geräte.",
     "font": "Schriftart",
     "textSize": "Textgröße",
     "defaultDisplay": "Standardansicht",
@@ -1600,7 +1600,7 @@
     "clash_other": "Überschneidet sich mit {{count}} Terminen: {{titles}}",
     "weekNumber": "KW {{n}}",
     "prefs": {
-      "sub": "Wie der Kalender auf diesem Gerät aussieht.",
+      "sub": "Wie der Kalender aussieht, auf allen Ihren Geräten.",
       "viewDesktop": "Ansicht beim Öffnen am Computer",
       "viewPhone": "Ansicht beim Öffnen am Telefon",
       "weekAndTime": "Woche und Uhrzeit",

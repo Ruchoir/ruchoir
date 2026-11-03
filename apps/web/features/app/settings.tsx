@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, type ReactNode, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { AccountPrefsDoc } from "@ruchoir/client";
 import { DEFAULT_NOTIF_PREFS, type NotifPrefs } from "./notifications";
 import { isLocale, type Locale } from "@/lib/i18n/config";
 import { initialLocale, startI18n } from "@/lib/i18n";
@@ -8,6 +9,7 @@ import { setCurrentLocale } from "@/lib/i18n/current";
 import { DEFAULT_BINDINGS, mergeBindings, type Bindings } from "./shortcuts";
 import { calendarPrefs, DEFAULT_CALENDAR_PREFS, type CalendarPrefs } from "@/features/calendar/prefs";
 import { isDesktop } from "@/lib/desktop/runtime";
+import { isAccountSetting, wireChanges } from "./accountPrefs";
 
 /** The accent a theme paints with: one of the design system's pastels. */
 export type ThemeAccent = "sky" | "mint" | "violet" | "pink";
@@ -164,14 +166,6 @@ export type Settings = {
    */
   spaceOrder: string[];
   /**
-   * Direct conversations hidden from the sidebar, by id.
-   *
-   * Hiding is not leaving and not archiving: the conversation and its history are untouched, it is
-   * out of the list until it has something to say again. A new message brings it straight back,
-   * which is what stops this from being a way to miss one.
-   */
-  hiddenDms: string[];
-  /**
    * Sidebar sections folded away, by id (`favourites`, `channels`, `messages`). A folded section
    * still shows the open conversation and anything unread, so folding tidies without hiding news.
    */
@@ -183,6 +177,11 @@ export type Settings = {
    * they exist (the first instance's are adopted until then). See `notifPrefsSync.ts`.
    */
   notifShared: boolean;
+  /**
+   * The desktop app: the same for the account preferences (`accountPrefs.ts`). Once the first
+   * instance's are adopted, the app's are the person's, sent to every instance.
+   */
+  accountShared: boolean;
   /**
    * Whether to warn before a link opens a page outside Ruchoir (see `ExternalLinkDialog`). On by
    * default; turned off from the warning itself or in Preferences > Security.
@@ -209,10 +208,46 @@ export type Settings = {
 type SettingsContextValue = Settings & {
   /** The theme on screen: the accent and the mode, with "automatic" resolved against the device. */
   theme: ThemeName;
+  /** A change made here: kept in this browser, and sent to the account when it follows it. */
   set: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
+  /**
+   * Settings the account already holds (read at sign-in, or changed on another device): kept in
+   * this browser, and not sent back.
+   */
+  adopt: (patch: Partial<Settings>) => void;
 };
 
-const DEFAULTS: Settings = {
+/**
+ * Who hears of a change of an account setting made here (`useAccountPrefsSync`), with what it
+ * sends: only the wire keys that moved.
+ */
+const accountListeners = new Set<(patch: AccountPrefsDoc) => void>();
+export function onAccountChange(listener: (patch: AccountPrefsDoc) => void): () => void {
+  accountListeners.add(listener);
+  return () => {
+    accountListeners.delete(listener);
+  };
+}
+
+/**
+ * Hidden direct conversations used to be kept here (`hiddenDms`) and are the server's now
+ * (`dm_participants.hidden`). What a browser still had is put aside at load, under its own key, so
+ * no later save of the settings loses it before it is sent up once (`takeLegacyHiddenDms`).
+ */
+const LEGACY_HIDDEN_KEY = "ruchoir.legacyHiddenDms";
+
+/** The conversations this browser hid before the server kept them, handed over once. */
+export function takeLegacyHiddenDms(): string[] {
+  try {
+    const raw = localStorage.getItem(LEGACY_HIDDEN_KEY);
+    localStorage.removeItem(LEGACY_HIDDEN_KEY);
+    return raw ? stringList(JSON.parse(raw)) : [];
+  } catch {
+    return [];
+  }
+}
+
+export const DEFAULTS: Settings = {
   accent: "sky",
   mode: "day",
   font: "plex",
@@ -226,10 +261,10 @@ const DEFAULTS: Settings = {
   shortcuts: DEFAULT_BINDINGS,
   welcome: DEFAULT_WELCOME,
   spaceOrder: [],
-  hiddenDms: [],
   collapsedSections: [],
   notifPrompted: false,
   notifShared: false,
+  accountShared: false,
   externalLinkWarning: true,
   threadWidth: THREAD_WIDTH_DEFAULT,
   locale: null,
@@ -239,6 +274,7 @@ const SettingsContext = createContext<SettingsContextValue>({
   ...DEFAULTS,
   theme: "sky",
   set: () => {},
+  adopt: () => {},
 });
 
 const STORAGE_KEY = "ruchoir.settings";
@@ -276,7 +312,11 @@ function storedSettings(): Settings | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const { theme: _retired, ...parsed } = JSON.parse(raw);
+    const { theme: _retired, hiddenDms: legacyHidden, ...parsed } = JSON.parse(raw);
+    const hidden = stringList(legacyHidden);
+    if (hidden.length > 0 && localStorage.getItem(LEGACY_HIDDEN_KEY) === null) {
+      localStorage.setItem(LEGACY_HIDDEN_KEY, JSON.stringify(hidden));
+    }
     return {
       ...DEFAULTS,
       ...parsed,
@@ -298,10 +338,10 @@ function storedSettings(): Settings | null {
           : [],
       },
       spaceOrder: stringList(parsed.spaceOrder),
-      hiddenDms: stringList(parsed.hiddenDms),
       collapsedSections: stringList(parsed.collapsedSections),
       notifPrompted: parsed.notifPrompted === true,
       notifShared: parsed.notifShared === true,
+      accountShared: parsed.accountShared === true,
       externalLinkWarning: parsed.externalLinkWarning !== false,
       threadWidth: threadWidth(parsed.threadWidth),
     };
@@ -364,19 +404,39 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     document.documentElement.dataset.text = settings.textSize;
   }, [settings.font, settings.textSize]);
 
-  const set = <K extends keyof Settings>(key: K, value: Settings[K]) => {
-    setSettings((prev) => {
-      const next = { ...prev, [key]: value };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // ignore storage failures
-      }
-      return next;
-    });
+  // The settings as last written, ahead of React's render: two changes in the same tick both see the
+  // one before them, and what an account change sends is computed once, outside React's updater
+  // (which may run twice).
+  const latest = useRef(settings);
+  useEffect(() => {
+    latest.current = settings;
+  }, [settings]);
+
+  const keep = (next: Settings) => {
+    latest.current = next;
+    setSettings(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage failures
+    }
   };
 
-  return <SettingsContext.Provider value={{ ...settings, theme, set }}>{children}</SettingsContext.Provider>;
+  const set = <K extends keyof Settings>(key: K, value: Settings[K]) => {
+    const before = latest.current;
+    const next = { ...before, [key]: value };
+    keep(next);
+    if (!isAccountSetting(key)) return;
+    const patch = wireChanges(key, before, next);
+    if (Object.keys(patch).length > 0) accountListeners.forEach((listen) => listen(patch));
+  };
+
+  const adopt = (patch: Partial<Settings>) => {
+    if (Object.keys(patch).length === 0) return;
+    keep({ ...latest.current, ...patch });
+  };
+
+  return <SettingsContext.Provider value={{ ...settings, theme, set, adopt }}>{children}</SettingsContext.Provider>;
 }
 
 export function useSettings(): SettingsContextValue {

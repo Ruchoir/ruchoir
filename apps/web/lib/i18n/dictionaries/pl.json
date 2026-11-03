@@ -1058,7 +1058,7 @@
     "title": "Preferencje",
     "backToSpace": "Powrót do przestrzeni",
     "appearance": "Wygląd",
-    "appearanceSub": "Motyw, krój pisma, rozmiar tekstu i domyślny wygląd interfejsu.",
+    "appearanceSub": "Motyw, krój pisma, rozmiar tekstu i domyślny wygląd interfejsu. Motyw i rozmiar tekstu dotyczą tylko tego urządzenia; reszta podąża za Tobą na wszystkie Twoje urządzenia.",
     "font": "Krój pisma",
     "textSize": "Rozmiar tekstu",
     "defaultDisplay": "Widok domyślny",
@@ -1716,7 +1716,7 @@
     "clash_other": "Nakłada się na {{count}} wydarzenia: {{titles}}",
     "weekNumber": "Tydz. {{n}}",
     "prefs": {
-      "sub": "Jak kalendarz wygląda na tym urządzeniu.",
+      "sub": "Jak wygląda kalendarz, na wszystkich Twoich urządzeniach.",
       "viewDesktop": "Widok po otwarciu na komputerze",
       "viewPhone": "Widok po otwarciu na telefonie",
       "weekAndTime": "Tydzień i godzina",

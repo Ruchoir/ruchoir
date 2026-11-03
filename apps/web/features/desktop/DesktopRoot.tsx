@@ -245,6 +245,15 @@ export function DesktopRoot() {
             .catch(() => {});
         }
       },
+      accountPreferencesSaved: (patch) => {
+        for (const view of views) {
+          if (view.open || !view.id || view.state !== "signed_in") continue;
+          // An instance from before account preferences answers 404: nothing to keep there.
+          void clientOf(view.id, view.origin)
+            .patchAccountPreferences(patch)
+            .catch(() => {});
+        }
+      },
       settings,
       setSettings: (next) => void setDesktopSettings(next).then(setSettings),
       interfaceReady: releaseStill,

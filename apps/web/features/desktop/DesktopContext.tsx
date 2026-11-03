@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { NotificationPreferences } from "@ruchoir/client";
+import type { AccountPrefsDoc, NotificationPreferences } from "@ruchoir/client";
 import type { DesktopSettings, SpaceSummary } from "@/lib/desktop/instances";
 
 /** Another instance the desktop app holds, as the rail draws it. */
@@ -38,6 +38,11 @@ export type DesktopBridge = {
    * signed-in instance (they are one set for all, Théo 2026-10-21), and its core reads them again.
    */
   preferencesSaved: (prefs: NotificationPreferences) => void;
+  /**
+   * Some account preferences changed in the app (`accountPrefs.ts`): the desktop sends the same
+   * change to every other signed-in instance, as it does the notification settings.
+   */
+  accountPreferencesSaved: (patch: AccountPrefsDoc) => void;
   settings: DesktopSettings | null;
   setSettings: (settings: DesktopSettings) => void;
   /** Whether sessions survive quitting (false on a Linux desktop without a keychain). */
