@@ -569,6 +569,12 @@ async fn a_guest_in_a_group_stays_a_guest() {
         .expect("rights");
     assert_eq!(rights.intersect(GUEST_CEILING), PermissionSet::EMPTY);
     assert_eq!(rights.intersect(VISIBILITY_DROP), PermissionSet::EMPTY);
+    // Clamped, not emptied: what the guests' base grants is still theirs.
+    assert!(
+        rights.contains(crate::permissions::catalogue::Permission::DmStart),
+        "{:?}",
+        rights.to_names()
+    );
     assert_eq!(
         rank_of(&app.db, space, guest).await.expect("rank"),
         Some(Rank::Position(-1))
@@ -585,5 +591,92 @@ async fn a_guest_in_a_group_stays_a_guest() {
     assert_eq!(
         rank_of(&app.db, space, guest).await.expect("rank"),
         Some(Rank::Position(-1))
+    );
+}
+
+async fn legacy_role_and_assignments(
+    db: &DatabaseConnection,
+    space: Uuid,
+    user: Uuid,
+) -> (String, i64) {
+    let row = db
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT m.role AS role, (SELECT count(*) FROM space_role_assignments a \
+                WHERE a.space_id = m.space_id AND a.user_id = m.user_id)::bigint AS n \
+               FROM space_members m WHERE m.space_id = $1 AND m.user_id = $2",
+            [space.into(), user.into()],
+        ))
+        .await
+        .expect("query")
+        .expect("row");
+    (
+        row.try_get("", "role").expect("role"),
+        row.try_get("", "n").expect("n"),
+    )
+}
+
+#[tokio::test]
+async fn administrator_through_a_group_leaves_the_legacy_column_alone() {
+    use crate::permissions::catalogue::Permission;
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let member = make_user(&app.db, "member").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Drift").await;
+    crate::testkit::add_member(&app.db, space, member, "member").await;
+    let group = make_group(&app.db, space, "Direction").await;
+    let administrator = administrator_role(&app.db, space).await;
+    give_role_to_group(&app.db, group, space, administrator)
+        .await
+        .expect("role");
+    put_in_group(&app.db, group, space, member, false).await;
+
+    let rights = crate::permissions::check::space_rights(&app.db, space, member)
+        .await
+        .expect("rights");
+    assert!(
+        rights.contains(Permission::RolesManage),
+        "carried to Administrator"
+    );
+    assert_eq!(
+        legacy_role_and_assignments(&app.db, space, member).await,
+        ("member".to_owned(), 0),
+        "no legacy write, no repair"
+    );
+}
+
+#[tokio::test]
+async fn a_legacy_admin_is_still_repaired_when_a_group_also_carries_administrator() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let admin = make_user(&app.db, "admin").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Drift").await;
+    crate::testkit::add_member(&app.db, space, admin, "admin").await;
+    let administrator = administrator_role(&app.db, space).await;
+    exec(
+        &app.db,
+        "DELETE FROM space_role_assignments WHERE space_id = $1 AND user_id = $2 AND role_id = $3",
+        vec![space.into(), admin.into(), administrator.into()],
+    )
+    .await
+    .expect("drift");
+    let group = make_group(&app.db, space, "Direction").await;
+    give_role_to_group(&app.db, group, space, administrator)
+        .await
+        .expect("role");
+    put_in_group(&app.db, group, space, admin, false).await;
+    assert_eq!(
+        legacy_role_and_assignments(&app.db, space, admin).await,
+        ("admin".to_owned(), 0),
+        "drifted: legacy admin, no direct assignment"
+    );
+
+    crate::permissions::check::space_rights(&app.db, space, admin)
+        .await
+        .expect("rights");
+    assert_eq!(
+        legacy_role_and_assignments(&app.db, space, admin).await,
+        ("admin".to_owned(), 1),
+        "the direct assignment is created"
     );
 }

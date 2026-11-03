@@ -4,7 +4,7 @@
 //! member directory (`members.view`: members, not guests), each with what it grants, how many hold
 //! it, and whether the caller may manage it (rule 1 of `delegation`). The member list carries each
 //! person's role ids and whether the caller may act on them (rule 3), from [`MemberRoles`], loaded
-//! for a whole space in three queries.
+//! for a whole space in a handful of queries.
 //!
 //! Composing roles (creating, editing, ordering, handing them out) is the enterprise edition's; the
 //! names and colours it may use are checked here, so every build says the same.
@@ -162,8 +162,8 @@ pub struct MemberRoles {
 }
 
 impl MemberRoles {
-    /// Loaded for `space_id` as `viewer` sees it: three queries (roles, assignments, standings)
-    /// and the viewer's rights.
+    /// Loaded for `space_id` as `viewer` sees it: five queries (roles, direct assignments, holdings,
+    /// groups, standings) and the viewer's rights.
     pub async fn load(
         db: &sea_orm::DatabaseConnection,
         space_id: Uuid,
@@ -212,7 +212,7 @@ impl MemberRoles {
         }
         // Everything a person holds, directly or through a group, each role once: what the rank
         // is made of (`roles` above stays the direct assignments).
-        let mut held: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+        let mut holdings: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
         for row in db
             .query_all_raw(Statement::from_sql_and_values(
                 DbBackend::Postgres,
@@ -221,7 +221,8 @@ impl MemberRoles {
             ))
             .await?
         {
-            held.entry(row.try_get("", "user_id")?)
+            holdings
+                .entry(row.try_get("", "user_id")?)
                 .or_default()
                 .push(row.try_get("", "role_id")?);
         }
@@ -261,7 +262,7 @@ impl MemberRoles {
                 Rank::Position(guests_base)
             } else {
                 let floor = members_base;
-                let held = held
+                let held = holdings
                     .get(&user)
                     .into_iter()
                     .flatten()
