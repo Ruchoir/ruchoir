@@ -5,15 +5,17 @@ import { Avatar, Button, Field, Icon, type IconName, Input, Select } from "@/com
 import type { Toast } from "../app/types";
 import { clearSpaceIcon, renameSpace, setDefaultChannel, setSpaceIcon } from "@/lib/data/api";
 import type { Channel } from "@/lib/data";
-import type { Role, SpaceEdition } from "@/lib/data/types";
+import type { Role, SpaceEdition, SpaceLicence } from "@/lib/data/types";
 import { ImageCropDialog } from "../app/ImageCropDialog";
 import { key, type TranslationKey, useTranslation } from "@/lib/i18n";
 import { formatDate } from "@/lib/i18n/format";
 import { BackHeading } from "../app/BackHeading";
 import { MembersSettings, type SettingsMember } from "./MembersSettings";
 import { RolesSettings } from "./RolesSettings";
+import { AuditSettings } from "./AuditSettings";
+import { LicenceSettings } from "./LicenceSettings";
 
-type NavKey = "general" | "members" | "roles";
+type NavKey = "general" | "members" | "roles" | "audit" | "licence";
 
 /**
  * The sections, with the dictionary key of each label. The member list and the roles are
@@ -25,6 +27,8 @@ const NAV: [NavKey, TranslationKey, IconName][] = [
   ["general", key("space.general"), "settings"],
   ["members", key("conversation.members"), "users"],
   ["roles", key("roles.title"), "shield"],
+  ["audit", key("audit.title"), "list"],
+  ["licence", key("licence.title"), "key-round"],
 ];
 
 const st: Record<string, CSSProperties> = {
@@ -164,6 +168,14 @@ export type WorkspaceSettingsProps = {
   onAccessChanged: () => Promise<void>;
   /** Set one person's roles, strongest first; resolves to whether it was saved. */
   onSaveMemberRoles: (userId: string, roleIds: string[]) => Promise<boolean>;
+  /** Whether the caller reads the space's audit log (`audit.view`). */
+  canReadAudit: boolean;
+  /** Whether the caller manages the space's licence: its owner, on an instance that has licences. */
+  canManageLicence: boolean;
+  /** The space's licence as its list says (owners only), for the days left. */
+  licence?: SpaceLicence;
+  /** A licence was installed or removed: read the space again. */
+  onLicenceChanged: () => Promise<void>;
   /** Channels in this space, used to select the arrival channel. */
   channels: Channel[];
   defaultChannelId?: string;
@@ -224,6 +236,10 @@ export function WorkspaceSettings({
   pricingUrl,
   onAccessChanged,
   onSaveMemberRoles,
+  canReadAudit,
+  canManageLicence,
+  licence,
+  onLicenceChanged,
   channels,
   defaultChannelId,
   members,
@@ -243,7 +259,9 @@ export function WorkspaceSettings({
 }: WorkspaceSettingsProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<NavKey>("general");
-  const sections = NAV.filter(([id]) => id === "general" || canManageMembers);
+  const sections = NAV.filter(([id]) =>
+    id === "audit" ? canReadAudit : id === "licence" ? canManageLicence : id === "general" || canManageMembers,
+  );
   const me = members.find((m) => m.userId === myUserId);
   // Counted rather than asserted: the line used to read "2 invités externes, 1 bot" whatever the
   // space held.
@@ -518,6 +536,20 @@ export function WorkspaceSettings({
               pricingUrl={pricingUrl}
               onChanged={onAccessChanged}
               onSetMemberRoles={onSaveMemberRoles}
+              onNotify={onNotify}
+            />
+          ) : null}
+
+          {tab === "audit" && canReadAudit ? <AuditSettings spaceId={spaceId} members={members} roles={roles} /> : null}
+
+          {tab === "licence" && canManageLicence ? (
+            <LicenceSettings
+              spaceId={spaceId}
+              spaceName={workspaceName}
+              edition={edition}
+              licence={licence}
+              pricingUrl={pricingUrl}
+              onChanged={onLicenceChanged}
               onNotify={onNotify}
             />
           ) : null}

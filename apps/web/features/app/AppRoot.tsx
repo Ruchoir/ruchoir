@@ -515,6 +515,8 @@ function AppShell() {
   const [canHideDms, setCanHideDms] = useState(false);
   /** Where the publisher's prices are, when the instance says. */
   const [pricingUrl, setPricingUrl] = useState<string>();
+  /** Whether the instance runs the licensed edition's licence routes. */
+  const [canLicences, setCanLicences] = useState(false);
   /**
    * An invitation the visitor arrived with, held across the whole authentication flow: they may have
    * to sign in or register first, and the token has to survive that. Kept in memory only, like the
@@ -1108,6 +1110,7 @@ function AppShell() {
         setCanReplyToChannel(supports(capabilities, "reply_to_channel"));
         setCanHideDms(supports(capabilities, "account_preferences"));
         setPricingUrl(capabilities.pricingUrl);
+        setCanLicences(supports(capabilities, "licences"));
       })
       .catch(() => {});
     return () => {
@@ -3445,6 +3448,19 @@ function AppShell() {
     refreshAccessRef.current = refreshAccess;
   });
 
+  /** A licence was installed or removed: the space's edition, rights and roles are read again. */
+  const refreshSpace = async () => {
+    const space = ws;
+    const spaces = await getWorkspaces().catch(() => null);
+    const fresh = spaces?.find((w) => w.id === space);
+    if (fresh) {
+      setWorkspaces((prev) =>
+        prev.map((w) => (w.id === space ? { ...w, role: fresh.role, myPermissions: fresh.myPermissions, edition: fresh.edition, licence: fresh.licence } : w)),
+      );
+    }
+    await refreshAccess();
+  };
+
   /** Set one person's roles from the settings or their profile; resolves to whether it was saved. */
   const saveMemberRoles = async (userId: string, roleIds: string[]): Promise<boolean> => {
     const name = members.find((m) => m.userId === userId)?.name ?? "";
@@ -4393,6 +4409,10 @@ function AppShell() {
           pricingUrl={pricingUrl}
           onAccessChanged={refreshAccess}
           onSaveMemberRoles={saveMemberRoles}
+          canReadAudit={myRights.includes("audit.view")}
+          canManageLicence={canLicences && currentWorkspace?.role === "owner"}
+          licence={currentWorkspace?.licence}
+          onLicenceChanged={refreshSpace}
           channels={channels}
           defaultChannelId={currentWorkspace?.defaultChannelId}
           onIconChanged={applySpaceIcon}
