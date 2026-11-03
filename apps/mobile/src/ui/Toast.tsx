@@ -13,8 +13,8 @@ import { AccessibilityInfo, Animated, Platform, StyleSheet, View } from "react-n
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FullWindowOverlay } from "react-native-screens";
 
-import { radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { feel, type Feel } from "./haptics";
 import { Text } from "./Text";
 
@@ -32,6 +32,7 @@ const ToastContext = createContext<ShowToast>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const { c } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
   const [opacity] = useState(() => new Animated.Value(0));
@@ -76,7 +77,9 @@ export function useToast(): ShowToast {
   return useContext(ToastContext);
 }
 
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  toast: { position: "absolute", alignSelf: "center", maxWidth: "86%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: radius.l },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    fill: { flex: 1 },
+    toast: { position: "absolute", alignSelf: "center", maxWidth: "86%", paddingHorizontal: 16, paddingVertical: 10, borderRadius: shape.radius.l },
+  }),
+);

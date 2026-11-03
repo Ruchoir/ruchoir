@@ -13,7 +13,6 @@ import { StyleSheet, View } from "react-native";
 import { SvgXml } from "react-native-svg";
 
 import { authHeadersFor, useApi } from "../api/useApi";
-import { radius } from "../theme/tokens";
 import { useTheme } from "../theme/useTheme";
 
 export type AvatarKind = "person" | "bot" | "workspace";
@@ -66,10 +65,10 @@ export function Avatar({
 }) {
   const api = useApi();
   const { absoluteUrl } = api;
-  const { c } = useTheme();
+  const { c, shape } = useTheme();
   const [failed, setFailed] = useState(false);
   const svg = useMemo(() => generated(name, kind), [name, kind]);
-  const corner = size >= 32 ? radius.m : radius.s;
+  const corner = shape.avatar(size);
   const dot = size >= 36 ? 10 : size >= 24 ? 8 : 6;
   const showPhoto = src && !failed;
 

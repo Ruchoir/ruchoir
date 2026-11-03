@@ -2,8 +2,8 @@ import type { LucideIcon } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { radius } from "../theme/tokens";
-import { useTheme } from "../theme/useTheme";
+import { styleCache } from "../theme/themedStyles";
+import { useTheme, useThemedStyles } from "../theme/useTheme";
 import { Text } from "./Text";
 
 type Props = {
@@ -27,6 +27,7 @@ type Props = {
  */
 export function ActionRow({ icon: Icon, tint, leading, title, subtitle, onPress, danger, selected, trailing }: Props) {
   const { c, s } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const tileColor = danger ? s.dangerBg : (tint ?? s.sunken);
   const iconColor = danger ? s.danger : tint ? c.onPastel : c.ink;
   const body = (
@@ -63,8 +64,10 @@ export function ActionRow({ icon: Icon, tint, leading, title, subtitle, onPress,
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 8, minHeight: 56 },
-  tile: { width: 40, height: 40, borderRadius: radius.m, alignItems: "center", justifyContent: "center" },
-  text: { flex: 1, minWidth: 0 },
-});
+const makeStyles = styleCache((shape) =>
+  StyleSheet.create({
+    row: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 8, minHeight: 56 },
+    tile: { width: 40, height: 40, borderRadius: shape.radius.m, alignItems: "center", justifyContent: "center" },
+    text: { flex: 1, minWidth: 0 },
+  }),
+);
