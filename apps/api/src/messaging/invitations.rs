@@ -532,13 +532,7 @@ pub async fn accept_invitation(
     // every client that already renders a message renders this one with no new case.
     if let Some(notice) = notice {
         let conversation_id = notice.conversation_id;
-        let audience: Vec<Uuid> = channel_members::Entity::find()
-            .filter(channel_members::Column::ChannelId.eq(conversation_id))
-            .all(&state.db)
-            .await?
-            .into_iter()
-            .map(|member| member.user_id)
-            .collect();
+        let audience = super::authz::channel_audience(&state.db, conversation_id).await?;
         if let Some(dto) = hydrate_messages(&state.db, session.user_id, vec![notice])
             .await?
             .pop()

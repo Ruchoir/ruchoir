@@ -122,20 +122,15 @@ pub async fn ensure_conversation_access(
 }
 
 /// The set of user ids that should receive a real-time push for a conversation: channel members for
-/// a channel, participants for a DM. Public-channel readers who have not joined are intentionally
-/// excluded (they read history over REST but are not pushed), matching the Slack model.
+/// a channel (those it still admits, see [`channel_audience`]), participants for a DM. Public-channel
+/// readers who have not joined are intentionally excluded (they read history over REST but are not
+/// pushed), matching the Slack model.
 pub async fn conversation_audience(
     db: &DatabaseConnection,
     access: &ConversationAccess,
 ) -> Result<Vec<Uuid>, ApiError> {
     let ids = match access.kind {
-        ConversationKind::Channel => channel_members::Entity::find()
-            .filter(channel_members::Column::ChannelId.eq(access.conversation_id))
-            .all(db)
-            .await?
-            .into_iter()
-            .map(|m| m.user_id)
-            .collect(),
+        ConversationKind::Channel => channel_audience(db, access.conversation_id).await?,
         ConversationKind::Direct => dm_participants::Entity::find()
             .filter(dm_participants::Column::DmId.eq(access.conversation_id))
             .all(db)
@@ -145,6 +140,70 @@ pub async fn conversation_audience(
             .collect(),
     };
     Ok(ids)
+}
+
+/// The people a channel's content may be sent to: its `channel_members` rows, less whoever its role
+/// reservation no longer admits.
+///
+/// A membership row outlives the right it once matched. Demoting someone, or reserving a channel
+/// after people joined it, leaves their row in place on purpose (a promotion gives the room back with
+/// their settings), and [`ensure_conversation_access`] refuses them the room all the same. Sending
+/// to the rows alone delivered every new message, mention and reply notice to exactly the people the
+/// reservation was drawn to keep out. Every push, notice and mention about a channel is addressed
+/// through this list, so the room is read and heard by the same people.
+pub async fn channel_audience<C: ConnectionTrait>(
+    db: &C,
+    channel_id: Uuid,
+) -> Result<Vec<Uuid>, ApiError> {
+    let members: Vec<Uuid> = channel_members::Entity::find()
+        .filter(channel_members::Column::ChannelId.eq(channel_id))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|member| member.user_id)
+        .collect();
+    if members.is_empty() {
+        return Ok(members);
+    }
+    let Some(allowed) = channel_allowed_roles(db, channel_id).await? else {
+        return Ok(members);
+    };
+    let Some(channel) = channels::Entity::find_by_id(channel_id).one(db).await? else {
+        return Ok(Vec::new());
+    };
+    // The same test as [`role_admitted`], for the whole list at once: the space's owner always, and
+    // otherwise a role the reservation names. Someone with a row but no space role is no longer in
+    // the space, and is admitted to nothing.
+    let admitted: HashSet<Uuid> = space_members::Entity::find()
+        .filter(space_members::Column::SpaceId.eq(channel.space_id))
+        .filter(space_members::Column::UserId.is_in(members.clone()))
+        .all(db)
+        .await?
+        .into_iter()
+        .filter(|member| member.role == "owner" || allowed.contains(&member.role))
+        .map(|member| member.user_id)
+        .collect();
+    Ok(members
+        .into_iter()
+        .filter(|user_id| admitted.contains(user_id))
+        .collect())
+}
+
+/// Whether a user may read a conversation, as a yes or no rather than a refusal.
+///
+/// For the one-person decisions that ride on a message without being a read of it: whether the
+/// author of a thread's root still hears about its replies, for one. A database failure stays an
+/// error rather than turning into a quiet "no".
+pub async fn may_read(
+    db: &DatabaseConnection,
+    conversation_id: Uuid,
+    user_id: Uuid,
+) -> Result<bool, ApiError> {
+    match ensure_conversation_access(db, conversation_id, user_id).await {
+        Ok(_) => Ok(true),
+        Err(ApiError::Forbidden) => Ok(false),
+        Err(error) => Err(error),
+    }
 }
 
 /// Require space membership, or fail with a flat `403` that does not reveal whether the space

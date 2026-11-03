@@ -123,7 +123,14 @@ context and takes precedence here.
   value). It stacks on the channel type rather than replacing it: the type answers "who may walk in",
   the list answers "who may be in it at all". The list is checked even for someone holding a
   membership row, so a demotion takes back the channels the old role opened; it filters the listing,
-  the search, the join, the "add people" call and even the real-time frames. **Both reasons someone
+  the search, the join, the "add people" call and even the real-time frames. **A membership row is
+  not a right**: it survives a demotion and a later reservation on purpose, so whatever is *sent*
+  about a channel's content goes through `authz::channel_audience` (the rows less whoever the
+  reservation no longer admits): messages, edits, reactions, pins, typing, read markers, `@channel`
+  and every-message notices, system notices, calendar cards. A one-person notice (the reply sent to
+  a thread root's author) asks `authz::may_read`, and the shared-files view keeps only joined
+  channels that still admit the reader. Until 2026-11-03 these went to the rows alone, so someone
+  demoted out of an administrators' channel kept receiving its messages live. **Both reasons someone
   would not see a channel have to filter those frames**, the reservation *and* being a guest: a
   frame that ignores either one puts a channel in a sidebar that the next page load takes away
   again, which is how a guest was told about every public channel the moment it was created. A list

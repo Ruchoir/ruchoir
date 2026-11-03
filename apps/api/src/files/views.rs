@@ -193,7 +193,7 @@ pub async fn shared_with_me(
         .into_iter()
         .map(|m| m.channel_id)
         .collect();
-    let channel_rows = if joined.is_empty() {
+    let joined_rows = if joined.is_empty() {
         Vec::new()
     } else {
         channels::Entity::find()
@@ -202,6 +202,17 @@ pub async fn shared_with_me(
             .all(&state.db)
             .await?
     };
+    // A joined channel whose reservation no longer admits the reader shares nothing with them: the
+    // row outlives the right (a demotion leaves it), and what was posted there is the room's.
+    let mut channel_rows = Vec::with_capacity(joined_rows.len());
+    for channel in joined_rows {
+        let admitted = crate::messaging::authz::role_admitted(&state.db, channel.id, space_id, me)
+            .await
+            .map_err(|_| FileError::Internal)?;
+        if admitted {
+            channel_rows.push(channel);
+        }
+    }
     let channel_names: HashMap<Uuid, String> =
         channel_rows.into_iter().map(|c| (c.id, c.name)).collect();
     let dms: HashSet<Uuid> = dm_participants::Entity::find()
