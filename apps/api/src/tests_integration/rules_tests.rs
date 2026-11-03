@@ -788,6 +788,13 @@ async fn an_audience_rule_never_loads_file_rules_of_the_channel() {
         let channel = make_channel(&app.db, fx.space_id, &format!("lecteurs-{n}"), "public").await;
         // File rules of the audience's own conversation files must not be read for it.
         let attached = make_file(&app.db, fx.space_id, fx.owner, &format!("c{n}.txt")).await;
+        exec(
+            &app.db,
+            "UPDATE files SET conversation_id = $1 WHERE id = $2",
+            vec![channel.into(), attached.into()],
+        )
+        .await
+        .expect("attach to the audience's conversation");
         grant(
             &app.db,
             fx.space_id,
@@ -1170,4 +1177,139 @@ async fn a_guest_stays_under_the_ceiling_through_every_target() {
     assert_eq!(on_channel.intersect(ceiling), Default::default());
     assert_eq!(on_file.intersect(ceiling), Default::default());
     assert!(on_channel.contains(Permission::MessageSend));
+}
+
+#[tokio::test]
+async fn a_later_non_lifting_allow_does_not_reopen_a_lock_a_deny_closed() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let space = fx.space_id;
+    let group = make_group(&app.db, space, "Equipe").await;
+    put_in_group(&app.db, group, space, fx.member, false).await;
+    let room = locked_room(&app.db, &fx).await;
+    // A file of the room: its channel's rules come first, then the file's.
+    let file = make_file(&app.db, space, fx.owner, "a.txt").await;
+    exec(
+        &app.db,
+        "UPDATE files SET conversation_id = $1 WHERE id = $2",
+        vec![room.into(), file.into()],
+    )
+    .await
+    .expect("attach");
+    let members = system_role(&app.db, space, "members").await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", room),
+        ("group_id", group),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", room),
+        ("user_id", fx.member),
+        &[],
+        &["channel.view"],
+    )
+    .await;
+    grant(
+        &app.db,
+        space,
+        ("file_id", file),
+        ("role_id", members),
+        &["channel.view"],
+        &[],
+    )
+    .await;
+    // The deny took the view, the file's `@members` allow gives it back without lifting the lock:
+    // the room, never joined, stays closed, so its file stays unread.
+    assert!(
+        !holds(
+            &app.db,
+            space,
+            fx.member,
+            Resource::File(file),
+            Permission::FilesView
+        )
+        .await
+    );
+    // Control: without the deny the group's opening stands.
+    exec(
+        &app.db,
+        "DELETE FROM permission_overrides WHERE channel_id = $1 AND user_id = $2",
+        vec![room.into(), fx.member.into()],
+    )
+    .await
+    .expect("lift the deny");
+    assert!(
+        holds(
+            &app.db,
+            space,
+            fx.member,
+            Resource::File(file),
+            Permission::FilesView
+        )
+        .await
+    );
+}
+
+#[tokio::test]
+async fn a_guest_never_joined_is_opened_by_a_person_or_group_rule_only() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let space = fx.space_id;
+    let view = Permission::ChannelView;
+    let group = make_group(&app.db, space, "Invites").await;
+    put_in_group(&app.db, group, space, fx.guest, false).await;
+    let guests = system_role(&app.db, space, "guests").await;
+    let administrator = system_role(&app.db, space, "administrator").await;
+    let every: Vec<&str> = Permission::ALL.iter().map(|p| p.name()).collect();
+
+    let by_person = locked_room(&app.db, &fx).await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", by_person),
+        ("user_id", fx.guest),
+        &every,
+        &[],
+    )
+    .await;
+    let by_group = locked_room(&app.db, &fx).await;
+    grant(
+        &app.db,
+        space,
+        ("channel_id", by_group),
+        ("group_id", group),
+        &every,
+        &[],
+    )
+    .await;
+    for room in [by_person, by_group] {
+        let held = check::effective(&app.db, space, fx.guest, Resource::Channel(room))
+            .await
+            .expect("effective");
+        assert!(held.contains(view));
+        assert_eq!(
+            held.intersect(crate::permissions::system_roles::GUEST_CEILING),
+            Default::default(),
+            "the ceiling still holds in a room opened by a rule"
+        );
+    }
+    for role in [guests, administrator] {
+        let room = locked_room(&app.db, &fx).await;
+        grant(
+            &app.db,
+            space,
+            ("channel_id", room),
+            ("role_id", role),
+            &["channel.view"],
+            &[],
+        )
+        .await;
+        assert!(!holds(&app.db, space, fx.guest, Resource::Channel(room), view).await);
+    }
 }

@@ -108,6 +108,8 @@ pub(super) async fn with_audiences<C: ConnectionTrait>(
     )
     .await?;
     let memberships = load::memberships(db, space_id, &found, Some(person.user_id)).await?;
+    // `person` is passed with no readable audiences on purpose: an audience never applies to a
+    // channel, so a channel's decision cannot depend on one and nothing recurses.
     with.readable_audiences = channels
         .iter()
         .filter(|channel| {

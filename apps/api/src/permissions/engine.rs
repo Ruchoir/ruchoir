@@ -805,4 +805,79 @@ mod tests {
             }
         }
     }
+
+    /// The lock stays open only while nothing takes the view away: after a deny, a later rule that
+    /// gives the view back with an allow that does not lift the lock must not reopen the room.
+    #[test]
+    fn a_later_non_lifting_allow_does_not_reopen_a_lock_a_deny_closed() {
+        let group = Uuid::new_v4();
+        let other = Uuid::new_v4();
+        let subject = member(&[ChannelView]);
+        let opening = || lifting(TargetRef::Group(group), &[ChannelView], &[]);
+        let file_level = |rules: Vec<Rule>| level(LevelKind::File, rules);
+
+        // The user pass: a personal deny, then the file level gives the view back.
+        let by_user = vec![
+            level(
+                LevelKind::Channel,
+                vec![opening(), rule(TargetRef::User, &[], &[ChannelView])],
+            ),
+            file_level(vec![rule(TargetRef::BaseRole, &[ChannelView], &[])]),
+        ];
+        assert!(!granted(&subject, &by_user, private()).contains(ChannelView));
+
+        // The shared pass: a group deny on a lower level, then a personal allow there.
+        let by_shared = vec![
+            level(LevelKind::Channel, vec![opening()]),
+            file_level(vec![
+                rule(TargetRef::Group(other), &[], &[ChannelView]),
+                rule(TargetRef::User, &[ChannelView], &[]),
+            ]),
+        ];
+        assert!(!granted(&subject, &by_shared, private()).contains(ChannelView));
+
+        // The base pass: a base deny on a lower level, then a group allow there.
+        let by_base = vec![
+            level(LevelKind::Channel, vec![opening()]),
+            file_level(vec![
+                rule(TargetRef::BaseRole, &[], &[ChannelView]),
+                rule(TargetRef::Group(other), &[ChannelView], &[]),
+            ]),
+        ];
+        assert!(!granted(&subject, &by_base, private()).contains(ChannelView));
+
+        // Control: with no deny in between, the opening stands.
+        let kept = vec![
+            level(LevelKind::Channel, vec![opening()]),
+            file_level(vec![rule(TargetRef::BaseRole, &[ChannelView], &[])]),
+        ];
+        assert!(granted(&subject, &kept, private()).contains(ChannelView));
+    }
+
+    #[test]
+    fn a_guest_never_joined_is_opened_by_a_person_or_group_rule_only() {
+        let group = Uuid::new_v4();
+        let role = Uuid::new_v4();
+        let mut subject = guest(&[]);
+        subject.roles.push((role, PermissionSet::ALL));
+        for opening in [
+            lifting(TargetRef::User, &[ChannelView], &[]),
+            lifting(TargetRef::Group(group), &[ChannelView], &[]),
+        ] {
+            let got = granted(&subject, &channel(vec![opening]), private());
+            assert!(got.contains(ChannelView));
+        }
+        for closed in [
+            rule(TargetRef::BaseRole, &[ChannelView], &[]),
+            rule(TargetRef::Role(role), &[ChannelView], &[]),
+        ] {
+            let got = granted(&subject, &channel(vec![closed]), private());
+            assert!(!got.contains(ChannelView));
+        }
+        // Opened by a rule, the guest still lacks everything above the ceiling.
+        let everything = lifting(TargetRef::User, &Permission::ALL, &[]);
+        let got = granted(&subject, &channel(vec![everything]), private());
+        assert!(got.contains(ChannelView));
+        assert_eq!(got.intersect(GUEST_CEILING), PermissionSet::EMPTY);
+    }
 }
