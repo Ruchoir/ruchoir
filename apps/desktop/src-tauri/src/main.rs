@@ -43,32 +43,19 @@ fn app_url() -> tauri::Url {
 /// top-level navigation to that one host would stay in the window; only the interface's own code can
 /// trigger one.
 #[derive(Default)]
-pub struct FrameOrigins(std::sync::Mutex<Vec<String>>);
-
-/// The most origins kept: an instance has one office host.
-const MAX_FRAME_ORIGINS: usize = 8;
+pub struct FrameOrigins(pub std::sync::Mutex<ruchoir_desktop_core::navigation::FrameList>);
 
 #[tauri::command]
-fn allow_frame_origin(origins: tauri::State<'_, FrameOrigins>, origin: String) -> Result<(), String> {
-    let url = tauri::Url::parse(&origin).map_err(|_| "refused".to_owned())?;
-    let plain = url.scheme() == "https"
-        && url.host_str().is_some()
-        && url.path() == "/"
-        && url.query().is_none()
-        && url.fragment().is_none()
-        && url.username().is_empty()
-        && url.password().is_none();
-    if !plain {
-        return Err("refused".to_owned());
-    }
-    let key = url.origin().ascii_serialization();
-    let mut list = origins.0.lock().map_err(|_| "refused".to_owned())?;
-    if !list.contains(&key) {
-        if list.len() >= MAX_FRAME_ORIGINS {
-            return Err("refused".to_owned());
-        }
-        list.push(key);
-    }
+fn allow_frame_origin(
+    origins: tauri::State<'_, FrameOrigins>,
+    origin: String,
+) -> Result<(), String> {
+    let key = ruchoir_desktop_core::navigation::frame_origin(&origin).ok_or("refused")?;
+    origins
+        .0
+        .lock()
+        .map_err(|_| "refused".to_owned())?
+        .allow(key);
     Ok(())
 }
 
@@ -78,7 +65,7 @@ fn leave_for<R: tauri::Runtime>(app: &tauri::AppHandle<R>, url: &tauri::Url) -> 
     use tauri_plugin_opener::OpenerExt;
     let frames = app
         .try_state::<FrameOrigins>()
-        .and_then(|o| o.0.lock().ok().map(|l| l.clone()))
+        .and_then(|o| o.0.lock().ok().map(|l| l.origins().to_vec()))
         .unwrap_or_default();
     match navigation_allowing(url, &frames) {
         Navigation::Stay => true,
