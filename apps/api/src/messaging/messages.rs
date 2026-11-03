@@ -238,6 +238,16 @@ pub async fn send_message(
         }
         resolved = present;
     }
+    // Groups come after the narrowing: naming a group is not a presence matter.
+    let group_mentions = mentions::resolve_group_mentions(
+        &state.db,
+        access.space_id,
+        session.user_id,
+        &audience,
+        text,
+    )
+    .await?;
+    mentions::merge_group_mentions(&mut resolved, group_mentions);
 
     // Who to notify: mentions, the other DM participants, and the replied-to author (deduped by
     // priority, never the sender).
@@ -248,12 +258,12 @@ pub async fn send_message(
     // unless the two are distinguishable downstream.
     let mention_ids: Vec<Uuid> = resolved
         .iter()
-        .filter(|m| m.mention_type == "user")
+        .filter(|m| mentions::is_personal(m.mention_type))
         .map(|m| m.user_id)
         .collect();
     let broadcast_ids: Vec<Uuid> = resolved
         .iter()
-        .filter(|m| m.mention_type != "user")
+        .filter(|m| !mentions::is_personal(m.mention_type))
         .map(|m| m.user_id)
         .collect();
     let dm_recipients: Vec<Uuid> = if access.kind == ConversationKind::Direct {
@@ -468,8 +478,17 @@ pub async fn edit_message(
     let also_in_channel = message.also_in_channel;
     let audience = authz::conversation_audience(&state.db, &access).await?;
     let tokens = mentions::extract_mention_tokens(text);
-    let resolved =
+    let mut resolved =
         mentions::resolve_mentions(&state.db, session.user_id, &audience, text, &tokens).await?;
+    let group_mentions = mentions::resolve_group_mentions(
+        &state.db,
+        access.space_id,
+        session.user_id,
+        &audience,
+        text,
+    )
+    .await?;
+    mentions::merge_group_mentions(&mut resolved, group_mentions);
 
     let parent_id = message.parent_message_id;
     let txn = state.db.begin().await?;
@@ -583,12 +602,12 @@ async fn edit_recipients(
 ) -> Result<Vec<(Uuid, &'static str)>, ApiError> {
     let mention_ids: Vec<Uuid> = resolved
         .iter()
-        .filter(|m| m.mention_type == "user")
+        .filter(|m| mentions::is_personal(m.mention_type))
         .map(|m| m.user_id)
         .collect();
     let broadcast_ids: Vec<Uuid> = resolved
         .iter()
-        .filter(|m| m.mention_type != "user")
+        .filter(|m| !mentions::is_personal(m.mention_type))
         .map(|m| m.user_id)
         .collect();
     let dm_recipients: Vec<Uuid> = if access.kind == ConversationKind::Direct {

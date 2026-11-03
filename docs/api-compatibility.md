@@ -72,6 +72,10 @@ older way taken. A name, once listed, is never removed nor reused for something 
 | `licences` | enterprise edition | `GET`/`PUT`/`DELETE /api/v1/spaces/{id}/licence` for the space's owners (installed by and when included), `GET /api/v1/admin/licences` for the instance's administrator (ADR 0010) |
 | `custom_roles` | enterprise edition | `POST /api/v1/spaces/{id}/roles`, `PATCH`/`DELETE .../roles/{role}`, `PUT .../roles/order` and `PUT .../members/{user}/roles`: a licensed space's own roles, ranked, with the four delegation rules |
 
+A group mentioned by name (`@Comptabilité`) is stored as `group` in the message's mentions, and
+reaches an older app as an ordinary mention notification (`kind` `mention`) with the text
+unchanged: no new field, no new event.
+
 The last two are the enterprise edition's own names, listed after the instance's by that build
 only (`Edition::features`). What every instance of this version answers, whatever its edition,
 needs no name: a space's `edition` and, for its owners, `licence`; `GET .../roles` and

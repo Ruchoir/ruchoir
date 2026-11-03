@@ -13,13 +13,18 @@
 //! Ambiguous or unmatched handles are left as plain text and simply not stored. Richer, unambiguous
 //! mention tokens (id-backed) can layer on later without changing the storage shape.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{
+    ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, EntityTrait, QueryFilter,
+    Statement,
+};
 use uuid::Uuid;
 
 use super::error::ApiError;
 use crate::entities::users;
+use crate::permissions::catalogue::Permission;
+use crate::permissions::check::space_rights;
 
 /// The distinct mention tokens found in a body.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -97,7 +102,7 @@ pub fn extract_mention_tokens(body: &str) -> MentionTokens {
 /// One resolved mention destined for `message_mentions`.
 pub struct ResolvedMention {
     pub user_id: Uuid,
-    /// One of `user`, `here`, `channel`.
+    /// One of `user`, `here`, `channel`, `group`.
     pub mention_type: &'static str,
 }
 
@@ -188,6 +193,91 @@ pub async fn resolve_mentions(
     Ok(resolved)
 }
 
+/// Whether this kind of mention names the person (a handle, their name, their group) rather than
+/// the room: only those notify as a mention, a broadcast one being the quiet kind.
+pub fn is_personal(mention_type: &str) -> bool {
+    matches!(mention_type, "user" | "group")
+}
+
+/// Resolve the groups a message names (`@Comptabilité`) to their members, as `group` mentions.
+///
+/// Nothing unless the author holds `members.view` in the space, so a guest cannot use a group name
+/// to learn what groups exist or to reach people they have no standing to address. A group is
+/// named the way a person is by their whole name: an `@` followed by its name, case and accents
+/// ignored, one word or several. Only groups of this space count, and only their members who are in
+/// `audience` (those who can read the conversation) are returned, never the author.
+pub async fn resolve_group_mentions(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    author_id: Uuid,
+    audience: &[Uuid],
+    body: &str,
+) -> Result<Vec<ResolvedMention>, ApiError> {
+    if !body.contains('@') || audience.is_empty() {
+        return Ok(Vec::new());
+    }
+    // One query for every group of the space with its members; a group with none has one row of
+    // NULL.
+    let rows = db
+        .query_all_raw(Statement::from_sql_and_values(
+            DbBackend::Postgres,
+            "SELECT g.id, g.name::text AS name, gm.user_id \
+               FROM space_groups g \
+               LEFT JOIN space_group_members gm ON gm.group_id = g.id \
+              WHERE g.space_id = $1",
+            [space_id.into()],
+        ))
+        .await?;
+    let mut groups: BTreeMap<Uuid, (String, Vec<Uuid>)> = BTreeMap::new();
+    for row in rows {
+        let id: Uuid = row.try_get("", "id")?;
+        let name: String = row.try_get("", "name")?;
+        let user: Option<Uuid> = row.try_get("", "user_id")?;
+        let entry = groups.entry(id).or_insert_with(|| (name, Vec::new()));
+        entry.1.extend(user);
+    }
+    let named: Vec<&(String, Vec<Uuid>)> = groups
+        .values()
+        .filter(|(name, _)| whole_name_mentioned(body, name))
+        .collect();
+    if named.is_empty() {
+        return Ok(Vec::new());
+    }
+    if !space_rights(db, space_id, author_id)
+        .await?
+        .contains(Permission::MembersView)
+    {
+        return Ok(Vec::new());
+    }
+    let mut reached: BTreeSet<Uuid> = BTreeSet::new();
+    for (_, members) in named {
+        for member in members {
+            if *member != author_id && audience.contains(member) {
+                reached.insert(*member);
+            }
+        }
+    }
+    Ok(reached
+        .into_iter()
+        .map(|user_id| ResolvedMention {
+            user_id,
+            mention_type: "group",
+        })
+        .collect())
+}
+
+/// Fold `groups` into `resolved`: someone already named directly stays `user`, someone reached by
+/// a broadcast becomes `group` (a name outranks the room), anyone else is added.
+pub fn merge_group_mentions(resolved: &mut Vec<ResolvedMention>, groups: Vec<ResolvedMention>) {
+    for group in groups {
+        match resolved.iter_mut().find(|r| r.user_id == group.user_id) {
+            Some(existing) if existing.mention_type == "user" => {}
+            Some(existing) => existing.mention_type = "group",
+            None => resolved.push(group),
+        }
+    }
+}
+
 /// Whether `body` contains an `@` followed by this display name, spaces and all.
 ///
 /// Compared word by word after folding both sides, so accents and case do not matter and the
@@ -202,6 +292,20 @@ fn full_name_mentioned(body: &str, display_name: &str) -> bool {
         .collect();
     // One word is a handle, and the handle pass below already covers it.
     if wanted.len() < 2 {
+        return false;
+    }
+    whole_name_mentioned(body, display_name)
+}
+
+/// [`full_name_mentioned`] without the one-word exception: a group's name is not a handle, so
+/// `@Comptabilité` names it just as `@Équipe Compta` does.
+fn whole_name_mentioned(body: &str, name: &str) -> bool {
+    let wanted: Vec<String> = name
+        .split_whitespace()
+        .map(fold_ascii)
+        .filter(|w| !w.is_empty())
+        .collect();
+    if wanted.is_empty() {
         return false;
     }
 
@@ -302,6 +406,41 @@ mod tests {
             "ecrire a theo@Théo Vilain",
             "Théo Vilain"
         ));
+    }
+
+    #[test]
+    fn a_group_name_with_spaces_is_mentioned_whole() {
+        assert!(whole_name_mentioned(
+            "@equipe compta, merci",
+            "Équipe Compta"
+        ));
+        assert!(whole_name_mentioned("ping @Comptabilité !", "Comptabilité"));
+        assert!(!whole_name_mentioned("@Equipe seule", "Équipe Compta"));
+        assert!(!whole_name_mentioned(
+            "Comptabilité sans arobase",
+            "Comptabilité"
+        ));
+        assert!(!whole_name_mentioned("@Comptabilités", "Comptabilité"));
+    }
+
+    #[test]
+    fn a_group_mention_never_downgrades_a_name_and_outranks_a_broadcast() {
+        let id = |n: u128| Uuid::from_u128(n);
+        let mk = |u, t| ResolvedMention {
+            user_id: id(u),
+            mention_type: t,
+        };
+        let mut resolved = vec![mk(1, "user"), mk(2, "channel")];
+        merge_group_mentions(
+            &mut resolved,
+            vec![mk(1, "group"), mk(2, "group"), mk(3, "group")],
+        );
+        let types: Vec<(u128, &str)> = resolved
+            .iter()
+            .map(|r| (r.user_id.as_u128(), r.mention_type))
+            .collect();
+        assert_eq!(types, vec![(1, "user"), (2, "group"), (3, "group")]);
+        assert!(is_personal("group") && is_personal("user") && !is_personal("here"));
     }
 
     #[test]
