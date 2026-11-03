@@ -553,6 +553,8 @@ pub async fn accept_invitation(
                     .avatar_key
                     .as_deref()
                     .map(|key| crate::files::avatar_url(user.id, key)),
+                role_ids: None,
+                manageable: None,
             },
         };
         state

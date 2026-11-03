@@ -293,6 +293,9 @@ pub async fn list_members(
         .map(|u| (u.id, u))
         .collect();
 
+    // Who holds which role, and whom the caller may manage: the whole space in a few queries.
+    let roles =
+        crate::permissions::roles::MemberRoles::load(&state.db, space_id, session.user_id).await?;
     let mut out = Vec::with_capacity(memberships.len());
     for membership in memberships {
         if let Some(user) = by_id.get(&membership.user_id) {
@@ -306,6 +309,8 @@ pub async fn list_members(
                     .avatar_key
                     .as_deref()
                     .map(|key| crate::files::avatar_url(user.id, key)),
+                role_ids: Some(roles.role_ids(user.id)),
+                manageable: Some(roles.manageable(user.id)),
             });
         }
     }

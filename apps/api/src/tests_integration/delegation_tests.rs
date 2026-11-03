@@ -8,7 +8,7 @@ use crate::permissions::delegation::{ensure_acts_on, ensure_manages_role, rank_o
 use crate::permissions::system_roles::{GUEST_CEILING, VISIBILITY_DROP};
 
 /// A custom role, placed at `position`, granting `permissions`.
-async fn make_role(
+pub(super) async fn make_role(
     db: &DatabaseConnection,
     space: Uuid,
     name: &str,
@@ -32,7 +32,7 @@ async fn make_role(
     row.try_get("", "id").expect("id")
 }
 
-async fn assign(db: &DatabaseConnection, space: Uuid, user: Uuid, role: Uuid) {
+pub(super) async fn assign(db: &DatabaseConnection, space: Uuid, user: Uuid, role: Uuid) {
     db.execute_raw(Statement::from_sql_and_values(
         DatabaseBackend::Postgres,
         "INSERT INTO space_role_assignments (space_id, user_id, role_id) VALUES ($1, $2, $3)",

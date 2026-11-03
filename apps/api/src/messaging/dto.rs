@@ -403,6 +403,15 @@ pub struct MemberDto {
     /// Same-origin URL of the uploaded avatar; absent means the generated one.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+    /// The roles assigned to them in the space (Administrator included, base roles never),
+    /// strongest first. Only in the space's member list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role_ids: Option<Vec<Uuid>>,
+    /// Whether the caller may manage them: change their roles, take them out (they rank strictly
+    /// below the caller, who holds `members.manage` or `roles.manage`). Only in the space's member
+    /// list, which is per caller; never in anything broadcast.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub manageable: Option<bool>,
 }
 
 /// A space's shared identity after it changed, pushed in real time.

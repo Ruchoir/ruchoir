@@ -2617,9 +2617,27 @@
           "is_bot": {
             "type": "boolean"
           },
+          "manageable": {
+            "description": "Whether the caller may manage them: change their roles, take them out (they rank strictly\nbelow the caller, who holds `members.manage` or `roles.manage`). Only in the space's member\nlist, which is per caller; never in anything broadcast.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "role": {
             "description": "Membership role in the space: `owner`, `admin`, `member` or `guest`.",
             "type": "string"
+          },
+          "role_ids": {
+            "description": "The roles assigned to them in the space (Administrator included, base roles never),\nstrongest first. Only in the space's member list.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "title": {
             "description": "Free-text job title / role label; `None` if unset.",
@@ -4260,6 +4278,62 @@
         "required": [
           "file",
           "restored_to_root"
+        ],
+        "type": "object"
+      },
+      "RoleDto": {
+        "description": "One role of the space.",
+        "properties": {
+          "colour": {
+            "description": "One of the design system's pastels (`sky`, `mint`, `violet`, `pink`, `peach`, `lime`,\n`sun`).",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "holders": {
+            "description": "How many hold it: its assignments, or for a base role the people of that standing.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "manageable": {
+            "description": "Whether the caller may manage it (rule 1: `roles.manage`, and the role below their rank).",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "description": "What it grants, as permission names in catalogue order (unknown names left out).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "position": {
+            "description": "Strongest first: a higher position outranks a lower one.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "system_key": {
+            "description": "`administrator`, `members` or `guests` for a system role (its name is the client's to\ntranslate); absent for the space's own.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "position",
+          "permissions",
+          "holders",
+          "manageable"
         ],
         "type": "object"
       },
@@ -12561,6 +12635,44 @@
         "summary": "`GET /api/v1/spaces/{space_id}/presence`: a snapshot of every member's presence.",
         "tags": [
           "realtime"
+        ]
+      }
+    },
+    "/api/v1/spaces/{space_id}/roles": {
+      "get": {
+        "operationId": "list_roles",
+        "parameters": [
+          {
+            "description": "Space id",
+            "in": "path",
+            "name": "space_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoleDto"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "The space's roles, strongest first"
+          },
+          "403": {
+            "description": "Not someone who reads this space's member directory"
+          }
+        },
+        "tags": [
+          "messaging"
         ]
       }
     },

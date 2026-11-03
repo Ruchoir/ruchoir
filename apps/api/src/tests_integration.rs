@@ -12065,6 +12065,9 @@ mod audit_tests;
 /// The delegation rules: ranks, who manages which role, who acts on whom.
 mod delegation_tests;
 
+/// A space's roles, and the roles of its members.
+mod roles_tests;
+
 /// The preferences that follow an account, and hidden direct conversations, in their own file.
 mod preferences_tests;
 

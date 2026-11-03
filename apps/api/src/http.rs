@@ -341,6 +341,8 @@ pub fn router(state: AppState) -> Router {
         .merge(crate::calendar::router())
         // A space's audit log, for whoever holds `audit.view` there.
         .merge(crate::audit::read::router())
+        // A space's roles, for whoever reads its member directory.
+        .merge(crate::permissions::roles::router())
         // What the edition adds (nothing for the community build), guarded per request like the
         // rest.
         .merge(state.edition.routes());

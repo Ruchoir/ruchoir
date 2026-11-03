@@ -28,3 +28,5 @@ pub use crate::permissions::delegation::{
     ensure_acts_on, ensure_composes, ensure_manages_role, fixed_role_position, rank_of, role, Rank,
     RoleRow,
 };
+/// A role as the API shows it, the names and colours a custom role may take.
+pub use crate::permissions::roles::{validate_role_name, RoleDto, ROLE_COLOURS};

@@ -10,4 +10,5 @@ pub mod check;
 pub mod delegation;
 pub mod engine;
 pub mod load;
+pub mod roles;
 pub mod system_roles;
