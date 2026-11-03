@@ -388,7 +388,9 @@ The product is drawn with the Ruchoir design system, the same one as the public 
   gets the content's values back. Popovers and tooltips are portaled and never inherit from a pane;
   give a menu drawn in place the `wc-float` class. `test/variants.test.mjs` and
   `test/contrast.test.mjs` (WCAG AA for every style, by day and by night) guard them. The style names
-  are our own: never name the tools they recall.
+  are our own: never name the tools they recall. The phone app copies the four styles into
+  `apps/mobile/src/theme/tokens.ts` (checked against this file); a colour changed here changes there
+  too, and in `infra/office/themes/` (`apps/web/tools/office-themes/build.mjs`).
 - **Where it lives:** `packages/design-system` (`@ruchoir/design-system`): tokens, typefaces and the
   React components with their stylesheet, depending on nothing of the app's. The web app consumes it
   through the workspace; Ruchoir Lab (a separate repository) installs it as a git dependency pinned
