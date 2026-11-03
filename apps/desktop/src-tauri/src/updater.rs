@@ -41,7 +41,15 @@ fn system_package() -> bool {
 }
 
 /// Ask now, then every six hours, for as long as the app runs.
+///
+/// A debug build never asks: one that found the released app would count in the anonymous usage
+/// statistics (`usage.rs`) like a real install, and an update installed over it would replace the
+/// binary being tested with the released app (the end to end run once tested the wrong binary).
 pub fn watch<R: Runtime>(app: &AppHandle<R>) {
+    if cfg!(debug_assertions) {
+        log::info!("debug build: no update check");
+        return;
+    }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         loop {

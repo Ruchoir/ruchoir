@@ -30,6 +30,7 @@ import {
 } from "@/lib/desktop/bridge";
 import { shortLabel, type DesktopSettings, type Summary } from "@/lib/desktop/instances";
 import { catchDownloads } from "@/lib/desktop/downloads";
+import { guardStrayDrops } from "@/lib/desktop/drops";
 import { createRelaySocket } from "@/lib/desktop/relaySocket";
 import { desktopOs, instanceBase } from "@/lib/desktop/runtime";
 import { requestSearch } from "@/lib/desktop/searchRequest";
@@ -170,6 +171,8 @@ export function DesktopRoot() {
   // webview saves nothing by itself. A failure says why, in a dialog.
   const [downloadError, setDownloadError] = useState<string | null>(null);
   useEffect(() => catchDownloads(setDownloadError), []);
+  // A file dropped outside any drop zone must not navigate the window to it.
+  useEffect(() => guardStrayDrops(), []);
 
   // A newer version, offered under the title bar until the person restarts into it.
   const [update, setUpdate] = useState<UpdateOffer | null>(null);

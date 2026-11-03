@@ -13,7 +13,7 @@
 // person's messages arriving live, which it has already drawn when sending them.
 
 import { spawn } from "node:child_process";
-import { readFileSync, existsSync, writeFileSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 
@@ -107,6 +107,8 @@ async function main() {
   });
   const id = session.sessionId;
   const find = (css) => wd("POST", `/session/${id}/element`, { using: "css selector", value: css });
+  // The generated PDF, removed whether the run passes or not.
+  let fixturePath = null;
   const run = (script, args = []) => wd("POST", `/session/${id}/execute/sync`, { script, args });
   const clickText = (text) =>
     run("const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === arguments[0]); if (b) b.click(); return !!b;", [text]);
@@ -234,7 +236,7 @@ async function main() {
     // 6c. Files, through the real interface: a picked file reaches the instance whole (the core's
     // upload once arrived empty), a drop reaches the page (the webview's own drag-drop handler used
     // to take it), and the viewer's frame is admitted by the page's CSP.
-    const fixturePath = join(tmpdir(), `ruchoir-e2e-${Date.now()}.pdf`);
+    fixturePath = join(tmpdir(), `ruchoir-e2e-${Date.now()}.pdf`);
     const fixture = fixturePdf(300 * 1024);
     writeFileSync(fixturePath, fixture);
     const pickedName = basename(fixturePath);
@@ -254,20 +256,44 @@ async function main() {
     }
     console.log(`ok: picked file stored whole (${stored.size_bytes} bytes)`);
 
-    // A drop on the composer, as the page sees one when the webview hands it over.
+    // A drop on the composer, as the page sees one. This is a synthetic event: it goes through the
+    // page's own drop handling only, never Tauri's native handler, so it proves the page accepts a
+    // dropped file, not that the window lets a real drop through (a manual check, docs/desktop.md).
     const droppedName = `dropped-${Date.now()}.txt`;
+    const droppedText = "dropped on the composer";
     await run(
       `const composer = document.querySelector('.wc-message-composer');
        const data = new DataTransfer();
-       data.items.add(new File(['dropped on the composer'], arguments[0], { type: 'text/plain' }));
+       data.items.add(new File([arguments[1]], arguments[0], { type: 'text/plain' }));
        for (const type of ['dragenter', 'dragover', 'drop']) {
          composer.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: data }));
        }`,
-      [droppedName],
+      [droppedName, droppedText],
     );
     await settled(droppedName);
     await clickAria("Envoyer");
     await until("the second attachment card", () => run("return document.body.innerText.includes(arguments[0]);", [droppedName]));
+    const droppedStored = await until("the dropped file on the instance", async () => {
+      const files = await (await api(`/conversations/${channel.id}/files`)).json();
+      return files.find((f) => f.name === droppedName);
+    });
+    if (droppedStored.size_bytes !== Buffer.byteLength(droppedText)) {
+      throw new Error(`the instance holds ${droppedStored.size_bytes} bytes of ${droppedName}, expected ${Buffer.byteLength(droppedText)}`);
+    }
+    // A file dropped outside any drop zone must not navigate the window to it.
+    const before = await run("return location.href;");
+    await run(
+      `const data = new DataTransfer();
+       data.items.add(new File(['stray'], 'stray.txt', { type: 'text/plain' }));
+       window.__strayPrevented = false;
+       document.body.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data }));
+       const drop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data });
+       document.body.dispatchEvent(drop);
+       window.__strayPrevented = drop.defaultPrevented;`,
+    );
+    if (!(await run("return window.__strayPrevented;")) || (await run("return location.href;")) !== before) {
+      throw new Error("a file dropped outside any drop zone was not cancelled");
+    }
 
     // The viewer: the space's files, the PDF opened, its frame in the page.
     const sideItem = await run(
@@ -290,15 +316,10 @@ async function main() {
     );
     if (!opened) throw new Error("the PDF could not be opened");
     const frame = await until("the viewer's frame", () =>
-      run(
-        `const f = document.querySelector('.wc-viewer iframe');
-         if (!f) return null;
-         let doc = null;
-         try { doc = f.contentDocument; } catch (e) { return { error: String(e) }; }
-         return { src: f.src, reachable: !!doc, location: f.contentWindow && f.contentWindow.location.href };`,
-      ),
+      run("const f = document.querySelector('.wc-viewer iframe'); return f ? { src: f.src } : null;"),
     );
-    if (frame.error || !frame.reachable) throw new Error(`the viewer's frame is not reachable: ${JSON.stringify(frame)}`);
+    // WebKitGTK has no PDF viewer, so the frame's document is a blank page whether the CSP let it
+    // load or not: the real check is that the page raised no CSP violation.
     await sleep(1500);
     const refused = await run("return window.__csp;");
     if (refused.length > 0) throw new Error(`the page's CSP refused the viewer's frame: ${JSON.stringify(refused)}`);
@@ -394,6 +415,7 @@ async function main() {
     }
     console.log(`ok: signed in, ${path} open, live message received, account menu works`);
   } finally {
+    if (fixturePath) rmSync(fixturePath, { force: true });
     await wd("DELETE", `/session/${id}`).catch(() => {});
   }
 }
