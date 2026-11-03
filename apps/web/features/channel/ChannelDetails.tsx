@@ -130,7 +130,7 @@ export function ChannelDetails({
 
         <div className="wc-sheet__group">
           {member ? (
-            <Row icon="arrow-left" label={t("sidebar.leaveChannel")} danger onClick={onLeave} />
+            <Row icon="log-out" label={t("sidebar.leaveChannel")} danger onClick={onLeave} />
           ) : (
             <Row icon="user-plus" label={t("sidebar.joinChannel")} onClick={onJoin} />
           )}

@@ -319,6 +319,8 @@ export type ChannelScreenProps = {
   onLeaveChannel: () => void;
   /** Rejoin this channel after leaving it (public channels only). */
   onJoinChannel: () => void;
+  /** Pin or unpin the channel in the caller's sidebar, from the header menu. */
+  onToggleFavorite?: () => void;
   /** Current notification preference for this conversation, and a persist callback. */
   notifPref: ChannelNotifPref;
   onSaveNotifPref: (pref: ChannelNotifPref) => void;
@@ -454,6 +456,7 @@ export function ChannelScreen({
   canModerateChannels,
   onLeaveChannel,
   onJoinChannel,
+  onToggleFavorite,
   notifPref,
   notifInherited,
   onDeleteChannel,
@@ -980,13 +983,14 @@ export function ChannelScreen({
           ) : null}
           {!isDm ? (
             <ChannelMenu
+              channel={channel}
+              onToggleFavourite={onToggleFavorite}
               onSettings={() => setMenuDialog("settings")}
               onNotifications={() => setMenuDialog("notifications")}
               onAddPeople={() => setMenuDialog("addpeople")}
               canModerate={canModerate}
               onLeave={() => setMenuDialog("leave")}
               onJoin={onJoinChannel}
-              member={channel.member !== false}
               onPlanEvent={canPlan ? onPlanEvent : undefined}
             />
           ) : null}
