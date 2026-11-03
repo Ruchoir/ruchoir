@@ -175,7 +175,11 @@ pub async fn set_space_icon(
     Path(space_id): Path<Uuid>,
     multipart: Multipart,
 ) -> Result<Json<ImageRef>, FileError> {
-    if !authz::is_space_owner(&state.db, space_id, session.user_id).await? {
+    // The icon is the space's identity, like its name: the owner's alone (a standing, outside
+    // every rule).
+    if crate::permissions::check::standing(&state.db, space_id, session.user_id).await?
+        != Some(crate::permissions::engine::Standing::Owner)
+    {
         return Err(FileError::Forbidden);
     }
     let space = spaces::Entity::find_by_id(space_id)
@@ -213,7 +217,11 @@ pub async fn clear_space_icon(
     session: AuthSession,
     Path(space_id): Path<Uuid>,
 ) -> Result<StatusCode, FileError> {
-    if !authz::is_space_owner(&state.db, space_id, session.user_id).await? {
+    // The icon is the space's identity, like its name: the owner's alone (a standing, outside
+    // every rule).
+    if crate::permissions::check::standing(&state.db, space_id, session.user_id).await?
+        != Some(crate::permissions::engine::Standing::Owner)
+    {
         return Err(FileError::Forbidden);
     }
     let space = spaces::Entity::find_by_id(space_id)

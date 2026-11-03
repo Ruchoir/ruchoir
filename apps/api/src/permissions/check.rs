@@ -191,6 +191,30 @@ pub async fn standing(
         .map(|person| person.subject.standing))
 }
 
+/// What someone may do with a file, and whether they read it only because a calendar event they
+/// see carries it (read only, its content included).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FileRights {
+    pub granted: PermissionSet,
+    pub through_event: bool,
+}
+
+/// [`effective`] on a file, with where its reading comes from.
+pub async fn file_rights(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+    file_id: Uuid,
+) -> Result<FileRights, DbErr> {
+    let people = load::people(db, space_id, Some(user_id)).await?;
+    let (decision, through_event) =
+        file_decision(db, space_id, user_id, people.get(&user_id), file_id, false).await?;
+    Ok(FileRights {
+        granted: decision.granted,
+        through_event,
+    })
+}
+
 /// The space's owners (the standing, not a permission: outside every rule).
 pub async fn owners(db: &DatabaseConnection, space_id: Uuid) -> Result<Vec<Uuid>, DbErr> {
     Ok(load::people(db, space_id, None)
@@ -316,9 +340,11 @@ async fn decide(
             .await?;
             Ok(calendar_decision(person, calendar_id, &rules, explain))
         }
-        Resource::File(file_id) => {
-            file_decision(db, space_id, user_id, person, file_id, explain).await
-        }
+        Resource::File(file_id) => Ok(file_decision(
+            db, space_id, user_id, person, file_id, explain,
+        )
+        .await?
+        .0),
     }
 }
 
@@ -416,10 +442,10 @@ async fn file_decision(
     person: Option<&Person>,
     file_id: Uuid,
     explain: bool,
-) -> Result<Decision, DbErr> {
+) -> Result<(Decision, bool), DbErr> {
     let chain = load::file_chain(db, space_id, file_id).await?;
     let Some(file) = chain.last().cloned() else {
-        return Ok(Decision::default());
+        return Ok((Decision::default(), false));
     };
     let conversation = match file.conversation_id {
         None => Conversation::None,
@@ -434,7 +460,7 @@ async fn file_decision(
                         .pop()
                     {
                         Some(channel) => Conversation::Channel(Box::new(channel)),
-                        None => return Ok(Decision::default()),
+                        None => return Ok((Decision::default(), false)),
                     }
                 }
                 Some("direct") => Conversation::Direct(
@@ -443,7 +469,7 @@ async fn file_decision(
                         .await?
                         .is_some(),
                 ),
-                _ => return Ok(Decision::default()),
+                _ => return Ok((Decision::default(), false)),
             }
         }
     };
@@ -545,8 +571,9 @@ async fn file_decision(
         }
     }
     unseen_grants_nothing(&mut decision, Permission::FilesView, Family::Files, explain);
-    if !decision.granted.contains(Permission::FilesView) && event_grants(db, file_id, user_id).await
-    {
+    let through_event = !decision.granted.contains(Permission::FilesView)
+        && event_grants(db, file_id, user_id).await;
+    if through_event {
         set(
             &mut decision,
             Permission::FilesView,
@@ -555,7 +582,7 @@ async fn file_decision(
             explain,
         );
     }
-    Ok(decision)
+    Ok((decision, through_event))
 }
 
 /// Whether a calendar event the person sees carries the file. Boxed: seeing an event can go

@@ -16,23 +16,48 @@
 //! read. That second path matters, because an attachment posted in a *public* channel carries no
 //! `conversation_id` (it joins the space tree), so without it a guest could see a message and not
 //! the document it is about.
+//!
+//! **Every rule above is decided by the permission engine** (`crate::permissions`): reading is
+//! `files.view` (a conversation's file mapped onto reading that conversation, a guest's path
+//! through a message and a calendar event's read-only path included), renaming, moving, deleting
+//! and sharing `files.manage` (the author, or whoever administers the space), editing the content
+//! `files.edit`, publishing a link `files.public_link`. This module keeps the file-shaped answers
+//! and their flat `403`.
 
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{DatabaseConnection, EntityTrait};
 use uuid::Uuid;
 
 use super::error::FileError;
-use crate::entities::{files, message_attachments, messages, space_members};
+use crate::entities::{files, space_members};
+use crate::permissions::catalogue::Permission;
+use crate::permissions::check::{self, Resource};
 
 /// A resolved, authorized handle to a file the caller may access.
 pub struct FileAccess {
     /// The file row (in a space the caller belongs to, or carried by an event they see; not
     /// soft-deleted).
     pub file: files::Model,
-    /// Whether the caller may mutate the file (owner, or a space owner/admin).
+    /// Whether the caller may mutate the file (`files.manage`: its author, or whoever administers
+    /// the space).
     pub can_edit: bool,
     /// Whether the caller reads it only because a calendar event they see carries it: read only,
     /// its content included.
     pub through_event: bool,
+}
+
+/// Require a permission (`crate::permissions`) on a resource of a space, or fail with `403`.
+pub async fn ensure_permission(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+    resource: Resource,
+    permission: Permission,
+) -> Result<(), FileError> {
+    if check::can(db, space_id, user_id, resource, permission).await? {
+        Ok(())
+    } else {
+        Err(FileError::Forbidden)
+    }
 }
 
 /// Ensure the caller belongs to a space, or fail with `403`.
@@ -48,7 +73,8 @@ pub async fn ensure_space_member(
         .ok_or(FileError::Forbidden)
 }
 
-/// Ensure the caller may address the space's own files: its tree, its folders, its uploads.
+/// Ensure the caller may address the space's own files: its tree, its folders, its trash
+/// (`files.view` on the space).
 ///
 /// Membership, and not the guest kind of it. The Files screen holds everything the organisation has
 /// put in the space, which is precisely what an external guest is not being given.
@@ -57,77 +83,31 @@ pub async fn ensure_space_files_member(
     space_id: Uuid,
     user_id: Uuid,
 ) -> Result<(), FileError> {
-    ensure_space_member(db, space_id, user_id).await?;
-    match crate::messaging::authz::is_guest(db, space_id, user_id).await {
-        Ok(false) => Ok(()),
-        Ok(true) => Err(FileError::Forbidden),
-        Err(_) => Err(FileError::Internal),
-    }
+    ensure_permission(
+        db,
+        space_id,
+        user_id,
+        Resource::Space,
+        Permission::FilesView,
+    )
+    .await
 }
 
-/// Whether a file hangs off a message in a conversation the caller may read.
-///
-/// The narrow door left open to a guest: they see the message, so they get the document attached to
-/// it. Checked message by message, because one file can be attached in several places and only one
-/// of them needs to be readable.
-async fn reaches_through_a_message(
-    db: &DatabaseConnection,
-    file_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool, FileError> {
-    let message_ids: Vec<Uuid> = message_attachments::Entity::find()
-        .filter(message_attachments::Column::FileId.eq(file_id))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|attachment| attachment.message_id)
-        .collect();
-    if message_ids.is_empty() {
-        return Ok(false);
-    }
-    let conversations: std::collections::BTreeSet<Uuid> = messages::Entity::find()
-        .filter(messages::Column::Id.is_in(message_ids))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|message| message.conversation_id)
-        .collect();
-    for conversation_id in conversations {
-        if conversation_access(db, conversation_id, user_id)
-            .await
-            .is_ok()
-        {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
-/// Whether the caller owns a space. The icon is the space's identity, like its name, so it follows
-/// the same line: an administrator runs the space, the owner holds it.
-pub async fn is_space_owner(
+/// Ensure the caller may add to the space's files: upload, create a folder or a blank document
+/// (`files.create` on the space).
+pub async fn ensure_space_files_creator(
     db: &DatabaseConnection,
     space_id: Uuid,
     user_id: Uuid,
-) -> Result<bool, FileError> {
-    Ok(space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
-        .await?
-        .map(|m| m.role == "owner")
-        .unwrap_or(false))
-}
-
-/// Whether the caller is an `owner`/`admin` of a space.
-pub async fn is_space_admin(
-    db: &DatabaseConnection,
-    space_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool, FileError> {
-    Ok(space_members::Entity::find_by_id((space_id, user_id))
-        .one(db)
-        .await?
-        .map(|m| m.role == "owner" || m.role == "admin")
-        .unwrap_or(false))
+) -> Result<(), FileError> {
+    ensure_permission(
+        db,
+        space_id,
+        user_id,
+        Resource::Space,
+        Permission::FilesCreate,
+    )
+    .await
 }
 
 /// Resolve a conversation for the files surface, translating the messaging error into a file one.
@@ -148,8 +128,9 @@ pub async fn conversation_access(
         })
 }
 
-/// Resolve and authorize a file for reading, or fail with `403` (never revealing whether the file
-/// exists to a non-member). A soft-deleted file is a `404` for a member who addresses it by id.
+/// Resolve and authorize a file for reading (`files.view`), or fail with `403` (never revealing
+/// whether the file exists to a non-member). A soft-deleted file is a `404` for someone who could
+/// read it.
 ///
 /// **A calendar event gives access to the files it carries**: whoever sees the event reads them,
 /// read only, even from outside the file's audience (see `crate::calendar::attachments`).
@@ -158,67 +139,25 @@ pub async fn ensure_readable(
     file_id: Uuid,
     user_id: Uuid,
 ) -> Result<FileAccess, FileError> {
-    match readable_by_audience(db, file_id, user_id).await {
-        Err(FileError::Forbidden)
-            if crate::calendar::attachments::grants(db, file_id, user_id).await =>
-        {
-            let file = files::Entity::find_by_id(file_id)
-                .one(db)
-                .await?
-                .ok_or(FileError::Forbidden)?;
-            if file.deleted_at.is_some() {
-                return Err(FileError::NotFound);
-            }
-            Ok(FileAccess {
-                file,
-                can_edit: false,
-                through_event: true,
-            })
-        }
-        other => other,
-    }
-}
-
-/// [`ensure_readable`] by the file's own audience: its space, or its private conversation.
-async fn readable_by_audience(
-    db: &DatabaseConnection,
-    file_id: Uuid,
-    user_id: Uuid,
-) -> Result<FileAccess, FileError> {
     let file = files::Entity::find_by_id(file_id)
         .one(db)
         .await?
         .ok_or(FileError::Forbidden)?;
-    match file.conversation_id {
-        // Attached to a private conversation: its participants are the audience, and nobody else.
-        Some(conversation_id) => {
-            conversation_access(db, conversation_id, user_id).await?;
-        }
-        None => {
-            ensure_space_member(db, file.space_id, user_id).await?;
-            // A space-tree file: open to the space, except to a guest, who only reaches it through
-            // a message they can read.
-            let guest = crate::messaging::authz::is_guest(db, file.space_id, user_id)
-                .await
-                .map_err(|_| FileError::Internal)?;
-            if guest && !reaches_through_a_message(db, file.id, user_id).await? {
-                return Err(FileError::Forbidden);
-            }
-        }
+    let rights = check::file_rights(db, file.space_id, user_id, file_id).await?;
+    if !rights.granted.contains(Permission::FilesView) {
+        return Err(FileError::Forbidden);
     }
     if file.deleted_at.is_some() {
         return Err(FileError::NotFound);
     }
-    let can_edit =
-        file.owner_id == Some(user_id) || is_space_admin(db, file.space_id, user_id).await?;
     Ok(FileAccess {
         file,
-        can_edit,
-        through_event: false,
+        can_edit: rights.granted.contains(Permission::FilesManage),
+        through_event: rights.through_event,
     })
 }
 
-/// Resolve and authorize a file for mutation (owner or space owner/admin), or fail with `403`.
+/// Resolve and authorize a file for mutation (`files.manage`), or fail with `403`.
 pub async fn ensure_editable(
     db: &DatabaseConnection,
     file_id: Uuid,
@@ -231,7 +170,8 @@ pub async fn ensure_editable(
     Ok(access)
 }
 
-/// Resolve and authorize a file for editing its content in the office editor, or fail with `403`.
+/// Resolve and authorize a file for editing its content in the office editor (`files.edit`), or
+/// fail with `403`.
 ///
 /// Wider than [`ensure_editable`] on purpose: a document a team works on is edited by the team, not
 /// only by whoever uploaded it. Whoever may read the file and is not a guest of its space may edit
@@ -250,11 +190,13 @@ pub async fn ensure_content_editable(
     if access.through_event {
         return Err(FileError::Forbidden);
     }
-    let guest = crate::messaging::authz::is_guest(db, access.file.space_id, user_id)
-        .await
-        .map_err(|_| FileError::Internal)?;
-    if guest {
-        return Err(FileError::Forbidden);
-    }
+    ensure_permission(
+        db,
+        access.file.space_id,
+        user_id,
+        Resource::File(file_id),
+        Permission::FilesEdit,
+    )
+    .await?;
     Ok(access)
 }

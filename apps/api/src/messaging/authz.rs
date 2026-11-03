@@ -66,13 +66,6 @@ pub struct ConversationAccess {
     pub channel_type: Option<String>,
 }
 
-impl ConversationAccess {
-    /// Whether new messages may be posted here. Archived channels are read-only.
-    pub fn is_postable(&self) -> bool {
-        self.channel_type.as_deref() != Some("archived")
-    }
-}
-
 /// Resolve and authorize a conversation for a caller, or fail with `403` (never revealing whether
 /// the conversation exists to someone who cannot see it).
 pub async fn ensure_conversation_access(
@@ -501,19 +494,6 @@ pub async fn is_space_owner(
     user_id: Uuid,
 ) -> Result<bool, ApiError> {
     Ok(check::standing(db, space_id, user_id).await? == Some(Standing::Owner))
-}
-
-/// Whether a user reaches this space only where they were explicitly added.
-///
-/// A non-member answers `false` rather than `true`: this narrows what a member sees, it is never the
-/// thing that keeps an outsider out. That is [`is_space_member`]'s job, and every caller runs it
-/// first.
-pub async fn is_guest(
-    db: &DatabaseConnection,
-    space_id: Uuid,
-    user_id: Uuid,
-) -> Result<bool, ApiError> {
-    Ok(check::standing(db, space_id, user_id).await? == Some(Standing::Guest))
 }
 
 /// The members of a space `user_id` may be shown: everyone, or for a guest, only the people they

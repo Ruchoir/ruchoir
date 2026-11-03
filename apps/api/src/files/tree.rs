@@ -201,7 +201,7 @@ pub async fn create_folder(
     Path(space_id): Path<Uuid>,
     Json(body): Json<CreateFolderRequest>,
 ) -> Result<(StatusCode, Json<FileDto>), FileError> {
-    authz::ensure_space_files_member(&state.db, space_id, session.user_id).await?;
+    authz::ensure_space_files_creator(&state.db, space_id, session.user_id).await?;
 
     let name = clean_name(&body.name);
     if name.is_empty() {

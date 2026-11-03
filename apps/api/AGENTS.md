@@ -104,8 +104,8 @@ context and takes precedence here.
   accepted rather than what would be refused.
   **Adding someone to a channel is moderation**, not a member's errand: being in a channel is not
   the same as deciding who else is, and anyone who had walked into a public one could put anybody in
-  it, an external guest included. It takes `is_channel_moderator`, like every other act of
-  moderation.
+  it, an external guest included. It takes `channel.members.manage` (the channel's owner or
+  moderators, or whoever administers the space), like every other act of moderation.
   **A guest moderates nothing**, whatever a channel's own table says: someone who opened a channel
   and was later made a guest kept an `owner` row in it, and with it the right to add and remove
   people in a space they are only visiting. The space role is the outer boundary, and a demotion
@@ -157,8 +157,9 @@ context and takes precedence here.
   `conversation_id` and lives in the space tree. Before this, `guest` was accepted by the schema and
   read by nothing, so an "external guest" saw exactly what a member saw.
   **An administrator runs a space, an owner holds it.** Three guards, narrowing:
-  `ensure_space_member` ("may they see it"), `ensure_space_admin` ("may they run it": invitations,
-  roles below their own, removals, moderation) and `ensure_space_owner` ("is it theirs": the name,
+  `ensure_space_member` ("may they see it"), the space-level permissions of `crate::permissions`
+  ("may they run it": `members.invite`, `roles.manage` below their own, `members.manage`,
+  moderation) and `ensure_space_owner` ("is it theirs": the name,
   the icon, the transfer, the deletion, and the billing the day it exists). Two roles allowed to do
   exactly the same things would be one role with two names.
   **Roles** (`PATCH /spaces/{id}/members/{user_id}`) run on one rule applied twice: you may only act
