@@ -296,6 +296,8 @@ pub async fn file_send_version<R: Runtime>(
             crate::notify::signed_out(&app, &instance);
             Err("signed_out".into())
         }
+        // Only the file's owner or a space admin may add a version: the server decides.
+        403 => Err("forbidden".into()),
         413 => Err("too_large".into()),
         502 => Err("unreachable".into()),
         _ => Err("failed".into()),

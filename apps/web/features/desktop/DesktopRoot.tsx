@@ -308,6 +308,8 @@ export function DesktopRoot() {
       ? null
       : errorCode === "refused"
         ? t("desktop.files.refused")
+        : errorCode === "unwatched"
+          ? t("desktop.files.unwatched")
         : errorCode === "unsafe_type"
           ? t("desktop.files.unsafeType")
         : errorCode === "signed_out"
@@ -353,7 +355,7 @@ export function DesktopRoot() {
       </div>
       {downloadError ? (
         <Dialog
-          title={fileError ? t("office.failed") : t("desktop.download.title")}
+          title={errorCode === "unwatched" ? t("desktop.files.unwatchedTitle") : fileError ? t("office.failed") : t("desktop.download.title")}
           onClose={() => setDownloadError(null)}
           closeLabel={t("common.close")}
           footer={

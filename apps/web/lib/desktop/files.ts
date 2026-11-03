@@ -74,6 +74,7 @@ export async function openLocal(file: {
         return;
       }
       let baseVersion: string | undefined;
+      let unwatched = false;
       if (file.canVersion) {
         try {
           // Loaded here, as the bridge is: the node tests import this file without the app's aliases.
@@ -81,10 +82,13 @@ export async function openLocal(file: {
           baseVersion = (await getVersions(file.fileId)).find((v) => v.current)?.id;
         } catch {
           baseVersion = undefined;
+          unwatched = true;
         }
       }
       const { fileOpenLocal } = await import("./bridge");
       await fileOpenLocal(file.instance, file.fileId, file.name, openTarget(file.href), baseVersion);
+      // Opened, but a save will not be offered: said once, softly, through the same notice as a failure.
+      if (unwatched) report("unwatched", "file:");
     }
   } catch (code) {
     report(code, "file:");

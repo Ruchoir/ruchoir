@@ -1787,8 +1787,11 @@
         "sendAnyway": "Send anyway",
         "tooLarge": "This file is too large to send.",
         "busy": "A send is already in progress for this file.",
-        "failed": "The version could not be sent. Try again."
-      }
+        "failed": "The version could not be sent. Try again.",
+        "notWatched": "This file is no longer tracked: reopen it to send a version."
+      },
+      "unwatchedTitle": "Opened without tracking",
+      "unwatched": "The file is open, but saving will not be offered for it: its versions could not be read."
     },
     "add": {
       "title": "Add a Ruchoir instance",

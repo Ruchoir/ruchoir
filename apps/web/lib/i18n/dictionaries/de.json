@@ -1787,8 +1787,11 @@
         "sendAnyway": "Trotzdem senden",
         "tooLarge": "Diese Datei ist zu groß zum Senden.",
         "busy": "Für diese Datei läuft bereits ein Versand.",
-        "failed": "Die Version konnte nicht gesendet werden. Versuchen Sie es erneut."
-      }
+        "failed": "Die Version konnte nicht gesendet werden. Versuchen Sie es erneut.",
+        "notWatched": "Diese Datei wird nicht mehr überwacht: Öffnen Sie sie erneut, um eine Version zu senden."
+      },
+      "unwatchedTitle": "Ohne Überwachung geöffnet",
+      "unwatched": "Die Datei ist geöffnet, aber Speichern wird dafür nicht angeboten: ihre Versionen konnten nicht gelesen werden."
     },
     "add": {
       "title": "Ruchoir-Instanz hinzufügen",

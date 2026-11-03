@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { choiceFor, fileKey, pushSaved, VISIBLE_SAVED } from "./savedFile.ts";
+import { choiceFor, codeOfStatus, errorText, fileKey, pushSaved, VISIBLE_SAVED } from "./savedFile.ts";
 
 const v = (id: string, current: boolean) => ({ id, number: 1, sizeBytes: 1, createdAt: "", current });
 
@@ -32,4 +32,26 @@ test("the_same_file_id_on_two_instances_is_two_banners", () => {
 
 test("only_three_are_shown_at_most", () => {
   assert.equal(VISIBLE_SAVED, 3);
+});
+
+test("every_error_code_has_its_own_words", () => {
+  const codes = ["too_large", "busy", "signed_out", "unreachable", "forbidden", "not_watched", "failed", "whatever"];
+  const keys = codes.map((c) => errorText(c, (k) => k));
+  assert.deepEqual(keys, [
+    "desktop.files.saved.tooLarge",
+    "desktop.files.saved.busy",
+    "desktop.download.signedOut",
+    "desktop.download.unreachable",
+    "files.uploadForbidden",
+    "desktop.files.saved.notWatched",
+    "desktop.files.saved.failed",
+    "desktop.files.saved.failed",
+  ]);
+});
+
+test("a_refused_read_of_the_versions_is_told_as_it_is", () => {
+  assert.equal(codeOfStatus(401), "signed_out");
+  assert.equal(codeOfStatus(403), "forbidden");
+  assert.equal(codeOfStatus(500), "unreachable");
+  assert.equal(codeOfStatus(undefined), "unreachable");
 });

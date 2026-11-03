@@ -58,7 +58,8 @@ any screen: "Send" reads the versions again and, if the current one is still the
 opened from, sends the copy (`file_send_version`); otherwise it asks first ("Send anyway" or "Keep
 my copy", a plain "Save as"). One banner per file, three in view at most. Limits: a file the person
 cannot replace is opened but not watched; the copy is forgotten when the instance is signed out or
-removed; a 403 on sending reads as a generic failure.
+removed; a 403 on sending says the person may not replace the file. The check and the send are two
+calls: a version added between them is not caught, and the server keeps the newest.
 
 ## Building
 
@@ -166,7 +167,8 @@ must offer native sessions, so be a release from October 2026 or later), it also
 signs in to it, checks the rail heads both instances' spaces, and opens a space of the first one
 from the second. The development host runs one instance; the second is production with Théo's own
 account. Native notifications, their click and the badge are checked by hand: WebDriver cannot see
-them. So is dropping a file from the system's file manager onto the composer and the files list
+them. So is "Keep my copy" in the saved-file dialog (it opens the system's Save dialog, which
+WebDriver cannot drive under Xvfb). So is dropping a file from the system's file manager onto the composer and the files list
 (the window must hand the drop to the page, `disable_drag_drop_handler`): WebDriver only sends
 synthetic events.
 

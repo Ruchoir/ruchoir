@@ -1,4 +1,5 @@
 import type { FileVersion } from "@ruchoir/client";
+import type { DictKey } from "@/lib/i18n";
 
 /** What the core tells when an opened file was saved (`file:saved`). */
 export type SavedFile = { instance: string; file_id: string; name: string; base_version: string };
@@ -21,4 +22,29 @@ export function pushSaved(list: SavedFile[], saved: SavedFile): SavedFile[] {
  */
 export function choiceFor(current: FileVersion[], base: string): "send" | "ask" {
   return current.find((v) => v.current)?.id === base ? "send" : "ask";
+}
+
+/** The words for a failed check or send: the core's codes, and "forbidden" and "signed_out" from either side. */
+export function errorText(code: string, t: (key: DictKey) => string): string {
+  switch (code) {
+    case "too_large":
+      return t("desktop.files.saved.tooLarge");
+    case "busy":
+      return t("desktop.files.saved.busy");
+    case "signed_out":
+      return t("desktop.download.signedOut");
+    case "unreachable":
+      return t("desktop.download.unreachable");
+    case "forbidden":
+      return t("files.uploadForbidden");
+    case "not_watched":
+      return t("desktop.files.saved.notWatched");
+    default:
+      return t("desktop.files.saved.failed");
+  }
+}
+
+/** The code a failed read of the file's versions stands for. */
+export function codeOfStatus(status: number | undefined): string {
+  return status === 401 ? "signed_out" : status === 403 ? "forbidden" : "unreachable";
 }

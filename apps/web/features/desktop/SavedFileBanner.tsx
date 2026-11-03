@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createClient, type RuchoirClient } from "@ruchoir/client";
+import { createClient, isApiError, type RuchoirClient } from "@ruchoir/client";
 import { Button, Dialog, Icon } from "@/components/ds";
-import { fileDismiss, fileKeepCopy, fileSendVersion, onFileSaved } from "@/lib/desktop/bridge";
+import { fileDismiss, fileKeepCopy, fileSendVersion, onFileSaved, onInstancesChanged } from "@/lib/desktop/bridge";
 import { instanceBase } from "@/lib/desktop/runtime";
 import { useTranslation } from "@/lib/i18n";
-import { choiceFor, fileKey, pushSaved, VISIBLE_SAVED, type SavedFile } from "./savedFile";
+import { choiceFor, codeOfStatus, errorText as errorWords, fileKey, pushSaved, VISIBLE_SAVED, type SavedFile } from "./savedFile";
 
 /** Where a banner stands: answered ("sending", "asking" in the dialog), done, or failed with the core's code. */
 type Phase = { kind: "sending" } | { kind: "asking" } | { kind: "sent" } | { kind: "error"; code: string };
@@ -58,6 +58,15 @@ export function SavedFileBanner() {
     [setPhase],
   );
 
+  // A client for an instance that was removed or signed out is let go with it.
+  useEffect(() => {
+    const stop = onInstancesChanged((views) => {
+      const live = new Set(views.filter((v) => v.state === "signed_in" && v.id).map((v) => v.id));
+      for (const id of [...clients.current.keys()]) if (!live.has(id)) clients.current.delete(id);
+    });
+    return () => void stop.then((unlisten) => unlisten());
+  }, []);
+
   useEffect(() => {
     const stop = onFileSaved((event) => {
       const key = fileKey(event);
@@ -83,9 +92,8 @@ export function SavedFileBanner() {
       setPhase(key, { kind: "sent" });
       timers.current.set(key, window.setTimeout(() => drop(key), SENT_MS));
     } catch (code) {
-      // The core stopped watching it (the instance was removed, say): nothing is left to offer.
-      if (code === "not_watched") drop(key);
-      else setPhase(key, { kind: "error", code: typeof code === "string" ? code : "failed" });
+      // "not_watched" (the core let go of the copy, say after a sign-out) gets its words like the rest.
+      setPhase(key, { kind: "error", code: typeof code === "string" ? code : "failed" });
     }
   };
 
@@ -95,8 +103,8 @@ export function SavedFileBanner() {
     let choice: "send" | "ask";
     try {
       choice = choiceFor(await clientOf(s.instance).getVersions(s.file_id), s.base_version);
-    } catch {
-      setPhase(key, { kind: "error", code: "unreachable" });
+    } catch (error) {
+      setPhase(key, { kind: "error", code: codeOfStatus(isApiError(error) ? error.status : undefined) });
       return;
     }
     if (choice === "send") await send(s);
@@ -121,16 +129,7 @@ export function SavedFileBanner() {
   const visible = saved.slice(0, VISIBLE_SAVED);
   const asking = visible.find((s) => phases[fileKey(s)]?.kind === "asking") ?? null;
 
-  const errorText = (code: string) =>
-    code === "too_large"
-      ? t("desktop.files.saved.tooLarge")
-      : code === "busy"
-        ? t("desktop.files.saved.busy")
-        : code === "signed_out"
-          ? t("desktop.download.signedOut")
-          : code === "unreachable"
-            ? t("desktop.download.unreachable")
-            : t("desktop.files.saved.failed");
+  const errorText = (code: string) => errorWords(code, t);
 
   if (visible.length === 0) return null;
   return (

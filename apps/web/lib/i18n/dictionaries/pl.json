@@ -1923,8 +1923,11 @@
         "sendAnyway": "Wyślij mimo to",
         "tooLarge": "Ten plik jest zbyt duży, aby go wysłać.",
         "busy": "Dla tego pliku trwa już wysyłanie.",
-        "failed": "Nie udało się wysłać wersji. Spróbuj ponownie."
-      }
+        "failed": "Nie udało się wysłać wersji. Spróbuj ponownie.",
+        "notWatched": "Ten plik nie jest już śledzony: otwórz go ponownie, aby wysłać wersję."
+      },
+      "unwatchedTitle": "Otwarto bez śledzenia",
+      "unwatched": "Plik jest otwarty, ale zapis nie zostanie zaproponowany: nie udało się odczytać jego wersji."
     },
     "add": {
       "title": "Dodaj instancję Ruchoir",
