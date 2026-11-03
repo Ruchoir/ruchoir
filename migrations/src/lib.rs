@@ -51,6 +51,7 @@ mod m20261028_000002_reply_also_in_channel;
 pub mod m20261104_000001_permissions_foundation;
 mod m20261104_000002_space_licences;
 mod m20261105_000001_space_audit_log;
+mod m20261106_000001_space_groups;
 
 /// The ordered list of migrations. New migrations are appended here.
 pub struct Migrator;
@@ -104,6 +105,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261104_000001_permissions_foundation::Migration),
             Box::new(m20261104_000002_space_licences::Migration),
             Box::new(m20261105_000001_space_audit_log::Migration),
+            Box::new(m20261106_000001_space_groups::Migration),
         ]
     }
 }
