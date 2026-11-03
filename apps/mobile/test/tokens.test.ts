@@ -4,7 +4,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { ACCENTS, PALETTE_KEYS, themeName, tokens } from "../src/theme/tokens.ts";
+import { resolveTokens, VARIANTS as CSS_VARIANTS } from "../../../packages/design-system/test/resolve.mjs";
+import { ACCENTS, PALETTE_KEYS, palette, semantic, SHAPES, STYLES, themeName, tokens, VARIANTS } from "../src/theme/tokens.ts";
 
 const css = readFileSync(new URL("../../../packages/design-system/styles/tokens.css", import.meta.url), "utf8");
 
@@ -53,8 +54,6 @@ test("every_accent_by_day_and_by_night_matches_tokens_css", () => {
 
 // --- The simplified styles (lot 4) ----------------------------------------------------------------
 
-import { palette, semantic, SHAPES, STYLES, VARIANTS } from "../src/theme/tokens.ts";
-import { resolveTokens, VARIANTS as CSS_VARIANTS } from "../../../packages/design-system/test/resolve.mjs";
 
 /** `rgb(r g b / a)` laid over a hex colour, as hex; a hex colour as it is. */
 function flatten(value: string, under: string): string {
