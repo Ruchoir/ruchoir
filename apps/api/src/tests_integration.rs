@@ -12243,7 +12243,6 @@ async fn the_link_spends_the_code() {
         crate::auth::tokens::TokenPurpose::VerifyEmail,
         id,
         3600,
-        None,
     )
     .await
     .expect("token");

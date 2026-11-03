@@ -87,11 +87,11 @@ export function useOfficeSession(
 ): { state: OfficeSessionState; leave: () => Promise<void>; noteChange: () => void } {
   const [state, setState] = useState<OfficeSessionState>({ status: "loading", editors: [] });
   const [tab] = useState(newTabId);
+  // Asked once per mount: the first open and the conversion poll share the answer.
+  const [embed] = useState(embedOrigin);
 
   useEffect(() => {
     let cancelled = false;
-    // Asked once per mount: the conversion poll below reuses the answer.
-    const embed = embedOrigin();
     embed
       .then((origin) =>
         openOfficeSession(fileId, { theme: officeTheme(), accent: officeAccent(), mode: convert ? "convert" : undefined, mobile: touchScreen(), embedOrigin: origin }),
@@ -117,7 +117,7 @@ export function useOfficeSession(
     return () => {
       cancelled = true;
     };
-  }, [fileId, convert]);
+  }, [fileId, convert, embed]);
 
   const mode = state.status === "ready" ? state.session.mode : null;
   const copy = state.status === "ready" ? state.copy : undefined;
@@ -155,7 +155,7 @@ export function useOfficeSession(
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [awaitingCopy, fileId]);
+  }, [awaitingCopy, fileId, embed]);
 
   /** The file this tab may edit: the session's own file, once it is an edit session. */
   const editableId = state.status === "ready" && state.session.mode === "edit" ? (state.session.file.id ?? null) : null;
