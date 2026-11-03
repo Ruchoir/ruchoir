@@ -35,37 +35,41 @@ fn app_url() -> tauri::Url {
     url.parse().expect("a constant URL")
 }
 
-/// Whether the window may follow a navigation; a link to another site is opened outside instead.
 /// The origins whose pages the interface frames (the office editor's host). WebKit (Linux, macOS)
 /// hands a frame's navigation to the window's navigation handler too, so without this the editor's
 /// frame would be refused and sent to the system browser. The instance's API announces the host in
 /// the office session and the interface registers it here before mounting the frame. The cost: a
 /// top-level navigation to that one host would stay in the window; only the interface's own code can
-/// trigger one.
+/// trigger one. Kept per instance, so removing or signing out one leaves the others' editors alone.
 #[derive(Default)]
 pub struct FrameOrigins(pub std::sync::Mutex<ruchoir_desktop_core::navigation::FrameList>);
 
+/// The editor is always the open instance's own, so its id is the open instance's (the interface
+/// has no other way to name it, and need not).
 #[tauri::command]
 fn allow_frame_origin(
     origins: tauri::State<'_, FrameOrigins>,
+    desktop: tauri::State<'_, state::Desktop>,
     origin: String,
 ) -> Result<(), String> {
     let key = ruchoir_desktop_core::navigation::frame_origin(&origin).ok_or("refused")?;
+    let instance = desktop.view().id.ok_or("refused")?;
     origins
         .0
         .lock()
         .map_err(|_| "refused".to_owned())?
-        .allow(key);
+        .allow(&instance, key);
     Ok(())
 }
 
+/// Whether the window may follow a navigation; a link to another site is opened outside instead.
 fn leave_for<R: tauri::Runtime>(app: &tauri::AppHandle<R>, url: &tauri::Url) -> bool {
     use ruchoir_desktop_core::navigation::{navigation_allowing, Navigation};
     use tauri::Manager;
     use tauri_plugin_opener::OpenerExt;
     let frames = app
         .try_state::<FrameOrigins>()
-        .and_then(|o| o.0.lock().ok().map(|l| l.origins().to_vec()))
+        .and_then(|o| o.0.lock().ok().map(|l| l.origins()))
         .unwrap_or_default();
     match navigation_allowing(url, &frames) {
         Navigation::Stay => true,

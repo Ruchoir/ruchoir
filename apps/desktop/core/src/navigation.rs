@@ -54,34 +54,51 @@ pub fn frame_origin(input: &str) -> Option<String> {
     plain.then(|| url.origin().ascii_serialization())
 }
 
-/// The origins allowed to be framed: the newest few, the oldest dropped to make room.
+/// The origins allowed to be framed, per instance: each instance keeps its newest few, the oldest
+/// dropped to make room, and the window allows the union.
 #[derive(Debug, Default)]
 pub struct FrameList {
-    origins: Vec<String>,
+    per_instance: Vec<(String, Vec<String>)>,
 }
 
 impl FrameList {
-    /// The most origins kept: an instance has one office host.
+    /// The most origins kept for one instance: it has one office host.
     pub const MAX: usize = 8;
 
-    /// Allow an origin (already normalized by `frame_origin`); a known one is not repeated.
-    pub fn allow(&mut self, origin: String) {
-        if self.origins.contains(&origin) {
+    /// Allow an origin (already normalized by `frame_origin`) for an instance; a known one is not repeated.
+    pub fn allow(&mut self, instance: &str, origin: String) {
+        let at = match self.per_instance.iter().position(|(id, _)| id == instance) {
+            Some(at) => at,
+            None => {
+                self.per_instance.push((instance.to_owned(), Vec::new()));
+                self.per_instance.len() - 1
+            }
+        };
+        let origins = &mut self.per_instance[at].1;
+        if origins.contains(&origin) {
             return;
         }
-        if self.origins.len() >= Self::MAX {
-            self.origins.remove(0);
+        if origins.len() >= Self::MAX {
+            origins.remove(0);
         }
-        self.origins.push(origin);
+        origins.push(origin);
     }
 
-    /// Forget them all (an instance was removed or signed out).
-    pub fn clear(&mut self) {
-        self.origins.clear();
+    /// Forget one instance's origins (it was removed or signed out); the others' stay.
+    pub fn clear(&mut self, instance: &str) {
+        self.per_instance.retain(|(id, _)| id != instance);
     }
 
-    pub fn origins(&self) -> &[String] {
-        &self.origins
+    /// Every instance's origins, for a navigation check.
+    pub fn origins(&self) -> Vec<String> {
+        let mut all: Vec<String> = self
+            .per_instance
+            .iter()
+            .flat_map(|(_, o)| o.clone())
+            .collect();
+        all.sort();
+        all.dedup();
+        all
     }
 }
 
@@ -235,22 +252,33 @@ mod tests {
     }
 
     #[test]
-    fn the_frame_list_keeps_the_newest_and_clears() {
+    fn the_frame_list_keeps_each_instances_newest() {
         let mut list = FrameList::default();
         for i in 0..FrameList::MAX + 2 {
-            list.allow(format!("https://h{i}.example"));
+            list.allow("a", format!("https://h{i}.example"));
         }
-        list.allow("https://h9.example".to_owned());
-        assert_eq!(list.origins().len(), FrameList::MAX);
+        list.allow("a", "https://h9.example".to_owned());
+        list.allow("b", "https://other.example".to_owned());
+        let all = list.origins();
+        // a kept its newest 8 (h2..h9), b is untouched by a's eviction.
+        assert_eq!(all.len(), FrameList::MAX + 1);
+        assert!(!all.contains(&"https://h0.example".to_owned()));
+        assert!(all.contains(&"https://h2.example".to_owned()));
+        assert!(all.contains(&"https://other.example".to_owned()));
+    }
+
+    #[test]
+    fn clearing_one_instance_keeps_the_others_origin() {
+        let mut list = FrameList::default();
+        list.allow("a", "https://one.example".to_owned());
+        list.allow("b", "https://two.example".to_owned());
+        list.allow("b", "https://one.example".to_owned());
+        list.clear("a");
         assert_eq!(
-            list.origins().first().map(String::as_str),
-            Some("https://h2.example")
+            list.origins(),
+            vec!["https://one.example", "https://two.example"]
         );
-        assert_eq!(
-            list.origins().last().map(String::as_str),
-            Some("https://h9.example")
-        );
-        list.clear();
+        list.clear("b");
         assert!(list.origins().is_empty());
     }
 }

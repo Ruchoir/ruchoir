@@ -9,9 +9,10 @@
 // account with the same password), E2E_SPACE and E2E_CHANNEL (a channel both belong to),
 // E2E_OPENED_FILE, and optionally E2E_SHOTS_DIR (PNGs for people to read), E2E_OFFICE=1 (the office
 // editor step) and E2E_SCREENSHOT (a PNG of the window at the end). With E2E_INSTANCE_2,
-// E2E_EMAIL_2 and E2E_PASSWORD_2 (an account on a second instance), it also adds that instance, signs
-// in to it, checks the rail heads both instances' spaces, and opens a space of the first from it. The live message comes from the second account: the interface leaves out its own
-// person's messages arriving live, which it has already drawn when sending them.
+// E2E_EMAIL_2 and E2E_PASSWORD_2 (an account on a second instance), it also adds that instance,
+// signs in to it, checks the rail heads both instances' spaces, and opens a space of the first from
+// it. The live message comes from the second account: the interface leaves out its own person's
+// messages arriving live, which it has already drawn when sending them.
 
 import { spawn } from "node:child_process";
 import { readFileSync, existsSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
