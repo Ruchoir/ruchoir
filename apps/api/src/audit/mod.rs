@@ -10,6 +10,8 @@
 //! `details` carries ids, role names and permission names, before and after; never a person's
 //! name (it is read at display time, so a deleted account reads as one) and never any content.
 
+pub mod read;
+
 use sea_orm::{ConnectionTrait, DbBackend, DbErr, Statement};
 use uuid::Uuid;
 

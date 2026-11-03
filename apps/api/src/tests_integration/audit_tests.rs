@@ -434,3 +434,194 @@ async fn a_calendar_closed_to_members_is_logged() {
         &json!({ "name": "Chantiers", "before": "members", "after": "admins" })
     );
 }
+
+async fn read_log(app: &TestApp, cookie: &str, space_id: Uuid, query: &str) -> (u16, Value) {
+    let response = app
+        .req(
+            reqwest::Method::GET,
+            &format!("/api/v1/spaces/{space_id}/audit{query}"),
+            cookie,
+        )
+        .send()
+        .await
+        .expect("read log");
+    let status = response.status().as_u16();
+    (status, response.json().await.unwrap_or(Value::Null))
+}
+
+#[tokio::test]
+async fn an_administrator_reads_the_log_newest_first() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "Camille").await;
+    let admin = make_user(&app.db, "Sophie").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    crate::testkit::add_member(&app.db, space, admin, "admin").await;
+    let role = Uuid::new_v4();
+    record(
+        &app.db,
+        space,
+        Some(owner),
+        Action::MemberJoined,
+        Target::Member(owner),
+        json!({ "role": "owner" }),
+    )
+    .await
+    .expect("record");
+    record(
+        &app.db,
+        space,
+        Some(admin),
+        Action::RoleCreated,
+        Target::Role(role),
+        json!({ "name": "Comptable", "permissions": ["files.manage"] }),
+    )
+    .await
+    .expect("record");
+    let (status, body) = read_log(&app, &app.cookie_for(admin).await, space, "").await;
+    assert_eq!(status, 200, "{body}");
+    let entries = body["entries"].as_array().expect("entries");
+    assert_eq!(entries.len(), 2);
+    let newest = &entries[0];
+    assert_eq!(newest["action"], "role.created");
+    assert_eq!(newest["category"], "roles");
+    assert_eq!(newest["actor"]["id"], admin.to_string());
+    assert_eq!(newest["actor"]["display_name"], "Sophie");
+    assert_eq!(newest["target"]["kind"], "role");
+    assert_eq!(newest["target"]["id"], role.to_string());
+    // The role is gone (never existed here): its name is the one the entry kept.
+    assert_eq!(newest["target"]["label"], "Comptable");
+    assert_eq!(newest["details"]["permissions"], json!(["files.manage"]));
+    assert!(newest["at"].as_str().expect("at").ends_with('Z'));
+    assert_eq!(entries[1]["action"], "member.joined");
+    assert_eq!(entries[1]["target"]["label"], "Camille");
+    assert!(body.get("next").is_none(), "{body}");
+}
+
+#[tokio::test]
+async fn a_member_without_audit_view_is_refused() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let member = make_user(&app.db, "member").await;
+    let guest = make_user(&app.db, "guest").await;
+    let stranger = make_user(&app.db, "stranger").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    crate::testkit::add_member(&app.db, space, member, "member").await;
+    crate::testkit::add_member(&app.db, space, guest, "guest").await;
+    for person in [member, guest, stranger] {
+        let (status, _) = read_log(&app, &app.cookie_for(person).await, space, "").await;
+        assert_eq!(status, 403);
+    }
+    let (status, _) = read_log(&app, &app.cookie_for(owner).await, space, "").await;
+    assert_eq!(status, 200);
+}
+
+#[tokio::test]
+async fn the_log_filters_by_actor_and_category() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let admin = make_user(&app.db, "admin").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    crate::testkit::add_member(&app.db, space, admin, "admin").await;
+    for (actor, action, target) in [
+        (owner, Action::RoleCreated, Target::Role(Uuid::new_v4())),
+        (admin, Action::RoleUpdated, Target::Role(Uuid::new_v4())),
+        (admin, Action::MemberRemoved, Target::Member(owner)),
+        (
+            owner,
+            Action::ChannelReserved,
+            Target::Channel(Uuid::new_v4()),
+        ),
+    ] {
+        record(&app.db, space, Some(actor), action, target, json!({}))
+            .await
+            .expect("record");
+    }
+    let cookie = app.cookie_for(owner).await;
+    let actions = |body: &Value| -> Vec<String> {
+        body["entries"]
+            .as_array()
+            .expect("entries")
+            .iter()
+            .map(|e| e["action"].as_str().expect("action").to_owned())
+            .collect()
+    };
+    let (_, body) = read_log(&app, &cookie, space, &format!("?actor={admin}")).await;
+    assert_eq!(actions(&body), vec!["member.removed", "role.updated"]);
+    let (_, body) = read_log(&app, &cookie, space, "?category=roles").await;
+    assert_eq!(actions(&body), vec!["role.updated", "role.created"]);
+    let (_, body) = read_log(
+        &app,
+        &cookie,
+        space,
+        &format!("?category=roles&actor={owner}"),
+    )
+    .await;
+    assert_eq!(actions(&body), vec!["role.created"]);
+    let (status, _) = read_log(&app, &cookie, space, "?category=everything").await;
+    assert_eq!(status, 400);
+    let (_, body) = read_log(&app, &cookie, space, "?since=2999-01-01T00:00:00Z").await;
+    assert!(actions(&body).is_empty());
+}
+
+#[tokio::test]
+async fn the_log_pages_without_gaps_or_repeats() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let space = crate::testkit::make_space(&app.db, owner, "Audit").await;
+    for i in 0..130 {
+        record(
+            &app.db,
+            space,
+            Some(owner),
+            Action::RoleUpdated,
+            Target::Role(Uuid::new_v4()),
+            json!({ "i": i }),
+        )
+        .await
+        .expect("record");
+    }
+    let cookie = app.cookie_for(owner).await;
+    let mut seen = Vec::new();
+    let mut query = "?limit=50".to_owned();
+    let mut pages = 0;
+    loop {
+        let (status, body) = read_log(&app, &cookie, space, &query).await;
+        assert_eq!(status, 200, "{body}");
+        pages += 1;
+        for entry in body["entries"].as_array().expect("entries") {
+            seen.push(entry["details"]["i"].as_i64().expect("i"));
+        }
+        match body.get("next").and_then(Value::as_str) {
+            Some(next) => query = format!("?limit=50&before={next}"),
+            None => break,
+        }
+    }
+    assert_eq!(pages, 3);
+    assert_eq!(seen, (0..130).rev().collect::<Vec<i64>>());
+    let (status, _) = read_log(&app, &cookie, space, "?limit=500").await;
+    assert_eq!(status, 400);
+}
+
+#[tokio::test]
+async fn the_log_never_shows_another_space() {
+    let Some(app) = boot().await else { return };
+    let owner = make_user(&app.db, "owner").await;
+    let here = crate::testkit::make_space(&app.db, owner, "Here").await;
+    let there = crate::testkit::make_space(&app.db, owner, "There").await;
+    record(
+        &app.db,
+        there,
+        Some(owner),
+        Action::RoleDeleted,
+        Target::Role(Uuid::new_v4()),
+        json!({}),
+    )
+    .await
+    .expect("record");
+    let (status, body) = read_log(&app, &app.cookie_for(owner).await, here, "").await;
+    assert_eq!(status, 200);
+    assert!(
+        body["entries"].as_array().expect("entries").is_empty(),
+        "{body}"
+    );
+}
