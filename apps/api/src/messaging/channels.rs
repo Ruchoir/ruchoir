@@ -376,6 +376,16 @@ pub async fn create_channel(
             allowed_roles,
             member_count,
             last_message,
+            my_permissions: Some(
+                check::effective(
+                    &state.db,
+                    space_id,
+                    session.user_id,
+                    Resource::Channel(channel_id),
+                )
+                .await?
+                .to_names(),
+            ),
         }),
     ))
 }
@@ -547,6 +557,16 @@ pub async fn update_channel(
         member_count: super::conversations::channel_member_count(&state.db, channel_id).await?,
         last_message: super::conversations::preview(&state.db, channel_id, session.user_id, true)
             .await?,
+        my_permissions: Some(
+            check::effective(
+                &state.db,
+                space_id,
+                session.user_id,
+                Resource::Channel(channel_id),
+            )
+            .await?
+            .to_names(),
+        ),
     }))
 }
 
@@ -789,15 +809,21 @@ pub async fn list_channel_members(
     ensure_space_member(&state.db, channel.space_id, session.user_id).await?;
     // A channel lists its people to whoever reads it, and to nobody else: its membership is as
     // private as its messages (a private channel one is not in, a reserved one, a room a guest was
-    // not added to). The space's owner reads them all.
-    ensure_permission(
+    // not added to). The space's owner reads them all. Whoever adds and removes its people still
+    // sees them when it is reserved away from them (an administrator moderates a channel they may
+    // not read), but a private channel's list stays with those in it.
+    let rights = check::effective(
         &state.db,
         channel.space_id,
         session.user_id,
         Resource::Channel(channel_id),
-        Permission::ChannelView,
     )
     .await?;
+    let moderates_it =
+        rights.contains(Permission::ChannelMembersManage) && channel.channel_type != "private";
+    if !rights.contains(Permission::ChannelView) && !moderates_it {
+        return Err(ApiError::Forbidden);
+    }
 
     let memberships = channel_members::Entity::find()
         .filter(channel_members::Column::ChannelId.eq(channel_id))

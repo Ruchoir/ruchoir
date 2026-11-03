@@ -65,6 +65,11 @@ pub struct FileDto {
     /// Who is editing the file in the office editor right now (folder listings only).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub editors: Vec<EditorDto>,
+    /// What the person asking may do with it, as permission names in catalogue order
+    /// (`files.view`, `files.manage`...). Set by the listings that know who asks; an event shared
+    /// by a whole space leaves it out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub my_permissions: Option<Vec<String>>,
 }
 
 /// Someone editing a file in the office editor right now.
@@ -109,6 +114,7 @@ impl FileDto {
             child_count,
             starred: false,
             editors: Vec::new(),
+            my_permissions: None,
         }
     }
 }

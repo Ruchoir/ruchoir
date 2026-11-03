@@ -38,3 +38,17 @@ test("move targets exclude every folder being moved", () => {
   const blocked = blockedMoveTargets([entry({ name: "F", id: "f", isFolder: true }), entry({ name: "x.txt", id: "x" })]);
   assert.deepEqual([...blocked], ["f"]);
 });
+
+test("canManage prefers myPermissions when present", () => {
+  // The server's word for this entry, when it gave one: authorship and role no longer decide.
+  assert.equal(canManage({ ownerId: "me" }, "me", "member", []), false);
+  assert.equal(canManage({ ownerId: "other" }, "me", "member", ["files.view", "files.manage"]), true);
+  assert.equal(canManage({ ownerId: "other" }, "me", "admin", ["files.view"]), false);
+});
+
+test("canManage keeps the old rule without them", () => {
+  // An older instance sends no `my_permissions`: the rule it applies is the one above.
+  assert.equal(canManage({ ownerId: "me" }, "me", "member", undefined), true);
+  assert.equal(canManage({ ownerId: "other" }, "me", "admin", undefined), true);
+  assert.equal(canManage({ ownerId: "other" }, "me", "member", undefined), false);
+});

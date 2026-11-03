@@ -60,6 +60,32 @@ pub async fn ensure_permission(
     }
 }
 
+/// Tell each listed entry what the caller may do with it (`my_permissions`), in bulk per space.
+pub async fn mark_permissions(
+    db: &DatabaseConnection,
+    user_id: Uuid,
+    entries: &mut [super::dto::FileDto],
+) -> Result<(), FileError> {
+    let mut by_space: std::collections::HashMap<Uuid, Vec<Uuid>> = Default::default();
+    for entry in entries.iter() {
+        by_space.entry(entry.space_id).or_default().push(entry.id);
+    }
+    let mut rights = std::collections::HashMap::new();
+    for (space_id, ids) in by_space {
+        rights.extend(check::files_effective(db, space_id, user_id, &ids).await?);
+    }
+    for entry in entries.iter_mut() {
+        entry.my_permissions = Some(
+            rights
+                .get(&entry.id)
+                .copied()
+                .unwrap_or_default()
+                .to_names(),
+        );
+    }
+    Ok(())
+}
+
 /// Ensure the caller belongs to a space, or fail with `403`.
 pub async fn ensure_space_member(
     db: &DatabaseConnection,
