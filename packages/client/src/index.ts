@@ -11,3 +11,4 @@ export * from "./api.ts";
 export * from "./calendar.ts";
 export * from "./fileType.ts";
 export * from "./client.ts";
+export * from "./accountPrefs.ts";
