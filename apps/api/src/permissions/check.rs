@@ -162,6 +162,65 @@ pub async fn standing(
         .map(|person| person.subject.standing))
 }
 
+/// [`effective`] on many files of a space at once (a folder's entries, a search's results): the
+/// folders above them and every rule on them read in one go. A file this cannot settle that way (a
+/// conversation's, or one the person does not read from the space) is decided on its own. A file
+/// that is not in the space is left out of the map.
+pub async fn files_effective(
+    db: &DatabaseConnection,
+    space_id: Uuid,
+    user_id: Uuid,
+    file_ids: &[Uuid],
+) -> Result<HashMap<Uuid, PermissionSet>, DbErr> {
+    let people = load::people(db, space_id, Some(user_id)).await?;
+    let person = people.get(&user_id);
+    let chains = load::file_chains(db, space_id, file_ids).await?;
+    let mut every: Vec<Uuid> = chains.values().flatten().map(|row| row.id).collect();
+    every.sort();
+    every.dedup();
+    let stored = load::rules(db, space_id, permission_overrides::Column::FileId, &every).await?;
+    let mut out = HashMap::new();
+    for id in file_ids {
+        let Some(chain) = chains.get(id) else {
+            continue;
+        };
+        let Some(file) = chain.last() else {
+            continue;
+        };
+        if let (Some(person), None) = (person, file.conversation_id) {
+            let levels: Vec<Level> = chain
+                .iter()
+                .map(|row| Level {
+                    kind: if row.kind == "folder" {
+                        LevelKind::Folder
+                    } else {
+                        LevelKind::File
+                    },
+                    id: row.id,
+                    rules: person.rules(
+                        stored.iter().filter(|rule| rule.file_id == Some(row.id)),
+                        None,
+                    ),
+                })
+                .collect();
+            let facts = Facts {
+                author: file.owner_id == Some(user_id),
+                ..Facts::default()
+            };
+            let granted = resolve(&person.subject, &levels, facts, false)
+                .granted
+                .intersect(PermissionSet::of_family(Family::Files));
+            // Read from the space: the whole answer. Otherwise the paths that are not rules decide.
+            if granted.contains(Permission::FilesView) {
+                out.insert(*id, granted);
+                continue;
+            }
+        }
+        out.insert(*id, file_rights(db, space_id, user_id, *id).await?.granted);
+    }
+    Ok(out)
+}
+
 /// What someone may do with a file, and whether they read it only because a calendar event they
 /// see carries it (read only, its content included).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

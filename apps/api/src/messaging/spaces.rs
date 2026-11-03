@@ -141,6 +141,11 @@ pub async fn create_space(
             icon_url: None,
             default_channel_id,
             notify_level: "default".to_owned(),
+            my_permissions: Some(
+                crate::permissions::check::space_rights(&state.db, space_id, session.user_id)
+                    .await?
+                    .to_names(),
+            ),
         }),
     ))
 }

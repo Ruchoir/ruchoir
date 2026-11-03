@@ -1644,6 +1644,16 @@
               "null"
             ]
           },
+          "my_permissions": {
+            "description": "What the person asking may do with it, as permission names in catalogue order\n(`files.view`, `files.manage`...). Set by the listings that know who asks; an event shared\nby a whole space leaves it out.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "name": {
             "type": "string"
           },
@@ -4395,6 +4405,16 @@
             "description": "Unread notifications in this space (mention, thread reply, direct message): the things\naddressed to the caller personally, and the only counter the rail shows as a number. A\nnotification for \"every message\" is not one of them: it says there is activity, which\n`unread` already does.",
             "format": "int64",
             "type": "integer"
+          },
+          "my_permissions": {
+            "description": "What the caller may do here, as permission names in catalogue order\n(`apps/api/src/permissions/catalogue.rs`): the space's own on a space, the channel's on a\nchannel. Computed for the caller on every request; clients ask again on\n`permissions.changed`, and use it only when the instance lists the `permissions` feature.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "name": {
             "type": "string"

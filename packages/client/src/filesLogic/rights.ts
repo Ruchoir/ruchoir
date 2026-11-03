@@ -27,12 +27,20 @@ export type Entry = {
 /**
  * Whether the person may rename, move, delete or replace an entry.
  *
- * The same rule as the server's (`apps/api/src/files/authz.rs`, `ensure_readable`'s `can_edit`):
- * the entry's owner, or an owner or administrator of the space. Computed here rather than sent per
- * entry because `files.updated` reaches every member with the same payload. The server stays the
- * judge: this only keeps the interface from offering what would be refused.
+ * When the server said what the caller may do with this entry (`myPermissions`, from a listing of
+ * an instance announcing the `permissions` feature), that is the answer: `files.manage`. Otherwise
+ * (an older instance, or an entry that came from `files.updated`, which reaches every member with
+ * the same payload) the rule that instance applies: the entry's owner, or an owner or administrator
+ * of the space. The server stays the judge: this only keeps the interface from offering what would
+ * be refused.
  */
-export function canManage(entry: { ownerId?: string }, me: string | undefined, spaceRole: string | undefined): boolean {
+export function canManage(
+  entry: { ownerId?: string },
+  me: string | undefined,
+  spaceRole: string | undefined,
+  myPermissions?: readonly string[],
+): boolean {
+  if (myPermissions) return myPermissions.includes("files.manage");
   if (spaceRole === "owner" || spaceRole === "admin") return true;
   return !!me && entry.ownerId === me;
 }

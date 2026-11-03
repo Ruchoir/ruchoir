@@ -22,9 +22,12 @@ pub const API_VERSION: u32 = 1;
 /// - `native_sessions`: sign-in hands a native app a session token (`session_delivery: "token"`).
 /// - `notification_read`: reading a notification is announced to the person's other devices
 ///   (`notification.read`) and their phones are synced silently (ADR 0006).
+/// - `permissions`: spaces, channels and listed files carry `my_permissions` (what the caller may
+///   do there, by permission name), and `permissions.changed` says when to ask again.
 pub const FEATURES: &[&str] = &[
     "native_sessions",
     "notification_read",
+    "permissions",
     "recent_reactions",
     "reply_to_channel",
 ];

@@ -88,6 +88,11 @@ pub async fn list_my_spaces(
                 .get(&space.id)
                 .cloned()
                 .unwrap_or_else(|| "default".to_owned()),
+            my_permissions: Some(
+                crate::permissions::check::space_rights(&state.db, space.id, session.user_id)
+                    .await?
+                    .to_names(),
+            ),
         });
     }
     out.sort_by_key(|space| space.name.to_lowercase());
@@ -235,6 +240,7 @@ pub async fn list_channels(
             allowed_roles,
             member_count,
             last_message,
+            my_permissions: seen.get(&channel.id).map(|granted| granted.to_names()),
         });
     }
     Ok(Json(out))

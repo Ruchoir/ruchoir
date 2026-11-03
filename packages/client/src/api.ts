@@ -74,6 +74,7 @@ type SpaceDto = {
   icon_url?: string;
   default_channel_id?: string;
   notify_level?: string;
+  my_permissions?: string[];
 };
 
 type ChannelDto = {
@@ -90,6 +91,7 @@ type ChannelDto = {
   allowed_roles?: string[];
   member_count?: number;
   last_message?: LastMessageDto;
+  my_permissions?: string[];
 };
 
 /** A conversation's latest message (or, in a channel, notice) for a list's preview line. */
@@ -353,6 +355,7 @@ function toWorkspace(dto: SpaceDto): Workspace {
     iconUrl: dto.icon_url,
     defaultChannelId: dto.default_channel_id,
     notifyLevel: toNotifyLevel(dto.notify_level),
+    myPermissions: dto.my_permissions,
   };
 }
 
@@ -375,6 +378,7 @@ function toChannel(dto: ChannelDto): Channel {
     notify: toConversationNotify(dto.notify_level, dto.muted),
     memberCount: dto.member_count,
     lastMessage: dto.last_message ? toLastMessage(dto.last_message) : undefined,
+    myPermissions: dto.my_permissions,
   };
 }
 
@@ -888,6 +892,7 @@ type FileDto = {
   child_count?: number;
   starred?: boolean;
   editors?: { id: string; name: string }[];
+  my_permissions?: string[];
 };
 
 type FolderListingDto = {
@@ -1180,6 +1185,11 @@ export type RealtimeHandlers = {
   onSpaceUpdated?: (space: SpaceIdentity) => void;
   /** A space's administrators put its channels in a new order: re-read that space's list. */
   onChannelsReordered?: (spaceId: string) => void;
+  /**
+   * What someone may do in a space changed (a role, a standing, a rule): ask again for what the
+   * signed-in user may do there (`myPermissions`). Carries nobody's rights.
+   */
+  onPermissionsChanged?: (spaceId: string) => void;
   /** Someone joined, left or was removed from a channel, or their role there changed. */
   onChannelMembership?: (change: ChannelMembership) => void;
   /**
@@ -1227,6 +1237,7 @@ const REALTIME_EVENTS = [
   "member.joined",
   "member.left",
   "member.role_changed",
+  "permissions.changed",
   "member.updated",
   "space.updated",
   "space.removed",
@@ -2708,6 +2719,7 @@ export function createApi(transport: Transport) {
       mimeType: dto.mime_type,
       versionNo: dto.version_no,
       starred: dto.starred === true,
+      myPermissions: dto.my_permissions,
     };
   }
 
@@ -3297,6 +3309,9 @@ export function createApi(transport: Transport) {
         }
         case "channels.reordered":
           handlers.onChannelsReordered?.(String(payload.space_id));
+          break;
+        case "permissions.changed":
+          handlers.onPermissionsChanged?.(String(payload.space_id));
           break;
         case "channel.membership":
           handlers.onChannelMembership?.({

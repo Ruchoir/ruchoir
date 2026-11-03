@@ -342,6 +342,56 @@ pub(super) async fn file_chain<C: ConnectionTrait>(
     .await
 }
 
+#[derive(FromQueryResult)]
+struct ChainRow {
+    start: Uuid,
+    id: Uuid,
+    owner_id: Option<Uuid>,
+    conversation_id: Option<Uuid>,
+    kind: String,
+}
+
+const FILE_CHAINS: &str = "\
+WITH RECURSIVE chain AS ( \
+    SELECT id AS start, id, parent_folder_id, owner_id, conversation_id, kind, 0 AS depth \
+      FROM files WHERE id = ANY($1) AND space_id = $2 \
+  UNION ALL \
+    SELECT chain.start, f.id, f.parent_folder_id, f.owner_id, f.conversation_id, f.kind, \
+           chain.depth + 1 \
+      FROM files f JOIN chain ON f.id = chain.parent_folder_id \
+     WHERE f.space_id = $2 AND chain.depth < 128 \
+) SELECT start, id, owner_id, conversation_id, kind FROM chain ORDER BY start, depth DESC";
+
+/// [`file_chain`] for many files at once, in one query: each file of the space among `ids` with its
+/// folders, top first.
+pub(super) async fn file_chains<C: ConnectionTrait>(
+    db: &C,
+    space_id: Uuid,
+    ids: &[Uuid],
+) -> Result<HashMap<Uuid, Vec<FileRow>>, DbErr> {
+    let mut chains: HashMap<Uuid, Vec<FileRow>> = HashMap::new();
+    if ids.is_empty() {
+        return Ok(chains);
+    }
+    issued(space_id);
+    let rows = ChainRow::find_by_statement(Statement::from_sql_and_values(
+        DatabaseBackend::Postgres,
+        FILE_CHAINS,
+        [ids.to_vec().into(), space_id.into()],
+    ))
+    .all(db)
+    .await?;
+    for row in rows {
+        chains.entry(row.start).or_default().push(FileRow {
+            id: row.id,
+            owner_id: row.owner_id,
+            conversation_id: row.conversation_id,
+            kind: row.kind,
+        });
+    }
+    Ok(chains)
+}
+
 /// What a channel role adds inside its channel: running it.
 const CHANNEL_MODERATION: PermissionSet = PermissionSet::of(&[
     Permission::ChannelManage,

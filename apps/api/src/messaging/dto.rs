@@ -163,6 +163,12 @@ pub struct SpaceDto {
     /// How much this space notifies the caller: `default` (their own settings), `all`, `mentions`
     /// or `none`.
     pub notify_level: String,
+    /// What the caller may do here, as permission names in catalogue order
+    /// (`apps/api/src/permissions/catalogue.rs`): the space's own on a space, the channel's on a
+    /// channel. Computed for the caller on every request; clients ask again on
+    /// `permissions.changed`, and use it only when the instance lists the `permissions` feature.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub my_permissions: Option<Vec<String>>,
 }
 
 /// A link preview, as the server read it from the page.
@@ -222,6 +228,12 @@ pub struct ChannelDto {
     /// Absent while its history is empty.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_message: Option<LastMessageDto>,
+    /// What the caller may do here, as permission names in catalogue order
+    /// (`apps/api/src/permissions/catalogue.rs`): the space's own on a space, the channel's on a
+    /// channel. Computed for the caller on every request; clients ask again on
+    /// `permissions.changed`, and use it only when the instance lists the `permissions` feature.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub my_permissions: Option<Vec<String>>,
 }
 
 /// A channel's shared facts, pushed in real time when one is created or changed.

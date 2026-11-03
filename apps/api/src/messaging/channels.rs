@@ -376,6 +376,16 @@ pub async fn create_channel(
             allowed_roles,
             member_count,
             last_message,
+            my_permissions: Some(
+                check::effective(
+                    &state.db,
+                    space_id,
+                    session.user_id,
+                    Resource::Channel(channel_id),
+                )
+                .await?
+                .to_names(),
+            ),
         }),
     ))
 }
@@ -547,6 +557,16 @@ pub async fn update_channel(
         member_count: super::conversations::channel_member_count(&state.db, channel_id).await?,
         last_message: super::conversations::preview(&state.db, channel_id, session.user_id, true)
             .await?,
+        my_permissions: Some(
+            check::effective(
+                &state.db,
+                space_id,
+                session.user_id,
+                Resource::Channel(channel_id),
+            )
+            .await?
+            .to_names(),
+        ),
     }))
 }
 

@@ -33,8 +33,6 @@ macro_rules! catalogue {
             pub const ALL: [Permission; catalogue!(@count $($variant)*)] = [$(Permission::$variant,)*];
 
             /// The stored and published name, `family.action`.
-            // Published by `my_permissions` (TEMP: allow removed with it, permissions lot 1 Task 11).
-            #[cfg_attr(not(test), allow(dead_code))]
             pub fn name(self) -> &'static str {
                 match self {
                     $(Permission::$variant => $name,)*
@@ -181,8 +179,6 @@ impl PermissionSet {
     }
 
     /// The names to store or publish, in catalogue order.
-    // Published by `my_permissions` (TEMP: allow removed with it, permissions lot 1 Task 11).
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn to_names(self) -> Vec<String> {
         self.iter()
             .map(|permission| permission.name().to_owned())

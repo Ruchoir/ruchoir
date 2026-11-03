@@ -981,3 +981,154 @@ async fn listing_a_space_resolves_in_bulk() {
     eprintln!("sidebar of 300 channels: {elapsed:?}, {issued} permission queries");
     assert!(issued <= 6, "the listing made {issued} permission queries");
 }
+
+// ---- What the clients are told they may do (Task 11) ----
+
+fn names_of(value: &Value) -> Vec<String> {
+    value
+        .as_array()
+        .map(|names| {
+            names
+                .iter()
+                .filter_map(|name| name.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[tokio::test]
+async fn a_listing_says_what_the_caller_may_do() {
+    let Some(app) = boot().await else { return };
+    let fx = ladder(&app.db).await;
+    let channel = make_channel(&app.db, fx.space_id, "general", "public").await;
+    let get = |path: String, who: Uuid| {
+        let app = &app;
+        async move {
+            let response = app
+                .req(reqwest::Method::GET, &path, &app.cookie_for(who).await)
+                .send()
+                .await
+                .expect("get");
+            assert_eq!(response.status(), 200, "{path}");
+            response.json::<Value>().await.expect("json")
+        }
+    };
+
+    // The space, at space level.
+    for (who, invites) in [(fx.admin, true), (fx.member, false)] {
+        let spaces = get("/api/v1/me/spaces".to_owned(), who).await;
+        let space = spaces
+            .as_array()
+            .and_then(|spaces| {
+                spaces
+                    .iter()
+                    .find(|space| space["id"] == fx.space_id.to_string())
+            })
+            .expect("the space")
+            .clone();
+        let held = names_of(&space["my_permissions"]);
+        assert_eq!(held.contains(&"members.invite".to_owned()), invites);
+        assert!(held.contains(&"channels.create".to_owned()));
+    }
+
+    // Each channel of the sidebar.
+    for (who, manages) in [(fx.admin, true), (fx.member, false)] {
+        let listed = get(format!("/api/v1/spaces/{}/channels", fx.space_id), who).await;
+        let entry = listed
+            .as_array()
+            .and_then(|channels| channels.iter().find(|c| c["id"] == channel.to_string()))
+            .expect("the channel")
+            .clone();
+        let held = names_of(&entry["my_permissions"]);
+        assert_eq!(held.contains(&"channel.manage".to_owned()), manages);
+        assert!(held.contains(&"channel.view".to_owned()));
+        assert!(
+            !held.contains(&"members.invite".to_owned()),
+            "only the channel's family"
+        );
+    }
+
+    // Each entry of a folder listing: managing a file follows authorship.
+    let mut ids = Vec::new();
+    for author in [fx.member, fx.owner] {
+        let id = Uuid::new_v4();
+        files::ActiveModel {
+            id: Set(id),
+            space_id: Set(fx.space_id),
+            name: Set(format!("note-{}.txt", id.simple())),
+            kind: Set("file".to_owned()),
+            owner_id: Set(Some(author)),
+            ..Default::default()
+        }
+        .insert(&app.db)
+        .await
+        .expect("file");
+        ids.push(id);
+    }
+    let listing = get(format!("/api/v1/spaces/{}/files", fx.space_id), fx.member).await;
+    let manage_of = |id: Uuid| {
+        let entry = listing["entries"]
+            .as_array()
+            .and_then(|entries| entries.iter().find(|e| e["id"] == id.to_string()))
+            .expect("the entry");
+        names_of(&entry["my_permissions"]).contains(&"files.manage".to_owned())
+    };
+    assert!(manage_of(ids[0]), "their own file");
+    assert!(!manage_of(ids[1]), "someone else's");
+}
+
+/// A whole listing's rights in bulk are what each entry gets on its own.
+#[tokio::test]
+async fn bulk_file_rights_agree_with_single() {
+    let Some(app) = boot().await else { return };
+    let db = &app.db;
+    let fx = ladder(db).await;
+    let folder = Uuid::new_v4();
+    files::ActiveModel {
+        id: Set(folder),
+        space_id: Set(fx.space_id),
+        name: Set("Dossier".to_owned()),
+        kind: Set("folder".to_owned()),
+        owner_id: Set(Some(fx.admin)),
+        ..Default::default()
+    }
+    .insert(db)
+    .await
+    .expect("folder");
+    let channel = make_channel(db, fx.space_id, "private", "private").await;
+    join_as(db, channel, fx.guest, "member").await;
+    let mut ids = vec![folder];
+    for (author, parent, conversation) in [
+        (fx.member, Some(folder), None),
+        (fx.guest, Some(folder), None),
+        (fx.owner, None, None),
+        (fx.guest, None, Some(channel)),
+    ] {
+        let id = Uuid::new_v4();
+        files::ActiveModel {
+            id: Set(id),
+            space_id: Set(fx.space_id),
+            name: Set(format!("f-{}.txt", id.simple())),
+            kind: Set("file".to_owned()),
+            owner_id: Set(Some(author)),
+            parent_folder_id: Set(parent),
+            conversation_id: Set(conversation),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .expect("file");
+        ids.push(id);
+    }
+    for who in [fx.owner, fx.admin, fx.member, fx.guest] {
+        let bulk = check::files_effective(db, fx.space_id, who, &ids)
+            .await
+            .expect("bulk");
+        for id in &ids {
+            let single = check::effective(db, fx.space_id, who, Resource::File(*id))
+                .await
+                .expect("single");
+            assert_eq!(bulk.get(id).copied().unwrap_or_default(), single);
+        }
+    }
+}

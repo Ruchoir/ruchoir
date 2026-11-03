@@ -390,6 +390,7 @@ async fn entries(
     let paths = paths_of(db, &rows).await?;
     let mut dtos = super::hydrate_files(db, rows).await?;
     mark_starred(db, user_id, &mut dtos).await?;
+    authz::mark_permissions(db, user_id, &mut dtos).await?;
     Ok(dtos
         .into_iter()
         .map(|file| ViewEntryDto {

@@ -49,6 +49,12 @@ export type Workspace = {
   mentions: number;
   /** How much this space notifies the caller, for its conversations left on `default`. */
   notifyLevel: NotifyLevel;
+  /**
+   * What the caller may do here, by permission name (`files.manage`, `channel.manage`...), when the
+   * instance announces the `permissions` feature. Absent from an older instance: fall back to the
+   * role.
+   */
+  myPermissions?: string[];
 };
 
 /**
@@ -125,6 +131,12 @@ export type Channel = {
   memberCount?: number;
   /** The latest thing said or done in it, for a list's preview line. */
   lastMessage?: LastMessage;
+  /**
+   * What the caller may do here, by permission name (`files.manage`, `channel.manage`...), when the
+   * instance announces the `permissions` feature. Absent from an older instance: fall back to the
+   * role.
+   */
+  myPermissions?: string[];
 };
 
 /**
@@ -404,6 +416,12 @@ export type SpaceFile = {
   versionNo?: number;
   /** Whether the person keeps it among their favourites. */
   starred?: boolean;
+  /**
+   * What the caller may do here, by permission name (`files.manage`, `channel.manage`...), when the
+   * instance announces the `permissions` feature. Absent from an older instance: fall back to the
+   * role.
+   */
+  myPermissions?: string[];
 };
 
 /** Someone editing a file in the office editor. */

@@ -591,6 +591,11 @@ pub async fn accept_invitation(
         default_channel_id: space.default_channel_id,
         // Just joined: nothing has been set for this space yet.
         notify_level: "default".to_owned(),
+        my_permissions: Some(
+            crate::permissions::check::space_rights(&state.db, space.id, session.user_id)
+                .await?
+                .to_names(),
+        ),
     }))
 }
 
