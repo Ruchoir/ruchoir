@@ -292,21 +292,23 @@ export function DesktopRoot() {
   const addingOver = adding && open !== null;
 
   // The core's error codes (`downloads.rs`, `files.rs`), each in words; a file window's carry "file:".
+  const fileError = downloadError?.startsWith("file:") ?? false;
+  const errorCode = downloadError?.replace(/^file:/, "");
   const downloadMessage =
-    downloadError === null
+    errorCode === undefined
       ? null
-      : downloadError === "file:refused"
+      : errorCode === "refused"
         ? t("desktop.files.refused")
-        : downloadError.startsWith("file:")
-          ? t("desktop.files.failed")
-          : downloadError === "signed_out"
-            ? t("desktop.download.signedOut")
-            : downloadError === "unreachable"
-              ? t("desktop.download.unreachable")
-              : downloadError === "not_saved"
-                ? t("desktop.download.notSaved")
-                : downloadError === "no_app"
-                  ? t("desktop.download.noApp")
+        : errorCode === "signed_out"
+          ? t("desktop.download.signedOut")
+          : errorCode === "unreachable"
+            ? t("desktop.download.unreachable")
+            : errorCode === "not_saved"
+              ? t("desktop.download.notSaved")
+              : errorCode === "no_app"
+                ? t("desktop.download.noApp")
+                : fileError
+                  ? t("desktop.files.failed")
                   : t("desktop.download.failed");
 
   return (
@@ -339,7 +341,7 @@ export function DesktopRoot() {
       </div>
       {downloadError ? (
         <Dialog
-          title={downloadError.startsWith("file:") ? t("office.failed") : t("desktop.download.title")}
+          title={fileError ? t("office.failed") : t("desktop.download.title")}
           onClose={() => setDownloadError(null)}
           closeLabel={t("common.close")}
           footer={

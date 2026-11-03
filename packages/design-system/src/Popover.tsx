@@ -113,8 +113,8 @@ export function Popover<T extends HTMLElement = HTMLElement>({
       if (t instanceof Element && t.closest(".wc-pop")) return;
       onClose();
     };
-    // Capture phase, and stopped: an open popover owns Escape, so the viewer or dialog under it
-    // (which listen on the document, bubbling) stays open and only the innermost thing closes.
+    // Capture phase, and stopped: an open popover shields the dialog or viewer under it from Escape
+    // (they listen on the document, bubbling). Popovers nested in one another still close together.
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       e.stopPropagation();

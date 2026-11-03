@@ -59,6 +59,6 @@ export async function openLocal(href: string, name: string): Promise<void> {
       await downloadOpen(openTarget(href), name);
     }
   } catch (code) {
-    report(code);
+    report(code, "file:");
   }
 }

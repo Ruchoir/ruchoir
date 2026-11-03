@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-instance-open"
+description = "Enables the instance_open command without any pre-configured scope."
+commands.allow = ["instance_open"]
+
+[[permission]]
+identifier = "deny-instance-open"
+description = "Denies the instance_open command without any pre-configured scope."
+commands.deny = ["instance_open"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-instance-add"
+description = "Enables the instance_add command without any pre-configured scope."
+commands.allow = ["instance_add"]
+
+[[permission]]
+identifier = "deny-instance-add"
+description = "Denies the instance_add command without any pre-configured scope."
+commands.deny = ["instance_add"]

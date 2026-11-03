@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-file-window"
+description = "Enables the file_window command without any pre-configured scope."
+commands.allow = ["file_window"]
+
+[[permission]]
+identifier = "deny-file-window"
+description = "Denies the file_window command without any pre-configured scope."
+commands.deny = ["file_window"]

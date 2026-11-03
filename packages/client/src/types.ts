@@ -273,6 +273,8 @@ export type InlineImage = {
   /** The stored file behind it, so a deletion arriving live can find the messages showing it. */
   fileId?: string;
   alt: string;
+  /** The file's own name (the description in `alt` may be anything), for the desktop's windows and titles. */
+  name?: string;
   width: number;
   height: number;
   /**

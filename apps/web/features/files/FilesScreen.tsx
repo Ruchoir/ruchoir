@@ -466,7 +466,7 @@ export function FilesScreen({
         onSelect: () => runAction(item, action),
       });
       // The desktop app has no tab to open a file in: a window of its own, or the computer's app.
-      if (action === "open" && isDesktop) {
+      if (action === "open" && isDesktop && !item.entry.isFolder) {
         const address = viewAddress(item.file);
         if (address) {
           out.push(

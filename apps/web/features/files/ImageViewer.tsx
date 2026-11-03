@@ -163,7 +163,7 @@ export function ImageViewer({ file, images, onNavigate, onClose, onDownload, onN
           </small>
         </div>
         <div className="wc-imgv__bar">
-          {isDesktop ? <OpenFileEntries href={url} name={file.name} size="md" /> : null}
+          {isDesktop && file.id ? <OpenFileEntries href={url} name={file.name} size="md" /> : null}
           <IconButton icon="printer" label={t("files.print")} onClick={() => file.id && printUrl(url, file.name)} />
           <IconButton icon="download" label={t("message.download")} onClick={onDownload} />
           {onNewVersion ? <IconButton icon="upload" label={t("files.newVersion")} onClick={onNewVersion} /> : null}

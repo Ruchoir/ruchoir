@@ -122,7 +122,7 @@ export function InlineImage({ image }: { image: InlineImageData }) {
                   scaled to the viewport, which is not the same thing as having the file. */}
               {image.src ? (
                 isDesktop ? (
-                  <OpenFileEntries href={image.src} name={image.alt} size="md" iconVariant="outlined" />
+                  <OpenFileEntries href={image.src} name={image.name ?? image.alt} size="md" iconVariant="outlined" />
                 ) : (
                   <IconLink
                     icon="external-link"
