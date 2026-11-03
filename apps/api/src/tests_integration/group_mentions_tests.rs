@@ -215,13 +215,13 @@ async fn a_group_mention_is_not_silenced_by_the_broadcast_preference() {
     add_channel_member(&app.db, fx.public_channel, fx.carol).await;
     let group = make_group(&app.db, fx.space_id, "Comptabilité").await;
     put_in_group(&app.db, group, fx.space_id, fx.alice, false).await;
-    // Alice keeps mentions but turns broadcasts off; Carol, outside the group, does the same.
+    // Alice keeps mentions but turns broadcasts off; Carol, outside the group, keeps the defaults.
     set_pref(&app, fx.alice, "channel_mentions", false).await;
 
     let sent = post(&app, fx.bob, fx.public_channel, "@canal et @Comptabilité").await;
     assert_eq!(sent.status(), 201);
 
-    // Carol only hears the room: a broadcast, which her switch would silence.
+    // Carol only hears the room: a `broadcast` row, the kind the switch Alice turned off governs.
     assert_eq!(kinds_of(&app, fx.carol).await, vec!["broadcast".to_owned()]);
     // Alice is named through her group: a mention, which the broadcast switch does not touch.
     assert_eq!(kinds_of(&app, fx.alice).await, vec!["mention".to_owned()]);
